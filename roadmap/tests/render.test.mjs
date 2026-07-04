@@ -15,7 +15,7 @@ test('svg has dims, no NaN, legend for used statuses', () => {
   const svg = render(m, ctx());
   assert.match(svg, /width="\d+" height="\d+"/);
   assert.ok(!svg.includes('NaN'));
-  assert.ok(svg.includes('In progress') && svg.includes('At risk'));
+  assert.ok(svg.includes('IN PROGRESS') && svg.includes('AT RISK'));
 });
 
 test('XML escaping in titles', () => {
@@ -54,8 +54,9 @@ test('diff badges, dropped strip, legend key', () => {
   const svg = render(cur, ctx({diff}));
   assert.ok(svg.includes('>NEW<'));
   assert.ok(svg.includes('WAS NEXT'));
-  assert.ok(svg.includes('Dropped since 2026-06-01'));
+  assert.ok(svg.includes('DROPPED SINCE 2026-06-01'));
   assert.ok(svg.includes('old abandoned thing'));
+  assert.ok(svg.includes('line-through'), 'dropped items struck through');
 });
 
 test('slide mode scales wider', () => {
@@ -74,4 +75,26 @@ test('8-column generated view renders wider than 3-column', () => {
   const norm = parse('NOW\nA: x');
   const wOf = m => +render(m, ctx()).match(/width="(\d+)"/)[1];
   assert.ok(wOf(wide) > wOf(norm));
+});
+
+test('palette resolves per theme; accent overrides; names consistent with parse', async () => {
+  const {PALETTES} = await import('../render.js');
+  const {PALETTE_NAMES} = await import('../parse.js');
+  assert.deepEqual(Object.keys(PALETTES).sort(), [...PALETTE_NAMES].sort());
+  const m = parse('palette: ember\nNOW\nA: x\nNEXT\nB: y');
+  const emberSvg = render(m, ctx());
+  assert.ok(emberSvg.includes('#C05621'), 'ember light in header bar');
+  assert.ok(emberSvg.includes('#f3ede8') && emberSvg.includes('#fefcfb'),
+    'palette washes background and tints cards');
+  assert.ok(!emberSvg.includes('#f7f8f6'), 'ctx bg fully replaced');
+  assert.ok(render(m, ctx({dark: true})).includes('#C97A35'), 'ember dark variant');
+  const m2 = parse('accent: #123ABC\npalette: plum\nNOW\nA: x\nNEXT\nB: y');
+  const svg2 = render(m2, ctx());
+  assert.ok(svg2.includes('#123ABC') && !svg2.includes('#9D3E78'), 'accent beats palette');
+});
+
+test('unknown palette warns and keeps ocean', () => {
+  const m = parse('palette: neon\nNOW\nA: x');
+  assert.equal(m.palette, 'ocean');
+  assert.ok(m.warnings.some(w => w.includes('neon')));
 });

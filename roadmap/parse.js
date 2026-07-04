@@ -7,6 +7,7 @@ export const STATUS_ALIASES = {
   'blocked':'blocked', 'stuck':'blocked',
 };
 export const STATUS_LABEL = {done:'Done', doing:'In progress', risk:'At risk', blocked:'Blocked'};
+export const PALETTE_NAMES = ['ocean', 'slate', 'ember', 'plum'];
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -41,18 +42,27 @@ export function genHorizons(spec){
 
 export function parse(text){
   const model = {title:'', dateStr:null, horizons:[...DEFAULT_HORIZONS],
-    lanes:[], items:[], warnings:[], wip:6, fade:true};
+    lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null};
   let currentH = -1;
   const lines = text.split(/\r?\n/);
   for(let ln = 0; ln < lines.length; ln++){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|horizons|wip|fade)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|horizons|wip|fade|palette|accent)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
       else if(key === 'date') model.dateStr = val;
+      else if(key === 'palette'){
+        const p = val.toLowerCase();
+        if(PALETTE_NAMES.includes(p)) model.palette = p;
+        else model.warnings.push('line ' + (ln+1) + ': unknown palette "' + val + '" — options: ' + PALETTE_NAMES.join(', '));
+      }
+      else if(key === 'accent'){
+        if(/^#[0-9a-fA-F]{6}$/.test(val)) model.accent = val;
+        else model.warnings.push('line ' + (ln+1) + ': accent wants a 6-digit hex like #C05621');
+      }
       else if(key === 'wip'){
         if(/^off$/i.test(val)) model.wip = 0;
         else if(/^\d+$/.test(val)) model.wip = parseInt(val, 10);

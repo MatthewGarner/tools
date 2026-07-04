@@ -1,0 +1,8 @@
+{
+  "name": "tools-dev-harness",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "playwright": "^1.57.0"
+  }
+}

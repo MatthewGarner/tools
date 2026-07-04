@@ -8,6 +8,12 @@ const $ = id => document.getElementById(id);
 /* ---------- DOM-side render context ---------- */
 const measCtx = document.createElement('canvas').getContext('2d');
 const measure = (text, font) => { measCtx.font = font; return measCtx.measureText(text).width; };
+function isDark(){
+  const t = document.documentElement.dataset.theme;
+  if(t === 'dark') return true;
+  if(t === 'light') return false;
+  return matchMedia('(prefers-color-scheme: dark)').matches;
+}
 function themeColors(){
   const cs = getComputedStyle(document.documentElement);
   const g = n => cs.getPropertyValue(n).trim();
@@ -163,7 +169,7 @@ function doRefresh(){
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model)});
+    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()});
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
   }
   try{ localStorage.setItem('roadmap-src', text); }catch(e){}
@@ -203,7 +209,7 @@ for(const ex of EXAMPLES){
 /* ---------- exports ---------- */
 function svgString(slide){
   if(!model || !model.items.length) return null;
-  return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide});
+  return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
 }
 function download(name, blob){
   const a = document.createElement('a');
@@ -240,6 +246,37 @@ $('dlpng').addEventListener('click', () => {
 $('dlslide').addEventListener('click', () => {
   const svg = svgString(true);
   if(svg) pngFrom(svg, slug() + '-slide.png');
+});
+$('copypng').addEventListener('click', () => {
+  const svg = svgString();
+  if(!svg) return;
+  if(!navigator.clipboard || !window.ClipboardItem){
+    $('copypng').textContent = 'Clipboard unavailable — use Download';
+    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 2200);
+    return;
+  }
+  const blobPromise = new Promise((resolve, reject) => {
+    const img = new Image();
+    const dims = svg.match(/width="(\d+)" height="(\d+)"/);
+    const w = +dims[1], h = +dims[2], scale = 2;
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = w * scale; c.height = h * scale;
+      const cctx = c.getContext('2d');
+      cctx.scale(scale, scale);
+      cctx.drawImage(img, 0, 0);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  });
+  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})]).then(() => {
+    $('copypng').textContent = 'Copied — paste into your deck';
+    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 1800);
+  }).catch(() => {
+    $('copypng').textContent = 'Copy blocked — use Download';
+    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 2200);
+  });
 });
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
