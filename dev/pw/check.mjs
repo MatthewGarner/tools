@@ -115,6 +115,7 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Full offline mode'));
   check('drag moves line under LATER in the text', movedIdx > laterIdx && laterIdx > 0);
   check('drag changed the doc', textAfter !== textBefore);
+  check('no text selected after drag', (await dragPage.evaluate(() => window.getSelection().toString())) === '');
   // one undo restores the pre-drag doc
   await dragPage.locator('.cm-content').click();
   await dragPage.keyboard.press('Meta+z');
