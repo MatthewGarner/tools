@@ -77,3 +77,13 @@ test('horizons: too few names warns and keeps defaults', () => {
   assert.deepEqual(m.horizons, ['Now', 'Next', 'Later']);
   assert.equal(m.warnings.length, 1);
 });
+
+test('link extraction: -> url with note and status combos', () => {
+  const m = parse('NOW\nCore: Big item [doing] -- some note -> https://jira.example/PROJ-42\nplain -> https://x.io\nno link here');
+  assert.equal(m.items[0].url, 'https://jira.example/PROJ-42');
+  assert.equal(m.items[0].note, 'some note');
+  assert.equal(m.items[0].status, 'doing');
+  assert.equal(m.items[0].title, 'Big item');
+  assert.equal(m.items[1].url, 'https://x.io');
+  assert.equal(m.items[2].url, null);
+});

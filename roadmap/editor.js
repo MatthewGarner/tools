@@ -23,6 +23,7 @@ function makeLang(horizons){
         const tag = stream.current().slice(1, -1).trim().toLowerCase();
         return STATUS_ALIASES[tag] ? 'atom' : 'invalid';
       }
+      if(stream.match(/^\s->\s+\S+\s*$/)) return 'link';
       if(stream.match(/^\s--\s.*$/)) return 'meta';
       stream.next();
       return null;
@@ -37,6 +38,7 @@ const highlightStyle = HighlightStyle.define([
   {tag: t.labelName, color: 'var(--muted)', fontWeight: '600'},
   {tag: t.atom, color: 'var(--accent-ink)', fontWeight: '600'},
   {tag: t.invalid, color: 'var(--err)'},
+  {tag: t.link, color: 'var(--accent-ink)', textDecoration: 'underline'},
   {tag: t.meta, color: 'var(--muted)'},
   {tag: t.comment, color: 'var(--muted)', opacity: '0.55'},
 ]);

@@ -99,13 +99,17 @@ export function parse(text){
       return '';
     }).trim();
 
+    let url = null;
+    const linkMatch = line.match(/\s->\s+(\S+)\s*$/);
+    if(linkMatch){ url = linkMatch[1]; line = line.slice(0, linkMatch.index).trim(); }
+
     let note = '';
     const noteMatch = line.match(/\s--\s+(.*)$/);
     if(noteMatch){ note = noteMatch[1].trim(); line = line.slice(0, noteMatch.index).trim(); }
 
     if(!line) continue;
     if(!model.lanes.includes(lane)) model.lanes.push(lane);
-    model.items.push({lane, h: currentH, title: line, note, status, srcLine: ln});
+    model.items.push({lane, h: currentH, title: line, note, status, url, srcLine: ln});
   }
   /* unnamed lane renders last */
   if(model.lanes.includes('') && model.lanes.length > 1){
