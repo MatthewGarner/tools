@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 
-const BASE = 'http://localhost:8087/roadmap/';
+const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 const browser = await chromium.launch();
 const page = await browser.newPage();
 const errors = [];
