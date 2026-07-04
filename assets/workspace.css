@@ -66,3 +66,23 @@ footer{margin: 48px 0 8px}
     padding: 18px !important; border-color: var(--border) !important}
   .railtab{display: none}
 }
+
+/* edit-in-place overlay */
+[data-edit]{cursor: text}
+[data-edit]:hover{text-decoration: underline; text-decoration-style: dotted}
+.eip-input{
+  position: fixed; z-index: 60;
+  font: 600 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--ink); background: var(--card);
+  border: 1.5px solid var(--accent); border-radius: 6px;
+  padding: 4px 8px; box-shadow: var(--shadow);
+}
+.eip-input:focus{outline: none}
+.eip-input.invalid{border-color: var(--err); animation: eip-shake .3s}
+@keyframes eip-shake{
+  20%{transform: translateX(-3px)} 40%{transform: translateX(3px)}
+  60%{transform: translateX(-2px)} 80%{transform: translateX(2px)}
+}
+@media (prefers-reduced-motion: reduce){
+  .eip-input.invalid{animation: none}
+}

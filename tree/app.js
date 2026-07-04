@@ -6,6 +6,8 @@ import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
+import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {validators, applies} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -87,6 +89,19 @@ const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+});
+
+attachEditInPlace($('preview'), {
+  kinds: {
+    prob: {validate: validators.prob},
+    value: {validate: validators.value},
+    label: {validate: validators.label},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    const line = editor.getLine(lineNo);
+    const newLine = applies[kind](line, oldRaw, newValue);
+    if(newLine !== line) editor.replaceLine(lineNo, newLine);
+  },
 });
 
 /* ---------- chips ---------- */
