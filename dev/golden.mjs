@@ -42,6 +42,21 @@ for(const [k, src] of Object.entries(docs)){
   variants['tree-bid-slide'] = trender(m, r, {...ctxBase, slide: true}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
 }
 
+/* /why fixtures (dates normalised) */
+{
+  const {parse: wparse} = await import('../why/parse.js');
+  const {project} = await import('../why/project.js');
+  const {renderOst} = await import('../why/render-ost.js');
+  const {renderMap} = await import('../why/render-map.js');
+  const doc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Smart reminders [testing]\n      ? wanted\n    Streak freeze [delivering]\n      ? works [holds]\n  Chores feeling\n  Orphan [delivering]';
+  const m = wparse(doc);
+  const pr = project(m);
+  const norm = s => s.replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  variants['why-ost'] = norm(renderOst(m, pr, {...ctxBase}));
+  variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
+  variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
