@@ -1,0 +1,34 @@
+/* Series design tokens — the single source for every tool's palette.
+   Superset of all tools' custom properties; unused tokens cost nothing.
+   Theme resolution: OS preference via media query; the viewer's explicit
+   data-theme wins in both directions. */
+:root{
+  --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
+  --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+  --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
+  --st-done:#1D7A3E; --st-doing:#0C7FAE; --st-risk:#9A6A00; --st-blocked:#B3403A;
+  --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
+    --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+    --accent2:#C97A35; --hl:rgba(255,206,84,.24); --err:#E07A72; --track:#232E37;
+    --st-done:#3FA163; --st-doing:#2E93C4; --st-risk:#B9880F; --st-blocked:#D96A61;
+    --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
+  --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+  --accent2:#C97A35; --hl:rgba(255,206,84,.24); --err:#E07A72; --track:#232E37;
+  --st-done:#3FA163; --st-doing:#2E93C4; --st-risk:#B9880F; --st-blocked:#D96A61;
+  --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+}
+:root[data-theme="light"]{
+  --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
+  --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+  --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
+  --st-done:#1D7A3E; --st-doing:#0C7FAE; --st-risk:#9A6A00; --st-blocked:#B3403A;
+  --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+}
