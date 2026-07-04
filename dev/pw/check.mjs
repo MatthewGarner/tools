@@ -94,6 +94,37 @@ await page2.waitForTimeout(400);
 const impSvg = await page2.locator('#preview svg').innerHTML();
 check('markdown import renders', impSvg.includes('Imported item') && impSvg.includes('Imported Plan'));
 
+// drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform
+{
+  const dragPage = await browser.newPage();
+  await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
+  await dragPage.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await dragPage.waitForTimeout(400);
+  const textBefore = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
+  const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Full offline mode'});
+  const cell = dragPage.locator('#preview svg rect[data-cell="2|Platform"]');
+  const from = await card.boundingBox();
+  const to = await cell.boundingBox();
+  await dragPage.mouse.move(from.x + from.width/2, from.y + 10);
+  await dragPage.mouse.down();
+  await dragPage.mouse.move(to.x + to.width/2, to.y + to.height/2, {steps: 12});
+  await dragPage.mouse.up();
+  await dragPage.waitForTimeout(500);
+  const textAfter = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
+  const laterIdx = textAfter.split('\n').findIndex(l => l.trim() === 'LATER');
+  const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Full offline mode'));
+  check('drag moves line under LATER in the text', movedIdx > laterIdx && laterIdx > 0);
+  check('drag changed the doc', textAfter !== textBefore);
+  check('no text selected after drag', (await dragPage.evaluate(() => window.getSelection().toString())) === '');
+  // one undo restores the pre-drag doc
+  await dragPage.locator('.cm-content').click();
+  await dragPage.keyboard.press('Meta+z');
+  await dragPage.waitForTimeout(500);
+  const textUndone = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('Cmd+Z undoes the drag', textUndone === textBefore);
+  await dragPage.close();
+}
+
 // screenshots for the visual record
 await page.screenshot({path: 'parity-light.png', fullPage: true});
 await page2.screenshot({path: 'parity-dark.png', fullPage: true});

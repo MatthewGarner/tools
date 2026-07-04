@@ -1,7 +1,8 @@
-/* State, refresh loop, snapshots, saved roadmaps, import, exports, boot. */
+/* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {parse, STATUS_LABEL} from './parse.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
+import {moveItem} from './edit.js';
 
 const $ = id => document.getElementById(id);
 
@@ -138,6 +139,7 @@ function makeDiff(model){
 
 /* ---------- refresh loop ---------- */
 let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let pendingFlip = null;   // card rects keyed by title, set just before a drop's re-render
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
@@ -170,7 +172,11 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
   } else {
     const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()});
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    if(svg !== lastSvg){
+      pv.innerHTML = svg;
+      lastSvg = svg;
+      if(pendingFlip){ flipAnimate(pendingFlip); pendingFlip = null; }
+    }
   }
   try{ localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
@@ -414,6 +420,140 @@ $('importgo').addEventListener('click', () => {
   $('importbox').classList.remove('open');
   $('importarea').value = '';
   editor.setText(dsl);
+});
+
+/* ---------- drag-and-drop: a drop is a text edit ---------- */
+const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null};
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function cellAt(cx, cy){
+  let cell = null, before = null;
+  for(const el of document.elementsFromPoint(cx, cy)){
+    if(before === null && el.matches && el.matches('#preview svg g[data-line]')){
+      before = +el.dataset.line;
+    }
+    if(el.matches && el.matches('#preview svg rect[data-cell]')){ cell = el; break; }
+  }
+  if(!cell) return null;
+  const [h, lane] = cell.dataset.cell.split('|');
+  return {el: cell, h: +h, lane, beforeLine: before};
+}
+function clearHover(){
+  if(drag.hover){
+    drag.hover.el.setAttribute('fill', 'transparent');
+    drag.hover = null;
+  }
+  if(drag.dropline){ drag.dropline.remove(); drag.dropline = null; }
+}
+/* where the card would land: above the before-card, or under the cell's last card */
+function positionDropline(cell, srcLine){
+  const pv = $('preview');
+  const pvRect = pv.getBoundingClientRect();
+  let anchor = null, above = true;
+  if(cell.beforeLine !== null && cell.beforeLine !== srcLine){
+    anchor = pv.querySelector('g[data-line="' + cell.beforeLine + '"]');
+  } else if(model){
+    const cellLines = model.items
+      .filter(i => i.h === cell.h && i.lane === cell.lane && i.srcLine !== srcLine)
+      .map(i => i.srcLine);
+    if(cellLines.length){
+      anchor = pv.querySelector('g[data-line="' + Math.max(...cellLines) + '"]');
+      above = false;
+    }
+  }
+  const ref = anchor ? anchor.getBoundingClientRect() : cell.el.getBoundingClientRect();
+  const yEdge = anchor ? (above ? ref.top - 5 : ref.bottom + 3) : ref.top + 6;
+  const line = document.createElement('div');
+  line.className = 'dropline';
+  line.style.left = (ref.left - pvRect.left + pv.scrollLeft) + 'px';
+  line.style.top = (yEdge - pvRect.top + pv.scrollTop) + 'px';
+  line.style.width = ref.width + 'px';
+  pv.appendChild(line);
+  drag.dropline = line;
+}
+function endDrag(){
+  clearHover();
+  if(drag.ghost) drag.ghost.remove();
+  if(drag.srcEl) drag.srcEl.style.opacity = '';
+  document.body.style.cursor = '';
+  drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
+}
+/* FLIP: after the post-drop re-render, glide every card from its old position */
+function flipAnimate(oldRects){
+  if(reducedMotion.matches) return;
+  const key = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
+  for(const g of document.querySelectorAll('#preview svg g[data-line]')){
+    const it = model && model.items.find(i => i.srcLine === +g.dataset.line);
+    if(!it) continue;
+    const old = oldRects.get(key(it.title));
+    if(!old) continue;
+    const now = g.getBoundingClientRect();
+    const dx = old.left - now.left, dy = old.top - now.top;
+    if(Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+    g.style.transition = 'none';
+    g.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      g.style.transition = 'transform 240ms cubic-bezier(.2,.8,.2,1)';
+      g.style.transform = '';
+      g.addEventListener('transitionend', () => { g.style.transition = ''; }, {once: true});
+    }));
+  }
+}
+$('preview').addEventListener('pointerdown', e => {
+  const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
+  if(!g || e.button !== 0) return;
+  const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
+  if(!item) return;
+  e.preventDefault();   // no text selection while dragging
+  drag.armed = {line: +g.dataset.line, title: item.title, x: e.clientX, y: e.clientY};
+  drag.srcEl = g;
+});
+window.addEventListener('pointermove', e => {
+  if(!drag.armed) return;
+  if(!drag.active){
+    if(Math.hypot(e.clientX - drag.armed.x, e.clientY - drag.armed.y) < 4) return;
+    drag.active = true;
+    const ghost = document.createElement('div');
+    ghost.className = 'dragghost';
+    ghost.textContent = drag.armed.title;
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+    drag.srcEl.style.opacity = '0.3';
+    document.body.style.cursor = 'grabbing';
+  }
+  drag.ghost.style.left = (e.clientX + 12) + 'px';
+  drag.ghost.style.top = (e.clientY + 14) + 'px';
+  clearHover();
+  const cell = cellAt(e.clientX, e.clientY);
+  if(cell){
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+    drag.hover = cell;
+    positionDropline(cell, drag.armed.line);
+  }
+});
+window.addEventListener('pointerup', e => {
+  if(!drag.armed) return;
+  const wasActive = drag.active;
+  const src = drag.armed.line;
+  const cell = wasActive ? cellAt(e.clientX, e.clientY) : null;
+  endDrag();
+  if(!wasActive || !cell || !model) return;
+  const target = {h: cell.h, lane: cell.lane,
+    beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
+  const r = moveItem(editor.getText(), model, src, target);
+  if(!r) return;
+  /* snapshot card positions by title, then let the re-render FLIP them into place */
+  const oldRects = new Map();
+  const key = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
+  for(const g of document.querySelectorAll('#preview svg g[data-line]')){
+    const it = model.items.find(i => i.srcLine === +g.dataset.line);
+    if(it) oldRects.set(key(it.title), g.getBoundingClientRect());
+  }
+  pendingFlip = oldRects;
+  editor.setText(r.text);   // one transaction → one undo step
+});
+window.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && drag.armed) endDrag();
 });
 
 /* ---------- theme change → re-render ---------- */
