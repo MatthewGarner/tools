@@ -30,6 +30,18 @@ for(const [k, src] of Object.entries(docs)){
   }});
 }
 
+/* tree fixtures (dates normalised so captures are stable) */
+{
+  const {parse: tparse} = await import('../tree/parse.js');
+  const {evaluate} = await import('../tree/engine.js');
+  const {render: trender} = await import('../tree/render.js');
+  const bid = 'title: T\nRoot\n  Bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0';
+  const m = tparse(bid);
+  const r = evaluate(m);
+  variants['tree-bid'] = trender(m, r, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  variants['tree-bid-slide'] = trender(m, r, {...ctxBase, slide: true}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

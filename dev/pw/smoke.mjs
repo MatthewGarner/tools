@@ -20,7 +20,7 @@ async function freshPage(path, theme = 'light'){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: three tool cards', await page.locator('a.tool').count() === 3);
+  check('landing: four tool cards', await page.locator('a.tool').count() === 4);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -54,6 +54,19 @@ for(const theme of ['light', 'dark']){
   check('rank(' + theme + '): verdict present', verdict.length > 20);
   check('rank(' + theme + '): rank bars render', await page.locator('.rankbar').count() === 7);
   check('rank(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- tree ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/tree/', theme);
+  await page.getByRole('button', {name: 'Bid or no bid'}).click();
+  await page.waitForTimeout(600);
+  check('tree(' + theme + '): example renders SVG', await page.locator('#preview svg').count() === 1);
+  const svg = await page.locator('#preview svg').innerHTML();
+  check('tree(' + theme + '): verdict present', svg.includes('Recommendation:'));
+  check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
+  check('tree(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision tree sketcher</title>
+<meta name="description" content="Expected-value decision trees with honest uncertainty: ranges in, Monte Carlo rollback, and what would flip the decision.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌳</text></svg>">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Decision tree sketcher</h1>
+    <p class="tagline">Write a decision as an indented tree — options, chances, payoffs, all as honest 90% ranges. Get the expected value, the recommended path, how often it actually wins, and exactly what would flip the decision.</p>
+  </header>
+
+  <div class="cols">
+    <section class="card">
+      <div class="chips" id="chips"><span class="lead">Try:</span></div>
+      <div id="cmhost" aria-label="Decision tree source editor"></div>
+      <div class="chips" id="savedrow" style="margin-top:12px"></div>
+      <ul id="warns"></ul>
+      <details class="syntax">
+        <summary>Syntax reference</summary>
+        <table>
+          <tr><td><code>title:</code> / <code>currency: £ $ €</code></td><td>optional config; also <code>palette:</code> and <code>accent: #hex</code> as in the roadmap tool</td></tr>
+          <tr><td>indent 2 spaces</td><td>children of the line above</td></tr>
+          <tr><td><code>Submit bid: -150k</code></td><td>a value on any line is cash flow at that point on the path</td></tr>
+          <tr><td><code>Win (p=0.3-0.45): 2M to 5M</code></td><td>probabilities and payoffs take points or 90% ranges (<code>to</code> when negatives are involved)</td></tr>
+          <tr><td><code>Lose (p=rest): 0</code></td><td>one sibling may take the remaining probability</td></tr>
+          <tr><td>node types</td><td>inferred: children with <code>p=</code> ⇒ chance ◯; without ⇒ decision ▢ (the tool picks); none ⇒ outcome</td></tr>
+          <tr><td><code>// comment</code></td><td>ignored</td></tr>
+        </table>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="actions">
+        <button class="btn" id="dlsvg">Download SVG</button>
+        <button class="btn" id="dlpng">Download PNG</button>
+        <button class="btn" id="dlslide">PNG (slide size)</button>
+        <button class="btn" id="copypng">Copy PNG</button>
+        <span class="method">10,000 simulations · deterministic · the URL carries your tree</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="about">
+    <h2>How the maths works</h2>
+    <p>Every range you write is a 90% interval, sampled 10,000 times (log-normal for positive ranges, normal otherwise; probabilities are normalised so siblings sum to 1 in every simulation). The tree rolls back a <em>policy</em>: at each decision node the tool commits to the option with the highest mean expected value — you decide once, you don't get to re-decide with hindsight in each simulation. What you read at each node is the distribution of expected value given what you don't know.</p>
+    <p>The verdict includes how often the recommendation actually beats the alternative across simulations — an EV edge that wins only 55% of the time deserves different scrutiny than one that wins 95%. "What would flip this" is the sensitivity that matters in a meeting: the probability threshold at which the recommendation changes, found by bisection, and any payoff ranges wide enough to change the answer within themselves.</p>
+    <p>Sources: Ronald Howard's <a href="https://en.wikipedia.org/wiki/Decision_analysis" target="_blank" rel="noopener">decision analysis</a> tradition; Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on calibrated ranges; and the <a href="/fermi/">Fermi estimator</a>, this tool's sibling, for the estimation habits underneath it.</p>
+  </section>
+
+  <footer>
+    No accounts, no tracking. The URL carries your tree — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
