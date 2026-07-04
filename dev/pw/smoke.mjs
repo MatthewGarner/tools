@@ -64,7 +64,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(600);
   check('tree(' + theme + '): example renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').innerHTML();
-  check('tree(' + theme + '): verdict present', svg.includes('Recommendation:'));
+  check('tree(' + theme + '): verdict present', svg.includes('RECOMMENDED'));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
   check('tree(' + theme + '): no console errors', errors.length === 0);
   await page.close();
