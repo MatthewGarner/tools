@@ -82,7 +82,11 @@ test('palette resolves per theme; accent overrides; names consistent with parse'
   const {PALETTE_NAMES} = await import('../parse.js');
   assert.deepEqual(Object.keys(PALETTES).sort(), [...PALETTE_NAMES].sort());
   const m = parse('palette: ember\nNOW\nA: x\nNEXT\nB: y');
-  assert.ok(render(m, ctx()).includes('#C05621'), 'ember light in header bar');
+  const emberSvg = render(m, ctx());
+  assert.ok(emberSvg.includes('#C05621'), 'ember light in header bar');
+  assert.ok(emberSvg.includes('#f3ede8') && emberSvg.includes('#fefcfb'),
+    'palette washes background and tints cards');
+  assert.ok(!emberSvg.includes('#f7f8f6'), 'ctx bg fully replaced');
   assert.ok(render(m, ctx({dark: true})).includes('#C97A35'), 'ember dark variant');
   const m2 = parse('accent: #123ABC\npalette: plum\nNOW\nA: x\nNEXT\nB: y');
   const svg2 = render(m2, ctx());

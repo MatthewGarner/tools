@@ -82,8 +82,9 @@ check('URL round-trips into second tab', (await page2.locator('#preview svg').co
 // dark theme renders
 await page2.emulateMedia({colorScheme: 'dark'});
 await page2.waitForTimeout(400);
-check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#1B242C') ||
-  (await page2.locator('#preview svg').innerHTML()).includes('#141B21'));
+/* ocean scheme dark surfaces (derived in render.scheme) */
+check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#1c2b35') ||
+  (await page2.locator('#preview svg').innerHTML()).includes('#16222b'));
 
 // markdown import round trip
 await page2.getByRole('button', {name: 'Import markdown'}).click();
