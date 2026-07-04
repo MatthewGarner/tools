@@ -12,22 +12,28 @@ export const TOKENS = {
   colWNarrow: 236, colWWide: 200,      // ≤4 columns vs more
   headerH: 58, headerHNoTitle: 24, colHeadH: 30,
   titleSize: 22, titleY: 38, dateSize: 11,
-  colHeadSize: 11, colHeadTracking: 1.2, colHeadTextY: 14, colHeadRuleY: 21,
+  colHeadSize: 11, colHeadTracking: 1.6, colHeadTextY: 14,
+  colHeadBarW: 22, colHeadBarH: 3, colHeadBarY: 20,
   wipSize: 10.5,
-  laneSize: 12, laneTextY: 20, laneLh: 15, laneSepInset: 4, laneMinH: 34, laneBottomPad: 18,
-  cardPadX: 12, cardPadY: 10, cardGap: 8, cardRadius: 6, stackTop: 6,
+  laneSize: 11, laneTracking: 1.2, laneTextY: 20, laneLh: 15,
+  laneSepInset: 4, laneMinH: 34, laneBottomPad: 18,
+  cardPadX: 12, cardPadY: 11, cardGap: 8, cardRadius: 8, stackTop: 6,
   cardTitleSize: 13, cardTitleLh: 17, titleBaseline: 12,
   noteSize: 11.5, noteLh: 15, noteRaise: 2,
-  badgeSize: 9.5, badgeTracking: 0.8, badgeAdvance: 15, badgeH: 17,
-  statusSize: 10.5, statusH: 19, statusDotR: 4, statusDotDx: 4, statusDotDy: 1,
-  statusTextDx: 13, statusTextDy: 5, statusTracking: 0.3,
-  legendH: 30, legendHEmpty: 8, legendY: 20, legendKeyGap: 22, legendMarkW: 13,
-  legendNewW: 32, legendSize: 11,
-  droppedSize: 11, droppedRowH: 16, droppedHeadH: 20, droppedIndent: 8, droppedYOffset: 4,
+  pillSize: 9, pillH: 17, pillPadX: 7, pillTracking: 0.6, pillTopGap: 5,
+  statusH: 24, badgeH: 23,
+  legendH: 34, legendHEmpty: 8, legendY: 22, legendKeyGap: 12,
+  droppedSize: 11, droppedRowH: 16, droppedHeadH: 20, droppedIndent: 8, droppedYOffset: 6,
+  droppedHeadSize: 10, droppedHeadTracking: 1.2,
   fadeMax: 0.35,
   slideScale: 1.35,
-  bottomPad: 12,
+  bottomPad: 14,
 };
+
+/* status/badge tints: 6-digit hex gets a 12% alpha fill; anything else falls back to stroke-only */
+function tint(hex){
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
+}
 
 function wrapText(text, font, maxW, measure){
   const words = text.split(/\s+/);
@@ -39,6 +45,18 @@ function wrapText(text, font, maxW, measure){
     else { out.push(cur); cur = w; }
   }
   if(cur) out.push(cur);
+  /* widow control: no single-word last lines when rebalancing fits */
+  if(out.length > 1){
+    const last = out[out.length - 1], prev = out[out.length - 2];
+    if(!last.includes(' ') && prev.includes(' ')){
+      const prevWords = prev.split(' ');
+      const pulled = prevWords.pop();
+      if(measure(pulled + ' ' + last, font) <= maxW){
+        out[out.length - 2] = prevWords.join(' ');
+        out[out.length - 1] = pulled + ' ' + last;
+      }
+    }
+  }
   return out;
 }
 
@@ -106,7 +124,7 @@ export function render(model, ctx){
   }
   if(model.dateStr !== 'off'){
     const d = model.dateStr || new Date().toISOString().slice(0, 10);
-    const dLabel = diff ? d + ' · changes since ' + diff.since : d;
+    const dLabel = diff ? d + ' · vs ' + diff.since : d;
     s.push('<text x="' + (W - PAD) + '" y="' + (model.title ? T.titleY : 16)*S +
       '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
   }
@@ -124,22 +142,37 @@ export function render(model, ctx){
         '" text-anchor="end" font-size="' + T.wipSize*S + '" font-weight="600" fill="' + C.err + '">' +
         firstColCount + ' ITEMS</text>');
     }
-    s.push('<line x1="' + colX(h) + '" y1="' + (headerH + T.colHeadRuleY*S) + '" x2="' + (colX(h) + colW) +
-      '" y2="' + (headerH + T.colHeadRuleY*S) + '" stroke="' + C.border + '" stroke-width="1"/>');
+    s.push('<rect x="' + colX(h) + '" y="' + (headerH + T.colHeadBarY*S) + '" width="' + T.colHeadBarW*S +
+      '" height="' + T.colHeadBarH*S + '" rx="' + (T.colHeadBarH*S/2) + '" fill="' + C.accent + '"/>');
   }
+
+  /* capsule pill: tinted fill, coloured label; used by cards, badges, and the legend */
+  const capsule = (px, py, label, col) => {
+    const font = '600 ' + T.pillSize*S + 'px ' + F.body;
+    const tw = measure(label, font) + label.length * T.pillTracking;
+    const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
+    return {
+      svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
+        '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
+        (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
+        '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 5.5*S) + '" font-size="' + T.pillSize*S +
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + col + '">' + esc(label) + '</text>',
+      w: pw,
+    };
+  };
 
   /* lanes */
   model.lanes.forEach((lane, li) => {
     const top = laneTops[li];
     if(li > 0){
       s.push('<line x1="' + PAD + '" y1="' + (top - T.laneSepInset*S) + '" x2="' + (W - PAD) + '" y2="' + (top - T.laneSepInset*S) +
-        '" stroke="' + C.border + '" stroke-width="1" stroke-dasharray="2 4"/>');
+        '" stroke="' + C.border + '" stroke-width="1" opacity="0.55"/>');
     }
     if(lane){
-      const laneLines = wrapText(lane, '600 ' + T.laneSize*S + 'px ' + F.body, LANE_W - 22*S, measure);
+      const laneLines = wrapText(lane.toUpperCase(), '600 ' + T.laneSize*S + 'px ' + F.body, LANE_W - 22*S, measure);
       laneLines.forEach((l, i) => {
         s.push('<text x="' + PAD + '" y="' + (top + T.laneTextY*S + i*T.laneLh*S) +
-          '" font-size="' + T.laneSize*S + '" font-weight="600" fill="' + C.muted + '">' + esc(l) + '</text>');
+          '" font-size="' + T.laneSize*S + '" font-weight="600" letter-spacing="' + T.laneTracking + '" fill="' + C.muted + '">' + esc(l) + '</text>');
       });
     }
     for(let h = 0; h < nH; h++){
@@ -151,30 +184,26 @@ export function render(model, ctx){
         s.push('<g data-line="' + c.it.srcLine + '" opacity="' + fadeOp.toFixed(2) + '">');
         s.push('<rect x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
           '" rx="' + T.cardRadius + '" fill="' + C.card + '" stroke="' + C.border + '" stroke-width="1"/>');
-        let ty = cy + cardPadY + T.titleBaseline*S;
+        /* top-anchored cursor: each block advances by its budgeted height */
+        let cursor = cy + cardPadY;
         if(c.badge){
           const bcol = c.badge.kind === 'new' ? C.accent : C.muted;
-          s.push('<text x="' + (x + cardPadX) + '" y="' + (ty - T.noteRaise*S) + '" font-size="' + T.badgeSize*S +
-            '" font-weight="700" letter-spacing="' + T.badgeTracking + '" fill="' + bcol + '">' +
-            esc(c.badge.label.toUpperCase()) + '</text>');
-          ty += T.badgeAdvance*S;
+          s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol).svg);
+          cursor += T.badgeH*S;
         }
         for(const line of c.lines){
-          s.push('<text x="' + (x + cardPadX) + '" y="' + ty + '" font-size="' + fsTitle +
+          s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
             '" font-weight="600" fill="' + C.ink + '">' + esc(line) + '</text>');
-          ty += lhTitle;
+          cursor += lhTitle;
         }
         for(const line of c.noteLines){
-          s.push('<text x="' + (x + cardPadX) + '" y="' + (ty - T.noteRaise*S) + '" font-size="' + fsNote +
+          s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
             '" fill="' + C.muted + '">' + esc(line) + '</text>');
-          ty += lhNote;
+          cursor += lhNote;
         }
         if(c.it.status){
-          const col = C.status[c.it.status];
-          s.push('<circle cx="' + (x + cardPadX + T.statusDotDx*S) + '" cy="' + (ty + T.statusDotDy*S) + '" r="' + T.statusDotR*S + '" fill="' + col + '"/>');
-          s.push('<text x="' + (x + cardPadX + T.statusTextDx*S) + '" y="' + (ty + T.statusTextDy*S) +
-            '" font-size="' + T.statusSize*S + '" font-weight="600" letter-spacing="' + T.statusTracking + '" fill="' + col + '">' +
-            esc(STATUS_LABEL[c.it.status].toUpperCase()) + '</text>');
+          s.push(capsule(x + cardPadX, cursor + T.pillTopGap*S,
+            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status]).svg);
         }
         s.push('</g>');
         cy += c.cardH + cardGap;
@@ -182,36 +211,35 @@ export function render(model, ctx){
     }
   });
 
-  /* dropped-items strip (diff mode) */
+  /* dropped-items strip (diff mode): muted + struck through, not alarm-red */
   if(dropped.length){
     const dy = y + legendH + T.droppedYOffset*S;
-    s.push('<text x="' + PAD + '" y="' + dy + '" font-size="' + T.droppedSize*S +
-      '" font-weight="600" fill="' + C.err + '">Dropped since ' + esc(diff.since) + ':</text>');
+    s.push('<text x="' + PAD + '" y="' + dy + '" font-size="' + T.droppedHeadSize*S +
+      '" font-weight="600" letter-spacing="' + T.droppedHeadTracking + '" fill="' + C.muted + '">DROPPED SINCE ' +
+      esc(diff.since.toUpperCase()) + '</text>');
     dropped.forEach((d, i) => {
       const col = i % 2, row = Math.floor(i / 2);
       s.push('<text x="' + (PAD + T.droppedIndent*S + col*((W - PAD*2)/2)) + '" y="' + (dy + (16 + row*T.droppedRowH)*S) +
-        '" font-size="' + T.droppedSize*S + '" fill="' + C.muted + '">– ' + esc(d) + '</text>');
+        '" font-size="' + T.droppedSize*S + '" fill="' + C.muted + '" text-decoration="line-through">' + esc(d) + '</text>');
     });
   }
 
-  /* legend */
+  /* legend: keys are the same capsules the cards use */
   if(usedStatuses.length || (diff && diff.any)){
     let lx = PAD;
-    const ly = y + T.legendY*S;
-    const key = (mark, label, markW) => {
-      s.push(mark(lx, ly));
-      s.push('<text x="' + (lx + markW) + '" y="' + ly + '" font-size="' + T.legendSize*S + '" fill="' + C.muted + '">' +
-        esc(label) + '</text>');
-      lx += markW + measure(label, T.legendSize*S + 'px ' + F.body) + T.legendKeyGap*S;
-    };
+    const capTop = y + T.legendY*S - T.pillH*S + 3*S;
     for(const st of ['done','doing','risk','blocked']){
       if(!usedStatuses.includes(st)) continue;
-      key((x, yy) => '<circle cx="' + (x + T.statusDotDx*S) + '" cy="' + (yy - T.statusDotR*S) + '" r="' + T.statusDotR*S + '" fill="' +
-        C.status[st] + '"/>', STATUS_LABEL[st], T.legendMarkW*S);
+      const p = capsule(lx, capTop, STATUS_LABEL[st].toUpperCase(), C.status[st]);
+      s.push(p.svg);
+      lx += p.w + T.legendKeyGap*S;
     }
     if(diff && diff.any){
-      key((x, yy) => '<text x="' + x + '" y="' + yy + '" font-size="' + T.badgeSize*S +
-        '" font-weight="700" fill="' + C.accent + '">NEW</text>', '= added since ' + diff.since, T.legendNewW*S);
+      const p = capsule(lx, capTop, 'NEW', C.accent);
+      s.push(p.svg);
+      lx += p.w + 6*S;
+      s.push('<text x="' + lx + '" y="' + (y + T.legendY*S) + '" font-size="' + T.legendSize*S + '" fill="' + C.muted + '">' +
+        esc('added since ' + diff.since) + '</text>');
     }
   }
   s.push('</svg>');

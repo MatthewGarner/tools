@@ -15,7 +15,7 @@ test('svg has dims, no NaN, legend for used statuses', () => {
   const svg = render(m, ctx());
   assert.match(svg, /width="\d+" height="\d+"/);
   assert.ok(!svg.includes('NaN'));
-  assert.ok(svg.includes('In progress') && svg.includes('At risk'));
+  assert.ok(svg.includes('IN PROGRESS') && svg.includes('AT RISK'));
 });
 
 test('XML escaping in titles', () => {
@@ -54,8 +54,9 @@ test('diff badges, dropped strip, legend key', () => {
   const svg = render(cur, ctx({diff}));
   assert.ok(svg.includes('>NEW<'));
   assert.ok(svg.includes('WAS NEXT'));
-  assert.ok(svg.includes('Dropped since 2026-06-01'));
+  assert.ok(svg.includes('DROPPED SINCE 2026-06-01'));
   assert.ok(svg.includes('old abandoned thing'));
+  assert.ok(svg.includes('line-through'), 'dropped items struck through');
 });
 
 test('slide mode scales wider', () => {
