@@ -1,0 +1,77 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {parse} from '../parse.js';
+import {render} from '../render.js';
+
+const ctx = (extra = {}) => ({
+  colors: {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg:'#f7f8f6',
+    err:'#b33', status:{done:'#1D7A3E',doing:'#0C7FAE',risk:'#9A6A00',blocked:'#B3403A'}},
+  measure: (t) => t.length * 7,
+  ...extra,
+});
+
+test('svg has dims, no NaN, legend for used statuses', () => {
+  const m = parse('title: T\nNOW\nA: one [doing]\nNEXT\nB: two [risk]');
+  const svg = render(m, ctx());
+  assert.match(svg, /width="\d+" height="\d+"/);
+  assert.ok(!svg.includes('NaN'));
+  assert.ok(svg.includes('In progress') && svg.includes('At risk'));
+});
+
+test('XML escaping in titles', () => {
+  const m = parse('NOW\nA & B <critical> item');
+  assert.ok(render(m, ctx()).includes('A &amp; B &lt;critical&gt;'));
+});
+
+test('long titles wrap and grow the layout', () => {
+  const short = parse('NOW\nX: tiny');
+  const long = parse('NOW\nX: an extremely long initiative title that will definitely need to wrap across several lines of the card to fit');
+  const hOf = m => +render(m, ctx()).match(/height="(\d+)"/)[1];
+  assert.ok(hOf(long) > hOf(short));
+});
+
+test('confidence fade on later columns; fade: off disables', () => {
+  const faded = parse('NOW\na\nNEXT\nb\nLATER\nc');
+  assert.ok(render(faded, ctx()).includes('opacity="0.65"'));
+  const flat = parse('fade: off\nNOW\na\nNEXT\nb\nLATER\nc');
+  assert.ok(!render(flat, ctx()).includes('opacity="0.'));
+});
+
+test('WIP overload flag renders on first column', () => {
+  const m = parse('NOW\n' + Array.from({length:8}, (_, i) => 'item ' + i).join('\n') + '\nNEXT\nx');
+  assert.ok(render(m, ctx()).includes('8 ITEMS'));
+});
+
+test('diff badges, dropped strip, legend key', () => {
+  const cur = parse('NOW\nA: brand new thing\nA: moved thing\nNEXT\nA: stayed put');
+  const diff = {
+    badge: it => it.title === 'brand new thing' ? {kind:'new', label:'New'} :
+                 it.title === 'moved thing' ? {kind:'moved', label:'was Next'} : null,
+    dropped: ['old abandoned thing'],
+    since: '2026-06-01',
+    any: true,
+  };
+  const svg = render(cur, ctx({diff}));
+  assert.ok(svg.includes('>NEW<'));
+  assert.ok(svg.includes('WAS NEXT'));
+  assert.ok(svg.includes('Dropped since 2026-06-01'));
+  assert.ok(svg.includes('old abandoned thing'));
+});
+
+test('slide mode scales wider', () => {
+  const m = parse('NOW\nA: one\nNEXT\nB: two');
+  const wOf = svg => +svg.match(/width="(\d+)"/)[1];
+  assert.ok(wOf(render(m, ctx({slide: true}))) > wOf(render(m, ctx())));
+});
+
+test('cards carry data-line for drag targeting', () => {
+  const m = parse('NOW\nA: item one');
+  assert.match(render(m, ctx()), /<g data-line="1"/);
+});
+
+test('8-column generated view renders wider than 3-column', () => {
+  const wide = parse('horizons: monthly from Jan 2027 x8\nJan 2027\nA: x');
+  const norm = parse('NOW\nA: x');
+  const wOf = m => +render(m, ctx()).match(/width="(\d+)"/)[1];
+  assert.ok(wOf(wide) > wOf(norm));
+});
