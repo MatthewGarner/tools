@@ -30,44 +30,13 @@ export const TOKENS = {
   bottomPad: 14,
 };
 
-/* status/badge tints: 6-digit hex gets a 12% alpha fill; anything else falls back to stroke-only */
-function tint(hex){
-  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
-}
 
 /* Palette schemes are shared series-wide. Re-exported for existing importers. */
 export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
+import {esc, tint, wrapText} from '../assets/svg.js';
 
-function wrapText(text, font, maxW, measure){
-  const words = text.split(/\s+/);
-  const out = [];
-  let cur = '';
-  for(const w of words){
-    const trial = cur ? cur + ' ' + w : w;
-    if(measure(trial, font) <= maxW || !cur) cur = trial;
-    else { out.push(cur); cur = w; }
-  }
-  if(cur) out.push(cur);
-  /* widow control: no single-word last lines when rebalancing fits */
-  if(out.length > 1){
-    const last = out[out.length - 1], prev = out[out.length - 2];
-    if(!last.includes(' ') && prev.includes(' ')){
-      const prevWords = prev.split(' ');
-      const pulled = prevWords.pop();
-      if(measure(pulled + ' ' + last, font) <= maxW){
-        out[out.length - 2] = prevWords.join(' ');
-        out[out.length - 1] = pulled + ' ' + last;
-      }
-    }
-  }
-  return out;
-}
 
-function esc(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
-}
 
 export function render(model, ctx){
   const {measure, diff = null, slide = false, dark = false} = ctx;
