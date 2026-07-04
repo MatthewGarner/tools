@@ -5,6 +5,7 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {initWorkspace} from '../assets/workspace.js';
 
 const $ = id => document.getElementById(id);
 
@@ -66,7 +67,7 @@ function doRefresh(){
   renderWarnings();
   try{ localStorage.setItem('tree-src', text); }catch(e){}
   clearTimeout(hashTimer);
-  hashTimer = setTimeout(() => writeHashState({t: text}), 400);
+  hashTimer = setTimeout(writeHash, 400);
 }
 function refresh(){
   cancelAnimationFrame(rafId);
@@ -76,6 +77,16 @@ const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
   onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+});
+function writeHash(){
+  const state = {t: editor.getText()};
+  if(ws.collapsed()) state.e = 0;
+  writeHashState(state);
+}
+const ws = initWorkspace({
+  workspace: $('workspace'), tab: $('railtab'),
+  preview: $('preview'), zoomHost: $('zoomctl'),
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 
 /* ---------- chips ---------- */
@@ -179,6 +190,7 @@ new MutationObserver(rerender).observe(document.documentElement, {attributes: tr
 (function(){
   const hash = readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
+  if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){
     try{ text = localStorage.getItem('tree-src') || ''; }catch(e){}
   }

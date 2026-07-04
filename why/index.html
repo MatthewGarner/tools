@@ -7,6 +7,7 @@
 <meta name="description" content="Your Opportunity Solution Tree and your roadmap as projections of one text file — so they can't disagree.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,9 +16,10 @@
     <h1>Why</h1>
     <p class="tagline">Your roadmap and your opportunity solution tree disagree because they're maintained separately. Write one tree — outcomes, opportunities, solutions, assumptions — and project it two ways: the OST for discovery, the roadmap for delivery. Same file, so they can't drift.</p>
   </header>
+</div>
 
-  <div class="cols">
-    <section class="card">
+<div class="workspace" id="workspace">
+    <aside class="rail">
       <div class="chips" id="chips"><span class="lead">Try:</span></div>
       <div id="cmhost" aria-label="Tree source editor"></div>
       <div class="chips" id="savedrow" style="margin-top:12px"></div>
@@ -33,15 +35,16 @@
           <tr><td><code>title:</code> <code>palette:</code> <code>accent:</code> <code>//</code></td><td>as in the other tools</td></tr>
         </table>
       </details>
-    </section>
-
-    <section class="card">
+    </aside>
+    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <section class="stage">
       <div class="viewtoggle" role="tablist">
         <button id="viewost" class="on" role="tab">OST</button>
         <button id="viewmap" role="tab">Roadmap</button>
       </div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="actions">
+        <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
         <button class="btn" id="dlpng">Download PNG</button>
         <button class="btn" id="dlslide">PNG (slide size)</button>
@@ -49,8 +52,9 @@
         <span class="method">Exports show the active view · the URL carries your tree and view</span>
       </div>
     </section>
-  </div>
+</div>
 
+<div class="wrap">
   <section class="about">
     <h2>Why one file?</h2>
     <p>Teresa Torres's <a href="https://www.producttalk.org/opportunity-solution-trees/" target="_blank" rel="noopener">Opportunity Solution Tree</a> keeps solutions tethered to customer needs and a desired outcome; a now/next/later roadmap communicates sequence and intent. Teams keep both — maintained separately — and they drift: roadmap items lose their why, tested-nowhere solutions quietly become commitments. Here both are projections of the same text, so drift is structurally impossible.</p>

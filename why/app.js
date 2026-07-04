@@ -6,6 +6,7 @@ import {renderMap} from './render-map.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {initWorkspace} from '../assets/workspace.js';
 
 const $ = id => document.getElementById(id);
 
@@ -78,7 +79,7 @@ function doRefresh(){
   renderWarnings();
   try{ localStorage.setItem('why-src', text); }catch(e){}
   clearTimeout(hashTimer);
-  hashTimer = setTimeout(() => writeHashState({t: text, v: view}), 400);
+  hashTimer = setTimeout(writeHash, 400);
 }
 function refresh(){
   cancelAnimationFrame(rafId);
@@ -88,6 +89,16 @@ const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
   onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+});
+function writeHash(){
+  const state = {t: editor.getText(), v: view};
+  if(ws.collapsed()) state.e = 0;
+  writeHashState(state);
+}
+const ws = initWorkspace({
+  workspace: $('workspace'), tab: $('railtab'),
+  preview: $('preview'), zoomHost: $('zoomctl'),
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 
 /* ---------- view toggle ---------- */
@@ -203,6 +214,7 @@ new MutationObserver(rerender).observe(document.documentElement, {attributes: tr
   const hash = readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && (hash.v === 'map' || hash.v === 'ost')) view = hash.v;
+  if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){
     try{ text = localStorage.getItem('why-src') || ''; }catch(e){}
   }

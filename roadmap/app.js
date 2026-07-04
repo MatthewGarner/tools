@@ -3,6 +3,8 @@ import {parse, STATUS_LABEL} from './parse.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
+import {readHashState, writeHashState} from '../assets/series.js';
+import {initWorkspace} from '../assets/workspace.js';
 
 const $ = id => document.getElementById(id);
 
@@ -155,9 +157,9 @@ function renderWarnings(m){
   }
 }
 function writeHash(){
-  const text = editor.getText();
-  const enc = btoa(unescape(encodeURIComponent(text)));
-  history.replaceState(null, '', enc.length < 6000 ? '#' + enc : location.pathname);
+  const state = {t: editor.getText()};
+  if(ws.collapsed()) state.e = 0;
+  writeHashState(state);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -191,6 +193,11 @@ const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
   onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+});
+const ws = initWorkspace({
+  workspace: $('workspace'), tab: $('railtab'),
+  preview: $('preview'), zoomHost: $('zoomctl'),
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 
 /* ---------- example + import chips ---------- */
@@ -564,7 +571,12 @@ new MutationObserver(rerender).observe(document.documentElement, {attributes:tru
 /* ---------- boot: hash > localStorage > empty ---------- */
 (function(){
   let text = '';
-  if(location.hash && location.hash.length > 1){
+  const state = readHashState();
+  if(state && typeof state.t === 'string'){
+    text = state.t;
+    if(state.e === 0) ws.setCollapsed(true);
+  } else if(location.hash && location.hash.length > 1){
+    /* legacy links: hash is the raw base64 source text */
     try{ text = decodeURIComponent(escape(atob(location.hash.slice(1)))); }catch(e){}
   }
   if(!text){
