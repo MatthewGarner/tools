@@ -80,6 +80,11 @@ export function createEditor({parent, doc, onChange}){
     view,
     getText: () => view.state.doc.toString(),
     setText: text => view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: text}}),
+    replaceLine(n, text){
+      const line = view.state.doc.line(n + 1);
+      view.dispatch({changes: {from: line.from, to: line.to, insert: text}});
+    },
+    getLine(n){ return view.state.doc.line(n + 1).text; },
     setHorizons(names){
       const key = names.join('|').toLowerCase();
       if(key === currentHorizons.join('|').toLowerCase()) return;
