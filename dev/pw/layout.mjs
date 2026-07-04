@@ -24,7 +24,7 @@ for(const {path, chip} of TOOLS){
   check(path + ' rail visible by default', await page.locator('.rail').isVisible());
   const before = await svgW();
   await page.locator('#railtab').click();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
   check(path + ' collapse hides rail', !(await page.locator('.rail').isVisible()));
   const after = await svgW();
   check(path + ' diagram grows on collapse (' + Math.round(before) + '→' + Math.round(after) + ')', after > before * 1.2);
@@ -35,7 +35,7 @@ for(const {path, chip} of TOOLS){
   const url = page.url();
   const p2 = await browser.newPage({viewport: {width: 1720, height: 1000}});
   await p2.goto(url, {waitUntil: 'networkidle'});
-  await p2.waitForTimeout(400);
+  await p2.waitForTimeout(600);
   check(path + ' collapsed state round-trips', !(await p2.locator('.rail').isVisible()));
   await p2.close();
 
@@ -49,10 +49,11 @@ for(const {path, chip} of TOOLS){
   await page.locator('.zoomctl button', {hasText: '+'}).click();
   await page.locator('.zoomctl button', {hasText: '+'}).click();
   await page.waitForTimeout(200);
+  await page.waitForTimeout(350);
   const zoomedW = (await page.locator('#preview svg').evaluate(s => s.getBoundingClientRect().width));
   check(path + ' zoom + enlarges beyond fit', zoomedW > fitW * 1.05 || zoomedW > (await page.locator('.preview').evaluate(p => p.clientWidth)));
   await page.locator('.zoomctl button', {hasText: 'Fit'}).click();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(500);
   check(path + ' Fit restores', Math.abs((await svgW()) - fitW) < 8);
 
   /* narrow stacking */

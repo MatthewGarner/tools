@@ -7,9 +7,8 @@ body{
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),
                    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:26px 26px;
-  padding:44px 20px 60px;
+  padding:40px 0 40px;
 }
-.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
   letter-spacing:-.01em;margin:0;text-wrap:balance}
 .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
@@ -66,7 +65,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
 .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
 .method{color:var(--muted);font-size:12.5px}
-.about{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);
+.about{border-top:1px solid var(--border);padding-top:22px;color:var(--muted);
   font-size:13.5px;line-height:1.65;max-width:65ch}
 .about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
 .about p{margin:0 0 10px}
