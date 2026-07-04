@@ -211,6 +211,10 @@ export function render(model, ctx){
       });
     }
     for(let h = 0; h < nH; h++){
+      /* drop-zone hit rect under the cards (full cell band, transparent) */
+      const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
+      s.push('<rect data-cell="' + h + '|' + esc(lane) + '" x="' + colX(h) + '" y="' + top +
+        '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>');
       /* confidence fade: certainty decreases toward the horizon */
       const fadeOp = (model.fade && nH > 1) ? (1 - (h / (nH - 1)) * T.fadeMax) : 1;
       let cy = top + T.stackTop*S;

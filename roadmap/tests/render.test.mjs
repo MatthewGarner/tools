@@ -98,3 +98,13 @@ test('unknown palette warns and keeps ocean', () => {
   assert.equal(m.palette, 'ocean');
   assert.ok(m.warnings.some(w => w.includes('neon')));
 });
+
+test('cell hit rects: one per lane x horizon with data-cell coords', () => {
+  const m = parse('NOW\nCore: a\nGrowth: b\nNEXT\nCore: c\nLATER\nplain');
+  const svg = render(m, ctx());
+  const rects = svg.match(/data-cell="[^"]*"/g);
+  // 3 lanes (Core, Growth, '') x 3 horizons
+  assert.equal(rects.length, 9);
+  assert.ok(svg.includes('data-cell="1|Core"'));
+  assert.ok(svg.includes('data-cell="2|"'), 'laneless cell addressable');
+});
