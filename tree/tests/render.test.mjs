@@ -57,3 +57,11 @@ test('slide mode scales wider; chance-only tree has no verdict', () => {
   const svg2 = render(chanceOnly, evaluate(chanceOnly), ctx());
   assert.ok(!svg2.includes('RECOMMENDED'));
 });
+
+test('edit-in-place targets: tspans carry kind, line and raw source', () => {
+  const m = parse(BID);
+  const svg = render(m, evaluate(m), ctx());
+  assert.ok(svg.includes('data-edit="prob"') && svg.includes('data-raw="0.3-0.45"'));
+  assert.ok(svg.includes('data-edit="value"') && svg.includes('data-raw="2M to 5M"'));
+  assert.ok(svg.includes('data-edit="label"'));
+});

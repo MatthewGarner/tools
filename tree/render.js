@@ -113,15 +113,22 @@ export function render(model, results, ctx){
     s.push('<path d="M' + x1 + ' ' + y1 + ' C' + mx + ' ' + y1 + ' ' + mx + ' ' + y2 +
       ' ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (onPolicy ? C.accent : C.border) +
       '" stroke-width="' + (onPolicy ? T.policyW : T.edgeW)*S + '"/>');
-    /* edge labels sit above the child end */
-    const parts = [];
-    if(b.p !== null && b.p !== undefined && a.kind === 'chance') parts.push(pStr(b.p));
-    if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')) parts.push(rangeStr(b.value));
+    /* edge labels sit above the child end; components are edit-in-place targets */
     s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 17*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
-      '" font-weight="600" fill="' + C.ink + '">' + esc(b.label) + '</text>');
+      '" font-weight="600" fill="' + C.ink + '"><tspan data-edit="label" data-line="' + b.srcLine +
+      '" data-raw="' + esc(b.label) + '">' + esc(b.label) + '</tspan></text>');
+    const parts = [];
+    if(b.p !== null && b.p !== undefined && a.kind === 'chance'){
+      parts.push('<tspan data-edit="prob" data-line="' + b.srcLine + '" data-raw="' +
+        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '">' + esc(pStr(b.p)) + '</tspan>');
+    }
+    if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')){
+      parts.push('<tspan data-edit="value" data-line="' + b.srcLine + '" data-raw="' +
+        esc(b.valueRaw || '') + '">' + esc(rangeStr(b.value)) + '</tspan>');
+    }
     if(parts.length){
       s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 6*S) + '" text-anchor="end" font-size="' + T.subSize*S +
-        '" fill="' + C.muted + '">' + esc(parts.join(' · ')) + '</text>');
+        '" fill="' + C.muted + '">' + parts.join('<tspan> · </tspan>') + '</text>');
     }
   }
   function drawNode(node, onPolicy){

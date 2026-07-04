@@ -77,20 +77,20 @@ export function parse(text){
     const warn = msg => model.warnings.push('line ' + (ln+1) + ': ' + msg);
 
     /* pull (p=…) from anywhere in the line */
-    let p = null, body = line;
-    body = body.replace(/\(p=([^)]+)\)/i, (m, val) => { p = parseP(val, warn); return ''; }).trim();
+    let p = null, pRaw = null, body = line;
+    body = body.replace(/\(p=([^)]+)\)/i, (m, val) => { pRaw = val.trim(); p = parseP(val, warn); return ''; }).trim();
 
     /* value = text after the final colon, if it parses as money */
-    let value = null, label = body;
+    let value = null, valueRaw = null, label = body;
     const colon = body.lastIndexOf(':');
     if(colon >= 0){
       const tail = body.slice(colon + 1).trim();
       const parsed = tail ? parseMoney(tail) : null;
-      if(parsed){ value = parsed; label = body.slice(0, colon).trim(); }
+      if(parsed){ value = parsed; valueRaw = tail; label = body.slice(0, colon).trim(); }
     }
     if(!label){ warn('missing label'); label = '(unnamed)'; }
 
-    const node = {label, kind: 'leaf', value, p, children: [], srcLine: ln};
+    const node = {label, kind: 'leaf', value, valueRaw, p, pRaw, children: [], srcLine: ln};
     while(stack.length && stack[stack.length - 1].level >= level) stack.pop();
     if(stack.length === 0) tops.push(node);
     else stack[stack.length - 1].node.children.push(node);
