@@ -1,0 +1,103 @@
+import {chromium} from 'playwright';
+
+const BASE = 'http://localhost:8087/roadmap/';
+const browser = await chromium.launch();
+const page = await browser.newPage();
+const errors = [];
+page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+page.on('console', m => { if(m.type() === 'error') errors.push('console: ' + m.text()); });
+
+const results = [];
+const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+
+await page.goto(BASE, {waitUntil: 'networkidle'});
+check('page loads with editor mounted', await page.locator('.cm-editor').count() === 1);
+
+// load example via chip
+await page.getByRole('button', {name: 'Habit app roadmap'}).click();
+await page.waitForTimeout(300);
+check('example renders SVG preview', await page.locator('#preview svg').count() === 1);
+check('swimlanes render', (await page.locator('#preview svg text', {hasText: 'Growth'}).count()) >= 1);
+
+// syntax highlighting present (heading token gets a highlight class)
+const hlCount = await page.locator('.cm-editor [class*="ͼ"]').count();
+check('syntax highlighting active (' + hlCount + ' styled spans)', hlCount > 5);
+
+// type at end: add an item, preview updates
+await page.locator('.cm-content').click();
+await page.keyboard.press('Meta+ArrowDown'); // end of doc
+await page.keyboard.press('Enter');
+await page.keyboard.type('Platform: Parity check item [risk]');
+await page.waitForTimeout(400);
+check('typed item appears in preview', (await page.locator('#preview svg').innerHTML()).includes('Parity check item'));
+
+// typing latency: time 20 keystrokes
+const t0 = Date.now();
+await page.keyboard.type(' plus some more typed text here', {delay: 0});
+const typed = Date.now() - t0;
+check('30 chars typed in ' + typed + 'ms (<1500ms)', typed < 1500);
+
+// Alt+ArrowUp moves line (wait out the debounce so the baseline is current)
+await page.waitForTimeout(400);
+const before = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+await page.keyboard.press('Alt+ArrowUp');
+await page.waitForTimeout(400);
+const after = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+check('Alt+ArrowUp moves the line', before !== after);
+
+// Cmd+Z undo works
+await page.keyboard.press('Meta+z');
+await page.waitForTimeout(400);
+const undone = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+check('Cmd+Z undoes', undone === before);
+
+// snapshot + compare shows badges
+await page.getByRole('button', {name: 'Snapshot'}).click();
+await page.locator('.cm-content').click();
+await page.keyboard.press('Meta+ArrowDown');
+await page.keyboard.press('Enter');
+await page.keyboard.type('Core: Brand new initiative');
+await page.waitForTimeout(400);
+await page.locator('#snapsel').selectOption({index: 1});
+await page.waitForTimeout(400);
+check('compare shows NEW badge', (await page.locator('#preview svg').innerHTML()).includes('>NEW<'));
+
+// wip warning: load a 7-item NOW doc via URL hash
+const wipDoc = 'NOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).join('\n') + '\nNEXT\nx';
+const wipPage = await browser.newPage();
+await wipPage.goto(BASE + '#' + Buffer.from(wipDoc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
+await wipPage.waitForTimeout(400);
+check('WIP warning fires', (await wipPage.locator('#warns').innerText()).includes('not a strategy'));
+check('WIP flag in svg', (await wipPage.locator('#preview svg').innerHTML()).includes('7 ITEMS'));
+await wipPage.close();
+
+// URL round trip
+const url = page.url();
+const page2 = await browser.newPage();
+await page2.goto(url, {waitUntil: 'networkidle'});
+await page2.waitForTimeout(400);
+check('URL round-trips into second tab', (await page2.locator('#preview svg').count()) === 1 &&
+  (await page2.locator('#preview svg').innerHTML()).includes('Brand new initiative'));
+
+// dark theme renders
+await page2.emulateMedia({colorScheme: 'dark'});
+await page2.waitForTimeout(400);
+check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#1B242C') ||
+  (await page2.locator('#preview svg').innerHTML()).includes('#141B21'));
+
+// markdown import round trip
+await page2.getByRole('button', {name: 'Import markdown'}).click();
+await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Imported item _(in progress)_ — with note');
+await page2.getByRole('button', {name: 'Convert'}).click();
+await page2.waitForTimeout(400);
+const impSvg = await page2.locator('#preview svg').innerHTML();
+check('markdown import renders', impSvg.includes('Imported item') && impSvg.includes('Imported Plan'));
+
+// screenshots for the visual record
+await page.screenshot({path: 'parity-light.png', fullPage: true});
+await page2.screenshot({path: 'parity-dark.png', fullPage: true});
+
+console.log(results.join('\n'));
+console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
+await browser.close();
+process.exit(results.some(r => r.startsWith('FAIL')) || errors.length ? 1 : 0);
