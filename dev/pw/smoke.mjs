@@ -20,7 +20,7 @@ async function freshPage(path, theme = 'light'){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: four tool cards', await page.locator('a.tool').count() === 4);
+  check('landing: five tool cards', await page.locator('a.tool').count() === 5);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -67,6 +67,23 @@ for(const theme of ['light', 'dark']){
   check('tree(' + theme + '): verdict present', svg.includes('RECOMMENDED'));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
   check('tree(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- why ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/why/', theme);
+  await page.getByRole('button', {name: 'Habitat retention'}).click();
+  await page.waitForTimeout(600);
+  check('why(' + theme + '): OST view renders', await page.locator('#preview svg').count() === 1);
+  const ost = await page.locator('#preview svg').innerHTML();
+  check('why(' + theme + '): assumptions in cards', ost.includes('? users will invite friends'));
+  await page.locator('#viewmap').click();
+  await page.waitForTimeout(500);
+  const map = await page.locator('#preview svg').innerHTML();
+  check('why(' + theme + '): roadmap view derives columns', map.includes('NOW') && map.includes('Streak freeze'));
+  check('why(' + theme + '): LATER holds opportunity', map.includes('Progress feels invisible'));
+  check('why(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
