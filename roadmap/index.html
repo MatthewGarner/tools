@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap as code</title>
+<meta name="description" content="Write your roadmap as plain text; get a deck-ready now/next/later graphic with change tracking and SVG/PNG export.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Roadmap as code</h1>
+    <p class="tagline">A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
+  </header>
+
+  <div class="cols">
+    <section class="card">
+      <div class="chips" id="chips"><span class="lead">Try:</span></div>
+      <div id="cmhost" aria-label="Roadmap source editor"></div>
+      <div class="chips" id="savedrow" style="margin-top:12px"></div>
+      <div class="importbox" id="importbox">
+        <p class="hint">Paste a markdown roadmap (<code>### Now</code> headings with <code>-</code> bullets, as exported by this tool or written by hand). Replaces the editor.</p>
+        <textarea id="importarea" spellcheck="false"></textarea>
+        <div style="margin-top:8px"><button class="btn" id="importgo">Convert</button></div>
+      </div>
+      <ul id="warns"></ul>
+      <details class="syntax">
+        <summary>Syntax reference</summary>
+        <table>
+          <tr><td><code>title: Trading roadmap</code></td><td>title (optional; <code>date:</code> overrides today's date, <code>date: off</code> hides it)</td></tr>
+          <tr><td><code>horizons: Q3, Q4, 2027</code></td><td>rename the columns (2–8; default Now, Next, Later)</td></tr>
+          <tr><td><code>horizons: quarterly from Q3 2026 x4</code></td><td>generate quarter columns (also <code>monthly from Aug 2026 x6</code>)</td></tr>
+          <tr><td><code>wip: 8</code> / <code>wip: off</code></td><td>first-column overload warning threshold (default 6)</td></tr>
+          <tr><td><code>fade: off</code></td><td>disable the certainty fade on later columns</td></tr>
+          <tr><td><code>NOW</code> / <code>NEXT</code> / <code>LATER</code></td><td>start a column section (a horizon name on its own line)</td></tr>
+          <tr><td><code>Trading: Auto-bidder v2</code></td><td>item in the <em>Trading</em> swimlane</td></tr>
+          <tr><td><code>Auto-bidder v2</code></td><td>item with no lane</td></tr>
+          <tr><td><code>[done] [doing] [risk] [blocked]</code></td><td>status tag, anywhere in the item</td></tr>
+          <tr><td><code>… -- note text</code></td><td>smaller second line on the card</td></tr>
+          <tr><td><code>// comment</code></td><td>ignored</td></tr>
+        </table>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="actions">
+        <button class="btn" id="dlsvg">Download SVG</button>
+        <button class="btn" id="dlpng">Download PNG</button>
+        <button class="btn" id="dlslide">PNG (slide size)</button>
+        <button class="btn" id="copymd">Copy as markdown</button>
+      </div>
+      <div class="actions">
+        <button class="btn" id="snap">Snapshot</button>
+        <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+        <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
+        <span class="method">Snapshot before each planning cycle; compare to get the "what changed" slide · exports match the on-screen theme</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="about">
+    <h2>Why text?</h2>
+    <p>Roadmaps decay because updating them is friction: the truth changes in minutes, but the diagram lives in a slide nobody wants to reflow. Making the source plain text removes the friction — an update is one line, the layout is the tool's problem, and the diagram is always regenerable. Text also diffs: paste versions into git or a doc and you can see exactly what moved between planning cycles, which slides will never tell you.</p>
+    <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty — which is also why later columns fade slightly. See <a href="https://www.prodpad.com/blog/the-birth-of-the-now-next-later-roadmap/" target="_blank" rel="noopener">ProdPad on the origin of now/next/later</a>, and Janna Bastow's case against timeline roadmaps. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>) — the certainty fade applies just the same.</p>
+    <p>The snapshot/compare feature exists because the most useful roadmap artefact isn't the roadmap — it's <em>what changed since last time</em>. Snapshot before each planning cycle; the comparison renders new, moved, and dropped items as an exportable slide.</p>
+  </section>
+
+  <footer>
+    No accounts, no tracking. The URL carries your roadmap — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
