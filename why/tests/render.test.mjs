@@ -27,16 +27,31 @@ const run = (renderer, doc = DOC, extra = {}) => {
   return renderer(m, project(m), ctx(extra));
 };
 
-test('map view: columns from status, LATER opportunity, audit badges', () => {
+test('map view: outcome band, opportunity lanes, ghost chip, audit badges', () => {
   const svg = run(renderMap);
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
+  assert.ok(svg.includes('IMPROVE 90-DAY RETENTION'), 'outcome band header');
   assert.ok(svg.includes('Streak freeze'));
-  assert.ok(svg.includes('Habits feel like chores'), 'unaddressed opportunity in LATER');
-  assert.ok(svg.includes('OPPORTUNITY'), 'opportunity capsule');
+  assert.ok(svg.includes('HABITS FEEL'), 'unaddressed opportunity is a lane');
+  assert.ok(svg.includes('no committed solution yet'), 'ghost chip instead of repeated title');
+  assert.ok(svg.includes('stroke-dasharray'), 'ghost card dashed');
   assert.ok(svg.includes('UNTESTED BET'), 'smart reminders flagged');
   assert.ok(svg.includes('NO WHY'), 'orphan flagged');
-  assert.ok(svg.includes('⚠ NO WHY') || svg.includes('⚠ no why'.toUpperCase()), 'audit lane present');
+});
+
+test('map view: deeper unaddressed sub-opportunity renders as named OPPORTUNITY card', () => {
+  const doc = [
+    'outcome: O',
+    '  Big need',
+    '    Addressed sub',
+    '      Fix [delivering]',
+    '    Ignored sub',
+  ].join('\n');
+  const svg = run(renderMap, doc);
+  assert.ok(svg.includes('Ignored sub'), 'named card, not ghost');
+  assert.ok(svg.includes('OPPORTUNITY'), 'opportunity capsule');
+  assert.ok(svg.includes('BIG NEED'), 'sits in its first-level lane');
 });
 
 test('map view: broken assumption badge in err colour', () => {

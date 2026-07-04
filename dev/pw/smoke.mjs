@@ -82,7 +82,8 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   const map = await page.locator('#preview svg').innerHTML();
   check('why(' + theme + '): roadmap view derives columns', map.includes('NOW') && map.includes('Streak freeze'));
-  check('why(' + theme + '): LATER holds opportunity', map.includes('Progress feels invisible'));
+  check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
+  check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
   check('why(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

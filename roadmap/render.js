@@ -101,9 +101,19 @@ export function render(model, ctx){
 
   const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
   const colHeadH = T.colHeadH*S;
+  /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */
+  const bandH = 30*S;
+  const groupAtLane = new Map();
+  if(model.laneGroups){
+    for(const g of model.laneGroups){
+      const first = g.lanes.find(l => model.lanes.includes(l));
+      if(first !== undefined) groupAtLane.set(first, g.label);
+    }
+  }
   const laneTops = [];
   let y = headerH + colHeadH;
   for(const lane of model.lanes){
+    if(groupAtLane.has(lane)) y += bandH;
     let maxH = 0;
     for(let h = 0; h < nH; h++){
       const stack = cells[lane][h];
@@ -171,7 +181,13 @@ export function render(model, ctx){
   /* lanes */
   model.lanes.forEach((lane, li) => {
     const top = laneTops[li];
-    if(li > 0){
+    if(groupAtLane.has(lane)){
+      s.push('<text x="' + PAD + '" y="' + (top - 12*S) + '" font-family=\'' + F.serif +
+        '\' font-size="' + 13*S + '" font-weight="700" fill="' + C.accent + '">' +
+        esc(groupAtLane.get(lane).toUpperCase()) + '</text>');
+      s.push('<line x1="' + PAD + '" y1="' + (top - T.laneSepInset*S) + '" x2="' + (W - PAD) + '" y2="' + (top - T.laneSepInset*S) +
+        '" stroke="' + C.accent + '" stroke-width="1" opacity="0.5"/>');
+    } else if(li > 0){
       s.push('<line x1="' + PAD + '" y1="' + (top - T.laneSepInset*S) + '" x2="' + (W - PAD) + '" y2="' + (top - T.laneSepInset*S) +
         '" stroke="' + C.border + '" stroke-width="1" opacity="0.55"/>');
     }
@@ -194,7 +210,9 @@ export function render(model, ctx){
         const x = colX(h);
         s.push('<g data-line="' + c.it.srcLine + '" opacity="' + fadeOp.toFixed(2) + '">');
         s.push('<rect x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
-          '" rx="' + T.cardRadius + '" fill="' + C.card + '" stroke="' + C.border + '" stroke-width="1"/>');
+          '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
+          '" stroke="' + C.border + '" stroke-width="1"' +
+          (c.it.ghost ? ' stroke-dasharray="3 3"' : '') + '/>');
         /* top-anchored cursor: each block advances by its budgeted height */
         let cursor = cy + cardPadY;
         if(c.badge){
@@ -207,7 +225,8 @@ export function render(model, ctx){
         c.lines.forEach((line, li2) => {
           const lastLine = li2 === c.lines.length - 1;
           s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
-            '" font-weight="600" fill="' + C.ink + '">' + esc(line) +
+            '" font-weight="' + (c.it.ghost ? '400" font-style="italic' : '600') +
+            '" fill="' + (c.it.ghost ? C.muted : C.ink) + '">' + esc(line) +
             (c.it.url && lastLine ? ' <tspan font-size="' + 9*S + '" font-weight="600" fill="' + C.accent + '">↗</tspan>' : '') +
             '</text>');
           cursor += lhTitle;
