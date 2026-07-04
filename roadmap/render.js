@@ -131,7 +131,7 @@ export function render(model, ctx){
   }
   if(model.dateStr !== 'off'){
     const d = model.dateStr || new Date().toISOString().slice(0, 10);
-    const dLabel = diff ? d + ' · vs ' + diff.since : d;
+    const dLabel = diff && diff.since ? d + ' · vs ' + diff.since : d;
     s.push('<text x="' + (W - PAD) + '" y="' + (model.title ? T.titleY : 16)*S +
       '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
   }
@@ -198,7 +198,8 @@ export function render(model, ctx){
         /* top-anchored cursor: each block advances by its budgeted height */
         let cursor = cy + cardPadY;
         if(c.badge){
-          const bcol = c.badge.kind === 'new' ? C.accent : C.muted;
+          const bcol = c.badge.kind === 'new' ? C.accent :
+                       c.badge.kind === 'alert' ? C.err : C.muted;
           s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol).svg);
           cursor += T.badgeH*S;
         }
