@@ -7,13 +7,20 @@ const F = {
 };
 
 export const TOKENS = {
-  pad: 26, rowPitch: 58, colW: 210, headerH: 56, headerHNoTitle: 20,
-  verdictH: 40, nodeR: 7, squareHalf: 7, tickH: 12,
-  labelSize: 12, subSize: 10.5, evSize: 11.5, statSize: 10,
+  pad: 26, rowPitch: 68, colW: 214, headerH: 56, headerHNoTitle: 20,
+  verdictH: 64, nodeR: 7, squareHalf: 7, tickH: 12,
+  labelSize: 12, subSize: 10, evSize: 11.5, statSize: 10,
   edgeW: 1.25, policyW: 2.5, fadeOp: 0.42,
-  flipSize: 11, flipRowH: 16, titleSize: 22, titleY: 36, dateSize: 11,
+  pillSize: 8.5, pillH: 15, pillPadX: 6, pillTracking: 0.6,
+  flipSize: 11, flipRowH: 16, flipHeadSize: 10, flipHeadTracking: 1.2,
+  titleSize: 22, titleY: 36, dateSize: 11,
   slideScale: 1.35, bottomPad: 16, annotW: 150,
 };
+
+/* 12% tint for capsules, matching the roadmap tool's pill language */
+function tint(hex){
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
+}
 
 function esc(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -70,20 +77,39 @@ export function render(model, results, ctx){
     '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
     new Date().toISOString().slice(0, 10) + '</text>');
 
-  /* verdict */
+  /* capsule pill, shared visual language with the roadmap tool */
+  const capsule = (px, py, label, col) => {
+    const font = '600 ' + T.pillSize*S + 'px ' + F.body;
+    const tw = measure(label, font) + label.length * T.pillTracking;
+    const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
+    return {
+      svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
+        '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
+        (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
+        '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 4.5*S) + '" font-size="' + T.pillSize*S +
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + col + '">' + esc(label) + '</text>',
+      w: pw,
+    };
+  };
+
+  /* verdict block: hero recommendation, muted evidence line */
   if(model.root.kind === 'decision'){
     const rec = results.policy.get(model.root);
     const st = results.stats.get(model.root);
-    let line = 'Recommendation: ' + rec.label + ' — EV ' + money(st.mean) +
-      ' (P10 ' + money(st.p10) + ', P90 ' + money(st.p90) + ')';
+    const vy = headerH + 14*S;
+    const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent);
+    s.push(p.svg);
+    s.push('<text x="' + (T.pad*S + p.w + 10*S) + '" y="' + vy + '" font-size="' + 15*S +
+      '" font-weight="700" fill="' + C.ink + '">' + esc(rec.label) + '</text>');
+    let evidence = 'EV ' + money(st.mean) + ' · P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
     const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
     if(h){
       const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
       const other = h.a === rec.label ? h.b : h.a;
-      line += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
+      evidence += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
     }
-    s.push('<text x="' + T.pad*S + '" y="' + (headerH + 16*S) + '" font-size="' + 13*S +
-      '" font-weight="600" fill="' + C.accent + '">' + esc(line) + '</text>');
+    s.push('<text x="' + T.pad*S + '" y="' + (vy + 19*S) + '" font-size="' + 11.5*S +
+      '" fill="' + C.muted + '">' + esc(evidence) + '</text>');
   }
 
   /* edges + nodes, policy-aware opacity applied per subtree */
@@ -98,10 +124,10 @@ export function render(model, results, ctx){
     const parts = [];
     if(b.p !== null && b.p !== undefined && a.kind === 'chance') parts.push(pStr(b.p));
     if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')) parts.push(rangeStr(b.value));
-    s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 14*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
+    s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 17*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
       '" font-weight="600" fill="' + C.ink + '">' + esc(b.label) + '</text>');
     if(parts.length){
-      s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 3*S) + '" text-anchor="end" font-size="' + T.subSize*S +
+      s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 6*S) + '" text-anchor="end" font-size="' + T.subSize*S +
         '" fill="' + C.muted + '">' + esc(parts.join(' · ')) + '</text>');
     }
   }
@@ -158,8 +184,8 @@ export function render(model, results, ctx){
   /* flip conditions */
   if(flips.length){
     let fy = H - flipsH - T.bottomPad*S + 12*S;
-    s.push('<text x="' + T.pad*S + '" y="' + fy + '" font-size="' + 10*S +
-      '" font-weight="600" letter-spacing="1.2" fill="' + C.muted + '">WHAT WOULD FLIP THIS</text>');
+    s.push('<text x="' + T.pad*S + '" y="' + fy + '" font-size="' + T.flipHeadSize*S +
+      '" font-weight="600" letter-spacing="' + T.flipHeadTracking + '" fill="' + C.muted + '">WHAT WOULD FLIP THIS</text>');
     for(const f of flips){
       fy += T.flipRowH*S;
       const msg = f.kind === 'prob'

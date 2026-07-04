@@ -17,7 +17,7 @@ test('well-formed svg, no NaN, verdict present', () => {
   const svg = render(m, evaluate(m), ctx());
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
-  assert.ok(svg.includes('Recommendation:'));
+  assert.ok(svg.includes('RECOMMENDED'));
   assert.ok(svg.includes('% of simulations'));
 });
 
@@ -55,5 +55,5 @@ test('slide mode scales wider; chance-only tree has no verdict', () => {
   assert.ok(wOf(render(m, r, ctx({slide: true}))) > wOf(render(m, r, ctx())));
   const chanceOnly = parse('Weather\n  Sunny (p=0.7): 10\n  Rain (p=rest): -5');
   const svg2 = render(chanceOnly, evaluate(chanceOnly), ctx());
-  assert.ok(!svg2.includes('Recommendation:'));
+  assert.ok(!svg2.includes('RECOMMENDED'));
 });
