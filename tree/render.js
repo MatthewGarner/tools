@@ -1,5 +1,6 @@
 /* (model, results, ctx) → SVG string. ctx = {colors, measure, slide?, dark?}. No DOM. */
 import {PALETTES, scheme, fmt} from '../assets/series.js';
+import {esc, tint, wrapText} from '../assets/svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -17,15 +18,7 @@ export const TOKENS = {
   slideScale: 1.35, bottomPad: 16, annotW: 150,
 };
 
-/* 12% tint for capsules, matching the roadmap tool's pill language */
-function tint(hex){
-  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
-}
 
-function esc(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
-}
 
 export function render(model, results, ctx){
   const {measure, slide = false, dark = false} = ctx;

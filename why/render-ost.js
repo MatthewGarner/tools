@@ -1,5 +1,6 @@
 /* OST projection renderer: left-to-right box tree. (model, projection, ctx) → SVG. */
 import {PALETTES, scheme} from '../assets/series.js';
+import {esc, tint, wrapText} from '../assets/svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -19,25 +20,6 @@ const ASSUMP_GLYPH = {untested: '?', testing: '~', holds: '✓', broken: '✗'};
 const STATUS_LABEL = {candidate: 'Candidate', testing: 'Testing', delivering: 'Delivering',
   shipped: 'Shipped', parked: 'Parked'};
 
-function esc(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
-}
-function tint(hex){
-  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
-}
-function wrapText(text, font, maxW, measure){
-  const words = text.split(/\s+/);
-  const out = [];
-  let cur = '';
-  for(const w of words){
-    const trial = cur ? cur + ' ' + w : w;
-    if(measure(trial, font) <= maxW || !cur) cur = trial;
-    else { out.push(cur); cur = w; }
-  }
-  if(cur) out.push(cur);
-  return out;
-}
 
 export function renderOst(model, projection, ctx){
   const {measure, slide = false, dark = false} = ctx;

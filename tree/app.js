@@ -4,23 +4,10 @@ import {evaluate} from './engine.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
 
 const $ = id => document.getElementById(id);
 
-const measCtx = document.createElement('canvas').getContext('2d');
-const measure = (text, font) => { measCtx.font = font; return measCtx.measureText(text).width; };
-function isDark(){
-  const t = document.documentElement.dataset.theme;
-  if(t === 'dark') return true;
-  if(t === 'light') return false;
-  return matchMedia('(prefers-color-scheme: dark)').matches;
-}
-function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
-  const g = n => cs.getPropertyValue(n).trim();
-  return {card: g('--card'), border: g('--border'), ink: g('--ink'), muted: g('--muted'),
-    accent: g('--accent'), bg: g('--bg'), err: g('--err')};
-}
 
 const EXAMPLES = [
   {name: 'Bid or no bid', src:
@@ -149,29 +136,8 @@ function svgString(slide){
   if(!model || !model.root || !results) return null;
   return render(model, results, {colors: themeColors(), measure, slide, dark: isDark()});
 }
-function download(name, blob){
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
 function slug(){
   return (model.title || 'decision-tree').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'decision-tree';
-}
-function svgToCanvas(svg, cb){
-  const img = new Image();
-  const dims = svg.match(/width="(\d+)" height="(\d+)"/);
-  const w = +dims[1], h = +dims[2], scale = 2;
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = w * scale; c.height = h * scale;
-    const cctx = c.getContext('2d');
-    cctx.scale(scale, scale);
-    cctx.drawImage(img, 0, 0);
-    cb(c);
-  };
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 $('dlsvg').addEventListener('click', () => {
   const svg = svgString();
