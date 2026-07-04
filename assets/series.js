@@ -56,3 +56,37 @@ export function writeHashState(obj, maxLen = 6000){
   const enc = btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
   history.replaceState(null, '', enc.length < maxLen ? '#' + enc : location.pathname);
 }
+
+/* ---- shared palette schemes (moved from roadmap/render.js) ---- */
+
+/* Named palettes — every accent hex validated (dataviz validate_palette.js) against
+   its derived background surface in both themes: lightness band, chroma floor, ≥3:1. */
+export const PALETTES = {
+  ocean: {light:'#0C7FAE', dark:'#2E93C4'},
+  slate: {light:'#5B5E9E', dark:'#8489D6'},
+  ember: {light:'#C05621', dark:'#C97A35'},
+  plum:  {light:'#9D3E78', dark:'#C06BA0'},
+};
+export const PALETTE_NAMES = Object.keys(PALETTES);
+
+export function mix(hexA, hexB, t){
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const a = p(hexA), b = p(hexB);
+  return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+
+/* A palette is a whole diagram scheme: wash the background, tint cards and borders
+   toward the accent hue. Derived, so custom accents get a coherent scheme too. */
+export function scheme(accentHex, dark){
+  return dark ? {
+    accent: accentHex,
+    bg:     mix('#141B21', accentHex, 0.06),
+    card:   mix('#1B242C', accentHex, 0.06),
+    border: mix('#2A3743', accentHex, 0.14),
+  } : {
+    accent: accentHex,
+    bg:     mix('#F6F5F2', accentHex, 0.05),
+    card:   mix('#FFFFFF', accentHex, 0.02),
+    border: mix('#DEE2E1', accentHex, 0.16),
+  };
+}
