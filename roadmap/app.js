@@ -1,7 +1,8 @@
-/* State, refresh loop, snapshots, saved roadmaps, import, exports, boot. */
+/* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {parse, STATUS_LABEL} from './parse.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
+import {moveItem} from './edit.js';
 
 const $ = id => document.getElementById(id);
 
@@ -414,6 +415,76 @@ $('importgo').addEventListener('click', () => {
   $('importbox').classList.remove('open');
   $('importarea').value = '';
   editor.setText(dsl);
+});
+
+/* ---------- drag-and-drop: a drop is a text edit ---------- */
+const drag = {armed: null, active: false, ghost: null, hover: null};
+function cellAt(cx, cy){
+  let cell = null, before = null;
+  for(const el of document.elementsFromPoint(cx, cy)){
+    if(before === null && el.matches && el.matches('#preview svg g[data-line]')){
+      before = +el.dataset.line;
+    }
+    if(el.matches && el.matches('#preview svg rect[data-cell]')){ cell = el; break; }
+  }
+  if(!cell) return null;
+  const [h, lane] = cell.dataset.cell.split('|');
+  return {el: cell, h: +h, lane, beforeLine: before};
+}
+function clearHover(){
+  if(drag.hover){ drag.hover.el.removeAttribute('stroke'); drag.hover.el.removeAttribute('stroke-width'); drag.hover = null; }
+}
+function endDrag(){
+  clearHover();
+  if(drag.ghost) drag.ghost.remove();
+  document.body.style.cursor = '';
+  drag.armed = null; drag.active = false; drag.ghost = null;
+}
+$('preview').addEventListener('pointerdown', e => {
+  const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
+  if(!g || e.button !== 0) return;
+  const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
+  if(!item) return;
+  drag.armed = {line: +g.dataset.line, title: item.title, x: e.clientX, y: e.clientY};
+});
+window.addEventListener('pointermove', e => {
+  if(!drag.armed) return;
+  if(!drag.active){
+    if(Math.hypot(e.clientX - drag.armed.x, e.clientY - drag.armed.y) < 4) return;
+    drag.active = true;
+    const ghost = document.createElement('div');
+    ghost.className = 'dragghost';
+    ghost.textContent = drag.armed.title;
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+    document.body.style.cursor = 'grabbing';
+  }
+  drag.ghost.style.left = (e.clientX + 12) + 'px';
+  drag.ghost.style.top = (e.clientY + 12) + 'px';
+  clearHover();
+  const cell = cellAt(e.clientX, e.clientY);
+  if(cell){
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    cell.el.setAttribute('stroke', accent);
+    cell.el.setAttribute('stroke-width', '2');
+    drag.hover = cell;
+  }
+});
+window.addEventListener('pointerup', e => {
+  if(!drag.armed) return;
+  const wasActive = drag.active;
+  const src = drag.armed.line;
+  const cell = wasActive ? cellAt(e.clientX, e.clientY) : null;
+  endDrag();
+  if(!wasActive || !cell || !model) return;
+  const target = {h: cell.h, lane: cell.lane,
+    beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
+  const r = moveItem(editor.getText(), model, src, target);
+  if(!r) return;
+  editor.setText(r.text);   // one transaction → one undo step
+});
+window.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && drag.armed) endDrag();
 });
 
 /* ---------- theme change → re-render ---------- */

@@ -78,6 +78,13 @@ details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .preview{overflow-x:auto}
 .preview svg{display:block;max-width:100%;height:auto}
+.preview svg g[data-line]{cursor:grab}
+.dragghost{
+  position:fixed;z-index:50;pointer-events:none;max-width:240px;
+  padding:7px 12px;border-radius:8px;font-size:13px;font-weight:600;
+  background:var(--card);color:var(--ink);border:1px solid var(--accent);
+  box-shadow:var(--shadow);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 .placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
 .actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
