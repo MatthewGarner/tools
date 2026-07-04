@@ -1,0 +1,176 @@
+/* (model, results, ctx) → SVG string. ctx = {colors, measure, slide?, dark?}. No DOM. */
+import {PALETTES, scheme, fmt} from '../assets/series.js';
+
+const F = {
+  body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  serif: 'Charter, Georgia, "Times New Roman", serif',
+};
+
+export const TOKENS = {
+  pad: 26, rowPitch: 58, colW: 210, headerH: 56, headerHNoTitle: 20,
+  verdictH: 40, nodeR: 7, squareHalf: 7, tickH: 12,
+  labelSize: 12, subSize: 10.5, evSize: 11.5, statSize: 10,
+  edgeW: 1.25, policyW: 2.5, fadeOp: 0.42,
+  flipSize: 11, flipRowH: 16, titleSize: 22, titleY: 36, dateSize: 11,
+  slideScale: 1.35, bottomPad: 16, annotW: 150,
+};
+
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;');
+}
+
+export function render(model, results, ctx){
+  const {measure, slide = false, dark = false} = ctx;
+  const paletteHex = model.accent ||
+    (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
+  const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
+  const T = TOKENS;
+  const S = slide ? T.slideScale : 1;
+  const cur = model.currency || '£';
+  const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
+  const rangeStr = r => r.lo === r.hi ? money(r.lo) : money(r.lo) + ' … ' + money(r.hi);
+  const pStr = p => p === 'rest' ? 'rest' :
+    (p.lo === p.hi ? 'p=' + p.lo : 'p=' + p.lo + '–' + p.hi);
+
+  /* ---- layout: leaves get rows, parents centre on children ---- */
+  let nextRow = 0, maxDepth = 0;
+  (function place(node, depth){
+    maxDepth = Math.max(maxDepth, depth);
+    if(node.children.length === 0){
+      node._row = nextRow++;
+    } else {
+      node.children.forEach(c => place(c, depth + 1));
+      node._row = node.children.reduce((a, c) => a + c._row, 0) / node.children.length;
+    }
+    node._depth = depth;
+  })(model.root, 0);
+
+  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
+  const verdictH = (model.root.kind === 'decision' ? T.verdictH : 0)*S;
+  const treeTop = headerH + verdictH;
+  const flips = results.flips || [];
+  const flipsH = flips.length ? (14 + flips.length * T.flipRowH)*S : 0;
+  const W = Math.round(T.pad*2*S + (maxDepth + 1) * T.colW*S + T.annotW*S);
+  const H = Math.round(treeTop + (nextRow - 1 || 1) * T.rowPitch*S + 40*S + flipsH + T.bottomPad*S);
+  const nx = node => T.pad*S + node._depth * T.colW*S + 40*S;
+  const ny = node => treeTop + 20*S + node._row * T.rowPitch*S;
+
+  const s = [];
+  s.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>');
+  s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
+
+  /* title + date */
+  if(model.title){
+    s.push('<text x="' + T.pad*S + '" y="' + T.titleY*S + '" font-family=\'' + F.serif +
+      '\' font-size="' + T.titleSize*S + '" font-weight="700" fill="' + C.ink + '">' + esc(model.title) + '</text>');
+  }
+  s.push('<text x="' + (W - T.pad*S) + '" y="' + (model.title ? T.titleY : 14)*S +
+    '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
+    new Date().toISOString().slice(0, 10) + '</text>');
+
+  /* verdict */
+  if(model.root.kind === 'decision'){
+    const rec = results.policy.get(model.root);
+    const st = results.stats.get(model.root);
+    let line = 'Recommendation: ' + rec.label + ' — EV ' + money(st.mean) +
+      ' (P10 ' + money(st.p10) + ', P90 ' + money(st.p90) + ')';
+    const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
+    if(h){
+      const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
+      const other = h.a === rec.label ? h.b : h.a;
+      line += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
+    }
+    s.push('<text x="' + T.pad*S + '" y="' + (headerH + 16*S) + '" font-size="' + 13*S +
+      '" font-weight="600" fill="' + C.accent + '">' + esc(line) + '</text>');
+  }
+
+  /* edges + nodes, policy-aware opacity applied per subtree */
+  function drawEdge(a, b, onPolicy){
+    const x1 = nx(a) + T.squareHalf*S + 2, y1 = ny(a);
+    const x2 = nx(b) - T.squareHalf*S - 2, y2 = ny(b);
+    const mx = (x1 + x2) / 2;
+    s.push('<path d="M' + x1 + ' ' + y1 + ' C' + mx + ' ' + y1 + ' ' + mx + ' ' + y2 +
+      ' ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (onPolicy ? C.accent : C.border) +
+      '" stroke-width="' + (onPolicy ? T.policyW : T.edgeW)*S + '"/>');
+    /* edge labels sit above the child end */
+    const parts = [];
+    if(b.p !== null && b.p !== undefined && a.kind === 'chance') parts.push(pStr(b.p));
+    if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')) parts.push(rangeStr(b.value));
+    s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 14*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
+      '" font-weight="600" fill="' + C.ink + '">' + esc(b.label) + '</text>');
+    if(parts.length){
+      s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 3*S) + '" text-anchor="end" font-size="' + T.subSize*S +
+        '" fill="' + C.muted + '">' + esc(parts.join(' · ')) + '</text>');
+    }
+  }
+  function drawNode(node, onPolicy){
+    const x = nx(node), y = ny(node);
+    const col = onPolicy ? C.accent : C.muted;
+    if(node.kind === 'decision'){
+      s.push('<rect x="' + (x - T.squareHalf*S) + '" y="' + (y - T.squareHalf*S) +
+        '" width="' + T.squareHalf*2*S + '" height="' + T.squareHalf*2*S +
+        '" rx="2" fill="' + C.card + '" stroke="' + col + '" stroke-width="1.5"/>');
+    } else if(node.kind === 'chance'){
+      s.push('<circle cx="' + x + '" cy="' + y + '" r="' + T.nodeR*S +
+        '" fill="' + C.card + '" stroke="' + col + '" stroke-width="1.5"/>');
+    } else {
+      s.push('<line x1="' + x + '" y1="' + (y - T.tickH*S/2) + '" x2="' + x + '" y2="' + (y + T.tickH*S/2) +
+        '" stroke="' + col + '" stroke-width="1.5"/>');
+    }
+    /* internal-node label above; EV annotation below/right */
+    if(node.children.length && node !== model.root){
+      /* label drawn by the incoming edge; nothing extra */
+    }
+    const st = results.stats.get(node);
+    if(st){
+      const tx = node.kind === 'leaf' ? x + 10*S : x;
+      const anchor = node.kind === 'leaf' ? 'start' : 'middle';
+      s.push('<text x="' + tx + '" y="' + (y + (node.kind === 'leaf' ? 4 : 22)*S) + '" text-anchor="' + anchor +
+        '" font-size="' + T.evSize*S + '" font-weight="600" fill="' + (onPolicy ? C.ink : C.muted) + '">' +
+        esc(money(st.mean)) + '</text>');
+      if(st.p10 !== st.p90){
+        s.push('<text x="' + tx + '" y="' + (y + (node.kind === 'leaf' ? 16 : 34)*S) + '" text-anchor="' + anchor +
+          '" font-size="' + T.statSize*S + '" fill="' + C.muted + '">' +
+          esc(money(st.p10) + ' … ' + money(st.p90)) + '</text>');
+      }
+    }
+  }
+  function walk(node, onPolicy){
+    for(const c of node.children){
+      const childOnPolicy = onPolicy &&
+        (node.kind !== 'decision' || results.policy.get(node) === c);
+      if(!childOnPolicy) s.push('<g opacity="' + T.fadeOp + '">');
+      drawEdge(node, c, childOnPolicy);
+      walk(c, childOnPolicy);
+      drawNode(c, childOnPolicy);
+      if(!childOnPolicy) s.push('</g>');
+    }
+  }
+  walk(model.root, true);
+  drawNode(model.root, true);
+  if(model.root.label && model.root.children.length){
+    s.push('<text x="' + nx(model.root) + '" y="' + (ny(model.root) - 14*S) + '" text-anchor="middle" font-size="' +
+      T.labelSize*S + '" font-weight="600" fill="' + C.ink + '">' + esc(model.root.label) + '</text>');
+  }
+
+  /* flip conditions */
+  if(flips.length){
+    let fy = H - flipsH - T.bottomPad*S + 12*S;
+    s.push('<text x="' + T.pad*S + '" y="' + fy + '" font-size="' + 10*S +
+      '" font-weight="600" letter-spacing="1.2" fill="' + C.muted + '">WHAT WOULD FLIP THIS</text>');
+    for(const f of flips){
+      fy += T.flipRowH*S;
+      const msg = f.kind === 'prob'
+        ? 'flips if p(' + f.label + ') ' + f.direction + ' ' + f.threshold.toFixed(2)
+        : f.label + ' matters: the recommendation changes within its ' + rangeStr({lo: f.lo, hi: f.hi}) + ' range';
+      s.push('<text x="' + (T.pad*S + 8*S) + '" y="' + fy + '" font-size="' + T.flipSize*S +
+        '" fill="' + C.muted + '">– ' + esc(msg) + '</text>');
+    }
+  }
+  s.push('</svg>');
+  /* scrub layout scratch */
+  (function clean(n){ delete n._row; delete n._depth; n.children.forEach(clean); })(model.root);
+  return s.join('');
+}
