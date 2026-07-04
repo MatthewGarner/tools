@@ -108,3 +108,12 @@ test('cell hit rects: one per lane x horizon with data-cell coords', () => {
   assert.ok(svg.includes('data-cell="1|Core"'));
   assert.ok(svg.includes('data-cell="2|"'), 'laneless cell addressable');
 });
+
+test('linked items render an anchor with escaped href and marker', () => {
+  const m = parse('NOW\nCore: Linked item -> https://x.io/a?b=1&c=2\nNEXT\ny');
+  const svg = render(m, ctx());
+  assert.ok(svg.includes('<a href="https://x.io/a?b=1&amp;c=2" target="_blank" rel="noopener">'));
+  assert.ok(svg.includes('↗'));
+  const plain = render(parse('NOW\nCore: No link\nNEXT\ny'), ctx());
+  assert.ok(!plain.includes('<a '));
+});

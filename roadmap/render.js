@@ -230,11 +230,16 @@ export function render(model, ctx){
           s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol).svg);
           cursor += T.badgeH*S;
         }
-        for(const line of c.lines){
+        if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
+        c.lines.forEach((line, li2) => {
+          const lastLine = li2 === c.lines.length - 1;
           s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
-            '" font-weight="600" fill="' + C.ink + '">' + esc(line) + '</text>');
+            '" font-weight="600" fill="' + C.ink + '">' + esc(line) +
+            (c.it.url && lastLine ? ' <tspan font-size="' + 9*S + '" font-weight="600" fill="' + C.accent + '">↗</tspan>' : '') +
+            '</text>');
           cursor += lhTitle;
-        }
+        });
+        if(c.it.url) s.push('</a>');
         for(const line of c.noteLines){
           s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
             '" fill="' + C.muted + '">' + esc(line) + '</text>');
