@@ -7,14 +7,11 @@ body{
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),
                    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:26px 26px;
-  padding:44px 20px 60px;
+  padding:40px 0 40px;
 }
-.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
 h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
   letter-spacing:-.01em;margin:0;text-wrap:balance}
 .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
-.cols{display:grid;grid-template-columns:minmax(300px,7fr) minmax(420px,13fr);gap:16px;
-  align-items:start}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
@@ -46,8 +43,6 @@ details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
   background:var(--bg);padding:1px 5px;border-radius:4px}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
-.preview{overflow-x:auto;position:relative}
-.preview svg{display:block;max-width:100%;height:auto;user-select:none;-webkit-user-select:none}
 .preview svg g[data-line]{cursor:grab}
 @media (prefers-reduced-motion: no-preference){
   .preview svg g[data-line]{transition:opacity .15s}
@@ -70,7 +65,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
 .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
 .method{color:var(--muted);font-size:12.5px}
-.about{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);
+.about{border-top:1px solid var(--border);padding-top:22px;color:var(--muted);
   font-size:13.5px;line-height:1.65;max-width:65ch}
 .about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
 .about p{margin:0 0 10px}
@@ -78,7 +73,11 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)}
 footer a:hover{color:var(--accent-ink)}
-@media (max-width:900px){ .cols{grid-template-columns:1fr} #cmhost .cm-editor{min-height:280px} }
+@media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 @media (prefers-reduced-motion: no-preference){
   .chip,.btn{transition:border-color .15s,color .15s}
 }
+
+/* drag support on top of the shared workspace preview */
+.preview{position:relative}
+.preview svg{user-select:none;-webkit-user-select:none}

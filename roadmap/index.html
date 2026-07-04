@@ -7,6 +7,7 @@
 <meta name="description" content="Write your roadmap as plain text; get a deck-ready now/next/later graphic with change tracking and SVG/PNG export.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,9 +16,10 @@
     <h1>Roadmap as code</h1>
     <p class="tagline">A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
   </header>
+</div>
 
-  <div class="cols">
-    <section class="card">
+<div class="workspace" id="workspace">
+    <aside class="rail">
       <div class="chips" id="chips"><span class="lead">Try:</span></div>
       <div id="cmhost" aria-label="Roadmap source editor"></div>
       <div class="chips" id="savedrow" style="margin-top:12px"></div>
@@ -46,11 +48,12 @@
           <tr><td><code>// comment</code></td><td>ignored</td></tr>
         </table>
       </details>
-    </section>
-
-    <section class="card">
+    </aside>
+    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <section class="stage">
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="actions">
+        <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
         <button class="btn" id="dlpng">Download PNG</button>
         <button class="btn" id="dlslide">PNG (slide size)</button>
@@ -64,8 +67,9 @@
         <span class="method">Snapshot before each planning cycle; compare to get the "what changed" slide · exports match the on-screen theme</span>
       </div>
     </section>
-  </div>
+</div>
 
+<div class="wrap">
   <section class="about">
     <h2>Why text?</h2>
     <p>Roadmaps decay because updating them is friction: the truth changes in minutes, but the diagram lives in a slide nobody wants to reflow. Making the source plain text removes the friction — an update is one line, the layout is the tool's problem, and the diagram is always regenerable. Text also diffs: paste versions into git or a doc and you can see exactly what moved between planning cycles, which slides will never tell you.</p>
