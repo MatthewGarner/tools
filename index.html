@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small, sharp tools</title>
+<meta name="description" content="Single-file utilities for product work under uncertainty — estimation, prioritisation, and the conversations around them.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
+</head>
+<body>
+<style>
+  :root{
+    --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
+    --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+    --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
+      --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+      --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
+    --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+    --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+  }
+  :root[data-theme="light"]{
+    --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
+    --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+    --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);
+    background-color:var(--bg);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:26px 26px;
+    padding:56px 20px 60px;
+  }
+  .wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+  h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:36px;font-weight:700;
+    letter-spacing:-.01em;margin:0;text-wrap:balance}
+  .tagline{color:var(--muted);margin:8px 0 0;font-size:16px;max-width:56ch}
+  .tools{display:flex;flex-direction:column;gap:14px}
+  a.tool{
+    display:block;background:var(--card);border:1px solid var(--border);border-radius:8px;
+    box-shadow:var(--shadow);padding:20px 22px;text-decoration:none;color:var(--ink);
+  }
+  a.tool:hover{border-color:var(--accent)}
+  a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tool h2{font-family:Charter,Georgia,serif;font-size:20px;margin:0 0 4px;
+    display:flex;align-items:baseline;gap:10px}
+  .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:12.5px;font-weight:400;color:var(--accent-ink)}
+  .tool p{margin:0;color:var(--muted);font-size:14.5px;max-width:60ch}
+  .tool .go{color:var(--accent-ink);font-size:13.5px;margin-top:8px;display:inline-block}
+  .soon{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:62ch}
+  .soon b{color:var(--ink);font-weight:600}
+  footer{color:var(--muted);font-size:12.5px;line-height:1.6}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--accent-ink)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Small, sharp tools</h1>
+    <p class="tagline">Single-file utilities for product work under uncertainty — estimation, prioritisation, and the conversations around them. No accounts, no tracking, no build step; each tool is one HTML file and your data stays in the URL.</p>
+  </header>
+
+  <div class="tools">
+    <a class="tool" href="/fermi/">
+      <h2>Fermi estimator <span class="path">/fermi</span></h2>
+      <p>Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a 90% range; the answer is a P10/P50/P90 distribution — with threshold probability, A/B scenarios, and a read on which input is worth researching first.</p>
+      <span class="go">Open →</span>
+    </a>
+    <a class="tool" href="/rank/">
+      <h2>Rank stability <span class="path">/rank</span></h2>
+      <p>Weighted prioritisation scores are guesses wearing a suit. This wobbles your weights and scores over thousands of simulations and reports which ranks survive — and which are ties you shouldn't argue about.</p>
+      <span class="go">Open →</span>
+    </a>
+  </div>
+
+  <p class="soon"><b>In the workshop:</b> roadmap-as-code, a decision-tree sketcher with expected-value rollback, a range extractor that turns pasted data into honest inputs for the estimator, and a battery-dispatch sketchpad. Same rules for all of them: one file, one job, opinionated.</p>
+
+  <footer>
+    Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a>
+  </footer>
+</div>
+</body>
+</html>

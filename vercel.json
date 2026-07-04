@@ -1,0 +1,11 @@
+{
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "fermi.matthewgarner.me" }],
+      "destination": "https://tools.matthewgarner.me/fermi/:path*",
+      "permanent": true
+    }
+  ]
+}

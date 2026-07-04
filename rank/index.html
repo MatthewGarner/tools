@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rank stability</title>
+<meta name="description" content="Prioritisation scoring that reports which ranks survive weight wobble — and which are noise.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+</head>
+<body>
+<style>
+  :root{
+    --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
+    --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+    --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
+    --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
+      --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+      --hl:rgba(255,206,84,.24); --err:#E07A72; --track:#232E37;
+      --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
+    --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+    --hl:rgba(255,206,84,.24); --err:#E07A72; --track:#232E37;
+    --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+  }
+  :root[data-theme="light"]{
+    --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
+    --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+    --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
+    --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);
+    background-color:var(--bg);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:26px 26px;
+    padding:44px 20px 60px;
+  }
+  .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+  h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
+    letter-spacing:-.01em;margin:0;text-wrap:balance}
+  .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:60ch}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+    box-shadow:var(--shadow);padding:22px}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted)}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  input,select{font-family:inherit;color:var(--ink);background:var(--bg);
+    border:1px solid var(--border);border-radius:6px}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  table{border-collapse:collapse;width:100%}
+  .tblwrap{overflow-x:auto}
+  th{text-align:left;padding:4px 8px 8px 8px;vertical-align:bottom}
+  th .cname{width:100%;min-width:86px;font-size:12.5px;font-weight:600;padding:5px 7px;
+    border:none;background:none;color:var(--ink)}
+  th .cname:hover,th .cname:focus{background:var(--bg)}
+  th .wrow{display:flex;align-items:center;gap:5px;margin-top:2px}
+  th .wrow span{font-size:10.5px;color:var(--muted);letter-spacing:.05em}
+  th .weight{width:52px;font-size:13px;padding:4px 6px;text-align:center;
+    font-variant-numeric:tabular-nums}
+  td{padding:3px 8px;border-top:1px solid var(--border)}
+  td .iname{width:100%;min-width:180px;font-size:14.5px;padding:7px 9px;border:none;
+    background:none;font-weight:500}
+  td .iname:hover,td .iname:focus{background:var(--bg)}
+  td .score{width:62px;font-size:14px;padding:6px;text-align:center;
+    font-variant-numeric:tabular-nums;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  td.effcol,th.effcol{border-left:2px solid var(--border)}
+  .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;
+    padding:4px 8px;border-radius:5px}
+  .del:hover{color:var(--err)}
+  .btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
+    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+  .toolbar .note{font-size:12.5px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+  .chips .lead{font-size:12.5px;color:var(--muted)}
+  .chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
+    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+  .chip:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .placeholder{color:var(--muted);font-size:14.5px;margin:0}
+  #results{display:none}
+  .verdict{font-size:16.5px;line-height:1.5;margin:0 0 4px;max-width:62ch}
+  .verdict .smear{background:var(--hl);padding:0 .14em;border-radius:2px;
+    box-decoration-break:clone}
+  .subverdict{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+  .rrow{display:grid;grid-template-columns:30px minmax(140px,1fr) minmax(180px,2fr) 92px;
+    gap:12px;align-items:center;padding:7px 0;border-top:1px solid var(--border)}
+  .rrow:first-of-type{border-top:none}
+  .rrow .pos{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;
+    font-weight:600;font-size:15px;color:var(--muted);text-align:right}
+  .rrow .nm{font-size:14.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .rankbar{display:grid;gap:2px;height:20px}
+  .rankbar .cell{background:var(--track);border-radius:3px;position:relative}
+  .rankbar .cell.in{background:var(--accent);opacity:.35}
+  .rankbar .cell.med{opacity:1;background:var(--accent)}
+  .rankbar .cell.med::after{content:"";position:absolute;inset:0;border-radius:3px;
+    box-shadow:inset 0 0 0 1.5px var(--card)}
+  .ptop{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .ptop b{color:var(--ink);font-weight:600}
+  .khead{display:flex;gap:10px;align-items:baseline;justify-content:space-between;
+    flex-wrap:wrap;margin-bottom:14px}
+  .khead h2{font-family:Charter,Georgia,serif;font-size:18px;margin:0}
+  .kpick{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+  .kpick input{width:52px;padding:4px 6px;font-size:13.5px;text-align:center}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;
+    color:var(--muted)}
+  .legend .key{display:inline-flex;align-items:center;gap:6px}
+  .legend .swatch{width:12px;height:12px;border-radius:3px;background:var(--accent)}
+  .legend .swatch.dim{opacity:.35}
+  .actions{display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap}
+  .method{color:var(--muted);font-size:12.5px;display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .method input{width:52px;font-size:12.5px;padding:3px 5px;text-align:center;
+    font-variant-numeric:tabular-nums}
+  .pastebox{display:none;margin-top:12px}
+  .pastebox.open{display:block}
+  .pastebox textarea{width:100%;min-height:110px;font-size:13px;padding:10px;
+    border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;resize:vertical}
+  .pastebox .hint{font-size:12.5px;color:var(--muted);margin:6px 0 8px}
+  .pastebox .perr{font-size:13px;color:var(--err);margin-left:10px}
+  .about{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);
+    font-size:13.5px;line-height:1.65;max-width:65ch}
+  .about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+  .about p{margin:0 0 10px}
+  .about a{color:var(--accent-ink)}
+  footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--accent-ink)}
+  @media (max-width:620px){
+    .rrow{grid-template-columns:24px 1fr 84px;grid-template-areas:"p n t" "b b b"}
+    .rrow .pos{grid-area:p}.rrow .nm{grid-area:n}.rrow .rankbar{grid-area:b}
+    .rrow .ptop{grid-area:t}
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .chip,.btn{transition:border-color .15s,color .15s}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Rank stability</h1>
+    <p class="tagline">Weighted prioritisation scores are guesses wearing a suit. This runs your scoring thousands of times with the weights and scores wobbled, and tells you which ranks survive — and which are noise you shouldn't argue about.</p>
+  </header>
+
+  <section class="card">
+    <div class="chips" id="chips"><span class="lead">Try:</span></div>
+    <div class="tblwrap">
+      <table id="tbl">
+        <thead><tr id="headrow"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="addrow">＋ Add initiative</button>
+      <button class="btn" id="pastebtn">Paste from spreadsheet</button>
+      <span class="note">Scores 1–10. Weighted benefits ÷ effort (WSJF-style). Rename criteria and weights to match your scheme.</span>
+    </div>
+    <div class="pastebox" id="pastebox">
+      <p class="hint">One row per initiative: name, then 4 numbers (Value, Time criticality, Risk reduction, Effort). Tabs, commas, or markdown-table pipes all work — paste straight from Excel, Sheets, or a doc. Replaces the current table.</p>
+      <textarea id="pastearea" spellcheck="false" placeholder="Intraday auto-bidder v2	8	7	5	6"></textarea>
+      <div style="margin-top:8px">
+        <button class="btn" id="pastego">Import</button>
+        <span class="perr" id="perr"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="placeholder" id="ph">Add initiatives and scores above. The result isn't a ranking — it's how much of the ranking you can trust.</p>
+    <div id="results">
+      <div class="khead">
+        <h2>What survives the wobble</h2>
+        <label class="kpick">Capacity: top <input id="kin" type="number" min="1" step="1" value="3" aria-label="Top-k capacity"> make the cut</label>
+      </div>
+      <p class="verdict" id="verdict"></p>
+      <p class="subverdict" id="subverdict"></p>
+      <div id="rrows"></div>
+      <div class="legend">
+        <span class="key"><span class="swatch med" style="border-radius:3px"></span> median rank</span>
+        <span class="key"><span class="swatch dim"></span> 90% rank range</span>
+        <span class="key">P(top-k) = share of simulations where the initiative makes the cut</span>
+      </div>
+      <div class="actions">
+        <button class="btn" id="copydoc">Copy for a doc</button>
+        <span class="method">Wobble: weights ±<input id="ww" type="number" min="0" max="200" step="10" value="50" aria-label="Weight wobble percent">% · scores ±<input id="sw" type="number" min="0" max="5" step="0.5" value="1" aria-label="Score wobble points"> pts · 4,000 simulations · deterministic</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="about">
+    <h2>Why wobble the weights?</h2>
+    <p>Frameworks like RICE and WSJF produce a ranked list from scores nobody believes to one decimal place. The ranking inherits that false precision — and teams burn hours debating whether the weight on "time criticality" should be 2 or 3, when the honest question is whether the answer would change either way. This tool asks exactly that: it re-runs your scoring 4,000 times with every weight perturbed within ±50% and every score within ±1, then reports how often each initiative lands where. Ranks that hold across the wobble are real signal; ranks that reshuffle are ties — decide those on strategy, sequencing, or gut, and stop pretending the spreadsheet decided.</p>
+    <p>The idea is plain sensitivity analysis applied to decision frameworks — see Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on modelling what you're unsure about, and Itamar Gilad's <a href="https://itamargilad.com/why-am-i-not-a-fan-of-scoring-prioritization/" target="_blank" rel="noopener">critique of scoring prioritisation</a> for why point estimates mislead.</p>
+  </section>
+
+  <footer>
+    One file, no dependencies. The URL carries your table — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+
+<script>
+'use strict';
+/* ---------- deterministic RNG (shared with the Fermi estimator) ---------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let rand = Math.random;
+let gaussSpare = null;
+function gauss(){
+  if(gaussSpare !== null){ const s = gaussSpare; gaussSpare = null; return s; }
+  let u, v, s2;
+  do { u = rand()*2 - 1; v = rand()*2 - 1; s2 = u*u + v*v; } while(s2 >= 1 || s2 === 0);
+  const f = Math.sqrt(-2 * Math.log(s2) / s2);
+  gaussSpare = v * f;
+  return u * f;
+}
+/* ---------- state ---------- */
+const NSIM = 4000;
+const $ = id => document.getElementById(id);
+const state = {
+  criteria: [
+    {name:'Value', w:3},
+    {name:'Time criticality', w:2},
+    {name:'Risk reduction', w:1},
+  ],
+  effort: {name:'Effort', w:1},
+  items: [],           // {name, s:[b1,b2,b3], e}
+  k: 3,
+  ww: 50,              // weight wobble: ±% as a 90% interval
+  sw: 1,               // score wobble: ± points
+};
+function sigmaW(){ return Math.log(1 + state.ww / 100) / 1.6448536; }
+let lastResult = null;
+
+/* ---------- examples ---------- */
+const EXAMPLES = [
+  {name:'Trading backlog', k:3, items:[
+    ['Intraday auto-bidder v2',        8, 7, 5, 6],
+    ['BM bid optimiser improvements',  7, 8, 4, 5],
+    ['Degradation-aware dispatch',     6, 4, 8, 7],
+    ['FR revenue reporting',           4, 6, 3, 3],
+    ['Backtest framework rebuild',     5, 3, 9, 8],
+    ['Ancillary market entry study',   6, 5, 6, 4],
+    ['Price forecast recalibration',   7, 6, 5, 5],
+  ]},
+  {name:'Classic product backlog', k:3, items:[
+    ['Onboarding revamp',    8, 5, 3, 5],
+    ['Enterprise SSO',       6, 8, 4, 4],
+    ['Mobile app parity',    7, 4, 3, 9],
+    ['Billing self-serve',   5, 6, 5, 4],
+    ['Analytics dashboard',  6, 3, 4, 6],
+    ['API rate-limit tier',  4, 7, 6, 3],
+  ]},
+];
+
+/* ---------- table rendering ---------- */
+function renderHead(){
+  const tr = $('headrow');
+  tr.textContent = '';
+  const th0 = document.createElement('th');
+  th0.innerHTML = '<span class="lbl">Initiative</span>';
+  tr.appendChild(th0);
+  state.criteria.forEach((c, ci) => {
+    const th = document.createElement('th');
+    const nm = document.createElement('input');
+    nm.className = 'cname'; nm.value = c.name;
+    nm.setAttribute('aria-label', 'Criterion ' + (ci+1) + ' name');
+    nm.addEventListener('input', () => { c.name = nm.value; schedule(400); });
+    const wrow = document.createElement('div');
+    wrow.className = 'wrow';
+    const wl = document.createElement('span'); wl.textContent = 'w';
+    const w = document.createElement('input');
+    w.className = 'weight'; w.type = 'number'; w.min = '0'; w.step = '0.5'; w.value = c.w;
+    w.setAttribute('aria-label', c.name + ' weight');
+    w.addEventListener('input', () => { c.w = parseFloat(w.value) || 0; schedule(200); });
+    wrow.append(wl, w);
+    th.append(nm, wrow);
+    tr.appendChild(th);
+  });
+  const the = document.createElement('th');
+  the.className = 'effcol';
+  const enm = document.createElement('input');
+  enm.className = 'cname'; enm.value = state.effort.name;
+  enm.setAttribute('aria-label', 'Effort criterion name');
+  enm.addEventListener('input', () => { state.effort.name = enm.value; schedule(400); });
+  const ed = document.createElement('div');
+  ed.className = 'wrow'; ed.innerHTML = '<span>÷ divisor</span>';
+  the.append(enm, ed);
+  tr.appendChild(the);
+  tr.appendChild(document.createElement('th'));
+}
+function renderRows(){
+  const tb = $('rows');
+  tb.textContent = '';
+  state.items.forEach((it, i) => {
+    const tr = document.createElement('tr');
+    const tdn = document.createElement('td');
+    const nm = document.createElement('input');
+    nm.className = 'iname'; nm.value = it.name; nm.placeholder = 'Initiative name';
+    nm.setAttribute('aria-label', 'Initiative ' + (i+1) + ' name');
+    nm.addEventListener('input', () => { it.name = nm.value; schedule(400); });
+    tdn.appendChild(nm);
+    tr.appendChild(tdn);
+    state.criteria.forEach((c, ci) => {
+      const td = document.createElement('td');
+      const s = document.createElement('input');
+      s.className = 'score'; s.type = 'number'; s.min = '1'; s.max = '10'; s.step = '1';
+      s.value = it.s[ci];
+      s.setAttribute('aria-label', it.name + ' ' + c.name + ' score');
+      s.addEventListener('input', () => { it.s[ci] = parseFloat(s.value); schedule(200); });
+      td.appendChild(s);
+      tr.appendChild(td);
+    });
+    const tde = document.createElement('td');
+    tde.className = 'effcol';
+    const e = document.createElement('input');
+    e.className = 'score'; e.type = 'number'; e.min = '1'; e.max = '10'; e.step = '1';
+    e.value = it.e;
+    e.setAttribute('aria-label', it.name + ' effort score');
+    e.addEventListener('input', () => { it.e = parseFloat(e.value); schedule(200); });
+    tde.appendChild(e);
+    tr.appendChild(tde);
+    const tdd = document.createElement('td');
+    const del = document.createElement('button');
+    del.className = 'del'; del.textContent = '×';
+    del.setAttribute('aria-label', 'Remove ' + (it.name || 'initiative'));
+    del.addEventListener('click', () => { state.items.splice(i, 1); renderRows(); schedule(50); });
+    tdd.appendChild(del);
+    tr.appendChild(tdd);
+  });
+}
+
+/* ---------- simulation ---------- */
+function itemsReady(){
+  return state.items.filter(it =>
+    it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0);
+}
+function clampScore(v){ return Math.max(1, Math.min(10, v)); }
+function compute(){
+  const items = itemsReady();
+  const n = items.length;
+  if(n < 2){ lastResult = null; return; }
+  const nc = state.criteria.length;
+  rand = mulberry32(0x5EED);
+  gaussSpare = null;
+
+  const rankCounts = items.map(() => new Array(n).fill(0));
+  const scoreBuf = new Array(n);
+  const order = Array.from({length:n}, (_, i) => i);
+
+  const sw = state.sw, sgw = sigmaW();
+  for(let sim = 0; sim < NSIM; sim++){
+    const ws = state.criteria.map(c => c.w * Math.exp(sgw * gauss()));
+    for(let i = 0; i < n; i++){
+      const it = items[i];
+      let benefit = 0;
+      for(let c = 0; c < nc; c++){
+        benefit += ws[c] * clampScore(it.s[c] + (rand()*2 - 1) * sw);
+      }
+      const eff = clampScore(it.e + (rand()*2 - 1) * sw);
+      scoreBuf[i] = benefit / eff;
+    }
+    order.sort((a, b) => scoreBuf[b] - scoreBuf[a]);
+    for(let r = 0; r < n; r++) rankCounts[order[r]][r]++;
+  }
+
+  /* base ranking with unperturbed values */
+  const baseScore = items.map(it => {
+    let b = 0;
+    state.criteria.forEach((c, ci) => { b += c.w * it.s[ci]; });
+    return b / it.e;
+  });
+  const baseOrder = Array.from({length:n}, (_, i) => i)
+    .sort((a, b) => baseScore[b] - baseScore[a]);
+
+  const k = Math.max(1, Math.min(n, Math.round(state.k)));
+  const stats = items.map((it, i) => {
+    const counts = rankCounts[i];
+    let cum = 0, p10 = 0, med = 0, p90 = n - 1, got10 = false, got50 = false;
+    for(let r = 0; r < n; r++){
+      cum += counts[r];
+      if(!got10 && cum >= NSIM * .05){ p10 = r; got10 = true; }
+      if(!got50 && cum >= NSIM * .50){ med = r; got50 = true; }
+      if(cum >= NSIM * .95){ p90 = r; break; }
+    }
+    let ptop = 0;
+    for(let r = 0; r < k; r++) ptop += counts[r];
+    return {i, name: it.name || 'Initiative ' + (i+1), p10, med, p90, ptop: ptop / NSIM};
+  });
+  lastResult = {stats, baseOrder, baseScore, n, k};
+}
+
+/* ---------- render results ---------- */
+function pctStr(p){
+  return p > 0.995 ? '>99%' : p < 0.005 ? '<1%' : Math.round(p * 100) + '%';
+}
+function renderResults(){
+  const R = lastResult;
+  if(!R){
+    $('ph').style.display = 'block';
+    $('results').style.display = 'none';
+    return;
+  }
+  $('ph').style.display = 'none';
+  $('results').style.display = 'block';
+  const {stats, baseOrder, n, k} = R;
+
+  const secure = stats.filter(s => s.ptop >= 0.85);
+  const contested = stats.filter(s => s.ptop > 0.15 && s.ptop < 0.85);
+  const v = $('verdict');
+  v.textContent = '';
+  const strong = document.createElement('span');
+  strong.className = 'smear';
+  if(contested.length === 0 && secure.length === k){
+    strong.textContent = 'The top ' + k + ' is settled.';
+    v.append(strong, document.createTextNode(' Every initiative that makes the cut does so in at least 85% of simulations — reasonable people with different weights get the same answer. Stop tuning the spreadsheet and start the work.'));
+  } else if(secure.length > 0){
+    strong.textContent = secure.length + ' of the top ' + k + (secure.length === 1 ? ' is' : ' are') + ' settled.';
+    v.append(strong, document.createTextNode(' ' + secure.map(s => s.name).join(', ') +
+      ' make the cut under any reasonable weights. The remaining ' + (k - secure.length) +
+      (k - secure.length === 1 ? ' place is' : ' places are') + ' a genuine tie between ' +
+      contested.map(s => s.name).join(', ') +
+      ' — the framework can’t decide it, so decide it on strategy or sequencing.'));
+  } else {
+    strong.textContent = 'Nothing is settled.';
+    v.append(strong, document.createTextNode(' No initiative makes the top ' + k +
+      ' in more than 85% of simulations — this ranking is mostly noise. Either the options are genuinely close (pick by strategy) or the scores need real evidence behind them.'));
+  }
+  $('subverdict').textContent = contested.length
+    ? 'Contested for the cut: ' + contested.map(s => s.name + ' (' + pctStr(s.ptop) + ')').join(' · ')
+    : '';
+
+  const holder = $('rrows');
+  holder.textContent = '';
+  baseOrder.forEach((idx, pos) => {
+    const s = stats.find(x => x.i === idx);
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    const p = document.createElement('div'); p.className = 'pos'; p.textContent = pos + 1;
+    const nm = document.createElement('div'); nm.className = 'nm';
+    nm.textContent = s.name; nm.title = s.name;
+    const bar = document.createElement('div');
+    bar.className = 'rankbar';
+    bar.style.gridTemplateColumns = 'repeat(' + n + ',1fr)';
+    bar.setAttribute('role', 'img');
+    bar.setAttribute('aria-label', s.name + ': median rank ' + (s.med+1) +
+      ', 90% range ' + (s.p10+1) + ' to ' + (s.p90+1));
+    for(let r = 0; r < n; r++){
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (r >= s.p10 && r <= s.p90 ? ' in' : '') +
+        (r === s.med ? ' med' : '');
+      cell.title = 'Rank ' + (r+1);
+      bar.appendChild(cell);
+    }
+    const pt = document.createElement('div');
+    pt.className = 'ptop';
+    pt.innerHTML = 'top-' + k + ' <b>' + pctStr(s.ptop) + '</b>';
+    row.append(p, nm, bar, pt);
+    holder.appendChild(row);
+  });
+}
+
+/* ---------- copy for a doc ---------- */
+$('copydoc').addEventListener('click', async () => {
+  if(!lastResult) return;
+  const {stats, baseOrder, k} = lastResult;
+  const lines = [];
+  lines.push('**Prioritisation — rank stability check**');
+  lines.push('');
+  lines.push('| # | Initiative | Median rank | 90% rank range | P(top-' + k + ') |');
+  lines.push('|---|---|---|---|---|');
+  baseOrder.forEach((idx, pos) => {
+    const s = stats.find(x => x.i === idx);
+    lines.push('| ' + (pos+1) + ' | ' + s.name + ' | ' + (s.med+1) + ' | ' +
+      (s.p10+1) + '–' + (s.p90+1) + ' | ' + pctStr(s.ptop) + ' |');
+  });
+  lines.push('');
+  lines.push($('verdict').textContent);
+  lines.push('');
+  lines.push('_Weights perturbed ±' + state.ww + '%, scores ±' + state.sw + ', 4,000 simulations · [live table](' + location.href + ')_');
+  const txt = lines.join('\n');
+  try{
+    await navigator.clipboard.writeText(txt);
+    $('copydoc').textContent = 'Copied';
+    setTimeout(() => { $('copydoc').textContent = 'Copy for a doc'; }, 1500);
+  }catch(e){ prompt('Copy this:', txt); }
+});
+
+/* ---------- URL state ---------- */
+function writeHash(){
+  const s = {
+    c: state.criteria.map(c => [c.name, c.w]),
+    e: [state.effort.name, state.effort.w],
+    i: state.items.map(it => [it.name, ...it.s, it.e]),
+    k: state.k, w: state.ww, s: state.sw,
+  };
+  const enc = btoa(unescape(encodeURIComponent(JSON.stringify(s))));
+  history.replaceState(null, '', '#' + enc);
+}
+function readHash(){
+  try{
+    if(!location.hash || location.hash.length < 2) return false;
+    const s = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
+    if(!Array.isArray(s.c) || !Array.isArray(s.i)) return false;
+    state.criteria = s.c.map(p => ({name:String(p[0]), w:+p[1] || 0}));
+    if(Array.isArray(s.e)) state.effort = {name:String(s.e[0]), w:+s.e[1] || 1};
+    state.items = s.i.map(row => ({
+      name: String(row[0]),
+      s: row.slice(1, 1 + state.criteria.length).map(Number),
+      e: +row[1 + state.criteria.length],
+    }));
+    if(isFinite(+s.k)) state.k = +s.k;
+    if(isFinite(+s.w)) state.ww = +s.w;
+    if(isFinite(+s.s)) state.sw = +s.s;
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ---------- wiring ---------- */
+let timer = null, hashTimer = null;
+function schedule(ms){
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    compute();
+    renderResults();
+    clearTimeout(hashTimer);
+    hashTimer = setTimeout(writeHash, 400);
+  }, ms);
+}
+$('addrow').addEventListener('click', () => {
+  state.items.push({name:'', s: state.criteria.map(() => 5), e: 5});
+  renderRows();
+  $('rows').lastElementChild.querySelector('.iname').focus();
+  schedule(50);
+});
+$('kin').addEventListener('input', () => {
+  state.k = parseInt($('kin').value, 10) || 3;
+  schedule(150);
+});
+$('ww').addEventListener('input', () => {
+  state.ww = Math.max(0, parseFloat($('ww').value) || 0);
+  schedule(200);
+});
+$('sw').addEventListener('input', () => {
+  state.sw = Math.max(0, parseFloat($('sw').value) || 0);
+  schedule(200);
+});
+
+/* ---------- paste import ---------- */
+$('pastebtn').addEventListener('click', () => {
+  $('pastebox').classList.toggle('open');
+  if($('pastebox').classList.contains('open')) $('pastearea').focus();
+});
+function parsePaste(text){
+  const items = [], bad = [];
+  for(const rawLine of text.split(/\r?\n/)){
+    const line = rawLine.trim();
+    if(!line) continue;
+    if(/^\|?[\s:|-]+\|?$/.test(line)) continue;            // markdown separator row
+    let parts;
+    if(line.includes('|')) parts = line.split('|').map(s => s.trim()).filter(Boolean);
+    else if(line.includes('\t')) parts = line.split('\t').map(s => s.trim());
+    else parts = line.split(',').map(s => s.trim());
+    if(parts.length < 5){ bad.push(line); continue; }
+    const nums = parts.slice(-4).map(Number);
+    if(nums.some(v => !isFinite(v) || v <= 0)){
+      // probably a header row — skip silently if nothing numeric at all
+      if(parts.slice(-4).every(v => isNaN(Number(v)))) continue;
+      bad.push(line); continue;
+    }
+    items.push({name: parts.slice(0, parts.length - 4).join(' '), s: nums.slice(0, 3), e: nums[3]});
+  }
+  return {items, bad};
+}
+$('pastego').addEventListener('click', () => {
+  const {items, bad} = parsePaste($('pastearea').value);
+  const err = $('perr');
+  if(!items.length){
+    err.textContent = 'No rows parsed — expected: name, then 4 numbers per line.';
+    return;
+  }
+  err.textContent = bad.length ? items.length + ' imported; ' + bad.length + ' line(s) skipped (couldn’t read 4 numbers).' : '';
+  state.items = items;
+  renderRows();
+  if(!bad.length){
+    $('pastebox').classList.remove('open');
+    $('pastearea').value = '';
+  }
+  schedule(50);
+});
+for(const ex of EXAMPLES){
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.textContent = ex.name;
+  b.addEventListener('click', () => {
+    state.items = ex.items.map(r => ({name:r[0], s:r.slice(1, 4), e:r[4]}));
+    state.k = ex.k;
+    $('kin').value = ex.k;
+    renderRows();
+    schedule(50);
+  });
+  $('chips').appendChild(b);
+}
+
+if(readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; }
+else state.items = [
+  {name:'', s:[5,5,5], e:5},
+  {name:'', s:[5,5,5], e:5},
+  {name:'', s:[5,5,5], e:5},
+];
+renderHead();
+renderRows();
+compute();
+renderResults();
+</script>
+</body>
+</html>
