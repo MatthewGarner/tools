@@ -35,6 +35,15 @@ function tint(hex){
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
 }
 
+/* Named palettes — every hex validated (dataviz validate_palette.js) against both
+   theme surfaces (#F7F8F6 light / #141B21 dark): lightness band, chroma floor, ≥3:1. */
+export const PALETTES = {
+  ocean: {light:'#0C7FAE', dark:'#2E93C4'},
+  slate: {light:'#5B5E9E', dark:'#8489D6'},
+  ember: {light:'#C05621', dark:'#C97A35'},
+  plum:  {light:'#9D3E78', dark:'#C06BA0'},
+};
+
 function wrapText(text, font, maxW, measure){
   const words = text.split(/\s+/);
   const out = [];
@@ -66,7 +75,10 @@ function esc(s){
 }
 
 export function render(model, ctx){
-  const {colors: C, measure, diff = null, slide = false} = ctx;
+  const {measure, diff = null, slide = false, dark = false} = ctx;
+  const paletteHex = model.accent ||
+    (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
+  const C = paletteHex ? {...ctx.colors, accent: paletteHex} : ctx.colors;
   const T = TOKENS;
   const nH = model.horizons.length;
   const S = slide ? T.slideScale : 1;
