@@ -19,6 +19,38 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     const spec = kinds[kind];
     if(!spec) return;
     const rect = el.getBoundingClientRect();
+    const raw = el.dataset.raw || '';
+    /* cycle kinds commit immediately: click steps to the next value */
+    if(spec.cycle){
+      const i = spec.cycle.indexOf(raw);
+      onCommit(kind, +el.dataset.line, raw, spec.cycle[(i + 1 + spec.cycle.length) % spec.cycle.length]);
+      return;
+    }
+    /* choice kinds open a popover menu */
+    if(spec.options){
+      const pop = document.createElement('div');
+      pop.className = 'eip-pop';
+      pop.style.left = rect.left + 'px';
+      pop.style.top = (rect.bottom + 4) + 'px';
+      for(const opt of spec.options){
+        const b = document.createElement('button');
+        b.textContent = opt;
+        if(opt === raw) b.classList.add('on');
+        b.addEventListener('click', () => {
+          const line = +el.dataset.line;
+          close();
+          if(opt !== raw) onCommit(kind, line, raw, opt);
+        });
+        pop.appendChild(b);
+      }
+      document.body.appendChild(pop);
+      active = {input: pop, el};
+      const away = e => {
+        if(!pop.contains(e.target)){ close(); document.removeEventListener('pointerdown', away, true); }
+      };
+      document.addEventListener('pointerdown', away, true);
+      return;
+    }
     const input = document.createElement('input');
     input.className = 'eip-input';
     input.value = el.dataset.raw || '';

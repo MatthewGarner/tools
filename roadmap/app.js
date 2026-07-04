@@ -5,6 +5,8 @@ import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {initWorkspace} from '../assets/workspace.js';
+import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -198,6 +200,19 @@ const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+});
+
+attachEditInPlace($('preview'), {
+  kinds: {
+    title: {validate: eipValidators.title},
+    note: {validate: eipValidators.note},
+    status: {options: EDIT_STATUSES},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    const line = editor.getLine(lineNo);
+    const newLine = eipApplies[kind](line, oldRaw, newValue);
+    if(newLine !== line) editor.replaceLine(lineNo, newLine);
+  },
 });
 
 /* ---------- example + import chips ---------- */

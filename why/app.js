@@ -7,6 +7,8 @@ import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
+import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -111,6 +113,21 @@ function setView(v){
 }
 $('viewost').addEventListener('click', () => setView('ost'));
 $('viewmap').addEventListener('click', () => setView('map'));
+
+attachEditInPlace($('preview'), {
+  kinds: {
+    status: {options: SOLUTION_STATUSES},
+    astatus: {cycle: ASSUMPTION_CYCLE},
+    label: {validate: eipValidators.label},
+    title: {validate: eipValidators.label},   // map-view card titles are labels
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    const apply = kind === 'status' || kind === 'astatus' ? eipApplies.status : eipApplies.label;
+    const line = editor.getLine(lineNo);
+    const newLine = apply(line, oldRaw, newValue);
+    if(newLine !== line) editor.replaceLine(lineNo, newLine);
+  },
+});
 
 /* ---------- example chips ---------- */
 for(const ex of EXAMPLES){

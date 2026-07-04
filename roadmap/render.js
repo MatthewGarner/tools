@@ -68,6 +68,13 @@ export function render(model, ctx){
     cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
   }
 
+  /* cards in a lane are peers: equalise heights to the lane's tallest card */
+  for(const lane of model.lanes){
+    let maxH = 0;
+    for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) maxH = Math.max(maxH, c.cardH);
+    if(maxH > 0) for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) c.cardH = maxH;
+  }
+
   const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
   const colHeadH = T.colHeadH*S;
   /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */
@@ -191,9 +198,15 @@ export function render(model, ctx){
           cursor += T.badgeH*S;
         }
         if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
+        if(c.it.ghost && c.lines.length === 1){
+          cursor = cy + (c.cardH - lhTitle) / 2;
+        }
+        const ed = c.it.edit || {};
+        const titleEip = (!c.it.ghost && ed.title !== false)
+          ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) + '"' : '';
         c.lines.forEach((line, li2) => {
           const lastLine = li2 === c.lines.length - 1;
-          s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
+          s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
             '" font-weight="' + (c.it.ghost ? '400" font-style="italic' : '600') +
             '" fill="' + (c.it.ghost ? C.muted : C.ink) + '">' + esc(line) +
             (c.it.url && lastLine ? ' <tspan font-size="' + 9*S + '" font-weight="600" fill="' + C.accent + '">↗</tspan>' : '') +
@@ -201,14 +214,18 @@ export function render(model, ctx){
           cursor += lhTitle;
         });
         if(c.it.url) s.push('</a>');
+        const noteEip = (c.it.note && (c.it.edit || {}).note !== false)
+          ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) + '"' : '';
         for(const line of c.noteLines){
-          s.push('<text x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
+          s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
             '" fill="' + C.muted + '">' + esc(line) + '</text>');
           cursor += lhNote;
         }
         if(c.it.status){
-          s.push(capsule(x + cardPadX, cursor + T.pillTopGap*S,
-            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status]).svg);
+          const stEip = (c.it.edit || {}).status !== false
+            ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status + '">' : '<g>';
+          s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
+            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status]).svg + '</g>');
         }
         s.push('</g>');
         cy += c.cardH + cardGap;

@@ -95,7 +95,8 @@ export function renderOst(model, projection, ctx){
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
     let ty = y + T.cardPadY*S + T.labelSize*S;
     for(const line of node._lines){
-      s.push('<text x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.labelSize*S +
+      s.push('<text data-edit="label" data-line="' + node.srcLine + '" data-raw="' + esc(node.label) +
+        '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.labelSize*S +
         '" font-weight="600"' + (isOutcome ? ' font-family=\'' + F.serif + '\'' : '') +
         ' fill="' + C.ink + '">' + esc(line) + '</text>');
       ty += T.labelLh*S;
@@ -103,17 +104,19 @@ export function renderOst(model, projection, ctx){
     if(node.kind === 'solution'){
       const col = statusColor(node.status);
       const label = STATUS_LABEL[node.status].toUpperCase();
+      const eip = ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status + '"';
       const tw = measure(label, '600 ' + T.pillSize*S + 'px ' + F.body) + label.length * T.pillTracking;
-      s.push('<rect x="' + (x + T.cardPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S) + '" width="' + (tw + T.pillPadX*2*S) +
+      s.push('<rect' + eip + ' x="' + (x + T.cardPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S) + '" width="' + (tw + T.pillPadX*2*S) +
         '" height="' + T.pillH*S + '" rx="' + T.pillH*S/2 + '" fill="' + tint(col) + '"/>');
-      s.push('<text x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
+      s.push('<text' + eip + ' x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
         '" fill="' + col + '">' + esc(label) + '</text>');
       ty += T.pillH*S + T.pillGap*S;
     }
     for(const a of node._assumps){
       const col = assumpColor(a.status);
-      s.push('<text x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
+      s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
+        '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
         '" fill="' + col + '">' + esc(ASSUMP_GLYPH[a.status] + ' ' + a.label) + '</text>');
       ty += T.assumpLh*S;
     }

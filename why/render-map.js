@@ -42,7 +42,8 @@ export function renderMap(model, projection, ctx){
       const lane = nodeToLane.get(e.node);
       items.push({lane, h: e.column === 'now' ? 0 : 1, title: e.node.label,
         note: e.breadcrumb && e.breadcrumb !== lane.trim() ? e.breadcrumb : '',
-        status: null, url: null, srcLine: e.node.srcLine, _node: e.node});
+        status: null, url: null, srcLine: e.node.srcLine, _node: e.node,
+        edit: {note: false}});
     }
     for(const e of projection.later.filter(inThisOutcome)){
       const lane = nodeToLane.get(e.node);
