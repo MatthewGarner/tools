@@ -1,4 +1,5 @@
 /* Pure line rewrites for edit-in-place on the roadmap diagram. No DOM. */
+import {parse} from './parse.js';
 
 export const STATUSES = ['done', 'doing', 'risk', 'blocked'];
 
@@ -22,3 +23,28 @@ export const applies = {
     return line.replace(/\[[^\]]+\]/, '[' + newRaw + ']');
   },
 };
+
+/* ---- add/remove items (S1) ---- */
+
+/* New items land at the end of their horizon's section (after its last item,
+   else right after the horizon header), lane-prefixed when a lane is given. */
+export function addItemLine(text, lane, horizonName){
+  const model = parse(text);
+  const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(horizonName).toLowerCase());
+  const newLine = lane ? lane + ': New item' : 'New item';
+  const inH = model.items.filter(i => i.h === hIdx);
+  if(inH.length){
+    return {afterLine: Math.max(...inH.map(i => i.srcLine)), newLine};
+  }
+  const lines = text.split(/\r?\n/);
+  for(let i = 0; i < lines.length; i++){
+    const t = lines[i].trim().replace(/:$/, '');
+    if(t.toLowerCase() === String(horizonName).toLowerCase()) return {afterLine: i, newLine};
+  }
+  return {afterLine: lines.length - 1, newLine};
+}
+
+/* Only lines that parse as items may be removed. */
+export function removeItemLine(text, srcLine){
+  return parse(text).items.some(i => i.srcLine === srcLine);
+}

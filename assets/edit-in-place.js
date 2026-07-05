@@ -44,6 +44,23 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         });
         pop.appendChild(b);
       }
+      /* action rows (e.g. Remove) commit a '✖'-prefixed sentinel the app maps to a rewrite */
+      if(spec.actions){
+        const sep = document.createElement('div');
+        sep.className = 'eip-sep';
+        pop.appendChild(sep);
+        for(const label of spec.actions){
+          const b = document.createElement('button');
+          b.textContent = label;
+          b.classList.add('danger');
+          b.addEventListener('click', () => {
+            const line = +el.dataset.line;
+            close();
+            onCommit(kind, line, raw, '✖' + label, el);
+          });
+          pop.appendChild(b);
+        }
+      }
       document.body.appendChild(pop);
       active = {input: pop, el};
       const away = e => {

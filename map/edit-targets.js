@@ -1,5 +1,6 @@
 /* Pure text rewrites for /map edit-in-place and drag. No DOM.
    Text stays the source of truth: a drop or an edit is exactly one text change. */
+import {parse} from './parse.js';
 
 const CONFIG_LINE = /^(preset|title|palette|accent|x|y|zones)\s*:|^zone\s+[^:]+:/i;
 
@@ -97,4 +98,25 @@ export function setAxisLabel(text, axis, newLabel){
   }
   lines.splice(configInsertIndex(lines), 0, axis + ': ' + newLabel.trim());
   return lines.join('\n');
+}
+
+/* ---- add/remove items (S1) ---- */
+
+export const ITEM_TEMPLATE = 'New item';
+
+/* New items go after the last item (else after the config block) and carry
+   no @ position — they land in the unplaced tray, ready to drag. */
+export function addItemLine(text){
+  const model = parse(text);
+  if(model.items.length){
+    return {afterLine: model.items[model.items.length - 1].srcLine, newLine: ITEM_TEMPLATE};
+  }
+  const lines = text.split(/\r?\n/);
+  const at = configInsertIndex(lines);
+  return {afterLine: Math.max(0, Math.min(at, lines.length) - 1), newLine: ITEM_TEMPLATE};
+}
+
+/* Only lines that parse as items may be removed. */
+export function removeItemLine(text, srcLine){
+  return parse(text).items.some(i => i.srcLine === srcLine);
 }

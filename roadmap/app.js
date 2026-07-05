@@ -1,4 +1,5 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
+import {onThemeChange} from '../assets/app-common.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -6,7 +7,7 @@ import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -175,7 +176,7 @@ function doRefresh(){
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()});
+    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true});
     if(svg !== lastSvg){
       pv.innerHTML = svg;
       lastSvg = svg;
@@ -206,9 +207,20 @@ attachEditInPlace($('preview'), {
   kinds: {
     title: {validate: eipValidators.title},
     note: {validate: eipValidators.note},
-    status: {options: EDIT_STATUSES},
+    status: {options: EDIT_STATUSES, actions: ['Remove item']},
+    additem: {validate: eipValidators.title},
   },
-  onCommit(kind, lineNo, oldRaw, newValue){
+  onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(kind === 'additem'){
+      const {afterLine} = addItemLine(editor.getText(), el.dataset.lane || null, el.dataset.col);
+      const lane = el.dataset.lane;
+      editor.insertLinesAfter(afterLine, [lane ? lane + ': ' + newValue : newValue]);
+      return;
+    }
+    if(newValue === '✖Remove item'){
+      if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
+      return;
+    }
     const line = editor.getLine(lineNo);
     const newLine = eipApplies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
@@ -580,8 +592,7 @@ window.addEventListener('keydown', e => {
 
 /* ---------- theme change → re-render ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
-new MutationObserver(rerender).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+onThemeChange(rerender);
 
 /* ---------- boot: hash > localStorage > empty ---------- */
 (function(){

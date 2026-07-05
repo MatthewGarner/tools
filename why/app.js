@@ -5,7 +5,7 @@ import {renderOst} from './render-ost.js';
 import {renderMap} from './render-map.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE} from './edit-targets.js';
@@ -223,8 +223,7 @@ $('copypng').addEventListener('click', () => {
 
 /* ---------- theme ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
-new MutationObserver(rerender).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+onThemeChange(rerender);
 
 /* ---------- boot ---------- */
 (function(){

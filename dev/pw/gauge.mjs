@@ -70,6 +70,7 @@ try{
   await A.page.waitForFunction(() =>
     document.getElementById('pstatus').textContent.includes('Not revealed yet'));
   check('participant: pre-reveal shows only a count', await A.page.locator('#presult svg').count() === 0);
+  check('participant: no add/remove affordances', await A.page.locator('.addq, .qdel').count() === 0);
 
   /* reveal: two-step arm, then overlay */
   await pageF.locator('#creveal').click();

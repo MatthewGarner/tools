@@ -1,0 +1,68 @@
+/* Shared CodeMirror core for the DSL tools: one theme, one extension set,
+   one line-edit API. Tools own only their language definition and highlight
+   accents (token colours differ per DSL — only keyword/comment are universal). */
+import {EditorState, Compartment, EditorView, keymap, drawSelection,
+  highlightActiveLine, defaultKeymap, history, historyKeymap,
+  StreamLanguage, syntaxHighlighting, HighlightStyle, tags}
+  from '../roadmap/vendor/codemirror.js';
+
+export {StreamLanguage, Compartment, tags};
+
+export const BASE_HIGHLIGHTS = [
+  {tag: tags.keyword, color: 'var(--accent-ink)', fontWeight: '600'},
+  {tag: tags.comment, color: 'var(--muted)', opacity: '0.55'},
+];
+
+const cmTheme = EditorView.theme({
+  '&': {backgroundColor: 'var(--bg)', color: 'var(--ink)', fontSize: '13px',
+    border: '1px solid var(--border)', borderRadius: '6px', minHeight: '440px'},
+  '.cm-content': {fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+    padding: '12px 0', lineHeight: '1.6', caretColor: 'var(--ink)'},
+  '.cm-line': {padding: '0 12px'},
+  '&.cm-focused': {outline: '2px solid var(--accent)', outlineOffset: '2px'},
+  '.cm-activeLine': {backgroundColor: 'rgba(120,150,175,0.07)'},
+  '.cm-cursor': {borderLeftColor: 'var(--ink)'},
+  '&.cm-focused .cm-selectionBackground, ::selection':
+    {backgroundColor: 'rgba(60,140,190,0.28)'},
+});
+
+export function createEditorCore({parent, doc, langExtension, onChange, extraHighlights = []}){
+  const view = new EditorView({
+    parent,
+    state: EditorState.create({
+      doc,
+      extensions: [
+        langExtension,
+        syntaxHighlighting(HighlightStyle.define([...BASE_HIGHLIGHTS, ...extraHighlights])),
+        history(),
+        drawSelection(),
+        highlightActiveLine(),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        cmTheme,
+        EditorView.lineWrapping,
+        EditorView.updateListener.of(u => { if(u.docChanged) onChange(); }),
+      ],
+    }),
+  });
+  return {
+    view,
+    getText: () => view.state.doc.toString(),
+    setText: text => view.dispatch({changes: {from: 0, to: view.state.doc.length, insert: text}}),
+    replaceLine(n, text){
+      const line = view.state.doc.line(n + 1);
+      view.dispatch({changes: {from: line.from, to: line.to, insert: text}});
+    },
+    getLine(n){ return view.state.doc.line(n + 1).text; },
+    insertLinesAfter(n, texts){
+      const line = view.state.doc.line(n + 1);
+      view.dispatch({changes: {from: line.to, to: line.to, insert: '\n' + texts.join('\n')}});
+    },
+    removeLine(n){
+      const line = view.state.doc.line(n + 1);
+      const from = line.from > 0 ? line.from - 1 : line.from;
+      const to = line.from > 0 ? line.to : Math.min(line.to + 1, view.state.doc.length);
+      view.dispatch({changes: {from, to, insert: ''}});
+    },
+    dispatchEffects: effects => view.dispatch({effects}),
+  };
+}

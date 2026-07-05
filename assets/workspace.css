@@ -67,6 +67,18 @@ footer{margin: 48px 0 8px}
   .railtab{display: none}
 }
 
+/* Fingers get full-size controls; mouse pointers keep the compact look. */
+@media (pointer: coarse){
+  .chip, .btn, .viewtoggle button{min-height: 44px; display: inline-flex; align-items: center}
+  .zoomctl button{padding: 13px 15px; font-size: 13px}
+  .eip-pop button{padding: 12px 12px}
+}
+/* phones are for viewing and zooming: the zoom control gets the full row */
+@media (max-width: 900px) and (pointer: coarse){
+  .zoomctl{display: flex; width: 100%}
+  .zoomctl button{flex: 1 1 auto}
+}
+
 /* edit-in-place overlay */
 [data-edit]{cursor: text}
 [data-edit]:hover{text-decoration: underline; text-decoration-style: dotted}
@@ -99,4 +111,7 @@ footer{margin: 48px 0 8px}
 }
 .eip-pop button:hover{background: var(--bg); color: var(--accent-ink)}
 .eip-pop button.on{color: var(--accent-ink); font-weight: 600}
+.eip-sep{height: 1px; background: var(--border); margin: 4px 2px}
+.eip-pop button.danger{color: var(--err)}
+.eip-pop button.danger:hover{background: color-mix(in srgb, var(--err) 10%, transparent); color: var(--err)}
 [data-edit]:not(text):hover{opacity: .8}

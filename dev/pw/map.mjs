@@ -76,6 +76,19 @@ await page.waitForTimeout(500);
 check('axis rename: label rewritten, end labels kept',
   (await doc()).includes('x: Regulatory pressure (light → strict)'));
 
+/* ---- add item from the ghost, remove from the × ---- */
+await page.getByRole('button', {name: 'Assumption map'}).click();
+await page.waitForTimeout(600);
+await page.locator('[data-edit="additem"]').click();
+await page.waitForTimeout(200);
+await page.locator('.eip-input').fill('Suite-added item');
+await page.keyboard.press('Enter');
+await page.waitForTimeout(500);
+check('add item: line landed in the text', (await doc()).includes('Suite-added item'));
+await page.locator('[data-edit="removeitem"]').last().click();
+await page.waitForTimeout(500);
+check('remove item: line gone', !(await doc()).includes('Suite-added item'));
+
 check('suite: no console errors', errors.length === 0);
 if(errors.length) results.push(...errors.slice(0, 3));
 console.log(results.join('\n'));

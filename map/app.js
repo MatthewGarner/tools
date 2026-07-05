@@ -5,10 +5,10 @@ import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel} from './edit-targets.js';
+import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -83,8 +83,8 @@ function renderWarnings(){
 function hasContent(){
   return model && (model.items.length || model.preset || model.grid || model.ruleZones.length);
 }
-function activeRender(slide){
-  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark()});
+function activeRender(slide, edit = false){
+  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit});
 }
 function doRefresh(){
   const text = editor.getText();
@@ -99,7 +99,7 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
   } else {
     ro = readout(model, resolved);
-    const svg = activeRender(false);
+    const svg = activeRender(false, true);
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
   }
   renderWarnings();
@@ -134,6 +134,8 @@ attachEditInPlace($('preview'), {
     field: {validate: validators.field},
     zonename: {validate: validators.zonename},
     axis: {validate: validators.axis},
+    additem: {validate: validators.label},
+    removeitem: {cycle: ['×']},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'label'){
@@ -155,6 +157,11 @@ attachEditInPlace($('preview'), {
     } else if(kind === 'axis'){
       const t = setAxisLabel(editor.getText(), el.dataset.axis, newValue);
       if(t !== editor.getText()) editor.setText(t);
+    } else if(kind === 'additem'){
+      const {afterLine} = addItemLine(editor.getText());
+      editor.insertLinesAfter(afterLine, [newValue]);
+    } else if(kind === 'removeitem'){
+      if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
     }
   },
 });
@@ -315,8 +322,7 @@ window.addEventListener('keydown', e => {
 
 /* ---------- theme ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
-new MutationObserver(rerender).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+onThemeChange(rerender);
 
 /* ---------- boot ---------- */
 (function(){

@@ -1,9 +1,13 @@
 /* Session model → participant form HTML string, and DOM-free value collection. */
 import {esc} from '../assets/svg.js';
 
-export function renderForm(model){
+export function renderForm(model, opts = {}){
+  const editable = !!opts.editable;   // compose preview only — participants never see these
   const qs = model.questions.map((q, i) => {
-    const head = '<p class="qtext"><span class="qnum">' + (i + 1) + '</span>' + esc(q.text) + '</p>';
+    const del = editable
+      ? '<button class="qdel" data-line="' + q.srcLine + '" aria-label="Remove question ' + (i + 1) + '">×</button>'
+      : '';
+    const head = '<p class="qtext"><span class="qnum">' + (i + 1) + '</span>' + esc(q.text) + del + '</p>';
     if(q.type === 'prob'){
       return '<div class="q" data-q="' + i + '" data-type="prob">' + head +
         '<div class="probrow">' +
@@ -27,7 +31,10 @@ export function renderForm(model){
     ? '<div class="q namefield"><label>Your name ' +
       '<input type="text" maxlength="40" data-name placeholder="shown next to your answers"></label></div>'
     : '';
-  return '<div class="gform">' + qs.join('') + name + '</div>';
+  const add = editable
+    ? '<button class="addq">＋ Add question</button>'
+    : '';
+  return '<div class="gform">' + qs.join('') + name + add + '</div>';
 }
 
 export function collectValues(model, fields){

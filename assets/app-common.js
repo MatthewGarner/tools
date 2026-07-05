@@ -40,3 +40,10 @@ export function svgToCanvas(svg, cb){
   };
   img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
+
+/* Re-render hook: OS scheme change or explicit data-theme stamp. */
+export function onThemeChange(fn){
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', fn);
+  new MutationObserver(fn).observe(document.documentElement,
+    {attributes: true, attributeFilter: ['data-theme']});
+}

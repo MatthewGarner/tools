@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel,
+import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine,
   configInsertIndex} from '../edit-targets.js';
 
 test('setPosition appends @ x,y to a bare label', () => {
@@ -79,4 +79,29 @@ test('validators: labels reject config collisions, ::, @, emptiness; zone names 
   assert.ok(!validators.axis('Reg (light)'));
   assert.ok(validators.field('watch 5 sessions'));
   assert.ok(!validators.field('a :: b'));
+});
+
+test('addItemLine appends after the last item; new items are unplaced', () => {
+  const doc = `preset: assumptions
+title: T
+
+First item @ 30,90 :: test: watch sessions
+Second item @ 75,80
+Third unplaced item`;
+  const {afterLine, newLine} = addItemLine(doc);
+  assert.equal(afterLine, 5);
+  assert.equal(newLine, 'New item');
+  assert.ok(!newLine.includes('@'));   // unplaced → lands in the tray
+});
+
+test('addItemLine with no items inserts after the config block', () => {
+  const {afterLine} = addItemLine('preset: assumptions\ntitle: T');
+  assert.equal(afterLine, 1);
+});
+
+test('removeItemLine accepts only item lines', () => {
+  const doc = 'preset: assumptions\n\nOnly item @ 5,5';
+  assert.equal(removeItemLine(doc, 2), true);
+  assert.equal(removeItemLine(doc, 0), false);   // config
+  assert.equal(removeItemLine(doc, 1), false);   // blank
 });

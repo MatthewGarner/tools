@@ -2,12 +2,12 @@
 import {parse} from './parse.js';
 import {sessionStats, markdownSummary} from './engine.js';
 import {renderForm} from './render-form.js';
+import {addQuestionLine, removeQuestionLine} from './edit-targets.js';
 import {renderOverlay} from './render-overlay.js';
-import {createEditor} from './editor.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from './exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
-import {measure, themeColors} from '../assets/app-common.js';
+import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
 
 const $ = id => document.getElementById(id);
@@ -63,19 +63,39 @@ export function wireFormEvents(root){
     const el = e.target;
     if(el.matches && el.matches('input[data-part="prob"]')){
       el.dataset.touched = '1';
+      el.style.setProperty('--fill', el.value + '%');
       el.parentElement.querySelector('.probout').textContent = el.value + '%';
     }
   });
 }
 
-function initCompose(hash){
+async function initCompose(hash){
   let model = null, view = 'form', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
 
+  /* participants never see the editor — only compose mode pays for CodeMirror */
+  const {createEditor} = await import('./editor.js');
   const editor = createEditor({
     parent: $('cmhost'),
     doc: '',
     onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
   });
+  /* add/remove questions from the form preview — text edits through the editor, undoable */
+  $('preview').addEventListener('click', e => {
+    const del = e.target.closest && e.target.closest('.qdel');
+    if(del){
+      const line = +del.dataset.line;
+      if(removeQuestionLine(editor.getText(), line)) editor.removeLine(line);
+      return;
+    }
+    if(e.target.closest && e.target.closest('.addq')){
+      const {afterLine, newLine} = addQuestionLine(editor.getText());
+      editor.insertLinesAfter(afterLine, [newLine]);
+      const ln = editor.view.state.doc.line(afterLine + 2);
+      editor.view.dispatch({selection: {anchor: ln.from, head: ln.from + 'New question'.length}});
+      editor.view.focus();
+    }
+  });
+
   const ws = initWorkspace({
     workspace: $('workspace'), tab: $('railtab'),
     preview: $('preview'), zoomHost: $('zoomctl'),
@@ -106,7 +126,7 @@ function initCompose(hash){
         ? 'No questions yet — write one like “Weeks to migrate billing :: range weeks”.'
         : 'Start typing — or load an example.') + '</p>';
     } else if(view === 'form'){
-      out = '<div class="formpreview">' + renderForm(model) + '</div>';
+      out = '<div class="formpreview">' + renderForm(model, {editable: true}) + '</div>';
     } else {
       out = renderOverlay(model, sessionStats(model, sampleResponses(model)), ctx());
     }
@@ -179,9 +199,7 @@ function initCompose(hash){
 
   /* theme */
   function rerender(){ lastOut = ''; refresh(); }
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
-  new MutationObserver(rerender).observe(document.documentElement,
-    {attributes: true, attributeFilter: ['data-theme']});
+  onThemeChange(rerender);
 
   /* boot */
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
