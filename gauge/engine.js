@@ -87,7 +87,80 @@ export function verdict(stats){
     ' items; discuss ' + list + '.';
 }
 
-export function markdownSummary(model, stats){
+/* ---- Delphi round 2 (pure) ---- */
+
+/* Classic Delphi carry-forward: a participant's final answer is their round-2
+   value where given, else their round-1 value. Identity = server-issued `who`. */
+export function mergeFinal(r1, r2){
+  const map = new Map();
+  for(const e of r1) map.set(e.who, {who: e.who, ...(e.name ? {name: e.name} : {}), values: [...e.values]});
+  for(const e of r2){
+    const prev = map.get(e.who);
+    if(!prev){
+      map.set(e.who, {who: e.who, ...(e.name ? {name: e.name} : {}), values: [...e.values]});
+      continue;
+    }
+    e.values.forEach((v, i) => { if(v != null) prev.values[i] = v; });
+    if(e.name) prev.name = e.name;
+  }
+  return [...map.values()];
+}
+
+const NARROWED = 25, WIDENED = -10;   // convergence % thresholds for the headline
+
+export function delphiStats(model, r1, r2){
+  const fin = mergeFinal(r1, r2);
+  return model.questions.map((q, i) => {
+    const pick = entries => entries.map(e => e.values[i]).filter(v => v != null);
+    const a1 = pick(r1), af = pick(fin);
+    const n = af.length;
+    let spread1 = 0, spread2 = 0, pooled = null, pooledRange = null, pooledMid = null;
+    if(q.type === 'prob'){
+      const spreadOf = vs => vs.length > 1 ? Math.max(...vs) - Math.min(...vs) : 0;
+      spread1 = spreadOf(a1);
+      spread2 = spreadOf(af);
+      if(n) pooled = quantile([...af].sort((a, b) => a - b), 0.5);
+    } else {
+      const spreadOf = vs => vs.length ? Math.max(...vs.map(v => v[1])) - Math.min(...vs.map(v => v[0])) : 0;
+      spread1 = spreadOf(a1);
+      spread2 = spreadOf(af);
+      if(n){
+        const med = xs => quantile([...xs].sort((a, b) => a - b), 0.5);
+        pooledRange = [med(af.map(v => v[0])), med(af.map(v => v[1]))];
+        pooledMid = med(af.map(v => (v[0] + v[1]) / 2));
+      }
+    }
+    const convergencePct = spread1 > 0 ? (1 - spread2 / spread1) * 100 : 0;
+    const u = q.unit ? ' ' + q.unit : '';
+    const pooledText = q.type === 'prob'
+      ? (pooled === null ? '' : 'pooled median ' + Math.round(pooled) + '%')
+      : (pooledRange === null ? '' : 'pooled range ' + fmtN(pooledRange[0]) + '–' + fmtN(pooledRange[1]) + u);
+    let headline;
+    if(n === 0) headline = 'No responses in either round.';
+    else if(convergencePct >= NARROWED)
+      headline = 'Second round narrowed the spread ' + Math.round(convergencePct) + '% — ' + pooledText + '.';
+    else if(convergencePct <= WIDENED)
+      headline = 'The spread widened after discussion — ' + pooledText + ', but new doubt surfaced.';
+    else
+      headline = 'The second round barely moved — genuine disagreement. ' +
+        (pooledText ? pooledText[0].toUpperCase() + pooledText.slice(1) + '.' : '');
+    return {question: q, n, n2: pick(r2).length, spread1, spread2, convergencePct,
+      pooled, pooledRange, pooledMid, pooledText, headline};
+  });
+}
+
+const fmtN = v => Math.round(v * 10) / 10;
+
+export function delphiVerdict(dstats){
+  const active = dstats.filter(d => d.n > 0 && d.spread1 > 0);
+  if(!active.length) return '';
+  const meanConv = active.reduce((a, d) => a + d.convergencePct, 0) / active.length;
+  if(meanConv >= NARROWED) return 'Round 2 converged — spreads narrowed ' + Math.round(meanConv) + '% on average.';
+  if(meanConv <= WIDENED) return 'Round 2 widened the spreads — the discussion surfaced real doubt.';
+  return 'Round 2 barely moved the room — the remaining disagreement is genuine.';
+}
+
+export function markdownSummary(model, stats, delphi){
   const out = ['# ' + (model.title || 'Gauge session'), ''];
   const v = verdict(stats);
   if(v) out.push('**' + v + '**', '');
@@ -109,5 +182,15 @@ export function markdownSummary(model, stats){
     }
     out.push('');
   });
+  if(delphi){
+    out.push('## Round 2 (Delphi)', '');
+    const dv = delphiVerdict(delphi);
+    if(dv) out.push('**' + dv + '**', '');
+    delphi.forEach((d, i) => {
+      out.push('- **' + (i + 1) + '. ' + d.question.text + '** — ' + d.headline +
+        (d.n2 < d.n ? ' (' + (d.n - d.n2) + ' of ' + d.n + ' carried forward from round 1)' : ''));
+    });
+    out.push('');
+  }
   return out.join('\n').trim() + '\n';
 }

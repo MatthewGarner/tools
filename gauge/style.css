@@ -1,4 +1,5 @@
 *{box-sizing:border-box}
+[hidden]{display:none!important}   /* .actions{display:flex} must not defeat the hidden attribute */
 html,body{margin:0}
 body{
   font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;

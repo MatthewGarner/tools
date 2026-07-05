@@ -21,6 +21,7 @@ export function createRelay({base = '/api/gauge', fetchFn} = {}){
     submit: (id, payload) => call('PUT', '/' + id + '/response', payload),
     status: id => call('GET', '/' + id),
     reveal: (id, key) => call('POST', '/' + id + '/reveal', {key}),
+    round2: (id, key) => call('POST', '/' + id + '/round2', {key}),
     end: (id, key) => call('POST', '/' + id + '/end', {key}),
   };
 }

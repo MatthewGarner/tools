@@ -65,6 +65,9 @@ try{
     null, {timeout: 20000});
   check('facilitator: poll shows 2 responses', true);
 
+  check('facilitator: exports hidden before reveal', !(await pageF.locator('#cexports').isVisible()));
+  check('facilitator: round-2 button hidden before reveal', !(await pageF.locator('#cround2wrap').isVisible()));
+
   /* pre-reveal independence on a participant device */
   await A.page.locator('#pview').click();
   await A.page.waitForFunction(() =>
@@ -92,6 +95,45 @@ try{
 
   await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
+
+  /* Delphi round 2: open (two-step arm), A revises, B stands pat, reveal both rounds */
+  await pageF.locator('#cround2').click();
+  await pageF.locator('#cround2').click();
+  await pageF.waitForFunction(() => document.getElementById('creveal').textContent === 'Reveal round 2');
+  check('facilitator: round 2 opens and reveal re-arms', true);
+
+  await A.page.locator('.q[data-q="0"] input[type=range]').evaluate(el => {
+    el.value = '40';
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await A.page.locator('#psubmit').click();
+  await A.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Submitted'));
+  check('participant: round-2 resubmission accepted', true);
+
+  await B.page.locator('#pview').click();
+  await B.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Round 2'));
+  check('participant: round-2 notice on view', true);
+
+  await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('1 of 2'),
+    null, {timeout: 20000});
+  check('facilitator: round-2 count shows revisions vs carry-forward', true);
+
+  await pageF.locator('#creveal').click();
+  await pageF.locator('#creveal').click();
+  await pageF.waitForFunction(() => document.getElementById('coverlay').innerHTML.includes('DELPHI'),
+    null, {timeout: 10000});
+  const dOverlay = await pageF.locator('#coverlay svg').innerHTML();
+  check('facilitator: delphi overlay carries pooled + round-1 strip',
+    /pooled/i.test(dOverlay) && /round 1/i.test(dOverlay));
+  check('facilitator: no NaN in delphi overlay', !/NaN|undefined/.test(dOverlay));
+
+  await B.page.locator('#pview').click();
+  await B.page.waitForFunction(() => document.getElementById('presult').innerHTML.includes('DELPHI'));
+  check('participant: delphi results pulled on demand', true);
+  check('facilitator: round-2 button gone once round 2 is open',
+    !(await pageF.locator('#cround2wrap').isVisible()));
+
+  await pageF.screenshot({path: 'gauge-console-delphi-light.png', fullPage: true});
 
   /* facilitator ends the session early: relay entry deleted, exports keep working */
   await pageF.locator('#cend').click();

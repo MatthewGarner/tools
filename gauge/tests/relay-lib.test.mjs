@@ -74,11 +74,13 @@ test('reveal: wrong key 403, right key returns the full set, responses lock', as
   const r = await reveal(kv, ID, {key: KEY});
   assert.equal(r.status, 200);
   assert.equal(r.body.revealed, true);
-  assert.deepEqual(r.body.responses, [{values: [70, [4, 8]]}]);
+  assert.equal(r.body.responses.length, 1);
+  assert.deepEqual(r.body.responses[0].values, [70, [4, 8]]);
+  assert.match(r.body.responses[0].who, /^[0-9a-f]{8}$/);   // anonymous cross-round id, never the pid
   const late = await putResponse(kv, ID, {participantId: PID, values: [10, null]}, 'ip');
   assert.equal(late.status, 409);
   const g = await getSession(kv, ID);
-  assert.deepEqual(g.body.responses, [{values: [70, [4, 8]]}]);   // GET now includes values
+  assert.deepEqual(g.body.responses[0].values, [70, [4, 8]]);   // GET now includes values
 });
 
 test('unknown or expired session is 404', async () => {
