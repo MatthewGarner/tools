@@ -99,6 +99,21 @@ for(const [k, src] of Object.entries(docs)){
   variants['gauge-overlay-agree'] = grender(m2, gstats(m2, agree), {...ctxBase});
 }
 
+/* /flow readout fixtures (seeded sim → deterministic) */
+{
+  const {simulate, wipSweep, kneeWip} = await import('../flow/engine.js');
+  const {renderReadout} = await import('../flow/render.js');
+  for(const [name, params] of [
+    ['flow-default', {demandPerWeek: 3, itemDays: 4, team: 4, wipLimit: 4, cov: 0.5}],
+    ['flow-overloaded', {demandPerWeek: 6, itemDays: 4, team: 4, wipLimit: 12, cov: 1.0}],
+  ]){
+    const result = simulate(params);
+    const sweep = wipSweep(params);
+    variants[name] = renderReadout(result, sweep, kneeWip(sweep), params, {...ctxBase,
+      colors: {...ctxBase.colors, track: '#edf0ee'}});
+  }
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

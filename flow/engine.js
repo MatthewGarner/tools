@@ -79,6 +79,7 @@ export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
   return {
     cycle: dist(cycleS),
     lead,
+    leadSamples: leadS.map(v => +v.toFixed(2)),
     throughputPerWeek: kept.length / (horizonDays - warm) * WEEK,
     utilisation: Math.min(1, busyPersonDays / (horizonDays * team)),
     impliedWip: wipIntegral / horizonDays,

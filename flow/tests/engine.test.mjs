@@ -66,3 +66,9 @@ test('cov accepts named levels', () => {
   const r = simulate({...healthy, cov: 'high'});
   assert.ok(r.cycle.p95 > r.cycle.p50);
 });
+
+test('leadSamples are sorted post-warm lead times matching completed', () => {
+  const r = simulate(healthy);
+  assert.equal(r.leadSamples.length, r.completed);
+  for(let i = 1; i < r.leadSamples.length; i++) assert.ok(r.leadSamples[i] >= r.leadSamples[i - 1]);
+});
