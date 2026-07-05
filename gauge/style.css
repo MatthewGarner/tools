@@ -123,3 +123,12 @@ body[data-mode="participant"] header .tagline,
 body[data-mode="console"] header .tagline{display:none}
 body[data-mode="participant"] header h1,
 body[data-mode="console"] header h1{font-size:22px}
+
+/* add/remove questions on the compose preview */
+.qtext .qdel{float:right;border:none;background:none;color:var(--muted);cursor:pointer;
+  font-size:16px;line-height:1;padding:2px 8px;border-radius:5px}
+.qtext .qdel:hover{color:var(--err)}
+.gform .addq{display:block;width:100%;margin-top:4px;padding:10px;font-family:inherit;
+  font-size:13px;font-weight:600;color:var(--muted);background:none;cursor:pointer;
+  border:1.5px dashed var(--border);border-radius:8px}
+.gform .addq:hover{color:var(--accent-ink);border-color:var(--accent)}

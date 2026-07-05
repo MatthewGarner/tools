@@ -2,6 +2,7 @@
 import {parse} from './parse.js';
 import {sessionStats, markdownSummary} from './engine.js';
 import {renderForm} from './render-form.js';
+import {addQuestionLine, removeQuestionLine} from './edit-targets.js';
 import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from './exports.js';
@@ -78,6 +79,23 @@ async function initCompose(hash){
     doc: '',
     onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
   });
+  /* add/remove questions from the form preview — text edits through the editor, undoable */
+  $('preview').addEventListener('click', e => {
+    const del = e.target.closest && e.target.closest('.qdel');
+    if(del){
+      const line = +del.dataset.line;
+      if(removeQuestionLine(editor.getText(), line)) editor.removeLine(line);
+      return;
+    }
+    if(e.target.closest && e.target.closest('.addq')){
+      const {afterLine, newLine} = addQuestionLine(editor.getText());
+      editor.insertLinesAfter(afterLine, [newLine]);
+      const ln = editor.view.state.doc.line(afterLine + 2);
+      editor.view.dispatch({selection: {anchor: ln.from, head: ln.from + 'New question'.length}});
+      editor.view.focus();
+    }
+  });
+
   const ws = initWorkspace({
     workspace: $('workspace'), tab: $('railtab'),
     preview: $('preview'), zoomHost: $('zoomctl'),
@@ -108,7 +126,7 @@ async function initCompose(hash){
         ? 'No questions yet — write one like “Weeks to migrate billing :: range weeks”.'
         : 'Start typing — or load an example.') + '</p>';
     } else if(view === 'form'){
-      out = '<div class="formpreview">' + renderForm(model) + '</div>';
+      out = '<div class="formpreview">' + renderForm(model, {editable: true}) + '</div>';
     } else {
       out = renderOverlay(model, sessionStats(model, sampleResponses(model)), ctx());
     }
