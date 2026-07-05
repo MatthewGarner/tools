@@ -81,7 +81,10 @@ export async function putResponse(kv, id, body, ip){
     if(typeof name !== 'string' || !name.trim() || name.trim().length > 40) return bad('name (1–40 chars) required in a named session');
     entry.name = name.trim();
   } else if(name !== undefined) return bad('this session is anonymous — no names accepted');
-  await kv.pipeline([['HSET', key(id), 'r:' + participantId, JSON.stringify(entry)]]);
+  /* EXPIRE rides along: keeps the window at one meeting-day from last activity
+     and self-heals a session whose create-time EXPIRE was lost mid-create */
+  await kv.pipeline([['HSET', key(id), 'r:' + participantId, JSON.stringify(entry)],
+    ['EXPIRE', key(id), TTL_SECONDS]]);
   return {status: 200, body: {ok: true}};
 }
 

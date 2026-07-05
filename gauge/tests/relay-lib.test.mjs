@@ -123,3 +123,15 @@ test('rate limit: writes over the per-minute cap get 429', async () => {
   const ok = await putResponse(kv, ID, {participantId: PID, values: [50, null]}, '8.8.8.8');
   assert.equal(ok.status, 200);   // per-IP, not global
 });
+
+test('response write re-arms the TTL — self-heals a session whose create-time EXPIRE was lost', async () => {
+  const kv = memoryKv();
+  /* simulate createSession dying between its two pipelines: meta exists, no expiry */
+  await kv.pipeline([['HSETNX', 'gauge:' + ID, 'meta',
+    JSON.stringify({keyHash: sha256hex(KEY), names: false, created: 1})]]);
+  await kv.pipeline([['HSET', 'gauge:' + ID, 'revealed', '0']]);
+  assert.equal(kv._store.get('gauge:' + ID).expiresAt, null);
+  const r = await putResponse(kv, ID, {participantId: PID, values: [50]}, 'ip');
+  assert.equal(r.status, 200);
+  assert.notEqual(kv._store.get('gauge:' + ID).expiresAt, null);
+});
