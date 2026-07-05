@@ -8,7 +8,7 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -59,8 +59,8 @@ function renderWarnings(){
     warns.appendChild(li);
   }
 }
-function activeRender(slide){
-  const ctx = {colors: themeColors(), measure, slide, dark: isDark()};
+function activeRender(slide, edit){
+  const ctx = {colors: themeColors(), measure, slide, dark: isDark(), edit};
   return view === 'ost' ? renderOst(model, projection, ctx) : renderMap(model, projection, ctx);
 }
 function doRefresh(){
@@ -75,7 +75,7 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
   } else {
     projection = project(model);
-    const svg = activeRender(false);
+    const svg = activeRender(false, true);
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
   }
   renderWarnings();
@@ -121,8 +121,33 @@ attachEditInPlace($('preview'), {
     astatus: {cycle: ASSUMPTION_CYCLE},
     label: {validate: eipValidators.label},
     title: {validate: eipValidators.label},   // map-view card titles are labels
+    'card-outcome':     {actions: [{label: '＋ Add opportunity'}, {label: 'Remove branch', danger: true}]},
+    'card-opportunity': {actions: [{label: '＋ Add solution'}, {label: 'Remove branch', danger: true}]},
+    'card-solution':    {actions: [{label: '＋ Add assumption'}, {label: 'Remove branch', danger: true}]},
+    removeassump: {cycle: ['×']},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
+    if(kind.startsWith('card-')){
+      if(newValue.startsWith('✖＋ Add')){
+        const r = childLineFor(editor.getText(), lineNo);
+        if(!r) return;
+        editor.insertLinesAfter(r.afterLine, [r.newLine]);
+        const ln = editor.view.state.doc.line(r.afterLine + 2);
+        const from = ln.from + r.newLine.indexOf(r.select);
+        editor.view.dispatch({selection: {anchor: from, head: from + r.select.length}});
+        editor.view.focus();
+      } else if(newValue === '✖Remove branch'){
+        const rr = subtreeRange(editor.getText(), lineNo);
+        if(rr) editor.removeLines(rr.from, rr.to);
+      }
+      return;
+    }
+    if(kind === 'removeassump'){
+      if(!editor.getLine(lineNo).trim().startsWith('?')) return;
+      const rr = subtreeRange(editor.getText(), lineNo);
+      if(rr) editor.removeLines(rr.from, rr.to);
+      return;
+    }
     const apply = kind === 'status' || kind === 'astatus' ? eipApplies.status : eipApplies.label;
     const line = editor.getLine(lineNo);
     const newLine = apply(line, oldRaw, newValue);

@@ -22,7 +22,7 @@ const STATUS_LABEL = {candidate: 'Candidate', testing: 'Testing', delivering: 'D
 
 
 export function renderOst(model, projection, ctx){
-  const {measure, slide = false, dark = false} = ctx;
+  const {measure, slide = false, dark = false, edit = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -89,7 +89,10 @@ export function renderOst(model, projection, ctx){
     const unaddressed = projection.ost.unaddressed.has(node);
     if(dimmed) s.push('<g opacity="' + T.dimOp + '">');
     const isOutcome = node.kind === 'outcome';
-    s.push('<rect data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
+    /* edit-gated: the card body is a popover target (add child / remove branch) */
+    const cardEip = edit ? ' data-edit="card-' + node.kind + '" data-raw=""' +
+      ' role="button" aria-label="' + esc(node.label) + ' — add or remove"' : '';
+    s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
       '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
@@ -118,6 +121,14 @@ export function renderOst(model, projection, ctx){
       s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
         '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
         '" fill="' + col + '">' + esc(ASSUMP_GLYPH[a.status] + ' ' + a.label) + '</text>');
+      if(edit){   /* one-click remove just past the row text (map's × idiom) */
+        const rowW = measure(ASSUMP_GLYPH[a.status] + ' ' + a.label, T.assumpSize*S + 'px ' + F.body);
+        const xx = Math.min(x + T.cardPadX*S + rowW + 8*S, x + (T.cardW - T.cardPadX)*S);
+        s.push('<text data-edit="removeassump" data-line="' + a.srcLine + '" data-raw="" role="button"' +
+          ' aria-label="Remove assumption ' + esc(a.label) + '" x="' + xx +
+          '" y="' + ty + '" text-anchor="end" font-size="' + T.assumpSize*S +
+          '" fill="' + C.muted + '">×</text>');
+      }
       ty += T.assumpLh*S;
     }
     if(dimmed) s.push('</g>');
