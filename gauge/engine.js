@@ -60,3 +60,54 @@ export function probStats(answers){
   }
   return {kind, n, rows, median, spread, gap, camps, headline, discuss: kind !== 'agreement'};
 }
+
+export function sessionStats(model, responses){
+  return model.questions.map((q, i) => {
+    const answers = [];
+    for(const r of responses){
+      const v = r.values[i];
+      if(v == null) continue;
+      if(q.type === 'range' && Array.isArray(v)) answers.push({low: v[0], high: v[1], name: r.name});
+      else if(q.type === 'prob' && typeof v === 'number') answers.push({value: v, name: r.name});
+    }
+    const s = q.type === 'range' ? rangeStats(answers) : probStats(answers);
+    return {...s, question: q};
+  });
+}
+
+export function verdict(stats){
+  const scored = stats.map((s, i) => ({s, i})).filter(x => x.s.kind !== 'empty' && x.s.kind !== 'single');
+  if(scored.length < 2) return '';
+  const discuss = scored.filter(x => x.s.discuss);
+  if(!discuss.length) return 'Broad agreement across all ' + scored.length + ' items.';
+  if(discuss.length === scored.length) return 'No consensus anywhere — every item is worth discussion.';
+  const refs = discuss.map(x => '#' + (x.i + 1));
+  const list = refs.length === 1 ? refs[0] : refs.slice(0, -1).join(', ') + ' and ' + refs[refs.length - 1];
+  return 'Broad agreement on ' + (scored.length - discuss.length) + ' of ' + scored.length +
+    ' items; discuss ' + list + '.';
+}
+
+export function markdownSummary(model, stats){
+  const out = ['# ' + (model.title || 'Gauge session'), ''];
+  const v = verdict(stats);
+  if(v) out.push('**' + v + '**', '');
+  stats.forEach((s, i) => {
+    const q = s.question;
+    out.push('## ' + (i + 1) + '. ' + q.text, '', s.headline, '');
+    if(s.kind === 'empty' || s.kind === 'single'){ out.push('- ' + s.n + ' response(s)', ''); return; }
+    if(q.type === 'prob'){
+      out.push('- ' + s.n + ' responses · median ' + pct(s.median) +
+        ' · spread ' + pct(s.rows[0].value) + '–' + pct(s.rows[s.n - 1].value));
+      if(s.camps) out.push('- camps: ' + s.camps.lo.n + ' near ' + pct(s.camps.lo.center) +
+        ', ' + s.camps.hi.n + ' near ' + pct(s.camps.hi.center));
+    } else {
+      const u = q.unit ? ' ' + q.unit : '';
+      out.push('- ' + s.n + ' responses · pooled ' + s.pooled.lo + '–' + s.pooled.hi + u +
+        ' · median interval width ' + s.medianWidth + u);
+      out.push(s.overlap ? '- common ground: ' + s.overlap.lo + '–' + s.overlap.hi + u
+        : '- no value everyone believes');
+    }
+    out.push('');
+  });
+  return out.join('\n').trim() + '\n';
+}

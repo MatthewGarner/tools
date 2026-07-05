@@ -97,3 +97,60 @@ test('prob tiny-n', () => {
   assert.equal(probStats([]).kind, 'empty');
   assert.equal(probStats([{value: 50}]).kind, 'single');
 });
+
+/* ---- session-level ---- */
+import {sessionStats, verdict, markdownSummary} from '../engine.js';
+import {parse} from '../parse.js';
+
+const MODEL = parse('title: T\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
+const RESP = [
+  {values: [80, [4, 8]], name: 'Ana'},
+  {values: [70, [5, 9]], name: 'Ben'},
+  {values: [65, [3, 7]], name: 'Cy'},
+  {values: [null, [5, 8]], name: 'Di'},
+];
+
+test('sessionStats aligns answers to questions and skips nulls', () => {
+  const st = sessionStats(MODEL, RESP);
+  assert.equal(st.length, 2);
+  assert.equal(st[0].question.type, 'prob');
+  assert.equal(st[0].n, 3);           // Di skipped the prob
+  assert.equal(st[1].n, 4);
+  assert.equal(st[1].rows[0].name, 'Cy');   // names carried into rows
+});
+
+test('sessionStats ignores mis-shaped entries rather than throwing', () => {
+  const st = sessionStats(MODEL, [{values: [[1, 2], 50]}]);   // swapped shapes
+  assert.equal(st[0].n, 0);
+  assert.equal(st[1].n, 0);
+});
+
+test('verdict counts and names the discuss items', () => {
+  const model = parse('A :: prob\nB :: prob\nC :: prob');
+  const agree = [{value: 50}, {value: 55}, {value: 52}, {value: 58}];
+  const split = [{value: 10}, {value: 15}, {value: 85}, {value: 90}];
+  const st = sessionStats(model, [0, 1, 2, 3].map(i =>
+    ({values: [agree[i].value, split[i].value, agree[i].value]})));
+  assert.equal(verdict(st), 'Broad agreement on 2 of 3 items; discuss #2.');
+});
+
+test('verdict edge wordings', () => {
+  const model = parse('A :: prob\nB :: prob');
+  const agree = i => [50, 52, 55, 51][i];
+  const stAll = sessionStats(model, [0, 1, 2, 3].map(i => ({values: [agree(i), agree(i)]})));
+  assert.equal(verdict(stAll), 'Broad agreement across all 2 items.');
+  const split = i => [10, 12, 88, 90][i];
+  const stNone = sessionStats(model, [0, 1, 2, 3].map(i => ({values: [split(i), split(i)]})));
+  assert.equal(verdict(stNone), 'No consensus anywhere — every item is worth discussion.');
+  assert.equal(verdict(sessionStats(parse('A :: prob'), [{values: [50]}])), '');
+});
+
+test('markdownSummary carries title, verdict, headlines, numbers', () => {
+  const st = sessionStats(MODEL, RESP);
+  const md = markdownSummary(MODEL, st);
+  assert.ok(md.startsWith('# T'));
+  assert.ok(md.includes('## 1. Ship by Q3'));
+  assert.ok(md.includes(st[0].headline));
+  assert.ok(md.includes('median'));
+  assert.ok(md.includes('weeks'));
+});
