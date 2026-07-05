@@ -137,7 +137,12 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       qEl.classList.toggle('haserr', !!err);
     }
   }
-  const say = msg => { $('pstatus').textContent = msg; };
+  const say = (msg, tone) => {
+    const el = $('pstatus');
+    el.textContent = msg;
+    el.classList.toggle('ok', tone === 'ok');
+    el.classList.toggle('err', tone === 'err');
+  };
 
   $('psubmit').addEventListener('click', async () => {
     const {values, errors, answered} = collectValues(model, readFields());
@@ -159,13 +164,18 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       }
       payload.name = name;
     }
-    $('psubmit').disabled = true;
+    const btn = $('psubmit');
+    btn.disabled = true;
     const r = await relay.submit(id, payload);
-    $('psubmit').disabled = false;
-    if(r.ok) say('Submitted — you can edit your answers until the facilitator reveals.');
-    else if(r.status === 409) say('The facilitator has revealed — responses are locked. View results below.');
-    else if(r.status === 404) say(ENDED);
-    else say("Couldn't submit — nothing was lost. Check your connection and press Submit again.");
+    btn.disabled = false;
+    if(r.ok){
+      say('✓ Submitted — you can edit your answers until the facilitator reveals.', 'ok');
+      btn.textContent = '✓ Submitted';
+      setTimeout(() => { btn.textContent = 'Update answers'; }, 1600);
+    }
+    else if(r.status === 409) say('The facilitator has revealed — responses are locked. View results below.', 'err');
+    else if(r.status === 404) say(ENDED, 'err');
+    else say("Couldn't submit — nothing was lost. Check your connection and press Submit again.", 'err');
   });
 
   /* single on-demand GET — participants never poll */

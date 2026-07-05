@@ -41,6 +41,8 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}
 .errline{color:var(--err);font-size:13px;margin:10px 0 0}
 .statusline{color:var(--muted);font-size:13.5px;margin:14px 0 6px}
+.statusline.ok{color:var(--st-done);font-size:15px;font-weight:600}
+.statusline.err{color:var(--err)}
 .viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:999px;
   overflow:hidden;margin-bottom:12px}
 .viewtoggle button{border:none;background:none;color:var(--muted);cursor:pointer;
@@ -95,6 +97,11 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)}
 footer a:hover{color:var(--accent-ink)}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
+/* iOS zooms into any focused input under 16px — keep form inputs at 16px on small screens */
+@media (max-width:700px){
+  .rangerow input[type=number],.namefield input{font-size:16px}
+  .linkrow input{font-size:16px}
+}
 @media (prefers-reduced-motion: no-preference){
   .chip,.btn{transition:border-color .15s,color .15s}
 }
