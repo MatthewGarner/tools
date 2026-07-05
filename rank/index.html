@@ -33,6 +33,10 @@
   input,select{font-family:inherit;color:var(--ink);background:var(--bg);
     border:1px solid var(--border);border-radius:6px}
   input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* numeric cells type like text — no native steppers crowding the table */
+  input[type=number]{-moz-appearance:textfield;appearance:textfield}
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
   table{border-collapse:collapse;width:100%}
   /* scroll affordance: edge shadows appear only when more table sits off-screen */
   .tblwrap{overflow-x:auto;

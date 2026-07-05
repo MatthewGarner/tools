@@ -63,6 +63,7 @@ export function wireFormEvents(root){
     const el = e.target;
     if(el.matches && el.matches('input[data-part="prob"]')){
       el.dataset.touched = '1';
+      el.style.setProperty('--fill', el.value + '%');
       el.parentElement.querySelector('.probout').textContent = el.value + '%';
     }
   });
