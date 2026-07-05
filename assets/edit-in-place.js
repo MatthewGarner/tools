@@ -1,7 +1,8 @@
 /* Edit-in-place: interactions on the rendered diagram become text edits.
    attach(preview, {kinds, onCommit}) — kinds: {kindName: {validate(v), placeholder?}};
    editable elements carry data-edit (kind), data-line (source line), data-raw
-   (exact source component, pre-filled). Commit calls onCommit(kind, line, raw, value);
+   (exact source component, pre-filled). Commit calls onCommit(kind, line, raw, value, el)
+   — el is the clicked element, for apps whose targets carry extra data- payload;
    the app owns the line rewrite + editor dispatch (undoable). */
 
 export function attachEditInPlace(preview, {kinds, onCommit}){
@@ -23,7 +24,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     /* cycle kinds commit immediately: click steps to the next value */
     if(spec.cycle){
       const i = spec.cycle.indexOf(raw);
-      onCommit(kind, +el.dataset.line, raw, spec.cycle[(i + 1 + spec.cycle.length) % spec.cycle.length]);
+      onCommit(kind, +el.dataset.line, raw, spec.cycle[(i + 1 + spec.cycle.length) % spec.cycle.length], el);
       return;
     }
     /* choice kinds open a popover menu */
@@ -39,7 +40,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         b.addEventListener('click', () => {
           const line = +el.dataset.line;
           close();
-          if(opt !== raw) onCommit(kind, line, raw, opt);
+          if(opt !== raw) onCommit(kind, line, raw, opt, el);
         });
         pop.appendChild(b);
       }
@@ -76,7 +77,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       }
       const line = +el.dataset.line;
       close();
-      onCommit(kind, line, el.dataset.raw || '', v.trim());
+      onCommit(kind, line, el.dataset.raw || '', v.trim(), el);
     };
     input.addEventListener('keydown', e => {
       if(e.key === 'Enter'){ e.preventDefault(); commit(); }
@@ -90,6 +91,10 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     const el = e.target.closest && e.target.closest('[data-edit]');
     if(el && preview.contains(el)){ e.preventDefault(); open(el); }
   });
-  window.addEventListener('scroll', close, true);
+  /* page scrolls close the editor; scrolls INSIDE it (select() on an
+     overflowing prefill scrolls the input's own content) must not */
+  window.addEventListener('scroll', e => {
+    if(active && e.target !== active.input) close();
+  }, true);
   return {close};
 }
