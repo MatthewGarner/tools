@@ -7,7 +7,7 @@ import {createEditor} from './editor.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from './exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
-import {measure, themeColors} from '../assets/app-common.js';
+import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
 
 const $ = id => document.getElementById(id);
@@ -179,9 +179,7 @@ function initCompose(hash){
 
   /* theme */
   function rerender(){ lastOut = ''; refresh(); }
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
-  new MutationObserver(rerender).observe(document.documentElement,
-    {attributes: true, attributeFilter: ['data-theme']});
+  onThemeChange(rerender);
 
   /* boot */
   let text = hash && typeof hash.t === 'string' ? hash.t : '';

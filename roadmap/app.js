@@ -1,4 +1,5 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
+import {onThemeChange} from '../assets/app-common.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -580,8 +581,7 @@ window.addEventListener('keydown', e => {
 
 /* ---------- theme change → re-render ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
-new MutationObserver(rerender).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+onThemeChange(rerender);
 
 /* ---------- boot: hash > localStorage > empty ---------- */
 (function(){
