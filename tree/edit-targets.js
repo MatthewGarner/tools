@@ -1,6 +1,6 @@
 /* Pure line rewrites for edit-in-place on the tree diagram. No DOM.
    Each apply() replaces exactly one component of one source line. */
-import {parseMoney} from './parse.js';
+import {parse, parseMoney} from './parse.js';
 
 export const validators = {
   prob(v){
@@ -15,6 +15,63 @@ export const validators = {
     return s.length > 0 && !/[[\]\n]/.test(s) && !s.startsWith('?');
   },
 };
+
+/* ---- add/remove branches (S1 shared mechanics) ---- */
+
+const lineIndent = raw => raw.replace(/\t/g, '  ').match(/^ */)[0].length;
+
+/* A node's source lines: itself plus every deeper-indented line below it.
+   Blank/comment lines inside the subtree ride along; trailing ones do not. */
+export function subtreeRange(text, srcLine){
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return null;
+  const t = lines[srcLine].trim();
+  if(!t || t.startsWith('//')) return null;
+  const base = lineIndent(lines[srcLine]);
+  let to = srcLine;
+  for(let i = srcLine + 1; i < lines.length; i++){
+    const s = lines[i].trim();
+    if(!s || s.startsWith('//')) continue;
+    if(lineIndent(lines[i]) <= base) break;
+    to = i;
+  }
+  return {from: srcLine, to};
+}
+
+function findNode(node, srcLine){
+  if(!node.implicit && node.srcLine === srcLine) return node;
+  for(const c of node.children){
+    const f = findNode(c, srcLine);
+    if(f) return f;
+  }
+  return null;
+}
+
+/* The line a "＋ Add option / outcome" popover action inserts: sensible child
+   for the node's kind, at child indent, after the node's whole subtree.
+   `select` is the placeholder the editor highlights for immediate rename. */
+export function childLineFor(text, srcLine){
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0){   /* implicit root: a new top-level option */
+    let last = lines.length - 1;
+    while(last > 0 && !lines[last].trim()) last--;
+    return {afterLine: last, newLine: 'New option: 0', select: 'New option'};
+  }
+  const model = parse(text);
+  if(!model.root) return null;
+  const node = findNode(model.root, srcLine);
+  if(!node) return null;
+  const indent = ' '.repeat(lineIndent(lines[srcLine]) + 2);
+  let newLine, select;
+  if(node.kind === 'decision'){
+    newLine = indent + 'New option: 0'; select = 'New option';
+  } else {   /* chance — or a leaf growing its first outcome */
+    const hasRest = node.children.some(c => c.p === 'rest' || c.pRaw === 'rest');
+    newLine = indent + 'New outcome (p=' + (hasRest ? '0.1' : 'rest') + '): 0';
+    select = 'New outcome';
+  }
+  return {afterLine: subtreeRange(text, srcLine).to, newLine, select};
+}
 
 export const applies = {
   prob(line, _oldRaw, newRaw){

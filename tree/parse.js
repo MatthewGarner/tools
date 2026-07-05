@@ -99,7 +99,7 @@ export function parse(text){
 
   if(tops.length === 0) return model;   // root stays null; app shows placeholder
   model.root = tops.length === 1 ? tops[0]
-    : {label: 'Decision', kind: 'leaf', value: null, p: null, children: tops, srcLine: tops[0].srcLine};
+    : {label: 'Decision', kind: 'leaf', value: null, p: null, children: tops, srcLine: tops[0].srcLine, implicit: true};
 
   /* post-pass: kinds, rest inference, warnings */
   (function finalise(node){

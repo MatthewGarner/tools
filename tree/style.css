@@ -53,3 +53,7 @@ footer a:hover{color:var(--accent-ink)}
 @media (prefers-reduced-motion: no-preference){
   .chip,.btn{transition:border-color .15s,color .15s}
 }
+
+/* node markers are popover targets (add child / remove branch) in edit mode */
+.preview svg [data-edit^="node-"]{cursor:pointer}
+.preview svg [data-edit^="node-"]:hover{fill:var(--accent);fill-opacity:.12}

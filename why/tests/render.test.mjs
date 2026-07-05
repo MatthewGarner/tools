@@ -66,7 +66,10 @@ test('ost view: cards, status pills, assumption glyphs, dashed unaddressed', () 
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
   assert.ok(svg.includes('DELIVERING') && svg.includes('TESTING'));
-  assert.ok(svg.includes('? users want to be interrupted'));
+  /* long assumptions wrap inside the card instead of overflowing it */
+  assert.ok(svg.includes('? users want to'));
+  assert.ok(svg.includes('be interrupted'));
+  assert.ok(!svg.includes('>? users want to be interrupted<'), 'row wrapped, not overflowing');
   assert.ok(svg.includes('✓ freezes reduce churn'));
   assert.ok(svg.includes('stroke-dasharray'), 'unaddressed opportunity dashed');
 });

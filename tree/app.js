@@ -5,9 +5,9 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
-import {initWorkspace} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators, applies} from './edit-targets.js';
+import {validators, applies, subtreeRange, childLineFor} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -63,10 +63,11 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
   } else {
     results = evaluate(model);
-    const svg = render(model, results, {colors: themeColors(), measure, dark: isDark()});
+    const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true});
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
   }
   renderWarnings();
+  setActionsEnabled(!!lastSvg);
   try{ localStorage.setItem('tree-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
@@ -96,8 +97,27 @@ attachEditInPlace($('preview'), {
     prob: {validate: validators.prob},
     value: {validate: validators.value},
     label: {validate: validators.label},
+    'node-decision': {actions: [{label: '＋ Add option'}, {label: 'Remove branch', danger: true}]},
+    'node-chance':   {actions: [{label: '＋ Add outcome'}, {label: 'Remove branch', danger: true}]},
+    'node-leaf':     {actions: [{label: '＋ Add outcome'}, {label: 'Remove', danger: true}]},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
+    if(kind.startsWith('node-')){
+      if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
+        const r = childLineFor(editor.getText(), lineNo);
+        if(!r) return;
+        editor.insertLinesAfter(r.afterLine, [r.newLine]);
+        const ln = editor.view.state.doc.line(r.afterLine + 2);
+        const from = ln.from + r.newLine.indexOf(r.select);
+        editor.view.dispatch({selection: {anchor: from, head: from + r.select.length}});
+        editor.view.focus();
+      } else if(newValue === '✖Remove branch' || newValue === '✖Remove'){
+        if(lineNo < 0) return;   // implicit root has no line of its own
+        const rr = subtreeRange(editor.getText(), lineNo);
+        if(rr) editor.removeLines(rr.from, rr.to);
+      }
+      return;
+    }
     const line = editor.getLine(lineNo);
     const newLine = applies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);

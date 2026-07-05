@@ -53,6 +53,37 @@ check('label rename lands in text and diagram',
   (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Walk away') &&
   (await page.locator('#preview svg').innerHTML()).includes('Walk away'));
 
+/* node popovers: add a child branch, remove a subtree, one undo restores it */
+{
+  const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const dec = page.locator('[data-edit="node-decision"]').first();
+  const b = await dec.boundingBox();
+  await page.mouse.click(b.x + b.width/2, b.y + b.height/2);
+  await page.waitForTimeout(200);
+  check('tree: node popover opens with add + remove',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option|Remove branch');
+  await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
+  await page.waitForTimeout(600);
+  check('tree: add inserts a child option', (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('New option: 0'));
+  await page.keyboard.type('Renamed inline');   // placeholder is pre-selected in the editor
+  await page.waitForTimeout(600);
+  check('tree: placeholder pre-selected for rename',
+    (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Renamed inline: 0'));
+  const chance = page.locator('[data-edit="node-chance"]').first();
+  const cb = await chance.boundingBox();
+  await page.mouse.click(cb.x + cb.width/2, cb.y + cb.height/2);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Remove branch'}).click();
+  await page.waitForTimeout(600);
+  const tRm = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: remove branch drops the whole subtree', !tRm.includes('Win') && !tRm.includes('Lose'));
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Meta+z');
+  await page.waitForTimeout(500);
+  check('tree: one undo restores the subtree',
+    (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Lose'));
+}
+
 check('no page errors', errors.length === 0);
 
 /* ---- why: popover status + cycle assumption ---- */
@@ -75,6 +106,39 @@ check('no page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const t2 = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why: assumption cycles untested→testing', t2.includes('? users will invite friends [testing]'));
+
+  /* card popovers: add a child, remove a branch; × removes an assumption */
+  const opp = p.locator('[data-edit="card-opportunity"]').first();
+  const ob = await opp.boundingBox();
+  await p.mouse.click(ob.x + 6, ob.y + ob.height - 5);   // card padding, off the label text
+  await p.waitForTimeout(200);
+  check('why: opportunity card popover opens',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add solution|Remove branch');
+  await p.locator('.eip-pop button', {hasText: 'Add solution'}).click();
+  await p.waitForTimeout(600);
+  const t3 = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: add solution inserts a candidate line', t3.includes('New solution [candidate]'));
+  const ax = p.locator('[data-edit="removeassump"]').first();
+  const ab = await ax.boundingBox();
+  await p.mouse.click(ab.x + ab.width/2, ab.y + ab.height/2);
+  await p.waitForTimeout(600);
+  const t4 = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: assumption × removes its line', t4.split('\n').length === t3.split('\n').length - 1);
+  const sol = p.locator('[data-edit="card-solution"]').first();
+  const sb = await sol.boundingBox();
+  await p.mouse.click(sb.x + 6, sb.y + sb.height - 5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const t5 = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: card Remove branch drops the solution', !t5.includes('Smart reminders'));
+  check('why: export render has no edit affordances', await p.evaluate(async () => {
+    const [{parse}, {project}, {renderOst}] = await Promise.all([
+      import('/why/parse.js'), import('/why/project.js'), import('/why/render-ost.js')]);
+    const m = parse(localStorage.getItem('why-src'));
+    const svg = renderOst(m, project(m), {colors: {}, measure: () => 50, dark: false});
+    return !svg.includes('card-') && !svg.includes('removeassump');
+  }));
   check('why: no page errors', errs.length === 0);
   await p.close();
 }

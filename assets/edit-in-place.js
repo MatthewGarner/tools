@@ -27,13 +27,13 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       onCommit(kind, +el.dataset.line, raw, spec.cycle[(i + 1 + spec.cycle.length) % spec.cycle.length], el);
       return;
     }
-    /* choice kinds open a popover menu */
-    if(spec.options){
+    /* choice kinds open a popover menu (options, actions, or both) */
+    if(spec.options || spec.actions){
       const pop = document.createElement('div');
       pop.className = 'eip-pop';
       pop.style.left = rect.left + 'px';
       pop.style.top = (rect.bottom + 4) + 'px';
-      for(const opt of spec.options){
+      for(const opt of spec.options || []){
         const b = document.createElement('button');
         b.textContent = opt;
         if(opt === raw) b.classList.add('on');
@@ -44,19 +44,23 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         });
         pop.appendChild(b);
       }
-      /* action rows (e.g. Remove) commit a '✖'-prefixed sentinel the app maps to a rewrite */
-      if(spec.actions){
-        const sep = document.createElement('div');
-        sep.className = 'eip-sep';
-        pop.appendChild(sep);
-        for(const label of spec.actions){
+      /* action rows (e.g. Remove) commit a '✖'-prefixed sentinel the app maps
+         to a rewrite; a bare string is a danger row, {label, danger} spells it out */
+      if(spec.actions && spec.actions.length){
+        if(spec.options && spec.options.length){
+          const sep = document.createElement('div');
+          sep.className = 'eip-sep';
+          pop.appendChild(sep);
+        }
+        for(const a of spec.actions){
+          const act = typeof a === 'string' ? {label: a, danger: true} : a;
           const b = document.createElement('button');
-          b.textContent = label;
-          b.classList.add('danger');
+          b.textContent = act.label;
+          if(act.danger) b.classList.add('danger');
           b.addEventListener('click', () => {
             const line = +el.dataset.line;
             close();
-            onCommit(kind, line, raw, '✖' + label, el);
+            onCommit(kind, line, raw, '✖' + act.label, el);
           });
           pop.appendChild(b);
         }

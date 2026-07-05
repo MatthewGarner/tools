@@ -40,10 +40,34 @@ export function genHorizons(spec){
   return out;
 }
 
+/* edit distance ≤ 1 (one substitution, insertion, or deletion) — enough to
+   catch header typos like NOWW or Q3 2027 without fuzzy-matching real items */
+function near(a, b){
+  a = a.toLowerCase(); b = b.toLowerCase();
+  if(a === b) return true;
+  const [s, t] = a.length <= b.length ? [a, b] : [b, a];
+  if(t.length - s.length > 1) return false;
+  if(s.length === t.length){
+    let diff = 0;
+    for(let i = 0; i < s.length; i++) if(s[i] !== t[i]) diff++;
+    return diff <= 1;
+  }
+  let i = 0, j = 0, skipped = false;
+  while(i < s.length && j < t.length){
+    if(s[i] === t[j]){ i++; j++; }
+    else if(!skipped){ skipped = true; j++; }
+    else return false;
+  }
+  return true;
+}
+
+const snippet = s => '"' + s.slice(0, 30) + (s.length > 30 ? '…' : '') + '"';
+
 export function parse(text){
   const model = {title:'', dateStr:null, horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null};
   let currentH = -1;
+  const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
   for(let ln = 0; ln < lines.length; ln++){
     let line = lines[ln].trim();
@@ -82,9 +106,20 @@ export function parse(text){
     const hIdx = model.horizons.findIndex(h => h.toLowerCase() === asHeader.toLowerCase());
     if(hIdx >= 0){ currentH = hIdx; continue; }
 
+    /* near-miss header: a typo here silently misfiles everything below it, so
+       flag it — but only where header intent is clear (before the first real
+       header, or written with a trailing colon), never for ordinary items */
+    const hNear = model.horizons.find(h => near(asHeader, h));
+    if(hNear && (currentH < 0 || /:$/.test(line))){
+      model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + hNear + '"? — skipped');
+      continue;
+    }
+
     /* item line */
     if(currentH < 0){
-      model.warnings.push('line ' + (ln+1) + ': "' + line.slice(0, 30) + '…" appears before any horizon header (' + model.horizons.join(' / ') + ') — skipped');
+      const ck = line.match(/^(title|date|horizons|wip|fade|palette|accent)\s+\S/i);
+      if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
+      else preHeader.push(ln + 1);
       continue;
     }
     let lane = '';
@@ -110,6 +145,14 @@ export function parse(text){
     if(!line) continue;
     if(!model.lanes.includes(lane)) model.lanes.push(lane);
     model.items.push({lane, h: currentH, title: line, note, status, url, srcLine: ln});
+  }
+  if(preHeader.length === 1){
+    const n = preHeader[0];
+    model.warnings.push('line ' + n + ': ' + snippet(lines[n - 1].trim()) +
+      ' appears before any horizon header (' + model.horizons.join(' / ') + ') — skipped');
+  } else if(preHeader.length > 1){
+    model.warnings.push('lines ' + preHeader[0] + '–' + preHeader[preHeader.length - 1] + ': ' +
+      preHeader.length + ' lines appear before any horizon header (' + model.horizons.join(' / ') + ') — skipped');
   }
   /* unnamed lane renders last */
   if(model.lanes.includes('') && model.lanes.length > 1){
