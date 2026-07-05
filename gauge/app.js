@@ -3,7 +3,6 @@ import {parse} from './parse.js';
 import {sessionStats, markdownSummary} from './engine.js';
 import {renderForm} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
-import {createEditor} from './editor.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from './exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
@@ -69,9 +68,11 @@ export function wireFormEvents(root){
   });
 }
 
-function initCompose(hash){
+async function initCompose(hash){
   let model = null, view = 'form', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
 
+  /* participants never see the editor — only compose mode pays for CodeMirror */
+  const {createEditor} = await import('./editor.js');
   const editor = createEditor({
     parent: $('cmhost'),
     doc: '',
