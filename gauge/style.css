@@ -35,7 +35,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
 .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600;min-height:44px;padding:10px 22px}
 .btn.primary:hover{color:var(--card);opacity:.92}
 .btn:disabled{opacity:.45;cursor:default}
 .btn.danger:hover{border-color:var(--err);color:var(--err)}

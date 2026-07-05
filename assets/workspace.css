@@ -67,6 +67,18 @@ footer{margin: 48px 0 8px}
   .railtab{display: none}
 }
 
+/* Fingers get full-size controls; mouse pointers keep the compact look. */
+@media (pointer: coarse){
+  .chip, .btn, .viewtoggle button{min-height: 44px; display: inline-flex; align-items: center}
+  .zoomctl button{padding: 13px 15px; font-size: 13px}
+  .eip-pop button{padding: 12px 12px}
+}
+/* phones are for viewing and zooming: the zoom control gets the full row */
+@media (max-width: 900px) and (pointer: coarse){
+  .zoomctl{display: flex; width: 100%}
+  .zoomctl button{flex: 1 1 auto}
+}
+
 /* edit-in-place overlay */
 [data-edit]{cursor: text}
 [data-edit]:hover{text-decoration: underline; text-decoration-style: dotted}

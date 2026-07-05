@@ -128,6 +128,12 @@
   @media (prefers-reduced-motion: no-preference){
     .chip,.btn{transition:border-color .15s,color .15s}
   }
+
+  /* fingers get full-size controls */
+  @media (pointer: coarse){
+    .chip,.btn{min-height:44px;display:inline-flex;align-items:center}
+    td .del{min-width:40px;min-height:40px}
+  }
 </style>
 
 <div class="wrap">

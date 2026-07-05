@@ -170,6 +170,11 @@
   @media (prefers-reduced-motion: no-preference){
     .chip,.srow .bar,#copy{transition:border-color .15s,color .15s,width .3s}
   }
+
+  /* fingers get full-size controls */
+  @media (pointer: coarse){
+    .chip,.btn,.tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
+  }
 </style>
 
 <div class="wrap">
