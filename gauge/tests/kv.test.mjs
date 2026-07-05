@@ -37,6 +37,13 @@ test('memoryKv: INCR counts and expires', async () => {
   assert.deepEqual(await kv.pipeline([['INCR', 'rl']]), [1]);
 });
 
+test('memoryKv: DEL removes the key', async () => {
+  const kv = memoryKv();
+  await kv.pipeline([['HSET', 'k', 'f', 'v']]);
+  assert.deepEqual(await kv.pipeline([['DEL', 'k']]), [1]);
+  assert.deepEqual(await kv.pipeline([['HGETALL', 'k'], ['DEL', 'k']]), [[], 0]);
+});
+
 test('upstashKv: pipelines to REST endpoint with bearer token', async () => {
   const calls = [];
   globalThis.fetch = async (url, opts) => {

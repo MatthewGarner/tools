@@ -106,6 +106,32 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     getMarkdown: () => responses ? markdownSummary(model, sessionStats(model, responses)) : null,
     slug: () => slugOf(model),
   });
+
+  /* end session early: same two-step arm; deletes the relay entry, exports stay usable */
+  let endArmed = false, endTimer = null;
+  $('cend').addEventListener('click', async () => {
+    if(!endArmed){
+      endArmed = true;
+      $('cend').textContent = 'Click again to delete responses';
+      endTimer = setTimeout(() => {
+        endArmed = false;
+        $('cend').textContent = 'End session now';
+      }, 4000);
+      return;
+    }
+    clearTimeout(endTimer);
+    const r = await relay.end(id, key);
+    if(!r.ok && r.status !== 404){
+      endArmed = false;
+      $('cend').textContent = 'End session now';
+      $('cstate').textContent = "Couldn't end the session — try again.";
+      return;
+    }
+    $('cend').disabled = true;
+    $('cend').textContent = 'Session ended';
+    $('cstate').textContent = 'Responses deleted from the relay — exports still work from this tab.';
+  });
+
   onThemeChange(() => { if(responses) showOverlay($('coverlay'), model, responses, ctx); });
 }
 

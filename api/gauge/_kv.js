@@ -75,6 +75,9 @@ export function memoryKv(now = Date.now){
         e.fields.set('#', String(v));
         return v;
       }
+      case 'DEL': {
+        return live(key) ? (store.delete(key), 1) : 0;
+      }
       default: throw new Error('memoryKv: unsupported ' + cmd);
     }
   }

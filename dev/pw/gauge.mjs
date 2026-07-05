@@ -92,6 +92,16 @@ try{
   await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
 
+  /* facilitator ends the session early: relay entry deleted, exports keep working */
+  await pageF.locator('#cend').click();
+  await pageF.locator('#cend').click();
+  await pageF.waitForFunction(() => document.getElementById('cend').textContent === 'Session ended');
+  check('facilitator: end session deletes relay entry', true);
+  await A.page.locator('#pview').click();
+  await A.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('ended'));
+  check('participant: view after end says session ended', true);
+  check('facilitator: exports still offered after end', await pageF.locator('#cexports').isVisible());
+
   check('no console errors (facilitator)', errF.length === 0);
   check('no console errors (participant A)', A.errors.length === 0);
   check('no console errors (participant B)', B.errors.length === 0);

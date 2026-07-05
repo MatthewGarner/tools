@@ -106,3 +106,15 @@ export async function reveal(kv, id, body){
   return {status: 200, body: {count: s.entries.length, answered: s.answered,
     revealed: true, names: s.meta.names, responses: s.entries}};
 }
+
+/* Facilitator-initiated early delete: shrinks the response-exposure window
+   from the 24h TTL to the meeting itself. Questions never were here. */
+export async function endSession(kv, id, body){
+  if(!ID_RE.test(String(id))) return bad('id');
+  if(!body || !ID_RE.test(String(body.key))) return bad('key');
+  const [metaRaw] = await kv.pipeline([['HGET', key(id), 'meta']]);
+  if(!metaRaw) return gone;
+  if(sha256hex(body.key) !== JSON.parse(metaRaw).keyHash) return {status: 403, body: {error: 'bad facilitator key'}};
+  await kv.pipeline([['DEL', key(id)]]);
+  return {status: 200, body: {ok: true}};
+}
