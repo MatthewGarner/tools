@@ -83,6 +83,28 @@ test('nudge separates overlapping boxes deterministically and clamps to bounds',
   assert.deepEqual(nudge([{x:5, y:5, w:10, h:10}], 0, 0, 100, 100), [{x:5, y:5, w:10, h:10}]);
 });
 
+test('nudge: fixed obstacles never move; free boxes move off them', () => {
+  const boxes = [{x:10, y:10, w:60, h:20, fixed:true}, {x:12, y:12, w:60, h:20}];
+  const out = nudge(boxes, 0, 0, 200, 100);
+  assert.deepEqual({x: out[0].x, y: out[0].y}, {x:10, y:10});   // fixed unchanged
+  const [a, b] = out;
+  const overlap = Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) &&
+                  Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
+  assert.ok(!overlap);
+});
+
+test('zone labels are nudge obstacles: a card authored on a zone label moves off it', () => {
+  /* futures: cell label sits at the cell centre; author a card exactly there */
+  const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
+  const label = svg.match(/<text[^>]*data-zone="c:1,1"[^>]*x="([\d.]+)" y="([\d.]+)"/);
+  const cap = svg.match(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx=/);
+  assert.ok(label && cap);
+  /* capsule vertical span must not contain the label baseline */
+  const [ly] = [+label[2]];
+  const capY = +cap[2], capH = +cap[4];
+  assert.ok(ly < capY - 2 || ly > capY + capH + 2, 'label baseline inside capsule');
+});
+
 test('authored positions unchanged by nudge: dots stay at exact coordinates', () => {
   /* two items at the same spot: capsules separate, both dots at the same cx/cy */
   const svg = run('x: A\ny: B\nOne @ 50,50\nTwo @ 50,50');

@@ -11,7 +11,7 @@ const F = {
 export const TOKENS = {
   pad: 26, titleSize: 22, titleY: 36, dateSize: 11, headerH: 54, headerHNoTitle: 18,
   planeW: 620, planeH: 470, axisW: 46, axisH: 42, axisSize: 11.5, endSize: 9.5,
-  zoneSize: 10, zoneTracking: 0.8, zoneTint: 0.07,
+  zoneSize: 10, zoneTracking: 0.8, zoneTint: 0.07, zoneTintDark: 0.13,
   dotR: 3.5, cardH: 20, cardPadX: 8, cardSize: 11, cardGapX: 7, cardMaxW: 190,
   trayW: 200, trayGap: 18, trayCardH: 26, trayHeadSize: 9.5,
   roGap: 24, roColW: 300, roColGap: 26, verdictSize: 15, verdictLh: 21,
@@ -21,26 +21,30 @@ export const TOKENS = {
 };
 
 /* render-time collision repulsion: capsule boxes repel; dots (authored positions)
-   never move. Deterministic; exported for tests. */
+   never move. Boxes marked {fixed: true} (zone labels) are obstacles that push
+   others but never move themselves. Deterministic; exported for tests. */
 export function nudge(boxes, x0, y0, x1, y1, iters = 24){
   const b = boxes.map(o => ({...o}));
   for(let it = 0; it < iters; it++){
     let moved = false;
     for(let i = 0; i < b.length; i++) for(let j = i + 1; j < b.length; j++){
       const a = b[i], c = b[j];
+      if(a.fixed && c.fixed) continue;
       const ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
       const oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
       if(ox <= 0 || oy <= 0) continue;
       moved = true;
+      const aShare = a.fixed ? 0 : (c.fixed ? 1 : 0.5);
       if(oy <= ox){
-        const push = oy / 2 + 1, dir = a.y <= c.y ? -1 : 1;
-        a.y += dir * push; c.y -= dir * push;
+        const total = oy + 2, dir = a.y <= c.y ? -1 : 1;
+        a.y += dir * total * aShare; c.y -= dir * total * (1 - aShare);
       } else {
-        const push = ox / 2 + 1, dir = a.x <= c.x ? -1 : 1;
-        a.x += dir * push; c.x -= dir * push;
+        const total = ox + 2, dir = a.x <= c.x ? -1 : 1;
+        a.x += dir * total * aShare; c.x -= dir * total * (1 - aShare);
       }
     }
     for(const o of b){
+      if(o.fixed) continue;
       o.x = Math.min(Math.max(o.x, x0), x1 - o.w);
       o.y = Math.min(Math.max(o.y, y0), y1 - o.h);
     }
@@ -80,7 +84,7 @@ export function render(model, resolved, ro, ctx){
     const hex = toneHex(zone.tone);
     if(!hex) continue;
     const d = pts.map(([x, y], i) => (i ? 'L' : 'M') + px(x).toFixed(1) + ' ' + py(y).toFixed(1)).join('') + 'Z';
-    body.push('<path d="' + d + '" fill="' + mix(C.card, hex, T.zoneTint) + '"/>');
+    body.push('<path d="' + d + '" fill="' + mix(C.card, hex, dark ? T.zoneTintDark : T.zoneTint) + '"/>');
   }
   if(resolved.grid){
     const {cols, rows} = resolved.grid;
@@ -91,8 +95,10 @@ export function render(model, resolved, ro, ctx){
       body.push('<line x1="' + planeX + '" y1="' + py(r * 100 / rows) + '" x2="' + (planeX + planeW) +
         '" y2="' + py(r * 100 / rows) + '" stroke="' + C.border + '" stroke-width="1" opacity="0.6"/>');
   }
-  /* zone labels */
+  /* zone labels — also collected as fixed obstacles for the card nudge */
   const anchors = labelAnchors(resolved);
+  const zoneLabelBoxes = [];
+  const zoneFont = '600 ' + T.zoneSize * S + 'px ' + F.body;
   for(const z of resolved.zones){
     if(z.kind === 'unzoned' || z.anonymous) continue;
     const a = anchors.get(z.id);
@@ -102,6 +108,9 @@ export function render(model, resolved, ro, ctx){
       ? ' data-edit="zonename" data-line="' + (z.srcLine ?? -1) + '" data-raw="' + esc(z.name) +
         '" data-zone="' + (z.kind === 'cell' ? 'c:' + z.col + ',' + z.row : 'r:' + esc(z.name)) + '"'
       : '';
+    const lw = measure(z.name.toUpperCase(), zoneFont) + z.name.length * T.zoneTracking;
+    zoneLabelBoxes.push({x: px(a[0]) - lw / 2, y: py(a[1]) - T.zoneSize * S,
+      w: lw, h: T.zoneSize * S + 4 * S, fixed: true});
     body.push('<text' + eip + ' x="' + px(a[0]) + '" y="' + py(a[1]) + '" text-anchor="middle"' +
       ' font-size="' + T.zoneSize * S + '" font-weight="600" letter-spacing="' + T.zoneTracking +
       '" fill="' + (toneHex(z.tone) || C.muted) + '">' + esc(z.name.toUpperCase()) + '</text>');
@@ -133,9 +142,9 @@ export function render(model, resolved, ro, ctx){
 
   /* ---- cards: dot at the authored position, nudged capsule beside it ---- */
   const font = '600 ' + T.cardSize * S + 'px ' + F.body;
-  const truncate = label => {
+  const truncate = (label, maxW = T.cardMaxW) => {
     let t = label;
-    while(t.length > 4 && measure(t + '…', font) > T.cardMaxW * S) t = t.slice(0, -1);
+    while(t.length > 4 && measure(t + '…', font) > maxW * S) t = t.slice(0, -1);
     return t === label ? label : t + '…';
   };
   const cards = placed.map(it => {
@@ -146,7 +155,7 @@ export function render(model, resolved, ro, ctx){
     if(bx + w > planeX + planeW - 4) bx = cx - T.cardGapX * S - w;
     return {it, label, w, h: T.cardH * S, x: bx, y: cy - T.cardH * S / 2, cx, cy};
   });
-  const nudged = nudge(cards.map(c => ({x: c.x, y: c.y, w: c.w, h: c.h})),
+  const nudged = nudge([...cards.map(c => ({x: c.x, y: c.y, w: c.w, h: c.h})), ...zoneLabelBoxes],
     planeX + 2, planeY + 2, planeX + planeW - 2, planeY + planeH - 2);
   cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
   for(const c of cards){
@@ -228,7 +237,7 @@ export function render(model, resolved, ro, ctx){
     by += 3 * S;
     for(const it of shown){
       body.push('<text x="' + bx + '" y="' + (by + T.roItemSize * S) + '" font-size="' + T.roItemSize * S +
-        '" fill="' + C.ink + '">' + esc(truncate(it.label)) + '</text>');
+        '" fill="' + C.ink + '">' + esc(truncate(it.label, T.roColW)) + '</text>');
       by += T.roItemLh * S;
       if(it.fields.length){
         const f = it.fields[0];
