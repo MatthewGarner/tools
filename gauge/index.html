@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauge — gauge the room before the discussion anchors it</title>
+<meta name="description" content="Write estimation questions, share a link, everyone answers privately, then reveal the spread at once. Divergence made visible before anchoring sets in.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="compose">
+<div class="wrap">
+  <header>
+    <h1>Gauge</h1>
+    <p class="tagline">Once the pitch is on screen, every spoken estimate is anchored and dissent is a social act. Write the questions, share a link, everyone answers privately — probabilities and 90% ranges — then reveal the whole room's spread at once.</p>
+  </header>
+</div>
+
+<div id="compose">
+  <div class="workspace" id="workspace">
+    <aside class="rail">
+      <div class="chips" id="chips"><span class="lead">Try:</span></div>
+      <div id="cmhost" aria-label="Question source editor"></div>
+      <ul id="warns"></ul>
+      <details class="syntax">
+        <summary>Syntax reference</summary>
+        <table>
+          <tr><td><code>We ship by Q3 :: prob</code></td><td>a probability question — answered 0–100%</td></tr>
+          <tr><td><code>Weeks to migrate :: range weeks</code></td><td>a quantity question — answered as a 90% range, in the unit you name</td></tr>
+          <tr><td><code>title:</code> <code>names: on|off</code></td><td>session title; whether answers carry display names (default off — anonymous sessions never collect names)</td></tr>
+          <tr><td><code>palette:</code> <code>accent:</code> <code>//</code></td><td>as in the other tools</td></tr>
+        </table>
+      </details>
+    </aside>
+    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <section class="stage">
+      <div class="viewtoggle" role="tablist">
+        <button id="viewform" class="on" role="tab">Form</button>
+        <button id="viewreveal" role="tab">Sample reveal</button>
+      </div>
+      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="actions">
+        <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
+        <button class="btn primary" id="startbtn" disabled>Start session</button>
+        <button class="btn" id="dlsvg">Download SVG</button>
+        <button class="btn" id="dlpng">Download PNG</button>
+        <button class="btn" id="copypng">Copy PNG</button>
+        <button class="btn" id="copymd">Copy for doc</button>
+        <span class="method">Sample reveal uses seeded fake responses · the URL carries your questions</span>
+      </div>
+      <p class="errline" id="starterr" hidden></p>
+    </section>
+  </div>
+</div>
+
+<div id="participant" class="wrap narrow" hidden>
+  <h2 class="stitle" id="ptitle"></h2>
+  <p class="pintro">Answer privately — nobody sees your numbers until the facilitator reveals everyone's at once. You can edit your answers until then.</p>
+  <div id="pform"></div>
+  <p class="errline" id="perr" hidden></p>
+  <div class="actions">
+    <button class="btn primary" id="psubmit">Submit</button>
+    <button class="btn" id="pview">View results</button>
+  </div>
+  <p class="statusline" id="pstatus"></p>
+  <div id="presult"></div>
+</div>
+
+<div id="console" class="wrap narrow" hidden>
+  <h2 class="stitle" id="ctitle"></h2>
+  <div class="card sharebox">
+    <p class="sharelabel">Join link — drop it in the meeting chat</p>
+    <div class="linkrow">
+      <input id="joinlink" readonly aria-label="Join link">
+      <button class="btn" id="copylink">Copy</button>
+    </div>
+    <p class="hint">This tab is the facilitator console — its URL is your facilitator link (bookmark-safe; sessions live 24 hours).</p>
+  </div>
+  <p class="statusline" id="ccount">Waiting for responses…</p>
+  <ul class="qcounts" id="cquestions"></ul>
+  <div class="actions">
+    <button class="btn primary" id="creveal">Reveal to the room</button>
+    <span class="method" id="cstate"></span>
+  </div>
+  <div id="coverlay"></div>
+  <div class="actions" id="cexports" hidden>
+    <button class="btn" id="dlsvg2">Download SVG</button>
+    <button class="btn" id="dlpng2">Download PNG</button>
+    <button class="btn" id="copypng2">Copy PNG</button>
+    <button class="btn" id="copymd2">Copy for doc</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>Why estimate privately first?</h2>
+    <p>Group estimates go wrong in a well-documented way: the first number spoken anchors every number after it (Tversky &amp; Kahneman, <em>Judgment under Uncertainty</em>, 1974), and disagreeing with the room is socially expensive. The crowd is only wise when its guesses are independent (Surowiecki, <em>The Wisdom of Crowds</em>) — which is why structured methods like Delphi collect estimates before discussion. Gauge does the minimum version of that for a live meeting: silent submissions, one simultaneous reveal, and the spread itself as the artefact. If everyone's intervals overlap, commit and move on; if the room splits into camps, that's the discussion — found <em>before</em> anyone anchored it.</p>
+    <p>Probability questions are answered on a 0–100% slider with verbal anchors; quantity questions as a 90% interval, so people can be honest about uncertainty instead of faking a point estimate. The reveal shows every interval, the zone everyone believes (or its absence), medians, and camps — with one quotable headline per question.</p>
+    <p><strong>Privacy:</strong> your questions never leave the link — the server sees only numbers, for 24 hours. The session definition travels in the URL fragment; the relay stores anonymous numbers (plus display names only if you switch <code>names: on</code>) and deletes everything after 24 hours.</p>
+  </section>
+
+  <footer>
+    No accounts, no tracking. Your questions never leave the link — the server sees only numbers, for 24 hours.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
