@@ -39,6 +39,18 @@ for(const theme of ['light', 'dark']){
   check('fermi(' + theme + '): example produces a P50 (' + p50 + ')', p50.length > 0 && p50 !== '—');
   check('fermi(' + theme + '): histogram canvas painted', await page.locator('#hist').evaluate(c => c.width > 100));
   check('fermi(' + theme + '): sensitivity section shows', await page.locator('#sens .srow').count() > 1);
+  check('fermi(' + theme + '): driver tree renders on toggle', await (async () => {
+    await page.locator('#viewtree').click();
+    await page.waitForTimeout(200);
+    const svg = await page.locator('#driverwrap svg').count() === 1
+      ? await page.locator('#driverwrap svg').innerHTML() : '';
+    return /data-node="var"/.test(svg) && /data-node="out"/.test(svg) && !/NaN|undefined/.test(svg);
+  })());
+  check('fermi(' + theme + '): distribution view restores', await (async () => {
+    await page.locator('#viewdist').click();
+    await page.waitForTimeout(120);
+    return await page.locator('.histwrap').isVisible() && !(await page.locator('#driverwrap').isVisible());
+  })());
   check('fermi(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

@@ -126,6 +126,32 @@ for(const [k, src] of Object.entries(docs)){
   variants['flow-triage-lead'] = renderTriage(leverTriage(healthyP, {initialBacklog: 0}), healthyP, 0, fctx);
 }
 
+/* /fermi driver-tree fixtures (#73): seeded MC → deterministic sens → exact SVG */
+{
+  const E = await import('../fermi/engine.js');
+  const {renderDriverTree} = await import('../fermi/render-driver.js');
+  const {quantile} = await import('../assets/series.js');
+  const build = (f, ranges) => {
+    const ast = E.parse(E.tokenize(f));
+    const varNames = E.collectVars(ast, []);
+    const dists = {};
+    for(const n of varNames) dists[n] = 'auto';
+    const m = {ast, varNames, ranges, dists};
+    const {sorted} = E.simulateModel(m, {seed: 0x5EED, n: 20000});
+    const p10 = quantile(sorted, .1), p50 = quantile(sorted, .5), p90 = quantile(sorted, .9);
+    return {...m, p10, p50, p90, ...E.computeSensitivity(m, {seed: 0x5EED, p10, p90})};
+  };
+  variants['fermi-driver-meeting'] = renderDriverTree(
+    build('attendees * hourly_cost * meeting_hours * weeks_per_year',
+      {attendees: [6, 10], hourly_cost: [60, 120], meeting_hours: [0.75, 1.5], weeks_per_year: [44, 48]}),
+    {...ctxBase, colors: {...ctxBase.colors, accent2: '#c62'}});
+  variants['fermi-driver-pianos'] = renderDriverTree(
+    build('households * share_with_piano * tunings_per_year / (tunings_per_day * working_days)',
+      {households: [3e6, 4e6], share_with_piano: [0.02, 0.08], tunings_per_year: [0.5, 2],
+       tunings_per_day: [2, 5], working_days: [220, 260]}),
+    {...ctxBase, colors: {...ctxBase.colors, accent2: '#c62'}});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
