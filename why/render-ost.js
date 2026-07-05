@@ -36,7 +36,9 @@ export function renderOst(model, projection, ctx){
     untested: C.muted, testing: C.accent, holds: (C.status ? C.status.done : C.accent), broken: C.err,
   })[st] || C.muted;
   const labelFont = '600 ' + T.labelSize*S + 'px ' + F.body;
+  const assumpFont = T.assumpSize*S + 'px ' + F.body;
   const innerW = (T.cardW - T.cardPadX*2)*S;
+  const aLines = new Map();   // assumption node → wrapped display lines
 
   /* measure every node card; assumptions fold into their solution's card */
   function prep(node){
@@ -45,7 +47,10 @@ export function renderOst(model, projection, ctx){
     node._lines = wrapText(node.label, labelFont, innerW, measure);
     let h = T.cardPadY*2*S + node._lines.length * T.labelLh*S;
     if(node.kind === 'solution') h += T.pillH*S + T.pillGap*S;
-    h += node._assumps.length * T.assumpLh*S;
+    for(const a of node._assumps){
+      aLines.set(a, wrapText(ASSUMP_GLYPH[a.status] + ' ' + a.label, assumpFont, innerW, measure));
+      h += aLines.get(a).length * T.assumpLh*S;
+    }
     node._h = h;
     node._kids.forEach(prep);
   }
@@ -118,18 +123,20 @@ export function renderOst(model, projection, ctx){
     }
     for(const a of node._assumps){
       const col = assumpColor(a.status);
-      s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
-        '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
-        '" fill="' + col + '">' + esc(ASSUMP_GLYPH[a.status] + ' ' + a.label) + '</text>');
-      if(edit){   /* one-click remove just past the row text (map's × idiom) */
-        const rowW = measure(ASSUMP_GLYPH[a.status] + ' ' + a.label, T.assumpSize*S + 'px ' + F.body);
-        const xx = Math.min(x + T.cardPadX*S + rowW + 8*S, x + (T.cardW - T.cardPadX)*S);
-        s.push('<text data-edit="removeassump" data-line="' + a.srcLine + '" data-raw="" role="button"' +
-          ' aria-label="Remove assumption ' + esc(a.label) + '" x="' + xx +
-          '" y="' + ty + '" text-anchor="end" font-size="' + T.assumpSize*S +
-          '" fill="' + C.muted + '">×</text>');
-      }
-      ty += T.assumpLh*S;
+      const rows = aLines.get(a);
+      rows.forEach((row, i) => {
+        s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
+          '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
+          '" fill="' + col + '">' + esc(row) + '</text>');
+        if(edit && i === rows.length - 1){   /* one-click remove just past the row text (map's × idiom) */
+          const xx = Math.min(x + T.cardPadX*S + measure(row, assumpFont) + 8*S, x + (T.cardW - T.cardPadX)*S);
+          s.push('<text data-edit="removeassump" data-line="' + a.srcLine + '" data-raw="" role="button"' +
+            ' aria-label="Remove assumption ' + esc(a.label) + '" x="' + xx +
+            '" y="' + ty + '" text-anchor="end" font-size="' + T.assumpSize*S +
+            '" fill="' + C.muted + '">×</text>');
+        }
+        ty += T.assumpLh*S;
+      });
     }
     if(dimmed) s.push('</g>');
   }
