@@ -38,6 +38,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600}
 .btn.primary:hover{color:var(--card);opacity:.92}
 .btn:disabled{opacity:.45;cursor:default}
+.btn.danger:hover{border-color:var(--err);color:var(--err)}
 .method{color:var(--muted);font-size:12.5px}
 .errline{color:var(--err);font-size:13px;margin:10px 0 0}
 .statusline{color:var(--muted);font-size:13.5px;margin:14px 0 6px}

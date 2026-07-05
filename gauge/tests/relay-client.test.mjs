@@ -18,11 +18,13 @@ test('create/submit/status/reveal hit the right routes', async () => {
   await r.submit('a'.repeat(32), {participantId: 'p'.repeat(16), values: [50]});
   await r.status('a'.repeat(32));
   await r.reveal('a'.repeat(32), 'k'.repeat(32));
+  await r.end('a'.repeat(32), 'k'.repeat(32));
   assert.deepEqual(calls.map(c => [c.opts.method, c.url]), [
     ['POST', '/api/gauge'],
     ['PUT', '/api/gauge/' + 'a'.repeat(32) + '/response'],
     ['GET', '/api/gauge/' + 'a'.repeat(32)],
     ['POST', '/api/gauge/' + 'a'.repeat(32) + '/reveal'],
+    ['POST', '/api/gauge/' + 'a'.repeat(32) + '/end'],
   ]);
   assert.deepEqual(JSON.parse(calls[0].opts.body), {id: 'a'.repeat(32), keyHash: 'h'.repeat(64), names: true});
   assert.deepEqual(JSON.parse(calls[3].opts.body), {key: 'k'.repeat(32)});

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createSession, putResponse, getSession, reveal, sha256hex,
+import {createSession, putResponse, getSession, reveal, endSession, sha256hex,
   TTL_SECONDS, RATE_LIMIT_PER_MIN} from '../../api/gauge/_lib.js';
 import {memoryKv} from '../../api/gauge/_kv.js';
 
@@ -94,6 +94,23 @@ test('TTL: session dies after 24h', async () => {
   await createSession(kv, {id: ID, keyHash: sha256hex(KEY), names: false}, 'ip');
   t = TTL_SECONDS * 1000 + 1;
   assert.equal((await getSession(kv, ID)).status, 404);
+});
+
+test('end session: facilitator key required; everything gone afterwards', async () => {
+  const kv = await mk();
+  await putResponse(kv, ID, {participantId: PID, values: [70, [4, 8]]}, 'ip');
+  await reveal(kv, ID, {key: KEY});
+  assert.equal((await endSession(kv, ID, {key: 'f'.repeat(32)})).status, 403);
+  assert.equal((await endSession(kv, ID, {key: KEY})).status, 200);
+  assert.equal((await getSession(kv, ID)).status, 404);
+  assert.equal((await putResponse(kv, ID, {participantId: PID, values: [50, null]}, 'ip')).status, 404);
+  assert.equal((await endSession(kv, ID, {key: KEY})).status, 404);   // idempotent-ish: already gone
+});
+
+test('end session: validation and unknown id', async () => {
+  const kv = memoryKv();
+  assert.equal((await endSession(kv, ID, {})).status, 400);
+  assert.equal((await endSession(kv, ID, {key: KEY})).status, 404);
 });
 
 test('rate limit: writes over the per-minute cap get 429', async () => {
