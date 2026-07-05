@@ -111,4 +111,7 @@ footer{margin: 48px 0 8px}
 }
 .eip-pop button:hover{background: var(--bg); color: var(--accent-ink)}
 .eip-pop button.on{color: var(--accent-ink); font-weight: 600}
+.eip-sep{height: 1px; background: var(--border); margin: 4px 2px}
+.eip-pop button.danger{color: var(--err)}
+.eip-pop button.danger:hover{background: color-mix(in srgb, var(--err) 10%, transparent); color: var(--err)}
 [data-edit]:not(text):hover{opacity: .8}
