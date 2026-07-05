@@ -254,6 +254,65 @@ $('copymd').addEventListener('click', () => {
     .catch(() => flash($('copymd'), 'Copy blocked', 'Copy for doc'));
 });
 
+/* ---------- drag-to-place: a drop is a text edit ---------- */
+const drag = {armed: null, active: false, ghost: null, srcEl: null};
+function planeCoords(cx, cy){
+  const plane = document.querySelector('#preview svg rect[data-plane]');
+  if(!plane) return null;
+  const r = plane.getBoundingClientRect();
+  if(cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return null;
+  return {
+    x: Math.max(0, Math.min(100, Math.round((cx - r.left) / r.width * 100))),
+    y: Math.max(0, Math.min(100, Math.round((1 - (cy - r.top) / r.height) * 100))),
+  };
+}
+function endDrag(){
+  if(drag.ghost) drag.ghost.remove();
+  if(drag.srcEl) drag.srcEl.style.opacity = '';
+  document.body.style.cursor = '';
+  drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
+}
+$('preview').addEventListener('pointerdown', e => {
+  const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
+  if(!g || e.button !== 0) return;
+  const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
+  if(!item) return;
+  e.preventDefault();   // no text selection while dragging
+  drag.armed = {line: +g.dataset.line, label: item.label, x: e.clientX, y: e.clientY};
+  drag.srcEl = g;
+});
+window.addEventListener('pointermove', e => {
+  if(!drag.armed) return;
+  if(!drag.active){
+    if(Math.hypot(e.clientX - drag.armed.x, e.clientY - drag.armed.y) < 4) return;
+    drag.active = true;
+    const ghost = document.createElement('div');
+    ghost.className = 'dragghost';
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+    drag.srcEl.style.opacity = '0.3';
+    document.body.style.cursor = 'grabbing';
+  }
+  const at = planeCoords(e.clientX, e.clientY);
+  drag.ghost.textContent = drag.armed.label + (at ? '  @ ' + at.x + ',' + at.y : '');
+  drag.ghost.style.left = (e.clientX + 12) + 'px';
+  drag.ghost.style.top = (e.clientY + 14) + 'px';
+});
+window.addEventListener('pointerup', e => {
+  if(!drag.armed) return;
+  const wasActive = drag.active, src = drag.armed.line;
+  endDrag();
+  if(!wasActive) return;
+  const at = planeCoords(e.clientX, e.clientY);
+  if(!at) return;
+  const line = editor.getLine(src);
+  const newLine = setPosition(line, at.x, at.y);
+  if(newLine !== line) editor.replaceLine(src, newLine);   // one transaction → one undo step
+});
+window.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && drag.armed) endDrag();
+});
+
 /* ---------- theme ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender);
