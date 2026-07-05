@@ -21,7 +21,7 @@ export const TOKENS = {
 
 
 export function render(model, results, ctx){
-  const {measure, slide = false, dark = false} = ctx;
+  const {measure, slide = false, dark = false, edit = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -161,6 +161,12 @@ export function render(model, results, ctx){
           '" font-size="' + T.statSize*S + '" fill="' + C.muted + '">' +
           esc(money(st.p10) + ' … ' + money(st.p90)) + '</text>');
       }
+    }
+    /* edit-gated: the marker becomes a popover target (add child / remove branch) */
+    if(edit){
+      s.push('<circle data-edit="node-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
+        '" data-raw="" cx="' + x + '" cy="' + y + '" r="' + 11*S + '" fill="transparent" role="button"' +
+        ' aria-label="' + esc(node.label || 'node') + ' — add or remove"/>');
     }
   }
   function walk(node, onPolicy){

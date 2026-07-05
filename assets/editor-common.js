@@ -63,6 +63,12 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
       const to = line.from > 0 ? line.to : Math.min(line.to + 1, view.state.doc.length);
       view.dispatch({changes: {from, to, insert: ''}});
     },
+    removeLines(a, b){   /* inclusive 0-based range, e.g. a whole subtree */
+      const first = view.state.doc.line(a + 1), last = view.state.doc.line(b + 1);
+      const from = first.from > 0 ? first.from - 1 : first.from;
+      const to = first.from > 0 ? last.to : Math.min(last.to + 1, view.state.doc.length);
+      view.dispatch({changes: {from, to, insert: ''}});
+    },
     dispatchEffects: effects => view.dispatch({effects}),
   };
 }
