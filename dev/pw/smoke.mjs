@@ -53,6 +53,8 @@ for(const theme of ['light', 'dark']){
   const verdict = (await page.locator('#verdict').innerText()).trim();
   check('rank(' + theme + '): verdict present', verdict.length > 20);
   check('rank(' + theme + '): rank bars render', await page.locator('.rankbar').count() === 7);
+  const flip = (await page.locator('#flipline').innerText()).trim();
+  check('rank(' + theme + '): flip verdict present', /weight|flips first place/i.test(flip));
   check('rank(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

@@ -94,3 +94,68 @@ export function verdictCopy(stats, k){
   }
   return {headline, body, contested};
 }
+
+/* What flips #1: for each criterion and rival, the exact weight delta at which the
+   rival's WSJF score equals the leader's (closed form — no simulation). Deterministic
+   companion to the wobble: the wobble says how often ranks reshuffle; this names the
+   cheapest single reweighting that dethrones the top item. */
+export function flipAnalysis(state){
+  const items = state.items.filter(it =>
+    it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0);
+  return buildFlips(state, items);
+}
+
+function buildFlips(state, items){
+  if(items.length < 2) return null;
+  const benefit = it => state.criteria.reduce((a, c, ci) => a + c.w * it.s[ci], 0);
+  const score = it => benefit(it) / it.e;
+  let top = 0;
+  items.forEach((it, i) => { if(score(it) > score(items[top])) top = i; });
+  const A = items[top], BA = benefit(A);
+  const flips = [];
+  state.criteria.forEach((c, ci) => {
+    if(!(c.w > 0)) return;                         // no relative change exists
+    items.forEach((B, bi) => {
+      if(bi === top) return;
+      const BB = benefit(B);
+      const den = A.s[ci] * B.e - B.s[ci] * A.e;
+      if(Math.abs(den) < 1e-12) return;            // parallel: this weight can't separate them
+      const delta = (BB * A.e - BA * B.e) / den;
+      const newWeight = c.w + delta;
+      if(!(newWeight > 0)) return;                 // would need a zero/negative weight
+      flips.push({ci, criterion: c.name, rival: state.items.indexOf(B), rivalName: B.name || 'Initiative',
+        delta, newWeight, pct: delta / c.w * 100});
+    });
+  });
+  /* keep only the cheapest flip per criterion, then rank by relative size */
+  const best = new Map();
+  for(const f of flips){
+    const cur = best.get(f.ci);
+    if(!cur || Math.abs(f.pct) < Math.abs(cur.pct)) best.set(f.ci, f);
+  }
+  const ranked = [...best.values()].sort((a, b) => Math.abs(a.pct) - Math.abs(b.pct));
+  return {top: {i: state.items.indexOf(A), name: A.name || 'Initiative'},
+    flips: ranked, easiest: ranked[0] || null};
+}
+
+const fmtW = w => Math.round(w * 100) / 100;
+export function flipCopy(flip, ww){
+  if(!flip || !flip.easiest){
+    return {tone: 'immovable',
+      text: 'No single weight change flips first place — under this scheme the leader is structural.'};
+  }
+  const e = flip.easiest;
+  const dir = e.delta > 0 ? 'raise' : 'cut';
+  const pctAbs = Math.round(Math.abs(e.pct));
+  const move = dir + ' ' + e.criterion + '’s weight ' + Math.abs(e.pct).toFixed(0) + '% (' +
+    fmtW(e.newWeight - e.delta) + ' → ' + fmtW(e.newWeight) + ')';
+  if(Math.abs(e.pct) <= ww){
+    return {tone: 'fragile',
+      text: 'Fragile first place: ' + move + ' and ' + e.rivalName + ' overtakes ' + flip.top.name +
+        '. That’s inside the ±' + ww + '% you already call reasonable.'};
+  }
+  return {tone: 'robust',
+    text: 'First place holds: the cheapest single reweighting that dethrones ' + flip.top.name +
+      ' is ' + move + ' — ' + (pctAbs >= 999 ? 'far' : pctAbs + '%, well') +
+      ' beyond the ±' + ww + '% wobble.'};
+}
