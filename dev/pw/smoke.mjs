@@ -20,7 +20,7 @@ async function freshPage(path, theme = 'light'){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: seven tool cards', await page.locator('a.tool').count() === 7);
+  check('landing: eight tool cards', await page.locator('a.tool').count() === 8);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -120,6 +120,20 @@ for(const theme of ['light', 'dark']){
   check('gauge(' + theme + '): headline present', /median|agreement|Split room|wider than/i.test(svg));
   check('gauge(' + theme + '): privacy line present', (await page.locator('footer').innerText()).includes('only numbers'));
   check('gauge(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- flow ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/flow/', theme);
+  await page.getByRole('button', {name: 'Overloaded team'}).click();
+  await page.waitForTimeout(700);
+  check('flow(' + theme + '): readout SVG renders', await page.locator('#verdictwrap svg').count() === 1);
+  const svg = await page.locator('#verdictwrap svg').innerHTML();
+  check('flow(' + theme + '): verdict present', /typical item takes/i.test(svg));
+  check('flow(' + theme + '): overload honesty line', /demand exceeds capacity/i.test(svg));
+  check('flow(' + theme + '): histogram bars', (svg.match(/<rect/g) || []).length > 5);
+  check('flow(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
