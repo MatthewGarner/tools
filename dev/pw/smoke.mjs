@@ -20,7 +20,7 @@ async function freshPage(path, theme = 'light'){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: six tool cards', await page.locator('a.tool').count() === 6);
+  check('landing: seven tool cards', await page.locator('a.tool').count() === 7);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -85,6 +85,25 @@ for(const theme of ['light', 'dark']){
   check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
   check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
   check('why(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- map ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/map/', theme);
+  await page.getByRole('button', {name: 'Assumption map'}).click();
+  await page.waitForTimeout(600);
+  check('map(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
+  const svg = await page.locator('#preview svg').innerHTML();
+  check('map(' + theme + '): zones labelled', svg.includes('TEST FIRST'));
+  check('map(' + theme + '): verdict present', svg.includes('sit in test first'));
+  check('map(' + theme + '): unplaced tray', svg.includes('UNPLACED') && svg.includes('Legal sign-off'));
+  check('map(' + theme + '): no-test flag', svg.includes('no test designed'));
+  await page.getByRole('button', {name: 'Risk grid'}).click();
+  await page.waitForTimeout(500);
+  const risk = await page.locator('#preview svg').innerHTML();
+  check('map(' + theme + '): risk preset severity bands', risk.includes('SEVERE') && risk.includes('MODERATE'));
+  check('map(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
