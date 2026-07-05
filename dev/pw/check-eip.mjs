@@ -100,6 +100,21 @@ check('no page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const t2 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: status popover rewrites tag', t2.includes('[blocked]'));
+
+  /* add via the cell ghost, remove via the status-popover action */
+  await p.locator('[data-edit="additem"][data-lane="Growth"][data-col="Next"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('EIP suite added');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const t3 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: cell ghost adds a lane-prefixed item', t3.includes('Growth: EIP suite added'));
+  await p.locator('[data-edit="status"]').first().click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
+  await p.waitForTimeout(600);
+  const t4 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: popover Remove deletes the line', t4.split('\n').length === t3.split('\n').length - 1);
   check('roadmap: no page errors', errs.length === 0);
   await p.close();
 }

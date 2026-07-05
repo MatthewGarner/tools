@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {applies, validators} from '../edit-targets.js';
+import {applies, validators, addItemLine, removeItemLine} from '../edit-targets.js';
 
 test('title rewrite keeps lane, status, note, link', () => {
   assert.equal(applies.title('Core: Streak freeze [doing] -- top request -> https://x', 'Streak freeze', 'Streak shield'),
@@ -16,4 +16,41 @@ test('status swap', () => {
 test('validators reject structure-breakers', () => {
   assert.ok(validators.title('Nice title') && !validators.title('a -- b') && !validators.title('[x]'));
   assert.ok(validators.note('fine') && !validators.note('a -- b'));
+});
+
+const DOC = `title: Habitat — Product Roadmap
+horizons: Now, Next, Later
+
+NOW
+Core: Streak freeze [doing] -- the fix
+Growth: Referral flow [risk]
+
+NEXT
+Core: Smart reminders
+Platform: Full offline mode
+
+LATER
+Growth: Coach marketplace`;
+
+test('addItemLine lands at the end of the horizon section, lane-prefixed', () => {
+  const {afterLine, newLine} = addItemLine(DOC, 'Growth', 'NEXT');
+  assert.equal(newLine, 'Growth: New item');
+  assert.equal(afterLine, 9);           // after "Platform: Full offline mode"
+});
+
+test('addItemLine into an empty horizon inserts after its header', () => {
+  const doc = 'NOW\n\nNEXT\nCore: Later thing';
+  const {afterLine} = addItemLine(doc, 'Core', 'NOW');
+  assert.equal(afterLine, 0);
+});
+
+test('addItemLine without a lane omits the prefix', () => {
+  const {newLine} = addItemLine(DOC, null, 'LATER');
+  assert.equal(newLine, 'New item');
+});
+
+test('removeItemLine accepts only item lines', () => {
+  assert.equal(removeItemLine(DOC, 5), true);    // Growth: Referral flow
+  assert.equal(removeItemLine(DOC, 3), false);   // NOW header
+  assert.equal(removeItemLine(DOC, 0), false);   // title
 });

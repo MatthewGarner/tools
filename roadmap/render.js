@@ -75,6 +75,8 @@ export function render(model, ctx){
     if(maxH > 0) for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) c.cardH = maxH;
   }
 
+  const edit = !!ctx.edit;               // preview-only affordances; exports/goldens render without
+  const addH = edit ? 20*S : 0;          // per-cell '+' ghost budget
   const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
   const colHeadH = T.colHeadH*S;
   /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */
@@ -93,7 +95,7 @@ export function render(model, ctx){
     let maxH = 0;
     for(let h = 0; h < nH; h++){
       const stack = cells[lane][h];
-      const sH = stack.reduce((a, c) => a + c.cardH, 0) + Math.max(0, stack.length-1)*cardGap;
+      const sH = stack.reduce((a, c) => a + c.cardH, 0) + Math.max(0, stack.length-1)*cardGap + addH;
       if(sH > maxH) maxH = sH;
     }
     laneTops.push(y);
@@ -236,6 +238,17 @@ export function render(model, ctx){
         }
         s.push('</g>');
         cy += c.cardH + cardGap;
+      }
+      if(edit){
+        const gw = 44*S, gh = 15*S;
+        s.push('<g data-add="1" opacity="0.75">' +
+          '<rect x="' + colX(h) + '" y="' + cy + '" width="' + gw + '" height="' + gh +
+          '" rx="' + gh/2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+          '<text data-edit="additem" data-lane="' + esc(lane) + '" data-col="' + esc(model.horizons[h]) +
+          '" data-line="-1" data-raw="" x="' + (colX(h) + 8*S) + '" y="' + (cy + gh - 4*S) +
+          '" font-size="' + 9*S + '" font-weight="600" fill="' + C.muted +
+          '" role="button" aria-label="Add item to ' + esc(lane || 'roadmap') + ' ' + esc(model.horizons[h]) +
+          '">＋ add</text></g>');
       }
     }
   });
