@@ -14,7 +14,7 @@ export function themeColors(){
   const cs = getComputedStyle(document.documentElement);
   const g = n => cs.getPropertyValue(n).trim();
   return {card: g('--card'), border: g('--border'), ink: g('--ink'), muted: g('--muted'),
-    accent: g('--accent'), bg: g('--bg'), err: g('--err'),
+    accent: g('--accent'), bg: g('--bg'), err: g('--err'), track: g('--track'),
     status: {done: g('--st-done'), doing: g('--st-doing'), risk: g('--st-risk'), blocked: g('--st-blocked')}};
 }
 

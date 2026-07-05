@@ -133,6 +133,24 @@ for(const theme of ['light', 'dark']){
   check('flow(' + theme + '): verdict present', /typical item takes/i.test(svg));
   check('flow(' + theme + '): overload honesty line', /demand exceeds capacity/i.test(svg));
   check('flow(' + theme + '): histogram bars', (svg.match(/<rect/g) || []).length > 5);
+  check('flow(' + theme + '): batch U-curve renders', await page.locator('#batchwrap svg').count() === 1);
+  const batchSvg = await page.locator('#batchwrap svg').innerHTML();
+  check('flow(' + theme + '): batch verdict names the economic batch', /Economic batch/.test(batchSvg));
+  check('flow(' + theme + '): triage renders with a pile', await (async () => {
+    await page.locator('#backlog').fill('20');
+    await page.waitForTimeout(500);
+    const t = await page.locator('#triagewrap svg').innerHTML();
+    return /QUEUE TRIAGE/.test(t) && (t.match(/data-bar/g) || []).length === 4;
+  })());
+  check('flow(' + theme + '): triage drain framing on an overloaded pile',
+    /pile|clears|never/i.test(await page.locator('#triagewrap svg').innerHTML()));
+  check('flow(' + theme + '): no undefined/NaN leaks into any svg', await (async () => {
+    for(const sel of ['#verdictwrap svg', '#batchwrap svg', '#triagewrap svg']){
+      const s = await page.locator(sel).innerHTML();
+      if(/undefined|NaN/.test(s)) return false;
+    }
+    return true;
+  })());
   check('flow(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
