@@ -1,5 +1,5 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
-import {sessionStats, markdownSummary} from './engine.js';
+import {sessionStats, markdownSummary, mergeFinal, delphiStats} from './engine.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
@@ -8,6 +8,11 @@ import {wireExports} from './exports.js';
 const ENDED = 'This session has ended — sessions live 24 hours.';
 const showOverlay = (el, model, responses, ctx) =>
   { el.innerHTML = renderOverlay(model, sessionStats(model, responses), ctx()); };
+const delphiSvg = (model, r1, r2, ctx) =>
+  renderOverlay(model, sessionStats(model, mergeFinal(r1, r2)), ctx(),
+    {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1)});
+const delphiMd = (model, r1, r2) =>
+  markdownSummary(model, sessionStats(model, mergeFinal(r1, r2)), delphiStats(model, r1, r2));
 const onThemeChange = fn => {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', fn);
   new MutationObserver(fn).observe(document.documentElement,
@@ -37,9 +42,16 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     return b;
   });
 
-  let responses = null;
+  let responses = null, responses2 = null, round = 1, poll2 = null;
 
   function renderCounts(data){
+    if(round === 2){
+      $('ccount').textContent = (data.count2 || 0) === 0
+        ? 'Round 2 open — waiting for revised estimates…'
+        : data.count2 + ' of ' + data.count + ' revised so far — the rest carry round 1 forward';
+      (data.answered2 || []).forEach((n, i) => { if(counters[i]) counters[i].textContent = String(n); });
+      return;
+    }
     $('ccount').textContent = data.count === 0 ? 'Waiting for responses…'
       : data.count + (data.count === 1 ? ' person has' : ' people have') + ' responded';
     (data.answered || []).forEach((n, i) => { if(counters[i]) counters[i].textContent = String(n); });
@@ -53,9 +65,20 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('cquestions').hidden = true;
     showOverlay($('coverlay'), model, responses, ctx);
     $('cexports').hidden = false;
+    $('cround2wrap').hidden = false;
+  }
+  function showResults2(r1resp, r2resp){
+    responses = r1resp;
+    responses2 = r2resp;
+    if(poll2) poll2.stop();
+    $('creveal').disabled = true;
+    $('creveal').textContent = 'Round 2 revealed — locked';
+    $('cstate').textContent = '';
+    $('cquestions').hidden = true;
+    $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
   }
 
-  const poll = startPoll({
+  const mkPoll = () => startPoll({
     tick: async () => {
       const r = await relay.status(id);
       if(r.status === 0 || r.status >= 500) throw new Error('poll failed');
@@ -68,43 +91,94 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
         return false;
       }
       $('cstate').textContent = '';
+      if(round === 1 && r.data.round === 2){
+        /* console reloaded mid-round-2: restore state from the relay */
+        round = 2;
+        responses = r.data.responses || responses;
+        if(responses) showOverlay($('coverlay'), model, responses, ctx);
+        $('cexports').hidden = false;
+        $('cround2wrap').hidden = true;
+        $('cquestions').hidden = false;
+        $('creveal').disabled = false;
+        $('creveal').textContent = 'Reveal round 2';
+      }
       renderCounts(r.data);
+      if(round === 2){
+        if(r.data.revealed2){ showResults2(r.data.responses, r.data.responses2); return false; }
+        return true;
+      }
       if(r.data.revealed){ showResults(r.data.responses); return false; }   // stop at reveal
       return true;
     },
     onError(){ $('cstate').textContent = 'reconnecting…'; },
   });
+  const poll = mkPoll();
 
-  /* two-step reveal: arm, then commit */
+  /* two-step reveal: arm, then commit (works for whichever round is live) */
   let armed = false, armTimer = null;
   $('creveal').addEventListener('click', async () => {
-    if(responses) return;
+    if(round === 2 ? responses2 : responses) return;
+    const label = round === 2 ? 'Reveal round 2' : 'Reveal to the room';
     if(!armed){
       armed = true;
       $('creveal').textContent = 'Click again to reveal & lock';
       armTimer = setTimeout(() => {
         armed = false;
-        $('creveal').textContent = 'Reveal to the room';
+        $('creveal').textContent = label;
       }, 4000);
       return;
     }
     clearTimeout(armTimer);
+    armed = false;
     const r = await relay.reveal(id, key);
     if(!r.ok){
-      armed = false;
-      $('creveal').textContent = 'Reveal to the room';
+      $('creveal').textContent = label;
       $('cstate').textContent = r.status === 404 ? ENDED : "Couldn't reveal — try again.";
       return;
     }
     renderCounts(r.data);
-    showResults(r.data.responses);
+    if(round === 2) showResults2(r.data.responses, r.data.responses2);
+    else showResults(r.data.responses);
+  });
+
+  /* Delphi round 2: same two-step arm as reveal/end */
+  let r2Armed = false, r2Timer = null;
+  $('cround2').addEventListener('click', async () => {
+    if(round === 2) return;
+    if(!r2Armed){
+      r2Armed = true;
+      $('cround2').textContent = 'Click again to open round 2';
+      r2Timer = setTimeout(() => {
+        r2Armed = false;
+        $('cround2').textContent = 'Open a second round (Delphi)';
+      }, 4000);
+      return;
+    }
+    clearTimeout(r2Timer);
+    const r = await relay.round2(id, key);
+    if(!r.ok){
+      r2Armed = false;
+      $('cround2').textContent = 'Open a second round (Delphi)';
+      $('cstate').textContent = r.status === 404 ? ENDED : "Couldn't open round 2 — try again.";
+      return;
+    }
+    round = 2;
+    $('cround2wrap').hidden = true;
+    $('cquestions').hidden = false;
+    counters.forEach(b => { b.textContent = '0'; });
+    $('ccount').textContent = 'Round 2 open — tell the room to revise and resubmit.';
+    $('creveal').disabled = false;
+    $('creveal').textContent = 'Reveal round 2';
+    poll2 = mkPoll();
   });
 
   wireExports({
     buttons: {dlsvg: $('dlsvg2'), dlpng: $('dlpng2'), copypng: $('copypng2'), copymd: $('copymd2')},
-    getSvg: () => responses ? renderOverlay(model, sessionStats(model, responses), ctx()) : null,
-    getMarkdown: () => responses ? markdownSummary(model, sessionStats(model, responses)) : null,
-    slug: () => slugOf(model),
+    getSvg: () => responses2 ? delphiSvg(model, responses, responses2, ctx)
+      : responses ? renderOverlay(model, sessionStats(model, responses), ctx()) : null,
+    getMarkdown: () => responses2 ? delphiMd(model, responses, responses2)
+      : responses ? markdownSummary(model, sessionStats(model, responses)) : null,
+    slug: () => slugOf(model) + (responses2 ? '-delphi' : ''),
   });
 
   /* end session early: same two-step arm; deletes the relay entry, exports stay usable */
@@ -132,7 +206,10 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('cstate').textContent = 'Responses deleted from the relay — exports still work from this tab.';
   });
 
-  onThemeChange(() => { if(responses) showOverlay($('coverlay'), model, responses, ctx); });
+  onThemeChange(() => {
+    if(responses2) $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
+    else if(responses) showOverlay($('coverlay'), model, responses, ctx);
+  });
 }
 
 export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
@@ -147,7 +224,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     try{ localStorage.setItem('gauge-pid-' + id, pid); }catch(e){}
   }
 
-  let lastResponses = null;
+  let lastResponses = null, lastDelphi = null;
 
   const readFields = () => [...$('pform').querySelectorAll('input[data-part]')].map(el => ({
     q: +el.closest('.q').dataset.q,
@@ -199,7 +276,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       btn.textContent = '✓ Submitted';
       setTimeout(() => { btn.textContent = 'Update answers'; }, 1600);
     }
-    else if(r.status === 409) say('The facilitator has revealed — responses are locked. View results below.', 'err');
+    else if(r.status === 409) say('Responses are locked for this round — if the facilitator opens a second round, Submit works again. View results below.', 'err');
     else if(r.status === 404) say(ENDED, 'err');
     else say("Couldn't submit — nothing was lost. Check your connection and press Submit again.", 'err');
   });
@@ -211,10 +288,23 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     if(!r.ok) return say("Couldn't reach the relay — try again.");
     if(!r.data.revealed)
       return say('Not revealed yet — ' + r.data.count + ' response' + (r.data.count === 1 ? '' : 's') + ' so far.');
+    if(r.data.round === 2 && r.data.revealed2){
+      lastDelphi = {r1: r.data.responses, r2: r.data.responses2};
+      lastResponses = null;
+      say('');
+      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
+      return;
+    }
     lastResponses = r.data.responses;
-    say('');
+    lastDelphi = null;
+    say(r.data.round === 2
+      ? 'Round 2 is open — the round-1 spread is below. Revise your answers above and press Submit again (or keep them: they carry forward).'
+      : '');
     showOverlay($('presult'), model, lastResponses, ctx);
   });
 
-  onThemeChange(() => { if(lastResponses) showOverlay($('presult'), model, lastResponses, ctx); });
+  onThemeChange(() => {
+    if(lastDelphi) $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
+    else if(lastResponses) showOverlay($('presult'), model, lastResponses, ctx);
+  });
 }

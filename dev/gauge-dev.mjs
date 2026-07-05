@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createSession, putResponse, getSession, reveal, endSession} from '../api/gauge/_lib.js';
+import {createSession, putResponse, getSession, reveal, endSession, openRound2} from '../api/gauge/_lib.js';
 import {memoryKv} from '../api/gauge/_kv.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -19,6 +19,7 @@ const routes = [
   {m: 'PUT', re: /^\/api\/gauge\/([0-9a-f]+)\/response$/, fn: (mm, body, ip) => putResponse(kv, mm[1], body, ip)},
   {m: 'POST', re: /^\/api\/gauge\/([0-9a-f]+)\/reveal$/, fn: (mm, body) => reveal(kv, mm[1], body)},
   {m: 'POST', re: /^\/api\/gauge\/([0-9a-f]+)\/end$/, fn: (mm, body) => endSession(kv, mm[1], body)},
+  {m: 'POST', re: /^\/api\/gauge\/([0-9a-f]+)\/round2$/, fn: (mm, body) => openRound2(kv, mm[1], body)},
 ];
 
 createServer(async (req, res) => {

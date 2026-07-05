@@ -36,19 +36,31 @@ async function overLimit(kv, ip){
   return count > RATE_LIMIT_PER_MIN;
 }
 
-function sessionView(flat){
-  if(!flat || !flat.length) return null;
-  const o = toObj(flat);
-  if(!o.meta) return null;
-  const meta = JSON.parse(o.meta);
-  const entries = Object.keys(o).filter(f => f.startsWith('r:')).sort()
-    .map(f => JSON.parse(o[f]));
+/* Anonymous cross-round identity: participants keep one pid (the write token);
+   readers only ever see its truncated hash, so a `who` can't be used to submit. */
+const whoOf = pid => sha256hex(pid).slice(0, 8);
+
+function roundEntries(o, prefix){
+  const fields = Object.keys(o).filter(f => f.startsWith(prefix)).sort();
+  const entries = fields.map(f => ({...JSON.parse(o[f]), who: whoOf(f.slice(prefix.length))}));
   const answered = [];
   for(const e of entries) e.values.forEach((v, i) => {
     answered[i] = (answered[i] || 0) + (v === null ? 0 : 1);
   });
   for(let i = 0; i < answered.length; i++) answered[i] = answered[i] || 0;
-  return {meta, revealed: o.revealed === '1', entries, answered};
+  return {entries, answered};
+}
+
+function sessionView(flat){
+  if(!flat || !flat.length) return null;
+  const o = toObj(flat);
+  if(!o.meta) return null;
+  const meta = JSON.parse(o.meta);
+  const r1 = roundEntries(o, 'r:');
+  const r2 = roundEntries(o, 's:');
+  return {meta, revealed: o.revealed === '1', entries: r1.entries, answered: r1.answered,
+    round: o.round === '2' ? 2 : 1, revealed2: o.revealed2 === '1',
+    entries2: r2.entries, answered2: r2.answered};
 }
 
 export async function createSession(kv, body, ip){
@@ -72,9 +84,13 @@ export async function putResponse(kv, id, body, ip){
   const {participantId, values, name} = body;
   if(!PID_RE.test(String(participantId))) return bad('participantId');
   if(!validValues(values)) return bad('values must be null | 0–100 | [low, high] with low ≤ high, max 20');
-  const [metaRaw, revealed] = await kv.pipeline([['HGET', key(id), 'meta'], ['HGET', key(id), 'revealed']]);
+  const [metaRaw, revealed, round, revealed2] = await kv.pipeline([
+    ['HGET', key(id), 'meta'], ['HGET', key(id), 'revealed'],
+    ['HGET', key(id), 'round'], ['HGET', key(id), 'revealed2']]);
   if(!metaRaw) return gone;
-  if(revealed === '1') return {status: 409, body: {error: 'revealed — responses are locked'}};
+  const inRound2 = round === '2';
+  if(inRound2 ? revealed2 === '1' : revealed === '1')
+    return {status: 409, body: {error: 'revealed — responses are locked'}};
   const meta = JSON.parse(metaRaw);
   const entry = {values};
   if(meta.names){
@@ -82,8 +98,9 @@ export async function putResponse(kv, id, body, ip){
     entry.name = name.trim();
   } else if(name !== undefined) return bad('this session is anonymous — no names accepted');
   /* EXPIRE rides along: keeps the window at one meeting-day from last activity
-     and self-heals a session whose create-time EXPIRE was lost mid-create */
-  await kv.pipeline([['HSET', key(id), 'r:' + participantId, JSON.stringify(entry)],
+     and self-heals a session whose create-time EXPIRE was lost mid-create.
+     Round 2 writes its own prefix — round-1 entries are never touched. */
+  await kv.pipeline([['HSET', key(id), (inRound2 ? 's:' : 'r:') + participantId, JSON.stringify(entry)],
     ['EXPIRE', key(id), TTL_SECONDS]]);
   return {status: 200, body: {ok: true}};
 }
@@ -93,9 +110,32 @@ export async function getSession(kv, id){
   const [flat] = await kv.pipeline([['HGETALL', key(id)]]);
   const s = sessionView(flat);
   if(!s) return gone;
-  const body = {count: s.entries.length, answered: s.answered, revealed: s.revealed, names: s.meta.names};
+  const body = {count: s.entries.length, answered: s.answered, revealed: s.revealed,
+    names: s.meta.names, round: s.round};
   if(s.revealed) body.responses = s.entries;   // independence enforced here, not in the UI
+  if(s.round === 2){
+    body.count2 = s.entries2.length;
+    body.answered2 = s.answered2;
+    body.revealed2 = s.revealed2;
+    if(s.revealed2) body.responses2 = s.entries2;   // same rule, round 2
+  }
   return {status: 200, body};
+}
+
+/* Delphi second round: only after reveal 1; round-2 answers accumulate under their
+   own prefix and stay private until reveal 2. */
+export async function openRound2(kv, id, body){
+  if(!ID_RE.test(String(id))) return bad('id');
+  if(!body || !ID_RE.test(String(body.key))) return bad('key');
+  const [metaRaw, revealed, round] = await kv.pipeline([
+    ['HGET', key(id), 'meta'], ['HGET', key(id), 'revealed'], ['HGET', key(id), 'round']]);
+  if(!metaRaw) return gone;
+  if(sha256hex(body.key) !== JSON.parse(metaRaw).keyHash) return {status: 403, body: {error: 'bad facilitator key'}};
+  if(round === '2') return {status: 200, body: {ok: true, round: 2}};
+  if(revealed !== '1') return {status: 409, body: {error: 'reveal round 1 before opening round 2'}};
+  await kv.pipeline([['HSET', key(id), 'round', '2'], ['HSET', key(id), 'revealed2', '0'],
+    ['EXPIRE', key(id), TTL_SECONDS]]);
+  return {status: 200, body: {ok: true, round: 2}};
 }
 
 export async function reveal(kv, id, body){
@@ -105,9 +145,17 @@ export async function reveal(kv, id, body){
   const s = sessionView(flat);
   if(!s) return gone;
   if(sha256hex(body.key) !== s.meta.keyHash) return {status: 403, body: {error: 'bad facilitator key'}};
-  if(!s.revealed) await kv.pipeline([['HSET', key(id), 'revealed', '1']]);
-  return {status: 200, body: {count: s.entries.length, answered: s.answered,
-    revealed: true, names: s.meta.names, responses: s.entries}};
+  const field = s.round === 2 ? 'revealed2' : 'revealed';
+  await kv.pipeline([['HSET', key(id), field, '1']]);
+  const out = {count: s.entries.length, answered: s.answered,
+    revealed: true, names: s.meta.names, round: s.round, responses: s.entries};
+  if(s.round === 2){
+    out.count2 = s.entries2.length;
+    out.answered2 = s.answered2;
+    out.revealed2 = true;
+    out.responses2 = s.entries2;
+  }
+  return {status: 200, body: out};
 }
 
 /* Facilitator-initiated early delete: shrinks the response-exposure window

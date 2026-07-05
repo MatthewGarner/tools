@@ -31,6 +31,17 @@ Launch slips past November :: prob
 Support tickets in week one :: range tickets
 Daily actives a month after launch :: range users
 Beta cohort renews :: prob`},
+  {name: 'What does “likely” mean?', src:
+`title: What does “likely” mean here?
+names: off
+
+// Everyone answers with the probability they hear in each word.
+// Reveal the spread, then open a Delphi round 2 — the pooled
+// medians become the team's shared translation table.
+“Likely” :: prob
+“Unlikely” :: prob
+“Almost certain” :: prob
+“A real possibility” :: prob`},
 ];
 
 /* Deterministic sample responses for the solo "Sample reveal" (seeded, spec §Session flow). */
