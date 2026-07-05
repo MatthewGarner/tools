@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow playground</title>
+<meta name="description" content="Little's Law made visceral: demand, team, WIP limit and variability drive a living queue — watch cycle time explode as utilisation nears 100%.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌊</text></svg>">
+</head>
+<body>
+<link rel="stylesheet" href="/assets/tokens.css">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);
+    background-color:var(--bg);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:26px 26px;
+    padding:44px 20px 60px;
+  }
+  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+  h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
+    letter-spacing:-.01em;margin:0;text-wrap:balance}
+  .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:60ch}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+    box-shadow:var(--shadow);padding:22px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+  .chips .lead{font-size:12.5px;color:var(--muted)}
+  .chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
+    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+  .chip:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .chip.on{border-color:var(--accent);color:var(--accent-ink)}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
+  @media (max-width:640px){.controls{grid-template-columns:1fr}}
+  .ctl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:8px}
+  .ctl output{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--ink);
+    text-transform:none;letter-spacing:0}
+  input[type=range]{width:100%;accent-color:var(--accent);--fill:50%;
+    -webkit-appearance:none;appearance:none;height:6px;border-radius:3px;
+    background:linear-gradient(90deg,var(--accent) var(--fill),var(--track) var(--fill))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
+    width:22px;height:22px;border-radius:50%;background:var(--accent);
+    border:2px solid var(--card);box-shadow:var(--shadow)}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--card)}
+  input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .seg button{border:none;background:none;color:var(--muted);cursor:pointer;
+    font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
+  .seg button.on{color:var(--card);background:var(--accent)}
+  .stripcard h2, .readcard h2{font-family:Charter,Georgia,serif;font-size:16px;margin:0 0 10px}
+  #strip{display:block;width:100%;height:150px}
+  .striplegend{display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:var(--muted)}
+  .striplegend b{color:var(--ink);font-variant-numeric:tabular-nums}
+  #verdictwrap svg{display:block;width:100%;height:auto}
+  .actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
+  .btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
+    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .method{color:var(--muted);font-size:12.5px}
+  .about{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);
+    font-size:13.5px;line-height:1.65;max-width:65ch}
+  .about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+  .about p{margin:0 0 10px}
+  .about a{color:var(--accent-ink)}
+  footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--accent-ink)}
+  @media (prefers-reduced-motion: no-preference){
+    .chip,.btn{transition:border-color .15s,color .15s}
+  }
+  /* fingers get full-size controls */
+  @media (pointer: coarse){
+    .chip,.btn,.seg button{min-height:44px;display:inline-flex;align-items:center}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Flow playground</h1>
+    <p class="tagline">Little's Law made visceral. Five sliders drive a living queue — watch waiting time explode as utilisation nears 100%, and read exactly what a WIP limit buys you.</p>
+  </header>
+
+  <div class="card">
+    <div class="chips" id="presets"><span class="lead">Try:</span>
+      <button class="chip" data-preset="overloaded">Overloaded team</button>
+      <button class="chip" data-preset="nolimit">No WIP limit</button>
+      <button class="chip" data-preset="healthy">Healthy pull</button>
+    </div>
+    <div class="controls">
+      <div class="ctl"><label>Demand <output id="demandout"></output></label>
+        <input type="range" id="demand" min="0.5" max="10" step="0.5" value="3" aria-label="Demand, items per week"></div>
+      <div class="ctl"><label>Typical item size <output id="sizeout"></output></label>
+        <input type="range" id="size" min="1" max="15" step="1" value="4" aria-label="Typical item size, days of focused work"></div>
+      <div class="ctl"><label>Team size <output id="teamout"></output></label>
+        <input type="range" id="team" min="1" max="10" step="1" value="4" aria-label="Team size, people"></div>
+      <div class="ctl"><label>WIP limit <output id="wipout"></output></label>
+        <input type="range" id="wip" min="1" max="21" step="1" value="4" aria-label="WIP limit; far right means no limit"></div>
+      <div class="ctl"><label>Variability <output id="varout"></output></label>
+        <div class="seg" id="variability" role="radiogroup" aria-label="Item size variability">
+          <button data-v="low">Low</button><button data-v="med" class="on">Medium</button><button data-v="high">High</button>
+        </div></div>
+    </div>
+  </div>
+
+  <div class="card stripcard">
+    <h2>The queue, live</h2>
+    <canvas id="strip" aria-label="Animated queue: items arrive, wait in the backlog, get worked, finish"></canvas>
+    <div class="striplegend">
+      <span>Backlog <b id="cbacklog">0</b></span>
+      <span>In progress <b id="cwip">0</b></span>
+      <span>Done <b id="cdone">0</b></span>
+      <span id="animnote"></span>
+    </div>
+  </div>
+
+  <div class="card readcard">
+    <h2>What the simulation says</h2>
+    <div id="verdictwrap"></div>
+    <div class="actions">
+      <button class="btn" id="dlsvg">Download SVG</button>
+      <button class="btn" id="dlpng">Download PNG</button>
+      <button class="btn" id="copypng">Copy PNG</button>
+      <button class="btn" id="copydoc">Copy for a doc</button>
+      <span class="method">Seeded simulation · ~2,000 simulated days · deterministic · the URL carries your settings</span>
+    </div>
+  </div>
+
+  <div class="about">
+    <h2>Why waiting dominates</h2>
+    <p>Little's Law says items-in-progress = arrival rate × time-in-system. Push a team toward 100% busy and the queue — not the work — sets your delivery date: near full utilisation, small bumps in demand or item size multiply waiting non-linearly (the queueing curve Reinertsen built <i>The Principles of Product Development Flow</i> around). That's why the verdict splits a typical item's calendar time into <b>working</b> and <b>waiting</b> — the waiting is usually the bigger number, and it's the one your process choices control.</p>
+    <p>The WIP limit slider shows the other half of the argument: in-progress items share the team, so WIP above capacity doesn't add throughput — it just stretches every item's calendar time. "Start less, finish more" falls out of the arithmetic. But note what a WIP limit can't do: if demand exceeds capacity, the backlog grows without bound and no limit fixes that — the tool says so, loudly, rather than hiding the queue upstream.</p>
+    <p>One honest caveat: this is a flow model of one stage. Real teams aren't a single pipe, and constraints in human systems are often policy, mindset, or coordination rather than a visible logjam — a lesson the Theory of Constraints crowd learned the hard way. Use this to win the argument about overloading; use judgement for everything else.</p>
+  </div>
+
+  <footer>
+    No accounts, no tracking. The URL carries your settings — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
