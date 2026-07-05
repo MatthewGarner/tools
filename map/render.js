@@ -63,6 +63,7 @@ export function render(model, resolved, ro, ctx){
   const toneHex = tone => ({bad: C.status.blocked, warn: C.status.risk,
     good: C.status.done, accent: C.accent})[tone] || null;
 
+  const edit = !!ctx.edit;   // preview-only affordances; exports and goldens render without
   const flaggedLines = new Set(ro.flagged.map(f => f.item.srcLine));
   const placed = model.items.filter(i => i.x != null);
   const hasTray = ro.unplaced.length > 0;
@@ -147,14 +148,20 @@ export function render(model, resolved, ro, ctx){
     while(t.length > 4 && measure(t + '…', font) > maxW * S) t = t.slice(0, -1);
     return t === label ? label : t + '…';
   };
+  const removeW = edit ? 13 * S : 0;
   const cards = placed.map(it => {
     const label = truncate(it.label);
-    const w = measure(label, font) + T.cardPadX * 2 * S;
+    const w = measure(label, font) + T.cardPadX * 2 * S + removeW;
     const cx = px(it.x), cy = py(it.y);
     let bx = cx + T.cardGapX * S;
     if(bx + w > planeX + planeW - 4) bx = cx - T.cardGapX * S - w;
     return {it, label, w, h: T.cardH * S, x: bx, y: cy - T.cardH * S / 2, cx, cy};
   });
+  if(edit && !hasTray){
+    const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
+    zoneLabelBoxes.push({x: planeX + planeW - aw - 8 * S, y: planeY + 8 * S,
+      w: aw, h: T.cardH * S + 4 * S, fixed: true});
+  }
   const nudged = nudge([...cards.map(c => ({x: c.x, y: c.y, w: c.w, h: c.h})), ...zoneLabelBoxes],
     planeX + 2, planeY + 2, planeX + planeW - 2, planeY + planeH - 2);
   cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
@@ -171,6 +178,10 @@ export function render(model, resolved, ro, ctx){
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
       '" x="' + (c.x + T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" font-size="' + T.cardSize * S +
       '" font-weight="600" fill="' + C.ink + '">' + esc(c.label) + '</text>');
+    if(edit) body.push('<text data-edit="removeitem" data-line="' + c.it.srcLine + '" data-raw=""' +
+      ' x="' + (c.x + c.w - T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" text-anchor="end"' +
+      ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" role="button"' +
+      ' aria-label="Remove ' + esc(c.it.label) + '">×</text>');
     body.push('</g>');
   }
 
@@ -189,10 +200,34 @@ export function render(model, resolved, ro, ctx){
       body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
         '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) +
         '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '">' + esc(label) + '</text>');
+      if(edit) body.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw=""' +
+        ' x="' + (trayX + w - T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) + '" text-anchor="end"' +
+        ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" role="button"' +
+        ' aria-label="Remove ' + esc(it.label) + '">×</text>');
       body.push('</g>');
       ty += T.trayCardH * S;
     }
+    if(edit){
+      const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
+      body.push('<g data-add="1"><rect x="' + trayX + '" y="' + ty + '" width="' + aw +
+        '" height="' + T.cardH * S + '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border +
+        '" stroke-dasharray="2 3"/>' +
+        '<text data-edit="additem" data-line="-1" data-raw="" x="' + (trayX + T.cardPadX * S) +
+        '" y="' + (ty + T.cardH * S - 6 * S) + '" font-size="' + T.cardSize * S +
+        '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text></g>');
+      ty += T.trayCardH * S;
+    }
     trayBottom = ty;
+  } else if(edit){
+    /* no tray: the add ghost sits top-right inside the plane (a fixed nudge obstacle) */
+    const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
+    const axg = planeX + planeW - aw - 8 * S, ayg = planeY + 8 * S;
+    body.push('<g data-add="1"><rect x="' + axg + '" y="' + ayg + '" width="' + aw +
+      '" height="' + T.cardH * S + '" rx="' + T.cardH * S / 2 + '" fill="' + C.card +
+      '" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+      '<text data-edit="additem" data-line="-1" data-raw="" x="' + (axg + T.cardPadX * S) +
+      '" y="' + (ayg + T.cardH * S - 6 * S) + '" font-size="' + T.cardSize * S +
+      '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text></g>');
   }
 
   /* ---- readout panel ---- */
