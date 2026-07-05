@@ -200,6 +200,13 @@ export function render(model, ctx){
         if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
         if(c.it.ghost && c.lines.length === 1){
           cursor = cy + (c.cardH - lhTitle) / 2;
+        } else {
+          /* lane-equalised cards with less content centre it in the slack
+             (between badge and pill) instead of leaving a bottom-heavy hole */
+          const contentH = c.lines.length*lhTitle + c.noteLines.length*lhNote;
+          const footH = c.it.status ? T.statusH*S : 0;
+          const slack = (cy + c.cardH - cardPadY - footH) - cursor - contentH;
+          if(slack > 0) cursor += slack / 2;
         }
         const ed = c.it.edit || {};
         const titleEip = (!c.it.ghost && ed.title !== false)
