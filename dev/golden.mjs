@@ -57,6 +57,29 @@ for(const [k, src] of Object.entries(docs)){
   variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
 }
 
+/* /map fixtures (dates normalised) */
+{
+  const {parse: mparse} = await import('../map/parse.js');
+  const {resolve: mresolve} = await import('../map/zones.js');
+  const {readout: mreadout} = await import('../map/readout.js');
+  const {render: mrender} = await import('../map/render.js');
+  const norm = s => s.replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  const mk = (src, extra = {}) => {
+    const m = mparse(src);
+    const r = mresolve(m);
+    return norm(mrender(m, r, mreadout(m, r), {...ctxBase, ...extra}));
+  };
+  const mdocs = {
+    'map-assumptions': 'preset: assumptions\ntitle: T\nA @ 20,80 :: test: interview five\nB @ 70,60\nC @ 40,90\nD',
+    'map-stakeholders': 'preset: stakeholders\nCFO @ 30,85 :: attitude: sceptical\nSupport lead @ 80,40',
+    'map-futures': 'preset: futures\nx: Regulation (light → strict)\ny: Adoption (slow → fast)\nzone 1,2: Walled gardens\nSignal one @ 20,75\nSignal two @ 80,30',
+    'map-risk': 'preset: risk\nSlip @ 60,85 :: owner: core\nRejection @ 35,90\nQuiet risk @ 20,20',
+    'map-custom': 'title: C\nx: Effort (low → high)\ny: Value (low → high)\nzones: grid 3x3\nzone 1,3: Quick wins\nzone band: x + y > 120\nThing @ 20,80\nOther @ 60,40',
+  };
+  for(const [k, src] of Object.entries(mdocs)) variants[k] = mk(src);
+  variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

@@ -1,0 +1,275 @@
+/* /map renderer: (model, resolved, readout, ctx) → SVG string. Pure. */
+import {PALETTES, scheme, mix} from '../assets/series.js';
+import {esc, wrapText} from '../assets/svg.js';
+import {paintOrder, labelAnchors} from './zones.js';
+
+const F = {
+  body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  serif: 'Charter, Georgia, "Times New Roman", serif',
+};
+
+export const TOKENS = {
+  pad: 26, titleSize: 22, titleY: 36, dateSize: 11, headerH: 54, headerHNoTitle: 18,
+  planeW: 620, planeH: 470, axisW: 46, axisH: 42, axisSize: 11.5, endSize: 9.5,
+  zoneSize: 10, zoneTracking: 0.8, zoneTint: 0.07, zoneTintDark: 0.13,
+  dotR: 3.5, cardH: 20, cardPadX: 8, cardSize: 11, cardGapX: 7, cardMaxW: 190,
+  trayW: 200, trayGap: 18, trayCardH: 26, trayHeadSize: 9.5,
+  roGap: 24, roColW: 300, roColGap: 26, verdictSize: 15, verdictLh: 21,
+  roZoneSize: 10.5, roItemSize: 11, roItemLh: 16, roMetaSize: 9.5,
+  roAdviceSize: 10, roAdviceLh: 13, roCap: 6, blockGap: 16,
+  slideScale: 1.35, bottomPad: 18,
+};
+
+/* render-time collision repulsion: capsule boxes repel; dots (authored positions)
+   never move. Boxes marked {fixed: true} (zone labels) are obstacles that push
+   others but never move themselves. Deterministic; exported for tests. */
+export function nudge(boxes, x0, y0, x1, y1, iters = 24){
+  const b = boxes.map(o => ({...o}));
+  for(let it = 0; it < iters; it++){
+    let moved = false;
+    for(let i = 0; i < b.length; i++) for(let j = i + 1; j < b.length; j++){
+      const a = b[i], c = b[j];
+      if(a.fixed && c.fixed) continue;
+      const ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+      const oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+      if(ox <= 0 || oy <= 0) continue;
+      moved = true;
+      const aShare = a.fixed ? 0 : (c.fixed ? 1 : 0.5);
+      if(oy <= ox){
+        const total = oy + 2, dir = a.y <= c.y ? -1 : 1;
+        a.y += dir * total * aShare; c.y -= dir * total * (1 - aShare);
+      } else {
+        const total = ox + 2, dir = a.x <= c.x ? -1 : 1;
+        a.x += dir * total * aShare; c.x -= dir * total * (1 - aShare);
+      }
+    }
+    for(const o of b){
+      if(o.fixed) continue;
+      o.x = Math.min(Math.max(o.x, x0), x1 - o.w);
+      o.y = Math.min(Math.max(o.y, y0), y1 - o.h);
+    }
+    if(!moved) break;
+  }
+  return b;
+}
+
+export function render(model, resolved, ro, ctx){
+  const {measure, slide = false, dark = false} = ctx;
+  const paletteHex = model.accent ||
+    (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
+  const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
+  const T = TOKENS;
+  const S = slide ? T.slideScale : 1;
+  const toneHex = tone => ({bad: C.status.blocked, warn: C.status.risk,
+    good: C.status.done, accent: C.accent})[tone] || null;
+
+  const flaggedLines = new Set(ro.flagged.map(f => f.item.srcLine));
+  const placed = model.items.filter(i => i.x != null);
+  const hasTray = ro.unplaced.length > 0;
+
+  /* ---- geometry ---- */
+  const headerH = (model.title ? T.headerH : T.headerHNoTitle) * S;
+  const planeX = (T.pad + T.axisW) * S, planeY = headerH;
+  const planeW = T.planeW * S, planeH = T.planeH * S;
+  const trayX = planeX + planeW + T.trayGap * S;
+  const W = Math.round(hasTray ? trayX + T.trayW * S + T.pad * S : planeX + planeW + T.pad * S);
+  const px = x => planeX + x / 100 * planeW;
+  const py = y => planeY + (1 - y / 100) * planeH;
+
+  /* ---- plane surface + zones ---- */
+  const body = [];
+  body.push('<rect data-plane="1" x="' + planeX + '" y="' + planeY + '" width="' + planeW +
+    '" height="' + planeH + '" fill="' + C.card + '" stroke="' + C.border + '"/>');
+  for(const {zone, pts} of paintOrder(resolved)){
+    const hex = toneHex(zone.tone);
+    if(!hex) continue;
+    const d = pts.map(([x, y], i) => (i ? 'L' : 'M') + px(x).toFixed(1) + ' ' + py(y).toFixed(1)).join('') + 'Z';
+    body.push('<path d="' + d + '" fill="' + mix(C.card, hex, dark ? T.zoneTintDark : T.zoneTint) + '"/>');
+  }
+  if(resolved.grid){
+    const {cols, rows} = resolved.grid;
+    for(let c = 1; c < cols; c++)
+      body.push('<line x1="' + px(c * 100 / cols) + '" y1="' + planeY + '" x2="' + px(c * 100 / cols) +
+        '" y2="' + (planeY + planeH) + '" stroke="' + C.border + '" stroke-width="1" opacity="0.6"/>');
+    for(let r = 1; r < rows; r++)
+      body.push('<line x1="' + planeX + '" y1="' + py(r * 100 / rows) + '" x2="' + (planeX + planeW) +
+        '" y2="' + py(r * 100 / rows) + '" stroke="' + C.border + '" stroke-width="1" opacity="0.6"/>');
+  }
+  /* zone labels — also collected as fixed obstacles for the card nudge */
+  const anchors = labelAnchors(resolved);
+  const zoneLabelBoxes = [];
+  const zoneFont = '600 ' + T.zoneSize * S + 'px ' + F.body;
+  for(const z of resolved.zones){
+    if(z.kind === 'unzoned' || z.anonymous) continue;
+    const a = anchors.get(z.id);
+    if(!a) continue;
+    const editable = z.kind === 'cell' || (z.kind === 'rule' && z.srcLine != null);
+    const eip = editable
+      ? ' data-edit="zonename" data-line="' + (z.srcLine ?? -1) + '" data-raw="' + esc(z.name) +
+        '" data-zone="' + (z.kind === 'cell' ? 'c:' + z.col + ',' + z.row : 'r:' + esc(z.name)) + '"'
+      : '';
+    const lw = measure(z.name.toUpperCase(), zoneFont) + z.name.length * T.zoneTracking;
+    zoneLabelBoxes.push({x: px(a[0]) - lw / 2, y: py(a[1]) - T.zoneSize * S,
+      w: lw, h: T.zoneSize * S + 4 * S, fixed: true});
+    body.push('<text' + eip + ' x="' + px(a[0]) + '" y="' + py(a[1]) + '" text-anchor="middle"' +
+      ' font-size="' + T.zoneSize * S + '" font-weight="600" letter-spacing="' + T.zoneTracking +
+      '" fill="' + (toneHex(z.tone) || C.muted) + '">' + esc(z.name.toUpperCase()) + '</text>');
+  }
+
+  /* ---- axes ---- */
+  const ax = resolved.x, ay = resolved.y;
+  body.push('<text data-edit="axis" data-axis="x" data-line="' + (ax.srcLine ?? -1) + '" data-raw="' +
+    esc(ax.label) + '" x="' + (planeX + planeW / 2) + '" y="' + (planeY + planeH + 26 * S) +
+    '" text-anchor="middle" font-size="' + T.axisSize * S + '" font-weight="600" fill="' + C.ink +
+    '">' + esc(ax.label) + '</text>');
+  body.push('<text data-edit="axis" data-axis="y" data-line="' + (ay.srcLine ?? -1) + '" data-raw="' +
+    esc(ay.label) + '" x="' + (planeX - 26 * S) + '" y="' + (planeY + planeH / 2) +
+    '" text-anchor="middle" font-size="' + T.axisSize * S + '" font-weight="600" fill="' + C.ink +
+    '" transform="rotate(-90 ' + (planeX - 26 * S) + ' ' + (planeY + planeH / 2) + ')">' +
+    esc(ay.label) + '</text>');
+  if(ax.low){
+    body.push('<text x="' + planeX + '" y="' + (planeY + planeH + 12 * S) + '" font-size="' +
+      T.endSize * S + '" fill="' + C.muted + '">' + esc(ax.low) + '</text>');
+    body.push('<text x="' + (planeX + planeW) + '" y="' + (planeY + planeH + 12 * S) +
+      '" text-anchor="end" font-size="' + T.endSize * S + '" fill="' + C.muted + '">' + esc(ax.high) + '</text>');
+  }
+  if(ay.low){
+    body.push('<text x="' + (planeX - 8 * S) + '" y="' + (planeY + planeH - 2 * S) +
+      '" text-anchor="end" font-size="' + T.endSize * S + '" fill="' + C.muted + '">' + esc(ay.low) + '</text>');
+    body.push('<text x="' + (planeX - 8 * S) + '" y="' + (planeY + 8 * S) +
+      '" text-anchor="end" font-size="' + T.endSize * S + '" fill="' + C.muted + '">' + esc(ay.high) + '</text>');
+  }
+
+  /* ---- cards: dot at the authored position, nudged capsule beside it ---- */
+  const font = '600 ' + T.cardSize * S + 'px ' + F.body;
+  const truncate = (label, maxW = T.cardMaxW) => {
+    let t = label;
+    while(t.length > 4 && measure(t + '…', font) > maxW * S) t = t.slice(0, -1);
+    return t === label ? label : t + '…';
+  };
+  const cards = placed.map(it => {
+    const label = truncate(it.label);
+    const w = measure(label, font) + T.cardPadX * 2 * S;
+    const cx = px(it.x), cy = py(it.y);
+    let bx = cx + T.cardGapX * S;
+    if(bx + w > planeX + planeW - 4) bx = cx - T.cardGapX * S - w;
+    return {it, label, w, h: T.cardH * S, x: bx, y: cy - T.cardH * S / 2, cx, cy};
+  });
+  const nudged = nudge([...cards.map(c => ({x: c.x, y: c.y, w: c.w, h: c.h})), ...zoneLabelBoxes],
+    planeX + 2, planeY + 2, planeX + planeW - 2, planeY + planeH - 2);
+  cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
+  for(const c of cards){
+    const flagged = flaggedLines.has(c.it.srcLine);
+    body.push('<g data-line="' + c.it.srcLine + '">');
+    const capX = c.x + c.w / 2, capY = c.y + c.h / 2;
+    if(Math.hypot(capX - c.cx, capY - c.cy) > 26 * S)
+      body.push('<line x1="' + c.cx + '" y1="' + c.cy + '" x2="' + capX + '" y2="' + capY +
+        '" stroke="' + C.border + '" stroke-width="1"/>');
+    body.push('<circle cx="' + c.cx + '" cy="' + c.cy + '" r="' + T.dotR * S + '" fill="' + C.accent + '"/>');
+    body.push('<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="' + c.h +
+      '" rx="' + c.h / 2 + '" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
+    body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
+      '" x="' + (c.x + T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" font-size="' + T.cardSize * S +
+      '" font-weight="600" fill="' + C.ink + '">' + esc(c.label) + '</text>');
+    body.push('</g>');
+  }
+
+  /* ---- tray ---- */
+  let trayBottom = planeY;
+  if(hasTray){
+    body.push('<text x="' + trayX + '" y="' + (planeY + 12 * S) + '" font-size="' + T.trayHeadSize * S +
+      '" font-weight="600" letter-spacing="0.8" fill="' + C.muted + '">UNPLACED — DRAG ONTO THE MAP</text>');
+    let ty = planeY + 24 * S;
+    for(const it of ro.unplaced){
+      const label = truncate(it.label);
+      const w = Math.min(measure(label, font) + T.cardPadX * 2 * S, T.trayW * S);
+      body.push('<g data-line="' + it.srcLine + '" data-tray="1">');
+      body.push('<rect x="' + trayX + '" y="' + ty + '" width="' + w + '" height="' + T.cardH * S +
+        '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
+      body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
+        '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) +
+        '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '">' + esc(label) + '</text>');
+      body.push('</g>');
+      ty += T.trayCardH * S;
+    }
+    trayBottom = ty;
+  }
+
+  /* ---- readout panel ---- */
+  const roX = T.pad * S, roW = W - T.pad * 2 * S;
+  let roY = Math.max(planeY + planeH + T.axisH * S, trayBottom) + T.roGap * S;
+  const verdictLines = wrapText(ro.verdict, '600 ' + T.verdictSize * S + 'px ' + F.serif, roW, measure);
+  for(const line of verdictLines){
+    body.push('<text x="' + roX + '" y="' + (roY + T.verdictSize * S) + '" font-family=\'' + F.serif +
+      '\' font-size="' + T.verdictSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(line) + '</text>');
+    roY += T.verdictLh * S;
+  }
+  roY += 6 * S;
+  for(const f of ro.flagged){
+    body.push('<text x="' + roX + '" y="' + (roY + T.roItemSize * S) + '" font-size="' + T.roItemSize * S +
+      '" fill="' + C.err + '">⚠ ' + esc(f.item.label + ' — ' + f.msg) + '</text>');
+    roY += T.roItemLh * S;
+  }
+  roY += (ro.flagged.length ? 10 : 0) * S;
+
+  /* zone blocks packed into shortest column */
+  const colW = T.roColW * S, colGap = T.roColGap * S;
+  const nCols = Math.max(1, Math.floor((roW + colGap) / (colW + colGap)));
+  const colY = Array(nCols).fill(roY);
+  for(const e of ro.zones){
+    if(!e.items.length && !e.advice) continue;
+    const adviceLines = e.advice ? wrapText(e.advice, T.roAdviceSize * S + 'px ' + F.body, colW, measure) : [];
+    const shown = e.items.slice(0, T.roCap);
+    const more = e.items.length - shown.length;
+    const col = colY.indexOf(Math.min(...colY));
+    const bx = roX + col * (colW + colGap);
+    let by = colY[col];
+    const hex = toneHex(e.zone.tone) || C.muted;
+    body.push('<text x="' + bx + '" y="' + (by + T.roZoneSize * S) + '" font-size="' + T.roZoneSize * S +
+      '" font-weight="600" letter-spacing="0.8" fill="' + hex + '">' +
+      esc(e.zone.name.toUpperCase()) + ' · ' + e.items.length + '</text>');
+    by += 15 * S;
+    for(const line of adviceLines){
+      body.push('<text x="' + bx + '" y="' + (by + T.roAdviceSize * S) + '" font-size="' + T.roAdviceSize * S +
+        '" fill="' + C.muted + '">' + esc(line) + '</text>');
+      by += T.roAdviceLh * S;
+    }
+    by += 3 * S;
+    for(const it of shown){
+      body.push('<text x="' + bx + '" y="' + (by + T.roItemSize * S) + '" font-size="' + T.roItemSize * S +
+        '" fill="' + C.ink + '">' + esc(truncate(it.label, T.roColW)) + '</text>');
+      by += T.roItemLh * S;
+      if(it.fields.length){
+        const f = it.fields[0];
+        body.push('<text data-edit="field" data-line="' + it.srcLine + '" data-key="' + esc(f.key) +
+          '" data-raw="' + esc(f.val) + '" x="' + (bx + 10 * S) + '" y="' + (by + T.roMetaSize * S - 3 * S) +
+          '" font-size="' + T.roMetaSize * S + '" fill="' + C.muted + '">' +
+          esc((f.key + ': ' + f.val).slice(0, 60)) + '</text>');
+        by += (T.roMetaSize + 3) * S;
+      }
+    }
+    if(more > 0){
+      body.push('<text x="' + bx + '" y="' + (by + T.roItemSize * S) + '" font-size="' + T.roItemSize * S +
+        '" fill="' + C.muted + '">+ ' + more + ' more</text>');
+      by += T.roItemLh * S;
+    }
+    colY[col] = by + T.blockGap * S;
+  }
+
+  const H = Math.round(Math.max(...colY, roY) + T.bottomPad * S);
+
+  /* ---- assemble ---- */
+  const s = [];
+  s.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>');
+  s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
+  if(model.title)
+    s.push('<text x="' + T.pad * S + '" y="' + T.titleY * S + '" font-family=\'' + F.serif +
+      '\' font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' +
+      esc(model.title) + '</text>');
+  s.push('<text x="' + (W - T.pad * S) + '" y="' + (model.title ? T.titleY : 14) * S +
+    '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +
+    new Date().toISOString().slice(0, 10) + '</text>');
+  s.push(...body, '</svg>');
+  return s.join('');
+}

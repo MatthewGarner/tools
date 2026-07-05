@@ -9,6 +9,7 @@ Utilities for product work under uncertainty. Live at [tools.matthewgarner.me](h
 | Roadmap as code | [/roadmap](https://tools.matthewgarner.me/roadmap/) | Plain-text DSL → deck-ready roadmap graphic: drag-and-drop that edits the text, snapshot diffs, palettes, SVG/PNG export |
 | Decision tree sketcher | [/tree](https://tools.matthewgarner.me/tree/) | Expected-value trees with honest uncertainty: 90% ranges, Monte Carlo rollback, and what would flip the decision |
 | Why | [/why](https://tools.matthewgarner.me/why/) | An Opportunity Solution Tree and a roadmap as projections of one text file — columns derived from discovery status, audits for roadmap items with no why |
+| Map | [/map](https://tools.matthewgarner.me/map/) | Plane + zones with method presets — assumption mapping, stakeholder grids, futures matrices, risk registers; drag-to-place edits the text |
 
 Rules of the series: each tool does one job exceptionally well — no accounts, no tracking, no runtime dependencies or build step (CodeMirror is vendored as a committed bundle; everything ships as static files). State lives in the URL so every model is a bookmarkable, shareable link.
 
