@@ -60,8 +60,9 @@
 /* nothing on stage yet → the action row has nothing to act on */
 .actions button:disabled, .actions select:disabled{opacity: .45; cursor: default}
 .actions button:disabled:hover{border-color: var(--border); color: inherit}
-/* section rhythm after the hero: centred reading column under the full-bleed stage */
-.about{margin: 56px auto 0}
+/* section rhythm after the hero: reading column shares the page's left edge
+   (a centred 65ch island under the full-bleed stage read as detached) */
+.about{margin: 56px 0 0}
 footer{margin: 48px 0 8px}
 @media (max-width: 900px){
   .workspace{display: flex; flex-direction: column; gap: 16px; margin-top: 20px}

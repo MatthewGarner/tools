@@ -23,8 +23,8 @@ names: off
 We ship the referral loop by end of Q3 :: prob
 Weeks to migrate billing :: range weeks
 Active teams at end of quarter :: range teams`},
-  {name: 'Habitat launch readiness', src:
-`title: Habitat launch readiness
+  {name: 'App launch readiness', src:
+`title: App launch readiness
 names: on
 
 Launch slips past November :: prob

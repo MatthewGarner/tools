@@ -73,7 +73,7 @@ for(const theme of ['light', 'dark']){
 /* ---- why ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/why/', theme);
-  await page.getByRole('button', {name: 'Habitat retention'}).click();
+  await page.getByRole('button', {name: 'Habit retention'}).click();
   await page.waitForTimeout(600);
   check('why(' + theme + '): OST view renders', await page.locator('#preview svg').count() === 1);
   const ost = await page.locator('#preview svg').innerHTML();

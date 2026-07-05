@@ -8,7 +8,7 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 const TOOLS = [
   {path: '/tree/', chip: 'Bid or no bid'},
-  {path: '/why/', chip: 'Habitat retention'},
+  {path: '/why/', chip: 'Habit retention'},
   {path: '/roadmap/', chip: 'Habit app roadmap'},
   {path: '/map/', chip: 'Assumption map'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal'},   // SVG lives in the reveal view

@@ -92,7 +92,7 @@ check('no page errors', errors.length === 0);
   const errs = [];
   p.on('pageerror', e => errs.push(e.message));
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Habitat retention'}).click();
+  await p.getByRole('button', {name: 'Habit retention'}).click();
   await p.waitForTimeout(500);
   await p.locator('text[data-edit="status"][data-raw="testing"]').first().click();
   await p.waitForTimeout(200);

@@ -14,7 +14,7 @@ const $ = id => document.getElementById(id);
 
 
 const EXAMPLES = [
-  {name: 'Habitat retention', src:
+  {name: 'Habit retention', src:
 `title: Q3 — 90-day retention
 outcome: Improve 90-day retention
 
