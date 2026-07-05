@@ -54,7 +54,9 @@
   .seg button{border:none;background:none;color:var(--muted);cursor:pointer;
     font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
   .seg button.on{color:var(--card);background:var(--accent)}
-  .stripcard h2, .readcard h2{font-family:Charter,Georgia,serif;font-size:16px;margin:0 0 10px}
+  .card h2{font-family:Charter,Georgia,serif;font-size:16px;margin:0 0 10px}
+  .cardintro{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:70ch}
+  #batchwrap svg,#triagewrap svg{display:block;width:100%;height:auto;margin-top:6px}
   #strip{display:block;width:100%;height:150px}
   .striplegend{display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:var(--muted)}
   .striplegend b{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -84,7 +86,7 @@
 <div class="wrap">
   <header>
     <h1>Flow playground</h1>
-    <p class="tagline">Little's Law made visceral. Five sliders drive a living queue — watch waiting time explode as utilisation nears 100%, and read exactly what a WIP limit buys you.</p>
+    <p class="tagline">Little's Law made visceral. Sliders drive a living queue — watch waiting time explode as utilisation nears 100%, price your batch size, and find the lever that actually clears your backlog.</p>
   </header>
 
   <div class="card">
@@ -129,6 +131,42 @@
       <button class="btn" id="copypng">Copy PNG</button>
       <button class="btn" id="copydoc">Copy for a doc</button>
       <span class="method">Seeded simulation · ~2,000 simulated days · deterministic · the URL carries your settings</span>
+    </div>
+  </div>
+
+  <div class="card batchcard">
+    <h2>The batch-size argument</h2>
+    <p class="cardintro">How much should one release carry? The fixed cost of releasing says batch up; the cost of delay says ship now. The U-curve prices that trade with your numbers — demand comes from the slider above, so the cards share one world.</p>
+    <div class="controls">
+      <div class="ctl"><label>Cost per release <output id="tcostout"></output></label>
+        <input type="range" id="tcost" min="100" max="10000" step="100" value="1000" aria-label="Transaction cost per release, pounds"></div>
+      <div class="ctl"><label>Cost of delay <output id="hcostout"></output></label>
+        <input type="range" id="hcost" min="50" max="5000" step="50" value="500" aria-label="Cost of delay per item per week, pounds"></div>
+      <div class="ctl"><label>Your batch today <output id="batchout"></output></label>
+        <input type="range" id="batch" min="1" max="30" step="1" value="8" aria-label="Your current items per release"></div>
+    </div>
+    <div id="batchwrap"></div>
+    <div class="actions">
+      <button class="btn" id="dlbatchsvg">Download SVG</button>
+      <button class="btn" id="dlbatchpng">Download PNG</button>
+      <button class="btn" id="copybatchpng">Copy PNG</button>
+      <span class="method">Reinertsen's U-curve · transaction cost vs cost of delay</span>
+    </div>
+  </div>
+
+  <div class="card triagecard">
+    <h2>Triage your queue</h2>
+    <p class="cardintro">There's a pile today and everyone has a favourite fix. This ranks the four standard levers — more people, less intake, smaller items, a WIP limit — against <i>your</i> queue: the sliders above set the world, plus one number.</p>
+    <div class="controls">
+      <div class="ctl"><label>Items waiting today <output id="backlogout"></output></label>
+        <input type="range" id="backlog" min="0" max="60" step="1" value="0" aria-label="Items waiting in the backlog today"></div>
+    </div>
+    <div id="triagewrap"></div>
+    <div class="actions">
+      <button class="btn" id="dltriagesvg">Download SVG</button>
+      <button class="btn" id="dltriagepng">Download PNG</button>
+      <button class="btn" id="copytriagepng">Copy PNG</button>
+      <span class="method">Same seeded simulation, one lever changed at a time</span>
     </div>
   </div>
 

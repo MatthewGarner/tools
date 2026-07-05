@@ -1,6 +1,7 @@
 /* DOM shell: sliders → sim → readout + canvas strip. Engine and readout are pure. */
-import {simulate, wipSweep, kneeWip, WEEK} from './engine.js';
-import {renderReadout, markdownSummary} from './render.js';
+import {simulate, wipSweep, kneeWip, leverTriage, WEEK} from './engine.js';
+import {batchEconomics} from './economics.js';
+import {renderReadout, renderBatch, renderTriage, markdownSummary} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 
@@ -17,6 +18,7 @@ const PRESETS = {
 let variability = 'med';
 let lastSvg = '', lastResult = null, lastSweep = null, lastKnee = 1, lastParams = null;
 let sweepKey = '', debTimer = null, rafId = 0, hashTimer = null;
+let lastBatchSvg = '', lastEcon = null, lastTriageSvg = '', lastTriage = null, triageKey = '';
 
 function params(){
   const wipPos = +$('wip').value;
@@ -29,6 +31,16 @@ function params(){
   };
 }
 
+function econParams(){
+  return {
+    demandPerWeek: +$('demand').value,
+    transactionCost: +$('tcost').value,
+    holdCostPerItemWeek: +$('hcost').value,
+    currentBatch: +$('batch').value,
+    maxBatch: 30,
+  };
+}
+
 function syncOutputs(){
   const p = params();
   $('demandout').textContent = p.demandPerWeek + '/week';
@@ -36,6 +48,10 @@ function syncOutputs(){
   $('teamout').textContent = p.team + (p.team === 1 ? ' person' : ' people');
   $('wipout').textContent = p.wipLimit >= NO_LIMIT ? 'no limit' : String(p.wipLimit);
   $('varout').textContent = {low: 'low', med: 'medium', high: 'high'}[variability];
+  $('tcostout').textContent = '£' + (+$('tcost').value).toLocaleString('en-GB') + '/release';
+  $('hcostout').textContent = '£' + (+$('hcost').value).toLocaleString('en-GB') + '/item·week';
+  $('batchout').textContent = $('batch').value + ($('batch').value === '1' ? ' item' : ' items');
+  $('backlogout').textContent = $('backlog').value === '0' ? 'none' : $('backlog').value + ' items';
   for(const el of document.querySelectorAll('input[type=range]')){
     const f = (el.value - el.min) / (el.max - el.min) * 100;
     el.style.setProperty('--fill', f + '%');
@@ -51,18 +67,32 @@ function doRefresh(){
   lastKnee = kneeWip(lastSweep);
   lastResult = result;
   lastParams = p;
-  const svg = renderReadout(result, lastSweep, lastKnee, p, {colors: themeColors(), measure});
+  const ctx = {colors: themeColors(), measure};
+  const svg = renderReadout(result, lastSweep, lastKnee, p, ctx);
   if(svg !== lastSvg){ $('verdictwrap').innerHTML = svg; lastSvg = svg; }
+
+  lastEcon = batchEconomics(econParams());
+  const batchSvg = renderBatch(lastEcon, econParams(), ctx);
+  if(batchSvg !== lastBatchSvg){ $('batchwrap').innerHTML = batchSvg; lastBatchSvg = batchSvg; }
+
+  const backlogNow = +$('backlog').value;
+  const tKey = JSON.stringify({...p, q: backlogNow, k: lastKnee});
+  if(tKey !== triageKey){ lastTriage = leverTriage(p, {initialBacklog: backlogNow, knee: lastKnee}); triageKey = tKey; }
+  const triageSvg = renderTriage(lastTriage, p, backlogNow, ctx);
+  if(triageSvg !== lastTriageSvg){ $('triagewrap').innerHTML = triageSvg; lastTriageSvg = triageSvg; }
+
   restartAnim(result);
   clearTimeout(hashTimer);
   hashTimer = setTimeout(() => writeHashState({d: p.demandPerWeek, s: p.itemDays, t: p.team,
-    w: +$('wip').value, v: variability}), 400);
+    w: +$('wip').value, v: variability, tc: +$('tcost').value, hc: +$('hcost').value,
+    b: +$('batch').value, q: backlogNow}), 400);
 }
 function refresh(){ cancelAnimationFrame(rafId); rafId = requestAnimationFrame(doRefresh); }
 function schedule(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); }
 
 /* ---------- controls ---------- */
-for(const id of ['demand', 'size', 'team', 'wip']) $(id).addEventListener('input', schedule);
+for(const id of ['demand', 'size', 'team', 'wip', 'tcost', 'hcost', 'batch', 'backlog'])
+  $(id).addEventListener('input', schedule);
 $('variability').addEventListener('click', e => {
   const b = e.target.closest('button');
   if(!b) return;
@@ -199,10 +229,35 @@ $('copypng').addEventListener('click', async () => {
 });
 $('copydoc').addEventListener('click', async () => {
   if(!lastResult) return;
-  const md = markdownSummary(lastResult, lastSweep, lastKnee, lastParams);
+  const md = markdownSummary(lastResult, lastSweep, lastKnee, lastParams,
+    {econ: lastEcon, triage: lastTriage, initialBacklog: +$('backlog').value});
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
+
+/* per-card exports for the batch and triage readouts */
+function wireCardExports(prefix, getSvg, name){
+  $('dl' + prefix + 'svg').addEventListener('click', () => {
+    const svg = getSvg();
+    if(svg) download(name() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
+  });
+  $('dl' + prefix + 'png').addEventListener('click', () => {
+    const svg = getSvg();
+    if(svg) svgToCanvas(svg, c => c.toBlob(b => download(name() + '.png', b), 'image/png'));
+  });
+  $('copy' + prefix + 'png').addEventListener('click', () => {
+    const svg = getSvg();
+    if(!svg) return;
+    svgToCanvas(svg, c => c.toBlob(async b => {
+      try{
+        await navigator.clipboard.write([new ClipboardItem({'image/png': b})]);
+        flash('copy' + prefix + 'png', 'Copied');
+      }catch(e){ flash('copy' + prefix + 'png', 'Blocked — download instead'); }
+    }, 'image/png'));
+  });
+}
+wireCardExports('batch', () => lastBatchSvg, () => 'flow-batch-' + (lastEcon ? lastEcon.optimum : 'x'));
+wireCardExports('triage', () => lastTriageSvg, () => 'flow-triage-' + $('backlog').value);
 function flash(id, msg){
   const b = $(id), was = b.textContent;
   b.textContent = msg;
@@ -217,8 +272,12 @@ function flash(id, msg){
     $('wip').value = +h.w || 4;
     if(['low', 'med', 'high'].includes(h.v)) variability = h.v;
     for(const x of $('variability').children) x.classList.toggle('on', x.dataset.v === variability);
+    if(isFinite(+h.tc) && +h.tc) $('tcost').value = +h.tc;
+    if(isFinite(+h.hc) && +h.hc) $('hcost').value = +h.hc;
+    if(isFinite(+h.b) && +h.b) $('batch').value = +h.b;
+    if(isFinite(+h.q)) $('backlog').value = +h.q;
   }
-  onThemeChange(() => { lastSvg = ''; refresh(); });
+  onThemeChange(() => { lastSvg = ''; lastBatchSvg = ''; lastTriageSvg = ''; refresh(); });
   reducedMotion.addEventListener('change', refresh);
   addEventListener('resize', () => { if(lastResult) drawFrame(animState, animState ? animState.t1 : 0); });
   refresh();

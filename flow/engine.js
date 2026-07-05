@@ -10,7 +10,7 @@ export const WEEK = 5;                       // working days
 const COV = {low: 0.25, med: 0.5, high: 1.0};
 
 export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
-    {seed = SEED, horizonDays = 2000, trace = false} = {}){
+    {seed = SEED, horizonDays = 2000, trace = false, initialBacklog = 0} = {}){
   const rand = mulberry32(seed), gauss = gaussian(rand);
   const c = typeof cov === 'number' ? cov : COV[cov];
   const sg2 = Math.log(1 + c * c), mu = Math.log(itemDays) - sg2 / 2, sg = Math.sqrt(sg2);
@@ -22,6 +22,7 @@ export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
   const ev = (t, kind, id) => { if(trace) events.push({t: +t.toFixed(3), kind, id}); };
   let t = 0, arrivalT = nextArrival(0), nextId = 0;
   let busyPersonDays = 0, wipIntegral = 0;
+  let drainDays = initialBacklog > 0 ? null : 0;   // first moment the backlog empties
 
   /* per-item person-rate under even sharing, one person per item at most */
   const rate = () => active.length ? Math.min(1, team / active.length) : 0;
@@ -42,6 +43,14 @@ export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
     });
     return {at: best, i: bi};
   };
+
+  for(let i = 0; i < initialBacklog; i++){
+    const it = {id: nextId++, arriveT: 0, remaining: 0, work: 0};
+    it.work = it.remaining = size();
+    backlog.push(it);
+    ev(0, 'arrive', it.id);
+  }
+  pull();
 
   while(t < horizonDays){
     const nd = active.length ? nextDone() : {at: Infinity, i: -1};
@@ -66,6 +75,7 @@ export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
       pull();
       arrivalT = nextArrival(t);
     }
+    if(drainDays === null && !backlog.length) drainDays = +t.toFixed(2);
   }
 
   const warm = horizonDays * 0.2;
@@ -88,6 +98,7 @@ export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
     waitShare: lead.mean ? (lead.mean - workMean) / lead.mean : 0,
     backlogSlopePerWeek: backlog.length / (horizonDays / WEEK),
     completed: kept.length,
+    drainDays,
     ...(trace ? {events} : {}),
   };
 }
@@ -105,4 +116,31 @@ export function wipSweep(params, {seed = SEED, maxWip = 20} = {}){
 export function kneeWip(sweep){
   const max = Math.max(...sweep.map(s => s.throughputPerWeek));
   return (sweep.find(s => s.throughputPerWeek >= max * 0.95) || sweep[0]).wip;
+}
+
+/* Queue triage: candidate moves ranked by what the situation needs — drain time
+   when the base is unstable or sitting on a pile, steady lead P85 otherwise. */
+export function leverTriage(params, {initialBacklog = 0, seed = SEED, knee} = {}){
+  const run = p => {
+    const r = simulate(p, {seed, initialBacklog});
+    return {leadP85: r.lead.p85, drainDays: r.drainDays, stable: r.backlogSlopePerWeek <= 0.5};
+  };
+  const base = run(params);
+  knee = knee ?? kneeWip(wipSweep(params, {seed}));
+  const candidates = [
+    {id: 'person', label: 'Add a person (' + params.team + ' → ' + (params.team + 1) + ')',
+      p: {...params, team: params.team + 1}},
+    {id: 'demand', label: 'Cut intake 20%', p: {...params, demandPerWeek: params.demandPerWeek * 0.8}},
+    {id: 'size', label: 'Slice items 25% smaller', p: {...params, itemDays: params.itemDays * 0.75}},
+    {id: 'wip', label: 'Set the WIP limit to ' + knee, p: {...params, wipLimit: knee}, appliedWip: knee},
+  ];
+  const mode = (!base.stable || initialBacklog > 0) ? 'drain' : 'lead';
+  const levers = candidates.map(c => {
+    const r = run(c.p);
+    return {id: c.id, label: c.label, ...(c.appliedWip ? {appliedWip: c.appliedWip} : {}),
+      leadP85: r.leadP85, drainDays: r.drainDays, deltaP85: r.leadP85 - base.leadP85};
+  });
+  const key = l => mode === 'drain' ? [l.drainDays ?? Infinity, l.leadP85] : [l.leadP85, l.drainDays ?? Infinity];
+  levers.sort((a, b) => { const ka = key(a), kb = key(b); return ka[0] - kb[0] || ka[1] - kb[1]; });
+  return {mode, base, levers, recommended: levers[0].id};
 }
