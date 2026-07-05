@@ -1,10 +1,23 @@
 /* Pure Fermi engine: formula parsing, range samplers, Monte Carlo.
    Lifted verbatim from the inline script (same RNG call order, same seeds)
    so identical models keep giving identical numbers. */
-import {mulberry32, gaussian} from '../assets/series.js';
+import {mulberry32, gaussian, quantile} from '../assets/series.js';
 
 export const SUFFIX = {k: 1e3, m: 1e6, b: 1e9, t: 1e12};
 export const Z90 = 1.6448536;
+
+/* ---------- number formatting (moved verbatim from the inline script) ---------- */
+export function sig(x, n){ return Number(x.toPrecision(n)).toString(); }
+export function fmt(v){
+  if(!isFinite(v)) return '—';
+  if(v < 0) return '−' + fmt(-v);
+  if(v === 0) return '0';
+  const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
+  for(const [m, s] of units) if(v >= m) return sig(v / m, 3) + s;
+  if(v >= 1) return sig(v, 3);
+  if(v >= 0.001) return sig(v, 2);
+  return v.toExponential(1);
+}
 
 export function parseNum(s){
   s = String(s).trim().replace(/,/g, '');
@@ -158,4 +171,34 @@ export function simulateModel({ast, varNames, ranges, dists}, {seed, n, pinName 
   const raw = out.slice();
   out.sort((a, b) => a - b);
   return {raw, sorted: out};
+}
+
+/* Sensitivity as value of information (moved verbatim from the inline lint()):
+   pin each variable at its median, remeasure the spread — "what would knowing
+   this exactly buy you?" Same call order and seeds as the app has always used. */
+export function computeSensitivity(model, {seed, np = 8000, p10, p90}){
+  const {varNames, ranges, dists} = model;
+  const posSpread = p10 > 0;
+  const fullRatio = posSpread ? p90 / p10 : NaN;
+  const fullRange = p90 - p10;
+  const sens = [];
+  for(const name of varNames){
+    const [lo, hi] = ranges[name];
+    if(lo === hi) continue;
+    const pinned = simulateModel(model,
+      {seed, n: np, pinName: name, pinValue: distMedian(lo, hi, dists[name])}).sorted;
+    if(pinned.length < np * 0.3) continue;
+    const q10 = quantile(pinned, .10), q90 = quantile(pinned, .90);
+    let share, label;
+    if(posSpread && q10 > 0 && fullRatio > 1.0001){
+      share = 1 - Math.log(Math.max(q90 / q10, 1.0001)) / Math.log(fullRatio);
+      label = '×' + sig(q90 / q10, 2);
+    } else {
+      share = fullRange > 0 ? 1 - (q90 - q10) / fullRange : 0;
+      label = fmt(q10) + ' – ' + fmt(q90);
+    }
+    sens.push({name, share: Math.max(0, Math.min(1, share)), label});
+  }
+  sens.sort((a, b) => b.share - a.share);
+  return {sens, fullRatio};
 }
