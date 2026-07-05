@@ -79,7 +79,10 @@
   .verdict{font-size:16.5px;line-height:1.5;margin:0 0 4px;max-width:62ch}
   .verdict .smear{background:var(--hl);padding:0 .14em;border-radius:2px;
     box-decoration-break:clone}
-  .subverdict{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+  .subverdict{color:var(--muted);font-size:13.5px;margin:0 0 6px}
+  .flipline{font-size:13.5px;margin:0 0 18px;color:var(--muted)}
+  .flipline.fragile{color:var(--err);font-weight:600}
+  .flipline b{color:var(--ink)}
   .rrow{display:grid;grid-template-columns:30px minmax(140px,1fr) minmax(180px,2fr) 92px;
     gap:12px;align-items:center;padding:7px 0;border-top:1px solid var(--border)}
   .rrow:first-of-type{border-top:none}
@@ -178,6 +181,7 @@
       </div>
       <p class="verdict" id="verdict"></p>
       <p class="subverdict" id="subverdict"></p>
+      <p class="flipline" id="flipline"></p>
       <div id="rrows"></div>
       <div class="legend">
         <span class="key"><span class="swatch med" style="border-radius:3px"></span> median rank</span>
@@ -205,7 +209,7 @@
 
 <script type="module">
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
-import {simulate, verdictCopy} from './engine.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy} from './engine.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -352,6 +356,11 @@ function renderResults(){
     ? 'Contested for the cut: ' + contested.map(s => s.name + ' (' + pctStr(s.ptop) + ')').join(' · ')
     : '';
 
+  const fc = flipCopy(flipAnalysis(state), state.ww);
+  const fl = $('flipline');
+  fl.className = 'flipline' + (fc.tone === 'fragile' ? ' fragile' : '');
+  fl.textContent = fc.text;
+
   const holder = $('rrows');
   holder.textContent = '';
   baseOrder.forEach((idx, pos) => {
@@ -398,6 +407,8 @@ $('copydoc').addEventListener('click', async () => {
   });
   lines.push('');
   lines.push($('verdict').textContent);
+  const flipText = $('flipline').textContent;
+  if(flipText){ lines.push(''); lines.push(flipText); }
   lines.push('');
   lines.push('_Weights perturbed ±' + state.ww + '%, scores ±' + state.sw + ', 4,000 simulations · [live table](' + location.href + ')_');
   const txt = lines.join('\n');
