@@ -1,0 +1,107 @@
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;
+  padding:40px 0 40px;
+}
+h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
+  letter-spacing:-.01em;margin:0;text-wrap:balance}
+.tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
+.wrap.narrow{max-width:720px;margin:0 auto;padding:0 20px}
+.stitle{font-family:Charter,Georgia,serif;font-size:24px;margin:18px 0 4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  box-shadow:var(--shadow);padding:18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.chips .lead{font-size:12.5px;color:var(--muted)}
+.chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
+  background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+.chip:hover{border-color:var(--accent);color:var(--accent-ink)}
+#cmhost .cm-editor{min-height:440px}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
+details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
+details.syntax summary{cursor:pointer;font-size:12.5px}
+details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
+  background:var(--bg);padding:1px 5px;border-radius:4px}
+details.syntax table{border-collapse:collapse;margin-top:8px}
+details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
+.placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
+.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
+  background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600}
+.btn.primary:hover{color:var(--card);opacity:.92}
+.btn:disabled{opacity:.45;cursor:default}
+.method{color:var(--muted);font-size:12.5px}
+.errline{color:var(--err);font-size:13px;margin:10px 0 0}
+.statusline{color:var(--muted);font-size:13.5px;margin:14px 0 6px}
+.statusline.ok{color:var(--st-done);font-size:15px;font-weight:600}
+.statusline.err{color:var(--err)}
+.viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:999px;
+  overflow:hidden;margin-bottom:12px}
+.viewtoggle button{border:none;background:none;color:var(--muted);cursor:pointer;
+  font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 16px}
+.viewtoggle button.on{background:var(--accent);color:var(--card)}
+.viewtoggle button:not(.on):hover{color:var(--accent-ink)}
+
+/* ---- the form (participant + compose preview) ---- */
+.formpreview{max-width:720px}
+.gform .q{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  box-shadow:var(--shadow);padding:16px 18px;margin:0 0 14px}
+.qtext{margin:0 0 12px;font-size:15.5px;font-weight:600}
+.qnum{display:inline-block;min-width:22px;height:22px;border-radius:999px;background:var(--track);
+  color:var(--muted);font-size:12px;font-weight:600;text-align:center;line-height:22px;
+  margin-right:10px}
+.probrow{display:flex;align-items:center;gap:14px}
+.probrow input[type=range]{flex:1;accent-color:var(--accent)}
+.probout{font-variant-numeric:tabular-nums;font-weight:600;min-width:44px;text-align:right}
+.anchors{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:4px}
+.rangerow{display:flex;align-items:center;gap:10px}
+.rangerow input[type=number]{width:110px;font:inherit;font-size:14px;color:var(--ink);
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px}
+.rangerow .to{color:var(--muted);font-size:13px}
+.rangerow .unit{color:var(--muted);font-size:13px}
+.hint{color:var(--muted);font-size:12px;margin:8px 0 0}
+.qerr{color:var(--err);font-size:12.5px;margin:8px 0 0}
+.q.haserr{border-color:var(--err)}
+.namefield label{font-size:13.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
+.namefield input{flex:1;font:inherit;font-size:14px;color:var(--ink);background:var(--bg);
+  border:1px solid var(--border);border-radius:6px;padding:7px 10px}
+.pintro{color:var(--muted);font-size:14px;margin:4px 0 18px;max-width:60ch}
+
+/* ---- console ---- */
+.sharebox{margin:14px 0}
+.sharelabel{margin:0 0 8px;font-size:13.5px;font-weight:600}
+.linkrow{display:flex;gap:8px}
+.linkrow input{flex:1;font:12.5px ui-monospace,Menlo,monospace;color:var(--muted);
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.qcounts{margin:6px 0 0;padding:0;list-style:none;font-size:13.5px;color:var(--muted)}
+.qcounts li{padding:3px 0}
+.qcounts b{color:var(--ink);font-variant-numeric:tabular-nums}
+#coverlay,#presult{margin-top:18px}
+#coverlay svg,#presult svg{max-width:100%;height:auto}
+
+.about{border-top:1px solid var(--border);padding-top:22px;color:var(--muted);
+  font-size:13.5px;line-height:1.65;max-width:65ch}
+.about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.about p{margin:0 0 10px}
+.about a{color:var(--accent-ink)}
+.about code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--accent-ink)}
+@media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
+/* iOS zooms into any focused input under 16px — keep form inputs at 16px on small screens */
+@media (max-width:700px){
+  .rangerow input[type=number],.namefield input{font-size:16px}
+  .linkrow input{font-size:16px}
+}
+@media (prefers-reduced-motion: no-preference){
+  .chip,.btn{transition:border-color .15s,color .15s}
+}

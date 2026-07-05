@@ -80,6 +80,25 @@ for(const [k, src] of Object.entries(docs)){
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
 }
 
+/* /gauge overlay fixtures (fully deterministic) */
+{
+  const {parse: gparse} = await import('../gauge/parse.js');
+  const {sessionStats: gstats} = await import('../gauge/engine.js');
+  const {renderOverlay: grender} = await import('../gauge/render-overlay.js');
+  const doc = 'title: T\nnames: on\nShip by Q3 :: prob\nWeeks to migrate :: range weeks';
+  const m = gparse(doc);
+  const resp = [
+    {values: [80, [4, 8]], name: 'Ana'},
+    {values: [75, [6, 12]], name: 'Ben'},
+    {values: [20, [5, 9]], name: 'Cy'},
+    {values: [15, [30, 50]], name: 'Di'},
+  ];
+  variants['gauge-overlay'] = grender(m, gstats(m, resp), {...ctxBase});
+  const agree = [{values: [[4, 8]]}, {values: [[5, 9]]}, {values: [[3, 7]]}];
+  const m2 = gparse('Weeks :: range weeks');
+  variants['gauge-overlay-agree'] = grender(m2, gstats(m2, agree), {...ctxBase});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

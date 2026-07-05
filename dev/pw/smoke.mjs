@@ -20,7 +20,7 @@ async function freshPage(path, theme = 'light'){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: six tool cards', await page.locator('a.tool').count() === 6);
+  check('landing: seven tool cards', await page.locator('a.tool').count() === 7);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -104,6 +104,22 @@ for(const theme of ['light', 'dark']){
   const risk = await page.locator('#preview svg').innerHTML();
   check('map(' + theme + '): risk preset severity bands', risk.includes('SEVERE') && risk.includes('MODERATE'));
   check('map(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- gauge (solo mode; the relay flow lives in gauge.mjs) ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/gauge/', theme);
+  await page.getByRole('button', {name: 'Q3 commitment review'}).click();
+  await page.waitForTimeout(600);
+  check('gauge(' + theme + '): form preview renders 3 questions', await page.locator('#preview .gform .q').count() === 3);
+  await page.locator('#viewreveal').click();
+  await page.waitForTimeout(500);
+  check('gauge(' + theme + '): sample reveal renders SVG', await page.locator('#preview svg').count() === 1);
+  const svg = await page.locator('#preview svg').innerHTML();
+  check('gauge(' + theme + '): headline present', /median|agreement|Split room|wider than/i.test(svg));
+  check('gauge(' + theme + '): privacy line present', (await page.locator('footer').innerText()).includes('only numbers'));
+  check('gauge(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

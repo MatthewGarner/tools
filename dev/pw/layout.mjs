@@ -10,15 +10,17 @@ const TOOLS = [
   {path: '/tree/', chip: 'Bid or no bid'},
   {path: '/why/', chip: 'Habitat retention'},
   {path: '/roadmap/', chip: 'Habit app roadmap'},
+  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal'},   // SVG lives in the reveal view
 ];
 
-for(const {path, chip} of TOOLS){
+for(const {path, chip, view} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   await page.getByRole('button', {name: chip}).click();
   await page.waitForTimeout(500);
+  if(view){ await page.locator(view).click(); await page.waitForTimeout(400); }
 
   const svgW = async () => (await page.locator('#preview svg').boundingBox()).width;
   check(path + ' rail visible by default', await page.locator('.rail').isVisible());
