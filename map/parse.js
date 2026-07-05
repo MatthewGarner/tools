@@ -93,6 +93,12 @@ export function parse(text){
         x = Math.min(100, Math.max(0, x));
         y = Math.min(100, Math.max(0, y));
       }
+    } else {
+      /* a trailing "@ 55" / "@ 55 60" / bare "@" is almost always a typo'd
+         position, not label text — say so instead of silently traying the item */
+      const stray = head.match(/@\s*([^@]*)$/);
+      if(stray && (/\d/.test(stray[1]) || stray[1].trim() === ''))
+        warn('"' + stray[0].trim() + '" looks like a position — expected @ x,y (numbers 0–100); kept in the label');
     }
     const fields = [];
     for(const seg of segs.slice(1)){

@@ -37,7 +37,7 @@
   border-color: transparent; box-shadow: none; pointer-events: none;
 }
 .railtab{
-  justify-self: center; align-self: stretch; width: 18px; margin: 8px 0;
+  justify-self: center; align-self: stretch; width: 26px; margin: 8px 0;
   border: none; border-radius: 9px; background: none;
   color: var(--muted); cursor: pointer; font-size: 11px; padding: 0;
 }
@@ -57,6 +57,9 @@
 }
 .zoomctl button:hover{color: var(--accent-ink)}
 .zoomctl button.on{color: var(--card); background: var(--accent)}
+/* nothing on stage yet → the action row has nothing to act on */
+.actions button:disabled, .actions select:disabled{opacity: .45; cursor: default}
+.actions button:disabled:hover{border-color: var(--border); color: inherit}
 /* section rhythm after the hero: centred reading column under the full-bleed stage */
 .about{margin: 56px auto 0}
 footer{margin: 48px 0 8px}

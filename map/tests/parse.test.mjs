@@ -113,3 +113,18 @@ test('decimal positions parse', () => {
   const m = parse('Fine @ 12.5,87.5');
   assert.deepEqual([m.items[0].x, m.items[0].y], [12.5, 87.5]);
 });
+
+test('stray @ that looks like a position warns and stays in the label', () => {
+  for(const src of ['Thing @ 55', 'Thing @ 55 60', 'Thing @ 55,', 'Thing @']){
+    const m = parse(src);
+    assert.equal(m.items[0].x, null, src);
+    assert.ok(m.warnings.some(w => w.includes('@ x,y')), src + ' should warn');
+  }
+});
+
+test('@ followed by plain words is left alone', () => {
+  const m = parse('Email @ scale\nShip @ 40,90');
+  assert.equal(m.items[0].label, 'Email @ scale');
+  assert.deepEqual([m.items[1].x, m.items[1].y], [40, 90]);
+  assert.equal(m.warnings.length, 0);
+});

@@ -5,7 +5,7 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {initWorkspace} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine} from './edit-targets.js';
 
@@ -183,6 +183,7 @@ function doRefresh(){
       if(pendingFlip){ flipAnimate(pendingFlip); pendingFlip = null; }
     }
   }
+  setActionsEnabled(!!lastSvg);
   try{ localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);

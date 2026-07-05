@@ -55,7 +55,7 @@ footer a:hover{color:var(--accent-ink)}
 }
 
 /* drag */
-.preview svg g[data-line]{cursor:grab}
+.preview svg g[data-line]{cursor:grab;touch-action:none}  /* fingers drag cards, not the page */
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
   padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;

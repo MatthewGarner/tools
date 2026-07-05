@@ -1,5 +1,12 @@
 /* Collapsible rail + zoom controller for the DSL tools' workspace. */
 
+/* Export/copy/snapshot buttons act on the rendered diagram; until one exists
+   they'd be silent no-ops, so reflect that state instead. */
+export function setActionsEnabled(on){
+  for(const el of document.querySelectorAll('.actions button, .actions select'))
+    el.disabled = !on;
+}
+
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
 

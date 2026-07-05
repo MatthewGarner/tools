@@ -87,3 +87,42 @@ test('link extraction: -> url with note and status combos', () => {
   assert.equal(m.items[1].url, 'https://x.io');
   assert.equal(m.items[2].url, null);
 });
+
+test('several pre-header lines collapse into one warning', () => {
+  const m = parse('one\ntwo\nthree\nNOW\nItem');
+  const pre = m.warnings.filter(w => w.includes('before any horizon header'));
+  assert.equal(pre.length, 1);
+  assert.ok(pre[0].includes('lines 1–3'));
+  assert.ok(pre[0].includes('skipped'));
+});
+
+test('a single pre-header line keeps the per-line message without a fake ellipsis', () => {
+  const m = parse('stray\nNOW\nItem');
+  const pre = m.warnings.filter(w => w.includes('before any horizon header'));
+  assert.equal(pre.length, 1);
+  assert.ok(pre[0].includes('"stray"'));
+  assert.ok(!pre[0].includes('…'));
+});
+
+test('config key missing its colon gets a did-you-mean', () => {
+  const m = parse('title Habitat\nNOW\nItem');
+  assert.ok(m.warnings.some(w => w.includes('did you mean "title:"')));
+  assert.ok(!m.warnings.some(w => w.includes('before any horizon header')));
+});
+
+test('near-miss horizon header gets a did-you-mean', () => {
+  const m = parse('NOWW\nItem under it');
+  assert.ok(m.warnings.some(w => w.includes('did you mean "Now"')));
+});
+
+test('colon-suffixed near-miss header mid-document gets a did-you-mean', () => {
+  const m = parse('NOW\nItem one\nNEXTT:\nItem two');
+  assert.ok(m.warnings.some(w => w.includes('did you mean "Next"')));
+  assert.ok(!m.items.some(i => i.title.includes('NEXTT')));
+});
+
+test('a bare item title one letter from a horizon is NOT flagged mid-document', () => {
+  const m = parse('NOW\nNew');
+  assert.ok(!m.warnings.some(w => w.includes('did you mean')));
+  assert.equal(m.items[0].title, 'New');
+});
