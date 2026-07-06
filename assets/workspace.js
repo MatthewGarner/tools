@@ -52,7 +52,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   mk('100%', 1, 'Natural size');
   mk('−', 'minus', 'Zoom out');
   mk('+', 'plus', 'Zoom in');
-  setZoom('fit');
+  /* fingers: Fit shrinks a board-width diagram below legibility — start at
+     natural size and let the pane pan (the preview already scrolls) */
+  setZoom(matchMedia('(pointer: coarse)').matches ? 1 : 'fit');
 
   /* re-apply zoom whenever the app re-renders the preview */
   new MutationObserver(applyZoom).observe(preview, {childList: true});
