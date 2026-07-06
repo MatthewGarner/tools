@@ -86,6 +86,13 @@ for(const theme of ['light', 'dark']){
   check('rank(' + theme + '): rank bars render', await page.locator('.rankbar').count() === 7);
   const flip = (await page.locator('#flipline').innerText()).trim();
   check('rank(' + theme + '): flip verdict present', /weight|flips first place/i.test(flip));
+  check('rank(' + theme + '): order diff names the movers', await (async () => {
+    await page.locator('#oda').fill('Alpha\nBeta\nGamma\nDelta');
+    await page.locator('#odb').fill('Delta\nBeta\nGamma\nAlpha');
+    await page.waitForTimeout(400);
+    const v = await page.locator('#odverdict').innerText();
+    return /Kendall/.test(v) && await page.locator('.odrow').count() >= 2;
+  })());
   check('rank(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -138,6 +145,18 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   const risk = await page.locator('#preview svg').innerHTML();
   check('map(' + theme + '): risk preset severity bands', risk.includes('SEVERE') && risk.includes('MODERATE'));
+  check('map(' + theme + '): skills preset flags the bus factor (#69)', await (async () => {
+    await page.getByRole('button', {name: 'Skills coverage'}).click();
+    await page.waitForTimeout(500);
+    const svg = await page.locator('#preview svg').innerHTML();
+    return svg.includes('BUS FACTOR') && /no backup named/.test(svg);
+  })());
+  check('map(' + theme + '): rag preset calls the watermelon (#70)', await (async () => {
+    await page.getByRole('button', {name: 'RAG honesty'}).click();
+    await page.waitForTimeout(500);
+    const svg = await page.locator('#preview svg').innerHTML();
+    return svg.includes('WATERMELON WATCH') && /reported green/.test(svg);
+  })());
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('map(' + theme + '): no console errors', errors.length === 0);
   await page.close();

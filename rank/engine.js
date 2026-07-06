@@ -159,3 +159,63 @@ export function flipCopy(flip, ww){
       ' is ' + move + ' — ' + (pctAbs >= 999 ? 'far' : pctAbs + '%, well') +
       ' beyond the ±' + ww + '% wobble.'};
 }
+
+/* #87 ranking diff: two pasted priority orders → pairwise concordance (Kendall
+   τ over the shared items, re-ranked within the shared set) + the items whose
+   displacement drives the disagreement. Pure. */
+const normKey = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+export function orderDiff(listA, listB){
+  const dedupe = list => {
+    const seen = new Map();
+    for(const raw of list){
+      const title = String(raw).trim();
+      if(!title) continue;
+      const k = normKey(title);
+      if(!seen.has(k)) seen.set(k, title);
+    }
+    return seen;
+  };
+  const a = dedupe(listA), b = dedupe(listB);
+  const sharedKeys = [...a.keys()].filter(k => b.has(k));
+  const shared = new Set(sharedKeys);
+  const rankOf = m => {
+    const r = new Map();
+    let i = 0;
+    for(const k of m.keys()) if(shared.has(k)) r.set(k, ++i);
+    return r;
+  };
+  const ra = rankOf(a), rb = rankOf(b);
+  const common = sharedKeys.map(k => ({title: a.get(k), a: ra.get(k), b: rb.get(k), delta: rb.get(k) - ra.get(k)}));
+  const n = common.length;
+  let concordant = 0, discordant = 0;
+  for(let i = 0; i < n; i++) for(let j = i + 1; j < n; j++){
+    const s = (common[i].a - common[j].a) * (common[i].b - common[j].b);
+    if(s > 0) concordant++; else if(s < 0) discordant++;
+  }
+  const pairs = n * (n - 1) / 2;
+  const tau = pairs ? (concordant - discordant) / pairs : 0;
+  const movers = common.filter(c => c.delta !== 0).sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
+  return {
+    common, movers, tau,
+    agreementPct: pairs ? Math.round(concordant / pairs * 100) : null,
+    onlyA: [...a.keys()].filter(k => !b.has(k)).map(k => a.get(k)),
+    onlyB: [...b.keys()].filter(k => !a.has(k)).map(k => b.get(k)),
+  };
+}
+
+export function orderDiffCopy(d){
+  if(d.common.length < 2)
+    return 'The two lists share fewer than two items — nothing to compare yet.';
+  const head = 'The two orders agree on ' + d.agreementPct + '% of pairwise comparisons (Kendall τ ' +
+    (Math.round(d.tau * 100) / 100) + ').';
+  if(!d.movers.length) return head + ' Same order, shared items considered.';
+  const top = d.movers.slice(0, 3)
+    .map(m => m.title + ' (#' + m.a + ' → #' + m.b + ')').join(', ');
+  const extras = [];
+  if(d.onlyA.length) extras.push(d.onlyA.length + ' only in A');
+  if(d.onlyB.length) extras.push(d.onlyB.length + ' only in B');
+  return head + ' The disagreement is mostly ' + top +
+    (d.movers.length > 3 ? ' — plus ' + (d.movers.length - 3) + ' smaller moves' : '') + '.' +
+    (extras.length ? ' (' + extras.join(', ') + '.)' : '');
+}

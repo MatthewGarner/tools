@@ -53,6 +53,29 @@ Data-portability law passes @ 80,30
 Backlash against streak mechanics @ 25,25
 GP surgeries prescribe apps @ 70,65
 `},
+  {name: 'Skills coverage', src:
+`preset: skills
+title: Platform team — skills coverage
+
+Payments integration @ 20,90 :: owner: Priya
+Release pipeline @ 30,80 :: owner: Sam :: backup: Jo
+Data migrations @ 15,70
+Mobile build signing @ 40,85 :: owner: Jo
+Design system @ 65,55
+Customer analytics @ 70,40
+Copywriting @ 85,25
+`},
+  {name: 'RAG honesty', src:
+`preset: rag
+title: Q3 programme — status honesty check
+
+Billing revamp @ 25,30 :: reported: green
+Mobile app parity @ 40,35 :: reported: amber
+Onboarding funnel @ 75,70 :: reported: green
+Data platform @ 30,60 :: reported: green
+Partner API @ 80,30 :: reported: red
+Help centre @ 60,75 :: reported: green
+`},
   {name: 'Risk grid', src:
 `preset: risk
 title: Habitat 2.0 — launch risks

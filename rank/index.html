@@ -109,6 +109,16 @@
     font-variant-numeric:tabular-nums}
   .pastebox{display:none;margin-top:12px}
   .pastebox.open{display:block}
+  .odgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  @media (max-width:640px){.odgrid{grid-template-columns:1fr}}
+  .odgrid textarea{width:100%;min-height:130px;font-size:13px;padding:10px;
+    border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;resize:vertical}
+  .odrow{display:flex;gap:12px;font-size:13.5px;padding:3px 0;align-items:baseline}
+  .odrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .odrow .mv{font-variant-numeric:tabular-nums;color:var(--muted)}
+  .odrow .dl{font-weight:600;color:var(--err);min-width:36px;text-align:right}
+  .odrow .dl.up{color:var(--accent-ink)}
   .pastebox textarea{width:100%;min-height:110px;font-size:13px;padding:10px;
     border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;resize:vertical}
@@ -186,6 +196,17 @@
     </div>
   </section>
 
+  <section class="card">
+    <div class="khead"><h2>Do two orders agree?</h2></div>
+    <p class="subverdict" style="margin-top:6px">Paste two priority orders, one item per line — yours vs a stakeholder's, last quarter's vs this one's, the framework's vs your gut. Items are matched by name; ranks are compared over the shared set.</p>
+    <div class="odgrid">
+      <textarea id="oda" spellcheck="false" placeholder="Order A — one initiative per line" aria-label="Order A"></textarea>
+      <textarea id="odb" spellcheck="false" placeholder="Order B" aria-label="Order B"></textarea>
+    </div>
+    <p class="verdict" id="odverdict" style="margin-top:14px" hidden></p>
+    <div id="odrows"></div>
+  </section>
+
   <section class="about">
     <h2>Why wobble the weights?</h2>
     <p>Frameworks like RICE and WSJF produce a ranked list from scores nobody believes to one decimal place. The ranking inherits that false precision — and teams burn hours debating whether the weight on "time criticality" should be 2 or 3, when the honest question is whether the answer would change either way. This tool asks exactly that: it re-runs your scoring 4,000 times with every weight perturbed within ±50% and every score within ±1, then reports how often each initiative lands where. Ranks that hold across the wobble are real signal; ranks that reshuffle are ties — decide those on strategy, sequencing, or gut, and stop pretending the spreadsheet decided.</p>
@@ -200,7 +221,7 @@
 
 <script type="module">
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
-import {simulate, verdictCopy, flipAnalysis, flipCopy} from './engine.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy} from './engine.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -418,6 +439,7 @@ function writeHash(){
     i: state.items.map(it => [it.name, ...it.s, it.e]),
     k: state.k, w: state.ww, s: state.sw,
   };
+  if($('oda').value.trim() || $('odb').value.trim()) s.o = [$('oda').value, $('odb').value];
   const enc = btoa(unescape(encodeURIComponent(JSON.stringify(s))));
   history.replaceState(null, '', '#' + enc);
 }
@@ -436,9 +458,52 @@ function readHash(){
     if(isFinite(+s.k)) state.k = +s.k;
     if(isFinite(+s.w)) state.ww = +s.w;
     if(isFinite(+s.s)) state.sw = +s.s;
+    if(Array.isArray(s.o)){
+      $('oda').value = String(s.o[0] || '');
+      $('odb').value = String(s.o[1] || '');
+    }
     return true;
   }catch(e){ return false; }
 }
+
+/* ---------- ranking diff (#87) ---------- */
+function renderOrderDiff(){
+  const aTxt = $('oda').value, bTxt = $('odb').value;
+  const v = $('odverdict'), rows = $('odrows');
+  rows.textContent = '';
+  if(!aTxt.trim() || !bTxt.trim()){ v.hidden = true; return; }
+  const d = orderDiff(aTxt.split('\n'), bTxt.split('\n'));
+  v.hidden = false;
+  v.textContent = orderDiffCopy(d);
+  for(const m of d.movers.slice(0, 8)){
+    const row = document.createElement('div');
+    row.className = 'odrow';
+    const nm = document.createElement('span');
+    nm.className = 'nm'; nm.textContent = m.title; nm.title = m.title;
+    const mv = document.createElement('span');
+    mv.className = 'mv'; mv.textContent = '#' + m.a + ' → #' + m.b;
+    const dl = document.createElement('span');
+    dl.className = 'dl' + (m.delta < 0 ? ' up' : '');
+    dl.textContent = (m.delta < 0 ? '▲' : '▼') + Math.abs(m.delta);
+    row.append(nm, mv, dl);
+    rows.appendChild(row);
+  }
+  if(d.movers.length > 8){
+    const more = document.createElement('div');
+    more.className = 'odrow';
+    more.innerHTML = '<span class="nm" style="color:var(--muted)">+ ' + (d.movers.length - 8) + ' more</span>';
+    rows.appendChild(more);
+  }
+}
+let odTimer = null;
+for(const id of ['oda', 'odb']) $(id).addEventListener('input', () => {
+  clearTimeout(odTimer);
+  odTimer = setTimeout(() => {
+    renderOrderDiff();
+    clearTimeout(hashTimer);
+    hashTimer = setTimeout(writeHash, 400);
+  }, 200);
+});
 
 /* ---------- wiring ---------- */
 let timer = null, hashTimer = null;
@@ -526,7 +591,7 @@ for(const ex of EXAMPLES){
   $('chips').appendChild(b);
 }
 
-if(readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; }
+if(readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
 else state.items = [
   {name:'', s:[5,5,5], e:5},
   {name:'', s:[5,5,5], e:5},
