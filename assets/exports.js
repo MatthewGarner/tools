@@ -1,20 +1,21 @@
-/* SVG / PNG / Copy PNG / Copy-markdown export wiring. */
-import {download, svgToCanvas} from '../assets/app-common.js';
+/* Shared SVG / PNG / Copy PNG / Copy-markdown export wiring (moved from gauge
+   2026-07-06). Every button is optional — pass the ones the surface has. */
+import {download, svgToCanvas} from './app-common.js';
 
 export function wireExports({buttons, getSvg, getMarkdown, slug}){
   const flash = (btn, msg, revert) => {
     btn.textContent = msg;
     setTimeout(() => { btn.textContent = revert; }, 2000);
   };
-  buttons.dlsvg.addEventListener('click', () => {
+  if(buttons.dlsvg) buttons.dlsvg.addEventListener('click', () => {
     const svg = getSvg();
     if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
   });
-  buttons.dlpng.addEventListener('click', () => {
+  if(buttons.dlpng) buttons.dlpng.addEventListener('click', () => {
     const svg = getSvg();
     if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
   });
-  buttons.copypng.addEventListener('click', () => {
+  if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
     const svg = getSvg();
     if(!svg) return;
     if(!navigator.clipboard || !window.ClipboardItem)
@@ -25,7 +26,7 @@ export function wireExports({buttons, getSvg, getMarkdown, slug}){
       .then(() => flash(buttons.copypng, 'Copied — paste into your deck', 'Copy PNG'))
       .catch(() => flash(buttons.copypng, 'Copy blocked — use Download', 'Copy PNG'));
   });
-  buttons.copymd.addEventListener('click', () => {
+  if(buttons.copymd) buttons.copymd.addEventListener('click', () => {
     const md = getMarkdown();
     if(!md || !navigator.clipboard)
       return flash(buttons.copymd, 'Clipboard unavailable', 'Copy for doc');

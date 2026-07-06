@@ -5,8 +5,8 @@
 import {esc, tint, txt} from '../assets/svg.js';
 import {fmt, sig} from './engine.js';
 
-const MONO = 'ui-monospace,"SF Mono",Menlo,Consolas,monospace';
-const SANS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
+const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const OP = {'*': '×', '/': '÷', '+': '+', '-': '−', '^': '^', neg: '−'};
 const PAD = 28, ROW_H = 54, COL_W = 128, CAP_H = 40, OP_R = 13, OUT_W = 236, OUT_H = 96, HEAD_H = 64;
 

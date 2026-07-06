@@ -3,7 +3,8 @@ import {simulate, wipSweep, kneeWip, leverTriage, WEEK} from './engine.js';
 import {batchEconomics} from './economics.js';
 import {renderReadout, renderBatch, renderTriage, markdownSummary} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
 
 const $ = id => document.getElementById(id);
 const NO_LIMIT = 40;                       // the slider's top position (21) means "no limit"
@@ -210,23 +211,14 @@ function drawFrame(state, tau){
   $('cdone').textContent = done;
 }
 
-/* ---------- exports ---------- */
+/* ---------- exports (shared wiring; one call per card) ---------- */
 const slug = () => 'flow-' + (lastParams ? lastParams.demandPerWeek + 'w' + lastParams.wipLimit : 'x');
-$('dlsvg').addEventListener('click', () => {
-  if(lastSvg) download(slug() + '.svg', new Blob([lastSvg], {type: 'image/svg+xml'}));
-});
-$('dlpng').addEventListener('click', () => {
-  if(lastSvg) svgToCanvas(lastSvg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('copypng').addEventListener('click', async () => {
-  if(!lastSvg) return;
-  svgToCanvas(lastSvg, c => c.toBlob(async b => {
-    try{
-      await navigator.clipboard.write([new ClipboardItem({'image/png': b})]);
-      flash('copypng', 'Copied');
-    }catch(e){ flash('copypng', 'Blocked — download instead'); }
-  }, 'image/png'));
-});
+wireExports({buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
+  getSvg: () => lastSvg || null, slug});
+wireExports({buttons: {dlsvg: $('dlbatchsvg'), dlpng: $('dlbatchpng'), copypng: $('copybatchpng')},
+  getSvg: () => lastBatchSvg || null, slug: () => 'flow-batch-' + (lastEcon ? lastEcon.optimum : 'x')});
+wireExports({buttons: {dlsvg: $('dltriagesvg'), dlpng: $('dltriagepng'), copypng: $('copytriagepng')},
+  getSvg: () => lastTriageSvg || null, slug: () => 'flow-triage-' + $('backlog').value});
 $('copydoc').addEventListener('click', async () => {
   if(!lastResult) return;
   const md = markdownSummary(lastResult, lastSweep, lastKnee, lastParams,
@@ -234,30 +226,6 @@ $('copydoc').addEventListener('click', async () => {
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
-
-/* per-card exports for the batch and triage readouts */
-function wireCardExports(prefix, getSvg, name){
-  $('dl' + prefix + 'svg').addEventListener('click', () => {
-    const svg = getSvg();
-    if(svg) download(name() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
-  });
-  $('dl' + prefix + 'png').addEventListener('click', () => {
-    const svg = getSvg();
-    if(svg) svgToCanvas(svg, c => c.toBlob(b => download(name() + '.png', b), 'image/png'));
-  });
-  $('copy' + prefix + 'png').addEventListener('click', () => {
-    const svg = getSvg();
-    if(!svg) return;
-    svgToCanvas(svg, c => c.toBlob(async b => {
-      try{
-        await navigator.clipboard.write([new ClipboardItem({'image/png': b})]);
-        flash('copy' + prefix + 'png', 'Copied');
-      }catch(e){ flash('copy' + prefix + 'png', 'Blocked — download instead'); }
-    }, 'image/png'));
-  });
-}
-wireCardExports('batch', () => lastBatchSvg, () => 'flow-batch-' + (lastEcon ? lastEcon.optimum : 'x'));
-wireCardExports('triage', () => lastTriageSvg, () => 'flow-triage-' + $('backlog').value);
 function flash(id, msg){
   const b = $(id), was = b.textContent;
   b.textContent = msg;

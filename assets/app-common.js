@@ -30,6 +30,7 @@ export function svgToCanvas(svg, cb){
   const img = new Image();
   const dims = svg.match(/width="(\d+)" height="(\d+)"/);
   const w = +dims[1], h = +dims[2], scale = 2;
+  img.onerror = () => console.error('svgToCanvas: SVG failed to decode — invalid XML in the export string?');
   img.onload = () => {
     const c = document.createElement('canvas');
     c.width = w * scale; c.height = h * scale;

@@ -12,7 +12,7 @@ export function tint(hex){
 
 /* One-line <text> element with the attribute set the renderers share.
    Coordinates round to 2 decimals. mono switches to the ui-monospace stack. */
-const MONO = 'ui-monospace,"SF Mono",Menlo,Consolas,monospace';
+const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
 const r2 = n => (Math.round(n * 100) / 100).toString();
 export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono} = {}){
   return '<text x="' + r2(x) + '" y="' + r2(y) + '" font-size="' + size + '"' +

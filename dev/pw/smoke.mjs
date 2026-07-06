@@ -17,6 +17,24 @@ async function freshPage(path, theme = 'light'){
   return {page, errors};
 }
 
+/* The PNG-export path decodes the SVG string as an <img>; invalid XML (e.g. a
+   double quote inside an attribute) renders fine inline but kills exports —
+   the 2026-07-06 gauge/fermi bug. Decode-check the rendered SVG per tool. */
+async function svgDecodes(page, selector){
+  return page.evaluate(async sel => {
+    const el = document.querySelector(sel);
+    if(!el) return false;
+    const svg = el.outerHTML;
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(true);
+      img.onerror = () => res(false);
+      setTimeout(() => res(false), 3000);
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+  }, selector);
+}
+
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
@@ -51,6 +69,7 @@ for(const theme of ['light', 'dark']){
     await page.waitForTimeout(120);
     return await page.locator('.histwrap').isVisible() && !(await page.locator('#driverwrap').isVisible());
   })());
+  check('fermi(' + theme + '): driver svg decodes as an image', await svgDecodes(page, '#driverwrap svg'));
   check('fermi(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -80,6 +99,7 @@ for(const theme of ['light', 'dark']){
   const svg = await page.locator('#preview svg').innerHTML();
   check('tree(' + theme + '): verdict present', svg.includes('RECOMMENDED'));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
+  check('tree(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('tree(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -98,6 +118,7 @@ for(const theme of ['light', 'dark']){
   check('why(' + theme + '): roadmap view derives columns', map.includes('NOW') && map.includes('Streak freeze'));
   check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
   check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
+  check('why(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('why(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -117,6 +138,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   const risk = await page.locator('#preview svg').innerHTML();
   check('map(' + theme + '): risk preset severity bands', risk.includes('SEVERE') && risk.includes('MODERATE'));
+  check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('map(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -135,6 +157,7 @@ for(const theme of ['light', 'dark']){
   await page.locator('#viewreveal').click();
   await page.waitForTimeout(500);
   check('gauge(' + theme + '): sample reveal renders SVG', await page.locator('#preview svg').count() === 1);
+  check('gauge(' + theme + '): overlay svg decodes as an image', await svgDecodes(page, '#preview svg'));
   const svg = await page.locator('#preview svg').innerHTML();
   check('gauge(' + theme + '): headline present', /median|agreement|Split room|wider than/i.test(svg));
   check('gauge(' + theme + '): privacy line present', (await page.locator('footer').innerText()).includes('only numbers'));
@@ -163,6 +186,7 @@ for(const theme of ['light', 'dark']){
   })());
   check('flow(' + theme + '): triage drain framing on an overloaded pile',
     /pile|clears|never/i.test(await page.locator('#triagewrap svg').innerHTML()));
+  check('flow(' + theme + '): readout svg decodes as an image', await svgDecodes(page, '#verdictwrap svg'));
   check('flow(' + theme + '): no undefined/NaN leaks into any svg', await (async () => {
     for(const sel of ['#verdictwrap svg', '#batchwrap svg', '#triagewrap svg']){
       const s = await page.locator(sel).innerHTML();
@@ -180,6 +204,7 @@ for(const theme of ['light', 'dark']){
   await page.getByRole('button', {name: 'Habit app roadmap'}).click();
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
+  check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('roadmap: no console errors', errors.length === 0);
   await page.close();
 }

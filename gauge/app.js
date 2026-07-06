@@ -5,7 +5,7 @@ import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine} from './edit-targets.js';
 import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
-import {wireExports} from './exports.js';
+import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
