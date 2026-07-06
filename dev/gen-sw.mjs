@@ -3,6 +3,7 @@
 import {readFileSync, writeFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
+import {Script} from 'node:vm';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const KEEP = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'assets'];
@@ -24,5 +25,8 @@ const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8')
   .replace(/const CACHE = 'tools-[^']*';/, "const CACHE = 'tools-" + hash + "';")
   .replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = [\n  ' +
     urls.map(u => "'" + u + "'").join(',\n  ') + '\n];');
+/* in-place patching means anything broken outside the two replaced regions
+   (e.g. merge conflict markers) would be written back — refuse instead */
+new Script(sw, {filename: 'sw.js'});
 writeFileSync(join(ROOT, 'sw.js'), sw);
 console.log('sw.js: ' + urls.length + ' urls, cache tools-' + hash);
