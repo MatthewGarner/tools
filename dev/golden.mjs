@@ -53,6 +53,10 @@ for(const [k, src] of Object.entries(docs)){
   const pr = project(m);
   const norm = s => s.replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
   variants['why-ost'] = norm(renderOst(m, pr, {...ctxBase}));
+  const {whyDiff, whyDiffView} = await import('../why/diff.js');
+  const oldDoc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Smart reminders [candidate]\n      ? wanted\n  Chores feeling\n    Old idea [parked]';
+  const wd = whyDiffView(whyDiff(wparse(oldDoc), m), 'SNAP');
+  variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
   variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
 }
@@ -77,6 +81,12 @@ for(const [k, src] of Object.entries(docs)){
     'map-custom': 'title: C\nx: Effort (low → high)\ny: Value (low → high)\nzones: grid 3x3\nzone 1,3: Quick wins\nzone band: x + y > 120\nThing @ 20,80\nOther @ 60,40',
   };
   for(const [k, src] of Object.entries(mdocs)) variants[k] = mk(src);
+  const {mapDiff, mapDiffView} = await import('../map/diff.js');
+  const oldMap = mparse('preset: assumptions\ntitle: T\nA @ 60,30 :: test: interview five\nB @ 70,60\nGone @ 10,10\nD');
+  const curMap = mparse(mdocs['map-assumptions']);
+  const md = mapDiffView(mapDiff(oldMap, curMap), 'SNAP');
+  const rr = mresolve(curMap);
+  variants['map-diff'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxBase}, md));
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
 }
 

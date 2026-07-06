@@ -53,7 +53,7 @@ export function nudge(boxes, x0, y0, x1, y1, iters = 24){
   return b;
 }
 
-export function render(model, resolved, ro, ctx){
+export function render(model, resolved, ro, ctx, diff = null){
   const {measure, slide = false, dark = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
@@ -141,6 +141,18 @@ export function render(model, resolved, ro, ctx){
       '" text-anchor="end" font-size="' + T.endSize * S + '" fill="' + C.muted + '">' + esc(ay.high) + '</text>');
   }
 
+  /* ---- drift ghosts (snapshot compare): old position, dashed trail ---- */
+  if(diff){
+    for(const g of diff.ghosts){
+      const gx = px(g.from[0]), gy = py(g.from[1]);
+      const tx = px(g.to[0]), ty = py(g.to[1]);
+      body.push('<line x1="' + gx.toFixed(1) + '" y1="' + gy.toFixed(1) + '" x2="' + tx.toFixed(1) +
+        '" y2="' + ty.toFixed(1) + '" stroke="' + C.muted + '" stroke-width="1" stroke-dasharray="3 4" opacity="0.7"/>');
+      body.push('<circle cx="' + gx.toFixed(1) + '" cy="' + gy.toFixed(1) + '" r="' + T.dotR * S +
+        '" fill="none" stroke="' + C.muted + '" stroke-width="1.25" stroke-dasharray="2 2"/>');
+    }
+  }
+
   /* ---- cards: dot at the authored position, nudged capsule beside it ---- */
   const font = '600 ' + T.cardSize * S + 'px ' + F.body;
   const truncate = (label, maxW = T.cardMaxW) => {
@@ -173,6 +185,12 @@ export function render(model, resolved, ro, ctx){
       body.push('<line x1="' + c.cx + '" y1="' + c.cy + '" x2="' + capX + '" y2="' + capY +
         '" stroke="' + C.border + '" stroke-width="1"/>');
     body.push('<circle cx="' + c.cx + '" cy="' + c.cy + '" r="' + T.dotR * S + '" fill="' + C.accent + '"/>');
+    if(diff && diff.newLabels.has(String(c.it.label).toLowerCase().replace(/\s+/g, ' ').trim())){
+      body.push('<circle cx="' + c.cx + '" cy="' + c.cy + '" r="' + (T.dotR + 3.5) * S +
+        '" fill="none" stroke="' + C.accent + '" stroke-width="1.25"/>');
+      body.push('<text x="' + (c.cx + (T.dotR + 6) * S) + '" y="' + (c.cy - (T.dotR + 3) * S) +
+        '" font-size="' + 8.5 * S + '" font-weight="600" letter-spacing="0.6" fill="' + C.accent + '">NEW</text>');
+    }
     body.push('<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="' + c.h +
       '" rx="' + c.h / 2 + '" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
@@ -240,6 +258,23 @@ export function render(model, resolved, ro, ctx){
     roY += T.verdictLh * S;
   }
   roY += 6 * S;
+  if(diff){
+    body.push('<text x="' + roX + '" y="' + (roY + 12 * S) + '" font-size="' + 12 * S +
+      '" font-weight="600" fill="' + C.accent + '">' + esc(diff.sinceLine) + '</text>');
+    roY += 18 * S;
+    if(diff.dropped.length){
+      body.push('<text x="' + roX + '" y="' + (roY + 10 * S) + '" font-size="' + 9.5 * S +
+        '" font-weight="600" letter-spacing="1" fill="' + C.muted + '">DROPPED SINCE ' +
+        esc(diff.since.toUpperCase()) + '</text>');
+      roY += 14 * S;
+      for(const label of diff.dropped){
+        body.push('<text x="' + roX + '" y="' + (roY + 11 * S) + '" font-size="' + 11 * S +
+          '" fill="' + C.muted + '" text-decoration="line-through">' + esc(label) + '</text>');
+        roY += 14 * S;
+      }
+    }
+    roY += 4 * S;
+  }
   for(const f of ro.flagged){
     body.push('<text x="' + roX + '" y="' + (roY + T.roItemSize * S) + '" font-size="' + T.roItemSize * S +
       '" fill="' + C.err + '">⚠ ' + esc(f.item.label + ' — ' + f.msg) + '</text>');

@@ -9,6 +9,8 @@ import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
+import {snapStore, wireSnapshots} from '../assets/snapshots.js';
+import {mapDiff, mapDiffView} from './diff.js';
 
 const $ = id => document.getElementById(id);
 
@@ -83,8 +85,14 @@ function renderWarnings(){
 function hasContent(){
   return model && (model.items.length || model.preset || model.grid || model.ruleZones.length);
 }
+let snaps = null;   // wired below, after the editor exists
+function currentDiff(){
+  const cur = snaps && snaps.current();
+  if(!cur || !model || !ro) return null;
+  return mapDiffView(mapDiff(cur.model, model), cur.label);
+}
 function activeRender(slide, edit = false){
-  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit});
+  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit}, currentDiff());
 }
 function doRefresh(){
   const text = editor.getText();
@@ -122,6 +130,16 @@ function writeHash(){
   if(ws.collapsed()) state.e = 0;
   writeHashState(state);
 }
+snaps = wireSnapshots({
+  store: snapStore('map-snaps'),
+  parse,
+  getSrc: () => editor.getText(),
+  makeLabel: () => new Date().toISOString().slice(0, 10) +
+    (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
+  els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
+  canSnap: () => model && model.items.length,
+  onChange(){ lastSvg = ''; refresh(); },
+});
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
