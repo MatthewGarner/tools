@@ -22,8 +22,8 @@ function walk(dir, out = []){
   return out;
 }
 
-test('sw.js precaches every shipped file (regenerate the list when this fails)', () => {
-  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
+test('home/sw.js precaches every shipped file (regenerate the list when this fails)', () => {
+  const sw = readFileSync(join(ROOT, 'home/sw.js'), 'utf8');
   const listed = new Set([...sw.matchAll(/'(\/[^']*)'/g)].map(m => m[1]));
   const missing = KEEP.flatMap(d => walk(d)).filter(u => !listed.has(u));
   assert.deepEqual(missing, [], 'missing from PRECACHE: ' + missing.join(', '));
@@ -33,10 +33,10 @@ test('sw.js precaches every shipped file (regenerate the list when this fails)',
 /* gen-sw patches sw.js in place, so a merge conflict outside the PRECACHE block
    survives regeneration — shipped broken once (2026-07-06): the regex scan above
    passed while the worker failed evaluation on every page. Actually parse it. */
-test('sw.js compiles as a script', () => {
-  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
-  assert.ok(!sw.includes('<<<<<<<'), 'sw.js contains merge conflict markers');
-  new Script(sw, {filename: 'sw.js'});   // throws on any syntax error
+test('home/sw.js compiles as a script', () => {
+  const sw = readFileSync(join(ROOT, 'home/sw.js'), 'utf8');
+  assert.ok(!sw.includes('<<<<<<<'), 'home/sw.js contains merge conflict markers');
+  new Script(sw, {filename: 'home/sw.js'});   // throws on any syntax error
 });
 
 /* the energy origin has its own worker; its PRECACHE lists URLs as served on

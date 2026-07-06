@@ -1,25 +1,45 @@
-/* The energy origin's path map has one source of truth: origins.mjs. vercel.json's
-   rewrites, serve.mjs's emulation and gen-sw's energy precache all derive from it —
-   this test makes three-way drift a failure, not a production surprise. */
+/* The two-origin path map has one source of truth: origins.mjs. vercel.json's
+   rewrites, serve.mjs's emulation and gen-sw's precache lists all derive from
+   it — this test makes drift a failure, not a production surprise.
+
+   Two production facts this encodes (learned the hard way, 2026-07-06):
+   - Vercel serves the FILESYSTEM before rewrites, so a rewrite whose source
+     collides with a real file never fires. The tools root trio (/, /sw.js,
+     /manifest.webmanifest) therefore lives in home/ and is served back by
+     unconditioned fallback rewrites (which previews also get).
+   - `:path*` sources do NOT match the bare trailing-slash URL, so every
+     prefix route emits an exact `/x/` row alongside `/x/:path*`. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {ENERGY_HOST, toRepoPath, toOriginUrl, vercelRewrites} from './origins.mjs';
+import {ENERGY_HOST, toRepoPath, toToolsPath, toOriginUrl, vercelRewrites} from './origins.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8'));
 
-test('vercel.json carries exactly the rewrites origins.mjs defines', () => {
-  const hosted = (vercel.rewrites || []).filter(r =>
-    (r.has || []).some(h => h.type === 'host' && h.value === ENERGY_HOST));
-  assert.deepEqual(hosted, vercelRewrites());
+test('vercel.json rewrites are exactly what origins.mjs defines, in order', () => {
+  assert.deepEqual(vercel.rewrites, vercelRewrites());
 });
 
-test('tools origin redirects /energy/* to the energy origin', () => {
-  const r = (vercel.redirects || []).find(r => r.source === '/energy/:path*');
-  assert.ok(r, 'missing /energy/:path* redirect');
-  assert.deepEqual(r.has, [{type: 'host', value: 'tools.matthewgarner.me'}]);
-  assert.equal(r.destination, 'https://' + ENERGY_HOST + '/:path*');
+test('energy rows precede the unconditioned fallback rows', () => {
+  const rows = vercelRewrites();
+  const lastEnergy = rows.map(r => !!r.has).lastIndexOf(true);
+  const firstFallback = rows.map(r => !!r.has).indexOf(false);
+  assert.ok(lastEnergy < firstFallback, 'fallback rows must come after all host-conditioned rows');
+});
+
+test('prefix routes emit both an exact trailing-slash row and a :path* row', () => {
+  const sources = vercelRewrites().filter(r => r.has).map(r => r.source);
+  assert.ok(sources.includes('/risk/') && sources.includes('/risk/:path*'));
+});
+
+test('tools origin redirects /energy/* (including the bare slash form)', () => {
+  const reds = (vercel.redirects || []).filter(r => r.source.startsWith('/energy'));
+  assert.deepEqual(reds.map(r => r.source).sort(), ['/energy/', '/energy/:path*']);
+  for(const r of reds){
+    assert.deepEqual(r.has, [{type: 'host', value: 'tools.matthewgarner.me'}]);
+    assert.ok(r.destination.startsWith('https://' + ENERGY_HOST + '/'));
+  }
 });
 
 test('toRepoPath maps energy-origin paths and passes shared paths through', () => {
@@ -30,6 +50,14 @@ test('toRepoPath maps energy-origin paths and passes shared paths through', () =
   assert.equal(toRepoPath('/manifest.webmanifest'), '/energy/manifest.webmanifest');
   assert.equal(toRepoPath('/icons/icon-192.png'), '/energy/icons/icon-192.png');
   assert.equal(toRepoPath('/assets/series.js'), '/assets/series.js');
+});
+
+test('toToolsPath serves the relocated root trio and passes everything else through', () => {
+  assert.equal(toToolsPath('/'), '/home/');
+  assert.equal(toToolsPath('/sw.js'), '/home/sw.js');
+  assert.equal(toToolsPath('/manifest.webmanifest'), '/home/manifest.webmanifest');
+  assert.equal(toToolsPath('/fermi/'), '/fermi/');
+  assert.equal(toToolsPath('/assets/series.js'), '/assets/series.js');
 });
 
 test('toOriginUrl inverts toRepoPath for exposed files', () => {

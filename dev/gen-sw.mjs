@@ -37,7 +37,7 @@ function patch(file, prefix, urls){
 }
 
 const urls = [...new Set(['/', '/manifest.webmanifest', ...KEEP.flatMap(d => walk(d))])].sort();
-patch('sw.js', 'tools', urls);
+patch('home/sw.js', 'tools', urls);
 
 /* energy origin worker: same walk, mapped through the origin's path table.
    (KEEP must NOT gain 'energy' — the tools origin redirects /energy/* away.) */
