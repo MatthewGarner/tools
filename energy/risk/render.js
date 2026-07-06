@@ -23,10 +23,11 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const accent = model.accent || C.accent;
   const W = ctx.slide ? 1280 : 1200;
   const LBL = 250, x0 = LBL + 20, x1 = W - 48;
-  const ROW = 118, TOP = model.title ? 92 : 56;
+  const ROW = 132, TOP = model.title ? 92 : 56;
   const rows = sim.rows;
   const fi = focus === null ? Math.min(1, rows.length - 1) : Math.max(0, Math.min(focus, rows.length - 1));
-  const vX = v => x0 + (v - sim.min) / (sim.max - sim.min || 1) * (x1 - x0);
+  const vX = v => Math.max(x0, Math.min(x1,
+    x0 + (v - sim.min) / (sim.max - sim.min || 1) * (x1 - x0)));
   const parts = [];
 
   /* verdict block height computed up front so the svg height is exact */
@@ -53,7 +54,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
       (edit ? ' data-focus=\'' + i + '\' style=\'cursor:pointer\'' : '') + '/>');
     parts.push(txt(44, y + 30, r.label, 17, C.ink, {weight: 700}));
 
-    const ry = y + 44, rh = 30;
+    const ry = y + 40, rh = 30;
     const wy = ry + rh;
 
     /* bind threshold: shaded binding region + dashed line (under the ribbon) */
@@ -83,7 +84,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
       parts.push('<line x1=\'' + vX(p).toFixed(1) + '\' y1=\'' + (wy - 6) + '\' x2=\'' + vX(p).toFixed(1) +
         '\' y2=\'' + (wy + 6) + '\' stroke=\'' + col + '\' stroke-width=\'2.5\'/>');
     parts.push('<path d=\'M' + vX(r.p50).toFixed(1) + ' ' + (wy - 8) + ' l7 8 l-7 8 l-7 -8 Z\' fill=\'' + col + '\'/>');
-    parts.push(txt(vX(r.p50), wy + 22, fmtUnit(r.p50, model.unit), 12.5, C.ink, {anchor: 'middle', weight: 600}));
+    parts.push(txt(vX(r.p50), wy + 20, fmtUnit(r.p50, model.unit), 12.5, C.ink, {anchor: 'middle', weight: 600}));
 
     /* pills: parameters (editable) then readouts */
     let px = 44;
@@ -94,9 +95,9 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
       let attrs = '';
       if(edit && opts.field) attrs = ' data-edit=\'num\' data-line=\'' + r.srcLine +
         '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'';
-      parts.push('<g' + attrs + '><rect x=\'' + px.toFixed(1) + '\' y=\'' + (y + ROW - 44) + '\' width=\'' + w.toFixed(1) +
+      parts.push('<g' + attrs + '><rect x=\'' + px.toFixed(1) + '\' y=\'' + (y + ROW - 36) + '\' width=\'' + w.toFixed(1) +
         '\' height=\'22\' rx=\'11\' fill=\'' + fill + '\'/>' +
-        txt(px + 10, y + ROW - 29, label, 12, ink, {weight: 600}) + '</g>');
+        txt(px + 10, y + ROW - 21, label, 12, ink, {weight: 600}) + '</g>');
       px += w + 8;
     };
     const P = r.params;

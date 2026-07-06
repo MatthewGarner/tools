@@ -76,13 +76,15 @@ export function simulate(model, {seed = 1, n = 10000} = {}){
         typicalDelta: quantile(deltas, .5), worstDelta: quantile(sorted, .1) - rows[0].p10}});
   }
 
-  const min = Math.min(...rows.map(r => r.sorted[0]));
-  const max = Math.max(...rows.map(r => r.sorted[r.sorted.length - 1]));
+  /* shared axis: clamp to the P0.2–P99.8 band so a lognormal tail can't
+     squeeze every row into the left half of the plot */
+  const min = Math.min(...rows.map(r => quantile(r.sorted, .002)));
+  const max = Math.max(...rows.map(r => quantile(r.sorted, .998)));
   const BINS = 64;
   for(const r of rows){
     const bins = new Array(BINS).fill(0);
     for(const v of r.sorted)
-      bins[Math.min(BINS - 1, Math.floor((v - min) / (max - min || 1) * BINS))]++;
+      bins[Math.max(0, Math.min(BINS - 1, Math.floor((v - min) / (max - min || 1) * BINS)))]++;
     const peak = Math.max(...bins) || 1;
     r.ribbon = bins.map(b => b / peak);
   }

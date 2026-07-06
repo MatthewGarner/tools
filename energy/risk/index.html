@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Risk transfer — route-to-market as distributions</title>
+<meta name="description" content="Merchant vs floor+share vs toll vs insure, compared as payoff distributions on one revenue range — what upside you sold, what protection you bought, how often the floor binds.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/controls.css">
+<link rel="stylesheet" href="../../assets/workspace.css">
+<link rel="stylesheet" href="../../assets/about.css">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="../../assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="../">← All energy tools</a>
+    <h1>Risk transfer</h1>
+    <p class="tagline">Merchant, floor+share, toll, or insure — the route-to-market argument, with every structure drawn as what it actually is: a payoff transform on the same uncertain year. What upside you sold, what protection you bought, what the fees really were.</p>
+  </header>
+</div>
+
+<div class="workspace" id="workspace">
+    <aside class="rail">
+      <div class="chips" id="chips"><span class="lead">Try:</span></div>
+      <div id="cmhost" aria-label="Risk model source editor"></div>
+      <ul id="warns"></ul>
+      <details class="syntax">
+        <summary>Syntax reference</summary>
+        <table>
+          <tr><td><code>merchant: 60..180</code></td><td>your 90% range for the merchant year (required, one per model)</td></tr>
+          <tr><td><code>floor: 70 share 60% fee 5</code></td><td>topped up to 70; you keep 60% of revenue above it; fee 5</td></tr>
+          <tr><td><code>toll: 95</code></td><td>fixed payment — all merchant risk transferred</td></tr>
+          <tr><td><code>insure: premium 6 attach 65 limit 30</code></td><td>stay merchant; cover pays the shortfall below 65, capped at 30</td></tr>
+          <tr><td><code>"a label"</code></td><td>names a structure line (compare two floors side by side)</td></tr>
+          <tr><td><code>title:</code> <code>unit:</code> <code>accent:</code></td><td>config — unit is a display label (default £k/MW/yr)</td></tr>
+        </table>
+      </details>
+    </aside>
+    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <section class="stage">
+      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="actions">
+        <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
+        <button class="btn" id="dlsvg">Download SVG</button>
+        <button class="btn" id="dlpng">Download PNG</button>
+        <button class="btn" id="dlslide">PNG (slide size)</button>
+        <button class="btn" id="copypng">Copy PNG</button>
+        <button class="btn" id="copymd">Copy for doc</button>
+        <span class="method">Click a row to focus its verdict · click any number on the diagram to edit it · the URL carries your model</span>
+      </div>
+    </section>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>Why distributions, not offers?</h2>
+    <div class="prose">
+    <p>Route-to-market gets argued with adjectives — "safe", "leaves money on the table", "market risk" — when every structure on the table is just a payoff transform on the same uncertain year. Draw them on one axis and the argument changes: the floor is a put you paid for in upside share, the toll is certainty priced at the whole distribution, and the quotable numbers fall out — what upside you sold on average, what protection you actually bought, what the fees were once they're separated from the risk terms. Binding probabilities get an honesty check: two numbers don't pin down a left tail, so when the lognormal and normal fits disagree materially, the verdict says "12–22% depending on tail shape" instead of pretending.</p>
+    <p>Named simplifications, so the tool can't oversell itself: the toll is modelled as a fully fixed payment — availability incentives and performance obligations are out of scope. Insure is a clean indemnity with an attachment point and a limit — no deductibles, no basis risk. Every structure is evaluated on the same merchant year, so counterparty credit risk — a floor is only as good as whoever wrote it — is explicitly not priced. And it's one representative year: multi-year sequencing, debt covenants and path-dependence belong to a cashflow model, not this comparison.</p>
+    <p>The tool prices the trade; it never says "choose the toll" — that depends on a risk appetite no simulation should claim to know. Sources: the real-options framing of revenue floors as puts; Douglas Hubbard on calibrated 90% intervals (<em>How to Measure Anything</em>).</p>
+    </div>
+  </section>
+
+  <footer>
+    No accounts, no tracking. The URL carries your model — bookmark or share it.<br>
+    Part of <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a> · sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
