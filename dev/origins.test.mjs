@@ -31,6 +31,7 @@ test('energy rows precede the unconditioned fallback rows', () => {
 test('prefix routes emit both an exact trailing-slash row and a :path* row', () => {
   const sources = vercelRewrites().filter(r => r.has).map(r => r.source);
   assert.ok(sources.includes('/risk/') && sources.includes('/risk/:path*'));
+  assert.ok(sources.includes('/cycles/') && sources.includes('/cycles/:path*'));
 });
 
 test('tools origin redirects /energy/* (including the bare slash form)', () => {
@@ -46,6 +47,8 @@ test('toRepoPath maps energy-origin paths and passes shared paths through', () =
   assert.equal(toRepoPath('/'), '/energy/');
   assert.equal(toRepoPath('/risk/'), '/energy/risk/');
   assert.equal(toRepoPath('/risk/app.js'), '/energy/risk/app.js');
+  assert.equal(toRepoPath('/cycles/'), '/energy/cycles/');
+  assert.equal(toRepoPath('/cycles/app.js'), '/energy/cycles/app.js');
   assert.equal(toRepoPath('/sw.js'), '/energy/sw.js');
   assert.equal(toRepoPath('/manifest.webmanifest'), '/energy/manifest.webmanifest');
   assert.equal(toRepoPath('/icons/icon-192.png'), '/energy/icons/icon-192.png');

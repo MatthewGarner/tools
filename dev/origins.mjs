@@ -18,6 +18,7 @@ export const TOOLS_HOST = 'tools.matthewgarner.me';
 
 export const ENERGY_ROUTES = [
   {from: '/risk/', to: '/energy/risk/'},
+  {from: '/cycles/', to: '/energy/cycles/'},
   {from: '/icons/', to: '/energy/icons/'},
   {from: '/', to: '/energy/', exact: true},
   {from: '/sw.js', to: '/energy/sw.js', exact: true},
