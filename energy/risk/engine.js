@@ -1,25 +1,14 @@
 /* Pure engine: seeded merchant sampling (lognormal default + normal tail-check),
    payoff transforms per archetype, fee-clean trade decomposition, verdicts.
    Every number the UI quotes is defined here and only here.
-   The lo..hi → sampler maths duplicates ~8 lines of fermi/engine.js — third
-   consumer; extraction into assets/series.js is the noted shared-code candidate
-   for the next fermi touch. */
-import {mulberry32, gaussian, quantile, fmt} from '../../assets/series.js';
-
-export const Z90 = 1.6448536;
+   The lo..hi → sampler maths lives in assets/series.js (rangeSampler) since
+   /cycles became its 4th consumer; fermi migrates when next touched. */
+import {mulberry32, gaussian, quantile, fmt, rangeSampler, Z90} from '../../assets/series.js';
+export {Z90};
 
 export function draws(lo, hi, dist, seed, n){
   const rand = mulberry32(seed), gauss = gaussian(rand);
-  if(lo === hi) return new Array(n).fill(lo);
-  let f;
-  if(dist === 'logn' && lo > 0){
-    const mu = (Math.log(lo) + Math.log(hi)) / 2;
-    const sg = (Math.log(hi) - Math.log(lo)) / (2 * Z90);
-    f = () => Math.exp(mu + sg * gauss());
-  } else {
-    const mu = (lo + hi) / 2, sg = (hi - lo) / (2 * Z90);
-    f = () => mu + sg * gauss();
-  }
+  const f = rangeSampler(lo, hi, dist, rand, gauss);
   return Array.from({length: n}, f);
 }
 
