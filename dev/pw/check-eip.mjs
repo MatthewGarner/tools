@@ -209,6 +209,30 @@ check('no page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- cycles (energy) ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/cycles/', {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await p.waitForTimeout(1000);
+  const before = await p.evaluate(() => localStorage.getItem('cycles-src'));
+  await p.locator('[data-field="budget"]').first().click();
+  await p.waitForTimeout(200);
+  check('cycles: overlay prefilled', await p.locator('.eip-input').inputValue() === '6000');
+  await p.locator('.eip-input').fill('3000');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(1000);
+  check('cycles: budget rewrite lands', (await p.evaluate(() => localStorage.getItem('cycles-src'))).includes('cycles: 3000 over 15yr'));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('Meta+z');
+  await p.waitForTimeout(700);
+  check('cycles: one undo reverts', (await p.evaluate(() => localStorage.getItem('cycles-src'))) === before);
+  check('cycles: no page errors', errs.length === 0);
+  await p.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

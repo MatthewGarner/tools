@@ -91,7 +91,7 @@ async function installAndWait(page){
     mf.display === 'standalone' && mf.icons.some(i => i.purpose === 'maskable'));
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(async () =>
-    !!(await caches.match('/risk/app.js')) && !!(await caches.match('/assets/series.js')),
+    !!(await caches.match('/risk/app.js')) && !!(await caches.match('/cycles/app.js')) && !!(await caches.match('/assets/series.js')),
     null, {timeout: 20000});
   check('energy SW active + precached', true);
   await ctx.setOffline(true);
@@ -105,6 +105,16 @@ async function installAndWait(page){
   }catch(e){ ok = false; }
   check('energy: /risk/ cold offline fully works', ok);
   await p2.close();
+  const p3 = await ctx.newPage();
+  let ok2 = false;
+  try{
+    await p3.goto(EBASE + '/cycles/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await p3.getByRole('button', {name: 'Wexcombe base case'}).click();
+    await p3.waitForTimeout(1000);
+    ok2 = await p3.locator('#preview svg').count() === 1;
+  }catch(e){ ok2 = false; }
+  check('energy: /cycles/ cold offline fully works', ok2);
+  await p3.close();
   await ctx.close();
 }
 
