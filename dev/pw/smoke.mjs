@@ -48,6 +48,20 @@ async function svgDecodes(page, selector){
   await page.close();
 }
 
+/* ---- every tool links home ---- */
+{
+  const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline'];
+  const {page, errors} = await freshPage('/' + tools[0] + '/');
+  let allOk = true;
+  for(const t of tools){
+    await page.goto(BASE + '/' + t + '/', {waitUntil: 'domcontentloaded'});
+    const crumb = page.locator('a.crumb');
+    if(await crumb.count() !== 1 || await crumb.getAttribute('href') !== '/'){ allOk = false; break; }
+  }
+  check('all nine tools carry the home crumb', allOk);
+  await page.close();
+}
+
 /* ---- fermi ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/fermi/', theme);
@@ -202,6 +216,19 @@ for(const theme of ['light', 'dark']){
     return svg.includes('WATERMELON WATCH') && /reported green/.test(svg);
   })());
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('map(' + theme + '): flagged assumptions hand off to gauge (#93)', await (async () => {
+    await page.getByRole('button', {name: 'Assumption map'}).click();
+    await page.waitForTimeout(500);
+    if(await page.locator('#togauge').isHidden()) return false;
+    await page.locator('#togauge').click();
+    await page.waitForTimeout(800);
+    if(!page.url().includes('/gauge/')) return false;
+    const qs = await page.locator('#preview .gform .q').count();
+    const title = await page.locator('.cm-content').innerText();
+    await page.goBack();
+    await page.waitForTimeout(500);
+    return qs === 2 && title.includes('assumption check');
+  })());
   check('map(' + theme + '): snapshot compare shows drift', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(400);

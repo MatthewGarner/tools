@@ -107,6 +107,29 @@ try{
   await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
 
+  /* #93: revealed ranges hand off to fermi as prefilled variables */
+  check('facilitator: → Fermi appears after reveal', await pageF.locator('#tofermi').isVisible());
+  {
+    const target = await pageF.evaluate(() => {
+      // read the destination without navigating the console away
+      return document.getElementById('tofermi') ? 'ok' : 'missing';
+    });
+    const [nav] = await Promise.all([
+      pageF.waitForNavigation({timeout: 8000}),
+      pageF.locator('#tofermi').click(),
+    ]);
+    check('facilitator: → Fermi lands on fermi with the range prefilled', await (async () => {
+      if(!pageF.url().includes('/fermi/')) return false;
+      await pageF.waitForTimeout(600);
+      const formula = await pageF.locator('#formula').inputValue();
+      const p50 = await pageF.locator('#p50').innerText();
+      return formula.includes('weeks_to_migrate') && p50.length > 0 && p50 !== '—';
+    })());
+    await pageF.goBack();
+    await pageF.waitForTimeout(800);
+    check('facilitator: console restores after the hop', await pageF.locator('#coverlay svg').count() === 1);
+  }
+
   /* Delphi round 2: open (two-step arm), A revises, B stands pat, reveal both rounds */
   await pageF.locator('#cround2').click();
   await pageF.locator('#cround2').click();

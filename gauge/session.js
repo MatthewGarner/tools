@@ -1,5 +1,6 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
 import {sessionStats, markdownSummary, mergeFinal, delphiStats} from './engine.js';
+import {fermiHandoff} from './handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
@@ -66,6 +67,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     showOverlay($('coverlay'), model, responses, ctx);
     $('cexports').hidden = false;
     $('cround2wrap').hidden = false;
+    refreshHandoff();
   }
   function showResults2(r1resp, r2resp){
     responses = r1resp;
@@ -76,6 +78,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('cstate').textContent = '';
     $('cquestions').hidden = true;
     $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
+    refreshHandoff();
   }
 
   const mkPoll = () => startPoll({
@@ -170,6 +173,19 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('creveal').disabled = false;
     $('creveal').textContent = 'Reveal round 2';
     poll2 = mkPoll();
+  });
+
+  /* #93: the room's ranges → prefilled fermi variables */
+  function currentHandoff(){
+    if(responses2)
+      return fermiHandoff(model, sessionStats(model, mergeFinal(responses, responses2)),
+        delphiStats(model, responses, responses2));
+    return responses ? fermiHandoff(model, sessionStats(model, responses)) : null;
+  }
+  function refreshHandoff(){ $('tofermi').hidden = !currentHandoff(); }
+  $('tofermi').addEventListener('click', () => {
+    const h = currentHandoff();
+    if(h) location.href = '/fermi/#' + btoa(unescape(encodeURIComponent(JSON.stringify(h))));
   });
 
   wireExports({
