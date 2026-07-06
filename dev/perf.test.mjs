@@ -64,3 +64,10 @@ test('timeline: 120-milestone render under 250ms', async () => {
     measure: t => t.length * 7, today: 20640};
   await timed(250, () => render(m, ctx));
 });
+
+test('risk: 10k samples × 4 structures × 2 fits under 400ms', async () => {
+  const {parse} = await import('../energy/risk/parse.js');
+  const {simulate} = await import('../energy/risk/engine.js');
+  const m = parse('merchant: 60..180\nfloor: 70 share 60% fee 5\nfloor: 80 share 75%\ntoll: 95\ninsure: premium 6 attach 65 limit 30');
+  await timed(400, () => simulate(m));
+});
