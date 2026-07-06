@@ -91,3 +91,13 @@ test('timeline renderer escapes hostile lanes, labels and notes', async () => {
       ' .. 2026-1' + (i % 2) + ' // ' + EVIL[(i + 2) % EVIL.length]).join('\n');
   assertClean(render(parse(doc), ctx, null, {edit: true}), 'timeline');
 });
+
+test('risk renderer + markdown escape hostile titles and structure labels', async () => {
+  const {parse} = await import('../energy/risk/parse.js');
+  const {simulate} = await import('../energy/risk/engine.js');
+  const {render} = await import('../energy/risk/render.js');
+  const doc = 'title: ' + EVIL[0] + '\nmerchant: 60..180\n' +
+    EVIL.map((e, i) => 'floor: ' + (65 + i) + ' share 60% "' + e.replace(/"/g, '') + ' item ' + i + '"').join('\n');
+  const m = parse(doc);
+  assertClean(render(m, simulate(m), ctx, {edit: true}), 'risk');
+});

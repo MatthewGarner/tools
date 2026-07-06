@@ -192,6 +192,20 @@ for(const [k, src] of Object.entries(docs)){
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
 }
 
+/* /risk fixtures (seeded engine → deterministic) */
+{
+  const {parse: rparse} = await import('../energy/risk/parse.js');
+  const {simulate} = await import('../energy/risk/engine.js');
+  const {render: rrender} = await import('../energy/risk/render.js');
+  const rdoc = 'title: Route to market — Wexcombe 100MW/2h\nmerchant: 60..180\n' +
+    'floor: 70 share 60% fee 5\ntoll: 95\ninsure: premium 6 attach 65 limit 30';
+  const rm = rparse(rdoc);
+  const rs = simulate(rm);
+  variants['risk-routes'] = rrender(rm, rs, {...ctxBase});
+  variants['risk-routes-slide'] = rrender(rm, rs, {...ctxBase, slide: true});
+  variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
