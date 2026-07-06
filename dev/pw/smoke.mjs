@@ -38,7 +38,7 @@ async function svgDecodes(page, selector){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: eight tool cards', await page.locator('a.tool').count() === 8);
+  check('landing: nine tool cards', await page.locator('a.tool').count() === 9);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -273,6 +273,33 @@ for(const theme of ['light', 'dark']){
     return true;
   })());
   check('flow(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- timeline ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/timeline/', theme);
+  await page.getByRole('button', {name: 'App launch programme'}).click();
+  await page.waitForTimeout(600);
+  check('timeline(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
+  const svg = await page.locator('#preview svg').innerHTML();
+  check('timeline(' + theme + '): whiskers + today line', /data-ms="whisker"/.test(svg) && /data-today/.test(svg));
+  check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
+  check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
+    await page.locator('#snap').click();
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Meta+ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Ops: Snap ' + theme + ' 2027-03 .. 2027-05');
+    await page.waitForTimeout(500);
+    const n = await page.locator('#snapsel option').count();
+    await page.locator('#snapsel').selectOption({index: n - 1});
+    await page.waitForTimeout(500);
+    const d = await page.locator('#preview svg').innerHTML();
+    return /Since /.test(d) && />NEW</.test(d);
+  })());
+  check('timeline(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

@@ -67,16 +67,16 @@ export function renderCashflow(r, spec, ctx){
   s.push('<polygon points="' + up.concat(down).join(' ') + '" fill="' + tint(c.accent) + '"/>');
   s.push('<polyline points="' + r.band.map((b, t) => f1(X(t)) + ',' + f1(Y(b.p50))).join(' ') +
     '" fill="none" stroke="' + c.accent + '" stroke-width="2.5"/>');
-  s.push('<line data-zero x1="' + PAD + '" y1="' + f1(Y(0)) + '" x2="' + (PAD + chW) + '" y2="' + f1(Y(0)) +
+  s.push('<line data-zero="" x1="' + PAD + '" y1="' + f1(Y(0)) + '" x2="' + (PAD + chW) + '" y2="' + f1(Y(0)) +
     '" stroke="' + c.ink + '" stroke-width="1" stroke-dasharray="4 3"/>');
   if(r.period.p50 !== null){
     const ex = X(r.period.p50);
-    s.push('<line data-event x1="' + f1(ex) + '" y1="' + top + '" x2="' + f1(ex) + '" y2="' + (top + chH - 30) +
+    s.push('<line data-event="" x1="' + f1(ex) + '" y1="' + top + '" x2="' + f1(ex) + '" y2="' + (top + chH - 30) +
       '" stroke="' + c.err + '" stroke-width="1" stroke-dasharray="3 3"/>');
     s.push(txt(ex + 5, top + 14, (r.period.kind === 'cashout' ? 'cash out' : 'payback') + ' P50', 10.5,
       c.err, {weight: 600}));
   } else {
-    s.push('<g data-event display="none"></g>');
+    s.push('<g data-event="" display="none"></g>');
   }
   s.push(txt(PAD, top + chH - 10, periodWord(r.grain, 0), 10, c.muted));
   s.push(txt(PAD + chW, top + chH - 10, periodWord(r.grain, H), 10, c.muted, {anchor: 'end'}));

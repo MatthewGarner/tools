@@ -1,5 +1,5 @@
 /* Tree DSL language on the shared editor core. */
-import {createEditorCore, StreamLanguage, tags as t} from '../assets/editor-common.js';
+import {makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 
 const lang = StreamLanguage.define({
   token(stream){
@@ -18,10 +18,8 @@ const lang = StreamLanguage.define({
   languageData: {commentTokens: {line: '//'}},
 });
 
-export function createEditor({parent, doc, onChange}){
-  return createEditorCore({parent, doc, onChange, langExtension: lang, indentBar: true,
-    extraHighlights: [
+export const createEditor = makeEditor({lang, indentBar: true,
+  highlights: [
       {tag: t.atom, color: 'var(--accent-ink)', fontWeight: '600'},
       {tag: t.number, color: 'var(--st-done)', fontWeight: '600'},
     ]});
-}
