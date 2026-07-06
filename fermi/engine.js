@@ -138,7 +138,7 @@ export function effDist(d, lo){
 export function distMedian(lo, hi, d){
   return effDist(d, Math.min(lo, hi)) === 'logn' ? Math.sqrt(lo * hi) : (lo + hi) / 2;
 }
-function samplerFor(lo, hi, dist, rand, gauss){
+export function samplerFor(lo, hi, dist, rand, gauss){   /* shared with cashflow.js */
   if(lo > hi){ const t = lo; lo = hi; hi = t; }
   if(lo === hi) return () => lo;
   const d = effDist(dist, lo);

@@ -152,6 +152,19 @@ for(const [k, src] of Object.entries(docs)){
     {...ctxBase, colors: {...ctxBase.colors, accent2: '#c62'}});
 }
 
+/* /fermi cashflow fixtures (#13): seeded → deterministic */
+{
+  const {simulateCashflow} = await import('../fermi/cashflow.js');
+  const {renderCashflow} = await import('../fermi/render-cashflow.js');
+  const R = (lo, hi) => ({lo, hi});
+  const cctx = {...ctxBase, colors: {...ctxBase.colors, accent2: '#c62'}};
+  const invest = {periods: [R(-250e3, -180e3), R(-40e3, 20e3), R(30e3, 90e3), R(60e3, 140e3)],
+    horizon: 5, grain: 'year', rate: R(8, 12)};
+  variants['fermi-cashflow-invest'] = renderCashflow(simulateCashflow(invest, {seed: 0xCA5F, n: 10000}), invest, cctx);
+  const runway = {periods: [R(400e3, 400e3), R(-45e3, -25e3)], horizon: 24, grain: 'month', rate: R(0, 0)};
+  variants['fermi-cashflow-runway'] = renderCashflow(simulateCashflow(runway, {seed: 0xCA5F, n: 10000}), runway, cctx);
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

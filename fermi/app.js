@@ -4,6 +4,8 @@ import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
 import {quantile} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
+import {simulateCashflow} from './cashflow.js';
+import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 
@@ -19,6 +21,12 @@ const EXAMPLES = [
   {name:'New feature revenue',
    f:'monthly_visitors * signup_rate * paid_conversion * annual_price',
    v:{monthly_visitors:['80k','200k'], signup_rate:['0.02','0.06'], paid_conversion:['0.05','0.15'], annual_price:['90','140']}},
+  {name:'Availability chain',
+   f:'app_up * db_up * network_up * api_up',
+   v:{app_up:['0.97','0.999'], db_up:['0.98','0.9995'], network_up:['0.99','0.9999'], api_up:['0.95','0.999']}},
+  {name:'Cadence economics',
+   f:'decisions_per_quarter * hours_per_decision * people_in_room * hourly_cost',
+   v:{decisions_per_quarter:['12','30'], hours_per_decision:['1','4'], people_in_room:['4','9'], hourly_cost:['60','120']}},
 ];
 
 /* ---------- state ---------- */
@@ -176,6 +184,7 @@ function readHash(){
     if(!location.hash || location.hash.length < 2) return null;
     const s = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
     if(s && s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
+    if(s && s.m === 'cf' && Array.isArray(s.p)) return s;
     if(typeof s.f !== 'string' || typeof s.v !== 'object') return null;
     return s;
   }catch(e){ return null; }
@@ -645,7 +654,7 @@ $('tin').addEventListener('input', () => {
 });
 
 /* redraw on resize + theme change */
-function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); }
+function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
 if(window.ResizeObserver) new ResizeObserver(() => drawHist()).observe($('hist'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
 new MutationObserver(redrawAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
@@ -833,3 +842,188 @@ if(boot && boot.a && boot.b){
 }
 renderTabs();
 lint();
+
+/* ---------- cashflow mode (#13, absorbs #57) ---------- */
+let pageMode = 'est';
+const cf = {grain: 'year', horizon: 5, rlo: '8', rhi: '12',
+  periods: [{lo: '-250k', hi: '-180k'}, {lo: '-40k', hi: '20k'}, {lo: '30k', hi: '90k'}, {lo: '60k', hi: '140k'}]};
+const CF_EXAMPLES = [
+  {name: 'New feature investment', grain: 'year', horizon: 5, rlo: '8', rhi: '12',
+   periods: [{lo: '-250k', hi: '-180k'}, {lo: '-40k', hi: '20k'}, {lo: '30k', hi: '90k'}, {lo: '60k', hi: '140k'}]},
+  {name: 'Runway', grain: 'month', horizon: 24, rlo: '0', rhi: '0',
+   periods: [{lo: '400k', hi: '400k'}, {lo: '-45k', hi: '-25k'}]},
+];
+let cfResult = null, cfSpec = null, cfSig = '', cfSvg = '', cfTimer = null, cfHashTimer = null;
+
+function setMode(m){
+  pageMode = m;
+  const est = m === 'est';
+  $('modeest').classList.toggle('on', est);
+  $('modecf').classList.toggle('on', !est);
+  $('modeest').setAttribute('aria-selected', String(est));
+  $('modecf').setAttribute('aria-selected', String(!est));
+  $('estinputs').hidden = !est;
+  $('scentabs').hidden = !est;
+  $('cfinputs').hidden = est;
+  $('cfresults').hidden = est;
+  $('cardlabel').textContent = est ? 'Formula' : 'Cashflow';
+  if(est){
+    lint();
+  } else {
+    $('ph').style.display = 'none';
+    $('results').style.display = 'none';
+    renderCfRows();
+    cfPaint();
+  }
+}
+$('modeest').addEventListener('click', () => { if(pageMode !== 'est'){ setMode('est'); writeHashSafe(); } });
+$('modecf').addEventListener('click', () => { if(pageMode !== 'cf'){ setMode('cf'); cfWriteHashSafe(); } });
+
+function renderCfRows(){
+  const holder = $('cfrows');
+  holder.textContent = '';
+  cf.periods.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'cfrow';
+    const t = document.createElement('div');
+    t.className = 'cft';
+    t.textContent = 't' + i;
+    const lo = document.createElement('input');
+    lo.value = p.lo; lo.placeholder = 'low';
+    lo.setAttribute('aria-label', 'Period ' + i + ' low');
+    const dash = document.createElement('div'); dash.textContent = '–';
+    const hi = document.createElement('input');
+    hi.value = p.hi; hi.placeholder = 'high';
+    hi.setAttribute('aria-label', 'Period ' + i + ' high');
+    lo.addEventListener('input', () => { p.lo = lo.value; cfSchedule(); });
+    hi.addEventListener('input', () => { p.hi = hi.value; cfSchedule(); });
+    row.append(t, lo, dash, hi);
+    if(i > 0 && i === cf.periods.length - 1 && cf.periods.length > 2){
+      const del = document.createElement('button');
+      del.className = 'del'; del.textContent = '×';
+      del.setAttribute('aria-label', 'Remove period ' + i);
+      del.addEventListener('click', () => { cf.periods.pop(); renderCfRows(); cfSchedule(); });
+      row.appendChild(del);
+    } else row.appendChild(document.createElement('div'));
+    holder.appendChild(row);
+  });
+  $('cftailnote').textContent = 't' + cf.periods.length + '…t' + cf.horizon +
+    ' repeat the t' + (cf.periods.length - 1) + ' range';
+  $('cfgrain').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.g === cf.grain));
+  $('cfrlo').value = cf.rlo; $('cfrhi').value = cf.rhi; $('cfhorizon').value = cf.horizon;
+}
+$('cfadd').addEventListener('click', () => {
+  const last = cf.periods[cf.periods.length - 1];
+  cf.periods.push({lo: last.lo, hi: last.hi});
+  if(cf.horizon < cf.periods.length - 1) cf.horizon = cf.periods.length - 1;
+  renderCfRows();
+  cfSchedule();
+});
+$('cfgrain').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(!b) return;
+  cf.grain = b.dataset.g;
+  renderCfRows();
+  cfSchedule();
+});
+for(const id of ['cfrlo', 'cfrhi']) $(id).addEventListener('input', () => {
+  cf.rlo = $('cfrlo').value; cf.rhi = $('cfrhi').value; cfSchedule();
+});
+$('cfhorizon').addEventListener('input', () => {
+  cf.horizon = Math.max(1, Math.min(60, parseInt($('cfhorizon').value, 10) || cf.periods.length - 1));
+  $('cftailnote').textContent = 't' + cf.periods.length + '…t' + cf.horizon +
+    ' repeat the t' + (cf.periods.length - 1) + ' range';
+  cfSchedule();
+});
+function cfSchedule(){ clearTimeout(cfTimer); cfTimer = setTimeout(cfPaint, 150); }
+
+function cfParse(){
+  const periods = [];
+  for(const p of cf.periods){
+    const lo = parseNum(p.lo), hi = parseNum(p.hi);
+    if(!isFinite(lo) || !isFinite(hi)) return null;
+    periods.push({lo: Math.min(lo, hi), hi: Math.max(lo, hi)});
+  }
+  const rlo = parseFloat(cf.rlo), rhi = parseFloat(cf.rhi);
+  if(!isFinite(rlo) || !isFinite(rhi)) return null;
+  return {periods, horizon: Math.max(cf.horizon, periods.length - 1), grain: cf.grain,
+    rate: {lo: Math.min(rlo, rhi), hi: Math.max(rlo, rhi)}};
+}
+function cfPaint(){
+  if(pageMode !== 'cf') return;
+  const spec = cfParse();
+  if(!spec){
+    $('cfwrap').innerHTML = '<p class="placeholder">Waiting on ranges — every period needs two numbers (k / M suffixes fine), and the discount rate two percentages.</p>';
+    cfResult = null; cfSig = ''; cfSvg = '';
+    $('cftout').textContent = '—';
+    return;
+  }
+  const sig = JSON.stringify(spec);
+  if(sig !== cfSig){
+    cfResult = simulateCashflow(spec, {seed: 0xCA5F, n: 10000});
+    cfSpec = spec;
+    cfSig = sig;
+    cfSvg = '';
+  }
+  const svg = renderCashflow(cfResult, cfSpec, {colors: themeColors()});
+  if(svg !== cfSvg){ $('cfwrap').innerHTML = svg; cfSvg = svg; }
+  cfRenderThresh();
+  clearTimeout(cfHashTimer);
+  cfHashTimer = setTimeout(cfWriteHash, 400);
+}
+function cfRenderThresh(){
+  const el = $('cftout');
+  const t = $('cftin').value.trim() ? parseNum($('cftin').value) : 0;
+  if(!cfResult || !isFinite(t)){ el.textContent = '—'; return; }
+  const s = cfResult.npvSorted;
+  let lo = 0, hi = s.length;
+  while(lo < hi){ const m = (lo + hi) >> 1; if(s[m] <= t) lo = m + 1; else hi = m; }
+  const p = (s.length - lo) / s.length;
+  el.textContent = p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+}
+$('cftin').addEventListener('input', cfRenderThresh);
+
+for(const ex of CF_EXAMPLES){
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.textContent = ex.name;
+  b.addEventListener('click', () => {
+    cf.grain = ex.grain; cf.horizon = ex.horizon; cf.rlo = ex.rlo; cf.rhi = ex.rhi;
+    cf.periods = ex.periods.map(p => ({...p}));
+    renderCfRows();
+    cfPaint();
+  });
+  $('cfchips').appendChild(b);
+}
+
+wireExports({buttons: {dlsvg: $('cfsvg'), dlpng: $('cfpng'), copypng: $('cfcopypng')},
+  getSvg: () => cfSvg || null,
+  slug: () => cfResult && cfResult.framing === 'runway' ? 'runway' : 'cashflow-npv'});
+$('cfcopydoc').addEventListener('click', async () => {
+  if(!cfResult) return;
+  const md = cashflowMarkdown(cfResult, cfSpec, location.href);
+  try{
+    await navigator.clipboard.writeText(md);
+    $('cfcopydoc').textContent = 'Copied';
+    setTimeout(() => { $('cfcopydoc').textContent = 'Copy for a doc'; }, 1500);
+  }catch(e){ prompt('Copy this:', md); }
+});
+
+function cfWriteHash(){
+  const state = {m: 'cf', g: cf.grain, h: cf.horizon, rl: cf.rlo, rh: cf.rhi,
+    p: cf.periods.map(p => [p.lo, p.hi])};
+  history.replaceState(null, '', '#' + btoa(unescape(encodeURIComponent(JSON.stringify(state)))));
+}
+function cfWriteHashSafe(){ clearTimeout(cfHashTimer); cfHashTimer = setTimeout(cfWriteHash, 100); }
+
+/* cashflow boot: the hash decides the mode */
+if(boot && boot.m === 'cf'){
+  if(['year', 'month'].includes(boot.g)) cf.grain = boot.g;
+  if(isFinite(+boot.h)) cf.horizon = Math.max(1, Math.min(60, +boot.h));
+  if(typeof boot.rl === 'string') cf.rlo = boot.rl;
+  if(typeof boot.rh === 'string') cf.rhi = boot.rh;
+  if(Array.isArray(boot.p) && boot.p.length){
+    cf.periods = boot.p.slice(0, 61).map(pair => ({lo: String(pair[0] ?? ''), hi: String(pair[1] ?? '')}));
+  }
+  setMode('cf');
+}
