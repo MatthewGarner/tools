@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
@@ -112,9 +113,11 @@
 <div class="wrap">
   <section class="about">
     <h2>Why estimate privately first?</h2>
-    <p>Group estimates go wrong in a well-documented way: the first number spoken anchors every number after it (Tversky &amp; Kahneman, <em>Judgment under Uncertainty</em>, 1974), and disagreeing with the room is socially expensive. The crowd is only wise when its guesses are independent (Surowiecki, <em>The Wisdom of Crowds</em>) — which is why structured methods like Delphi collect estimates before discussion. Gauge does the minimum version of that for a live meeting: silent submissions, one simultaneous reveal, and the spread itself as the artefact. If everyone's intervals overlap, commit and move on; if the room splits into camps, that's the discussion — found <em>before</em> anyone anchored it.</p>
+    <div class="prose">
+    <p>Group estimates go wrong in a well-documented way: the first number spoken anchors every number after it (Tversky &amp; Kahneman, <em>Judgment under Uncertainty</em>, 1974), and disagreeing with the room is socially expensive. The crowd is only wise when its guesses are independent (Surowiecki, <em>The Wisdom of Crowds</em>) — which is why structured methods like Delphi collect estimates before discussion. Gauge runs that loop live: silent submissions, one simultaneous reveal, the spread itself as the artefact — and, when the room splits, a Delphi second round: discuss what the spread shows, silently re-estimate, and see how far the room converged. If everyone's intervals overlap, commit and move on; if the room splits into camps, that's the discussion — found <em>before</em> anyone anchored it.</p>
     <p>Probability questions are answered on a 0–100% slider with verbal anchors; quantity questions as a 90% interval, so people can be honest about uncertainty instead of faking a point estimate. The reveal shows every interval, the zone everyone believes (or its absence), medians, and camps — with one quotable headline per question.</p>
-    <p><strong>Privacy:</strong> your questions never leave the link — the server sees only numbers, for 24 hours. The session definition travels in the URL fragment; the relay stores anonymous numbers (plus display names only if you switch <code>names: on</code>) and deletes everything after 24 hours — or immediately, when the facilitator ends the session after the reveal.</p>
+    <p><strong>Privacy:</strong> your questions never leave the link — the server sees only numbers, for 24 hours. The session definition travels in the URL fragment; the relay stores anonymous numbers (plus display names only if you switch <code>names: on</code>) and deletes everything 24 hours after the session's last activity — or immediately, when the facilitator ends the session after the reveal.</p>
+    </div>
   </section>
 
   <footer>

@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
@@ -81,9 +82,11 @@
 <div class="wrap">
   <section class="about">
     <h2>Why text?</h2>
+    <div class="prose">
     <p>Roadmaps decay because updating them is friction: the truth changes in minutes, but the diagram lives in a slide nobody wants to reflow. Making the source plain text removes the friction — an update is one line, the layout is the tool's problem, and the diagram is always regenerable. Text also diffs: paste versions into git or a doc and you can see exactly what moved between planning cycles, which slides will never tell you.</p>
-    <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty — which is also why later columns fade slightly. See <a href="https://www.prodpad.com/blog/the-birth-of-the-now-next-later-roadmap/" target="_blank" rel="noopener">ProdPad on the origin of now/next/later</a>, and Janna Bastow's case against timeline roadmaps. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>) — the certainty fade applies just the same.</p>
+    <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty — which is also why later columns fade slightly. See <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">Janna Bastow on inventing now/next/later</a>, and her <a href="https://www.prodpad.com/blog/timeline-roadmap-issues/" target="_blank" rel="noopener">case against timeline roadmaps</a>. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>) — the certainty fade applies just the same.</p>
     <p>The snapshot/compare feature exists because the most useful roadmap artefact isn't the roadmap — it's <em>what changed since last time</em>. Snapshot before each planning cycle; the comparison renders new, moved, and dropped items as an exportable slide.</p>
+    </div>
   </section>
 
   <footer>
