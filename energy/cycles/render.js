@@ -229,7 +229,7 @@ export function render(model, out, ctx, {edit = false} = {}){
     out.fan.forEach((f, i) => { mid += (i ? ' L' : 'M') + yrX(i).toFixed(1) + ' ' + rY(f.p50).toFixed(1); });
     parts.push('<path d=\'' + mid + '\' fill=\'none\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
     parts.push(txt(x0 - 8, rY(out.fan[0].p50) + 4, fmtUnit(out.fan[0].p50, '£/yr'), 11, C.muted, {anchor: 'end'}));
-    parts.push(txt(x0 + 8, fy + 12, 'revenue fan P10–P90', 11, C.muted));
+    parts.push(txt(x1 - 4, fy + 12, 'revenue fan P10–P90', 11, C.muted, {anchor: 'end'}));
     /* years axis */
     for(let i = 0; i < out.H; i += (out.H > 10 ? 2 : 1))
       parts.push(txt(yrX(i), fy + fh + 16, 'y' + (i + 1), 10.5, C.muted, {anchor: 'middle'}));
