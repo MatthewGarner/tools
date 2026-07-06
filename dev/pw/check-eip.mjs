@@ -183,6 +183,32 @@ check('no page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- risk (energy) ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/risk/', {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Route to market'}).click();
+  await p.waitForTimeout(600);
+  const before = await p.evaluate(() => localStorage.getItem('risk-src'));
+  await p.locator('[data-field="level"]').first().click();
+  await p.waitForTimeout(200);
+  check('risk: overlay opens prefilled', await p.locator('.eip-input').inputValue() === '70');
+  await p.locator('.eip-input').fill('90');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => localStorage.getItem('risk-src'));
+  check('risk: floor level rewrite lands', after.includes('floor: 90') && !after.includes('floor: 70'));
+  check('risk: diagram re-rendered', (await p.locator('#preview svg').innerHTML()).includes('Floor 90'));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('Meta+z');
+  await p.waitForTimeout(500);
+  check('risk: one undo reverts', (await p.evaluate(() => localStorage.getItem('risk-src'))) === before);
+  check('risk: no page errors', errs.length === 0);
+  await p.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

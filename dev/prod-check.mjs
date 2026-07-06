@@ -24,5 +24,20 @@ check('relay submit', await call('PUT', '/' + id + '/response', {participantId: 
 check('relay reveal', await call('POST', '/' + id + '/reveal', {key}) === 200);
 check('relay cleanup', await call('POST', '/' + id + '/end', {key}) === 200);
 
+/* energy origin (fails until the DNS record + Vercel domain exist — that's the point) */
+const EBASE = 'https://energy.matthewgarner.me';
+try{
+  const eh = await fetch(EBASE + '/');
+  check('energy homepage 200', eh.status === 200);
+  check('energy CSP header', (eh.headers.get('content-security-policy') || '').includes("script-src 'self'"));
+  check('energy sw.js served', (await fetch(EBASE + '/sw.js')).status === 200);
+  const em = await (await fetch(EBASE + '/manifest.webmanifest')).json();
+  check('energy manifest is the energy app', em.short_name === 'Energy tools');
+  check('energy /risk/ 200', (await fetch(EBASE + '/risk/')).status === 200);
+  const red = await fetch('https://tools.matthewgarner.me/energy/', {redirect: 'manual'});
+  check('tools /energy/* redirects to energy origin',
+    (red.headers.get('location') || '').startsWith(EBASE));
+}catch(e){ check('energy origin reachable (DNS live?)', false); }
+
 console.log(out.join('\n'));
 process.exit(out.some(r => r.startsWith('FAIL')) ? 1 : 0);

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small, sharp tools for energy</title>
+<meta name="description" content="Single-job utilities for energy commercial work under uncertainty — revenue risk, route-to-market, and the conversations around them. No accounts, no tracking; your model stays in the URL.">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="../assets/pwa.js" defer></script>
+</head>
+<body>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  :root{--accent:#C05621;--accent-ink:#A34413}
+  @media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
+  :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
+  :root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink);
+    background-color:var(--bg);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:26px 26px;
+    padding:56px 20px 60px;
+  }
+  .wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+  header,.soon,footer{max-width:680px}
+  h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:36px;font-weight:700;
+    letter-spacing:-.01em;margin:0;text-wrap:balance}
+  .tagline{color:var(--muted);margin:8px 0 0;font-size:16px;max-width:56ch}
+  .tools{display:grid;grid-template-columns:1fr;gap:14px}
+  @media (min-width:1000px){.tools{grid-template-columns:1fr 1fr}}
+  a.tool{
+    position:relative;display:block;background:var(--card);border:1px solid var(--border);
+    border-radius:8px;box-shadow:var(--shadow);padding:22px 22px 18px;
+    text-decoration:none;color:var(--ink);
+  }
+  a.tool::before{content:"";position:absolute;left:22px;top:0;width:34px;height:3px;
+    border-radius:0 0 2px 2px;background:var(--accent)}
+  a.tool:hover{border-color:var(--accent)}
+  @media (prefers-reduced-motion: no-preference){
+    a.tool{transition:transform .15s ease,border-color .15s ease}
+    a.tool:hover{transform:translateY(-1px)}
+  }
+  a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tool h2{font-family:Charter,Georgia,serif;font-size:20px;margin:0 0 4px;
+    display:flex;align-items:baseline;gap:10px}
+  .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-size:11.5px;font-weight:600;color:var(--accent-ink);
+    background:color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius:999px;padding:2px 9px}
+  .tool p{margin:0;color:var(--muted);font-size:14.5px;max-width:60ch}
+  .tool .go{color:var(--accent-ink);font-size:13.5px;margin-top:8px;display:inline-block}
+  .soon{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:62ch}
+  .soon b{color:var(--ink);font-weight:600}
+  footer{color:var(--muted);font-size:12.5px;line-height:1.6}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--accent-ink)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Small, sharp tools for energy</h1>
+    <p class="tagline">Single-job utilities for energy commercial work under uncertainty — the arguments a desk actually has, settled with distributions instead of adjectives. No accounts, no tracking, no build step; your model stays in the URL.</p>
+  </header>
+
+  <div class="tools">
+    <a class="tool" href="risk/">
+      <h2>Risk transfer <span class="path">/risk</span></h2>
+      <p>Merchant, floor+share, toll, or insure? One revenue distribution, each structure as a payoff transform on it — what upside you sold, what protection you bought, what the fees really were, and how often the floor actually binds. Route-to-market argued with distributions, not adjectives.</p>
+      <span class="go">Open →</span>
+    </a>
+  </div>
+
+  <p class="soon"><b>Coming next:</b> cycle budget economics (when is the second cycle worth the degradation it costs) and a delay-exposure pricer (what a slip really costs net of liquidated damages). Same rules for all of them: one job, opinionated, no accounts.</p>
+
+  <footer>
+    Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a><br>
+    Sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> — the same rules pointed at product work.
+  </footer>
+</div>
+</body>
+</html>
