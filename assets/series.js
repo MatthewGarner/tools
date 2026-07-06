@@ -32,6 +32,23 @@ export function quantile(sorted, q){
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
+/* 90%-interval sampler shared by the estimation engines (4th consumer as of
+   /cycles; fermi migrates from its local copy when next touched). */
+export const Z90 = 1.6448536;
+export function rangeSampler(lo, hi, dist, rand, gauss){
+  if(lo > hi){ const t = lo; lo = hi; hi = t; }
+  if(lo === hi) return () => lo;
+  const d = (dist === 'logn' && lo <= 0) ? 'norm' : dist;
+  if(d === 'uni') return () => lo + (hi - lo) * rand();
+  if(d === 'logn'){
+    const mu = (Math.log(lo) + Math.log(hi)) / 2;
+    const sg = (Math.log(hi) - Math.log(lo)) / (2 * Z90);
+    return () => Math.exp(mu + sg * gauss());
+  }
+  const mu = (lo + hi) / 2, sg = (hi - lo) / (2 * Z90);
+  return () => mu + sg * gauss();
+}
+
 /* Compact human number: 4523 → 4.52k, 1234567 → 1.23M. */
 export function fmt(v){
   if(!isFinite(v)) return '—';

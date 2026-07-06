@@ -13,6 +13,8 @@
   "rewrites": [
     {"source": "/risk/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/"},
     {"source": "/risk/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/:path*"},
+    {"source": "/cycles/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/cycles/"},
+    {"source": "/cycles/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/cycles/:path*"},
     {"source": "/icons/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/"},
     {"source": "/icons/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/:path*"},
     {"source": "/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/"},

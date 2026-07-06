@@ -51,8 +51,9 @@ async function svgDecodes(page, selector){
 /* ---- energy landing + risk ---- */
 {
   const {page, errors} = await freshPage('/energy/');
-  check('energy landing: one tool card', await page.locator('a.tool').count() === 1);
+  check('energy landing: two tool cards', await page.locator('a.tool').count() === 2);
   check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
+  check('energy landing: cycles card resolves', (await page.request.get(BASE + '/energy/cycles/')).status() === 200);
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }
@@ -66,6 +67,17 @@ for(const theme of ['light', 'dark']){
   check('risk(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('risk(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/energy/cycles/', theme);
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await page.waitForTimeout(1000);
+  check('cycles(' + theme + '): three bands render', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
+  check('cycles(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('Cycles are worth'));
+  check('cycles(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
+  check('cycles(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
