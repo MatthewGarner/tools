@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {Script} from 'node:vm';
+import {toOriginUrl} from './origins.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const KEEP = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'assets'];
@@ -36,4 +37,23 @@ test('sw.js compiles as a script', () => {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   assert.ok(!sw.includes('<<<<<<<'), 'sw.js contains merge conflict markers');
   new Script(sw, {filename: 'sw.js'});   // throws on any syntax error
+});
+
+/* the energy origin has its own worker; its PRECACHE lists URLs as served on
+   that origin (origins.mjs maps repo paths → origin URLs) */
+test('energy/sw.js precaches every energy-origin file (run node dev/gen-sw.mjs)', () => {
+  const sw = readFileSync(join(ROOT, 'energy/sw.js'), 'utf8');
+  const listed = new Set([...sw.matchAll(/'(\/[^']*)'/g)].map(m => m[1]));
+  const files = ['energy', 'assets'].flatMap(d => walk(d))
+    .map(f => toOriginUrl(f))
+    .filter(u => u !== null && u !== '/sw.js');
+  const missing = [...new Set(files)].filter(u => !listed.has(u));
+  assert.deepEqual(missing, [], 'missing from energy PRECACHE: ' + missing.join(', '));
+  assert.ok(listed.has('/') && listed.has('/manifest.webmanifest'));
+});
+
+test('energy/sw.js compiles as a script', () => {
+  const sw = readFileSync(join(ROOT, 'energy/sw.js'), 'utf8');
+  assert.ok(!sw.includes('<<<<<<<'), 'energy/sw.js contains merge conflict markers');
+  new Script(sw, {filename: 'energy/sw.js'});
 });
