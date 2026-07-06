@@ -83,6 +83,17 @@ try{
   check('facilitator: overlay has a headline', /median|Split room|agreement|wider than/i.test(overlay));
   check('facilitator: exports offered', await pageF.locator('#cexports').isVisible());
 
+  /* actually click the exports — the quoted-font-stack bug (fixed 2026-07-06) made
+     PNG export silently dead while 'exports offered' still passed */
+  {
+    const [svgDl] = await Promise.all([pageF.waitForEvent('download', {timeout: 5000}),
+      pageF.locator('#dlsvg2').click()]);
+    check('facilitator: Download SVG produces a file', /\.svg$/.test(svgDl.suggestedFilename()));
+    const [pngDl] = await Promise.all([pageF.waitForEvent('download', {timeout: 8000}),
+      pageF.locator('#dlpng2').click()]);
+    check('facilitator: Download PNG produces a file (SVG decoded)', /\.png$/.test(pngDl.suggestedFilename()));
+  }
+
   /* post-reveal edit rejected by the server */
   await B.page.locator('#psubmit').click();
   await B.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('locked'));

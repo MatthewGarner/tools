@@ -1,5 +1,6 @@
 /* Gauge DSL language on the shared editor core. */
 import {createEditorCore, StreamLanguage, tags as t} from '../assets/editor-common.js';
+export {insertAndSelect} from '../assets/editor-common.js';
 
 const lang = StreamLanguage.define({
   token(stream){

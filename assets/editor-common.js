@@ -72,3 +72,15 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
     dispatchEffects: effects => view.dispatch({effects}),
   };
 }
+
+/* Insert a line after afterLine, then select `select` (or the whole new line)
+   inside it and focus — the add-from-the-diagram affordance the DSL tools share.
+   The caret lands on the placeholder so typing replaces it immediately. */
+export function insertAndSelect(editor, afterLine, newLine, select){
+  editor.insertLinesAfter(afterLine, [newLine]);
+  const ln = editor.view.state.doc.line(afterLine + 2);
+  const text = select || newLine;
+  const idx = select ? Math.max(0, newLine.indexOf(select)) : 0;
+  editor.view.dispatch({selection: {anchor: ln.from + idx, head: ln.from + idx + text.length}});
+  editor.view.focus();
+}

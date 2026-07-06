@@ -9,6 +9,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/controls.css">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -65,11 +66,6 @@
   }
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
   .chips .lead{font-size:12.5px;color:var(--muted)}
-  .chip{
-    font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
-    background:none;color:var(--ink);cursor:pointer;font-family:inherit;
-  }
-  .chip:hover{border-color:var(--accent);color:var(--accent-ink)}
   .savedchip{display:inline-flex;align-items:stretch;border:1px solid var(--border);
     border-radius:999px;overflow:hidden}
   .savedchip button{border:none;background:none;color:var(--ink);cursor:pointer;
@@ -111,7 +107,6 @@
   .say{margin:16px 0 0;font-size:15px;color:var(--ink)}
   .say .q{font-style:italic}
   .spread{color:var(--muted);font-size:13px;margin-top:4px}
-  [hidden]{display:none!important}   /* flex/grid rules must not defeat the hidden attribute */
   .viewseg{display:inline-flex;border:1px solid var(--border);border-radius:6px;
     overflow:hidden;margin-top:18px}
   .viewseg button{border:none;background:none;color:var(--muted);cursor:pointer;
@@ -145,11 +140,6 @@
   .srow .sp{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;
     color:var(--muted)}
   .actions{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}
-  .btn{
-    font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
-    background:none;color:var(--ink);cursor:pointer;font-family:inherit;
-  }
-  .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
   .method{color:var(--muted);font-size:12.5px}
   .about{
     border-top:1px solid var(--border);padding-top:18px;
@@ -181,7 +171,7 @@
 
   /* fingers get full-size controls */
   @media (pointer: coarse){
-    .chip,.btn,.tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
+    .tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
   }
 </style>
 

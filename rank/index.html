@@ -9,6 +9,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/controls.css">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -64,16 +65,10 @@
   .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;
     padding:4px 8px;border-radius:5px}
   .del:hover{color:var(--err)}
-  .btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
-    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
-  .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
   .toolbar{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
   .toolbar .note{font-size:12.5px;color:var(--muted)}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
   .chips .lead{font-size:12.5px;color:var(--muted)}
-  .chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
-    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
-  .chip:hover{border-color:var(--accent);color:var(--accent-ink)}
   .placeholder{color:var(--muted);font-size:14.5px;margin:0}
   #results{display:none}
   .verdict{font-size:16.5px;line-height:1.5;margin:0 0 4px;max-width:62ch}
@@ -132,13 +127,9 @@
     .rrow .pos{grid-area:p}.rrow .nm{grid-area:n}.rrow .rankbar{grid-area:b}
     .rrow .ptop{grid-area:t}
   }
-  @media (prefers-reduced-motion: no-preference){
-    .chip,.btn{transition:border-color .15s,color .15s}
-  }
 
   /* fingers get full-size controls */
   @media (pointer: coarse){
-    .chip,.btn{min-height:44px;display:inline-flex;align-items:center}
     td .del{min-width:40px;min-height:40px}
   }
 </style>

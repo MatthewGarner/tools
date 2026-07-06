@@ -3,7 +3,7 @@ import {sessionStats, markdownSummary, mergeFinal, delphiStats} from './engine.j
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
-import {wireExports} from './exports.js';
+import {wireExports} from '../assets/exports.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
 const showOverlay = (el, model, responses, ctx) =>

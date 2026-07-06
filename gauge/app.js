@@ -5,7 +5,7 @@ import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine} from './edit-targets.js';
 import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
-import {wireExports} from './exports.js';
+import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
@@ -84,7 +84,7 @@ async function initCompose(hash){
   let model = null, view = 'form', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
 
   /* participants never see the editor — only compose mode pays for CodeMirror */
-  const {createEditor} = await import('./editor.js');
+  const {createEditor, insertAndSelect} = await import('./editor.js');
   const editor = createEditor({
     parent: $('cmhost'),
     doc: '',
@@ -100,10 +100,7 @@ async function initCompose(hash){
     }
     if(e.target.closest && e.target.closest('.addq')){
       const {afterLine, newLine} = addQuestionLine(editor.getText());
-      editor.insertLinesAfter(afterLine, [newLine]);
-      const ln = editor.view.state.doc.line(afterLine + 2);
-      editor.view.dispatch({selection: {anchor: ln.from, head: ln.from + 'New question'.length}});
-      editor.view.focus();
+      insertAndSelect(editor, afterLine, newLine, 'New question');
     }
   });
 

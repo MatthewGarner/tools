@@ -3,7 +3,9 @@ import {esc, tint, wrapText} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
 import {verdict, delphiVerdict} from './engine.js';
 
-const SANS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+/* single-quoted family names: these stacks land inside double-quoted SVG
+   attributes, where an embedded double quote is invalid XML (breaks PNG export) */
+const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const SERIF = 'Charter,Georgia,serif';
 const W = 960, PAD = 28, PP = 18;          // page pad, panel pad
 const ROW_H = 24, DOT_STEP = 11, DOT_R = 4.5;

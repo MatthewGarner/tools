@@ -3,6 +3,7 @@ import {parse} from './parse.js';
 import {evaluate} from './engine.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
+import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
@@ -106,11 +107,7 @@ attachEditInPlace($('preview'), {
       if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
-        editor.insertLinesAfter(r.afterLine, [r.newLine]);
-        const ln = editor.view.state.doc.line(r.afterLine + 2);
-        const from = ln.from + r.newLine.indexOf(r.select);
-        editor.view.dispatch({selection: {anchor: from, head: from + r.select.length}});
-        editor.view.focus();
+        insertAndSelect(editor, r.afterLine, r.newLine, r.select);
       } else if(newValue === '✖Remove branch' || newValue === '✖Remove'){
         if(lineNo < 0) return;   // implicit root has no line of its own
         const rr = subtreeRange(editor.getText(), lineNo);

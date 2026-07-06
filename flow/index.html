@@ -9,6 +9,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/controls.css">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -29,9 +30,6 @@
     box-shadow:var(--shadow);padding:22px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
   .chips .lead{font-size:12.5px;color:var(--muted)}
-  .chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
-    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
-  .chip:hover{border-color:var(--accent);color:var(--accent-ink)}
   .chip.on{border-color:var(--accent);color:var(--accent-ink)}
   .controls{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
   @media (max-width:640px){.controls{grid-template-columns:1fr}}
@@ -62,9 +60,6 @@
   .striplegend b{color:var(--ink);font-variant-numeric:tabular-nums}
   #verdictwrap svg{display:block;width:100%;height:auto}
   .actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
-  .btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
-    background:none;color:var(--ink);cursor:pointer;font-family:inherit}
-  .btn:hover{border-color:var(--accent);color:var(--accent-ink)}
   .method{color:var(--muted);font-size:12.5px}
   .about{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);
     font-size:13.5px;line-height:1.65;max-width:65ch}
@@ -74,12 +69,8 @@
   footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
   footer a{color:var(--muted)}
   footer a:hover{color:var(--accent-ink)}
-  @media (prefers-reduced-motion: no-preference){
-    .chip,.btn{transition:border-color .15s,color .15s}
-  }
-  /* fingers get full-size controls */
   @media (pointer: coarse){
-    .chip,.btn,.seg button{min-height:44px;display:inline-flex;align-items:center}
+    .seg button{min-height:44px;display:inline-flex;align-items:center}
   }
 </style>
 

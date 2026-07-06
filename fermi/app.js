@@ -4,7 +4,8 @@ import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
 import {quantile} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
-import {measure, download, svgToCanvas} from '../assets/app-common.js';
+import {measure} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -466,12 +467,8 @@ function applyView(){
 $('viewdist').addEventListener('click', () => { view = 'dist'; applyView(); });
 $('viewtree').addEventListener('click', () => { view = 'tree'; applyView(); });
 const treeSlug = () => 'drivers-' + ($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model');
-$('treesvg').addEventListener('click', () => {
-  if(lastTreeSvg) download(treeSlug() + '.svg', new Blob([lastTreeSvg], {type: 'image/svg+xml'}));
-});
-$('treepng').addEventListener('click', () => {
-  if(lastTreeSvg) svgToCanvas(lastTreeSvg, c => c.toBlob(b => download(treeSlug() + '.png', b), 'image/png'));
-});
+wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
+  getSvg: () => lastTreeSvg || null, slug: treeSlug});
 
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;

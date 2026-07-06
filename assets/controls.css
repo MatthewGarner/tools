@@ -1,0 +1,22 @@
+/* Shared control primitives — the .chip / .btn language every tool speaks.
+   Extracted 2026-07-06; the core rules below were byte-identical in eight places.
+   Load AFTER tokens.css and BEFORE the tool's own styles so per-tool variants
+   (.chip.on, .btn.primary, .btn.danger, …) keep winning by source order. */
+.chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
+  background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+.chip:hover{border-color:var(--accent);color:var(--accent-ink)}
+.btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
+  background:none;color:var(--ink);cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+/* Author display rules (flex/grid) must never defeat the hidden attribute —
+   the trap that made gauge's export row visible pre-reveal (2026-07-05). */
+[hidden]{display:none!important}
+
+/* fingers get full-size controls */
+@media (pointer: coarse){
+  .chip,.btn{min-height:44px;display:inline-flex;align-items:center}
+}
+@media (prefers-reduced-motion: no-preference){
+  .chip,.btn{transition:border-color .15s,color .15s}
+}
