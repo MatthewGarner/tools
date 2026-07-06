@@ -9,7 +9,7 @@ import {readFile} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {toRepoPath} from './origins.mjs';
+import {toRepoPath, toToolsPath} from './origins.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.argv[2]) || 8087;
@@ -23,7 +23,7 @@ const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/java
 
 createServer(async (req, res) => {
   let p = normalize(new URL(req.url, 'http://x').pathname).replace(/^(\.\.[/\\])+/, '');
-  if(ORIGIN_ENERGY) p = toRepoPath(p);
+  p = ORIGIN_ENERGY ? toRepoPath(p) : toToolsPath(p);   /* previews = tools shape */
   if(p.endsWith('/')) p += 'index.html';
   try{
     const data = await readFile(join(ROOT, p));

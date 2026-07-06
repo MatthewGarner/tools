@@ -2,6 +2,7 @@
    Usage: node dev/gauge-dev.mjs [port]   (default 8090; prints "gauge dev listening") */
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
+import {toToolsPath} from './origins.mjs';
 import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createSession, putResponse, getSession, reveal, endSession, openRound2} from '../api/gauge/_lib.js';
@@ -42,7 +43,7 @@ createServer(async (req, res) => {
     return res.end(JSON.stringify(out.body));
   }
   /* static */
-  let p = normalize(url.pathname).replace(/^(\.\.[/\\])+/, '');
+  let p = toToolsPath(normalize(url.pathname).replace(/^(\.\.[/\\])+/, ''));
   if(p.endsWith('/')) p += 'index.html';
   try{
     const data = await readFile(join(ROOT, p));

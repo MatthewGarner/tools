@@ -44,7 +44,7 @@ function pageLoad(page){
 }
 
 const PAGES = {
-  'index.html': 40_000,
+  'home/index.html': 40_000,
   'fermi/index.html': 120_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
   'roadmap/index.html': 480_000, 'why/index.html': 470_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
@@ -61,9 +61,9 @@ test('per-page load stays under budget', () => {
 test('no orphaned shipped modules', () => {
   const reachable = new Set();
   for(const page of Object.keys(PAGES)) for(const f of pageLoad(page)) reachable.add(f);
-  ['sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
+  ['home/sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
   const orphans = [];
-  const DIRS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'energy', 'assets'];
+  const DIRS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'energy', 'home', 'assets'];
   for(const d of DIRS){
     (function walk(dir){
       for(const f of readdirSync(join(ROOT, dir))){

@@ -11,11 +11,16 @@
     }
   ],
   "rewrites": [
+    {"source": "/risk/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/"},
     {"source": "/risk/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/:path*"},
+    {"source": "/icons/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/"},
     {"source": "/icons/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/:path*"},
     {"source": "/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/"},
     {"source": "/sw.js", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/sw.js"},
-    {"source": "/manifest.webmanifest", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/manifest.webmanifest"}
+    {"source": "/manifest.webmanifest", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/manifest.webmanifest"},
+    {"source": "/", "destination": "/home/"},
+    {"source": "/sw.js", "destination": "/home/sw.js"},
+    {"source": "/manifest.webmanifest", "destination": "/home/manifest.webmanifest"}
   ],
   "redirects": [
     {
@@ -23,6 +28,12 @@
       "has": [{ "type": "host", "value": "fermi.matthewgarner.me" }],
       "destination": "https://tools.matthewgarner.me/fermi/:path*",
       "permanent": true
+    },
+    {
+      "source": "/energy/",
+      "has": [{"type": "host", "value": "tools.matthewgarner.me"}],
+      "destination": "https://energy.matthewgarner.me/",
+      "permanent": false
     },
     {
       "source": "/energy/:path*",
