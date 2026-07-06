@@ -84,3 +84,13 @@ test('renderOst without diff is untouched by the feature', () => {
   assert.doesNotMatch(plain, />NEW<\/text>|DROPPED SINCE|Since /);
   assert.equal(plain, renderOst(m, project(m), ctx, null));
 });
+
+test('a NEW outcome badge inverts: solid accent pill, card-colour text', () => {
+  const withNewOutcome = NEW + '\noutcome: Reduce support load';
+  const m = parse(withNewOutcome);
+  const v = whyDiffView(whyDiff(parse(OLD), m), 'x');
+  const svg = renderOst(m, project(m), ctx, v);
+  /* inverted structure: the pill's stroke and the label's fill are both the
+     card colour (whatever the palette scheme derived it to be) */
+  assert.match(svg, /stroke="(#[0-9a-fA-F]+)" stroke-width="1.25"\/><text[^>]*fill="\1">NEW<\/text>/);
+});

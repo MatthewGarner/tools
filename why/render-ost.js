@@ -113,11 +113,15 @@ export function renderOst(model, projection, ctx, diff = null){
       const blabel = dBadge.label.toUpperCase();
       const bw = measure(blabel, '600 ' + T.pillSize*S + 'px ' + F.body) + T.pillPadX*2*S;
       const bx = x + T.cardW*S - bw - 4*S, by = y - T.pillH*S/2;
+      /* outcome cards are already accent-tinted — a tinted pill vanishes there,
+         so the badge inverts to solid-on-card (Matt's 2026-07-06 review note) */
+      const solid = isOutcome;
       s.push('<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + T.pillH*S +
-        '" rx="' + T.pillH*S/2 + '" fill="' + tint(bcol) + '" stroke="' + bcol + '" stroke-width="0.75"/>');
+        '" rx="' + T.pillH*S/2 + '" fill="' + (solid ? bcol : tint(bcol)) +
+        '" stroke="' + (solid ? C.card : bcol) + '" stroke-width="' + (solid ? 1.25 : 0.75) + '"/>');
       s.push('<text x="' + (bx + T.pillPadX*S) + '" y="' + (by + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + bcol + '">' + esc(blabel) + '</text>');
+        '" fill="' + (solid ? C.card : bcol) + '">' + esc(blabel) + '</text>');
     }
     let ty = y + T.cardPadY*S + T.labelSize*S;
     for(const line of node._lines){
