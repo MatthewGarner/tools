@@ -8,6 +8,14 @@ import {EditorState, Compartment, EditorView, keymap, drawSelection,
 
 export {StreamLanguage, Compartment, tags};
 
+/* Most DSL editors are just a language + highlight accents on the shared core —
+   makeEditor collapses that wrapper (roadmap keeps its own: dynamic horizons). */
+export function makeEditor({lang, highlights = [], indentBar = false}){
+  return ({parent, doc, onChange}) =>
+    createEditorCore({parent, doc, onChange, langExtension: lang,
+      extraHighlights: highlights, indentBar});
+}
+
 /* ---- indentation: the DSLs speak 2-space indents; Tab/Shift-Tab move whole
    lines by one unit (Matt's 2026-07-06 usability note). Pure core, view shims. */
 export const INDENT_UNIT = '  ';

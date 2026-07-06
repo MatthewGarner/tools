@@ -177,6 +177,21 @@ for(const [k, src] of Object.entries(docs)){
   variants['fermi-cashflow-runway'] = renderCashflow(simulateCashflow(runway, {seed: 0xCA5F, n: 10000}), runway, cctx);
 }
 
+/* /timeline fixtures (today pinned in the doc → deterministic) */
+{
+  const {parse: tparse} = await import('../timeline/parse.js');
+  const {render: trender} = await import('../timeline/render.js');
+  const {timelineDiff, timelineDiffView} = await import('../timeline/diff.js');
+  const tdoc = 'title: T — programme\ntoday: 2026-07-06\nGrid: Offer 2026-08 .. 2026-10\nGrid: Energisation 2027-02-15 .. 2027-06-01 [risk] // long pole\nBuild: FID 2026-06-30 [done]\nBuild: Vendor selection 2026-11';
+  const tOld = 'title: T — programme\ntoday: 2026-07-06\nGrid: Offer 2026-08 .. 2026-10\nGrid: Energisation 2027-01 .. 2027-04\nBuild: FID 2026-06-30 [done]\nBuild: Dropped thing 2026-12 .. 2027-01';
+  const tm = tparse(tdoc);
+  const tctx = {...ctxBase, today: 20640};
+  variants['timeline-default'] = trender(tm, tctx);
+  variants['timeline-slide'] = trender(tm, {...tctx, slide: true});
+  variants['timeline-diff'] = trender(tm, tctx,
+    timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

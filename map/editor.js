@@ -1,5 +1,5 @@
 /* Map DSL language on the shared editor core. */
-import {createEditorCore, StreamLanguage, tags as t} from '../assets/editor-common.js';
+import {makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 
 const lang = StreamLanguage.define({
   token(stream){
@@ -19,11 +19,9 @@ const lang = StreamLanguage.define({
   languageData: {commentTokens: {line: '//'}},
 });
 
-export function createEditor({parent, doc, onChange}){
-  return createEditorCore({parent, doc, onChange, langExtension: lang,
-    extraHighlights: [
+export const createEditor = makeEditor({lang,
+  highlights: [
       {tag: t.heading, color: 'var(--accent-ink)', fontWeight: '700'},
       {tag: t.atom, color: 'var(--st-done)', fontWeight: '600'},
       {tag: t.meta, color: 'var(--muted)'},
     ]});
-}
