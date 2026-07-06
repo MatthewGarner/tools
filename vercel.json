@@ -10,12 +10,25 @@
       ]
     }
   ],
+  "rewrites": [
+    {"source": "/risk/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/risk/:path*"},
+    {"source": "/icons/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/:path*"},
+    {"source": "/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/"},
+    {"source": "/sw.js", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/sw.js"},
+    {"source": "/manifest.webmanifest", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/manifest.webmanifest"}
+  ],
   "redirects": [
     {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "fermi.matthewgarner.me" }],
       "destination": "https://tools.matthewgarner.me/fermi/:path*",
       "permanent": true
+    },
+    {
+      "source": "/energy/:path*",
+      "has": [{"type": "host", "value": "tools.matthewgarner.me"}],
+      "destination": "https://energy.matthewgarner.me/:path*",
+      "permanent": false
     }
   ]
 }
