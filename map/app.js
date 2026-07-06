@@ -11,6 +11,7 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {mapDiff, mapDiffView} from './diff.js';
+import {gaugeHandoff} from './handoff.js';
 
 const $ = id => document.getElementById(id);
 
@@ -135,6 +136,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
+  $('togauge').hidden = !(ro && ro.flagged.length);
   try{ localStorage.setItem('map-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
@@ -360,6 +362,14 @@ window.addEventListener('pointerup', e => {
 });
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
+});
+
+/* ---------- #93: flagged items → gauge session ---------- */
+$('togauge').addEventListener('click', () => {
+  if(!model || !ro) return;
+  const doc = gaugeHandoff(model, ro);
+  if(!doc) return;
+  location.href = '/gauge/#' + btoa(unescape(encodeURIComponent(JSON.stringify({t: doc}))));
 });
 
 /* ---------- theme ---------- */

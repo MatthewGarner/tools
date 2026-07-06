@@ -186,6 +186,20 @@ function flash(id, msg, ms){
   setTimeout(() => { b.textContent = was; }, ms);
 }
 
+/* fingers open at 100% zoom — pan so the today line starts in view */
+let panned = false;
+function panToToday(){
+  if(panned || !matchMedia('(pointer: coarse)').matches) return;
+  const line = $('preview').querySelector('[data-today]');
+  if(!line) return;
+  const x = parseFloat(line.getAttribute('x1'));
+  if(isFinite(x)){
+    $('preview').scrollLeft = Math.max(0, x - $('preview').clientWidth * 0.25);
+    panned = true;
+  }
+}
+new MutationObserver(panToToday).observe($('preview'), {childList: true});
+
 /* ---------- theme ---------- */
 onThemeChange(() => { lastSvg = ''; refresh(); });
 
