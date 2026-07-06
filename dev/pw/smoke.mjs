@@ -126,6 +126,17 @@ for(const theme of ['light', 'dark']){
   check('tree(' + theme + '): verdict present', svg.includes('RECOMMENDED'));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
   check('tree(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('tree(' + theme + '): Tab indents, Shift-Tab restores', await (async () => {
+    const before = await page.evaluate(() => localStorage.getItem('tree-src'));
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+    const mid = await page.evaluate(() => localStorage.getItem('tree-src'));
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => localStorage.getItem('tree-src'));
+    return mid !== before && mid.length === before.length + 2 && after === before;
+  })());
   check('tree(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

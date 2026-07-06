@@ -8,6 +8,36 @@ import {EditorState, Compartment, EditorView, keymap, drawSelection,
 
 export {StreamLanguage, Compartment, tags};
 
+/* ---- indentation: the DSLs speak 2-space indents; Tab/Shift-Tab move whole
+   lines by one unit (Matt's 2026-07-06 usability note). Pure core, view shims. */
+export const INDENT_UNIT = '  ';
+export function indentChanges(state, dir){
+  const changes = [];
+  const seen = new Set();
+  for(const r of state.selection.ranges){
+    const fromL = state.doc.lineAt(r.from).number, toL = state.doc.lineAt(r.to).number;
+    for(let n = fromL; n <= toL; n++){
+      if(seen.has(n)) continue;
+      seen.add(n);
+      const line = state.doc.line(n);
+      if(dir > 0) changes.push({from: line.from, insert: INDENT_UNIT});
+      else {
+        const m = line.text.match(/^(\t| {1,2})/);
+        if(m) changes.push({from: line.from, to: line.from + m[0].length});
+      }
+    }
+  }
+  return changes.length ? changes : null;
+}
+const indentCmd = dir => view => {
+  const changes = indentChanges(view.state, dir);
+  if(!changes) return dir < 0;          // swallow Shift-Tab; let a no-op Tab still indent
+  view.dispatch({changes, scrollIntoView: true});
+  return true;
+};
+export const indentMore = indentCmd(1);
+export const indentLess = indentCmd(-1);
+
 export const BASE_HIGHLIGHTS = [
   {tag: tags.keyword, color: 'var(--accent-ink)', fontWeight: '600'},
   {tag: tags.comment, color: 'var(--muted)', opacity: '0.55'},
@@ -26,7 +56,8 @@ const cmTheme = EditorView.theme({
     {backgroundColor: 'rgba(60,140,190,0.28)'},
 });
 
-export function createEditorCore({parent, doc, langExtension, onChange, extraHighlights = []}){
+export function createEditorCore({parent, doc, langExtension, onChange, extraHighlights = [],
+  indentBar = false}){
   const view = new EditorView({
     parent,
     state: EditorState.create({
@@ -37,13 +68,32 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
         history(),
         drawSelection(),
         highlightActiveLine(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        /* Tab/Shift-Tab own indentation (before defaultKeymap so nothing shadows
+           them). Keyboard users escape the trap the standard CM way: Esc, then Tab. */
+        keymap.of([{key: 'Tab', run: indentMore, shift: indentLess},
+          ...defaultKeymap, ...historyKeymap]),
         cmTheme,
         EditorView.lineWrapping,
         EditorView.updateListener.of(u => { if(u.docChanged) onChange(); }),
       ],
     }),
   });
+  if(indentBar){
+    /* fingers have no Tab key: two fat buttons, shown only on coarse pointers
+       (CSS in workspace.css) */
+    const bar = document.createElement('div');
+    bar.className = 'cm-indentbar';
+    for(const [label, cmd, aria] of [['⇤ outdent', indentLess, 'Outdent line'],
+        ['indent ⇥', indentMore, 'Indent line']]){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.setAttribute('aria-label', aria);
+      b.addEventListener('click', () => { cmd(view); view.focus(); });
+      bar.appendChild(b);
+    }
+    parent.insertBefore(bar, parent.firstChild);
+  }
   return {
     view,
     getText: () => view.state.doc.toString(),

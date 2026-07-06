@@ -1,5 +1,5 @@
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
-import {chromium} from 'playwright';
+import {chromium, devices} from 'playwright';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -66,6 +66,26 @@ for(const {path, chip, view} of TOOLS){
     !(await page.locator('#railtab').isVisible()));
   check(path + ' no page errors', errors.length === 0);
   await page.close();
+}
+
+/* coarse pointers get the indent bar on the indented DSLs (tree/why) */
+{
+  const ctx = await browser.newContext({...devices['iPhone 13'], colorScheme: 'light'});
+  const page = await ctx.newPage();
+  await page.goto(BASE + '/tree/', {waitUntil: 'networkidle'});
+  await page.getByRole('button', {name: 'Bid or no bid'}).click();
+  await page.waitForTimeout(500);
+  check('/tree/ coarse: indent bar visible', await page.locator('.cm-indentbar').isVisible());
+  const before = await page.evaluate(() => localStorage.getItem('tree-src'));
+  await page.locator('.cm-content').tap();
+  await page.getByRole('button', {name: 'Indent line'}).tap();
+  await page.waitForTimeout(300);
+  const mid = await page.evaluate(() => localStorage.getItem('tree-src'));
+  await page.getByRole('button', {name: 'Outdent line'}).tap();
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('/tree/ coarse: indent/outdent buttons edit the text', mid !== before && after === before);
+  await ctx.close();
 }
 
 console.log(results.join('\n'));
