@@ -74,3 +74,19 @@ test('fmtDay renders compact UK-style dates', () => {
   assert.equal(fmtDay(parseDate('2026-08-15')), '15 Aug 2026');
   assert.equal(fmtDay(parseDate('2026-08-15'), {month: true}), 'Aug 2026');
 });
+
+test('a lane named after a config key still parses as a milestone', () => {
+  const m = parse('Title: Big launch 2026-09-01 .. 2026-10-01');
+  assert.equal(m.title, '');
+  assert.equal(m.items.length, 1);
+  assert.equal(m.items[0].lane, 'Title');
+  assert.equal(m.items[0].label, 'Big launch');
+  assert.equal(dayToISO(m.items[0].p50), '2026-09-01');
+});
+
+test('today: keeps its date even though the value looks like an item', () => {
+  const m = parse('today: 2026-08-01\ntitle: Launch plan');
+  assert.equal(dayToISO(m.today), '2026-08-01');
+  assert.equal(m.title, 'Launch plan');
+  assert.equal(m.items.length, 0);
+});

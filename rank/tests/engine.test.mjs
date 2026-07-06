@@ -64,3 +64,24 @@ test('verdict: fully settled and fully noisy endpoints', () => {
   const noise = verdictCopy([{name: 'A', ptop: 0.5}, {name: 'B', ptop: 0.5}], 1);
   assert.match(noise.headline, /Nothing is settled/);
 });
+
+test('verdict: secure places with an empty contested band never emit a dangling tie list', () => {
+  const stats = [
+    {name: 'A', ptop: 0.95}, {name: 'B', ptop: 0.9},
+    {name: 'C', ptop: 0.15}, {name: 'D', ptop: 0.15}, {name: 'E', ptop: 0.15},
+    {name: 'F', ptop: 0.15}, {name: 'G', ptop: 0.15},
+  ];
+  const {headline, body} = verdictCopy(stats, 3);
+  assert.match(headline, /2 of the top 3 are settled/);
+  assert.doesNotMatch(body, /tie between\s+—/);
+  assert.match(body, /up for grabs/);
+});
+
+test('verdict: all k slots secure counts as settled even with a flickering challenger', () => {
+  const {headline, body} = verdictCopy([
+    {name: 'A', ptop: 0.9}, {name: 'B', ptop: 0.9}, {name: 'C', ptop: 0.9},
+    {name: 'D', ptop: 0.3},
+  ], 3);
+  assert.match(headline, /The top 3 is settled/);
+  assert.doesNotMatch(body, /remaining 0/);
+});

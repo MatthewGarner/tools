@@ -36,8 +36,10 @@ export function parse(text){
     if(!line || line.startsWith('//')) continue;
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
+    /* a dated value means a milestone whose lane shares a config key's name —
+       except today:, whose value IS a date */
     const config = line.match(/^(title|palette|accent|today)\s*:\s*(.*)$/i);
-    if(config && !DATE_RE.test(config[1])){
+    if(config && !(DATE_RE.test(config[2]) && config[1].toLowerCase() !== 'today')){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
       else if(key === 'palette'){
