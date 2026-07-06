@@ -92,6 +92,55 @@ export const PRESETS = {
         ' sit in severe' + (sev.length ? '; worst: “' + sev[0].label + '”.' : '.');
     },
   },
+  skills: {
+    axes: {x:{label:'Coverage', low:'one person', high:'whole team'},
+           y:{label:'Criticality', low:'nice-to-have', high:'critical'}},
+    grid: null, cellNames: [],
+    ruleZones: [
+      {name:'bus factor', tone:'bad',  rules:[{expr:'x', op:'<', val:35}, {expr:'y', op:'>', val:60}]},
+      {name:'thin',       tone:'warn', rules:[{expr:'x', op:'<', val:50}]},
+      {name:'covered',    tone:'good', rules: ALWAYS},
+    ],
+    fields: ['owner', 'backup'],
+    advice: {
+      'bus factor': 'Critical skill, one brain — pair, document, and rotate before it walks out the door.',
+      'thin': 'Coverage is shallow — schedule shadowing before it matters.',
+      'covered': 'Healthy spread — keep hiring and rotation from eroding it.',
+    },
+    flag: (item, zone) => zone === 'bus factor' && !item.fields.some(f => f.key === 'backup')
+      ? 'no backup named — pick who learns this next' : null,
+    verdict(st){
+      if(!st.placed) return 'Nothing placed yet — drag skills onto the map.';
+      const bf = (st.byZone.get('bus factor') || []).length;
+      return bf + ' of ' + st.placed + ' skill' + (st.placed === 1 ? ' is' : 's are') +
+        ' a bus-factor risk' + (st.flagged.length ? '; ' + st.flagged.length + ' with no backup named.' : '.');
+    },
+  },
+  rag: {
+    axes: {x:{label:'Evidence for the status', low:'vibes', high:'data'},
+           y:{label:'Trajectory', low:'worsening', high:'improving'}},
+    grid: null, cellNames: [],
+    ruleZones: [
+      {name:'watermelon watch', tone:'bad',  rules:[{expr:'x', op:'<', val:50}, {expr:'y', op:'<', val:50}]},
+      {name:'verify',           tone:'warn', rules:[{expr:'x', op:'<', val:50}]},
+      {name:'trust the colour', tone:'good', rules: ALWAYS},
+    ],
+    fields: ['reported'],
+    advice: {
+      'watermelon watch': 'Weak evidence, worsening trajectory — green on the slide, red inside. Ask for the underlying number.',
+      'verify': 'The status may be right, but it rests on vibes — agree what evidence would confirm it.',
+      'trust the colour': 'Evidenced and stable-or-improving — the reported status deserves belief.',
+    },
+    flag: (item, zone) => zone === 'watermelon watch' &&
+      item.fields.some(f => f.key === 'reported' && /green/i.test(f.val))
+      ? 'reported green — challenge it this week' : null,
+    verdict(st){
+      if(!st.placed) return 'Nothing placed yet — drag workstreams onto the map.';
+      const wm = (st.byZone.get('watermelon watch') || []).length;
+      return wm + ' of ' + st.placed + ' workstream' + (st.placed === 1 ? '' : 's') +
+        ' in watermelon watch' + (st.flagged.length ? '; ' + st.flagged.length + ' reported green.' : '.');
+    },
+  },
 };
 export const PRESET_NAMES = Object.keys(PRESETS);
 

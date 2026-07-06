@@ -5,12 +5,38 @@ import {PRESETS, PRESET_NAMES, resolve, zoneFor, ruleHolds, zonePolygon, paintOr
 const blank = () => ({title:'', palette:'ocean', accent:null, preset:null,
   axes:{x:null, y:null}, grid:null, cellNames:[], ruleZones:[], items:[], warnings:[]});
 
-test('four presets exist with axes, fields, advice, verdict', () => {
-  assert.deepEqual(PRESET_NAMES, ['assumptions', 'stakeholders', 'futures', 'risk']);
+test('six presets exist with axes, fields, advice, verdict', () => {
+  assert.deepEqual(PRESET_NAMES, ['assumptions', 'stakeholders', 'futures', 'risk', 'skills', 'rag']);
   for(const p of Object.values(PRESETS)){
     assert.ok(p.axes.x.label && p.axes.y.label);
     assert.ok(typeof p.verdict === 'function' && typeof p.flag === 'function');
   }
+});
+
+test('skills preset (#69): bus-factor corner, backup flag, verdict', () => {
+  const m = {preset: 'skills', grid: null, cellNames: [], ruleZones: [], axes: {}, warnings: []};
+  const r = resolve({...m});
+  assert.equal(zoneFor(r, 20, 90).name, 'bus factor');
+  assert.equal(zoneFor(r, 40, 90).name, 'thin');
+  assert.equal(zoneFor(r, 80, 20).name, 'covered');
+  const def = PRESETS.skills;
+  assert.ok(def.flag({fields: []}, 'bus factor'));
+  assert.equal(def.flag({fields: [{key: 'backup', val: 'Jo'}]}, 'bus factor'), null);
+  assert.match(def.verdict({placed: 3, byZone: new Map([['bus factor', [1, 2]]]), flagged: [1]}),
+    /2 of 3 skills are a bus-factor risk; 1 with no backup named/);
+});
+
+test('rag preset (#70): watermelon corner, green flag, verdict', () => {
+  const m = {preset: 'rag', grid: null, cellNames: [], ruleZones: [], axes: {}, warnings: []};
+  const r = resolve({...m});
+  assert.equal(zoneFor(r, 25, 30).name, 'watermelon watch');
+  assert.equal(zoneFor(r, 30, 70).name, 'verify');
+  assert.equal(zoneFor(r, 80, 30).name, 'trust the colour');
+  const def = PRESETS.rag;
+  assert.ok(def.flag({fields: [{key: 'reported', val: 'Green'}]}, 'watermelon watch'));
+  assert.equal(def.flag({fields: [{key: 'reported', val: 'red'}]}, 'watermelon watch'), null);
+  assert.match(def.verdict({placed: 6, byZone: new Map([['watermelon watch', [1]]]), flagged: [1]}),
+    /1 of 6 workstreams in watermelon watch; 1 reported green/);
 });
 
 test('rule evaluation: strict inequalities over x/y/x+y/x-y', () => {
