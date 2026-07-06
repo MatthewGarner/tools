@@ -70,6 +70,25 @@ for(const theme of ['light', 'dark']){
     return await page.locator('.histwrap').isVisible() && !(await page.locator('#driverwrap').isVisible());
   })());
   check('fermi(' + theme + '): driver svg decodes as an image', await svgDecodes(page, '#driverwrap svg'));
+  check('fermi(' + theme + '): cashflow mode renders NPV verdict', await (async () => {
+    await page.locator('#modecf').click();
+    await page.waitForTimeout(600);
+    const svg = await page.locator('#cfwrap svg').count() === 1
+      ? await page.locator('#cfwrap svg').innerHTML() : '';
+    return /NPV P50/.test(svg) && /payback/i.test(svg) && !/NaN|undefined/.test(svg);
+  })());
+  check('fermi(' + theme + '): runway example flips the framing', await (async () => {
+    await page.getByRole('button', {name: 'Runway'}).click();
+    await page.waitForTimeout(600);
+    const svg = await page.locator('#cfwrap svg').innerHTML();
+    return /RUNWAY/.test(svg) && /month \d+/.test(svg);
+  })());
+  check('fermi(' + theme + '): cashflow svg decodes as an image', await svgDecodes(page, '#cfwrap svg'));
+  check('fermi(' + theme + '): estimate mode restores untouched', await (async () => {
+    await page.locator('#modeest').click();
+    await page.waitForTimeout(400);
+    return await page.locator('#formula').isVisible() && await page.locator('#results').isVisible();
+  })());
   check('fermi(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

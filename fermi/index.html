@@ -109,6 +109,28 @@
   .spread{color:var(--muted);font-size:13px;margin-top:4px}
   .viewseg{display:inline-flex;border:1px solid var(--border);border-radius:6px;
     overflow:hidden;margin-top:18px}
+  .pagemode{margin:0 0 0 auto}
+  .pagemode button, .cfseg button{border:none;background:none;color:var(--muted);cursor:pointer;
+    font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
+  .pagemode button.on, .cfseg button.on{color:var(--card);background:var(--accent)}
+  .pagemode, .cfseg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .cfmeta{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
+  .cfmeta label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);display:flex;gap:8px;align-items:center}
+  .cfmeta input{width:64px;font-size:14px;padding:6px 8px;border:1px solid var(--border);
+    border-radius:6px;background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  .cfrow{display:grid;grid-template-columns:64px 110px 12px 110px 32px;gap:8px;
+    align-items:center;padding:3px 0}
+  .cfrow .cft{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px;
+    color:var(--muted)}
+  .cfrow input{font-size:14px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;
+    background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  .cfrow .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:15px}
+  .cfrow .del:hover{color:var(--err)}
+  .cftail{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+  #cfwrap svg{display:block;width:100%;height:auto;margin-top:6px}
   .viewseg button{border:none;background:none;color:var(--muted);cursor:pointer;
     font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
   .viewseg button.on{color:var(--card);background:var(--accent)}
@@ -183,9 +205,14 @@
 
   <section class="card">
     <div class="fieldrow">
-      <label class="field" for="formula">Formula</label>
+      <label class="field" for="formula" id="cardlabel">Formula</label>
       <div class="scentabs" id="scentabs"></div>
+      <div class="pagemode" role="tablist" aria-label="Tool mode">
+        <button id="modeest" class="on" role="tab" aria-selected="true">Estimate</button>
+        <button id="modecf" role="tab" aria-selected="false">Cashflow</button>
+      </div>
     </div>
+    <div id="estinputs">
     <input id="formula" class="mono" spellcheck="false" autocomplete="off"
       placeholder="attendees * hourly_cost * meeting_hours * weeks_per_year">
     <div class="chips" id="chips"><span class="lead">Try:</span></div>
@@ -195,9 +222,43 @@
       <div class="vhead"><span>Variable</span><span>Low</span><span></span><span>High</span><span>Fit</span><span></span></div>
       <div id="vrows"></div>
     </div>
+    </div>
+    <div id="cfinputs" hidden>
+      <div class="chips" id="cfchips"><span class="lead">Try:</span></div>
+      <div class="cfmeta">
+        <div class="cfseg" id="cfgrain" role="radiogroup" aria-label="Period grain">
+          <button data-g="year" class="on">Years</button><button data-g="month">Months</button>
+        </div>
+        <label>Discount %/yr
+          <input id="cfrlo" aria-label="Discount rate low"> – <input id="cfrhi" aria-label="Discount rate high"></label>
+        <label>Run to period <input id="cfhorizon" type="number" min="1" max="60" aria-label="Horizon, periods"></label>
+      </div>
+      <div id="cfrows"></div>
+      <div class="toolbar" style="margin-top:10px">
+        <button class="btn" id="cfadd">＋ Add period</button>
+        <span class="note" id="cftailnote"></span>
+      </div>
+      <p class="cftail">Each range is a 90% interval for that period's net cashflow. t0 is the investment (negative) or starting cash (positive); periods beyond the last row repeat its range, resampled each run.</p>
+    </div>
   </section>
 
   <section class="card">
+    <div id="cfresults" hidden>
+      <div id="cfwrap"></div>
+      <div class="thresh">
+        <span>Chance NPV exceeds</span>
+        <input id="cftin" placeholder="e.g. 0" aria-label="NPV threshold" spellcheck="false" autocomplete="off">
+        <span>=</span><b id="cftout">—</b>
+      </div>
+      <p class="warn" id="cfwarn"></p>
+      <div class="actions">
+        <button id="cfcopydoc" class="btn">Copy for a doc</button>
+        <button id="cfsvg" class="btn">Download SVG</button>
+        <button id="cfpng" class="btn">Download PNG</button>
+        <button id="cfcopypng" class="btn">Copy PNG</button>
+        <span class="method">Log-normal fit per period range · 10,000 seeded runs · deterministic</span>
+      </div>
+    </div>
     <p class="placeholder" id="ph">Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you'd be surprised, but not shocked, to see a value outside them.</p>
     <div id="results">
       <div id="cmp" class="cmp" style="display:none"></div>
