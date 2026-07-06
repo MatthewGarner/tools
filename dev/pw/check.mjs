@@ -129,6 +129,29 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
 await page.screenshot({path: 'parity-light.png', fullPage: true});
 await page2.screenshot({path: 'parity-dark.png', fullPage: true});
 
+/* typing latency: a 150-item doc must re-render fast after a keystroke */
+{
+  const doc = 'title: Big\ndate: 2026-07-06\nNOW\n' +
+    Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Item number ' + i + ' with a name').join('\n') +
+    '\nNEXT\n' + Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Next item ' + i).join('\n') +
+    '\nLATER\n' + Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Later item ' + i).join('\n');
+  const p = await browser.newPage();
+  await p.goto(BASE + '#' + Buffer.from(doc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
+  await p.waitForTimeout(600);
+  const ms = await p.evaluate(() => new Promise(res => {
+    const pv = document.getElementById('preview');
+    const t0 = performance.now();
+    new MutationObserver((_, obs) => { obs.disconnect(); res(performance.now() - t0); })
+      .observe(pv, {childList: true, subtree: true});
+    const cm = document.querySelector('.cm-content');
+    cm.dispatchEvent(new KeyboardEvent('keydown', {key: 'x'}));
+    document.querySelector('.cm-line').textContent += 'x';
+    setTimeout(() => res(9999), 3000);
+  }));
+  check('150-item doc: keystroke → re-render in ' + Math.round(ms) + 'ms (budget 1000)', ms < 1000);
+  await p.close();
+}
+
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
 await browser.close();
