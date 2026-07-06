@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cycle budget — what a cycle is worth</title>
+<meta name="description" content="Spread distribution × degradation ranges → what a cycle is actually worth: the dispatch threshold, whether the second cycle pays, and when to augment — with the warranty's shadow price made visible.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔋</text></svg>">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/controls.css">
+<link rel="stylesheet" href="../../assets/workspace.css">
+<link rel="stylesheet" href="../../assets/about.css">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="../../assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="../">← All energy tools</a>
+    <h1>Cycle budget</h1>
+    <p class="tagline">A battery's warranty is a budget and every cycle spends it. One set of beliefs — spreads, fade, calendar ageing — priced at three horizons: what a cycle is worth today, whether the second cycle pays this year, and when augmentation stops being early and starts being late.</p>
+  </header>
+</div>
+
+<div class="workspace" id="workspace">
+    <aside class="rail">
+      <div class="chips" id="chips"><span class="lead">Try:</span></div>
+      <div id="cmhost" aria-label="Cycle budget source editor"></div>
+      <ul id="warns"></ul>
+      <details class="syntax">
+        <summary>Syntax reference</summary>
+        <table>
+          <tr><td><code>battery: 100MW / 200MWh</code></td><td>nameplate power / energy (required)</td></tr>
+          <tr><td><code>spread: 35..85</code></td><td>£/MWh: the day's best <em>achieved</em> spread, 90% range across days (required)</td></tr>
+          <tr><td><code>charge: 15..45</code></td><td>£/MWh buy price for the efficiency penalty; assumed 45% of spread if omitted</td></tr>
+          <tr><td><code>second: 35..60%</code></td><td>second cycle's spread as % of the day's best — a good second happens on a good day</td></tr>
+          <tr><td><code>drift: -4..0 %/yr</code></td><td>annual spread trend; flat (and flattering) if omitted</td></tr>
+          <tr><td><code>rte: 86..90%</code></td><td>round-trip efficiency (required)</td></tr>
+          <tr><td><code>fade: 0.006..0.012 %/cycle</code></td><td>cycle ageing, % of nameplate per full cycle (required)</td></tr>
+          <tr><td><code>calendar: 1.0..1.8 %/yr</code></td><td>calendar ageing — happens anyway (required)</td></tr>
+          <tr><td><code>cycles: 6000 over 15yr</code></td><td>warranty budget; <code>over</code> also sets the horizon (required)</td></tr>
+          <tr><td><code>augment: 120..180 £/kWh</code></td><td>enables the augment-when band</td></tr>
+          <tr><td><code>discount: 7..10%</code></td><td>default 8%</td></tr>
+        </table>
+        <p>Spread/second describe <em>day-to-day variation</em>; every other range is <em>your uncertainty about a parameter</em>. The engine treats them differently.</p>
+      </details>
+    </aside>
+    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <section class="stage">
+      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="actions">
+        <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
+        <button class="btn" id="dlsvg">Download SVG</button>
+        <button class="btn" id="dlpng">Download PNG</button>
+        <button class="btn" id="dlslide">PNG (slide size)</button>
+        <button class="btn" id="copypng">Copy PNG</button>
+        <button class="btn" id="copymd">Copy for doc</button>
+        <span class="method">Click any number on the diagram to edit it · ribbons are days, whiskers are your beliefs · the URL carries your model</span>
+      </div>
+    </section>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>What a cycle is worth</h2>
+    <div class="prose">
+    <p>Desks argue "should we cycle for this spread?" with instinct; warranty managers answer with a cap; this tool answers with a price. A cycle destroys a little capacity forever — that has a value — and it spends one unit of a finite warranty budget — that has a shadow price whenever the budget rations you below the days worth cycling. The dispatch threshold is whichever is higher, and the tool says which one is doing the work: "cycles are worth £41 each; it's the warranty doing the rationing, not the wear." The second cycle and the augmentation window are the same beliefs read at the year and asset-life horizons — a policy difference and a re-simulated remainder, never a partial formula.</p>
+    <p>Named simplifications, so the tool can't oversell itself: <em>spread</em> is the achieved spread — market depth and dispatch quality are your problem, not the model's. Degradation is linear in cycles and time on the ranges you state — a belief container, not electrochemistry; bring your OEM's curve as a range, not a point. The charge-price leg is a level, not a shape. Augmentation restores nameplate and inherits the remaining warranty budget. And spreads stay flat over the life unless you say otherwise with <code>drift:</code> — omitting it flatters augmentation, and the tool warns you so.</p>
+    <p>The tool prices your stated beliefs; it never claims the market will look like your ranges, and it isn't a dispatch optimiser. Sources: Douglas Hubbard on calibrated 90% intervals (<em>How to Measure Anything</em>).</p>
+    </div>
+  </section>
+
+  <footer>
+    No accounts, no tracking. The URL carries your model — bookmark or share it.<br>
+    Part of <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a> · sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

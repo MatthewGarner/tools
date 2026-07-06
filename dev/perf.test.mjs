@@ -71,3 +71,13 @@ test('risk: 10k samples × 4 structures × 2 fits under 400ms', async () => {
   const m = parse('merchant: 60..180\nfloor: 70 share 60% fee 5\nfloor: 80 share 75%\ntoll: 95\ninsure: premium 6 attach 65 limit 30');
   await timed(400, () => simulate(m));
 });
+
+test('cycles: full simulate (dual policy + augment re-sim) under 800ms', async () => {
+  const {parse} = await import('../energy/cycles/parse.js');
+  const {simulate} = await import('../energy/cycles/engine.js');
+  const m = parse('battery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%');
+  await timed(800, () => simulate(m, {seed: 1, n: 5000}));
+  /* the spec's N-drops-first rule: 5k must agree with 10k on the quoted digits */
+  const a = simulate(m, {seed: 1, n: 5000}), b = simulate(m, {seed: 1, n: 10000});
+  assert.equal(Math.round(a.threshold.p50), Math.round(b.threshold.p50), 'fidelity guard');
+});

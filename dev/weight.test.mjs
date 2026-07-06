@@ -48,7 +48,7 @@ const PAGES = {
   'fermi/index.html': 120_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
   'roadmap/index.html': 480_000, 'why/index.html': 470_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
-  'energy/index.html': 40_000, 'energy/risk/index.html': 470_000,
+  'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
 };
 
 test('per-page load stays under budget', () => {
