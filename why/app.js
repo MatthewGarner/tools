@@ -2,6 +2,8 @@
 import {parse} from './parse.js';
 import {project} from './project.js';
 import {renderOst} from './render-ost.js';
+import {snapStore, wireSnapshots} from '../assets/snapshots.js';
+import {whyDiff, whyDiffView} from './diff.js';
 import {renderMap} from './render-map.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
@@ -60,9 +62,15 @@ function renderWarnings(){
     warns.appendChild(li);
   }
 }
+let snaps = null;   // wired below, after the editor exists
+function currentDiff(){
+  const cur = snaps && snaps.current();
+  if(!cur || !model || !model.outcomes.length) return null;
+  return whyDiffView(whyDiff(cur.model, model), cur.label);
+}
 function activeRender(slide, edit){
   const ctx = {colors: themeColors(), measure, slide, dark: isDark(), edit};
-  return view === 'ost' ? renderOst(model, projection, ctx) : renderMap(model, projection, ctx);
+  return view === 'ost' ? renderOst(model, projection, ctx, currentDiff()) : renderMap(model, projection, ctx);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -99,6 +107,16 @@ function writeHash(){
   if(ws.collapsed()) state.e = 0;
   writeHashState(state);
 }
+snaps = wireSnapshots({
+  store: snapStore('why-snaps'),
+  parse,
+  getSrc: () => editor.getText(),
+  makeLabel: () => new Date().toISOString().slice(0, 10) +
+    (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
+  els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
+  canSnap: () => model && model.outcomes.length,
+  onChange(){ lastSvg = ''; refresh(); },
+});
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),

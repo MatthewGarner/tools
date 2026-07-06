@@ -1,6 +1,7 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange} from '../assets/app-common.js';
 import {parse, STATUS_LABEL} from './parse.js';
+import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
@@ -84,62 +85,22 @@ Mobile app parity
 API rate-limit tiers`},
 ];
 
-/* ---------- snapshots + memoised diff ---------- */
-function loadSnaps(){
-  try{ return JSON.parse(localStorage.getItem('roadmap-snaps') || '[]'); }catch(e){ return []; }
-}
-function storeSnaps(list){
-  try{ localStorage.setItem('roadmap-snaps', JSON.stringify(list.slice(-20))); }catch(e){}
-}
-function renderSnapSel(){
-  const sel = $('snapsel');
-  const cur = sel.value;
-  sel.textContent = '';
-  const none = document.createElement('option');
-  none.value = ''; none.textContent = 'Compare with…';
-  sel.appendChild(none);
-  loadSnaps().forEach((sn, i) => {
-    const o = document.createElement('option');
-    o.value = String(i);
-    o.textContent = sn.label;
-    sel.appendChild(o);
-  });
-  sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
-  $('snapdel').style.display = sel.value ? '' : 'none';
-}
-const normTitle = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-const snapModelCache = new Map();   // "idx|src-length|label" -> parsed model
-function snapModel(idx){
-  const sn = loadSnaps()[+idx];
-  if(!sn) return null;
-  const key = idx + '|' + sn.src.length + '|' + sn.label;
-  if(!snapModelCache.has(key)) snapModelCache.set(key, parse(sn.src));
-  return snapModelCache.get(key);
-}
+/* ---------- snapshots + diff (shared core in assets/snapshots.js) ---------- */
+let snaps = null;   // wired below, after the editor exists
+const flatHorizon = m => m.items.map(it => ({title: it.title, state: String(m.horizons[it.h] ?? '?')}));
 function makeDiff(model){
-  const idx = $('snapsel').value;
-  if(idx === '') return null;
-  const sn = loadSnaps()[+idx];
-  const old = snapModel(idx);
-  if(!old) return null;
-  const oldMap = new Map();
-  for(const it of old.items) oldMap.set(normTitle(it.title), old.horizons[it.h] || '?');
-  const curSet = new Set(model.items.map(it => normTitle(it.title)));
-  const dropped = old.items.filter(it => !curSet.has(normTitle(it.title))).map(it => it.title);
-  let any = false;
+  const cur = snaps && snaps.current();
+  if(!cur) return null;
+  const d = diffItems(flatHorizon(cur.model), flatHorizon(model),
+    {key: e => e.title, state: e => e.state});
+  const added = new Set(d.added.map(e => diffItems.norm(e.title)));
   const badge = it => {
-    const key = normTitle(it.title);
-    if(!oldMap.has(key)){ any = true; return {kind:'new', label:'New'}; }
-    const oldH = oldMap.get(key);
-    const curH = model.horizons[it.h];
-    if(oldH.toLowerCase() !== String(curH).toLowerCase()){
-      any = true;
-      return {kind:'moved', label:'was ' + oldH};
-    }
-    return null;
+    const k = diffItems.norm(it.title);
+    if(added.has(k)) return {kind: 'new', label: 'New'};
+    const mv = d.moved.get(k);
+    return mv ? {kind: 'moved', label: 'was ' + mv.from} : null;
   };
-  for(const it of model.items) badge(it);   // prime `any` for the legend
-  return {badge, dropped, since: sn.label, get any(){ return any || dropped.length > 0; }};
+  return {badge, dropped: d.dropped.map(e => e.title), since: cur.label, any: d.any};
 }
 
 /* ---------- refresh loop ---------- */
@@ -346,34 +307,16 @@ $('copymd').addEventListener('click', async () => {
   }catch(e){ prompt('Copy this:', lines.join('\n')); }
 });
 
-/* ---------- snapshot wiring ---------- */
-$('snap').addEventListener('click', () => {
-  if(!model || !model.items.length) return;
-  const list = loadSnaps();
-  const label = new Date().toISOString().slice(0, 10) +
-    (model.title ? ' — ' + model.title.slice(0, 30) : '');
-  list.push({label, src: editor.getText()});
-  storeSnaps(list);
-  renderSnapSel();
-  $('snap').textContent = 'Saved';
-  setTimeout(() => { $('snap').textContent = 'Snapshot'; }, 1200);
-});
-$('snapsel').addEventListener('change', () => {
-  $('snapdel').style.display = $('snapsel').value ? '' : 'none';
-  lastSvg = '';
-  refresh();
-});
-$('snapdel').addEventListener('click', () => {
-  const idx = $('snapsel').value;
-  if(idx === '') return;
-  const list = loadSnaps();
-  list.splice(+idx, 1);
-  storeSnaps(list);
-  snapModelCache.clear();
-  $('snapsel').value = '';
-  renderSnapSel();
-  lastSvg = '';
-  refresh();
+/* ---------- snapshot wiring (shared) ---------- */
+snaps = wireSnapshots({
+  store: snapStore('roadmap-snaps'),
+  parse,
+  getSrc: () => editor.getText(),
+  makeLabel: () => new Date().toISOString().slice(0, 10) +
+    (model && model.title ? ' \u2014 ' + model.title.slice(0, 30) : ''),
+  els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
+  canSnap: () => model && model.items.length,
+  onChange(){ lastSvg = ''; refresh(); },
 });
 
 /* ---------- saved roadmaps ---------- */
@@ -609,7 +552,7 @@ onThemeChange(rerender);
   if(!text){
     try{ text = localStorage.getItem('roadmap-src') || ''; }catch(e){}
   }
-  renderSnapSel();
+  snaps.refresh();
   renderSaved();
   if(text) editor.setText(text);
   else refresh();

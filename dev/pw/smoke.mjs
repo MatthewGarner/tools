@@ -119,6 +119,20 @@ for(const theme of ['light', 'dark']){
   check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
   check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
   check('why(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('why(' + theme + '): snapshot compare renders the narrative + NEW badge', await (async () => {
+    await page.locator('#viewost').click();
+    await page.locator('#snap').click();
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Meta+ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('outcome: Snap ' + theme);
+    await page.waitForTimeout(500);
+    const n = await page.locator('#snapsel option').count();
+    await page.locator('#snapsel').selectOption({index: n - 1});
+    await page.waitForTimeout(500);
+    const svg = await page.locator('#preview svg').innerHTML();
+    return /Since /.test(svg) && />NEW<\/text>/.test(svg);
+  })());
   check('why(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -139,6 +153,21 @@ for(const theme of ['light', 'dark']){
   const risk = await page.locator('#preview svg').innerHTML();
   check('map(' + theme + '): risk preset severity bands', risk.includes('SEVERE') && risk.includes('MODERATE'));
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('map(' + theme + '): snapshot compare shows drift', await (async () => {
+    await page.getByRole('button', {name: 'Assumption map'}).click();
+    await page.waitForTimeout(400);
+    await page.locator('#snap').click();
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Meta+ArrowDown');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Drift ' + theme + ' @ 90,10');
+    await page.waitForTimeout(500);
+    const n = await page.locator('#snapsel option').count();
+    await page.locator('#snapsel').selectOption({index: n - 1});
+    await page.waitForTimeout(500);
+    const svg = await page.locator('#preview svg').innerHTML();
+    return /Since /.test(svg) && />NEW<\/text>/.test(svg);
+  })());
   check('map(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

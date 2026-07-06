@@ -21,7 +21,7 @@ const STATUS_LABEL = {candidate: 'Candidate', testing: 'Testing', delivering: 'D
   shipped: 'Shipped', parked: 'Parked'};
 
 
-export function renderOst(model, projection, ctx){
+export function renderOst(model, projection, ctx, diff = null){
   const {measure, slide = false, dark = false, edit = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
@@ -70,9 +70,10 @@ export function renderOst(model, projection, ctx){
   }
   model.outcomes.forEach(o => { prep(o); place(o, 0); cursorY += 10*S; });
 
-  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
+  const headerH = ((model.title ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0))*S;
   const W = Math.round(T.pad*2*S + (maxDepth + 1) * T.colW*S);
-  const H = Math.round(headerH + cursorY + T.bottomPad*S);
+  const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15)*S : 0;
+  const H = Math.round(headerH + cursorY + droppedH + T.bottomPad*S);
   const nx = n => T.pad*S + n._depth * T.colW*S;
   const nyTop = n => headerH + n._y;
 
@@ -87,6 +88,11 @@ export function renderOst(model, projection, ctx){
   s.push('<text x="' + (W - T.pad*S) + '" y="' + (model.title ? T.titleY : 14)*S +
     '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
     new Date().toISOString().slice(0, 10) + '</text>');
+  if(diff){
+    s.push('<text x="' + T.pad*S + '" y="' + ((model.title ? T.titleY + 19 : 14))*S +
+      '" font-size="' + 12*S + '" font-weight="600" fill="' + C.accent + '">' +
+      esc(diff.narrative) + '</text>');
+  }
 
   function drawCard(node){
     const x = nx(node), y = nyTop(node);
@@ -101,6 +107,18 @@ export function renderOst(model, projection, ctx){
       '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
+    const dBadge = diff && diff.badge(node);
+    if(dBadge){
+      const bcol = dBadge.kind === 'new' ? C.accent : C.muted;
+      const blabel = dBadge.label.toUpperCase();
+      const bw = measure(blabel, '600 ' + T.pillSize*S + 'px ' + F.body) + T.pillPadX*2*S;
+      const bx = x + T.cardW*S - bw - 4*S, by = y - T.pillH*S/2;
+      s.push('<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + T.pillH*S +
+        '" rx="' + T.pillH*S/2 + '" fill="' + tint(bcol) + '" stroke="' + bcol + '" stroke-width="0.75"/>');
+      s.push('<text x="' + (bx + T.pillPadX*S) + '" y="' + (by + T.pillH*S - 4.5*S) +
+        '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
+        '" fill="' + bcol + '">' + esc(blabel) + '</text>');
+    }
     let ty = y + T.cardPadY*S + T.labelSize*S;
     for(const line of node._lines){
       s.push('<text data-edit="label" data-line="' + node.srcLine + '" data-raw="' + esc(node.label) +
@@ -155,6 +173,17 @@ export function renderOst(model, projection, ctx){
   for(const o of model.outcomes){
     drawEdges(o);
     (function drawAll(n){ drawCard(n); n._kids.forEach(drawAll); })(o);
+  }
+  if(diff && diff.dropped.length){
+    let dy = headerH + cursorY + 14*S;
+    s.push('<text x="' + T.pad*S + '" y="' + dy + '" font-size="' + 10*S +
+      '" font-weight="600" letter-spacing="1" fill="' + C.muted + '">DROPPED SINCE ' +
+      esc(diff.since.toUpperCase()) + '</text>');
+    for(const label of diff.dropped){
+      dy += 15*S;
+      s.push('<text x="' + T.pad*S + '" y="' + dy + '" font-size="' + 11*S +
+        '" fill="' + C.muted + '" text-decoration="line-through">' + esc(label) + '</text>');
+    }
   }
   s.push('</svg>');
   for(const o of model.outcomes){
