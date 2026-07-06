@@ -44,7 +44,7 @@ test('sw.js compiles as a script', () => {
 test('energy/sw.js precaches every energy-origin file (run node dev/gen-sw.mjs)', () => {
   const sw = readFileSync(join(ROOT, 'energy/sw.js'), 'utf8');
   const listed = new Set([...sw.matchAll(/'(\/[^']*)'/g)].map(m => m[1]));
-  const files = ['energy', 'assets'].flatMap(d => walk(d))
+  const files = ['energy', 'assets', 'roadmap/vendor'].flatMap(d => walk(d))
     .map(f => toOriginUrl(f))
     .filter(u => u !== null && u !== '/sw.js');
   const missing = [...new Set(files)].filter(u => !listed.has(u));

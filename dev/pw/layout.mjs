@@ -13,6 +13,7 @@ const TOOLS = [
   {path: '/map/', chip: 'Assumption map'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal'},   // SVG lives in the reveal view
   {path: '/timeline/', chip: 'App launch programme'},
+  {path: '/energy/risk/', chip: 'Route to market'},
 ];
 
 for(const {path, chip, view} of TOOLS){

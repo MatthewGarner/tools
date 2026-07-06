@@ -1,10 +1,15 @@
 /* PWA checks: manifest + icons, service worker, full-precache cold-offline
    sweep (every tool must work offline WITHOUT having been visited — the
-   installed-app path), and an Android (Pixel 7) spot check.
-   Run from dev/pw: node pwa.mjs  (server on :8087) */
+   installed-app path), an Android (Pixel 7) spot check, and the ENERGY origin
+   (its own worker/manifest) served via serve.mjs's host-rewrite emulation.
+   Run from dev/pw: node pwa.mjs  (server on :8087; spawns :8089 itself) */
 import {chromium, devices} from 'playwright';
+import {spawn} from 'node:child_process';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
+const esrv = spawn('node', ['../serve.mjs', '8089', '--origin=energy'], {stdio: 'pipe'});
+await new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); }));
+const EBASE = 'http://localhost:8089';
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -76,6 +81,34 @@ async function installAndWait(page){
   await ctx.close();
 }
 
+/* ---- energy origin: its own PWA, cold offline ---- */
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(EBASE + '/', {waitUntil: 'networkidle'});
+  const mf = await page.evaluate(async () => (await fetch('/manifest.webmanifest')).json());
+  check('energy manifest: Energy tools, standalone, maskable', mf.short_name === 'Energy tools' &&
+    mf.display === 'standalone' && mf.icons.some(i => i.purpose === 'maskable'));
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForFunction(async () =>
+    !!(await caches.match('/risk/app.js')) && !!(await caches.match('/assets/series.js')),
+    null, {timeout: 20000});
+  check('energy SW active + precached', true);
+  await ctx.setOffline(true);
+  const p2 = await ctx.newPage();
+  let ok = false;
+  try{
+    await p2.goto(EBASE + '/risk/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await p2.getByRole('button', {name: 'Route to market'}).click();
+    await p2.waitForTimeout(600);
+    ok = await p2.locator('#preview svg').count() === 1;
+  }catch(e){ ok = false; }
+  check('energy: /risk/ cold offline fully works', ok);
+  await p2.close();
+  await ctx.close();
+}
+
 console.log(results.join('\n'));
+esrv.kill();
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

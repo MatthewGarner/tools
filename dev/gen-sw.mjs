@@ -42,7 +42,7 @@ patch('sw.js', 'tools', urls);
 /* energy origin worker: same walk, mapped through the origin's path table.
    (KEEP must NOT gain 'energy' — the tools origin redirects /energy/* away.) */
 const eUrls = [...new Set(['/', '/manifest.webmanifest',
-  ...['energy', 'assets'].flatMap(d => walk(d))
+  ...['energy', 'assets', 'roadmap/vendor'].flatMap(d => walk(d))
     .map(f => toOriginUrl(f))
     .filter(u => u !== null && u !== '/sw.js' && u !== '/manifest.webmanifest')])].sort();
 patch('energy/sw.js', 'energy', eUrls);

@@ -48,6 +48,27 @@ async function svgDecodes(page, selector){
   await page.close();
 }
 
+/* ---- energy landing + risk ---- */
+{
+  const {page, errors} = await freshPage('/energy/');
+  check('energy landing: one tool card', await page.locator('a.tool').count() === 1);
+  check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
+  check('energy landing: no console errors', errors.length === 0);
+  await page.close();
+}
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/energy/risk/', theme);
+  await page.getByRole('button', {name: 'Route to market'}).click();
+  await page.waitForTimeout(600);
+  check('risk(' + theme + '): diagram renders', await page.locator('#preview svg').count() === 1);
+  check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
+  check('risk(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
+  check('risk(' + theme + '): crumb points at energy landing',
+    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('risk(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
 /* ---- every tool links home ---- */
 {
   const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline'];
