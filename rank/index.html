@@ -16,6 +16,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <style>
   *{box-sizing:border-box}
@@ -131,11 +132,6 @@
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;resize:vertical}
   .pastebox .hint{font-size:12.5px;color:var(--muted);margin:6px 0 8px}
   .pastebox .perr{font-size:13px;color:var(--err);margin-left:10px}
-  .about{border-top:1px solid var(--border);padding-top:18px;color:var(--muted);
-    font-size:13.5px;line-height:1.65;max-width:65ch}
-  .about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
-  .about p{margin:0 0 10px}
-  .about a{color:var(--accent-ink)}
   footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
   footer a{color:var(--muted)}
   footer a:hover{color:var(--accent-ink)}
@@ -217,8 +213,10 @@
 
   <section class="about">
     <h2>Why wobble the weights?</h2>
-    <p>Frameworks like RICE and WSJF produce a ranked list from scores nobody believes to one decimal place. The ranking inherits that false precision — and teams burn hours debating whether the weight on "time criticality" should be 2 or 3, when the honest question is whether the answer would change either way. This tool asks exactly that: it re-runs your scoring 4,000 times with every weight perturbed within ±50% and every score within ±1, then reports how often each initiative lands where. Ranks that hold across the wobble are real signal; ranks that reshuffle are ties — decide those on strategy, sequencing, or gut, and stop pretending the spreadsheet decided.</p>
-    <p>The idea is plain sensitivity analysis applied to decision frameworks — see Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on modelling what you're unsure about, and Itamar Gilad's <a href="https://itamargilad.com/why-am-i-not-a-fan-of-scoring-prioritization/" target="_blank" rel="noopener">critique of scoring prioritisation</a> for why point estimates mislead.</p>
+    <div class="prose">
+    <p>Frameworks like RICE and WSJF produce a ranked list from scores nobody believes to one decimal place. The ranking inherits that false precision — and teams burn hours debating whether the weight on "time criticality" should be 2 or 3, when the honest question is whether the answer would change either way. This tool asks exactly that: it re-runs your scoring 4,000 times, wobbling every weight (±50% as a 90% interval — occasional draws go further) and every score (within ±1 point; both dials sit under the table), then reports how often each initiative lands where. Ranks that hold across the wobble are real signal; ranks that reshuffle are ties — decide those on strategy, sequencing, or gut, and stop pretending the spreadsheet decided.</p>
+    <p>The idea is plain sensitivity analysis applied to decision frameworks — see Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on modelling what you're unsure about, and Itamar Gilad <a href="https://itamargilad.com/ice-scores/" target="_blank" rel="noopener">on ICE scores</a> — even scoring's defenders read the numbers as hints to be qualified by confidence, not answers.</p>
+    </div>
   </section>
 
   <footer>

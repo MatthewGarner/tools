@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
@@ -63,9 +64,11 @@
 <div class="wrap">
   <section class="about">
     <h2>How the maths works</h2>
+    <div class="prose">
     <p>Every range you write is a 90% interval, sampled 10,000 times (log-normal for positive ranges, normal otherwise; probabilities are normalised so siblings sum to 1 in every simulation). The tree rolls back a <em>policy</em>: at each decision node the tool commits to the option with the highest mean expected value — you decide once, you don't get to re-decide with hindsight in each simulation. What you read at each node is the distribution of expected value given what you don't know.</p>
     <p>The verdict includes how often the recommendation actually beats the alternative across simulations — an EV edge that wins only 55% of the time deserves different scrutiny than one that wins 95%. "What would flip this" is the sensitivity that matters in a meeting: the probability threshold at which the recommendation changes, found by bisection, and any payoff ranges wide enough to change the answer within themselves.</p>
     <p>Sources: Ronald Howard's <a href="https://en.wikipedia.org/wiki/Decision_analysis" target="_blank" rel="noopener">decision analysis</a> tradition; Douglas Hubbard's <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> on calibrated ranges; and the <a href="/fermi/">Fermi estimator</a>, this tool's sibling, for the estimation habits underneath it.</p>
+    </div>
   </section>
 
   <footer>
