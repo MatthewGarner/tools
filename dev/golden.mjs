@@ -206,6 +206,20 @@ for(const [k, src] of Object.entries(docs)){
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
 }
 
+/* /cycles fixtures (seeded engine → deterministic; n reduced for capture speed) */
+{
+  const {parse: cparse} = await import('../energy/cycles/parse.js');
+  const {simulate: csim} = await import('../energy/cycles/engine.js');
+  const {render: crender} = await import('../energy/cycles/render.js');
+  const cdoc = 'title: Cycle budget — Wexcombe 100MW/2h\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%';
+  const cm = cparse(cdoc);
+  const co = csim(cm, {seed: 1, n: 2000});
+  variants['cycles-full'] = crender(cm, co, {...ctxBase});
+  variants['cycles-full-slide'] = crender(cm, co, {...ctxBase, slide: true});
+  const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
+  variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

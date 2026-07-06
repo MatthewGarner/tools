@@ -101,3 +101,12 @@ test('risk renderer + markdown escape hostile titles and structure labels', asyn
   const m = parse(doc);
   assertClean(render(m, simulate(m), ctx, {edit: true}), 'risk');
 });
+
+test('cycles renderer escapes a hostile title', async () => {
+  const {parse} = await import('../energy/cycles/parse.js');
+  const {simulate} = await import('../energy/cycles/engine.js');
+  const {render} = await import('../energy/cycles/render.js');
+  const doc = 'title: ' + EVIL[0] + '\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 20\ndrift: 0\nrte: 88%\nfade: 0.01 %/cycle\ncalendar: 1.5 %/yr\ncycles: 6000 over 15yr';
+  const m = parse(doc);
+  assertClean(render(m, simulate(m, {seed: 1, n: 500}), ctx, {edit: true}), 'cycles');
+});

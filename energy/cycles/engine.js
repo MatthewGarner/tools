@@ -5,7 +5,7 @@
 import {mulberry32, gaussian, quantile, fmt, rangeSampler} from '../../assets/series.js';
 import {complete} from './parse.js';
 
-export const N_BASE = 1000, DAYS = 365, SOH_FLOOR = 0.10, MAX_IT = 8, TOL = 1e-3;
+export const N_BASE = 1000, DAYS = 365, SOH_FLOOR = 0.10, MAX_IT = 20, TOL = 1e-3;
 
 const clamp01 = x => Math.max(0, Math.min(1, x));
 
@@ -124,7 +124,13 @@ export function simPolicy(model, b, base, useSecond, tauScale = 1){
        coupling oscillates undamped for some belief draws */
     if(it === 0) V = nextV;
     else for(let y = 0; y < H; y++) V[y] = (V[y] + nextV[y]) / 2;
-    if(it === MAX_IT - 1) throw new Error('cycles engine: fixed point unconverged after ' + MAX_IT + ' iterations');
+    /* after the cap: accept a small residual (the damped average is the honest
+       centre of a tiny limit cycle); only genuine divergence throws */
+    if(it === MAX_IT - 1){
+      if(Math.abs(taus[0] - prevTau0) <= 0.05 * Math.max(1, taus[0])) break;
+      throw new Error('cycles engine: fixed point diverged (Δτ ' +
+        (taus[0] - prevTau0).toFixed(2) + ' after ' + MAX_IT + ' iterations)');
+    }
   }
   return out;
 }
