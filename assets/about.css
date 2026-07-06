@@ -1,0 +1,27 @@
+/* Shared about-section layout (extracted 2026-07-06 — was duplicated in all nine tools).
+   Narrow screens: single reading column, 65ch measure.
+   Wide screens: the band spans the full grid like every band above it — heading in a
+   left rail, prose flowing into balanced newspaper columns (2, then 3 ≥1560px), each
+   column kept inside the 45–75ch reading measure. Paragraphs never split. */
+
+.about{border-top:1px solid var(--border);padding-top:22px;color:var(--muted);
+  font-size:13.5px;line-height:1.65}
+.about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
+.about p{margin:0 0 10px}
+.about a{color:var(--accent-ink)}
+.about .prose{max-width:65ch}
+.about .prose p:last-child{margin-bottom:0}
+
+@media (min-width:1020px){
+  .about{display:grid;grid-template-columns:200px minmax(0,1fr);column-gap:56px;
+    align-items:start}
+  .about h2{margin:0;line-height:1.4}
+  .about .prose{max-width:none;column-count:2;column-width:40ch;column-gap:56px}
+  /* narrower pages (fermi/flow/rank) resolve to one column — keep its measure at
+     the site's 65ch; inside real columns this cap is a no-op */
+  .about .prose p{break-inside:avoid;max-width:65ch}
+}
+
+@media (min-width:1560px){
+  .about .prose{column-count:3}
+}

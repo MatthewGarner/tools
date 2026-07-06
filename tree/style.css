@@ -35,11 +35,6 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
 .actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .method{color:var(--muted);font-size:12.5px}
-.about{border-top:1px solid var(--border);padding-top:22px;color:var(--muted);
-  font-size:13.5px;line-height:1.65;max-width:65ch}
-.about h2{font-family:Charter,Georgia,serif;font-size:16px;color:var(--ink);margin:0 0 8px}
-.about p{margin:0 0 10px}
-.about a{color:var(--accent-ink)}
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)}
 footer a:hover{color:var(--accent-ink)}
