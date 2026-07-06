@@ -137,6 +137,11 @@ export function delphiStats(model, r1, r2){
       : (pooledRange === null ? '' : 'pooled range ' + fmtN(pooledRange[0]) + '–' + fmtN(pooledRange[1]) + u);
     let headline;
     if(n === 0) headline = 'No responses in either round.';
+    else if(n === 1) headline = 'Only one response — nothing to compare.';
+    else if(spread1 === 0 && spread2 > 0)
+      headline = 'The spread widened after discussion — ' + pooledText + ', but new doubt surfaced.';
+    else if(spread1 === 0)
+      headline = 'The room agreed in round 1 and held — ' + pooledText + '.';
     else if(convergencePct >= NARROWED)
       headline = 'Second round narrowed the spread ' + Math.round(convergencePct) + '% — ' + pooledText + '.';
     else if(convergencePct <= WIDENED)

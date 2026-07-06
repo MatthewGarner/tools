@@ -76,7 +76,7 @@ export function verdictCopy(stats, k){
   const secure = stats.filter(s => s.ptop >= 0.85);
   const contested = stats.filter(s => s.ptop > 0.15 && s.ptop < 0.85);
   let headline, body;
-  if(contested.length === 0 && secure.length === k){
+  if(secure.length >= k){
     headline = 'The top ' + k + ' is settled.';
     body = ' Every initiative that makes the cut does so in at least 85% of simulations — reasonable people with different weights get the same answer. Stop tuning the spreadsheet and start the work.';
   } else if(secure.length > 0){
@@ -84,9 +84,11 @@ export function verdictCopy(stats, k){
     body = ' ' + secure.map(s => s.name).join(', ') +
       (secure.length === 1 ? ' makes' : ' make') +
       ' the cut under any reasonable weights. The remaining ' + (k - secure.length) +
-      (k - secure.length === 1 ? ' place is' : ' places are') + ' a genuine tie between ' +
-      contested.map(s => s.name).join(', ') +
-      ' — the framework can’t decide it, so decide it on strategy or sequencing.';
+      (k - secure.length === 1 ? ' place is' : ' places are') +
+      (contested.length
+        ? ' a genuine tie between ' + contested.map(s => s.name).join(', ') +
+          ' — the framework can’t decide it, so decide it on strategy or sequencing.'
+        : ' up for grabs across the rest of the field — no single challenger stands out, so decide on strategy or sequencing.');
   } else {
     headline = 'Nothing is settled.';
     body = ' No initiative makes the top ' + k +

@@ -64,3 +64,21 @@ test('delphiStats: empty rounds stay finite', () => {
     assert.doesNotMatch(JSON.stringify(q), /NaN|Infinity/);
   }
 });
+
+test('delphiStats: perfect round-1 agreement is not called disagreement', () => {
+  const agree = [{who: 'a1', values: [50, [10, 10]]}, {who: 'b2', values: [50, [10, 10]]}];
+  const d = delphiStats(model, agree, []);
+  assert.doesNotMatch(d[0].headline, /disagreement/);
+  assert.match(d[0].headline, /agree/i);
+});
+
+test('delphiStats: widening from zero round-1 spread reads as widened', () => {
+  const agree = [{who: 'a1', values: [50, [10, 10]]}, {who: 'b2', values: [50, [10, 10]]}];
+  const d = delphiStats(model, agree, [{who: 'a1', values: [80, null]}]);
+  assert.match(d[0].headline, /widened/);
+});
+
+test('delphiStats: a single respondent is not a disagreement', () => {
+  const d = delphiStats(model, [{who: 'a1', values: [50, [10, 20]]}], []);
+  assert.doesNotMatch(d[0].headline, /disagreement/);
+});
