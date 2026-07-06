@@ -2,7 +2,7 @@
    one — leaves (your ranged inputs) on the left, the outcome on the right, and the
    value-of-information share printed on every leaf edge. Pure: SVG string out,
    colours and text measure from ctx only. */
-import {esc, tint} from '../assets/svg.js';
+import {esc, tint, txt} from '../assets/svg.js';
 import {fmt, sig} from './engine.js';
 
 const MONO = 'ui-monospace,"SF Mono",Menlo,Consolas,monospace';
@@ -140,13 +140,4 @@ export function renderDriverTree(model, ctx){
 
 function rangeText(r){
   return r ? fmt(r[0]) + ' – ' + fmt(r[1]) : '';
-}
-
-function txt(x, y, str, size, fill, {weight, tracking, anchor, mono} = {}){
-  return '<text x="' + f1(x) + '" y="' + f1(y) + '" font-size="' + size + '"' +
-    (weight ? ' font-weight="' + weight + '"' : '') +
-    (tracking ? ' letter-spacing="' + tracking + '"' : '') +
-    (anchor ? ' text-anchor="' + anchor + '"' : '') +
-    (mono ? ' font-family="' + MONO + '"' : '') +
-    ' fill="' + fill + '">' + esc(str) + '</text>';
 }

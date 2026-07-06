@@ -1,7 +1,7 @@
 /* Flow readout → SVG string. Pure: colours and text measure come from ctx.
    Layout: verdict block, cycle-time histogram, two small WIP-sweep charts
    (never dual-axis). This SVG is what exports — the canvas strip never does. */
-import {esc} from '../assets/svg.js';
+import {esc, txt} from '../assets/svg.js';
 
 const W = 860, PAD = 26;
 
@@ -97,14 +97,6 @@ export function renderReadout(result, sweep, knee, params, ctx){
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
-}
-
-function txt(x, y, str, size, fill, {weight, tracking, anchor} = {}){
-  return '<text x="' + f1(x) + '" y="' + f1(y) + '" font-size="' + size + '"' +
-    (weight ? ' font-weight="' + weight + '"' : '') +
-    (tracking ? ' letter-spacing="' + tracking + '"' : '') +
-    (anchor ? ' text-anchor="' + anchor + '"' : '') +
-    ' fill="' + fill + '">' + esc(str) + '</text>';
 }
 
 const gbp = n => '£' + Math.round(n).toLocaleString('en-GB');

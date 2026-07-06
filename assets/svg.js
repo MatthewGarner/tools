@@ -10,6 +10,19 @@ export function tint(hex){
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
 }
 
+/* One-line <text> element with the attribute set the renderers share.
+   Coordinates round to 2 decimals. mono switches to the ui-monospace stack. */
+const MONO = 'ui-monospace,"SF Mono",Menlo,Consolas,monospace';
+const r2 = n => (Math.round(n * 100) / 100).toString();
+export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono} = {}){
+  return '<text x="' + r2(x) + '" y="' + r2(y) + '" font-size="' + size + '"' +
+    (weight ? ' font-weight="' + weight + '"' : '') +
+    (tracking ? ' letter-spacing="' + tracking + '"' : '') +
+    (anchor ? ' text-anchor="' + anchor + '"' : '') +
+    (mono ? ' font-family="' + MONO + '"' : '') +
+    ' fill="' + fill + '">' + esc(str) + '</text>';
+}
+
 /* Greedy wrap with widow control: no single-word last lines when rebalancing fits. */
 export function wrapText(text, font, maxW, measure){
   const words = text.split(/\s+/);
