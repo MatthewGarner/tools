@@ -127,6 +127,11 @@ for(const theme of ['light', 'dark']){
   await page.getByRole('button', {name: 'Q3 commitment review'}).click();
   await page.waitForTimeout(600);
   check('gauge(' + theme + '): form preview renders 3 questions', await page.locator('#preview .gform .q').count() === 3);
+  check('gauge(' + theme + '): add question writes through the editor (insertAndSelect)', await (async () => {
+    await page.locator('.addq').first().click();
+    await page.waitForTimeout(400);
+    return await page.locator('#preview .gform .q').count() === 4;
+  })());
   await page.locator('#viewreveal').click();
   await page.waitForTimeout(500);
   check('gauge(' + theme + '): sample reveal renders SVG', await page.locator('#preview svg').count() === 1);

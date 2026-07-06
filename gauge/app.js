@@ -84,7 +84,7 @@ async function initCompose(hash){
   let model = null, view = 'form', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
 
   /* participants never see the editor — only compose mode pays for CodeMirror */
-  const {createEditor} = await import('./editor.js');
+  const {createEditor, insertAndSelect} = await import('./editor.js');
   const editor = createEditor({
     parent: $('cmhost'),
     doc: '',
@@ -100,10 +100,7 @@ async function initCompose(hash){
     }
     if(e.target.closest && e.target.closest('.addq')){
       const {afterLine, newLine} = addQuestionLine(editor.getText());
-      editor.insertLinesAfter(afterLine, [newLine]);
-      const ln = editor.view.state.doc.line(afterLine + 2);
-      editor.view.dispatch({selection: {anchor: ln.from, head: ln.from + 'New question'.length}});
-      editor.view.focus();
+      insertAndSelect(editor, afterLine, newLine, 'New question');
     }
   });
 
