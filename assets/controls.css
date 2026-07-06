@@ -20,3 +20,12 @@
 @media (prefers-reduced-motion: no-preference){
   .chip,.btn{transition:border-color .15s,color .15s}
 }
+
+/* Home crumb: every tool page links back to the suite, top-left above the h1.
+   Big enough for thumbs on coarse pointers. */
+.crumb{display:inline-block;font-size:12.5px;color:var(--muted);text-decoration:none;
+  margin-bottom:10px;border-radius:6px}
+.crumb:hover{color:var(--accent-ink)}
+@media (pointer: coarse){
+  .crumb{padding:10px 12px;margin:-10px 0 2px -12px}
+}
