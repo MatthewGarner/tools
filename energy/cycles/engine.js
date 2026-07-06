@@ -100,7 +100,9 @@ export function simPolicy(model, b, base, useSecond, tauScale = 1){
       const a2 = (useSecond && base.S2) ? above(base.S2, x) : {count: 0, sum: 0};
       let c = DAYS * (a1.count + a2.count) / N_BASE;
       let netSum = ((a1.sum + a2.sum) * scale - (a1.count + a2.count) * k) * DAYS / N_BASE;
-      const cap = Math.max(0, budget);
+      /* trim to the annual allowance (τ can't ration indistinguishable days —
+         the ε overshoot from tauBudget's lo-side return lands here too) */
+      const cap = Math.min(Math.max(0, budget), aY);
       if(c > cap && c > 0){ const ratio = cap / c; c *= ratio; netSum *= ratio; }
       taus.push(tau); bind.push(tBud > tWear); cyc.push(c);
       perMwh.push(netSum);                             // £/MWh-yr, cleared net spreads
