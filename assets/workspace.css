@@ -36,6 +36,17 @@
   opacity: 0; visibility: hidden; padding-left: 0; padding-right: 0;
   border-color: transparent; box-shadow: none; pointer-events: none;
 }
+/* indent/outdent buttons for indented DSLs — fingers have no Tab key.
+   Hidden wherever a keyboard is likely; shown for coarse pointers. */
+.cm-indentbar{display: none}
+@media (pointer: coarse){
+  .cm-indentbar{display: flex; gap: 8px; margin: 0 0 8px}
+  .cm-indentbar button{min-height: 44px; flex: 1 1 auto; font-family: inherit;
+    font-size: 13px; color: var(--ink); background: none;
+    border: 1px solid var(--border); border-radius: 6px}
+  .cm-indentbar button:active{border-color: var(--accent); color: var(--accent-ink)}
+}
+
 .railtab{
   justify-self: center; align-self: stretch; width: 26px; margin: 8px 0;
   border: none; border-radius: 9px; background: none;
@@ -68,7 +79,18 @@ footer{margin: 48px 0 8px}
   .workspace{display: flex; flex-direction: column; gap: 16px; margin-top: 20px}
   .rail{width: auto; max-height: none; overflow: visible; opacity: 1 !important;
     padding: 18px !important; border-color: var(--border) !important}
-  .railtab{display: none}
+  /* indent/outdent buttons for indented DSLs — fingers have no Tab key.
+   Hidden wherever a keyboard is likely; shown for coarse pointers. */
+.cm-indentbar{display: none}
+@media (pointer: coarse){
+  .cm-indentbar{display: flex; gap: 8px; margin: 0 0 8px}
+  .cm-indentbar button{min-height: 44px; flex: 1 1 auto; font-family: inherit;
+    font-size: 13px; color: var(--ink); background: none;
+    border: 1px solid var(--border); border-radius: 6px}
+  .cm-indentbar button:active{border-color: var(--accent); color: var(--accent-ink)}
+}
+
+.railtab{display: none}
 }
 
 /* Fingers get full-size controls; mouse pointers keep the compact look. */

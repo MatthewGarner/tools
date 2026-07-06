@@ -21,7 +21,7 @@ const lang = StreamLanguage.define({
 });
 
 export function createEditor({parent, doc, onChange}){
-  return createEditorCore({parent, doc, onChange, langExtension: lang,
+  return createEditorCore({parent, doc, onChange, langExtension: lang, indentBar: true,
     extraHighlights: [
       {tag: t.heading, color: 'var(--accent-ink)', fontWeight: '700'},
       {tag: t.atom, color: 'var(--st-done)', fontWeight: '600'},
