@@ -40,6 +40,11 @@ async function overLimit(kv, ip){
    readers only ever see its truncated hash, so a `who` can't be used to submit. */
 const whoOf = pid => sha256hex(pid).slice(0, 8);
 
+/* Distinct participants across both rounds — the size of the final room.
+   Round-2 responders are NOT a subset of round-1's (newcomers can join), so this
+   is the only correct denominator for the "X of Y revised" counter. */
+const finalCountOf = s => new Set([...s.entries, ...s.entries2].map(e => e.who)).size;
+
 function roundEntries(o, prefix){
   const fields = Object.keys(o).filter(f => f.startsWith(prefix)).sort();
   const entries = fields.map(f => ({...JSON.parse(o[f]), who: whoOf(f.slice(prefix.length))}));
@@ -117,6 +122,7 @@ export async function getSession(kv, id){
     body.count2 = s.entries2.length;
     body.answered2 = s.answered2;
     body.revealed2 = s.revealed2;
+    body.finalCount = finalCountOf(s);
     if(s.revealed2) body.responses2 = s.entries2;   // same rule, round 2
   }
   return {status: 200, body};
@@ -153,6 +159,7 @@ export async function reveal(kv, id, body){
     out.count2 = s.entries2.length;
     out.answered2 = s.answered2;
     out.revealed2 = true;
+    out.finalCount = finalCountOf(s);
     out.responses2 = s.entries2;
   }
   return {status: 200, body: out};

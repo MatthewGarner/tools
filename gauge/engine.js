@@ -87,6 +87,25 @@ export function verdict(stats){
     ' items; discuss ' + list + '.';
 }
 
+/* Facilitator response-counter copy. Pure so it can be unit-tested; the console
+   just prints the string. In round 2 the denominator is the whole final room
+   (finalCount = union of both rounds), never the round-1 count — a newcomer who
+   skipped round 1 must never read as "2 of 1". */
+export function countLabel(round, data){
+  if(round === 2){
+    const revised = data.count2 || 0;
+    if(revised === 0) return 'Round 2 open — waiting for revised estimates…';
+    const total = data.finalCount != null ? data.finalCount : Math.max(data.count || 0, revised);
+    const carried = Math.max(0, total - revised);
+    const head = revised + ' of ' + total + ' revised so far';
+    return carried === 0 ? head + ' — everyone has revised'
+      : head + ' — the other ' + carried + (carried === 1 ? ' carries' : ' carry') + ' round 1 forward';
+  }
+  const n = data.count || 0;
+  if(n === 0) return 'Waiting for responses…';
+  return n + (n === 1 ? ' person has' : ' people have') + ' responded';
+}
+
 /* ---- Delphi round 2 (pure) ---- */
 
 /* Classic Delphi carry-forward: a participant's final answer is their round-2

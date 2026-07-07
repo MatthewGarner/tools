@@ -152,6 +152,15 @@ try{
     null, {timeout: 20000});
   check('facilitator: round-2 count shows revisions vs carry-forward', true);
 
+  /* Bug-2 regression: a newcomer who skipped round 1 submits in round 2. The
+     denominator is the whole final room (A,B,C = 3), never the round-1 count — it
+     must read "2 of 3", never "2 of 2" (pre-fix) or the "2 of 1" nonsense. */
+  const C = await participant('light', 55, 10, 14);
+  check('participant C: newcomer submits in round 2', true);
+  await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('2 of 3'),
+    null, {timeout: 20000});
+  check('facilitator: round-2 newcomer counts into the final room (no "N of fewer")', true);
+
   await pageF.locator('#creveal').click();
   await pageF.locator('#creveal').click();
   await pageF.waitForFunction(() => document.getElementById('coverlay').innerHTML.includes('DELPHI'),
@@ -182,6 +191,7 @@ try{
   check('no console errors (facilitator)', errF.length === 0);
   check('no console errors (participant A)', A.errors.length === 0);
   check('no console errors (participant B)', B.errors.length === 0);
+  check('no console errors (participant C)', C.errors.length === 0);
 }finally{
   await browser.close();
   server.kill();

@@ -1,5 +1,5 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
-import {sessionStats, markdownSummary, mergeFinal, delphiStats} from './engine.js';
+import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel} from './engine.js';
 import {fermiHandoff} from './handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
@@ -46,16 +46,9 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
   let responses = null, responses2 = null, round = 1, poll2 = null;
 
   function renderCounts(data){
-    if(round === 2){
-      $('ccount').textContent = (data.count2 || 0) === 0
-        ? 'Round 2 open — waiting for revised estimates…'
-        : data.count2 + ' of ' + data.count + ' revised so far — the rest carry round 1 forward';
-      (data.answered2 || []).forEach((n, i) => { if(counters[i]) counters[i].textContent = String(n); });
-      return;
-    }
-    $('ccount').textContent = data.count === 0 ? 'Waiting for responses…'
-      : data.count + (data.count === 1 ? ' person has' : ' people have') + ' responded';
-    (data.answered || []).forEach((n, i) => { if(counters[i]) counters[i].textContent = String(n); });
+    $('ccount').textContent = countLabel(round, data);
+    const answered = round === 2 ? data.answered2 : data.answered;
+    (answered || []).forEach((n, i) => { if(counters[i]) counters[i].textContent = String(n); });
   }
   function showResults(resp){
     responses = resp;

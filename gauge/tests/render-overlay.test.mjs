@@ -68,6 +68,15 @@ test('question text and names are escaped', () => {
   assert.ok(!s.includes('<b>'));
 });
 
+test('header pluralizes the response count', () => {
+  const m = parse('A :: prob');
+  const one = renderOverlay(m, sessionStats(m, [{values: [50]}]), ctx);
+  assert.ok(one.includes('1 response ·'));       // singular, not "1 responses"
+  assert.ok(!one.includes('1 responses'));
+  const two = renderOverlay(m, sessionStats(m, [{values: [50]}, {values: [60]}]), ctx);
+  assert.ok(two.includes('2 responses ·'));
+});
+
 test('deterministic: same inputs, identical string', () => {
   assert.equal(svg(), svg());
 });
