@@ -168,7 +168,7 @@ export function renderOverlay(model, stats, ctx, opts = {}){
     y += 20;
   }
   head.push('<text x="' + PAD + '" y="' + y + '" font-size="12" fill="' + c.muted + '">' +
-    count + ' responses · ' + stats.length + ' question' + (stats.length === 1 ? '' : 's') +
+    count + ' response' + (count === 1 ? '' : 's') + ' · ' + stats.length + ' question' + (stats.length === 1 ? '' : 's') +
     (delphi ? ' · final answers (round 2, round 1 carried forward)' : '') + '</text>');
   y += 18;
 

@@ -77,3 +77,51 @@ test('before round 2 opens, submissions still hit the revealed-lock', async () =
   const r = await putResponse(kv, ID, {participantId: P1, values: [50, null]}, 'ip');
   assert.equal(r.status, 409);
 });
+
+const P3 = 'e'.repeat(16);
+
+test('finalCount: union of both rounds — a subset revises', async () => {
+  const kv = await rigRevealed();            // r1 = {P1, P2}
+  await openRound2(kv, ID, {key: KEY});
+  await putResponse(kv, ID, {participantId: P1, values: [55, [5, 7]]}, 'ip');   // only P1 revises
+  const g = await getSession(kv, ID);
+  assert.equal(g.body.count, 2);
+  assert.equal(g.body.count2, 1);
+  assert.equal(g.body.finalCount, 2);        // P1 revised + P2 carried forward
+});
+
+test('finalCount: a round-2 newcomer joins the final room (was the "2 of 1" bug)', async () => {
+  const kv = memoryKv();
+  await createSession(kv, {id: ID, keyHash: sha256hex(KEY), names: false}, 'ip');
+  await putResponse(kv, ID, {participantId: P1, values: [70, [4, 8]]}, 'ip');   // r1 = {P1}
+  await reveal(kv, ID, {key: KEY});
+  await openRound2(kv, ID, {key: KEY});
+  await putResponse(kv, ID, {participantId: P1, values: [60, [4, 8]]}, 'ip');   // P1 revises
+  await putResponse(kv, ID, {participantId: P3, values: [40, [4, 8]]}, 'ip');   // P3 is new in round 2
+  const g = await getSession(kv, ID);
+  assert.equal(g.body.count, 1);
+  assert.equal(g.body.count2, 2);
+  assert.equal(g.body.finalCount, 2);        // count2 (2) must not exceed finalCount (2)
+  assert.ok(g.body.finalCount >= g.body.count2);
+});
+
+test('finalCount: newcomer-only revision counts both rooms', async () => {
+  const kv = memoryKv();
+  await createSession(kv, {id: ID, keyHash: sha256hex(KEY), names: false}, 'ip');
+  await putResponse(kv, ID, {participantId: P1, values: [70]}, 'ip');           // r1 = {P1}
+  await reveal(kv, ID, {key: KEY});
+  await openRound2(kv, ID, {key: KEY});
+  await putResponse(kv, ID, {participantId: P3, values: [40]}, 'ip');           // only P3 (new) revises
+  const g = await getSession(kv, ID);
+  assert.equal(g.body.count, 1);
+  assert.equal(g.body.count2, 1);
+  assert.equal(g.body.finalCount, 2);        // P1 carries forward, P3 is new
+});
+
+test('finalCount appears on reveal-2 payload too', async () => {
+  const kv = await rigRevealed();
+  await openRound2(kv, ID, {key: KEY});
+  await putResponse(kv, ID, {participantId: P3, values: [40, [1, 2]]}, 'ip');
+  const r = await reveal(kv, ID, {key: KEY});
+  assert.equal(r.body.finalCount, 3);        // P1, P2 (carried) + P3 (new)
+});
