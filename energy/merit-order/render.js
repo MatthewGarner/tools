@@ -113,7 +113,7 @@ export function renderStack(state, ctx){
   const legendY = tickY + 26;
   const verdictTopBase = (showLegend ? legendY : tickY) + 34;
   const verdictText = buildVerdict(result, state);
-  const vLines = wrapText(verdictText, '15px ' + FONT, W - 64 - 32, ctx.measure);
+  const vLines = wrapText(verdictText, '15px ' + FONT, x1 - x0, ctx.measure);  // wrap within [x0..x1]; drawn at x0, so must not exceed x1-x0 or it clips the viewBox on export
   const vBlockH = 28 + vLines.length * 22 + 16;
   const H = Math.round(verdictTopBase + vBlockH + 24);
 
