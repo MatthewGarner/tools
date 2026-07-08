@@ -126,7 +126,7 @@ export function renderStack(state, ctx){
 
   // negative-price warning band: drawn as backdrop, before the bars
   if(cp < 0){
-    P.push(`<rect x='${r2(x0)}' y='${r2(sy(0))}' width='${r2(x1 - x0)}' height='${r2(y1 - sy(0))}' fill='${tint(C.err)}'/>`);
+    P.push(`<rect class='negative-band' x='${r2(x0)}' y='${r2(sy(0))}' width='${r2(x1 - x0)}' height='${r2(y1 - sy(0))}' fill='${tint(C.err)}'/>`);
   }
 
   P.push(...stackRows);

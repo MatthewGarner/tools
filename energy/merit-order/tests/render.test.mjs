@@ -4,8 +4,8 @@ import {dispatch} from '../engine.js';
 import {generatorsFromPreset, PRESETS} from '../state.js';
 import {renderStack, toMarkdown} from '../render.js';
 
-const ctx = {colors: {card:'#fff', border:'#ddd', ink:'#111', muted:'#666', accent:'#C05621',
-  bg:'#f7f8f6', err:'#b00', track:'#eee'}, measure: (s) => s.length * 7};
+const ctx = {colors: {card:'#ffffff', border:'#dddddd', ink:'#111111', muted:'#666666', accent:'#C05621',
+  bg:'#f7f8f6', err:'#b3403a', track:'#eeeeee'}, measure: (s) => s.length * 7};   // 6-digit hex: tint() needs it
 const state = p => ({generators: generatorsFromPreset(p), demand: p.demand});
 
 test('root svg well-formed with double-quoted integer size; keyed plant groups', () => {
@@ -22,9 +22,11 @@ test('marginal badge names the marginal plant; verdict avoids "profit"', () => {
   assert.doesNotMatch(svg, /profit/i);
 });
 
-test('negative preset shows the words, not just a low line', () => {
+test('negative preset shows the words AND a visible warning band, not just a low line', () => {
   const svg = renderStack(state(PRESETS.negative), ctx);
   assert.ok(/paying to generate/i.test(svg));
+  assert.ok(svg.includes("class='negative-band'"), 'negative band element drawn');
+  assert.doesNotMatch(svg, /class='negative-band'[^>]*fill='none'/, 'band has a real fill, not none');
 });
 
 test('every tag is well-formed (per-tag scan, like dev/svg-wellformed) — NOT a whole-string regex', () => {
