@@ -120,7 +120,7 @@ async function installAndWait(page){
   let ok3 = false;
   try{
     await p4.goto(EBASE + '/frequency/', {waitUntil: 'domcontentloaded', timeout: 8000});
-    await p4.getByRole('button', {name: 'Battery to the rescue'}).click();
+    await p4.getByRole('button', {name: 'Battery stack'}).click();
     await p4.waitForTimeout(2500);
     ok3 = await p4.locator('#trace').count() === 1 && (await p4.locator('#verdict').innerText()).trim().length > 0;
   }catch(e){ ok3 = false; }

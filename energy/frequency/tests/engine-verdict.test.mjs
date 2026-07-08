@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {simulate, leverDeltas, verdict} from '../engine.js';
 
-const P = {trip: 1.8, eSync: 90, load: 30, battMW: 1, dcMw: 1, eGfm: 15, dcDelay: 0.4};
+const P = {trip: 1.8, eSync: 90, load: 30, battMW: 1, dcMw: 1, eGfm: 15};
 
 test('case 5/6 — the honest overlap: GFM flattens RoCoF AND lifts nadir; DC lifts nadir', () => {
   const d = leverDeltas(P);
@@ -11,6 +11,11 @@ test('case 5/6 — the honest overlap: GFM flattens RoCoF AND lifts nadir; DC li
   assert.ok(d.gfm.nadir > 0, 'grid-forming also lifts the nadir (overlap)');
   assert.ok(d.dc.nadir > 0, 'DC lifts the nadir');
   assert.ok(Math.abs(d.dc.rocof) < 1e-6, 'DC does not change the initial RoCoF (it acts after the delay)');
+});
+
+test('DR vs DM at equal MW: DM (fast) lifts the nadir more than DR (slow)', () => {
+  const d = leverDeltas({trip: 1.8, eSync: 80, load: 30, drMw: 0.5, dmMw: 0.5, battMW: 1});
+  assert.ok(d.dm.nadir > d.dr.nadir, `DM should lift the nadir more than DR: dm=${d.dm.nadir} dr=${d.dr.nadir}`);
 });
 
 test('verdict — a non-empty string that quotes the RoCoF and nadir', () => {

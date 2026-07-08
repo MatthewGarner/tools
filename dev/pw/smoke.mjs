@@ -84,7 +84,7 @@ for(const theme of ['light', 'dark']){
 
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/energy/frequency/', theme);
-  await page.getByRole('button', {name: 'Battery to the rescue'}).click();
+  await page.getByRole('button', {name: 'Battery stack'}).click();
   await page.waitForTimeout(2500);
   check('frequency(' + theme + '): trace canvas exists', await page.locator('#trace').count() === 1);
   const verdict = (await page.locator('#verdict').innerText()).trim();
