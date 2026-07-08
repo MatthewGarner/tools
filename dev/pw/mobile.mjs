@@ -34,7 +34,7 @@ for(const [name, url] of AUTOLOAD){
   await page.waitForTimeout(1000);
   const hash = await page.evaluate(() => location.hash);
   const hasOutput = await page.evaluate(() =>
-    !!document.querySelector('.stage svg, .preview svg, #chartwrap svg, main svg, svg'));
+    !!document.querySelector('.stage svg, .preview svg, #chartwrap svg, main svg'));
   ok(hasOutput, `${name}: renders a default example on phone first-run`);
   ok(hash === '', `${name}: URL not polluted by auto-load (hash="${hash}")`);
   await page.close();
