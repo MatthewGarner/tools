@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Merit order</title>
-<meta name="description" content="Stack generators cheapest-first, drag the demand line, and watch one plant set the price for everyone — until must-run bids push it below zero.">
+<meta name="description" content="Stack the real 2026 Great Britain fleet cheapest-first — wind, solar, nuclear, a gas efficiency staircase, batteries dispatched ahead of gas — drag demand and watch which plant sets the price for everyone.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/controls.css">
@@ -24,7 +24,7 @@
   <header>
     <a class="crumb" href="../">← All energy tools</a>
     <h1>Merit order</h1>
-    <p class="tagline">Stack generators cheapest-first, drag the demand line, and watch one plant set the price for everyone — until must-run bids push it below zero.</p>
+    <p class="tagline">The 2026 Great Britain fleet, stacked cheapest-first: wind, solar, nuclear, a gas efficiency staircase and batteries dispatched ahead of gas. Drag demand and watch which plant sets the price for everyone.</p>
   </header>
 </div>
 
@@ -39,20 +39,24 @@
   </section>
 
   <section class="card">
-    <div class="chips" id="presets"><span class="lead">Try:</span>
-      <button class="chip" data-preset="typical">Typical day</button>
-      <button class="chip" data-preset="windy">Windy day</button>
-      <button class="chip" data-preset="coldStill">Cold still evening</button>
+    <div class="chips" id="presets"><span class="lead">Conditions:</span>
+      <button class="chip" data-preset="">GB today</button>
+      <button class="chip" data-preset="windy">Windy</button>
+      <button class="chip" data-preset="coldPeak">Still cold peak</button>
       <button class="chip" data-preset="gasSpike">Gas spike</button>
       <button class="chip" data-preset="negative">Negative prices</button>
     </div>
     <div class="controls">
       <div class="ctl"><label>Demand <output id="demandout"></output></label>
-        <input type="range" id="demand" min="0" max="55" step="1" value="40" aria-label="Demand, GW"></div>
-      <div class="ctl"><label>Renewables capacity <output id="renewout"></output></label>
-        <input type="range" id="renew" min="0" max="40" step="1" value="15" aria-label="Renewables capacity, GW"></div>
+        <input type="range" id="demand" min="0" max="64" step="1" value="40" aria-label="Demand, GW"></div>
       <div class="ctl"><label>Gas price <output id="gasout"></output></label>
-        <input type="range" id="gas" min="20" max="200" step="5" value="60" aria-label="Gas price, pounds per MWh"></div>
+        <input type="range" id="gas" min="20" max="300" step="5" value="100" aria-label="Gas price, pence per therm"></div>
+      <div class="ctl"><label>Carbon price <output id="carbonout"></output></label>
+        <input type="range" id="carbon" min="20" max="100" step="5" value="50" aria-label="Carbon price, pounds per tonne of CO2"></div>
+      <div class="ctl"><label>Wind availability <output id="windout"></output></label>
+        <input type="range" id="wind" min="0" max="100" step="5" value="28" aria-label="Wind availability, percent of installed"></div>
+      <div class="ctl"><label>Solar availability <output id="solarout"></output></label>
+        <input type="range" id="solar" min="0" max="100" step="5" value="20" aria-label="Solar availability, percent of installed"></div>
       <div class="ctl"><label>Must-run renewables <output id="mustrunout"></output></label>
         <div class="seg" id="mustrunseg" role="radiogroup" aria-label="Must-run renewables">
           <button data-mustrun="off" class="on">Off</button><button data-mustrun="on">On</button></div></div>
@@ -66,10 +70,11 @@
   <section class="about">
     <h2>What sets the price</h2>
     <div class="prose">
-    <p>Every generator offers power at its marginal cost — roughly its fuel cost: near zero for wind and solar, low for nuclear, higher for gas. Stack them cheapest-first and the demand line lands on one plant, the <b>marginal unit</b>. In a <b>pay-as-clear</b> market everyone dispatched is paid that one plant's price — so a wind-heavy day is still priced by gas whenever the last megawatt needed comes from a CCGT, and the cheap plants pocket the difference (their inframarginal rent).</p>
-    <p>Push renewables up and demand down and the marginal unit becomes a <b>must-run</b> plant bidding below zero — subsidised wind that would rather pay to keep generating than lose its per-MWh subsidy, or inflexible thermal that can't cheaply switch off. The clearing price goes negative: a signal to switch off, not a glitch.</p>
-    <p>This is a single snapshot of uniform-price, day-ahead-style clearing — deliberately not GB's real-time balancing mechanism, which runs pay-as-bid. Each plant offers a flat marginal cost (no rising heat-rate curves, unit-commitment or start-up costs), bids equal true costs (no strategic bidding), and must-run inflexibility is stood in for by a negative bid with no explicit curtailment — the "would generate anyway" megawatts are simplified away. Illustrative plants, no live data, no network constraints.</p>
-    <p>Sibling toys extend the same engine: network constraints turn one price into locational prices, an interconnector couples two markets, the marginal plant's carbon is the carbon of the next megawatt, and a price cap opens the capacity-market "missing money" gap. Here it's one price, one place.</p>
+    <p>Every plant <b>offers</b> power at a price and the grid takes the cheapest first. For thermal plant that offer is roughly its fuel-plus-carbon cost — near zero for wind, solar and nuclear, higher for gas. Stack them cheapest-first and the demand line lands on one plant, the <b>marginal unit</b>; in a <b>pay-as-clear</b> market everyone dispatched is paid that one plant's price, and the cheaper plants pocket the difference (their inframarginal rent). So a typical day is still priced by gas whenever the last megawatt needed comes from a CCGT.</p>
+    <p>The gas fleet isn't one plant — it's a <b>range of efficiencies</b>. Each band's cost is fuel ÷ efficiency, plus carbon, so the most efficient CCGT sets a lower price than the oldest, and a gas-price spike fans the whole staircase apart. Which gas unit is marginal is what moves the price.</p>
+    <p><b>Batteries and pumped storage bid their charging cost</b> — what they paid to fill, divided by round-trip efficiency — which sits below gas, so they're dispatched <i>ahead</i> of gas and push it out of the stack. The shaded rent on a battery is the <b>arbitrage spread</b> it earns off the gas-set price, not a fuel margin. This is a snapshot of storage discharging only; the charging leg and its energy limit over a day aren't drawn — a ~1.8-hour fleet can't hold full power for long, which is why a long, still, cold evening empties it and the oldest gas sets the price. The full charge→discharge cycle is a sibling toy's job.</p>
+    <p>Wind and solar are sized by what's <b>available</b> right now (the "GW offered"), not their full installed capacity — a still night offers little wind whatever the nameplate. Push availability up and demand down with must-run on and the marginal unit bids <b>below zero</b>: subsidised renewables would rather pay to keep generating than lose their per-MWh support, so the clearing price goes negative — a signal to switch off, not a glitch.</p>
+    <p>Illustrative structural figures (installed capacities from DUKES/NESO; gas and carbon are representative teaching values) — <b>no live data, ever</b>. One uniform-price, day-ahead-style snapshot, not GB's real-time balancing mechanism: flat marginal offers (no unit-commitment or start-up costs), no strategic bidding, imports priced at an assumed neighbour price that can undercut the most efficient gas, no network constraints, and marginal ≠ average carbon. Sibling toys extend the same engine — network constraints turn one price into locational prices, an interconnector couples two markets, the marginal plant's carbon is the carbon of the next megawatt, a price cap opens the capacity-market "missing money" gap, and the storage arbitrage cycle gets its own sketchpad.</p>
     </div>
   </section>
 
