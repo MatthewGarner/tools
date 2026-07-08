@@ -60,7 +60,7 @@ test('serviceEnv: DC is two-slope — ~5% at its 0.2 Hz breakpoint, full at 0.5 
 test('serviceResponse: scales the envelope fraction by contracted MW', () => {
   close(serviceResponse(-0.5, 2, DC), 2, 1e-9, 'DC full output at 2 GW cap');
   assert.equal(serviceResponse(-0.01, 2, DC), 0);   // inside deadband
-  close(serviceResponse(0.5, 2, DC), 2, 1e-9, 'sign of df does not matter');
+  assert.equal(serviceResponse(0.5, 2, DC), 0, 'directional: Low service does NOT inject above nominal');
 });
 
 test('UFLS_STAGES: first stage is 48.8 Hz at ~5%', () => {
