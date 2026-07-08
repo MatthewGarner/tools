@@ -1,8 +1,9 @@
 // energy/frequency/state.js — pure control→params mapping + presets (no DOM)
 // Shared stressed-grid inertia (GVA·s) for the three low-inertia presets: low
 // enough that the no-battery case (grid2030) actually breaches 48.8 Hz and
-// sheds a UFLS stage, but not so low that the battery (rescue) can't catch it
-// above the line. Tuned empirically — see state.test.mjs for the invariants.
+// sheds a UFLS stage, but not so low that the battery (stack/procure3x)
+// can't catch it above the line. Tuned empirically — see state.test.mjs for
+// the invariants.
 // Must be a multiple of the #inertia slider's step (5): the range input's
 // value sanitization snaps any programmatically-set value to the nearest
 // step, so a non-step value here would silently display/simulate as

@@ -224,9 +224,9 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {simulate: fsim} = await import('../energy/frequency/engine.js');
   const {renderTrace: frender} = await import('../energy/frequency/render.js');
-  const fp = {trip: 1.8, eSync: 90, load: 30, dcMw: 1, dcDelay: 0.4, eGfm: 15, battMW: 1};
+  const fp = {trip: 1.8, eSync: 80, drMw: 0.5, dmMw: 0.5, dcMw: 1.5, battMW: 2.5, eGfm: 20, load: 30};
   variants['frequency-rescue'] = frender(fsim(fp), fp, {...ctxBase});
-  const fShed = {trip: 1.8, eSync: 90, load: 30};
+  const fShed = {trip: 1.8, eSync: 80, load: 30};
   variants['frequency-2030'] = frender(fsim(fShed), fShed, {...ctxBase});
 }
 

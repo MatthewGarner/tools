@@ -96,7 +96,8 @@ function boot(){
     const C = themeColors();
     const tEnd = result.t[result.t.length - 1];
     // no-battery counterfactual: only meaningful when a battery is actually active
-    const ghost = (p.dcMw > 0 || p.eGfm > 0) ? simulate({...p, dcMw: 0, eGfm: 0}) : null;
+    const ghost = (p.drMw > 0 || p.dmMw > 0 || p.dcMw > 0 || p.eGfm > 0)
+      ? simulate({...p, drMw: 0, dmMw: 0, dcMw: 0, eGfm: 0}) : null;
     // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space;
     // extend to include the ghost's (deeper) dip when present
     const lowNadir = ghost ? Math.min(result.nadir.f, ghost.nadir.f) : result.nadir.f;
