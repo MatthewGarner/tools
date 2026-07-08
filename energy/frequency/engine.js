@@ -59,9 +59,14 @@ export function serviceEnv(d, svc){
 }
 
 /* A service's target power (GW) for a signed deviation df (Hz) and its
-   contracted MW (GW) volume. */
+   contracted MW (GW) volume. These are the LOW (under-frequency) services:
+   they inject power only when frequency is BELOW nominal (df < 0). Above
+   nominal they deliver zero — the High-direction service (which would absorb)
+   is not modelled here, since the toy fires an under-frequency event. Using
+   |df| would keep injecting above nominal, a positive feedback that spikes
+   frequency when a slow service (DR) arrives after the recovery has turned. */
 export function serviceResponse(df, mw, svc){
-  return mw * serviceEnv(Math.abs(df), svc);
+  return df < 0 ? mw * serviceEnv(-df, svc) : 0;
 }
 
 /* Forward-Euler integration of the swing equation. dt=10 ms over 30 s.
