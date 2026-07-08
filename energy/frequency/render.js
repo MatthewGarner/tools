@@ -14,7 +14,9 @@ export function renderTrace(result, p, ctx){
   const W = 1200, H = 520;
   const x0 = 64, x1 = W - 24, y0 = 56, y1 = H - 96;
   const tEnd = result.t[result.t.length - 1];
-  const fMin = Math.min(47.6, result.nadir.f - 0.2), fMax = 50.3;
+  // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space
+  // (kept in lockstep with app.js's drawCanvas — the live canvas mirrors this range)
+  const fMin = Math.min(result.nadir.f - 0.4, 48.5), fMax = 50.3;
   const sx = t => x0 + (t / tEnd) * (x1 - x0);
   const sy = f => y1 - ((f - fMin) / (fMax - fMin)) * (y1 - y0);
   const P = [];
@@ -28,6 +30,7 @@ export function renderTrace(result, p, ctx){
     (dash ? ` stroke-dasharray='${dash}'` : '') + `/>`;
   P.push(`<rect x='${x0}' y='${r2(sy(50.2))}' width='${x1 - x0}' height='${r2(sy(49.8) - sy(50.2))}' fill='${C.accent}' opacity='0.06'/>`);
   P.push(line(F0, C.muted, ''));
+  P.push(txt(x1, sy(F0) - 6, '50 Hz', 12, C.muted, {anchor: 'end'}));
   P.push(line(48.8, C.err, '5 4'));
   P.push(txt(x1, sy(48.8) - 6, 'UFLS 48.8 Hz — demand disconnects', 12, C.err, {anchor: 'end'}));
 
