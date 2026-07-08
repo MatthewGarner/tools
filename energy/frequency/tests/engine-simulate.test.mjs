@@ -40,6 +40,10 @@ test('case 8 — UFLS closes the loop: a big trip on a weak grid sheds AND arres
   assert.equal(r.shed[0].f, 48.8, 'first stage at 48.8 Hz');
   // the fall is arrested: frequency recovers off the nadir by the end
   assert.ok(r.settle > r.nadir.f, 'recovered above the nadir after shedding');
+  // discriminating: the ~1.5 GW first-stage shed, netted into the balance,
+  // lifts the settle far above the deep no-shed equilibrium (~48.9 Hz).
+  // A regression that drops pUfls from pNet fails this (settle ≈ 48.9).
+  assert.ok(r.settle > 49.5, 'UFLS power reaches the balance and lifts the settle');
 });
 
 test('case 9 — pinned identity flows through simulate', () => {
