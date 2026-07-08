@@ -340,7 +340,8 @@ function boot(){
       flashEl(chartwrap.querySelector('.negative-band'));
     }
     wasNegative = result.clearingPrice < 0;
-    lastMarginalName = result.marginalName;
+    if(settle) lastMarginalName = result.marginalName;   // only settle advances the flag — live frames
+                                                          // at the final value must not pre-consume it
 
     clearTimeout(hashTimer);
     hashTimer = setTimeout(() => writeHashState(encodeState(state.generators, state.demand)), 400);
