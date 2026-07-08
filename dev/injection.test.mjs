@@ -118,3 +118,10 @@ test('frequency renderer stays clean (no parser — result is numeric, guards fu
   const result = simulate(p);
   assertClean(renderTrace(result, {trip: 1.8, eSync: 90}, ctx), 'frequency');
 });
+
+test('merit-order renderer stays clean (no parser — inputs are numeric/closed-name-set, guards future changes)', async () => {
+  const {renderStack} = await import('../energy/merit-order/render.js');
+  const {generatorsFromPreset, PRESETS} = await import('../energy/merit-order/state.js');
+  const state = {generators: generatorsFromPreset(PRESETS.negative), demand: PRESETS.negative.demand};
+  assertClean(renderStack(state, ctx), 'merit-order');
+});

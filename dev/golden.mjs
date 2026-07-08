@@ -230,6 +230,15 @@ for(const [k, src] of Object.entries(docs)){
   variants['frequency-2030'] = frender(fsim(fShed), fShed, {...ctxBase});
 }
 
+/* /merit-order fixtures (pure engine, no seed needed — deterministic by construction) */
+{
+  const {renderStack} = await import('../energy/merit-order/render.js');
+  const {generatorsFromPreset, PRESETS} = await import('../energy/merit-order/state.js');
+  const mk = p => ({generators: generatorsFromPreset(p), demand: p.demand});
+  variants['merit-order-typical'] = renderStack(mk(PRESETS.typical), {...ctxBase});
+  variants['merit-order-negative'] = renderStack(mk(PRESETS.negative), {...ctxBase});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
