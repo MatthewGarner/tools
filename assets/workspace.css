@@ -79,6 +79,8 @@ footer{margin: 48px 0 8px}
   .workspace{display: flex; flex-direction: column; gap: 16px; margin-top: 20px}
   .rail{width: auto; max-height: none; overflow: visible; opacity: 1 !important;
     padding: 18px !important; border-color: var(--border) !important}
+  .stage{ order: -1; }   /* phones are for viewing: diagram above the editor */
+  .rail{ order: 0; }
   /* indent/outdent buttons for indented DSLs — fingers have no Tab key.
    Hidden wherever a keyboard is likely; shown for coarse pointers. */
 .cm-indentbar{display: none}
