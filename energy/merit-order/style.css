@@ -30,7 +30,9 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* the supply-stack SVG pans on narrow/coarse viewports rather than shrinking
    past legibility (fixed 1200-wide viewBox from render.js) */
 #chartwrap{overflow-x:auto;position:relative}
-#chartwrap svg{display:block;width:100%;height:auto;min-width:640px}
+/* the 1200-unit viewBox must render near 1:1 so in-chart text stays legible;
+   on narrow screens the chart PANS (overflow-x above) rather than shrinking. */
+#chartwrap svg{display:block;width:100%;height:auto;min-width:1160px}
 
 /* demand-drag hit-rect (app.js): a plain HTML overlay, not part of the SVG,
    so its pointerdown listener survives the innerHTML swap every live render
