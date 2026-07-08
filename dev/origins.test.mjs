@@ -12,7 +12,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {ENERGY_HOST, toRepoPath, toToolsPath, toOriginUrl, vercelRewrites} from './origins.mjs';
+import {ENERGY_HOST, toRepoPath, toToolsPath, toOriginUrl, vercelRewrites,
+  vercelRedirects, energyRedirectSources} from './origins.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8'));
@@ -40,6 +41,17 @@ test('tools origin redirects /energy/* (including the bare slash form)', () => {
   for(const r of reds){
     assert.deepEqual(r.has, [{type: 'host', value: 'tools.matthewgarner.me'}]);
     assert.ok(r.destination.startsWith('https://' + ENERGY_HOST + '/'));
+  }
+});
+
+test('energy tool paths redirect bare → trailing-slash (no-slash asset-404 bug)', () => {
+  // /risk, /cycles, /frequency — but NOT /icons (asset dir) or the exact rows
+  assert.deepEqual(energyRedirectSources().slice().sort(), ['/cycles', '/frequency', '/risk']);
+  const inVercel = (vercel.redirects || []).filter(r => energyRedirectSources().includes(r.source));
+  assert.deepEqual(inVercel, vercelRedirects());
+  for(const r of vercelRedirects()){
+    assert.deepEqual(r.has, [{type: 'host', value: ENERGY_HOST}]);
+    assert.equal(r.destination, r.source + '/');   // canonical trailing-slash form
   }
 });
 
