@@ -71,7 +71,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!sim);
-  try{ localStorage.setItem('risk-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('risk-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

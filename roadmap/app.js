@@ -146,7 +146,7 @@ function doRefresh(){
     }
   }
   setActionsEnabled(!!lastSvg);
-  try{ localStorage.setItem('roadmap-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

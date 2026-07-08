@@ -85,7 +85,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!out);
-  try{ localStorage.setItem('cycles-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('cycles-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

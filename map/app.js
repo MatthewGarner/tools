@@ -138,7 +138,7 @@ function doRefresh(){
   renderWarnings();
   setActionsEnabled(!!lastSvg);
   $('togauge').hidden = !(ro && ro.flagged.length);
-  try{ localStorage.setItem('map-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('map-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }

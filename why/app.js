@@ -90,7 +90,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
-  try{ localStorage.setItem('why-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('why-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
