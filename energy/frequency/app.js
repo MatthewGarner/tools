@@ -90,7 +90,7 @@ function boot(){
   // wiring
   for(const id of IDS) $(id).addEventListener('input', () => {
     for(const c of document.querySelectorAll('#presets .chip')) c.classList.remove('on');
-    refresh(true);
+    refresh(false);
   });
   $('tripbtn').addEventListener('click', () => refresh(true));
   for(const btn of document.querySelectorAll('#presets .chip')){

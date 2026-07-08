@@ -20,3 +20,11 @@ test('verdict — a non-empty string that quotes the RoCoF and nadir', () => {
   assert.ok(v.includes('Hz/s'), 'quotes RoCoF');
   assert.ok(v.includes('Hz'), 'quotes a frequency');
 });
+
+test('verdict — shed branch names the load shedding when a weak grid trips big', () => {
+  const p = {trip: 5, eSync: 40, load: 30};
+  const r = simulate(p);
+  const v = verdict(r, p);
+  assert.ok(r.shedOccurred, 'this case should actually shed load');
+  assert.ok(v.includes('Load shedding'), 'shed branch names it: ' + v);
+});

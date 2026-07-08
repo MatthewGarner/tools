@@ -51,9 +51,10 @@ async function svgDecodes(page, selector){
 /* ---- energy landing + risk ---- */
 {
   const {page, errors} = await freshPage('/energy/');
-  check('energy landing: two tool cards', await page.locator('a.tool').count() === 2);
+  check('energy landing: three tool cards', await page.locator('a.tool').count() === 3);
   check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
   check('energy landing: cycles card resolves', (await page.request.get(BASE + '/energy/cycles/')).status() === 200);
+  check('energy landing: frequency card resolves', (await page.request.get(BASE + '/energy/frequency/')).status() === 200);
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }
@@ -78,6 +79,19 @@ for(const theme of ['light', 'dark']){
   check('cycles(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('Cycles are worth'));
   check('cycles(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
   check('cycles(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/energy/frequency/', theme);
+  await page.getByRole('button', {name: 'Battery to the rescue'}).click();
+  await page.waitForTimeout(2500);
+  check('frequency(' + theme + '): trace canvas exists', await page.locator('#trace').count() === 1);
+  const verdict = (await page.locator('#verdict').innerText()).trim();
+  check('frequency(' + theme + '): verdict non-empty', verdict.length > 20);
+  check('frequency(' + theme + '): crumb points at energy landing',
+    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('frequency(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

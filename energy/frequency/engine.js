@@ -106,7 +106,7 @@ export function leverDeltas(p){
 export function verdict(r, p){
   const shed = r.shedOccurred
     ? ` Load shedding catches it — ~${Math.round(r.shedTotal * 100)}% of demand disconnected to save the rest.`
-    : ` The nadir holds at ${hz(r.nadir.f)} Hz, clear of the 48.8 Hz shedding line.`;
+    : ` The nadir holds at ${hz(r.nadir.f)} Hz, clear of the ${UFLS_STAGES[0].f} Hz shedding line.`;
   return `A ${p.trip} GW loss on a ${Math.round(p.eSync)} GVA·s grid falls at ` +
     `${hz(r.rocof)} Hz/s and bottoms at ${hz(r.nadir.f)} Hz.${shed}`;
 }
