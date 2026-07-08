@@ -220,6 +220,16 @@ for(const [k, src] of Object.entries(docs)){
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 }
 
+/* /frequency fixtures (pure ODE, no seed needed — deterministic by construction) */
+{
+  const {simulate: fsim} = await import('../energy/frequency/engine.js');
+  const {renderTrace: frender} = await import('../energy/frequency/render.js');
+  const fp = {trip: 1.8, eSync: 90, load: 30, dcMw: 1, dcDelay: 0.4, eGfm: 15, battMW: 1};
+  variants['frequency-rescue'] = frender(fsim(fp), fp, {...ctxBase});
+  const fShed = {trip: 1.8, eSync: 90, load: 30};
+  variants['frequency-2030'] = frender(fsim(fShed), fShed, {...ctxBase});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

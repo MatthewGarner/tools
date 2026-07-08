@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frequency &amp; inertia</title>
+<meta name="description" content="A single-bus swing-equation model: trip a generator and watch RoCoF and nadir respond to system inertia, Dynamic Containment speed and volume, and grid-forming synthetic inertia.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/controls.css">
+<link rel="stylesheet" href="../../assets/workspace.css">
+<link rel="stylesheet" href="../../assets/about.css">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="../../assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="../">← All energy tools</a>
+    <h1>Frequency &amp; inertia</h1>
+    <p class="tagline">Trip a generator and watch the grid catch itself. Inertia sets how fast frequency falls; a battery's speed is what stops it short of the lights going out.</p>
+  </header>
+</div>
+
+<div class="wrap board">
+  <section class="card controls-card">
+    <!-- controls -->
+    <div class="chips" id="presets"><span class="lead">Try:</span>
+      <button class="chip" data-preset="grid2010">2010 grid</button>
+      <button class="chip" data-preset="grid2030">2030 low-inertia</button>
+      <button class="chip" data-preset="rescue">Battery to the rescue</button>
+      <button class="chip" data-preset="gfmduel">Grid-forming vs following</button>
+    </div>
+    <div class="ctl-group">
+      <div class="ctl-head">The grid</div>
+      <div class="controls">
+        <div class="ctl"><label>Synchronous inertia <output id="inertiaout"></output></label>
+          <input type="range" id="inertia" min="40" max="300" step="5" value="90" aria-label="Synchronous inertia, GVA·s"></div>
+        <div class="ctl"><label>Trip size <output id="tripout"></output></label>
+          <input type="range" id="trip" min="0.2" max="1.8" step="0.1" value="1.8" aria-label="Generation lost, GW"></div>
+      </div>
+      <p class="ctl-note">Primary response ≈ <output id="govout"></output> — synchronous plant, and it falls as you retire it.</p>
+    </div>
+    <div class="ctl-group">
+      <div class="ctl-head">The battery · BESS</div>
+      <div class="controls">
+        <div class="ctl"><label>Grid-forming inertia <output id="gfmout"></output></label>
+          <input type="range" id="gfm" min="0" max="40" step="2" value="0" aria-label="Grid-forming synthetic inertia, GVA·s"></div>
+        <div class="ctl"><label>Dynamic Containment <output id="dcout"></output></label>
+          <input type="range" id="dc" min="0" max="2" step="0.1" value="0" aria-label="Dynamic Containment volume, GW"></div>
+        <div class="ctl"><label>DC speed <output id="dcspeedout"></output></label>
+          <input type="range" id="dcspeed" min="0.1" max="2" step="0.1" value="0.5" aria-label="DC initiation delay, seconds"></div>
+      </div>
+    </div>
+    <button class="btn trip-btn" id="tripbtn">⚡ Trip a generator</button>
+  </section>
+
+  <section class="card hero-card">
+    <!-- the hero -->
+    <canvas id="trace" aria-label="Frequency trace after the trip"></canvas>
+    <div class="effline">Effective inertia <b id="effinertia"></b></div>
+    <div class="tiles">
+      <span>RoCoF <b id="t-rocof">—</b></span><span>Nadir <b id="t-nadir">—</b></span>
+      <span>Time to nadir <b id="t-tnadir">—</b></span><span>Settles <b id="t-settle">—</b></span>
+      <span>Load shed <b id="t-shed">—</b></span>
+    </div>
+    <div id="verdict" class="verdict"></div>
+    <div id="deltas" class="deltas"></div>
+    <div class="actions">
+      <button class="btn" id="dlsvg">Download SVG</button><button class="btn" id="dlpng">Download PNG</button>
+      <button class="btn" id="copypng">Copy PNG</button><button class="btn" id="copydoc">Copy for a doc</button>
+    </div>
+  </section>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>What sets the fall</h2>
+    <div class="prose">
+    <p>Grid frequency is the tachometer of the whole system: 50 Hz means generation and demand match. Lose a big infeed and frequency falls — and how fast it falls in the first instant is set by <b>inertia</b>, the kinetic energy stored in spinning synchronous plant. The swing equation makes it concrete: RoCoF ≈ loss ÷ inertia. Swap synchronous plant for inverter-based wind, solar and batteries and that inertia drops — GB's operating floor fell to 120 GVA·s in 2024, from roughly 300 a decade earlier — so the same trip falls faster and deeper.</p>
+    <p>A battery earns its money by being fast. <b>Dynamic Containment</b>, a post-fault service that ramps to full output by ±0.5 Hz within a second, arrests the fall and lifts the nadir. <b>Grid-forming</b> units go further: as voltage sources they give an inertia-like response that flattens the initial slope itself — the part fast response can't reach. Different products for different moments of the fall.</p>
+    <p>This is a single-bus teaching model — one uniform system frequency, no locational effects — with illustrative parameters you can move, not a validated study of any real grid. It settles <i>off-nominal</i>, at a droop offset; full restoration to 50 Hz is secondary response over minutes, off-screen. Grid-forming inertia saturates at the inverter's current limit, unlike true spinning mass. And load damping — modelled here — is itself fading as demand becomes power-electronic, the same story as inertia.</p>
+    <p>The revenue is real. NESO procures fast frequency response through Dynamic Containment — with its calmer siblings Dynamic Moderation and Dynamic Regulation trimming smaller, pre-fault wobbles; this toy fires a large loss, squarely DC's job — and procures inertia and stability through the Long-Term 2029 tender, successor to the Stability Pathfinders. Grid-forming was codified in GB's Grid Code (GC0137, a 2022 world-first) and is growing, though still a minority of contracted inertia today. Note the toy models demand disconnection below 48.8 Hz (UFLS), which is a different mechanism from RoCoF loss-of-mains protection.</p>
+    </div>
+  </section>
+
+  <footer>
+    No accounts, no tracking. The URL carries your settings — bookmark or share it.<br>
+    Part of <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a> · sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

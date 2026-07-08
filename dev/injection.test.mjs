@@ -110,3 +110,11 @@ test('cycles renderer escapes a hostile title', async () => {
   const m = parse(doc);
   assertClean(render(m, simulate(m, {seed: 1, n: 500}), ctx, {edit: true}), 'cycles');
 });
+
+test('frequency renderer stays clean (no parser — result is numeric, guards future changes)', async () => {
+  const {simulate} = await import('../energy/frequency/engine.js');
+  const {renderTrace} = await import('../energy/frequency/render.js');
+  const p = {trip: 1.8, eSync: 90, load: 30, dcMw: 1, battMW: 1, eGfm: 15};
+  const result = simulate(p);
+  assertClean(renderTrace(result, {trip: 1.8, eSync: 90}, ctx), 'frequency');
+});
