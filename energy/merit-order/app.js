@@ -85,6 +85,7 @@ function boot(){
   window.addEventListener('pointermove', e => {
     if(!dragging) return;
     state.params.demand = Math.min(DEMAND_MAX, snapDemand(clientXToGW(e.clientX)));
+    markCustom();
     render(false);
   });
   window.addEventListener('pointerup', () => {
@@ -108,15 +109,17 @@ function boot(){
     state.params.mustRunOn = on;
     syncMustRunSeg(on);
     $('depthctl').hidden = !on;
+    markCustom();
     closeCallout();
     render(true);
   }));
 
   /* ---- sliders: input = live cut, change = settle ---- */
+  const markCustom = () => { state.condition = 'custom'; };   // any manual edit leaves the active preset
   function wireDial(id, apply){
     const el = $(id);
-    el.addEventListener('input', () => { apply(+el.value); render(false); });
-    el.addEventListener('change', () => { apply(+el.value); render(true); });
+    el.addEventListener('input', () => { apply(+el.value); markCustom(); render(false); });
+    el.addEventListener('change', () => { apply(+el.value); markCustom(); render(true); });
   }
   wireDial('demand', v => { state.params.demand = v; });
   wireDial('gas',    v => { state.params.gas = v; });
@@ -227,11 +230,13 @@ function boot(){
     pop.appendChild(stepperRow('Capacity', () => Math.round(advOf(name)[0]), ' GW', dir => {
       const [cap, cost] = advOf(name);
       state.adv[name] = [clamp(cap + dir * CAP_STEP, 0, 90), cost];
+      markCustom();
       render(true);
     }));
     pop.appendChild(stepperRow('Bid', () => Math.round(advOf(name)[1]), ' £/MWh', dir => {
       const [cap, cost] = advOf(name);
       state.adv[name] = [cap, clamp(cost + dir * COST_STEP, -200, 400)];
+      markCustom();
       render(true);
     }));
 
@@ -286,6 +291,13 @@ function boot(){
     $('mustrunout').textContent = p.mustRunOn ? 'On' : 'Off';
     if(p.mustRunOn) $('depthout').textContent = '−£' + Math.round(p.mustRunDepth) + '/MWh';
   }
+  function syncChips(){   // highlight the active Conditions chip (null = "GB today"; 'custom' = none)
+    for(const b of document.querySelectorAll('#presets .chip[data-preset]')){
+      const on = (b.dataset.preset || null) === (state.condition || null);
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+  }
   function syncControls(){   // push params → slider positions + toggles (after a preset/boot)
     const p = state.params;
     $('demand').value = p.demand;
@@ -297,6 +309,7 @@ function boot(){
     syncMustRunSeg(p.mustRunOn);
     $('depthctl').hidden = !p.mustRunOn;
     syncOutputs();
+    syncChips();
   }
 
   /* ---- the refresh loop ---- */
@@ -313,6 +326,7 @@ function boot(){
     positionHitRect();
 
     syncOutputs();
+    syncChips();
     $('verdict').textContent = buildVerdict(result, cs);
 
     if(animate){

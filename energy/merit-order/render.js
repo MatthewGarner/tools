@@ -39,6 +39,9 @@ export const MERIT_PALETTE = {
 const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%'];
 const FAM_LABEL = {thermal: 'Gas', storage: 'Storage'};   // multi-block runs; single blocks use their own name
 
+/* thermal blocks step through the tonal ramp by band; everything else takes its
+   family hue. NOTE for Phase 2: CCS/H₂ tonal thermal steps must set `thermal:true`
+   AND get a THERMAL_ORDER entry, else palette.thermal (an array) would stringify. */
 function famColour(g, palette){
   if(g.thermal){ const i = THERMAL_ORDER.indexOf(g.name); return palette.thermal[i >= 0 ? i : palette.thermal.length - 1]; }
   return palette[g.family] || '#888888';

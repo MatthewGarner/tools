@@ -16,11 +16,16 @@ test('palette has both themes and all 8 families', () => {
       assert.ok(MERIT_PALETTE[theme][fam], `${theme}.${fam}`);
 });
 
-test('renders a contiguous 5-step gas staircase and a storage block', () => {
+test('renders a contiguous 5-step gas staircase (ascending-bid) with storage below it', () => {
   const svg = renderStack(stateFor(DEFAULT_PARAMS), ctx);
   for(const b of ['CCGT 60%','CCGT 54%','CCGT 49%','OCGT 42%','OCGT 36%','BESS','Pumped storage'])
     assert.ok(svg.includes(b), b);   // each block name must actually be drawn (data-plant='<name>')
   assert.ok(/data-storage='1'/.test(svg), 'storage marker present');
+  // the 5 gas bands render in strict ascending-bid (dispatch) order, contiguously
+  const gas = ['CCGT 60%','CCGT 54%','CCGT 49%','OCGT 42%','OCGT 36%'];
+  const pos = gas.map(n => svg.indexOf("data-plant='" + n + "'"));
+  for(let i = 1; i < pos.length; i++) assert.ok(pos[i] > pos[i - 1], 'gas order at ' + gas[i]);
+  assert.ok(svg.indexOf("data-plant='BESS'") < pos[0], 'storage dispatched below (before) gas');
 });
 
 test('axis label reads "GW offered", never "GW installed"', () => {
