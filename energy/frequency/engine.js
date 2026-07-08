@@ -87,3 +87,26 @@ export function simulate(p){
     shed, shedTotal, shedOccurred: shed.length > 0,
   };
 }
+
+const hz = v => (Math.round(v * 100) / 100).toFixed(2);
+
+/* Isolate each battery lever's effect against a no-battery baseline. */
+export function leverDeltas(p){
+  const base   = simulate({...p, dcMw: 0, eGfm: 0});
+  const withDc = simulate({...p, eGfm: 0});
+  const withGfm= simulate({...p, dcMw: 0});
+  return {
+    dc:  {rocof: withDc.rocof  - base.rocof, nadir: withDc.nadir.f  - base.nadir.f},
+    gfm: {rocof: withGfm.rocof - base.rocof, nadir: withGfm.nadir.f - base.nadir.f},
+  };
+}
+
+/* One quotable line. All figures come from the result, which obeys the
+   swing identity — never hand-write a RoCoF here. */
+export function verdict(r, p){
+  const shed = r.shedOccurred
+    ? ` Load shedding catches it — ~${Math.round(r.shedTotal * 100)}% of demand disconnected to save the rest.`
+    : ` The nadir holds at ${hz(r.nadir.f)} Hz, clear of the 48.8 Hz shedding line.`;
+  return `A ${p.trip} GW loss on a ${Math.round(p.eSync)} GVA·s grid falls at ` +
+    `${hz(r.rocof)} Hz/s and bottoms at ${hz(r.nadir.f)} Hz.${shed}`;
+}
