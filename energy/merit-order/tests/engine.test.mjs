@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {dispatch} from '../engine.js';
+import {buildStack} from '../stack.js';
+import {DEFAULT_PARAMS} from '../scenarios.js';
 
 const G = (name, capacity, cost, mustRun = false) => ({name, capacity, cost, carbon: 0, mustRun});
 // archetype order: Renewables, Nuclear, CCGT, Peaker
@@ -77,4 +79,12 @@ test('unmet fallback skips a zero-capacity priciest plant (editor can zero one o
   assert.equal(r.unmet, 4);
   assert.equal(r.marginalName, 'CCGT');   // NOT the 0-capacity Peaker
   assert.equal(r.clearingPrice, 60);
+});
+
+test('many-block: the unchanged engine handles the v2 14-block stack (default → CCGT-60 @ £83)', () => {
+  const r = dispatch(buildStack(DEFAULT_PARAMS), DEFAULT_PARAMS.demand);
+  assert.equal(r.sorted.length, 14);
+  assert.equal(r.marginalName, 'CCGT 60%');
+  assert.equal(Math.round(r.clearingPrice), 83);
+  assert.equal(r.unmet, 0);
 });

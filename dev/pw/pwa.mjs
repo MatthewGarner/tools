@@ -131,7 +131,7 @@ async function installAndWait(page){
   let ok4 = false;
   try{
     await p5.goto(EBASE + '/merit-order/', {waitUntil: 'domcontentloaded', timeout: 8000});
-    await p5.getByRole('button', {name: 'Typical day'}).click();
+    await p5.getByRole('button', {name: 'GB today'}).click();
     await p5.waitForTimeout(1200);
     ok4 = await p5.locator('#chartwrap svg').count() === 1 && (await p5.locator('#verdict').innerText()).trim().length > 0;
   }catch(e){ ok4 = false; }

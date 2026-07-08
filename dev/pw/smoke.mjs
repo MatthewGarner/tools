@@ -98,12 +98,26 @@ for(const theme of ['light', 'dark']){
 
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/energy/merit-order/', theme);
-  await page.getByRole('button', {name: 'Typical day'}).click();
+  await page.getByRole('button', {name: 'Gas spike'}).click();
   await page.waitForTimeout(1200);
   check('merit-order(' + theme + '): diagram renders', await page.locator('#chartwrap svg').count() === 1);
   const verdict = (await page.locator('#verdict').innerText()).trim();
   check('merit-order(' + theme + '): verdict non-empty', verdict.length > 20);
+  check('merit-order(' + theme + '): gas-spike condition prices high (3-digit £)', /£[12]\d\d/.test(verdict));
+  check('merit-order(' + theme + '): storage rendered below gas (data-storage marker)',
+    await page.locator('svg g[data-storage]').count() >= 1);
   check('merit-order(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#chartwrap svg'));
+  // slider drag: nudge carbon; the SVG must re-render without error
+  await page.locator('#carbon').evaluate(el => {
+    el.value = '90'; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true}));
+  });
+  await page.waitForTimeout(300);
+  check('merit-order(' + theme + '): carbon slider re-renders', await page.locator('#chartwrap svg').count() === 1);
+  // tap the BESS block → callout reframes its bid as charging/opportunity cost
+  await page.locator('svg g[data-plant="BESS"]').click();
+  await page.waitForTimeout(150);
+  const calloutTxt = await page.locator('.mo-callout').count() ? await page.locator('.mo-callout').innerText() : '';
+  check('merit-order(' + theme + '): BESS callout reframes charging cost', /charging cost/i.test(calloutTxt));
   check('merit-order(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('merit-order(' + theme + '): no console errors', errors.length === 0);
