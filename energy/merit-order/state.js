@@ -51,3 +51,16 @@ export function decodeState(obj){
   }
   return {generators: gens, demand: obj.d};
 }
+
+/* v2 URL schema: {v:2, c:conditionKey|null, params:{…}, adv?:{name→[cap,cost]}}.
+   Regenerate the stack from params via buildStack(); apply adv as a per-block diff.
+   A v1 hash (archetype names absent in v2) decodes to null → caller uses defaults. */
+export function encodeStateV2({condition, params, adv}){
+  const obj = {v: 2, c: condition ?? null, params};
+  if(adv && Object.keys(adv).length) obj.adv = adv;
+  return obj;
+}
+export function decodeStateV2(obj){
+  if(!obj || obj.v !== 2 || typeof obj.params !== 'object' || !obj.params) return null;
+  return {condition: obj.c ?? null, params: obj.params, adv: obj.adv ?? {}};
+}
