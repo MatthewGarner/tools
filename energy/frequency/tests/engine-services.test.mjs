@@ -12,9 +12,9 @@ test('DR & DM saturate (env=1.0) at d≥0.2 Hz', () => {
   }
 });
 
-test('DC is still climbing at d=0.35 Hz (between ra and 1.0), full by d=0.5 Hz', () => {
-  const mid = serviceEnv(0.35, DC);
-  assert.ok(mid > DC.ra && mid < 1, `DC at 0.35 Hz should be between ra (${DC.ra}) and 1: got ${mid}`);
+test('DC two-slope exact at d=0.35 Hz (0.525), full by d=0.5 Hz', () => {
+  // ra + (0.35-fa)/(fs-fa)*(1-ra) = 0.05 + 0.5*0.95 = 0.525 — exact guards the denominator
+  assert.ok(Math.abs(serviceEnv(0.35, DC) - 0.525) < 1e-9, `DC at 0.35 Hz = 0.525; got ${serviceEnv(0.35, DC)}`);
   assert.equal(serviceEnv(0.5, DC), 1);
 });
 

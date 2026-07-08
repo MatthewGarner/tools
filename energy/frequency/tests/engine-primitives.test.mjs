@@ -51,8 +51,10 @@ test('serviceEnv: DC is two-slope — ~5% at its 0.2 Hz breakpoint, full at 0.5 
   close(serviceEnv(0.2, DC), 0.05, 1e-9, 'DC at breakpoint = ra');
   close(serviceEnv(0.5, DC), 1, 1e-9, 'DC full at fs');
   assert.equal(serviceEnv(0.6, DC), 1);     // clamps beyond fs
-  const mid = serviceEnv(0.35, DC);
-  assert.ok(mid > 0.05 && mid < 1, 'DC intermediate value between ra and 1.0');
+  // second slope fa(0.2)->fs(0.5): at d=0.35, frac = ra + (0.35-0.2)/(0.5-0.2)*(1-ra)
+  //   = 0.05 + 0.5*0.95 = 0.525 — exact, so a wrong segment denominator can't slip through
+  close(serviceEnv(0.35, DC), 0.525, 1e-9, 'DC two-slope exact at 0.35 Hz');
+  close(serviceEnv(0.2 - 1e-6, DC), serviceEnv(0.2 + 1e-6, DC), 1e-4, 'DC continuous across the 0.2 Hz breakpoint');
 });
 
 test('serviceResponse: scales the envelope fraction by contracted MW', () => {
