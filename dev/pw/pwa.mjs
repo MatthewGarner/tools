@@ -92,7 +92,8 @@ async function installAndWait(page){
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(async () =>
     !!(await caches.match('/risk/app.js')) && !!(await caches.match('/cycles/app.js')) &&
-    !!(await caches.match('/frequency/app.js')) && !!(await caches.match('/assets/series.js')),
+    !!(await caches.match('/frequency/app.js')) && !!(await caches.match('/merit-order/app.js')) &&
+    !!(await caches.match('/assets/series.js')),
     null, {timeout: 20000});
   check('energy SW active + precached', true);
   await ctx.setOffline(true);
@@ -126,6 +127,16 @@ async function installAndWait(page){
   }catch(e){ ok3 = false; }
   check('energy: /frequency/ cold offline fully works', ok3);
   await p4.close();
+  const p5 = await ctx.newPage();
+  let ok4 = false;
+  try{
+    await p5.goto(EBASE + '/merit-order/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await p5.getByRole('button', {name: 'Typical day'}).click();
+    await p5.waitForTimeout(1200);
+    ok4 = await p5.locator('#chartwrap svg').count() === 1 && (await p5.locator('#verdict').innerText()).trim().length > 0;
+  }catch(e){ ok4 = false; }
+  check('energy: /merit-order/ cold offline fully works', ok4);
+  await p5.close();
   await ctx.close();
 }
 

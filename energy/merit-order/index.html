@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merit order</title>
+<meta name="description" content="Stack generators cheapest-first, drag the demand line, and watch one plant set the price for everyone — until must-run bids push it below zero.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/controls.css">
+<link rel="stylesheet" href="../../assets/workspace.css">
+<link rel="stylesheet" href="../../assets/about.css">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="../../assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="../">← All energy tools</a>
+    <h1>Merit order</h1>
+    <p class="tagline">Stack generators cheapest-first, drag the demand line, and watch one plant set the price for everyone — until must-run bids push it below zero.</p>
+  </header>
+</div>
+
+<div class="wrap board">
+  <section class="card">
+    <div id="chartwrap"></div>
+    <div id="verdict" class="verdict"></div>
+    <div class="actions">
+      <button class="btn" id="dlsvg">Download SVG</button><button class="btn" id="dlpng">Download PNG</button>
+      <button class="btn" id="copypng">Copy PNG</button><button class="btn" id="copydoc">Copy for a doc</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="chips" id="presets"><span class="lead">Try:</span>
+      <button class="chip" data-preset="typical">Typical day</button>
+      <button class="chip" data-preset="windy">Windy day</button>
+      <button class="chip" data-preset="coldStill">Cold still evening</button>
+      <button class="chip" data-preset="gasSpike">Gas spike</button>
+      <button class="chip" data-preset="negative">Negative prices</button>
+    </div>
+    <div class="controls">
+      <div class="ctl"><label>Demand <output id="demandout"></output></label>
+        <input type="range" id="demand" min="0" max="55" step="1" value="40" aria-label="Demand, GW"></div>
+      <div class="ctl"><label>Renewables capacity <output id="renewout"></output></label>
+        <input type="range" id="renew" min="0" max="40" step="1" value="15" aria-label="Renewables capacity, GW"></div>
+      <div class="ctl"><label>Gas price <output id="gasout"></output></label>
+        <input type="range" id="gas" min="20" max="200" step="5" value="60" aria-label="Gas price, pounds per MWh"></div>
+      <div class="ctl"><label>Must-run renewables <output id="mustrunout"></output></label>
+        <div class="seg" id="mustrunseg" role="radiogroup" aria-label="Must-run renewables">
+          <button data-mustrun="off" class="on">Off</button><button data-mustrun="on">On</button></div></div>
+      <div class="ctl" id="depthctl" hidden><label>How negative <output id="depthout"></output></label>
+        <input type="range" id="depth" min="0" max="50" step="5" value="30" aria-label="Must-run negative bid depth, pounds per MWh"></div>
+    </div>
+  </section>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>What sets the price</h2>
+    <div class="prose">
+    <p>Every generator offers power at its marginal cost — roughly its fuel cost: near zero for wind and solar, low for nuclear, higher for gas. Stack them cheapest-first and the demand line lands on one plant, the <b>marginal unit</b>. In a <b>pay-as-clear</b> market everyone dispatched is paid that one plant's price — so a wind-heavy day is still priced by gas whenever the last megawatt needed comes from a CCGT, and the cheap plants pocket the difference (their inframarginal rent).</p>
+    <p>Push renewables up and demand down and the marginal unit becomes a <b>must-run</b> plant bidding below zero — subsidised wind that would rather pay to keep generating than lose its per-MWh subsidy, or inflexible thermal that can't cheaply switch off. The clearing price goes negative: a signal to switch off, not a glitch.</p>
+    <p>This is a single snapshot of uniform-price, day-ahead-style clearing — deliberately not GB's real-time balancing mechanism, which runs pay-as-bid. Each plant offers a flat marginal cost (no rising heat-rate curves, unit-commitment or start-up costs), bids equal true costs (no strategic bidding), and must-run inflexibility is stood in for by a negative bid with no explicit curtailment — the "would generate anyway" megawatts are simplified away. Illustrative plants, no live data, no network constraints.</p>
+    <p>Sibling toys extend the same engine: network constraints turn one price into locational prices, an interconnector couples two markets, the marginal plant's carbon is the carbon of the next megawatt, and a price cap opens the capacity-market "missing money" gap. Here it's one price, one place.</p>
+    </div>
+  </section>
+
+  <footer>
+    No accounts, no tracking. The URL carries your settings — bookmark or share it.<br>
+    Part of <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a> · sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

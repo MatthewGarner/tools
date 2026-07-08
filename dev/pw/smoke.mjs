@@ -51,10 +51,11 @@ async function svgDecodes(page, selector){
 /* ---- energy landing + risk ---- */
 {
   const {page, errors} = await freshPage('/energy/');
-  check('energy landing: three tool cards', await page.locator('a.tool').count() === 3);
+  check('energy landing: four tool cards', await page.locator('a.tool').count() === 4);
   check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
   check('energy landing: cycles card resolves', (await page.request.get(BASE + '/energy/cycles/')).status() === 200);
   check('energy landing: frequency card resolves', (await page.request.get(BASE + '/energy/frequency/')).status() === 200);
+  check('energy landing: merit-order card resolves', (await page.request.get(BASE + '/energy/merit-order/')).status() === 200);
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }
@@ -92,6 +93,20 @@ for(const theme of ['light', 'dark']){
   check('frequency(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('frequency(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/energy/merit-order/', theme);
+  await page.getByRole('button', {name: 'Typical day'}).click();
+  await page.waitForTimeout(1200);
+  check('merit-order(' + theme + '): diagram renders', await page.locator('#chartwrap svg').count() === 1);
+  const verdict = (await page.locator('#verdict').innerText()).trim();
+  check('merit-order(' + theme + '): verdict non-empty', verdict.length > 20);
+  check('merit-order(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#chartwrap svg'));
+  check('merit-order(' + theme + '): crumb points at energy landing',
+    await page.locator('a.crumb').getAttribute('href') === '../');
+  check('merit-order(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
