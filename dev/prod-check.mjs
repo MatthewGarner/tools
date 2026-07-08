@@ -35,6 +35,7 @@ try{
   check('energy manifest is the energy app', em.short_name === 'Energy tools');
   check('energy /risk/ 200', (await fetch(EBASE + '/risk/')).status === 200);
   check('energy /cycles/ 200', (await fetch(EBASE + '/cycles/')).status === 200);
+  check('energy /frequency/ 200', (await fetch(EBASE + '/frequency/')).status === 200);
   const red = await fetch('https://tools.matthewgarner.me/energy/', {redirect: 'manual'});
   check('tools /energy/* redirects to energy origin',
     (red.headers.get('location') || '').startsWith(EBASE));
