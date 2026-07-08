@@ -1,0 +1,25 @@
+/* assets/mobile.css — phone overrides for the page shell (masthead + example chips).
+   Linked LAST in each tool's <head> so these win over per-tool style.css by source
+   order (equal specificity). Tokens only; both themes inherit. Phone = narrow viewport
+   (a layout concern), so this keys off width alone, independent of pointer type. */
+@media (max-width: 640px){
+  /* Reclaim the fold: the tool starts ~22px higher and the title/lede stop hogging it. */
+  body{ padding-top: 18px; }              /* per-tool base is padding:40px 0 40px */
+  h1{ font-size: clamp(24px, 7vw, 30px); } /* per-tool base is 32px flat */
+  .tagline{ font-size: 14px; line-height: 1.45; margin-top: 4px; }
+
+  /* "Try:" examples: one swipeable row instead of wrapping 2–3 deep.
+     The last chip peeks and an edge fade signals "more →". 44px targets kept
+     (controls.css @ pointer:coarse). mask-image here is an alpha ramp, not a colour. */
+  .chips{
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+            mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .chips::-webkit-scrollbar{ display: none; }
+  .chips > .chip{ flex: 0 0 auto; scroll-snap-align: start; }
+}
