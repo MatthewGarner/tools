@@ -42,7 +42,7 @@ export function renderTrace(result, p, ctx){
   if(ghost){
     const gpts = ghost.t.map((t, i) => `${r2(sx(t))},${r2(sy(ghost.f[i]))}`).join(' ');
     P.push(`<polyline points='${gpts}' fill='none' stroke='${C.muted}' stroke-width='2' stroke-dasharray='6 4' opacity='0.55'/>`);
-    P.push(txt(sx(ghost.nadir.t), sy(ghost.nadir.f) - 10, 'no battery', 12, C.muted, {anchor: 'middle'}));
+    P.push(txt(sx(ghost.nadir.t), sy(ghost.nadir.f) - 10, 'same grid, no battery', 12, C.muted, {anchor: 'middle'}));
   }
 
   // the frequency trace

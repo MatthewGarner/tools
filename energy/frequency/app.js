@@ -1,7 +1,7 @@
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
-import {simulate, verdict, leverDeltas, GFM_GVAS_PER_GW} from './engine.js';
+import {simulate, verdict, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS} from './engine.js';
 import {renderTrace, toMarkdown} from './render.js';
 import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -27,6 +27,10 @@ function boot(){
     const gfmCap = GFM_GVAS_PER_GW * Math.max(1, v.dc);
     $('gfmout').textContent = v.gfm === 0 ? 'none'
       : v.gfm > gfmCap ? gfmCap + ' GVA·s (capped)' : v.gfm + ' GVA·s';
+    $('govout').textContent = (HEADROOM_PER_GVAS * v.inertia).toFixed(2) + ' GW';
+    const gfmEff = Math.min(v.gfm, gfmCap);
+    const eff = v.inertia + gfmEff;
+    $('effinertia').textContent = `${v.inertia} synchronous + ${gfmEff} grid-forming = ${eff} GVA·s`;
     for(const el of document.querySelectorAll('input[type=range]')){
       el.style.setProperty('--fill', (el.value - el.min) / (el.max - el.min) * 100 + '%');
     }
@@ -129,7 +133,7 @@ function boot(){
         g.stroke();
         g.setLineDash([]); g.globalAlpha = 1;
         g.fillStyle = C.muted; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-        g.fillText('no battery', sx(ghost.nadir.t), sy(ghost.nadir.f) - 8);
+        g.fillText('same grid, no battery', sx(ghost.nadir.t), sy(ghost.nadir.f) - 8);
       }
 
       // trace up to the cursor
