@@ -17,6 +17,8 @@
     {"source": "/cycles/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/cycles/:path*"},
     {"source": "/frequency/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/frequency/"},
     {"source": "/frequency/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/frequency/:path*"},
+    {"source": "/merit-order/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/merit-order/"},
+    {"source": "/merit-order/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/merit-order/:path*"},
     {"source": "/icons/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/"},
     {"source": "/icons/:path*", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/icons/:path*"},
     {"source": "/", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/energy/"},
@@ -47,6 +49,7 @@
     },
     {"source": "/risk", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/risk/", "permanent": false},
     {"source": "/cycles", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/cycles/", "permanent": false},
-    {"source": "/frequency", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/frequency/", "permanent": false}
+    {"source": "/frequency", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/frequency/", "permanent": false},
+    {"source": "/merit-order", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/merit-order/", "permanent": false}
   ]
 }
