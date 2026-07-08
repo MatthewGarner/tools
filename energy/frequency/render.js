@@ -4,7 +4,7 @@
    numbers only. Root <svg> carries double-quoted integer width/height so the
    PNG export path (svgToCanvas) can read them. */
 import {txt} from '../../assets/svg.js';
-import {F0, verdict} from './engine.js';
+import {F0, verdict, simulate} from './engine.js';
 
 const FONT = 'Charter,Georgia,serif';
 const r2 = n => Math.round(n * 100) / 100;
@@ -14,9 +14,13 @@ export function renderTrace(result, p, ctx){
   const W = 1200, H = 520;
   const x0 = 64, x1 = W - 24, y0 = 56, y1 = H - 96;
   const tEnd = result.t[result.t.length - 1];
-  // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space
+  // no-battery counterfactual: only meaningful when a battery is actually active
+  const ghost = (p.dcMw > 0 || p.eGfm > 0) ? simulate({...p, dcMw: 0, eGfm: 0}) : null;
+  // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space;
+  // extend to include the ghost's (deeper) dip when present
   // (kept in lockstep with app.js's drawCanvas — the live canvas mirrors this range)
-  const fMin = Math.min(result.nadir.f - 0.4, 48.5), fMax = 50.3;
+  const lowNadir = ghost ? Math.min(result.nadir.f, ghost.nadir.f) : result.nadir.f;
+  const fMin = Math.min(lowNadir - 0.4, 48.5), fMax = 50.3;
   const sx = t => x0 + (t / tEnd) * (x1 - x0);
   const sy = f => y1 - ((f - fMin) / (fMax - fMin)) * (y1 - y0);
   const P = [];
@@ -33,6 +37,13 @@ export function renderTrace(result, p, ctx){
   P.push(txt(x1, sy(F0) - 6, '50 Hz', 12, C.muted, {anchor: 'end'}));
   P.push(line(48.8, C.err, '5 4'));
   P.push(txt(x1, sy(48.8) - 6, 'UFLS 48.8 Hz — demand disconnects', 12, C.err, {anchor: 'end'}));
+
+  // ghost: no-battery counterfactual, drawn behind the main trace
+  if(ghost){
+    const gpts = ghost.t.map((t, i) => `${r2(sx(t))},${r2(sy(ghost.f[i]))}`).join(' ');
+    P.push(`<polyline points='${gpts}' fill='none' stroke='${C.muted}' stroke-width='2' stroke-dasharray='6 4' opacity='0.55'/>`);
+    P.push(txt(sx(ghost.nadir.t), sy(ghost.nadir.f) - 10, 'no battery', 12, C.muted, {anchor: 'middle'}));
+  }
 
   // the frequency trace
   const pts = result.t.map((t, i) => `${r2(sx(t))},${r2(sy(result.f[i]))}`).join(' ');

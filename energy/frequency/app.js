@@ -1,7 +1,7 @@
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
-import {simulate, verdict} from './engine.js';
+import {simulate, verdict, leverDeltas, GFM_GVAS_PER_GW} from './engine.js';
 import {renderTrace, toMarkdown} from './render.js';
 import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -24,7 +24,9 @@ function boot(){
     $('tripout').textContent = v.trip.toFixed(1) + ' GW';
     $('dcout').textContent = v.dc === 0 ? 'none' : v.dc.toFixed(1) + ' GW';
     $('dcspeedout').textContent = v.dcspeed.toFixed(1) + ' s';
-    $('gfmout').textContent = v.gfm === 0 ? 'none' : v.gfm + ' GVA·s';
+    const gfmCap = GFM_GVAS_PER_GW * Math.max(1, v.dc);
+    $('gfmout').textContent = v.gfm === 0 ? 'none'
+      : v.gfm > gfmCap ? gfmCap + ' GVA·s (capped)' : v.gfm + ' GVA·s';
     for(const el of document.querySelectorAll('input[type=range]')){
       el.style.setProperty('--fill', (el.value - el.min) / (el.max - el.min) * 100 + '%');
     }
@@ -43,9 +45,18 @@ function boot(){
     $('t-settle').textContent = result.settle.toFixed(2) + ' Hz';
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
     $('verdict').textContent = verdict(result, p);
+    const hasBattery = p.dcMw > 0 || p.eGfm > 0;
+    if(hasBattery){
+      const d = leverDeltas(p);
+      $('deltas').textContent = `Grid-forming eases the initial slope by ` +
+        `${Math.abs(d.gfm.rocof).toFixed(2)} Hz/s and lifts the nadir ${d.gfm.nadir.toFixed(2)} Hz. ` +
+        `Dynamic Containment lifts the nadir a further ${d.dc.nadir.toFixed(2)} Hz.`;
+    } else {
+      $('deltas').textContent = '';
+    }
     lastSvg = renderTrace(result, p, {colors: themeColors(), measure});
     const still = reducedMotion.matches || !animate;
-    drawCanvas(result, still ? Infinity : 0);   // Infinity = draw fully at once
+    drawCanvas(result, p, still ? Infinity : 0);   // Infinity = draw fully at once
     clearTimeout(hashTimer);
     hashTimer = setTimeout(() => writeHashState({
       i: v.inertia, tr: v.trip, dc: v.dc, ds: v.dcspeed, g: v.gfm}), 400);
@@ -55,7 +66,7 @@ function boot(){
 
   /* Animate the fall: reveal the trace up to a moving time cursor.
      Annotation set mirrors render.js's renderTrace — keep the two consistent. */
-  function drawCanvas(result, fromTime){
+  function drawCanvas(result, p, fromTime){
     cancelAnimationFrame(rafId);
     const cv = $('trace'), dpr = devicePixelRatio || 1;
     const w = cv.clientWidth, h = cv.clientHeight;
@@ -63,8 +74,12 @@ function boot(){
     const g = cv.getContext('2d'); g.scale(dpr, dpr);
     const C = themeColors();
     const tEnd = result.t[result.t.length - 1];
-    // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space
-    const fMin = Math.min(result.nadir.f - 0.4, 48.5), fMax = 50.3;
+    // no-battery counterfactual: only meaningful when a battery is actually active
+    const ghost = (p.dcMw > 0 || p.eGfm > 0) ? simulate({...p, dcMw: 0, eGfm: 0}) : null;
+    // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space;
+    // extend to include the ghost's (deeper) dip when present
+    const lowNadir = ghost ? Math.min(result.nadir.f, ghost.nadir.f) : result.nadir.f;
+    const fMin = Math.min(lowNadir - 0.4, 48.5), fMax = 50.3;
     const x0 = 48, x1 = w - 16, y0 = 14, y1 = h - 24;
     const sx = t => x0 + (t / tEnd) * (x1 - x0);
     const sy = f => y0 + (1 - (f - fMin) / (fMax - fMin)) * (y1 - y0);
@@ -102,6 +117,20 @@ function boot(){
       g.setLineDash([]);
       g.fillStyle = C.err;
       g.fillText('48.8 Hz — load shed', x1, sy(48.8) - 6);
+
+      // ghost: no-battery counterfactual, drawn behind the main trace, static (not animated)
+      if(ghost){
+        g.globalAlpha = 0.55; g.strokeStyle = C.muted; g.lineWidth = 2; g.setLineDash([6, 4]);
+        g.beginPath();
+        for(let i = 0; i < ghost.t.length; i++){
+          const x = sx(ghost.t[i]), y = sy(ghost.f[i]);
+          i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+        }
+        g.stroke();
+        g.setLineDash([]); g.globalAlpha = 1;
+        g.fillStyle = C.muted; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+        g.fillText('no battery', sx(ghost.nadir.t), sy(ghost.nadir.f) - 8);
+      }
 
       // trace up to the cursor
       g.strokeStyle = C.accent; g.lineWidth = 2.5; g.beginPath();
@@ -150,7 +179,7 @@ function boot(){
     slug: () => 'frequency-inertia',
   });
   onThemeChange(() => refresh(false));
-  addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, Infinity); });
+  addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity); });
 
   // restore state from the URL, else default
   const s = readHashState();
