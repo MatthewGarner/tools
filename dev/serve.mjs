@@ -9,7 +9,7 @@ import {readFile} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {toRepoPath, toToolsPath} from './origins.mjs';
+import {toRepoPath, toToolsPath, energyRedirectSources} from './origins.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.argv[2]) || 8087;
@@ -20,9 +20,15 @@ const HEADERS = Object.fromEntries(
 const MIME = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json'};
+const ENERGY_REDIR = new Set(energyRedirectSources());   /* bare tool path → trailing-slash */
 
 createServer(async (req, res) => {
   let p = normalize(new URL(req.url, 'http://x').pathname).replace(/^(\.\.[/\\])+/, '');
+  if(ORIGIN_ENERGY && ENERGY_REDIR.has(p)){   /* emulate vercel.json's no-slash redirect */
+    res.writeHead(308, {Location: p + '/', ...HEADERS});
+    res.end();
+    return;
+  }
   p = ORIGIN_ENERGY ? toRepoPath(p) : toToolsPath(p);   /* previews = tools shape */
   if(p.endsWith('/')) p += 'index.html';
   try{

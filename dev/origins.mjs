@@ -73,3 +73,26 @@ export function vercelRewrites(){
   const fallback = FALLBACK_ROUTES.map(r => ({source: r.from, destination: r.to}));
   return [...energy, ...fallback];
 }
+
+/* Energy tool paths (/risk, /cycles, /frequency) are REWRITES, not real
+   directories, so Vercel never auto-appends the trailing slash the way it does
+   for a real dir like the tools origin's /flow. Without the slash, a page's own
+   relative assets — style.css, ./app.js — resolve against the site root and 404
+   (the climbing ../../assets/ paths clamp to /assets and survive, which is why
+   the page half-renders unstyled with no canvas). Redirect the bare path to the
+   canonical trailing-slash form. serve.mjs emulates this; origins.test enforces
+   it. Icons is an asset dir, not a page — excluded. */
+export function energyRedirectSources(){
+  return ENERGY_ROUTES
+    .filter(r => !r.exact && r.from !== '/icons/')
+    .map(r => r.from.replace(/\/$/, ''));
+}
+
+export function vercelRedirects(){
+  return energyRedirectSources().map(source => ({
+    source,
+    has: [{type: 'host', value: ENERGY_HOST}],
+    destination: source + '/',
+    permanent: false,
+  }));
+}
