@@ -24,7 +24,7 @@ const fmtPrice = v => Math.round(v).toString();
 
 /* One quotable line (+ clauses) built from a dispatch() result. Shared by the
    SVG verdict and toMarkdown so the two never drift. */
-function buildVerdict(result, state){
+export function buildVerdict(result, state){
   const cp = result.clearingPrice;
   const parts = [];
   if(result.marginalName){

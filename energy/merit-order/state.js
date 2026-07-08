@@ -36,6 +36,18 @@ export function generatorsFromPreset(p){
   return gens;
 }
 
+/* Same lever-writer pipeline as generatorsFromPreset, but from the raw dial
+   vector app.js reads off the controls (lowercase `mustrun`, matching the
+   `data-mustrun` attribute — presets use the camelCase `mustRun` key instead).
+   Node-testable without touching the DOM shell. */
+export function generatorsFromDials({renew, gas, mustrun, depth}){
+  const gens = defaultGenerators();
+  setRenewShare(gens, renew);
+  setGasPrice(gens, gas);
+  setMustRun(gens, mustrun, depth);
+  return gens;
+}
+
 /* Versioned URL schema {v:1, p:{name→[cap,cost,mustRun]}, d}. */
 export function encodeState(gens, demand){
   const p = {};
