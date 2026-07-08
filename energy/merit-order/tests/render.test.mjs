@@ -17,16 +17,25 @@ test('root svg well-formed with double-quoted integer size; keyed plant groups',
 });
 
 test('marginal badge names the marginal plant; verdict avoids "profit"', () => {
-  const svg = renderStack(state(PRESETS.typical), ctx);
+  const svg = renderStack(state(PRESETS.typical), ctx, {forExport: true});
   assert.ok(svg.includes('MARGINAL'));
   assert.doesNotMatch(svg, /profit/i);
 });
 
-test('negative preset shows the words AND a visible warning band, not just a low line', () => {
+test('negative preset shows the words (clearing label, on screen) AND a visible warning band, not just a low line', () => {
   const svg = renderStack(state(PRESETS.negative), ctx);
   assert.ok(/paying to generate/i.test(svg));
   assert.ok(svg.includes("class='negative-band'"), 'negative band element drawn');
   assert.doesNotMatch(svg, /class='negative-band'[^>]*fill='none'/, 'band has a real fill, not none');
+});
+
+test('SVG verdict is export-only: absent by default (HTML #verdict covers the screen), present with {forExport:true}', () => {
+  const onScreen = renderStack(state(PRESETS.typical), ctx);
+  assert.doesNotMatch(onScreen, /THE TRADE/, 'screen render must not duplicate the HTML #verdict paragraph');
+
+  const exported = renderStack(state(PRESETS.typical), ctx, {forExport: true});
+  assert.ok(exported.includes('THE TRADE'), 'export render carries the self-captioned verdict heading');
+  assert.match(exported, /is the marginal plant and sets the price/i, 'export render carries the verdict sentence');
 });
 
 test('every tag is well-formed (per-tag scan, like dev/svg-wellformed) — NOT a whole-string regex', () => {

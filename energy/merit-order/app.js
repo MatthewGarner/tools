@@ -350,7 +350,10 @@ function boot(){
   /* ---- exports ---- */
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
-    getSvg: () => lastSvg,
+    // exports carry the self-captioned verdict block; the on-screen chart
+    // (lastSvg) doesn't, since the HTML #verdict div covers that on screen —
+    // re-render fresh with the flag rather than reuse the cached SVG.
+    getSvg: () => renderStack(state, {colors: themeColors(), measure}, {forExport: true}),
     getMarkdown: () => toMarkdown(state, dispatch(state.generators, state.demand)),
     slug: () => 'merit-order',
   });

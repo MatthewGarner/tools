@@ -46,7 +46,7 @@ export function buildVerdict(result, state){
   return parts.join(' ');
 }
 
-export function renderStack(state, ctx){
+export function renderStack(state, ctx, opts = {}){
   const C = ctx.colors;
   const result = dispatch(state.generators, state.demand);
   const cp = result.clearingPrice;
@@ -115,7 +115,10 @@ export function renderStack(state, ctx){
   const verdictText = buildVerdict(result, state);
   const vLines = wrapText(verdictText, '15px ' + FONT, x1 - x0, ctx.measure);  // wrap within [x0..x1]; drawn at x0, so must not exceed x1-x0 or it clips the viewBox on export
   const vBlockH = 28 + vLines.length * 22 + 16;
-  const H = Math.round(verdictTopBase + vBlockH + 24);
+  // on screen the SVG ends just after the legend/ticks — no trailing verdict
+  // whitespace, since the HTML #verdict div carries that prose instead;
+  // export mode reserves the extra height for the self-captioned block below
+  const H = Math.round((opts.forExport ? verdictTopBase + vBlockH : verdictTopBase) + 24);
 
   P.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`);
   P.push(`<rect width='${W}' height='${H}' fill='${C.bg}'/>`);
@@ -159,11 +162,15 @@ export function renderStack(state, ctx){
     P.push(txt(x0 + 20, legendY, 'shaded = earns above running cost', 11.5, C.muted));
   }
 
-  // verdict
-  const vy = (showLegend ? legendY : tickY) + 30;
-  P.push(`<rect x='${x0 - 16}' y='${r2(vy)}' width='4' height='${vLines.length * 22 + 8}' fill='${C.accent}'/>`);
-  P.push(txt(x0, vy - 4, 'THE TRADE', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
-  vLines.forEach((l, i) => P.push(txt(x0, vy + 20 + i * 22, l, 15, C.ink)));
+  // verdict — export-only: the HTML #verdict div carries this prose on
+  // screen (app.js), so drawing it here too would duplicate the paragraph.
+  // Kept in the SVG for self-captioned exports (Download SVG/PNG, Copy PNG).
+  if(opts.forExport){
+    const vy = (showLegend ? legendY : tickY) + 30;
+    P.push(`<rect x='${x0 - 16}' y='${r2(vy)}' width='4' height='${vLines.length * 22 + 8}' fill='${C.accent}'/>`);
+    P.push(txt(x0, vy - 4, 'THE TRADE', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
+    vLines.forEach((l, i) => P.push(txt(x0, vy + 20 + i * 22, l, 15, C.ink)));
+  }
 
   P.push('</svg>');
   return P.join('');

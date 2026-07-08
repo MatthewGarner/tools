@@ -235,8 +235,8 @@ for(const [k, src] of Object.entries(docs)){
   const {renderStack} = await import('../energy/merit-order/render.js');
   const {generatorsFromPreset, PRESETS} = await import('../energy/merit-order/state.js');
   const mk = p => ({generators: generatorsFromPreset(p), demand: p.demand});
-  variants['merit-order-typical'] = renderStack(mk(PRESETS.typical), {...ctxBase});
-  variants['merit-order-negative'] = renderStack(mk(PRESETS.negative), {...ctxBase});
+  variants['merit-order-typical'] = renderStack(mk(PRESETS.typical), {...ctxBase}, {forExport: true});
+  variants['merit-order-negative'] = renderStack(mk(PRESETS.negative), {...ctxBase}, {forExport: true});
 }
 
 const mode = process.argv[2];
