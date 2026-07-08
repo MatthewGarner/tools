@@ -10,17 +10,17 @@
 const LOW_INERTIA = 80;
 
 export const PRESETS = {
-  grid2010: {inertia: 250, trip: 1.0, dc: 0, dcspeed: 0.5, gfm: 0},
-  grid2030: {inertia: LOW_INERTIA, trip: 1.8, dc: 0, dcspeed: 0.5, gfm: 0},
-  rescue:   {inertia: LOW_INERTIA, trip: 1.8, dc: 1.2, dcspeed: 0.4, gfm: 20},
-  gfmduel:  {inertia: LOW_INERTIA, trip: 1.8, dc: 1.0, dcspeed: 0.4, gfm: 20},
+  grid2010:  {inertia: 250, trip: 1.0, dr: 0,   dm: 0,   dc: 0,   gfm: 0},
+  grid2030:  {inertia: LOW_INERTIA, trip: 1.8, dr: 0,   dm: 0,   dc: 0,   gfm: 0},
+  stack:     {inertia: LOW_INERTIA, trip: 1.8, dr: 0.5, dm: 0.5, dc: 1.5, gfm: 20},
+  procure3x: {inertia: LOW_INERTIA, trip: 1.8, dr: 1.5, dm: 1.5, dc: 4.5, gfm: 40},
 };
 
 export function paramsFromControls(v){
   return {
     eSync: v.inertia, trip: v.trip,
-    dcMw: v.dc, dcDelay: v.dcspeed, eGfm: v.gfm,
-    battMW: Math.max(1, v.dc),   // DC volume proxies battery MW rating (caps GFM inertia)
+    drMw: v.dr, dmMw: v.dm, dcMw: v.dc, eGfm: v.gfm,
+    battMW: Math.max(1, v.dr + v.dm + v.dc),   // total contracted response caps grid-forming inertia
     load: 30,
   };
 }

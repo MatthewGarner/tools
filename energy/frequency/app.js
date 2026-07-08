@@ -12,7 +12,7 @@ if (typeof document !== 'undefined') boot();
 
 function boot(){
   const $ = id => document.getElementById(id);
-  const IDS = ['inertia', 'trip', 'dc', 'dcspeed', 'gfm'];
+  const IDS = ['inertia', 'trip', 'dr', 'dm', 'dc', 'gfm'];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let lastSvg = '', rafId = 0, hashTimer = null;
   let lastResult = null, lastParams = null;
@@ -22,9 +22,10 @@ function boot(){
   function syncOutputs(v){
     $('inertiaout').textContent = v.inertia + ' GVA·s';
     $('tripout').textContent = v.trip.toFixed(1) + ' GW';
+    $('drout').textContent = v.dr === 0 ? 'none' : v.dr.toFixed(1) + ' GW';
+    $('dmout').textContent = v.dm === 0 ? 'none' : v.dm.toFixed(1) + ' GW';
     $('dcout').textContent = v.dc === 0 ? 'none' : v.dc.toFixed(1) + ' GW';
-    $('dcspeedout').textContent = v.dcspeed.toFixed(1) + ' s';
-    const gfmCap = GFM_GVAS_PER_GW * Math.max(1, v.dc);
+    const gfmCap = GFM_GVAS_PER_GW * Math.max(1, v.dr + v.dm + v.dc);
     $('gfmout').textContent = v.gfm === 0 ? 'none'
       : v.gfm > gfmCap ? gfmCap + ' GVA·s (capped)' : v.gfm + ' GVA·s';
     $('govout').textContent = (HEADROOM_PER_GVAS * v.inertia).toFixed(2) + ' GW';
@@ -49,12 +50,28 @@ function boot(){
     $('t-settle').textContent = result.settle.toFixed(2) + ' Hz';
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
     $('verdict').textContent = verdict(result, p);
-    const hasBattery = p.dcMw > 0 || p.eGfm > 0;
+    const hasBattery = p.drMw > 0 || p.dmMw > 0 || p.dcMw > 0 || p.eGfm > 0;
     if(hasBattery){
       const d = leverDeltas(p);
-      $('deltas').textContent = `Grid-forming eases the initial slope by ` +
-        `${Math.abs(d.gfm.rocof).toFixed(2)} Hz/s and lifts the nadir ${d.gfm.nadir.toFixed(2)} Hz. ` +
-        `Dynamic Containment lifts the nadir a further ${d.dc.nadir.toFixed(2)} Hz.`;
+      // named clauses for each active service, in fastest-to-slowest order; the
+      // verb ("lifts the nadir") appears once, on the first active clause —
+      // later clauses read as a continuation of the same list
+      const services = [
+        {mw: p.dcMw, name: 'Dynamic Containment', delta: d.dc, suffix: ''},
+        {mw: p.dmMw, name: 'Dynamic Moderation', delta: d.dm, suffix: ''},
+        {mw: p.drMw, name: 'Dynamic Regulation', delta: d.dr, suffix: ' (slow — mostly after the nadir)'},
+      ].filter(s => s.mw > 0);
+      let text = '';
+      if(services.length){
+        text = services.map((s, i) =>
+          (i === 0 ? `${s.name} lifts the nadir ` : `${s.name} `) +
+          s.delta.nadir.toFixed(2) + ' Hz' + s.suffix
+        ).join(' · ') + '.';
+      }
+      if(p.eGfm > 0){
+        text += (text ? ' ' : '') + `Grid-forming eases the slope ${Math.abs(d.gfm.rocof).toFixed(2)} Hz/s.`;
+      }
+      $('deltas').textContent = text;
     } else {
       $('deltas').textContent = '';
     }
@@ -63,7 +80,7 @@ function boot(){
     drawCanvas(result, p, still ? Infinity : 0);   // Infinity = draw fully at once
     clearTimeout(hashTimer);
     hashTimer = setTimeout(() => writeHashState({
-      i: v.inertia, tr: v.trip, dc: v.dc, ds: v.dcspeed, g: v.gfm}), 400);
+      i: v.inertia, tr: v.trip, dr: v.dr, dm: v.dm, dc: v.dc, g: v.gfm}), 400);
   }
 
   const CANVAS_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -185,8 +202,13 @@ function boot(){
   onThemeChange(() => refresh(false));
   addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity); });
 
-  // restore state from the URL, else default
+  // restore state from the URL, else default (guard s.dr/s.dm for older links
+  // saved before those levers existed)
   const s = readHashState();
-  if(s){ $('inertia').value = s.i; $('trip').value = s.tr; $('dc').value = s.dc; $('dcspeed').value = s.ds; $('gfm').value = s.g; }
+  if(s){
+    $('inertia').value = s.i; $('trip').value = s.tr;
+    $('dr').value = s.dr ?? 0; $('dm').value = s.dm ?? 0;
+    $('dc').value = s.dc; $('gfm').value = s.g;
+  }
   refresh();
 }

@@ -34,8 +34,8 @@
     <div class="chips" id="presets"><span class="lead">Try:</span>
       <button class="chip" data-preset="grid2010">2010 grid</button>
       <button class="chip" data-preset="grid2030">2030 low-inertia</button>
-      <button class="chip" data-preset="rescue">Battery to the rescue</button>
-      <button class="chip" data-preset="gfmduel">Grid-forming vs following</button>
+      <button class="chip" data-preset="stack">Battery stack</button>
+      <button class="chip" data-preset="procure3x">3× procurement</button>
     </div>
     <div class="ctl-group">
       <div class="ctl-head">The grid</div>
@@ -50,12 +50,14 @@
     <div class="ctl-group">
       <div class="ctl-head">The battery · BESS</div>
       <div class="controls">
+        <div class="ctl"><label>Dynamic Regulation <output id="drout"></output></label>
+          <input type="range" id="dr" min="0" max="1.5" step="0.1" value="0" aria-label="Dynamic Regulation volume, GW"></div>
+        <div class="ctl"><label>Dynamic Moderation <output id="dmout"></output></label>
+          <input type="range" id="dm" min="0" max="1.5" step="0.1" value="0" aria-label="Dynamic Moderation volume, GW"></div>
+        <div class="ctl"><label>Dynamic Containment <output id="dcout"></output></label>
+          <input type="range" id="dc" min="0" max="4.5" step="0.1" value="0" aria-label="Dynamic Containment volume, GW"></div>
         <div class="ctl"><label>Grid-forming inertia <output id="gfmout"></output></label>
           <input type="range" id="gfm" min="0" max="40" step="2" value="0" aria-label="Grid-forming synthetic inertia, GVA·s"></div>
-        <div class="ctl"><label>Dynamic Containment <output id="dcout"></output></label>
-          <input type="range" id="dc" min="0" max="2" step="0.1" value="0" aria-label="Dynamic Containment volume, GW"></div>
-        <div class="ctl"><label>DC speed <output id="dcspeedout"></output></label>
-          <input type="range" id="dcspeed" min="0.1" max="2" step="0.1" value="0.5" aria-label="DC initiation delay, seconds"></div>
       </div>
     </div>
     <button class="btn trip-btn" id="tripbtn">⚡ Trip a generator</button>
