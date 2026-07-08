@@ -15,6 +15,7 @@ function boot(){
   const IDS = ['inertia', 'trip', 'dc', 'dcspeed', 'gfm'];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let lastSvg = '', rafId = 0, hashTimer = null;
+  let lastResult = null, lastParams = null;
 
   const controls = () => Object.fromEntries(IDS.map(id => [id, +$(id).value]));
 
@@ -29,11 +30,12 @@ function boot(){
     }
   }
 
-  function refresh(){
+  function refresh(animate = true){
     const v = controls();
     syncOutputs(v);
     const p = paramsFromControls(v);
     const result = simulate(p);
+    lastResult = result; lastParams = p;
     // readout tiles
     $('t-rocof').textContent = result.rocof.toFixed(2) + ' Hz/s';
     $('t-nadir').textContent = result.nadir.f.toFixed(2) + ' Hz';
@@ -42,7 +44,8 @@ function boot(){
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
     $('verdict').textContent = verdict(result, p);
     lastSvg = renderTrace(result, p, {colors: themeColors(), measure});
-    drawCanvas(result, reducedMotion.matches ? Infinity : 0);   // Infinity = draw fully at once
+    const still = reducedMotion.matches || !animate;
+    drawCanvas(result, still ? Infinity : 0);   // Infinity = draw fully at once
     clearTimeout(hashTimer);
     hashTimer = setTimeout(() => writeHashState({
       i: v.inertia, tr: v.trip, dc: v.dc, ds: v.dcspeed, g: v.gfm}), 400);
@@ -85,22 +88,27 @@ function boot(){
   }
 
   // wiring
-  for(const id of IDS) $(id).addEventListener('input', refresh);
-  $('tripbtn').addEventListener('click', () => drawCanvas(simulate(paramsFromControls(controls())), 0));
+  for(const id of IDS) $(id).addEventListener('input', () => {
+    for(const c of document.querySelectorAll('#presets .chip')) c.classList.remove('on');
+    refresh(true);
+  });
+  $('tripbtn').addEventListener('click', () => refresh(true));
   for(const btn of document.querySelectorAll('#presets .chip')){
     btn.addEventListener('click', () => {
       const preset = PRESETS[btn.dataset.preset];
       for(const id of IDS) $(id).value = preset[id];
-      refresh();
+      for(const c of document.querySelectorAll('#presets .chip')) c.classList.toggle('on', c === btn);
+      refresh(true);
     });
   }
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
     getSvg: () => lastSvg,
-    getMarkdown: () => toMarkdown(simulate(paramsFromControls(controls())), paramsFromControls(controls())),
+    getMarkdown: () => toMarkdown(lastResult, lastParams),
     slug: () => 'frequency-inertia',
   });
-  onThemeChange(refresh);
+  onThemeChange(() => refresh(false));
+  addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, Infinity); });
 
   // restore state from the URL, else default
   const s = readHashState();
