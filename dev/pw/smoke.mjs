@@ -151,6 +151,10 @@ for(const theme of ['light', 'dark']){
 /* ---- fermi ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/fermi/', theme);
+  await page.waitForTimeout(500);
+  // opens alive on the first example, hash-safe (autoload; no URL write until interaction)
+  check('fermi(' + theme + '): opens alive (autoload, hash clean)',
+    (await page.locator('#p50').innerText()).trim() !== '—' && (await page.evaluate(() => location.hash)) === '');
   await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click();
   await page.waitForTimeout(600);
   const p50 = (await page.locator('#p50').innerText()).trim();
