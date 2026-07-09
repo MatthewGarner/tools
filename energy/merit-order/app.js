@@ -6,9 +6,8 @@
 import {dispatch} from './engine.js';
 import {renderStack, toMarkdown, buildVerdict, MERIT_PALETTE} from './render.js';
 import {buildStack, applyAdv} from './stack.js';
-import {DEFAULT_PARAMS, CONDITIONS, paramsFor} from './scenarios.js';
+import {DEFAULT_PARAMS, CONDITIONS, paramsFor, WORLDS} from './scenarios.js';
 import {encodeStateV2, decodeStateV2} from './state.js';
-import {GB_TODAY} from './technologies.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
@@ -21,15 +20,17 @@ function boot(){
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const installedOf = name => { const t = GB_TODAY.find(x => x.label === name); return t ? t.installed : null; };
+  const catalogue = () => WORLDS[state.world].catalogue;
+  const installedOf = name => { const t = catalogue().find(x => x.label === name); return t ? t.installed : null; };
+  const demandMax = () => WORLDS[state.world].params.demandMax;
 
   /* ---- state ---- */
-  let state = {condition: null, params: {...DEFAULT_PARAMS}, adv: {}};
+  let state = {world: 'gbToday', condition: null, params: {...WORLDS.gbToday.params}, adv: {}};
   let lastSvg = '', hashTimer = null;
   let wasNegative = false, lastMarginalName;
   let dragging = false;
 
-  const currentStack = () => applyAdv(buildStack(state.params), state.adv);
+  const currentStack = () => applyAdv(buildStack(state.params, catalogue()), state.adv);
   const currentState = () => ({generators: currentStack(), demand: state.params.demand});
   const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
 
@@ -40,8 +41,7 @@ function boot(){
     return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its canonical 1200
   }
 
-  /* ---- chart geometry the drag math needs ---- */
-  const DEMAND_MAX = 64;
+  /* ---- chart geometry the drag math needs (demand ceiling is world-dependent) ---- */
   function chartDomainMax(){
     const totalOffered = currentStack().reduce((s, g) => s + g.capacity, 0);
     return Math.max(totalOffered, state.params.demand, 1) * 1.04;
@@ -78,7 +78,7 @@ function boot(){
     const w = svgEl.viewBox.baseVal.width || 1200;
     const x0 = w < NARROW ? 44 : 116, x1 = w - 32;
     const gw = ((p.x - x0) / (x1 - x0)) * chartDomainMax();
-    return clamp(gw, 0, DEMAND_MAX);
+    return clamp(gw, 0, demandMax());
   }
 
   /* snap to the exact cumulative-capacity boundary (marginal-flip point) within 0.5 GW */
@@ -93,7 +93,7 @@ function boot(){
 
   window.addEventListener('pointermove', e => {
     if(!dragging) return;
-    state.params.demand = Math.min(DEMAND_MAX, snapDemand(clientXToGW(e.clientX)));
+    state.params.demand = Math.min(demandMax(), snapDemand(clientXToGW(e.clientX)));
     markCustom();
     render(false);
   });
@@ -137,12 +137,21 @@ function boot(){
   wireDial('solar',  v => { state.params.solar = v / 100; });
   wireDial('depth',  v => { state.params.mustRunDepth = v; });
 
-  /* ---- Conditions presets (data-preset="" = GB today reset) ---- */
-  function applyCondition(key){
+  /* ---- Worlds (full stack) + Conditions (overlay on the current world) ---- */
+  function applyWorld(key){
     closeCallout();
-    state = {condition: key || null, params: paramsFor(key || null), adv: {}};
+    state = {world: key, condition: null, params: {...WORLDS[key].params}, adv: {}};
     syncControls();
     render(true);
+  }
+  function applyCondition(key){
+    closeCallout();
+    state = {world: state.world, condition: key || null, params: paramsFor(state.world, key || null), adv: {}};
+    syncControls();
+    render(true);
+  }
+  for(const btn of document.querySelectorAll('#worlds .chip[data-world]')){
+    btn.addEventListener('click', () => applyWorld(btn.dataset.world));
   }
   for(const btn of document.querySelectorAll('#presets .chip[data-preset]')){
     btn.addEventListener('click', () => applyCondition(btn.dataset.preset));
@@ -300,15 +309,23 @@ function boot(){
     $('mustrunout').textContent = p.mustRunOn ? 'On' : 'Off';
     if(p.mustRunOn) $('depthout').textContent = '−£' + Math.round(p.mustRunDepth) + '/MWh';
   }
-  function syncChips(){   // highlight the active Conditions chip (null = "GB today"; 'custom' = none)
+  function syncChips(){   // highlight the active Conditions chip (none highlighted when 'custom'/null)
     for(const b of document.querySelectorAll('#presets .chip[data-preset]')){
       const on = (b.dataset.preset || null) === (state.condition || null);
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
     }
   }
+  function syncWorldChips(){   // highlight the active World chip
+    for(const b of document.querySelectorAll('#worlds .chip[data-world]')){
+      const on = b.dataset.world === state.world;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+  }
   function syncControls(){   // push params → slider positions + toggles (after a preset/boot)
     const p = state.params;
+    $('demand').max = demandMax();   // demand ceiling follows the world
     $('demand').value = p.demand;
     $('gas').value = p.gas;
     $('carbon').value = p.carbon;
@@ -319,6 +336,7 @@ function boot(){
     $('depthctl').hidden = !p.mustRunOn;
     syncOutputs();
     syncChips();
+    syncWorldChips();
   }
 
   /* ---- the refresh loop ---- */
@@ -381,8 +399,9 @@ function boot(){
   /* ---- boot: URL state (v2), else GB-today defaults ---- */
   const restored = decodeStateV2(readHashState());
   if(restored){
-    state = {condition: restored.condition,
-             params: {...DEFAULT_PARAMS, ...restored.params},
+    const world = WORLDS[restored.world] ? restored.world : 'gbToday';   // guard an unknown/corrupt world key
+    state = {world, condition: restored.condition,
+             params: {...WORLDS[world].params, ...restored.params},
              adv: restored.adv || {}};
   }
   syncControls();
