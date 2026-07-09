@@ -216,6 +216,7 @@ for(const [k, src] of Object.entries(docs)){
   const co = csim(cm, {seed: 1, n: 2000});
   variants['cycles-full'] = crender(cm, co, {...ctxBase});
   variants['cycles-full-slide'] = crender(cm, co, {...ctxBase, slide: true});
+  variants['cycles-full-narrow'] = crender(cm, co, {...ctxBase, width: 360});
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 }
