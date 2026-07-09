@@ -16,6 +16,12 @@
 /* fingers get full-size controls */
 @media (pointer: coarse){
   .chip,.btn{min-height:44px;display:inline-flex;align-items:center}
+  /* iOS Safari zooms the page whenever a focused field is under 16px. Hold every
+     editable field at the threshold so tapping a value never triggers a zoom-and-pinch.
+     !important because per-tool inline styles (fermi/rank size fields by id) otherwise
+     win by source order — this is one deliberate cross-cutting usability floor.
+     Sliders (type=range) are untouched; a field already ≥16px just settles to 16. */
+  input[type="text"],input[type="number"],input:not([type]),textarea,.cm-content{font-size:16px!important}
 }
 @media (prefers-reduced-motion: no-preference){
   .chip,.btn{transition:border-color .15s,color .15s}

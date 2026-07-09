@@ -27,6 +27,15 @@ for(const [name, url] of ALL){
   const vw = await page.evaluate(() => document.documentElement.clientWidth);
   const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
   ok(docSW <= vw + 1, `${name}: no page-level horizontal scroll (${docSW} <= ${vw})`);
+  // A visible editable field under 16px makes iOS Safari zoom the page on focus. Guard it.
+  const tiny = await page.evaluate(() => {
+    for(const el of document.querySelectorAll('input[type=text],input[type=number],input:not([type]),textarea,.cm-content')){
+      if(el.offsetParent === null) continue;
+      if(parseFloat(getComputedStyle(el).fontSize) < 16) return (el.id || el.className.toString().slice(0, 20) || el.tagName);
+    }
+    return null;
+  });
+  ok(tiny === null, `${name}: no <16px editable field (iOS zoom-on-focus)${tiny ? ' — ' + tiny : ''}`);
   await page.close();
 }
 
