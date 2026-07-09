@@ -9,6 +9,7 @@ import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
+import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
 const $ = id => document.getElementById(id);
 const todayDay = () => Math.floor(Date.now() / 86400000);
@@ -72,7 +73,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
-  try{ localStorage.setItem('timeline-src', text); }catch(e){}
+  if(shouldPersist()){ try{ localStorage.setItem('timeline-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
@@ -86,6 +87,7 @@ const editor = createEditor({
   onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
 });
 function writeHash(){
+  if(!shouldPersist()) return;
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
   writeHashState(state);
@@ -212,5 +214,5 @@ onThemeChange(() => { lastSvg = ''; refresh(); });
     try{ text = localStorage.getItem('timeline-src') || ''; }catch(e){}
   }
   if(text) editor.setText(text);
-  else refresh();
+  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

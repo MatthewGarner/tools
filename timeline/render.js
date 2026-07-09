@@ -11,7 +11,7 @@ const F = {
   serif: "Charter, Georgia, 'Times New Roman', serif",
 };
 const T = {
-  pad: 26, laneW: 150, plotW: 1240, rowH: 34, laneGap: 14, lanePadY: 10,
+  pad: 26, laneW: 150, plotW: 1240, rowH: 32, laneGap: 11, lanePadY: 8,
   titleSize: 22, titleY: 36, headerH: 56, headerHNoTitle: 20, dateSize: 11,
   tickH: 26, msR: 6, labelSize: 12.5, noteSize: 10.5, readoutSize: 15,
   slideScale: 1.35, sinceSize: 12, droppedSize: 11,
@@ -132,12 +132,19 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       {weight: 600, tracking: 1}));
   }
 
-  /* today line over the bands */
+  /* today line + flag over the bands — the key reference axis, so it reads at a glance:
+     a filled ink flag (neutral, distinct from the ocean milestones) tops a bolder dashed line */
   if(today >= lo && today <= hi){
     const x = X(today);
-    s.push('<line data-today="" x1="' + x.toFixed(1) + '" y1="' + (headerH + 6 * S) + '" x2="' + x.toFixed(1) +
-      '" y2="' + plotBottom + '" stroke="' + C.ink + '" stroke-width="1.25" stroke-dasharray="4 3"/>');
-    s.push(txt(x + 5 * S, headerH + 16 * S, 'today', 10 * S, C.ink, {weight: 600}));
+    const flagY = headerH + 5 * S, ph = 16 * S;
+    s.push('<line data-today="" x1="' + x.toFixed(1) + '" y1="' + flagY.toFixed(1) + '" x2="' + x.toFixed(1) +
+      '" y2="' + plotBottom.toFixed(1) + '" stroke="' + C.ink + '" stroke-width="1.5" stroke-dasharray="5 3"/>');
+    const pw = measure('TODAY', '700 ' + (8.5 * S) + 'px ' + F.body) + 14 * S;
+    const flip = x + pw > plotX + plotW; // flag flips left of the line near the right edge so it never clips
+    const rx0 = flip ? x - pw : x;
+    s.push('<rect x="' + rx0.toFixed(1) + '" y="' + flagY.toFixed(1) + '" width="' + pw.toFixed(1) +
+      '" height="' + ph.toFixed(1) + '" rx="3" fill="' + C.ink + '"/>');
+    s.push(txt(rx0 + pw / 2, flagY + ph / 2 + 3 * S, 'TODAY', 8.5 * S, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
   }
 
   /* milestones */
