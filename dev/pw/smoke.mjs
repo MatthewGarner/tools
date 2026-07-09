@@ -309,6 +309,8 @@ for(const theme of ['light', 'dark']){
     await page.locator('#togauge').click();
     await page.waitForTimeout(800);
     if(!page.url().includes('/gauge/')) return false;
+    await page.locator('#viewform').click(); // gauge opens on the reveal now; the form carries the handed-off questions
+    await page.waitForTimeout(300);
     const qs = await page.locator('#preview .gform .q').count();
     const title = await page.locator('.cm-content').innerText();
     await page.goBack();
@@ -337,7 +339,11 @@ for(const theme of ['light', 'dark']){
 /* ---- gauge (solo mode; the relay flow lives in gauge.mjs) ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/gauge/', theme);
+  await page.waitForTimeout(600);
+  // New default: opens alive on the sample reveal of the first example (hash-safe autoload).
+  check('gauge(' + theme + '): opens alive on the sample reveal', await page.locator('#viewreveal.on').count() === 1 && await page.locator('#preview svg').count() === 1);
   await page.getByRole('button', {name: 'Q3 commitment review'}).click();
+  await page.locator('#viewform').click();
   await page.waitForTimeout(600);
   check('gauge(' + theme + '): form preview renders 3 questions', await page.locator('#preview .gform .q').count() === 3);
   check('gauge(' + theme + '): add question writes through the editor (insertAndSelect)', await (async () => {

@@ -9,6 +9,7 @@ import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
+import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
 const $ = id => document.getElementById(id);
 const ctx = () => ({colors: themeColors(), measure});
@@ -81,7 +82,7 @@ export function wireFormEvents(root){
 }
 
 async function initCompose(hash){
-  let model = null, view = 'form', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
+  let model = null, view = 'reveal', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
 
   /* participants never see the editor — only compose mode pays for CodeMirror */
   const {createEditor, insertAndSelect} = await import('./editor.js');
@@ -111,6 +112,7 @@ async function initCompose(hash){
   });
 
   function writeHash(){
+    if(!shouldPersist()) return;
     const state = {t: editor.getText()};
     if(ws.collapsed()) state.e = 0;
     writeHashState(state);
@@ -141,7 +143,7 @@ async function initCompose(hash){
     if(out !== lastOut){ pv.innerHTML = out; lastOut = out; }
     renderWarnings();
     $('startbtn').disabled = !model.questions.length;
-    try{ localStorage.setItem('gauge-src', text); }catch(e){}
+    if(shouldPersist()){ try{ localStorage.setItem('gauge-src', text); }catch(e){} }
     clearTimeout(hashTimer);
     hashTimer = setTimeout(writeHash, 400);
   }
@@ -214,7 +216,7 @@ async function initCompose(hash){
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){ try{ text = localStorage.getItem('gauge-src') || ''; }catch(e){} }
   if(text) editor.setText(text);
-  else refresh();
+  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 }
 
 /* ---------- mode routing ---------- */
