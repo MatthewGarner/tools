@@ -203,6 +203,7 @@ for(const [k, src] of Object.entries(docs)){
   const rs = simulate(rm);
   variants['risk-routes'] = rrender(rm, rs, {...ctxBase});
   variants['risk-routes-slide'] = rrender(rm, rs, {...ctxBase, slide: true});
+  variants['risk-routes-narrow'] = rrender(rm, rs, {...ctxBase, width: 360});
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
 }
 
@@ -216,6 +217,7 @@ for(const [k, src] of Object.entries(docs)){
   const co = csim(cm, {seed: 1, n: 2000});
   variants['cycles-full'] = crender(cm, co, {...ctxBase});
   variants['cycles-full-slide'] = crender(cm, co, {...ctxBase, slide: true});
+  variants['cycles-full-narrow'] = crender(cm, co, {...ctxBase, width: 360});
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 }
@@ -238,6 +240,7 @@ for(const [k, src] of Object.entries(docs)){
   const mctx = {...ctxBase, palette: MERIT_PALETTE.light};
   const mk = p => ({generators: buildStack(p), demand: p.demand});
   variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, {forExport: true});
+  variants['merit-order-typical-narrow'] = renderStack(mk(DEFAULT_PARAMS), {...mctx, width: 360}, {forExport: true});
   variants['merit-order-negative'] = renderStack(mk(paramsFor('negative')), mctx, {forExport: true});
 }
 

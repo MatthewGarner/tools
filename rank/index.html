@@ -73,6 +73,37 @@
   .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;
     padding:4px 8px;border-radius:5px}
   .del:hover{color:var(--err)}
+
+  /* phones: the input table can't hold ~5 fixed-width columns without scrolling
+     sideways, so it reflows to one stacked card per initiative below 640px.
+     Each td keeps its column identity via data-label (set in app.js at build
+     time, so it tracks criterion renames automatically) rendered as a
+     label:field row through td::before. */
+  @media (max-width:640px){
+    .tblwrap{overflow-x:visible;background:none}
+    #tbl thead{display:none}
+    #tbl, #tbl tbody{display:block;width:100%}
+    #tbl tr{
+      display:block;border:1px solid var(--border);border-radius:8px;
+      padding:4px 12px 8px;margin-bottom:12px;background:var(--bg);
+    }
+    #tbl td{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:9px 0;border-top:1px solid var(--border);min-height:44px;
+    }
+    #tbl td::before{
+      content:attr(data-label);flex:0 0 auto;font-size:11px;font-weight:600;
+      letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+    }
+    /* the name field IS the card title, not a labelled row */
+    #tbl td:first-child{border-top:none;padding-bottom:8px}
+    #tbl td:first-child::before{content:none}
+    #tbl td .iname{min-width:0;width:100%;font-size:16px;font-weight:600;padding:8px 0}
+    #tbl td .score{min-width:0;width:88px;font-size:16px;padding:8px}
+    #tbl td.effcol{border-left:none}
+    #tbl td:last-child{justify-content:flex-end;border-top:none;padding-top:2px}
+    #tbl td:last-child .del{min-width:44px;min-height:44px;font-size:20px}
+  }
   .toolbar{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
   .toolbar .note{font-size:12.5px;color:var(--muted)}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}

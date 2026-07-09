@@ -33,6 +33,9 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* the 1200-unit viewBox must render near 1:1 so in-chart text stays legible;
    on narrow screens the chart PANS (overflow-x above) rather than shrinking. */
 #chartwrap svg{display:block;width:100%;height:auto;min-width:1160px}
+/* narrow render (app toggles .mo-narrow): the SVG is already sized to the pane, so drop the
+   pan floor and let it fit instead of stretching back to 1160px */
+#chartwrap.mo-narrow svg{min-width:0}
 
 /* demand-drag hit-rect (app.js): a plain HTML overlay, not part of the SVG,
    so its pointerdown listener survives the innerHTML swap every live render

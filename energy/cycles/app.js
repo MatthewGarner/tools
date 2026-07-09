@@ -54,11 +54,17 @@ augment: 120..180 £/kWh`},
 let model = null, out = null, lastSvg = '';
 let rafId = 0, debTimer = null, hashTimer = null;
 
-function ctx(slide){
-  return {colors: themeColors(), measure, slide, dark: isDark()};
+const NARROW = 520;
+const stageEl = $('preview');
+function renderWidth(){
+  const w = stageEl.clientWidth;
+  return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its constant
 }
-function activeRender(slide, edit = false){
-  return render(model, out, ctx(slide), {edit});
+function ctx(slide, forExport = false){
+  return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
+}
+function activeRender(slide, edit = false, forExport = false){
+  return render(model, out, ctx(slide, forExport), {edit});
 }
 function renderWarnings(){
   const warns = $('warns');
@@ -131,7 +137,7 @@ for(const ex of EXAMPLES){
 
 /* ---------- exports ---------- */
 function svgString(slide){
-  return out ? activeRender(slide) : null;
+  return out ? activeRender(slide, false, true) : null;   // forExport: width undefined => canonical 1200/1280
 }
 function slug(){
   return ((model && model.title) || 'cycles').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -174,7 +180,19 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-onThemeChange(() => { lastSvg = ''; refresh(); });
+function rerender(){ lastSvg = ''; refresh(); }
+onThemeChange(rerender);
+
+/* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
+let lastBucket = null;
+const ro = new ResizeObserver(() => {
+  const w = stageEl.clientWidth;
+  const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
+  if(bucket === lastBucket) return;
+  lastBucket = bucket;
+  rerender();
+});
+ro.observe(stageEl, {box: 'content-box'});
 
 /* ---------- boot ---------- */
 (function(){

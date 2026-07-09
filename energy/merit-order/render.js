@@ -82,8 +82,10 @@ export function renderStack(state, ctx, opts = {}){
   const result = dispatch(state.generators, state.demand);
   const cp = result.clearingPrice;
 
-  const W = 1200;
-  const x0 = 116, x1 = W - 32;
+  const NARROW = 520;
+  const isNarrow = !!(ctx.width && ctx.width < NARROW);
+  const W = ctx.width ?? 1200;
+  const x0 = isNarrow ? 44 : 116, x1 = W - 32;
   const y0 = 64, chartH = 320, y1 = y0 + chartH;
 
   const costs = result.sorted.map(g => g.cost);
@@ -129,7 +131,7 @@ export function renderStack(state, ctx, opts = {}){
       if(isMarginal){
         const midX = (xA + xB) / 2;
         const labelY = (yTop - 10 >= y0) ? yTop - 10 : yTop + 14;
-        rows.push(txt(midX, labelY, 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
+        rows.push(txt(midX, labelY, isNarrow ? 'MARGINAL' : 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
       }
       rows.push('</g>');
       stackRows.push(rows.join(''));
@@ -157,7 +159,7 @@ export function renderStack(state, ctx, opts = {}){
   P.push(`<defs><pattern id='mo-hatch' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'>` +
     `<line x1='0' y1='0' x2='0' y2='6' stroke='${C.card}' stroke-width='1.6' opacity='0.55'/></pattern></defs>`);
   P.push(`<rect width='${W}' height='${H}' fill='${C.bg}'/>`);
-  P.push(txt(x0, 34, 'MERIT ORDER — £/MWh vs cumulative GW offered', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
+  P.push(txt(x0, 34, isNarrow ? 'MERIT ORDER — £/MWh' : 'MERIT ORDER — £/MWh vs cumulative GW offered', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
 
   // chart card
   P.push(`<rect x='${x0 - 16}' y='${y0 - 16}' width='${x1 - x0 + 32}' height='${chartH + 32}' rx='8' fill='${C.card}' stroke='${C.border}'/>`);
@@ -179,15 +181,21 @@ export function renderStack(state, ctx, opts = {}){
   for(const run of runs){
     const label = run.count > 1 ? (FAM_LABEL[run.family] || run.name) : run.name;
     const midX = (sx(run.x0gw) + sx(run.x1gw)) / 2;
-    P.push(txt(midX, y1 + 22, label, 12, C.muted, {anchor: 'middle', weight: 600}));
+    if(isNarrow)   // rotate so dense fuel labels don't overlap in a narrow stack
+      P.push(`<g transform='rotate(-35 ${r2(midX)} ${y1 + 16})'>` +
+        txt(midX, y1 + 16, label, 10.5, C.muted, {anchor: 'end', weight: 600}) + '</g>');
+    else
+      P.push(txt(midX, y1 + 22, label, 12, C.muted, {anchor: 'middle', weight: 600}));
   }
 
   // clearing-price line
   const clearCol = cp < 0 ? C.err : C.accent;
   P.push(`<line class='clearing-line' x1='${r2(x0)}' y1='${r2(sy(cp))}' x2='${r2(x1)}' y2='${r2(sy(cp))}' ` +
     `stroke='${clearCol}' stroke-width='2' stroke-dasharray='6 4'/>`);
-  const clearLabel = cp < 0 ? `paying to generate — £${fmtPrice(cp)}/MWh clears` : `clears at £${fmtPrice(cp)}/MWh`;
-  P.push(txt(x1, sy(cp) - 8, clearLabel, 12.5, clearCol, {anchor: 'end', weight: 700}));
+  const clearLabel = isNarrow
+    ? `£${fmtPrice(cp)}/MWh` + (cp < 0 ? ' — paying' : '')
+    : (cp < 0 ? `paying to generate — £${fmtPrice(cp)}/MWh clears` : `clears at £${fmtPrice(cp)}/MWh`);
+  P.push(txt(isNarrow ? x0 : x1, sy(cp) - 8, clearLabel, 12.5, clearCol, {anchor: isNarrow ? 'start' : 'end', weight: 700}));
 
   // demand line
   P.push(`<line class='demand-line' x1='${r2(sx(state.demand))}' y1='${r2(y0)}' x2='${r2(sx(state.demand))}' y2='${r2(y1)}' ` +
@@ -201,7 +209,7 @@ export function renderStack(state, ctx, opts = {}){
   // rent legend
   if(showLegend){
     P.push(`<rect x='${x0}' y='${legendY - 11}' width='14' height='14' fill='${tint(C.accent)}' stroke='${C.accent}'/>`);
-    P.push(txt(x0 + 20, legendY, 'shaded = earns above running cost (storage: the arbitrage spread)', 11.5, C.muted));
+    P.push(txt(x0 + 20, legendY, isNarrow ? 'shaded = earns above running cost' : 'shaded = earns above running cost (storage: the arbitrage spread)', 11.5, C.muted));
   }
 
   // verdict — export-only (HTML #verdict carries it on screen)
