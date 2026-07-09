@@ -118,6 +118,16 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(150);
   const calloutTxt = await page.locator('.mo-callout').count() ? await page.locator('.mo-callout').innerText() : '';
   check('merit-order(' + theme + '): BESS callout reframes charging cost', /charging cost/i.test(calloutTxt));
+  // Phase 2: an FES world + cold peak → hydrogen (not cheap gas) sets the price
+  await page.getByRole('button', {name: 'Hydrogen Evolution'}).click();
+  await page.getByRole('button', {name: 'Still cold peak'}).click();
+  await page.waitForTimeout(400);
+  const feVerdict = (await page.locator('#verdict').innerText()).trim();
+  check('merit-order(' + theme + '): FES cold peak priced by hydrogen (£200)', /£200/.test(feVerdict) && /hydrogen/i.test(feVerdict));
+  check('merit-order(' + theme + '): CCS + hydrogen blocks with textures',
+    await page.locator("svg g[data-plant='Hydrogen']").count() === 1 && await page.locator('svg g[data-tex]').count() >= 2);
+  check('merit-order(' + theme + '): world demand max grows (>64)',
+    Number(await page.locator('#demand').getAttribute('max')) > 64);
   check('merit-order(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('merit-order(' + theme + '): no console errors', errors.length === 0);

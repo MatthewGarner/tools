@@ -124,6 +124,9 @@ test('merit-order renderer stays clean (hostile catalogue labels/family reach da
   const {buildStack} = await import('../energy/merit-order/stack.js');
   const {DEFAULT_PARAMS} = await import('../energy/merit-order/scenarios.js');
   const evilCat = EVIL.map((e, i) => ({key: 'k' + i, label: e + ' ' + i, family: e, installed: 5, bid: {kind: 'fixed', cost: 10 + i}}));
+  // exercise the Phase-2 branches too: a hostile gas-CCS + hydrogen block (thermal-hued, textured)
+  evilCat.push({key: 'ccs', label: EVIL[0] + ' ccs', family: 'ccs', installed: 5, bid: {kind: 'ccs'}, thermalHue: true});
+  evilCat.push({key: 'h2', label: EVIL[1] + ' h2', family: 'hydrogen', installed: 5, bid: {kind: 'fixed', cost: 200}, thermalHue: true});
   const state = {generators: buildStack(DEFAULT_PARAMS, evilCat), demand: 12};
   assertClean(renderStack(state, {...ctx, palette: MERIT_PALETTE.light}), 'merit-order');
 });
