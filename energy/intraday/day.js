@@ -71,3 +71,37 @@ export function clearDay(p, net, catalogue = GB_TODAY){
 export function rawDay(p, catalogue = GB_TODAY){
   return clearDay(p, Array.from({length: 24}, (_, h) => demandAt(h, p)), catalogue);
 }
+
+/* Greedy perfect-foresight pair-matching on the RAW prices — the same
+   "perfect foresight is greedy pair-matching" rule earmarked for E11. The
+   fleet plans against the raw shape; Task 4 prices it on the flattened one —
+   that gap IS the cannibalisation lesson. Charge hour must precede discharge
+   hour (starts empty, one day, no carry-over). Per-hour power ≤ fleetGW both
+   directions; total discharge energy ≤ fleetGW·fleetH; 1 GWh out costs
+   1/rte GWh in. Each pair adds a non-negative prefix to the SoC trace, so
+   feasibility (0 ≤ SoC ≤ capacity) holds by construction; socTrace verifies. */
+export function greedySchedule(prices, {fleetGW, fleetH, rte}){
+  const charge = new Array(24).fill(0), discharge = new Array(24).fill(0);
+  if(fleetGW > 0){
+    const pairs = [];
+    for(let c = 0; c < 24; c++) for(let d = c + 1; d < 24; d++){
+      const margin = prices[d] - prices[c] / rte;
+      if(margin > 0) pairs.push({c, d, margin});
+    }
+    pairs.sort((a, b) => b.margin - a.margin || a.c - b.c || a.d - b.d);
+    let budget = fleetGW * fleetH;                     // GWh, discharge side
+    for(const {c, d} of pairs){
+      if(budget <= 0) break;
+      const q = Math.min(budget, fleetGW - discharge[d], (fleetGW - charge[c]) * rte);
+      if(q <= 0) continue;
+      discharge[d] += q; charge[c] += q / rte; budget -= q;
+    }
+  }
+  return {charge, discharge, soc: socTrace(charge, discharge, rte)};
+}
+
+function socTrace(charge, discharge, rte){
+  const soc = [0];
+  for(let h = 0; h < 24; h++) soc.push(soc[h] + charge[h] * rte - discharge[h]);
+  return soc;
+}

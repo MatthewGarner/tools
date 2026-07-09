@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {BASE_PROFILE, DAY_DEFAULTS, demandAt, solarAt, sansStorage, clearDay, rawDay} from '../day.js';
+import {BASE_PROFILE, DAY_DEFAULTS, demandAt, solarAt, sansStorage, clearDay, rawDay, greedySchedule} from '../day.js';
 import {GB_TODAY} from '../../merit-order/technologies.js';
 
 test('BASE_PROFILE: 24 normalised points, trough 0 and peak 1 present', () => {
@@ -55,4 +55,37 @@ test('rawDay on the GB catalogue: peak price ≥ trough price, marginal changes 
   assert.ok(r.spread > 0);
   assert.ok(r.changeovers.length >= 1, 'the marginal unit changes at least once across a GB day');
   assert.ok(r.changeovers.every(c => c.h >= 1 && c.h <= 23 && typeof c.to === 'string'));
+});
+
+const V = [30,25,20,15,18,25,45,60,70,65,60,55,50,48,50,55,65,85,95,90,80,65,50,40];
+
+test('greedy: zero fleet ⇒ empty schedule', () => {
+  const s = greedySchedule(V, {fleetGW: 0, fleetH: 2, rte: 0.85});
+  assert.ok(s.charge.every(v => v === 0) && s.discharge.every(v => v === 0));
+});
+
+test('greedy: respects power, duration and RTE conservation', () => {
+  const f = {fleetGW: 4, fleetH: 2, rte: 0.85};
+  const s = greedySchedule(V, f);
+  assert.ok(s.charge.every(v => v <= f.fleetGW + 1e-9), 'charge power cap');
+  assert.ok(s.discharge.every(v => v <= f.fleetGW + 1e-9), 'discharge power cap');
+  const dis = s.discharge.reduce((a, b) => a + b, 0);
+  const chg = s.charge.reduce((a, b) => a + b, 0);
+  assert.ok(dis <= f.fleetGW * f.fleetH + 1e-9, 'energy budget');
+  assert.ok(Math.abs(dis - chg * f.rte) < 1e-9, 'conservation: out = in × RTE');
+});
+
+test('greedy: SoC stays within [0, capacity]; charge precedes discharge', () => {
+  const f = {fleetGW: 4, fleetH: 2, rte: 0.85};
+  const s = greedySchedule(V, f);
+  assert.ok(s.soc.every(v => v >= -1e-9 && v <= f.fleetGW * f.fleetH + 1e-9));
+  assert.ok(s.soc.at(-1) < 1e-9, 'ends empty (everything profitable was sold)');
+});
+
+test('greedy: only profitable pairs taken (no discharge below charge cost ÷ RTE)', () => {
+  const flat = new Array(24).fill(50);
+  const s = greedySchedule(flat, {fleetGW: 4, fleetH: 2, rte: 0.85});
+  assert.ok(s.discharge.every(v => v === 0), 'no arbitrage in a flat day');
+  const s2 = greedySchedule([90, 20, 21, 22, ...new Array(20).fill(21)], {fleetGW: 4, fleetH: 2, rte: 0.85});
+  assert.equal(s2.discharge[0], 0, 'cannot discharge before charging (starts empty)');
 });
