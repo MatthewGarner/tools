@@ -22,7 +22,9 @@ for(const [name, url] of ALL){
   const page = await ctx.newPage();
   await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(900);
-  const vw = await page.evaluate(() => innerWidth);
+  // clientWidth is the stable layout-viewport width; innerWidth expands to fit
+  // overflowing content on mobile, which masks exactly the h-scroll we're testing for.
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
   const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
   ok(docSW <= vw + 1, `${name}: no page-level horizontal scroll (${docSW} <= ${vw})`);
   await page.close();
