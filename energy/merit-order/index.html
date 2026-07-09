@@ -24,7 +24,7 @@
   <header>
     <a class="crumb" href="../">← All energy tools</a>
     <h1>Merit order</h1>
-    <p class="tagline">The 2026 Great Britain fleet, stacked cheapest-first: wind, solar, nuclear, a gas efficiency staircase and batteries dispatched ahead of gas. Drag demand and watch which plant sets the price for everyone.</p>
+    <p class="tagline">The 2026 Great Britain fleet stacked cheapest-first — or a 2035 net-zero world from NESO's Future Energy Scenarios. Drag demand and watch which plant sets the price: cheap gas today, or hydrogen when the wind drops in a decarbonised grid.</p>
   </header>
 </div>
 
@@ -39,8 +39,14 @@
   </section>
 
   <section class="card">
+    <div class="chips" id="worlds"><span class="lead">World:</span>
+      <button class="chip" data-world="gbToday">GB today</button>
+      <button class="chip" data-world="ht">Holistic Transition</button>
+      <button class="chip" data-world="ee">Electric Engagement</button>
+      <button class="chip" data-world="he">Hydrogen Evolution</button>
+      <button class="chip" data-world="fb">Falling Behind</button>
+    </div>
     <div class="chips" id="presets"><span class="lead">Conditions:</span>
-      <button class="chip" data-preset="">GB today</button>
       <button class="chip" data-preset="windy">Windy</button>
       <button class="chip" data-preset="coldPeak">Still cold peak</button>
       <button class="chip" data-preset="gasSpike">Gas spike</button>
@@ -74,7 +80,8 @@
     <p>The gas fleet isn't one plant — it's a <b>range of efficiencies</b>. Each band's cost is fuel ÷ efficiency, plus carbon, so the most efficient CCGT sets a lower price than the oldest, and a gas-price spike fans the whole staircase apart. Which gas unit is marginal is what moves the price.</p>
     <p><b>Batteries and pumped storage bid their charging cost</b> — what they paid to fill, divided by round-trip efficiency — which sits below gas, so they're dispatched <i>ahead</i> of gas and push it out of the stack. The shaded rent on a battery is the <b>arbitrage spread</b> it earns off the gas-set price, not a fuel margin. This is a snapshot of storage discharging only; the charging leg and its energy limit over a day aren't drawn — a ~1.8-hour fleet can't hold full power for long, which is why a long, still, cold evening empties it and the oldest gas sets the price. The full charge→discharge cycle is a sibling toy's job.</p>
     <p>Wind and solar are sized by what's <b>available</b> right now (the "GW offered"), not their full installed capacity — a still night offers little wind whatever the nameplate. Push availability up and demand down with must-run on and the marginal unit bids <b>below zero</b>: subsidised renewables would rather pay to keep generating than lose their per-MWh support, so the clearing price goes negative — a signal to switch off, not a glitch.</p>
-    <p>Illustrative structural figures (installed capacities from DUKES/NESO; gas and carbon are representative teaching values) — <b>no live data, ever</b>. One uniform-price, day-ahead-style snapshot, not GB's real-time balancing mechanism: flat marginal offers (no unit-commitment or start-up costs), no strategic bidding, imports priced at an assumed neighbour price that can undercut the most efficient gas, no network constraints, and marginal ≠ average carbon. Sibling toys extend the same engine — network constraints turn one price into locational prices, an interconnector couples two markets, the marginal plant's carbon is the carbon of the next megawatt, a price cap opens the capacity-market "missing money" gap, and the storage arbitrage cycle gets its own sketchpad.</p>
+    <p>Switch <b>World</b> to a 2035 NESO Future Energy Scenario and the whole stack changes. Two new blocks appear. <b>Gas-CCS</b> captures ~90% of its emissions at an efficiency penalty (plus capture and CO₂ transport-and-storage costs), so it's dearer than efficient gas today but <i>undercuts</i> the fleet as carbon rises — drag the carbon slider and watch it slide down through the gas staircase. And <b>hydrogen-fired</b> plant is a fixed ~£200/MWh zero-carbon backstop: on a still, cold evening in a net-zero world the wind has gone and there's little gas left, so hydrogen — not cheap gas — sets the price. A net-zero grid can even run <i>short</i> of firm capacity on the stillest evenings, which is exactly why it builds hydrogen and storage.</p>
+    <p>Illustrative structural figures (installed capacities from DUKES/NESO; gas and carbon are representative teaching values) — <b>no live data, ever</b>. The FES worlds are NESO's <b>illustrative 2035 pathways, revised annually — not forecasts</b>, and contested. One uniform-price, day-ahead-style snapshot, not GB's real-time balancing mechanism: flat marginal offers (no unit-commitment or start-up costs), no strategic bidding, imports priced at an assumed neighbour price that can undercut the most efficient gas, no network constraints, and marginal ≠ average carbon. Sibling toys extend the same engine — network constraints turn one price into locational prices, an interconnector couples two markets, the marginal plant's carbon is the carbon of the next megawatt, a price cap opens the capacity-market "missing money" gap, and the storage arbitrage cycle gets its own sketchpad.</p>
     </div>
   </section>
 

@@ -28,3 +28,12 @@ test('malformed / wrong version → null', () => {
   assert.equal(decodeStateV2({v: 99}), null);
   assert.equal(decodeStateV2({v: 2}), null);   // missing params
 });
+
+test('v2 codec carries the world key; a Phase-1 hash (no w) → gbToday', () => {
+  const enc = encodeStateV2({world:'he', condition:'coldPeak', params:{...DEFAULT_PARAMS, demand:63}, adv:{}});
+  assert.equal(enc.w, 'he');
+  assert.equal(decodeStateV2(enc).world, 'he');
+  // gbToday world omits w (short URL); a Phase-1 v2 hash (no w) decodes to gbToday
+  assert.equal(encodeStateV2({world:'gbToday', condition:null, params:DEFAULT_PARAMS, adv:{}}).w, undefined);
+  assert.equal(decodeStateV2({v:2, c:null, params:DEFAULT_PARAMS}).world, 'gbToday');
+});

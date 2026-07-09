@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {renderStack, buildVerdict, toMarkdown, MERIT_PALETTE} from '../render.js';
 import {buildStack} from '../stack.js';
 import {dispatch} from '../engine.js';
-import {DEFAULT_PARAMS, paramsFor} from '../scenarios.js';
+import {DEFAULT_PARAMS, paramsFor, WORLDS} from '../scenarios.js';
 
 const C = {bg:'#fff', card:'#fff', border:'#ccc', ink:'#111', muted:'#777', accent:'#c05621', err:'#b00'};
 const measure = (t, f) => t.length * 7;   // deterministic stub
@@ -35,7 +35,7 @@ test('axis label reads "GW offered", never "GW installed"', () => {
 });
 
 test('negative preset draws the negative band + words the clearing price', () => {
-  const p = paramsFor('negative');
+  const p = paramsFor('gbToday', 'negative');
   const svg = renderStack({generators: buildStack(p), demand: p.demand}, ctx);
   assert.ok(svg.includes('negative-band'));
   assert.ok(/paying to generate/i.test(svg));
@@ -61,4 +61,27 @@ test('storage dispatched inframarginal → verdict names the arbitrage spread', 
   const r = dispatch(buildStack(DEFAULT_PARAMS), DEFAULT_PARAMS.demand);
   const v = buildVerdict(r, stateFor(DEFAULT_PARAMS));
   assert.ok(/arbitrage spread/i.test(v));
+});
+
+test('thermal ramp + THERMAL_ORDER cover CCS + hydrogen (7 steps, not painted OCGT-36 red)', () => {
+  assert.equal(MERIT_PALETTE.light.thermal.length, 7);
+  assert.equal(MERIT_PALETTE.dark.thermal.length, 7);
+});
+
+test('FES render: CCS + Hydrogen drawn with own labels + distinct textures', () => {
+  const p = paramsFor('he', 'coldPeak');
+  const svg = renderStack({generators: buildStack(p, WORLDS.he.catalogue), demand: p.demand}, ctx);
+  assert.ok(svg.includes("data-plant='Gas-CCS'"), 'CCS block present');
+  assert.ok(svg.includes("data-plant='Hydrogen'"), 'Hydrogen block present');
+  assert.ok(/data-tex='ccs'/.test(svg) && /data-tex='h2'/.test(svg), 'CCS + H2 texture markers');
+  assert.ok(svg.includes('url(#mo-dots)') && svg.includes('url(#mo-cross)'), 'dot + cross patterns used');
+  // own labels (block names, distinct from the "Gas" run label)
+  assert.ok(svg.includes('Gas-CCS') && svg.includes('Hydrogen'));
+});
+
+test('verdict names the net-zero scarcity when hydrogen/CCS is marginal', () => {
+  const p = paramsFor('he', 'coldPeak');
+  const r = dispatch(buildStack(p, WORLDS.he.catalogue), p.demand);
+  assert.equal(r.marginalName, 'Hydrogen');
+  assert.ok(/wind has dropped|net-zero|scarce/i.test(buildVerdict(r, {demand: p.demand})));
 });

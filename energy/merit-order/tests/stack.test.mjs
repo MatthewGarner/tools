@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {gasLHV, srmc, storageBid, buildStack, applyAdv} from '../stack.js';
+import {gasLHV, srmc, storageBid, buildStack, applyAdv, ccsBid} from '../stack.js';
+import {FES_HT} from '../technologies.js';
 import {dispatch} from '../engine.js';
 
 const r = n => Math.round(n);
@@ -80,4 +81,31 @@ test('buildStack throws on a duplicate-name catalogue', () => {
     {key:'b', label:'X', family:'solar', installed:1, bid:{kind:'fixed', cost:2}},
   ];
   assert.throws(() => buildStack(DEF, dup), /unique|duplicate/i);
+});
+
+test('ccsBid: nearly flat, and crosses the gas bands at the right carbon', () => {
+  assert.equal(Math.round(ccsBid(100, 50)), 93);          // 92.65
+  assert.equal(Math.round(ccsBid(100, 80)), 94);          // 93.81
+  // fleet CCGT-54 crossover is ~£53: CCS pricier at 52, cheaper at 54
+  assert.ok(ccsBid(100, 52) > srmc(0.54, 100, 52, 3));
+  assert.ok(ccsBid(100, 54) < srmc(0.54, 100, 54, 3));
+  // undercuts the dirtiest CCGT-49 early (~£29); the best CCGT-60 only late (~£83)
+  assert.ok(ccsBid(100, 30) < srmc(0.49, 100, 30, 3));
+  assert.ok(ccsBid(100, 70) > srmc(0.60, 100, 70, 3));    // not yet below the best gas at £70
+  assert.ok(ccsBid(100, 90) < srmc(0.60, 100, 90, 3));    // below it by £90
+});
+
+test('buildStack(FES_HT): CCS priced by ccsBid, hydrogen £200, both thermal-hued, unique names', () => {
+  const P = {demand:50, gas:100, carbon:50, wind:.28, solar:.20, imports:5, storageAvail:.5, chargePrice:40, mustRunOn:false, mustRunDepth:30};
+  const g = buildStack(P, FES_HT);
+  const ccs = g.find(x => x.name === 'Gas-CCS');
+  assert.equal(Math.round(ccs.cost), 93);
+  assert.equal(ccs.thermal, true);          // tinted from the thermal ramp
+  assert.equal(ccs.family, 'ccs');          // but its own family for labelling
+  const h2 = g.find(x => x.name === 'Hydrogen');
+  assert.equal(h2.cost, 200);
+  assert.equal(h2.thermal, true);
+  assert.equal(h2.family, 'hydrogen');
+  const names = g.map(x => x.name);
+  assert.equal(new Set(names).size, names.length);
 });

@@ -24,19 +24,23 @@ const fmtPrice = v => Math.round(v).toString();
    card surface both themes (light #FFFFFF worst-adjacent ΔE 12.9; dark #1B242C ΔE
    11.4, floor band — legitimate given in-place labels + 2px gaps + storage hatch).
    `thermal` is a 5-step tonal ramp (cheap→dirty) for the gas efficiency staircase. */
+/* thermal ramp: 5 gas efficiency steps (cheap→dirty) + 2 Phase-2 net-zero blocks —
+   gas-CCS (index 5, a greyed "abated" red) and hydrogen (index 6, a deep distinct
+   red). CCS/H₂ colour is by TYPE (THERMAL_ORDER index), not cost, and their dot/
+   cross-hatch textures + own labels carry the real distinction (≤8 chart hues). */
 export const MERIT_PALETTE = {
   light: {
     wind:'#2a78d6', solar:'#eda100', nuclear:'#4a3aa7', biomass:'#008300',
     storage:'#1baf7a', imports:'#e87ba4', other:'#eb6834',
-    thermal:['#f4a3a2', '#ec7675', '#e34948', '#bf3636', '#932a2d'],
+    thermal:['#f4a3a2', '#ec7675', '#e34948', '#bf3636', '#932a2d', '#b5766a', '#722a4e'],
   },
   dark: {
     wind:'#3987e5', solar:'#c98500', nuclear:'#9085e9', biomass:'#008300',
     storage:'#199e70', imports:'#d55181', other:'#d95926',
-    thermal:['#f2a6a6', '#ec8585', '#e66767', '#d24f4f', '#b93c3c'],
+    thermal:['#f2a6a6', '#ec8585', '#e66767', '#d24f4f', '#b93c3c', '#cf9a8c', '#c46a8e'],
   },
 };
-const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%'];
+const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%', 'Gas-CCS', 'Hydrogen'];
 const FAM_LABEL = {thermal: 'Gas', storage: 'Storage'};   // multi-block runs; single blocks use their own name
 
 /* thermal blocks step through the tonal ramp by band; everything else takes its
@@ -57,6 +61,9 @@ export function buildVerdict(result, state){
       `${result.marginalName} is the marginal plant and sets the price.`);
   } else {
     parts.push('No demand to clear — nothing dispatches, and no plant sets a price.');
+  }
+  if(result.marginalName === 'Hydrogen' || result.marginalName === 'Gas-CCS'){
+    parts.push('The wind has dropped and gas is scarce — a net-zero grid’s firm low-carbon backup (hydrogen or gas-CCS) sets the price, not cheap gas.');
   }
   if(cp < 0) parts.push('The market is paying to generate: price runs negative until the must-run block clears.');
   if(result.unmet > 0) parts.push(`${fmtGW(result.unmet)} GW of demand goes unmet — capacity runs out first.`);
@@ -112,12 +119,15 @@ export function renderStack(state, ctx, opts = {}){
     const fill = famColour(g, P8);
 
     if(g.capacity > 0){
-      const rows = [`<g data-plant='${esc(g.name)}'${g.storage ? " data-storage='1'" : ''}>`];
+      // texture marks the non-plain-fuel blocks: storage hatch, CCS dots, hydrogen cross-hatch
+      const texId = g.storage ? 'mo-hatch' : g.family === 'ccs' ? 'mo-dots' : g.family === 'hydrogen' ? 'mo-cross' : null;
+      const texAttr = g.storage ? " data-storage='1'" : g.family === 'ccs' ? " data-tex='ccs'" : g.family === 'hydrogen' ? " data-tex='h2'" : '';
+      const rows = [`<g data-plant='${esc(g.name)}'${texAttr}>`];
       if(pp.dispatchedMW > 0){
         rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='${fill}'` +
           (isMarginal ? ` stroke='${C.accent}' stroke-width='2'` : '') + `/>`);
-        if(g.storage){   // hatch overlay: "not a fuelled plant"
-          rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='url(#mo-hatch)'/>`);
+        if(texId){   // pattern overlay: not a plain fuelled plant
+          rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='url(#${texId})'/>`);
         }
       }
       if(pp.strandedMW > 0){
@@ -130,7 +140,9 @@ export function renderStack(state, ctx, opts = {}){
       }
       if(isMarginal){
         const midX = (xA + xB) / 2;
-        const labelY = (yTop - 10 >= y0) ? yTop - 10 : yTop + 14;
+        // the marginal block's top sits ON the clearing line, so lift the badge clear of the
+        // clearing-price label (which rides just above that line) to avoid a top-right collision
+        const labelY = (yTop - 26 >= y0) ? yTop - 26 : yTop + 14;
         rows.push(txt(midX, labelY, isNarrow ? 'MARGINAL' : 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
       }
       rows.push('</g>');
@@ -156,8 +168,14 @@ export function renderStack(state, ctx, opts = {}){
   const H = Math.round((opts.forExport ? verdictTopBase + vBlockH : verdictTopBase) + 24);
 
   P.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`);
-  P.push(`<defs><pattern id='mo-hatch' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'>` +
-    `<line x1='0' y1='0' x2='0' y2='6' stroke='${C.card}' stroke-width='1.6' opacity='0.55'/></pattern></defs>`);
+  P.push(`<defs>` +
+    `<pattern id='mo-hatch' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'>` +
+    `<line x1='0' y1='0' x2='0' y2='6' stroke='${C.card}' stroke-width='1.6' opacity='0.55'/></pattern>` +
+    `<pattern id='mo-dots' width='6' height='6' patternUnits='userSpaceOnUse'>` +
+    `<circle cx='3' cy='3' r='1.15' fill='${C.card}' opacity='0.6'/></pattern>` +
+    `<pattern id='mo-cross' width='7' height='7' patternUnits='userSpaceOnUse'>` +
+    `<path d='M0 0 L7 7 M7 0 L0 7' stroke='${C.card}' stroke-width='1' opacity='0.5'/></pattern>` +
+    `</defs>`);
   P.push(`<rect width='${W}' height='${H}' fill='${C.bg}'/>`);
   P.push(txt(x0, 34, isNarrow ? 'MERIT ORDER — £/MWh' : 'MERIT ORDER — £/MWh vs cumulative GW offered', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
 
@@ -181,10 +199,12 @@ export function renderStack(state, ctx, opts = {}){
   for(const run of runs){
     const label = run.count > 1 ? (FAM_LABEL[run.family] || run.name) : run.name;
     const midX = (sx(run.x0gw) + sx(run.x1gw)) / 2;
-    if(isNarrow)   // rotate so dense fuel labels don't overlap in a narrow stack
+    if(isNarrow){   // rotate so dense fuel labels don't overlap in a narrow stack
+      const runW = sx(run.x1gw) - sx(run.x0gw);
+      if(runs.length > 10 && runW < 22){ continue; }   // dense FES stack on a phone: drop the thinnest labels (tap a block to identify it)
       P.push(`<g transform='rotate(-35 ${r2(midX)} ${y1 + 16})'>` +
         txt(midX, y1 + 16, label, 10.5, C.muted, {anchor: 'end', weight: 600}) + '</g>');
-    else
+    } else
       P.push(txt(midX, y1 + 22, label, 12, C.muted, {anchor: 'middle', weight: 600}));
   }
 
