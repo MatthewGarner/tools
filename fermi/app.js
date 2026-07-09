@@ -8,6 +8,7 @@ import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -198,6 +199,7 @@ function packScen(snap){
   return o;
 }
 function writeHash(){
+  if(!shouldPersist()) return;   // an auto-loaded example must not rewrite the blank URL until first interaction
   scenStore[active] = snapshot();
   const state = compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
@@ -839,6 +841,15 @@ if(boot && boot.a && boot.b){
   loadSnap(scenStore[active]);
 }else if(boot){
   loadSnap(unpackScen(boot));
+}else{
+  // open alive: seed the first example so fermi greets you rendered, not blank.
+  // hash-safe — writeHash() no-ops until the first real interaction (shouldPersist).
+  autoloadExample(() => {
+    const ex = EXAMPLES[0];
+    $('formula').value = ex.f;
+    for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist: 'auto'});
+    varRowsSig = '';
+  });
 }
 renderTabs();
 lint();
