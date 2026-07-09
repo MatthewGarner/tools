@@ -36,8 +36,9 @@ export function render(model, out, ctx, {edit = false} = {}){
   const NARROW = 520;
   const isNarrow = !!(ctx.width && ctx.width < NARROW);
   const W = ctx.width ?? (ctx.slide ? 1280 : 1200);
-  const x0 = 300, x1 = W - 48;
-  const TOP = model.title ? 92 : 56, GAP = 18;
+  const x0 = isNarrow ? 48 : 300, x1 = W - 48;
+  const titleLines = model.title ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
+  const TOP = model.title ? (isNarrow ? 34 + titleLines.length * 24 : 92) : 56, GAP = 18;
   const parts = [];
   const P = [];   // deferred: parts helper functions below push here then join
 
@@ -49,8 +50,27 @@ export function render(model, out, ctx, {edit = false} = {}){
   const axMin = 0, axMax = Math.max(netMax * 1.04, out.threshold.p90 * 1.2);
   const vX = v => Math.max(x0, Math.min(x1, x0 + (v - axMin) / (axMax - axMin || 1) * (x1 - x0)));
 
+  /* narrow mode: pills flow-wrap. `flow` (when on) overrides the passed x/y with a
+     wrapping cursor so the existing call sites work unchanged in both modes. */
+  const flow = {on: false, x: 44, y: 0, rows: 1};
+  const MONO = '600 12px -apple-system,sans-serif';
+  const place = w => {   // returns [x,y] for a pill of width w, advancing the cursor
+    if(!flow.on) return null;
+    if(flow.x + w > W - 24 && flow.x > 44){ flow.x = 44; flow.y += 28; flow.rows++; }
+    const at = [flow.x, flow.y]; flow.x += w + 8; return at;
+  };
+  const startFlow = y => { flow.on = true; flow.x = 44; flow.y = y; flow.rows = 1; };
+  /* width-only calc (no draw), for pre-measuring wrapped row counts before heights */
+  const pillW = label => ctx.measure(label, MONO) + 20;
+  const rangePW = (key, loS, hiS, suffix = '') => {
+    const single = loS === hiS && suffix !== '!';
+    return 20 + ctx.measure(key + ' ', MONO) + ctx.measure(loS, MONO) + (single ? 0 : ctx.measure('..', MONO) + ctx.measure(hiS + suffix, MONO));
+  };
+  const flowRows = ws => { let x = 44, rows = 1; for(const w of ws){ if(x + w > W - 24 && x > 44){ x = 44; rows++; } x += w + 8; } return rows; };
+
   const pill = (x, y, label, opts = {}) => {
-    const w = ctx.measure(label, '600 12px -apple-system,sans-serif') + 20;
+    const w = ctx.measure(label, MONO) + 20;
+    const at = place(w); if(at){ x = at[0]; y = at[1]; }
     let attrs = '';
     if(edit && opts.field) attrs = ' data-edit=\'num\' data-line=\'' + opts.line +
       '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'';
@@ -67,6 +87,7 @@ export function render(model, out, ctx, {edit = false} = {}){
       wDots = ctx.measure('..', mono), wHi = ctx.measure(hiS + suffix, mono);
     const single = loS === hiS && suffix !== '!';
     const w = 20 + wKey + wLo + (single ? 0 : wDots + wHi);
+    const at = place(w); if(at){ x = at[0]; y = at[1]; }
     parts.push('<rect x=\'' + x.toFixed(1) + '\' y=\'' + y + '\' width=\'' + w.toFixed(1) +
       '\' height=\'22\' rx=\'11\' fill=\'' + tint(accent) + '\'/>');
     parts.push(txt(x + 10, y + 15, key, 12, C.muted, {weight: 600}));
@@ -97,18 +118,40 @@ export function render(model, out, ctx, {edit = false} = {}){
   const vS = verdict('second', out);
   const vA = verdict('augment', out);
   const wrapN = t => t ? wrapText(t, '15px ' + FONT, vw, ctx.measure).length : 0;
-  const B1H = 178 + wrapN(vT) * 22;
-  const B2H = model.second ? 128 + wrapN(vS) * 22 : 84;
-  const B3H = model.augment || true ? (model.augment ? 250 + 48 + 30 + wrapN(vA) * 22 : (model.augment === null && 84)) : 0;
-  const b3h = model.augment ? 250 + 48 + 30 + wrapN(vA) * 22 : 84;
+  /* narrow: pre-measure how many rows the pills wrap to, so band heights fit */
+  const b = model.battery, cy = model.cycles;
+  const b1w = [
+    pillW(b.mw + 'MW'), pillW(b.mwh + 'MWh'),
+    rangePW('spread', numStr(model.spread.lo), numStr(model.spread.hi)),
+    rangePW('fade', numStr(model.fade.lo * 100), numStr(model.fade.hi * 100), '%'),
+    pillW('budget ' + cy.budget), pillW('over ' + cy.years + 'yr'),
+    ...(!model.chargeDefaulted ? [rangePW('charge', numStr(model.charge.lo), numStr(model.charge.hi))] : []),
+    rangePW('rte', numStr(model.rte.lo * 100), numStr(model.rte.hi * 100), '%'),
+    rangePW('calendar', numStr(model.calendar.lo * 100), numStr(model.calendar.hi * 100), '%'),
+    pillW('binds: warranty 0/10 · wear 0/10')];
+  const b2w = (model.second && out.second) ? [
+    pillW('second ' + Math.round(model.second.lo * 100) + '..' + Math.round(model.second.hi * 100) + '%'),
+    pillW('+' + fmtUnit(out.second.dRev, '£/yr') + ' gross'), pillW('−' + fmtUnit(out.second.dWear, '£/yr') + ' wear'),
+    pillW(fmtUnit(out.second.dNet, '£/yr') + ' net')] : [];
+  const b3w = (model.augment && out.augment) ? [
+    pillW('augment ' + numStr(model.augment.lo / 1000) + '..' + numStr(model.augment.hi / 1000) + ' £/kWh'),
+    ...(model.drift ? [pillW('drift ' + numStr(model.drift.lo * 100) + '..' + numStr(model.drift.hi * 100) + '%/yr')] : []),
+    ...(out.augment.pNever > 0.15 ? [pillW('never pays 0/10')] : [])] : [];
+  const b1Rows = isNarrow ? flowRows(b1w) : 2;
+  const b2Rows = isNarrow ? flowRows(b2w) : 1;
+  const b3Rows = isNarrow ? flowRows(b3w) : 1;
+  const B1H = isNarrow ? 124 + b1Rows * 28 + wrapN(vT) * 22 : 178 + wrapN(vT) * 22;
+  const B2H = model.second ? (isNarrow ? 96 + b2Rows * 28 + wrapN(vS) * 22 : 128 + wrapN(vS) * 22) : 84;
+  const b3h = model.augment ? (isNarrow ? 322 + b3Rows * 28 + wrapN(vA) * 22 : 250 + 48 + 30 + wrapN(vA) * 22) : 84;
   const H = TOP + B1H + GAP + B2H + GAP + b3h + 40;
 
   parts.push('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'' + W + '\' height=\'' + H +
     '\' viewBox=\'0 0 ' + W + ' ' + H + '\' font-family=\'' + FONT + '\'>');
   parts.push('<rect width=\'' + W + '\' height=\'' + H + '\' fill=\'' + C.bg + '\'/>');
   if(model.title){
-    parts.push('<rect x=\'48\' y=\'34\' width=\'34\' height=\'4\' fill=\'' + accent + '\'/>');
-    parts.push(txt(48, 66, model.title, 26, C.ink, {weight: 700}));
+    parts.push('<rect x=\'48\' y=\'' + (isNarrow ? 18 : 34) + '\' width=\'34\' height=\'4\' fill=\'' + accent + '\'/>');
+    if(isNarrow) titleLines.forEach((l, i) => parts.push(txt(48, 42 + i * 24, l, 18, C.ink, {weight: 700})));
+    else parts.push(txt(48, 66, model.title, 26, C.ink, {weight: 700}));
   }
 
   const tauX = vX(out.threshold.p50);
@@ -139,14 +182,14 @@ export function render(model, out, ctx, {edit = false} = {}){
     for(const p of [out.threshold.p10, out.threshold.p90])
       parts.push('<line x1=\'' + vX(p).toFixed(1) + '\' y1=\'' + (wy + 5) + '\' x2=\'' + vX(p).toFixed(1) +
         '\' y2=\'' + (wy + 15) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
-    parts.push(txt(tauX, wy + 28, fmtUnit(out.threshold.p50, '£/MWh') + ' — whisker = your beliefs (P10–P90)',
-      11.5, C.muted, {anchor: 'middle'}));
+    parts.push(txt(isNarrow ? 48 : tauX, wy + 28, fmtUnit(out.threshold.p50, '£/MWh') + (isNarrow ? ' · whisker = beliefs' : ' — whisker = your beliefs (P10–P90)'),
+      11.5, C.muted, {anchor: isNarrow ? 'start' : 'middle'}));
     parts.push(txt(Math.min(x1 - 4, tauX + 14), ry + 26,
       '~' + Math.round(out.threshold.clearingDays) + ' days a year clear', 11.5, C.ink));
     /* pills: two rows of editable params, then the binding readout */
     const row1 = y + B1H - wrapN(vT) * 22 - 66, row2 = row1 + 28;
+    if(isNarrow) startFlow(y + B1H - wrapN(vT) * 22 - b1Rows * 28 - 10);
     let px = 44;
-    const b = model.battery, cy = model.cycles;
     px += pill(px, row1, b.mw + 'MW', {field: 'mw', raw: numStr(b.mw), line: ln('battery')});
     px += pill(px, row1, b.mwh + 'MWh', {field: 'mwh', raw: numStr(b.mwh), line: ln('battery')});
     px += rangePill(px, row1, 'spread', numStr(model.spread.lo), numStr(model.spread.hi), 'spread', ln('spread'));
@@ -181,7 +224,8 @@ export function render(model, out, ctx, {edit = false} = {}){
     parts.push('<path d=\'' + d + '\' fill=\'' + tint(C.ink) + '\' stroke=\'none\'/>');
     parts.push('<line x1=\'' + tauX.toFixed(1) + '\' y1=\'' + (ry - 6) + '\' x2=\'' + tauX.toFixed(1) +
       '\' y2=\'' + (wy + 6) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
-    parts.push(txt(x1 - 4, ry + 12, 'second-cycle days (same bar)', 11, C.muted, {anchor: 'end'}));
+    parts.push(txt(x1 - 4, ry + 12, isNarrow ? '2nd-cycle days' : 'second-cycle days (same bar)', 11, C.muted, {anchor: 'end'}));
+    if(isNarrow) startFlow(y + B2H - wrapN(vS) * 22 - b2Rows * 28 - 10);
     let px = 44;
     px += pill(px, y + B2H - wrapN(vS) * 22 - 36, 'second ' + Math.round(model.second.lo * 100) + '..' + Math.round(model.second.hi * 100) + '%',
       {field: 'secondHi', raw: String(Math.round(model.second.hi * 100)), line: ln('second')});
@@ -201,7 +245,7 @@ export function render(model, out, ctx, {edit = false} = {}){
     const ay = y + B2H + 2;
     for(const t of ticks(axMin, axMax))
       parts.push(txt(vX(t), ay + 12, numStr(t), 11, C.muted, {anchor: 'middle'}));
-    parts.push(txt(x0 - 8, ay + 12, '£/MWh net', 11, C.muted, {anchor: 'end', weight: 600}));
+    parts.push(txt(isNarrow ? x1 : x0 - 8, ay + 12, '£/MWh net', 11, C.muted, {anchor: 'end', weight: 600}));
   }
 
   /* ================= band 3: the asset life ================= */
@@ -230,8 +274,8 @@ export function render(model, out, ctx, {edit = false} = {}){
     let mid = '';
     out.fan.forEach((f, i) => { mid += (i ? ' L' : 'M') + yrX(i).toFixed(1) + ' ' + rY(f.p50).toFixed(1); });
     parts.push('<path d=\'' + mid + '\' fill=\'none\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
-    parts.push(txt(x0 - 8, rY(out.fan[0].p50) + 4, fmtUnit(out.fan[0].p50, '£/yr'), 11, C.muted, {anchor: 'end'}));
-    parts.push(txt(x1 - 4, fy + 12, 'revenue fan P10–P90', 11, C.muted, {anchor: 'end'}));
+    parts.push(txt(isNarrow ? 48 : x0 - 8, isNarrow ? fy + 12 : rY(out.fan[0].p50) + 4, fmtUnit(out.fan[0].p50, '£/yr'), 11, C.muted, {anchor: isNarrow ? 'start' : 'end'}));
+    parts.push(txt(x1 - 4, fy + 12, isNarrow ? 'fan P10–P90' : 'revenue fan P10–P90', 11, C.muted, {anchor: 'end'}));
     /* years axis */
     for(let i = 0; i < out.H; i += (out.H > 10 ? 2 : 1))
       parts.push(txt(yrX(i), fy + fh + 16, 'y' + (i + 1), 10.5, C.muted, {anchor: 'middle'}));
@@ -249,6 +293,7 @@ export function render(model, out, ctx, {edit = false} = {}){
     parts.push(txt(x1 + 0, sy + sh - (out.burndown[out.H - 1] / b0) * sh + 12,
       Math.round(out.burndown[out.H - 1]) + ' cycles left', 10.5, C.muted, {anchor: 'end'}));
     /* pills + verdict */
+    if(isNarrow) startFlow(y + b3h - wrapN(vA) * 22 - b3Rows * 28 - 10);
     let px = 44;
     px += pill(px, y + b3h - wrapN(vA) * 22 - 36, 'augment ' + numStr(model.augment.lo / 1000) + '..' + numStr(model.augment.hi / 1000) + ' £/kWh',
       {field: 'augHi', raw: numStr(model.augment.hi / 1000), line: ln('augment')});
