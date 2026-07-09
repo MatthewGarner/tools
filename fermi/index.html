@@ -102,6 +102,9 @@
   .dash{color:var(--muted);text-align:center}
   .placeholder{color:var(--muted);font-size:14.5px;margin:0}
   #results{display:none}
+  /* while the formula is unreadable, ghost the last result so it can't be mistaken for a current answer */
+  #results.is-stale{opacity:.32;filter:grayscale(.5);pointer-events:none}
+  @media (prefers-reduced-motion: no-preference){#results{transition:opacity .12s ease}}
   .tiles{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:12px;align-items:end}
   .tile{min-width:0}
   .tile .tl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;

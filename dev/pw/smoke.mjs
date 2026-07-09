@@ -159,6 +159,17 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(600);
   const p50 = (await page.locator('#p50').innerText()).trim();
   check('fermi(' + theme + '): example produces a P50 (' + p50 + ')', p50.length > 0 && p50 !== '—');
+  // a malformed formula must ghost the prior result (not leave it reading as a current answer)
+  check('fermi(' + theme + '): malformed formula ghosts the stale result', await (async () => {
+    await page.locator('#formula').fill('a * * b');
+    await page.waitForTimeout(400);
+    const staleShown = await page.locator('#results.is-stale').count() === 1
+      && await page.locator('#err').evaluate(e => getComputedStyle(e).display !== 'none');
+    await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click(); // restore
+    await page.waitForTimeout(400);
+    const cleared = await page.locator('#results.is-stale').count() === 0;
+    return staleShown && cleared;
+  })());
   check('fermi(' + theme + '): histogram canvas painted', await page.locator('#hist').evaluate(c => c.width > 100));
   check('fermi(' + theme + '): sensitivity section shows', await page.locator('#sens .srow').count() > 1);
   check('fermi(' + theme + '): driver tree renders on toggle', await (async () => {
