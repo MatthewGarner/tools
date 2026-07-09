@@ -250,8 +250,8 @@ function renderVarRows(varNames){
     const spark = document.createElement('canvas');
     spark.className = 'spark';
     spark.setAttribute('aria-hidden', 'true');
-    lo.addEventListener('input', () => { st.lo = lo.value; schedule(150); });
-    hi.addEventListener('input', () => { st.hi = hi.value; schedule(150); });
+    lo.addEventListener('input', () => { st.lo = lo.value; schedule(100); });
+    hi.addEventListener('input', () => { st.hi = hi.value; schedule(100); });
     sel.addEventListener('change', () => { st.dist = sel.value; schedule(50); });
     row.append(nm, lo, dash, hi, sel, spark);
     holder.appendChild(row);
@@ -323,10 +323,13 @@ function showPlaceholder(msg){
   $('ph').textContent = msg;
   $('ph').style.display = 'block';
   $('results').style.display = 'none';
+  $('results').classList.remove('is-stale');
 }
 function showError(msg){
   $('err').textContent = msg;
   $('err').style.display = 'block';
+  // keep the last result on screen but ghost it — the error is the only current truth
+  $('results').classList.add('is-stale');
 }
 
 function lint(){
@@ -403,6 +406,7 @@ function renderResults(){
   const r = last;
   $('ph').style.display = 'none';
   $('results').style.display = 'block';
+  $('results').classList.remove('is-stale');
   renderCompare();
   $('p10').textContent = fmt(r.p10);
   $('p50').textContent = fmt(r.p50);
@@ -823,7 +827,7 @@ function renderSaved(){
 }
 renderSaved();
 
-$('formula').addEventListener('input', () => schedule(250));
+$('formula').addEventListener('input', () => schedule(180));
 
 function unpackScen(o){
   const vars = new Map();
