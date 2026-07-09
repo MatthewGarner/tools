@@ -48,7 +48,7 @@ async function installAndWait(page){
     ['/why/', async p => { await p.getByRole('button', {name: 'Habit retention'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/map/', async p => { await p.getByRole('button', {name: 'Assumption map'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/gauge/', async p => { await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview .gform .q').count() === 3; }],
+    ['/gauge/', async p => { await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await p.waitForTimeout(600); return await p.locator('#verdictwrap svg').count() === 1; }],
     ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
   ];
@@ -75,9 +75,8 @@ async function installAndWait(page){
   check('Pixel 7: landing offline after install', await page.locator('a.tool').count() >= 9);
   const p2 = await ctx.newPage();
   await p2.goto(BASE + '/gauge/', {waitUntil: 'domcontentloaded'});
-  await p2.getByRole('button', {name: 'Q3 commitment review'}).tap();
-  await p2.waitForTimeout(500);
-  check('Pixel 7: gauge compose cold offline', await p2.locator('#preview .gform .q').count() === 3);
+  await p2.waitForTimeout(500); // gauge autoloads the first example onto the sample reveal
+  check('Pixel 7: gauge compose cold offline', await p2.locator('#preview svg').count() === 1);
   await ctx.close();
 }
 
