@@ -33,29 +33,32 @@
   h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:36px;font-weight:700;
     letter-spacing:-.01em;margin:0;text-wrap:balance}
   .tagline{color:var(--muted);margin:8px 0 0;font-size:16px;max-width:56ch}
-  .tools{display:grid;grid-template-columns:1fr;gap:14px}
+  .tools{display:grid;grid-template-columns:1fr;gap:16px}
   @media (min-width:1000px){.tools{grid-template-columns:1fr 1fr}}
   a.tool{
-    position:relative;display:block;background:var(--card);border:1px solid var(--border);
-    border-radius:8px;box-shadow:var(--shadow);padding:22px 22px 18px;
+    display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);overflow:hidden;
     text-decoration:none;color:var(--ink);
   }
-  a.tool::before{content:"";position:absolute;left:22px;top:0;width:34px;height:3px;
-    border-radius:0 0 2px 2px;background:var(--accent)}
   a.tool:hover{border-color:var(--accent)}
   @media (prefers-reduced-motion: no-preference){
-    a.tool{transition:transform .15s ease,border-color .15s ease}
-    a.tool:hover{transform:translateY(-1px)}
+    a.tool{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+    a.tool:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(30,50,60,.08),0 10px 26px rgba(30,50,60,.10)}
   }
   a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .tool h2{font-family:Charter,Georgia,serif;font-size:20px;margin:0 0 4px;
-    display:flex;align-items:baseline;gap:10px}
+  /* preview thumbnail — a small on-canvas glimpse of what the tool actually produces */
+  .thumb{display:block;width:100%;height:130px;background:var(--thumb);border-bottom:1px solid var(--border)}
+  .thumb svg{display:block;width:100%;height:100%}
+  .tbody{padding:15px 20px 18px}
+  .tool h2{font-family:Charter,Georgia,serif;font-size:19px;margin:0 0 4px;
+    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
   .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     font-size:11.5px;font-weight:600;color:var(--accent-ink);
     background:color-mix(in srgb, var(--accent) 12%, transparent);
     border-radius:999px;padding:2px 9px}
-  .tool p{margin:0;color:var(--muted);font-size:14.5px;max-width:60ch}
-  .tool .go{color:var(--accent-ink);font-size:13.5px;margin-top:8px;display:inline-block}
+  .tool p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:60ch}
+  .tool .go{color:var(--accent-ink);font-size:13.5px;font-weight:600;margin-top:10px;display:inline-block}
+  .tool:hover .go{text-decoration:underline}
   .soon{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:62ch}
   .soon b{color:var(--ink);font-weight:600}
   footer{color:var(--muted);font-size:12.5px;line-height:1.6}
@@ -71,51 +74,164 @@
   </header>
 
   <div class="tools">
+
     <a class="tool" href="/fermi/">
-      <h2>Fermi estimator <span class="path">/fermi</span></h2>
-      <p>Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a 90% range; the answer is a P10/P50/P90 distribution — with threshold probability, A/B scenarios, a driver-tree view of what moves the answer, and a read on which input is worth researching first. A cashflow mode prices NPV, IRR, payback and runway the same honest way.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="24" y1="104" x2="316" y2="104" stroke="var(--border)"/>
+        <path d="M40 104 C120 104 120 34 168 34 C210 34 224 96 316 100 L316 104 Z" fill="var(--accent)" fill-opacity="0.15"/>
+        <path d="M40 104 C120 104 120 34 168 34 C210 34 224 96 316 100" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <line x1="168" y1="30" x2="168" y2="112" stroke="var(--accent)" stroke-width="2.5"/>
+        <line x1="96" y1="100" x2="96" y2="110" stroke="var(--muted)" stroke-width="2"/>
+        <line x1="256" y1="100" x2="256" y2="110" stroke="var(--muted)" stroke-width="2"/>
+        <rect x="148" y="44" width="50" height="22" rx="5" fill="var(--accent)" fill-opacity="0.16"/>
+        <text x="173" y="60" text-anchor="middle" font-family="Charter,Georgia,serif" font-size="15" font-weight="700" fill="var(--accent-ink)">185</text>
+        <text x="96" y="124" text-anchor="middle" font-size="9.5" fill="var(--muted)">P10</text>
+        <text x="256" y="124" text-anchor="middle" font-size="9.5" fill="var(--muted)">P90</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>Fermi estimator <span class="path">/fermi</span></h2>
+        <p>Back-of-envelope math as an honest P10–P90 distribution — not a fake single number.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/rank/">
-      <h2>Rank stability <span class="path">/rank</span></h2>
-      <p>Weighted prioritisation scores are guesses wearing a suit. This wobbles your weights and scores over thousands of simulations and reports which ranks survive — and which are ties you shouldn't argue about.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="24" y="18" width="150" height="16" rx="3" fill="var(--accent)"/><rect x="174" y="18" width="34" height="16" rx="3" fill="var(--accent)" fill-opacity="0.28"/>
+        <rect x="24" y="44" width="128" height="16" rx="3" fill="var(--accent)"/><rect x="152" y="44" width="40" height="16" rx="3" fill="var(--accent)" fill-opacity="0.28"/>
+        <rect x="24" y="70" width="86" height="16" rx="3" fill="var(--muted)" fill-opacity="0.55"/><rect x="110" y="70" width="52" height="16" rx="3" fill="var(--muted)" fill-opacity="0.22"/>
+        <rect x="24" y="96" width="74" height="16" rx="3" fill="var(--muted)" fill-opacity="0.55"/><rect x="98" y="96" width="60" height="16" rx="3" fill="var(--muted)" fill-opacity="0.22"/>
+        <line x1="228" y1="10" x2="228" y2="120" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="232" y="18" font-size="9.5" fill="var(--accent2)" font-weight="600">top 2</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>Rank stability <span class="path">/rank</span></h2>
+        <p>Wobble your weights over thousands of runs — see which ranks survive and which are ties.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/roadmap/">
-      <h2>Roadmap as code <span class="path">/roadmap</span></h2>
-      <p>Write your roadmap as plain text; get a deck-ready now/next/later (or monthly/quarterly) graphic with snapshot-to-snapshot change tracking, SVG/PNG export, and zero box-nudging.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <g font-size="9" font-weight="700" letter-spacing="0.06em" fill="var(--muted)">
+          <text x="30" y="22">NOW</text><line x1="30" y1="27" x2="58" y2="27" stroke="var(--accent)" stroke-width="2"/>
+          <text x="140" y="22">NEXT</text><line x1="140" y1="27" x2="170" y2="27" stroke="var(--accent)" stroke-width="2"/>
+          <text x="250" y="22">LATER</text><line x1="250" y1="27" x2="284" y2="27" stroke="var(--accent)" stroke-width="2"/>
+        </g>
+        <rect x="30" y="36" width="86" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/><circle cx="40" cy="51" r="3.5" fill="var(--st-doing)"/>
+        <rect x="30" y="72" width="86" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/><circle cx="40" cy="87" r="3.5" fill="var(--st-risk)"/>
+        <rect x="140" y="36" width="86" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
+        <rect x="250" y="36" width="60" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
+      </svg></span>
+      <span class="tbody">
+        <h2>Roadmap as code <span class="path">/roadmap</span></h2>
+        <p>Write the roadmap as text; get a deck-ready now/next/later board that stays in sync.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/tree/">
-      <h2>Decision tree sketcher <span class="path">/tree</span></h2>
-      <p>Expected-value trees with honest uncertainty: options, chances, and payoffs as 90% ranges, Monte Carlo rollback, the recommended path highlighted — and exactly what would flip the decision.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <path d="M70 66 L150 34 M70 66 L150 98" fill="none" stroke="var(--muted)" stroke-opacity="0.5" stroke-width="1.5"/>
+        <path d="M150 34 L246 22 M150 34 L246 52" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        <path d="M150 98 L246 84 M150 98 L246 112" fill="none" stroke="var(--muted)" stroke-opacity="0.5" stroke-width="1.5"/>
+        <rect x="40" y="56" width="30" height="20" rx="3" fill="var(--accent)"/>
+        <circle cx="150" cy="34" r="9" fill="var(--card)" stroke="var(--accent)" stroke-width="2"/>
+        <circle cx="150" cy="98" r="9" fill="var(--card)" stroke="var(--muted)" stroke-opacity="0.6" stroke-width="1.5"/>
+        <g fill="var(--accent)"><rect x="246" y="15" width="26" height="14" rx="2"/><rect x="246" y="45" width="26" height="14" rx="2"/></g>
+        <g fill="var(--muted)" fill-opacity="0.4"><rect x="246" y="77" width="26" height="14" rx="2"/><rect x="246" y="105" width="26" height="14" rx="2"/></g>
+      </svg></span>
+      <span class="tbody">
+        <h2>Decision tree sketcher <span class="path">/tree</span></h2>
+        <p>Decisions as expected-value trees — options, chances, payoffs as ranges, and the path that wins.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/why/">
-      <h2>Why <span class="path">/why</span></h2>
-      <p>Your opportunity solution tree and your roadmap as projections of one text file — columns derived from discovery status, with audits for roadmap items that have no why and committed bets nobody has tested.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <path d="M96 66 C140 66 140 34 184 34 M96 66 C140 66 140 66 184 66 M96 66 C140 66 140 98 184 98" fill="none" stroke="var(--muted)" stroke-opacity="0.45" stroke-width="1.5"/>
+        <rect x="26" y="52" width="70" height="28" rx="6" fill="var(--accent)" fill-opacity="0.16" stroke="var(--accent)"/>
+        <rect x="184" y="21" width="86" height="26" rx="6" fill="var(--card)" stroke="var(--border)"/>
+        <rect x="184" y="53" width="86" height="26" rx="6" fill="var(--card)" stroke="var(--border)"/>
+        <rect x="184" y="85" width="86" height="26" rx="6" fill="var(--card)" stroke="var(--border)" stroke-dasharray="4 3" opacity="0.42"/>
+        <circle cx="196" cy="34" r="3" fill="var(--st-doing)"/><circle cx="196" cy="66" r="3" fill="var(--st-done)"/>
+      </svg></span>
+      <span class="tbody">
+        <h2>Why <span class="path">/why</span></h2>
+        <p>One text file, two views: an opportunity-solution tree for discovery, a roadmap for delivery.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/map/">
-      <h2>Map <span class="path">/map</span></h2>
-      <p>Assumption maps, stakeholder grids, futures matrices, and risk registers are one physical act: items on two axes, meaning read off named zones. Write the list, drag to place, get the method's verdict.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="70" y="16" width="240" height="100" fill="none" stroke="var(--border)"/>
+        <rect x="70" y="16" width="120" height="50" fill="var(--err)" fill-opacity="0.10"/>
+        <rect x="190" y="66" width="120" height="50" fill="var(--st-done)" fill-opacity="0.12"/>
+        <line x1="190" y1="16" x2="190" y2="116" stroke="var(--border)"/>
+        <line x1="70" y1="66" x2="310" y2="66" stroke="var(--border)"/>
+        <text x="80" y="30" font-size="8.5" font-weight="700" fill="var(--err)">TEST FIRST</text>
+        <text x="252" y="108" font-size="8.5" font-weight="700" fill="var(--st-done)">SAFE</text>
+        <g fill="var(--accent)"><circle cx="120" cy="40" r="5"/><circle cx="160" cy="34" r="5"/><circle cx="228" cy="52" r="5"/><circle cx="256" cy="92" r="5"/><circle cx="150" cy="88" r="5"/></g>
+        <text x="60" y="70" font-size="8.5" fill="var(--muted)" transform="rotate(-90 60 70)" text-anchor="middle">importance</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>Map <span class="path">/map</span></h2>
+        <p>Assumptions, stakeholders, risks — place them on two axes and read off what to do next.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/gauge/">
-      <h2>Gauge <span class="path">/gauge</span></h2>
-      <p>Gauge the room before the discussion anchors it. Write estimation questions, share a link, everyone answers privately — probabilities and 90% ranges — then reveal the whole spread at once. Questions never leave the link; the server sees only numbers, for 24 hours.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x="150" y="12" width="70" height="98" fill="var(--accent)" fill-opacity="0.12"/>
+        <text x="185" y="126" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)">consensus</text>
+        <g stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round">
+          <line x1="60" y1="28" x2="150" y2="28"/><line x1="130" y1="52" x2="240" y2="52"/><line x1="170" y1="76" x2="300" y2="76"/><line x1="96" y1="100" x2="196" y2="100"/>
+        </g>
+        <g fill="var(--accent)"><circle cx="108" cy="28" r="4.5"/><circle cx="188" cy="52" r="4.5"/><circle cx="232" cy="76" r="4.5"/><circle cx="150" cy="100" r="4.5"/></g>
+      </svg></span>
+      <span class="tbody">
+        <h2>Gauge <span class="path">/gauge</span></h2>
+        <p>Everyone estimates privately, then the whole room’s spread reveals at once.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/timeline/">
-      <h2>Timeline <span class="path">/timeline</span></h2>
-      <p>A programme timeline that refuses false precision: every milestone is a P50–P90 range drawn as a diamond with an uncertainty whisker. Snapshot before each board pack — the compare renders the slip slide.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
+        <line x1="120" y1="12" x2="120" y2="112" stroke="var(--ink)" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text x="124" y="22" font-size="8.5" fill="var(--muted)">today</text>
+        <rect x="150" y="30" width="70" height="14" rx="7" fill="var(--accent)" fill-opacity="0.22"/><path d="M170 37 l6 -6 l6 6 l-6 6 Z" fill="var(--accent)"/>
+        <rect x="120" y="58" width="120" height="14" rx="7" fill="var(--st-risk)" fill-opacity="0.22"/><path d="M156 65 l6 -6 l6 6 l-6 6 Z" fill="var(--st-risk)"/>
+        <rect x="196" y="86" width="90" height="14" rx="7" fill="var(--accent)" fill-opacity="0.22"/><path d="M226 93 l6 -6 l6 6 l-6 6 Z" fill="var(--accent)"/>
+      </svg></span>
+      <span class="tbody">
+        <h2>Timeline <span class="path">/timeline</span></h2>
+        <p>A Gantt that admits dates are forecasts — milestones carry P50–P90 whiskers.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="/flow/">
-      <h2>Flow playground <span class="path">/flow</span></h2>
-      <p>Little's Law made visceral. Sliders for demand, team, WIP limit, and variability drive a living queue — watch cycle time explode as utilisation nears 100%. Then price your batch size on Reinertsen's U-curve, and triage a real backlog: which lever clears the pile fastest.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="30" y1="110" x2="316" y2="110" stroke="var(--border)"/>
+        <line x1="30" y1="16" x2="30" y2="110" stroke="var(--border)"/>
+        <path d="M262 16 L316 16 L316 110 L262 110 Z" fill="var(--err)" fill-opacity="0.10"/>
+        <path d="M30 100 C140 96 210 88 258 60 C280 46 292 26 300 16" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <line x1="288" y1="16" x2="288" y2="110" stroke="var(--err)" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="284" y="106" text-anchor="end" font-size="8.5" fill="var(--muted)">utilisation →</text>
+        <text x="284" y="26" text-anchor="end" font-size="8.5" fill="var(--err)">~100%</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>Flow playground <span class="path">/flow</span></h2>
+        <p>Little’s Law, live — watch waiting time explode as utilisation nears 100%.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
   </div>
 
   <p class="soon"><b>In the workshop:</b> a throughput forecaster ("when will it be done", honestly), a dependency-aware sequencer that prices your delivery order in cost of delay, and a calibration trainer. Same rules for all of them: one job, opinionated, no accounts.</p>
