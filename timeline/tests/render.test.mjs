@@ -42,7 +42,7 @@ test('status colours: done uses st-done, risk uses err; single date gets ±?', (
 test('today line present and labelled; lanes render as bands', () => {
   const svg = render(parse(DOC), ctx);
   assert.match(svg, /data-today/);
-  assert.match(svg, />today</);
+  assert.match(svg, />TODAY</); // stronger today marker: a filled flag pill
   assert.match(svg, />GRID</);
   assert.match(svg, />BUILD</);
 });

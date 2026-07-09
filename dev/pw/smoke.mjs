@@ -398,6 +398,8 @@ for(const theme of ['light', 'dark']){
 /* ---- timeline ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/timeline/', theme);
+  await page.waitForTimeout(500);
+  check('timeline(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
   await page.getByRole('button', {name: 'App launch programme'}).click();
   await page.waitForTimeout(600);
   check('timeline(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
