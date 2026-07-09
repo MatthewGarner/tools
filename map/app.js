@@ -5,6 +5,7 @@ import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {mobileAutoload, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -137,7 +138,7 @@ function doRefresh(){
   renderWarnings();
   setActionsEnabled(!!lastSvg);
   $('togauge').hidden = !(ro && ro.flagged.length);
-  try{ localStorage.setItem('map-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('map-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
@@ -153,7 +154,7 @@ const editor = createEditor({
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
-  writeHashState(state);
+  if(shouldPersist()) writeHashState(state);
 }
 snaps = wireSnapshots({
   store: snapStore('map-snaps'),
@@ -386,5 +387,5 @@ onThemeChange(rerender);
   }
   renderSaved();
   if(text) editor.setText(text);
-  else refresh();
+  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

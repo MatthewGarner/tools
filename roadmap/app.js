@@ -6,6 +6,7 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {mobileAutoload, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine} from './edit-targets.js';
@@ -123,7 +124,7 @@ function renderWarnings(m){
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
-  writeHashState(state);
+  if(shouldPersist()) writeHashState(state);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -145,7 +146,7 @@ function doRefresh(){
     }
   }
   setActionsEnabled(!!lastSvg);
-  try{ localStorage.setItem('roadmap-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
@@ -555,5 +556,5 @@ onThemeChange(rerender);
   snaps.refresh();
   renderSaved();
   if(text) editor.setText(text);
-  else refresh();
+  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

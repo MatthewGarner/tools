@@ -5,6 +5,7 @@ import {render, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
+import {mobileAutoload, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
@@ -84,7 +85,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!out);
-  try{ localStorage.setItem('cycles-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('cycles-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
@@ -100,7 +101,7 @@ const editor = createEditor({
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
-  writeHashState(state);
+  if(shouldPersist()) writeHashState(state);
 }
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -184,5 +185,5 @@ onThemeChange(() => { lastSvg = ''; refresh(); });
     try{ text = localStorage.getItem('cycles-src') || ''; }catch(e){}
   }
   if(text) editor.setText(text);
-  else refresh();
+  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

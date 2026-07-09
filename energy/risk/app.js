@@ -5,6 +5,7 @@ import {render, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
+import {mobileAutoload, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
@@ -70,7 +71,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!sim);
-  try{ localStorage.setItem('risk-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('risk-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
@@ -87,7 +88,7 @@ function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
   if(focusIdx !== null) state.f = focusIdx;
-  writeHashState(state);
+  if(shouldPersist()) writeHashState(state);
 }
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -182,5 +183,5 @@ onThemeChange(() => { lastSvg = ''; refresh(); });
     try{ text = localStorage.getItem('risk-src') || ''; }catch(e){}
   }
   if(text) editor.setText(text);
-  else refresh();
+  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

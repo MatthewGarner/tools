@@ -8,6 +8,7 @@ import {renderMap} from './render-map.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {mobileAutoload, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -89,7 +90,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
-  try{ localStorage.setItem('why-src', text); }catch(e){}
+  try{ if(shouldPersist()) localStorage.setItem('why-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
@@ -105,7 +106,7 @@ const editor = createEditor({
 function writeHash(){
   const state = {t: editor.getText(), v: view};
   if(ws.collapsed()) state.e = 0;
-  writeHashState(state);
+  if(shouldPersist()) writeHashState(state);
 }
 snaps = wireSnapshots({
   store: snapStore('why-snaps'),
@@ -279,5 +280,5 @@ onThemeChange(rerender);
   $('viewost').classList.toggle('on', view === 'ost');
   $('viewmap').classList.toggle('on', view === 'map');
   if(text) editor.setText(text);
-  else refresh();
+  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
