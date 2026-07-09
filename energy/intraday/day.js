@@ -27,3 +27,47 @@ export function solarAt(h, p){
   if(p.solarPeak <= 0 || p.sunset <= p.sunrise || h <= p.sunrise || h >= p.sunset) return 0;
   return p.solarPeak * Math.sin(Math.PI * (h - p.sunrise) / (p.sunset - p.sunrise));
 }
+
+import {dispatch} from '../merit-order/engine.js';
+import {buildStack} from '../merit-order/stack.js';
+import {GB_TODAY} from '../merit-order/technologies.js';
+
+export function sansStorage(catalogue){ return catalogue.filter(t => t.bid.kind !== 'storage'); }
+
+const solarInstalled = cat => { const t = cat.find(x => x.key === 'solar'); return t ? t.installed : 0; };
+
+/* The stack for hour h: merit-order's buildStack with the solar availability set
+   by the bell (fraction of installed), storage rows excluded. Imports held at
+   merit-order's default 3 GW; must-run off (negative prices are merit-order's
+   lesson, not this toy's). */
+export function hourStack(p, h, catalogue = GB_TODAY){
+  const cat = sansStorage(catalogue);
+  const inst = solarInstalled(cat);
+  const solarFrac = inst > 0 ? Math.min(1, solarAt(h, p) / inst) : 0;
+  return buildStack({
+    gas: p.gas, carbon: p.carbon, wind: p.wind, solar: solarFrac,
+    imports: 3, storageAvail: 0, chargePrice: 0, mustRunOn: false, mustRunDepth: 0,
+  }, cat);
+}
+
+/* One cleared day: 24 dispatch() calls. net[h] (GW) is demand + charge − discharge
+   (just demand for the raw day). */
+export function clearDay(p, net, catalogue = GB_TODAY){
+  const hours = [];
+  for(let h = 0; h < 24; h++){
+    const r = dispatch(hourStack(p, h, catalogue), net[h]);
+    hours.push({h, demand: net[h], price: r.clearingPrice, marginal: r.marginalName});
+  }
+  const prices = hours.map(x => x.price);
+  const hi = Math.max(...prices), lo = Math.min(...prices);
+  return {
+    hours, prices, spread: hi - lo,
+    peakHour: prices.indexOf(hi), troughHour: prices.indexOf(lo),
+    changeovers: hours.filter((x, i) => i > 0 && x.marginal !== hours[i - 1].marginal)
+                      .map(x => ({h: x.h, to: x.marginal})),
+  };
+}
+
+export function rawDay(p, catalogue = GB_TODAY){
+  return clearDay(p, Array.from({length: 24}, (_, h) => demandAt(h, p)), catalogue);
+}
