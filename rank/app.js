@@ -80,6 +80,7 @@ function renderRows(){
   state.items.forEach((it, i) => {
     const tr = document.createElement('tr');
     const tdn = document.createElement('td');
+    tdn.dataset.label = 'Initiative';
     const nm = document.createElement('input');
     nm.className = 'iname'; nm.value = it.name; nm.placeholder = 'Initiative name';
     nm.title = it.name;
@@ -89,6 +90,7 @@ function renderRows(){
     tr.appendChild(tdn);
     state.criteria.forEach((c, ci) => {
       const td = document.createElement('td');
+      td.dataset.label = c.name;
       const s = document.createElement('input');
       s.className = 'score'; s.type = 'number'; s.min = '1'; s.max = '10'; s.step = '1';
       s.value = it.s[ci];
@@ -99,6 +101,7 @@ function renderRows(){
     });
     const tde = document.createElement('td');
     tde.className = 'effcol';
+    tde.dataset.label = state.effort.name;
     const e = document.createElement('input');
     e.className = 'score'; e.type = 'number'; e.min = '1'; e.max = '10'; e.step = '1';
     e.value = it.e;
