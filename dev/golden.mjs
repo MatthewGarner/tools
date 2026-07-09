@@ -236,12 +236,15 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {renderStack, MERIT_PALETTE} = await import('../energy/merit-order/render.js');
   const {buildStack} = await import('../energy/merit-order/stack.js');
-  const {DEFAULT_PARAMS, paramsFor} = await import('../energy/merit-order/scenarios.js');
+  const {DEFAULT_PARAMS, paramsFor, WORLDS} = await import('../energy/merit-order/scenarios.js');
   const mctx = {...ctxBase, palette: MERIT_PALETTE.light};
   const mk = p => ({generators: buildStack(p), demand: p.demand});
+  const mkw = (w, p) => ({generators: buildStack(p, WORLDS[w].catalogue), demand: p.demand});
   variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, {forExport: true});
   variants['merit-order-typical-narrow'] = renderStack(mk(DEFAULT_PARAMS), {...mctx, width: 360}, {forExport: true});
-  variants['merit-order-negative'] = renderStack(mk(paramsFor('negative')), mctx, {forExport: true});
+  variants['merit-order-negative'] = renderStack(mk(paramsFor('gbToday', 'negative')), mctx, {forExport: true});
+  variants['merit-order-fes-ht'] = renderStack(mkw('ht', paramsFor('ht', null)), mctx, {forExport: true});
+  variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, {forExport: true});
 }
 
 const mode = process.argv[2];
