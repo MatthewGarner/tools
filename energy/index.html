@@ -37,29 +37,31 @@
   h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:36px;font-weight:700;
     letter-spacing:-.01em;margin:0;text-wrap:balance}
   .tagline{color:var(--muted);margin:8px 0 0;font-size:16px;max-width:56ch}
-  .tools{display:grid;grid-template-columns:1fr;gap:14px}
+  .tools{display:grid;grid-template-columns:1fr;gap:16px}
   @media (min-width:1000px){.tools{grid-template-columns:1fr 1fr}}
   a.tool{
-    position:relative;display:block;background:var(--card);border:1px solid var(--border);
-    border-radius:8px;box-shadow:var(--shadow);padding:22px 22px 18px;
+    display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);
+    border-radius:10px;box-shadow:var(--shadow);overflow:hidden;
     text-decoration:none;color:var(--ink);
   }
-  a.tool::before{content:"";position:absolute;left:22px;top:0;width:34px;height:3px;
-    border-radius:0 0 2px 2px;background:var(--accent)}
   a.tool:hover{border-color:var(--accent)}
   @media (prefers-reduced-motion: no-preference){
-    a.tool{transition:transform .15s ease,border-color .15s ease}
-    a.tool:hover{transform:translateY(-1px)}
+    a.tool{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+    a.tool:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(30,50,60,.08),0 10px 26px rgba(30,50,60,.10)}
   }
   a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .tool h2{font-family:Charter,Georgia,serif;font-size:20px;margin:0 0 4px;
-    display:flex;align-items:baseline;gap:10px}
+  .thumb{display:block;width:100%;height:130px;background:var(--thumb);border-bottom:1px solid var(--border)}
+  .thumb svg{display:block;width:100%;height:100%}
+  .tbody{padding:15px 20px 18px}
+  .tool h2{font-family:Charter,Georgia,serif;font-size:19px;margin:0 0 4px;
+    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
   .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     font-size:11.5px;font-weight:600;color:var(--accent-ink);
     background:color-mix(in srgb, var(--accent) 12%, transparent);
     border-radius:999px;padding:2px 9px}
-  .tool p{margin:0;color:var(--muted);font-size:14.5px;max-width:60ch}
-  .tool .go{color:var(--accent-ink);font-size:13.5px;margin-top:8px;display:inline-block}
+  .tool p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:60ch}
+  .tool .go{color:var(--accent-ink);font-size:13.5px;font-weight:600;margin-top:10px;display:inline-block}
+  .tool:hover .go{text-decoration:underline}
   .soon{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:62ch}
   .soon b{color:var(--ink);font-weight:600}
   footer{color:var(--muted);font-size:12.5px;line-height:1.6}
@@ -74,26 +76,82 @@
   </header>
 
   <div class="tools">
+
     <a class="tool" href="risk/">
-      <h2>Risk transfer <span class="path">/risk</span></h2>
-      <p>Merchant, floor+share, toll, or insure? One revenue distribution, each structure as a payoff transform on it — what upside you sold, what protection you bought, what the fees really were, and how often the floor actually binds. Route-to-market helper.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="24" y1="120" x2="316" y2="120" stroke="var(--border)"/>
+        <rect x="26" y="20" width="288" height="30" rx="6" fill="var(--accent)" fill-opacity="0.10" stroke="var(--accent)" stroke-opacity="0.35"/>
+        <g stroke="var(--muted)" stroke-width="2" stroke-linecap="round">
+          <line x1="120" y1="35" x2="250" y2="35"/><line x1="150" y1="70" x2="240" y2="70"/><line x1="110" y1="100" x2="270" y2="100"/>
+        </g>
+        <g fill="var(--accent)"><path d="M170 27 l7 8 l-7 8 l-7 -8 Z"/><path d="M186 62 l7 8 l-7 8 l-7 -8 Z"/><path d="M182 92 l7 8 l-7 8 l-7 -8 Z"/></g>
+        <g font-size="9" fill="var(--muted)"><text x="26" y="34">merchant</text><text x="26" y="69">floor</text><text x="26" y="99">insure</text></g>
+      </svg></span>
+      <span class="tbody">
+        <h2>Risk transfer <span class="path">/risk</span></h2>
+        <p>Merchant, floor, toll or insure — every route-to-market drawn as a payoff on the same uncertain year.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="cycles/">
-      <h2>Cycle budget <span class="path">/cycles</span></h2>
-      <p>A battery's warranty is a budget and every cycle spends it. Spread and degradation beliefs in; out comes what a cycle is actually worth — the dispatch threshold with the warranty's shadow price visible, whether the second cycle pays, and when to augment. Cycling decisions helper.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
+        <path d="M40 44 C130 40 210 58 306 74 L306 96 C210 84 130 70 40 68 Z" fill="var(--accent)" fill-opacity="0.16"/>
+        <path d="M40 56 C130 54 210 64 306 85" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <rect x="96" y="24" width="34" height="88" fill="var(--accent)" fill-opacity="0.10"/>
+        <text x="113" y="20" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)">augment</text>
+        <g font-size="9" fill="var(--muted)"><text x="40" y="126">y1</text><text x="292" y="126">y15</text></g>
+      </svg></span>
+      <span class="tbody">
+        <h2>Cycle budget <span class="path">/cycles</span></h2>
+        <p>A battery’s warranty is a budget — see what each cycle is really worth across three horizons.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="frequency/">
-      <h2>Frequency &amp; inertia <span class="path">/frequency</span></h2>
-      <p>Trip a generator and watch the grid catch itself — inertia, RoCoF, and where a battery's speed earns its money.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="30" y1="30" x2="316" y2="30" stroke="var(--border)"/>
+        <text x="34" y="24" font-size="8.5" fill="var(--muted)">50 Hz</text>
+        <path d="M30 30 C70 30 96 78 150 78 C210 78 250 50 316 46" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <circle cx="150" cy="78" r="4" fill="var(--accent)"/>
+        <text x="150" y="94" text-anchor="middle" font-size="8.5" fill="var(--muted)">nadir</text>
+        <line x1="30" y1="108" x2="316" y2="108" stroke="var(--err)" stroke-opacity="0.6" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="314" y="104" text-anchor="end" font-size="8.5" fill="var(--err)">load shed</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>Frequency &amp; inertia <span class="path">/frequency</span></h2>
+        <p>Trip a generator and watch the grid catch itself — inertia, RoCoF, and the battery’s save.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
     <a class="tool" href="merit-order/">
-      <h2>Merit order <span class="path">/merit-order</span></h2>
-      <p>Stack generators cheapest-first, drag demand, and watch one plant set the price for everyone — until must-run bids go negative.</p>
-      <span class="go">Open →</span>
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="26" y1="110" x2="316" y2="110" stroke="var(--border)"/>
+        <g>
+          <rect x="30" y="102" width="26" height="8" fill="var(--accent)" fill-opacity="0.45"/>
+          <rect x="58" y="92" width="26" height="18" fill="var(--st-done)"/>
+          <rect x="86" y="74" width="26" height="36" fill="var(--accent)" fill-opacity="0.55"/>
+          <rect x="114" y="58" width="30" height="52" fill="var(--st-doing)" fill-opacity="0.7"/>
+          <rect x="146" y="46" width="34" height="64" fill="var(--accent)" stroke="var(--accent-ink)" stroke-width="1.5"/>
+          <rect x="182" y="40" width="44" height="70" fill="var(--accent)" fill-opacity="0.22"/>
+          <rect x="228" y="30" width="44" height="80" fill="var(--accent)" fill-opacity="0.18"/>
+          <rect x="274" y="18" width="34" height="92" fill="var(--accent)" fill-opacity="0.15"/>
+        </g>
+        <line x1="26" y1="52" x2="316" y2="52" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="314" y="47" text-anchor="end" font-size="8.5" fill="var(--accent-ink)" font-weight="600">clears</text>
+        <line x1="180" y1="14" x2="180" y2="110" stroke="var(--ink)" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="184" y="22" font-size="8.5" fill="var(--muted)">demand</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>Merit order <span class="path">/merit-order</span></h2>
+        <p>Stack the fleet cheapest-first, drag demand, and watch one plant set the price for all.</p>
+        <span class="go">Open →</span>
+      </span>
     </a>
+
   </div>
 
   <p class="soon"><b>Coming next:</b> a delay-exposure pricer (what a slip really costs net of liquidated damages).</p>
