@@ -18,6 +18,17 @@ export function storageBid(chargePrice, rte){      // £/MWh — what it must ea
   return chargePrice / rte;
 }
 
+/* Gas-CCS: abated gas, carbon-reactive. ~90% of emissions captured at an efficiency
+   penalty, plus capture O&M + CO2 transport & storage (VOM_CCS). Nearly flat in carbon
+   (only the 10% residual is exposed), so it undercuts the gas fleet as carbon rises:
+   the dirtiest CCGT-49 at ~£29/t, the fleet CCGT-54 at ~£53/t, the best CCGT-60 at ~£83/t. */
+export const EFF_CCS = 0.52;    // modern CCGT (~60%) minus ~8pp capture parasitic penalty
+export const CAPTURE = 0.90;    // fraction of CO2 captured
+export const VOM_CCS = 18;      // £/MWh: capture O&M + CO2 transport & storage (illustrative)
+export function ccsBid(gas, carbon){               // £/MWh electrical
+  return gasLHV(gas) / EFF_CCS + (carbon * EF_LHV * (1 - CAPTURE)) / EFF_CCS + VOM_CCS;
+}
+
 export function buildStack(params, catalogue = GB_TODAY){
   const gens = [];
   const push = (name, capacity, cost, opts = {}) =>
@@ -30,7 +41,10 @@ export function buildStack(params, catalogue = GB_TODAY){
       push(t.label, t.installed * avail, params.mustRunOn ? -params.mustRunDepth : 0,
            {family: t.family, mustRun: params.mustRunOn});
     } else if(b.kind === 'fixed'){
-      push(t.label, t.installed, b.cost, {family: t.family, mustRun: t.mustRun});
+      push(t.label, t.installed, b.cost, {family: t.family, mustRun: t.mustRun, thermal: !!t.thermalHue});
+    } else if(b.kind === 'ccs'){
+      push(t.label, t.installed, ccsBid(params.gas, params.carbon),
+           {family: t.family, thermal: true, carbon: EF_LHV * (1 - CAPTURE) / EFF_CCS});
     } else if(b.kind === 'storage'){
       push(t.label, t.installed * params.storageAvail,
            Math.round(storageBid(params.chargePrice, b.rte)),
