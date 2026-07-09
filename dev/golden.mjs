@@ -240,6 +240,7 @@ for(const [k, src] of Object.entries(docs)){
   const mctx = {...ctxBase, palette: MERIT_PALETTE.light};
   const mk = p => ({generators: buildStack(p), demand: p.demand});
   variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, {forExport: true});
+  variants['merit-order-typical-narrow'] = renderStack(mk(DEFAULT_PARAMS), {...mctx, width: 360}, {forExport: true});
   variants['merit-order-negative'] = renderStack(mk(paramsFor('negative')), mctx, {forExport: true});
 }
 

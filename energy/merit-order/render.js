@@ -82,7 +82,9 @@ export function renderStack(state, ctx, opts = {}){
   const result = dispatch(state.generators, state.demand);
   const cp = result.clearingPrice;
 
-  const W = 1200;
+  const NARROW = 520;
+  const isNarrow = !!(ctx.width && ctx.width < NARROW);
+  const W = ctx.width ?? 1200;
   const x0 = 116, x1 = W - 32;
   const y0 = 64, chartH = 320, y1 = y0 + chartH;
 
