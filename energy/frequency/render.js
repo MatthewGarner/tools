@@ -34,6 +34,8 @@ export function renderTrace(result, p, ctx){
     `<line x1='${x0}' y1='${r2(sy(f))}' x2='${x1}' y2='${r2(sy(f))}' stroke='${col}' stroke-width='1'` +
     (dash ? ` stroke-dasharray='${dash}'` : '') + `/>`;
   P.push(`<rect x='${x0}' y='${r2(sy(50.2))}' width='${x1 - x0}' height='${r2(sy(49.8) - sy(50.2))}' fill='${C.accent}' opacity='0.06'/>`);
+  // sub-48.8 Hz load-shedding zone — the danger floor, washed red so a dip into it reads at a glance
+  P.push(`<rect x='${x0}' y='${r2(sy(48.8))}' width='${x1 - x0}' height='${r2(y1 - sy(48.8))}' fill='${C.err}' opacity='0.09'/>`);
   P.push(line(F0, C.muted, ''));
   P.push(txt(x1, sy(F0) - 6, '50 Hz', 12, C.muted, {anchor: 'end'}));
   P.push(line(48.8, C.err, '5 4'));
@@ -53,6 +55,14 @@ export function renderTrace(result, p, ctx){
   // nadir marker
   P.push(`<circle cx='${r2(sx(result.nadir.t))}' cy='${r2(sy(result.nadir.f))}' r='4' fill='${C.ink}'/>`);
   P.push(txt(sx(result.nadir.t), sy(result.nadir.f) + 20, `nadir ${result.nadir.f.toFixed(2)} Hz`, 12, C.ink, {anchor: 'middle'}));
+
+  // RoCoF: the initial fall rate, as a dashed tangent peeling off the trace at t=0
+  if(result.rocof > 0.01){
+    const tRc = Math.min(Math.min(1.0, F0 - fMin - 0.2) / result.rocof, tEnd * 0.32);
+    const fRc = F0 - result.rocof * tRc;
+    P.push(`<line x1='${r2(sx(0))}' y1='${r2(sy(F0))}' x2='${r2(sx(tRc))}' y2='${r2(sy(fRc))}' stroke='${C.ink}' stroke-width='1.5' stroke-dasharray='4 3'/>`);
+    P.push(txt(sx(tRc) + 8, sy(fRc) + 4, `RoCoF ${result.rocof.toFixed(2)} Hz/s`, 12, C.ink));
+  }
 
   // axes labels
   P.push(txt(x0, y1 + 22, '0 s', 12, C.muted));

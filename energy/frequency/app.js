@@ -1,7 +1,7 @@
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
-import {simulate, verdict, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS} from './engine.js';
+import {simulate, verdict, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS, F0} from './engine.js';
 import {renderTrace, toMarkdown} from './render.js';
 import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -115,6 +115,9 @@ function boot(){
       // normal band 49.8-50.2 Hz, subtly tinted
       g.globalAlpha = 0.06; g.fillStyle = C.accent;
       g.fillRect(x0, sy(50.2), x1 - x0, sy(49.8) - sy(50.2));
+      // sub-48.8 Hz load-shedding zone — the danger floor, washed red
+      g.globalAlpha = 0.09; g.fillStyle = C.err;
+      g.fillRect(x0, sy(48.8), x1 - x0, y1 - sy(48.8));
       g.globalAlpha = 1;
 
       // whole-Hz gridlines (50 solid, others faint) + right-aligned left-margin labels
@@ -168,6 +171,17 @@ function boot(){
         g.beginPath(); g.arc(sx(result.nadir.t), sy(result.nadir.f), 4, 0, Math.PI * 2); g.fill();
         g.textAlign = 'center';
         g.fillText(`nadir ${result.nadir.f.toFixed(2)} Hz`, sx(result.nadir.t), sy(result.nadir.f) + 18);
+      }
+
+      // RoCoF: the initial fall rate, a dashed tangent peeling off the trace at t=0
+      if(result.rocof > 0.01){
+        const tRc = Math.min(Math.min(1.0, F0 - fMin - 0.2) / result.rocof, tEnd * 0.32);
+        const fRc = F0 - result.rocof * tRc;
+        g.strokeStyle = C.ink; g.lineWidth = 1.5; g.setLineDash([4, 3]);
+        g.beginPath(); g.moveTo(sx(0), sy(F0)); g.lineTo(sx(tRc), sy(fRc)); g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = C.ink; g.textAlign = 'left';
+        g.fillText(`RoCoF ${result.rocof.toFixed(2)} Hz/s`, sx(tRc) + 8, sy(fRc) + 4);
       }
 
       // x-axis
