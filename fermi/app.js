@@ -418,10 +418,16 @@ function renderResults(){
     ? 'Spread: ×' + sig(ratio, 2) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
     : 'Spread: ' + fmt(r.p90 - r.p10) + ' (P90 − P10)';
   const w = $('warn');
+  const notes = [];
   if(r.invalid > N * 0.01){
-    w.textContent = sig(100 * r.invalid / N, 2) + '% of runs hit invalid maths and were dropped — a range probably crosses zero.';
-    w.style.display = 'block';
-  } else w.style.display = 'none';
+    notes.push(sig(100 * r.invalid / N, 2) + '% of runs hit invalid maths and were dropped — a range probably crosses zero.');
+  }
+  const inverted = r.varNames.filter(n => r.ranges[n][0] > r.ranges[n][1]);
+  if(inverted.length){
+    notes.push('Entered high-to-low: ' + inverted.map(n => n.replace(/_/g, ' ')).join(', ') + ' — read as a range either way.');
+  }
+  w.textContent = notes.join(' ');
+  w.style.display = notes.length ? 'block' : 'none';
 
   /* sensitivity rows */
   const holder = $('srows');

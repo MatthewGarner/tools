@@ -200,7 +200,9 @@
 
   /* fingers get full-size controls */
   @media (pointer: coarse){
-    .tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
+    /* fingers need 44px: the segmented toggles and fit-selects predated this and were 29–33px */
+    .tab,.savedchip button,.pagemode button,.cfseg button,.viewseg button{min-height:44px;display:inline-flex;align-items:center}
+    .vrow select,#tin,#cftin{min-height:44px}
   }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">

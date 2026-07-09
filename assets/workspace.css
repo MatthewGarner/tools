@@ -98,7 +98,7 @@ footer{margin: 48px 0 8px}
 /* Fingers get full-size controls; mouse pointers keep the compact look. */
 @media (pointer: coarse){
   .chip, .btn, .viewtoggle button{min-height: 44px; display: inline-flex; align-items: center}
-  .zoomctl button{padding: 13px 15px; font-size: 13px}
+  .zoomctl button{min-height: 44px; padding: 13px 15px; font-size: 13px}
   .eip-pop button{padding: 12px 12px}
 }
 /* phones are for viewing and zooming: the zoom control gets the full row */
