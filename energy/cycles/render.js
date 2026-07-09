@@ -178,8 +178,8 @@ export function render(model, out, ctx, {edit = false} = {}){
     /* τ line + belief whisker */
     parts.push('<line x1=\'' + tauX.toFixed(1) + '\' y1=\'' + (ry - 6) + '\' x2=\'' + tauX.toFixed(1) +
       '\' y2=\'' + (wy + 10) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
-    parts.push('<line x1=\'' + vX(out.threshold.p10).toFixed(1) + '\' y1=\'' + (wy + 10) + '\' x2=\'' +
-      vX(out.threshold.p90).toFixed(1) + '\' y2=\'' + (wy + 10) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
+    parts.push('<rect x=\'' + vX(out.threshold.p10).toFixed(1) + '\' y=\'' + (wy + 10 - 4) + '\' width=\'' +
+      (vX(out.threshold.p90) - vX(out.threshold.p10)).toFixed(1) + '\' height=\'8\' rx=\'4\' fill=\'' + tint(accent) + '\'/>');
     for(const p of [out.threshold.p10, out.threshold.p90])
       parts.push('<line x1=\'' + vX(p).toFixed(1) + '\' y1=\'' + (wy + 5) + '\' x2=\'' + vX(p).toFixed(1) +
         '\' y2=\'' + (wy + 15) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');

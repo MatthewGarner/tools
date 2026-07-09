@@ -3,7 +3,7 @@
    uncertainty IS the picture: solid diamond at P50, whisker to an open diamond
    at P90 — no bar edges pretending to be commitments. */
 import {PALETTES, scheme} from '../assets/series.js';
-import {esc, txt} from '../assets/svg.js';
+import {esc, txt, tint} from '../assets/svg.js';
 import {fmtDay, STATUSES} from './parse.js';
 
 const F = {
@@ -162,8 +162,11 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       s.push(diamond(gx, y, r * 0.85, 'none', C.muted, ' data-ms="ghost" stroke-dasharray="2 2"'));
     }
     if(!it.single && x90 - x50 > 1){
-      s.push('<line data-ms="whisker" x1="' + x50.toFixed(1) + '" y1="' + y.toFixed(1) +
-        '" x2="' + x90.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + col + '" stroke-width="2"/>');
+      /* the P50→P90 slip range as a tinted band, not a hairline — the uncertainty is the picture */
+      const bh = Math.min(T.rowH - 10, 15) * S;
+      s.push('<rect data-ms="whisker" x="' + x50.toFixed(1) + '" y="' + (y - bh / 2).toFixed(1) +
+        '" width="' + (x90 - x50).toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + (bh / 2).toFixed(1) +
+        '" fill="' + tint(col) + '"/>');
       s.push(diamond(x90, y, r * 0.8, C.card, col, ' data-ms="p90"'));
     }
     s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50"' +
