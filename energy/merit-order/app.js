@@ -1,12 +1,16 @@
 // energy/merit-order/app.js
-/* DOM shell: dials/drag/edit → dispatch() → SVG stack + verdict + exports.
-   Engine/state/render are pure; the DOM lives only here. */
+/* DOM shell: sliders/chips/drag/edit → buildStack → dispatch() → SVG stack +
+   verdict + exports. Engine/stack/scenarios/render are pure; the DOM lives here.
+   State is {condition, params, adv}: params drive buildStack; adv is per-block
+   hand-edits ({name:[cap,cost]}); condition names the active Conditions preset. */
 import {dispatch} from './engine.js';
-import {renderStack, toMarkdown, buildVerdict} from './render.js';
-import {PRESETS, generatorsFromPreset, setRenewShare, setGasPrice, setMustRun,
-  encodeState, decodeState} from './state.js';
+import {renderStack, toMarkdown, buildVerdict, MERIT_PALETTE} from './render.js';
+import {buildStack, applyAdv} from './stack.js';
+import {DEFAULT_PARAMS, CONDITIONS, paramsFor} from './scenarios.js';
+import {encodeStateV2, decodeStateV2} from './state.js';
+import {GB_TODAY} from './technologies.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
-import {measure, themeColors, onThemeChange} from '../../assets/app-common.js';
+import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
 
 if (typeof document !== 'undefined') boot();
@@ -16,35 +20,32 @@ function boot(){
   const chartwrap = $('chartwrap');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const installedOf = name => { const t = GB_TODAY.find(x => x.label === name); return t ? t.installed : null; };
 
-  /* ---- chart geometry the drag math needs, mirrored from render.js ----
-     x0/x1 are fixed (the plot area's left/right edge in SVG user-units);
-     maxX (the GW-domain the plot spans) is data-dependent, same formula
-     render.js uses for its own sx() scale. Keep these two files in sync if
-     the chart's layout ever changes (noted as a shared-code candidate). */
-  const CHART_X0 = 116, CHART_X1 = 1200 - 32;
-  function chartDomainMax(){
-    const totalCapacity = state.generators.reduce((s, g) => s + g.capacity, 0);
-    return Math.max(totalCapacity, state.demand, 1) * 1.04;
-  }
-
-  /* ---- state: the 4 generators (archetype order) + demand ---- */
-  let state;
+  /* ---- state ---- */
+  let state = {condition: null, params: {...DEFAULT_PARAMS}, adv: {}};
   let lastSvg = '', hashTimer = null;
-  let wasNegative = false, lastMarginalName;   // lastMarginalName starts undefined: no flash on boot
+  let wasNegative = false, lastMarginalName;
   let dragging = false;
 
-  /* ---- demand-drag hit-rect: one persistent DOM node, re-parented into
-     chartwrap after every innerHTML swap (appendChild on a detached node
-     keeps its listeners — the swap only destroys the *previous* node's
-     subtree, not this one, since it's re-attached, not re-created). ---- */
+  const currentStack = () => applyAdv(buildStack(state.params), state.adv);
+  const currentState = () => ({generators: currentStack(), demand: state.params.demand});
+  const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
+
+  /* ---- chart geometry the drag math needs, mirrored from render.js ---- */
+  const CHART_X0 = 116, CHART_X1 = 1200 - 32;
+  const DEMAND_MAX = 64;
+  function chartDomainMax(){
+    const totalOffered = currentStack().reduce((s, g) => s + g.capacity, 0);
+    return Math.max(totalOffered, state.params.demand, 1) * 1.04;
+  }
+
+  /* ---- demand-drag hit-rect: one persistent node, re-parented after each swap ---- */
   const hitRect = document.createElement('div');
   hitRect.className = 'demand-hit';
-  hitRect.setAttribute('aria-hidden', 'true');   // #demand slider is the accessible control
-  hitRect.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    dragging = true;
-  });
+  hitRect.setAttribute('aria-hidden', 'true');
+  hitRect.addEventListener('pointerdown', e => { e.preventDefault(); dragging = true; });
 
   function positionHitRect(){
     const line = chartwrap.querySelector('.demand-line');
@@ -61,34 +62,30 @@ function boot(){
 
   function clientXToGW(clientX){
     const svgEl = chartwrap.querySelector('svg');
-    if(!svgEl || !svgEl.createSVGPoint) return state.demand;
+    if(!svgEl || !svgEl.createSVGPoint) return state.params.demand;
     const ctm = svgEl.getScreenCTM();
-    if(!ctm) return state.demand;
+    if(!ctm) return state.params.demand;
     const pt = svgEl.createSVGPoint();
     pt.x = clientX; pt.y = 0;
     const p = pt.matrixTransform(ctm.inverse());
     const gw = ((p.x - CHART_X0) / (CHART_X1 - CHART_X0)) * chartDomainMax();
-    return Math.max(0, Math.min(55, gw));
+    return clamp(gw, 0, DEMAND_MAX);
   }
 
-  /* snap to the exact cumulative-capacity boundary (marginal-flip point)
-     when within 0.5 GW, so the knife-edge lands on the true value */
+  /* snap to the exact cumulative-capacity boundary (marginal-flip point) within 0.5 GW */
   function snapDemand(gw){
-    const result = dispatch(state.generators, state.demand);
-    let running = 0;
-    const bounds = [0];
+    const result = dispatch(currentStack(), state.params.demand);
+    let running = 0; const bounds = [0];
     for(const g of result.sorted){ running += g.capacity; bounds.push(running); }
     let snapped = null, best = 0.5;
-    for(const b of bounds){
-      const d = Math.abs(gw - b);
-      if(d <= best){ snapped = b; best = d; }
-    }
+    for(const b of bounds){ const d = Math.abs(gw - b); if(d <= best){ snapped = b; best = d; } }
     return snapped !== null ? snapped : Math.round(gw * 10) / 10;
   }
 
   window.addEventListener('pointermove', e => {
     if(!dragging) return;
-    state.demand = snapDemand(clientXToGW(e.clientX));
+    state.params.demand = Math.min(DEMAND_MAX, snapDemand(clientXToGW(e.clientX)));
+    markCustom();
     render(false);
   });
   window.addEventListener('pointerup', () => {
@@ -97,7 +94,7 @@ function boot(){
     render(true);
   });
 
-  /* ---- must-run segmented toggle: role=radio + aria-checked (Task 4 review flag) ---- */
+  /* ---- must-run segmented toggle ---- */
   const mustrunButtons = [...document.querySelectorAll('#mustrunseg button[data-mustrun]')];
   mustrunButtons.forEach(b => b.setAttribute('role', 'radio'));
   function syncMustRunSeg(on){
@@ -109,50 +106,41 @@ function boot(){
   }
   mustrunButtons.forEach(b => b.addEventListener('click', () => {
     const on = b.dataset.mustrun === 'on';
-    setMustRun(state.generators, on, +$('depth').value);
+    state.params.mustRunOn = on;
     syncMustRunSeg(on);
     $('depthctl').hidden = !on;
+    markCustom();
     closeCallout();
     render(true);
   }));
 
-  /* ---- dials: renew/gas/demand/depth — input live cut, change settles ---- */
+  /* ---- sliders: input = live cut, change = settle ---- */
+  const markCustom = () => { state.condition = 'custom'; };   // any manual edit leaves the active preset
   function wireDial(id, apply){
     const el = $(id);
-    el.addEventListener('input', () => { apply(+el.value); render(false); });
-    el.addEventListener('change', () => { apply(+el.value); render(true); });
+    el.addEventListener('input', () => { apply(+el.value); markCustom(); render(false); });
+    el.addEventListener('change', () => { apply(+el.value); markCustom(); render(true); });
   }
-  wireDial('demand', v => { state.demand = v; });
-  wireDial('renew', v => setRenewShare(state.generators, v));
-  wireDial('gas', v => setGasPrice(state.generators, v));
-  wireDial('depth', v => {
-    const renewables = state.generators.find(g => g.name === 'Renewables');
-    if(renewables.mustRun) setMustRun(state.generators, true, v);
-  });
+  wireDial('demand', v => { state.params.demand = v; });
+  wireDial('gas',    v => { state.params.gas = v; });
+  wireDial('carbon', v => { state.params.carbon = v; });
+  wireDial('wind',   v => { state.params.wind = v / 100; });
+  wireDial('solar',  v => { state.params.solar = v / 100; });
+  wireDial('depth',  v => { state.params.mustRunDepth = v; });
 
-  /* ---- presets ---- */
-  function applyPreset(key){
-    const P = PRESETS[key];
-    if(!P) return;
+  /* ---- Conditions presets (data-preset="" = GB today reset) ---- */
+  function applyCondition(key){
     closeCallout();
-    state = {generators: generatorsFromPreset(P), demand: P.demand};
-    $('demand').value = P.demand;
-    $('renew').value = P.renew;
-    $('gas').value = P.gas;
-    $('depth').value = P.depth;
-    syncMustRunSeg(P.mustRun);
-    $('depthctl').hidden = !P.mustRun;
+    state = {condition: key || null, params: paramsFor(key || null), adv: {}};
+    syncControls();
     render(true);
   }
   for(const btn of document.querySelectorAll('#presets .chip[data-preset]')){
-    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    btn.addEventListener('click', () => applyCondition(btn.dataset.preset));
   }
 
-  /* ---- per-plant edit callout: tap a bar for arithmetic + "Edit ->";
-     Edit opens +/- steppers (never a bare number input) for capacity/cost,
-     plus a must-run toggle for Renewables. Lives in document.body (survives
-     chart re-renders); dismissed on outside click or a preset/URL reload. ---- */
-  let activeCallout = null;   // {pop}
+  /* ---- per-block edit callout ---- */
+  let activeCallout = null;
   function closeCallout(){
     if(!activeCallout) return;
     const {pop, away} = activeCallout;
@@ -175,24 +163,30 @@ function boot(){
   }
   function renderCalloutView(pop, name){
     pop.textContent = '';
-    const gen = state.generators.find(g => g.name === name);
-    const pp = dispatch(state.generators, state.demand).perPlant[name];
+    const gen = currentStack().find(g => g.name === name);
+    if(!gen) return;
+    const pp = dispatch(currentStack(), state.params.demand).perPlant[name];
 
     const title = document.createElement('div');
     title.className = 'mo-callout-name';
     title.textContent = name;
     pop.appendChild(title);
 
+    const installed = installedOf(name);
+    const isVre = gen.family === 'wind' || gen.family === 'solar';
     const math = document.createElement('div');
     math.className = 'mo-callout-math';
-    math.textContent = `${fmtGW(gen.capacity)} GW at £${Math.round(gen.cost)}/MWh — ` +
+    const availClause = (isVre && installed != null)
+      ? `${fmtGW(gen.capacity)} GW available now (of ${fmtGW(installed)} GW installed) — `
+      : `${fmtGW(gen.capacity)} GW at £${Math.round(gen.cost)}/MWh — `;
+    math.textContent = availClause +
       `${fmtGW(pp.dispatchedMW)} GW dispatched, ${fmtGW(pp.strandedMW)} GW stranded, rent £${Math.round(pp.rent)}/h`;
     pop.appendChild(math);
 
-    if(gen.mustRun && pp.strandedMW > 0){
+    if(gen.storage){
       const note = document.createElement('div');
       note.className = 'mo-callout-note';
-      note.textContent = `${fmtGW(pp.strandedMW)} GW would generate anyway — curtailed or exported, simplified away here.`;
+      note.textContent = 'Charging cost (what it paid to fill ÷ round-trip efficiency) — dispatched before gas; the shaded rent is the arbitrage spread it earns, not a fuel margin.';
       pop.appendChild(note);
     }
 
@@ -220,43 +214,31 @@ function boot(){
     row.append(lab, minus, out, plus);
     return row;
   }
+  /* edits commit into state.adv[name] = [cap, cost] (applied after buildStack) */
+  function advOf(name){
+    const g = currentStack().find(x => x.name === name);
+    return state.adv[name] || [g.capacity, g.cost];
+  }
   function renderCalloutEdit(pop, name){
     pop.textContent = '';
-    const gen = state.generators.find(g => g.name === name);
     const title = document.createElement('div');
     title.className = 'mo-callout-name';
     title.textContent = 'Edit ' + name;
     pop.appendChild(title);
 
-    const CAP_STEP = 1, COST_STEP = 5;   // matches the #renew/#gas slider step sizes
-    pop.appendChild(stepperRow('Capacity', () => Math.round(gen.capacity), ' GW', dir => {
-      gen.capacity = Math.max(0, Math.min(80, gen.capacity + dir * CAP_STEP));
+    const CAP_STEP = 1, COST_STEP = 5;
+    pop.appendChild(stepperRow('Capacity', () => Math.round(advOf(name)[0]), ' GW', dir => {
+      const [cap, cost] = advOf(name);
+      state.adv[name] = [clamp(cap + dir * CAP_STEP, 0, 90), cost];
+      markCustom();
       render(true);
     }));
-    pop.appendChild(stepperRow('Cost', () => Math.round(gen.cost), ' £/MWh', dir => {
-      gen.cost = Math.max(-200, Math.min(400, gen.cost + dir * COST_STEP));
+    pop.appendChild(stepperRow('Bid', () => Math.round(advOf(name)[1]), ' £/MWh', dir => {
+      const [cap, cost] = advOf(name);
+      state.adv[name] = [cap, clamp(cost + dir * COST_STEP, -200, 400)];
+      markCustom();
       render(true);
     }));
-
-    if(name === 'Renewables'){   // mustRun is Renewables-specific in state.js's model
-      const row = document.createElement('div');
-      row.className = 'mo-stepper';
-      const lab = document.createElement('span');
-      lab.className = 'mo-stepper-label'; lab.textContent = 'Must-run';
-      const btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'chip';
-      btn.textContent = gen.mustRun ? 'On' : 'Off';
-      btn.addEventListener('click', () => {
-        const on = !gen.mustRun;
-        setMustRun(state.generators, on, +$('depth').value);
-        syncMustRunSeg(on);
-        $('depthctl').hidden = !on;
-        btn.textContent = on ? 'On' : 'Off';
-        render(true);
-      });
-      row.append(lab, btn);
-      pop.appendChild(row);
-    }
 
     const done = document.createElement('button');
     done.type = 'button'; done.className = 'btn';
@@ -294,41 +276,58 @@ function boot(){
   function flashEl(el){
     if(!el) return;
     el.classList.remove('flash');
-    void el.getBoundingClientRect();   // force reflow so re-adding restarts the animation
+    void el.getBoundingClientRect();
     el.classList.add('flash');
   }
 
-  /* ---- the refresh loop ---- */
+  /* ---- outputs / control sync ---- */
   function syncOutputs(){
-    const renewables = state.generators.find(g => g.name === 'Renewables');
-    const ccgt = state.generators.find(g => g.name === 'CCGT');
-    $('demand').value = state.demand;
-    $('demandout').textContent = fmtGW(state.demand) + ' GW';
-    $('renew').value = renewables.capacity;
-    $('renewout').textContent = fmtGW(renewables.capacity) + ' GW';
-    $('gas').value = Math.round(ccgt.cost);
-    $('gasout').textContent = '£' + Math.round(ccgt.cost) + '/MWh';
-    $('mustrunout').textContent = renewables.mustRun ? 'On' : 'Off';
-    if(renewables.mustRun){
-      const depth = Math.max(0, -renewables.cost);
-      $('depth').value = depth;
-      $('depthout').textContent = '−£' + Math.round(depth) + '/MWh';
+    const p = state.params;
+    $('demandout').textContent = fmtGW(p.demand) + ' GW';
+    $('gasout').textContent = Math.round(p.gas) + 'p/therm';
+    $('carbonout').textContent = '£' + Math.round(p.carbon) + '/t';
+    $('windout').textContent = Math.round(p.wind * 100) + '%';
+    $('solarout').textContent = Math.round(p.solar * 100) + '%';
+    $('mustrunout').textContent = p.mustRunOn ? 'On' : 'Off';
+    if(p.mustRunOn) $('depthout').textContent = '−£' + Math.round(p.mustRunDepth) + '/MWh';
+  }
+  function syncChips(){   // highlight the active Conditions chip (null = "GB today"; 'custom' = none)
+    for(const b of document.querySelectorAll('#presets .chip[data-preset]')){
+      const on = (b.dataset.preset || null) === (state.condition || null);
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
     }
   }
+  function syncControls(){   // push params → slider positions + toggles (after a preset/boot)
+    const p = state.params;
+    $('demand').value = p.demand;
+    $('gas').value = p.gas;
+    $('carbon').value = p.carbon;
+    $('wind').value = Math.round(p.wind * 100);
+    $('solar').value = Math.round(p.solar * 100);
+    $('depth').value = p.mustRunDepth;
+    syncMustRunSeg(p.mustRunOn);
+    $('depthctl').hidden = !p.mustRunOn;
+    syncOutputs();
+    syncChips();
+  }
 
+  /* ---- the refresh loop ---- */
   function render(settle){
     const animate = settle && !reducedMotion.matches;
     const oldRects = animate ? measurePlantRects() : null;
 
-    const result = dispatch(state.generators, state.demand);
-    const svg = renderStack(state, {colors: themeColors(), measure});
+    const cs = currentState();
+    const result = dispatch(cs.generators, cs.demand);
+    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette()});
     lastSvg = svg;
     chartwrap.innerHTML = svg;
     chartwrap.appendChild(hitRect);
     positionHitRect();
 
     syncOutputs();
-    $('verdict').textContent = buildVerdict(result, state);
+    syncChips();
+    $('verdict').textContent = buildVerdict(result, cs);
 
     if(animate){
       if(oldRects) flipAnimate(oldRects);
@@ -340,38 +339,30 @@ function boot(){
       flashEl(chartwrap.querySelector('.negative-band'));
     }
     wasNegative = result.clearingPrice < 0;
-    if(settle) lastMarginalName = result.marginalName;   // only settle advances the flag — live frames
-                                                          // at the final value must not pre-consume it
+    if(settle) lastMarginalName = result.marginalName;
 
     clearTimeout(hashTimer);
-    hashTimer = setTimeout(() => writeHashState(encodeState(state.generators, state.demand)), 400);
+    hashTimer = setTimeout(() => writeHashState(encodeStateV2(state)), 400);
   }
 
   /* ---- exports ---- */
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
-    // exports carry the self-captioned verdict block; the on-screen chart
-    // (lastSvg) doesn't, since the HTML #verdict div covers that on screen —
-    // re-render fresh with the flag rather than reuse the cached SVG.
-    getSvg: () => renderStack(state, {colors: themeColors(), measure}, {forExport: true}),
-    getMarkdown: () => toMarkdown(state, dispatch(state.generators, state.demand)),
+    getSvg: () => renderStack(currentState(), {colors: themeColors(), measure, palette: palette()}, {forExport: true}),
+    getMarkdown: () => { const cs = currentState(); return toMarkdown(cs, dispatch(cs.generators, cs.demand)); },
     slug: () => 'merit-order',
   });
 
   /* ---- theme ---- */
   onThemeChange(() => render(false));
 
-  /* ---- boot: URL state, else the typical-day preset ---- */
-  const restored = decodeState(readHashState());
-  state = restored ?? {generators: generatorsFromPreset(PRESETS.typical), demand: PRESETS.typical.demand};
-  {
-    const renewables = state.generators.find(g => g.name === 'Renewables');
-    $('demand').value = state.demand;
-    $('renew').value = renewables.capacity;
-    $('gas').value = state.generators.find(g => g.name === 'CCGT').cost;
-    if(renewables.mustRun) $('depth').value = Math.max(0, -renewables.cost);
-    syncMustRunSeg(renewables.mustRun);
-    $('depthctl').hidden = !renewables.mustRun;
+  /* ---- boot: URL state (v2), else GB-today defaults ---- */
+  const restored = decodeStateV2(readHashState());
+  if(restored){
+    state = {condition: restored.condition,
+             params: {...DEFAULT_PARAMS, ...restored.params},
+             adv: restored.adv || {}};
   }
+  syncControls();
   render(true);
 }

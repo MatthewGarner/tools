@@ -119,9 +119,11 @@ test('frequency renderer stays clean (no parser — result is numeric, guards fu
   assertClean(renderTrace(result, {trip: 1.8, eSync: 90}, ctx), 'frequency');
 });
 
-test('merit-order renderer stays clean (no parser — inputs are numeric/closed-name-set, guards future changes)', async () => {
-  const {renderStack} = await import('../energy/merit-order/render.js');
-  const {generatorsFromPreset, PRESETS} = await import('../energy/merit-order/state.js');
-  const state = {generators: generatorsFromPreset(PRESETS.negative), demand: PRESETS.negative.demand};
-  assertClean(renderStack(state, ctx), 'merit-order');
+test('merit-order renderer stays clean (hostile catalogue labels/family reach data-plant + captions)', async () => {
+  const {renderStack, MERIT_PALETTE} = await import('../energy/merit-order/render.js');
+  const {buildStack} = await import('../energy/merit-order/stack.js');
+  const {DEFAULT_PARAMS} = await import('../energy/merit-order/scenarios.js');
+  const evilCat = EVIL.map((e, i) => ({key: 'k' + i, label: e + ' ' + i, family: e, installed: 5, bid: {kind: 'fixed', cost: 10 + i}}));
+  const state = {generators: buildStack(DEFAULT_PARAMS, evilCat), demand: 12};
+  assertClean(renderStack(state, {...ctx, palette: MERIT_PALETTE.light}), 'merit-order');
 });

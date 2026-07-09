@@ -1,19 +1,17 @@
-/* Pure renderer: {generators, demand} → dispatch() result → a supply-stack SVG.
-   x = cumulative capacity (GW, cheapest-first — result.sorted's own order);
-   y = price (£/MWh), a fixed £0 line, negative region below it. XML discipline
-   throughout: txt()/esc() for content; hand-built tags single-quoted, numbers
-   and tokens only. Root <svg> carries double-quoted integer width/height so
-   the PNG export path (svgToCanvas) can read them.
+/* Pure renderer: {generators, demand} → dispatch() result → a GB supply-stack SVG.
+   x = cumulative capacity (GW offered, cheapest-first — result.sorted's order);
+   y = price (£/MWh), fixed £0 line, negative region below it. XML discipline:
+   txt()/esc() for content; hand-built tags single-quoted, numbers/tokens only.
+   Root <svg> carries double-quoted integer width/height so the PNG export path
+   (svgToCanvas) can read them.
 
-   Colour language (tokens only, via ctx.colors):
-   - dispatched capacity: C.ink, solid — "this MW is running"
-   - stranded capacity:   C.muted, dimmed — "this MW is not"
-   - rent (cost < clearing, on the dispatched slice): a translucent C.accent
-     overlay — the one place colour calls out "this plant earns above its
-     running cost" (never "profit" — no fixed costs are priced here)
-   - marginal plant + clearing line: C.accent — "this sets the price"
-   - clearingPrice < 0: C.err tint below £0 + the line's label reads in words
-     ("paying to generate"), not just a numeral that happens to be negative */
+   Colour language: each block is filled by its FUEL FAMILY hue (ctx.palette) —
+   the gas fleet is one hue in 5 tonal steps (the efficiency staircase); storage
+   is one hue + a diagonal hatch + data-storage marker ("not a fuelled plant").
+   dispatched = solid family fill; stranded = same fill, dimmed. Rent overlay
+   (translucent accent) on any dispatched block bidding below the clearing price —
+   for storage that overlay IS the arbitrage spread. Marginal block + clearing
+   line = accent; clearingPrice < 0 = err tint below £0 + worded label. */
 import {esc, txt, tint, wrapText} from '../../assets/svg.js';
 import {dispatch} from './engine.js';
 
@@ -21,6 +19,33 @@ const FONT = 'Charter,Georgia,serif';
 const r2 = n => Math.round(n * 100) / 100;
 const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
 const fmtPrice = v => Math.round(v).toString();
+
+/* Fuel-family palette — validated with the dataviz validate_palette.js against the
+   card surface both themes (light #FFFFFF worst-adjacent ΔE 12.9; dark #1B242C ΔE
+   11.4, floor band — legitimate given in-place labels + 2px gaps + storage hatch).
+   `thermal` is a 5-step tonal ramp (cheap→dirty) for the gas efficiency staircase. */
+export const MERIT_PALETTE = {
+  light: {
+    wind:'#2a78d6', solar:'#eda100', nuclear:'#4a3aa7', biomass:'#008300',
+    storage:'#1baf7a', imports:'#e87ba4', other:'#eb6834',
+    thermal:['#f4a3a2', '#ec7675', '#e34948', '#bf3636', '#932a2d'],
+  },
+  dark: {
+    wind:'#3987e5', solar:'#c98500', nuclear:'#9085e9', biomass:'#008300',
+    storage:'#199e70', imports:'#d55181', other:'#d95926',
+    thermal:['#f2a6a6', '#ec8585', '#e66767', '#d24f4f', '#b93c3c'],
+  },
+};
+const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%'];
+const FAM_LABEL = {thermal: 'Gas', storage: 'Storage'};   // multi-block runs; single blocks use their own name
+
+/* thermal blocks step through the tonal ramp by band; everything else takes its
+   family hue. NOTE for Phase 2: CCS/H₂ tonal thermal steps must set `thermal:true`
+   AND get a THERMAL_ORDER entry, else palette.thermal (an array) would stringify. */
+function famColour(g, palette){
+  if(g.thermal){ const i = THERMAL_ORDER.indexOf(g.name); return palette.thermal[i >= 0 ? i : palette.thermal.length - 1]; }
+  return palette[g.family] || '#888888';
+}
 
 /* One quotable line (+ clauses) built from a dispatch() result. Shared by the
    SVG verdict and toMarkdown so the two never drift. */
@@ -35,6 +60,11 @@ export function buildVerdict(result, state){
   }
   if(cp < 0) parts.push('The market is paying to generate: price runs negative until the must-run block clears.');
   if(result.unmet > 0) parts.push(`${fmtGW(result.unmet)} GW of demand goes unmet — capacity runs out first.`);
+  const storageRent = result.sorted.filter(g => g.storage)
+    .reduce((s, g) => s + result.perPlant[g.name].rent, 0);
+  if(storageRent > 0){
+    parts.push('Storage is dispatched ahead of gas — the shaded rent on it is the arbitrage spread it earns, not a fuel margin.');
+  }
   const mustRunStranded = result.sorted.filter(g => g.mustRun)
     .reduce((s, g) => s + result.perPlant[g.name].strandedMW, 0);
   if(mustRunStranded > 0){
@@ -48,6 +78,7 @@ export function buildVerdict(result, state){
 
 export function renderStack(state, ctx, opts = {}){
   const C = ctx.colors;
+  const P8 = ctx.palette;
   const result = dispatch(state.generators, state.demand);
   const cp = result.clearingPrice;
 
@@ -58,16 +89,17 @@ export function renderStack(state, ctx, opts = {}){
   const costs = result.sorted.map(g => g.cost);
   const pMin = Math.min(-50, ...costs);
   const pMax = Math.max(300, ...costs);
-  const totalCapacity = result.sorted.reduce((s, g) => s + g.capacity, 0);
-  const maxX = Math.max(totalCapacity, state.demand, 1) * 1.04;
+  const totalOffered = result.sorted.reduce((s, g) => s + g.capacity, 0);
+  const maxX = Math.max(totalOffered, state.demand, 1) * 1.04;
 
   const sx = gw => x0 + (Math.max(0, gw) / maxX) * (x1 - x0);
   const sy = price => y1 - ((price - pMin) / (pMax - pMin)) * (y1 - y0);
 
   const P = [];
 
-  // --- plant stack (built first so height chrome below can reference it) ---
+  // --- plant stack ---
   const stackRows = [];
+  const runs = [];   // {family, name, x0gw, x1gw} contiguous same-family runs, for labels
   let before = 0;
   for(const g of result.sorted){
     const pp = result.perPlant[g.name];
@@ -75,36 +107,40 @@ export function renderStack(state, ctx, opts = {}){
     const yTop = Math.min(sy(g.cost), sy(0)), yBot = Math.max(sy(g.cost), sy(0));
     const h = Math.max(0, yBot - yTop);
     const isMarginal = result.marginalName === g.name;
-    const rows = [`<g data-plant='${esc(g.name)}'>`];
+    const fill = famColour(g, P8);
 
-    if(pp.dispatchedMW > 0){
-      rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='${C.ink}'` +
-        (isMarginal ? ` stroke='${C.accent}' stroke-width='2'` : '') + `/>`);
+    if(g.capacity > 0){
+      const rows = [`<g data-plant='${esc(g.name)}'${g.storage ? " data-storage='1'" : ''}>`];
+      if(pp.dispatchedMW > 0){
+        rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='${fill}'` +
+          (isMarginal ? ` stroke='${C.accent}' stroke-width='2'` : '') + `/>`);
+        if(g.storage){   // hatch overlay: "not a fuelled plant"
+          rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='url(#mo-hatch)'/>`);
+        }
+      }
+      if(pp.strandedMW > 0){
+        rows.push(`<rect x='${r2(xB)}' y='${r2(yTop)}' width='${r2(xC - xB)}' height='${r2(h)}' fill='${fill}' opacity='0.3'/>`);
+      }
+      if(pp.dispatchedMW > 0 && g.cost < cp){
+        const ryA = sy(cp), ryB = sy(g.cost);
+        rows.push(`<rect class='rent' x='${r2(xA)}' y='${r2(Math.min(ryA, ryB))}' width='${r2(xB - xA)}' ` +
+          `height='${r2(Math.abs(ryB - ryA))}' fill='${tint(C.accent)}'/>`);
+      }
+      if(isMarginal){
+        const midX = (xA + xB) / 2;
+        const labelY = (yTop - 10 >= y0) ? yTop - 10 : yTop + 14;
+        rows.push(txt(midX, labelY, 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
+      }
+      rows.push('</g>');
+      stackRows.push(rows.join(''));
     }
-    if(pp.strandedMW > 0){
-      rows.push(`<rect x='${r2(xB)}' y='${r2(yTop)}' width='${r2(xC - xB)}' height='${r2(h)}' fill='${C.muted}' opacity='0.35'/>`);
-    }
-    if(pp.dispatchedMW > 0 && g.cost < cp){
-      const ryA = sy(cp), ryB = sy(g.cost);
-      rows.push(`<rect class='rent' x='${r2(xA)}' y='${r2(Math.min(ryA, ryB))}' width='${r2(xB - xA)}' ` +
-        `height='${r2(Math.abs(ryB - ryA))}' fill='${tint(C.accent)}'/>`);
-    }
-    if(isMarginal){
-      const midX = (xA + xB) / 2;
-      const labelY = (yTop - 10 >= y0) ? yTop - 10 : yTop + 14;
-      rows.push(txt(midX, labelY, 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
-    }
-    if(g.mustRun && pp.strandedMW > 0){
-      const midX = (xB + xC) / 2;
-      const labelY = (yTop - 10 >= y0) ? yTop - 10 : yTop + 14;
-      rows.push(txt(midX, labelY, 'would generate anyway', 10.5, C.muted, {anchor: 'middle'}));
-    }
-    // plant name caption under the axis
-    const capMidX = (xA + xC) / 2;
-    rows.push(txt(capMidX, y1 + 22, g.name, 12, C.muted, {anchor: 'middle', weight: 600}));
 
-    rows.push('</g>');
-    stackRows.push(rows.join(''));
+    // group into runs for the axis labels (skip zero-width blocks)
+    if(g.capacity > 0){
+      const last = runs[runs.length - 1];
+      if(last && last.family === g.family){ last.x1gw = before + g.capacity; last.count++; last.name = g.name; }
+      else runs.push({family: g.family, name: g.name, x0gw: before, x1gw: before + g.capacity, count: 1});
+    }
     before += g.capacity;
   }
 
@@ -113,32 +149,38 @@ export function renderStack(state, ctx, opts = {}){
   const legendY = tickY + 26;
   const verdictTopBase = (showLegend ? legendY : tickY) + 34;
   const verdictText = buildVerdict(result, state);
-  const vLines = wrapText(verdictText, '15px ' + FONT, x1 - x0, ctx.measure);  // wrap within [x0..x1]; drawn at x0, so must not exceed x1-x0 or it clips the viewBox on export
+  const vLines = wrapText(verdictText, '15px ' + FONT, x1 - x0, ctx.measure);
   const vBlockH = 28 + vLines.length * 22 + 16;
-  // on screen the SVG ends just after the legend/ticks — no trailing verdict
-  // whitespace, since the HTML #verdict div carries that prose instead;
-  // export mode reserves the extra height for the self-captioned block below
   const H = Math.round((opts.forExport ? verdictTopBase + vBlockH : verdictTopBase) + 24);
 
   P.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`);
+  P.push(`<defs><pattern id='mo-hatch' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'>` +
+    `<line x1='0' y1='0' x2='0' y2='6' stroke='${C.card}' stroke-width='1.6' opacity='0.55'/></pattern></defs>`);
   P.push(`<rect width='${W}' height='${H}' fill='${C.bg}'/>`);
-  P.push(txt(x0, 34, 'MERIT ORDER — £/MWh vs cumulative GW dispatched', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
+  P.push(txt(x0, 34, 'MERIT ORDER — £/MWh vs cumulative GW offered', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
 
   // chart card
   P.push(`<rect x='${x0 - 16}' y='${y0 - 16}' width='${x1 - x0 + 32}' height='${chartH + 32}' rx='8' fill='${C.card}' stroke='${C.border}'/>`);
 
-  // negative-price warning band: drawn as backdrop, before the bars
+  // negative-price warning band: backdrop, before the bars
   if(cp < 0){
     P.push(`<rect class='negative-band' x='${r2(x0)}' y='${r2(sy(0))}' width='${r2(x1 - x0)}' height='${r2(y1 - sy(0))}' fill='${tint(C.err)}'/>`);
   }
 
   P.push(...stackRows);
 
-  // £0 line — always drawn
+  // £0 line
   P.push(`<line class='zero-line' x1='${r2(x0)}' y1='${r2(sy(0))}' x2='${r2(x1)}' y2='${r2(sy(0))}' stroke='${C.border}' stroke-width='1.5'/>`);
   P.push(txt(x0 - 10, sy(0) + 4, '£0', 12, C.muted, {anchor: 'end'}));
   P.push(txt(x0 - 10, y0 + 4, `£${fmtPrice(pMax)}`, 11, C.muted, {anchor: 'end'}));
   P.push(txt(x0 - 10, y1 + 4, `£${fmtPrice(pMin)}`, 11, C.muted, {anchor: 'end'}));
+
+  // family-run labels under the axis (in-place identity — never colour-only)
+  for(const run of runs){
+    const label = run.count > 1 ? (FAM_LABEL[run.family] || run.name) : run.name;
+    const midX = (sx(run.x0gw) + sx(run.x1gw)) / 2;
+    P.push(txt(midX, y1 + 22, label, 12, C.muted, {anchor: 'middle', weight: 600}));
+  }
 
   // clearing-price line
   const clearCol = cp < 0 ? C.err : C.accent;
@@ -154,17 +196,15 @@ export function renderStack(state, ctx, opts = {}){
 
   // capacity axis ticks
   P.push(txt(x0, tickY, '0 GW', 11, C.muted));
-  P.push(txt(x1, tickY, `${fmtGW(totalCapacity)} GW installed`, 11, C.muted, {anchor: 'end'}));
+  P.push(txt(x1, tickY, `${fmtGW(totalOffered)} GW offered`, 11, C.muted, {anchor: 'end'}));
 
-  // rent legend (only meaningful when something is actually shaded)
+  // rent legend
   if(showLegend){
     P.push(`<rect x='${x0}' y='${legendY - 11}' width='14' height='14' fill='${tint(C.accent)}' stroke='${C.accent}'/>`);
-    P.push(txt(x0 + 20, legendY, 'shaded = earns above running cost', 11.5, C.muted));
+    P.push(txt(x0 + 20, legendY, 'shaded = earns above running cost (storage: the arbitrage spread)', 11.5, C.muted));
   }
 
-  // verdict — export-only: the HTML #verdict div carries this prose on
-  // screen (app.js), so drawing it here too would duplicate the paragraph.
-  // Kept in the SVG for self-captioned exports (Download SVG/PNG, Copy PNG).
+  // verdict — export-only (HTML #verdict carries it on screen)
   if(opts.forExport){
     const vy = (showLegend ? legendY : tickY) + 30;
     P.push(`<rect x='${x0 - 16}' y='${r2(vy)}' width='4' height='${vLines.length * 22 + 8}' fill='${C.accent}'/>`);
@@ -180,6 +220,7 @@ export function toMarkdown(state, result){
   const verdictText = buildVerdict(result, state);
   const lines = ['| Plant | Cost £/MWh | Dispatched GW | Stranded GW | Rent £/h |', '|---|---|---|---|---|'];
   for(const g of result.sorted){
+    if(g.capacity <= 0) continue;
     const pp = result.perPlant[g.name];
     lines.push(`| ${g.name} | ${fmtPrice(g.cost)} | ${fmtGW(pp.dispatchedMW)} | ${fmtGW(pp.strandedMW)} | ${Math.round(pp.rent)} |`);
   }

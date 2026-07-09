@@ -1,41 +1,30 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {dispatch} from '../engine.js';
-import {defaultGenerators, PRESETS, generatorsFromPreset, setMustRun, encodeState, decodeState} from '../state.js';
+import {encodeStateV2, decodeStateV2} from '../state.js';
+import {DEFAULT_PARAMS} from '../scenarios.js';
 
-test('every preset clears where the spec claims', () => {
-  const want = {typical:['CCGT',60], windy:['CCGT',60], coldStill:['Peaker',150], gasSpike:['CCGT',120], negative:['Renewables',-30]};
-  for(const key of Object.keys(want)){
-    const p = PRESETS[key];
-    const r = dispatch(generatorsFromPreset(p), p.demand);
-    assert.equal(r.marginalName, want[key][0], `${key} marginal`);
-    assert.equal(r.clearingPrice, want[key][1], `${key} price`);
-    assert.equal(r.unmet, 0, `${key} must not be unmet`);   // guards the Cold-still-evening trap
-  }
+test('v2 round-trips condition + params + adv', () => {
+  const s = {condition: 'gasSpike', params: {...DEFAULT_PARAMS, gas: 250}, adv: {'BESS': [10, 20]}};
+  const back = decodeStateV2(encodeStateV2(s));
+  assert.equal(back.condition, 'gasSpike');
+  assert.equal(back.params.gas, 250);
+  assert.deepEqual(back.adv['BESS'], [10, 20]);
 });
 
-test('gas-price dial: CCGT = price, Peaker = 2.5·price; Nuclear stays below CCGT across the range', () => {
-  const gens = generatorsFromPreset(PRESETS.gasSpike);
-  const cost = n => gens.find(g => g.name === n).cost;
-  assert.equal(cost('CCGT'), 120);
-  assert.equal(cost('Peaker'), 300);
-  assert.ok(cost('Nuclear') < cost('CCGT'));
+test('v2 with no hand-edits omits adv and decodes to empty', () => {
+  const enc = encodeStateV2({condition: null, params: DEFAULT_PARAMS, adv: {}});
+  assert.equal(enc.adv, undefined);
+  const back = decodeStateV2(enc);
+  assert.deepEqual(back.adv, {});
 });
 
-test('must-run: negative bid + mustRun flag; toggling OFF restores cost 0', () => {
-  const gens = generatorsFromPreset(PRESETS.negative);
-  const r = gens.find(g => g.name === 'Renewables');
-  assert.equal(r.cost, -30); assert.equal(r.mustRun, true);
-  setMustRun(gens, false, 30);                       // OFF path (untested before)
-  assert.equal(r.cost, 0); assert.equal(r.mustRun, false);
+test('a v1 hash decodes to null (caller falls back to the v2 default) — no crash', () => {
+  const v1 = {v: 1, p: {Renewables: [15, 0, 0], CCGT: [25, 60, 0]}, d: 40};
+  assert.equal(decodeStateV2(v1), null);
 });
 
-test('URL codec round-trips; malformed / wrong-version → null (caller falls back)', () => {
-  const gens = generatorsFromPreset(PRESETS.windy);
-  const back = decodeState(encodeState(gens, 40));
-  assert.deepEqual(back.generators.map(g => [g.name, g.capacity, g.cost, g.mustRun]),
-                   gens.map(g => [g.name, g.capacity, g.cost, g.mustRun]));
-  assert.equal(back.demand, 40);
-  assert.equal(decodeState(null), null);
-  assert.equal(decodeState({v: 99, p: {}}), null);
+test('malformed / wrong version → null', () => {
+  assert.equal(decodeStateV2(null), null);
+  assert.equal(decodeStateV2({v: 99}), null);
+  assert.equal(decodeStateV2({v: 2}), null);   // missing params
 });

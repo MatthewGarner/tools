@@ -232,11 +232,13 @@ for(const [k, src] of Object.entries(docs)){
 
 /* /merit-order fixtures (pure engine, no seed needed — deterministic by construction) */
 {
-  const {renderStack} = await import('../energy/merit-order/render.js');
-  const {generatorsFromPreset, PRESETS} = await import('../energy/merit-order/state.js');
-  const mk = p => ({generators: generatorsFromPreset(p), demand: p.demand});
-  variants['merit-order-typical'] = renderStack(mk(PRESETS.typical), {...ctxBase}, {forExport: true});
-  variants['merit-order-negative'] = renderStack(mk(PRESETS.negative), {...ctxBase}, {forExport: true});
+  const {renderStack, MERIT_PALETTE} = await import('../energy/merit-order/render.js');
+  const {buildStack} = await import('../energy/merit-order/stack.js');
+  const {DEFAULT_PARAMS, paramsFor} = await import('../energy/merit-order/scenarios.js');
+  const mctx = {...ctxBase, palette: MERIT_PALETTE.light};
+  const mk = p => ({generators: buildStack(p), demand: p.demand});
+  variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, {forExport: true});
+  variants['merit-order-negative'] = renderStack(mk(paramsFor('negative')), mctx, {forExport: true});
 }
 
 const mode = process.argv[2];
