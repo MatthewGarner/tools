@@ -33,8 +33,14 @@ function boot(){
   const currentState = () => ({generators: currentStack(), demand: state.params.demand});
   const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
 
-  /* ---- chart geometry the drag math needs, mirrored from render.js ---- */
-  const CHART_X0 = 116, CHART_X1 = 1200 - 32;
+  /* ---- narrow-render width: measure #chartwrap, mirroring cycles/risk-transfer ---- */
+  const NARROW = 520;
+  function renderWidth(){
+    const w = chartwrap.clientWidth;
+    return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its canonical 1200
+  }
+
+  /* ---- chart geometry the drag math needs ---- */
   const DEMAND_MAX = 64;
   function chartDomainMax(){
     const totalOffered = currentStack().reduce((s, g) => s + g.capacity, 0);
@@ -68,7 +74,10 @@ function boot(){
     const pt = svgEl.createSVGPoint();
     pt.x = clientX; pt.y = 0;
     const p = pt.matrixTransform(ctm.inverse());
-    const gw = ((p.x - CHART_X0) / (CHART_X1 - CHART_X0)) * chartDomainMax();
+    // width-aware bounds: must match render.js's x0/x1 (isNarrow ? 44 : 116, W - 32)
+    const w = svgEl.viewBox.baseVal.width || 1200;
+    const x0 = w < NARROW ? 44 : 116, x1 = w - 32;
+    const gw = ((p.x - x0) / (x1 - x0)) * chartDomainMax();
     return clamp(gw, 0, DEMAND_MAX);
   }
 
@@ -319,7 +328,7 @@ function boot(){
 
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
-    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette()});
+    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: renderWidth()});
     lastSvg = svg;
     chartwrap.innerHTML = svg;
     chartwrap.appendChild(hitRect);
@@ -355,6 +364,17 @@ function boot(){
 
   /* ---- theme ---- */
   onThemeChange(() => render(false));
+
+  /* ---- narrow-bucket resize: re-render (chart + hit-rect) only when the bucket flips ---- */
+  let lastBucket = null;
+  const ro = new ResizeObserver(() => {
+    const w = chartwrap.clientWidth;
+    const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
+    if(bucket === lastBucket) return;
+    lastBucket = bucket;
+    render(true);
+  });
+  ro.observe(chartwrap, {box: 'content-box'});
 
   /* ---- boot: URL state (v2), else GB-today defaults ---- */
   const restored = decodeStateV2(readHashState());
