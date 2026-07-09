@@ -79,6 +79,36 @@ test('FES render: CCS + Hydrogen drawn with own labels + distinct textures', () 
   assert.ok(svg.includes('Gas-CCS') && svg.includes('Hydrogen'));
 });
 
+test('narrow: thin sliver labels are dropped but wide run labels survive (not colour-only)', () => {
+  const svg = renderStack(stateFor(DEFAULT_PARAMS), {...ctx, width: 360});
+  assert.ok(svg.includes('Gas'), 'wide "Gas" run label kept at narrow width');
+});
+
+test('narrow: demand=0 has no marginal but the stack is still labelled (not fully anonymous)', () => {
+  const p = {...DEFAULT_PARAMS, demand: 0};
+  const r = dispatch(buildStack(p), 0);
+  assert.equal(r.marginalName, null, 'demand=0 → no marginal plant');
+  const svg = renderStack(stateFor(p), {...ctx, width: 360});
+  assert.ok(!/MARGINAL/.test(svg), 'no marginal badge drawn when nothing is marginal');
+  assert.ok(svg.includes('Gas'), 'wide run label still identifies the stack at demand=0');
+});
+
+test('narrow: the marginal name badge is x-clamped within the plot [x0,x1]', () => {
+  const x0 = 44, x1 = 360 - 32;   // narrow-mode bounds for width 360
+  for(const p of [DEFAULT_PARAMS, paramsFor('gbToday', 'negative')]){
+    const state = {generators: buildStack(p), demand: p.demand};
+    const name = dispatch(buildStack(p), p.demand).marginalName;
+    if(!name) continue;
+    const svg = renderStack(state, {...ctx, width: 360});
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('<text[^>]*\\bx="([\\d.]+)"[^>]*>' + esc + '</text>', 'g');
+    let m, found = 0;
+    while((m = re.exec(svg))){ found++; const x = parseFloat(m[1]);
+      assert.ok(x >= x0 && x <= x1, `marginal label "${name}" x=${x} within [${x0},${x1}]`); }
+    assert.ok(found > 0, `marginal name "${name}" is drawn at narrow width`);
+  }
+});
+
 test('verdict names the net-zero scarcity when hydrogen/CCS is marginal', () => {
   const p = paramsFor('he', 'coldPeak');
   const r = dispatch(buildStack(p, WORLDS.he.catalogue), p.demand);

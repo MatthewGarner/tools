@@ -143,7 +143,16 @@ export function renderStack(state, ctx, opts = {}){
         // the marginal block's top sits ON the clearing line, so lift the badge clear of the
         // clearing-price label (which rides just above that line) to avoid a top-right collision
         const labelY = (yTop - 26 >= y0) ? yTop - 26 : yTop + 14;
-        rows.push(txt(midX, labelY, isNarrow ? 'MARGINAL' : 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
+        if(isNarrow){
+          // narrow drops the per-run axis labels, so name the marginal plant here (it follows the
+          // demand drag); x-clamp to the plot so a left-edge marginal (e.g. negative-price wind)
+          // can't clip off-canvas
+          const halfW = ctx.measure(g.name, '700 11px ' + FONT) / 2;
+          const lx = Math.max(x0 + halfW, Math.min(x1 - halfW, midX));
+          rows.push(txt(lx, labelY, g.name, 11, C.accent, {weight: 700, anchor: 'middle'}));
+        } else {
+          rows.push(txt(midX, labelY, 'MARGINAL · sets the price', 11, C.accent, {weight: 700, anchor: 'middle'}));
+        }
       }
       rows.push('</g>');
       stackRows.push(rows.join(''));
@@ -199,9 +208,9 @@ export function renderStack(state, ctx, opts = {}){
   for(const run of runs){
     const label = run.count > 1 ? (FAM_LABEL[run.family] || run.name) : run.name;
     const midX = (sx(run.x0gw) + sx(run.x1gw)) / 2;
-    if(isNarrow){   // rotate so dense fuel labels don't overlap in a narrow stack
+    if(isNarrow){   // rotate so fuel labels don't overlap in a narrow stack
       const runW = sx(run.x1gw) - sx(run.x0gw);
-      if(runs.length > 10 && runW < 22){ continue; }   // dense FES stack on a phone: drop the thinnest labels (tap a block to identify it)
+      if(runW < 22){ continue; }   // drop the thin sliver labels (they collide even rotated); keep the wide ones — the marginal is named above its bar, tap any block to identify it
       P.push(`<g transform='rotate(-35 ${r2(midX)} ${y1 + 16})'>` +
         txt(midX, y1 + 16, label, 10.5, C.muted, {anchor: 'end', weight: 600}) + '</g>');
     } else
@@ -230,6 +239,11 @@ export function renderStack(state, ctx, opts = {}){
   if(showLegend){
     P.push(`<rect x='${x0}' y='${legendY - 11}' width='14' height='14' fill='${tint(C.accent)}' stroke='${C.accent}'/>`);
     P.push(txt(x0 + 20, legendY, isNarrow ? 'shaded = earns above running cost' : 'shaded = earns above running cost (storage: the arbitrage spread)', 11.5, C.muted));
+  }
+
+  // narrow drops the thin sliver labels — point at the tap callout for identifying them
+  if(isNarrow){
+    P.push(txt(x0, (showLegend ? legendY : tickY) + 22, 'tap a band to name it', 11, C.muted));
   }
 
   // verdict — export-only (HTML #verdict carries it on screen)
