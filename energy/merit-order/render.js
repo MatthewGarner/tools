@@ -192,7 +192,9 @@ export function renderStack(state, ctx, opts = {}){
   const clearCol = cp < 0 ? C.err : C.accent;
   P.push(`<line class='clearing-line' x1='${r2(x0)}' y1='${r2(sy(cp))}' x2='${r2(x1)}' y2='${r2(sy(cp))}' ` +
     `stroke='${clearCol}' stroke-width='2' stroke-dasharray='6 4'/>`);
-  const clearLabel = cp < 0 ? `paying to generate — £${fmtPrice(cp)}/MWh clears` : `clears at £${fmtPrice(cp)}/MWh`;
+  const clearLabel = isNarrow
+    ? `£${fmtPrice(cp)}/MWh` + (cp < 0 ? ' — paying' : '')
+    : (cp < 0 ? `paying to generate — £${fmtPrice(cp)}/MWh clears` : `clears at £${fmtPrice(cp)}/MWh`);
   P.push(txt(isNarrow ? x0 : x1, sy(cp) - 8, clearLabel, 12.5, clearCol, {anchor: isNarrow ? 'start' : 'end', weight: 700}));
 
   // demand line

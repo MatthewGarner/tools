@@ -328,9 +328,11 @@ function boot(){
 
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
-    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: renderWidth()});
+    const rw = renderWidth();
+    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw});
     lastSvg = svg;
     chartwrap.innerHTML = svg;
+    chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
     chartwrap.appendChild(hitRect);
     positionHitRect();
 
