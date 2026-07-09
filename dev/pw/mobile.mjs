@@ -40,6 +40,38 @@ for(const [name, url] of AUTOLOAD){
   await page.close();
 }
 
+// Narrow no-overflow gate: the four tools whose charts/tables were just
+// re-laid-out must not let their INNER render container overflow sideways —
+// that's the "no sideways pan" guarantee this effort delivers. Page-level
+// scroll is already covered above; this checks the container itself, since
+// a workspace shell can clip page overflow while the container inside it
+// still overflows (e.g. an oversized SVG or a fixed-width table row).
+const CONTAINERS = [
+  ['cycles', E + '/cycles/', ['#preview']],
+  ['risk', E + '/risk/', ['#preview']],
+  ['merit-order', E + '/merit-order/', ['#chartwrap']],
+  ['rank', T + '/rank/', ['.tblwrap']],
+];
+
+for(const [name, url, selectors] of CONTAINERS){
+  const page = await ctx.newPage();
+  await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(1000);
+  for(const sel of selectors){
+    const found = await page.evaluate((s) => !!document.querySelector(s), sel);
+    if(!found){
+      ok(false, `${name}: container ${sel} not found on page`);
+      continue;
+    }
+    const {sw, cw} = await page.evaluate((s) => {
+      const el = document.querySelector(s);
+      return {sw: el.scrollWidth, cw: el.clientWidth};
+    }, sel);
+    ok(sw <= cw + 2, `${name}: ${sel} no horizontal overflow (${sw} <= ${cw})`);
+  }
+  await page.close();
+}
+
 await browser.close();
 console.log(`\n${pass} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);
