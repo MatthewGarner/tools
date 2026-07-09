@@ -103,12 +103,13 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
       parts.push('<path d=\'' + d + '\' fill=\'' + tint(col === C.muted ? C.ink : col) + '\' stroke=\'none\'/>');
     }
 
-    /* whisker P10–P90, P50 diamond */
-    parts.push('<line x1=\'' + vX(r.p10).toFixed(1) + '\' y1=\'' + wy + '\' x2=\'' + vX(r.p90).toFixed(1) +
-      '\' y2=\'' + wy + '\' stroke=\'' + col + '\' stroke-width=\'2.5\'/>');
+    /* P10–P90 as a range band under the day-ribbon (a bar reads the spread better than a
+       hairline); ends capped so P10/P90 stay legible; solid P50 diamond on top */
+    parts.push('<rect x=\'' + vX(r.p10).toFixed(1) + '\' y=\'' + (wy - 5.5) + '\' width=\'' +
+      (vX(r.p90) - vX(r.p10)).toFixed(1) + '\' height=\'11\' rx=\'5.5\' fill=\'' + tint(col) + '\'/>');
     for(const p of [r.p10, r.p90])
       parts.push('<line x1=\'' + vX(p).toFixed(1) + '\' y1=\'' + (wy - 6) + '\' x2=\'' + vX(p).toFixed(1) +
-        '\' y2=\'' + (wy + 6) + '\' stroke=\'' + col + '\' stroke-width=\'2.5\'/>');
+        '\' y2=\'' + (wy + 6) + '\' stroke=\'' + col + '\' stroke-width=\'2\'/>');
     parts.push('<path d=\'M' + vX(r.p50).toFixed(1) + ' ' + (wy - 8) + ' l7 8 l-7 8 l-7 -8 Z\' fill=\'' + col + '\'/>');
     parts.push(txt(vX(r.p50), wy + 20, fmtUnit(r.p50, model.unit), 12.5, C.ink, {anchor: 'middle', weight: 600}));
 
