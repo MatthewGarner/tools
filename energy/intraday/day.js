@@ -14,9 +14,9 @@ export const BASE_PROFILE = [
 ];
 
 export const DAY_DEFAULTS = {
-  trough: 28, peak: 44,                    // GW
+  trough: 28, peak: 60,                    // GW
   solarPeak: 6, sunrise: 5, sunset: 21,    // GW; hours (summer-ish default)
-  gas: 100, carbon: 50, wind: 0.28,        // merit-order levers passed through
+  gas: 120, carbon: 50, wind: 0.28,        // merit-order levers passed through
   fleetGW: 0, fleetH: 2, rte: 0.85,        // the day-aware storage fleet
 };
 
@@ -104,4 +104,25 @@ function socTrace(charge, discharge, rte){
   const soc = [0];
   for(let h = 0; h < 24; h++) soc.push(soc[h] + charge[h] * rte - discharge[h]);
   return soc;
+}
+
+/* The whole toy in one call: raw day → greedy schedule on raw prices → ONE
+   re-clear with the schedule as net demand (no fixed-point iteration — the
+   one-pass gap between planned and achieved margin is the honest lesson).
+   Margins are £k/day (£/MWh × GWh); margin ÷ fleetGW reads as £/MW/day. */
+export function runDay(p, catalogue = GB_TODAY){
+  const raw = rawDay(p, catalogue);
+  const sched = greedySchedule(raw.prices, p);
+  const net = Array.from({length: 24}, (_, h) =>
+    demandAt(h, p) + sched.charge[h] - sched.discharge[h]);
+  const flat = clearDay(p, net, catalogue);
+  const marginOn = prices =>
+    sched.discharge.reduce((s, v, h) => s + v * prices[h], 0) -
+    sched.charge.reduce((s, v, h) => s + v * prices[h], 0);
+  return {
+    raw, flat, sched,
+    plannedMargin: marginOn(raw.prices),
+    achievedMargin: marginOn(flat.prices),
+    dischargedGWh: sched.discharge.reduce((a, b) => a + b, 0),
+  };
 }

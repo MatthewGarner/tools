@@ -89,3 +89,35 @@ test('greedy: only profitable pairs taken (no discharge below charge cost ÷ RTE
   const s2 = greedySchedule([90, 20, 21, 22, ...new Array(20).fill(21)], {fleetGW: 4, fleetH: 2, rte: 0.85});
   assert.equal(s2.discharge[0], 0, 'cannot discharge before charging (starts empty)');
 });
+
+import {runDay} from '../day.js';
+
+test('runDay: storage flattens the shape it feeds on, monotonically', () => {
+  const spreads = [0, 1, 2, 4, 8].map(gw =>
+    runDay({...DAY_DEFAULTS, fleetGW: gw}).flat.spread);
+  for(let i = 1; i < spreads.length; i++)
+    assert.ok(spreads[i] <= spreads[i - 1] + 1e-9, `spread non-increasing at ${i}`);
+  assert.ok(spreads.at(-1) < spreads[0], 'a big fleet genuinely flattens');
+});
+
+test('runDay: zero fleet ⇒ flat equals raw', () => {
+  const r = runDay({...DAY_DEFAULTS, fleetGW: 0});
+  assert.deepEqual(r.flat.prices, r.raw.prices);
+  assert.equal(r.dischargedGWh, 0);
+});
+
+test('runDay: achieved margin ≤ planned margin (cannibalisation)', () => {
+  const r = runDay({...DAY_DEFAULTS, fleetGW: 6, fleetH: 2});
+  assert.ok(r.dischargedGWh > 0, 'the fleet found a spread to work');
+  assert.ok(r.achievedMargin <= r.plannedMargin + 1e-9,
+    'flattening the shape cannot pay better than the plan priced on the raw shape');
+});
+
+test('runDay: net demand identity — charge lifts the trough, discharge shaves the peak', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6, fleetH: 2};
+  const r = runDay(p);
+  for(let h = 0; h < 24; h++){
+    const expected = demandAt(h, p) + r.sched.charge[h] - r.sched.discharge[h];
+    assert.ok(Math.abs(r.flat.hours[h].demand - expected) < 1e-9, `hour ${h}`);
+  }
+});
