@@ -16,7 +16,7 @@ const PRESETS = {
   healthy:    {demand: 3, size: 4, team: 4, wip: 4,  v: 'med'},
 };
 
-let variability = 'med';
+let variability = 'high';
 let lastSvg = '', lastResult = null, lastSweep = null, lastKnee = 1, lastParams = null;
 let sweepKey = '', debTimer = null, rafId = 0, hashTimer = null;
 let lastBatchSvg = '', lastEcon = null, lastTriageSvg = '', lastTriage = null, triageKey = '';
@@ -157,7 +157,7 @@ function restartAnim(result){
 function drawFrame(state, tau){
   const C = themeColors();
   const dpr = devicePixelRatio || 1;
-  const w = strip.clientWidth, h = 150;
+  const w = strip.clientWidth, h = 112;
   if(strip.width !== w * dpr){ strip.width = w * dpr; strip.height = h * dpr; }
   const g = strip.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
