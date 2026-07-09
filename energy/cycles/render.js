@@ -128,7 +128,8 @@ export function render(model, out, ctx, {edit = false} = {}){
     ...(!model.chargeDefaulted ? [rangePW('charge', numStr(model.charge.lo), numStr(model.charge.hi))] : []),
     rangePW('rte', numStr(model.rte.lo * 100), numStr(model.rte.hi * 100), '%'),
     rangePW('calendar', numStr(model.calendar.lo * 100), numStr(model.calendar.hi * 100), '%'),
-    pillW('binds: warranty 0/10 · wear 0/10')];
+    pillW('binds: warranty ' + Math.round(out.threshold.bindingShare * 10) + '/10 · wear ' +
+      Math.round((1 - out.threshold.bindingShare) * 10) + '/10')];   // exact drawn string (matches the pill below)
   const b2w = (model.second && out.second) ? [
     pillW('second ' + Math.round(model.second.lo * 100) + '..' + Math.round(model.second.hi * 100) + '%'),
     pillW('+' + fmtUnit(out.second.dRev, '£/yr') + ' gross'), pillW('−' + fmtUnit(out.second.dWear, '£/yr') + ' wear'),
