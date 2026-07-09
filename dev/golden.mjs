@@ -203,6 +203,7 @@ for(const [k, src] of Object.entries(docs)){
   const rs = simulate(rm);
   variants['risk-routes'] = rrender(rm, rs, {...ctxBase});
   variants['risk-routes-slide'] = rrender(rm, rs, {...ctxBase, slide: true});
+  variants['risk-routes-narrow'] = rrender(rm, rs, {...ctxBase, width: 360});
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
 }
 

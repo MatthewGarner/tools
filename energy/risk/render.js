@@ -21,7 +21,9 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   if(!sim) return '';
   const C = ctx.colors;
   const accent = model.accent || C.accent;
-  const W = ctx.slide ? 1280 : 1200;
+  const NARROW = 520;
+  const isNarrow = !!(ctx.width && ctx.width < NARROW);
+  const W = ctx.width ?? (ctx.slide ? 1280 : 1200);
   const LBL = 250, x0 = LBL + 20, x1 = W - 48;
   const ROW = 132, TOP = model.title ? 92 : 56;
   const rows = sim.rows;
