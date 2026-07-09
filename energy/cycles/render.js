@@ -160,7 +160,7 @@ export function render(model, out, ctx, {edit = false} = {}){
   /* ================= band 1: dispatch threshold ================= */
   let y = TOP;
   card(y, B1H);
-  caption(y + 26, 'THE CYCLE PRICE — DISPATCH THRESHOLD');
+  caption(y + 26, isNarrow ? 'THE CYCLE PRICE' : 'THE CYCLE PRICE — DISPATCH THRESHOLD');
   {
     const ry = y + 40, rh = 34, wy = ry + rh;
     /* don't-cycle shading left of τ */
@@ -245,7 +245,7 @@ export function render(model, out, ctx, {edit = false} = {}){
     const ay = y + B2H + 2;
     for(const t of ticks(axMin, axMax))
       parts.push(txt(vX(t), ay + 12, numStr(t), 11, C.muted, {anchor: 'middle'}));
-    parts.push(txt(isNarrow ? x1 : x0 - 8, ay + 12, '£/MWh net', 11, C.muted, {anchor: 'end', weight: 600}));
+    if(!isNarrow) parts.push(txt(x0 - 8, ay + 12, '£/MWh net', 11, C.muted, {anchor: 'end', weight: 600}));
   }
 
   /* ================= band 3: the asset life ================= */
@@ -262,7 +262,7 @@ export function render(model, out, ctx, {edit = false} = {}){
       const [w0, w1] = out.augment.window;
       parts.push('<rect x=\'' + (yrX(w0 - 1) - 8).toFixed(1) + '\' y=\'' + fy + '\' width=\'' +
         (yrX(w1 - 1) - yrX(w0 - 1) + 16).toFixed(1) + '\' height=\'' + fh + '\' fill=\'' + tint(accent) + '\'/>');
-      parts.push(txt((yrX(w0 - 1) + yrX(w1 - 1)) / 2, fy + 14, 'augment window', 11, C.ink, {anchor: 'middle'}));
+      parts.push(txt((yrX(w0 - 1) + yrX(w1 - 1)) / 2, isNarrow ? fy + fh - 8 : fy + 14, 'augment window', 11, C.ink, {anchor: 'middle'}));
     }
     /* fan */
     let up = '', dn = '';
