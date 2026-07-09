@@ -5,7 +5,7 @@ import {render, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
-import {mobileAutoload, shouldPersist} from '../../assets/mobile.js';
+import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
@@ -201,5 +201,5 @@ ro.observe(stageEl, {box: 'content-box'});
     try{ text = localStorage.getItem('risk-src') || ''; }catch(e){}
   }
   if(text) editor.setText(text);
-  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
+  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

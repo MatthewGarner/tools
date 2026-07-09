@@ -5,7 +5,7 @@ import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {mobileAutoload, shouldPersist} from '../assets/mobile.js';
+import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -387,5 +387,5 @@ onThemeChange(rerender);
   }
   renderSaved();
   if(text) editor.setText(text);
-  else if(!mobileAutoload(() => editor.setText(EXAMPLES[0].src))) refresh();
+  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
