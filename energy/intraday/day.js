@@ -84,6 +84,7 @@ export function rawDay(p, catalogue = GB_TODAY){
    feasibility (0 ≤ SoC ≤ capacity) holds by construction; socTrace verifies. */
 export function greedySchedule(prices, {fleetGW, fleetH, rte}){
   const charge = new Array(24).fill(0), discharge = new Array(24).fill(0);
+  const accepted = [];
   if(fleetGW > 0){
     const pairs = [];
     for(let c = 0; c < 24; c++) for(let d = c + 1; d < 24; d++){
@@ -97,9 +98,10 @@ export function greedySchedule(prices, {fleetGW, fleetH, rte}){
       const q = Math.min(budget, fleetGW - discharge[d], (fleetGW - charge[c]) * rte);
       if(q <= 0) continue;
       discharge[d] += q; charge[c] += q / rte; budget -= q;
+      accepted.push({c, d, q});
     }
   }
-  return {charge, discharge, soc: socTrace(charge, discharge, rte)};
+  return {charge, discharge, soc: socTrace(charge, discharge, rte), pairs: accepted};
 }
 
 function socTrace(charge, discharge, rte){
@@ -108,23 +110,50 @@ function socTrace(charge, discharge, rte){
   return soc;
 }
 
-/* The whole toy in one call: raw day → greedy schedule on raw prices → ONE
-   re-clear with the schedule as net demand (no fixed-point iteration — the
-   one-pass gap between planned and achieved margin is the honest lesson).
+/* Rebuild a {charge, discharge, soc} schedule by summing accepted pairs —
+   used to reconstruct the fleet's plan after the back-off pass drops the
+   losing ones. Same shapes as greedySchedule's own return. */
+export function scheduleFromPairs(pairs, rte){
+  const charge = new Array(24).fill(0), discharge = new Array(24).fill(0);
+  for(const {c, d, q} of pairs){ charge[c] += q / rte; discharge[d] += q; }
+  return {charge, discharge, soc: socTrace(charge, discharge, rte)};
+}
+
+/* The whole toy in one call: raw day → greedy schedule on raw prices → one
+   re-clear → ONE back-off pass → a final re-clear. The naive plan can go
+   underwater once the fleet outgrows the cheap night it planned against (at
+   GB-honest defaults the trough is only ~1 GW deep); the desk's response is
+   to cut the losing trades, not iterate to a fixed point. So: re-clear once
+   with the raw-priced plan as net demand, drop any pair whose margin turns
+   negative on THOSE prices ("the desk cuts its losing trades"), rebuild the
+   schedule from the survivors, and re-clear once more. Dropping a pair only
+   improves the ones that remain (less charging lifts the trough back up,
+   less discharging restores the peak) — so achievedMargin ≥ 0 by
+   construction, not by iterating to convergence.
    Margins are £k/day (£/MWh × GWh); margin ÷ fleetGW reads as £/MW/day. */
 export function runDay(p, catalogue = GB_TODAY){
   const raw = rawDay(p, catalogue);
-  const sched = greedySchedule(raw.prices, p);
-  const net = Array.from({length: 24}, (_, h) =>
+  const netOf = sched => Array.from({length: 24}, (_, h) =>
     demandAt(h, p) + sched.charge[h] - sched.discharge[h]);
-  const flat = clearDay(p, net, catalogue);
-  const marginOn = prices =>
-    sched.discharge.reduce((s, v, h) => s + v * prices[h], 0) -
-    sched.charge.reduce((s, v, h) => s + v * prices[h], 0);
+
+  const plan = greedySchedule(raw.prices, p);
+  const onePass = clearDay(p, netOf(plan), catalogue);
+  const keep = plan.pairs.filter(({c, d}) =>
+    onePass.prices[d] - onePass.prices[c] / p.rte >= 0);
+  const sched = scheduleFromPairs(keep, p.rte);
+  const flat = clearDay(p, netOf(sched), catalogue);
+
+  const marginOn = (s, prices) =>
+    s.discharge.reduce((sum, v, h) => sum + v * prices[h], 0) -
+    s.charge.reduce((sum, v, h) => sum + v * prices[h], 0);
+  const dischargedGWh = sched.discharge.reduce((a, b) => a + b, 0);
+  const planDischargedGWh = plan.discharge.reduce((a, b) => a + b, 0);
+
   return {
-    raw, flat, sched,
-    plannedMargin: marginOn(raw.prices),
-    achievedMargin: marginOn(flat.prices),
-    dischargedGWh: sched.discharge.reduce((a, b) => a + b, 0),
+    raw, flat, sched, planSched: plan,
+    plannedMargin: marginOn(plan, raw.prices),
+    achievedMargin: marginOn(sched, flat.prices),
+    dischargedGWh,
+    droppedGWh: planDischargedGWh - dischargedGWh,
   };
 }

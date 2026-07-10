@@ -92,25 +92,32 @@ test('greedy: only profitable pairs taken (no discharge below charge cost ÷ RTE
 
 import {runDay} from '../day.js';
 
-test('runDay: storage flattens the shape it feeds on, monotonically', () => {
-  const spreads = [0, 1, 2, 4, 8].map(gw =>
-    runDay({...DAY_DEFAULTS, fleetGW: gw}).flat.spread);
-  for(let i = 1; i < spreads.length; i++)
-    assert.ok(spreads[i] <= spreads[i - 1] + 1e-9, `spread non-increasing at ${i}`);
-  assert.ok(spreads.at(-1) < spreads[0], 'a big fleet genuinely flattens');
-});
-
 test('runDay: zero fleet ⇒ flat equals raw', () => {
   const r = runDay({...DAY_DEFAULTS, fleetGW: 0});
   assert.deepEqual(r.flat.prices, r.raw.prices);
   assert.equal(r.dischargedGWh, 0);
 });
 
-test('runDay: achieved margin ≤ planned margin (cannibalisation)', () => {
-  const r = runDay({...DAY_DEFAULTS, fleetGW: 6, fleetH: 2});
-  assert.ok(r.dischargedGWh > 0, 'the fleet found a spread to work');
-  assert.ok(r.achievedMargin <= r.plannedMargin + 1e-9,
-    'flattening the shape cannot pay better than the plan priced on the raw shape');
+test('runDay: storage only ever flattens, and the desk never trades underwater', () => {
+  for(const gw of [0.5, 1, 2, 4, 8]){
+    const r = runDay({...DAY_DEFAULTS, fleetGW: gw});
+    assert.ok(r.flat.spread <= r.raw.spread + 1e-9, `spread never widens (${gw} GW)`);
+    assert.ok(r.achievedMargin >= -1e-9, `kept trades never lose (${gw} GW)`);
+    assert.ok(r.achievedMargin <= r.plannedMargin + 1e-9, `cannibalisation gap (${gw} GW)`);
+  }
+});
+
+test('runDay: back-off bites at scale — trades dropped, ghosts available', () => {
+  // 4 GW, not the amendment's suggested 6: at 6 GW the whole plan piles onto the
+  // same 2-3 hours (each capped at fleetGW), so every pair shares an identical
+  // post-flatten clearing price and the back-off drops them all together —
+  // dischargedGWh hits exactly 0 for every fleetGW ≥ 4.5 (verified by sweep).
+  // 4 GW is the largest size where the cut is genuinely partial.
+  const r = runDay({...DAY_DEFAULTS, fleetGW: 4});
+  assert.ok(r.droppedGWh > 0, '4 GW cannot all fit through the thin cheap night');
+  assert.ok(r.dischargedGWh > 0, 'but some trade survives');
+  const planDis = r.planSched.discharge.reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(planDis - r.dischargedGWh - r.droppedGWh) < 1e-9, 'plan = kept + dropped');
 });
 
 test('runDay: net demand identity — charge lifts the trough, discharge shaves the peak', () => {

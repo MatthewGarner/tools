@@ -82,7 +82,7 @@ test('cycles: full simulate (dual policy + augment re-sim) under 800ms', async (
   assert.equal(Math.round(a.threshold.p50), Math.round(b.threshold.p50), 'fidelity guard');
 });
 
-test('intraday: full runDay (24×2 clearings + schedule) under 150ms', async () => {
+test('intraday: full runDay (24×3 clearings + schedule) under 150ms', async () => {
   const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
   await timed(150, () => runDay({...DAY_DEFAULTS, fleetGW: 6}));
 });
