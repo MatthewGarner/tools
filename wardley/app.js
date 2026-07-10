@@ -30,7 +30,8 @@ Analytics pipeline    // no position yet — drag it onto the map
 Habit tracking -> Habit builder -> Streak engine -> User DB
 Habit builder -> Notification service -> Push gateway
 Habit tracking -> Social feed -> Notification service
-Social feed -> Analytics pipeline`},
+Social feed -> Analytics pipeline
+Social feed -> Streak engine`},
   {name: 'Online tea shop', src:
 `title: Online tea shop
 anchor: Thirsty customer
@@ -57,7 +58,7 @@ function stageRamp(c){
 }
 function ctx(){
   const colors = themeColors();
-  return {colors, measure, dark: isDark(), palette: stageRamp(colors)};
+  return {colors, measure, dark: isDark(), palette: stageRamp(colors), today: todayISO()};
 }
 function currentCompare(){
   const cur = snaps && snaps.current();

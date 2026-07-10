@@ -2,11 +2,13 @@
    deterministic collision spread within a row. No DOM. */
 
 const MIN_GAP = 120;    // px between pill centres in one row before nudging
-const NUDGE = 32;       // px vertical step per collision (clears a 26px pill)
-const AXIS_CLEAR = 44;  // the bottom row must not sit on the stage-axis labels
+const NUDGE = 34;       // px vertical step per collision (clears a 28px pill)
+const AXIS_CLEAR = 58;  // bottom row + a collision nudge must clear the axis strip
+const ROW_GAP = 92;     // vertical rhythm per chain depth — height follows content
 
-export function layoutMap(model, geom = {w: 1200, h: 720, pad: 56}){
-  const {w, h, pad} = geom;
+export function layoutMap(model, geom = {w: 1200, pad: 56, rowGap: ROW_GAP}){
+  const {w, pad} = geom;
+  const rowGap = geom.rowGap || ROW_GAP;
   const px = x => pad + x * (w - 2 * pad);
   const names = new Map();   // key → display name
   for(const a of model.anchors) names.set(a.name.toLowerCase(), a.name);
@@ -55,15 +57,15 @@ export function layoutMap(model, geom = {w: 1200, h: 720, pad: 56}){
   const orphanRow = orphanKeys.length ? maxDepth + 1 : null;
   for(const k of orphanKeys) depth.set(k, orphanRow);
   const totalRows = orphanRow ?? maxDepth;
-  const rowY = r => pad + 20 + (totalRows === 0 ? 0
-    : r * ((h - 2 * pad - 20 - AXIS_CLEAR) / totalRows));
+  const rowY = r => 34 + r * rowGap;
+  const planeH = 34 + totalRows * rowGap + AXIS_CLEAR + 16;
 
   /* --- nodes with pixel positions --- */
   const nodes = new Map();
   for(const [k, c] of model.components){
     nodes.set(k, {name: c.name, x: c.x, stage: c.stage, ghost: c.ghost,
       anchor: false, srcLine: c.srcLine,
-      px: c.x === null ? pad : px(c.x), y: rowY(depth.get(k))});
+      px: c.x === null ? pad + 84 : px(c.x), y: rowY(depth.get(k))});   // ghosts sit inside the genesis margin, never clipped
   }
   for(const a of model.anchors){
     const k = a.name.toLowerCase();
@@ -99,11 +101,17 @@ export function layoutMap(model, geom = {w: 1200, h: 720, pad: 56}){
       from: e.from, to: e.to, dropped: dropped.has(e)};
   });
 
+  /* in-degree over active edges: how many things need each component */
+  const needs = new Map();
+  for(const e of activeEdges) needs.set(e.to, (needs.get(e.to) || 0) + 1);
+
   return {
     nodes: [...nodes.values()],
     links,
     rows: totalRows + 1,
-    droppedEdges: [...dropped].map(e => ({from: e.from, to: e.to})),
+    h: planeH,
+    needs,
+    droppedEdges: [...dropped].map(e => ({from: names.get(e.from), to: names.get(e.to)})),
     orphans: orphanKeys.map(k => names.get(k)),
   };
 }

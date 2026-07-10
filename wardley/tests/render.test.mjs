@@ -37,12 +37,15 @@ function wellFormed(svg){
   }
 }
 
-test('board: stage columns, labels, title, evolution caption', () => {
+test('board: terrain washes, stage labels, header metrics, readout, evolution caption', () => {
   const s = draw();
   assert.match(s, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="1200"/);
-  for(const w of ['genesis', 'custom', 'product', 'commodity']) assert.ok(s.includes(w), w);
+  for(const w of ['GENESIS', 'CUSTOM', 'PRODUCT', 'COMMODITY']) assert.ok(s.includes(w), w);
   assert.ok(s.includes('Habitat platform'));
+  assert.ok(s.includes('3 components'));                  // header metrics line
   assert.ok(s.includes('evolution'));
+  assert.equal((s.match(/fill="[^"]{7}14"/g) || []).length, 4);   // four terrain washes
+  assert.match(s, /map|discovery|execution/);             // readout verdict present
   wellFormed(s);
   assert.ok(!s.includes('NaN'));
 });
@@ -109,4 +112,33 @@ test('markdown groups by stage, lists ghosts, carries the live link', async () =
   assert.match(md, /unplaced: Push gateway/);
   assert.match(md, /example\.com/);
   assert.match(md, /3 dependencies/);
+});
+
+test('readout: names the load-bearing custom component as the biggest bet', async () => {
+  const {mapReadout} = await import('../render.js');
+  const m = parse(`anchor: Need
+Core engine @ custom
+App A @ product
+App B @ product
+Need -> App A -> Core engine
+Need -> App B -> Core engine`);
+  const r = mapReadout(m, layoutMap(m));
+  assert.match(r.verdict, /Core engine/);
+  assert.match(r.verdict, /load-bearing/);
+});
+
+test('readout: composition verdict when nothing is load-bearing left of product', async () => {
+  const {mapReadout} = await import('../render.js');
+  const exec = parse('anchor: N\nA @ product\nB @ commodity\nN -> A -> B');
+  assert.match(mapReadout(exec, layoutMap(exec)).verdict, /execution map/);
+  const disco = parse('anchor: N\nA @ genesis\nB @ custom\nN -> A\nN -> B');
+  assert.match(mapReadout(disco, layoutMap(disco)).verdict, /discovery/);
+});
+
+test('readout: flags ghosts and dropped loops by name', async () => {
+  const {mapReadout} = await import('../render.js');
+  const m = parse('anchor: N\nA @ custom\nB @ custom\nGhosty\nN -> A -> B\nB -> A\nN -> Ghosty');
+  const r = mapReadout(m, layoutMap(m));
+  assert.ok(r.flags.some(f => f.includes('unplaced')));
+  assert.ok(r.flags.some(f => f.includes('loop') && f.includes('B') && f.includes('A')));
 });
