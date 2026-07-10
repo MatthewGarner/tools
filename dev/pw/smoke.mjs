@@ -51,11 +51,12 @@ async function svgDecodes(page, selector){
 /* ---- energy landing + risk ---- */
 {
   const {page, errors} = await freshPage('/energy/');
-  check('energy landing: four tool cards', await page.locator('a.tool').count() === 4);
+  check('energy landing: five tool cards', await page.locator('a.tool').count() === 5);
   check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
   check('energy landing: cycles card resolves', (await page.request.get(BASE + '/energy/cycles/')).status() === 200);
   check('energy landing: frequency card resolves', (await page.request.get(BASE + '/energy/frequency/')).status() === 200);
   check('energy landing: merit-order card resolves', (await page.request.get(BASE + '/energy/merit-order/')).status() === 200);
+  check('energy landing: intraday card resolves', (await page.request.get(BASE + '/energy/intraday/')).status() === 200);
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }
