@@ -136,7 +136,9 @@ function boot(){
 
   wireExports({
     getSvg: () => renderDay(result, p,
-      {width: 900, height: 420, colors: themeColors(), palette: palette(), measure}, {forExport: true}),
+      {width: 900, height: 420, colors: themeColors(), palette: palette(), measure,
+       today: new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'})},
+      {forExport: true}),
     slug: () => 'intraday',
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   });

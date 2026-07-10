@@ -85,7 +85,7 @@ test('renderDay: forExport wraps the verdict into its own band and grows the can
   assert.ok(+h[1] > 420, 'canvas grows to hold the verdict band');
   assert.match(svg, new RegExp(`viewBox='0 0 900 ${h[1]}'`), 'viewBox tracks the grown height');
   // verdict band sits BELOW the strip caption, not on top of it
-  const capY = +svg.match(/<text x="54" y="([\d.]+)"[^>]*>discharge/)[1];
+  const capY = +svg.match(/<text x="116" y="([\d.]+)"[^>]*>discharge/)[1];
   const firstVy = +g[1].match(/<text x="[\d.]+" y="([\d.]+)"/)[1];
   assert.ok(firstVy > capY + 10, `verdict (y=${firstVy}) clears the caption baseline (y=${capY})`);
 });
@@ -151,7 +151,7 @@ test('renderDay: full width staggers a colliding changeover pair onto two rows i
     i > 0 && c.to !== r.flat.changeovers[i - 1].to && (() => {
       const prev = r.flat.changeovers[i - 1];
       const wPrev = meas(prev.to, '10px x'), wCur = meas(c.to, '10px x');
-      const xAt = h => 54 + (h / 23) * (900 - 54 - 16);
+      const xAt = h => 116 + (h / 23) * (900 - 116 - 32);   // PLOT_L 116 (wide) / M.r 32 — shares renderStack's edges
       return xAt(c.h) + 3 - (xAt(prev.h) + 3 + wPrev) < 6;   // measured gap under the 6px clearance
     })());
   assert.ok(collidingPair > 0, 'fixture: stock defaults + 6 GW fleet produce a colliding pair at width 900');
@@ -274,17 +274,23 @@ test('renderDay: an exact-multiple data max still gets a flush top label (no dou
   assert.equal(Math.max(...gridLabels), padded, 'top label is exactly the padded step, not one step further');
 });
 
+// the flat line is drawn as N coloured segments inside <g data-flat-shape=''>;
+// count the <line> children to know how many hour-steps were drawn
+const flatSegCount = svg => {
+  const g = svg.match(/<g data-flat-shape=''>(.*?)<\/g>/)[1];
+  return [...g.matchAll(/<line /g)].length;
+};
+
 /* Spec restoration G1: "the price shape draws itself" — during Play, the flat
-   polyline (and the raw ghost) must truncate to hours ≤ upTo, and changeover
-   labels ahead of the cursor stay hidden (the tick lines don't — only the
-   text is suppressed, per spec). The storage strip is untouched by upTo. */
-test('renderDay: upTo=6 truncates the flat polyline to 7 points and hides changeover labels beyond h6', () => {
+   line (and the raw ghost) must truncate to hours ≤ upTo, and changeover labels
+   ahead of the cursor stay hidden (the tick lines don't — only the text is
+   suppressed, per spec). The storage strip is untouched by upTo. */
+test('renderDay: upTo=6 truncates the flat line to 6 segments (points h0..h6) and hides changeover labels beyond h6', () => {
   const p = {...DAY_DEFAULTS, fleetGW: 6};
   const r = runDay(p);
   const svg = renderDay(r, p, ctx, {upTo: 6});
 
-  const flatPts = svg.match(/data-flat-shape='' points='([^']*)'/)[1].trim().split(/\s+/);
-  assert.equal(flatPts.length, 7, 'flat polyline stops at hour 6 (points for h0..h6)');
+  assert.equal(flatSegCount(svg), 6, 'flat line stops at hour 6 (segments h0→h1 … h5→h6)');
   const rawPts = svg.match(/data-raw-shape='' points='([^']*)'/)[1].trim().split(/\s+/);
   assert.equal(rawPts.length, 7, 'raw ghost also truncates to hour 6');
 
@@ -298,11 +304,10 @@ test('renderDay: upTo=6 truncates the flat polyline to 7 points and hides change
     assert.match(svg, new RegExp(`fill="#C05621">${within[0].to}</text>`), 'a changeover at/before upTo still gets its label');
 });
 
-test('renderDay: without upTo the flat polyline always carries all 24 hours', () => {
+test('renderDay: without upTo the flat line always carries all 23 hour-step segments', () => {
   const r = runDay(DAY_DEFAULTS);
   const svg = renderDay(r, DAY_DEFAULTS, ctx);
-  const flatPts = svg.match(/data-flat-shape='' points='([^']*)'/)[1].trim().split(/\s+/);
-  assert.equal(flatPts.length, 24, 'no upTo ⇒ full day drawn (scrubbing/export behaviour unchanged)');
+  assert.equal(flatSegCount(svg), 23, 'no upTo ⇒ full day drawn (scrubbing/export behaviour unchanged)');
 });
 
 test('renderDay: narrow mode thins the hour axis and shortens the strip caption', () => {
@@ -315,4 +320,129 @@ test('renderDay: narrow mode thins the hour axis and shortens the strip caption'
   const wide = renderDay(runDay(p), p, ctxAt(900));
   assert.match(wide, />06:00</);
   assert.match(wide, /planned then abandoned/);
+});
+
+/* ---- design pass (review3): house anatomy, taught surface, marginal-hue line ---- */
+
+test('renderDay: the in-plane letterspaced title rides on screen too (B1)', () => {
+  const svg = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctx);
+  assert.match(svg, /letter-spacing="\.08em"[^>]*>INTRADAY PRICE — £\/MWh across 24 h<\/text>/);
+});
+
+test('renderDay: forExport adds the page bg + chart card, a date (only with ctx.today) and a metrics line (B1)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const svg = renderDay(r, p, {...ctxAt(900), today: '10 Jul 2026'}, {forExport: true});
+  assert.match(svg, /<rect x='0' y='0' width='900'[^>]*fill='#[0-9a-fA-F]{6}'\/>/, 'page bg rect');
+  assert.match(svg, /<rect x='100'[^>]*rx='8' fill='#[0-9a-fA-F]{6}' stroke='#[0-9a-fA-F]{6}'\/>/, 'chart-card rect (plot-left − 16 = 100)');
+  assert.match(svg, /text-anchor="end"[^>]*>10 Jul 2026<\/text>/, 'date top-right when ctx.today is a string');
+  assert.match(svg, /spread £\d+ · trough \d\d:00 · peak \d\d:00 · fleet 6 GW/, 'metrics line (fleet term present)');
+  const noDate = renderDay(r, p, ctxAt(900), {forExport: true});
+  assert.doesNotMatch(noDate, /10 Jul 2026/, 'no date (deterministic) without ctx.today');
+  const noFleet = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctxAt(900), {forExport: true});
+  assert.match(noFleet, /spread £\d+ · trough \d\d:00 · peak \d\d:00<\/text>/, 'metrics omits the fleet term at 0');
+});
+
+test('renderDay: night + solar washes teach the daylight window and move with sunrise/sunset (B2)', () => {
+  const summer = {...DAY_DEFAULTS, sunrise: 5, sunset: 21};
+  const s = renderDay(runDay(summer), summer, ctx);
+  const solarFill = MERIT_PALETTE.light.solar + '1F';   // validated solar hue at low alpha — no new hue
+  const nightFill = ctx.colors.muted + '12';            // validated muted at low alpha
+  assert.ok(s.includes(`fill='${solarFill}'`), 'a solar-hue wash marks the daylight window');
+  assert.ok(s.includes(`fill='${nightFill}'`), 'a muted wash marks the night');
+  assert.match(s, />SOLAR WINDOW</);
+  assert.match(s, />NIGHT</);
+  const nightW = svg => +svg.match(new RegExp(`<rect x='116'[^>]*width='([\\d.]+)'[^>]*fill='${nightFill}'`))[1];
+  const winter = {...DAY_DEFAULTS, sunrise: 8, sunset: 16};
+  const w = renderDay(runDay(winter), winter, ctx);
+  assert.ok(nightW(w) > nightW(s), `a later sunrise widens the pre-dawn night wash (${nightW(w)} > ${nightW(s)})`);
+});
+
+test('renderDay: the price line is segmented and coloured by the marginal fuel family (S5)', () => {
+  const svg = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctx);
+  const g = svg.match(/<g data-flat-shape=''>(.*?)<\/g>/)[1];
+  const cols = [...g.matchAll(/stroke='(#[0-9a-fA-F]{6})'/g)].map(m => m[1].toLowerCase());
+  assert.equal(cols.length, 23, 'one segment per hour-step');
+  assert.ok(new Set(cols).size >= 3, `segments carry ≥3 distinct family hues (got ${new Set(cols).size})`);
+  assert.ok(cols.includes(MERIT_PALETTE.light.biomass.toLowerCase()), 'a £75 Biomass segment takes the biomass hue');
+  assert.ok(cols.includes(MERIT_PALETTE.light.thermal[0].toLowerCase()), 'a £83 CCGT-60% segment takes the top thermal step');
+  assert.match(g, /stroke-width='2.5'/, 'the price line is 2.5px');
+});
+
+test('renderDay: changeover verticals are short top ticks and the cursor is an ink dashed line (S5)', () => {
+  const svg = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctx, {cursor: 12});
+  // a changeover tick spans only ~12px from the plot top (M.t=34 → 46), not the full plot
+  const tick = svg.match(/<line x1='[\d.]+' y1='34' x2='[\d.]+' y2='(\d+)' stroke='#C05621'/);
+  assert.ok(tick, 'a changeover tick starts at the plot top');
+  assert.equal(+tick[1], 46, 'the tick is a short 12px mark (34 → 46), not a full-height vertical');
+  assert.match(svg, /data-cursor='12'[^>]*stroke='#1b2733' stroke-width='1.5' stroke-dasharray='2 3'/, 'cursor is ink + dashed');
+});
+
+test('renderDay: fleet 0 drops the reserved strip band and shrinks the canvas (P2)', () => {
+  const p0 = {...DAY_DEFAULTS, fleetGW: 0};
+  const svg0 = renderDay(runDay(p0), p0, ctx);
+  const h0 = +svg0.match(/^<svg width="900" height="(\d+)"/)[1];
+  const p6 = {...DAY_DEFAULTS, fleetGW: 6};
+  const svg6 = renderDay(runDay(p6), p6, ctx);
+  const h6 = +svg6.match(/^<svg width="900" height="(\d+)"/)[1];
+  assert.ok(h0 < h6, `fleet-0 canvas (${h0}) is shorter than fleet-6 (${h6}) — no reserved strip`);
+  assert.doesNotMatch(svg0, /discharge ↑/, 'no strip caption at fleet 0');
+  assert.match(svg6, /discharge ↑/, 'the strip caption returns with a fleet');
+});
+
+test('renderDay: the plot-left matches renderStack (116 wide / 44 narrow) so the two cards line up (S1)', () => {
+  const wide = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctxAt(900));
+  assert.match(wide, /<line x1='116' y1='[\d.]+' x2='868'/, 'wide plot runs 116 → 868 (W − 32)');
+  const narrow = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctxAt(360));
+  assert.match(narrow, /<line x1='44' y1='[\d.]+' x2='328'/, 'narrow plot runs 44 → 328');
+});
+
+/* ---- verdict branches (B3/B4/S2/S3) ---- */
+
+test('buildDayVerdict: empty book — a fleet that finds nothing worth trading (B3a)', () => {
+  const p = {...DAY_DEFAULTS, trough: 30, peak: 47, solarPeak: 2, sunrise: 8, sunset: 16, fleetGW: 4};
+  const r = runDay(p);
+  assert.ok(r.dischargedGWh <= 0.05, 'fixture: the 4 GW fleet trades nothing (spread thinner than the round-trip loss)');
+  const v = buildDayVerdict(r, p);
+  assert.match(v, /finds nothing worth trading/);
+  assert.match(v, /thinner than the round-trip loss/);
+  assert.match(v, new RegExp(`the day's spread \\(£${Math.round(r.raw.spread)}\\)`));
+  assert.doesNotMatch(v, /flattens|leaves/);
+});
+
+test('buildDayVerdict: verb honesty — a fleet that trades without moving the spread "leaves" it (B4)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 0.5};
+  const r = runDay(p);
+  assert.ok(r.dischargedGWh > 0.05, 'fixture: the 0.5 GW fleet does trade');
+  assert.equal(Math.round(r.raw.spread), Math.round(r.flat.spread), 'fixture: it does not move the headline spread');
+  const v = buildDayVerdict(r, p);
+  assert.match(v, new RegExp(`leaves the day's spread at £${Math.round(r.raw.spread)}`));
+  assert.doesNotMatch(v, /→/, 'no false "flattens X → Y" when the spread is unchanged');
+  assert.doesNotMatch(v, /flattens/);
+});
+
+test('buildDayVerdict: a real flattening still reads "flattens X → Y" (smoke regex survives)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  assert.ok(Math.round(r.raw.spread) - Math.round(r.flat.spread) >= 1, 'fixture: 6 GW materially flattens the spread');
+  assert.match(buildDayVerdict(r, p), /flattens the day's spread £\d+ → £\d+/);
+});
+
+test('buildDayVerdict: the fleet margin is quoted "per MW per day" (S3)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  assert.match(buildDayVerdict(runDay(p), p), /per MW per day/);
+});
+
+test('buildDayVerdict: a flat-topped peak/trough reads "from hh:00" (plateau, S2)', () => {
+  const r = runDay(DAY_DEFAULTS);   // £92 peak spans 17:00–21:00, £20 trough 03:00–04:00
+  const v = buildDayVerdict(r, DAY_DEFAULTS);
+  assert.match(v, /dearest £92\/MWh from 17:00/);
+  assert.match(v, /cheapest £20\/MWh from 03:00/);
+});
+
+test('buildDayVerdict: a single-hour extreme still reads "at hh:00" (non-plateau branch)', () => {
+  const spike = {raw: {spread: 50, prices: [10, 30, 60, 30, 15], troughHour: 0, peakHour: 2}};
+  const v = buildDayVerdict(spike, {fleetGW: 0});
+  assert.match(v, /cheapest £10\/MWh at 00:00/);
+  assert.match(v, /dearest £60\/MWh at 02:00/);
 });
