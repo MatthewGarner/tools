@@ -1,8 +1,10 @@
 /* Mobile foundations gate: phone-width first-run behaviour for in-scope tools.
-   Run from dev/pw with both servers up (:8087 tools, :8089 energy). */
+   Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
+   BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
 import {chromium, devices} from 'playwright';
 
-const T = 'http://localhost:8087', E = 'http://localhost:8089';
+const T = process.env.BASE || 'http://localhost:8087';
+const E = process.env.EBASE || 'http://localhost:8089';
 const AUTOLOAD = [
   ['roadmap', T + '/roadmap/'], ['tree', T + '/tree/'], ['why', T + '/why/'],
   ['map', T + '/map/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
