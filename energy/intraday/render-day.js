@@ -12,7 +12,12 @@
    the PNG export path (svgToCanvas) can read them; the rest of the root
    attrs — including font-family, matching roadmap/map/tree's convention —
    stay single-quoted. Text metrics come from ctx.measure (app-common's
-   canvas measure); the char-width fallback keeps the module pure in node. */
+   canvas measure); the char-width fallback keeps the module pure in node.
+   opts.upTo (hour index): the flat polyline and raw ghost truncate to
+   hours ≤ upTo and changeover labels ahead of it are suppressed — "the
+   price shape draws itself" during Play; the storage strip stays full
+   (it reads as planned/kept, not as unrevealed future) and forExport
+   never passes upTo. */
 import {txt, wrapText} from '../../assets/svg.js';
 
 const FONT = 'Charter,Georgia,serif';
@@ -40,6 +45,7 @@ export function renderDay(result, p, ctx, opts = {}){
   const storageHue = ctx.palette.storage;
   const {raw, flat, sched} = result;
   const hasFleet = p.fleetGW > 0 && result.dischargedGWh > 0;
+  const upTo = opts.upTo;   // draw-as-you-play: truncate the drawn shape to hours ≤ upTo
 
   const M = {l: 54, r: 16, t: 18, b: 81};              // bottom band holds the taller bar strip
                                                         // (28 gap + 40 strip + 11 caption + 2px descender buffer)
@@ -61,11 +67,13 @@ export function renderDay(result, p, ctx, opts = {}){
   const vy0 = bandBottom + 24, vLineH = 18;
   const H = opts.forExport ? Math.max(height, Math.round(vy0 + (vLines.length - 1) * vLineH + 12)) : height;
 
-  const line = (prices, colour, dashed, tag) =>
-    `<polyline ${tag}='' points='` +
-    prices.map((v, h) => `${r1(x(h))},${r1(y(v))}`).join(' ') +
-    `' fill='none' stroke='${colour}' stroke-width='2'` +
-    (dashed ? ` stroke-dasharray='5 4' opacity='0.55'` : '') + `/>`;
+  const line = (prices, colour, dashed, tag) => {
+    const pts = upTo != null ? prices.slice(0, upTo + 1) : prices;
+    return `<polyline ${tag}='' points='` +
+      pts.map((v, h) => `${r1(x(h))},${r1(y(v))}`).join(' ') +
+      `' fill='none' stroke='${colour}' stroke-width='2'` +
+      (dashed ? ` stroke-dasharray='5 4' opacity='0.55'` : '') + `/>`;
+  };
 
   const parts = [`<svg width="${width}" height="${H}" viewBox='0 0 ${width} ${H}' xmlns='http://www.w3.org/2000/svg' font-family='${FONT}' data-tool='intraday'>`];
   if(opts.forExport) parts.push(`<rect x='0' y='0' width='${width}' height='${H}' fill='${colors.card}'/>`);
@@ -102,6 +110,7 @@ export function renderDay(result, p, ctx, opts = {}){
   for(const c of flat.changeovers){
     const cx = x(c.h);
     parts.push(`<line x1='${r1(cx)}' y1='${M.t}' x2='${r1(cx)}' y2='${M.t + plotH}' stroke='${colors.accent}' stroke-width='1' opacity='0.35'/>`);
+    if(upTo != null && c.h > upTo) continue;   // draw-as-you-play: no label ahead of the cursor
     const w = measure(c.to, '10px ' + FONT);
     const overflows = cx + 3 + w > width - 2;
     const labelL = overflows ? cx - 3 - w : cx + 3;

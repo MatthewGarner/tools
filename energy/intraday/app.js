@@ -60,8 +60,12 @@ function boot(){
     const colors = themeColors();
 
     const priceW = renderWidth(priceEl);
+    // draw-as-you-play (spec G1): while Play is running the curve draws itself
+    // point-by-point up to the current hour; scrubbing (not playing) and the
+    // forExport call below keep the full day + moving cursor as before.
     const priceSvg = renderDay(result, p,
-      {width: priceW, height: 420, colors, palette: palette(), measure}, {cursor: hour});
+      {width: priceW, height: 420, colors, palette: palette(), measure},
+      playing ? {cursor: hour, upTo: hour} : {cursor: hour});
     priceEl.classList.toggle('narrow', priceW < NARROW);
     if(priceSvg !== lastPriceSvg){ priceEl.innerHTML = priceSvg; lastPriceSvg = priceSvg; }
 
@@ -122,7 +126,12 @@ function boot(){
   $('play').addEventListener('click', () => {
     playing = !playing;
     setPlayLabel();
-    if(playing){ hour = 0; lastTick = null; requestAnimationFrame(tick); }
+    if(playing){
+      // render hour 0 immediately — otherwise the first visible frame was
+      // 01:00 after the first 450ms tick, i.e. Play appeared to do nothing
+      hour = 0; $('scrub').value = hour; lastTick = null; refresh();
+      requestAnimationFrame(tick);
+    }
   });
 
   wireExports({

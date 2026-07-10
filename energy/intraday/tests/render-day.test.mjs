@@ -274,6 +274,37 @@ test('renderDay: an exact-multiple data max still gets a flush top label (no dou
   assert.equal(Math.max(...gridLabels), padded, 'top label is exactly the padded step, not one step further');
 });
 
+/* Spec restoration G1: "the price shape draws itself" — during Play, the flat
+   polyline (and the raw ghost) must truncate to hours ≤ upTo, and changeover
+   labels ahead of the cursor stay hidden (the tick lines don't — only the
+   text is suppressed, per spec). The storage strip is untouched by upTo. */
+test('renderDay: upTo=6 truncates the flat polyline to 7 points and hides changeover labels beyond h6', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const svg = renderDay(r, p, ctx, {upTo: 6});
+
+  const flatPts = svg.match(/data-flat-shape='' points='([^']*)'/)[1].trim().split(/\s+/);
+  assert.equal(flatPts.length, 7, 'flat polyline stops at hour 6 (points for h0..h6)');
+  const rawPts = svg.match(/data-raw-shape='' points='([^']*)'/)[1].trim().split(/\s+/);
+  assert.equal(rawPts.length, 7, 'raw ghost also truncates to hour 6');
+
+  const beyond = r.flat.changeovers.filter(c => c.h > 6);
+  assert.ok(beyond.length > 0, 'fixture: at least one changeover falls after hour 6');
+  for(const c of beyond)
+    assert.doesNotMatch(svg, new RegExp(`fill="#C05621">${c.to}</text>`), `no label for the ${c.to} changeover at h${c.h} (beyond upTo)`);
+
+  const within = r.flat.changeovers.filter(c => c.h <= 6);
+  if(within.length > 0)
+    assert.match(svg, new RegExp(`fill="#C05621">${within[0].to}</text>`), 'a changeover at/before upTo still gets its label');
+});
+
+test('renderDay: without upTo the flat polyline always carries all 24 hours', () => {
+  const r = runDay(DAY_DEFAULTS);
+  const svg = renderDay(r, DAY_DEFAULTS, ctx);
+  const flatPts = svg.match(/data-flat-shape='' points='([^']*)'/)[1].trim().split(/\s+/);
+  assert.equal(flatPts.length, 24, 'no upTo ⇒ full day drawn (scrubbing/export behaviour unchanged)');
+});
+
 test('renderDay: narrow mode thins the hour axis and shortens the strip caption', () => {
   const p = {...DAY_DEFAULTS, fleetGW: 6};
   const svg = renderDay(runDay(p), p, ctxAt(360));

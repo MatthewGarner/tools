@@ -2,7 +2,9 @@
    sweep (every tool must work offline WITHOUT having been visited — the
    installed-app path), an Android (Pixel 7) spot check, and the ENERGY origin
    (its own worker/manifest) served via serve.mjs's host-rewrite emulation.
-   Run from dev/pw: node pwa.mjs  (server on :8087; spawns :8089 itself) */
+   Run from dev/pw: node pwa.mjs  (server on :8087; the energy origin defaults
+   to :8089 via the EPORT env knob — reused if already alive, e.g. another
+   suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
 import {spawn} from 'node:child_process';
 
