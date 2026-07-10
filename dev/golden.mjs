@@ -247,6 +247,24 @@ for(const [k, src] of Object.entries(docs)){
   variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, {forExport: true});
 }
 
+/* /wardley fixtures (pure layout → deterministic) */
+{
+  const {parse: wparse} = await import('../wardley/parse.js');
+  const {layoutMap} = await import('../wardley/layout.js');
+  const {renderMap: wrender} = await import('../wardley/render.js');
+  const wdoc = 'title: Habitat platform\nanchor: Habit tracking\n' +
+    'Streak engine @ custom\nNotification service @ product\nUser DB @ commodity\nPush gateway\n' +
+    'Habit tracking -> Streak engine -> Notification service -> Push gateway\nStreak engine -> User DB';
+  const wPrev = wdoc.replace('Streak engine @ custom', 'Streak engine @ 0.30')
+    .replace('\nUser DB @ commodity', '\nUser DB @ commodity\nOld cache @ product')
+    .replace('Streak engine -> User DB', 'Streak engine -> User DB\nStreak engine -> Old cache');
+  const wctx = {...ctxBase, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
+  const wm = wparse(wdoc);
+  variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
+  variants['wardley-compare'] = wrender(wm, layoutMap(wm), wctx,
+    {compare: {prev: wparse(wPrev), label: 'March'}});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
