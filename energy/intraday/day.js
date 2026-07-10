@@ -14,9 +14,11 @@ export const BASE_PROFILE = [
 ];
 
 export const DAY_DEFAULTS = {
-  trough: 28, peak: 60,                    // GW
+  trough: 22, peak: 44,                    // GW (GB summer-night trough ~21-22GW, winter peak ~44-47GW)
   solarPeak: 6, sunrise: 5, sunset: 21,    // GW; hours (summer-ish default)
-  gas: 120, carbon: 50, wind: 0.28,        // merit-order levers passed through
+  gas: 100, carbon: 50, wind: 0.32,        // merit-order levers passed through: gas is p/therm
+                                            // (NOT £/MWh — see stack.js gasLHV), carbon £/tCO2,
+                                            // wind availability as a fraction of installed
   fleetGW: 0, fleetH: 2, rte: 0.85,        // the day-aware storage fleet
 };
 
