@@ -81,7 +81,18 @@ export function rawDay(p, catalogue = GB_TODAY){
    hour (starts empty, one day, no carry-over). Per-hour power ≤ fleetGW both
    directions; total discharge energy ≤ fleetGW·fleetH; 1 GWh out costs
    1/rte GWh in. Each pair adds a non-negative prefix to the SoC trace, so
-   feasibility (0 ≤ SoC ≤ capacity) holds by construction; socTrace verifies. */
+   feasibility (0 ≤ SoC ≤ capacity) holds by construction; socTrace verifies.
+
+   The book is QUANTISED: each accepted slice is capped at QUANTUM GWh, so a
+   (c, d) pair may appear as several slices (identical hour totals — the fill
+   order and caps are unchanged; only the granularity of `pairs` differs).
+   The desk trades in clips, not monster blocks: runDay's back-off can then
+   trim 0.25 GWh at a time, and the terminal book converges to the same
+   market equilibrium whatever the fleet size — whole-pair cutting made the
+   surviving hours an accident of cut order (measured 2026-07-10: at 1 GW the
+   night lifted past the £20→£75 void, at 2 GW it happened not to). */
+export const QUANTUM = 0.25;                           // GWh per accepted slice
+
 export function greedySchedule(prices, {fleetGW, fleetH, rte}){
   const charge = new Array(24).fill(0), discharge = new Array(24).fill(0);
   const accepted = [];
@@ -95,10 +106,12 @@ export function greedySchedule(prices, {fleetGW, fleetH, rte}){
     let budget = fleetGW * fleetH;                     // GWh, discharge side
     for(const {c, d} of pairs){
       if(budget <= 0) break;
-      const q = Math.min(budget, fleetGW - discharge[d], (fleetGW - charge[c]) * rte);
-      if(q <= 0) continue;
-      discharge[d] += q; charge[c] += q / rte; budget -= q;
-      accepted.push({c, d, q});
+      while(budget > 0){
+        const q = Math.min(QUANTUM, budget, fleetGW - discharge[d], (fleetGW - charge[c]) * rte);
+        if(q <= 1e-12) break;
+        discharge[d] += q; charge[c] += q / rte; budget -= q;
+        accepted.push({c, d, q});
+      }
     }
   }
   return {charge, discharge, soc: socTrace(charge, discharge, rte), pairs: accepted};
@@ -124,18 +137,19 @@ export function scheduleFromPairs(pairs, rte){
    until every survivor pays; survivors only improve as the book shrinks.
    The naive plan can go underwater once the fleet outgrows the cheap night
    it planned against (at GB-honest defaults the trough is only ~1 GW deep).
-   Each round: re-clear with the surviving pairs as net demand, find the pair
-   with the WORST realised margin on those prices; if it pays (≥ 0), stop —
-   otherwise cut that one pair and repeat (a cut pair is never re-added; ties
-   break deterministically: lowest margin, then LARGEST q, then earliest c,
-   then earliest d — at equal per-unit margins the biggest block is the
-   biggest £ loser and the trade most responsible for sinking the book;
-   cutting small pairs first at a tie provably empties the whole book at
-   6 GW where a paying survivor exists). Cutting a pair only improves the
-   rest (less charging lifts the trough back up, less discharging restores
-   the peak), so the loop terminates with every surviving pair non-negative —
-   achievedMargin ≥ 0 holds PER-PAIR, not just in aggregate. Terminates in
-   ≤ |pairs| rounds of one clearDay each.
+   Each round: re-clear with the surviving slices as net demand, find the
+   slice with the WORST realised margin on those prices; if it pays (≥ 0),
+   stop — otherwise cut that one slice and repeat (a cut slice is never
+   re-added; ties break deterministically: lowest margin, then largest q,
+   then earliest c, then earliest d). Because the book is quantised (see
+   greedySchedule), each cut trims QUANTUM GWh, so the terminal book settles
+   at the market's true absorption capacity regardless of fleet size instead
+   of depending on the cut order of monster blocks. Cutting a slice only
+   improves the rest (less charging lifts the trough back up, less
+   discharging restores the peak), so the loop terminates with every
+   surviving slice non-negative — achievedMargin ≥ 0 holds PER-SLICE, not
+   just in aggregate. Terminates in ≤ |pairs| rounds of one clearDay each
+   (~66 slices at 8 GW, ~1.5ms total).
    Margins are £k/day (£/MWh × GWh); margin ÷ fleetGW reads as £/MW/day. */
 export function runDay(p, catalogue = GB_TODAY){
   const raw = rawDay(p, catalogue);
