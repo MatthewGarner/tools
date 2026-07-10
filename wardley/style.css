@@ -1,0 +1,44 @@
+/* /wardley: the house page scaffold (per-tool by design — timeline/style.css
+   is the reference copy) + this tool's drag affordances. */
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;
+  padding:40px 0 40px;
+}
+h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
+  letter-spacing:-.01em;margin:0;text-wrap:balance}
+.tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.chips .lead{font-size:12.5px;color:var(--muted)}
+#cmhost .cm-editor{min-height:440px}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
+details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
+details.syntax summary{cursor:pointer;font-size:12.5px}
+details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
+  background:var(--bg);padding:1px 5px;border-radius:4px}
+details.syntax table{border-collapse:collapse;margin-top:8px}
+details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
+.placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
+.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.method{color:var(--muted);font-size:12.5px}
+footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--accent-ink)}
+
+/* ---- drag affordances ---- */
+#preview svg g[data-drag], #preview svg g[data-drag] *{ cursor: grab; }
+#preview svg[data-narrow]{ touch-action: pan-y; }  /* Chromium honours touch-action only on the svg ROOT */
+#preview svg g[data-drag].dragging{ cursor: grabbing; }
+#preview svg g[data-drag].dragging rect{ filter: brightness(1.08); }
+
+@media (prefers-reduced-motion: no-preference){
+  #preview svg g[data-drag]{ transition: opacity 120ms; }
+}

@@ -38,7 +38,7 @@ async function svgDecodes(page, selector){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: nine tool cards', await page.locator('a.tool').count() === 9);
+  check('landing: ten tool cards', await page.locator('a.tool').count() === 10);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -136,7 +136,7 @@ for(const theme of ['light', 'dark']){
 
 /* ---- every tool links home ---- */
 {
-  const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline'];
+  const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley'];
   const {page, errors} = await freshPage('/' + tools[0] + '/');
   let allOk = true;
   for(const t of tools){
@@ -144,7 +144,7 @@ for(const theme of ['light', 'dark']){
     const crumb = page.locator('a.crumb');
     if(await crumb.count() !== 1 || await crumb.getAttribute('href') !== '/'){ allOk = false; break; }
   }
-  check('all nine tools carry the home crumb', allOk);
+  check('all ten tools carry the home crumb', allOk);
   await page.close();
 }
 
@@ -407,6 +407,21 @@ for(const theme of ['light', 'dark']){
     return true;
   })());
   check('flow(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- wardley ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/wardley/', theme);
+  await page.waitForTimeout(500);
+  check('wardley(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
+  await page.getByRole('button', {name: 'Habitat platform'}).click();
+  await page.waitForTimeout(600);
+  const svg = await page.locator('#preview svg').innerHTML();
+  check('wardley(' + theme + '): anchors + stage columns render', svg.includes('Habit tracking') && svg.includes('commodity'));
+  check('wardley(' + theme + '): ghost renders dashed', /Analytics pipeline/.test(svg) && /stroke-dasharray/.test(svg));
+  check('wardley(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('wardley(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

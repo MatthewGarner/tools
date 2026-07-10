@@ -5,7 +5,7 @@ import {chromium, devices} from 'playwright';
 const T = 'http://localhost:8087', E = 'http://localhost:8089';
 const AUTOLOAD = [
   ['roadmap', T + '/roadmap/'], ['tree', T + '/tree/'], ['why', T + '/why/'],
-  ['map', T + '/map/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
+  ['map', T + '/map/'], ['wardley', T + '/wardley/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
 ];
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
@@ -36,6 +36,26 @@ for(const [name, url] of ALL){
     return null;
   });
   ok(tiny === null, `${name}: no <16px editable field (iOS zoom-on-focus)${tiny ? ' — ' + tiny : ''}`);
+  /* page-scaffold parity: the per-tool style.css must carry the house page
+     (a tool once shipped with Times New Roman on a transparent body) */
+  const parity = await page.evaluate(() => {
+    const cs = getComputedStyle(document.body);
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    const probe = document.createElement('div');
+    probe.style.color = bg;
+    document.body.appendChild(probe);
+    const bgResolved = getComputedStyle(probe).color;
+    probe.remove();
+    const h1 = document.querySelector('h1');
+    return {
+      font: cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
+      bg: cs.backgroundColor === bgResolved,
+      h1: h1 ? getComputedStyle(h1).fontFamily.includes('Charter') : true,
+    };
+  });
+  ok(parity.font, `${name}: body wears the system font stack`);
+  ok(parity.bg, `${name}: body background is the token --bg`);
+  ok(parity.h1, `${name}: h1 wears Charter`);
   await page.close();
 }
 
@@ -62,6 +82,7 @@ const CONTAINERS = [
   ['risk', E + '/risk/', ['#preview']],
   ['merit-order', E + '/merit-order/', ['#chartwrap']],
   ['rank', T + '/rank/', ['.tblwrap']],
+  ['wardley', T + '/wardley/', ['#preview']],
 ];
 
 for(const [name, url, selectors] of CONTAINERS){
