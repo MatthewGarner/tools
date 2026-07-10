@@ -11,6 +11,14 @@ export const kinds = {
 
 const linesOf = text => text.split(/\r?\n/);
 
+/* a line is code + optional trailing comment; rewrites act on the code and
+   re-attach the comment (a ghost drag once wrote "@ 0.6" AFTER the comment,
+   invisible to the parser — the dot snapped back) */
+function splitComment(line){
+  const i = line.indexOf('//');
+  return i === -1 ? [line, ''] : [line.slice(0, i).replace(/\s+$/, ''), '   ' + line.slice(i)];
+}
+
 /* every edge line where `raw` appears as a segment, rewritten with `value` */
 function edgeRewrites(lines, raw, value){
   const k = raw.trim().toLowerCase();
@@ -27,9 +35,9 @@ function edgeRewrites(lines, raw, value){
 
 export function renameComponent(text, srcLine, raw, value){
   const lines = linesOf(text);
-  const decl = lines[srcLine];
-  const at = decl.match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
-  const declText = at[1] + value + (at[3] || '');
+  const [code, comment] = splitComment(lines[srcLine]);
+  const at = code.match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
+  const declText = at[1] + value + (at[3] || '') + comment;
   return [{line: srcLine, text: declText}, ...edgeRewrites(lines, raw, value)];
 }
 
@@ -40,8 +48,9 @@ export function renameAnchor(text, srcLine, raw, value){
 
 function setPosition(text, srcLine, pos){
   const lines = linesOf(text);
-  const m = lines[srcLine].match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
-  return [{line: srcLine, text: m[1] + m[2] + ' @ ' + pos}];
+  const [code, comment] = splitComment(lines[srcLine]);
+  const m = code.match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
+  return [{line: srcLine, text: m[1] + m[2] + ' @ ' + pos + comment}];
 }
 
 export function cycleStage(text, srcLine, value){

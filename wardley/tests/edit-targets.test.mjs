@@ -70,3 +70,20 @@ test('name validator rejects structure characters and empties', () => {
 test('stage kind cycles through the four words', () => {
   assert.deepEqual(kinds.stage.cycle, ['genesis', 'custom', 'product', 'commodity']);
 });
+
+test('dragRewrite places @ BEFORE a trailing comment (the ghost-drag bug)', () => {
+  const doc = 'anchor: A\nAnalytics pipeline    // no position yet\nA -> Analytics pipeline';
+  const edits = dragRewrite(doc, 1, 0.6);
+  assert.deepEqual(edits, [{line: 1, text: 'Analytics pipeline @ 0.6   // no position yet'}]);
+  const lines = doc.split('\n'); lines[1] = edits[0].text;
+  const g = parse(lines.join('\n')).components.get('analytics pipeline');
+  assert.equal(g.x, 0.6);
+  assert.equal(g.ghost, false);
+});
+
+test('cycleStage and rename preserve trailing comments', () => {
+  const doc = 'anchor: A\nB @ custom   // core bet\nA -> B';
+  assert.deepEqual(cycleStage(doc, 1, 'product'), [{line: 1, text: 'B @ product   // core bet'}]);
+  const out = renameComponent(doc, 1, 'B', 'Core');
+  assert.equal(out[0].text, 'Core @ custom   // core bet');
+});

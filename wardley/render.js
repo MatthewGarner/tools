@@ -63,7 +63,7 @@ function link(k, c){
 }
 
 /* ---- readout: the quotable verdict + honest flags (pure, tested) ---- */
-export function mapReadout(model, layout){
+export function mapReadout(model, layout, opts = {}){
   const comps = layout.nodes.filter(n => !n.anchor);
   const placed = comps.filter(n => n.x !== null);
   /* biggest bet: the most-needed component still left of product */
@@ -86,8 +86,9 @@ export function mapReadout(model, layout){
   }
   const flags = [];
   const ghosts = comps.filter(n => n.ghost);
-  if(ghosts.length) flags.push(ghosts.length + ' unplaced — drag ' +
-    (ghosts.length === 1 ? 'it' : 'them') + ' onto the map.');
+  if(ghosts.length) flags.push(opts.narrow
+    ? ghosts.length + ' unplaced — tap ' + (ghosts.length === 1 ? 'its strip' : 'their strips') + ' to place ' + (ghosts.length === 1 ? 'it' : 'them') + '.'
+    : ghosts.length + ' unplaced — drag ' + (ghosts.length === 1 ? 'it' : 'them') + ' onto the map.');
   for(const d of layout.droppedEdges)
     flags.push('⚠ dependency loop — the edge ' + d.from + ' → ' + d.to + ' was dropped from the layout.');
   return {verdict, flags};
@@ -265,7 +266,7 @@ function renderNarrow(model, layout, ctx, opts){
       let ty = y + 56;
       if(n.ghost){
         parts.push('<text x="' + (pad + 14) + '" y="' + ty + '" font-size="11" fill="' + c.muted +
-          '">unplaced — drag the dot onto the strip</text>');
+          '">unplaced — tap the strip to place it</text>');
         ty += 16;
       }
       for(const nl of needsLines){
@@ -278,7 +279,7 @@ function renderNarrow(model, layout, ctx, opts){
   }
 
   /* readout */
-  const r = mapReadout(model, layout);
+  const r = mapReadout(model, layout, {narrow: true});
   y += 12;
   parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (W - pad) + '" y2="' + y +
     '" stroke="' + c.border + '"/>');

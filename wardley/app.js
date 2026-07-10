@@ -25,7 +25,7 @@ Social feed @ genesis
 Notification service @ product
 User DB @ commodity
 Push gateway @ commodity
-Analytics pipeline    // no position yet — drag it onto the map
+Analytics pipeline    // no position yet
 
 Habit tracking -> Habit builder -> Streak engine -> User DB
 Habit builder -> Notification service -> Push gateway
@@ -219,11 +219,22 @@ window.addEventListener('pointerup', e => {
   const wasActive = drag.active, line = drag.armed.line, startX = drag.armed.x;
   const key = drag.armed.name.toLowerCase();
   const ratio = drag.armed.ratio;
-  const strip = !!drag.armed.track;
+  const track = drag.armed.track;
   dragEnd(wasActive);
-  if(!wasActive || !model) return;
+  if(!model) return;
+  /* a plain TAP on a strip places the dot under the thumb — placement should
+     not demand a drag on a phone */
+  if(track && !wasActive){
+    const r = track.getBoundingClientRect();
+    suppressClick = true;
+    applyEdits(dragRewrite(editor.getText(), line,
+      Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))));
+    if(matchMedia('(pointer: fine)').matches) editor.view.focus();
+    return;
+  }
+  if(!wasActive) return;
   suppressClick = true;
-  if(strip){
+  if(track){
     if(ratio !== null) applyEdits(dragRewrite(editor.getText(), line, ratio));
   } else {
     const s = evoScale();

@@ -283,6 +283,16 @@ check('no page errors', errors.length === 0);
   await wpage.waitForTimeout(400);
   const wsrc5 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: vertical drag is a no-op on the text', wsrc5 === wsrc4);
+
+  // narrow: a TAP on the ghost's strip places it, comment kept before //
+  await wpage.setViewportSize({width: 430, height: 900});
+  await wpage.waitForTimeout(600);
+  const ghostTrack = wpage.locator('#preview svg g[data-strip=""]', {has: wpage.locator('circle[stroke-dasharray]')}).first().locator('[data-track]');
+  const gb = await ghostTrack.boundingBox();
+  await wpage.mouse.click(gb.x + gb.width * 0.6, gb.y + 4);
+  await wpage.waitForTimeout(500);
+  const wsrc6 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: tap-to-place writes @ before the trailing comment', /Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6));
   check('wardley: no page errors', werrors.length === 0);
   await wpage.close();
 }
