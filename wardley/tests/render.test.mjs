@@ -20,9 +20,9 @@ Push gateway
 Habit tracking -> Streak engine -> User DB
 Streak engine -> Push gateway`;
 
-const draw = (src = SRC, opts = {}) => {
+const draw = (src = SRC, opts = {}, c = ctx) => {
   const m = parse(src);
-  return renderMap(m, layoutMap(m), ctx, opts);
+  return renderMap(m, layoutMap(m), c, opts);
 };
 
 /* minimal wellformedness: every tag's attributes are cleanly double-quoted,
@@ -141,4 +141,38 @@ test('readout: flags ghosts and dropped loops by name', async () => {
   const r = mapReadout(m, layoutMap(m));
   assert.ok(r.flags.some(f => f.includes('unplaced')));
   assert.ok(r.flags.some(f => f.includes('loop') && f.includes('B') && f.includes('A')));
+});
+
+/* ---- narrow relayout (width-aware, ctx.width < 520) ---- */
+const narrowCtx = {...ctx, width: 390};
+
+test('narrow: depth-grouped cards with evolution strips, no wide plane', () => {
+  const s = draw(SRC, {}, narrowCtx);
+  assert.ok(s.includes('data-track=""'));                          // per-card strip track
+  assert.equal((s.match(/data-drag="evo"/g) || []).length, 3);     // every component draggable
+  assert.ok(s.includes('needs Streak engine'));                    // needs-lines replace edges
+  assert.ok(!s.includes('GENESIS'));                               // no wide terrain labels
+  assert.match(s, /width="390"/);
+  assert.match(s, /map|discovery|execution|load-bearing/);         // readout still present
+  wellFormed(s);
+  assert.ok(!s.includes('NaN'));
+});
+
+test('narrow: ghost card is dashed and invites placement', () => {
+  const s = draw(SRC, {}, narrowCtx);
+  assert.match(s, /stroke-dasharray[^>]*>[^]*?Push gateway/);
+  assert.match(s, /unplaced/);
+});
+
+test('narrow: hostile names escaped, name edit hooks live', () => {
+  const s = draw('anchor: A\n<img src=x> @ custom\nA -> <img src=x>', {}, narrowCtx);
+  assert.ok(!s.includes('<img'));
+  assert.ok(s.includes('data-edit="name"'));
+  wellFormed(s);
+});
+
+test('wide render ignores ctx.width above the threshold (exports stay pinned)', () => {
+  const wide = draw(SRC, {}, {...ctx, width: 900});
+  assert.ok(wide.includes('GENESIS'));
+  assert.match(wide, /width="1200"/);
 });

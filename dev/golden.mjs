@@ -263,6 +263,7 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
   variants['wardley-compare'] = wrender(wm, layoutMap(wm), wctx,
     {compare: {prev: wparse(wPrev), label: 'March'}});
+  variants['wardley-narrow'] = wrender(wm, layoutMap(wm), {...wctx, width: 390});
 }
 
 const mode = process.argv[2];

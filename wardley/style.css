@@ -1,6 +1,9 @@
 /* /wardley tool-specifics: drag affordances only — everything else is shared. */
 
-#preview svg g[data-drag]{ cursor: grab; }
+/* thumbs: vertical swipes scroll the page, horizontal moves are ours.
+   touch-action does NOT inherit — the gesture starts on the g's child rects. */
+#preview svg g[data-drag], #preview svg g[data-drag] *{ cursor: grab; }
+#preview svg[data-narrow]{ touch-action: pan-y; }  /* Chromium honours touch-action only on the svg ROOT */
 #preview svg g[data-drag].dragging{ cursor: grabbing; }
 #preview svg g[data-drag].dragging rect{ filter: brightness(1.08); }
 

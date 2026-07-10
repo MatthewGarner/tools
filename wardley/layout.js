@@ -64,7 +64,7 @@ export function layoutMap(model, geom = {w: 1200, pad: 56, rowGap: ROW_GAP}){
   const nodes = new Map();
   for(const [k, c] of model.components){
     nodes.set(k, {name: c.name, x: c.x, stage: c.stage, ghost: c.ghost,
-      anchor: false, srcLine: c.srcLine,
+      anchor: false, srcLine: c.srcLine, row: depth.get(k),
       px: c.x === null ? pad + 84 : px(c.x), y: rowY(depth.get(k))});   // ghosts sit inside the genesis margin, never clipped
   }
   for(const a of model.anchors){
@@ -73,7 +73,7 @@ export function layoutMap(model, geom = {w: 1200, pad: 56, rowGap: ROW_GAP}){
       .map(e => nodes.get(e.to)).filter(Boolean);
     const ax = kids.length ? kids.reduce((s, n) => s + n.px, 0) / kids.length : w / 2;
     nodes.set(k, {name: a.name, x: null, stage: null, ghost: false,
-      anchor: true, srcLine: a.srcLine, px: ax, y: rowY(0)});
+      anchor: true, srcLine: a.srcLine, row: 0, px: ax, y: rowY(0)});
   }
 
   /* --- deterministic collision spread within a row --- */

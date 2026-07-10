@@ -7,9 +7,18 @@ import {chromium, devices} from 'playwright';
 import {spawn} from 'node:child_process';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
-const esrv = spawn('node', ['../serve.mjs', '8089', '--origin=energy'], {stdio: 'pipe'});
-await new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); }));
 const EBASE = 'http://localhost:8089';
+/* reuse a :8089 that's already up (e.g. mobile.mjs's session server) — a
+   silent bind failure here used to hang the unsettled await with 0 PASS */
+let esrv = null;
+const alive = await fetch(EBASE + '/').then(r => r.ok).catch(() => false);
+if(!alive){
+  esrv = spawn('node', ['../serve.mjs', '8089', '--origin=energy'], {stdio: 'pipe'});
+  await Promise.race([
+    new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); })),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(':8089 failed to start — port taken?')), 8000)),
+  ]);
+}
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -141,6 +150,6 @@ async function installAndWait(page){
 }
 
 console.log(results.join('\n'));
-esrv.kill();
+esrv && esrv.kill();
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

@@ -1,7 +1,7 @@
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
 import {parse} from './parse.js';
 import {layoutMap} from './layout.js';
-import {renderMap, toMarkdown, GEOM} from './render.js';
+import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
@@ -65,9 +65,13 @@ function currentCompare(){
   if(!cur || !model) return null;
   return {prev: cur.model, label: cur.label};
 }
-function activeRender(){
+/* width-aware: the preview re-lays-out below NARROW; exports stay pinned wide */
+let sizeBucket = 'wide';
+function activeRender(forExport = false){
   const compare = currentCompare();
-  return renderMap(model, layoutMap(model), ctx(), compare ? {compare} : {});
+  const c = ctx();
+  if(!forExport && sizeBucket === 'narrow') c.width = $('preview').clientWidth;
+  return renderMap(model, layoutMap(model), c, compare ? {compare} : {});
 }
 function renderWarnings(){
   const warns = $('warns');
@@ -127,6 +131,17 @@ const ws = initWorkspace({
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 
+/* narrow-bucket resize: re-render only when the bucket flips (cycles' pattern) */
+const ro = new ResizeObserver(() => {
+  const w = $('preview').clientWidth;
+  const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
+  if(bucket === sizeBucket) return;
+  sizeBucket = bucket;
+  lastSvg = '';
+  refresh();
+});
+ro.observe($('preview'), {box: 'content-box'});
+
 /* ---------- edit-in-place ---------- */
 function applyEdits(edits){
   for(const e of edits) editor.replaceLine(e.line, e.text);
@@ -142,13 +157,16 @@ attachEditInPlace($('preview'), {
   },
 });
 
-/* ---------- drag-to-evolve (horizontal only; release writes "@ x") ---------- */
+/* ---------- drag-to-evolve (horizontal only; release writes "@ x") ----------
+   Two modes: wide pills drag by DELTA (grab anywhere on the pill); narrow
+   strips map the pointer ABSOLUTELY across the card's track (thumb-natural). */
 let suppressClick = false;   // a completed drag must not open the name editor
 const drag = {armed: null, active: false, el: null};
-function dragEnd(){
+function dragEnd(commit = false){
   if(drag.el){
     drag.el.classList.remove('dragging');
     drag.el.removeAttribute('transform');
+    if(!commit && drag.armed && drag.armed.dot) drag.armed.dot.setAttribute('cx', drag.armed.dot0);
   }
   drag.armed = null;
   drag.active = false;
@@ -165,8 +183,15 @@ $('preview').addEventListener('pointerdown', e => {
   const g = e.target.closest && e.target.closest('#preview svg g[data-drag="evo"]');
   if(!g || e.button !== 0 || !model) return;
   e.preventDefault();
-  drag.armed = {line: +g.dataset.line, name: g.dataset.name, x: e.clientX, y: e.clientY};
+  const track = g.hasAttribute('data-strip') ? g.querySelector('[data-track]') : null;
+  const dot = track ? g.querySelector('[data-dot]') : null;
+  drag.armed = {line: +g.dataset.line, name: g.dataset.name, x: e.clientX, y: e.clientY,
+    track, dot, dot0: dot ? +dot.getAttribute('cx') : 0, ratio: null};
   drag.el = g;
+  /* capture ONLY strip drags: with capture active, the compatibility click
+     retargets to the capturing g, which would blind edit-in-place's
+     [data-edit] lookup on the wide pills */
+  if(track) try{ g.setPointerCapture(e.pointerId); }catch(err){}
 });
 window.addEventListener('pointermove', e => {
   if(!drag.armed) return;
@@ -175,6 +200,14 @@ window.addEventListener('pointermove', e => {
     drag.active = true;
     drag.el.classList.add('dragging');
     document.body.style.cursor = 'grabbing';
+  }
+  if(drag.armed.track){
+    const r = drag.armed.track.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    drag.armed.ratio = ratio;
+    drag.armed.dot.setAttribute('cx',
+      +drag.armed.track.dataset.x0 + ratio * +drag.armed.track.dataset.w);
+    return;
   }
   const s = evoScale();
   if(!s) return;
@@ -185,18 +218,24 @@ window.addEventListener('pointerup', e => {
   if(!drag.armed) return;
   const wasActive = drag.active, line = drag.armed.line, startX = drag.armed.x;
   const key = drag.armed.name.toLowerCase();
-  dragEnd();
+  const ratio = drag.armed.ratio;
+  const strip = !!drag.armed.track;
+  dragEnd(wasActive);
   if(!wasActive || !model) return;
   suppressClick = true;
-  const s = evoScale();
-  const comp = model.components.get(key);
-  if(!s || !comp) return;
-  const origEvo = comp.x === null ? 0 : comp.x;
-  const newX = origEvo + (e.clientX - startX) * s.perPx;
-  applyEdits(dragRewrite(editor.getText(), line, newX));
+  if(strip){
+    if(ratio !== null) applyEdits(dragRewrite(editor.getText(), line, ratio));
+  } else {
+    const s = evoScale();
+    const comp = model.components.get(key);
+    if(!s || !comp) return;
+    const origEvo = comp.x === null ? 0 : comp.x;
+    applyEdits(dragRewrite(editor.getText(), line, origEvo + (e.clientX - startX) * s.perPx));
+  }
   /* keep ⌘Z live after a drag; never on coarse pointers (focus pops the keyboard) */
   if(matchMedia('(pointer: fine)').matches) editor.view.focus();
 });
+window.addEventListener('pointercancel', () => { if(drag.armed) dragEnd(); });
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) dragEnd();
 });
@@ -213,9 +252,9 @@ for(const ex of EXAMPLES){
   $('chips').appendChild(b);
 }
 
-/* ---------- exports ---------- */
+/* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function svgString(){
-  return (model && model.components.size) ? activeRender() : null;
+  return (model && model.components.size) ? activeRender(true) : null;
 }
 function slug(){
   return ((model.title || 'wardley')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

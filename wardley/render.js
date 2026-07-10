@@ -3,7 +3,7 @@
    Anatomy: Charter header + metrics · stage terrain washes with in-plane
    labels · curved edge-to-edge dependency links · capsule pills · axis strip ·
    verdict-led readout band. Height follows content. */
-import {esc, tint} from '../assets/svg.js';
+import {esc, tint, wrapText} from '../assets/svg.js';
 import {diffItems} from '../assets/snapshots.js';
 import {STAGES, stageOf} from './parse.js';
 import {layoutMap} from './layout.js';
@@ -154,7 +154,157 @@ export function toMarkdown(model, layout, href){
   return out.join('\n') + '\n';
 }
 
+/* ---- narrow relayout: depth-grouped cards, each wearing the terrain as a
+   draggable evolution strip. Same data, same verdict; built for thumbs.
+   Exports stay pinned to the wide form (callers omit ctx.width). ---- */
+export const NARROW = 520;
+
+function renderNarrow(model, layout, ctx, opts){
+  const c = ctx.colors, measure = ctx.measure;
+  const W = Math.max(240, Math.round(ctx.width)), pad = 16;
+  const ramp = ctx.palette || [c.accent, c.accent, c.accent, c.accent];
+  const inner = W - 2 * pad;
+  const names = new Map();
+  for(const n of layout.nodes) names.set(n.name.toLowerCase(), n.name);
+  const needsOf = key => model.edges.filter(e => e.from === key).map(e => names.get(e.to) || e.to);
+
+  const parts = [];
+  let y = 30;
+  parts.push('<text x="' + pad + '" y="' + y + '" font-family="' + SERIF +
+    '" font-size="18" font-weight="700" fill="' + c.ink + '">' + esc(model.title || 'Wardley map') + '</text>');
+  y += 18;
+  const comps = layout.nodes.filter(n => !n.anchor);
+  const ghostN = comps.filter(n => n.ghost).length;
+  parts.push('<text x="' + pad + '" y="' + y + '" font-size="11" fill="' + c.muted + '">' +
+    comps.length + ' components · ' + model.edges.length + ' dependencies' +
+    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
+  y += 10;
+
+  let added = new Set(), oldX = new Map();
+  if(opts.compare){
+    const cmp = compareParts(model, layout, {...opts.compare, measure}, c);
+    added = cmp.added;
+    for(const [k, mv] of diffItems(
+      [...opts.compare.prev.components.values()].filter(x => x.x !== null),
+      [...model.components.values()].filter(x => x.x !== null),
+      {key: x => x.name, state: x => x.x.toFixed(2)}).moved)
+      if(Math.abs(+mv.to - +mv.from) > EPSILON) oldX.set(k, +mv.from);
+    y += 8;
+    parts.push('<text x="' + pad + '" y="' + y + '" font-size="12" font-weight="600" fill="' +
+      c.accent + '">' + esc(cmp.headline) + '</text>');
+    y += 4;
+  }
+
+  const rows = new Map();
+  for(const n of layout.nodes){
+    const list = rows.get(n.row) || [];
+    list.push(n);
+    rows.set(n.row, list);
+  }
+  const trackX0 = pad + 14, trackW = inner - 28;
+
+  for(const r of [...rows.keys()].sort((a, b) => a - b)){
+    y += 14;
+    for(const n of rows.get(r).sort((a, b) => a.px - b.px)){
+      if(n.anchor){
+        parts.push('<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="34" rx="17"' +
+          ' fill="' + c.card + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
+        parts.push('<text x="' + (W / 2) + '" y="' + (y + 21.5) + '" text-anchor="middle" font-size="13.5"' +
+          ' font-weight="600" fill="' + c.ink + '"' +
+          (n.srcLine >= 0 ? ' data-edit="anchor" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) + '"' : '') +
+          '>' + esc(n.name) + '</text>');
+        y += 42;
+        const aNeeds = needsOf(n.name.toLowerCase());
+        for(const nl of aNeeds.length
+            ? wrapText('needs ' + aNeeds.join(' · '), '11px ' + SANS, inner, measure) : []){
+          parts.push('<text x="' + (W / 2) + '" y="' + (y + 2) + '" text-anchor="middle" font-size="11"' +
+            ' fill="' + c.muted + '">' + esc(nl) + '</text>');
+          y += 18;
+        }
+        continue;
+      }
+      const stage = n.x === null ? null : stageOf(n.x);
+      const col = ramp[(stage ? STAGES.indexOf(stage) : 0) % ramp.length];
+      const needs = needsOf(n.name.toLowerCase());
+      const needsLines = needs.length
+        ? wrapText('needs ' + needs.join(' · '), '11px ' + SANS, inner - 28, measure) : [];
+      const cardH = 58 + needsLines.length * 16 + (n.ghost ? 16 : 0);
+      parts.push('<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="' + cardH +
+        '" rx="12" fill="' + (n.ghost ? 'none' : tint(col)) + '" stroke="' + (n.ghost ? c.muted : col) +
+        '" stroke-width="1.4"' + (n.ghost ? ' stroke-dasharray="5 4"' : '') + '/>');
+      parts.push('<text x="' + (pad + 14) + '" y="' + (y + 23) + '" font-size="14" font-weight="600"' +
+        ' fill="' + (n.ghost ? c.muted : col) + '" data-edit="name" data-line="' + n.srcLine +
+        '" data-raw="' + esc(n.name) + '">' + esc(n.name) + '</text>');
+      parts.push('<text x="' + (pad + inner - 14) + '" y="' + (y + 23) + '" text-anchor="end" font-size="10.5"' +
+        ' font-weight="600" letter-spacing=".07em" fill="' + (n.ghost ? c.muted : col) + '">' +
+        (n.ghost ? 'UNPLACED' : stage.name.toUpperCase()) + '</text>');
+      if(added.has(n.name)){
+        parts.push('<text x="' + (pad + 14) + '" y="' + (y - 4) + '" font-size="9" font-weight="600"' +
+          ' letter-spacing=".08em" fill="' + c.accent + '">NEW</text>');
+      }
+      /* the terrain, compressed: four wash segments + the draggable dot */
+      const sy = y + 34;
+      parts.push('<g data-drag="evo" data-name="' + esc(n.name) + '" data-line="' + n.srcLine + '" data-strip="">');
+      STAGES.forEach((s, i) => {
+        parts.push('<rect x="' + (trackX0 + s.lo * trackW) + '" y="' + sy + '" width="' + (trackW * 0.25) +
+          '" height="8" fill="' + ramp[i % ramp.length] + '2E"/>');
+      });
+      parts.push('<rect data-track="" data-x0="' + trackX0 + '" data-w="' + trackW + '" x="' + trackX0 +
+        '" y="' + sy + '" width="' + trackW + '" height="8" rx="4" fill="' + c.bg + '" fill-opacity="0"/>');
+      if(oldX.has(n.name.toLowerCase())){
+        parts.push('<circle cx="' + (trackX0 + oldX.get(n.name.toLowerCase()) * trackW) + '" cy="' + (sy + 4) +
+          '" r="5" fill="none" stroke="' + c.muted + '" stroke-width="1.5" stroke-dasharray="2 2"/>');
+      }
+      parts.push('<circle data-dot="" cx="' + (trackX0 + (n.x === null ? 0 : n.x) * trackW) + '" cy="' + (sy + 4) +
+        '" r="7" fill="' + (n.ghost ? c.card : col) + '" stroke="' + (n.ghost ? c.muted : c.card) +
+        '" stroke-width="1.5"' + (n.ghost ? ' stroke-dasharray="2 2"' : '') + '/>');
+      /* thumb-sized invisible hit surface over the strip */
+      parts.push('<rect x="' + pad + '" y="' + (sy - 18) + '" width="' + inner + '" height="44" fill="' +
+        c.bg + '" fill-opacity="0"/>');
+      parts.push('</g>');
+      let ty = y + 56;
+      if(n.ghost){
+        parts.push('<text x="' + (pad + 14) + '" y="' + ty + '" font-size="11" fill="' + c.muted +
+          '">unplaced — drag the dot onto the strip</text>');
+        ty += 16;
+      }
+      for(const nl of needsLines){
+        parts.push('<text x="' + (pad + 14) + '" y="' + ty + '" font-size="11" fill="' + c.muted +
+          '">' + esc(nl) + '</text>');
+        ty += 16;
+      }
+      y += cardH + 8;
+    }
+  }
+
+  /* readout */
+  const r = mapReadout(model, layout);
+  y += 12;
+  parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (W - pad) + '" y2="' + y +
+    '" stroke="' + c.border + '"/>');
+  y += 8;
+  for(const lnText of wrapText(r.verdict, '600 13px ' + SANS, inner, measure)){
+    y += 18;
+    parts.push('<text x="' + pad + '" y="' + y + '" font-size="13" font-weight="600" fill="' +
+      c.ink + '">' + esc(lnText) + '</text>');
+  }
+  for(const f of r.flags){
+    for(const lnText of wrapText(f, '11.5px ' + SANS, inner, measure)){
+      y += 17;
+      parts.push('<text x="' + pad + '" y="' + y + '" font-size="11.5" fill="' + c.muted + '">' +
+        esc(lnText) + '</text>');
+    }
+  }
+  const H = Math.round(y + 20);
+  /* data-narrow lets CSS scope touch-action to the ROOT svg — Chromium only
+     honours touch-action on the svg root, never on child elements */
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '">' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + c.bg + '"/>' + parts.join('') + '</svg>';
+}
+
 export function renderMap(model, layout, ctx, opts = {}){
+  if(ctx.width && ctx.width < NARROW) return renderNarrow(model, layout, ctx, opts);
   const c = ctx.colors, measure = ctx.measure;
   const {w, pad} = GEOM;
   const ramp = ctx.palette || [c.accent, c.accent, c.accent, c.accent];

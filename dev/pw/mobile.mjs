@@ -5,7 +5,7 @@ import {chromium, devices} from 'playwright';
 const T = 'http://localhost:8087', E = 'http://localhost:8089';
 const AUTOLOAD = [
   ['roadmap', T + '/roadmap/'], ['tree', T + '/tree/'], ['why', T + '/why/'],
-  ['map', T + '/map/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
+  ['map', T + '/map/'], ['wardley', T + '/wardley/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
 ];
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
@@ -62,6 +62,7 @@ const CONTAINERS = [
   ['risk', E + '/risk/', ['#preview']],
   ['merit-order', E + '/merit-order/', ['#chartwrap']],
   ['rank', T + '/rank/', ['.tblwrap']],
+  ['wardley', T + '/wardley/', ['#preview']],
 ];
 
 for(const [name, url, selectors] of CONTAINERS){
