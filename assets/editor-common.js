@@ -131,14 +131,45 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
   };
 }
 
+/* Non-contiguous line ops as ONE change set: every range is computed against
+   the original doc (no shifting), one dispatch = one history event. Runs of
+   ADJACENT deletions coalesce into a single range — per-line delete ranges
+   share their boundary newline and CM6 rejects overlapping changes. */
+export function lineOpsChanges(state, ops){
+  const sorted = [...ops].sort((a, b) => a.line - b.line);
+  for(let i = 1; i < sorted.length; i++)
+    if(sorted[i].line === sorted[i - 1].line) throw new Error('duplicate line op: ' + sorted[i].line);
+  const changes = [];
+  for(let i = 0; i < sorted.length; i++){
+    const op = sorted[i];
+    if(op.text !== null){
+      const l = state.doc.line(op.line + 1);       // CM lines are 1-based
+      changes.push({from: l.from, to: l.to, insert: op.text});
+      continue;
+    }
+    let end = i;                                    // extend over the run of consecutive deletes
+    while(end + 1 < sorted.length && sorted[end + 1].text === null &&
+          sorted[end + 1].line === sorted[end].line + 1) end++;
+    const first = state.doc.line(op.line + 1), last = state.doc.line(sorted[end].line + 1);
+    const from = first.number > 1 ? state.doc.line(first.number - 1).to : first.from;
+    const to = first.number > 1 ? last.to : Math.min(last.to + 1, state.doc.length);
+    changes.push({from, to, insert: ''});
+    i = end;
+  }
+  return changes;
+}
+export function applyLineOps(editor, ops){
+  editor.view.dispatch({changes: lineOpsChanges(editor.view.state, ops)});
+}
+
 /* Insert a line after afterLine, then select `select` (or the whole new line)
    inside it and focus — the add-from-the-diagram affordance the DSL tools share.
    The caret lands on the placeholder so typing replaces it immediately. */
-export function insertAndSelect(editor, afterLine, newLine, select){
+export function insertAndSelect(editor, afterLine, newLine, select, {focus = true} = {}){
   editor.insertLinesAfter(afterLine, [newLine]);
   const ln = editor.view.state.doc.line(afterLine + 2);
   const text = select || newLine;
   const idx = select ? Math.max(0, newLine.indexOf(select)) : 0;
   editor.view.dispatch({selection: {anchor: ln.from + idx, head: ln.from + idx + text.length}});
-  editor.view.focus();
+  if(focus) editor.view.focus();
 }
