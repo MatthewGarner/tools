@@ -205,7 +205,32 @@ export function renderStack(state, ctx, opts = {}){
   P.push(txt(x0 - 10, y1 + 4, `£${fmtPrice(pMin)}`, 11, C.muted, {anchor: 'end'}));
 
   // family-run labels under the axis (in-place identity — never colour-only)
-  for(const run of runs){
+  // opts.labelCollide === 'drop' (opt-in; intraday's storage-less stack) adds
+  // collision-aware suppression on the desktop branch: measure each label's
+  // text extent (ctx.measure — same heuristic as the marginal label above),
+  // compare against the previously KEPT label's extent, and on overlap keep
+  // the wider run's label (the narrow branch's thin-sliver spirit, decided by
+  // text extent). Absent/other values keep today's unconditional behaviour —
+  // merit-order's own fixtures (negative, fes-ht, fes-he-coldpeak) have
+  // pre-existing collisions and stay pinned until opted in deliberately.
+  let labelRuns = runs;
+  if(!isNarrow && opts.labelCollide === 'drop'){
+    const kept = [];
+    for(const run of runs){
+      const label = run.count > 1 ? (FAM_LABEL[run.family] || run.name) : run.name;
+      const midX = (sx(run.x0gw) + sx(run.x1gw)) / 2;
+      const halfLabelW = ctx.measure(label, '600 12px ' + FONT) / 2;
+      const cand = {run, runW: sx(run.x1gw) - sx(run.x0gw), left: midX - halfLabelW, right: midX + halfLabelW};
+      const prev = kept[kept.length - 1];
+      if(prev && cand.left < prev.right){
+        if(cand.runW > prev.runW) kept[kept.length - 1] = cand;   // wider run keeps its label
+        continue;   // the narrower of the colliding pair is dropped either way
+      }
+      kept.push(cand);
+    }
+    labelRuns = kept.map(k => k.run);
+  }
+  for(const run of labelRuns){
     const label = run.count > 1 ? (FAM_LABEL[run.family] || run.name) : run.name;
     const midX = (sx(run.x0gw) + sx(run.x1gw)) / 2;
     if(isNarrow){   // rotate so fuel labels don't overlap in a narrow stack

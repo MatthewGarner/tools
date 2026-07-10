@@ -68,7 +68,8 @@ function boot(){
     const net = result.flat.hours[hour].demand;
     const stackW = renderWidth(stackEl);
     const stackSvg = renderStack({generators: hourStack(p, hour), demand: net},
-      {width: stackW, colors, palette: palette(), measure});
+      {width: stackW, colors, palette: palette(), measure},
+      {labelCollide: 'drop'});   // opt-in: sansStorage leaves Waste/CHP·Biomass·Imports contiguous and thin — suppress colliding axis labels (wider run wins)
     stackEl.classList.toggle('narrow', stackW < NARROW);
     if(stackSvg !== lastStackSvg){ stackEl.innerHTML = stackSvg; lastStackSvg = stackSvg; }
 
