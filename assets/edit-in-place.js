@@ -5,6 +5,19 @@
    — el is the clicked element, for apps whose targets carry extra data- payload;
    the app owns the line rewrite + editor dispatch (undoable). */
 
+/* Floating elements (popover, input) are positioned from the target's rect
+   before their own size is known; clamp after append so they never render
+   off the left/right edge, and flip above the target if they'd run past
+   the bottom — phones near screen edges hit this often. */
+function clampToViewport(el, rect){
+  const w = el.offsetWidth, h = el.offsetHeight;
+  let x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+  x = Math.min(Math.max(8, x), Math.max(8, innerWidth - w - 8));
+  if(y + h > innerHeight - 8) y = Math.max(8, rect.top - h - 6);
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+}
+
 export function attachEditInPlace(preview, {kinds, onCommit}){
   let active = null;   // {input, el}
 
@@ -66,6 +79,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         }
       }
       document.body.appendChild(pop);
+      clampToViewport(pop, rect);
       active = {input: pop, el};
       const away = e => {
         if(!pop.contains(e.target)){ close(); document.removeEventListener('pointerdown', away, true); }
@@ -81,6 +95,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.style.top = (rect.top - 6) + 'px';
     input.style.minWidth = Math.max(rect.width + 34, 96) + 'px';
     document.body.appendChild(input);
+    clampToViewport(input, rect);
     input.focus();
     input.select();
     active = {input, el};
