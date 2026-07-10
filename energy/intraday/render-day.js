@@ -1,17 +1,23 @@
 /* Pure renderer: runDay() result → the price-shape SVG. x = hour 0..23,
    y = £/MWh. Raw shape = dashed muted ghost; flattened = solid ink; charge/
    discharge bars in a strip under the axis, storage hue (tinted fill, never
-   colour-alone: bars carry ▲/▼ direction via position). XML discipline: all
-   text goes through txt() (it escapes internally — never esc() it again);
-   hand-built tags single-quoted, numbers/tokens only; empty-string data-*
-   attributes (never bare). Root <svg> carries double-quoted integer
-   width/height so the PNG export path (svgToCanvas) can read them; the rest
-   of the root attrs — including font-family, matching roadmap/map/tree's
-   convention — stay single-quoted. */
-import {txt} from '../../assets/svg.js';
+   colour-alone: bars carry ▲/▼ direction via position). Narrow (<520px):
+   12-hourly axis labels + short strip caption. Changeover labels flip to
+   end-anchor near the right edge at ANY width (h23 changeovers sit ON it).
+   forExport: verdict wrapped to the plot width in its own band below the
+   strip — the root height grows to hold it. XML discipline: all text goes
+   through txt() (it escapes internally — never esc() it again); hand-built
+   tags single-quoted, numbers/tokens only; empty-string data-* attributes
+   (never bare). Root <svg> carries double-quoted integer width/height so
+   the PNG export path (svgToCanvas) can read them; the rest of the root
+   attrs — including font-family, matching roadmap/map/tree's convention —
+   stay single-quoted. Text metrics come from ctx.measure (app-common's
+   canvas measure); the char-width fallback keeps the module pure in node. */
+import {txt, wrapText} from '../../assets/svg.js';
 
 const FONT = 'Charter,Georgia,serif';
 const r1 = n => Math.round(n * 10) / 10;
+const fallbackMeasure = (t, font) => parseFloat(font) * 0.55 * t.length;
 
 export function buildDayVerdict(result, p){
   const {raw, flat, achievedMargin, plannedMargin, dischargedGWh, droppedGWh} = result;
@@ -29,6 +35,8 @@ export function buildDayVerdict(result, p){
 
 export function renderDay(result, p, ctx, opts = {}){
   const {width, height, colors} = ctx;
+  const measure = ctx.measure || fallbackMeasure;
+  const isNarrow = width < 520;
   const storageHue = ctx.palette.storage;
   const {raw, flat, sched} = result;
   const hasFleet = p.fleetGW > 0 && result.dischargedGWh > 0;
@@ -40,14 +48,21 @@ export function renderDay(result, p, ctx, opts = {}){
   const x = h => M.l + (h / 23) * plotW;
   const y = v => M.t + plotH - ((v - minP) / (maxP - minP)) * plotH;
 
+  // export verdict: wrapped to the plot width, its own band below the strip
+  // caption (or the x labels when no strip) — the canvas grows to hold it
+  const vLines = opts.forExport ? wrapText(buildDayVerdict(result, p), '12px ' + FONT, plotW, measure) : [];
+  const bandBottom = M.t + plotH + (hasFleet ? 63 : 16);   // strip-caption / x-label baseline
+  const vy0 = bandBottom + 24, vLineH = 18;
+  const H = opts.forExport ? Math.max(height, Math.round(vy0 + (vLines.length - 1) * vLineH + 12)) : height;
+
   const line = (prices, colour, dashed, tag) =>
     `<polyline ${tag}='' points='` +
     prices.map((v, h) => `${r1(x(h))},${r1(y(v))}`).join(' ') +
     `' fill='none' stroke='${colour}' stroke-width='2'` +
     (dashed ? ` stroke-dasharray='5 4' opacity='0.55'` : '') + `/>`;
 
-  const parts = [`<svg width="${width}" height="${height}" viewBox='0 0 ${width} ${height}' xmlns='http://www.w3.org/2000/svg' font-family='${FONT}' data-tool='intraday'>`];
-  if(opts.forExport) parts.push(`<rect x='0' y='0' width='${width}' height='${height}' fill='${colors.card}'/>`);
+  const parts = [`<svg width="${width}" height="${H}" viewBox='0 0 ${width} ${H}' xmlns='http://www.w3.org/2000/svg' font-family='${FONT}' data-tool='intraday'>`];
+  if(opts.forExport) parts.push(`<rect x='0' y='0' width='${width}' height='${H}' fill='${colors.card}'/>`);
 
   // y grid + labels
   const step = maxP > 150 ? 50 : 25;
@@ -55,17 +70,20 @@ export function renderDay(result, p, ctx, opts = {}){
     parts.push(`<line x1='${M.l}' y1='${r1(y(v))}' x2='${width - M.r}' y2='${r1(y(v))}' stroke='${colors.grid}' stroke-width='1'/>`);
     parts.push(txt(M.l - 8, y(v) + 4, `£${v}`, 11, colors.muted, {anchor: 'end'}));
   }
-  // x labels every 6 h
-  for(let h = 0; h <= 23; h += 6)
+  // x labels every 6 h (12 h narrow)
+  for(let h = 0; h <= 23; h += isNarrow ? 12 : 6)
     parts.push(txt(x(h), M.t + plotH + 16, `${String(h).padStart(2, '0')}:00`, 11, colors.muted, {anchor: 'middle'}));
 
   if(hasFleet) parts.push(line(raw.prices, colors.muted, true, 'data-raw-shape'));
   parts.push(line(flat.prices, colors.ink, false, 'data-flat-shape'));
 
-  // changeover ticks: the incoming marginal unit takes the price
+  // changeover ticks: the incoming marginal unit takes the price. Labels that
+  // would run off the canvas (h23 sits ON the right plot edge) anchor end.
   for(const c of flat.changeovers){
     parts.push(`<line x1='${r1(x(c.h))}' y1='${M.t}' x2='${r1(x(c.h))}' y2='${M.t + plotH}' stroke='${colors.accent}' stroke-width='1' opacity='0.35'/>`);
-    parts.push(txt(x(c.h) + 3, M.t + 10, c.to, 10, colors.accent));
+    const overflows = x(c.h) + 3 + measure(c.to, '10px ' + FONT) > width - 2;
+    if(overflows) parts.push(txt(x(c.h) - 3, M.t + 10, c.to, 10, colors.accent, {anchor: 'end'}));
+    else parts.push(txt(x(c.h) + 3, M.t + 10, c.to, 10, colors.accent));
   }
 
   // storage strip: charge below the strip midline, discharge above; abandoned
@@ -87,14 +105,17 @@ export function renderDay(result, p, ctx, opts = {}){
       if(sched.charge[h] > 0)
         parts.push(`<rect data-charge='' x='${r1(x(h) - barW / 2)}' y='${r1(mid)}' width='${r1(barW)}' height='${r1(sched.charge[h] * barScale)}' fill='${storageHue}' opacity='0.45'/>`);
     }
-    parts.push(txt(M.l, stripY + stripH + 11, 'discharge ↑ / charge ↓ · dashed = planned then abandoned', 10, colors.muted));
+    parts.push(txt(M.l, stripY + stripH + 11,
+      isNarrow ? 'dashed = abandoned' : 'discharge ↑ / charge ↓ · dashed = planned then abandoned',
+      10, colors.muted));
   }
 
   if(opts.cursor != null){
     parts.push(`<line data-cursor='${opts.cursor}' x1='${r1(x(opts.cursor))}' y1='${M.t}' x2='${r1(x(opts.cursor))}' y2='${M.t + plotH}' stroke='${colors.accent}' stroke-width='1.5'/>`);
   }
   if(opts.forExport)
-    parts.push(txt(M.l, height - 8, buildDayVerdict(result, p), 12, colors.ink));
+    parts.push(`<g data-verdict=''>` +
+      vLines.map((l, i) => txt(M.l, vy0 + i * vLineH, l, 12, colors.ink)).join('') + `</g>`);
 
   parts.push('</svg>');
   return parts.join('');
