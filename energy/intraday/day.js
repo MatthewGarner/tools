@@ -1,6 +1,7 @@
 /* Pure day engine for the intraday toy: 24 hourly clearings over /merit-order's
-   dispatch, a greedy storage schedule decided on the RAW shape, and one re-clear
-   with the schedule applied as net demand. No DOM. Storage acts through the
+   dispatch, a greedy storage schedule decided on the RAW shape, and an iterative
+   back-off that re-clears with the surviving schedule as net demand until every
+   surviving trade pays. No DOM. Storage acts through the
    demand line (charge adds, discharge subtracts) — no fleet block in the stack,
    and the catalogue's static storage rows are EXCLUDED (double-count guard:
    the day-aware fleet is the only storage). */
