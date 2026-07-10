@@ -50,6 +50,7 @@ const PAGES = {
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
+  'energy/intraday/index.html': 100_000,
 };
 
 test('per-page load stays under budget', () => {

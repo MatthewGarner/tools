@@ -1,0 +1,52 @@
+/* /intraday page styles — tokens only, both themes via tokens.css.
+   Ember accent (WCAG-checked on real surfaces, both themes — see cycles/risk/frequency/merit-order).
+   Deliberately narrower than the workspace-hero tools (no DSL editor here): single
+   1020px reading column, same family as fermi/rank/flow — about.css's own comment
+   anticipates this ("narrower pages... resolve to one column"). */
+:root{--accent:#C05621;--accent-ink:#A34413}
+@media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
+:root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
+:root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;
+  padding:40px 0 40px;
+}
+h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
+  letter-spacing:-.01em;margin:0;text-wrap:balance}
+.tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:1020px;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:0 4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:20px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px;margin-top:12px}
+/* min-width:0 overrides the flex/grid automatic-minimum-size default (content
+   intrinsic width) — without it a longer label ("Storage fleet") + wider output
+   ("0.0") refuses to shrink and visually bleeds into the next grid cell */
+.controls label{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);min-width:0}
+.controls input[type=range]{flex:1;min-width:0;min-height:44px}
+.controls output{font-variant-numeric:tabular-nums;color:var(--ink);min-width:2ch;text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .chip.on{border-color:var(--accent);color:var(--accent-ink)}
+.dayrow{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.dayrow #scrub{flex:1;min-width:160px;min-height:44px}
+#clock{font-variant-numeric:tabular-nums;color:var(--muted);min-width:52px}
+#stackwrap,#pricewrap{overflow-x:auto}
+#stackwrap svg,#pricewrap svg{display:block;min-width:640px;max-width:100%;height:auto}
+/* app.js flips .narrow on when it renders at the container's true (sub-520) width
+   instead of the 900 canonical — drop the pan floor so it fits instead of scrolling,
+   mirroring merit-order/cycles/risk's .mo-narrow / narrow-bucket convention. */
+#stackwrap.narrow svg,#pricewrap.narrow svg{min-width:0}
+.verdict{font-family:Charter,Georgia,serif;font-size:16.5px;margin:10px 0 0}
+.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--accent-ink)}
+@media (prefers-reduced-motion: reduce){ #play{display:none} }

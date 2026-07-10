@@ -41,7 +41,8 @@ export function renderDay(result, p, ctx, opts = {}){
   const {raw, flat, sched} = result;
   const hasFleet = p.fleetGW > 0 && result.dischargedGWh > 0;
 
-  const M = {l: 54, r: 16, t: 18, b: 64};              // bottom band holds the bar strip
+  const M = {l: 54, r: 16, t: 18, b: 65};              // bottom band holds the bar strip
+                                                        // (+1px over the strip caption's descenders — reviewer-measured 1.2px shave)
   const plotW = width - M.l - M.r, plotH = height - M.t - M.b;
   const maxP = Math.max(...raw.prices, ...flat.prices, 10);
   const minP = Math.min(0, ...raw.prices, ...flat.prices);
@@ -78,12 +79,24 @@ export function renderDay(result, p, ctx, opts = {}){
   parts.push(line(flat.prices, colors.ink, false, 'data-flat-shape'));
 
   // changeover ticks: the incoming marginal unit takes the price. Labels that
-  // would run off the canvas (h23 sits ON the right plot edge) anchor end.
+  // would run off the canvas (h23 sits ON the right plot edge) anchor end — so
+  // a fixed tick-to-tick distance can't tell crowding on its own: the last
+  // label often flips to end-anchor and grows LEFTWARD, back over its neighbour.
+  // At narrow widths, measure each label's real left/right extent (anchor-aware)
+  // and drop it if that box would land within ~6px of the last one actually
+  // drawn — the tick line always stays (it's the honest signal); sibling
+  // renderers thin crowded labels the same way (e.g. merit-order's thin-run drop).
+  let lastLabelR = -Infinity;
   for(const c of flat.changeovers){
-    parts.push(`<line x1='${r1(x(c.h))}' y1='${M.t}' x2='${r1(x(c.h))}' y2='${M.t + plotH}' stroke='${colors.accent}' stroke-width='1' opacity='0.35'/>`);
-    const overflows = x(c.h) + 3 + measure(c.to, '10px ' + FONT) > width - 2;
-    if(overflows) parts.push(txt(x(c.h) - 3, M.t + 10, c.to, 10, colors.accent, {anchor: 'end'}));
-    else parts.push(txt(x(c.h) + 3, M.t + 10, c.to, 10, colors.accent));
+    const cx = x(c.h);
+    parts.push(`<line x1='${r1(cx)}' y1='${M.t}' x2='${r1(cx)}' y2='${M.t + plotH}' stroke='${colors.accent}' stroke-width='1' opacity='0.35'/>`);
+    const w = measure(c.to, '10px ' + FONT);
+    const overflows = cx + 3 + w > width - 2;
+    const labelL = overflows ? cx - 3 - w : cx + 3;
+    if(isNarrow && labelL < lastLabelR + 6) continue;
+    if(overflows) parts.push(txt(cx - 3, M.t + 10, c.to, 10, colors.accent, {anchor: 'end'}));
+    else parts.push(txt(cx + 3, M.t + 10, c.to, 10, colors.accent));
+    lastLabelR = labelL + w;
   }
 
   // storage strip: charge below the strip midline, discharge above; abandoned

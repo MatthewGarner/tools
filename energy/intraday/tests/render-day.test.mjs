@@ -124,6 +124,38 @@ test('renderDay: right-edge changeover label flips to end anchor (h23 Imports, f
     'the hour-23 Imports label anchors end so it cannot overflow the canvas');
 });
 
+test('renderDay: narrow mode drops crowded changeover labels but keeps every tick line', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const tickCount = svg => [...svg.matchAll(/<line[^>]*stroke='#C05621'[^>]*\/>/g)].length;
+  const labelCount = svg => [...svg.matchAll(/<text[^>]*fill="#C05621"[^>]*>[^<]*<\/text>/g)].length;
+  const wide = renderDay(r, p, ctxAt(900));
+  const narrow = renderDay(r, p, ctxAt(360));
+  assert.equal(tickCount(wide), r.flat.changeovers.length, 'wide: one tick per changeover');
+  assert.equal(labelCount(wide), r.flat.changeovers.length, 'wide: no crowding at full width');
+  assert.equal(tickCount(narrow), r.flat.changeovers.length, 'narrow: ticks are never dropped');
+  assert.ok(labelCount(narrow) < r.flat.changeovers.length, 'narrow: crowded labels are dropped');
+});
+
+/* Regression: a first cut at this suppression compared raw tick x-positions
+   with a flat 30px threshold and missed this exact case — the LAST changeover
+   (h23) sits on the right plot edge and flips to text-anchor='end', so it
+   grows LEFTWARD over its neighbour instead of rightward; two ticks 53px apart
+   (well past the old 30px gate) still garbled into unreadable overlapping text
+   in production (bigFleet preset, iPhone-13-width pricewrap, 2026-07-10). The
+   fix measures each label's real anchor-aware left/right extent instead. */
+test('renderDay: narrow mode never overlaps an end-anchored label with its neighbour', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 10, fleetH: 2};   // the "Big fleet" preset shape
+  const r = runDay(p);
+  assert.ok(r.flat.changeovers.length >= 4, 'fixture: several changeovers, including one near the right edge');
+  const svg = renderDay(r, p, ctxAt(340));   // iPhone-13 pricewrap's real measured width
+  const boxes = [...svg.matchAll(/<text x="([\d.]+)" y="[\d.]+" font-size="10"( text-anchor="end")?[^>]*fill="#C05621">([^<]*)<\/text>/g)]
+    .map(m => { const w = meas(m[3], '10px x'); const x = +m[1]; return m[2] ? [x - w, x] : [x, x + w]; });
+  assert.ok(boxes.length >= 2, 'fixture: crowding leaves at least two labels to compare');
+  for(let i = 1; i < boxes.length; i++)
+    assert.ok(boxes[i][0] >= boxes[i - 1][1], `label ${i} (${boxes[i]}) overlaps label ${i - 1} (${boxes[i - 1]})`);
+});
+
 test('renderDay: narrow mode thins the hour axis and shortens the strip caption', () => {
   const p = {...DAY_DEFAULTS, fleetGW: 6};
   const svg = renderDay(runDay(p), p, ctxAt(360));
