@@ -233,6 +233,60 @@ check('no page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- wardley: name edit, stage cycle, drag writes text, vertical no-op ---- */
+{
+  const wpage = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const werrors = [];
+  wpage.on('pageerror', e => werrors.push(e.message));
+  await wpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
+  await wpage.waitForTimeout(500);
+
+  // name edit commits to the editor text and every edge mention
+  await wpage.locator('text[data-edit="name"]', {hasText: 'User DB'}).first().click();
+  await wpage.waitForTimeout(200);
+  check('wardley: name editor opens prefilled', await wpage.locator('.eip-input').inputValue() === 'User DB');
+  await wpage.locator('.eip-input').fill('Postgres');
+  await wpage.keyboard.press('Enter');
+  await wpage.waitForTimeout(500);
+  const wsrc = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: rename hits declaration + edges', wsrc.includes('Postgres @ commodity') && wsrc.includes('-> Postgres') && !wsrc.includes('User DB'));
+
+  // stage cycle: click the pill rect steps custom -> product
+  // the text element covers the pill centre (that's the name target) — cycle stage from the capsule's edge
+  await wpage.locator('rect[data-edit="stage"][data-raw="custom"]').first().click({position: {x: 8, y: 13}});
+  await wpage.waitForTimeout(400);
+  const wsrc2 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: stage cycle writes the next stage word', wsrc2.includes('Streak engine @ product'));
+
+  // real mouse drag writes a numeric position; Cmd+Z restores it
+  const pill = wpage.locator('#preview svg g[data-drag="evo"]', {hasText: 'Habit builder'}).first();
+  const box = await pill.boundingBox();
+  await wpage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await wpage.mouse.down();
+  await wpage.mouse.move(box.x + box.width / 2 - 180, box.y + box.height / 2, {steps: 8});
+  await wpage.mouse.up();
+  await wpage.waitForTimeout(500);
+  const wsrc3 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: drag writes @ 0.NN', /Habit builder @ 0\.\d+/.test(wsrc3));
+  await wpage.keyboard.press('Meta+z');
+  await wpage.waitForTimeout(400);
+  const wsrc4 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: Cmd+Z undoes the drag', wsrc4.includes('Habit builder @ product'));
+
+  // vertical drag leaves the text untouched
+  const pill2 = wpage.locator('#preview svg g[data-drag="evo"]', {hasText: 'Streak engine'}).first();
+  const box2 = await pill2.boundingBox();
+  await wpage.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+  await wpage.mouse.down();
+  await wpage.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2 + 140, {steps: 6});
+  await wpage.mouse.up();
+  await wpage.waitForTimeout(400);
+  const wsrc5 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: vertical drag is a no-op on the text', wsrc5 === wsrc4);
+  check('wardley: no page errors', werrors.length === 0);
+  await wpage.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

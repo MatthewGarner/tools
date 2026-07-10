@@ -51,6 +51,7 @@ async function installAndWait(page){
     ['/gauge/', async p => { await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await p.waitForTimeout(600); return await p.locator('#verdictwrap svg').count() === 1; }],
     ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    ['/wardley/', async p => { await p.getByRole('button', {name: 'Habitat platform'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
   ];
   for(const [path, probe] of TOOLS){
     const p = await ctx.newPage();
