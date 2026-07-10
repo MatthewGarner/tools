@@ -29,8 +29,8 @@ export function parse(text){
   };
 
   for(let ln = 0; ln < lines.length; ln++){
-    const line = lines[ln].trim();
-    if(!line || line.startsWith('//')) continue;
+    const line = lines[ln].split('//')[0].trim();   // trailing comments are comments too
+    if(!line) continue;
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
     const config = line.match(/^(title|palette|accent|anchor)\s*:\s*(.*)$/i);

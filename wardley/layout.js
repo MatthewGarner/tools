@@ -2,7 +2,8 @@
    deterministic collision spread within a row. No DOM. */
 
 const MIN_GAP = 120;    // px between pill centres in one row before nudging
-const NUDGE = 16;       // px vertical step per collision
+const NUDGE = 32;       // px vertical step per collision (clears a 26px pill)
+const AXIS_CLEAR = 44;  // the bottom row must not sit on the stage-axis labels
 
 export function layoutMap(model, geom = {w: 1200, h: 720, pad: 56}){
   const {w, h, pad} = geom;
@@ -54,7 +55,8 @@ export function layoutMap(model, geom = {w: 1200, h: 720, pad: 56}){
   const orphanRow = orphanKeys.length ? maxDepth + 1 : null;
   for(const k of orphanKeys) depth.set(k, orphanRow);
   const totalRows = orphanRow ?? maxDepth;
-  const rowY = r => pad + (totalRows === 0 ? 0 : r * ((h - 2 * pad) / totalRows));
+  const rowY = r => pad + 20 + (totalRows === 0 ? 0
+    : r * ((h - 2 * pad - 20 - AXIS_CLEAR) / totalRows));
 
   /* --- nodes with pixel positions --- */
   const nodes = new Map();

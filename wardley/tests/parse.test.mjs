@@ -115,3 +115,10 @@ test('palette and accent validate like the house DSLs', () => {
 test('STAGES exports the four bands', () => {
   assert.deepEqual(STAGES.map(s => s.name), ['genesis', 'custom', 'product', 'commodity']);
 });
+
+test('trailing // comments are stripped from content lines', () => {
+  const m = parse('anchor: A\nAnalytics pipeline    // drag me\nA -> Analytics pipeline');
+  assert.ok(m.components.has('analytics pipeline'));
+  assert.equal(m.components.size, 1);              // no bogus second ghost
+  assert.equal(m.components.get('analytics pipeline').name, 'Analytics pipeline');
+});

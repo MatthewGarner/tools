@@ -78,6 +78,23 @@ function compareParts(model, layout, compare, c){
   return {parts, headline, added};
 }
 
+export function toMarkdown(model, layout, href){
+  const out = ['# ' + (model.title || 'Wardley map'), ''];
+  for(const s of STAGES){
+    const names = layout.nodes
+      .filter(n => !n.anchor && !n.ghost && n.x !== null && stageOf(n.x).name === s.name)
+      .sort((a, b) => a.y - b.y || a.px - b.px)
+      .map(n => n.name);
+    if(names.length) out.push('- **' + s.name + '**: ' + names.join(' · '));
+  }
+  const ghosts = layout.nodes.filter(n => n.ghost).map(n => n.name);
+  if(ghosts.length) out.push('- unplaced: ' + ghosts.join(' · '));
+  out.push('', model.edges.length + ' dependencies · anchor' +
+    (model.anchors.length === 1 ? '' : 's') + ': ' + model.anchors.map(a => a.name).join(', '));
+  out.push('', '[live map](' + href + ')');
+  return out.join('\n') + '\n';
+}
+
 export function renderMap(model, layout, ctx, opts = {}){
   const c = ctx.colors, measure = ctx.measure;
   const {w, h, pad} = GEOM;

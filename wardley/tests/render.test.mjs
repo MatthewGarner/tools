@@ -100,3 +100,13 @@ test('compare: tiny drift under epsilon is not a move', () => {
   assert.ok(!s.includes('drift-arrow'));
   assert.ok(s.includes('Since x: no changes'));
 });
+
+test('markdown groups by stage, lists ghosts, carries the live link', async () => {
+  const {toMarkdown} = await import('../render.js');
+  const m = parse(SRC);
+  const md = toMarkdown(m, layoutMap(m), 'https://example.com/#z');
+  assert.match(md, /\*\*custom\*\*: Streak engine/);
+  assert.match(md, /unplaced: Push gateway/);
+  assert.match(md, /example\.com/);
+  assert.match(md, /3 dependencies/);
+});

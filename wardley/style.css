@@ -1,0 +1,9 @@
+/* /wardley tool-specifics: drag affordances only — everything else is shared. */
+
+#preview svg g[data-drag]{ cursor: grab; }
+#preview svg g[data-drag].dragging{ cursor: grabbing; }
+#preview svg g[data-drag].dragging rect{ filter: brightness(1.08); }
+
+@media (prefers-reduced-motion: no-preference){
+  #preview svg g[data-drag]{ transition: opacity 120ms; }
+}
