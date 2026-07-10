@@ -9,7 +9,7 @@ import {Script} from 'node:vm';
 import {toOriginUrl} from './origins.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const KEEP = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'assets'];
+const KEEP = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley', 'assets'];
 
 function walk(dir, out = []){
   for(const f of readdirSync(join(ROOT, dir)).sort()){

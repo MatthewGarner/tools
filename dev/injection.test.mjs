@@ -146,3 +146,19 @@ test('intraday renderer stays clean (hostile catalogue labels reach changeovers 
     {forExport: true});
   assertClean(svg, 'intraday');
 });
+
+test('wardley renderer escapes hostile component/anchor names, incl. in compare', async () => {
+  const {parse} = await import('../wardley/parse.js');
+  const {layoutMap} = await import('../wardley/layout.js');
+  const {renderMap} = await import('../wardley/render.js');
+  const arrowless = s => s.replace(/-/g, ';');          // '->' would split as an edge
+  const doc = 'title: ' + EVIL[0] + '\nanchor: ' + arrowless(EVIL[1]) + '\n' +
+    EVIL.map((e, i) => arrowless(label(i)) + ' @ 0.' + (i + 2)).join('\n') + '\n' +
+    arrowless(EVIL[1]) + ' -> ' + arrowless(label(0));
+  const m = parse(doc);
+  const wctx = {...ctx, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
+  assertClean(renderMap(m, layoutMap(m), wctx), 'wardley');
+  const prev = parse('anchor: ' + arrowless(EVIL[1]) + '\n' + arrowless(label(0)) + ' @ 0.9\n' +
+    arrowless(label(5)) + ' @ 0.5');
+  assertClean(renderMap(m, layoutMap(m), wctx, {compare: {prev, label: EVIL[4]}}), 'wardley-compare');
+});

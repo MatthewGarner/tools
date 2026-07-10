@@ -9,9 +9,18 @@ import {spawn} from 'node:child_process';
 const BASE = process.env.BASE || 'http://localhost:8087';
 const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
                                               // avoid a port another session already holds
-const esrv = spawn('node', ['../serve.mjs', String(EPORT), '--origin=energy'], {stdio: 'pipe'});
-await new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); }));
 const EBASE = 'http://localhost:' + EPORT;
+/* reuse an energy origin that's already up (e.g. mobile.mjs's session server) — a
+   silent bind failure here used to hang the unsettled await with 0 PASS */
+let esrv = null;
+const alive = await fetch(EBASE + '/').then(r => r.ok).catch(() => false);
+if(!alive){
+  esrv = spawn('node', ['../serve.mjs', String(EPORT), '--origin=energy'], {stdio: 'pipe'});
+  await Promise.race([
+    new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); })),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(':' + EPORT + ' failed to start — port taken?')), 8000)),
+  ]);
+}
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -53,6 +62,7 @@ async function installAndWait(page){
     ['/gauge/', async p => { await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await p.waitForTimeout(600); return await p.locator('#verdictwrap svg').count() === 1; }],
     ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    ['/wardley/', async p => { await p.getByRole('button', {name: 'Habitat platform'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
   ];
   for(const [path, probe] of TOOLS){
     const p = await ctx.newPage();
@@ -152,6 +162,6 @@ async function installAndWait(page){
 }
 
 console.log(results.join('\n'));
-esrv.kill();
+esrv && esrv.kill();
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
