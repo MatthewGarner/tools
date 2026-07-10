@@ -41,18 +41,23 @@ export function renderDay(result, p, ctx, opts = {}){
   const {raw, flat, sched} = result;
   const hasFleet = p.fleetGW > 0 && result.dischargedGWh > 0;
 
-  const M = {l: 54, r: 16, t: 18, b: 65};              // bottom band holds the bar strip
-                                                        // (+1px over the strip caption's descenders — reviewer-measured 1.2px shave)
+  const M = {l: 54, r: 16, t: 18, b: 81};              // bottom band holds the taller bar strip
+                                                        // (28 gap + 40 strip + 11 caption + 2px descender buffer)
   const plotW = width - M.l - M.r, plotH = height - M.t - M.b;
-  const maxP = Math.max(...raw.prices, ...flat.prices, 10);
+  const dataMaxP = Math.max(...raw.prices, ...flat.prices, 10);
   const minP = Math.min(0, ...raw.prices, ...flat.prices);
+  const step = dataMaxP > 150 ? 50 : 25;
+  // headroom: pad the domain up to the next gridline so a LABELLED line always
+  // sits at/above the data max (design finding: an unpadded domain let the true
+  // peak — e.g. £92 — float above the topmost £75 label with no reference line)
+  const maxP = Math.ceil(dataMaxP / step) * step;
   const x = h => M.l + (h / 23) * plotW;
   const y = v => M.t + plotH - ((v - minP) / (maxP - minP)) * plotH;
 
   // export verdict: wrapped to the plot width, its own band below the strip
   // caption (or the x labels when no strip) — the canvas grows to hold it
   const vLines = opts.forExport ? wrapText(buildDayVerdict(result, p), '12px ' + FONT, plotW, measure) : [];
-  const bandBottom = M.t + plotH + (hasFleet ? 63 : 16);   // strip-caption / x-label baseline
+  const bandBottom = M.t + plotH + (hasFleet ? 79 : 16);   // strip-caption / x-label baseline
   const vy0 = bandBottom + 24, vLineH = 18;
   const H = opts.forExport ? Math.max(height, Math.round(vy0 + (vLines.length - 1) * vLineH + 12)) : height;
 
@@ -65,8 +70,8 @@ export function renderDay(result, p, ctx, opts = {}){
   const parts = [`<svg width="${width}" height="${H}" viewBox='0 0 ${width} ${H}' xmlns='http://www.w3.org/2000/svg' font-family='${FONT}' data-tool='intraday'>`];
   if(opts.forExport) parts.push(`<rect x='0' y='0' width='${width}' height='${H}' fill='${colors.card}'/>`);
 
-  // y grid + labels
-  const step = maxP > 150 ? 50 : 25;
+  // y grid + labels (maxP is already padded to a step multiple, so the loop's
+  // last iteration always lands a labelled line at/above the data peak)
   for(let v = Math.ceil(minP / step) * step; v <= maxP; v += step){
     parts.push(`<line x1='${M.l}' y1='${r1(y(v))}' x2='${width - M.r}' y2='${r1(y(v))}' stroke='${colors.grid}' stroke-width='1'/>`);
     parts.push(txt(M.l - 8, y(v) + 4, `£${v}`, 11, colors.muted, {anchor: 'end'}));
@@ -100,23 +105,32 @@ export function renderDay(result, p, ctx, opts = {}){
   }
 
   // storage strip: charge below the strip midline, discharge above; abandoned
-  // (back-off-dropped) volumes as dashed unfilled ghosts behind the kept bars
+  // (back-off-dropped) volumes as dashed unfilled ghosts stacked directly on
+  // top of the kept bars. Strip is 40px tall (was 24 — at a big fleet the
+  // surviving trade was 2-3px specks against the PLANNED-fleet maxima, an
+  // inverted salience of the toy's own lesson) and every non-zero bar gets a
+  // MIN_BAR_H floor so a real-but-tiny kept/dropped volume never disappears.
+  // Ghosts anchor off the (possibly floored) kept height, not the raw scaled
+  // value, so kept+ghost always stack flush with no gap or overlap.
   if(hasFleet){
-    const stripY = M.t + plotH + 28, stripH = 24, mid = stripY + stripH / 2;
+    const stripY = M.t + plotH + 28, stripH = 40, mid = stripY + stripH / 2;
     const barW = plotW / 24 * 0.7;
+    const MIN_BAR_H = 2;
     const planSched = result.planSched;
     const barScale = (stripH / 2) / Math.max(...planSched.charge, ...planSched.discharge, 0.1);
+    const barH = v => v > 0.01 ? Math.max(MIN_BAR_H, v * barScale) : 0;
     for(let h = 0; h < 24; h++){
       const dDis = planSched.discharge[h] - sched.discharge[h];
       const dChg = planSched.charge[h] - sched.charge[h];
+      const keptDisH = barH(sched.discharge[h]), keptChgH = barH(sched.charge[h]);
       if(dDis > 0.01)
-        parts.push(`<rect data-dropped='' x='${r1(x(h) - barW / 2)}' y='${r1(mid - planSched.discharge[h] * barScale)}' width='${r1(barW)}' height='${r1(dDis * barScale)}' fill='none' stroke='${storageHue}' stroke-width='1' stroke-dasharray='3 2' opacity='0.55'/>`);
+        parts.push(`<rect data-dropped='' x='${r1(x(h) - barW / 2)}' y='${r1(mid - keptDisH - barH(dDis))}' width='${r1(barW)}' height='${r1(barH(dDis))}' fill='none' stroke='${storageHue}' stroke-width='1' stroke-dasharray='3 2' opacity='0.55'/>`);
       if(dChg > 0.01)
-        parts.push(`<rect data-dropped='' x='${r1(x(h) - barW / 2)}' y='${r1(mid + sched.charge[h] * barScale)}' width='${r1(barW)}' height='${r1(dChg * barScale)}' fill='none' stroke='${storageHue}' stroke-width='1' stroke-dasharray='3 2' opacity='0.55'/>`);
-      if(sched.discharge[h] > 0)
-        parts.push(`<rect data-discharge='' x='${r1(x(h) - barW / 2)}' y='${r1(mid - sched.discharge[h] * barScale)}' width='${r1(barW)}' height='${r1(sched.discharge[h] * barScale)}' fill='${storageHue}'/>`);
-      if(sched.charge[h] > 0)
-        parts.push(`<rect data-charge='' x='${r1(x(h) - barW / 2)}' y='${r1(mid)}' width='${r1(barW)}' height='${r1(sched.charge[h] * barScale)}' fill='${storageHue}' opacity='0.45'/>`);
+        parts.push(`<rect data-dropped='' x='${r1(x(h) - barW / 2)}' y='${r1(mid + keptChgH)}' width='${r1(barW)}' height='${r1(barH(dChg))}' fill='none' stroke='${storageHue}' stroke-width='1' stroke-dasharray='3 2' opacity='0.55'/>`);
+      if(keptDisH > 0)
+        parts.push(`<rect data-discharge='' x='${r1(x(h) - barW / 2)}' y='${r1(mid - keptDisH)}' width='${r1(barW)}' height='${r1(keptDisH)}' fill='${storageHue}'/>`);
+      if(keptChgH > 0)
+        parts.push(`<rect data-charge='' x='${r1(x(h) - barW / 2)}' y='${r1(mid)}' width='${r1(barW)}' height='${r1(keptChgH)}' fill='${storageHue}' opacity='0.45'/>`);
     }
     parts.push(txt(M.l, stripY + stripH + 11,
       isNarrow ? 'dashed = abandoned' : 'discharge ↑ / charge ↓ · dashed = planned then abandoned',

@@ -156,6 +156,71 @@ test('renderDay: narrow mode never overlaps an end-anchored label with its neigh
     assert.ok(boxes[i][0] >= boxes[i - 1][1], `label ${i} (${boxes[i]}) overlaps label ${i - 1} (${boxes[i - 1]})`);
 });
 
+/* ---- design fixes: strip salience floor + y-axis headroom (E82 task 7 review) ---- */
+
+test('renderDay: storage strip enforces a minimum visible height on any non-zero bar', () => {
+  // fixture: the "Big fleet" preset. Hour 0's kept charge is 0.588 GWh — at the
+  // strip's own barScale that's a 1.18px raw sliver (a "speck" against the
+  // 40px strip), so the render must float it up to the 2px floor.
+  const p = {...DAY_DEFAULTS, fleetGW: 10, fleetH: 2};
+  const r = runDay(p);
+  assert.ok(r.sched.charge[0] > 0 && r.sched.charge[0] < 1, 'fixture: hour 0 charge is small but non-zero');
+  const stripH = 40;
+  const barScale = (stripH / 2) / Math.max(...r.planSched.charge, ...r.planSched.discharge, 0.1);
+  const rawPx = r.sched.charge[0] * barScale;
+  assert.ok(rawPx < 2, `fixture must genuinely exercise the floor (raw ${rawPx}px < 2px)`);
+
+  const svg = renderDay(r, p, ctx);
+  const heights = [...svg.matchAll(/<rect data-(?:charge|discharge)=''[^>]*height='([\d.]+)'/g)].map(m => +m[1]);
+  assert.ok(heights.length > 0, 'fixture: some kept storage bars render');
+  for(const h of heights) assert.ok(h >= 1.9, `every kept bar meets the ~2px floor (got ${h})`);
+});
+
+test('renderDay: dropped-trade ghosts stack flush on top of the (possibly floored) kept bar', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const svg = renderDay(r, p, ctx);
+  // every kept rect's y + height must equal (within rounding) some dropped rect's y,
+  // OR the kept rect sits flush against the strip midline — either way, no gap/overlap
+  const rects = tag => [...svg.matchAll(new RegExp(`<rect data-${tag}=''[^>]*x='([\\d.]+)'[^>]*y='([\\d.]+)'[^>]*width='([\\d.]+)'[^>]*height='([\\d.]+)'`, 'g'))]
+    .map(m => ({x: +m[1], y: +m[2], w: +m[3], h: +m[4]}));
+  const kept = [...rects('discharge'), ...rects('charge')];
+  const dropped = rects('dropped');
+  assert.ok(kept.length > 0 && dropped.length > 0, 'fixture: both kept and dropped bars present');
+  for(const g of dropped){
+    // find a kept bar sharing this ghost's x column (same hour)
+    const partner = kept.find(k => Math.abs(k.x - g.x) < 0.5);
+    if(!partner) continue;   // ghost with no kept bar this hour (fully dropped) — nothing to check flush against
+    const touchesTop = Math.abs((g.y + g.h) - partner.y) < 0.2;
+    const touchesBottom = Math.abs(g.y - (partner.y + partner.h)) < 0.2;
+    assert.ok(touchesTop || touchesBottom, `ghost (y=${g.y},h=${g.h}) stacks flush against its kept bar (y=${partner.y},h=${partner.h})`);
+  }
+});
+
+test('renderDay: a labelled gridline sits at or above the data peak (y-axis headroom)', () => {
+  // fixture: the "Big fleet" preset peaks around £92 — an unpadded 25-wide step
+  // grid would stop labelling at £75 and leave the true peak floating with no
+  // reference line above it.
+  const p = {...DAY_DEFAULTS, fleetGW: 10, fleetH: 2};
+  const r = runDay(p);
+  const dataMax = Math.max(...r.raw.prices, ...r.flat.prices);
+  assert.ok(dataMax > 75, 'fixture: the peak clears the old fixed £75 top label');
+  const svg = renderDay(r, p, ctx);
+  const gridLabels = [...svg.matchAll(/>£(-?\d+)</g)].map(m => +m[1]);
+  assert.ok(gridLabels.length > 0, 'fixture: grid labels render');
+  assert.ok(Math.max(...gridLabels) >= dataMax, `top grid label (£${Math.max(...gridLabels)}) sits at/above the data peak (£${dataMax.toFixed(1)})`);
+});
+
+test('renderDay: an exact-multiple data max still gets a flush top label (no double-counted gridline)', () => {
+  const r = runDay(DAY_DEFAULTS);
+  const dataMax = Math.max(...r.raw.prices, ...r.flat.prices, 10);
+  const step = dataMax > 150 ? 50 : 25;
+  const padded = Math.ceil(dataMax / step) * step;
+  const svg = renderDay(r, DAY_DEFAULTS, ctx);
+  const gridLabels = [...svg.matchAll(/>£(-?\d+)</g)].map(m => +m[1]);
+  assert.equal(Math.max(...gridLabels), padded, 'top label is exactly the padded step, not one step further');
+});
+
 test('renderDay: narrow mode thins the hour axis and shortens the strip caption', () => {
   const p = {...DAY_DEFAULTS, fleetGW: 6};
   const svg = renderDay(runDay(p), p, ctxAt(360));

@@ -10,6 +10,7 @@ const AUTOLOAD = [
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
   ['timeline', T + '/timeline/'], ['fermi', T + '/fermi/'], ['frequency', E + '/frequency/'],
+  ['intraday', E + '/intraday/'],
 ];
 
 let pass = 0, fail = 0;
@@ -62,6 +63,7 @@ const CONTAINERS = [
   ['risk', E + '/risk/', ['#preview']],
   ['merit-order', E + '/merit-order/', ['#chartwrap']],
   ['rank', T + '/rank/', ['.tblwrap']],
+  ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
 ];
 
 for(const [name, url, selectors] of CONTAINERS){

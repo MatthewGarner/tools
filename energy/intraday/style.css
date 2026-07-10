@@ -35,6 +35,19 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .controls output{font-variant-numeric:tabular-nums;color:var(--ink);min-width:2ch;text-align:right}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips .chip.on{border-color:var(--accent);color:var(--accent-ink)}
+/* #presets holds four scenario TOGGLES, not a "Try:" example carousel like
+   cycles/risk/frequency — override mobile.css's swipeable-nowrap treatment
+   (built for that carousel pattern) so every preset stays visible and tappable
+   instead of clipping ("Gas s…") behind an edge fade. #presets' id selector
+   out-specifies mobile.css's bare .chips class regardless of link order. */
+@media (max-width: 640px){
+  #presets{
+    flex-wrap: wrap;
+    overflow-x: visible;
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+}
 .dayrow{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
 .dayrow #scrub{flex:1;min-width:160px;min-height:44px}
 #clock{font-variant-numeric:tabular-nums;color:var(--muted);min-width:52px}
