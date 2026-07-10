@@ -132,9 +132,62 @@ test('renderDay: narrow mode drops crowded changeover labels but keeps every tic
   const wide = renderDay(r, p, ctxAt(900));
   const narrow = renderDay(r, p, ctxAt(360));
   assert.equal(tickCount(wide), r.flat.changeovers.length, 'wide: one tick per changeover');
-  assert.equal(labelCount(wide), r.flat.changeovers.length, 'wide: no crowding at full width');
+  assert.equal(labelCount(wide), r.flat.changeovers.length, 'wide: full width keeps every label (staggers, never drops)');
   assert.equal(tickCount(narrow), r.flat.changeovers.length, 'narrow: ticks are never dropped');
   assert.ok(labelCount(narrow) < r.flat.changeovers.length, 'narrow: crowded labels are dropped');
+});
+
+/* Regression: at stock GB defaults + a 6 GW fleet, the hour-7/hour-8 changeover
+   pair ("Imports" → "CCGT 60%") sit close enough that their measured extents
+   collide on one row at full width — production screenshot confirmed the two
+   phrases running together as "Imports CCGT 60%" (2026-07-10, intraday-desktop-
+   1440-light-fleet6.png). Unlike the narrow branch, full width has room to keep
+   both: the second label of a colliding pair drops to a second row (+12px)
+   instead of being dropped outright. */
+test('renderDay: full width staggers a colliding changeover pair onto two rows instead of dropping', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const collidingPair = r.flat.changeovers.findIndex((c, i) =>
+    i > 0 && c.to !== r.flat.changeovers[i - 1].to && (() => {
+      const prev = r.flat.changeovers[i - 1];
+      const wPrev = meas(prev.to, '10px x'), wCur = meas(c.to, '10px x');
+      const xAt = h => 54 + (h / 23) * (900 - 54 - 16);
+      return xAt(c.h) + 3 - (xAt(prev.h) + 3 + wPrev) < 6;   // measured gap under the 6px clearance
+    })());
+  assert.ok(collidingPair > 0, 'fixture: stock defaults + 6 GW fleet produce a colliding pair at width 900');
+
+  const svg = renderDay(r, p, ctxAt(900));
+  const ys = [...svg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*fill="#C05621">([^<]*)<\/text>/g)]
+    .map(m => ({y: +m[1], text: m[2]}));
+  const prevY = ys.find(t => t.text === r.flat.changeovers[collidingPair - 1].to)?.y;
+  const curY = ys.find(t => t.text === r.flat.changeovers[collidingPair].to)?.y;
+  assert.ok(prevY != null && curY != null, 'both colliding labels are present (never dropped at full width)');
+  assert.notEqual(curY, prevY, `colliding pair lands on two distinct rows (prev y=${prevY}, cur y=${curY})`);
+  assert.equal(curY, prevY + 12, 'the later label of a colliding pair drops exactly one row (+12px)');
+});
+
+/* Bounds-scan, non-narrow: extends the narrow same-row overlap check (below)
+   to full width — two labels sharing the SAME row (identical y) must never
+   overlap; labels on different rows are allowed to overlap in x since the
+   12px row offset keeps them visually separate. */
+test('renderDay: full width never overlaps two labels sharing the same row', () => {
+  for(const width of [900, 1440]) for(const p of [
+    {...DAY_DEFAULTS, fleetGW: 6},
+    {...DAY_DEFAULTS, fleetGW: 10, fleetH: 2},   // "Big fleet" preset
+  ]){
+    const r = runDay(p);
+    const svg = renderDay(r, p, ctxAt(width));
+    const boxes = [...svg.matchAll(/<text x="([\d.]+)" y="([\d.]+)" font-size="10"( text-anchor="end")?[^>]*fill="#C05621">([^<]*)<\/text>/g)]
+      .map(m => { const w = meas(m[4], '10px x'); const x = +m[1]; const y = +m[2];
+        return m[3] ? {y, l: x - w, r: x} : {y, l: x, r: x + w}; });
+    const byRow = new Map();
+    for(const b of boxes){ if(!byRow.has(b.y)) byRow.set(b.y, []); byRow.get(b.y).push(b); }
+    for(const [y, row] of byRow){
+      row.sort((a, b) => a.l - b.l);
+      for(let i = 1; i < row.length; i++)
+        assert.ok(row[i].l >= row[i - 1].r, `w=${width} row y=${y}: label ${i} (${JSON.stringify(row[i])}) overlaps ${JSON.stringify(row[i - 1])}`);
+    }
+  }
 });
 
 /* Regression: a first cut at this suppression compared raw tick x-positions

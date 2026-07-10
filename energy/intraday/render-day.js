@@ -91,17 +91,32 @@ export function renderDay(result, p, ctx, opts = {}){
   // and drop it if that box would land within ~6px of the last one actually
   // drawn — the tick line always stays (it's the honest signal); sibling
   // renderers thin crowded labels the same way (e.g. merit-order's thin-run drop).
+  // At non-narrow widths there's headroom to keep every label: a colliding label
+  // drops to a second row (+12px) instead of being dropped — two independent
+  // "last extent drawn" trackers, one per row, so a later label only staggers
+  // down when it would truly overlap that row's own last occupant, and returns
+  // to row one as soon as the top row is clear again (production screenshot,
+  // 2026-07-10: stock defaults + 6 GW fleet ran "Imports"/"CCGT 60%" together).
   let lastLabelR = -Infinity;
+  const rowR = [-Infinity, -Infinity];
   for(const c of flat.changeovers){
     const cx = x(c.h);
     parts.push(`<line x1='${r1(cx)}' y1='${M.t}' x2='${r1(cx)}' y2='${M.t + plotH}' stroke='${colors.accent}' stroke-width='1' opacity='0.35'/>`);
     const w = measure(c.to, '10px ' + FONT);
     const overflows = cx + 3 + w > width - 2;
     const labelL = overflows ? cx - 3 - w : cx + 3;
-    if(isNarrow && labelL < lastLabelR + 6) continue;
-    if(overflows) parts.push(txt(cx - 3, M.t + 10, c.to, 10, colors.accent, {anchor: 'end'}));
-    else parts.push(txt(cx + 3, M.t + 10, c.to, 10, colors.accent));
-    lastLabelR = labelL + w;
+    if(isNarrow){
+      if(labelL < lastLabelR + 6) continue;
+      lastLabelR = labelL + w;
+      if(overflows) parts.push(txt(cx - 3, M.t + 10, c.to, 10, colors.accent, {anchor: 'end'}));
+      else parts.push(txt(cx + 3, M.t + 10, c.to, 10, colors.accent));
+      continue;
+    }
+    const row = labelL >= rowR[0] + 6 ? 0 : 1;
+    rowR[row] = labelL + w;
+    const ly = M.t + 10 + row * 12;
+    if(overflows) parts.push(txt(cx - 3, ly, c.to, 10, colors.accent, {anchor: 'end'}));
+    else parts.push(txt(cx + 3, ly, c.to, 10, colors.accent));
   }
 
   // storage strip: charge below the strip midline, discharge above; abandoned
