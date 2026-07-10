@@ -135,6 +135,29 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/energy/intraday/', theme);
+  check('intraday(' + theme + '): stack renders', await page.locator('#stackwrap svg').count() === 1);
+  check('intraday(' + theme + '): price shape renders', await page.locator('#pricewrap svg').count() === 1);
+  const v0 = await page.locator('#verdict').innerText();
+  check('intraday(' + theme + '): verdict quotes the spread', /spread/i.test(v0) && /£\d+/.test(v0));
+  await page.locator('#fleetGW').fill('6');
+  await page.locator('#fleetGW').dispatchEvent('input');
+  await page.waitForTimeout(150);
+  const v6 = await page.locator('#verdict').innerText();
+  // verdict may append " — walking away from N GWh of trades..." after the flattened
+  // figure; the raw→flat pair always appears before that clause, so the substring
+  // match tolerates it without anchoring the end of the string.
+  check('intraday(' + theme + '): fleet flattens (raw → flat quoted)', /£\d+ → £\d+/.test(v6));
+  check('intraday(' + theme + '): ghost raw shape appears', await page.locator('[data-raw-shape]').count() === 1);
+  await page.locator('#scrub').fill('3');
+  await page.locator('#scrub').dispatchEvent('input');
+  check('intraday(' + theme + '): scrub moves the cursor', await page.locator("[data-cursor='3']").count() === 1);
+  check('intraday(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#pricewrap svg'));
+  check('intraday(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
 /* ---- every tool links home ---- */
 {
   const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline'];

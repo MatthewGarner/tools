@@ -247,6 +247,19 @@ for(const [k, src] of Object.entries(docs)){
   variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, {forExport: true});
 }
 
+/* /intraday fixtures (deterministic by construction) */
+{
+  const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
+  const {renderDay} = await import('../energy/intraday/render-day.js');
+  const {MERIT_PALETTE} = await import('../energy/merit-order/render.js');
+  const ictx = {width: 900, height: 420, palette: MERIT_PALETTE.light,
+    colors: {ink: '#1b2733', muted: '#66727e', accent: '#C05621', grid: '#e3e7ea', card: '#ffffff'}};
+  const pFleet = {...DAY_DEFAULTS, fleetGW: 6};
+  variants['intraday-raw'] = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ictx, {forExport: true});
+  variants['intraday-fleet'] = renderDay(runDay(pFleet), pFleet, ictx, {forExport: true});
+  variants['intraday-fleet-narrow'] = renderDay(runDay(pFleet), pFleet, {...ictx, width: 360}, {forExport: true});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

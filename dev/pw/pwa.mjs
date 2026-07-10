@@ -7,9 +7,11 @@ import {chromium, devices} from 'playwright';
 import {spawn} from 'node:child_process';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
-const esrv = spawn('node', ['../serve.mjs', '8089', '--origin=energy'], {stdio: 'pipe'});
+const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
+                                              // avoid a port another session already holds
+const esrv = spawn('node', ['../serve.mjs', String(EPORT), '--origin=energy'], {stdio: 'pipe'});
 await new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); }));
-const EBASE = 'http://localhost:8089';
+const EBASE = 'http://localhost:' + EPORT;
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -92,7 +94,7 @@ async function installAndWait(page){
   await page.waitForFunction(async () =>
     !!(await caches.match('/risk/app.js')) && !!(await caches.match('/cycles/app.js')) &&
     !!(await caches.match('/frequency/app.js')) && !!(await caches.match('/merit-order/app.js')) &&
-    !!(await caches.match('/assets/series.js')),
+    !!(await caches.match('/intraday/app.js')) && !!(await caches.match('/assets/series.js')),
     null, {timeout: 20000});
   check('energy SW active + precached', true);
   await ctx.setOffline(true);
@@ -136,6 +138,16 @@ async function installAndWait(page){
   }catch(e){ ok4 = false; }
   check('energy: /merit-order/ cold offline fully works', ok4);
   await p5.close();
+  const p6 = await ctx.newPage();
+  let ok5 = false;
+  try{
+    await p6.goto(EBASE + '/intraday/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await p6.waitForTimeout(800);   // no example button to click — the page boots alive
+    ok5 = await p6.locator('#pricewrap svg').count() === 1 && await p6.locator('#stackwrap svg').count() === 1 &&
+      (await p6.locator('#verdict').innerText()).trim().length > 0;
+  }catch(e){ ok5 = false; }
+  check('energy: /intraday/ cold offline fully works', ok5);
+  await p6.close();
   await ctx.close();
 }
 

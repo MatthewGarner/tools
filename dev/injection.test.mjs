@@ -130,3 +130,19 @@ test('merit-order renderer stays clean (hostile catalogue labels/family reach da
   const state = {generators: buildStack(DEFAULT_PARAMS, evilCat), demand: 12};
   assertClean(renderStack(state, {...ctx, palette: MERIT_PALETTE.light}), 'merit-order');
 });
+
+test('intraday renderer stays clean (hostile catalogue labels reach changeovers + verdict)', async () => {
+  const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
+  const {renderDay} = await import('../energy/intraday/render-day.js');
+  const {MERIT_PALETTE} = await import('../energy/merit-order/render.js');
+  const hostileCat = [
+    {key: 'a', label: EVIL[0], family: 'other', installed: 30, bid: {kind: 'fixed', cost: 5}},
+    {key: 'b', label: '<img src=x onerror=alert(1)>', family: 'thermal', installed: 40, bid: {kind: 'fixed', cost: 90}},
+  ];
+  const p = {...DAY_DEFAULTS, fleetGW: 4};
+  const svg = renderDay(runDay(p, hostileCat), p,
+    {width: 900, height: 420, palette: MERIT_PALETTE.light,
+     colors: {ink: '#000000', muted: '#666666', accent: '#C05621', grid: '#eeeeee', card: '#ffffff'}},
+    {forExport: true});
+  assertClean(svg, 'intraday');
+});
