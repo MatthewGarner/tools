@@ -26,9 +26,11 @@ async function shot(path, theme, phone){
   const page = await ctx.newPage();
   await page.goto(BASE + path, {waitUntil: 'networkidle'}).catch(() => {});
   await page.waitForTimeout(900);
-  /* prefer the rendered artefact; fall back to the full page */
+  /* desktop compares the rendered artefact; PHONE always captures the full
+     page — page chrome (scaffold, actions row, about band) must face review
+     too, or an unstyled page hides behind a pretty SVG (the wardley lesson) */
   const el = page.locator('#preview svg, .stage svg, #chartwrap svg, main svg').first();
-  const buf = (await el.count())
+  const buf = (!phone && await el.count())
     ? await el.screenshot().catch(() => page.screenshot({fullPage: true}))
     : await page.screenshot({fullPage: true});
   await ctx.close();
