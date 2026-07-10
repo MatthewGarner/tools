@@ -108,13 +108,8 @@ test('runDay: storage only ever flattens, and the desk never trades underwater',
 });
 
 test('runDay: back-off bites at scale — trades dropped, ghosts available', () => {
-  // 4 GW, not the amendment's suggested 6: at 6 GW the whole plan piles onto the
-  // same 2-3 hours (each capped at fleetGW), so every pair shares an identical
-  // post-flatten clearing price and the back-off drops them all together —
-  // dischargedGWh hits exactly 0 for every fleetGW ≥ 4.5 (verified by sweep).
-  // 4 GW is the largest size where the cut is genuinely partial.
-  const r = runDay({...DAY_DEFAULTS, fleetGW: 4});
-  assert.ok(r.droppedGWh > 0, '4 GW cannot all fit through the thin cheap night');
+  const r = runDay({...DAY_DEFAULTS, fleetGW: 6});
+  assert.ok(r.droppedGWh > 0, '6 GW cannot all fit through the thin cheap night');
   assert.ok(r.dischargedGWh > 0, 'but some trade survives');
   const planDis = r.planSched.discharge.reduce((a, b) => a + b, 0);
   assert.ok(Math.abs(planDis - r.dischargedGWh - r.droppedGWh) < 1e-9, 'plan = kept + dropped');

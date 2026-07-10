@@ -119,17 +119,23 @@ export function scheduleFromPairs(pairs, rte){
   return {charge, discharge, soc: socTrace(charge, discharge, rte)};
 }
 
-/* The whole toy in one call: raw day → greedy schedule on raw prices → one
-   re-clear → ONE back-off pass → a final re-clear. The naive plan can go
-   underwater once the fleet outgrows the cheap night it planned against (at
-   GB-honest defaults the trough is only ~1 GW deep); the desk's response is
-   to cut the losing trades, not iterate to a fixed point. So: re-clear once
-   with the raw-priced plan as net demand, drop any pair whose margin turns
-   negative on THOSE prices ("the desk cuts its losing trades"), rebuild the
-   schedule from the survivors, and re-clear once more. Dropping a pair only
-   improves the ones that remain (less charging lifts the trough back up,
-   less discharging restores the peak) — so achievedMargin ≥ 0 by
-   construction, not by iterating to convergence.
+/* The whole toy in one call: raw day → greedy schedule on raw prices →
+   iterative back-off — the desk trims its book one losing trade at a time
+   until every survivor pays; survivors only improve as the book shrinks.
+   The naive plan can go underwater once the fleet outgrows the cheap night
+   it planned against (at GB-honest defaults the trough is only ~1 GW deep).
+   Each round: re-clear with the surviving pairs as net demand, find the pair
+   with the WORST realised margin on those prices; if it pays (≥ 0), stop —
+   otherwise cut that one pair and repeat (a cut pair is never re-added; ties
+   break deterministically: lowest margin, then LARGEST q, then earliest c,
+   then earliest d — at equal per-unit margins the biggest block is the
+   biggest £ loser and the trade most responsible for sinking the book;
+   cutting small pairs first at a tie provably empties the whole book at
+   6 GW where a paying survivor exists). Cutting a pair only improves the
+   rest (less charging lifts the trough back up, less discharging restores
+   the peak), so the loop terminates with every surviving pair non-negative —
+   achievedMargin ≥ 0 holds PER-PAIR, not just in aggregate. Terminates in
+   ≤ |pairs| rounds of one clearDay each.
    Margins are £k/day (£/MWh × GWh); margin ÷ fleetGW reads as £/MW/day. */
 export function runDay(p, catalogue = GB_TODAY){
   const raw = rawDay(p, catalogue);
@@ -137,11 +143,23 @@ export function runDay(p, catalogue = GB_TODAY){
     demandAt(h, p) + sched.charge[h] - sched.discharge[h]);
 
   const plan = greedySchedule(raw.prices, p);
-  const onePass = clearDay(p, netOf(plan), catalogue);
-  const keep = plan.pairs.filter(({c, d}) =>
-    onePass.prices[d] - onePass.prices[c] / p.rte >= 0);
-  const sched = scheduleFromPairs(keep, p.rte);
-  const flat = clearDay(p, netOf(sched), catalogue);
+  const keep = plan.pairs.slice();
+  let sched = scheduleFromPairs(keep, p.rte);
+  let flat = clearDay(p, netOf(sched), catalogue);
+  while(keep.length > 0){
+    const marginOf = ({c, d}) => flat.prices[d] - flat.prices[c] / p.rte;
+    let worst = 0;
+    for(let i = 1; i < keep.length; i++){
+      const a = keep[i], b = keep[worst];
+      const ma = marginOf(a), mb = marginOf(b);
+      if(ma < mb || (ma === mb && (a.q > b.q ||
+        (a.q === b.q && (a.c < b.c || (a.c === b.c && a.d < b.d)))))) worst = i;
+    }
+    if(marginOf(keep[worst]) >= 0) break;
+    keep.splice(worst, 1);
+    sched = scheduleFromPairs(keep, p.rte);
+    flat = clearDay(p, netOf(sched), catalogue);
+  }
 
   const marginOn = (s, prices) =>
     s.discharge.reduce((sum, v, h) => sum + v * prices[h], 0) -
