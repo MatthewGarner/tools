@@ -398,6 +398,9 @@ export function renderMap(model, layout, ctx, opts = {}){
       if(n.anchor || n.x === null) continue;
       maxBottom = Math.max(maxBottom, n.y + PILL_H / 2);
     }
+    /* edit+compare co-occur (editing with a snapshot selected): compare ghost
+       pills sit at old positions, so the zone row must clear them too */
+    if(compareInfo) maxBottom = Math.max(maxBottom, compareInfo.maxY + PILL_H / 2);
     zoneY = maxBottom + 26;
     planeH = Math.max(planeH, zoneY + 38);
   }

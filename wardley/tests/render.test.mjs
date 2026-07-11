@@ -200,6 +200,20 @@ test('ghost add pill never carries data-drag', () => {
   const edit = draw(SRC, {edit: true});
   assert.ok(!/data-edit="additem"[^>]*data-drag|data-drag[^>]*data-edit="additem"/.test(edit));
 });
+test('edit+compare: add-zones clear the compare ghost pills too', () => {
+  // a snapshot whose dropped chain reaches a DEEPER row than any current pill:
+  // the zone must sit below the ghost, not just below current nodes
+  const prev = parse('anchor: N\nA @ custom\nDeep @ 0.15\nN -> A -> Deep');
+  const cur = parse('anchor: N\nA @ custom\nN -> A');
+  const s = renderMap(cur, layoutMap(cur), {...ctx, palette: ctx.palette},
+    {edit: true, compare: {prev, label: 'Jan'}});
+  const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>＋<\/text>/g)].map(m => +m[1]);
+  // the dropped-ghost pill (Deep) is the lowest thing on the plane; its centre
+  // is the ghost text y — the zone row must sit below it
+  const ghostY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Deep<\/text>/g)].map(m => +m[1]);
+  assert.equal(ghostY.length, 1);
+  assert.ok(plusY[0] - ghostY[0] >= 30, 'zone row clears the compare ghost pill');
+});
 test('add-zones sit as one row below the lowest pill in a crowded column', () => {
   // two commodity components at the same x → collision spread nudges one down;
   // a fixed-y zone used to collide with it (User DB in the default example)
