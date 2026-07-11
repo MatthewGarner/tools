@@ -135,13 +135,32 @@ attachEditInPlace($('preview'), {
     astatus: {cycle: ASSUMPTION_CYCLE},
     label: {validate: eipValidators.label},
     title: {validate: eipValidators.label},   // map-view card titles are labels
-    'card-outcome':     {actions: [{label: '＋ Add opportunity'}, {label: 'Remove branch', danger: true}]},
-    'card-opportunity': {actions: [{label: '＋ Add solution'}, {label: 'Remove branch', danger: true}]},
-    'card-solution':    {actions: [{label: '＋ Add assumption'}, {label: 'Remove branch', danger: true}]},
+    /* card menu supersedes the old card-<kind> action popover (single Add +
+       Remove) with Rename/Status/Add/Remove; opens:'status' is dead for
+       outcome/opportunity cards (only solutions carry a status pill) — same
+       accepted no-op as roadmap's note-less "Edit note…" row */
+    'cardmenu-outcome': {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Status…', opens: 'status'},
+      {label: '＋ Add opportunity', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
+    'cardmenu-opportunity': {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Status…', opens: 'status'},
+      {label: '＋ Add solution', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
+    'cardmenu-solution': {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Status…', opens: 'status'},
+      {label: '＋ Add assumption', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
     removeassump: {cycle: ['×']},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
-    if(kind.startsWith('card-')){
+    if(kind.startsWith('card-') || kind.startsWith('cardmenu-')){
       if(newValue.startsWith('✖＋ Add')){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;

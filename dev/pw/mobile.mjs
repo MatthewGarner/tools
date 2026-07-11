@@ -114,7 +114,8 @@ for(const [name, url, selectors] of CONTAINERS){
 // [data-hit] (the tap target), NOT the [data-edit] group bbox — the map
 // group's bbox unions its leader line, which would mask a too-small hit rect.
 const WIDENED = [['roadmap', T + '/roadmap/', 'Habit app roadmap'],
-                 ['map', T + '/map/', 'Assumption map']];   // why/tree appended in Stages 3/4
+                 ['map', T + '/map/', 'Assumption map'],
+                 ['why', T + '/why/', 'Habit retention']];   // tree appended in Stage 4
 
 for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();

@@ -119,37 +119,110 @@ check('no console/page errors', errors.length === 0);
   const t2 = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why: assumption cycles untested→testing', t2.includes('? users will invite friends [testing]'));
 
-  /* card popovers: add a child, remove a branch; × removes an assumption */
-  const opp = p.locator('[data-edit="card-opportunity"]').first();
-  const ob = await opp.boundingBox();
-  await p.mouse.click(ob.x + 6, ob.y + ob.height - 5);   // card padding, off the label text
+  /* ---- card menu: tap the card BODY (the invisible-fill data-hit rect, which
+     IS the card rect itself here — why is a drop-in, no wrapper <g>) opens
+     Rename/Status/Add/Remove. "Smart reminders" (srcLine 5, a solution) carries
+     both a label and a status pill so every row is live; each action gets its
+     own round trip: commit, assert, ONE Meta+z, assert full revert back to the
+     pre-menu baseline before the next action starts clean. ---- */
+  const cardBody = line => p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="' + line + '"][data-hit]');
+  /* solution cards stack label + status pill + assumption rows, so the card's
+     geometric centre (Playwright's default .click() target) usually lands on
+     assumption text painted on top of the rect — tap the top-left padding
+     sliver instead, above every card kind's first text baseline. */
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('Meta+z');
+    await p.waitForTimeout(500);
+  };
+
+  await tapCard(5);
   await p.waitForTimeout(200);
-  check('why: opportunity card popover opens',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add solution|Remove branch');
-  await p.locator('.eip-pop button', {hasText: 'Add solution'}).click();
-  await p.waitForTimeout(600);
-  const t3 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: add solution inserts a candidate line', t3.includes('New solution [candidate]'));
-  const ax = p.locator('[data-edit="removeassump"]').first();
-  const ab = await ax.boundingBox();
-  await p.mouse.click(ab.x + ab.width/2, ab.y + ab.height/2);
-  await p.waitForTimeout(600);
-  const t4 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: assumption × removes its line', t4.split('\n').length === t3.split('\n').length - 1);
-  const sol = p.locator('[data-edit="card-solution"]').first();
-  const sb = await sol.boundingBox();
-  await p.mouse.click(sb.x + 6, sb.y + sb.height - 5);
+  check('why: solution card tap opens the menu with the expected rows',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+
+  await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
-  await p.locator('.eip-pop button', {hasText: 'Remove branch'}).click();
+  check('why: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Smart reminders');
+  await p.locator('.eip-input').fill('Smart nudges');
+  await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
-  const t5 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: card Remove branch drops the solution', !t5.includes('Smart reminders'));
+  const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Rename commits the new label', tRename.includes('Smart nudges') && !tRename.includes('Smart reminders'));
+  await undo();
+  check('why: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  await p.waitForTimeout(200);
+  check('why: menu Status opens the status options popover', await p.locator('.eip-pop button', {hasText: 'delivering'}).count() === 1);
+  await p.locator('.eip-pop button', {hasText: 'shipped'}).click();   // current is 'delivering' (set above) — pick a distinct value so this is a real commit
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Status pick commits the new status', tStatus.includes('Smart reminders [shipped]'));
+  await undo();
+  check('why: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Add assumption'}).click();
+  await p.waitForTimeout(600);
+  const tAdd = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Add assumption inserts a new assumption line', tAdd.includes('New assumption'));
+  await undo();
+  check('why: one undo restores the pre-add baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Remove branch drops the solution (and its assumptions)',
+    !tRemove.includes('Smart reminders') && !tRemove.includes('users want to be interrupted at work'));
+  await undo();
+  check('why: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  /* ---- outcome + opportunity cards: the guard-widen review flagged that
+     cardmenu-outcome/-opportunity do NOT start with 'card-', so without
+     widening the onCommit guard their Add/Remove rows would silently fall
+     through to the label rewrite instead of acting. Prove each kind's menu
+     carries its own Add label AND that Add/Remove actually commit. Status…
+     is a dead row on these two (no status pill on outcomes/opportunities) —
+     same accepted no-op as roadmap's note-less "Edit note…" row. ---- */
+  await tapCard(1);   // outcome: "Improve 90-day retention"
+  await p.waitForTimeout(200);
+  check('why: outcome card menu carries the outcome Add label',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add opportunity|Remove branch');
+  await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
+  await p.waitForTimeout(600);
+  const tOutAdd = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: outcome menu Add opportunity inserts a new opportunity line', tOutAdd.includes('New opportunity'));
+  await undo();
+  check('why: one undo restores the pre-add baseline (outcome)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(16);   // opportunity leaf "Progress feels invisible" — no children, safe to remove alone
+  await p.waitForTimeout(200);
+  check('why: opportunity card menu carries the opportunity Add label',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add solution|Remove branch');
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const tOppRemove = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: opportunity menu Remove branch drops the opportunity', !tOppRemove.includes('Progress feels invisible'));
+  await undo();
+  check('why: one undo restores the removed opportunity', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
   check('why: export render has no edit affordances', await p.evaluate(async () => {
     const [{parse}, {project}, {renderOst}] = await Promise.all([
       import('/why/parse.js'), import('/why/project.js'), import('/why/render-ost.js')]);
     const m = parse(localStorage.getItem('why-src'));
     const svg = renderOst(m, project(m), {colors: {}, measure: () => 50, dark: false});
-    return !svg.includes('card-') && !svg.includes('removeassump');
+    return !svg.includes('cardmenu-') && !svg.includes('removeassump');
   }));
   check('why: no console/page errors', errs.length === 0);
   await p.close();
