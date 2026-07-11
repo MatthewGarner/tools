@@ -51,7 +51,10 @@ function renderHead(){
     const nm = document.createElement('input');
     nm.className = 'cname'; nm.value = c.name;
     nm.setAttribute('aria-label', 'Criterion ' + (ci+1) + ' name');
-    nm.addEventListener('input', () => { c.name = nm.value; schedule(400); });
+    // name-only edit: simulate() never reads .name for the numeric result, and
+    // criterion names don't appear anywhere in the results panel — no resim,
+    // just debounce the hash write (see scheduleHashOnly, batch 7).
+    nm.addEventListener('input', () => { c.name = nm.value; scheduleHashOnly(400); });
     const wrow = document.createElement('div');
     wrow.className = 'wrow';
     const wl = document.createElement('span'); wl.textContent = 'w';
@@ -68,7 +71,7 @@ function renderHead(){
   const enm = document.createElement('input');
   enm.className = 'cname'; enm.value = state.effort.name;
   enm.setAttribute('aria-label', 'Effort criterion name');
-  enm.addEventListener('input', () => { state.effort.name = enm.value; schedule(400); });
+  enm.addEventListener('input', () => { state.effort.name = enm.value; scheduleHashOnly(400); });   // name-only: no resim (see above)
   const ed = document.createElement('div');
   ed.className = 'wrow'; ed.innerHTML = '<span>÷ divisor</span>';
   the.append(enm, ed);
@@ -86,7 +89,15 @@ function renderRows(){
     nm.className = 'iname'; nm.value = it.name; nm.placeholder = 'Initiative name';
     nm.title = it.name;
     nm.setAttribute('aria-label', 'Initiative ' + (i+1) + ' name');
-    nm.addEventListener('input', () => { it.name = nm.value; nm.title = nm.value; schedule(400); });
+    // name-only edit: simulate() reads it.name only to carry it through to
+    // stats[].name for display — it never affects the numeric Monte Carlo
+    // result. So skip the resim; patch the visible results-panel row label
+    // directly (a text-node update) and just debounce the hash write.
+    nm.addEventListener('input', () => {
+      it.name = nm.value; nm.title = nm.value;
+      patchInitiativeName(i, nm.value);
+      scheduleHashOnly(400);
+    });
     tdn.appendChild(nm);
     tr.appendChild(tdn);
     state.criteria.forEach((c, ci) => {
@@ -161,6 +172,7 @@ function renderResults(){
     const s = stats.find(x => x.i === idx);
     const row = document.createElement('div');
     row.className = 'rrow';
+    row.dataset.itemIdx = String(s.i);   // lets a name-only edit patch this row without a resim (see patchInitiativeName)
     const p = document.createElement('div'); p.className = 'pos'; p.textContent = pos + 1;
     const nm = document.createElement('div'); nm.className = 'nm';
     nm.textContent = s.name; nm.title = s.name;
@@ -168,6 +180,7 @@ function renderResults(){
     bar.className = 'rankbar';
     bar.style.gridTemplateColumns = 'repeat(' + n + ',1fr)';
     bar.setAttribute('role', 'img');
+    bar.dataset.med = s.med + 1; bar.dataset.p10 = s.p10 + 1; bar.dataset.p90 = s.p90 + 1;
     bar.setAttribute('aria-label', s.name + ': median rank ' + (s.med+1) +
       ', 90% range ' + (s.p10+1) + ' to ' + (s.p90+1));
     for(let r = 0; r < n; r++){
@@ -295,6 +308,26 @@ function schedule(ms){
     clearTimeout(hashTimer);
     hashTimer = setTimeout(writeHash, 400);
   }, ms);
+}
+/* name-only edits (criterion/effort/initiative) skip the 4000-run resim
+   entirely — they route here instead of schedule() (batch 7). */
+function scheduleHashOnly(ms){
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(writeHash, ms);
+}
+/* live-patch an initiative's row label in the results panel without a
+   resim: the row carries data-item-idx (== stats[].i, the original
+   state.items index) and the bar carries its med/p10/p90 so the
+   aria-label can be rebuilt with the new name alone. No-op if the results
+   panel isn't showing this item yet (e.g. before the first compute()). */
+function patchInitiativeName(i, name){
+  const row = $('rrows').querySelector('.rrow[data-item-idx="' + i + '"]');
+  if(!row) return;
+  const nm = row.querySelector('.nm');
+  nm.textContent = name; nm.title = name;
+  const bar = row.querySelector('.rankbar');
+  bar.setAttribute('aria-label', name + ': median rank ' + bar.dataset.med +
+    ', 90% range ' + bar.dataset.p10 + ' to ' + bar.dataset.p90);
 }
 $('addrow').addEventListener('click', () => {
   state.items.push({name:'', s: state.criteria.map(() => 5), e: 5});
