@@ -2,6 +2,8 @@
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
 import {chromium} from 'playwright';
+import {TOOL_DIRS} from '../tool-dirs.mjs';
+import {trackErrors} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -10,9 +12,7 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 async function freshPage(path, theme = 'light'){
   const page = await browser.newPage({colorScheme: theme});
-  const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-  page.on('console', m => { if(m.type() === 'error') errors.push('console: ' + m.text()); });
+  const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   return {page, errors};
 }
@@ -38,7 +38,7 @@ async function svgDecodes(page, selector){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: ten tool cards', await page.locator('a.tool').count() === 10);
+  check('landing: one card per tool', await page.locator('a.tool').count() === TOOL_DIRS.length);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -160,7 +160,7 @@ for(const theme of ['light', 'dark']){
 
 /* ---- every tool links home ---- */
 {
-  const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley'];
+  const tools = TOOL_DIRS;
   const {page, errors} = await freshPage('/' + tools[0] + '/');
   let allOk = true;
   for(const t of tools){

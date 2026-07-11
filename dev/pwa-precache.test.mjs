@@ -7,9 +7,10 @@ import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {Script} from 'node:vm';
 import {toOriginUrl} from './origins.mjs';
+import {TOOL_DIRS} from './tool-dirs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const KEEP = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'assets'];
+const KEEP = [...TOOL_DIRS, 'assets'];   // was missing 'wardley' — the guard couldn't see the newest tool
 
 function walk(dir, out = []){
   for(const f of readdirSync(join(ROOT, dir))){

@@ -7,9 +7,10 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {Script} from 'node:vm';
 import {toOriginUrl} from './origins.mjs';
+import {TOOL_DIRS} from './tool-dirs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const KEEP = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley', 'assets'];
+const KEEP = [...TOOL_DIRS, 'assets'];
 
 function walk(dir, out = []){
   for(const f of readdirSync(join(ROOT, dir)).sort()){

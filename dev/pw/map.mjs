@@ -1,6 +1,7 @@
 /* Map deep suite: real mouse drag writes @ x,y; tray placement; zone-rename
    edit-in-place (insert path); undo restores. */
 import {chromium} from 'playwright';
+import {trackErrors} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -8,9 +9,7 @@ const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 const page = await browser.newPage({viewport: {width: 1500, height: 1000}});
-const errors = [];
-page.on('pageerror', e => errors.push(e.message));
-page.on('console', m => { if(m.type() === 'error') errors.push(m.text()); });
+const errors = trackErrors(page);
 await page.goto(BASE + '/map/', {waitUntil: 'networkidle'});
 
 const doc = () => page.evaluate(() => localStorage.getItem('map-src'));
