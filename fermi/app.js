@@ -10,6 +10,7 @@ import {measure, download, onThemeChange, themeColors as sharedThemeColors} from
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {rafBatched} from '../assets/schedule.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -171,15 +172,17 @@ function threshValue(){
   const t = parseNum(threshStr);
   return isFinite(t) ? t : null;
 }
-function renderThresh(){
-  const el = $('tout');
+// pulled out of renderThresh() so renderResults()'s output-unchanged
+// signature can read the same text without a second DOM write (batch 7)
+function threshPctText(){
   const t = threshValue();
-  if(!last || t === null){ el.textContent = '—'; return; }
+  if(!last || t === null) return '—';
   let c = 0;
   for(let i = 0; i < last.valid.length; i++) if(last.valid[i] > t) c++;
   const p = c / last.valid.length;
-  el.textContent = p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  return p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
 }
+function renderThresh(){ $('tout').textContent = threshPctText(); }
 
 function readHash(){
   try{
@@ -402,22 +405,20 @@ let hashTimer = null;
 function writeHashSafe(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 400); }
 
 /* ---------- render results ---------- */
+let resultsSig = '';   // output-unchanged gate: skip the DOM rebuild when nothing shown would differ (batch 7)
 function renderResults(){
   const r = last;
   $('ph').style.display = 'none';
   $('results').style.display = 'block';
   $('results').classList.remove('is-stale');
-  renderCompare();
-  $('p10').textContent = fmt(r.p10);
-  $('p50').textContent = fmt(r.p50);
-  $('p90').textContent = fmt(r.p90);
-  $('say').textContent = '“Probably around ' + fmt(r.p50) + ' — I’d be surprised outside ' +
-    fmt(r.p10) + ' to ' + fmt(r.p90) + '.”';
+
+  const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
+  const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +
+    p10Text + ' to ' + p90Text + '.”';
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
-  $('spread').textContent = isFinite(ratio)
+  const spreadText = isFinite(ratio)
     ? 'Spread: ×' + sig(ratio, 2) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
     : 'Spread: ' + fmt(r.p90 - r.p10) + ' (P90 − P10)';
-  const w = $('warn');
   const notes = [];
   if(r.invalid > N * 0.01){
     notes.push(sig(100 * r.invalid / N, 2) + '% of runs hit invalid maths and were dropped — a range probably crosses zero.');
@@ -426,13 +427,40 @@ function renderResults(){
   if(inverted.length){
     notes.push('Entered high-to-low: ' + inverted.map(n => n.replace(/_/g, ' ')).join(', ') + ' — read as a range either way.');
   }
-  w.textContent = notes.join(' ');
+  const warnText = notes.join(' ');
+
+  const sens = r.sens;
+  const sensSig = sens.map(s => s.name + ':' + s.share.toFixed(4) + ':' + s.label).join(',');
+  const cmpP = compareOn ? pBeatsStr() : null;
+  const cmpSig = cmpP === null ? 'off' : cmpP + '|' + fmt(lastBy.A.p50) + '|' + fmt(lastBy.B.p50) + '|' + active;
+  const threshPct = threshPctText();
+
+  // signature over everything the panel shows: percentiles, sensitivity
+  // rows, compare-mode P(B>A), threshold % — mirrors merit-order's
+  // svg!==lastSvg / fermi's own varRowsSig gate, just for this DOM instead
+  // of an SVG string.
+  const sigNow = [p10Text, p50Text, p90Text, sayText, spreadText, warnText, cmpSig, sensSig, threshPct].join('¦');
+  if(sigNow === resultsSig){
+    $('tout').textContent = threshPct;
+    drawHist();
+    renderDriverView();
+    return;
+  }
+  resultsSig = sigNow;
+
+  renderCompare();
+  $('p10').textContent = p10Text;
+  $('p50').textContent = p50Text;
+  $('p90').textContent = p90Text;
+  $('say').textContent = sayText;
+  $('spread').textContent = spreadText;
+  const w = $('warn');
+  w.textContent = warnText;
   w.style.display = notes.length ? 'block' : 'none';
 
   /* sensitivity rows */
   const holder = $('srows');
   holder.textContent = '';
-  const sens = r.sens;
   $('sens').style.display = sens.length > 1 ? 'block' : 'none';
   if(sens.length > 1){
     const top = sens[0];
@@ -458,7 +486,7 @@ function renderResults(){
       holder.appendChild(row);
     }
   }
-  renderThresh();
+  $('tout').textContent = threshPct;
   drawHist();
   renderDriverView();
 }
@@ -665,7 +693,8 @@ $('tin').addEventListener('input', () => {
 
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
-if(window.ResizeObserver) new ResizeObserver(() => drawHist()).observe($('hist'));
+// a ResizeObserver can fire multiple ticks per resize drag; coalesce to one redraw/frame
+if(window.ResizeObserver) new ResizeObserver(rafBatched(() => drawHist())).observe($('hist'));
 onThemeChange(redrawAll);
 
 /* ---------- chips / copy / boot ---------- */

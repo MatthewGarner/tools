@@ -5,6 +5,7 @@ import {renderReadout, renderBatch, renderTriage, markdownSummary} from './rende
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {rafBatched} from '../assets/schedule.js';
 
 const $ = id => document.getElementById(id);
 const NO_LIMIT = 40;                       // the slider's top position (21) means "no limit"
@@ -247,6 +248,7 @@ function flash(id, msg){
   }
   onThemeChange(() => { lastSvg = ''; lastBatchSvg = ''; lastTriageSvg = ''; refresh(); });
   reducedMotion.addEventListener('change', refresh);
-  addEventListener('resize', () => { if(lastResult) drawFrame(animState, animState ? animState.t1 : 0); });
+  // a resize fires many events per drag of the browser edge; coalesce to one redraw/frame
+  addEventListener('resize', rafBatched(() => { if(lastResult) drawFrame(animState, animState ? animState.t1 : 0); }));
   refresh();
 })();

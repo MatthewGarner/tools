@@ -18,6 +18,12 @@ function boot(){
   let lastSvg = '', rafId = 0, hashTimer = null;
   let lastResult = null, lastParams = null;
 
+  // hot-path DOM queries: both node lists are static (fixed markup, no
+  // dynamically added/removed sliders or preset chips) — cache once at
+  // boot instead of re-querying on every input/render (batch 7).
+  const rangeInputs = [...document.querySelectorAll('input[type=range]')];
+  const presetChips = [...document.querySelectorAll('#presets .chip')];
+
   const controls = () => Object.fromEntries(IDS.map(id => [id, +$(id).value]));
 
   function syncOutputs(v){
@@ -33,7 +39,7 @@ function boot(){
     const gfmEff = Math.min(v.gfm, gfmCap);
     const eff = v.inertia + gfmEff;
     $('effinertia').textContent = `${v.inertia} synchronous + ${gfmEff} grid-forming = ${eff} GVA·s`;
-    for(const el of document.querySelectorAll('input[type=range]')){
+    for(const el of rangeInputs){
       el.style.setProperty('--fill', (el.value - el.min) / (el.max - el.min) * 100 + '%');
     }
   }
@@ -201,16 +207,16 @@ function boot(){
   // + leverDeltas's 5x + the ghost); coalesce N events/frame to one refresh.
   // No delay (unlike the 120ms debounce elsewhere) — a slider wants immediacy.
   const scheduleRefresh = rafBatched(() => {
-    for(const c of document.querySelectorAll('#presets .chip')) c.classList.remove('on');
+    for(const c of presetChips) c.classList.remove('on');
     refresh(false);
   });
   for(const id of IDS) $(id).addEventListener('input', scheduleRefresh);
   $('tripbtn').addEventListener('click', () => refresh(true));
-  for(const btn of document.querySelectorAll('#presets .chip')){
+  for(const btn of presetChips){
     btn.addEventListener('click', () => {
       const preset = PRESETS[btn.dataset.preset];
       for(const id of IDS) $(id).value = preset[id];
-      for(const c of document.querySelectorAll('#presets .chip')) c.classList.toggle('on', c === btn);
+      for(const c of presetChips) c.classList.toggle('on', c === btn);
       refresh(true);
     });
   }

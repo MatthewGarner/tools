@@ -106,6 +106,12 @@ function boot(){
     render(true);
   });
 
+  /* ---- hot-path DOM queries: both chip groups are static markup (fixed
+     World/Conditions buttons, see index.html) — cache once like mustrunButtons
+     below, instead of re-querying on every click/render (batch 7). ---- */
+  const worldChips = [...document.querySelectorAll('#worlds .chip[data-world]')];
+  const presetChips = [...document.querySelectorAll('#presets .chip[data-preset]')];
+
   /* ---- must-run segmented toggle ---- */
   const mustrunButtons = [...document.querySelectorAll('#mustrunseg button[data-mustrun]')];
   mustrunButtons.forEach(b => b.setAttribute('role', 'radio'));
@@ -153,10 +159,10 @@ function boot(){
     syncControls();
     render(true);
   }
-  for(const btn of document.querySelectorAll('#worlds .chip[data-world]')){
+  for(const btn of worldChips){
     btn.addEventListener('click', () => applyWorld(btn.dataset.world));
   }
-  for(const btn of document.querySelectorAll('#presets .chip[data-preset]')){
+  for(const btn of presetChips){
     btn.addEventListener('click', () => applyCondition(btn.dataset.preset));
   }
 
@@ -313,14 +319,14 @@ function boot(){
     if(p.mustRunOn) $('depthout').textContent = '−£' + Math.round(p.mustRunDepth) + '/MWh';
   }
   function syncChips(){   // highlight the active Conditions chip (none highlighted when 'custom'/null)
-    for(const b of document.querySelectorAll('#presets .chip[data-preset]')){
+    for(const b of presetChips){
       const on = (b.dataset.preset || null) === (state.condition || null);
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
     }
   }
   function syncWorldChips(){   // highlight the active World chip
-    for(const b of document.querySelectorAll('#worlds .chip[data-world]')){
+    for(const b of worldChips){
       const on = b.dataset.world === state.world;
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
