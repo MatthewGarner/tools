@@ -109,6 +109,20 @@ test('edit: per-lane add zone clamps to the plot right edge when content runs lo
     'zone must not overflow the plot right edge: ' + zoneRight + ' vs ' + rightEdge);
 });
 
+test('edit: lane add zone clears the dates/note line, not just the label line', () => {
+  /* short label + long note: the dates/note sub-line renders wider than the
+     label line — the zone must anchor past the sub-line, never on top of it */
+  const doc = 'Grid: FID 2026-07-10 [done] // pending DNO confirmation of connection date';
+  const svg = render(parse(doc), ctx, null, {edit: true});
+  const sub = svg.match(/<text data-edit="dates"[^>]*x="([\d.]+)"[^>]*>([^<]+)<\/text>/);
+  assert.ok(sub, 'dates/note line not found');
+  const datesRight = parseFloat(sub[1]) + ctx.measure(sub[2]);   // same stub the renderer measured with
+  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect x="([\d.]+)"/);
+  assert.ok(zone, 'lane add zone hit rect not found');
+  assert.ok(parseFloat(zone[1]) >= datesRight,
+    'zone must start past the rendered dates/note line: ' + zone[1] + ' vs ' + datesRight);
+});
+
 test('markdown: table, no-range flag, slip list when comparing', async () => {
   const {toMarkdown} = await import('../render.js');
   const md = toMarkdown(parse(DOC), null, 'https://x.test/t');

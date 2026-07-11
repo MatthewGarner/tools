@@ -71,15 +71,26 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const colorOf = it => it.status === 'done' ? C.status.done
     : it.status === 'risk' ? C.err : C.accent;
 
+  /* the dates/note sub-line under each label — built once here so the extent
+     tracking below and the milestone loop measure the exact same string */
+  const noteFont = T.noteSize * S + 'px ' + F.body;
+  const subOf = it => (it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
+    : fmtDay(it.p50, {month: (it.p90 - it.p50) > 45}) + ' → ' + fmtDay(it.p90, {month: (it.p90 - it.p50) > 45})) +
+    (it.note ? ' · ' + it.note : '');
+
   /* row packing per lane: items sorted by P50; first row whose extent has ended.
-     laneMaxRightX tracks each lane's furthest right-extent as we pack — the
-     per-lane add zone anchors just past it (rows only grow rightward per
-     row, so the max across rows is the lane's true right extent). */
+     laneMaxRightX is a SEPARATE per-lane extent taken from the strings each
+     row actually renders — per item, the max of the whisker geometry, the
+     label line, and the dates/note sub-line (smaller note font, but with no
+     label prefix it often runs wider than packing's label-font rightX) — so
+     the per-lane add zone anchors past everything the lane really draws.
+     Packing's rightX stays untouched: it feeds row assignment and the goldens. */
   const laneRows = new Map();
   const laneMaxRightX = new Map();
   const labelFont = '600 ' + T.labelSize * S + 'px ' + F.body;
   for(const lane of model.lanes){
     const rows = [];
+    let extent = 0;
     for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
       const startX = X(it.p50) - T.msR * S - 4;
       const labelText = it.label + (it.note ? '  ' + it.note : '') + (it.single && it.status !== 'done' ? ' ±?' : '');
@@ -88,9 +99,14 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       if(r < 0){ r = rows.length; rows.push(rightX); }
       else rows[r] = rightX;
       it._row = r;
+      const lx = X(it.p50) + (T.msR + 5) * S;   // = labelX in the milestone loop
+      extent = Math.max(extent,
+        X(it.p90) + T.msR * S,
+        lx + measure(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''), labelFont),
+        lx + measure(subOf(it), noteFont));
     }
     laneRows.set(lane, rows.length || 1);
-    laneMaxRightX.set(lane, rows.length ? Math.max(...rows) : plotX);
+    laneMaxRightX.set(lane, extent);
   }
 
   const headerH = ((model.title ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0)) * S;
@@ -207,15 +223,13 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" font-size="' + T.labelSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(it.label) +
       (it.single && it.status !== 'done'
         ? ' <tspan font-weight="400" fill="' + C.muted + '">±?</tspan>' : '') + '</text>');
-    const sub = (it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
-      : fmtDay(it.p50, {month: (it.p90 - it.p50) > 45}) + ' → ' + fmtDay(it.p90, {month: (it.p90 - it.p50) > 45})) +
-      (it.note ? ' · ' + it.note : '');
+    const sub = subOf(it);
     s.push('<text' + eipD + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +
       '" font-size="' + T.noteSize * S + '" fill="' + C.muted + '">' + esc(sub) + '</text>');
     if(edit){
       s.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw="" role="button"' +
         ' aria-label="Remove ' + esc(it.label) + '" x="' +
-        (labelX + measure(sub, T.noteSize * S + 'px ' + F.body) + 8 * S).toFixed(1) +
+        (labelX + measure(sub, noteFont) + 8 * S).toFixed(1) +
         '" y="' + (y + 10.5 * S).toFixed(1) + '" font-size="' + T.noteSize * S +
         '" fill="' + C.muted + '">×</text>');
     }
