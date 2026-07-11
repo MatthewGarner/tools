@@ -1,6 +1,6 @@
 /* /map renderer: (model, resolved, readout, ctx) → SVG string. Pure. */
 import {PALETTES, scheme, mix} from '../assets/series.js';
-import {esc, wrapText} from '../assets/svg.js';
+import {esc, wrapText, editTarget} from '../assets/svg.js';
 import {paintOrder, labelAnchors} from './zones.js';
 
 const F = {
@@ -105,29 +105,41 @@ export function render(model, resolved, ro, ctx, diff = null){
     const a = anchors.get(z.id);
     if(!a) continue;
     const editable = z.kind === 'cell' || (z.kind === 'rule' && z.srcLine != null);
-    const eip = editable
-      ? ' data-edit="zonename" data-line="' + (z.srcLine ?? -1) + '" data-raw="' + esc(z.name) +
-        '" data-zone="' + (z.kind === 'cell' ? 'c:' + z.col + ',' + z.row : 'r:' + esc(z.name)) + '"'
-      : '';
+    const zcx = px(a[0]), zcy = py(a[1]);
     const lw = measure(z.name.toUpperCase(), zoneFont) + z.name.length * T.zoneTracking;
-    zoneLabelBoxes.push({x: px(a[0]) - lw / 2, y: py(a[1]) - T.zoneSize * S,
+    zoneLabelBoxes.push({x: zcx - lw / 2, y: zcy - T.zoneSize * S,
       w: lw, h: T.zoneSize * S + 4 * S, fixed: true});
-    body.push('<text' + eip + ' x="' + px(a[0]) + '" y="' + py(a[1]) + '" text-anchor="middle"' +
+    const zoneText = '<text x="' + zcx + '" y="' + zcy + '" text-anchor="middle"' +
       ' font-size="' + T.zoneSize * S + '" font-weight="600" letter-spacing="' + T.zoneTracking +
-      '" fill="' + (toneHex(z.tone) || C.muted) + '">' + esc(z.name.toUpperCase()) + '</text>');
+      '" fill="' + (toneHex(z.tone) || C.muted) + '">' + esc(z.name.toUpperCase()) + '</text>';
+    if(editable){
+      /* plane-level widen: >=44px hit box centred on the label, no data-hit
+         (only cardmenu cards get the WIDENED-gate marker) */
+      const zoneAttr = z.kind === 'cell' ? 'c:' + z.col + ',' + z.row : 'r:' + esc(z.name);
+      body.push(editTarget(zoneText, {x: Math.max(0, zcx - 22 * S), y: zcy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
+        {kind: 'zonename', line: z.srcLine ?? -1, raw: z.name, extra: 'data-zone="' + zoneAttr + '"'}));
+    } else {
+      body.push(zoneText);
+    }
   }
 
   /* ---- axes ---- */
   const ax = resolved.x, ay = resolved.y;
-  body.push('<text data-edit="axis" data-axis="x" data-line="' + (ax.srcLine ?? -1) + '" data-raw="' +
-    esc(ax.label) + '" x="' + (planeX + planeW / 2) + '" y="' + (planeY + planeH + 26 * S) +
-    '" text-anchor="middle" font-size="' + T.axisSize * S + '" font-weight="600" fill="' + C.ink +
-    '">' + esc(ax.label) + '</text>');
-  body.push('<text data-edit="axis" data-axis="y" data-line="' + (ay.srcLine ?? -1) + '" data-raw="' +
-    esc(ay.label) + '" x="' + (planeX - 26 * S) + '" y="' + (planeY + planeH / 2) +
-    '" text-anchor="middle" font-size="' + T.axisSize * S + '" font-weight="600" fill="' + C.ink +
-    '" transform="rotate(-90 ' + (planeX - 26 * S) + ' ' + (planeY + planeH / 2) + ')">' +
-    esc(ay.label) + '</text>');
+  /* plane-level widens: >=44px hit box centred on each label; the y-axis label
+     sits close to the left edge so its box is clamped from running past x=0 */
+  const axCx = planeX + planeW / 2, axCy = planeY + planeH + 26 * S;
+  body.push(editTarget(
+    '<text x="' + axCx + '" y="' + axCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
+      '" font-weight="600" fill="' + C.ink + '">' + esc(ax.label) + '</text>',
+    {x: Math.max(0, axCx - 22 * S), y: axCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
+    {kind: 'axis', line: ax.srcLine ?? -1, raw: ax.label, extra: 'data-axis="x"'}));
+  const ayCx = planeX - 26 * S, ayCy = planeY + planeH / 2;
+  body.push(editTarget(
+    '<text x="' + ayCx + '" y="' + ayCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
+      '" font-weight="600" fill="' + C.ink + '" transform="rotate(-90 ' + ayCx + ' ' + ayCy + ')">' +
+      esc(ay.label) + '</text>',
+    {x: Math.max(0, ayCx - 22 * S), y: ayCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
+    {kind: 'axis', line: ay.srcLine ?? -1, raw: ay.label, extra: 'data-axis="y"'}));
   if(ax.low){
     body.push('<text x="' + planeX + '" y="' + (planeY + planeH + 12 * S) + '" font-size="' +
       T.endSize * S + '" fill="' + C.muted + '">' + esc(ax.low) + '</text>');
@@ -160,6 +172,17 @@ export function render(model, resolved, ro, ctx, diff = null){
     while(t.length > 4 && measure(t + '…', font) > maxW * S) t = t.slice(0, -1);
     return t === label ? label : t + '…';
   };
+  /* the ghost "+ Add item" row: plane-level widen, 44x44 hit box centred on
+     the (visible dashed box + label), same editTarget treatment as axis/zonename */
+  const additemGhost = (x, y, w, h, fill) => {
+    const inner = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
+      '" rx="' + h / 2 + '" fill="' + fill + '" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+      '<text x="' + (x + T.cardPadX * S) + '" y="' + (y + h - 6 * S) + '" font-size="' + T.cardSize * S +
+      '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text>';
+    const cx = x + w / 2, cy = y + h / 2;
+    return editTarget(inner, {x: cx - 22 * S, y: cy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
+      {kind: 'additem', line: -1, raw: ''});
+  };
   const removeW = edit ? 13 * S : 0;
   const cards = placed.map(it => {
     const label = truncate(it.label);
@@ -179,7 +202,25 @@ export function render(model, resolved, ro, ctx, diff = null){
   cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
   for(const c of cards){
     const flagged = flaggedLines.has(c.it.srcLine);
-    body.push('<g data-line="' + c.it.srcLine + '">');
+    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '">');
+    /* invisible hit rect, full capsule width, centred on the capsule centre
+       (not the dot — after nudge the capsule can sit well away from the
+       authored dot). nudge() only separates the visible 20px capsules, never
+       these 44px boxes, so cap each rect's HEIGHT to its nearest x-overlapping
+       neighbour: half-height = min(22*S, gap/2) so adjacent boxes meet but
+       never overlap, floored at the visible card's own half-height (h/2) so
+       the tap target is never smaller than the card. A genuinely crowded pair
+       whose capsule-height boxes still touch is a documented limit. First
+       child so it paints under the visible capsule + label. */
+    const capMidY = c.y + c.h / 2;
+    let minGap = Infinity;
+    for(const o of cards){
+      if(o === c || o.x + o.w <= c.x || o.x >= c.x + c.w) continue;   // no x-overlap
+      minGap = Math.min(minGap, Math.abs((o.y + o.h / 2) - capMidY));
+    }
+    const halfH = Math.max(c.h / 2, Math.min(22 * S, minGap / 2));
+    body.push('<rect data-hit="" x="' + c.x + '" y="' + (capMidY - halfH) + '" width="' + c.w +
+      '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
     const capX = c.x + c.w / 2, capY = c.y + c.h / 2;
     if(Math.hypot(capX - c.cx, capY - c.cy) > 26 * S)
       body.push('<line x1="' + c.cx + '" y1="' + c.cy + '" x2="' + capX + '" y2="' + capY +
@@ -227,12 +268,7 @@ export function render(model, resolved, ro, ctx, diff = null){
     }
     if(edit){
       const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
-      body.push('<g data-add="1"><rect x="' + trayX + '" y="' + ty + '" width="' + aw +
-        '" height="' + T.cardH * S + '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border +
-        '" stroke-dasharray="2 3"/>' +
-        '<text data-edit="additem" data-line="-1" data-raw="" x="' + (trayX + T.cardPadX * S) +
-        '" y="' + (ty + T.cardH * S - 6 * S) + '" font-size="' + T.cardSize * S +
-        '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text></g>');
+      body.push('<g data-add="1">' + additemGhost(trayX, ty, aw, T.cardH * S, 'none') + '</g>');
       ty += T.trayCardH * S;
     }
     trayBottom = ty;
@@ -240,12 +276,7 @@ export function render(model, resolved, ro, ctx, diff = null){
     /* no tray: the add ghost sits top-right inside the plane (a fixed nudge obstacle) */
     const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
     const axg = planeX + planeW - aw - 8 * S, ayg = planeY + 8 * S;
-    body.push('<g data-add="1"><rect x="' + axg + '" y="' + ayg + '" width="' + aw +
-      '" height="' + T.cardH * S + '" rx="' + T.cardH * S / 2 + '" fill="' + C.card +
-      '" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
-      '<text data-edit="additem" data-line="-1" data-raw="" x="' + (axg + T.cardPadX * S) +
-      '" y="' + (ayg + T.cardH * S - 6 * S) + '" font-size="' + T.cardSize * S +
-      '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text></g>');
+    body.push('<g data-add="1">' + additemGhost(axg, ayg, aw, T.cardH * S, C.card) + '</g>');
   }
 
   /* ---- readout panel ---- */

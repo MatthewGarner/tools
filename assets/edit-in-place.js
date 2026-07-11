@@ -19,11 +19,12 @@ function clampToViewport(el, rect){
 }
 
 export function attachEditInPlace(preview, {kinds, onCommit}){
-  let active = null;   // {input, el}
+  let active = null;   // {input, el, away}
 
   function close(){
     if(!active) return;
-    const {input} = active;
+    const {input, away} = active;
+    if(away) document.removeEventListener('pointerdown', away, true);
     active = null;          // null first: input.remove() fires blur synchronously
     input.remove();
   }
@@ -38,6 +39,38 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     if(spec.cycle){
       const i = spec.cycle.indexOf(raw);
       onCommit(kind, +el.dataset.line, raw, spec.cycle[(i + 1 + spec.cycle.length) % spec.cycle.length], el);
+      return;
+    }
+    /* menu kinds open a card popover: rows either open another target on the
+       same card (data-line routes to the right sibling) or commit a '✖'-prefixed
+       action sentinel, same as the actions rows below */
+    if(spec.menu){
+      const pop = document.createElement('div');
+      pop.className = 'eip-pop';
+      pop.style.left = rect.left + 'px';
+      pop.style.top = (rect.bottom + 4) + 'px';
+      for(const row of spec.menu){
+        const b = document.createElement('button');
+        b.textContent = row.label;
+        if(row.danger) b.classList.add('danger');
+        b.addEventListener('click', () => {
+          const line = +el.dataset.line;
+          if(row.opens){
+            const t = el.closest('svg').querySelector('[data-line="' + el.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
+            close();
+            if(t) open(t);
+          } else {                                  // action row
+            close();
+            onCommit(el.dataset.edit, line, el.dataset.raw || '', '✖' + row.label, el);
+          }
+        });
+        pop.appendChild(b);
+      }
+      document.body.appendChild(pop);
+      clampToViewport(pop, rect);
+      const away = e => { if(!pop.contains(e.target)) close(); };
+      active = {input: pop, el, away};
+      document.addEventListener('pointerdown', away, true);
       return;
     }
     /* choice kinds open a popover menu (options, actions, or both) */
@@ -80,10 +113,8 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       }
       document.body.appendChild(pop);
       clampToViewport(pop, rect);
-      active = {input: pop, el};
-      const away = e => {
-        if(!pop.contains(e.target)){ close(); document.removeEventListener('pointerdown', away, true); }
-      };
+      const away = e => { if(!pop.contains(e.target)) close(); };
+      active = {input: pop, el, away};
       document.addEventListener('pointerdown', away, true);
       return;
     }

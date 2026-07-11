@@ -108,6 +108,35 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// WIDENED cardmenu gate: on phone width, every non-ghost card exposes a
+// data-hit tap rect at least 44px on its long axis, and no two tap rects
+// intersect — a thumb must be able to land on exactly one card. Measures
+// [data-hit] (the tap target), NOT the [data-edit] group bbox — the map
+// group's bbox unions its leader line, which would mask a too-small hit rect.
+const WIDENED = [['roadmap', T + '/roadmap/', 'Habit app roadmap'],
+                 ['map', T + '/map/', 'Assumption map']];   // why/tree appended in Stages 3/4
+
+for(const [name, url, chip] of WIDENED){
+  const page = await ctx.newPage();
+  await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(400);
+  const b = page.getByRole('button', {name: chip});
+  if(await b.count()) await b.click();
+  await page.waitForTimeout(600);
+  const {hits, cards} = await page.evaluate(() => ({
+    hits: [...document.querySelectorAll('#preview svg [data-hit]')]
+      .map(el => { const r = el.getBoundingClientRect(); return {x: r.x, y: r.y, w: r.width, h: r.height}; }),
+    cards: document.querySelectorAll('#preview svg [data-edit^="cardmenu"]').length,
+  }));
+  ok(cards > 0, `${name}: cards carry a cardmenu target`);
+  ok(hits.length >= cards, `${name}: every cardmenu card has a data-hit tap rect`);
+  ok(hits.every(r => Math.max(r.w, r.h) >= 44), `${name}: every card tap rect long-axis >= 44px`);
+  const overlap = hits.some((a, i) => hits.some((b2, j) => j > i &&
+    a.x < b2.x + b2.w && b2.x < a.x + a.w && a.y < b2.y + b2.h && b2.y < a.y + a.h));
+  ok(!overlap, `${name}: no two card tap rects intersect`);
+  await page.close();
+}
+
 await browser.close();
 console.log(`\n${pass} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

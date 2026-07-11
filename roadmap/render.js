@@ -186,8 +186,9 @@ export function render(model, ctx){
       let cy = top + T.stackTop*S;
       for(const c of cells[lane][h]){
         const x = colX(h);
-        s.push('<g data-line="' + c.it.srcLine + '" opacity="' + fadeOp.toFixed(2) + '">');
-        s.push('<rect x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
+        s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
+          '" opacity="' + fadeOp.toFixed(2) + '">');
+        s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
           '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
           '" stroke="' + C.border + '" stroke-width="1"' +
           (c.it.ghost ? ' stroke-dasharray="3 3"' : '') + '/>');
