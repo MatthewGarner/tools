@@ -11,6 +11,19 @@ const day = n => {
 };
 const f1 = n => (Math.round(n * 10) / 10).toString();
 
+/* plain-text mirror of the SVG readout's headline — the HTML text app.js
+   shows next to the diagram. Pure; same inputs renderReadout itself uses. */
+export function readoutVerdict(result){
+  const lead = result.lead;
+  const bits = ['A typical item takes ' + day(lead.p50) + ' — ' + day(result.workDays) +
+    ' working, ' + day(Math.max(0, lead.p50 - result.workDays)) + ' waiting.'];
+  if(result.backlogSlopePerWeek > 0.5){
+    bits.push('Backlog growing ~' + f1(result.backlogSlopePerWeek) +
+      '/week — demand exceeds capacity; no WIP limit fixes that.');
+  }
+  return bits.join('  ');
+}
+
 export function renderReadout(result, sweep, knee, params, ctx){
   const C = ctx.colors;
   const s = [];

@@ -1,7 +1,7 @@
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
 import {evaluate} from './engine.js';
-import {render} from './render.js';
+import {render, treeVerdict} from './render.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
@@ -59,10 +59,12 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No tree yet — add an indented option or two.'
       : 'Start typing — or load an example.') + '</p>';
+    $('verdict').textContent = '';
   } else {
     results = evaluate(model);
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true});
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    $('verdict').textContent = treeVerdict(model, results);
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);

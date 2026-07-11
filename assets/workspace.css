@@ -61,6 +61,15 @@
 }
 .stage .preview{overflow: auto}
 .stage .preview svg{display: block; width: 100%; height: auto}
+/* real HTML mirror of the diagram's quotable verdict/readout — screen readers
+   get it via aria-live (set on the element in each tool's markup); sighted
+   users get it too, so the answer is never SVG-text-only. Empty until a
+   render computes one. */
+.verdict{font-family: Charter, Georgia, serif; font-size: 15px; line-height: 1.5;
+  color: var(--ink); margin: 10px 2px 0; max-width: 74ch}
+.verdict:empty{display: none}
+.verdict p{margin: 0 0 8px}
+.verdict p:last-child{margin-bottom: 0}
 .zoomctl{display: inline-flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden}
 .zoomctl button{
   border: none; background: none; color: var(--muted); cursor: pointer;

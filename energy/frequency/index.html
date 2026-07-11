@@ -68,13 +68,13 @@
     <!-- the hero -->
     <canvas id="trace" aria-label="Frequency trace after the trip"></canvas>
     <div class="effline">Effective inertia <b id="effinertia"></b></div>
-    <div class="tiles">
+    <div class="tiles" aria-live="polite" aria-atomic="true">
       <span>RoCoF <b id="t-rocof">—</b></span><span>Nadir <b id="t-nadir">—</b></span>
       <span>Time to nadir <b id="t-tnadir">—</b></span><span>Settles <b id="t-settle">—</b></span>
       <span>Load shed <b id="t-shed">—</b></span>
     </div>
-    <div id="verdict" class="verdict"></div>
-    <div id="deltas" class="deltas"></div>
+    <div id="verdict" class="verdict" aria-live="polite" aria-atomic="true"></div>
+    <div id="deltas" class="deltas" aria-live="polite" aria-atomic="true"></div>
     <div class="actions">
       <button class="btn" id="dlsvg">Download SVG</button><button class="btn" id="dlpng">Download PNG</button>
       <button class="btn" id="copypng">Copy PNG</button><button class="btn" id="copydoc">Copy for a doc</button>

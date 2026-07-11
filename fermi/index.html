@@ -273,13 +273,13 @@
     <p class="placeholder" id="ph">Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you'd be surprised, but not shocked, to see a value outside them.</p>
     <div id="results">
       <div id="cmp" class="cmp" style="display:none"></div>
-      <div class="tiles">
+      <div class="tiles" aria-live="polite" aria-atomic="true">
         <div class="tile"><div class="tl">P10 · low</div><div class="tv" id="p10"></div></div>
         <div class="tile mid"><div class="tl">P50 · best guess</div><div class="tv"><span class="smear" id="p50"></span></div></div>
         <div class="tile"><div class="tl">P90 · high</div><div class="tv" id="p90"></div></div>
       </div>
-      <p class="say">Say it out loud: <span class="q" id="say"></span></p>
-      <p class="spread" id="spread"></p>
+      <p class="say" aria-live="polite" aria-atomic="true">Say it out loud: <span class="q" id="say"></span></p>
+      <p class="spread" id="spread" aria-live="polite" aria-atomic="true"></p>
       <div class="viewseg" role="tablist" aria-label="Result view">
         <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>
         <button id="viewtree" role="tab" aria-selected="false">Driver tree</button>

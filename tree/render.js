@@ -20,6 +20,31 @@ export const TOKENS = {
 
 
 
+/* shared with treeVerdict below: the muted evidence line under the recommended option */
+function evidenceFor(rec, st, results, money){
+  let evidence = 'EV ' + money(st.mean) + ' · P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
+  const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
+  if(h){
+    const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
+    const other = h.a === rec.label ? h.b : h.a;
+    evidence += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
+  }
+  return evidence;
+}
+
+/* plain-text mirror of the SVG's verdict block — the HTML readout app.js
+   shows next to the diagram (sub-task: readable-result fix). Pure; same
+   inputs render() itself uses for the verdict band. */
+export function treeVerdict(model, results){
+  if(!model.root || model.root.kind !== 'decision') return '';
+  const rec = results.policy.get(model.root);
+  const st = results.stats.get(model.root);
+  if(!rec || !st) return '';
+  const cur = model.currency || '£';
+  const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
+  return 'Recommended: ' + rec.label + ' — ' + evidenceFor(rec, st, results, money);
+}
+
 export function render(model, results, ctx){
   const {measure, slide = false, dark = false, edit = false} = ctx;
   const paletteHex = model.accent ||
@@ -94,13 +119,7 @@ export function render(model, results, ctx){
     s.push(p.svg);
     s.push('<text x="' + (T.pad*S + p.w + 10*S) + '" y="' + vy + '" font-size="' + 15*S +
       '" font-weight="700" fill="' + C.ink + '">' + esc(rec.label) + '</text>');
-    let evidence = 'EV ' + money(st.mean) + ' · P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
-    const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
-    if(h){
-      const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
-      const other = h.a === rec.label ? h.b : h.a;
-      evidence += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
-    }
+    const evidence = evidenceFor(rec, st, results, money);
     s.push('<text x="' + T.pad*S + '" y="' + (vy + 19*S) + '" font-size="' + 11.5*S +
       '" fill="' + C.muted + '">' + esc(evidence) + '</text>');
   }

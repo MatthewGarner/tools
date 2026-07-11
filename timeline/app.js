@@ -1,6 +1,6 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse} from './parse.js';
-import {render, toMarkdown} from './render.js';
+import {render, toMarkdown, timelineReadout} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
@@ -63,9 +63,11 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No milestones yet — write one like “Grid: Energisation 2027-02 .. 2027-06”.'
       : 'Start typing — or load an example.') + '</p>';
+    $('verdict').textContent = '';
   } else {
     const svg = activeRender(false, true);
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    $('verdict').textContent = timelineReadout(model, model.today ?? todayDay());
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);

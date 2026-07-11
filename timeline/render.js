@@ -49,6 +49,25 @@ const wk = days => {
   return w + (w === 1 ? ' week' : ' weeks');
 };
 
+/* plain-text mirror of the SVG's "one quotable line" readout — the HTML text
+   app.js shows next to the diagram. Pure; same inputs render() itself uses. */
+export function timelineReadout(model, today){
+  const items = model.items;
+  const upcoming = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0];
+  const ranged = items.filter(i => !i.single);
+  const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
+  const bits = [];
+  if(upcoming){
+    const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
+    const g = {month: !sameMonth};
+    bits.push('Next up: ' + upcoming.label + ' — P50 ' + fmtDay(upcoming.p50, g) +
+      (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g)) + '.');
+  }
+  if(widest && (widest.p90 - widest.p50) >= 7)
+    bits.push('Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) + ' between P50 and P90.');
+  return bits.join('  ');
+}
+
 export function render(model, ctx, diff = null, {edit = false} = {}){
   const {measure, slide = false, dark = false} = ctx;
   const paletteHex = model.accent ||
@@ -245,18 +264,8 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   }
 
   /* readout: one quotable line */
-  const upcoming = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0];
-  const ranged = items.filter(i => !i.single);
-  const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
-  const bits = [];
-  if(upcoming){
-    const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
-    const g = {month: !sameMonth};
-    bits.push('Next up: ' + upcoming.label + ' — P50 ' + fmtDay(upcoming.p50, g) +
-      (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g)) + '.');
-  }
-  if(widest && (widest.p90 - widest.p50) >= 7)
-    bits.push('Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) + ' between P50 and P90.');
+  const readoutLine = timelineReadout(model, today);
+  const bits = readoutLine ? [readoutLine] : [];
   if(edit){
     s.push('<text data-edit="additem" data-line="-1" data-raw="" role="button" aria-label="Add milestone"' +
       ' x="' + (W - T.pad * S) + '" y="' + readoutY + '" text-anchor="end" font-size="' +

@@ -52,6 +52,7 @@
         <button id="viewreveal" class="on" role="tab">Sample reveal</button>
       </div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <p class="headline" id="revealhead" aria-live="polite" aria-atomic="true"></p>
       <div class="actions">
         <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="startbtn" disabled>Start session</button>
@@ -76,6 +77,7 @@
     <button class="btn" id="pview">View results</button>
   </div>
   <p class="statusline" id="pstatus"></p>
+  <p class="headline" id="phead" aria-live="polite" aria-atomic="true"></p>
   <div id="presult"></div>
 </div>
 
@@ -89,12 +91,13 @@
     </div>
     <p class="hint">This tab is the facilitator console — its URL is your facilitator link (bookmark-safe; sessions live 24 hours).</p>
   </div>
-  <p class="statusline" id="ccount">Waiting for responses…</p>
+  <p class="statusline" id="ccount" aria-live="polite">Waiting for responses…</p>
   <ul class="qcounts" id="cquestions"></ul>
   <div class="actions">
     <button class="btn primary" id="creveal">Reveal to the room</button>
     <span class="method" id="cstate"></span>
   </div>
+  <p class="headline" id="chead" aria-live="polite" aria-atomic="true"></p>
   <div id="coverlay"></div>
   <div class="actions" id="cround2wrap" hidden>
     <button class="btn primary" id="cround2">Open a second round (Delphi)</button>

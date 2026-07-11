@@ -10,6 +10,22 @@ const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString()
 
 /* nice axis ticks: ≤6 steps of 1/2/5×10^k */
 
+/* which row is "focused" — the one the verdict band discusses. Shared with
+   the HTML verdict mirror in app.js so both agree on the same row. */
+export function focusedIndex(rows, focus){
+  return focus === null ? Math.min(1, rows.length - 1) : Math.max(0, Math.min(focus, rows.length - 1));
+}
+
+/* plain-text mirror of the SVG's verdict band — the HTML readout app.js
+   shows next to the diagram. Pure; same inputs render() itself uses. */
+export function riskVerdict(sim, model, focus = null){
+  if(!sim) return '';
+  const rows = sim.rows;
+  const fi = focusedIndex(rows, focus);
+  const v = verdict(rows[fi], model.unit);
+  return v ? 'The trade — ' + rows[fi].label + ': ' + v : '';
+}
+
 export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   if(!sim) return '';
   const C = ctx.colors;
@@ -21,7 +37,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const titleLines = model.title ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
   const TOP = model.title ? (isNarrow ? 30 + titleLines.length * 24 : 92) : 56;
   const rows = sim.rows;
-  const fi = focus === null ? Math.min(1, rows.length - 1) : Math.max(0, Math.min(focus, rows.length - 1));
+  const fi = focusedIndex(rows, focus);
   const vX = v => Math.max(x0, Math.min(x1,
     x0 + (v - sim.min) / (sim.max - sim.min || 1) * (x1 - x0)));
   const parts = [];
