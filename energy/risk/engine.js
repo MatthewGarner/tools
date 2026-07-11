@@ -35,14 +35,14 @@ export function simulate(model, {seed = 1, n = 10000} = {}){
   const {lo, hi} = model.merchant;
   const mA = draws(lo, hi, 'logn', seed, n);   // primary (lognormal when lo > 0)
   const mB = draws(lo, hi, 'norm', seed, n);   // tail-shape check
-  const mSorted = [...mA].sort((a, b) => a - b);
+  const mSorted = Float64Array.from(mA).sort();
   const rows = [{kind: 'merchant', label: 'Merchant', srcLine: model.merchant.srcLine,
     params: {}, p10: quantile(mSorted, .1), p50: quantile(mSorted, .5), p90: quantile(mSorted, .9),
     sorted: mSorted, bind: null, trade: null}];
 
   for(const s of model.structures){
     const {pay, pay0, fee, bindAt} = payoffs(s.kind, s.params);
-    const sorted = mA.map(pay).sort((a, b) => a - b);
+    const sorted = Float64Array.from(mA, pay).sort();
     let bind = null;
     if(bindAt !== null){
       const frac = arr => arr.reduce((c, m) => c + (m < bindAt ? 1 : 0), 0) / n;
@@ -51,13 +51,13 @@ export function simulate(model, {seed = 1, n = 10000} = {}){
         sensitive: Math.abs(pA - pB) > 0.05};
     }
     let up = 0, down = 0;
-    const deltas = new Array(n);
+    let deltas = new Array(n);
     for(let i = 0; i < n; i++){
       const d0 = pay0(mA[i]) - mA[i];
       if(d0 < 0) up -= d0; else down += d0;
       deltas[i] = pay(mA[i]) - mA[i];
     }
-    deltas.sort((a, b) => a - b);
+    deltas = Float64Array.from(deltas).sort();
     rows.push({kind: s.kind, label: s.label, srcLine: s.srcLine, params: s.params,
       p10: quantile(sorted, .1), p50: quantile(sorted, .5), p90: quantile(sorted, .9),
       sorted, bind,
