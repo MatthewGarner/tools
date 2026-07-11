@@ -8,6 +8,7 @@ import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
 import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
@@ -49,7 +50,7 @@ Storefront -> House blends -> Tea supply
 Storefront -> Hosting`},
 ];
 
-let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
 
 /* validated 2026-07-10 (dataviz validate_palette, ordinal mode, both themes):
@@ -100,14 +101,11 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 function writeHash(){
   if(!shouldPersist()) return;

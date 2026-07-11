@@ -1,6 +1,7 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
@@ -89,7 +90,7 @@ function makeDiff(model){
 }
 
 /* ---------- refresh loop ---------- */
-let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, lastSvg = '', hashTimer = null;
 let pendingFlip = null;   // card rects keyed by title, set just before a drop's re-render
 function renderWarnings(m){
   const warns = $('warns');
@@ -130,15 +131,12 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),

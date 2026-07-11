@@ -8,6 +8,7 @@ import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
@@ -82,14 +83,14 @@ export function wireFormEvents(root){
 }
 
 async function initCompose(hash){
-  let model = null, view = 'reveal', lastOut = '', rafId = 0, debTimer = null, hashTimer = null;
+  let model = null, view = 'reveal', lastOut = '', hashTimer = null;
 
   /* participants never see the editor — only compose mode pays for CodeMirror */
   const {createEditor, insertAndSelect} = await import('./editor.js');
   const editor = createEditor({
     parent: $('cmhost'),
     doc: '',
-    onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+    onChange: debounced(() => refresh(), 120),
   });
   /* add/remove questions from the form preview — text edits through the editor, undoable */
   $('preview').addEventListener('click', e => {
@@ -141,10 +142,7 @@ async function initCompose(hash){
     clearTimeout(hashTimer);
     hashTimer = setTimeout(writeHash, 400);
   }
-  function refresh(){
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(doRefresh);
-  }
+  const refresh = rafBatched(doRefresh);
 
   /* view toggle */
   function setView(v){
