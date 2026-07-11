@@ -31,17 +31,16 @@ export const applies = {
 export function addItemLine(text, lane, horizonName){
   const model = parse(text);
   const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(horizonName).toLowerCase());
-  const newLine = lane ? lane + ': New item' : 'New item';
   const inH = model.items.filter(i => i.h === hIdx);
   if(inH.length){
-    return {afterLine: Math.max(...inH.map(i => i.srcLine)), newLine};
+    return {afterLine: Math.max(...inH.map(i => i.srcLine))};
   }
   const lines = text.split(/\r?\n/);
   for(let i = 0; i < lines.length; i++){
     const t = lines[i].trim().replace(/:$/, '');
-    if(t.toLowerCase() === String(horizonName).toLowerCase()) return {afterLine: i, newLine};
+    if(t.toLowerCase() === String(horizonName).toLowerCase()) return {afterLine: i};
   }
-  return {afterLine: lines.length - 1, newLine};
+  return {afterLine: lines.length - 1};
 }
 
 /* Only lines that parse as items may be removed. */
