@@ -1,5 +1,5 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange, renderWarningList, measure, isDark, themeColors} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -194,7 +194,7 @@ function svgString(slide){
   return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
 }
 function slug(){
-  return (model.title || 'roadmap').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'roadmap';
+  return slugify(model.title, 'roadmap');
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
