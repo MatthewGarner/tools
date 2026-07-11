@@ -29,9 +29,12 @@ export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono, halo
 /* Wraps `inner` in a <g data-edit …> with an invisible, box-positioned hit
    rect painted LAST (so it captures pointer events over the visual).
    Caller supplies the box ({x,y,w,h,bg}) within its own plane — no anchor
-   inference and no viewBox clamping here; that's the caller's job. */
-export function editTarget(inner, box, {kind, line, raw, extra}){
+   inference and no viewBox clamping here; that's the caller's job.
+   `label` (plain text, escaped here) becomes the keyboard/AT accessible
+   name — every caller must supply one so the target is announced. */
+export function editTarget(inner, box, {kind, line, raw, extra, label}){
   return '<g data-edit="' + kind + '" data-line="' + line + '" data-raw="' + esc(raw) + '"' +
+    (label ? ' tabindex="0" role="button" aria-label="' + esc(label) + '"' : '') +
     (extra ? ' ' + extra : '') + '>' + inner +
     '<rect x="' + box.x + '" y="' + box.y + '" width="' + box.w + '" height="' + box.h +
     '" fill="' + box.bg + '" fill-opacity="0"/></g>';

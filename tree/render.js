@@ -135,15 +135,18 @@ export function render(model, results, ctx){
     /* edge labels sit above the child end; components are edit-in-place targets */
     s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 17*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
       '" font-weight="600" fill="' + C.ink + '"><tspan data-edit="label" data-line="' + b.srcLine +
-      '" data-raw="' + esc(b.label) + '">' + esc(b.label) + '</tspan></text>');
+      '" data-raw="' + esc(b.label) + '" tabindex="0" role="button" aria-label="Edit label: ' + esc(b.label) +
+      '">' + esc(b.label) + '</tspan></text>');
     const parts = [];
     if(b.p !== null && b.p !== undefined && a.kind === 'chance'){
       parts.push('<tspan data-edit="prob" data-line="' + b.srcLine + '" data-raw="' +
-        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '">' + esc(pStr(b.p)) + '</tspan>');
+        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '" tabindex="0" role="button" aria-label="Edit probability: ' +
+        esc(b.label) + '">' + esc(pStr(b.p)) + '</tspan>');
     }
     if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')){
       parts.push('<tspan data-edit="value" data-line="' + b.srcLine + '" data-raw="' +
-        esc(b.valueRaw || '') + '">' + esc(rangeStr(b.value)) + '</tspan>');
+        esc(b.valueRaw || '') + '" tabindex="0" role="button" aria-label="Edit payoff: ' +
+        esc(b.label) + '">' + esc(rangeStr(b.value)) + '</tspan>');
     }
     if(parts.length){
       s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 6*S) + '" text-anchor="end" font-size="' + T.subSize*S +
@@ -184,7 +187,7 @@ export function render(model, results, ctx){
     /* edit-gated: the marker becomes a popover target (add child / remove branch) */
     if(edit){
       s.push('<circle data-edit="node-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
-        '" data-raw="" cx="' + x + '" cy="' + y + '" r="' + 11*S + '" fill="transparent" role="button"' +
+        '" data-raw="" cx="' + x + '" cy="' + y + '" r="' + 11*S + '" fill="transparent" tabindex="0" role="button"' +
         ' aria-label="' + esc(node.label || 'node') + ' — add or remove"/>');
     }
   }

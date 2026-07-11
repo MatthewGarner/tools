@@ -66,11 +66,12 @@ export function renderDriverTree(model, ctx){
   s.push(txt(PAD, PAD + 4, 'WHAT DRIVES THE ANSWER' + (scenLabel ? ' — SCENARIO ' + scenLabel : ''),
     10, c.muted, {weight: 600, tracking: 1}));
   const fullLabel = isFinite(fullRatio) ? '×' + sig(fullRatio, 2) : fmt(p10) + ' – ' + fmt(p90);
-  s.push(txt(PAD, PAD + 24, !top ? 'Give the inputs ranges to see what drives the spread.'
+  const headline = !top ? 'Give the inputs ranges to see what drives the spread.'
     : top.share > 0.35
       ? 'Research ' + top.name.replace(/_/g, ' ') + ' first — pinning it cuts the spread from ' +
         fullLabel + ' to ' + top.label + '.'
-      : 'No single input dominates — the spread is shared across the drivers.', 13, c.ink));
+      : 'No single input dominates — the spread is shared across the drivers.';
+  s.push(txt(PAD, PAD + 24, headline, 13, c.ink));
 
   /* edges (drawn beneath nodes) */
   function edgeAnchors(child){
@@ -138,8 +139,11 @@ export function renderDriverTree(model, ctx){
   s.push(txt(ox + 16, oy - OUT_H / 2 + 82, 'spread ' + fullLabel +
     (isFinite(fullRatio) ? ' (P90 ÷ P10)' : ''), 11, c.muted));
 
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
-    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '">' +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +
+    esc('What drives the answer: ' + headline) + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + c.card + '"/>' + s.join('') + '</svg>';
 }
 

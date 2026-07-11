@@ -32,7 +32,7 @@
    hours ≤ upTo and changeover labels ahead of it are suppressed — "the price
    shape draws itself" during Play; the storage strip stays full (it reads as
    planned/kept, not as unrevealed future) and forExport never passes upTo. */
-import {txt, wrapText} from '../../assets/svg.js';
+import {txt, wrapText, esc} from '../../assets/svg.js';
 import {THERMAL_ORDER} from '../merit-order/render.js';   // shared fuel-family colour order (was a local copy)
 
 const FONT = 'Charter,Georgia,serif';
@@ -136,7 +136,10 @@ export function renderDay(result, p, ctx, opts = {}){
   const vy0 = bandBottom + 24, vLineH = 18;
   const H = opts.forExport ? Math.max(baseH, Math.round(vy0 + (vLines.length - 1) * vLineH + 12)) : baseH;
 
-  const parts = [`<svg width="${width}" height="${H}" viewBox='0 0 ${width} ${H}' xmlns='http://www.w3.org/2000/svg' font-family='${FONT}' data-tool='intraday'>`];
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants); the same text is also
+     mirrored as HTML next to this chart (#verdict, app.js) */
+  const parts = [`<svg width="${width}" height="${H}" viewBox='0 0 ${width} ${H}' xmlns='http://www.w3.org/2000/svg' font-family='${FONT}' data-tool='intraday' role="img" aria-label="${esc(buildDayVerdict(result, p))}">`];
 
   // export chrome: page bg + chart card so the PNG stands alone in a deck
   if(opts.forExport){

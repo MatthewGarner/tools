@@ -158,6 +158,13 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     const el = e.target.closest && e.target.closest('[data-edit]');
     if(el && preview.contains(el)){ e.preventDefault(); open(el); }
   });
+  /* keyboard equivalent: every [data-edit] target carries tabindex="0" at
+     render time — Enter/Space fires the same open() the click path calls. */
+  preview.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const el = e.target.closest && e.target.closest('[data-edit]');
+    if(el && preview.contains(el)){ e.preventDefault(); open(el); }
+  });
   /* page scrolls close the editor; scrolls INSIDE it (select() on an
      overflowing prefill scrolls the input's own content) must not */
   window.addEventListener('scroll', e => {

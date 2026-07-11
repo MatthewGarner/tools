@@ -105,6 +105,17 @@ $('preview').addEventListener('click', e => {
   lastSvg = '';
   doRefresh();
 });
+/* keyboard equivalent: every [data-focus] row carries tabindex="0" (render.js) */
+$('preview').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const row = e.target.closest('[data-focus]');
+  if(!row) return;
+  e.preventDefault();
+  const i = +row.dataset.focus;
+  focusIdx = (focusIdx === i) ? null : i;
+  lastSvg = '';
+  doRefresh();
+});
 
 /* edit-in-place: one numeric kind; the field rides on the element */
 attachEditInPlace($('preview'), {

@@ -90,8 +90,11 @@ export function renderCashflow(r, spec, ctx){
   y = top + chH + 8;
 
   const HT = y;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + HT +
-    '" viewBox="0 0 ' + W + ' ' + HT + '" font-family="' + SANS + '">' +
+    '" viewBox="0 0 ' + W + ' ' + HT + '" font-family="' + SANS + '" role="img" aria-label="' +
+    esc(v.head + (v.sub ? ' ' + v.sub : '')) + '">' +
     '<rect width="' + W + '" height="' + HT + '" fill="' + c.card + '"/>' + s.join('') + '</svg>';
 }
 

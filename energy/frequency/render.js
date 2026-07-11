@@ -3,7 +3,7 @@
    XML discipline: txt()/esc() for content; hand-built tags single-quoted,
    numbers only. Root <svg> carries double-quoted integer width/height so the
    PNG export path (svgToCanvas) can read them. */
-import {txt} from '../../assets/svg.js';
+import {txt, esc} from '../../assets/svg.js';
 import {F0, verdict, simulate} from './engine.js';
 
 const FONT = 'Charter,Georgia,serif';
@@ -26,7 +26,9 @@ export function renderTrace(result, p, ctx){
   const sy = f => y1 - ((f - fMin) / (fMax - fMin)) * (y1 - y0);
   const P = [];
 
-  P.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`);
+  /* pure display (export path — the live view is a canvas, already labelled
+     in index.html) — no data-edit targets here, so role="img" is safe */
+  P.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}" role="img" aria-label="${esc(verdict(result, p))}">`);
   P.push(`<rect width='${W}' height='${H}' fill='${C.bg}'/>`);
 
   // reference lines: 50 Hz, normal band 49.8–50.2, UFLS 48.8

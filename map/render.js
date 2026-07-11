@@ -117,7 +117,8 @@ export function render(model, resolved, ro, ctx, diff = null){
          (only cardmenu cards get the WIDENED-gate marker) */
       const zoneAttr = z.kind === 'cell' ? 'c:' + z.col + ',' + z.row : 'r:' + esc(z.name);
       body.push(editTarget(zoneText, {x: Math.max(0, zcx - 22 * S), y: zcy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
-        {kind: 'zonename', line: z.srcLine ?? -1, raw: z.name, extra: 'data-zone="' + zoneAttr + '"'}));
+        {kind: 'zonename', line: z.srcLine ?? -1, raw: z.name, extra: 'data-zone="' + zoneAttr + '"',
+          label: 'Rename zone: ' + z.name}));
     } else {
       body.push(zoneText);
     }
@@ -132,14 +133,16 @@ export function render(model, resolved, ro, ctx, diff = null){
     '<text x="' + axCx + '" y="' + axCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
       '" font-weight="600" fill="' + C.ink + '">' + esc(ax.label) + '</text>',
     {x: Math.max(0, axCx - 22 * S), y: axCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
-    {kind: 'axis', line: ax.srcLine ?? -1, raw: ax.label, extra: 'data-axis="x"'}));
+    {kind: 'axis', line: ax.srcLine ?? -1, raw: ax.label, extra: 'data-axis="x"',
+      label: 'Edit x-axis label: ' + ax.label}));
   const ayCx = planeX - 26 * S, ayCy = planeY + planeH / 2;
   body.push(editTarget(
     '<text x="' + ayCx + '" y="' + ayCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
       '" font-weight="600" fill="' + C.ink + '" transform="rotate(-90 ' + ayCx + ' ' + ayCy + ')">' +
       esc(ay.label) + '</text>',
     {x: Math.max(0, ayCx - 22 * S), y: ayCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
-    {kind: 'axis', line: ay.srcLine ?? -1, raw: ay.label, extra: 'data-axis="y"'}));
+    {kind: 'axis', line: ay.srcLine ?? -1, raw: ay.label, extra: 'data-axis="y"',
+      label: 'Edit y-axis label: ' + ay.label}));
   if(ax.low){
     body.push('<text x="' + planeX + '" y="' + (planeY + planeH + 12 * S) + '" font-size="' +
       T.endSize * S + '" fill="' + C.muted + '">' + esc(ax.low) + '</text>');
@@ -178,10 +181,10 @@ export function render(model, resolved, ro, ctx, diff = null){
     const inner = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
       '" rx="' + h / 2 + '" fill="' + fill + '" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
       '<text x="' + (x + T.cardPadX * S) + '" y="' + (y + h - 6 * S) + '" font-size="' + T.cardSize * S +
-      '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text>';
+      '" fill="' + C.muted + '">＋ Add item</text>';
     const cx = x + w / 2, cy = y + h / 2;
     return editTarget(inner, {x: cx - 22 * S, y: cy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
-      {kind: 'additem', line: -1, raw: ''});
+      {kind: 'additem', line: -1, raw: '', label: 'Add item'});
   };
   const removeW = edit ? 13 * S : 0;
   const cards = placed.map(it => {
@@ -202,7 +205,8 @@ export function render(model, resolved, ro, ctx, diff = null){
   cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
   for(const c of cards){
     const flagged = flaggedLines.has(c.it.srcLine);
-    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '">');
+    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '" tabindex="0" role="button"' +
+      ' aria-label="More options: ' + esc(c.it.label) + '">');
     /* invisible hit rect, full capsule width, centred on the capsule centre
        (not the dot — after nudge the capsule can sit well away from the
        authored dot). nudge() only separates the visible 20px capsules, never
@@ -236,10 +240,11 @@ export function render(model, resolved, ro, ctx, diff = null){
       '" rx="' + c.h / 2 + '" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
       '" x="' + (c.x + T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" font-size="' + T.cardSize * S +
-      '" font-weight="600" fill="' + C.ink + '">' + esc(c.label) + '</text>');
+      '" font-weight="600" fill="' + C.ink + '" tabindex="0" role="button" aria-label="Rename: ' +
+      esc(c.it.label) + '">' + esc(c.label) + '</text>');
     if(edit) body.push('<text data-edit="removeitem" data-line="' + c.it.srcLine + '" data-raw=""' +
       ' x="' + (c.x + c.w - T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" text-anchor="end"' +
-      ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" role="button"' +
+      ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
       ' aria-label="Remove ' + esc(c.it.label) + '">×</text>');
     body.push('</g>');
   }
@@ -258,10 +263,11 @@ export function render(model, resolved, ro, ctx, diff = null){
         '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
       body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
         '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) +
-        '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '">' + esc(label) + '</text>');
+        '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
+        ' aria-label="Rename: ' + esc(it.label) + '">' + esc(label) + '</text>');
       if(edit) body.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw=""' +
         ' x="' + (trayX + w - T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) + '" text-anchor="end"' +
-        ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" role="button"' +
+        ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
         ' aria-label="Remove ' + esc(it.label) + '">×</text>');
       body.push('</g>');
       ty += T.trayCardH * S;
@@ -344,7 +350,8 @@ export function render(model, resolved, ro, ctx, diff = null){
         const f = it.fields[0];
         body.push('<text data-edit="field" data-line="' + it.srcLine + '" data-key="' + esc(f.key) +
           '" data-raw="' + esc(f.val) + '" x="' + (bx + 10 * S) + '" y="' + (by + T.roMetaSize * S - 3 * S) +
-          '" font-size="' + T.roMetaSize * S + '" fill="' + C.muted + '">' +
+          '" font-size="' + T.roMetaSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
+          ' aria-label="Edit ' + esc(f.key) + ': ' + esc(f.val) + '">' +
           esc((f.key + ': ' + f.val).slice(0, 60)) + '</text>');
         by += (T.roMetaSize + 3) * S;
       }

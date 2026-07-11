@@ -180,7 +180,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       const zw = T.addZoneW * S, zh = T.addZoneH * S;
       const zx = Math.min(laneMaxRightX.get(lane) + 12 * S, plotX + plotW - zw);
       const zy = y0 + h / 2;
-      s.push('<g data-edit="additem" data-lane="' + esc(lane) + '" data-line="-1" data-raw="" role="button"' +
+      s.push('<g data-edit="additem" data-lane="' + esc(lane) + '" data-line="-1" data-raw="" tabindex="0" role="button"' +
         ' aria-label="Add milestone into ' + esc(lane) + '">' +
         txt(zx + zw / 2, zy + 4 * S, '＋', T.labelSize * S, C.muted, {anchor: 'middle'}) +
         '<rect x="' + zx.toFixed(1) + '" y="' + (zy - zh / 2).toFixed(1) + '" width="' + zw +
@@ -233,11 +233,14 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       s.push(diamond(x90, y, r * 0.8, C.card, col, ' data-ms="p90"'));
     }
     s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50"' +
-      (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') + '"' : '')));
+      (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') +
+        '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(it.label) + '"' : '')));
 
     const labelX = x50 + (r + 5 * S);
-    const eipL = edit ? ' data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) + '"' : '';
-    const eipD = edit ? ' data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) + '"' : '';
+    const eipL = edit ? ' data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
+      '" tabindex="0" role="button" aria-label="Edit label: ' + esc(it.label) + '"' : '';
+    const eipD = edit ? ' data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) +
+      '" tabindex="0" role="button" aria-label="Edit dates: ' + esc(it.label) + '"' : '';
     s.push('<text' + eipL + ' x="' + labelX.toFixed(1) + '" y="' + (y - 2 * S).toFixed(1) +
       '" font-size="' + T.labelSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(it.label) +
       (it.single && it.status !== 'done'
@@ -246,7 +249,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     s.push('<text' + eipD + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +
       '" font-size="' + T.noteSize * S + '" fill="' + C.muted + '">' + esc(sub) + '</text>');
     if(edit){
-      s.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw="" role="button"' +
+      s.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw="" tabindex="0" role="button"' +
         ' aria-label="Remove ' + esc(it.label) + '" x="' +
         (labelX + measure(sub, noteFont) + 8 * S).toFixed(1) +
         '" y="' + (y + 10.5 * S).toFixed(1) + '" font-size="' + T.noteSize * S +
@@ -267,7 +270,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const readoutLine = timelineReadout(model, today);
   const bits = readoutLine ? [readoutLine] : [];
   if(edit){
-    s.push('<text data-edit="additem" data-line="-1" data-raw="" role="button" aria-label="Add milestone"' +
+    s.push('<text data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add milestone"' +
       ' x="' + (W - T.pad * S) + '" y="' + readoutY + '" text-anchor="end" font-size="' +
       (T.labelSize * S) + '" fill="' + C.muted + '">＋ Add milestone</text>');
   }

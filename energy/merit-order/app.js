@@ -277,6 +277,12 @@ function boot(){
     const g = e.target.closest && e.target.closest('g[data-plant]');
     if(g) openCallout(g.dataset.plant, g);
   });
+  /* keyboard equivalent: every g[data-plant] carries tabindex="0" (render.js) */
+  chartwrap.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const g = e.target.closest && e.target.closest('g[data-plant]');
+    if(g){ e.preventDefault(); openCallout(g.dataset.plant, g); }
+  });
 
   /* ---- FLIP + flash: settle-only, reduced-motion gated ---- */
   function measurePlantRects(){

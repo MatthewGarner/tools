@@ -66,7 +66,8 @@ export function render(model, out, ctx, {edit = false} = {}){
     const at = place(w); if(at){ x = at[0]; y = at[1]; }
     let attrs = '';
     if(edit && opts.field) attrs = ' data-edit=\'num\' data-line=\'' + opts.line +
-      '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'';
+      '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'' +
+      ' tabindex=\'0\' role=\'button\' aria-label=\'Edit ' + esc(label) + '\'';
     parts.push('<g' + attrs + '><rect x=\'' + x.toFixed(1) + '\' y=\'' + y + '\' width=\'' + w.toFixed(1) +
       '\' height=\'22\' rx=\'11\' fill=\'' + tint(opts.col || accent) + '\'/>' +
       txt(x + 10, y + 15, label, 12, opts.col || C.ink, {weight: 600}) + '</g>');
@@ -85,7 +86,8 @@ export function render(model, out, ctx, {edit = false} = {}){
       '\' height=\'22\' rx=\'11\' fill=\'' + tint(accent) + '\'/>');
     parts.push(txt(x + 10, y + 15, key, 12, C.muted, {weight: 600}));
     const gAttr = f => edit ? ' data-edit=\'num\' data-line=\'' + line + '\' data-raw=\'' + esc(f.raw) +
-      '\' data-field=\'' + f.field + '\' style=\'cursor:text\'' : '';
+      '\' data-field=\'' + f.field + '\' style=\'cursor:text\' tabindex=\'0\' role=\'button\'' +
+      ' aria-label=\'Edit ' + esc(key) + ' ' + (f.field.endsWith('Lo') ? 'low' : 'high') + ' value\'' : '';
     parts.push('<g' + gAttr({raw: loS, field: fieldBase + 'Lo'}) + '>' +
       txt(x + 10 + wKey, y + 15, loS + (single ? suffix : ''), 12, C.ink, {weight: 600}) + '</g>');
     if(!single){

@@ -156,6 +156,12 @@ function boot(){
     const g = e.target.closest && e.target.closest('g[data-plant]');
     if(g) openCallout(g.dataset.plant, g);
   });
+  /* keyboard equivalent: every g[data-plant] carries tabindex="0" (merit-order/render.js) */
+  stackEl.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const g = e.target.closest && e.target.closest('g[data-plant]');
+    if(g){ e.preventDefault(); openCallout(g.dataset.plant, g); }
+  });
 
   for(const id of SLIDERS) $(id).addEventListener('input', () => {
     p = {...p, [id]: Number($(id).value)}; preset = null; refresh();

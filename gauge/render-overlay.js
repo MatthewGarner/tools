@@ -205,8 +205,13 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   });
 
   const H = Math.round(y + PAD - 16);
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants); the same headline is
+     also mirrored as HTML next to this overlay (session.js/app.js) */
+  const svgLabel = (model.title || 'Gauge the room') + (v ? ' — ' + v : '');
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
-    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '">' +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +
+    esc(svgLabel) + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + c.bg + '"/>' +
     head.join('') + parts.join('') + '</svg>';
 }
