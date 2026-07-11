@@ -1,5 +1,5 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
@@ -12,23 +12,6 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
-
-/* ---------- DOM-side render context ---------- */
-const measCtx = document.createElement('canvas').getContext('2d');
-const measure = (text, font) => { measCtx.font = font; return measCtx.measureText(text).width; };
-function isDark(){
-  const t = document.documentElement.dataset.theme;
-  if(t === 'dark') return true;
-  if(t === 'light') return false;
-  return matchMedia('(prefers-color-scheme: dark)').matches;
-}
-function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
-  const g = n => cs.getPropertyValue(n).trim();
-  return {card:g('--card'), border:g('--border'), ink:g('--ink'), muted:g('--muted'),
-    accent:g('--accent'), bg:g('--bg'), err:g('--err'),
-    status:{done:g('--st-done'), doing:g('--st-doing'), risk:g('--st-risk'), blocked:g('--st-blocked')}};
-}
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -210,29 +193,8 @@ function svgString(slide){
   if(!model || !model.items.length) return null;
   return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
 }
-function download(name, blob){
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
 function slug(){
   return (model.title || 'roadmap').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'roadmap';
-}
-function pngFrom(svg, name){
-  const img = new Image();
-  const dims = svg.match(/width="(\d+)" height="(\d+)"/);
-  const w = +dims[1], h = +dims[2], scale = 2;
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = w * scale; c.height = h * scale;
-    const cctx = c.getContext('2d');
-    cctx.scale(scale, scale);
-    cctx.drawImage(img, 0, 0);
-    c.toBlob(b => download(name, b), 'image/png');
-  };
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 $('dlsvg').addEventListener('click', () => {
   const svg = svgString();
@@ -240,11 +202,11 @@ $('dlsvg').addEventListener('click', () => {
 });
 $('dlpng').addEventListener('click', () => {
   const svg = svgString();
-  if(svg) pngFrom(svg, slug() + '.png');
+  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
 });
 $('dlslide').addEventListener('click', () => {
   const svg = svgString(true);
-  if(svg) pngFrom(svg, slug() + '-slide.png');
+  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
 });
 $('copypng').addEventListener('click', () => {
   const svg = svgString();

@@ -6,7 +6,7 @@ import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
-import {measure} from '../assets/app-common.js';
+import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
@@ -493,9 +493,7 @@ wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
 function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
-  const get = n => cs.getPropertyValue(n).trim();
-  return {accent:get('--accent'), accent2:get('--accent2'), ink:get('--ink'), muted:get('--muted'), card:get('--card'), border:get('--border'), err:get('--err')};
+  return {...sharedThemeColors(), accent2: getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim()};
 }
 function drawHist(hoverIdx){
   const r = last;
@@ -667,8 +665,7 @@ $('tin').addEventListener('input', () => {
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
 if(window.ResizeObserver) new ResizeObserver(() => drawHist()).observe($('hist'));
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
-new MutationObserver(redrawAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+onThemeChange(redrawAll);
 
 /* ---------- chips / copy / boot ---------- */
 for(const ex of EXAMPLES){
@@ -758,13 +755,7 @@ $('png').addEventListener('click', () => {
   ctx.font = '12px ui-monospace, Menlo, monospace';
   ctx.fillText('P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, pad + h + 36);
-  c.toBlob(b => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = 'estimate.png';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  }, 'image/png');
+  c.toBlob(b => download('estimate.png', b), 'image/png');
 });
 
 /* ---------- saved models (localStorage) ---------- */
