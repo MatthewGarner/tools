@@ -54,7 +54,7 @@ check('tray: tray emptied', await page.locator('#preview svg g[data-tray]').coun
 /* ---- zone rename via edit-in-place (preset cell → insert path) ---- */
 await page.getByRole('button', {name: 'Stakeholder grid'}).click();
 await page.waitForTimeout(600);
-await page.locator('#preview svg text[data-zone="c:2,2"]').click();
+await page.locator('#preview svg [data-edit="zonename"][data-zone="c:2,2"]').click();
 await page.waitForTimeout(200);
 await page.locator('.eip-input').fill('inner circle');
 await page.keyboard.press('Enter');
@@ -67,7 +67,14 @@ check('zone rename: label re-rendered',
 /* ---- axis rename preserves end labels ---- */
 await page.getByRole('button', {name: 'Futures matrix'}).click();
 await page.waitForTimeout(600);
-await page.locator('#preview svg text[data-axis="x"]').click();
+/* the x-axis label sits low enough to need a scroll; do it explicitly and
+   settle before clicking — locator.click()'s built-in scroll-then-click can
+   still be mid-scroll when it dispatches, landing the click nowhere (same
+   race check-eip.mjs's settledTap works around for mobile contexts). */
+const axisX = page.locator('#preview svg [data-edit="axis"][data-axis="x"]');
+await axisX.scrollIntoViewIfNeeded();
+await page.waitForTimeout(300);
+await axisX.click();
 await page.waitForTimeout(200);
 await page.locator('.eip-input').fill('Regulatory pressure');
 await page.keyboard.press('Enter');
