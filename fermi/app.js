@@ -2,7 +2,7 @@
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
-import {quantile} from '../assets/series.js';
+import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
@@ -182,10 +182,10 @@ function renderThresh(){
 
 function readHash(){
   try{
-    if(!location.hash || location.hash.length < 2) return null;
-    const s = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
-    if(s && s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
-    if(s && s.m === 'cf' && Array.isArray(s.p)) return s;
+    const s = readHashState();
+    if(!s) return null;
+    if(s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
+    if(s.m === 'cf' && Array.isArray(s.p)) return s;
     if(typeof s.f !== 'string' || typeof s.v !== 'object') return null;
     return s;
   }catch(e){ return null; }
@@ -204,8 +204,7 @@ function writeHash(){
   const state = compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
     : packScen(scenStore.A);
-  const enc = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-  history.replaceState(null, '', '#' + enc);
+  writeHashState(state);
 }
 
 /* ---------- variable rows ---------- */
@@ -1033,7 +1032,7 @@ $('cfcopydoc').addEventListener('click', async () => {
 function cfWriteHash(){
   const state = {m: 'cf', g: cf.grain, h: cf.horizon, rl: cf.rlo, rh: cf.rhi,
     p: cf.periods.map(p => [p.lo, p.hi])};
-  history.replaceState(null, '', '#' + btoa(unescape(encodeURIComponent(JSON.stringify(state)))));
+  writeHashState(state);
 }
 function cfWriteHashSafe(){ clearTimeout(cfHashTimer); cfHashTimer = setTimeout(cfWriteHash, 100); }
 
