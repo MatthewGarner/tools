@@ -1,5 +1,6 @@
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
 import {chromium, devices} from 'playwright';
+import {trackErrors} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -20,8 +21,7 @@ const TOOLS = [
 
 for(const {path, chip, view} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
-  const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
+  const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   await page.getByRole('button', {name: chip}).click();
   await page.waitForTimeout(500);
@@ -68,7 +68,7 @@ for(const {path, chip, view} of TOOLS){
   await page.waitForTimeout(300);
   check(path + ' narrow: rail stacks and tab hides', await page.locator('.rail').isVisible() &&
     !(await page.locator('#railtab').isVisible()));
-  check(path + ' no page errors', errors.length === 0);
+  check(path + ' no console/page errors', errors.length === 0);
   await page.close();
 }
 

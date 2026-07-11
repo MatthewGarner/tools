@@ -1,11 +1,10 @@
 import {chromium} from 'playwright';
+import {trackErrors} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 const browser = await chromium.launch();
 const page = await browser.newPage();
-const errors = [];
-page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-page.on('console', m => { if(m.type() === 'error') errors.push('console: ' + m.text()); });
+const errors = trackErrors(page);
 
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);

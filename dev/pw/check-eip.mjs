@@ -1,10 +1,10 @@
 /* Edit-in-place browser checks (tree). */
 import {chromium, devices} from 'playwright';
+import {trackErrors} from './_harness.mjs';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
 const page = await browser.newPage({viewport: {width: 1500, height: 1000}});
-const errors = [];
-page.on('pageerror', e => errors.push(e.message));
+const errors = trackErrors(page);
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
@@ -97,13 +97,12 @@ check('label rename lands in text and diagram',
     (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Lose'));
 }
 
-check('no page errors', errors.length === 0);
+check('no console/page errors', errors.length === 0);
 
 /* ---- why: popover status + cycle assumption ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
-  const errs = [];
-  p.on('pageerror', e => errs.push(e.message));
+  const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit retention'}).click();
   await p.waitForTimeout(500);
@@ -152,15 +151,14 @@ check('no page errors', errors.length === 0);
     const svg = renderOst(m, project(m), {colors: {}, measure: () => 50, dark: false});
     return !svg.includes('card-') && !svg.includes('removeassump');
   }));
-  check('why: no page errors', errs.length === 0);
+  check('why: no console/page errors', errs.length === 0);
   await p.close();
 }
 
 /* ---- roadmap: title edit + status popover ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
-  const errs = [];
-  p.on('pageerror', e => errs.push(e.message));
+  const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit app roadmap'}).click();
   await p.waitForTimeout(500);
@@ -192,15 +190,14 @@ check('no page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const t4 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: popover Remove deletes the line', t4.split('\n').length === t3.split('\n').length - 1);
-  check('roadmap: no page errors', errs.length === 0);
+  check('roadmap: no console/page errors', errs.length === 0);
   await p.close();
 }
 
 /* ---- risk (energy) ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
-  const errs = [];
-  p.on('pageerror', e => errs.push(e.message));
+  const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/risk/', {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Route to market'}).click();
   await p.waitForTimeout(600);
@@ -218,15 +215,14 @@ check('no page errors', errors.length === 0);
   await p.keyboard.press('Meta+z');
   await p.waitForTimeout(500);
   check('risk: one undo reverts', (await p.evaluate(() => localStorage.getItem('risk-src'))) === before);
-  check('risk: no page errors', errs.length === 0);
+  check('risk: no console/page errors', errs.length === 0);
   await p.close();
 }
 
 /* ---- cycles (energy) ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
-  const errs = [];
-  p.on('pageerror', e => errs.push(e.message));
+  const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/cycles/', {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Wexcombe base case'}).click();
   await p.waitForTimeout(1000);
@@ -242,15 +238,14 @@ check('no page errors', errors.length === 0);
   await p.keyboard.press('Meta+z');
   await p.waitForTimeout(700);
   check('cycles: one undo reverts', (await p.evaluate(() => localStorage.getItem('cycles-src'))) === before);
-  check('cycles: no page errors', errs.length === 0);
+  check('cycles: no console/page errors', errs.length === 0);
   await p.close();
 }
 
 /* ---- wardley: name edit, stage cycle, drag writes text, vertical no-op ---- */
 {
   const wpage = await browser.newPage({viewport: {width: 1500, height: 1000}});
-  const werrors = [];
-  wpage.on('pageerror', e => werrors.push(e.message));
+  const werrors = trackErrors(wpage);
   await wpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
   await wpage.waitForTimeout(500);
 
@@ -364,7 +359,7 @@ check('no page errors', errors.length === 0);
   await wpage.waitForTimeout(500);
   const wsrc6 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: tap-to-place writes @ before the trailing comment', /Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6));
-  check('wardley: no page errors', werrors.length === 0);
+  check('wardley: no console/page errors', werrors.length === 0);
   await wpage.close();
 }
 
@@ -374,8 +369,7 @@ check('no page errors', errors.length === 0);
 {
   const mctx = await browser.newContext({...devices['iPhone 13']});
   const mpage = await mctx.newPage();
-  const merrors = [];
-  mpage.on('pageerror', e => merrors.push(e.message));
+  const merrors = trackErrors(mpage);
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
   await mpage.waitForTimeout(600);
 
@@ -407,7 +401,7 @@ check('no page errors', errors.length === 0);
   await mpage.waitForTimeout(600);
   const msrc3 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
-  check('wardley narrow: no page errors', merrors.length === 0);
+  check('wardley narrow: no console/page errors', merrors.length === 0);
 
   /* ---- clamp check (same mobile context): a milestone label near the right
      screen edge on /timeline/ — its eip-input must stay inside the viewport.
@@ -451,8 +445,7 @@ check('no page errors', errors.length === 0);
    the dated placeholder (not "New milestone" — that would test nothing) ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
-  const errs = [];
-  p.on('pageerror', e => errs.push(e.message));
+  const errs = trackErrors(p);
   const seed = {t: 'title: Pen test doc\nGrid: Existing item 2026-08 .. 2026-10\n'};
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + hash, {waitUntil: 'networkidle'});
@@ -466,7 +459,7 @@ check('no page errors', errors.length === 0);
   const t = await p.evaluate(() => localStorage.getItem('timeline-src'));
   check('timeline: lane add writes a lane-prefixed dated placeholder, typed value in',
     /^Grid: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(t));
-  check('timeline: no page errors', errs.length === 0);
+  check('timeline: no console/page errors', errs.length === 0);
   await p.close();
 }
 
