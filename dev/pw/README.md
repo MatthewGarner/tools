@@ -4,7 +4,25 @@ Not deployed — dev only (kept out of repo root so Vercel treats the site as st
 
 ```bash
 cd dev/pw && npm install && npx playwright install chromium
-# serve the repo:  python3 -m http.server 8087  (from repo root)
-node check.mjs            # roadmap parity checks against http://localhost:8087
-BASE=<url> node check.mjs # or against a preview deploy
 ```
+
+**Serve with `dev/serve.mjs`, not `python3 -m http.server`** — serve.mjs applies
+vercel.json's production headers (CSP included), so the suites prove CSP
+compatibility; a plain static server no longer exercises what production ships.
+
+```bash
+# from repo root, in separate shells (both origins up for pwa/mobile):
+node dev/serve.mjs 8087                 # tools origin
+node dev/serve.mjs 8089 --origin=energy # energy origin
+
+# then, from dev/pw — the full gate (all eight suites):
+npm run verify
+# or a single suite:
+node smoke.mjs
+BASE=<url> node smoke.mjs               # or against a preview deploy
+```
+
+`npm run verify` is the single source for "the full suite" (also referenced by
+CLAUDE.md) — add a new suite there, not to a prose list. Suites read `BASE`
+(tools origin) and `EBASE`/`EPORT` (energy origin) env knobs; defaults are
+:8087 / :8089.

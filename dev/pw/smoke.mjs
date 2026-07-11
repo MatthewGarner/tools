@@ -2,6 +2,7 @@
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
 import {chromium} from 'playwright';
+import {TOOL_DIRS} from '../tool-dirs.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -38,7 +39,7 @@ async function svgDecodes(page, selector){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: ten tool cards', await page.locator('a.tool').count() === 10);
+  check('landing: one card per tool', await page.locator('a.tool').count() === TOOL_DIRS.length);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
@@ -160,7 +161,7 @@ for(const theme of ['light', 'dark']){
 
 /* ---- every tool links home ---- */
 {
-  const tools = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley'];
+  const tools = TOOL_DIRS;
   const {page, errors} = await freshPage('/' + tools[0] + '/');
   let allOk = true;
   for(const t of tools){
