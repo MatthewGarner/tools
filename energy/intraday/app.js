@@ -22,6 +22,7 @@ import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
+import {trapPopoverFocus} from '../../assets/popover-focus.js';
 
 export const PRESETS = {
   winter:    {label: 'Winter weekday',      mutate: {trough: 30, peak: 47, solarPeak: 2, sunrise: 8, sunset: 16}},
@@ -126,10 +127,15 @@ function boot(){
   let activeCallout = null;
   function closeCallout(){
     if(!activeCallout) return;
-    const {pop, away} = activeCallout;
+    const {pop, away, el} = activeCallout;
     activeCallout = null;
     document.removeEventListener('pointerdown', away, true);
     pop.remove();
+    /* restore focus to the hour-stack block that opened this — it's
+       tabindex="0" (merit-order/render.js's shared renderStack). Deferred:
+       see merit-order/app.js's closeCallout for why a synchronous .focus()
+       here can steal a different control's in-flight click gesture. */
+    if(el && typeof el.focus === 'function') setTimeout(() => el.focus(), 0);
   }
   function openCallout(name, el){
     closeCallout();
@@ -147,10 +153,15 @@ function boot(){
     math.className = 'mo-callout-math';
     math.textContent = `${fmtGW(gen.capacity)} GW offered · bids £${Math.round(gen.cost)}/MWh`;
     pop.append(title, math);
+    /* read-only popover (no button) — trapPopoverFocus focuses the container
+       itself, so it needs its own accessible name to announce anything */
+    pop.setAttribute('role', 'group');
+    pop.setAttribute('aria-label', title.textContent + ' — ' + math.textContent);
     document.body.appendChild(pop);
     const away = e => { if(!pop.contains(e.target)) closeCallout(); };
     document.addEventListener('pointerdown', away, true);
-    activeCallout = {pop, away};
+    activeCallout = {pop, away, el};
+    trapPopoverFocus(pop, closeCallout);
   }
   stackEl.addEventListener('click', e => {
     const g = e.target.closest && e.target.closest('g[data-plant]');

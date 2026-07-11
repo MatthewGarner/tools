@@ -13,6 +13,7 @@ import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-comm
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {rafBatched} from '../../assets/schedule.js';
+import {trapPopoverFocus} from '../../assets/popover-focus.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -170,10 +171,20 @@ function boot(){
   let activeCallout = null;
   function closeCallout(){
     if(!activeCallout) return;
-    const {pop, away} = activeCallout;
+    const {pop, away, el} = activeCallout;
     activeCallout = null;
     document.removeEventListener('pointerdown', away, true);
     pop.remove();
+    /* restore focus to the plant block that opened this — it's tabindex="0"
+       (render.js) so a keyboard/AT user lands back where they started.
+       Deferred: this same closeCallout() runs from the capturing "away"
+       pointerdown listener whenever the user clicks a DIFFERENT control (a
+       world/condition chip) to dismiss the callout — calling .focus()
+       synchronously inside that capture-phase handler steals the in-flight
+       click gesture (confirmed empirically: the chip's own click handler
+       never ran, so applyWorld() never fired). A macrotask runs after the
+       browser finishes that click, so the chip's handler still gets it. */
+    if(el && typeof el.focus === 'function') setTimeout(() => el.focus(), 0);
   }
   function openCallout(name, el){
     closeCallout();
@@ -186,7 +197,8 @@ function boot(){
     document.body.appendChild(pop);
     const away = e => { if(!pop.contains(e.target)) closeCallout(); };
     document.addEventListener('pointerdown', away, true);
-    activeCallout = {pop, away};
+    activeCallout = {pop, away, el};
+    trapPopoverFocus(pop, closeCallout);
   }
   function renderCalloutView(pop, name){
     pop.textContent = '';
@@ -272,6 +284,12 @@ function boot(){
     done.textContent = 'Done';
     done.addEventListener('click', closeCallout);
     pop.appendChild(done);
+    /* the view swapped in place (same popover, new buttons) — trapPopoverFocus's
+       Escape/Tab-wrap already covers this pop; just move focus onto the new
+       content so it doesn't fall back to the page behind the "Edit →" button
+       that was just removed */
+    const first = pop.querySelector('button');
+    if(first) first.focus();
   }
   chartwrap.addEventListener('click', e => {
     const g = e.target.closest && e.target.closest('g[data-plant]');

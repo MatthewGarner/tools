@@ -4,6 +4,8 @@
    (exact source component, pre-filled). Commit calls onCommit(kind, line, raw, value, el)
    — el is the clicked element, for apps whose targets carry extra data- payload;
    the app owns the line rewrite + editor dispatch (undoable). */
+import {trapPopoverFocus} from './popover-focus.js';
+export {trapPopoverFocus};
 
 /* Floating elements (popover, input) are positioned from the target's rect
    before their own size is known; clamp after append so they never render
@@ -18,15 +20,30 @@ function clampToViewport(el, rect){
   el.style.top = y + 'px';
 }
 
+let errUid = 0;
+
 export function attachEditInPlace(preview, {kinds, onCommit}){
-  let active = null;   // {input, el, away}
+  let active = null;   // {input, el, away, errEl}
 
   function close(){
     if(!active) return;
-    const {input, away} = active;
+    const {input, away, el, errEl} = active;
     if(away) document.removeEventListener('pointerdown', away, true);
     active = null;          // null first: input.remove() fires blur synchronously
     input.remove();
+    if(errEl) errEl.remove();
+    /* restore focus to the trigger — it's tabindex="0" now (keyboard-fix),
+       so a keyboard/AT user lands back where they started instead of at
+       document.body. A stale/detached el (e.g. a commit that already
+       re-rendered the diagram) makes focus() a harmless no-op.
+       Deferred: close() can run from the capturing "away" pointerdown
+       listener (clicking a DIFFERENT control to dismiss) or from an
+       input's blur (focus already moving elsewhere) — calling .focus()
+       synchronously in either case steals that in-flight click/focus
+       gesture (confirmed empirically: a chip's own click handler never
+       ran when this fired synchronously). A macrotask runs after the
+       browser finishes that gesture, so the real target still gets it. */
+    if(el && typeof el.focus === 'function') setTimeout(() => el.focus(), 0);
   }
   function open(el){
     close();
@@ -71,6 +88,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       const away = e => { if(!pop.contains(e.target)) close(); };
       active = {input: pop, el, away};
       document.addEventListener('pointerdown', away, true);
+      trapPopoverFocus(pop, close);
       return;
     }
     /* choice kinds open a popover menu (options, actions, or both) */
@@ -116,6 +134,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       const away = e => { if(!pop.contains(e.target)) close(); };
       active = {input: pop, el, away};
       document.addEventListener('pointerdown', away, true);
+      trapPopoverFocus(pop, close);
       return;
     }
     const input = document.createElement('input');
@@ -126,10 +145,19 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.style.top = (rect.top - 6) + 'px';
     input.style.minWidth = Math.max(rect.width + 34, 96) + 'px';
     document.body.appendChild(input);
+    /* always-present (empty until invalid), sr-only error text — a screen
+       reader hears it via aria-live the moment validate() fails; sighted
+       users keep the existing shake + red border as the primary signal. */
+    const errEl = document.createElement('div');
+    errEl.className = 'eip-err sr-only';
+    errEl.id = 'eip-err-' + (++errUid);
+    errEl.setAttribute('aria-live', 'polite');
+    document.body.appendChild(errEl);
+    input.setAttribute('aria-describedby', errEl.id);
     clampToViewport(input, rect);
     input.focus();
     input.select();
-    active = {input, el};
+    active = {input, el, errEl};
 
     const commit = () => {
       if(!active) return;
@@ -139,6 +167,8 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         input.classList.remove('invalid');
         void input.offsetWidth;          // restart the shake
         input.classList.add('invalid');
+        input.setAttribute('aria-invalid', 'true');
+        errEl.textContent = 'That value isn’t valid for ' + kind + ' — try again.';
         input.focus();
         return;
       }
@@ -150,6 +180,14 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       if(e.key === 'Enter'){ e.preventDefault(); commit(); }
       else if(e.key === 'Escape'){ e.preventDefault(); close(); }
       e.stopPropagation();
+    });
+    /* a revision in progress silences the stale error rather than leaving a
+       screen reader stuck on an announcement that may no longer apply */
+    input.addEventListener('input', () => {
+      if(!input.classList.contains('invalid')) return;
+      input.classList.remove('invalid');
+      input.removeAttribute('aria-invalid');
+      errEl.textContent = '';
     });
     input.addEventListener('blur', commit);
   }
