@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite} from '../edit-targets.js';
+import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
+  addComponent, removeComponent} from '../edit-targets.js';
 
 const DOC = `title: T
 anchor: Need
@@ -86,4 +87,83 @@ test('cycleStage and rename preserve trailing comments', () => {
   assert.deepEqual(cycleStage(doc, 1, 'product'), [{line: 1, text: 'B @ product   // core bet'}]);
   const out = renameComponent(doc, 1, 'B', 'Core');
   assert.equal(out[0].text, 'Core @ custom   // core bet');
+});
+
+const HABITAT = `title: Habitat platform
+anchor: Habit tracking
+
+Habit builder @ product
+Streak engine @ custom
+Analytics pipeline    // no position yet
+
+Habit tracking -> Habit builder -> Streak engine
+Streak engine -> Analytics pipeline`;
+
+test('addComponent inserts after the last declaration BEFORE the edge block', () => {
+  const r = addComponent(HABITAT, 'Cache', 'commodity');
+  assert.equal(r.newLine, 'Cache @ commodity');
+  assert.equal(r.afterLine, 5);                       // the Analytics pipeline line
+  assert.equal(r.select, 'Cache');
+});
+test('addComponent: no stage → bare ghost line', () => {
+  assert.equal(addComponent(HABITAT, 'Cache', null).newLine, 'Cache');
+});
+test('addComponent: edge-auto-created ghosts (edge srcLines) never count as declarations', () => {
+  const doc = 'anchor: A\nA -> Mystery';
+  assert.equal(addComponent(doc, 'B', 'custom').afterLine, 0);   // after anchor, before the edge
+});
+test('addComponent: config-only doc → after the config block', () => {
+  assert.equal(addComponent('title: T\npalette: ocean', 'B', 'custom').afterLine, 1);
+});
+test('addComponent: empty doc → line 0', () => {
+  assert.equal(addComponent('', 'B', 'custom').afterLine, 0);
+});
+test('removeComponent: declaration deleted, 3-chain spliced, 2-chain line deleted', () => {
+  const ops = removeComponent(HABITAT, 4, 'Streak engine');
+  const lines = HABITAT.split('\n');
+  const del = ops.filter(o => o.text === null).map(o => o.line).sort();
+  assert.deepEqual(del, [4, 8]);                      // declaration + "Streak engine -> Analytics pipeline"
+  const spliced = ops.find(o => o.line === 7);
+  assert.equal(spliced.text, 'Habit tracking -> Habit builder');
+});
+test('removeComponent: A -> B -> A collapses the self-edge it would create', () => {
+  const doc = 'anchor: N\nA @ custom\nB @ custom\nN -> A\nA -> B -> A';
+  const ops = removeComponent(doc, 2, 'B');
+  const edge = ops.find(o => o.line === 4);
+  assert.equal(edge.text, null);                      // A -> A collapses to A → <2 segments → delete
+});
+test('removeComponent: comments preserved on KEPT lines, lost with deleted lines', () => {
+  const doc = 'anchor: N\nA @ custom\nB @ custom\nN -> A -> B   // the chain';
+  const ops = removeComponent(doc, 2, 'B');
+  assert.equal(ops.find(o => o.line === 3).text, 'N -> A   // the chain');
+});
+test('removeComponent: case-insensitive edge match', () => {
+  const doc = 'anchor: N\nBig Thing @ custom\nN -> big thing';
+  const del = removeComponent(doc, 1, 'Big Thing').filter(o => o.text === null).map(o => o.line);
+  assert.deepEqual(del.sort(), [1, 2]);
+});
+test('phantom-ghost regression: removed name never survives anywhere', () => {
+  // parse is already imported at the top of this test file
+  const doc = 'anchor: N\nA @ custom\nB @ 0.7\nN -> A -> B\nB -> A';
+  const ops = removeComponent(doc, 2, 'B');
+  const lines = doc.split('\n');
+  for(const o of ops) lines[o.line] = o.text;
+  const out = lines.filter(l => l !== null).join('\n');
+  const m = parse(out);
+  assert.ok(!m.components.has('b'));
+  assert.equal(m.components.get('a').x, 0.375);       // A keeps its position
+});
+test('removing an edge-created ghost never double-touches its line', () => {
+  // ghosts declared BY an edge carry the edge's own srcLine (parse.js) — the
+  // splice pass owns that line; no separate declaration-delete op may exist
+  const del = removeComponent('anchor: N\nN -> Ghost', 1, 'Ghost');
+  assert.deepEqual(del, [{line: 1, text: null}]);
+  const spliced = removeComponent('anchor: N\nN -> Ghost -> B\nB @ custom', 1, 'Ghost');
+  assert.deepEqual(spliced, [{line: 1, text: 'N -> B'}]);
+});
+test('rename over a COMMENTED edge line no longer skips it (live-bug regression)', () => {
+  const doc = 'anchor: N\nB @ custom\nN -> B // note';
+  const out = renameComponent(doc, 1, 'B', 'Core');
+  const edge = out.find(e => e.line === 2);
+  assert.equal(edge.text, 'N -> Core   // note');
 });
