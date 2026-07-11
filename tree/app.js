@@ -6,7 +6,9 @@ import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, applies, subtreeRange, childLineFor} from './edit-targets.js';
@@ -42,16 +44,9 @@ Approach
 ];
 
 /* ---------- refresh loop ---------- */
-let model = null, results = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, results = null, lastSvg = '', hashTimer = null;
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  const all = [...(model ? model.warnings : []), ...(results ? results.warnings : [])];
-  for(const w of all){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(results ? results.warnings : [])]);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -74,14 +69,11 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 function writeHash(){
   const state = {t: editor.getText()};
@@ -132,44 +124,24 @@ for(const ex of EXAMPLES){
 }
 
 /* ---------- saved trees ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('tree-saved') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('tree-saved', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'tree-saved';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.addEventListener('click', () => editor.setText(m.src));
-    const del = document.createElement('button');
-    del.className = 'chipdel'; del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved tree ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    deleteLabel: m => 'Delete saved tree ' + m.name,
+    onLoad: m => editor.setText(m.src),
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
   save.textContent = '＋ Save current';
   save.addEventListener('click', () => {
     if(!model || !model.root) return;
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: model.title ? model.title.slice(0, 28) : 'Tree ' + (list.length + 1), src: editor.getText()});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);

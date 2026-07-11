@@ -1,5 +1,6 @@
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy} from './engine.js';
+import {readHashState, writeHashState} from '../assets/series.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -221,14 +222,12 @@ function writeHash(){
     k: state.k, w: state.ww, s: state.sw,
   };
   if($('oda').value.trim() || $('odb').value.trim()) s.o = [$('oda').value, $('odb').value];
-  const enc = btoa(unescape(encodeURIComponent(JSON.stringify(s))));
-  history.replaceState(null, '', '#' + enc);
+  writeHashState(s);
 }
 function readHash(){
   try{
-    if(!location.hash || location.hash.length < 2) return false;
-    const s = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
-    if(!Array.isArray(s.c) || !Array.isArray(s.i)) return false;
+    const s = readHashState();
+    if(!s || !Array.isArray(s.c) || !Array.isArray(s.i)) return false;
     state.criteria = s.c.map(p => ({name:String(p[0]), w:+p[1] || 0}));
     if(Array.isArray(s.e)) state.effort = {name:String(s.e[0]), w:+s.e[1] || 1};
     state.items = s.i.map(row => ({

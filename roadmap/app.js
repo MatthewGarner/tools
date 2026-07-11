@@ -1,5 +1,7 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
@@ -12,23 +14,6 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
-
-/* ---------- DOM-side render context ---------- */
-const measCtx = document.createElement('canvas').getContext('2d');
-const measure = (text, font) => { measCtx.font = font; return measCtx.measureText(text).width; };
-function isDark(){
-  const t = document.documentElement.dataset.theme;
-  if(t === 'dark') return true;
-  if(t === 'light') return false;
-  return matchMedia('(prefers-color-scheme: dark)').matches;
-}
-function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
-  const g = n => cs.getPropertyValue(n).trim();
-  return {card:g('--card'), border:g('--border'), ink:g('--ink'), muted:g('--muted'),
-    accent:g('--accent'), bg:g('--bg'), err:g('--err'),
-    status:{done:g('--st-done'), doing:g('--st-doing'), risk:g('--st-risk'), blocked:g('--st-blocked')}};
-}
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -105,7 +90,7 @@ function makeDiff(model){
 }
 
 /* ---------- refresh loop ---------- */
-let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, lastSvg = '', hashTimer = null;
 let pendingFlip = null;   // card rects keyed by title, set just before a drop's re-render
 function renderWarnings(m){
   const warns = $('warns');
@@ -115,11 +100,7 @@ function renderWarnings(m){
     m.warnings.push(m.horizons[0] + ' has ' + firstColCount +
       ' items — that’s a list, not a strategy. (Raise or silence with wip: N / wip: off.)');
   }
-  for(const w of m.warnings){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList(warns, m.warnings);
 }
 function writeHash(){
   const state = {t: editor.getText()};
@@ -150,15 +131,12 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -214,29 +192,8 @@ function svgString(slide){
   if(!model || !model.items.length) return null;
   return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
 }
-function download(name, blob){
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
 function slug(){
   return (model.title || 'roadmap').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'roadmap';
-}
-function pngFrom(svg, name){
-  const img = new Image();
-  const dims = svg.match(/width="(\d+)" height="(\d+)"/);
-  const w = +dims[1], h = +dims[2], scale = 2;
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = w * scale; c.height = h * scale;
-    const cctx = c.getContext('2d');
-    cctx.scale(scale, scale);
-    cctx.drawImage(img, 0, 0);
-    c.toBlob(b => download(name, b), 'image/png');
-  };
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 $('dlsvg').addEventListener('click', () => {
   const svg = svgString();
@@ -244,11 +201,11 @@ $('dlsvg').addEventListener('click', () => {
 });
 $('dlpng').addEventListener('click', () => {
   const svg = svgString();
-  if(svg) pngFrom(svg, slug() + '.png');
+  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
 });
 $('dlslide').addEventListener('click', () => {
   const svg = svgString(true);
-  if(svg) pngFrom(svg, slug() + '-slide.png');
+  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
 });
 $('copypng').addEventListener('click', () => {
   const svg = svgString();
@@ -321,44 +278,24 @@ snaps = wireSnapshots({
 });
 
 /* ---------- saved roadmaps ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('roadmap-saved') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('roadmap-saved', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'roadmap-saved';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.addEventListener('click', () => editor.setText(m.src));
-    const del = document.createElement('button');
-    del.className = 'chipdel'; del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved roadmap ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    deleteLabel: m => 'Delete saved roadmap ' + m.name,
+    onLoad: m => editor.setText(m.src),
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
   save.textContent = '＋ Save current';
   save.addEventListener('click', () => {
     if(!model || !model.items.length) return;
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: model.title ? model.title.slice(0, 28) : 'Roadmap ' + (list.length + 1), src: editor.getText()});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);

@@ -2,11 +2,12 @@
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
-import {quantile} from '../assets/series.js';
+import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
-import {measure} from '../assets/app-common.js';
+import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
@@ -182,10 +183,10 @@ function renderThresh(){
 
 function readHash(){
   try{
-    if(!location.hash || location.hash.length < 2) return null;
-    const s = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
-    if(s && s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
-    if(s && s.m === 'cf' && Array.isArray(s.p)) return s;
+    const s = readHashState();
+    if(!s) return null;
+    if(s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
+    if(s.m === 'cf' && Array.isArray(s.p)) return s;
     if(typeof s.f !== 'string' || typeof s.v !== 'object') return null;
     return s;
   }catch(e){ return null; }
@@ -204,8 +205,7 @@ function writeHash(){
   const state = compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
     : packScen(scenStore.A);
-  const enc = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-  history.replaceState(null, '', '#' + enc);
+  writeHashState(state);
 }
 
 /* ---------- variable rows ---------- */
@@ -494,9 +494,7 @@ wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
 function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
-  const get = n => cs.getPropertyValue(n).trim();
-  return {accent:get('--accent'), accent2:get('--accent2'), ink:get('--ink'), muted:get('--muted'), card:get('--card'), border:get('--border'), err:get('--err')};
+  return {...sharedThemeColors(), accent2: getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim()};
 }
 function drawHist(hoverIdx){
   const r = last;
@@ -668,8 +666,7 @@ $('tin').addEventListener('input', () => {
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
 if(window.ResizeObserver) new ResizeObserver(() => drawHist()).observe($('hist'));
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
-new MutationObserver(redrawAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+onThemeChange(redrawAll);
 
 /* ---------- chips / copy / boot ---------- */
 for(const ex of EXAMPLES){
@@ -759,38 +756,17 @@ $('png').addEventListener('click', () => {
   ctx.font = '12px ui-monospace, Menlo, monospace';
   ctx.fillText('P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, pad + h + 36);
-  c.toBlob(b => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = 'estimate.png';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  }, 'image/png');
+  c.toBlob(b => download('estimate.png', b), 'image/png');
 });
 
 /* ---------- saved models (localStorage) ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('fermi-models') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('fermi-models', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'fermi-models';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.title = m.f;
-    load.addEventListener('click', () => {
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    title: m => m.f,
+    deleteLabel: m => 'Delete saved model ' + m.name,
+    onLoad: m => {
       $('formula').value = m.f;
       for(const [k, p] of Object.entries(m.v || {})){
         varState.set(k, {lo:String(p[0] ?? ''), hi:String(p[1] ?? ''), dist:p[2] || 'auto'});
@@ -799,19 +775,13 @@ function renderSaved(){
       $('tin').value = threshStr;
       varRowsSig = '';
       lint();
-    });
-    const del = document.createElement('button');
-    del.className = 'chipdel';
-    del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved model ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved();
+    },
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY);
       l.splice(i, 1);
-      storeSaved(l);
+      storeSaved(SAVED_KEY, l);
       renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
@@ -824,9 +794,9 @@ function renderSaved(){
       const st = varState.get(n);
       if(st) v[n] = [st.lo, st.hi, st.dist || 'auto'];
     }
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: f.length > 26 ? f.slice(0, 24) + '…' : f, f, v, t: threshStr});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);
@@ -1033,7 +1003,7 @@ $('cfcopydoc').addEventListener('click', async () => {
 function cfWriteHash(){
   const state = {m: 'cf', g: cf.grain, h: cf.horizon, rl: cf.rlo, rh: cf.rhi,
     p: cf.periods.map(p => [p.lo, p.hi])};
-  history.replaceState(null, '', '#' + btoa(unescape(encodeURIComponent(JSON.stringify(state)))));
+  writeHashState(state);
 }
 function cfWriteHashSafe(){ clearTimeout(cfHashTimer); cfHashTimer = setTimeout(cfWriteHash, 100); }
 

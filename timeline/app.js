@@ -5,7 +5,8 @@ import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
@@ -35,7 +36,7 @@ IT: Desks and AV 2026-12 .. 2027-01
 Move-in day 2027-01 .. 2027-02`},
 ];
 
-let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
 
 function currentDiff(){
@@ -50,13 +51,7 @@ function activeRender(slide, edit = false){
   return render(model, ctx(slide), currentDiff(), {edit});
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -77,14 +72,11 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 function writeHash(){
   if(!shouldPersist()) return;

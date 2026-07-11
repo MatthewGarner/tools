@@ -48,3 +48,14 @@ export function onThemeChange(fn){
   new MutationObserver(fn).observe(document.documentElement,
     {attributes: true, attributeFilter: ['data-theme']});
 }
+
+/* Rebuild a soft-warning <ul> from a list of strings. Callers assemble their own
+   array (one model, merged models, or a pre-computed extra) and pass it. */
+export function renderWarningList(el, warnings){
+  el.textContent = '';
+  for(const w of warnings){
+    const li = document.createElement('li');
+    li.textContent = w;
+    el.appendChild(li);
+  }
+}

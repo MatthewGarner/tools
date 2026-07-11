@@ -5,6 +5,7 @@ import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
+import {onThemeChange} from '../assets/app-common.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
 const showOverlay = (el, model, responses, ctx) =>
@@ -14,11 +15,6 @@ const delphiSvg = (model, r1, r2, ctx) =>
     {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1)});
 const delphiMd = (model, r1, r2) =>
   markdownSummary(model, sessionStats(model, mergeFinal(r1, r2)), delphiStats(model, r1, r2));
-const onThemeChange = fn => {
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', fn);
-  new MutationObserver(fn).observe(document.documentElement,
-    {attributes: true, attributeFilter: ['data-theme']});
-};
 const slugOf = model => ((model.title || 'gauge')).toLowerCase()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 

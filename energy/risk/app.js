@@ -6,7 +6,8 @@ import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../../assets/app-common.js';
+import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 
@@ -39,12 +40,8 @@ toll: 47 "Fixed-price PPA"`},
 let model = null, sim = null, lastSvg = '', focusIdx = null;
 let rafId = 0, debTimer = null, hashTimer = null;
 
-const NARROW = 520;
 const stageEl = $('preview');
-function renderWidth(){
-  const w = stageEl.clientWidth;
-  return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its constant
-}
+function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
 }
@@ -52,13 +49,7 @@ function activeRender(slide, edit = false, forExport = false){
   return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx});
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -181,15 +172,7 @@ function rerender(){ lastSvg = ''; refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
-let lastBucket = null;
-const ro = new ResizeObserver(() => {
-  const w = stageEl.clientWidth;
-  const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
-  if(bucket === lastBucket) return;
-  lastBucket = bucket;
-  rerender();
-});
-ro.observe(stageEl, {box: 'content-box'});
+watchNarrowBucket(stageEl, rerender);
 
 /* ---------- boot ---------- */
 (function(){

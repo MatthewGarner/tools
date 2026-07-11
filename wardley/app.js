@@ -7,7 +7,8 @@ import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, removeComponent} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
@@ -49,7 +50,7 @@ Storefront -> House blends -> Tea supply
 Storefront -> Hosting`},
 ];
 
-let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
 
 /* validated 2026-07-10 (dataviz validate_palette, ordinal mode, both themes):
@@ -79,13 +80,7 @@ function activeRender(forExport = false){
   return renderMap(model, layoutMap(model), c, opts);
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -106,14 +101,11 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 function writeHash(){
   if(!shouldPersist()) return;
