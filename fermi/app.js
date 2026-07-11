@@ -7,6 +7,7 @@ import {renderDriverTree} from './render-driver.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
@@ -759,28 +760,13 @@ $('png').addEventListener('click', () => {
 });
 
 /* ---------- saved models (localStorage) ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('fermi-models') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('fermi-models', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'fermi-models';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.title = m.f;
-    load.addEventListener('click', () => {
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    title: m => m.f,
+    deleteLabel: m => 'Delete saved model ' + m.name,
+    onLoad: m => {
       $('formula').value = m.f;
       for(const [k, p] of Object.entries(m.v || {})){
         varState.set(k, {lo:String(p[0] ?? ''), hi:String(p[1] ?? ''), dist:p[2] || 'auto'});
@@ -789,19 +775,13 @@ function renderSaved(){
       $('tin').value = threshStr;
       varRowsSig = '';
       lint();
-    });
-    const del = document.createElement('button');
-    del.className = 'chipdel';
-    del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved model ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved();
+    },
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY);
       l.splice(i, 1);
-      storeSaved(l);
+      storeSaved(SAVED_KEY, l);
       renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
@@ -814,9 +794,9 @@ function renderSaved(){
       const st = varState.get(n);
       if(st) v[n] = [st.lo, st.hi, st.dist || 'auto'];
     }
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: f.length > 26 ? f.slice(0, 24) + '…' : f, f, v, t: threshStr});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);

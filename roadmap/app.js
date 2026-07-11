@@ -1,5 +1,6 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
@@ -279,44 +280,24 @@ snaps = wireSnapshots({
 });
 
 /* ---------- saved roadmaps ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('roadmap-saved') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('roadmap-saved', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'roadmap-saved';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.addEventListener('click', () => editor.setText(m.src));
-    const del = document.createElement('button');
-    del.className = 'chipdel'; del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved roadmap ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    deleteLabel: m => 'Delete saved roadmap ' + m.name,
+    onLoad: m => editor.setText(m.src),
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
   save.textContent = '＋ Save current';
   save.addEventListener('click', () => {
     if(!model || !model.items.length) return;
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: model.title ? model.title.slice(0, 28) : 'Roadmap ' + (list.length + 1), src: editor.getText()});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);
