@@ -6,7 +6,8 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
@@ -244,38 +245,12 @@ function svgString(slide){
 function slug(){
   return ((model.title || model.preset || 'map')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
-});
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString(true);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-function flash(btn, msg, base){
-  btn.textContent = msg;
-  setTimeout(() => { btn.textContent = base; }, 2000);
-}
-$('copypng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem)
-    return flash($('copypng'), 'Clipboard unavailable — use Download', 'Copy PNG');
-  const blobPromise = new Promise((resolve, reject) =>
-    svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-    .then(() => flash($('copypng'), 'Copied — paste into your deck', 'Copy PNG'))
-    .catch(() => flash($('copypng'), 'Copy blocked — use Download', 'Copy PNG'));
-});
-$('copymd').addEventListener('click', () => {
-  if(!ro) return;
-  navigator.clipboard.writeText(toMarkdown(ro, model))
-    .then(() => flash($('copymd'), 'Copied — paste into your doc', 'Copy for doc'))
-    .catch(() => flash($('copymd'), 'Copy blocked', 'Copy for doc'));
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng'), copymd: $('copymd')},
+  getSvg: () => svgString(false),
+  getSvgSlide: () => svgString(true),
+  getMarkdown: () => ro ? toMarkdown(ro, model) : null,
+  slug,
 });
 
 /* ---------- drag-to-place: a drop is a text edit ---------- */

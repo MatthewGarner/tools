@@ -5,7 +5,8 @@ import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -144,31 +145,15 @@ function svgString(slide){
 function slug(){
   return ((model.title || 'timeline')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  getSvg: () => svgString(false),
+  getSvgSlide: () => svgString(true),
+  slug,
 });
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString(true);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-$('copypng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem){
-    flash('copypng', 'Clipboard unavailable — use Download', 2200);
-    return;
-  }
-  const blobPromise = new Promise((resolve, reject) =>
-    svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-    .then(() => flash('copypng', 'Copied — paste into your deck', 1800))
-    .catch(() => flash('copypng', 'Copy blocked — use Download', 2200));
-});
+/* copymd keeps its inline handler: on clipboard failure it falls back to a
+   prompt() with the markdown so it's still copyable — wireExports has no
+   equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
   const md = toMarkdown(model, currentDiff(), location.href);

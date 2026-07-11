@@ -1,5 +1,6 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange, renderWarningList, measure, isDark, themeColors, download, svgToCanvas} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {parse, STATUS_LABEL} from './parse.js';
@@ -195,49 +196,14 @@ function svgString(slide){
 function slug(){
   return (model.title || 'roadmap').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'roadmap';
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString();
-  if(svg) download(slug() + '.svg', new Blob([svg], {type:'image/svg+xml'}));
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  getSvg: () => svgString(),
+  getSvgSlide: () => svgString(true),
+  slug,
 });
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString();
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString(true);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-$('copypng').addEventListener('click', () => {
-  const svg = svgString();
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem){
-    $('copypng').textContent = 'Clipboard unavailable — use Download';
-    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 2200);
-    return;
-  }
-  const blobPromise = new Promise((resolve, reject) => {
-    const img = new Image();
-    const dims = svg.match(/width="(\d+)" height="(\d+)"/);
-    const w = +dims[1], h = +dims[2], scale = 2;
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = w * scale; c.height = h * scale;
-      const cctx = c.getContext('2d');
-      cctx.scale(scale, scale);
-      cctx.drawImage(img, 0, 0);
-      c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
-    };
-    img.onerror = reject;
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-  });
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})]).then(() => {
-    $('copypng').textContent = 'Copied — paste into your deck';
-    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 1800);
-  }).catch(() => {
-    $('copypng').textContent = 'Copy blocked — use Download';
-    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 2200);
-  });
-});
+/* copymd keeps its inline handler: label is 'Copy as markdown' / 'Copied', not
+   wireExports' literal 'Copy for doc' revert — migrating would change the label. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
   const lines = [];
