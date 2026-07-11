@@ -176,3 +176,27 @@ test('wide render ignores ctx.width above the threshold (exports stay pinned)', 
   assert.ok(wide.includes('GENESIS'));
   assert.match(wide, /width="1200"/);
 });
+
+/* ---- edit gating: add zones + component menus (Task 4) ---- */
+test('edit gating: zones/markers only under opts.edit; default output unchanged', () => {
+  const plain = draw();
+  assert.ok(!plain.includes('data-edit="additem"') && !plain.includes('componentmenu'));
+  const edit = draw(SRC, {edit: true});
+  assert.equal((edit.match(/data-edit="additem"/g) || []).length, 4);     // one per stage
+  assert.match(edit, /data-edit="additem" data-stage="custom"/);
+  assert.equal((edit.match(/componentmenu/g) || []).length, 3);           // one per component
+  wellFormed(edit);
+});
+test('narrow edit: add-card before the readout divider; markers after strip groups', () => {
+  const s = draw(SRC, {edit: true}, narrowCtx);
+  assert.match(s, /Add component/);
+  assert.ok(s.indexOf('Add component') < s.search(/execution|discovery|load-bearing/), 'add-card before the readout verdict');
+  const cardMarker = s.indexOf('componentmenu');
+  const stripEnd = s.indexOf('</g>', s.indexOf('data-strip=""'));
+  assert.ok(cardMarker > stripEnd, 'marker painted after the strip group');
+  wellFormed(s);
+});
+test('ghost add pill never carries data-drag', () => {
+  const edit = draw(SRC, {edit: true});
+  assert.ok(!/data-edit="additem"[^>]*data-drag|data-drag[^>]*data-edit="additem"/.test(edit));
+});
