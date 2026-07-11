@@ -42,9 +42,10 @@ export function renameComponent(text, srcLine, raw, value){
   const edits = edgeRewrites(lines, raw, value);
   /* an edge-created ghost's srcLine IS an edge line — edgeRewrites already owns
      it; a separate declaration op on the same line would be a duplicate that
-     applyLineOps rejects (mirrors removeComponent's guard) */
-  if(!lines[srcLine].includes('->')){
-    const [code, comment] = splitComment(lines[srcLine]);
+     applyLineOps rejects. Check the CODE part only: a declaration whose comment
+     mentions an arrow ("Foo @ custom // v1->v2") is still a declaration. */
+  const [code, comment] = splitComment(lines[srcLine]);
+  if(!code.includes('->')){
     const at = code.match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
     edits.unshift({line: srcLine, text: at[1] + value + (at[3] || '') + comment});
   }
@@ -102,14 +103,15 @@ export function addComponent(text, name, stage){
 
 /* ops [{line, text|null}] (null = delete) for applyLineOps: drop the
    declaration, splice the name out of every edge chain that mentions it.
-   The declaration delete fires ONLY when the srcLine isn't itself an edge
-   line — an edge-created ghost's srcLine IS one, and the splice pass owns
-   it (a duplicate op would make applyLineOps throw). */
+   The declaration delete fires ONLY when the srcLine's CODE isn't itself an
+   edge line — an edge-created ghost's srcLine IS one, and the splice pass owns
+   it (a duplicate op would make applyLineOps throw). Check the code part only:
+   a declaration whose comment mentions an arrow is still a declaration. */
 export function removeComponent(text, srcLine, name){
   const lines = linesOf(text);
   const k = name.trim().toLowerCase();
   const ops = [];
-  if(!lines[srcLine].includes('->')) ops.push({line: srcLine, text: null});
+  if(!splitComment(lines[srcLine])[0].includes('->')) ops.push({line: srcLine, text: null});
   const seen = new Set();
   for(const e of parse(text).edges){
     if(seen.has(e.srcLine)) continue;

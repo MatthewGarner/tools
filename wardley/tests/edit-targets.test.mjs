@@ -170,6 +170,21 @@ test('rename over a COMMENTED edge line no longer skips it (live-bug regression)
   assert.equal(edge.text, 'N -> Core   // note');
 });
 
+test('a declaration whose COMMENT contains an arrow is still a declaration', () => {
+  // the edge-line guard must read the CODE part only, not the raw line
+  const doc = 'anchor: N\nFoo @ custom  // migrating v1->v2\nN -> Foo';
+  // remove: the declaration line IS deleted (not just its edge)
+  const del = removeComponent(doc, 1, 'Foo').filter(o => o.text === null).map(o => o.line);
+  assert.deepEqual(del.sort(), [1, 2]);                 // declaration + its now-1-segment edge
+  // rename: the declaration line IS rewritten (comment kept; house 3-space gap)
+  const out = renameComponent(doc, 1, 'Foo', 'Bar');
+  const decl = out.find(o => o.line === 1);
+  assert.equal(decl.text, 'Bar @ custom   // migrating v1->v2');
+  const lines = doc.split('\n'); for(const o of out) lines[o.line] = o.text;
+  const m = parse(lines.join('\n'));
+  assert.ok(m.components.has('bar') && !m.components.has('foo'));   // renamed, not split
+});
+
 test('renaming an edge-created ghost emits ONE op on its line (no duplicate → no throw)', () => {
   // the ghost "Data store" is declared BY the edge, so its srcLine is the edge
   // line; a separate declaration op would be a duplicate applyLineOps rejects

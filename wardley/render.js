@@ -64,10 +64,12 @@ function menuMarker(mx, my, n, c){
     '" fill-opacity="0"/></g>';
 }
 
-/* wide: the marker rides just past the pill's right edge */
+/* wide: the marker rides just past the pill's right edge — offset ≥ half the
+   44px hit rect (22) so the hit rect clears the pill and a right-edge tap
+   cycles the stage rather than opening the remove menu */
 function componentMenu(n, c, measure){
   const w = pillWidth(n.name, measure);
-  return menuMarker(n.px + w / 2 + 16, n.y, n, c);
+  return menuMarker(n.px + w / 2 + 24, n.y, n, c);
 }
 
 /* wide: one ghost "＋" add-zone low in each stage band, above the axis —
