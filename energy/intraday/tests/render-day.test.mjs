@@ -32,6 +32,15 @@ test('renderDay: cursor draws the scrub line at the given hour', () => {
   assert.doesNotMatch(renderDay(r, DAY_DEFAULTS, ctx), /data-cursor/);
 });
 
+test('buildDayVerdict: names the price-setting fuel at peak and trough (changeover readout)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 0};
+  const v = buildDayVerdict(runDay(p), p);
+  assert.match(v, /gas sets the £\d+ peak/, 'gas (the CCGT bands) named as the peak price-setter');
+  assert.match(v, /Waste\/CHP the £\d+ floor/, 'the overnight-trough setter is named too');
+  assert.match(v, /from \d\d:00/, 'plateau timing retained');
+  assert.doesNotMatch(v, /CCGT \d\d%/, 'gas bands collapse to "gas" in the readout, not "CCGT 54%"');
+});
+
 test('buildDayVerdict: quotes the spread, and the flattening when a fleet works', () => {
   const p0 = {...DAY_DEFAULTS, fleetGW: 0};
   const v0 = buildDayVerdict(runDay(p0), p0);
@@ -436,13 +445,14 @@ test('buildDayVerdict: the fleet margin is quoted "per MW per day" (S3)', () => 
 test('buildDayVerdict: a flat-topped peak/trough reads "from hh:00" (plateau, S2)', () => {
   const r = runDay(DAY_DEFAULTS);   // £92 peak spans 17:00–21:00, £20 trough 03:00–04:00
   const v = buildDayVerdict(r, DAY_DEFAULTS);
-  assert.match(v, /dearest £92\/MWh from 17:00/);
-  assert.match(v, /cheapest £20\/MWh from 03:00/);
+  assert.match(v, /£92 peak from 17:00/);
+  assert.match(v, /£20 floor from 03:00/);
 });
 
 test('buildDayVerdict: a single-hour extreme still reads "at hh:00" (non-plateau branch)', () => {
-  const spike = {raw: {spread: 50, prices: [10, 30, 60, 30, 15], troughHour: 0, peakHour: 2}};
+  const spike = {raw: {spread: 50, prices: [10, 30, 60, 30, 15], troughHour: 0, peakHour: 2,
+    hours: [{marginal: 'Wind'}, {marginal: 'Biomass'}, {marginal: 'CCGT 60%'}, {marginal: 'Biomass'}, {marginal: 'Wind'}]}};
   const v = buildDayVerdict(spike, {fleetGW: 0});
-  assert.match(v, /cheapest £10\/MWh at 00:00/);
-  assert.match(v, /dearest £60\/MWh at 02:00/);
+  assert.match(v, /gas sets the £60 peak at 02:00/);
+  assert.match(v, /Wind the £10 floor at 00:00/);
 });
