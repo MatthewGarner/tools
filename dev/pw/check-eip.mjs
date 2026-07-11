@@ -134,6 +134,16 @@ check('label rename lands in text and diagram',
   await undo();
   check('tree: one undo restores the pre-add baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
+  await tapMarker(4);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await page.waitForTimeout(600);
+  const tDecRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: decision menu Remove branch drops the option and its whole subtree',
+    !tDecRemove.includes('Submit bid') && !tDecRemove.includes('Outcome') && !tDecRemove.includes('Win (p='));
+  await undo();
+  check('tree: one undo restores the removed option (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
   // chance node ("Outcome", srcLine 5): Rename works; Edit probability is a
   // documented dead row; Remove branch drops the whole Win/Lose subtree
   await tapMarker(5);
@@ -210,6 +220,34 @@ check('label rename lands in text and diagram',
   check('tree: leaf menu Remove drops the node', !tLeafRemove.includes('Win (p=0.3-0.45)'));
   await undo();
   check('tree: one undo restores the removed leaf', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  /* regression: the >=44px marker hit rect must NOT swallow this node's own
+     short label/value/prob text. drawEdge places the label/value/prob band
+     just above-left of the marker; a box centred on the marker stole the tap
+     for a bare "0" value (Lose srcLine 7, No bid srcLine 8), so the direct
+     field editor never opened. Assert elementFromPoint at each field centre
+     resolves to the FIELD, not the cardmenu hit rect — the geometry the bug
+     turned on — then that tapping it opens the input, not the menu. */
+  for(const line of [7, 8]){
+    const hit = await page.evaluate(l => {
+      const t = document.querySelector('#preview svg [data-edit="value"][data-line="' + l + '"]');
+      if(!t) return 'no-tspan';
+      const r = t.getBoundingClientRect();
+      const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      const e = el && el.closest('[data-edit]');
+      return e ? e.getAttribute('data-edit') : 'none';
+    }, line);
+    check('tree: bare "0" value at line ' + line + ' is directly tappable (marker hit rect does not steal it)', hit === 'value');
+  }
+  {
+    const box = await page.locator('#preview svg [data-edit="value"][data-line="8"]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+    check('tree: tapping the bare "0" value opens the value editor, not the card menu',
+      await page.locator('.eip-pop').count() === 0 && await page.locator('.eip-input').count() === 1);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+  }
 }
 
 check('no console/page errors', errors.length === 0);

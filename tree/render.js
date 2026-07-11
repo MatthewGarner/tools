@@ -165,14 +165,21 @@ export function render(model, results, ctx){
     /* edit-gated: the marker becomes a card-menu target (rename / edit value
        or probability / add child / remove branch) — supersedes the old
        node-<kind> add/remove-only popover. Invisible >=44px hit rect
-       (fill=C.bg, opacity 0) centred on the ~22px marker, painted last, so a
-       phone-width tap lands cleanly; same data-line as the label/prob/value
-       tspans drawEdge emits for this node (b.srcLine) — the data-line router
-       in attachEditInPlace reaches them with no DOM regroup. */
+       (fill=C.bg, opacity 0), painted last, so a phone-width tap lands
+       cleanly; same data-line as the label/prob/value tspans drawEdge emits
+       for this node (b.srcLine) — the data-line router in attachEditInPlace
+       reaches them with no DOM regroup. The box is biased DOWN from the
+       marker (top at y-2*S, not y-22*S): drawEdge places this node's own
+       label/value/prob text just above-left of the marker (down to ~y-4*S),
+       and a symmetric box swallowed those taps for short strings (a bare "0",
+       a 3-char label) — the direct field editor never opened. Biasing below
+       the marker clears the whole text band while keeping the tap on/under
+       the marker; every marker shifts by the same vector, so the WIDENED
+       hit-vs-hit non-overlap (row/column spacing >=44*S) is unchanged. */
     if(edit){
       s.push('<g data-edit="cardmenu-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
         '" data-raw="" role="button" aria-label="' + esc(node.label || 'node') + ' — options">' +
-        '<rect data-hit="" x="' + (x - 22*S) + '" y="' + (y - 22*S) + '" width="' + 44*S + '" height="' + 44*S +
+        '<rect data-hit="" x="' + (x - 22*S) + '" y="' + (y - 2*S) + '" width="' + 44*S + '" height="' + 44*S +
         '" fill="' + C.bg + '" fill-opacity="0"/></g>');
     }
   }
