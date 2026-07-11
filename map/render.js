@@ -113,10 +113,10 @@ export function render(model, resolved, ro, ctx, diff = null){
       ' font-size="' + T.zoneSize * S + '" font-weight="600" letter-spacing="' + T.zoneTracking +
       '" fill="' + (toneHex(z.tone) || C.muted) + '">' + esc(z.name.toUpperCase()) + '</text>';
     if(editable){
-      /* plane-level widen: 44x44 hit box centred on the label, no data-hit
+      /* plane-level widen: >=44px hit box centred on the label, no data-hit
          (only cardmenu cards get the WIDENED-gate marker) */
       const zoneAttr = z.kind === 'cell' ? 'c:' + z.col + ',' + z.row : 'r:' + esc(z.name);
-      body.push(editTarget(zoneText, {x: Math.max(0, zcx - 22), y: zcy - 22, w: 44, h: 44, bg: C.bg},
+      body.push(editTarget(zoneText, {x: Math.max(0, zcx - 22 * S), y: zcy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
         {kind: 'zonename', line: z.srcLine ?? -1, raw: z.name, extra: 'data-zone="' + zoneAttr + '"'}));
     } else {
       body.push(zoneText);
@@ -125,20 +125,20 @@ export function render(model, resolved, ro, ctx, diff = null){
 
   /* ---- axes ---- */
   const ax = resolved.x, ay = resolved.y;
-  /* plane-level widens: 44x44 hit box centred on each label; the y-axis label
+  /* plane-level widens: >=44px hit box centred on each label; the y-axis label
      sits close to the left edge so its box is clamped from running past x=0 */
   const axCx = planeX + planeW / 2, axCy = planeY + planeH + 26 * S;
   body.push(editTarget(
     '<text x="' + axCx + '" y="' + axCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
       '" font-weight="600" fill="' + C.ink + '">' + esc(ax.label) + '</text>',
-    {x: Math.max(0, axCx - 22), y: axCy - 22, w: 44, h: 44, bg: C.bg},
+    {x: Math.max(0, axCx - 22 * S), y: axCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
     {kind: 'axis', line: ax.srcLine ?? -1, raw: ax.label, extra: 'data-axis="x"'}));
   const ayCx = planeX - 26 * S, ayCy = planeY + planeH / 2;
   body.push(editTarget(
     '<text x="' + ayCx + '" y="' + ayCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
       '" font-weight="600" fill="' + C.ink + '" transform="rotate(-90 ' + ayCx + ' ' + ayCy + ')">' +
       esc(ay.label) + '</text>',
-    {x: Math.max(0, ayCx - 22), y: ayCy - 22, w: 44, h: 44, bg: C.bg},
+    {x: Math.max(0, ayCx - 22 * S), y: ayCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
     {kind: 'axis', line: ay.srcLine ?? -1, raw: ay.label, extra: 'data-axis="y"'}));
   if(ax.low){
     body.push('<text x="' + planeX + '" y="' + (planeY + planeH + 12 * S) + '" font-size="' +
@@ -180,7 +180,7 @@ export function render(model, resolved, ro, ctx, diff = null){
       '<text x="' + (x + T.cardPadX * S) + '" y="' + (y + h - 6 * S) + '" font-size="' + T.cardSize * S +
       '" fill="' + C.muted + '" role="button" aria-label="Add item">＋ Add item</text>';
     const cx = x + w / 2, cy = y + h / 2;
-    return editTarget(inner, {x: cx - 22, y: cy - 22, w: 44, h: 44, bg: C.bg},
+    return editTarget(inner, {x: cx - 22 * S, y: cy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
       {kind: 'additem', line: -1, raw: ''});
   };
   const removeW = edit ? 13 * S : 0;
@@ -203,12 +203,24 @@ export function render(model, resolved, ro, ctx, diff = null){
   for(const c of cards){
     const flagged = flaggedLines.has(c.it.srcLine);
     body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '">');
-    /* invisible ≥44px hit rect, centred on the capsule (not the dot — after
-       nudge the capsule can sit well away from the authored dot); first
-       child so it paints under the visible capsule + label, but still wins
-       over empty space around a 20px-tall card */
-    body.push('<rect data-hit="" x="' + c.x + '" y="' + (c.y + c.h / 2 - 22 * S) + '" width="' + c.w +
-      '" height="' + (44 * S) + '" fill="' + C.card + '" fill-opacity="0"/>');
+    /* invisible hit rect, full capsule width, centred on the capsule centre
+       (not the dot — after nudge the capsule can sit well away from the
+       authored dot). nudge() only separates the visible 20px capsules, never
+       these 44px boxes, so cap each rect's HEIGHT to its nearest x-overlapping
+       neighbour: half-height = min(22*S, gap/2) so adjacent boxes meet but
+       never overlap, floored at the visible card's own half-height (h/2) so
+       the tap target is never smaller than the card. A genuinely crowded pair
+       whose capsule-height boxes still touch is a documented limit. First
+       child so it paints under the visible capsule + label. */
+    const capMidY = c.y + c.h / 2;
+    let minGap = Infinity;
+    for(const o of cards){
+      if(o === c || o.x + o.w <= c.x || o.x >= c.x + c.w) continue;   // no x-overlap
+      minGap = Math.min(minGap, Math.abs((o.y + o.h / 2) - capMidY));
+    }
+    const halfH = Math.max(c.h / 2, Math.min(22 * S, minGap / 2));
+    body.push('<rect data-hit="" x="' + c.x + '" y="' + (capMidY - halfH) + '" width="' + c.w +
+      '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
     const capX = c.x + c.w / 2, capY = c.y + c.h / 2;
     if(Math.hypot(capX - c.cx, capY - c.cy) > 26 * S)
       body.push('<line x1="' + c.cx + '" y1="' + c.cy + '" x2="' + capX + '" y2="' + capY +
