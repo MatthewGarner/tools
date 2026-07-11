@@ -174,8 +174,17 @@ attachEditInPlace($('preview'), {
     axis: {validate: validators.axis},
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
+    cardmenu: {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Edit field…', opens: 'field'},   // opens the FIRST field target; dead if the item has none
+      {label: 'Remove', action: true, danger: true},
+    ]},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(newValue === '✖Remove'){
+      if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
+      return;
+    }
     if(kind === 'label'){
       const line = editor.getLine(lineNo);
       const newLine = editLabel(line, oldRaw, newValue);
@@ -254,6 +263,7 @@ wireExports({
 });
 
 /* ---------- drag-to-place: a drop is a text edit ---------- */
+let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, srcEl: null};
 function planeCoords(cx, cy){
   const plane = document.querySelector('#preview svg rect[data-plane]');
@@ -301,6 +311,7 @@ window.addEventListener('pointerup', e => {
   if(!drag.armed) return;
   const wasActive = drag.active, src = drag.armed.line;
   endDrag();
+  if(wasActive) suppressClick = true;
   if(!wasActive) return;
   const at = planeCoords(e.clientX, e.clientY);
   if(!at) return;
@@ -311,6 +322,9 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
 });
+$('preview').addEventListener('click', e => {
+  if(suppressClick){ e.stopPropagation(); suppressClick = false; }
+}, true);
 
 /* ---------- #93: flagged items → gauge session ---------- */
 $('togauge').addEventListener('click', () => {

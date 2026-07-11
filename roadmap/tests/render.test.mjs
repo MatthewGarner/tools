@@ -67,7 +67,18 @@ test('slide mode scales wider', () => {
 
 test('cards carry data-line for drag targeting', () => {
   const m = parse('NOW\nA: item one');
-  assert.match(render(m, ctx()), /<g data-line="1"/);
+  assert.match(render(m, ctx()), /<g[^>]* data-line="1"/);
+});
+
+test('non-ghost cards carry data-edit="cardmenu" on the group and data-hit="" on the background rect; ghosts carry neither', () => {
+  const m = parse('NOW\nA: item one\nNEXT\nB: item two');
+  m.items[1].ghost = true;   // synthetic ghost, as why/render-map.js produces
+  const svg = render(m, ctx());
+  assert.match(svg, /<g data-edit="cardmenu" data-line="1"[^>]*><rect data-hit=""/);
+  const ghostGroup = svg.match(/<g[^>]*data-line="\d+"[^>]*>(?:(?!<g).)*stroke-dasharray="3 3"/s);
+  assert.ok(ghostGroup, 'expected a dashed (ghost) card in the output');
+  assert.ok(!ghostGroup[0].includes('data-edit="cardmenu"'), 'ghost card group must not carry cardmenu');
+  assert.ok(!ghostGroup[0].includes('data-hit=""'), 'ghost card rect must not carry data-hit');
 });
 
 test('8-column generated view renders wider than 3-column', () => {

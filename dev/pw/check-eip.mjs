@@ -176,7 +176,7 @@ check('no console/page errors', errors.length === 0);
   const t2 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: status popover rewrites tag', t2.includes('[blocked]'));
 
-  /* add via the cell ghost, remove via the status-popover action */
+  /* add via the cell ghost */
   await p.locator('[data-edit="additem"][data-lane="Growth"][data-col="Next"]').click();
   await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('EIP suite added');
@@ -184,14 +184,233 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const t3 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: cell ghost adds a lane-prefixed item', t3.includes('Growth: EIP suite added'));
-  await p.locator('[data-edit="status"]').first().click();
+
+  /* ---- card menu: tap the card BODY (the invisible data-hit rect, not a
+     field) opens the menu; "Streak shield" (srcLine 4) carries both a note
+     and a status so the Edit-note/Status rows aren't vacuous. Each action
+     gets its own round trip: commit, assert, ONE Meta+z, assert full revert
+     back to the pre-menu baseline before the next action starts clean. ---- */
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('Meta+z');
+    await p.waitForTimeout(500);
+  };
+
+  await cardBody(4).click();
+  await p.waitForTimeout(200);
+  check('roadmap: card body tap opens the menu with the expected rows',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Remove item');
+
+  await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Streak shield');
+  await p.locator('.eip-input').fill('Streak anchor');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: menu Rename commits the new title', tRename.includes('Streak anchor [doing]') && !tRename.includes('Streak shield'));
+  await undo();
+  check('roadmap: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  await cardBody(4).click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: menu Status opens the status options popover', await p.locator('.eip-pop button', {hasText: 'blocked'}).count() === 1);
+  await p.locator('.eip-pop button', {hasText: 'blocked'}).click();
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: menu Status pick commits the new status', tStatus.includes('Streak shield [blocked]'));
+  await undo();
+  check('roadmap: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  await cardBody(4).click();
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
   await p.waitForTimeout(600);
-  const t4 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: popover Remove deletes the line', t4.split('\n').length === t3.split('\n').length - 1);
+  const tRemove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: menu Remove drops the card', !tRemove.includes('Streak shield'));
+  await undo();
+  check('roadmap: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  /* real mouse drag: "Sync engine rewrite" (Platform/Now, srcLine 7) dropped
+     into Platform/Next moves it (byte-preserved line, relocated after the
+     NEXT header) and must NOT leave a card menu open (proves suppressClick) */
+  const dragSrc = await cardBody(7).boundingBox();
+  const dragDst = await p.locator('#preview svg rect[data-cell="1|Platform"]').boundingBox();
+  await p.mouse.move(dragSrc.x + dragSrc.width / 2, dragSrc.y + dragSrc.height / 2);
+  await p.mouse.down();
+  for(let i = 1; i <= 8; i++)
+    await p.mouse.move(dragSrc.x + (dragDst.x + dragDst.width / 2 - dragSrc.x) * i / 8,
+      dragSrc.y + (dragDst.y + dragDst.height / 2 - dragSrc.y) * i / 8);
+  await p.mouse.up();
+  await p.waitForTimeout(600);
+  const tDrag = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: real drag moves the card into the NEXT section',
+    tDrag.indexOf('Sync engine rewrite') > tDrag.indexOf('NEXT'));
+  check('roadmap: drag does not open the card menu', await p.locator('.eip-pop').count() === 0);
+
   check('roadmap: no console/page errors', errs.length === 0);
   await p.close();
+}
+
+/* ---- roadmap narrow (mobile-emulated): card menu away-listener leak proof —
+   tap a card, open Rename, then tap INTO the input itself; the popover's
+   away-pointerdown listener must not treat that as an outside click ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  await mpage.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await mpage.waitForTimeout(600);
+
+  const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
+  await settledTap(mpage, mCardBody);
+  await mpage.waitForTimeout(200);
+  check('roadmap narrow: tap opens the card menu', await mpage.locator('.eip-pop').count() === 1);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Rename…'}));
+  await mpage.waitForTimeout(200);
+  check('roadmap narrow: menu Rename opens the input', await mpage.locator('.eip-input').count() === 1);
+
+  const ib = await mpage.locator('.eip-input').boundingBox();
+  await mpage.touchscreen.tap(ib.x + ib.width / 2, ib.y + ib.height / 2);
+  await mpage.waitForTimeout(300);
+  check('roadmap narrow: a touch INTO the input does not dismiss it (away-listener leak)',
+    await mpage.locator('.eip-input').count() === 1);
+
+  await mpage.locator('.eip-input').fill('Streak point');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(600);
+  check('roadmap narrow: commit lands after the away-tap proof',
+    (await mpage.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Streak point [doing]'));
+  check('roadmap narrow: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
+/* ---- map: card menu (tap card body → menu; rename/field/remove; real drag
+   suppresses the menu) ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Assumption map'}).click();
+  await p.waitForTimeout(600);
+
+  /* "Users will log habits daily" (srcLine 3) carries a `test:` field so the
+     Edit-field row isn't vacuous. Unlike roadmap, map's data-hit rect is snug
+     around the capsule (same width as the label) — its geometric CENTRE
+     lands on a glyph, which both fails Playwright's actionability check and
+     would (for real) open the label editor instead of the menu. Tap the
+     left padding strip instead (card padding is 8px; x+4 clears any glyph). */
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 4, box.y + box.height / 2);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('Meta+z');
+    await p.waitForTimeout(500);
+  };
+
+  await tapCard(3);
+  await p.waitForTimeout(200);
+  check('map: card body tap opens the menu with the expected rows',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Remove');
+
+  await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await p.waitForTimeout(200);
+  check('map: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Users will log habits daily');
+  await p.locator('.eip-input').fill('Users log habits nightly');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('map-src'));
+  check('map: menu Rename commits the new label', tRename.includes('Users log habits nightly') && !tRename.includes('Users will log habits daily'));
+  await undo();
+  check('map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+  await tapCard(3);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Edit field…'}).click();
+  await p.waitForTimeout(200);
+  check('map: menu Edit field opens the field input prefilled', await p.locator('.eip-input').inputValue() === 'watch 5 onboarding sessions');
+  await p.locator('.eip-input').fill('watch 8 onboarding sessions');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tField = await p.evaluate(() => localStorage.getItem('map-src'));
+  check('map: menu Edit field commits the new value', tField.includes('test: watch 8 onboarding sessions'));
+  await undo();
+  check('map: one undo restores the pre-field baseline', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+  await tapCard(3);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
+  await p.waitForTimeout(600);
+  const tRemove = await p.evaluate(() => localStorage.getItem('map-src'));
+  check('map: menu Remove drops the card', !tRemove.includes('Users will log habits daily'));
+  await undo();
+  check('map: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+  /* real mouse drag: "Streak anxiety drives churn" (@ 75,80) dropped near
+     the plane centre rewrites its position and must NOT open a card menu */
+  const plane = await p.locator('#preview svg rect[data-plane]').boundingBox();
+  const dragSrc = await cardBody(4).boundingBox();
+  const tx = plane.x + plane.width * 0.5, ty = plane.y + plane.height * 0.5;
+  await p.mouse.move(dragSrc.x + dragSrc.width / 2, dragSrc.y + dragSrc.height / 2);
+  await p.mouse.down();
+  for(let i = 1; i <= 8; i++)
+    await p.mouse.move(dragSrc.x + (tx - dragSrc.x) * i / 8, dragSrc.y + (ty - dragSrc.y) * i / 8);
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tDrag = await p.evaluate(() => localStorage.getItem('map-src'));
+  check('map: real drag moves the card (position rewritten)',
+    /Streak anxiety drives churn @ \d+,\d+/.test(tDrag) && !tDrag.includes('Streak anxiety drives churn @ 75,80'));
+  check('map: drag does not open the card menu', await p.locator('.eip-pop').count() === 0);
+
+  check('map: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
+/* ---- map narrow (mobile-emulated): card menu away-listener leak proof ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  await mpage.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Assumption map'}).click();
+  await mpage.waitForTimeout(600);
+
+  /* same off-glyph tap concern as the desktop block above: map's data-hit
+     rect is snug around the capsule, so settledTap's centre tap would land
+     on the label glyph — scroll-settle, then tap the left padding strip. */
+  const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="3"] rect[data-hit]');
+  await mCardBody.scrollIntoViewIfNeeded();
+  await mpage.waitForTimeout(300);
+  const mCardBox = await mCardBody.boundingBox();
+  await mpage.mouse.click(mCardBox.x + 4, mCardBox.y + mCardBox.height / 2);
+  await mpage.waitForTimeout(200);
+  check('map narrow: tap opens the card menu', await mpage.locator('.eip-pop').count() === 1);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Rename…'}));
+  await mpage.waitForTimeout(200);
+  check('map narrow: menu Rename opens the input', await mpage.locator('.eip-input').count() === 1);
+
+  const ib = await mpage.locator('.eip-input').boundingBox();
+  await mpage.touchscreen.tap(ib.x + ib.width / 2, ib.y + ib.height / 2);
+  await mpage.waitForTimeout(300);
+  check('map narrow: a touch INTO the input does not dismiss it (away-listener leak)',
+    await mpage.locator('.eip-input').count() === 1);
+
+  await mpage.locator('.eip-input').fill('Habit logging cools off');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(600);
+  check('map narrow: commit lands after the away-tap proof',
+    (await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Habit logging cools off'));
+  check('map narrow: no console/page errors', merrors.length === 0);
+  await mctx.close();
 }
 
 /* ---- risk (energy) ---- */
