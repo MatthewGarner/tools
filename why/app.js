@@ -9,7 +9,7 @@ import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
@@ -55,13 +55,7 @@ outcome: Grow referral revenue
 let model = null, projection = null, view = 'ost';
 let lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 let snaps = null;   // wired below, after the editor exists
 function currentDiff(){

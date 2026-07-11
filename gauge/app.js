@@ -7,7 +7,7 @@ import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
-import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
+import {measure, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
@@ -118,13 +118,7 @@ async function initCompose(hash){
     writeHashState(state);
   }
   function renderWarnings(){
-    const warns = $('warns');
-    warns.textContent = '';
-    for(const w of (model ? model.warnings : [])){
-      const li = document.createElement('li');
-      li.textContent = w;
-      warns.appendChild(li);
-    }
+    renderWarningList($('warns'), model ? model.warnings : []);
   }
   function doRefresh(){
     const text = editor.getText();

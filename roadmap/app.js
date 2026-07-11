@@ -1,5 +1,5 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
@@ -115,11 +115,7 @@ function renderWarnings(m){
     m.warnings.push(m.horizons[0] + ' has ' + firstColCount +
       ' items — that’s a list, not a strategy. (Raise or silence with wip: N / wip: off.)');
   }
-  for(const w of m.warnings){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList(warns, m.warnings);
 }
 function writeHash(){
   const state = {t: editor.getText()};

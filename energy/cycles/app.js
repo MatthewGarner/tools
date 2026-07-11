@@ -6,7 +6,7 @@ import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 
@@ -67,13 +67,7 @@ function activeRender(slide, edit = false, forExport = false){
   return render(model, out, ctx(slide, forExport), {edit});
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();

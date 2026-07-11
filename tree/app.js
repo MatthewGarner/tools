@@ -6,7 +6,7 @@ import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, applies, subtreeRange, childLineFor} from './edit-targets.js';
@@ -44,14 +44,7 @@ Approach
 /* ---------- refresh loop ---------- */
 let model = null, results = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  const all = [...(model ? model.warnings : []), ...(results ? results.warnings : [])];
-  for(const w of all){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(results ? results.warnings : [])]);
 }
 function doRefresh(){
   const text = editor.getText();

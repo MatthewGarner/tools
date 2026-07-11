@@ -5,7 +5,7 @@ import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
@@ -50,13 +50,7 @@ function activeRender(slide, edit = false){
   return render(model, ctx(slide), currentDiff(), {edit});
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();

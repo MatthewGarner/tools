@@ -6,7 +6,7 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
@@ -98,14 +98,7 @@ let model = null, resolved = null, ro = null;
 let lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
 
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  const all = [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])];
-  for(const w of all){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])]);
 }
 function hasContent(){
   return model && (model.items.length || model.preset || model.grid || model.ruleZones.length);
