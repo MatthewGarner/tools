@@ -200,3 +200,16 @@ test('ghost add pill never carries data-drag', () => {
   const edit = draw(SRC, {edit: true});
   assert.ok(!/data-edit="additem"[^>]*data-drag|data-drag[^>]*data-edit="additem"/.test(edit));
 });
+test('add-zones sit as one row below the lowest pill in a crowded column', () => {
+  // two commodity components at the same x → collision spread nudges one down;
+  // a fixed-y zone used to collide with it (User DB in the default example)
+  const doc = 'anchor: N\nAlpha @ 0.85\nBravo @ 0.85\nN -> Alpha\nN -> Bravo';
+  const s = draw(doc, {edit: true});
+  const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>＋<\/text>/g)].map(m => +m[1]);
+  assert.equal(plusY.length, 4);                                    // one per stage
+  assert.ok(plusY.every(y => Math.abs(y - plusY[0]) < 0.01), 'zones share one baseline');
+  const pillY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*data-edit="name"[^>]*>(?:Alpha|Bravo)<\/text>/g)].map(m => +m[1]);
+  assert.equal(pillY.length, 2);
+  // text y is the pill CENTRE; a clear pill-height gap below the lowest pill
+  assert.ok(plusY[0] - Math.max(...pillY) >= 30, 'zone row clears the lowest pill');
+});

@@ -73,8 +73,8 @@ function componentMenu(n, c, measure){
 /* wide: one ghost "＋" add-zone low in each stage band, above the axis —
    a real pill (no drag) plus a thumb-sized invisible hit rect carrying the
    additem hook, so the visual stays tiny while the tap target doesn't */
-function addZonePill(s, c, measure, axisY){
-  const zx = px(s.mid), zy = axisY - 30;
+function addZonePill(s, c, measure, zy){
+  const zx = px(s.mid);
   const visual = pill({name: '＋', px: zx, y: zy, srcLine: -1}, c, measure, {ghost: true, cls: 'ghost add-ghost'});
   return '<g data-edit="additem" data-stage="' + s.name + '" data-line="-1" data-raw="">' + visual +
     '<rect x="' + (zx - 60) + '" y="' + (zy - 22) + '" width="120" height="44" fill="' + c.bg +
@@ -386,7 +386,21 @@ export function renderMap(model, layout, ctx, opts = {}){
   }
 
   /* ---- plane (translated below the header; layout coords are plane-local) ---- */
-  const planeH = Math.max(layout.h, compareInfo ? compareInfo.maxY + 64 : 0);
+  let planeH = Math.max(layout.h, compareInfo ? compareInfo.maxY + 64 : 0);
+  /* edit chrome only: the add-zones form one row below the LOWEST pill in the
+     whole plane (collision nudges push bottom-row pills down, so a fixed
+     y collides — User DB in the default example). Grow the plane to fit, only
+     under edit → the no-edit goldens/exports stay byte-identical. */
+  let zoneY = 0;
+  if(opts.edit){
+    let maxBottom = 40;
+    for(const n of layout.nodes){
+      if(n.anchor || n.x === null) continue;
+      maxBottom = Math.max(maxBottom, n.y + PILL_H / 2);
+    }
+    zoneY = maxBottom + 26;
+    planeH = Math.max(planeH, zoneY + 38);
+  }
   const plane = [];
   const axisY = planeH - 16;
   /* stage terrain: progressively calmer washes, labels worn like zone names */
@@ -406,8 +420,8 @@ export function renderMap(model, layout, ctx, opts = {}){
   plane.push('<text x="' + pad + '" y="' + (axisY + 18) + '" font-size="11" fill="' + c.muted +
     '">↑ closer to the user need</text>');
 
-  /* edit chrome: one ghost add-zone per stage, low in the band, above the axis */
-  if(opts.edit) STAGES.forEach(s => plane.push(addZonePill(s, c, measure, axisY)));
+  /* edit chrome: one ghost add-zone per stage, in the row below every pill */
+  if(opts.edit) STAGES.forEach(s => plane.push(addZonePill(s, c, measure, zoneY)));
 
   if(compareInfo) plane.push(...compareInfo.parts);
 
