@@ -115,12 +115,13 @@ attachEditInPlace($('preview'), {
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
   },
-  onCommit(kind, lineNo, oldRaw, newValue){
+  onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
-      const r = addItemLine(editor.getText(), todayISO());
+      const r = addItemLine(editor.getText(), todayISO(), el.dataset.lane || undefined);
       const label = newValue.replace(/^✖/, '').trim();
       const line = r.newLine.replace('New milestone', label || 'New milestone');
-      insertAndSelect(editor, r.afterLine, line, label || 'New milestone');
+      insertAndSelect(editor, r.afterLine, line, label || 'New milestone',
+        {focus: matchMedia('(pointer: fine)').matches});
       return;
     }
     if(kind === 'removeitem'){
