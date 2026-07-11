@@ -170,8 +170,14 @@ attachEditInPlace($('preview'), {
   kinds: {
     title: {validate: eipValidators.title},
     note: {validate: eipValidators.note},
-    status: {options: EDIT_STATUSES, actions: ['Remove item']},
+    status: {options: EDIT_STATUSES},
     additem: {validate: eipValidators.title},
+    cardmenu: {menu: [
+      {label: 'Rename…', opens: 'title'},
+      {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
+      {label: 'Status…', opens: 'status'},        // dead when the item has no status
+      {label: 'Remove item', action: true, danger: true},
+    ]},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
@@ -402,6 +408,7 @@ $('importgo').addEventListener('click', () => {
 });
 
 /* ---------- drag-and-drop: a drop is a text edit ---------- */
+let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null};
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 function cellAt(cx, cy){
@@ -516,6 +523,7 @@ window.addEventListener('pointerup', e => {
   const src = drag.armed.line;
   const cell = wasActive ? cellAt(e.clientX, e.clientY) : null;
   endDrag();
+  if(wasActive) suppressClick = true;
   if(!wasActive || !cell || !model) return;
   const target = {h: cell.h, lane: cell.lane,
     beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
@@ -534,6 +542,9 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
 });
+$('preview').addEventListener('click', e => {
+  if(suppressClick){ e.stopPropagation(); suppressClick = false; }
+}, true);
 
 /* ---------- theme change → re-render ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
