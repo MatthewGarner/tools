@@ -102,18 +102,16 @@ export function setAxisLabel(text, axis, newLabel){
 
 /* ---- add/remove items (S1) ---- */
 
-export const ITEM_TEMPLATE = 'New item';
-
 /* New items go after the last item (else after the config block) and carry
    no @ position — they land in the unplaced tray, ready to drag. */
 export function addItemLine(text){
   const model = parse(text);
   if(model.items.length){
-    return {afterLine: model.items[model.items.length - 1].srcLine, newLine: ITEM_TEMPLATE};
+    return {afterLine: model.items[model.items.length - 1].srcLine};
   }
   const lines = text.split(/\r?\n/);
   const at = configInsertIndex(lines);
-  return {afterLine: Math.max(0, Math.min(at, lines.length) - 1), newLine: ITEM_TEMPLATE};
+  return {afterLine: Math.max(0, Math.min(at, lines.length) - 1)};
 }
 
 /* Only lines that parse as items may be removed. */

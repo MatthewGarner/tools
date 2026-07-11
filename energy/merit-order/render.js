@@ -40,7 +40,7 @@ export const MERIT_PALETTE = {
     thermal:['#f2a6a6', '#ec8585', '#e66767', '#d24f4f', '#b93c3c', '#cf9a8c', '#c46a8e'],
   },
 };
-const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%', 'Gas-CCS', 'Hydrogen'];
+export const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%', 'Gas-CCS', 'Hydrogen'];
 const FAM_LABEL = {thermal: 'Gas', storage: 'Storage'};   // multi-block runs; single blocks use their own name
 
 /* thermal blocks step through the tonal ramp by band; everything else takes its

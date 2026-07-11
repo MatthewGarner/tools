@@ -2,20 +2,13 @@
    txt()/esc() only for content; hand-built tags use single-quoted attributes
    (numbers and escaped strings only inside them). */
 import {esc, txt, tint, wrapText} from '../../assets/svg.js';
+import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict} from './engine.js';
 
 const FONT = 'Charter,Georgia,serif';
 const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString();
 
 /* nice axis ticks: ≤6 steps of 1/2/5×10^k */
-function ticks(min, max){
-  const span = max - min || 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(span / 5)));
-  const step = [1, 2, 5, 10].map(s => s * mag).find(s => span / s <= 6) || mag * 10;
-  const out = [];
-  for(let v = Math.ceil(min / step) * step; v <= max; v += step) out.push(v);
-  return out;
-}
 
 export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   if(!sim) return '';
@@ -159,7 +152,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const ay = TOP + rowsTotal + 4;
   parts.push('<line x1=\'' + x0 + '\' y1=\'' + ay + '\' x2=\'' + x1 + '\' y2=\'' + ay +
     '\' stroke=\'' + C.border + '\' stroke-width=\'1.5\'/>');
-  for(const t of ticks(sim.min, sim.max))
+  for(const t of niceTicks(sim.min, sim.max))
     parts.push(txt(vX(t), ay + 20, num(t), 12, C.muted, {anchor: 'middle'}));
   if(!isNarrow) parts.push(txt(x1, ay + 20, model.unit, 12, C.muted, {anchor: 'end', weight: 600}));
 

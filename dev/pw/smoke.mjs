@@ -2,7 +2,7 @@
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
 import {chromium} from 'playwright';
-import {TOOL_DIRS} from '../tool-dirs.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {trackErrors} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
@@ -51,12 +51,9 @@ async function svgDecodes(page, selector){
 /* ---- energy landing + risk ---- */
 {
   const {page, errors} = await freshPage('/energy/');
-  check('energy landing: five tool cards', await page.locator('a.tool').count() === 5);
-  check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
-  check('energy landing: cycles card resolves', (await page.request.get(BASE + '/energy/cycles/')).status() === 200);
-  check('energy landing: frequency card resolves', (await page.request.get(BASE + '/energy/frequency/')).status() === 200);
-  check('energy landing: merit-order card resolves', (await page.request.get(BASE + '/energy/merit-order/')).status() === 200);
-  check('energy landing: intraday card resolves', (await page.request.get(BASE + '/energy/intraday/')).status() === 200);
+  check('energy landing: five tool cards', await page.locator('a.tool').count() === ENERGY_TOOL_DIRS.length);
+  for(const d of ENERGY_TOOL_DIRS)
+    check('energy landing: ' + d + ' card resolves', (await page.request.get(BASE + '/energy/' + d + '/')).status() === 200);
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }

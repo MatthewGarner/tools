@@ -88,10 +88,8 @@ title: T
 First item @ 30,90 :: test: watch sessions
 Second item @ 75,80
 Third unplaced item`;
-  const {afterLine, newLine} = addItemLine(doc);
+  const {afterLine} = addItemLine(doc);
   assert.equal(afterLine, 5);
-  assert.equal(newLine, 'New item');
-  assert.ok(!newLine.includes('@'));   // unplaced → lands in the tray
 });
 
 test('addItemLine with no items inserts after the config block', () => {

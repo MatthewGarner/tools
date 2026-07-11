@@ -107,3 +107,15 @@ export function scheme(accentHex, dark){
     border: mix('#DEE2E1', accentHex, 0.16),
   };
 }
+
+/* Nice axis ticks: ≤~6 steps of 1/2/5×10^k spanning [min, max]. Byte-identical
+   to the copies cycles/risk render.js each carried. (gauge/render-overlay.js has
+   a DIFFERENT target-count algorithm — deliberately left separate.) */
+export function niceTicks(min, max){
+  const span = max - min || 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(span / 5)));
+  const step = [1, 2, 5, 10].map(s => s * mag).find(s => span / s <= 6) || mag * 10;
+  const out = [];
+  for(let v = Math.ceil(min / step) * step; v <= max; v += step) out.push(v);
+  return out;
+}

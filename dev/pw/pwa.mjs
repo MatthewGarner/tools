@@ -7,6 +7,7 @@
    suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
 import {spawn} from 'node:child_process';
+import {ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
@@ -103,11 +104,10 @@ async function installAndWait(page){
   check('energy manifest: Energy tools, standalone, maskable', mf.short_name === 'Energy tools' &&
     mf.display === 'standalone' && mf.icons.some(i => i.purpose === 'maskable'));
   await page.evaluate(() => navigator.serviceWorker.ready);
-  await page.waitForFunction(async () =>
-    !!(await caches.match('/risk/app.js')) && !!(await caches.match('/cycles/app.js')) &&
-    !!(await caches.match('/frequency/app.js')) && !!(await caches.match('/merit-order/app.js')) &&
-    !!(await caches.match('/intraday/app.js')) && !!(await caches.match('/assets/series.js')),
-    null, {timeout: 20000});
+  await page.waitForFunction(async (dirs) =>
+    (await Promise.all(dirs.map(d => caches.match('/' + d + '/app.js')))).every(Boolean) &&
+    !!(await caches.match('/assets/series.js')),
+    ENERGY_TOOL_DIRS, {timeout: 20000});
   check('energy SW active + precached', true);
   await ctx.setOffline(true);
   const p2 = await ctx.newPage();
