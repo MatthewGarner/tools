@@ -7,6 +7,7 @@ import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
+import {rafBatched} from '../../assets/schedule.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -195,10 +196,15 @@ function boot(){
   }
 
   // wiring
-  for(const id of IDS) $(id).addEventListener('input', () => {
+  // sliders: rAF single-flight — a fast drag fires many `input` events per
+  // frame, each triggering up to 7 full 3000-step ODE integrations (simulate
+  // + leverDeltas's 5x + the ghost); coalesce N events/frame to one refresh.
+  // No delay (unlike the 120ms debounce elsewhere) — a slider wants immediacy.
+  const scheduleRefresh = rafBatched(() => {
     for(const c of document.querySelectorAll('#presets .chip')) c.classList.remove('on');
     refresh(false);
   });
+  for(const id of IDS) $(id).addEventListener('input', scheduleRefresh);
   $('tripbtn').addEventListener('click', () => refresh(true));
   for(const btn of document.querySelectorAll('#presets .chip')){
     btn.addEventListener('click', () => {
