@@ -240,11 +240,13 @@ for(const [k, src] of Object.entries(docs)){
   const mctx = {...ctxBase, palette: MERIT_PALETTE.light};
   const mk = p => ({generators: buildStack(p), demand: p.demand});
   const mkw = (w, p) => ({generators: buildStack(p, WORLDS[w].catalogue), demand: p.demand});
-  variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, {forExport: true});
-  variants['merit-order-typical-narrow'] = renderStack(mk(DEFAULT_PARAMS), {...mctx, width: 360}, {forExport: true});
-  variants['merit-order-negative'] = renderStack(mk(paramsFor('gbToday', 'negative')), mctx, {forExport: true});
-  variants['merit-order-fes-ht'] = renderStack(mkw('ht', paramsFor('ht', null)), mctx, {forExport: true});
-  variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, {forExport: true});
+  // labelCollide:'drop' matches the live page (app.js) — merit-order opted in 2026-07-11
+  const mopts = {forExport: true, labelCollide: 'drop'};
+  variants['merit-order-typical'] = renderStack(mk(DEFAULT_PARAMS), mctx, mopts);
+  variants['merit-order-typical-narrow'] = renderStack(mk(DEFAULT_PARAMS), {...mctx, width: 360}, mopts);
+  variants['merit-order-negative'] = renderStack(mk(paramsFor('gbToday', 'negative')), mctx, mopts);
+  variants['merit-order-fes-ht'] = renderStack(mkw('ht', paramsFor('ht', null)), mctx, mopts);
+  variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, mopts);
 }
 
 /* /intraday fixtures (deterministic by construction) */
