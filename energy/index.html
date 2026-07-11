@@ -154,13 +154,17 @@
 
     <a class="tool" href="intraday/">
       <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <!-- real engine output (day.js, GB defaults): dashed = the raw default day
+             (plateau + square night notch at £20), accent = the same day with a
+             10 GW/2h fleet — the fleet fills the notch and the rest is untouched.
+             Points from x=30+h·(280/23), y mapping £20..£92 → 100..18. -->
         <line x1="26" y1="112" x2="316" y2="112" stroke="var(--border)"/>
-        <path d="M30 78 C55 30 85 22 110 34 C140 48 150 88 175 100 C200 110 215 70 240 38 C258 16 275 14 288 18 C298 22 305 34 310 46" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 3" opacity="0.75"/>
-        <path d="M30 64 C90 58 140 60 175 62 C215 64 260 60 310 58" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-        <circle cx="175" cy="100" r="3.5" fill="var(--accent-ink)"/>
-        <circle cx="260" cy="16" r="3.5" fill="var(--accent-ink)"/>
+        <polyline points="30,37.1 42.2,37.1 54.3,37.1 66.5,100 78.7,100 90.9,37.1 103,37.1 115.2,31.4 127.4,28.1 139.6,28.1 151.7,28.1 163.9,28.1 176.1,28.1 188.3,28.1 200.4,28.1 212.6,28.1 224.8,28.1 237,18 249.1,18 261.3,18 273.5,18 285.7,18 297.8,28.1 310,31.4" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 3" opacity="0.75"/>
+        <polyline points="30,37.1 42.2,37.1 54.3,37.1 66.5,37.1 78.7,37.1 90.9,37.1 103,37.1 115.2,31.4 127.4,28.1 139.6,28.1 151.7,28.1 163.9,28.1 176.1,28.1 188.3,28.1 200.4,28.1 212.6,28.1 224.8,28.1 237,18 249.1,18 261.3,18 273.5,18 285.7,18 297.8,28.1 310,31.4" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <circle cx="72.6" cy="100" r="3.5" fill="var(--accent-ink)"/>
+        <circle cx="237" cy="18" r="3.5" fill="var(--accent-ink)"/>
         <text x="30" y="20" font-size="8.5" fill="var(--muted)">price</text>
-        <text x="245" y="52" text-anchor="end" font-size="8.5" fill="var(--accent-ink)" font-weight="600">flattens</text>
+        <text x="97" y="66" font-size="8.5" fill="var(--accent-ink)" font-weight="600">flattens</text>
       </svg></span>
       <span class="tbody">
         <h2>A day through the stack <span class="path">/intraday</span></h2>

@@ -46,6 +46,8 @@ function boot(){
   }
 
   const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');   // merit-order render.js's own formatter
 
   /* ---- narrow-render width: measure each panel, mirroring cycles/risk/merit-order.
      Both renderers require an explicit width (no built-in default that matches
@@ -71,13 +73,21 @@ function boot(){
 
     const net = result.flat.hours[hour].demand;
     const stackW = renderWidth(stackEl);
+    // the fleet nets demand through charge/discharge — when it acts this hour,
+    // say so instead of quoting a raw-demand number the sliders contradict (S7)
+    const fleetActs = Math.abs(result.sched.charge[hour]) > 1e-9 ||
+                      Math.abs(result.sched.discharge[hour]) > 1e-9;
     const stackSvg = renderStack({generators: hourStack(p, hour), demand: net},
       {width: stackW, colors, palette: palette(), measure},
-      {labelCollide: 'drop'});   // opt-in: sansStorage leaves Waste/CHP·Biomass·Imports contiguous and thin — suppress colliding axis labels (wider run wins)
+      {labelCollide: 'drop',   // opt-in: sansStorage leaves Waste/CHP·Biomass·Imports contiguous and thin — suppress colliding axis labels (wider run wins)
+       legendStorageNote: false,   // no storage rows in this stack — the arbitrage-spread clause can't apply (S8)
+       ...(fleetActs ? {demandLabel: `net demand ${fmtGW(net)} GW`} : {})});
     stackEl.classList.toggle('narrow', stackW < NARROW);
     if(stackSvg !== lastStackSvg){ stackEl.innerHTML = stackSvg; lastStackSvg = stackSvg; }
 
+    closeCallout();   // the band under a callout may have moved/resized — never let it go stale
     $('verdict').textContent = buildDayVerdict(result, p);
+    syncWarns();
     $('clock').textContent = String(hour).padStart(2, '0') + ':00';
     for(const id of SLIDERS){
       $(id).value = p[id];
@@ -92,6 +102,59 @@ function boot(){
     for(const b of document.querySelectorAll('#presets [data-preset]'))
       b.classList.toggle('on', b.dataset.preset === preset);
   }
+
+  /* ---- inverted-range flag (P4): trough > peak flips the day upside down.
+     The engine handles it fine (no clamping) — but flag it the way the sibling
+     controls cards do (cycles/risk's #warns list, same class + colour). ---- */
+  function syncWarns(){
+    const warns = $('warns');
+    warns.textContent = '';
+    if(p.trough > p.peak){
+      const li = document.createElement('li');
+      li.textContent = 'trough exceeds peak — day inverted';
+      warns.appendChild(li);
+    }
+  }
+
+  /* ---- band-tap callout (S4): the stack's narrow hint says "tap a band to
+     name it" — honour it at both widths. Mirrors merit-order's chartwrap click
+     → fixed-position popover pattern (its callout is read/edit; this one is
+     read-only: name, capacity offered, bid). The band <rect>s themselves are
+     the tap targets (full chart height ≫ 44px). Dismissed by tapping anywhere
+     else; refresh() closes it too so it can never quote a stale hour. ---- */
+  let activeCallout = null;
+  function closeCallout(){
+    if(!activeCallout) return;
+    const {pop, away} = activeCallout;
+    activeCallout = null;
+    document.removeEventListener('pointerdown', away, true);
+    pop.remove();
+  }
+  function openCallout(name, el){
+    closeCallout();
+    const gen = hourStack(p, hour).find(g => g.name === name);
+    if(!gen) return;
+    const rect = el.getBoundingClientRect();
+    const pop = document.createElement('div');
+    pop.className = 'mo-callout';
+    pop.style.left = Math.round(Math.max(8, Math.min(rect.left, innerWidth - 240))) + 'px';
+    pop.style.top = Math.round(rect.bottom + 6) + 'px';
+    const title = document.createElement('div');
+    title.className = 'mo-callout-name';
+    title.textContent = name;
+    const math = document.createElement('div');
+    math.className = 'mo-callout-math';
+    math.textContent = `${fmtGW(gen.capacity)} GW offered · bids £${Math.round(gen.cost)}/MWh`;
+    pop.append(title, math);
+    document.body.appendChild(pop);
+    const away = e => { if(!pop.contains(e.target)) closeCallout(); };
+    document.addEventListener('pointerdown', away, true);
+    activeCallout = {pop, away};
+  }
+  stackEl.addEventListener('click', e => {
+    const g = e.target.closest && e.target.closest('g[data-plant]');
+    if(g) openCallout(g.dataset.plant, g);
+  });
 
   for(const id of SLIDERS) $(id).addEventListener('input', () => {
     p = {...p, [id]: Number($(id).value)}; preset = null; refresh();
@@ -109,7 +172,7 @@ function boot(){
      time-since-navigation, so comparing against 0 made the very first frame after
      pressing Play almost always already >450ms "late" and fire an instant extra
      advance before any real animation time had passed). */
-  let playing = false, lastTick = null;
+  let playing = false, lastTick = null, pausedMidRun = false;
   function setPlayLabel(){
     $('play').textContent = playing ? '⏸ Pause' : '▶ Play the day';
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play the day');
@@ -119,7 +182,7 @@ function boot(){
     if(lastTick === null) lastTick = ts;
     if(ts - lastTick >= 450){
       lastTick = ts; hour = (hour + 1) % 24; $('scrub').value = hour; refresh();
-      if(hour === 23){ playing = false; setPlayLabel(); return; }
+      if(hour === 23){ playing = false; pausedMidRun = false; setPlayLabel(); return; }
     }
     requestAnimationFrame(tick);
   }
@@ -127,10 +190,22 @@ function boot(){
     playing = !playing;
     setPlayLabel();
     if(playing){
-      // render hour 0 immediately — otherwise the first visible frame was
-      // 01:00 after the first 450ms tick, i.e. Play appeared to do nothing
-      hour = 0; $('scrub').value = hour; lastTick = null; refresh();
+      // resume a paused run from where it stopped (P1) — scrubbing while paused
+      // moves the resume point with it; a completed run (hour 23 reached) or a
+      // first press starts at hour 0, rendered immediately (otherwise the first
+      // visible frame was 01:00 after the first 450ms tick, i.e. Play appeared
+      // to do nothing)
+      if(!pausedMidRun){ hour = 0; $('scrub').value = hour; }
+      pausedMidRun = false;
+      lastTick = null; refresh();
+      // on phones the price panel sits below the fold — bring the
+      // draw-as-you-play into view (P5); no-op when already visible
+      if(matchMedia('(pointer: coarse)').matches || priceEl.clientWidth < NARROW){
+        priceEl.scrollIntoView({behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest'});
+      }
       requestAnimationFrame(tick);
+    } else {
+      pausedMidRun = true;   // an explicit pause — the run didn't complete
     }
   });
 

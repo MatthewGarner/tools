@@ -251,19 +251,27 @@ export function renderStack(state, ctx, opts = {}){
     : (cp < 0 ? `paying to generate — £${fmtPrice(cp)}/MWh clears` : `clears at £${fmtPrice(cp)}/MWh`);
   P.push(txt(isNarrow ? x0 : x1, sy(cp) - 8, clearLabel, 12.5, clearCol, {anchor: isNarrow ? 'start' : 'end', weight: 700}));
 
-  // demand line
+  // demand line — opts.demandLabel (opt-in, intraday) replaces the annotation
+  // verbatim: its storage fleet nets demand through charge/discharge, so the
+  // default `demand X GW` would quote a number the sliders no longer show.
+  // Absent ⇒ today's label, byte-identical (golden-pinned).
   P.push(`<line class='demand-line' x1='${r2(sx(state.demand))}' y1='${r2(y0)}' x2='${r2(sx(state.demand))}' y2='${r2(y1)}' ` +
     `stroke='${C.ink}' stroke-width='1.5' stroke-dasharray='4 3'/>`);
-  P.push(txt(sx(state.demand), y0 - 8, `demand ${fmtGW(state.demand)} GW`, 12, C.ink, {anchor: 'middle', weight: 600}));
+  P.push(txt(sx(state.demand), y0 - 8, opts.demandLabel ?? `demand ${fmtGW(state.demand)} GW`, 12, C.ink, {anchor: 'middle', weight: 600}));
 
   // capacity axis ticks
   P.push(txt(x0, tickY, '0 GW', 11, C.muted));
   P.push(txt(x1, tickY, `${fmtGW(totalOffered)} GW offered`, 11, C.muted, {anchor: 'end'}));
 
-  // rent legend
+  // rent legend — opts.legendStorageNote:false (opt-in, intraday) drops the
+  // storage clause: its hourStack excludes every storage row, so the clause
+  // describes a block that can't exist there. Absent/true ⇒ today's text,
+  // byte-identical (golden-pinned). Narrow already omits the clause.
   if(showLegend){
     P.push(`<rect x='${x0}' y='${legendY - 11}' width='14' height='14' fill='${tint(C.accent)}' stroke='${C.accent}'/>`);
-    P.push(txt(x0 + 20, legendY, isNarrow ? 'shaded = earns above running cost' : 'shaded = earns above running cost (storage: the arbitrage spread)', 11.5, C.muted));
+    P.push(txt(x0 + 20, legendY, (isNarrow || opts.legendStorageNote === false)
+      ? 'shaded = earns above running cost'
+      : 'shaded = earns above running cost (storage: the arbitrage spread)', 11.5, C.muted));
   }
 
   // narrow drops the thin sliver labels — point at the tap callout for identifying them

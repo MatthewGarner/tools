@@ -57,6 +57,17 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    instead of the 900 canonical — drop the pan floor so it fits instead of scrolling,
    mirroring merit-order/cycles/risk's .mo-narrow / narrow-bucket convention. */
 #stackwrap.narrow svg,#pricewrap.narrow svg{min-width:0}
+/* inverted-range flag under the sliders — the sibling controls cards' warning
+   affordance (cycles/risk's #warns), same class/colour/size; empty = invisible */
+#warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
+/* band-tap callout — mirrors merit-order's .mo-callout visual language (its
+   stylesheet is page-scoped, not importable as a module); tokens only. Read-only
+   here (name · capacity · bid), so no stepper/btn rows. */
+.mo-callout{position:fixed;z-index:20;background:var(--card);border:1px solid var(--border);
+  border-radius:8px;box-shadow:var(--shadow);padding:14px 16px;min-width:200px;max-width:280px;
+  font-size:13.5px}
+.mo-callout-name{font-weight:700;margin-bottom:6px}
+.mo-callout-math{color:var(--muted);font-size:12.5px;line-height:1.45}
 .verdict{font-family:Charter,Georgia,serif;font-size:16.5px;margin:10px 0 0}
 .actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
