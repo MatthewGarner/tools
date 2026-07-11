@@ -347,7 +347,7 @@ function boot(){
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
     const rw = renderWidth();
-    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw});
+    const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});
     lastSvg = svg;
     chartwrap.innerHTML = svg;
     chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
@@ -377,7 +377,7 @@ function boot(){
   /* ---- exports ---- */
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
-    getSvg: () => renderStack(currentState(), {colors: themeColors(), measure, palette: palette()}, {forExport: true}),
+    getSvg: () => renderStack(currentState(), {colors: themeColors(), measure, palette: palette()}, {forExport: true, labelCollide: 'drop'}),
     getMarkdown: () => { const cs = currentState(); return toMarkdown(cs, dispatch(cs.generators, cs.demand)); },
     slug: () => 'merit-order',
   });

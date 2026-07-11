@@ -68,10 +68,14 @@ export function buildDayVerdict(result, p){
     return e > s ? `from ${at(s)}` : `at ${at(hour)}`;
   };
 
+  // name the price-SETTER, collapsing the gas efficiency bands (CCGT/OCGT) to
+  // "gas" — the fuel family, not the specific plant; other units read as-is
+  const setter = name => /^(CCGT|OCGT)/.test(name) ? 'gas' : name;
   if(p.fleetGW <= 0){
-    const {prices, troughHour, peakHour} = raw;
-    return `The day's spread is £${Math.round(raw.spread)}: cheapest £${Math.round(prices[troughHour])}/MWh ${extremeAt(prices, troughHour)}, ` +
-      `dearest £${Math.round(prices[peakHour])}/MWh ${extremeAt(prices, peakHour)}.`;
+    const {prices, hours, troughHour, peakHour} = raw;
+    return `The day's spread is £${Math.round(raw.spread)}: ${setter(hours[peakHour].marginal)} sets the ` +
+      `£${Math.round(prices[peakHour])} peak ${extremeAt(prices, peakHour)}, ${setter(hours[troughHour].marginal)} the ` +
+      `£${Math.round(prices[troughHour])} floor ${extremeAt(prices, troughHour)}.`;
   }
   // empty book: a fleet that finds nothing worth trading (spread too thin to
   // cover the round-trip loss) — distinct from a fleet that trades and flattens
