@@ -21,6 +21,7 @@ export const ENERGY_ROUTES = [
   {from: '/cycles/', to: '/energy/cycles/'},
   {from: '/frequency/', to: '/energy/frequency/'},
   {from: '/merit-order/', to: '/energy/merit-order/'},
+  {from: '/intraday/', to: '/energy/intraday/'},
   {from: '/icons/', to: '/energy/icons/'},
   {from: '/', to: '/energy/', exact: true},
   {from: '/sw.js', to: '/energy/sw.js', exact: true},

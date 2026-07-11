@@ -38,6 +38,7 @@ try{
   check('energy /cycles/ 200', (await fetch(EBASE + '/cycles/')).status === 200);
   check('energy /frequency/ 200', (await fetch(EBASE + '/frequency/')).status === 200);
   check('energy /merit-order/ 200', (await fetch(EBASE + '/merit-order/')).status === 200);
+  check('energy /intraday/ 200', (await fetch(EBASE + '/intraday/')).status === 200);
   const red = await fetch('https://tools.matthewgarner.me/energy/', {redirect: 'manual'});
   check('tools /energy/* redirects to energy origin',
     (red.headers.get('location') || '').startsWith(EBASE));

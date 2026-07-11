@@ -152,6 +152,27 @@
       </span>
     </a>
 
+    <a class="tool" href="intraday/">
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <!-- real engine output (day.js, GB defaults): dashed = the raw default day
+             (plateau + square night notch at £20), accent = the same day with a
+             10 GW/2h fleet — the fleet fills the notch and the rest is untouched.
+             Points from x=30+h·(280/23), y mapping £20..£92 → 100..18. -->
+        <line x1="26" y1="112" x2="316" y2="112" stroke="var(--border)"/>
+        <polyline points="30,37.1 42.2,37.1 54.3,37.1 66.5,100 78.7,100 90.9,37.1 103,37.1 115.2,31.4 127.4,28.1 139.6,28.1 151.7,28.1 163.9,28.1 176.1,28.1 188.3,28.1 200.4,28.1 212.6,28.1 224.8,28.1 237,18 249.1,18 261.3,18 273.5,18 285.7,18 297.8,28.1 310,31.4" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 3" opacity="0.75"/>
+        <polyline points="30,37.1 42.2,37.1 54.3,37.1 66.5,37.1 78.7,37.1 90.9,37.1 103,37.1 115.2,31.4 127.4,28.1 139.6,28.1 151.7,28.1 163.9,28.1 176.1,28.1 188.3,28.1 200.4,28.1 212.6,28.1 224.8,28.1 237,18 249.1,18 261.3,18 273.5,18 285.7,18 297.8,28.1 310,31.4" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <circle cx="72.6" cy="100" r="3.5" fill="var(--accent-ink)"/>
+        <circle cx="237" cy="18" r="3.5" fill="var(--accent-ink)"/>
+        <text x="30" y="20" font-size="8.5" fill="var(--muted)">price</text>
+        <text x="97" y="66" font-size="8.5" fill="var(--accent-ink)" font-weight="600">flattens</text>
+      </svg></span>
+      <span class="tbody">
+        <h2>A day through the stack <span class="path">/intraday</span></h2>
+        <p>Play 24 hours through the merit order — the price shape draws itself, then storage flattens it.</p>
+        <span class="go">Open →</span>
+      </span>
+    </a>
+
   </div>
 
   <p class="soon"><b>Coming next:</b> a delay-exposure pricer (what a slip really costs net of liquidated damages).</p>

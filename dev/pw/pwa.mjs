@@ -2,21 +2,25 @@
    sweep (every tool must work offline WITHOUT having been visited — the
    installed-app path), an Android (Pixel 7) spot check, and the ENERGY origin
    (its own worker/manifest) served via serve.mjs's host-rewrite emulation.
-   Run from dev/pw: node pwa.mjs  (server on :8087; spawns :8089 itself) */
+   Run from dev/pw: node pwa.mjs  (server on :8087; the energy origin defaults
+   to :8089 via the EPORT env knob — reused if already alive, e.g. another
+   suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
 import {spawn} from 'node:child_process';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
-const EBASE = 'http://localhost:8089';
-/* reuse a :8089 that's already up (e.g. mobile.mjs's session server) — a
+const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
+                                              // avoid a port another session already holds
+const EBASE = 'http://localhost:' + EPORT;
+/* reuse an energy origin that's already up (e.g. mobile.mjs's session server) — a
    silent bind failure here used to hang the unsettled await with 0 PASS */
 let esrv = null;
 const alive = await fetch(EBASE + '/').then(r => r.ok).catch(() => false);
 if(!alive){
-  esrv = spawn('node', ['../serve.mjs', '8089', '--origin=energy'], {stdio: 'pipe'});
+  esrv = spawn('node', ['../serve.mjs', String(EPORT), '--origin=energy'], {stdio: 'pipe'});
   await Promise.race([
     new Promise(res => esrv.stdout.on('data', d => { if(String(d).includes('serving')) res(); })),
-    new Promise((_, rej) => setTimeout(() => rej(new Error(':8089 failed to start — port taken?')), 8000)),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(':' + EPORT + ' failed to start — port taken?')), 8000)),
   ]);
 }
 const browser = await chromium.launch();
@@ -102,7 +106,7 @@ async function installAndWait(page){
   await page.waitForFunction(async () =>
     !!(await caches.match('/risk/app.js')) && !!(await caches.match('/cycles/app.js')) &&
     !!(await caches.match('/frequency/app.js')) && !!(await caches.match('/merit-order/app.js')) &&
-    !!(await caches.match('/assets/series.js')),
+    !!(await caches.match('/intraday/app.js')) && !!(await caches.match('/assets/series.js')),
     null, {timeout: 20000});
   check('energy SW active + precached', true);
   await ctx.setOffline(true);
@@ -146,6 +150,16 @@ async function installAndWait(page){
   }catch(e){ ok4 = false; }
   check('energy: /merit-order/ cold offline fully works', ok4);
   await p5.close();
+  const p6 = await ctx.newPage();
+  let ok5 = false;
+  try{
+    await p6.goto(EBASE + '/intraday/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await p6.waitForTimeout(800);   // no example button to click — the page boots alive
+    ok5 = await p6.locator('#pricewrap svg').count() === 1 && await p6.locator('#stackwrap svg').count() === 1 &&
+      (await p6.locator('#verdict').innerText()).trim().length > 0;
+  }catch(e){ ok5 = false; }
+  check('energy: /intraday/ cold offline fully works', ok5);
+  await p6.close();
   await ctx.close();
 }
 

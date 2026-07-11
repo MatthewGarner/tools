@@ -45,8 +45,8 @@ test('tools origin redirects /energy/* (including the bare slash form)', () => {
 });
 
 test('energy tool paths redirect bare → trailing-slash (no-slash asset-404 bug)', () => {
-  // /risk, /cycles, /frequency, /merit-order — but NOT /icons (asset dir) or the exact rows
-  assert.deepEqual(energyRedirectSources().slice().sort(), ['/cycles', '/frequency', '/merit-order', '/risk']);
+  // /risk, /cycles, /frequency, /merit-order, /intraday — but NOT /icons (asset dir) or the exact rows
+  assert.deepEqual(energyRedirectSources().slice().sort(), ['/cycles', '/frequency', '/intraday', '/merit-order', '/risk']);
   const inVercel = (vercel.redirects || []).filter(r => energyRedirectSources().includes(r.source));
   assert.deepEqual(inVercel, vercelRedirects());
   for(const r of vercelRedirects()){
