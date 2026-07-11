@@ -18,6 +18,12 @@ export function themeColors(){
     status: {done: g('--st-done'), doing: g('--st-doing'), risk: g('--st-risk'), blocked: g('--st-blocked')}};
 }
 
+/* Filename-safe slug: lowercase, non-alnum runs collapsed to '-', trimmed.
+   Falls back to `fallback` if the input is empty or slugifies to nothing. */
+export function slugify(s, fallback){
+  return (s || fallback).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || fallback;
+}
+
 export function download(name, blob){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -47,4 +53,15 @@ export function onThemeChange(fn){
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', fn);
   new MutationObserver(fn).observe(document.documentElement,
     {attributes: true, attributeFilter: ['data-theme']});
+}
+
+/* Rebuild a soft-warning <ul> from a list of strings. Callers assemble their own
+   array (one model, merged models, or a pre-computed extra) and pass it. */
+export function renderWarningList(el, warnings){
+  el.textContent = '';
+  for(const w of warnings){
+    const li = document.createElement('li');
+    li.textContent = w;
+    el.appendChild(li);
+  }
 }

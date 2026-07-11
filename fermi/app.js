@@ -2,13 +2,15 @@
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
-import {quantile} from '../assets/series.js';
+import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
-import {measure} from '../assets/app-common.js';
+import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {rafBatched} from '../assets/schedule.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -170,22 +172,24 @@ function threshValue(){
   const t = parseNum(threshStr);
   return isFinite(t) ? t : null;
 }
-function renderThresh(){
-  const el = $('tout');
+// pulled out of renderThresh() so renderResults()'s output-unchanged
+// signature can read the same text without a second DOM write (batch 7)
+function threshPctText(){
   const t = threshValue();
-  if(!last || t === null){ el.textContent = '—'; return; }
+  if(!last || t === null) return '—';
   let c = 0;
   for(let i = 0; i < last.valid.length; i++) if(last.valid[i] > t) c++;
   const p = c / last.valid.length;
-  el.textContent = p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
+  return p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
 }
+function renderThresh(){ $('tout').textContent = threshPctText(); }
 
 function readHash(){
   try{
-    if(!location.hash || location.hash.length < 2) return null;
-    const s = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
-    if(s && s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
-    if(s && s.m === 'cf' && Array.isArray(s.p)) return s;
+    const s = readHashState();
+    if(!s) return null;
+    if(s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
+    if(s.m === 'cf' && Array.isArray(s.p)) return s;
     if(typeof s.f !== 'string' || typeof s.v !== 'object') return null;
     return s;
   }catch(e){ return null; }
@@ -204,8 +208,7 @@ function writeHash(){
   const state = compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
     : packScen(scenStore.A);
-  const enc = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-  history.replaceState(null, '', '#' + enc);
+  writeHashState(state);
 }
 
 /* ---------- variable rows ---------- */
@@ -402,22 +405,20 @@ let hashTimer = null;
 function writeHashSafe(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 400); }
 
 /* ---------- render results ---------- */
+let resultsSig = '';   // output-unchanged gate: skip the DOM rebuild when nothing shown would differ (batch 7)
 function renderResults(){
   const r = last;
   $('ph').style.display = 'none';
   $('results').style.display = 'block';
   $('results').classList.remove('is-stale');
-  renderCompare();
-  $('p10').textContent = fmt(r.p10);
-  $('p50').textContent = fmt(r.p50);
-  $('p90').textContent = fmt(r.p90);
-  $('say').textContent = '“Probably around ' + fmt(r.p50) + ' — I’d be surprised outside ' +
-    fmt(r.p10) + ' to ' + fmt(r.p90) + '.”';
+
+  const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
+  const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +
+    p10Text + ' to ' + p90Text + '.”';
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
-  $('spread').textContent = isFinite(ratio)
+  const spreadText = isFinite(ratio)
     ? 'Spread: ×' + sig(ratio, 2) + ' (P90 / P10)' + (ratio > 10 ? ' — an order-of-magnitude answer, and that’s fine.' : '')
     : 'Spread: ' + fmt(r.p90 - r.p10) + ' (P90 − P10)';
-  const w = $('warn');
   const notes = [];
   if(r.invalid > N * 0.01){
     notes.push(sig(100 * r.invalid / N, 2) + '% of runs hit invalid maths and were dropped — a range probably crosses zero.');
@@ -426,13 +427,40 @@ function renderResults(){
   if(inverted.length){
     notes.push('Entered high-to-low: ' + inverted.map(n => n.replace(/_/g, ' ')).join(', ') + ' — read as a range either way.');
   }
-  w.textContent = notes.join(' ');
+  const warnText = notes.join(' ');
+
+  const sens = r.sens;
+  const sensSig = sens.map(s => s.name + ':' + s.share.toFixed(4) + ':' + s.label).join(',');
+  const cmpP = compareOn ? pBeatsStr() : null;
+  const cmpSig = cmpP === null ? 'off' : cmpP + '|' + fmt(lastBy.A.p50) + '|' + fmt(lastBy.B.p50) + '|' + active;
+  const threshPct = threshPctText();
+
+  // signature over everything the panel shows: percentiles, sensitivity
+  // rows, compare-mode P(B>A), threshold % — mirrors merit-order's
+  // svg!==lastSvg / fermi's own varRowsSig gate, just for this DOM instead
+  // of an SVG string.
+  const sigNow = [p10Text, p50Text, p90Text, sayText, spreadText, warnText, cmpSig, sensSig, threshPct].join('¦');
+  if(sigNow === resultsSig){
+    $('tout').textContent = threshPct;
+    drawHist();
+    renderDriverView();
+    return;
+  }
+  resultsSig = sigNow;
+
+  renderCompare();
+  $('p10').textContent = p10Text;
+  $('p50').textContent = p50Text;
+  $('p90').textContent = p90Text;
+  $('say').textContent = sayText;
+  $('spread').textContent = spreadText;
+  const w = $('warn');
+  w.textContent = warnText;
   w.style.display = notes.length ? 'block' : 'none';
 
   /* sensitivity rows */
   const holder = $('srows');
   holder.textContent = '';
-  const sens = r.sens;
   $('sens').style.display = sens.length > 1 ? 'block' : 'none';
   if(sens.length > 1){
     const top = sens[0];
@@ -458,7 +486,7 @@ function renderResults(){
       holder.appendChild(row);
     }
   }
-  renderThresh();
+  $('tout').textContent = threshPct;
   drawHist();
   renderDriverView();
 }
@@ -494,9 +522,7 @@ wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
 function themeColors(){
-  const cs = getComputedStyle(document.documentElement);
-  const get = n => cs.getPropertyValue(n).trim();
-  return {accent:get('--accent'), accent2:get('--accent2'), ink:get('--ink'), muted:get('--muted'), card:get('--card'), border:get('--border'), err:get('--err')};
+  return {...sharedThemeColors(), accent2: getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim()};
 }
 function drawHist(hoverIdx){
   const r = last;
@@ -667,9 +693,9 @@ $('tin').addEventListener('input', () => {
 
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
-if(window.ResizeObserver) new ResizeObserver(() => drawHist()).observe($('hist'));
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
-new MutationObserver(redrawAll).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+// a ResizeObserver can fire multiple ticks per resize drag; coalesce to one redraw/frame
+if(window.ResizeObserver) new ResizeObserver(rafBatched(() => drawHist())).observe($('hist'));
+onThemeChange(redrawAll);
 
 /* ---------- chips / copy / boot ---------- */
 for(const ex of EXAMPLES){
@@ -759,38 +785,17 @@ $('png').addEventListener('click', () => {
   ctx.font = '12px ui-monospace, Menlo, monospace';
   ctx.fillText('P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, pad + h + 36);
-  c.toBlob(b => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = 'estimate.png';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  }, 'image/png');
+  c.toBlob(b => download('estimate.png', b), 'image/png');
 });
 
 /* ---------- saved models (localStorage) ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('fermi-models') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('fermi-models', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'fermi-models';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.title = m.f;
-    load.addEventListener('click', () => {
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    title: m => m.f,
+    deleteLabel: m => 'Delete saved model ' + m.name,
+    onLoad: m => {
       $('formula').value = m.f;
       for(const [k, p] of Object.entries(m.v || {})){
         varState.set(k, {lo:String(p[0] ?? ''), hi:String(p[1] ?? ''), dist:p[2] || 'auto'});
@@ -799,19 +804,13 @@ function renderSaved(){
       $('tin').value = threshStr;
       varRowsSig = '';
       lint();
-    });
-    const del = document.createElement('button');
-    del.className = 'chipdel';
-    del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved model ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved();
+    },
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY);
       l.splice(i, 1);
-      storeSaved(l);
+      storeSaved(SAVED_KEY, l);
       renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
@@ -824,9 +823,9 @@ function renderSaved(){
       const st = varState.get(n);
       if(st) v[n] = [st.lo, st.hi, st.dist || 'auto'];
     }
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: f.length > 26 ? f.slice(0, 24) + '…' : f, f, v, t: threshStr});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);
@@ -1033,7 +1032,7 @@ $('cfcopydoc').addEventListener('click', async () => {
 function cfWriteHash(){
   const state = {m: 'cf', g: cf.grain, h: cf.horizon, rl: cf.rlo, rh: cf.rhi,
     p: cf.periods.map(p => [p.lo, p.hi])};
-  history.replaceState(null, '', '#' + btoa(unescape(encodeURIComponent(JSON.stringify(state)))));
+  writeHashState(state);
 }
 function cfWriteHashSafe(){ clearTimeout(cfHashTimer); cfHashTimer = setTimeout(cfWriteHash, 100); }
 

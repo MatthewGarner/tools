@@ -21,6 +21,7 @@ import {encodeDayState, decodeDayState} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
+import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 
 export const PRESETS = {
   winter:    {label: 'Winter weekday',      mutate: {trough: 30, peak: 47, solarPeak: 2, sunrise: 8, sunset: 16}},
@@ -53,9 +54,9 @@ function boot(){
      Both renderers require an explicit width (no built-in default that matches
      this page's 900 canonical), so — unlike merit-order's `undefined ⇒ 1200` —
      this always returns a concrete number. ---- */
-  const NARROW = 520;
+  const NARROW = 520;   // also used below for the "bring into view" pointer-coarse check
   const priceEl = $('pricewrap'), stackEl = $('stackwrap');
-  const renderWidth = el => { const w = el.clientWidth; return (w && w < NARROW) ? w : 900; };
+  const renderWidth = el => narrowWidth(el, {fallback: 900});
 
   function refresh(){
     result = runDay(p);
@@ -220,15 +221,7 @@ function boot(){
   onThemeChange(refresh);
 
   /* ---- narrow-bucket resize: re-render only when either panel's bucket flips ---- */
-  let lastBucket = null;
-  const ro = new ResizeObserver(() => {
-    const w = priceEl.clientWidth;
-    const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
-    if(bucket === lastBucket) return;
-    lastBucket = bucket;
-    refresh();
-  });
-  ro.observe(priceEl, {box: 'content-box'});
+  watchNarrowBucket(priceEl, refresh);
 
   refresh();
 }

@@ -6,7 +6,9 @@ import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../../assets/app-common.js';
+import {wireExports} from '../../assets/exports.js';
+import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 
@@ -39,12 +41,8 @@ toll: 47 "Fixed-price PPA"`},
 let model = null, sim = null, lastSvg = '', focusIdx = null;
 let rafId = 0, debTimer = null, hashTimer = null;
 
-const NARROW = 520;
 const stageEl = $('preview');
-function renderWidth(){
-  const w = stageEl.clientWidth;
-  return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its constant
-}
+function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
 }
@@ -52,13 +50,7 @@ function activeRender(slide, edit = false, forExport = false){
   return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx});
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -137,33 +129,17 @@ function svgString(slide){
   return sim ? activeRender(slide, false, true) : null;   // forExport: width undefined => canonical 1200/1280
 }
 function slug(){
-  return ((model && model.title) || 'risk').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slugify(model && model.title, 'risk');
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  getSvg: () => svgString(false),
+  getSvgSlide: () => svgString(true),
+  slug,
 });
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString(true);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-$('copypng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem){
-    flash('copypng', 'Clipboard unavailable — use Download', 2200);
-    return;
-  }
-  const blobPromise = new Promise((resolve, reject) =>
-    svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-    .then(() => flash('copypng', 'Copied — paste into your deck', 1800))
-    .catch(() => flash('copypng', 'Copy blocked — use Download', 2200));
-});
+/* copymd keeps its inline handler: on clipboard failure it falls back to a
+   prompt() with the markdown so it's still copyable — wireExports has no
+   equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
   if(!sim) return;
   const md = toMarkdown(model, sim);
@@ -181,15 +157,7 @@ function rerender(){ lastSvg = ''; refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
-let lastBucket = null;
-const ro = new ResizeObserver(() => {
-  const w = stageEl.clientWidth;
-  const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
-  if(bucket === lastBucket) return;
-  lastBucket = bucket;
-  rerender();
-});
-ro.observe(stageEl, {box: 'content-box'});
+watchNarrowBucket(stageEl, rerender);
 
 /* ---------- boot ---------- */
 (function(){

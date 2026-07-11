@@ -27,7 +27,7 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
   const framing = mid(periods[0]) > 0 && laterSum < 0 ? 'runway' : 'invest';
   const kind = framing === 'runway' ? 'cashout' : 'payback';
 
-  const npvs = new Array(n), irrs = [], events = [];
+  let npvs = new Array(n), irrs = [], events = [];
   const cumByT = Array.from({length: horizon + 1}, () => new Array(n));
   const flows = new Array(horizon + 1);
   let posCount = 0, irrUndefined = 0, never = 0;
@@ -55,9 +55,9 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
     else irrs.push(grain === 'month' ? Math.pow(1 + irr, 12) - 1 : irr);
   }
 
-  npvs.sort((a, b) => a - b);
-  irrs.sort((a, b) => a - b);
-  events.sort((a, b) => a - b);
+  npvs = Float64Array.from(npvs).sort();
+  irrs = Float64Array.from(irrs).sort();
+  events = Float64Array.from(events).sort();
   const q = (s, p) => s.length ? quantile(s, p) : null;
   return {
     n, horizon, grain, framing, npvSorted: npvs,
@@ -65,7 +65,7 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
     irr: {p10: q(irrs, .1), p50: q(irrs, .5), p90: q(irrs, .9), undefinedShare: irrUndefined / n},
     period: {kind, p10: q(events, .1), p50: q(events, .5), p90: q(events, .9), neverShare: never / n},
     band: cumByT.map(col => {
-      const s = [...col].sort((a, b) => a - b);
+      const s = Float64Array.from(col).sort();
       return {p10: quantile(s, .1), p50: quantile(s, .5), p90: quantile(s, .9)};
     }),
   };

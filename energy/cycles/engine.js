@@ -65,7 +65,9 @@ export function tauBudget(base, scale, k, allowance, useSecond){
   };
   if(cycles(0) <= allowance) return 0;
   let lo = 0, hi = scale * base.S1.v[base.S1.n - 1];
-  for(let i = 0; i < 40; i++){
+  /* 28 iterations is a safe margin above the ~24 needed for the UI's
+     nearest-integer £/MWh precision (40 oversupplied precision to ~6e-6) */
+  for(let i = 0; i < 28; i++){
     const mid = (lo + hi) / 2;
     cycles(mid) > allowance ? lo = mid : hi = mid;
   }

@@ -7,7 +7,9 @@ import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, removeComponent} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
@@ -49,7 +51,7 @@ Storefront -> House blends -> Tea supply
 Storefront -> Hosting`},
 ];
 
-let model = null, lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
 
 /* validated 2026-07-10 (dataviz validate_palette, ordinal mode, both themes):
@@ -79,13 +81,7 @@ function activeRender(forExport = false){
   return renderMap(model, layoutMap(model), c, opts);
 }
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  for(const w of (model ? model.warnings : [])){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -106,14 +102,11 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 function writeHash(){
   if(!shouldPersist()) return;
@@ -286,33 +279,17 @@ function svgString(){
   return (model && model.components.size) ? activeRender(true) : null;
 }
 function slug(){
-  return ((model.title || 'wardley')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slugify(model.title, 'wardley');
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString();
-  if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  getSvg: () => svgString(),
+  getSvgSlide: () => svgString(),
+  slug,
 });
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString();
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString();
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-$('copypng').addEventListener('click', () => {
-  const svg = svgString();
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem){
-    flash('copypng', 'Clipboard unavailable — use Download', 2200);
-    return;
-  }
-  const blobPromise = new Promise((resolve, reject) =>
-    svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-    .then(() => flash('copypng', 'Copied — paste into your deck', 1800))
-    .catch(() => flash('copypng', 'Copy blocked — use Download', 2200));
-});
+/* copymd keeps its inline handler: on clipboard failure it falls back to a
+   prompt() with the markdown so it's still copyable — wireExports has no
+   equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.components.size) return;
   const md = toMarkdown(model, layoutMap(model), location.href);

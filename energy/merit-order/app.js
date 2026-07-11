@@ -11,6 +11,8 @@ import {encodeStateV2, decodeStateV2} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
+import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
+import {rafBatched} from '../../assets/schedule.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -35,11 +37,8 @@ function boot(){
   const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
 
   /* ---- narrow-render width: measure #chartwrap, mirroring cycles/risk-transfer ---- */
-  const NARROW = 520;
-  function renderWidth(){
-    const w = chartwrap.clientWidth;
-    return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its canonical 1200
-  }
+  const NARROW = 520;   // also used below for the drag-hit x0/x1 geometry
+  function renderWidth(){ return narrowWidth(chartwrap); }
 
   /* ---- chart geometry the drag math needs (demand ceiling is world-dependent) ---- */
   function chartDomainMax(){
@@ -91,17 +90,27 @@ function boot(){
     return snapped !== null ? snapped : Math.round(gw * 10) / 10;
   }
 
-  window.addEventListener('pointermove', e => {
-    if(!dragging) return;
-    state.params.demand = Math.min(demandMax(), snapDemand(clientXToGW(e.clientX)));
+  const dragMove = rafBatched(clientX => {
+    if(!dragging) return;   // dragging may have ended before this frame fired
+    state.params.demand = Math.min(demandMax(), snapDemand(clientXToGW(clientX)));
     markCustom();
     render(false);
+  });
+  window.addEventListener('pointermove', e => {
+    if(!dragging) return;
+    dragMove(e.clientX);
   });
   window.addEventListener('pointerup', () => {
     if(!dragging) return;
     dragging = false;
     render(true);
   });
+
+  /* ---- hot-path DOM queries: both chip groups are static markup (fixed
+     World/Conditions buttons, see index.html) — cache once like mustrunButtons
+     below, instead of re-querying on every click/render (batch 7). ---- */
+  const worldChips = [...document.querySelectorAll('#worlds .chip[data-world]')];
+  const presetChips = [...document.querySelectorAll('#presets .chip[data-preset]')];
 
   /* ---- must-run segmented toggle ---- */
   const mustrunButtons = [...document.querySelectorAll('#mustrunseg button[data-mustrun]')];
@@ -150,10 +159,10 @@ function boot(){
     syncControls();
     render(true);
   }
-  for(const btn of document.querySelectorAll('#worlds .chip[data-world]')){
+  for(const btn of worldChips){
     btn.addEventListener('click', () => applyWorld(btn.dataset.world));
   }
-  for(const btn of document.querySelectorAll('#presets .chip[data-preset]')){
+  for(const btn of presetChips){
     btn.addEventListener('click', () => applyCondition(btn.dataset.preset));
   }
 
@@ -171,7 +180,7 @@ function boot(){
     const rect = el.getBoundingClientRect();
     const pop = document.createElement('div');
     pop.className = 'mo-callout';
-    pop.style.left = Math.round(Math.max(8, rect.left)) + 'px';
+    pop.style.left = Math.round(Math.max(8, Math.min(rect.left, innerWidth - 240))) + 'px';
     pop.style.top = Math.round(rect.bottom + 6) + 'px';
     renderCalloutView(pop, name);
     document.body.appendChild(pop);
@@ -310,14 +319,14 @@ function boot(){
     if(p.mustRunOn) $('depthout').textContent = '−£' + Math.round(p.mustRunDepth) + '/MWh';
   }
   function syncChips(){   // highlight the active Conditions chip (none highlighted when 'custom'/null)
-    for(const b of document.querySelectorAll('#presets .chip[data-preset]')){
+    for(const b of presetChips){
       const on = (b.dataset.preset || null) === (state.condition || null);
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
     }
   }
   function syncWorldChips(){   // highlight the active World chip
-    for(const b of document.querySelectorAll('#worlds .chip[data-world]')){
+    for(const b of worldChips){
       const on = b.dataset.world === state.world;
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
@@ -348,11 +357,13 @@ function boot(){
     const result = dispatch(cs.generators, cs.demand);
     const rw = renderWidth();
     const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});
-    lastSvg = svg;
-    chartwrap.innerHTML = svg;
-    chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
-    chartwrap.appendChild(hitRect);
-    positionHitRect();
+    if(svg !== lastSvg){   // skip the DOM rewrite (+ hit-rect reparent) when the render is byte-identical
+      lastSvg = svg;
+      chartwrap.innerHTML = svg;
+      chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
+      chartwrap.appendChild(hitRect);
+      positionHitRect();
+    }
 
     syncOutputs();
     syncChips();
@@ -386,15 +397,7 @@ function boot(){
   onThemeChange(() => render(false));
 
   /* ---- narrow-bucket resize: re-render (chart + hit-rect) only when the bucket flips ---- */
-  let lastBucket = null;
-  const ro = new ResizeObserver(() => {
-    const w = chartwrap.clientWidth;
-    const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
-    if(bucket === lastBucket) return;
-    lastBucket = bucket;
-    render(true);
-  });
-  ro.observe(chartwrap, {box: 'content-box'});
+  watchNarrowBucket(chartwrap, () => render(true));
 
   /* ---- boot: URL state (v2), else GB-today defaults ---- */
   const restored = decodeStateV2(readHashState());

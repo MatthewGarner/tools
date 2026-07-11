@@ -86,3 +86,35 @@ test('intraday: full runDay (raw + iterative back-off, ≤ pairs+2 clearings of 
   const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
   await timed(150, () => runDay({...DAY_DEFAULTS, fleetGW: 6}));
 });
+
+test('tree: 10k-sim rollback + flip search on a 5-option nested tree under 100ms', async () => {
+  const {parse} = await import('../tree/parse.js');
+  const {evaluate} = await import('../tree/engine.js');
+  const m = parse(`title: Portfolio bet
+currency: £
+
+Choose a play
+  Enter market A: -200k to -350k
+    Reception
+      Strong uptake (p=0.35-0.5): 600k to 1.1M
+        Scale
+          Scale fast: 900k to 1.6M
+          Scale slow: 500k to 800k
+      Modest uptake (p=0.3-0.4): 150k to 400k
+      Flop (p=rest): -50k to 0
+  Enter market B: -150k to -250k
+    Reception
+      Strong uptake (p=0.3-0.45): 500k to 900k
+      Modest uptake (p=0.3-0.4): 100k to 300k
+      Flop (p=rest): -80k to -10k
+  Partner with incumbent: -80k
+    Deal quality
+      Good terms (p=0.5-0.65): 300k to 500k
+      Poor terms (p=rest): 20k to 80k
+  License technology: -40k to -60k
+    Uptake
+      Licensees sign (p=0.4-0.55): 200k to 350k
+      No uptake (p=rest): -20k to 0
+  Do nothing: 0`);
+  await timed(100, () => evaluate(m, {sims: 10000}));
+});

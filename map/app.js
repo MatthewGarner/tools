@@ -6,7 +6,10 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
@@ -95,17 +98,10 @@ Press coverage flops @ 50,25
 
 /* ---------- refresh loop ---------- */
 let model = null, resolved = null, ro = null;
-let lastSvg = '', rafId = 0, hashTimer = null, debTimer = null;
+let lastSvg = '', hashTimer = null;
 
 function renderWarnings(){
-  const warns = $('warns');
-  warns.textContent = '';
-  const all = [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])];
-  for(const w of all){
-    const li = document.createElement('li');
-    li.textContent = w;
-    warns.appendChild(li);
-  }
+  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])]);
 }
 function hasContent(){
   return model && (model.items.length || model.preset || model.grid || model.ruleZones.length);
@@ -142,14 +138,11 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
 }
-function refresh(){
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(doRefresh);
-}
+const refresh = rafBatched(doRefresh);
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
+  onChange: debounced(refresh, 120),
 });
 function writeHash(){
   const state = {t: editor.getText()};
@@ -230,44 +223,24 @@ for(const ex of EXAMPLES){
 }
 
 /* ---------- saved ---------- */
-function loadSaved(){
-  try{ return JSON.parse(localStorage.getItem('map-saved') || '[]'); }catch(e){ return []; }
-}
-function storeSaved(list){
-  try{ localStorage.setItem('map-saved', JSON.stringify(list)); }catch(e){}
-}
+const SAVED_KEY = 'map-saved';
 function renderSaved(){
   const row = $('savedrow');
-  row.textContent = '';
-  const list = loadSaved();
-  if(list.length){
-    const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
-    row.appendChild(lead);
-  }
-  list.forEach((m, i) => {
-    const chip = document.createElement('span');
-    chip.className = 'savedchip';
-    const load = document.createElement('button');
-    load.textContent = m.name;
-    load.addEventListener('click', () => editor.setText(m.src));
-    const del = document.createElement('button');
-    del.className = 'chipdel'; del.textContent = '×';
-    del.setAttribute('aria-label', 'Delete saved map ' + m.name);
-    del.addEventListener('click', () => {
-      const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved();
-    });
-    chip.append(load, del);
-    row.appendChild(chip);
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    deleteLabel: m => 'Delete saved map ' + m.name,
+    onLoad: m => editor.setText(m.src),
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
+    },
   });
   const save = document.createElement('button');
   save.className = 'chip';
   save.textContent = '＋ Save current';
   save.addEventListener('click', () => {
     if(!hasContent()) return;
-    const list = loadSaved();
+    const list = loadSaved(SAVED_KEY);
     list.push({name: model.title ? model.title.slice(0, 28) : 'Map ' + (list.length + 1), src: editor.getText()});
-    storeSaved(list);
+    storeSaved(SAVED_KEY, list);
     renderSaved();
   });
   row.appendChild(save);
@@ -279,40 +252,14 @@ function svgString(slide){
   return activeRender(slide);
 }
 function slug(){
-  return ((model.title || model.preset || 'map')).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slugify(model.title || model.preset, 'map');
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
-});
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString(true);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-function flash(btn, msg, base){
-  btn.textContent = msg;
-  setTimeout(() => { btn.textContent = base; }, 2000);
-}
-$('copypng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem)
-    return flash($('copypng'), 'Clipboard unavailable — use Download', 'Copy PNG');
-  const blobPromise = new Promise((resolve, reject) =>
-    svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-    .then(() => flash($('copypng'), 'Copied — paste into your deck', 'Copy PNG'))
-    .catch(() => flash($('copypng'), 'Copy blocked — use Download', 'Copy PNG'));
-});
-$('copymd').addEventListener('click', () => {
-  if(!ro) return;
-  navigator.clipboard.writeText(toMarkdown(ro, model))
-    .then(() => flash($('copymd'), 'Copied — paste into your doc', 'Copy for doc'))
-    .catch(() => flash($('copymd'), 'Copy blocked', 'Copy for doc'));
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng'), copymd: $('copymd')},
+  getSvg: () => svgString(false),
+  getSvgSlide: () => svgString(true),
+  getMarkdown: () => ro ? toMarkdown(ro, model) : null,
+  slug,
 });
 
 /* ---------- drag-to-place: a drop is a text edit ---------- */
