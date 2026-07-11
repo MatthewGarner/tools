@@ -15,6 +15,7 @@ const T = {
   titleSize: 22, titleY: 36, headerH: 56, headerHNoTitle: 20, dateSize: 11,
   tickH: 26, msR: 6, labelSize: 12.5, noteSize: 10.5, readoutSize: 15,
   slideScale: 1.35, sinceSize: 12, droppedSize: 11,
+  addZoneW: 34, addZoneH: 44,   // per-lane ghost "＋" zone + its invisible hit rect (≥44px tap target)
 };
 const DAY_MS = 86400000;
 const monthStart = day => {
@@ -70,8 +71,12 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const colorOf = it => it.status === 'done' ? C.status.done
     : it.status === 'risk' ? C.err : C.accent;
 
-  /* row packing per lane: items sorted by P50; first row whose extent has ended */
+  /* row packing per lane: items sorted by P50; first row whose extent has ended.
+     laneMaxRightX tracks each lane's furthest right-extent as we pack — the
+     per-lane add zone anchors just past it (rows only grow rightward per
+     row, so the max across rows is the lane's true right extent). */
   const laneRows = new Map();
+  const laneMaxRightX = new Map();
   const labelFont = '600 ' + T.labelSize * S + 'px ' + F.body;
   for(const lane of model.lanes){
     const rows = [];
@@ -85,6 +90,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       it._row = r;
     }
     laneRows.set(lane, rows.length || 1);
+    laneMaxRightX.set(lane, rows.length ? Math.max(...rows) : plotX);
   }
 
   const headerH = ((model.title ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0)) * S;
@@ -130,6 +136,21 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" height="' + h + '" rx="8" fill="' + C.card + '" stroke="' + C.border + '"/>');
     if(lane) s.push(txt((T.pad + 14) * S, y0 + 20 * S, lane.toUpperCase(), 10.5 * S, C.muted,
       {weight: 600, tracking: 1}));
+    /* per-lane ghost add zone — content-anchored just right of the lane's
+       furthest milestone, clamped so it never rides off the plot; skips the
+       unnamed lane (its aria-label would read "into "). Quiet ghost "＋"
+       plus an explicit invisible hit rect (unlike the shipped global target,
+       which relies on its text bbox) — a real tap target, not a hopeful one. */
+    if(edit && lane){
+      const zw = T.addZoneW * S, zh = T.addZoneH * S;
+      const zx = Math.min(laneMaxRightX.get(lane) + 12 * S, plotX + plotW - zw);
+      const zy = y0 + h / 2;
+      s.push('<g data-edit="additem" data-lane="' + esc(lane) + '" data-line="-1" data-raw="" role="button"' +
+        ' aria-label="Add milestone into ' + esc(lane) + '">' +
+        txt(zx + zw / 2, zy + 4 * S, '＋', T.labelSize * S, C.muted, {anchor: 'middle'}) +
+        '<rect x="' + zx.toFixed(1) + '" y="' + (zy - zh / 2).toFixed(1) + '" width="' + zw +
+        '" height="' + zh + '" fill="' + C.bg + '" fill-opacity="0"/></g>');
+    }
   }
 
   /* today line + flag over the bands — the key reference axis, so it reads at a glance:

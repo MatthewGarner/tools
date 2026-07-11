@@ -42,8 +42,11 @@ export function cycleStatus(line, oldStatus){
 }
 
 /* new milestones land after the last item (else after the config block),
-   dated one month either side of today so they render mid-plot, unmissable */
-export function addItemLine(text, todayISO){
+   dated one month either side of today so they render mid-plot, unmissable.
+   With a lane, the new line is lane-prefixed and lands after THAT lane's
+   last item (document order); a lane with no items falls back to the
+   unprefixed, whole-document behaviour below. */
+export function addItemLine(text, todayISO, lane){
   const model = parse(text);
   const ym = todayISO.slice(0, 7);
   const plus = m => {
@@ -51,6 +54,13 @@ export function addItemLine(text, todayISO){
     const d = new Date(Date.UTC(y, mo - 1 + m, 1));
     return d.toISOString().slice(0, 7);
   };
+  if(lane){
+    const laneItems = model.items.filter(i => i.lane === lane);
+    if(laneItems.length){
+      const newLine = lane + ': New milestone ' + plus(1) + ' .. ' + plus(3);
+      return {afterLine: laneItems[laneItems.length - 1].srcLine, newLine, select: 'New milestone'};
+    }
+  }
   const newLine = 'New milestone ' + plus(1) + ' .. ' + plus(3);
   if(model.items.length)
     return {afterLine: model.items[model.items.length - 1].srcLine, newLine, select: 'New milestone'};
