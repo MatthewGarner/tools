@@ -12,6 +12,7 @@ import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
+import {rafBatched} from '../../assets/schedule.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -89,11 +90,15 @@ function boot(){
     return snapped !== null ? snapped : Math.round(gw * 10) / 10;
   }
 
-  window.addEventListener('pointermove', e => {
-    if(!dragging) return;
-    state.params.demand = Math.min(demandMax(), snapDemand(clientXToGW(e.clientX)));
+  const dragMove = rafBatched(clientX => {
+    if(!dragging) return;   // dragging may have ended before this frame fired
+    state.params.demand = Math.min(demandMax(), snapDemand(clientXToGW(clientX)));
     markCustom();
     render(false);
+  });
+  window.addEventListener('pointermove', e => {
+    if(!dragging) return;
+    dragMove(e.clientX);
   });
   window.addEventListener('pointerup', () => {
     if(!dragging) return;
@@ -169,7 +174,7 @@ function boot(){
     const rect = el.getBoundingClientRect();
     const pop = document.createElement('div');
     pop.className = 'mo-callout';
-    pop.style.left = Math.round(Math.max(8, rect.left)) + 'px';
+    pop.style.left = Math.round(Math.max(8, Math.min(rect.left, innerWidth - 240))) + 'px';
     pop.style.top = Math.round(rect.bottom + 6) + 'px';
     renderCalloutView(pop, name);
     document.body.appendChild(pop);
@@ -346,11 +351,13 @@ function boot(){
     const result = dispatch(cs.generators, cs.demand);
     const rw = renderWidth();
     const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});
-    lastSvg = svg;
-    chartwrap.innerHTML = svg;
-    chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
-    chartwrap.appendChild(hitRect);
-    positionHitRect();
+    if(svg !== lastSvg){   // skip the DOM rewrite (+ hit-rect reparent) when the render is byte-identical
+      lastSvg = svg;
+      chartwrap.innerHTML = svg;
+      chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
+      chartwrap.appendChild(hitRect);
+      positionHitRect();
+    }
 
     syncOutputs();
     syncChips();
