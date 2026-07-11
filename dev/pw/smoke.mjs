@@ -51,11 +51,12 @@ async function svgDecodes(page, selector){
 /* ---- energy landing + risk ---- */
 {
   const {page, errors} = await freshPage('/energy/');
-  check('energy landing: four tool cards', await page.locator('a.tool').count() === 4);
+  check('energy landing: five tool cards', await page.locator('a.tool').count() === 5);
   check('energy landing: card resolves', (await page.request.get(BASE + '/energy/risk/')).status() === 200);
   check('energy landing: cycles card resolves', (await page.request.get(BASE + '/energy/cycles/')).status() === 200);
   check('energy landing: frequency card resolves', (await page.request.get(BASE + '/energy/frequency/')).status() === 200);
   check('energy landing: merit-order card resolves', (await page.request.get(BASE + '/energy/merit-order/')).status() === 200);
+  check('energy landing: intraday card resolves', (await page.request.get(BASE + '/energy/intraday/')).status() === 200);
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }
@@ -131,6 +132,29 @@ for(const theme of ['light', 'dark']){
   check('merit-order(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('merit-order(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/energy/intraday/', theme);
+  check('intraday(' + theme + '): stack renders', await page.locator('#stackwrap svg').count() === 1);
+  check('intraday(' + theme + '): price shape renders', await page.locator('#pricewrap svg').count() === 1);
+  const v0 = await page.locator('#verdict').innerText();
+  check('intraday(' + theme + '): verdict quotes the spread', /spread/i.test(v0) && /£\d+/.test(v0));
+  await page.locator('#fleetGW').fill('6');
+  await page.locator('#fleetGW').dispatchEvent('input');
+  await page.waitForTimeout(150);
+  const v6 = await page.locator('#verdict').innerText();
+  // verdict may append " — walking away from N GWh of trades..." after the flattened
+  // figure; the raw→flat pair always appears before that clause, so the substring
+  // match tolerates it without anchoring the end of the string.
+  check('intraday(' + theme + '): fleet flattens (raw → flat quoted)', /£\d+ → £\d+/.test(v6));
+  check('intraday(' + theme + '): ghost raw shape appears', await page.locator('[data-raw-shape]').count() === 1);
+  await page.locator('#scrub').fill('3');
+  await page.locator('#scrub').dispatchEvent('input');
+  check('intraday(' + theme + '): scrub moves the cursor', await page.locator("[data-cursor='3']").count() === 1);
+  check('intraday(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#pricewrap svg'));
+  check('intraday(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
