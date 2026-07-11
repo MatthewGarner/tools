@@ -335,6 +335,26 @@ check('no page errors', errors.length === 0);
   const wsrc9 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: one undo restores the full pre-removal text (applyLineOps one history event)', wsrc9 === wsrc7);
 
+  // remove a LINKED component (Streak engine sits in two chains) — this is the
+  // multi-op removal (declaration delete + edge splices/deletes) that
+  // applyLineOps exists for; the earlier Cache remove was single-op
+  await wpage.locator('[data-edit="componentmenu"][data-raw="Streak engine"]').first().click();
+  await wpage.waitForTimeout(200);
+  await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
+  await wpage.waitForTimeout(500);
+  const wsrc10 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: linked remove splices the chains (no -> Streak engine, no Streak engine ->, no declaration)',
+    !/->\s*streak engine|streak engine\s*->|streak engine\s*@/i.test(wsrc10));
+  // the 3-chain "… -> Habit builder -> Streak engine -> <end>" must splice to
+  // "… -> Habit builder -> <end>" — endpoint name is whatever earlier steps
+  // renamed it to, so assert the join, not the name
+  check('wardley: the 3-chain kept its ends after the splice', /habit tracking\s*->\s*habit builder\s*->\s*\S/i.test(wsrc10));
+  await wpage.locator('.cm-content').click();
+  await wpage.keyboard.press('Meta+z');
+  await wpage.waitForTimeout(500);
+  check('wardley: one undo restores the multi-op removal (single dispatch)',
+    (await wpage.evaluate(() => localStorage.getItem('wardley-src'))) === wsrc9);
+
   // narrow: a TAP on the ghost's strip places it, comment kept before //
   await wpage.setViewportSize({width: 430, height: 900});
   await wpage.waitForTimeout(600);

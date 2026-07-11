@@ -39,10 +39,16 @@ function edgeRewrites(lines, raw, value){
 
 export function renameComponent(text, srcLine, raw, value){
   const lines = linesOf(text);
-  const [code, comment] = splitComment(lines[srcLine]);
-  const at = code.match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
-  const declText = at[1] + value + (at[3] || '') + comment;
-  return [{line: srcLine, text: declText}, ...edgeRewrites(lines, raw, value)];
+  const edits = edgeRewrites(lines, raw, value);
+  /* an edge-created ghost's srcLine IS an edge line — edgeRewrites already owns
+     it; a separate declaration op on the same line would be a duplicate that
+     applyLineOps rejects (mirrors removeComponent's guard) */
+  if(!lines[srcLine].includes('->')){
+    const [code, comment] = splitComment(lines[srcLine]);
+    const at = code.match(/^(\s*)(.*?)(\s*@\s*.+)?$/);
+    edits.unshift({line: srcLine, text: at[1] + value + (at[3] || '') + comment});
+  }
+  return edits;
 }
 
 export function renameAnchor(text, srcLine, raw, value){

@@ -1,5 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {EditorState} from '../../roadmap/vendor/codemirror.js';
+import {lineOpsChanges} from '../../assets/editor-common.js';
 import {parse} from '../parse.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, removeComponent} from '../edit-targets.js';
@@ -166,4 +168,15 @@ test('rename over a COMMENTED edge line no longer skips it (live-bug regression)
   const out = renameComponent(doc, 1, 'B', 'Core');
   const edge = out.find(e => e.line === 2);
   assert.equal(edge.text, 'N -> Core   // note');
+});
+
+test('renaming an edge-created ghost emits ONE op on its line (no duplicate → no throw)', () => {
+  // the ghost "Data store" is declared BY the edge, so its srcLine is the edge
+  // line; a separate declaration op would be a duplicate applyLineOps rejects
+  const doc = 'anchor: Need\nNeed -> Streak engine -> Data store';
+  const out = renameComponent(doc, 1, 'Data store', 'DB');
+  assert.deepEqual(out, [{line: 1, text: 'Need -> Streak engine -> DB'}]);
+  // applyLineOps must accept it (would throw on a duplicate line op)
+  const st = EditorState.create({doc});
+  assert.doesNotThrow(() => st.update({changes: lineOpsChanges(st, out)}));
 });
