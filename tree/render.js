@@ -162,11 +162,18 @@ export function render(model, results, ctx){
           esc(money(st.p10) + ' … ' + money(st.p90)) + '</text>');
       }
     }
-    /* edit-gated: the marker becomes a popover target (add child / remove branch) */
+    /* edit-gated: the marker becomes a card-menu target (rename / edit value
+       or probability / add child / remove branch) — supersedes the old
+       node-<kind> add/remove-only popover. Invisible >=44px hit rect
+       (fill=C.bg, opacity 0) centred on the ~22px marker, painted last, so a
+       phone-width tap lands cleanly; same data-line as the label/prob/value
+       tspans drawEdge emits for this node (b.srcLine) — the data-line router
+       in attachEditInPlace reaches them with no DOM regroup. */
     if(edit){
-      s.push('<circle data-edit="node-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
-        '" data-raw="" cx="' + x + '" cy="' + y + '" r="' + 11*S + '" fill="transparent" role="button"' +
-        ' aria-label="' + esc(node.label || 'node') + ' — add or remove"/>');
+      s.push('<g data-edit="cardmenu-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
+        '" data-raw="" role="button" aria-label="' + esc(node.label || 'node') + ' — options">' +
+        '<rect data-hit="" x="' + (x - 22*S) + '" y="' + (y - 22*S) + '" width="' + 44*S + '" height="' + 44*S +
+        '" fill="' + C.bg + '" fill-opacity="0"/></g>');
     }
   }
   function walk(node, onPolicy){

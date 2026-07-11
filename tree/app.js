@@ -92,12 +92,32 @@ attachEditInPlace($('preview'), {
     prob: {validate: validators.prob},
     value: {validate: validators.value},
     label: {validate: validators.label},
-    'node-decision': {actions: [{label: '＋ Add option'}, {label: 'Remove branch', danger: true}]},
-    'node-chance':   {actions: [{label: '＋ Add outcome'}, {label: 'Remove branch', danger: true}]},
-    'node-leaf':     {actions: [{label: '＋ Add outcome'}, {label: 'Remove', danger: true}]},
+    /* card menu supersedes the old node-<kind> add/remove-only popover with
+       Rename/Edit value or probability/Add/Remove; opens:'value'/'prob' is a
+       dead no-op on the (rare) node instance that doesn't carry that field —
+       e.g. the root marker has no incoming edge so no label/value/prob tspan
+       exists for it at all — same accepted no-op as why's fieldless rows. */
+    'cardmenu-decision': {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Edit value…', opens: 'value'},
+      {label: '＋ Add option', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
+    'cardmenu-chance': {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Edit probability…', opens: 'prob'},
+      {label: '＋ Add outcome', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
+    'cardmenu-leaf': {menu: [
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Edit value…', opens: 'value'},
+      {label: '＋ Add outcome', action: true},
+      {label: 'Remove', action: true, danger: true},
+    ]},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
-    if(kind.startsWith('node-')){
+    if(kind.startsWith('node-') || kind.startsWith('cardmenu-')){
       if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;

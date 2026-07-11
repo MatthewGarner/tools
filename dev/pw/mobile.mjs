@@ -115,7 +115,8 @@ for(const [name, url, selectors] of CONTAINERS){
 // group's bbox unions its leader line, which would mask a too-small hit rect.
 const WIDENED = [['roadmap', T + '/roadmap/', 'Habit app roadmap'],
                  ['map', T + '/map/', 'Assumption map'],
-                 ['why', T + '/why/', 'Habit retention']];   // tree appended in Stage 4
+                 ['why', T + '/why/', 'Habit retention'],
+                 ['tree', T + '/tree/', 'Bid or no bid']];
 
 for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
