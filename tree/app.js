@@ -11,7 +11,7 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
-import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators, applies, subtreeRange, childLineFor} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
@@ -97,27 +97,12 @@ attachEditInPlace($('preview'), {
        dead no-op on the (rare) node instance that doesn't carry that field —
        e.g. the root marker has no incoming edge so no label/value/prob tspan
        exists for it at all — same accepted no-op as why's fieldless rows. */
-    'cardmenu-decision': {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Edit value…', opens: 'value'},
-      {label: '＋ Add option', action: true},
-      {label: 'Remove branch', action: true, danger: true},
-    ]},
-    'cardmenu-chance': {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Edit probability…', opens: 'prob'},
-      {label: '＋ Add outcome', action: true},
-      {label: 'Remove branch', action: true, danger: true},
-    ]},
-    'cardmenu-leaf': {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Edit value…', opens: 'value'},
-      {label: '＋ Add outcome', action: true},
-      {label: 'Remove', action: true, danger: true},
-    ]},
+    'cardmenu-decision': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'option'}),
+    'cardmenu-chance': cardMenu({field: {label: 'Edit probability…', opens: 'prob'}, add: 'outcome'}),
+    'cardmenu-leaf': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'outcome', remove: 'Remove'}),
   },
   onCommit(kind, lineNo, oldRaw, newValue){
-    if(kind.startsWith('node-') || kind.startsWith('cardmenu-')){
+    if(kind.startsWith('cardmenu-')){
       if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;

@@ -18,6 +18,22 @@ function clampToViewport(el, rect){
   el.style.top = y + 'px';
 }
 
+/* The house card-menu shape, shared by the DSL card tools (why, tree): Rename
+   first, one type-specific field row (`field` — a {label, opens} spec), an
+   ＋ Add action, and a danger Remove last. Building all six per-node-kind menus
+   from this keeps the row order and the ＋ (U+FF0B) glyph from drifting between
+   tools. `add` is the noun after "＋ Add "; `remove` defaults to "Remove branch"
+   (leaf/terminal nodes pass "Remove"). The onCommit guards match the resulting
+   '✖'-prefixed sentinels: startsWith('✖＋ Add') and the exact Remove strings. */
+export function cardMenu({field, add, remove = 'Remove branch'}){
+  return {menu: [
+    {label: 'Rename…', opens: 'label'},
+    field,
+    {label: '＋ Add ' + add, action: true},
+    {label: remove, action: true, danger: true},
+  ]};
+}
+
 export function attachEditInPlace(preview, {kinds, onCommit}){
   let active = null;   // {input, el, away}
 

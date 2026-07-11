@@ -14,7 +14,7 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
-import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
@@ -139,28 +139,13 @@ attachEditInPlace($('preview'), {
        Remove) with Rename/Status/Add/Remove; opens:'status' is dead for
        outcome/opportunity cards (only solutions carry a status pill) — same
        accepted no-op as roadmap's note-less "Edit note…" row */
-    'cardmenu-outcome': {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Status…', opens: 'status'},
-      {label: '＋ Add opportunity', action: true},
-      {label: 'Remove branch', action: true, danger: true},
-    ]},
-    'cardmenu-opportunity': {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Status…', opens: 'status'},
-      {label: '＋ Add solution', action: true},
-      {label: 'Remove branch', action: true, danger: true},
-    ]},
-    'cardmenu-solution': {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Status…', opens: 'status'},
-      {label: '＋ Add assumption', action: true},
-      {label: 'Remove branch', action: true, danger: true},
-    ]},
+    'cardmenu-outcome': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'opportunity'}),
+    'cardmenu-opportunity': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'solution'}),
+    'cardmenu-solution': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'assumption'}),
     removeassump: {cycle: ['×']},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
-    if(kind.startsWith('card-') || kind.startsWith('cardmenu-')){
+    if(kind.startsWith('cardmenu-')){
       if(newValue.startsWith('✖＋ Add')){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
