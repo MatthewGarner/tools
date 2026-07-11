@@ -23,7 +23,8 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
 
   function close(){
     if(!active) return;
-    const {input} = active;
+    const {input, away} = active;
+    if(away) document.removeEventListener('pointerdown', away, true);
     active = null;          // null first: input.remove() fires blur synchronously
     input.remove();
   }
@@ -80,10 +81,8 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       }
       document.body.appendChild(pop);
       clampToViewport(pop, rect);
-      active = {input: pop, el};
-      const away = e => {
-        if(!pop.contains(e.target)){ close(); document.removeEventListener('pointerdown', away, true); }
-      };
+      const away = e => { if(!pop.contains(e.target)) close(); };
+      active = {input: pop, el, away};
       document.addEventListener('pointerdown', away, true);
       return;
     }
