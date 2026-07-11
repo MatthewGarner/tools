@@ -11,6 +11,7 @@ import {encodeStateV2, decodeStateV2} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
+import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -35,11 +36,8 @@ function boot(){
   const palette = () => MERIT_PALETTE[isDark() ? 'dark' : 'light'];
 
   /* ---- narrow-render width: measure #chartwrap, mirroring cycles/risk-transfer ---- */
-  const NARROW = 520;
-  function renderWidth(){
-    const w = chartwrap.clientWidth;
-    return (w && w < NARROW) ? w : undefined;   // undefined => renderer keeps its canonical 1200
-  }
+  const NARROW = 520;   // also used below for the drag-hit x0/x1 geometry
+  function renderWidth(){ return narrowWidth(chartwrap); }
 
   /* ---- chart geometry the drag math needs (demand ceiling is world-dependent) ---- */
   function chartDomainMax(){
@@ -386,15 +384,7 @@ function boot(){
   onThemeChange(() => render(false));
 
   /* ---- narrow-bucket resize: re-render (chart + hit-rect) only when the bucket flips ---- */
-  let lastBucket = null;
-  const ro = new ResizeObserver(() => {
-    const w = chartwrap.clientWidth;
-    const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
-    if(bucket === lastBucket) return;
-    lastBucket = bucket;
-    render(true);
-  });
-  ro.observe(chartwrap, {box: 'content-box'});
+  watchNarrowBucket(chartwrap, () => render(true));
 
   /* ---- boot: URL state (v2), else GB-today defaults ---- */
   const restored = decodeStateV2(readHashState());
