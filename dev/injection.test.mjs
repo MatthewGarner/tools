@@ -162,3 +162,37 @@ test('wardley renderer escapes hostile component/anchor names, incl. in compare'
     arrowless(label(5)) + ' @ 0.5');
   assertClean(renderMap(m, layoutMap(m), wctx, {compare: {prev, label: EVIL[4]}, edit: true}), 'wardley-compare');
 });
+
+test('fermi driver-tree renderer escapes hostile var names + sensitivity labels (fermi has no title: field — var names are the tokenizer-restricted [A-Za-z0-9_] surface today; construct the model directly here so the renderer\'s own escaping is proven regardless)', async () => {
+  const {renderDriverTree} = await import('../fermi/render-driver.js');
+  const name = EVIL[0].replace(/[^A-Za-z0-9_]/g, '_') + '_' + 0; // realistic identifier shape
+  const ast = {t: 'var', name};
+  const ranges = {[name]: [1, 2]};
+  const sens = [{name, share: 0.9, label: EVIL[1]}];
+  const model = {ast, ranges, sens, p10: 1, p50: 1.5, p90: 2, fullRatio: 2, scenLabel: EVIL[2]};
+  assertClean(renderDriverTree(model, ctx), 'fermi-driver');
+});
+
+test('fermi cashflow renderer stays clean (verdict text is numeric-only today — no free-text field exists; entry guards the surface if one is ever added)', async () => {
+  const {renderCashflow} = await import('../fermi/render-cashflow.js');
+  const band = [{p10: -1000, p50: -200, p90: 600}, {p10: -800, p50: 100, p90: 1400},
+    {p10: -200, p50: 900, p90: 2600}, {p10: 400, p50: 1800, p90: 4200}, {p10: 1200, p50: 3200, p90: 6000}];
+  const r = {framing: 'invest', grain: 'year', horizon: 4,
+    npv: {p10: -500, p50: 1200, p90: 4800, pPos: 0.7},
+    irr: {p50: 0.18, undefinedShare: 0.05},
+    period: {p50: 2, p10: 1, p90: 3, neverShare: 0.1, kind: 'payback'}, band};
+  assertClean(renderCashflow(r, {}, ctx), 'fermi-cashflow');
+});
+
+test('flow readout + triage renderers escape hostile lever labels (labels are hardcoded engine vocabulary today; hostile-ified here so future free text can\'t slip through)', async () => {
+  const {simulate, wipSweep, kneeWip, leverTriage} = await import('../flow/engine.js');
+  const {renderReadout, renderTriage} = await import('../flow/render.js');
+  const params = {demandPerWeek: 5, itemDays: 4, team: 3, wipLimit: 6, cov: 'high'};
+  const result = simulate(params, {trace: true});
+  const sweep = wipSweep(params);
+  const knee = kneeWip(sweep);
+  const triage = leverTriage(params, {initialBacklog: 40, knee});
+  triage.levers = triage.levers.map((l, i) => ({...l, label: EVIL[i % EVIL.length] + ' — ' + l.label}));
+  assertClean(renderReadout(result, sweep, knee, params, ctx), 'flow-readout');
+  assertClean(renderTriage(triage, params, 40, ctx), 'flow-triage');
+});
