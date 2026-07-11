@@ -18,6 +18,12 @@ export function themeColors(){
     status: {done: g('--st-done'), doing: g('--st-doing'), risk: g('--st-risk'), blocked: g('--st-blocked')}};
 }
 
+/* Filename-safe slug: lowercase, non-alnum runs collapsed to '-', trimmed.
+   Falls back to `fallback` if the input is empty or slugifies to nothing. */
+export function slugify(s, fallback){
+  return (s || fallback).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || fallback;
+}
+
 export function download(name, blob){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

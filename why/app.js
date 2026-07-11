@@ -9,7 +9,8 @@ import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
@@ -203,37 +204,13 @@ function svgString(slide){
   return activeRender(slide);
 }
 function slug(){
-  return ((model.title || 'why') + '-' + view).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slugify((model.title || 'why') + '-' + view);
 }
-$('dlsvg').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
-});
-$('dlpng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
-});
-$('dlslide').addEventListener('click', () => {
-  const svg = svgString(true);
-  if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-});
-$('copypng').addEventListener('click', () => {
-  const svg = svgString(false);
-  if(!svg) return;
-  if(!navigator.clipboard || !window.ClipboardItem){
-    $('copypng').textContent = 'Clipboard unavailable — use Download';
-    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 2200);
-    return;
-  }
-  const blobPromise = new Promise((resolve, reject) =>
-    svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-  navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})]).then(() => {
-    $('copypng').textContent = 'Copied — paste into your deck';
-    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 1800);
-  }).catch(() => {
-    $('copypng').textContent = 'Copy blocked — use Download';
-    setTimeout(() => { $('copypng').textContent = 'Copy PNG'; }, 2200);
-  });
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  getSvg: () => svgString(false),
+  getSvgSlide: () => svgString(true),
+  slug,
 });
 
 /* ---------- theme ---------- */

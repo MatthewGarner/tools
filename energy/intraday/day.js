@@ -42,10 +42,13 @@ const solarInstalled = cat => { const t = cat.find(x => x.key === 'solar'); retu
 /* The stack for hour h: merit-order's buildStack with the solar availability set
    by the bell (fraction of installed), storage rows excluded. Imports held at
    merit-order's default 3 GW; must-run off (negative prices are merit-order's
-   lesson, not this toy's). */
-export function hourStack(p, h, catalogue = GB_TODAY){
-  const cat = sansStorage(catalogue);
-  const inst = solarInstalled(cat);
+   lesson, not this toy's). `pre` is an optional {cat, inst} precomputed by a
+   caller that already knows sansStorage(catalogue)/solarInstalled(cat) are
+   the same across a run of hours (e.g. clearDay) — external callers omit it
+   and get the same answer computed fresh. */
+export function hourStack(p, h, catalogue = GB_TODAY, pre = null){
+  const cat = pre ? pre.cat : sansStorage(catalogue);
+  const inst = pre ? pre.inst : solarInstalled(cat);
   const solarFrac = inst > 0 ? Math.min(1, solarAt(h, p) / inst) : 0;
   return buildStack({
     gas: p.gas, carbon: p.carbon, wind: p.wind, solar: solarFrac,
@@ -54,11 +57,14 @@ export function hourStack(p, h, catalogue = GB_TODAY){
 }
 
 /* One cleared day: 24 dispatch() calls. net[h] (GW) is demand + charge − discharge
-   (just demand for the raw day). */
+   (just demand for the raw day). sansStorage/solarInstalled are pure over the
+   static catalogue — compute once per day instead of once per hour. */
 export function clearDay(p, net, catalogue = GB_TODAY){
+  const cat = sansStorage(catalogue);
+  const pre = {cat, inst: solarInstalled(cat)};
   const hours = [];
   for(let h = 0; h < 24; h++){
-    const r = dispatch(hourStack(p, h, catalogue), net[h]);
+    const r = dispatch(hourStack(p, h, catalogue, pre), net[h]);
     hours.push({h, demand: net[h], price: r.clearingPrice, marginal: r.marginalName});
   }
   const prices = hours.map(x => x.price);

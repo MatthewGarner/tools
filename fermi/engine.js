@@ -161,7 +161,7 @@ export function simulateModel({ast, varNames, ranges, dists}, {seed, n, pinName 
   for(const name of varNames){
     samplers[name] = samplerFor(ranges[name][0], ranges[name][1], dists[name], rand, gauss);
   }
-  const out = [];
+  let out = [];
   const env = {};
   for(let i = 0; i < n; i++){
     for(const name of varNames) env[name] = (name === pinName) ? pinValue : samplers[name]();
@@ -169,7 +169,7 @@ export function simulateModel({ast, varNames, ranges, dists}, {seed, n, pinName 
     if(isFinite(v)) out.push(v);
   }
   const raw = out.slice();
-  out.sort((a, b) => a - b);
+  out = Float64Array.from(out).sort();
   return {raw, sorted: out};
 }
 

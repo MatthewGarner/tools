@@ -25,16 +25,22 @@ export function renderDriverTree(model, ctx){
     : n.t === 'neg' ? 1 + depthOf(n.e) : 0;
   const maxD = depthOf(ast);
   let li = 0;
+  /* subtree VoI share: computed bottom-up here (place() already visits
+     children before the parent) and cached on the AST node — shareOf below
+     becomes an O(1) lookup instead of a per-edge O(subtree) recursive sum. */
   function place(n, d){
     let node;
     if(n.t === 'bin'){
       const L = place(n.l, d + 1), R = place(n.r, d + 1);
       node = {n, d, y: (L.y + R.y) / 2, kids: [L, R]};
+      n._share = n.l._share + n.r._share;
     } else if(n.t === 'neg'){
       const C = place(n.e, d + 1);
       node = {n, d, y: C.y, kids: [C]};
+      n._share = n.e._share;
     } else {
       node = {n, d, y: HEAD_H + li * ROW_H + ROW_H / 2, leaf: true};
+      n._share = n.t === 'var' ? (shares[n.name] || 0) : 0;
       li++;
     }
     nodes.push(node);
@@ -52,8 +58,7 @@ export function renderDriverTree(model, ctx){
   const H = Math.round(Math.max(HEAD_H + li * ROW_H, root.y + OUT_H / 2 + 8) + PAD);
   const cx = nd => nd.leaf ? null : PAD + capW + (maxD - nd.d) * COL_W;
 
-  const shareOf = n => n.t === 'var' ? (shares[n.name] || 0)
-    : n.t === 'num' ? 0 : n.t === 'neg' ? shareOf(n.e) : shareOf(n.l) + shareOf(n.r);
+  const shareOf = n => n._share;
   const widthFor = s => 1.25 + Math.min(1, s) * 3.25;
 
   const s = [];
