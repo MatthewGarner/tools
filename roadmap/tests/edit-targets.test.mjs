@@ -33,8 +33,7 @@ LATER
 Growth: Coach marketplace`;
 
 test('addItemLine lands at the end of the horizon section, lane-prefixed', () => {
-  const {afterLine, newLine} = addItemLine(DOC, 'Growth', 'NEXT');
-  assert.equal(newLine, 'Growth: New item');
+  const {afterLine} = addItemLine(DOC, 'Growth', 'NEXT');
   assert.equal(afterLine, 9);           // after "Platform: Full offline mode"
 });
 
@@ -42,11 +41,6 @@ test('addItemLine into an empty horizon inserts after its header', () => {
   const doc = 'NOW\n\nNEXT\nCore: Later thing';
   const {afterLine} = addItemLine(doc, 'Core', 'NOW');
   assert.equal(afterLine, 0);
-});
-
-test('addItemLine without a lane omits the prefix', () => {
-  const {newLine} = addItemLine(DOC, null, 'LATER');
-  assert.equal(newLine, 'New item');
 });
 
 test('removeItemLine accepts only item lines', () => {

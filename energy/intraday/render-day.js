@@ -33,6 +33,7 @@
    shape draws itself" during Play; the storage strip stays full (it reads as
    planned/kept, not as unrevealed future) and forExport never passes upTo. */
 import {txt, wrapText} from '../../assets/svg.js';
+import {THERMAL_ORDER} from '../merit-order/render.js';   // shared fuel-family colour order (was a local copy)
 
 const FONT = 'Charter,Georgia,serif';
 const r1 = n => Math.round(n * 10) / 10;
@@ -43,7 +44,6 @@ const fallbackMeasure = (t, font) => parseFloat(font) * 0.55 * t.length;
    takes its fuel-family hue. The name is all render-day carries from the engine
    (day.js is unchanged), so the family map is local; an unknown name falls back
    to a neutral grey (never leaks the raw string into a colour attribute). */
-const THERMAL_ORDER = ['CCGT 60%', 'CCGT 54%', 'CCGT 49%', 'OCGT 42%', 'OCGT 36%', 'Gas-CCS', 'Hydrogen'];
 const NAME_FAMILY = {
   'Wind': 'wind', 'Solar': 'solar', 'Hydro': 'other', 'Nuclear': 'nuclear',
   'Waste/CHP': 'other', 'Biomass': 'biomass', 'Imports': 'imports',
