@@ -99,7 +99,7 @@ footer{margin: 48px 0 8px}
 @media (pointer: coarse){
   .chip, .btn, .viewtoggle button{min-height: 44px; display: inline-flex; align-items: center}
   .zoomctl button{min-height: 44px; padding: 13px 15px; font-size: 13px}
-  .eip-pop button{padding: 12px 12px}
+  .eip-pop button{min-height:44px; padding: 12px 12px}
 }
 /* phones are for viewing and zooming: the zoom control gets the full row */
 @media (max-width: 900px) and (pointer: coarse){

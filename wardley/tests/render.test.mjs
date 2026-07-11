@@ -176,3 +176,54 @@ test('wide render ignores ctx.width above the threshold (exports stay pinned)', 
   assert.ok(wide.includes('GENESIS'));
   assert.match(wide, /width="1200"/);
 });
+
+/* ---- edit gating: add zones + component menus (Task 4) ---- */
+test('edit gating: zones/markers only under opts.edit; default output unchanged', () => {
+  const plain = draw();
+  assert.ok(!plain.includes('data-edit="additem"') && !plain.includes('componentmenu'));
+  const edit = draw(SRC, {edit: true});
+  assert.equal((edit.match(/data-edit="additem"/g) || []).length, 4);     // one per stage
+  assert.match(edit, /data-edit="additem" data-stage="custom"/);
+  assert.equal((edit.match(/componentmenu/g) || []).length, 3);           // one per component
+  wellFormed(edit);
+});
+test('narrow edit: add-card before the readout divider; markers after strip groups', () => {
+  const s = draw(SRC, {edit: true}, narrowCtx);
+  assert.match(s, /Add component/);
+  assert.ok(s.indexOf('Add component') < s.search(/execution|discovery|load-bearing/), 'add-card before the readout verdict');
+  const cardMarker = s.indexOf('componentmenu');
+  const stripEnd = s.indexOf('</g>', s.indexOf('data-strip=""'));
+  assert.ok(cardMarker > stripEnd, 'marker painted after the strip group');
+  wellFormed(s);
+});
+test('ghost add pill never carries data-drag', () => {
+  const edit = draw(SRC, {edit: true});
+  assert.ok(!/data-edit="additem"[^>]*data-drag|data-drag[^>]*data-edit="additem"/.test(edit));
+});
+test('edit+compare: add-zones clear the compare ghost pills too', () => {
+  // a snapshot whose dropped chain reaches a DEEPER row than any current pill:
+  // the zone must sit below the ghost, not just below current nodes
+  const prev = parse('anchor: N\nA @ custom\nDeep @ 0.15\nN -> A -> Deep');
+  const cur = parse('anchor: N\nA @ custom\nN -> A');
+  const s = renderMap(cur, layoutMap(cur), {...ctx, palette: ctx.palette},
+    {edit: true, compare: {prev, label: 'Jan'}});
+  const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>＋<\/text>/g)].map(m => +m[1]);
+  // the dropped-ghost pill (Deep) is the lowest thing on the plane; its centre
+  // is the ghost text y — the zone row must sit below it
+  const ghostY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Deep<\/text>/g)].map(m => +m[1]);
+  assert.equal(ghostY.length, 1);
+  assert.ok(plusY[0] - ghostY[0] >= 30, 'zone row clears the compare ghost pill');
+});
+test('add-zones sit as one row below the lowest pill in a crowded column', () => {
+  // two commodity components at the same x → collision spread nudges one down;
+  // a fixed-y zone used to collide with it (User DB in the default example)
+  const doc = 'anchor: N\nAlpha @ 0.85\nBravo @ 0.85\nN -> Alpha\nN -> Bravo';
+  const s = draw(doc, {edit: true});
+  const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>＋<\/text>/g)].map(m => +m[1]);
+  assert.equal(plusY.length, 4);                                    // one per stage
+  assert.ok(plusY.every(y => Math.abs(y - plusY[0]) < 0.01), 'zones share one baseline');
+  const pillY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*data-edit="name"[^>]*>(?:Alpha|Bravo)<\/text>/g)].map(m => +m[1]);
+  assert.equal(pillY.length, 2);
+  // text y is the pill CENTRE; a clear pill-height gap below the lowest pill
+  assert.ok(plusY[0] - Math.max(...pillY) >= 30, 'zone row clears the lowest pill');
+});

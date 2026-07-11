@@ -3,8 +3,10 @@ import {parse} from './parse.js';
 import {layoutMap} from './layout.js';
 import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
-import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite} from './edit-targets.js';
+import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
+  addComponent, removeComponent} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
+import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, download, svgToCanvas, onThemeChange} from '../assets/app-common.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -71,7 +73,10 @@ function activeRender(forExport = false){
   const compare = currentCompare();
   const c = ctx();
   if(!forExport && sizeBucket === 'narrow') c.width = $('preview').clientWidth;
-  return renderMap(model, layoutMap(model), c, compare ? {compare} : {});
+  const opts = {};
+  if(compare) opts.compare = compare;
+  if(!forExport) opts.edit = true;   // chrome only for the live preview, never exports
+  return renderMap(model, layoutMap(model), c, opts);
 }
 function renderWarnings(){
   const warns = $('warns');
@@ -144,11 +149,24 @@ ro.observe($('preview'), {box: 'content-box'});
 
 /* ---------- edit-in-place ---------- */
 function applyEdits(edits){
-  for(const e of edits) editor.replaceLine(e.line, e.text);
+  applyLineOps(editor, edits);
 }
 attachEditInPlace($('preview'), {
-  kinds,
-  onCommit(kind, lineNo, oldRaw, newValue){
+  kinds: {...kinds,
+    additem: {validate: kinds.name.validate},
+    componentmenu: {actions: [{label: 'Remove component', danger: true}]}},
+  onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(kind === 'additem'){
+      const r = addComponent(editor.getText(), newValue, el.dataset.stage || null);
+      insertAndSelect(editor, r.afterLine, r.newLine, r.select,
+        {focus: matchMedia('(pointer: fine)').matches});
+      return;
+    }
+    if(kind === 'componentmenu'){
+      if(newValue === '✖Remove component')
+        applyLineOps(editor, removeComponent(editor.getText(), lineNo, el.dataset.raw));
+      return;
+    }
     const text = editor.getText();
     const edits = kind === 'stage' ? cycleStage(text, lineNo, newValue)
       : kind === 'anchor' ? renameAnchor(text, lineNo, oldRaw, newValue)

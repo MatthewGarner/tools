@@ -157,8 +157,8 @@ test('wardley renderer escapes hostile component/anchor names, incl. in compare'
     arrowless(EVIL[1]) + ' -> ' + arrowless(label(0));
   const m = parse(doc);
   const wctx = {...ctx, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
-  assertClean(renderMap(m, layoutMap(m), wctx), 'wardley');
+  assertClean(renderMap(m, layoutMap(m), wctx, {edit: true}), 'wardley');
   const prev = parse('anchor: ' + arrowless(EVIL[1]) + '\n' + arrowless(label(0)) + ' @ 0.9\n' +
     arrowless(label(5)) + ' @ 0.5');
-  assertClean(renderMap(m, layoutMap(m), wctx, {compare: {prev, label: EVIL[4]}}), 'wardley-compare');
+  assertClean(renderMap(m, layoutMap(m), wctx, {compare: {prev, label: EVIL[4]}, edit: true}), 'wardley-compare');
 });

@@ -69,6 +69,60 @@ test('edit hooks: label, dates, status, add and remove affordances', () => {
   assert.doesNotMatch(plain, /data-edit/);
 });
 
+test('edit: one ghost add zone per NAMED lane, none for the unnamed lane, none without edit', () => {
+  const svg = render(parse(DOC), ctx, null, {edit: true});
+  const zones = [...svg.matchAll(/data-edit="additem" data-lane="([^"]*)"/g)].map(m => m[1]);
+  assert.deepEqual(zones.sort(), ['Build', 'Grid']);
+  const plain = render(parse(DOC), ctx);
+  assert.doesNotMatch(plain, /data-lane/);
+});
+
+test('edit: each lane add zone carries an explicit invisible hit rect ≥44px tall', () => {
+  const svg = render(parse(DOC), ctx, null, {edit: true});
+  for(const lane of ['Grid', 'Build']){
+    const i = svg.indexOf('data-lane="' + lane + '"');
+    assert.ok(i >= 0, lane + ' zone missing');
+    const nearby = svg.slice(i, i + 400);
+    assert.match(nearby, /<rect[^>]*height="44"[^>]*fill-opacity="0"/);
+  }
+});
+
+test('edit: lane add zone esc\'s a hostile lane name and skips the unnamed lane', () => {
+  const doc = 'X 2026-08 .. 2026-09\n"><script>: Y 2026-08 .. 2026-09';
+  const svg = render(parse(doc), ctx, null, {edit: true});
+  const zones = [...svg.matchAll(/data-edit="additem" data-lane="([^"]*)"/g)].map(m => m[1]);
+  assert.deepEqual(zones, ['&quot;&gt;&lt;script&gt;']);
+  assert.doesNotMatch(svg, /<script>/);
+});
+
+test('edit: per-lane add zone clamps to the plot right edge when content runs long', () => {
+  const longLabel = 'A'.repeat(300);
+  const doc = 'Grid: ' + longLabel + ' 2026-08 .. 2026-08';
+  const svg = render(parse(doc), ctx, null, {edit: true});
+  const band = svg.match(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*rx="8"/);
+  assert.ok(band, 'lane band rect not found');
+  const rightEdge = parseFloat(band[1]) + parseFloat(band[2]);
+  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="44"/);
+  assert.ok(zone, 'lane add zone hit rect not found');
+  const zoneRight = parseFloat(zone[1]) + parseFloat(zone[2]);
+  assert.ok(zoneRight <= rightEdge + 0.5,
+    'zone must not overflow the plot right edge: ' + zoneRight + ' vs ' + rightEdge);
+});
+
+test('edit: lane add zone clears the dates/note line, not just the label line', () => {
+  /* short label + long note: the dates/note sub-line renders wider than the
+     label line — the zone must anchor past the sub-line, never on top of it */
+  const doc = 'Grid: FID 2026-07-10 [done] // pending DNO confirmation of connection date';
+  const svg = render(parse(doc), ctx, null, {edit: true});
+  const sub = svg.match(/<text data-edit="dates"[^>]*x="([\d.]+)"[^>]*>([^<]+)<\/text>/);
+  assert.ok(sub, 'dates/note line not found');
+  const datesRight = parseFloat(sub[1]) + ctx.measure(sub[2]);   // same stub the renderer measured with
+  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect x="([\d.]+)"/);
+  assert.ok(zone, 'lane add zone hit rect not found');
+  assert.ok(parseFloat(zone[1]) >= datesRight,
+    'zone must start past the rendered dates/note line: ' + zone[1] + ' vs ' + datesRight);
+});
+
 test('markdown: table, no-range flag, slip list when comparing', async () => {
   const {toMarkdown} = await import('../render.js');
   const md = toMarkdown(parse(DOC), null, 'https://x.test/t');

@@ -41,6 +41,25 @@ test('addItemLine: after the last item, dated around today, placeholder selectab
   assert.equal(empty.newLine, 'New milestone 2027-01 .. 2027-03');
 });
 
+test('addItemLine with lane lands after that lane\'s last item, prefixed', () => {
+  const doc = 'Grid: Offer 2026-08 .. 2026-10\nBuild: FID 2026-06-30 [done]\nGrid: Energisation 2027-02 .. 2027-06';
+  const r = addItemLine(doc, '2026-07-10', 'Grid');
+  assert.equal(r.afterLine, 2);
+  assert.match(r.newLine, /^Grid: New milestone \d{4}-\d{2} \.\. \d{4}-\d{2}$/);
+});
+
+test('addItemLine without lane is byte-identical to the shipped behaviour', () => {
+  const doc = 'Kickoff 2026-08 .. 2026-09';
+  assert.deepEqual(addItemLine(doc, '2026-07-10'), {afterLine: 0, newLine: 'New milestone 2026-08 .. 2026-10', select: 'New milestone'});
+});
+
+test('addItemLine with a lane that has no items falls back to the whole-document behaviour', () => {
+  const doc = 'Grid: Offer 2026-08 .. 2026-10';
+  const r = addItemLine(doc, '2026-07-10', 'Build');
+  assert.equal(r.afterLine, 0);
+  assert.equal(r.newLine, 'New milestone 2026-08 .. 2026-10');
+});
+
 test('removeItemLine: only item lines are removable', () => {
   const text = 'title: T\nGrid: Offer 2026-08 .. 2026-10';
   assert.ok(removeItemLine(text, 1));

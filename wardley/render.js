@@ -16,8 +16,12 @@ const EPSILON = 0.02;
 
 const px = x => GEOM.pad + x * (GEOM.w - 2 * GEOM.pad);
 
+function pillWidth(name, measure){
+  return measure(name, '600 13px ' + SANS) + 26;
+}
+
 function pill(n, c, measure, opts = {}){
-  const w = measure(n.name, '600 13px ' + SANS) + 26;
+  const w = pillWidth(n.name, measure);
   const x = n.px - w / 2, y = n.y - PILL_H / 2;
   const ghost = opts.ghost || n.ghost;
   const dash = ghost ? ' stroke-dasharray="5 4"' : '';
@@ -44,6 +48,39 @@ function pill(n, c, measure, opts = {}){
   }
   parts.push('</g>');
   return parts.join('');
+}
+
+/* edit chrome (only ever built when opts.edit): a quiet "⋯" component menu —
+   a small ghost marker (≥24px) for the eye, wrapped with a bigger invisible
+   hit rect (≥44px) for the thumb. Both live under one data-edit group so a
+   tap anywhere in the hit area opens the menu. */
+function menuMarker(mx, my, n, c){
+  return '<g data-edit="componentmenu" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) + '">' +
+    '<rect x="' + (mx - 12) + '" y="' + (my - 12) + '" width="24" height="24" rx="6" fill="none"' +
+    ' stroke="' + c.muted + '" stroke-dasharray="3 3" stroke-opacity=".7"/>' +
+    '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="13" font-weight="700"' +
+    ' fill="' + c.muted + '">⋯</text>' +
+    '<rect x="' + (mx - 22) + '" y="' + (my - 22) + '" width="44" height="44" fill="' + c.bg +
+    '" fill-opacity="0"/></g>';
+}
+
+/* wide: the marker rides just past the pill's right edge — offset ≥ half the
+   44px hit rect (22) so the hit rect clears the pill and a right-edge tap
+   cycles the stage rather than opening the remove menu */
+function componentMenu(n, c, measure){
+  const w = pillWidth(n.name, measure);
+  return menuMarker(n.px + w / 2 + 24, n.y, n, c);
+}
+
+/* wide: one ghost "＋" add-zone low in each stage band, above the axis —
+   a real pill (no drag) plus a thumb-sized invisible hit rect carrying the
+   additem hook, so the visual stays tiny while the tap target doesn't */
+function addZonePill(s, c, measure, zy){
+  const zx = px(s.mid);
+  const visual = pill({name: '＋', px: zx, y: zy, srcLine: -1}, c, measure, {ghost: true, cls: 'ghost add-ghost'});
+  return '<g data-edit="additem" data-stage="' + s.name + '" data-line="-1" data-raw="">' + visual +
+    '<rect x="' + (zx - 60) + '" y="' + (zy - 22) + '" width="120" height="44" fill="' + c.bg +
+    '" fill-opacity="0"/></g>';
 }
 
 /* dependency link: leaves the parent's bottom edge, lands on the child's top
@@ -259,10 +296,15 @@ function renderNarrow(model, layout, ctx, opts){
       parts.push('<circle data-dot="" cx="' + (trackX0 + (n.x === null ? 0 : n.x) * trackW) + '" cy="' + (sy + 4) +
         '" r="7" fill="' + (n.ghost ? c.card : col) + '" stroke="' + (n.ghost ? c.muted : c.card) +
         '" stroke-width="1.5"' + (n.ghost ? ' stroke-dasharray="2 2"' : '') + '/>');
-      /* thumb-sized invisible hit surface over the strip */
-      parts.push('<rect x="' + pad + '" y="' + (sy - 18) + '" width="' + inner + '" height="44" fill="' +
+      /* thumb-sized invisible hit surface over the strip — top sits at sy-8
+         (not sy-18) so it clears the card title above it; still 44 tall */
+      parts.push('<rect x="' + pad + '" y="' + (sy - 8) + '" width="' + inner + '" height="44" fill="' +
         c.bg + '" fill-opacity="0"/>');
       parts.push('</g>');
+      /* edit chrome: "⋯" menu at the strip's right end, painted AFTER the
+         strip group closes so paint order gives it the tap over the strip's
+         own hit rect in that corner */
+      if(opts.edit) parts.push(menuMarker(pad + inner - 14, sy + 4, n, c));
       let ty = y + 56;
       if(n.ghost){
         parts.push('<text x="' + (pad + 14) + '" y="' + ty + '" font-size="11" fill="' + c.muted +
@@ -276,6 +318,17 @@ function renderNarrow(model, layout, ctx, opts){
       }
       y += cardH + 8;
     }
+  }
+
+  /* edit chrome: ghost "add component" card, mirrors the unplaced-card look */
+  if(opts.edit){
+    const addH = 44;
+    parts.push('<g data-edit="additem" data-line="-1" data-raw="">' +
+      '<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="' + addH +
+      '" rx="12" fill="none" stroke="' + c.muted + '" stroke-width="1.4" stroke-dasharray="5 4"/>' +
+      '<text x="' + (W / 2) + '" y="' + (y + addH / 2 + 5) + '" text-anchor="middle" font-size="13.5"' +
+      ' fill="' + c.muted + '">＋ Add component</text></g>');
+    y += addH + 8;
   }
 
   /* readout */
@@ -335,7 +388,24 @@ export function renderMap(model, layout, ctx, opts = {}){
   }
 
   /* ---- plane (translated below the header; layout coords are plane-local) ---- */
-  const planeH = Math.max(layout.h, compareInfo ? compareInfo.maxY + 64 : 0);
+  let planeH = Math.max(layout.h, compareInfo ? compareInfo.maxY + 64 : 0);
+  /* edit chrome only: the add-zones form one row below the LOWEST pill in the
+     whole plane (collision nudges push bottom-row pills down, so a fixed
+     y collides — User DB in the default example). Grow the plane to fit, only
+     under edit → the no-edit goldens/exports stay byte-identical. */
+  let zoneY = 0;
+  if(opts.edit){
+    let maxBottom = 40;
+    for(const n of layout.nodes){
+      if(n.anchor || n.x === null) continue;
+      maxBottom = Math.max(maxBottom, n.y + PILL_H / 2);
+    }
+    /* edit+compare co-occur (editing with a snapshot selected): compare ghost
+       pills sit at old positions, so the zone row must clear them too */
+    if(compareInfo) maxBottom = Math.max(maxBottom, compareInfo.maxY + PILL_H / 2);
+    zoneY = maxBottom + 26;
+    planeH = Math.max(planeH, zoneY + 38);
+  }
   const plane = [];
   const axisY = planeH - 16;
   /* stage terrain: progressively calmer washes, labels worn like zone names */
@@ -355,6 +425,9 @@ export function renderMap(model, layout, ctx, opts = {}){
   plane.push('<text x="' + pad + '" y="' + (axisY + 18) + '" font-size="11" fill="' + c.muted +
     '">↑ closer to the user need</text>');
 
+  /* edit chrome: one ghost add-zone per stage, in the row below every pill */
+  if(opts.edit) STAGES.forEach(s => plane.push(addZonePill(s, c, measure, zoneY)));
+
   if(compareInfo) plane.push(...compareInfo.parts);
 
   for(const k of layout.links) plane.push(link(k, c));
@@ -372,6 +445,7 @@ export function renderMap(model, layout, ctx, opts = {}){
     plane.push(pill(n, c, measure, {fill: n.ghost ? 'none' : tint(col), stroke: col, text: col,
       drag: true, nameEdit: 'name', stageEdit: !n.ghost, stageRaw,
       newRing: compareInfo ? compareInfo.added.has(n.name) : false}));
+    if(opts.edit) plane.push(componentMenu(n, c, measure));
   }
 
   /* ---- readout band ---- */

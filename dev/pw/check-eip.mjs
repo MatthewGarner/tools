@@ -1,5 +1,5 @@
 /* Edit-in-place browser checks (tree). */
-import {chromium} from 'playwright';
+import {chromium, devices} from 'playwright';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
 const page = await browser.newPage({viewport: {width: 1500, height: 1000}});
@@ -7,6 +7,19 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+
+/* Mobile-emulated contexts: locator.click() scrolls-then-clicks as one step, and a
+   trailing scroll-settle event can still land AFTER the click dispatches — racing
+   edit-in-place's own scroll-closes-the-popover guard shut before we ever act on it.
+   Scrolling first and waiting it out, then clicking raw coordinates, avoids the race
+   (real touches never fight their own just-finished scroll this way). */
+async function settledTap(page, loc){
+  await loc.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box = await loc.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  return box;
+}
 
 await page.goto(BASE, {waitUntil: 'networkidle'});
 await page.getByRole('button', {name: 'Bid or no bid'}).click();
@@ -284,6 +297,64 @@ check('no page errors', errors.length === 0);
   const wsrc5 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: vertical drag is a no-op on the text', wsrc5 === wsrc4);
 
+  // add zone: tap the CUSTOM stage's ghost "+" → eip-input opens empty → type Cache → Enter
+  await wpage.locator('[data-edit="additem"][data-stage="custom"]').first().click();
+  await wpage.waitForTimeout(200);
+  check('wardley: add zone opens the eip-input', await wpage.locator('.eip-input').count() === 1);
+  await wpage.locator('.eip-input').fill('Cache');
+  await wpage.keyboard.press('Enter');
+  await wpage.waitForTimeout(500);
+  const wsrc7 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const lines7 = wsrc7.split(/\r?\n/);
+  const cacheIdx = lines7.findIndex(l => l.trim() === 'Cache @ custom');
+  const firstEdgeIdx7 = lines7.findIndex(l => l.includes('->'));
+  check('wardley: add zone inserts the component before the edge block (only blanks between)',
+    cacheIdx >= 0 && firstEdgeIdx7 > cacheIdx &&
+    lines7.slice(cacheIdx + 1, firstEdgeIdx7).every(l => l.trim() === ''));
+  check('wardley: added component renders in the map',
+    (await wpage.locator('#preview svg').innerHTML()).includes('Cache'));
+  check('wardley: fine-pointer add focuses the editor', await wpage.evaluate(() =>
+    !!document.activeElement && !!document.activeElement.closest('.cm-editor')));
+
+  // component menu: tap Cache's ⋯ → danger row removes the declaration + any edge mentions
+  await wpage.locator('[data-edit="componentmenu"][data-raw="Cache"]').first().click();
+  await wpage.waitForTimeout(200);
+  check('wardley: component menu shows the danger row',
+    (await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove component');
+  await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
+  await wpage.waitForTimeout(500);
+  const wsrc8 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: remove component drops the declaration', !wsrc8.includes('Cache @ custom'));
+  check('wardley: remove component leaves no edge remnant', !wsrc8.includes('-> Cache'));
+
+  // CM keymaps need focus first (this section's existing pattern); ONE undo
+  // must round-trip the whole removal (applyLineOps' single-dispatch proof)
+  await wpage.locator('.cm-content').click();
+  await wpage.keyboard.press('Meta+z');
+  await wpage.waitForTimeout(500);
+  const wsrc9 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: one undo restores the full pre-removal text (applyLineOps one history event)', wsrc9 === wsrc7);
+
+  // remove a LINKED component (Streak engine sits in two chains) — this is the
+  // multi-op removal (declaration delete + edge splices/deletes) that
+  // applyLineOps exists for; the earlier Cache remove was single-op
+  await wpage.locator('[data-edit="componentmenu"][data-raw="Streak engine"]').first().click();
+  await wpage.waitForTimeout(200);
+  await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
+  await wpage.waitForTimeout(500);
+  const wsrc10 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: linked remove splices the chains (no -> Streak engine, no Streak engine ->, no declaration)',
+    !/->\s*streak engine|streak engine\s*->|streak engine\s*@/i.test(wsrc10));
+  // the 3-chain "… -> Habit builder -> Streak engine -> <end>" must splice to
+  // "… -> Habit builder -> <end>" — endpoint name is whatever earlier steps
+  // renamed it to, so assert the join, not the name
+  check('wardley: the 3-chain kept its ends after the splice', /habit tracking\s*->\s*habit builder\s*->\s*\S/i.test(wsrc10));
+  await wpage.locator('.cm-content').click();
+  await wpage.keyboard.press('Meta+z');
+  await wpage.waitForTimeout(500);
+  check('wardley: one undo restores the multi-op removal (single dispatch)',
+    (await wpage.evaluate(() => localStorage.getItem('wardley-src'))) === wsrc9);
+
   // narrow: a TAP on the ghost's strip places it, comment kept before //
   await wpage.setViewportSize({width: 430, height: 900});
   await wpage.waitForTimeout(600);
@@ -295,6 +366,108 @@ check('no page errors', errors.length === 0);
   check('wardley: tap-to-place writes @ before the trailing comment', /Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6));
   check('wardley: no page errors', werrors.length === 0);
   await wpage.close();
+}
+
+/* ---- wardley narrow (mobile-emulated): add-card, focus opt-out, tap-to-place,
+   remove — a 430px DESKTOP viewport (above) still reports pointer:fine, so the
+   focus-opt-out assertion needs a real touch-emulated context. ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mpage = await mctx.newPage();
+  const merrors = [];
+  mpage.on('pageerror', e => merrors.push(e.message));
+  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
+  await mpage.waitForTimeout(600);
+
+  // tap the "+ Add component" card (no data-stage on narrow) → type Inbox → Enter
+  await settledTap(mpage, mpage.locator('[data-edit="additem"]').first());
+  await mpage.waitForTimeout(200);
+  await mpage.locator('.eip-input').fill('Inbox');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(600);
+  const msrc = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley narrow: add-card inserts Inbox as an unplaced ghost (no stage)', /^Inbox$/m.test(msrc));
+  check('wardley narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+    !document.activeElement || !document.activeElement.closest('.cm-editor')));
+
+  // tap Inbox's ghost strip at ~70% along its track
+  const inboxTrack = mpage.locator('#preview svg g[data-strip=""][data-name="Inbox"] [data-track]');
+  await inboxTrack.scrollIntoViewIfNeeded();
+  await mpage.waitForTimeout(300);
+  const itb = await inboxTrack.boundingBox();
+  await mpage.mouse.click(itb.x + itb.width * 0.7, itb.y + itb.height / 2);
+  await mpage.waitForTimeout(600);
+  const msrc2 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley narrow: tap-to-place at ~70% writes @ 0.68-0.71', /Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2));
+
+  // remove Inbox via the card's ⋯ menu
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Inbox"]').first());
+  await mpage.waitForTimeout(200);
+  await settledTap(mpage, mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}));
+  await mpage.waitForTimeout(600);
+  const msrc3 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
+  check('wardley narrow: no page errors', merrors.length === 0);
+
+  /* ---- clamp check (same mobile context): a milestone label near the right
+     screen edge on /timeline/ — its eip-input must stay inside the viewport.
+     Scroll to bring the RIGHTMOST label's right edge near the pane's right
+     edge (not to scrollWidth — the plot has trailing margin past the last
+     label, which would scroll every label off the left of the view). ---- */
+  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/', {waitUntil: 'networkidle'});
+  await mpage.waitForTimeout(700);
+  const edgeLabel = await mpage.evaluate(() => {
+    const prev = document.getElementById('preview');
+    prev.scrollLeft = 0;
+    const pr0 = prev.getBoundingClientRect();
+    const labels = [...prev.querySelectorAll('svg [data-edit="label"]')];
+    let best = null, bestRight = -Infinity;
+    for(const el of labels){
+      const r = el.getBoundingClientRect();
+      const right = (r.left - pr0.left) + r.width;
+      if(right > bestRight){ bestRight = right; best = el; }
+    }
+    if(!best) return null;
+    const r0 = best.getBoundingClientRect();
+    prev.scrollLeft = Math.max(0, (r0.left - pr0.left) + r0.width - prev.clientWidth + 40);
+    const r1 = best.getBoundingClientRect();
+    return {x: r1.left, y: r1.top, w: r1.width, h: r1.height};
+  });
+  check('timeline narrow: a milestone label sits near the scrolled-right edge', !!edgeLabel);
+  if(edgeLabel){
+    const vp = mpage.viewportSize();
+    await mpage.mouse.click(edgeLabel.x + edgeLabel.w / 2, edgeLabel.y + edgeLabel.h / 2);
+    await mpage.waitForTimeout(300);
+    const ib = await mpage.locator('.eip-input').boundingBox();
+    check('timeline narrow: eip-input clamps within the viewport', !!ib &&
+      ib.x >= 0 && ib.x + ib.width <= vp.width + 1 && ib.y >= 0 && ib.y + ib.height <= vp.height + 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
+  await mctx.close();
+}
+
+/* ---- timeline desktop: per-lane add zone opens empty, typed value replaces
+   the dated placeholder (not "New milestone" — that would test nothing) ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  const seed = {t: 'title: Pen test doc\nGrid: Existing item 2026-08 .. 2026-10\n'};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  await p.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + hash, {waitUntil: 'networkidle'});
+  await p.waitForTimeout(500);
+  await p.locator('[data-edit="additem"][data-lane="Grid"]').first().click();
+  await p.waitForTimeout(200);
+  check('timeline: lane zone opens the eip-input empty', await p.locator('.eip-input').inputValue() === '');
+  await p.locator('.eip-input').fill('Pen test');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const t = await p.evaluate(() => localStorage.getItem('timeline-src'));
+  check('timeline: lane add writes a lane-prefixed dated placeholder, typed value in',
+    /^Grid: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(t));
+  check('timeline: no page errors', errs.length === 0);
+  await p.close();
 }
 
 console.log(results.join('\n'));
