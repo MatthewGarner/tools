@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {simulate} from '../engine.js';
-import {renderQuadrant} from '../render-quadrant.js';
+import {renderQuadrant, placeLabels, boxesOverlap, layoutBubbles, prep, NAME_ONLY_THRESHOLD} from '../render-quadrant.js';
 
 const COLORS = {ink: '#141b21', muted: '#5b6670', accent: '#c05621', accentInk: '#8e4a1e',
   bg: '#f7f8f6', card: '#ffffff', border: '#e2e5e1', err: '#b3403a', track: '#e7e9e5',
@@ -116,4 +116,137 @@ test('lane legend carries lane names', () => {
   const svg = renderQuadrant(model, sim, CTX);
   assert.match(svg, /GROWTH/);
   assert.match(svg, /PLATFORM/);
+});
+
+/* ---------------- greedy label placement ---------------- */
+
+const CROWDED_SRC = `title: Q4 crowded portfolio
+unit: £k
+Growth
+  Search revamp: stake 120, odds 40-55%, payoff 300-500
+    kill: CTR flat after 2 sprints by 2026-09-01
+  Onboarding tweak: stake 60, odds 45-55%, payoff 90-140
+  Referral loop: stake 50, odds 42-52%, payoff 80-130
+  Paid acq test: stake 70, odds 35-50%, payoff 100-160
+Platform
+  Billing rewrite: stake 200, odds 90-100%, payoff 250-350
+  Infra migration: stake 90, odds 48-58%, payoff 120-200
+  API v2: stake 40, odds 44-54%, payoff 60-100
+  Cache layer: stake 55, odds 46-56%, payoff 70-120
+Risk
+  Sure loser: stake 100, odds 10-20%, payoff 50-80
+  Moonshot: stake 30, odds 5-15%, payoff 800-1500
+  Compliance fix: stake 80, odds 47-53%, payoff 100-150
+    kill: no lift after 1 sprint by 2026-10-01
+  Support tool: stake 45, odds 43-53%, payoff 65-110`;
+const crowdedModel = parse(CROWDED_SRC);
+const crowdedSim = simulate(crowdedModel);
+
+// mirrors renderWide's geo (bets/render-quadrant.js) closely enough to drive
+// layoutBubbles/placeLabels directly, without going through SVG string output
+const WIDE_GEO = {plotX0: 92, plotY0: 112, plotX1: 926, plotY1: 512,
+  dark: false, rMin: 10, rMax: 30, nameSize: 12.5, microSize: 10,
+  tickSize: 9.5, axisTitleSize: 10.5, legendSize: 9.5, unit: '£k', padX: 16, padTop: 16};
+
+function placedFor(model, sim, geo){
+  const P = prep(model, sim);
+  const items = layoutBubbles(P, sim, geo);
+  const bounds = {x0: geo.plotX0 - geo.padX, x1: geo.plotX1 + geo.padX,
+    y0: geo.plotY0 - geo.padTop, y1: geo.plotY1};
+  return placeLabels(items, {bounds, measure, nameSize: geo.nameSize, microSize: geo.microSize, gap: 6});
+}
+
+test('crowded portfolio (12 bets): no two placed label boxes overlap', () => {
+  // 12 bets > NAME_ONLY_THRESHOLD, so this exercises microSize:null via the
+  // real renderWide path too — but here we drive layoutBubbles directly with
+  // microcopy still on, the harder case, to stress-test the placer itself.
+  const placed = placedFor(crowdedModel, crowdedSim, WIDE_GEO);
+  assert.equal(placed.length, 12);
+  for(let i = 0; i < placed.length; i++){
+    for(let j = i + 1; j < placed.length; j++){
+      assert.ok(!boxesOverlap(placed[i].box, placed[j].box),
+        placed[i].name + ' overlaps ' + placed[j].name);
+    }
+  }
+});
+
+test('crowded portfolio: no label box overlaps another bubble', () => {
+  const placed = placedFor(crowdedModel, crowdedSim, WIDE_GEO);
+  for(const p of placed){
+    for(const other of placed){
+      const dx = Math.max(other.cx - (p.box.x + p.box.w), p.box.x - other.cx, 0);
+      const dy = Math.max(other.cy - (p.box.y + p.box.h), p.box.y - other.cy, 0);
+      const dist = Math.hypot(dx, dy);
+      // dist===0 with dx=dy=0 only possible if box actually contains the
+      // bubble centre; a real overlap needs dist < radius, checked exactly:
+      const nx = Math.max(p.box.x, Math.min(other.cx, p.box.x + p.box.w));
+      const ny = Math.max(p.box.y, Math.min(other.cy, p.box.y + p.box.h));
+      const trueDist = Math.hypot(other.cx - nx, other.cy - ny);
+      assert.ok(trueDist >= other.radius - 0.01,
+        p.name + '\'s label box overlaps a bubble at (' + other.cx + ',' + other.cy + ')');
+    }
+  }
+});
+
+test('placeLabels: leader line only when the label is not snug against its bubble', () => {
+  // eight bets stacked at (near enough) the same point with full name+microcopy
+  // boxes: ring-1 only has 8 compass slots, and their near-identical centres
+  // mean each new bet's slot collides with an already-taken one well before
+  // all 8 are exhausted, so the lowest-priority bets must spill to the escape
+  // ring -> forces both a snug (no-leader) pick for the highest-stake bet and
+  // an escape-ring (leader) pick for at least one lower-priority bet.
+  const items = Array.from({length: 8}, (_, i) => ({
+    cx: 300 + i * 0.2, cy: 300 - i * 0.2, radius: 16,
+    name: 'Portfolio bet number ' + i, micro: (100 - i * 5) + ' @ 30–50% → pays 200–400',
+    stake: 100 - i * 10, absEv: 50 - i * 5,
+  }));
+  const bounds = {x0: 0, y0: 0, x1: 900, y1: 900};
+  const placed = placeLabels(items, {bounds, measure, nameSize: 12, microSize: 10, gap: 6});
+  assert.equal(placed.length, 8);
+  for(const p of placed) assert.equal(typeof p.leader, 'boolean');
+  for(let i = 0; i < placed.length; i++) for(let j = i + 1; j < placed.length; j++)
+    assert.ok(!boxesOverlap(placed[i].box, placed[j].box), placed[i].name + ' overlaps ' + placed[j].name);
+  assert.ok(placed.some(p => !p.leader), 'the highest-priority bet should still get a snug, leader-free placement');
+  assert.ok(placed.some(p => p.leader), 'a lower-priority bet in this cluster should need a leader line');
+});
+
+test('placeLabels: never drops a label, even in a pathologically tight box', () => {
+  const items = [
+    {cx: 50, cy: 50, radius: 40, name: 'This is a rather long bet name that will not fit easily', micro: null, stake: 10, absEv: 5},
+  ];
+  const bounds = {x0: 0, y0: 0, x1: 100, y1: 100};   // far too small for the label
+  const placed = placeLabels(items, {bounds, measure, nameSize: 12, microSize: null, gap: 6});
+  assert.equal(placed.length, 1);
+  assert.ok(placed[0].box && Number.isFinite(placed[0].box.x) && Number.isFinite(placed[0].box.y));
+});
+
+test('name-only mode: microcopy absent past NAME_ONLY_THRESHOLD bets, present at/under it', () => {
+  assert.equal(NAME_ONLY_THRESHOLD, 9);
+  const svgCrowded = renderQuadrant(crowdedModel, crowdedSim, CTX);   // 12 bets
+  assert.ok(!svgCrowded.includes('→ pays'), 'name-only mode should drop the microcopy line past the threshold');
+  const svgSmall = renderQuadrant(model, sim, CTX);   // 3 bets, well under threshold
+  assert.ok(svgSmall.includes('→ pays'), 'small portfolios keep the microcopy line');
+});
+
+test('crowded portfolio narrow: no coordinate exceeds the 390 viewBox (escape-ring/fallback safety)', () => {
+  const svg = renderQuadrant(crowdedModel, crowdedSim, {...CTX, width: 390});
+  assert.match(svg, /viewBox="0 0 390 /);
+  for(const m of svg.matchAll(/(?:^|\s)(?:x|cx|x1|x2)="(-?[\d.]+)"/g)){
+    const v = parseFloat(m[1]);
+    assert.ok(v <= 390.01 && v >= -0.01, 'x-coordinate ' + v + ' out of the narrow 390 viewBox');
+  }
+});
+
+test('crowded portfolio golden-shape sanity: a bubble + label per bet, well-formed', () => {
+  const svg = renderQuadrant(crowdedModel, crowdedSim, CTX);
+  assert.ok(!/NaN|undefined/.test(svg), 'no NaN/undefined');
+  assert.match(svg, /^<svg /);
+  assert.match(svg, /<\/svg>$/);
+  const circles = svg.match(/<circle/g) || [];
+  assert.ok(circles.length >= 12, 'at least one bubble per bet');
+  for(const name of ['Search revamp', 'Onboarding tweak', 'Referral loop', 'Paid acq test',
+    'Billing rewrite', 'Infra migration', 'API v2', 'Cache layer',
+    'Sure loser', 'Moonshot', 'Compliance fix', 'Support tool']){
+    assert.ok(svg.includes(name), 'missing label text for ' + name);
+  }
 });

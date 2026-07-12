@@ -11,9 +11,14 @@
    -> a dashed ring around the bubble. Lane hues come from the shared,
    ALREADY-VALIDATED PALETTES ramp (assets/series.js: ocean/slate/ember/plum)
    cycled per lane — never an invented hex. Pure; colours + measure from ctx.
-   No edit hooks: editing stays on the board. Wide ~960; narrow (<520) fits a
-   square-ish plot to the width, drops the per-bet microcopy line (name label
-   only), and wraps the legend — mirrors render.js's wide/narrow split. */
+   Per-bet labels use a greedy free-space placement pass (16 compass anchors x
+   3 rings, priority = biggest stake then most extreme |EV| first) with a
+   leader line only when a label can't sit snug against its bubble — see
+   placeLabels below. Portfolios over NAME_ONLY_THRESHOLD bets drop the
+   microcopy line so blocks stay small enough for the placer to find clean
+   space (narrow already drops it regardless of count). No edit hooks:
+   editing stays on the board. Wide ~960; narrow (<520) fits a square-ish
+   plot to the width and wraps the legend — mirrors render.js's split. */
 import {esc, txt} from '../assets/svg.js';
 import {PALETTES, niceTicks} from '../assets/series.js';
 
@@ -43,7 +48,7 @@ export function renderQuadrant(model, sim, ctx = {}){
 
 /* shared prep: flat bet list w/ lane index, portfolio EV domain (always ⊇ 0,
    padded — mirrors render.js's prep so both views agree on scale logic). */
-function prep(model, sim){
+export function prep(model, sim){
   const flat = [];
   model.groups.forEach((g, gi) => { for(const b of g.bets) flat.push({b, gi}); });
   let elo = 0, ehi = 1, maxStake = 0, totalStake = 0;
@@ -60,43 +65,156 @@ function prep(model, sim){
 
 const microFor = b => num(stakeMid(b)) + ' @ ' + pct(oddsOf(b)) + ' → pays ' + rng(payoffOf(b));
 
-/* place a name (+ optional microcopy) beside each bubble: right by default,
-   flipped left near the right edge; a simple top-to-bottom vertical nudge
-   keeps boxes whose horizontal spans actually overlap from stacking on top
-   of each other. Deterministic, single pass — not a general solver, but the
-   task tolerates imperfection on dense portfolios; nothing may overlap
-   illegibly in the shipped fixture (verified by eye, see the commit). */
-function placeLabels(items, plotX0, plotX1, measure, {nameSize, microSize, gap}){
+/* ---------------- label placement: greedy free-space + leaders ----------------
+   Each label (name, + microcopy line when microSize is set) gets a measured
+   box. For every bet, in PRIORITY order (biggest stake first, ties broken by
+   the most extreme |EV p50| — the bets most worth reading clearly get first
+   pick of clean space), we try candidate anchors at 16 compass points around
+   the bubble at three rings: snug (radius+gap), and two escape rings further
+   out (the fine angular resolution + extra ring matter once a bubble's
+   immediate neighbourhood is already saturated by other bets' labels). The
+   snug ring is exhausted compass-first (E/SE/NE preferred, matching the old
+   "right of the bubble" look) before an escape ring is tried. The first
+   candidate whose box (a) fits the drawable bounds
+   (the plot rect + a small gutter margin — see padX/padTop below) and (b)
+   doesn't overlap any already-placed label, any bubble, or the fixed
+   certainty-zone caption wins outright. If nothing is clean — a genuinely
+   crowded cluster — we never drop the label: fall back to the least-overlap
+   candidate (in-bounds preferred). A leader line is drawn only when the
+   winning candidate came from the escape ring (i.e. it isn't snug against
+   the bubble) — the small-portfolio look stays leader-free. */
+export const NAME_ONLY_THRESHOLD = 9;   // >9 bets -> drop microcopy so label blocks are
+                                  // small enough for the placer to find clean
+                                  // space; tuned by eye against the 12-bet
+                                  // crowded fixture (bets-quadrant-crowded).
+/* 16-point compass (E first, then fanning out by angle, south/clockwise
+   preferred at each tier before north/counter-clockwise — generalises the
+   8-point E,SE,NE,S,N,SW,NW,W priority pattern with finer resolution, which
+   matters once a bubble's immediate neighbourhood is already saturated with
+   other bets' labels in a genuinely crowded cluster). */
+const COMPASS = [0, 22.5, -22.5, 45, -45, 67.5, -67.5, 90, -90, 112.5, -112.5, 135, -135, 157.5, -157.5, 180]
+  .map(deg => { const r = deg * Math.PI / 180; return {dx: Math.cos(r), dy: Math.sin(r)}; });
+
+const anchorFor = dx => dx > 0.3 ? 'start' : dx < -0.3 ? 'end' : 'middle';
+
+function boxAt(cx, cy, dx, dy, off, w, h){
+  const ax = cx + dx * off, ay = cy + dy * off;
+  const anchor = anchorFor(dx);
+  const x = anchor === 'start' ? ax : anchor === 'end' ? ax - w : ax - w / 2;
+  const y = dy > 0.3 ? ay : dy < -0.3 ? ay - h : ay - h / 2;
+  return {x, y, w, h, anchor, off};
+}
+
+/* boolean overlap test for label boxes — exported so tests can assert
+   pairwise non-overlap directly against placeLabels' output. */
+export const boxesOverlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+function overlapArea(a, b){
+  const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+  return ox > 0 && oy > 0 ? ox * oy : 0;
+}
+/* box-vs-circle overlap, as a comparable (not literal) magnitude — good
+   enough for greedy tie-breaking, which only needs relative ordering. */
+function circleOverlap(box, cx, cy, r){
+  const nx = Math.max(box.x, Math.min(cx, box.x + box.w));
+  const ny = Math.max(box.y, Math.min(cy, box.y + box.h));
+  const dx = cx - nx, dy = cy - ny, dist = Math.sqrt(dx * dx + dy * dy);
+  return dist < r ? (r - dist) * Math.max(box.w, box.h) : 0;
+}
+const inBounds = (box, b) => box.x >= b.x0 && box.x + box.w <= b.x1 && box.y >= b.y0 && box.y + box.h <= b.y1;
+
+function scoreOf(box, placed, bubbles){
+  let s = 0;
+  for(const p of placed) s += overlapArea(box, p);
+  for(const bub of bubbles) s += circleOverlap(box, bub.cx, bub.cy, bub.r);
+  return s;
+}
+
+/* nearest point on `box`'s boundary to (cx,cy) is the leader's box-side end;
+   the bubble-side end is that same direction projected out to its edge. */
+function leaderFor(cx, cy, radius, box){
+  const nx = Math.max(box.x, Math.min(cx, box.x + box.w));
+  const ny = Math.max(box.y, Math.min(cy, box.y + box.h));
+  const dx = nx - cx, dy = ny - cy, dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  return {x1: cx + dx / dist * radius, y1: cy + dy / dist * radius, x2: nx, y2: ny};
+}
+
+/* pure + independently testable: items = [{cx, cy, radius, name, micro, stake,
+   absEv}]. Returns one placement per item (input order preserved), each
+   carrying the chosen `box` ({x,y,w,h,anchor}) and whether it needs a `leader`. */
+export function placeLabels(items, {bounds, measure, nameSize, microSize, gap = 6, avoid = []}){
   const nameFont = '600 ' + nameSize + 'px ' + SANS;
-  const microFont = microSize + 'px ' + SANS;
-  const sorted = items.slice().sort((a, b) => a.cx - b.cx);
-  const boxes = [], placed = [];
-  for(const it of sorted){
+  const microFont = (microSize || nameSize) + 'px ' + SANS;
+  const smallGap = gap + 1;   // snug tolerance: ring-1's own offset must read as "no leader"
+
+  const order = items.map((it, idx) => ({it, idx}))
+    .sort((a, b) => (b.it.stake - a.it.stake) || (Math.abs(b.it.absEv) - Math.abs(a.it.absEv)) || (a.idx - b.idx));
+
+  const placedBoxes = avoid.slice();
+  const bubbles = items.map(it => ({cx: it.cx, cy: it.cy, r: it.radius}));
+  const out = new Array(items.length);
+
+  for(const {it, idx} of order){
     const nameW = measure(it.name, nameFont);
     const microW = it.micro ? measure(it.micro, microFont) : 0;
     const w = Math.max(nameW, microW) + 4;
     const lineH = it.micro ? (nameSize + microSize + 6) : (nameSize + 4);
-    let side = 'right', ax = it.cx + it.radius + gap;
-    if(ax + w > plotX1){ side = 'left'; ax = it.cx - it.radius - gap - w; }
-    if(ax < plotX0) ax = plotX0;
-    let ay = it.cy - lineH / 2;
-    for(const p of boxes){
-      const xOverlap = ax < p.x + p.w + 4 && ax + w + 4 > p.x;
-      if(xOverlap && ay < p.y + p.h && ay + lineH > p.y) ay = p.y + p.h + 4;
+    // scaled by line HEIGHT, not box width — a long name/microcopy string must
+    // not fling the escape ring (and its leader line) halfway across the plot;
+    // it only needs to clear one more row's worth of local obstruction.
+    const ringStep = Math.max(16, Math.round(lineH * 1.8));
+
+    let best = null, bestScore = Infinity, any = null, anyScore = Infinity;
+    ringLoop:
+    for(const off of [it.radius + gap, it.radius + gap + ringStep, it.radius + gap + ringStep * 2.4]){
+      for(const dir of COMPASS){
+        const box = boxAt(it.cx, it.cy, dir.dx, dir.dy, off, w, lineH);
+        const score = scoreOf(box, placedBoxes, bubbles);
+        if(score < anyScore){ anyScore = score; any = box; }
+        if(inBounds(box, bounds)){
+          if(score === 0){ best = box; bestScore = 0; break ringLoop; }
+          if(score < bestScore){ best = box; bestScore = score; }
+        }
+      }
     }
-    boxes.push({x: ax, y: ay, w, h: lineH});
-    placed.push({...it, ax, ay, side, w, lineH});
+    const chosen = best || any;
+    placedBoxes.push(chosen);
+    out[idx] = {...it, box: chosen, anchor: chosen.anchor, w, lineH, leader: chosen.off > it.radius + smallGap};
   }
-  return placed;
+  return out;
+}
+
+/* per-bet geometry + label payload — single source of truth for both the
+   drawn marks (crosses/bubble/no-kill ring) and the label placer's inputs;
+   pure given P (prep()'s output) + sim + geo. Exported so tests can build a
+   real item set from an actual model without re-deriving the scale math. */
+export function layoutBubbles(P, sim, geo){
+  const {plotX0, plotY0, plotX1, plotY1, dark, rMin, rMax, microSize} = geo;
+  const innerX0 = plotX0 + rMax, innerX1 = plotX1 - rMax;
+  const innerY0 = plotY0 + rMax, innerY1 = plotY1 - rMax;
+  const sx = v => innerX0 + v / 100 * (innerX1 - innerX0);
+  const sy = v => innerY1 - (v - P.elo) / ((P.ehi - P.elo) || 1) * (innerY1 - innerY0);
+  return P.flat.map(({b, gi}) => {
+    const rec = recOf(sim, b), e = rec.ev;
+    const [oLo, oHi] = oddsOf(b), oMid = (oLo + oHi) / 2;
+    const stake = stakeMid(b);
+    const radius = rMin + (rMax - rMin) * Math.sqrt(Math.max(0, stake / P.maxStake));
+    return {
+      b, gi, e, oLo, oHi, radius, hue: laneHue(gi, dark), kill: !!b.kill,
+      cx: sx(oMid), cy: sy(e.p50), hx0: sx(oLo), hx1: sx(oHi), vy0: sy(e.p10), vy1: sy(e.p90),
+      name: b.name, micro: microSize ? microFor(b) : null, stake, absEv: Math.abs(e.p50),
+    };
+  });
 }
 
 /* the whole chart body — plot box, zones, gridlines, bubbles+crosses, labels,
    legend — shared by wide and narrow (geo carries every sizing knob so the
    two callers differ only in numbers, not logic). Returns {parts, bottomY}. */
 function plotAndLegend(model, sim, c, measure, P, geo){
-  const {plotX0, plotY0, plotX1, plotY1, dark, rMin, rMax, nameSize, microSize, tickSize,
-    axisTitleSize, legendSize, unit} = geo;
-  const {flat, elo, ehi, maxStake} = P;
+  const {plotX0, plotY0, plotX1, plotY1, dark, rMax, nameSize, microSize, tickSize,
+    axisTitleSize, legendSize, unit, padX, padTop} = geo;
+  const {elo, ehi} = P;
   const innerX0 = plotX0 + rMax, innerX1 = plotX1 - rMax;
   const innerY0 = plotY0 + rMax, innerY1 = plotY1 - rMax;
   const sx = v => innerX0 + v / 100 * (innerX1 - innerX0);
@@ -122,7 +240,8 @@ function plotAndLegend(model, sim, c, measure, P, geo){
      bubble right in this column, so a full-height label would run straight
      through it. Right-anchored near the top keeps it clear of the typical
      bubble band and still reads as "about" the right-hand zone. */
-  parts.push(txt(plotX1 - 6, plotY0 + tickSize + 6, 'CERTAINTY ZONE — ODDS ≥ 90%', tickSize, c.muted,
+  const capText = 'CERTAINTY ZONE — ODDS ≥ 90%';
+  parts.push(txt(plotX1 - 6, plotY0 + tickSize + 6, capText, tickSize, c.muted,
     {weight: 700, anchor: 'end', tracking: '0.06em', halo: c.card}));
 
   // y gridlines + ticks (0 is always in-domain by construction — drawn prominent)
@@ -150,33 +269,37 @@ function plotAndLegend(model, sim, c, measure, P, geo){
         {weight: 700, anchor: 'middle', tracking: '0.1em'}) + '</g>');
   }
 
-  // per-bet marks (crosses + bubble + no-kill ring), then labels on top
-  const marks = [], labelItems = [];
-  for(const {b, gi} of flat){
-    const rec = recOf(sim, b), e = rec.ev;
-    const [oLo, oHi] = oddsOf(b), oMid = (oLo + oHi) / 2;
-    const stake = stakeMid(b);
-    const radius = rMin + (rMax - rMin) * Math.sqrt(Math.max(0, stake / maxStake));
-    const hue = laneHue(gi, dark);
-    const cx = sx(oMid), cy = sy(e.p50);
-    const hx0 = sx(oLo), hx1 = sx(oHi), vy0 = sy(e.p10), vy1 = sy(e.p90);
-    marks.push('<line x1="' + r2(hx0) + '" y1="' + r2(cy) + '" x2="' + r2(hx1) + '" y2="' + r2(cy) +
-      '" stroke="' + hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
-    marks.push('<line x1="' + r2(cx) + '" y1="' + r2(vy0) + '" x2="' + r2(cx) + '" y2="' + r2(vy1) +
-      '" stroke="' + hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
-    marks.push('<circle cx="' + r2(cx) + '" cy="' + r2(cy) + '" r="' + r2(radius) + '" fill="' + hue +
-      '" fill-opacity="0.32" stroke="' + hue + '" stroke-width="1.5"/>');
-    if(!b.kill) marks.push('<circle cx="' + r2(cx) + '" cy="' + r2(cy) + '" r="' + r2(radius + 4) +
+  // per-bet marks (crosses + bubble + no-kill ring)
+  const items = layoutBubbles(P, sim, geo);
+  const marks = [];
+  for(const it of items){
+    marks.push('<line x1="' + r2(it.hx0) + '" y1="' + r2(it.cy) + '" x2="' + r2(it.hx1) + '" y2="' + r2(it.cy) +
+      '" stroke="' + it.hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
+    marks.push('<line x1="' + r2(it.cx) + '" y1="' + r2(it.vy0) + '" x2="' + r2(it.cx) + '" y2="' + r2(it.vy1) +
+      '" stroke="' + it.hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
+    marks.push('<circle cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius) + '" fill="' + it.hue +
+      '" fill-opacity="0.32" stroke="' + it.hue + '" stroke-width="1.5"/>');
+    if(!it.kill) marks.push('<circle cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius + 4) +
       '" fill="none" stroke="' + c.err + '" stroke-width="1.5" stroke-dasharray="3 3"/>');
-    labelItems.push({cx, cy, radius, name: b.name, micro: microSize ? microFor(b) : null});
   }
   parts.push(...marks);
-  const placed = placeLabels(labelItems, plotX0, plotX1, measure, {nameSize, microSize: microSize || nameSize, gap: 6});
+
+  // labels: greedy free-space placement + leader lines (placeLabels above)
+  const capFont = '700 ' + tickSize + 'px ' + SANS;
+  const capW = measure(capText, capFont) + 8;
+  const captionBox = {x: plotX1 - 6 - capW, y: plotY0 + 4, w: capW, h: tickSize + 6};
+  const bounds = {x0: Math.max(2, plotX0 - (padX || 0)), x1: plotX1 + (padX || 0),
+    y0: Math.max(2, plotY0 - (padTop || 0)), y1: plotY1};
+  const placed = placeLabels(items, {bounds, measure, nameSize, microSize, gap: 6, avoid: [captionBox]});
   for(const p of placed){
-    const anchor = p.side === 'right' ? 'start' : 'end';
-    const tx = p.side === 'right' ? p.ax : p.ax + p.w;
-    parts.push(txt(tx, p.ay + nameSize, p.name, nameSize, c.ink, {weight: 600, anchor, halo: c.card}));
-    if(p.micro) parts.push(txt(tx, p.ay + nameSize + microSize + 3, p.micro, microSize, c.muted, {anchor, halo: c.card}));
+    const tx = p.anchor === 'start' ? p.box.x : p.anchor === 'end' ? p.box.x + p.box.w : p.box.x + p.box.w / 2;
+    if(p.leader){
+      const L = leaderFor(p.cx, p.cy, p.radius, p.box);
+      parts.push('<line x1="' + r2(L.x1) + '" y1="' + r2(L.y1) + '" x2="' + r2(L.x2) + '" y2="' + r2(L.y2) +
+        '" stroke="' + c.muted + '" stroke-width="1" stroke-opacity="0.6"/>');
+    }
+    parts.push(txt(tx, p.box.y + nameSize, p.name, nameSize, c.ink, {weight: 600, anchor: p.anchor, halo: c.card}));
+    if(p.micro) parts.push(txt(tx, p.box.y + nameSize + microSize + 3, p.micro, microSize, c.muted, {anchor: p.anchor, halo: c.card}));
   }
 
   // legend: lane swatches + mark-language notes, flow-wrapped
@@ -201,6 +324,7 @@ function renderWide(model, sim, ctx){
   const dark = !!ctx.dark;
   const P = prep(model, sim);
   const pl = Math.round((P.pf.pLoss || 0) * 100);
+  const nameOnly = P.flat.length > NAME_ONLY_THRESHOLD;
   const parts = [];
   const right = 930;
 
@@ -213,8 +337,8 @@ function renderWide(model, sim, ctx){
 
   const panelTop = 90;
   const geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right - 4, plotY1: panelTop + 22 + 400,
-    dark, rMin: 10, rMax: 30, nameSize: 12.5, microSize: 10, tickSize: 9.5, axisTitleSize: 10.5,
-    legendSize: 9.5, unit: model.unit};
+    dark, rMin: 10, rMax: 30, nameSize: 12.5, microSize: nameOnly ? null : 10, tickSize: 9.5, axisTitleSize: 10.5,
+    legendSize: 9.5, unit: model.unit, padX: 16, padTop: 16};
   const {parts: body, bottomY} = plotAndLegend(model, sim, c, measure, P, geo);
 
   const panelBot = bottomY + 14;
@@ -247,7 +371,7 @@ function renderNarrow(model, sim, ctx){
   const plotX0 = pad + 40, plotX1 = W - pad - 4, plotW = plotX1 - plotX0;
   const plotY0 = y + 4, plotY1 = plotY0 + plotW;   // square-ish: height ≈ width
   const geo = {plotX0, plotY0, plotX1, plotY1, dark, rMin: 6, rMax: 16, nameSize: 11, microSize: null,
-    tickSize: 8.5, axisTitleSize: 9, legendSize: 8.5, unit: model.unit};
+    tickSize: 8.5, axisTitleSize: 9, legendSize: 8.5, unit: model.unit, padX: 10, padTop: 8};
   const {parts: body, bottomY} = plotAndLegend(model, sim, c, measure, P, geo);
   parts.push(...body);
   parts.push('<rect data-narrow="" width="0" height="0" fill="none"/>');
