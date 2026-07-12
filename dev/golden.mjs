@@ -288,6 +288,20 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-narrow-edit'] = wrender(wm, layoutMap(wm), {...wctx, width: 390}, {edit: true});
 }
 
+/* /bets fixtures (DSL → seeded MC → board; deterministic) */
+{
+  const {parse: bparse} = await import('../bets/parse.js');
+  const {simulate} = await import('../bets/engine.js');
+  const {renderBoard} = await import('../bets/render.js');
+  const bdoc = 'title: Q3 product portfolio\nunit: £k\n' +
+    'Growth\n  Search revamp: stake 120, odds 30-50%, payoff 400-900\n    kill: CTR flat after 2 sprints by 2026-09-01\n' +
+    '  Paid acq push: stake 80, odds 20-30%, payoff 90-140\n' +
+    'Platform\n  Billing rewrite: stake 200, odds 90-100%, payoff 250-350';
+  const bm = bparse(bdoc), bsim = simulate(bm);
+  variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
+  variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
+}
+
 /* /alarm fixtures (pure numeric params → deterministic) */
 {
   const {renderDistributions} = await import('../alarm/render.js');

@@ -1,0 +1,235 @@
+/* State, refresh loop, saved portfolios, exports, boot. Snapshot-compare is
+   NOT wired here — deferred to a follow-up (Task 5b); this ships a working
+   editor -> board -> exports loop with edit-in-place + the coarse-pointer
+   card menu. */
+import {parse} from './parse.js';
+import {simulate, verdictCopy, markdown} from './engine.js';
+import {renderBoard} from './render.js';
+import {createEditor} from './editor.js';
+import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill} from './edit-targets.js';
+import {readHashState, writeHashState} from '../assets/series.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {wireExports} from '../assets/exports.js';
+import {debounced, rafBatched} from '../assets/schedule.js';
+import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
+import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+
+const $ = id => document.getElementById(id);
+
+/* ---------- examples ---------- */
+const EXAMPLES = [
+  {name: 'Habitat portfolio', src:
+`title: Habitat — Q3 bet portfolio
+unit: £k
+
+Growth bets
+  Referral flow v2: stake 80, odds 40-60%, payoff 300-500
+    kill: Signups per referral stay under 0.3 by 2026-09-15
+  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300
+    kill: CAC exceeds £40 for two consecutive months
+
+Platform bets
+  Sync engine rewrite: stake 150, odds 90-98%, payoff 180-260
+  Coach marketplace pilot: stake 60, odds 15-25%, payoff 250-450
+    kill: Fewer than 20 coaches onboarded by 2026-10-01
+  Wearables integration: stake 60, odds 30-40%, payoff 150-280
+    kill: No retail partner signed by 2026-11-01`},
+  {name: 'Quick gut check', src:
+`title: Quick gut check
+unit: £k
+
+Bets
+  Ship the redesign: stake 60, odds 55-70%, payoff 150-260
+    kill: Conversion drops for two weeks straight
+  Delay to Q4: stake 15, odds 80-95%, payoff 20-40`},
+];
+
+/* ---------- refresh loop ---------- */
+let model = null, sim = null, lastSvg = '', hashTimer = null;
+const hasBets = m => !!m && m.groups.some(g => g.bets.length);
+function findBet(m, srcLine){
+  if(!m) return null;
+  for(const g of m.groups) for(const b of g.bets) if(b.srcLine === srcLine) return b;
+  return null;
+}
+function auditCounts(s){
+  const counts = {kill: 0, certainty: 0, loses: 0};
+  for(const rec of s.bets.values()){
+    if(rec.audits.includes('NO KILL CRITERION')) counts.kill++;
+    if(rec.audits.includes('ODDS IMPLY CERTAINTY')) counts.certainty++;
+    if(rec.audits.includes('LOSES AT P50')) counts.loses++;
+  }
+  return counts;
+}
+/* width-aware: the live preview re-lays-out below 520px (narrowWidth's
+   built-in threshold); exports always render the wide artefact by omitting
+   width entirely. */
+function activeRender(forExport){
+  const c = {colors: themeColors(), measure};
+  if(!forExport) c.width = narrowWidth($('preview'));
+  return renderBoard(model, sim, c);
+}
+function doRefresh(){
+  const text = editor.getText();
+  model = parse(text);
+  const pv = $('preview');
+  if(!hasBets(model)){
+    sim = null;
+    lastSvg = '';
+    pv.innerHTML = '<p class="placeholder">' + (text.trim()
+      ? 'No bets yet — add one under a group heading, e.g. “Search revamp: stake 120, odds 30-50%, payoff 400-900”.'
+      : 'Start typing — or load an example.') + '</p>';
+    $('verdict').textContent = '';
+  } else {
+    sim = simulate(model);
+    const svg = activeRender(false);
+    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    $('verdict').textContent = verdictCopy(sim.portfolio, auditCounts(sim));
+  }
+  renderWarningList($('warns'), model.warnings);
+  setActionsEnabled(!!lastSvg);
+  try{ if(shouldPersist()) localStorage.setItem('bets-src', text); }catch(e){}
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(writeHash, 400);
+}
+const refresh = rafBatched(doRefresh);
+const editor = createEditor({
+  parent: $('cmhost'),
+  doc: '',
+  onChange: debounced(refresh, 120),
+});
+function writeHash(){
+  const state = {t: editor.getText()};
+  if(ws.collapsed()) state.e = 0;
+  if(shouldPersist()) writeHashState(state);
+}
+const ws = initWorkspace({
+  workspace: $('workspace'), tab: $('railtab'),
+  preview: $('preview'), zoomHost: $('zoomctl'),
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+});
+
+/* narrow-bucket resize: re-render only when the bucket actually flips —
+   activeRender() re-measures clientWidth itself, this just knows WHEN to */
+watchNarrowBucket($('preview'), () => { lastSvg = ''; refresh(); });
+
+/* ---------- edit-in-place: direct cells + the coarse-pointer card menu ----------
+   stake/odds/payoff/kill are the imported plain-input kinds; `cardmenu` is
+   this app's own addition — the per-row `data-menu` target render.js already
+   emits opens a 4-row popover. Three rows (`opens: 'stake'|'odds'|'payoff'`)
+   reuse attachEditInPlace's built-in "open a sibling field sharing this
+   data-line" lookup for free, because those three cells share the ROW's own
+   data-line (the bet's srcLine). The kill row can't use that trick: the kill
+   CHILD line has its OWN srcLine (a few lines below the bet), so it's wired
+   as a plain action — re-open the existing kill field via a synthetic click
+   if one exists, else insert a fresh `kill:` child line under the bet. */
+function openOrAddKill(lineNo){
+  const bet = findBet(model, lineNo);
+  if(!bet) return;
+  if(bet.kill){
+    const t = $('preview').querySelector('[data-line="' + bet.kill.srcLine + '"][data-edit="kill"]');
+    if(t) t.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+    return;
+  }
+  const idx = lineNo - 1;   // 0-based index of the bet's own line
+  const lines = editor.getText().split(/\r?\n/);
+  const betLine = lines[idx] || '';
+  const indent = (betLine.match(/^ */) || [''])[0].length;
+  const killIndent = ' '.repeat(indent + 2);
+  insertAndSelect(editor, idx, killIndent + 'kill: reason', 'reason',
+    {focus: matchMedia('(pointer: fine)').matches});
+}
+const REWRITE = {stake: rewriteStake, odds: rewriteOdds, payoff: rewritePayoff, kill: rewriteKill};
+attachEditInPlace($('preview'), {
+  kinds: {
+    ...kinds,
+    cardmenu: {menu: [
+      {label: 'Edit stake…', opens: 'stake'},
+      {label: 'Edit odds…', opens: 'odds'},
+      {label: 'Edit payoff…', opens: 'payoff'},
+      {label: 'Kill criterion…', action: true},
+    ]},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    if(kind === 'cardmenu'){
+      if(newValue === '✖Kill criterion…') openOrAddKill(lineNo);
+      return;
+    }
+    const rewrite = REWRITE[kind];
+    if(!rewrite) return;
+    const ops = rewrite(editor.getText(), lineNo, oldRaw, newValue);
+    if(ops) applyLineOps(editor, ops);
+  },
+});
+
+/* ---------- example chips ---------- */
+for(const ex of EXAMPLES){
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.textContent = ex.name;
+  b.addEventListener('click', () => editor.setText(ex.src));
+  $('chips').appendChild(b);
+}
+
+/* ---------- saved portfolios ---------- */
+const SAVED_KEY = 'bets-saved';
+function renderSaved(){
+  const row = $('savedrow');
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    deleteLabel: m => 'Delete saved portfolio ' + m.name,
+    onLoad: m => editor.setText(m.src),
+    onDelete: (m, i) => {
+      const l = loadSaved(SAVED_KEY); l.splice(i, 1); storeSaved(SAVED_KEY, l); renderSaved();
+    },
+  });
+  const save = document.createElement('button');
+  save.className = 'chip';
+  save.textContent = '＋ Save current';
+  save.addEventListener('click', () => {
+    if(!hasBets(model)) return;
+    const list = loadSaved(SAVED_KEY);
+    list.push({name: model.title ? model.title.slice(0, 28) : 'Portfolio ' + (list.length + 1), src: editor.getText()});
+    storeSaved(SAVED_KEY, list);
+    renderSaved();
+  });
+  row.appendChild(save);
+}
+
+/* ---------- exports (always the wide artefact, whatever the screen) ---------- */
+function svgString(){
+  return (hasBets(model) && sim) ? activeRender(true) : null;
+}
+function slug(){
+  return slugify(model && model.title, 'bets');
+}
+wireExports({
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng'), copymd: $('copymd')},
+  getSvg: svgString,
+  /* render.js has no separate slide-proportions layout yet (unlike roadmap/
+     wardley/tree) — the board's ledger shape is already deck-ready, so this
+     is the same wide render for now; revisit if a distinct slide crop earns
+     its keep. */
+  getSvgSlide: svgString,
+  getMarkdown: () => (hasBets(model) && sim) ? markdown(model, sim, location.href) : null,
+  slug,
+});
+
+/* ---------- theme ---------- */
+onThemeChange(() => { lastSvg = ''; refresh(); });
+
+/* ---------- boot: hash > localStorage > example ---------- */
+(function(){
+  const hash = readHashState();
+  let text = hash && typeof hash.t === 'string' ? hash.t : '';
+  if(hash && hash.e === 0) ws.setCollapsed(true);
+  if(!text){
+    try{ text = localStorage.getItem('bets-src') || ''; }catch(e){}
+  }
+  renderSaved();
+  if(text) editor.setText(text);
+  else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
+})();

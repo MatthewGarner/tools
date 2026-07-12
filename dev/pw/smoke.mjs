@@ -540,6 +540,21 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+/* ---- bets ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/bets/', theme);
+  await page.waitForTimeout(500);
+  check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
+  await page.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await page.waitForTimeout(600);
+  const svg = await page.locator('#preview svg').innerHTML();
+  check('bets(' + theme + '): board renders the ledger', svg.includes('Referral flow v2') && svg.includes('PORTFOLIO'));
+  check('bets(' + theme + '): audits stamp the flagged bet', /NO KILL CRITERION/.test(svg) && /ODDS IMPLY CERTAINTY/.test(svg));
+  check('bets(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('bets(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
 /* ---- timeline ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/timeline/', theme);
