@@ -201,7 +201,7 @@ export function render(model, results, ctx){
     if(edit){
       s.push(editTarget('', {x: x - 22*S, y: y - 2*S, w: 44*S, h: 44*S, bg: C.bg},
         {kind: 'cardmenu-' + node.kind, line: node.implicit ? -1 : node.srcLine, raw: '',
-          label: 'More options: ' + (node.label || 'node'), hit: true}));
+          label: 'More options: ' + (node.label || 'node'), hit: true, extra: 'data-menu=""'}));
     }
   }
   function walk(node, onPolicy){

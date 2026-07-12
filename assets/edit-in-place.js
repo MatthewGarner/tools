@@ -213,9 +213,25 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.addEventListener('blur', commit);
   }
 
+  const coarse = () => matchMedia('(pointer: coarse)').matches;
   preview.addEventListener('click', e => {
-    const el = e.target.closest && e.target.closest('[data-edit]');
-    if(el && preview.contains(el)){ e.preventDefault(); open(el); }
+    let el = e.target.closest && e.target.closest('[data-edit]');
+    if(!el || !preview.contains(el)) return;
+    /* coarse pointers are menu-first: a tap on an in-card field opens that
+       card's menu (which routes to the same field at a 44px row) instead of
+       the field, and can't silently cycle a status pill. Gate on the tap
+       landing inside the menu's own hit-rect, so a field that shares the line
+       but lives elsewhere (map's readout panel) keeps its direct edit. Fine
+       pointers are unchanged. */
+    if(coarse() && !el.hasAttribute('data-menu') && el.dataset.line != null){
+      const svg = el.closest('svg');
+      if(svg) for(const m of svg.querySelectorAll('[data-menu][data-line="' + el.dataset.line + '"]')){
+        const r = (m.querySelector('[data-hit]') || m).getBoundingClientRect();
+        if(e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){ el = m; break; }
+      }
+    }
+    e.preventDefault();
+    open(el);
   });
   /* keyboard equivalent: every [data-edit] target carries tabindex="0" at
      render time — Enter/Space fires the same open() the click path calls. */

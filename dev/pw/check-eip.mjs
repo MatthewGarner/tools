@@ -501,6 +501,25 @@ check('no console/page errors', errors.length === 0);
   await mpage.getByRole('button', {name: 'Habit app roadmap'}).click();
   await mpage.waitForTimeout(600);
 
+  /* coarse menu-first redirect: tap the CENTRE of the title text itself — a
+     [data-edit="title"] field that shares the card's own srcLine (unlike
+     map's readout panel, which lives elsewhere). Fix 1's data-menu redirect
+     must catch that tap on the field and open the card menu instead of the
+     title editor (proving the redirect, not just the always-menu top-left
+     tap the rest of this block uses). */
+  {
+    const titleField = mpage.locator('#preview svg [data-edit="title"][data-line="4"]').first();
+    await titleField.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const titleBox = await titleField.boundingBox();
+    await mpage.mouse.click(titleBox.x + titleBox.width / 2, titleBox.y + titleBox.height / 2);
+    await mpage.waitForTimeout(200);
+    check('roadmap: coarse title-field tap opens the menu, not the title editor',
+      await mpage.locator('.eip-pop').count() === 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
+
   const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
   /* tap the top-left padding sliver, not settledTap's centre: the card paints
      its title over the hit rect and the centre lands on that text on Linux (same
@@ -624,6 +643,38 @@ check('no console/page errors', errors.length === 0);
   await mpage.getByRole('button', {name: 'Assumption map'}).click();
   await mpage.waitForTimeout(600);
 
+  /* coarse menu-first redirect: tap the CENTRE of the label text itself — a
+     [data-edit="label"] field that shares the card's own srcLine — and
+     confirm it redirects to the card menu, not the label editor. */
+  {
+    const labelField = mpage.locator('#preview svg [data-edit="label"][data-line="3"]').first();
+    await labelField.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const labelBox = await labelField.boundingBox();
+    await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
+    await mpage.waitForTimeout(200);
+    check('map: coarse label-field tap opens the menu, not the label editor',
+      await mpage.locator('.eip-pop').count() === 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
+
+  /* the hit-rect gate: a readout-panel field tap shares its card's
+     data-line but sits far outside the menu's hit-rect (a different plane
+     entirely), so it must keep its direct value edit rather than redirect. */
+  {
+    const roField = mpage.locator('#preview svg text[data-edit="field"]').first();
+    await roField.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const roBox = await roField.boundingBox();
+    await mpage.mouse.click(roBox.x + roBox.width / 2, roBox.y + roBox.height / 2);
+    await mpage.waitForTimeout(200);
+    check('map: coarse readout field tap opens the value editor, not the menu',
+      await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
+
   /* same off-glyph tap concern as the desktop block above: map's data-hit
      rect is snug around the capsule, so settledTap's centre tap would land
      on the label glyph — scroll-settle, then tap the left padding strip. */
@@ -650,6 +701,35 @@ check('no console/page errors', errors.length === 0);
   check('map narrow: commit lands after the away-tap proof',
     (await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Habit logging cools off'));
   check('map narrow: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
+/* ---- why narrow (mobile-emulated): coarse menu-first redirect ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  await mpage.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Habit retention'}).click();
+  await mpage.waitForTimeout(600);
+
+  /* "Smart reminders" (srcLine 5) is a solution card: tap its LABEL text
+     (a [data-edit="label"] field that shares the card's own srcLine — unlike
+     its assumption rows, which are authored on THEIR OWN line and correctly
+     stay direct, same as map's readout panel). The label sits fully inside
+     the card rect's hit area, so the redirect must find the same-line
+     data-menu rect and open the card menu instead of the label editor. */
+  const labelField = mpage.locator('#preview svg [data-edit="label"][data-line="5"]').first();
+  await labelField.scrollIntoViewIfNeeded();
+  await mpage.waitForTimeout(300);
+  const labelBox = await labelField.boundingBox();
+  await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
+  await mpage.waitForTimeout(200);
+  check('why: coarse label-field tap opens the menu, not the label editor',
+    await mpage.locator('.eip-pop').count() === 1);
+  await mpage.keyboard.press('Escape');
+  await mpage.waitForTimeout(200);
+  check('why narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
 

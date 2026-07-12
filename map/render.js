@@ -206,7 +206,7 @@ export function render(model, resolved, ro, ctx, diff = null){
   for(const c of cards){
     const flagged = flaggedLines.has(c.it.srcLine);
     body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '"' +
-      btnAttrs('More options: ' + c.it.label) + '>');
+      btnAttrs('More options: ' + c.it.label) + (edit ? ' data-menu=""' : '') + '>');
     /* invisible hit rect, full capsule width, centred on the capsule centre
        (not the dot — after nudge the capsule can sit well away from the
        authored dot). nudge() only separates the visible 20px capsules, never
