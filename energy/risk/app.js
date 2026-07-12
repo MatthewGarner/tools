@@ -1,7 +1,7 @@
 /* State, refresh loop, focus, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
 import {simulate} from './engine.js';
-import {render, toMarkdown} from './render.js';
+import {render, toMarkdown, riskVerdict} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -62,10 +62,12 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'Add a merchant line — like “merchant: 60..180” — to have something to compare against.'
       : 'Start typing — or load an example.') + '</p>';
+    $('verdict').textContent = '';
   } else {
     if(focusIdx !== null && focusIdx >= sim.rows.length) focusIdx = null;
     const svg = activeRender(false, true);
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    $('verdict').textContent = riskVerdict(sim, model, focusIdx);
   }
   renderWarnings();
   setActionsEnabled(!!sim);
@@ -98,6 +100,17 @@ const ws = initWorkspace({
 $('preview').addEventListener('click', e => {
   const row = e.target.closest('[data-focus]');
   if(!row) return;
+  const i = +row.dataset.focus;
+  focusIdx = (focusIdx === i) ? null : i;
+  lastSvg = '';
+  doRefresh();
+});
+/* keyboard equivalent: every [data-focus] row carries tabindex="0" (render.js) */
+$('preview').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const row = e.target.closest('[data-focus]');
+  if(!row) return;
+  e.preventDefault();
   const i = +row.dataset.focus;
   focusIdx = (focusIdx === i) ? null : i;
   lastSvg = '';

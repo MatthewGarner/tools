@@ -19,7 +19,6 @@ test('renderTrace: well-formed root with double-quoted integer width/height', ()
 
 test('renderTrace: no XML hazards (bare booleans / double-quoted font in double-quoted attr)', () => {
   const svg = renderTrace(r, {trip:1.8, eSync:90}, ctx);
-  assert.doesNotMatch(svg, /<[a-z]+[^>]*\s[a-zA-Z-]+(?=\s|>)(?![a-zA-Z-]*=)/, 'no bare boolean attrs');
   // Per-tag structural check (same technique as dev/svg-wellformed.test.mjs): every
   // opening/self-closing tag must decompose into name + well-formed attr="val"/attr='val'
   // pairs with no stray quote inside a value. NOTE: the brief's original assertion here —
@@ -27,6 +26,12 @@ test('renderTrace: no XML hazards (bare booleans / double-quoted font in double-
   // flags ANY tag with two or more double-quoted attributes (e.g. even a bare
   // `<text x="10" y="20">` from the shared txt() helper matches it), so no SVG built with
   // txt() could ever pass it. Replaced with a check that verifies the real invariant.
+  // A prior whole-string "no bare boolean attrs" regex lived here too, but it wasn't
+  // quote-aware: once the root <svg role="img" aria-label="…"> carries real multi-word
+  // prose (added for a11y), the regex's backtracking finds ordinary sentence words with
+  // no following "=" and false-positives as a "bare attribute". The per-tag TAG check
+  // below already catches a genuine bare attribute (it can't decompose into name=value
+  // pairs and fails to match), so it alone is the robust version of this invariant.
   const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
   for(const tag of svg.match(/<[^!/][^>]*>/g) || []){
     assert.match(tag, TAG, 'malformed tag: ' + tag.slice(0, 150));

@@ -1,6 +1,6 @@
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
-import {sessionStats, markdownSummary} from './engine.js';
+import {sessionStats, markdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine} from './edit-targets.js';
 import {renderOverlay} from './render-overlay.js';
@@ -125,7 +125,7 @@ async function initCompose(hash){
     const text = editor.getText();
     model = parse(text);
     const pv = $('preview');
-    let out;
+    let out, head = '';
     if(!model.questions.length){
       out = '<p class="placeholder">' + (text.trim()
         ? 'No questions yet — write one like “Weeks to migrate billing :: range weeks”.'
@@ -133,9 +133,12 @@ async function initCompose(hash){
     } else if(view === 'form'){
       out = '<div class="formpreview">' + renderForm(model, {editable: true}) + '</div>';
     } else {
-      out = renderOverlay(model, sessionStats(model, sampleResponses(model)), ctx());
+      const stats = sessionStats(model, sampleResponses(model));
+      out = renderOverlay(model, stats, ctx());
+      head = verdict(stats);
     }
     if(out !== lastOut){ pv.innerHTML = out; lastOut = out; }
+    $('revealhead').textContent = head;
     renderWarnings();
     $('startbtn').disabled = !model.questions.length;
     if(shouldPersist()){ try{ localStorage.setItem('gauge-src', text); }catch(e){} }
@@ -149,6 +152,8 @@ async function initCompose(hash){
     view = v;
     $('viewform').classList.toggle('on', v === 'form');
     $('viewreveal').classList.toggle('on', v === 'reveal');
+    $('viewform').setAttribute('aria-selected', String(v === 'form'));
+    $('viewreveal').setAttribute('aria-selected', String(v === 'reveal'));
     lastOut = '';
     refresh();
   }

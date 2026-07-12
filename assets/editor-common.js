@@ -66,11 +66,17 @@ const cmTheme = EditorView.theme({
 
 export function createEditorCore({parent, doc, langExtension, onChange, extraHighlights = [],
   indentBar = false}){
+  /* Every tool sets aria-label on the #cmhost wrapper, but that name never reaches
+     CM6's own contenteditable textbox (a wrapper's label doesn't cascade to a nested
+     role=textbox). Lift it onto the content element via CM's native facet so a SR
+     user hears "<Tool> source editor" instead of an unlabelled text box. */
+  const ariaLabel = parent.getAttribute('aria-label') || undefined;
   const view = new EditorView({
     parent,
     state: EditorState.create({
       doc,
       extensions: [
+        ...(ariaLabel ? [EditorView.contentAttributes.of({'aria-label': ariaLabel})] : []),
         langExtension,
         syntaxHighlighting(HighlightStyle.define([...BASE_HIGHLIGHTS, ...extraHighlights])),
         history(),

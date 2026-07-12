@@ -214,6 +214,7 @@
     <p class="tagline">Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a range; the answer is a distribution, not a number.</p>
   </header>
 
+  <main>
   <section class="card">
     <div class="fieldrow">
       <label class="field" for="formula" id="cardlabel">Formula</label>
@@ -273,13 +274,13 @@
     <p class="placeholder" id="ph">Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you'd be surprised, but not shocked, to see a value outside them.</p>
     <div id="results">
       <div id="cmp" class="cmp" style="display:none"></div>
-      <div class="tiles">
+      <div class="tiles" aria-live="polite" aria-atomic="true">
         <div class="tile"><div class="tl">P10 · low</div><div class="tv" id="p10"></div></div>
         <div class="tile mid"><div class="tl">P50 · best guess</div><div class="tv"><span class="smear" id="p50"></span></div></div>
         <div class="tile"><div class="tl">P90 · high</div><div class="tv" id="p90"></div></div>
       </div>
-      <p class="say">Say it out loud: <span class="q" id="say"></span></p>
-      <p class="spread" id="spread"></p>
+      <p class="say" aria-live="polite" aria-atomic="true">Say it out loud: <span class="q" id="say"></span></p>
+      <p class="spread" id="spread" aria-live="polite" aria-atomic="true"></p>
       <div class="viewseg" role="tablist" aria-label="Result view">
         <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>
         <button id="viewtree" role="tab" aria-selected="false">Driver tree</button>
@@ -321,6 +322,7 @@
     <p>Good sources: Douglas Hubbard, <a href="https://www.howtomeasureanything.com/" target="_blank" rel="noopener">How to Measure Anything</a> — calibrated 90% intervals and the value of information; Sanjoy Mahajan, <a href="https://mitpress.mit.edu/9780262526548/the-art-of-insight-in-science-and-engineering/" target="_blank" rel="noopener">The Art of Insight</a> (open access, MIT Press) — the craft of street-fighting estimation; and <a href="https://www.getguesstimate.com/" target="_blank" rel="noopener">Guesstimate</a>, the spreadsheet-shaped pioneer of Monte Carlo estimation for everyone.</p>
     </div>
   </section>
+  </main>
 
   <footer>
     No accounts, no tracking, no dependencies. Numbers accept k / M / B / T suffixes. The URL carries your model — bookmark or share it.<br>

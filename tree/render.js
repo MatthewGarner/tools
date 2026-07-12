@@ -20,6 +20,31 @@ export const TOKENS = {
 
 
 
+/* shared with treeVerdict below: the muted evidence line under the recommended option */
+function evidenceFor(rec, st, results, money){
+  let evidence = 'EV ' + money(st.mean) + ' · P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
+  const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
+  if(h){
+    const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
+    const other = h.a === rec.label ? h.b : h.a;
+    evidence += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
+  }
+  return evidence;
+}
+
+/* plain-text mirror of the SVG's verdict block — the HTML readout app.js
+   shows next to the diagram (sub-task: readable-result fix). Pure; same
+   inputs render() itself uses for the verdict band. */
+export function treeVerdict(model, results){
+  if(!model.root || model.root.kind !== 'decision') return '';
+  const rec = results.policy.get(model.root);
+  const st = results.stats.get(model.root);
+  if(!rec || !st) return '';
+  const cur = model.currency || '£';
+  const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
+  return 'Recommended: ' + rec.label + ' — ' + evidenceFor(rec, st, results, money);
+}
+
 export function render(model, results, ctx){
   const {measure, slide = false, dark = false, edit = false} = ctx;
   const paletteHex = model.accent ||
@@ -71,7 +96,7 @@ export function render(model, results, ctx){
     new Date().toISOString().slice(0, 10) + '</text>');
 
   /* capsule pill, shared visual language with the roadmap tool */
-  const capsule = (px, py, label, col) => {
+  const capsule = (px, py, label, col, inkCol = col) => {   // inkCol: contrast-boosted TEXT colour; fill still uses col
     const font = '600 ' + T.pillSize*S + 'px ' + F.body;
     const tw = measure(label, font) + label.length * T.pillTracking;
     const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
@@ -80,7 +105,7 @@ export function render(model, results, ctx){
         '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 4.5*S) + '" font-size="' + T.pillSize*S +
-        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + col + '">' + esc(label) + '</text>',
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
       w: pw,
     };
   };
@@ -90,17 +115,11 @@ export function render(model, results, ctx){
     const rec = results.policy.get(model.root);
     const st = results.stats.get(model.root);
     const vy = headerH + 14*S;
-    const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent);
+    const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent, C.accentInk);
     s.push(p.svg);
     s.push('<text x="' + (T.pad*S + p.w + 10*S) + '" y="' + vy + '" font-size="' + 15*S +
       '" font-weight="700" fill="' + C.ink + '">' + esc(rec.label) + '</text>');
-    let evidence = 'EV ' + money(st.mean) + ' · P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
-    const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
-    if(h){
-      const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
-      const other = h.a === rec.label ? h.b : h.a;
-      evidence += ' · beats ' + other + ' in ' + Math.round(share * 100) + '% of simulations';
-    }
+    const evidence = evidenceFor(rec, st, results, money);
     s.push('<text x="' + T.pad*S + '" y="' + (vy + 19*S) + '" font-size="' + 11.5*S +
       '" fill="' + C.muted + '">' + esc(evidence) + '</text>');
   }
@@ -116,15 +135,18 @@ export function render(model, results, ctx){
     /* edge labels sit above the child end; components are edit-in-place targets */
     s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 17*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
       '" font-weight="600" fill="' + C.ink + '"><tspan data-edit="label" data-line="' + b.srcLine +
-      '" data-raw="' + esc(b.label) + '">' + esc(b.label) + '</tspan></text>');
+      '" data-raw="' + esc(b.label) + '" tabindex="0" role="button" aria-label="Edit label: ' + esc(b.label) +
+      '">' + esc(b.label) + '</tspan></text>');
     const parts = [];
     if(b.p !== null && b.p !== undefined && a.kind === 'chance'){
       parts.push('<tspan data-edit="prob" data-line="' + b.srcLine + '" data-raw="' +
-        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '">' + esc(pStr(b.p)) + '</tspan>');
+        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '" tabindex="0" role="button" aria-label="Edit probability: ' +
+        esc(b.label) + '">' + esc(pStr(b.p)) + '</tspan>');
     }
     if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')){
       parts.push('<tspan data-edit="value" data-line="' + b.srcLine + '" data-raw="' +
-        esc(b.valueRaw || '') + '">' + esc(rangeStr(b.value)) + '</tspan>');
+        esc(b.valueRaw || '') + '" tabindex="0" role="button" aria-label="Edit payoff: ' +
+        esc(b.label) + '">' + esc(rangeStr(b.value)) + '</tspan>');
     }
     if(parts.length){
       s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 6*S) + '" text-anchor="end" font-size="' + T.subSize*S +
@@ -162,11 +184,25 @@ export function render(model, results, ctx){
           esc(money(st.p10) + ' … ' + money(st.p90)) + '</text>');
       }
     }
-    /* edit-gated: the marker becomes a popover target (add child / remove branch) */
+    /* edit-gated: the marker becomes a card-menu target (rename / edit value
+       or probability / add child / remove branch) — supersedes the old
+       node-<kind> add/remove-only popover. Invisible >=44px hit rect
+       (fill=C.bg, opacity 0), painted last, so a phone-width tap lands
+       cleanly; same data-line as the label/prob/value tspans drawEdge emits
+       for this node (b.srcLine) — the data-line router in attachEditInPlace
+       reaches them with no DOM regroup. The box is biased DOWN from the
+       marker (top at y-2*S, not y-22*S): drawEdge places this node's own
+       label/value/prob text just above-left of the marker (down to ~y-4*S),
+       and a symmetric box swallowed those taps for short strings (a bare "0",
+       a 3-char label) — the direct field editor never opened. Biasing below
+       the marker clears the whole text band while keeping the tap on/under
+       the marker; every marker shifts by the same vector, so the WIDENED
+       hit-vs-hit non-overlap (row/column spacing >=44*S) is unchanged. */
     if(edit){
-      s.push('<circle data-edit="node-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
-        '" data-raw="" cx="' + x + '" cy="' + y + '" r="' + 11*S + '" fill="transparent" role="button"' +
-        ' aria-label="' + esc(node.label || 'node') + ' — add or remove"/>');
+      s.push('<g data-edit="cardmenu-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
+        '" data-raw="" tabindex="0" role="button" aria-label="' + esc(node.label || 'node') + ' — options">' +
+        '<rect data-hit="" x="' + (x - 22*S) + '" y="' + (y - 2*S) + '" width="' + 44*S + '" height="' + 44*S +
+        '" fill="' + C.bg + '" fill-opacity="0"/></g>');
     }
   }
   function walk(node, onPolicy){

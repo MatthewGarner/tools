@@ -4,6 +4,8 @@
    (exact source component, pre-filled). Commit calls onCommit(kind, line, raw, value, el)
    — el is the clicked element, for apps whose targets carry extra data- payload;
    the app owns the line rewrite + editor dispatch (undoable). */
+import {trapPopoverFocus} from './popover-focus.js';
+export {trapPopoverFocus};
 
 /* Floating elements (popover, input) are positioned from the target's rect
    before their own size is known; clamp after append so they never render
@@ -18,15 +20,51 @@ function clampToViewport(el, rect){
   el.style.top = y + 'px';
 }
 
+let errUid = 0;
+
+/* The house card-menu shape, shared by the DSL card tools (why, tree): Rename
+   first, one type-specific field row (`field` — a {label, opens} spec), an
+   ＋ Add action, and a danger Remove last. Building all six per-node-kind menus
+   from this keeps the row order and the ＋ (U+FF0B) glyph from drifting between
+   tools. `add` is the noun after "＋ Add "; `remove` defaults to "Remove branch"
+   (leaf/terminal nodes pass "Remove"). The onCommit guards match the resulting
+   '✖'-prefixed sentinels: startsWith('✖＋ Add') and the exact Remove strings. */
+export function cardMenu({field, add, remove = 'Remove branch'}){
+  return {menu: [
+    {label: 'Rename…', opens: 'label'},
+    field,
+    {label: '＋ Add ' + add, action: true},
+    {label: remove, action: true, danger: true},
+  ]};
+}
+
 export function attachEditInPlace(preview, {kinds, onCommit}){
-  let active = null;   // {input, el, away}
+  let active = null;   // {input, el, away, errEl}
 
   function close(){
     if(!active) return;
-    const {input, away} = active;
+    const {input, away, el, errEl} = active;
     if(away) document.removeEventListener('pointerdown', away, true);
     active = null;          // null first: input.remove() fires blur synchronously
     input.remove();
+    if(errEl) errEl.remove();
+    /* restore focus to the trigger — it's tabindex="0" now (keyboard-fix),
+       so a keyboard/AT user lands back where they started instead of at
+       document.body. Deferred + guarded: close() can run from the capturing
+       "away" pointerdown listener (clicking a DIFFERENT control to dismiss),
+       from an input's blur (focus already moving elsewhere), or right before
+       a commit that itself grabs focus on purpose (e.g. tree/wardley focus
+       the editor to pre-select a new item's placeholder) — calling .focus()
+       synchronously, or unconditionally even deferred, steals that gesture
+       (confirmed empirically both ways: a chip's click handler never ran,
+       and separately the editor lost its placeholder selection). A macrotask
+       runs after the browser finishes the current gesture, and by then
+       activeElement is <body> ONLY if nothing else claimed focus in the
+       meantime — that's the one case a genuine dismiss (Escape, or a blur
+       with nowhere to go) actually needs restoring. */
+    if(el && typeof el.focus === 'function') setTimeout(() => {
+      if(!active && document.activeElement === document.body) el.focus();
+    }, 0);
   }
   function open(el){
     close();
@@ -71,6 +109,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       const away = e => { if(!pop.contains(e.target)) close(); };
       active = {input: pop, el, away};
       document.addEventListener('pointerdown', away, true);
+      trapPopoverFocus(pop, close);
       return;
     }
     /* choice kinds open a popover menu (options, actions, or both) */
@@ -116,6 +155,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       const away = e => { if(!pop.contains(e.target)) close(); };
       active = {input: pop, el, away};
       document.addEventListener('pointerdown', away, true);
+      trapPopoverFocus(pop, close);
       return;
     }
     const input = document.createElement('input');
@@ -126,10 +166,19 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.style.top = (rect.top - 6) + 'px';
     input.style.minWidth = Math.max(rect.width + 34, 96) + 'px';
     document.body.appendChild(input);
+    /* always-present (empty until invalid), sr-only error text — a screen
+       reader hears it via aria-live the moment validate() fails; sighted
+       users keep the existing shake + red border as the primary signal. */
+    const errEl = document.createElement('div');
+    errEl.className = 'eip-err sr-only';
+    errEl.id = 'eip-err-' + (++errUid);
+    errEl.setAttribute('aria-live', 'polite');
+    document.body.appendChild(errEl);
+    input.setAttribute('aria-describedby', errEl.id);
     clampToViewport(input, rect);
     input.focus();
     input.select();
-    active = {input, el};
+    active = {input, el, errEl};
 
     const commit = () => {
       if(!active) return;
@@ -139,6 +188,8 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         input.classList.remove('invalid');
         void input.offsetWidth;          // restart the shake
         input.classList.add('invalid');
+        input.setAttribute('aria-invalid', 'true');
+        errEl.textContent = 'That value isn’t valid for ' + kind + ' — try again.';
         input.focus();
         return;
       }
@@ -151,10 +202,25 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       else if(e.key === 'Escape'){ e.preventDefault(); close(); }
       e.stopPropagation();
     });
+    /* a revision in progress silences the stale error rather than leaving a
+       screen reader stuck on an announcement that may no longer apply */
+    input.addEventListener('input', () => {
+      if(!input.classList.contains('invalid')) return;
+      input.classList.remove('invalid');
+      input.removeAttribute('aria-invalid');
+      errEl.textContent = '';
+    });
     input.addEventListener('blur', commit);
   }
 
   preview.addEventListener('click', e => {
+    const el = e.target.closest && e.target.closest('[data-edit]');
+    if(el && preview.contains(el)){ e.preventDefault(); open(el); }
+  });
+  /* keyboard equivalent: every [data-edit] target carries tabindex="0" at
+     render time — Enter/Space fires the same open() the click path calls. */
+  preview.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
     const el = e.target.closest && e.target.closest('[data-edit]');
     if(el && preview.contains(el)){ e.preventDefault(); open(el); }
   });

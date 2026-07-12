@@ -38,6 +38,8 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .statusline{color:var(--muted);font-size:13.5px;margin:14px 0 6px}
 .statusline.ok{color:var(--st-done);font-size:15px;font-weight:600}
 .statusline.err{color:var(--err)}
+.headline{color:var(--accent-ink);font-size:14.5px;font-weight:600;margin:10px 0 0}
+.headline:empty{display:none}
 .viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:999px;
   overflow:hidden;margin-bottom:12px}
 .viewtoggle button{border:none;background:none;color:var(--muted);cursor:pointer;

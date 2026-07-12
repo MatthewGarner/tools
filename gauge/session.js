@@ -1,5 +1,5 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
-import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel} from './engine.js';
+import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdict, delphiVerdict} from './engine.js';
 import {fermiHandoff} from './handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
@@ -8,11 +8,20 @@ import {wireExports} from '../assets/exports.js';
 import {onThemeChange} from '../assets/app-common.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
-const showOverlay = (el, model, responses, ctx) =>
-  { el.innerHTML = renderOverlay(model, sessionStats(model, responses), ctx()); };
+/* headEl carries the quotable headline as real HTML text, mirrored from the
+   same string the SVG draws — a screen reader gets it via aria-live, sighted
+   users get it too (never SVG-only). */
+const showOverlay = (el, headEl, model, responses, ctx) => {
+  const stats = sessionStats(model, responses);
+  el.innerHTML = renderOverlay(model, stats, ctx());
+  if(headEl) headEl.textContent = verdict(stats);
+};
 const delphiSvg = (model, r1, r2, ctx) =>
   renderOverlay(model, sessionStats(model, mergeFinal(r1, r2)), ctx(),
     {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1)});
+const setDelphiHead = (headEl, model, r1, r2) => {
+  if(headEl) headEl.textContent = delphiVerdict(delphiStats(model, r1, r2));
+};
 const delphiMd = (model, r1, r2) =>
   markdownSummary(model, sessionStats(model, mergeFinal(r1, r2)), delphiStats(model, r1, r2));
 const slugOf = model => ((model.title || 'gauge')).toLowerCase()
@@ -53,7 +62,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('creveal').textContent = 'Revealed — responses locked';
     $('cstate').textContent = '';
     $('cquestions').hidden = true;
-    showOverlay($('coverlay'), model, responses, ctx);
+    showOverlay($('coverlay'), $('chead'), model, responses, ctx);
     $('cexports').hidden = false;
     $('cround2wrap').hidden = false;
     refreshHandoff();
@@ -67,6 +76,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('cstate').textContent = '';
     $('cquestions').hidden = true;
     $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
+    setDelphiHead($('chead'), model, responses, responses2);
     refreshHandoff();
   }
 
@@ -87,7 +97,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
         /* console reloaded mid-round-2: restore state from the relay */
         round = 2;
         responses = r.data.responses || responses;
-        if(responses) showOverlay($('coverlay'), model, responses, ctx);
+        if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx);
         $('cexports').hidden = false;
         $('cround2wrap').hidden = true;
         $('cquestions').hidden = false;
@@ -213,7 +223,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
 
   onThemeChange(() => {
     if(responses2) $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
-    else if(responses) showOverlay($('coverlay'), model, responses, ctx);
+    else if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx);
   });
 }
 
@@ -298,6 +308,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       lastResponses = null;
       say('');
       $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
+      setDelphiHead($('phead'), model, lastDelphi.r1, lastDelphi.r2);
       return;
     }
     lastResponses = r.data.responses;
@@ -305,11 +316,14 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     say(r.data.round === 2
       ? 'Round 2 is open — the round-1 spread is below. Revise your answers above and press Submit again (or keep them: they carry forward).'
       : '');
-    showOverlay($('presult'), model, lastResponses, ctx);
+    showOverlay($('presult'), $('phead'), model, lastResponses, ctx);
   });
 
   onThemeChange(() => {
-    if(lastDelphi) $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
-    else if(lastResponses) showOverlay($('presult'), model, lastResponses, ctx);
+    if(lastDelphi){
+      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
+      setDelphiHead($('phead'), model, lastDelphi.r1, lastDelphi.r2);
+    }
+    else if(lastResponses) showOverlay($('presult'), $('phead'), model, lastResponses, ctx);
   });
 }

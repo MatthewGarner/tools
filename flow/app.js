@@ -1,7 +1,7 @@
 /* DOM shell: sliders → sim → readout + canvas strip. Engine and readout are pure. */
 import {simulate, wipSweep, kneeWip, leverTriage, WEEK} from './engine.js';
 import {batchEconomics} from './economics.js';
-import {renderReadout, renderBatch, renderTriage, markdownSummary} from './render.js';
+import {renderReadout, renderBatch, renderTriage, readoutVerdict, markdownSummary} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -72,6 +72,7 @@ function doRefresh(){
   const ctx = {colors: themeColors(), measure};
   const svg = renderReadout(result, lastSweep, lastKnee, p, ctx);
   if(svg !== lastSvg){ $('verdictwrap').innerHTML = svg; lastSvg = svg; }
+  $('verdict').textContent = readoutVerdict(result);
 
   lastEcon = batchEconomics(econParams());
   const batchSvg = renderBatch(lastEcon, econParams(), ctx);

@@ -25,7 +25,7 @@ export function renderForm(model, opts = {}){
       '<input type="number" inputmode="decimal" data-part="high" aria-label="High end for: ' + esc(q.text) + '">' +
       unit + '</div>' +
       '<p class="hint">Your 90% range — you’d be surprised if the truth fell outside it.</p>' +
-      '<p class="qerr" hidden></p></div>';
+      '<p class="qerr" role="alert" hidden></p></div>';
   });
   const name = model.names
     ? '<div class="q namefield"><label>Your name ' +

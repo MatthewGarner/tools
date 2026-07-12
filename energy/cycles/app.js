@@ -1,6 +1,6 @@
 /* State, refresh loop, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
-import {simulate} from './engine.js';
+import {simulate, verdict} from './engine.js';
 import {render, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
@@ -67,6 +67,21 @@ function activeRender(slide, edit = false, forExport = false){
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
 }
+/* HTML mirror of the three verdict bands the SVG draws (threshold/second/
+   augment) — one <p> per band that has one, so screen readers (via the
+   container's aria-live) and sighted users both get the same quotable text. */
+function renderVerdict(){
+  const el = $('verdict');
+  el.textContent = '';
+  if(!out) return;
+  for(const band of ['threshold', 'second', 'augment']){
+    const v = verdict(band, out);
+    if(!v) continue;
+    const p = document.createElement('p');
+    p.textContent = v;
+    el.appendChild(p);
+  }
+}
 function doRefresh(){
   const text = editor.getText();
   model = parse(text);
@@ -81,6 +96,7 @@ function doRefresh(){
     const svg = activeRender(false, true);
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
   }
+  renderVerdict();
   renderWarnings();
   setActionsEnabled(!!out);
   try{ if(shouldPersist()) localStorage.setItem('cycles-src', text); }catch(e){}

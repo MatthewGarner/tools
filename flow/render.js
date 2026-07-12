@@ -11,6 +11,19 @@ const day = n => {
 };
 const f1 = n => (Math.round(n * 10) / 10).toString();
 
+/* plain-text mirror of the SVG readout's headline — the HTML text app.js
+   shows next to the diagram. Pure; same inputs renderReadout itself uses. */
+export function readoutVerdict(result){
+  const lead = result.lead;
+  const bits = ['A typical item takes ' + day(lead.p50) + ' — ' + day(result.workDays) +
+    ' working, ' + day(Math.max(0, lead.p50 - result.workDays)) + ' waiting.'];
+  if(result.backlogSlopePerWeek > 0.5){
+    bits.push('Backlog growing ~' + f1(result.backlogSlopePerWeek) +
+      '/week — demand exceeds capacity; no WIP limit fixes that.');
+  }
+  return bits.join('  ');
+}
+
 export function renderReadout(result, sweep, knee, params, ctx){
   const C = ctx.colors;
   const s = [];
@@ -94,8 +107,11 @@ export function renderReadout(result, sweep, knee, params, ctx){
   y += chH + 16;
 
   const H = y + 4;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
-    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">' +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"' +
+    ' role="img" aria-label="' + esc(readoutVerdict(result)) + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
 }
 
@@ -113,19 +129,19 @@ export function renderBatch(econ, params, ctx){
   let y = PAD + 6;
   s.push(txt(PAD, y + 14, 'THE ECONOMICS OF YOUR BATCH', 10, C.muted, {weight: 600, tracking: 1}));
   y += 38;
+  const batchHead = 'Economic batch ≈ ' + econ.optimum + (econ.optimum === 1 ? ' item' : ' items') +
+    ' — about ' + wk(econ.optimumWeeks * 5) + ' of demand per release.';
   s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' +
     'Economic batch ≈ <tspan font-weight="700">' + econ.optimum +
     (econ.optimum === 1 ? ' item' : ' items') + '</tspan> — about ' +
     esc(wk(econ.optimumWeeks * 5)) + ' of demand per release.' + '</text>');
   y += 24;
   const meaningfulPenalty = econ.penaltyPerItem >= 0.5;
-  if(meaningfulPenalty){
-    s.push(txt(PAD, y, 'Your batch of ' + econ.currentBatch + ' costs ' + gbp(econ.penaltyPerItem) +
-      ' more per item — ≈ ' + gbp(econ.penaltyPerWeek) + '/week left on the table.', 12.5, C.err, {weight: 600}));
-  } else {
-    s.push(txt(PAD, y, 'Your batch of ' + econ.currentBatch +
-      ' is at the economic batch already — nothing left on the table.', 12.5, C.muted));
-  }
+  const batchSub = meaningfulPenalty
+    ? 'Your batch of ' + econ.currentBatch + ' costs ' + gbp(econ.penaltyPerItem) +
+      ' more per item — ≈ ' + gbp(econ.penaltyPerWeek) + '/week left on the table.'
+    : 'Your batch of ' + econ.currentBatch + ' is at the economic batch already — nothing left on the table.';
+  s.push(txt(PAD, y, batchSub, 12.5, meaningfulPenalty ? C.err : C.muted, meaningfulPenalty ? {weight: 600} : {}));
   y += 26;
 
   const chW = W - PAD * 2, chH = 170, top = y;
@@ -159,8 +175,11 @@ export function renderBatch(econ, params, ctx){
   y = top + chH + 8;
 
   const H = y;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
-    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">' +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"' +
+    ' role="img" aria-label="' + esc(batchHead + ' ' + batchSub) + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
 }
 
@@ -173,28 +192,35 @@ export function renderTriage(triage, params, initialBacklog, ctx){
   const top0 = triage.levers[0];
   s.push(txt(PAD, y + 14, 'QUEUE TRIAGE — WHICH LEVER FIRST', 10, C.muted, {weight: 600, tracking: 1}));
   y += 38;
-  let head;
+  let head, headPlain;
   if(drainMode){
     if(top0.drainDays == null){
       head = 'No single lever clears this pile — cut intake <tspan font-weight="700">and</tspan> add capacity.';
+      headPlain = 'No single lever clears this pile — cut intake and add capacity.';
     } else if(triage.base.drainDays == null){
       head = 'Today the pile <tspan font-weight="700">never clears</tspan>. ' +
         esc(top0.label) + ' clears it in <tspan font-weight="700">' + esc(wk(top0.drainDays)) + '</tspan>.';
+      headPlain = 'Today the pile never clears. ' + top0.label + ' clears it in ' + wk(top0.drainDays) + '.';
     } else {
       head = 'Fastest way out: <tspan font-weight="700">' + esc(top0.label) + '</tspan> — the pile clears in ' +
         '<tspan font-weight="700">' + esc(wk(top0.drainDays)) + '</tspan> instead of ' +
         esc(wk(triage.base.drainDays)) + '.';
+      headPlain = 'Fastest way out: ' + top0.label + ' — the pile clears in ' + wk(top0.drainDays) +
+        ' instead of ' + wk(triage.base.drainDays) + '.';
     }
   } else {
     head = 'Best lever for lead time: <tspan font-weight="700">' + esc(top0.label) + '</tspan>' +
       ' — P85 goes from ' + esc(day(triage.base.leadP85)) + ' to <tspan font-weight="700">' +
       esc(day(top0.leadP85)) + '</tspan>.';
+    headPlain = 'Best lever for lead time: ' + top0.label + ' — P85 goes from ' + day(triage.base.leadP85) +
+      ' to ' + day(top0.leadP85) + '.';
   }
   s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' + head + '</text>');
   y += 22;
-  s.push(txt(PAD, y, drainMode
+  const sub = drainMode
     ? 'Ranked by time to clear the backlog of ' + initialBacklog + ' — steady-state P85 lead breaks ties.'
-    : 'Queue is healthy — ranked by steady-state P85 lead time.', 12.5, C.muted));
+    : 'Queue is healthy — ranked by steady-state P85 lead time.';
+  s.push(txt(PAD, y, sub, 12.5, C.muted));
   y += 22;
 
   const labW = 250, barX = PAD + labW, barW = W - PAD - barX - 130, rowH = 34;
@@ -230,8 +256,11 @@ export function renderTriage(triage, params, initialBacklog, ctx){
   y += rowsH + 10;
 
   const H = y;
+  /* pure display — no data-edit targets here, so a role="img" summary is
+     safe (it never hides interactive descendants) */
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
-    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">' +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"' +
+    ' role="img" aria-label="' + esc(headPlain + ' ' + sub) + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + C.card + '"/>' + s.join('') + '</svg>';
 }
 

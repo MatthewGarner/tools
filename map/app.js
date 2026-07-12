@@ -126,10 +126,12 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No map yet — add an item, or a preset: line.'
       : 'Start typing — or load an example.') + '</p>';
+    $('verdict').textContent = '';
   } else {
     ro = readout(model, resolved);
     const svg = activeRender(false, true);
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    $('verdict').textContent = ro.verdict;
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);

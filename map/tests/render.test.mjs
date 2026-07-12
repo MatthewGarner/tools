@@ -119,7 +119,7 @@ test('flagged items get the err stroke on the capsule', () => {
 
 test('placed cards carry data-edit="cardmenu" with a >=44px data-hit rect as the first child; tray items do not', () => {
   const svg = run('preset: assumptions\nPlaced one @ 20,80\nUnplaced one');
-  const g = svg.match(/<g data-edit="cardmenu" data-line="1">(<rect data-hit=""[^>]*\/>)/);
+  const g = svg.match(/<g data-edit="cardmenu" data-line="1"[^>]*>(<rect data-hit=""[^>]*\/>)/);
   assert.ok(g, 'expected cardmenu group with a data-hit rect as its first child');
   const h = +g[1].match(/height="([\d.]+)"/)[1];
   assert.ok(h >= 44, 'hit rect must be at least 44px tall, got ' + h);
@@ -145,7 +145,7 @@ test('cardmenu hit rect is centred on the capsule, not the authored dot', () => 
 test('plane-level widens: axis, zonename and additem targets get a >=44px invisible box, no data-hit', () => {
   const svg = run('zones: grid 2x2\nzone 1,2: Quick wins\nx: Effort\ny: Value\nThing @ 20,80', {edit: true});
   for(const re of [
-    /<g data-edit="axis" data-line="-?\d+" data-raw="[^"]*" data-axis="x">[\s\S]*?<rect x="([-\d.]+)" y="([-\d.]+)" width="(\d+)" height="(\d+)" fill="[^"]*" fill-opacity="0"\/>/,
+    /<g data-edit="axis" data-line="-?\d+" data-raw="[^"]*"[^>]*data-axis="x">[\s\S]*?<rect x="([-\d.]+)" y="([-\d.]+)" width="(\d+)" height="(\d+)" fill="[^"]*" fill-opacity="0"\/>/,
     /<g data-edit="zonename"[^>]*>[\s\S]*?<rect x="([-\d.]+)" y="([-\d.]+)" width="(\d+)" height="(\d+)" fill="[^"]*" fill-opacity="0"\/>/,
     /<g data-edit="additem"[^>]*>[\s\S]*?<rect x="([-\d.]+)" y="([-\d.]+)" width="(\d+)" height="(\d+)" fill="[^"]*" fill-opacity="0"\/>/,
   ]){
@@ -159,7 +159,7 @@ test('plane-level widens: axis, zonename and additem targets get a >=44px invisi
 
 test('axis y-label hit box is clamped so it never runs past x=0', () => {
   const svg = run('x: Effort\ny: Value\nA @ 50,50');
-  const m = svg.match(/<g data-edit="axis" data-line="-?\d+" data-raw="Value" data-axis="y">[\s\S]*?<rect x="([-\d.]+)"/);
+  const m = svg.match(/<g data-edit="axis" data-line="-?\d+" data-raw="Value"[^>]*data-axis="y">[\s\S]*?<rect x="([-\d.]+)"/);
   assert.ok(m);
   assert.ok(+m[1] >= 0, 'y-axis hit box x must be clamped to >=0, got ' + m[1]);
 });

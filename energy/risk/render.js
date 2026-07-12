@@ -10,6 +10,22 @@ const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString()
 
 /* nice axis ticks: ≤6 steps of 1/2/5×10^k */
 
+/* which row is "focused" — the one the verdict band discusses. Shared with
+   the HTML verdict mirror in app.js so both agree on the same row. */
+export function focusedIndex(rows, focus){
+  return focus === null ? Math.min(1, rows.length - 1) : Math.max(0, Math.min(focus, rows.length - 1));
+}
+
+/* plain-text mirror of the SVG's verdict band — the HTML readout app.js
+   shows next to the diagram. Pure; same inputs render() itself uses. */
+export function riskVerdict(sim, model, focus = null){
+  if(!sim) return '';
+  const rows = sim.rows;
+  const fi = focusedIndex(rows, focus);
+  const v = verdict(rows[fi], model.unit);
+  return v ? 'The trade — ' + rows[fi].label + ': ' + v : '';
+}
+
 export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   if(!sim) return '';
   const C = ctx.colors;
@@ -21,7 +37,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const titleLines = model.title ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
   const TOP = model.title ? (isNarrow ? 30 + titleLines.length * 24 : 92) : 56;
   const rows = sim.rows;
-  const fi = focus === null ? Math.min(1, rows.length - 1) : Math.max(0, Math.min(focus, rows.length - 1));
+  const fi = focusedIndex(rows, focus);
   const vX = v => Math.max(x0, Math.min(x1,
     x0 + (v - sim.min) / (sim.max - sim.min || 1) * (x1 - x0)));
   const parts = [];
@@ -70,7 +86,8 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
     parts.push('<rect x=\'24\' y=\'' + y + '\' width=\'' + (W - 48) + '\' height=\'' + (RH - 10) +
       '\' rx=\'8\' fill=\'' + (i === fi && !isM ? tint(accent) : C.card) + '\' stroke=\'' +
       (i === fi && !isM ? accent : C.border) + '\'' +
-      (edit ? ' data-focus=\'' + i + '\' style=\'cursor:pointer\'' : '') + '/>');
+      (edit ? ' data-focus=\'' + i + '\' style=\'cursor:pointer\' tabindex=\'0\' role=\'button\'' +
+        ' aria-label=\'Focus the trade verdict on ' + esc(r.label) + '\'' : '') + '/>');
     parts.push(txt(44, y + 30, r.label, 17, C.ink, {weight: 700}));
 
     const ry = y + (isNarrow ? 52 : 40), rh = 30;
@@ -117,7 +134,8 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
       const ink = opts.col || (isM ? C.muted : C.ink);
       let attrs = '';
       if(edit && opts.field) attrs = ' data-edit=\'num\' data-line=\'' + r.srcLine +
-        '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'';
+        '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'' +
+        ' tabindex=\'0\' role=\'button\' aria-label=\'Edit ' + esc(label) + '\'';
       parts.push('<g' + attrs + '><rect x=\'' + bx.toFixed(1) + '\' y=\'' + by + '\' width=\'' + w.toFixed(1) +
         '\' height=\'22\' rx=\'11\' fill=\'' + fill + '\'/>' +
         txt(bx + 10, by + 15, label, 12, ink, {weight: 600}) + '</g>');

@@ -48,7 +48,7 @@ footer a:hover{color:var(--accent-ink)}
 .viewtoggle button.on{background:var(--accent);color:var(--card)}
 .viewtoggle button:not(.on):hover{color:var(--accent-ink)}
 
-/* card bodies are popover targets (add child / remove branch) in edit mode */
-.preview svg [data-edit^="card-"]{cursor:pointer}
+/* card bodies are menu targets (rename / status / add child / remove branch) in edit mode */
+.preview svg [data-edit^="cardmenu"]{cursor:pointer}
 .preview svg [data-edit="removeassump"]{cursor:pointer}
 .preview svg [data-edit="removeassump"]:hover{fill:var(--err)}

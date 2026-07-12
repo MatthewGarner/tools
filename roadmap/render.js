@@ -142,7 +142,7 @@ export function render(model, ctx){
   }
 
   /* capsule pill: tinted fill, coloured label; used by cards, badges, and the legend */
-  const capsule = (px, py, label, col) => {
+  const capsule = (px, py, label, col, inkCol = col) => {   // inkCol: contrast-boosted TEXT colour; fill still uses col
     const font = '600 ' + T.pillSize*S + 'px ' + F.body;
     const tw = measure(label, font) + label.length * T.pillTracking;
     const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
@@ -151,7 +151,7 @@ export function render(model, ctx){
         '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 5.5*S) + '" font-size="' + T.pillSize*S +
-        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + col + '">' + esc(label) + '</text>',
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
       w: pw,
     };
   };
@@ -187,7 +187,8 @@ export function render(model, ctx){
       for(const c of cells[lane][h]){
         const x = colX(h);
         s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
-          '" opacity="' + fadeOp.toFixed(2) + '">');
+          '" opacity="' + fadeOp.toFixed(2) + '"' +
+          (c.it.ghost ? '' : ' tabindex="0" role="button" aria-label="More options: ' + esc(c.it.title) + '"') + '>');
         s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
           '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
           '" stroke="' + C.border + '" stroke-width="1"' +
@@ -197,7 +198,7 @@ export function render(model, ctx){
         if(c.badge){
           const bcol = c.badge.kind === 'new' ? C.accent :
                        c.badge.kind === 'alert' ? C.err : C.muted;
-          s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol).svg);
+          s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol, c.badge.kind === 'new' ? C.accentInk : bcol).svg);
           cursor += T.badgeH*S;
         }
         if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
@@ -213,7 +214,8 @@ export function render(model, ctx){
         }
         const ed = c.it.edit || {};
         const titleEip = (!c.it.ghost && ed.title !== false)
-          ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) + '"' : '';
+          ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
+            '" tabindex="0" role="button" aria-label="Rename: ' + esc(c.it.title) + '"' : '';
         c.lines.forEach((line, li2) => {
           const lastLine = li2 === c.lines.length - 1;
           s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
@@ -225,7 +227,8 @@ export function render(model, ctx){
         });
         if(c.it.url) s.push('</a>');
         const noteEip = (c.it.note && (c.it.edit || {}).note !== false)
-          ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) + '"' : '';
+          ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
+            '" tabindex="0" role="button" aria-label="Edit note: ' + esc(c.it.title) + '"' : '';
         for(const line of c.noteLines){
           s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
             '" fill="' + C.muted + '">' + esc(line) + '</text>');
@@ -233,9 +236,10 @@ export function render(model, ctx){
         }
         if(c.it.status){
           const stEip = (c.it.edit || {}).status !== false
-            ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status + '">' : '<g>';
+            ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status +
+              '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(c.it.title) + '">' : '<g>';
           s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
-            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status]).svg + '</g>');
+            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
         }
         s.push('</g>');
         cy += c.cardH + cardGap;
@@ -248,7 +252,7 @@ export function render(model, ctx){
           '<text data-edit="additem" data-lane="' + esc(lane) + '" data-col="' + esc(model.horizons[h]) +
           '" data-line="-1" data-raw="" x="' + (colX(h) + 8*S) + '" y="' + (cy + gh - 4*S) +
           '" font-size="' + 9*S + '" font-weight="600" fill="' + C.muted +
-          '" role="button" aria-label="Add item to ' + esc(lane || 'roadmap') + ' ' + esc(model.horizons[h]) +
+          '" tabindex="0" role="button" aria-label="Add item to ' + esc(lane || 'roadmap') + ' ' + esc(model.horizons[h]) +
           '">＋ add</text></g>');
       }
     }
@@ -273,12 +277,12 @@ export function render(model, ctx){
     const capTop = y + T.legendY*S - T.pillH*S + 3*S;
     for(const st of ['done','doing','risk','blocked']){
       if(!usedStatuses.includes(st)) continue;
-      const p = capsule(lx, capTop, STATUS_LABEL[st].toUpperCase(), C.status[st]);
+      const p = capsule(lx, capTop, STATUS_LABEL[st].toUpperCase(), C.status[st], C.statusInk[st]);
       s.push(p.svg);
       lx += p.w + T.legendKeyGap*S;
     }
     if(diff && diff.any){
-      const p = capsule(lx, capTop, 'NEW', C.accent);
+      const p = capsule(lx, capTop, 'NEW', C.accent, C.accentInk);
       s.push(p.svg);
       lx += p.w + 6*S;
       s.push('<text x="' + lx + '" y="' + (y + T.legendY*S) + '" font-size="' + T.legendSize*S + '" fill="' + C.muted + '">' +

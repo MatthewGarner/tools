@@ -2,6 +2,10 @@
    Extracted 2026-07-06; the core rules below were byte-identical in eight places.
    Load AFTER tokens.css and BEFORE the tool's own styles so per-tool variants
    (.chip.on, .btn.primary, .btn.danger, …) keep winning by source order. */
+/* screen-reader-only: visually hidden, still reachable by AT (aria-live regions,
+   validation error text that doesn't need its own visible banner) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
 .chip:hover{border-color:var(--accent);color:var(--accent-ink)}

@@ -122,7 +122,8 @@ export function renderStack(state, ctx, opts = {}){
       // texture marks the non-plain-fuel blocks: storage hatch, CCS dots, hydrogen cross-hatch
       const texId = g.storage ? 'mo-hatch' : g.family === 'ccs' ? 'mo-dots' : g.family === 'hydrogen' ? 'mo-cross' : null;
       const texAttr = g.storage ? " data-storage='1'" : g.family === 'ccs' ? " data-tex='ccs'" : g.family === 'hydrogen' ? " data-tex='h2'" : '';
-      const rows = [`<g data-plant='${esc(g.name)}'${texAttr}>`];
+      const plantLabel = `${g.name} — £${fmtPrice(g.cost)}/MWh, ${fmtGW(pp.dispatchedMW)} GW dispatched`;
+      const rows = [`<g data-plant='${esc(g.name)}'${texAttr} tabindex='0' role='button' aria-label='${esc(plantLabel)}'>`];
       if(pp.dispatchedMW > 0){
         rows.push(`<rect x='${r2(xA)}' y='${r2(yTop)}' width='${r2(xB - xA)}' height='${r2(h)}' fill='${fill}'` +
           (isMarginal ? ` stroke='${C.accent}' stroke-width='2'` : '') + `/>`);

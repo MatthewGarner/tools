@@ -52,7 +52,11 @@ const PAGES = {
   'wardley/index.html': 480_000,
   'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
-  'energy/intraday/index.html': 100_000,
+  /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
+     it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
+     block) and app.js gained a small popover focus-trap import + keydown
+     handler — an honest feature cost, not creep; actual load ~102.2k. */
+  'energy/intraday/index.html': 106_000,
 };
 
 test('per-page load stays under budget', () => {

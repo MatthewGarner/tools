@@ -28,10 +28,11 @@
   </header>
 </div>
 
+<main>
 <div class="wrap board">
   <section class="card">
     <div id="chartwrap"></div>
-    <div id="verdict" class="verdict"></div>
+    <div id="verdict" class="verdict" aria-live="polite" aria-atomic="true"></div>
     <div class="actions">
       <button class="btn" id="dlsvg">Download SVG</button><button class="btn" id="dlpng">Download PNG</button>
       <button class="btn" id="copypng">Copy PNG</button><button class="btn" id="copydoc">Copy for a doc</button>
@@ -84,7 +85,10 @@
     <p>Illustrative structural figures (installed capacities from DUKES/NESO; gas and carbon are representative teaching values) — <b>no live data, ever</b>. The FES worlds are NESO's <b>illustrative 2035 pathways, revised annually — not forecasts</b>, and contested. One uniform-price, day-ahead-style snapshot, not GB's real-time balancing mechanism: flat marginal offers (no unit-commitment or start-up costs), no strategic bidding, imports priced at an assumed neighbour price that can undercut the most efficient gas, no network constraints, and marginal ≠ average carbon. Sibling toys extend the same engine — network constraints turn one price into locational prices, an interconnector couples two markets, the marginal plant's carbon is the carbon of the next megawatt, a price cap opens the capacity-market "missing money" gap, and the storage arbitrage cycle gets its own sketchpad.</p>
     </div>
   </section>
+</div>
+</main>
 
+<div class="wrap">
   <footer>
     No accounts, no tracking. The URL carries your settings — bookmark or share it.<br>
     Part of <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a> · sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.

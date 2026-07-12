@@ -22,6 +22,7 @@ import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
+import {trapPopoverFocus} from '../../assets/popover-focus.js';
 
 export const PRESETS = {
   winter:    {label: 'Winter weekday',      mutate: {trough: 30, peak: 47, solarPeak: 2, sunrise: 8, sunset: 16}},
@@ -66,9 +67,13 @@ function boot(){
     // draw-as-you-play (spec G1): while Play is running the curve draws itself
     // point-by-point up to the current hour; scrubbing (not playing) and the
     // forExport call below keep the full day + moving cursor as before.
+    // Under reduced-motion we keep Play (the button is NOT hidden — a11y) but drop
+    // the progressive reveal: the cursor steps hour-by-hour over the full curve,
+    // like frequency's `still` path, so the feature stays without the animation.
+    const drawUpTo = playing && !reducedMotion.matches;
     const priceSvg = renderDay(result, p,
       {width: priceW, height: 420, colors, palette: palette(), measure},
-      playing ? {cursor: hour, upTo: hour} : {cursor: hour});
+      drawUpTo ? {cursor: hour, upTo: hour} : {cursor: hour});
     priceEl.classList.toggle('narrow', priceW < NARROW);
     if(priceSvg !== lastPriceSvg){ priceEl.innerHTML = priceSvg; lastPriceSvg = priceSvg; }
 
@@ -126,10 +131,20 @@ function boot(){
   let activeCallout = null;
   function closeCallout(){
     if(!activeCallout) return;
-    const {pop, away} = activeCallout;
+    const {pop, away, el} = activeCallout;
     activeCallout = null;
     document.removeEventListener('pointerdown', away, true);
     pop.remove();
+    /* restore focus to the hour-stack block that opened this — it's
+       tabindex="0" (merit-order/render.js's shared renderStack). Deferred +
+       guarded: see merit-order/app.js's closeCallout for why an unconditional
+       .focus() here can steal a different control's in-flight click gesture
+       (or, here, fight the scrub slider while the user is actively dragging
+       it — refresh() calls closeCallout() on every tick). Only restore when
+       nothing else claimed focus in the meantime. */
+    if(el && typeof el.focus === 'function') setTimeout(() => {
+      if(!activeCallout && document.activeElement === document.body) el.focus();
+    }, 0);
   }
   function openCallout(name, el){
     closeCallout();
@@ -147,14 +162,25 @@ function boot(){
     math.className = 'mo-callout-math';
     math.textContent = `${fmtGW(gen.capacity)} GW offered · bids £${Math.round(gen.cost)}/MWh`;
     pop.append(title, math);
+    /* read-only popover (no button) — trapPopoverFocus focuses the container
+       itself, so it needs its own accessible name to announce anything */
+    pop.setAttribute('role', 'group');
+    pop.setAttribute('aria-label', title.textContent + ' — ' + math.textContent);
     document.body.appendChild(pop);
     const away = e => { if(!pop.contains(e.target)) closeCallout(); };
     document.addEventListener('pointerdown', away, true);
-    activeCallout = {pop, away};
+    activeCallout = {pop, away, el};
+    trapPopoverFocus(pop, closeCallout);
   }
   stackEl.addEventListener('click', e => {
     const g = e.target.closest && e.target.closest('g[data-plant]');
     if(g) openCallout(g.dataset.plant, g);
+  });
+  /* keyboard equivalent: every g[data-plant] carries tabindex="0" (merit-order/render.js) */
+  stackEl.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const g = e.target.closest && e.target.closest('g[data-plant]');
+    if(g){ e.preventDefault(); openCallout(g.dataset.plant, g); }
   });
 
   for(const id of SLIDERS) $(id).addEventListener('input', () => {
@@ -167,7 +193,9 @@ function boot(){
   }));
   $('scrub').addEventListener('input', () => { hour = Number($('scrub').value); refresh(); });
 
-  /* ---- play: one hour per ~450 ms via rAF; hidden under prefers-reduced-motion (CSS).
+  /* ---- play: one hour per ~450 ms via rAF; stays visible and operable under
+     prefers-reduced-motion (a11y) — refresh()'s drawUpTo just skips the
+     progressive-reveal render, so Play still steps hour-by-hour without it.
      tick() allocates nothing itself — only refresh()'s render calls do. lastTick
      starts null and is seeded from the first real rAF timestamp (not 0 — ts is
      time-since-navigation, so comparing against 0 made the very first frame after

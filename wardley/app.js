@@ -1,7 +1,7 @@
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
 import {parse} from './parse.js';
 import {layoutMap} from './layout.js';
-import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
+import {renderMap, toMarkdown, mapReadout, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, removeComponent} from './edit-targets.js';
@@ -51,7 +51,7 @@ Storefront -> House blends -> Tea supply
 Storefront -> Hosting`},
 ];
 
-let model = null, lastSvg = '', hashTimer = null;
+let model = null, layout = null, lastSvg = '', hashTimer = null;
 let snaps = null;
 
 /* validated 2026-07-10 (dataviz validate_palette, ordinal mode, both themes):
@@ -78,7 +78,7 @@ function activeRender(forExport = false){
   const opts = {};
   if(compare) opts.compare = compare;
   if(!forExport) opts.edit = true;   // chrome only for the live preview, never exports
-  return renderMap(model, layoutMap(model), c, opts);
+  return renderMap(model, layout, c, opts);
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -88,13 +88,17 @@ function doRefresh(){
   model = parse(text);
   const pv = $('preview');
   if(!model.components.size){
+    layout = null;
     lastSvg = '';
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No components yet — write one like “Streak engine @ custom”.'
       : 'Start typing — or load an example.') + '</p>';
+    $('verdict').textContent = '';
   } else {
+    layout = layoutMap(model);
     const svg = activeRender();
     if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    $('verdict').textContent = mapReadout(model, layout).verdict;
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);

@@ -34,11 +34,14 @@ function pill(n, c, measure, opts = {}){
   parts.push('<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + PILL_H +
     '" rx="' + PILL_H / 2 + '" fill="' + fill + '" stroke="' + stroke +
     '" stroke-width="' + (opts.strokeW || 1.4) + '"' + dash +
-    (opts.stageEdit ? ' data-edit="stage" data-line="' + n.srcLine + '" data-raw="' + esc(opts.stageRaw) + '"' : '') +
+    (opts.stageEdit ? ' data-edit="stage" data-line="' + n.srcLine + '" data-raw="' + esc(opts.stageRaw) +
+      '" tabindex="0" role="button" aria-label="Cycle evolution stage: ' + esc(n.name) + '"' : '') +
     '/>');
   parts.push('<text x="' + n.px + '" y="' + (n.y + 4.5) + '" text-anchor="middle" font-size="13"' +
     ' font-weight="600" fill="' + textFill + '"' +
-    (opts.nameEdit ? ' data-edit="' + opts.nameEdit + '" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) + '"' : '') +
+    (opts.nameEdit ? ' data-edit="' + opts.nameEdit + '" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) +
+      '" tabindex="0" role="button" aria-label="Rename ' + (opts.nameEdit === 'anchor' ? 'anchor' : 'component') +
+      ': ' + esc(n.name) + '"' : '') +
     '>' + esc(n.name) + '</text>');
   if(opts.newRing){
     parts.push('<rect x="' + (x - 4) + '" y="' + (y - 4) + '" width="' + (w + 8) + '" height="' + (PILL_H + 8) +
@@ -55,7 +58,8 @@ function pill(n, c, measure, opts = {}){
    hit rect (≥44px) for the thumb. Both live under one data-edit group so a
    tap anywhere in the hit area opens the menu. */
 function menuMarker(mx, my, n, c){
-  return '<g data-edit="componentmenu" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) + '">' +
+  return '<g data-edit="componentmenu" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) +
+    '" tabindex="0" role="button" aria-label="More options: ' + esc(n.name) + '">' +
     '<rect x="' + (mx - 12) + '" y="' + (my - 12) + '" width="24" height="24" rx="6" fill="none"' +
     ' stroke="' + c.muted + '" stroke-dasharray="3 3" stroke-opacity=".7"/>' +
     '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="13" font-weight="700"' +
@@ -78,7 +82,8 @@ function componentMenu(n, c, measure){
 function addZonePill(s, c, measure, zy){
   const zx = px(s.mid);
   const visual = pill({name: '＋', px: zx, y: zy, srcLine: -1}, c, measure, {ghost: true, cls: 'ghost add-ghost'});
-  return '<g data-edit="additem" data-stage="' + s.name + '" data-line="-1" data-raw="">' + visual +
+  return '<g data-edit="additem" data-stage="' + s.name + '" data-line="-1" data-raw=""' +
+    ' tabindex="0" role="button" aria-label="Add component in the ' + esc(s.name) + ' stage">' + visual +
     '<rect x="' + (zx - 60) + '" y="' + (zy - 22) + '" width="120" height="44" fill="' + c.bg +
     '" fill-opacity="0"/></g>';
 }
@@ -249,7 +254,8 @@ function renderNarrow(model, layout, ctx, opts){
           ' fill="' + c.card + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
         parts.push('<text x="' + (W / 2) + '" y="' + (y + 21.5) + '" text-anchor="middle" font-size="13.5"' +
           ' font-weight="600" fill="' + c.ink + '"' +
-          (n.srcLine >= 0 ? ' data-edit="anchor" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) + '"' : '') +
+          (n.srcLine >= 0 ? ' data-edit="anchor" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) +
+            '" tabindex="0" role="button" aria-label="Rename anchor: ' + esc(n.name) + '"' : '') +
           '>' + esc(n.name) + '</text>');
         y += 42;
         const aNeeds = needsOf(n.name.toLowerCase());
@@ -272,7 +278,8 @@ function renderNarrow(model, layout, ctx, opts){
         '" stroke-width="1.4"' + (n.ghost ? ' stroke-dasharray="5 4"' : '') + '/>');
       parts.push('<text x="' + (pad + 14) + '" y="' + (y + 23) + '" font-size="14" font-weight="600"' +
         ' fill="' + (n.ghost ? c.muted : col) + '" data-edit="name" data-line="' + n.srcLine +
-        '" data-raw="' + esc(n.name) + '">' + esc(n.name) + '</text>');
+        '" data-raw="' + esc(n.name) + '" tabindex="0" role="button" aria-label="Rename component: ' +
+        esc(n.name) + '">' + esc(n.name) + '</text>');
       parts.push('<text x="' + (pad + inner - 14) + '" y="' + (y + 23) + '" text-anchor="end" font-size="10.5"' +
         ' font-weight="600" letter-spacing=".07em" fill="' + (n.ghost ? c.muted : col) + '">' +
         (n.ghost ? 'UNPLACED' : stage.name.toUpperCase()) + '</text>');
@@ -323,7 +330,8 @@ function renderNarrow(model, layout, ctx, opts){
   /* edit chrome: ghost "add component" card, mirrors the unplaced-card look */
   if(opts.edit){
     const addH = 44;
-    parts.push('<g data-edit="additem" data-line="-1" data-raw="">' +
+    parts.push('<g data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button"' +
+      ' aria-label="Add component">' +
       '<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="' + addH +
       '" rx="12" fill="none" stroke="' + c.muted + '" stroke-width="1.4" stroke-dasharray="5 4"/>' +
       '<text x="' + (W / 2) + '" y="' + (y + addH / 2 + 5) + '" text-anchor="middle" font-size="13.5"' +

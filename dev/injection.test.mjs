@@ -16,7 +16,8 @@ const label = i => EVIL[i % EVIL.length] + ' item ' + i;
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
     accent: '#0088cc', accent2: '#c05621', bg: '#f7f8f6', err: '#b3403a', track: '#edf0ee',
-    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'}},
+    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'},
+    statusInk: {done: '#1C753C', doing: '#0B709A', risk: '#8E6200', blocked: '#B3403A'}, accentInk: '#0A6C94'},
   measure: t => t.length * 7, today: 20640,
 };
 const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
