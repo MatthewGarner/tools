@@ -165,6 +165,14 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 @media (max-width:560px){
   .scrow,.acitem{gap:8px}
   .register{min-width:520px}
+  /* toolbar stays one row: segments fill the width, Undo shrinks to its glyph */
+  .toolbar .viewtoggle{flex:1;display:flex;margin-right:0}
+  .viewtoggle .vtseg{flex:1;padding:6px 8px;text-align:center}
+  .ulabel{display:none}
+  #undo{min-width:44px;justify-content:center}
+  /* action row stacks: the mitigation gets its own full-width row, owner + × below */
+  .acitem input[data-action="text"]{flex-basis:100%}
+  .acitem input[data-action="owner"]{flex:1 1 auto}
 }
 @media (pointer:coarse){
   .btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}
