@@ -99,6 +99,18 @@ test('timeline renderer escapes hostile lanes, labels and notes', async () => {
   assertClean(render(parse(doc), ctx, null, {edit: true}), 'timeline');
 });
 
+test('bets board renderer escapes hostile bet names, kill text, title, lane', async () => {
+  const {parse} = await import('../bets/parse.js');
+  const {simulate} = await import('../bets/engine.js');
+  const {renderBoard} = await import('../bets/render.js');
+  const m = parse('title: T\nunit: £k\nG\n  A bet: stake 10, odds 20-40%, payoff 30-60\n    kill: watch this by 2026-01-01');
+  const b = m.groups[0].bets[0];
+  m.title = EVIL[0]; m.groups[0].name = EVIL[1]; b.name = EVIL[2]; b.kill.text = EVIL[3];
+  const sim = simulate(m);
+  assertClean(renderBoard(m, sim, ctx), 'bets');
+  assertClean(renderBoard(m, sim, {...ctx, width: 390}), 'bets-narrow');
+});
+
 test('risk renderer + markdown escape hostile titles and structure labels', async () => {
   const {parse} = await import('../energy/risk/parse.js');
   const {simulate} = await import('../energy/risk/engine.js');
