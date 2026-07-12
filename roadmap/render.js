@@ -22,7 +22,7 @@ export const TOKENS = {
   noteSize: 11.5, noteLh: 15, noteRaise: 2,
   pillSize: 9, pillH: 17, pillPadX: 7, pillTracking: 0.6, pillTopGap: 5,
   statusH: 24, badgeH: 23,
-  legendH: 34, legendHEmpty: 8, legendY: 22, legendKeyGap: 12,
+  legendH: 34, legendHEmpty: 8, legendY: 22, legendKeyGap: 12, legendSize: 11,
   droppedSize: 11, droppedRowH: 16, droppedHeadH: 20, droppedIndent: 8, droppedYOffset: 6,
   droppedHeadSize: 10, droppedHeadTracking: 1.2,
   fadeMax: 0.35,
@@ -36,7 +36,71 @@ export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, tint, wrapText, btnAttrs} from '../assets/svg.js';
 
-
+/* One card's paint: rect + badge/title/note/status/ghost/url. Pure — returns an SVG
+   string for a single card at the given top-left (x, cy). Shared by the wide nested-
+   loop layout below and (a later narrow layout) at stacked coordinates. */
+function drawCard(c, x, cy, colW, fadeOp, edit, st){
+  const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote} = st;
+  const s = [];
+  s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
+    '" opacity="' + fadeOp.toFixed(2) + '"' +
+    (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) +
+    (edit && !c.it.ghost ? ' data-menu=""' : '') + '>');
+  s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
+    '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
+    '" stroke="' + C.border + '" stroke-width="1"' +
+    (c.it.ghost ? ' stroke-dasharray="3 3"' : '') + '/>');
+  /* top-anchored cursor: each block advances by its budgeted height */
+  let cursor = cy + cardPadY;
+  if(c.badge){
+    const bcol = c.badge.kind === 'new' ? C.accent :
+                 c.badge.kind === 'alert' ? C.err : C.muted;
+    s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol, c.badge.kind === 'new' ? C.accentInk : bcol).svg);
+    cursor += T.badgeH*S;
+  }
+  if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
+  if(c.it.ghost && c.lines.length === 1){
+    cursor = cy + (c.cardH - lhTitle) / 2;
+  } else {
+    /* lane-equalised cards with less content centre it in the slack
+       (between badge and pill) instead of leaving a bottom-heavy hole */
+    const contentH = c.lines.length*lhTitle + c.noteLines.length*lhNote;
+    const footH = c.it.status ? T.statusH*S : 0;
+    const slack = (cy + c.cardH - cardPadY - footH) - cursor - contentH;
+    if(slack > 0) cursor += slack / 2;
+  }
+  const ed = c.it.edit || {};
+  const titleEip = (!c.it.ghost && ed.title !== false)
+    ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
+      '"' + btnAttrs('Rename: ' + c.it.title) : '';
+  c.lines.forEach((line, li2) => {
+    const lastLine = li2 === c.lines.length - 1;
+    s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
+      '" font-weight="' + (c.it.ghost ? '400" font-style="italic' : '600') +
+      '" fill="' + (c.it.ghost ? C.muted : C.ink) + '">' + esc(line) +
+      (c.it.url && lastLine ? ' <tspan font-size="' + 9*S + '" font-weight="600" fill="' + C.accent + '">↗</tspan>' : '') +
+      '</text>');
+    cursor += lhTitle;
+  });
+  if(c.it.url) s.push('</a>');
+  const noteEip = (c.it.note && (c.it.edit || {}).note !== false)
+    ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
+      '"' + btnAttrs('Edit note: ' + c.it.title) : '';
+  for(const line of c.noteLines){
+    s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
+      '" fill="' + C.muted + '">' + esc(line) + '</text>');
+    cursor += lhNote;
+  }
+  if(c.it.status){
+    const stEip = (c.it.edit || {}).status !== false
+      ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status +
+        '"' + btnAttrs('Cycle status: ' + c.it.title) + '>' : '<g>';
+    s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
+      STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
+  }
+  s.push('</g>');
+  return s.join('');
+}
 
 export function render(model, ctx){
   const {measure, diff = null, slide = false, dark = false} = ctx;
@@ -156,6 +220,9 @@ export function render(model, ctx){
     };
   };
 
+  /* shared context drawCard needs — same across every card in this render */
+  const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
+
   /* lanes */
   model.lanes.forEach((lane, li) => {
     const top = laneTops[li];
@@ -186,63 +253,7 @@ export function render(model, ctx){
       let cy = top + T.stackTop*S;
       for(const c of cells[lane][h]){
         const x = colX(h);
-        s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
-          '" opacity="' + fadeOp.toFixed(2) + '"' +
-          (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) +
-          (edit && !c.it.ghost ? ' data-menu=""' : '') + '>');
-        s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
-          '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
-          '" stroke="' + C.border + '" stroke-width="1"' +
-          (c.it.ghost ? ' stroke-dasharray="3 3"' : '') + '/>');
-        /* top-anchored cursor: each block advances by its budgeted height */
-        let cursor = cy + cardPadY;
-        if(c.badge){
-          const bcol = c.badge.kind === 'new' ? C.accent :
-                       c.badge.kind === 'alert' ? C.err : C.muted;
-          s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol, c.badge.kind === 'new' ? C.accentInk : bcol).svg);
-          cursor += T.badgeH*S;
-        }
-        if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
-        if(c.it.ghost && c.lines.length === 1){
-          cursor = cy + (c.cardH - lhTitle) / 2;
-        } else {
-          /* lane-equalised cards with less content centre it in the slack
-             (between badge and pill) instead of leaving a bottom-heavy hole */
-          const contentH = c.lines.length*lhTitle + c.noteLines.length*lhNote;
-          const footH = c.it.status ? T.statusH*S : 0;
-          const slack = (cy + c.cardH - cardPadY - footH) - cursor - contentH;
-          if(slack > 0) cursor += slack / 2;
-        }
-        const ed = c.it.edit || {};
-        const titleEip = (!c.it.ghost && ed.title !== false)
-          ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
-            '"' + btnAttrs('Rename: ' + c.it.title) : '';
-        c.lines.forEach((line, li2) => {
-          const lastLine = li2 === c.lines.length - 1;
-          s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
-            '" font-weight="' + (c.it.ghost ? '400" font-style="italic' : '600') +
-            '" fill="' + (c.it.ghost ? C.muted : C.ink) + '">' + esc(line) +
-            (c.it.url && lastLine ? ' <tspan font-size="' + 9*S + '" font-weight="600" fill="' + C.accent + '">↗</tspan>' : '') +
-            '</text>');
-          cursor += lhTitle;
-        });
-        if(c.it.url) s.push('</a>');
-        const noteEip = (c.it.note && (c.it.edit || {}).note !== false)
-          ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
-            '"' + btnAttrs('Edit note: ' + c.it.title) : '';
-        for(const line of c.noteLines){
-          s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
-            '" fill="' + C.muted + '">' + esc(line) + '</text>');
-          cursor += lhNote;
-        }
-        if(c.it.status){
-          const stEip = (c.it.edit || {}).status !== false
-            ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status +
-              '"' + btnAttrs('Cycle status: ' + c.it.title) + '>' : '<g>';
-          s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
-            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
-        }
-        s.push('</g>');
+        s.push(drawCard(c, x, cy, colW, fadeOp, edit, cardStyle));
         cy += c.cardH + cardGap;
       }
       if(edit){
