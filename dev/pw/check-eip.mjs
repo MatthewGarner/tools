@@ -248,6 +248,35 @@ check('label rename lands in text and diagram',
     await page.keyboard.press('Escape');
     await page.waitForTimeout(150);
   }
+
+  /* root node ("Bid decision", srcLine 3): the explicit root's card menu is
+     reduced to Add-only — no Rename/Edit/Remove. Remove is the whole-tree-
+     deletion hazard (the root IS the tree); Rename/Edit were dead rows (the
+     root marker has no incoming edge, so no label/value/prob tspan exists
+     for it). The root's ＋ Add option is the only way to add a top-level
+     option anywhere in the tool, so Add must still work exactly as before. */
+  await tapMarker(3);
+  await page.waitForTimeout(200);
+  check('tree: root marker tap opens an Add-only menu (no Rename/Edit/Remove)',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
+  check('tree: root menu offers no Remove (whole-tree deletion hazard closed)',
+    await page.locator('.eip-pop button.danger').count() === 0);
+
+  await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
+  await page.waitForTimeout(600);
+  const tRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: root menu Add option appends a new top-level sibling after the whole subtree',
+    tRootAdd === t0 + '\n  New option: 0');
+  await undo();
+  check('tree: one undo restores the pre-add baseline (root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  // a non-root node still gets its full menu — the root change is scoped to the root only
+  await tapMarker(4);
+  await page.waitForTimeout(200);
+  check('tree: a non-root (decision) marker still opens its full unchanged menu',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add option|Remove branch');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
 }
 
 check('no console/page errors', errors.length === 0);

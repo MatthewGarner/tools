@@ -199,8 +199,9 @@ export function render(model, results, ctx){
        the marker; every marker shifts by the same vector, so the WIDENED
        hit-vs-hit non-overlap (row/column spacing >=44*S) is unchanged. */
     if(edit){
+      const kind = node === model.root ? 'cardmenu-root' : 'cardmenu-' + node.kind;
       s.push(editTarget('', {x: x - 22*S, y: y - 2*S, w: 44*S, h: 44*S, bg: C.bg},
-        {kind: 'cardmenu-' + node.kind, line: node.implicit ? -1 : node.srcLine, raw: '',
+        {kind, line: node.implicit ? -1 : node.srcLine, raw: '',
           label: 'More options: ' + (node.label || 'node'), hit: true, extra: 'data-menu=""'}));
     }
   }

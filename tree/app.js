@@ -102,6 +102,9 @@ attachEditInPlace($('preview'), {
     'cardmenu-decision': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'option'}),
     'cardmenu-chance': cardMenu({field: {label: 'Edit probability…', opens: 'prob'}, add: 'outcome'}),
     'cardmenu-leaf': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'outcome', remove: 'Remove'}),
+    'cardmenu-root': {menu: [
+      {label: '＋ Add option', action: true},
+    ]},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
     if(kind.startsWith('cardmenu-')){
