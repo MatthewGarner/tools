@@ -9,8 +9,18 @@ export const RATE_LIMIT_PER_MIN = 30;
 const ID_RE = /^[0-9a-f]{32}$/, HASH_RE = /^[0-9a-f]{64}$/, PID_RE = /^[0-9a-f]{16,32}$/;
 
 export const sha256hex = s => createHash('sha256').update(s).digest('hex');
-export const clientIp = req =>
-  (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || 'local';
+/* Rate-limit key. Prefer x-real-ip: Vercel's edge sets it to the true client IP
+   and overwrites any client-supplied copy, so it can't be forged. x-forwarded-for
+   is client-spoofable (its leftmost entry is whatever the caller sent) — using it
+   would let an attacker rotate fake IPs to evade the per-minute cap that guards
+   createSession/putResponse against junk-session flooding. Fall back to XFF only
+   off-Vercel (local/dev), then a fixed bucket. */
+export const clientIp = req => {
+  const h = req.headers || {};
+  const real = String(h['x-real-ip'] || '').trim();
+  if(real) return real;
+  return String(h['x-forwarded-for'] || '').split(',')[0].trim() || 'local';
+};
 
 const key = id => 'gauge:' + id;
 const bad = msg => ({status: 400, body: {error: msg}});

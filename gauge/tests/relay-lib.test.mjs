@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createSession, putResponse, getSession, reveal, endSession, sha256hex,
-  TTL_SECONDS, RATE_LIMIT_PER_MIN} from '../../api/gauge/_lib.js';
+  clientIp, TTL_SECONDS, RATE_LIMIT_PER_MIN} from '../../api/gauge/_lib.js';
 import {memoryKv} from '../../api/gauge/_kv.js';
 
 const ID = 'a'.repeat(32), KEY = 'b'.repeat(32), PID = 'c'.repeat(16);
@@ -124,6 +124,17 @@ test('rate limit: writes over the per-minute cap get 429', async () => {
   assert.equal(last.status, 429);
   const ok = await putResponse(kv, ID, {participantId: PID, values: [50, null]}, '8.8.8.8');
   assert.equal(ok.status, 200);   // per-IP, not global
+});
+
+test('clientIp: trusts Vercel x-real-ip over spoofable x-forwarded-for', () => {
+  // an attacker forging XFF cannot move their rate-limit bucket: x-real-ip wins
+  assert.equal(clientIp({headers: {'x-real-ip': '203.0.113.7',
+    'x-forwarded-for': '1.1.1.1, 9.9.9.9'}}), '203.0.113.7');
+  // off-Vercel (no x-real-ip): fall back to the leftmost XFF entry
+  assert.equal(clientIp({headers: {'x-forwarded-for': '198.51.100.4, 10.0.0.1'}}), '198.51.100.4');
+  // nothing set (local/dev): a fixed bucket, never empty
+  assert.equal(clientIp({headers: {}}), 'local');
+  assert.equal(clientIp({}), 'local');
 });
 
 test('response write re-arms the TTL — self-heals a session whose create-time EXPIRE was lost', async () => {
