@@ -386,10 +386,16 @@ check('no console/page errors', errors.length === 0);
     await p.waitForTimeout(500);
   };
 
+  /* "Smart reminders" (srcLine 5) carries two assumptions (srcLine 6 "users
+     want to be interrupted at work" [testing], srcLine 7 "habit time is
+     detectable" [holds]) — the dynamic solutionMenu composer inserts one
+     submenu row per assumption, in source order, between ＋ Add assumption
+     and Remove branch. */
   await tapCard(5);
   await p.waitForTimeout(200);
-  check('why: solution card tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+  check('why: solution card tap opens the menu with base rows + one row per assumption, in order',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -422,6 +428,52 @@ check('no console/page errors', errors.length === 0);
   check('why: menu Add assumption inserts a new assumption line', tAdd.includes('New assumption'));
   await undo();
   check('why: one undo restores the pre-add baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  /* ---- assumption sub-menu: tap an assumption row → a nested popover with
+     the four ASSUMPTION_CYCLE states (current one carries .on) plus a danger
+     "Remove assumption", targeting the ASSUMPTION's own srcLine — the
+     solution's line must stay untouched. ---- */
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'users want to be interrupted at work'}).click();
+  await p.waitForTimeout(200);
+  check('why: assumption sub-popover lists the four cycle states plus a danger Remove',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken|Remove assumption');
+  check('why: assumption sub-popover marks the current status with .on',
+    (await p.locator('.eip-pop button.on').innerText()) === 'testing');
+  check('why: only one state is marked current', await p.locator('.eip-pop button.on').count() === 1);
+
+  await p.locator('.eip-pop button', {hasText: 'holds'}).click();
+  await p.waitForTimeout(600);
+  const tAstatus = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: picking a different state rewrites the ASSUMPTION line',
+    tAstatus.includes('? users want to be interrupted at work [holds]'));
+  check("why: the solution's own line is untouched by the assumption edit",
+    /Smart reminders \[\w+\]/.test(tAstatus) && tAstatus.match(/Smart reminders \[(\w+)\]/)[1] ===
+    baseline.match(/Smart reminders \[(\w+)\]/)[1]);
+  await undo();
+  check('why: one undo restores the pre-status baseline (assumption)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'users want to be interrupted at work'}).click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove assumption'}).click();
+  await p.waitForTimeout(600);
+  const tRemoveA = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: Remove assumption drops just that assumption line',
+    !tRemoveA.includes('users want to be interrupted at work') &&
+    tRemoveA.includes('habit time is detectable') && tRemoveA.includes('Smart reminders'));
+  await undo();
+  check('why: one undo restores the removed assumption', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  /* zero-assumption solution: exactly the four base rows (no submenu rows) */
+  await tapCard(12);   // "Habit templates library [shipped]" — no assumption children
+  await p.waitForTimeout(200);
+  check('why: a zero-assumption solution shows exactly the four base rows',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
 
   await tapCard(5);
   await p.waitForTimeout(200);
@@ -542,9 +594,11 @@ check('no console/page errors', errors.length === 0);
   /* regression proof: the widened guard (startsWith('cardmenu-') →
      startsWith('cardmenu')) must not disturb the OST view's per-kind menus —
      switch back and confirm a cardmenu-solution card still shows its full
-     Rename/Status/Add/Remove set (the OST block above already exercises
-     each row end to end; this just proves the two views coexist on one
-     page load without one clobbering the other). */
+     dynamic Rename/Status/Add/assumptions/Remove set (the OST block above
+     already exercises each row end to end; this just proves the two views
+     coexist on one page load without one clobbering the other). Nothing in
+     this map-view block permanently mutated "Smart reminders"'s two
+     assumptions, so both submenu rows still show their original statuses. */
   await p.locator('#viewost').click();
   await p.waitForTimeout(500);
   const ostCardBody = p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="5"][data-hit]');
@@ -552,7 +606,8 @@ check('no console/page errors', errors.length === 0);
   await p.mouse.click(ostBox.x + 8, ostBox.y + 4);
   await p.waitForTimeout(200);
   check('why map: switching back to OST still opens the full cardmenu-solution menu',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 

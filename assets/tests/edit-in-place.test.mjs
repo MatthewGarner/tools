@@ -29,5 +29,8 @@ test('renderPopoverRows handles commit and submenu rows', () => {
   assert.match(src, /row\.commit/, 'commit row branch');
   assert.match(src, /onCommit\(row\.commit\.kind, row\.commit\.line/, 'commit calls onCommit with the row payload');
   assert.match(src, /row\.submenu/, 'submenu row branch');
-  assert.match(src, /getBoundingClientRect\(\)[\s\S]{0,40}close\(\)[\s\S]{0,60}renderPopoverRows\(row\.submenu/, 'submenu captures rect before close, then re-renders');
+  // \bclose\(\); requires the real statement (trailing semicolon) — the
+  // nearby comment says "close() disposes the button" with no semicolon,
+  // so a looser close\(\) would incidentally pass on the comment text.
+  assert.match(src, /getBoundingClientRect\(\)[\s\S]{0,100}\bclose\(\);[\s\S]{0,40}renderPopoverRows\(row\.submenu/, 'submenu captures rect before close, then re-renders');
 });
