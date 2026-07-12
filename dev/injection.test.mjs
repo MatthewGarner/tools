@@ -46,6 +46,7 @@ test('why renderers escape hostile labels in both projections', async () => {
   assertClean(renderOst(m, pr, {...ctx, edit: true}), 'why-ost');
   assertClean(renderOst(m, pr, {...ctx, edit: true, width: 360}), 'why-ost-narrow');
   assertClean(renderMap(m, pr, ctx), 'why-map');
+  assertClean(renderMap(m, pr, {...ctx, width: 360}), 'why-map-narrow');
 });
 
 test('tree renderer escapes hostile option labels', async () => {

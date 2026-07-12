@@ -325,6 +325,28 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
+// why map-view narrow outcome-band-heading gate (whole-branch review fix):
+// roadmap's renderNarrow never read model.laneGroups, so a MULTI-outcome
+// tree lost its outcome grouping entirely at phone width — every lane
+// rendered as an identical muted sub-label with no heading tying it to an
+// outcome. A two-outcome tree must show BOTH accent/serif band headings in
+// the narrow map view; this assertion fails against the pre-fix renderer.
+{
+  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Users forget mid-afternoon habits\n' +
+    '    Smart reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
+    '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
+    '  No reason to invite others\n';
+  const seed = {t: multiDoc, v: 'map'};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  const page = await ctx.newPage();
+  await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+  const map = await page.locator('#preview svg').innerHTML();
+  ok(map.includes('IMPROVE 90-DAY RETENTION'), 'why: narrow map view shows the first outcome band heading');
+  ok(map.includes('GROW REFERRAL REVENUE'), 'why: narrow map view shows the second outcome band heading (multi-outcome grouping preserved at phone width)');
+  await page.close();
+}
+
 // why: solution card-menu overflow reachability (coarse). "Smart reminders"
 // (srcLine 5, the default "Habit retention" example) carries two assumptions,
 // so its dynamic solutionMenu shows six rows — assert the LAST one (Remove

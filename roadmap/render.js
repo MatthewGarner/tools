@@ -110,7 +110,12 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
    data-edit/data-line/data-hit target is identical to the wide pass — the
    card menu and edit-in-place need no app-side routing change. Exports
    never set ctx.width, so this path is preview-only (mirrors wardley's
-   renderNarrow: an early-return, fully self-contained pass). */
+   renderNarrow: an early-return, fully self-contained pass).
+   laneGroups (why's map view rides this): the wide path's accent/serif band
+   header reappears here too, once per horizon section before the group's
+   first lane — mirrors how the lane sub-label itself already repeats per
+   horizon. Models without laneGroups (plain roadmap) render exactly as
+   before: groupAtLane stays empty and nothing new is emitted. */
 function renderNarrow(model, ctx, C, T){
   const {measure, diff = null} = ctx;
   const edit = !!ctx.edit;
@@ -178,6 +183,17 @@ function renderNarrow(model, ctx, C, T){
   const overWip = model.wip > 0 && firstColCount > model.wip;
   const addH = 40;
 
+  /* optional lane groups (why's map view rides this): the same first-lane
+     association the wide path builds, so a phone user still sees which
+     lanes belong to which outcome band, not an undifferentiated lane list. */
+  const groupAtLane = new Map();
+  if(model.laneGroups){
+    for(const g of model.laneGroups){
+      const first = g.lanes.find(l => model.lanes.includes(l));
+      if(first !== undefined) groupAtLane.set(first, g.label);
+    }
+  }
+
   model.horizons.forEach((hName, h) => {
     /* horizon header + full-width accent bar */
     s.push('<text x="' + PAD + '" y="' + (y + 12) + '" font-size="13" font-weight="700" letter-spacing="' +
@@ -193,6 +209,15 @@ function renderNarrow(model, ctx, C, T){
     /* confidence fade: certainty decreases toward the horizon (unchanged formula) */
     const fadeOp = (model.fade && nH > 1) ? (1 - (h / (nH - 1)) * T.fadeMax) : 1;
     for(const lane of model.lanes){
+      if(groupAtLane.has(lane)){
+        s.push('<text x="' + PAD + '" y="' + (y + 11) + '" font-family=\'' + F.serif +
+          '\' font-size="14" font-weight="700" fill="' + C.accent + '">' +
+          esc(groupAtLane.get(lane).toUpperCase()) + '</text>');
+        y += 18;
+        s.push('<line x1="' + PAD + '" y1="' + y + '" x2="' + (W - PAD) + '" y2="' + y +
+          '" stroke="' + C.accent + '" stroke-width="1" opacity="0.5"/>');
+        y += 10;
+      }
       if(hasLanes && lane){
         s.push('<text x="' + PAD + '" y="' + (y + 10) + '" font-size="' + T.laneSize + '" font-weight="600" letter-spacing="' +
           T.laneTracking + '" fill="' + C.muted + '">' + esc(lane.toUpperCase()) + '</text>');

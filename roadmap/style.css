@@ -45,7 +45,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
    get the card menu's "Move to…" row instead (app.js gates the drag handlers
    the same way) */
 @media (pointer: fine){
-  .preview svg g[data-line]{cursor:grab;touch-action:none}
+  .preview svg g[data-edit="cardmenu"]{cursor:grab;touch-action:none}
 }
 @media (prefers-reduced-motion: no-preference){
   .preview svg g[data-line]{transition:opacity .15s}

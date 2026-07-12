@@ -78,6 +78,18 @@ for(const [k, src] of Object.entries(docs)){
   variants['why-ost-narrow'] = norm(renderOst(m, pr, {...ctxBase, edit: true, width: 360}));
   variants['why-map-narrow'] = norm(renderMap(m, pr, {...ctxBase, edit: true, width: 360}));
 
+  /* multi-outcome map-view narrow fixture: every single-outcome fixture above
+     hid the dropped-band-header regression (a lone laneGroup still reads fine
+     without a heading) — two outcomes prove the fix actually distinguishes
+     which lanes belong to which outcome on a phone. */
+  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Users forget mid-afternoon habits\n' +
+    '    Smart reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
+    '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
+    '  No reason to invite others\n';
+  const mm = wparse(multiDoc);
+  const mpr = project(mm);
+  variants['why-map-narrow-multi'] = norm(renderMap(mm, mpr, {...ctxBase, edit: true, width: 360}));
+
   /* deep-tree fixture (#4-5 levels of freely-nesting opportunities down to a
      solution): proves the depth clamp — depths 3, 4 and 5 all share the
      depth-3 indent/card width instead of collapsing or running off-screen. */
