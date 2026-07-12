@@ -29,7 +29,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   function setZoom(z){
     zoom = z;
     for(const b of zoomHost.querySelectorAll('button')){
-      b.classList.toggle('on', b.dataset.z === String(z));
+      const active = b.dataset.z === String(z);
+      b.classList.toggle('on', active);
+      b.setAttribute('aria-pressed', String(active));   // a SR user hears which zoom is active
     }
     applyZoom();
   }

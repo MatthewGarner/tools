@@ -67,9 +67,13 @@ function boot(){
     // draw-as-you-play (spec G1): while Play is running the curve draws itself
     // point-by-point up to the current hour; scrubbing (not playing) and the
     // forExport call below keep the full day + moving cursor as before.
+    // Under reduced-motion we keep Play (the button is NOT hidden — a11y) but drop
+    // the progressive reveal: the cursor steps hour-by-hour over the full curve,
+    // like frequency's `still` path, so the feature stays without the animation.
+    const drawUpTo = playing && !reducedMotion.matches;
     const priceSvg = renderDay(result, p,
       {width: priceW, height: 420, colors, palette: palette(), measure},
-      playing ? {cursor: hour, upTo: hour} : {cursor: hour});
+      drawUpTo ? {cursor: hour, upTo: hour} : {cursor: hour});
     priceEl.classList.toggle('narrow', priceW < NARROW);
     if(priceSvg !== lastPriceSvg){ priceEl.innerHTML = priceSvg; lastPriceSvg = priceSvg; }
 
@@ -184,7 +188,9 @@ function boot(){
   }));
   $('scrub').addEventListener('input', () => { hour = Number($('scrub').value); refresh(); });
 
-  /* ---- play: one hour per ~450 ms via rAF; hidden under prefers-reduced-motion (CSS).
+  /* ---- play: one hour per ~450 ms via rAF; stays visible and operable under
+     prefers-reduced-motion (a11y) — refresh()'s drawUpTo just skips the
+     progressive-reveal render, so Play still steps hour-by-hour without it.
      tick() allocates nothing itself — only refresh()'s render calls do. lastTick
      starts null and is seeded from the first real rAF timestamp (not 0 — ts is
      time-since-navigation, so comparing against 0 made the very first frame after

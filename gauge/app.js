@@ -152,6 +152,8 @@ async function initCompose(hash){
     view = v;
     $('viewform').classList.toggle('on', v === 'form');
     $('viewreveal').classList.toggle('on', v === 'reveal');
+    $('viewform').setAttribute('aria-selected', String(v === 'form'));
+    $('viewreveal').setAttribute('aria-selected', String(v === 'reveal'));
     lastOut = '';
     refresh();
   }

@@ -123,6 +123,8 @@ function setView(v){
   view = v;
   $('viewost').classList.toggle('on', v === 'ost');
   $('viewmap').classList.toggle('on', v === 'map');
+  $('viewost').setAttribute('aria-selected', String(v === 'ost'));
+  $('viewmap').setAttribute('aria-selected', String(v === 'map'));
   lastSvg = '';
   refresh();
 }
