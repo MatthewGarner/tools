@@ -121,6 +121,63 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+/* cycles: rev-3 async state machine (perf fix Task 2 — the Monte Carlo now
+   runs in a module Worker; a real sim takes ~450-500ms for the heaviest
+   example (dual policy + augment resim), which is the window these tests
+   race against). */
+{
+  const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  const simCount = () => page.evaluate(() => window.__cyclesSimCount);
+
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await page.waitForTimeout(1200);
+  check('cycles worker: boot settles to exactly 1 dispatch', await simCount() === 1);
+  check('cycles worker: actions enabled once settled', await page.locator('#dlsvg').isEnabled());
+
+  /* exports gated: a fresh dispatch (different example → different simKey)
+     must disable actions while it's pending, and re-enable on commit. */
+  await page.getByRole('button', {name: 'Tight warranty'}).click();
+  await page.waitForTimeout(300);   // dispatch has fired (debounce 120ms + rAF); the sim is still in flight
+  check('cycles worker: actions disabled while a fresh sim is pending', await page.locator('#dlsvg').isDisabled());
+  await page.waitForTimeout(1200);  // well past the ~500ms sim time
+  check('cycles worker: actions enabled again after commit', await page.locator('#dlsvg').isEnabled());
+  check('cycles worker: dispatch counted (+1)', await simCount() === 2);
+  check('cycles worker: no console errors', errors.length === 0);
+
+  await page.close();
+}
+
+/* revert-during-in-flight — the rev-3 Critical: reverting to a completed
+   model while a different edit's sim is still in flight must NOT let the
+   abandoned sim's late response clobber the reverted diagram, corrupt the
+   committed key, or leave actions stuck disabled. abandonInFlight() (bump
+   seq + terminate/respawn the worker) on the revert path is what makes this
+   structurally impossible — this test is where that's proven. */
+{
+  const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  const simCount = () => page.evaluate(() => window.__cyclesSimCount);
+
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await page.waitForTimeout(1200);
+  check('cycles revert: boot settles to 1 dispatch', await simCount() === 1);
+  const baselineSvg = await page.locator('#preview svg').innerHTML();
+  const baselineVerdict = (await page.locator('#verdict').innerText()).trim();
+
+  await page.getByRole('button', {name: 'Tight warranty'}).click();
+  await page.waitForTimeout(300);    // a different-key dispatch is now in flight (~500ms to resolve)
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();   // revert to the completed model BEFORE the in-flight sim resolves
+  await page.waitForTimeout(1500);   // well past the abandoned sim's real-world time — a late response would have arrived by now if not truly killed
+
+  const finalSvg = await page.locator('#preview svg').innerHTML();
+  const finalVerdict = (await page.locator('#verdict').innerText()).trim();
+  check('cycles revert: settled diagram matches the reverted model exactly (no stale-response clobber)', finalSvg === baselineSvg);
+  check('cycles revert: verdict matches the reverted model exactly', finalVerdict === baselineVerdict);
+  check('cycles revert: actions enabled after settling (not stuck disabled)', await page.locator('#dlsvg').isEnabled());
+  check('cycles revert: sim count sane (boot + abandoned edit, no phantom extra)', await simCount() === 2);
+  check('cycles revert: no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/energy/frequency/', theme);
   await page.getByRole('button', {name: 'Battery stack'}).click();

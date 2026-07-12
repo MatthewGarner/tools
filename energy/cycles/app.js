@@ -63,6 +63,77 @@ let lastKey = null;
 globalThis.__cyclesSimCount = 0;
 let rafId = 0, debTimer = null, hashTimer = null;
 
+/* ---------- async sim dispatch (rev-3 state machine, spec §"Refresh loop
+   (app.js) — rev 3 state machine") ----------
+   The Monte Carlo (~0.5-2s) runs off the main thread in a module Worker.
+   pendingKey (in-flight simKey) is distinct from lastKey (last completed) so
+   the boot race (watchNarrowBucket's guaranteed first-fire vs. the debounced
+   edit, both calling doRefresh with the same model) can't double-dispatch.
+   The one invariant that makes a stale worker response structurally unable
+   to clobber the current render: every path that lands on a renderable
+   result OTHER than the pending request completing (null-key, revert to
+   lastKey, or a fresh dispatch superseding a different in-flight one) calls
+   abandonInFlight() FIRST — bump seq (so a late reqId!==seq response is
+   dropped), clear pendingKey, terminate+respawn the worker (stop the wasted
+   CPU; a queued new sim must never wait behind an abandoned one). */
+let pendingKey = null, seq = 0, timeoutId = 0;
+const SIM_TIMEOUT_MS = 5000;
+
+function spawnWorker(){
+  try{
+    const w = new Worker(new URL('./sim-worker.js', import.meta.url), {type: 'module'});
+    w.onmessage = ({data}) => onWorkerMessage(data);
+    w.onerror = onWorkerError;
+    return w;
+  }catch(e){ return null; }
+}
+let worker = spawnWorker();
+
+function abandonInFlight(){
+  if(pendingKey === null) return;
+  seq++;                                        // invalidate any in-flight/late response
+  pendingKey = null;
+  if(worker){ worker.terminate(); worker = spawnWorker(); }   // stop wasted CPU; fresh worker for next
+}
+
+function commit(res, key){
+  out = res; lastKey = key; pendingKey = null;
+  render();                                     // renders out + sets actions ON (via setActionsEnabled(!!out))
+}
+
+function runSync(key, id){
+  if(id !== seq) return;                        // superseded before we ran
+  clearTimeout(timeoutId);
+  __cyclesSimCount++;
+  commit(simulate(model, {seed: 1, n: 5000}), key);
+}
+
+function markWorkerDead(){
+  if(worker){ worker.terminate(); worker = null; }   // all subsequent dispatches take runSync directly
+}
+
+function onWorkerMessage({out: res, reqId}){
+  if(reqId !== seq) return;                     // superseded/abandoned
+  clearTimeout(timeoutId);
+  commit(res, pendingKey);
+}
+
+function onWorkerError(){
+  markWorkerDead();                             // durable failure → don't retry the worker this session
+  if(pendingKey !== null) runSync(pendingKey, seq);
+}
+
+function dispatch(key){
+  abandonInFlight();                            // supersede: kill any different in-flight sim first
+  pendingKey = key;
+  const id = ++seq;
+  setActionsEnabled(false);
+  if(!worker) return runSync(key, id);
+  __cyclesSimCount++;
+  worker.postMessage({model, seed: 1, n: 5000, reqId: id});
+  timeoutId = setTimeout(() => { markWorkerDead(); runSync(key, id); }, SIM_TIMEOUT_MS);
+}
+
 const stageEl = $('preview');
 function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
@@ -118,10 +189,10 @@ function doRefresh(){
   model = parse(text);
   const key = simKey(model);
   persistAndScheduleHash(text);                 // the existing localStorage + writeHash timer, always
-  if(key === null){ out = null; lastKey = null; render(); return; }
-  if(key === lastKey){ render(); return; }      // memoised: theme/rotation/no-op/MW-only/comment edit
-  out = simulate(model, {seed: 1, n: 5000}); __cyclesSimCount++; lastKey = key;
-  render();
+  if(key === null){ abandonInFlight(); out = null; lastKey = null; render(); return; }
+  if(key === pendingKey) return;                // in-flight request will render this
+  if(key === lastKey){ abandonInFlight(); render(); return; }   // memoised: theme/rotation/no-op/revert
+  dispatch(key);                                // key is new → fresh sim, off the main thread
 }
 function refresh(){
   cancelAnimationFrame(rafId);
