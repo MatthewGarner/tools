@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Premortem</title>
+<meta name="description" content="Run a premortem — imagine the launch already failed and work backwards — into a living, EV-ranked risk register with honest uncertainty ranges and staleness that keeps it from lying.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/assets/pwa.js" defer></script>
+</head>
+<body>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/about.css">
+<link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="../assets/mobile.css">
+
+<div class="wrap">
+  <header>
+    <a class="crumb" href="/">← All tools</a>
+    <h1>Premortem</h1>
+    <p class="tagline">Imagine it's already failed and work backwards — the failure you can name in advance is the one you can still prevent. The workshop is the front door; a living, EV-ranked risk register is what you keep.</p>
+  </header>
+
+  <main>
+  <div id="home" hidden>
+    <div class="card">
+      <h2>Your registers</h2>
+      <div id="savedlist"></div>
+      <div class="actions"><button class="btn primary" id="newbtn">＋ New premortem</button></div>
+    </div>
+  </div>
+
+  <div id="workspace" hidden>
+    <ol class="phaserail" id="phaserail" aria-label="Workshop steps"></ol>
+    <div class="card">
+      <div id="phasepanel"></div>
+    </div>
+    <div class="navbar">
+      <button class="btn" id="back">← Back</button>
+      <span class="gatewhy" id="gatewhy"></span>
+      <button class="btn" id="undo" title="Undo (⌘Z)">Undo</button>
+      <button class="btn primary" id="next">Next →</button>
+    </div>
+  </div>
+
+  <div class="about">
+    <h2>Why imagine failure first</h2>
+    <div class="prose">
+    <p>A premortem — Gary Klein's move, sharpened by Kahneman — flips the risk conversation. Instead of asking "what could go wrong?" (which invites polite, hedged answers), it asserts the project has already failed, months from now, and asks the room to explain why. Prospective hindsight loosens tongues: naming a concrete failure that <em>has happened</em> is socially far cheaper than raising a doubt about a plan everyone's committed to, and it surfaces the risks the optimism of a kickoff buries. Silent writing before any discussion keeps the first confident voice from anchoring everyone else — the wisdom of the room only shows up when its guesses start independent.</p>
+    <p>The output is where most premortems fail: a flip-chart photo nobody looks at again. This one lands each risk in a register with two honest ranges — how likely, and how much it costs — sampled as 90% intervals, not a false 3×3 red/amber/green. Exposure is likelihood × impact run as a Monte Carlo, so the ranking reflects genuine uncertainty and a portfolio line shows the sum (with the honest caveat that correlated risks stack higher than independent ones). Every risk carries owned actions, dot-voted so the room's attention goes to the mitigations worth doing first.</p>
+    <p>And a register only earns its keep if it stays alive. Each entry ages — fresh, then ageing, then stale past 90 days — with a visible fade and a nag, because an unreviewed risk register quietly lies: it reads as "we're on top of this" when really nobody has looked. Review it or close it. Everything lives in this browser (no accounts, no server); a link exports a copy so you can hand it on, never bind two people to one list. Sources: Klein, "Performing a Project Premortem"; Kahneman, <em>Thinking, Fast and Slow</em>.</p>
+    </div>
+  </div>
+  </main>
+
+  <footer>
+    No accounts, no tracking. Your register lives in this browser; a link exports a copy.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

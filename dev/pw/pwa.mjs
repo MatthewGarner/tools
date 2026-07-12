@@ -68,6 +68,7 @@ async function installAndWait(page){
     ['/wardley/', async p => { await p.getByRole('button', {name: 'Habitat platform'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/alarm/', async p => { await p.waitForTimeout(600); return await p.locator('#distwrap svg').count() === 1 && await p.locator('#gate').evaluate(c => c.width > 100); }],
     ['/duel/', async p => { await p.locator('#start').click(); await p.waitForTimeout(400); return await p.locator('#duelwrap [data-pick]').count() === 2; }],
+    ['/premortem/', async p => { await p.waitForTimeout(500); return await p.locator('#phasepanel [data-field="title"]').count() === 1; }],
   ];
   for(const [path, probe] of TOOLS){
     const p = await ctx.newPage();

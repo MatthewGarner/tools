@@ -18,7 +18,7 @@ if(SHOTS) mkdirSync(SHOTS, {recursive: true});
 
 const TOOLS = [
   [T, 'fermi'], [T, 'flow'], [T, 'rank'], [T, 'map'], [T, 'timeline'],
-  [T, 'roadmap'], [T, 'tree'], [T, 'wardley'], [T, 'gauge'], [T, 'why'], [T, 'alarm'], [T, 'duel'], [T, ''],
+  [T, 'roadmap'], [T, 'tree'], [T, 'wardley'], [T, 'gauge'], [T, 'why'], [T, 'alarm'], [T, 'duel'], [T, 'premortem'], [T, ''],
   [E, ''], [E, 'risk'], [E, 'cycles'], [E, 'frequency'], [E, 'merit-order'], [E, 'intraday'],
 ];
 

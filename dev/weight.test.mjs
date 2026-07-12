@@ -49,6 +49,7 @@ const PAGES = {
   'fermi/index.html': 120_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
+  'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
   'roadmap/index.html': 480_000, 'why/index.html': 470_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,

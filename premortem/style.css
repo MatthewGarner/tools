@@ -1,0 +1,121 @@
+/* Page scaffold (fermi/flow centred column) + the premortem workshop surface. */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink);background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;padding:44px 20px 60px;
+}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:64ch}
+main{display:flex;flex-direction:column;gap:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:22px}
+.card h2,.phase h2{font-family:Charter,Georgia,serif;font-size:18px;margin:0 0 4px}
+.phint{color:var(--muted);font-size:13.5px;margin:8px 0 16px;max-width:70ch}
+.phint b{color:var(--ink);font-weight:600}
+.actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.method{color:var(--muted);font-size:12.5px}
+
+/* phase rail — text labels + current/done state (never colour-alone) */
+.phaserail{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
+.phaserail li{font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);
+  padding:6px 10px;border:1px solid var(--border);border-radius:20px;background:var(--card);cursor:pointer;
+  min-height:34px;display:inline-flex;align-items:center;gap:5px}
+.phaserail li.done{color:var(--accent-ink)}
+.phaserail li.done::before{content:"✓";color:var(--accent)}
+.phaserail li.current{border-color:var(--accent);color:var(--card);background:var(--accent)}
+.phaserail li[aria-disabled="true"]{cursor:default;opacity:.6}
+
+/* generic inputs */
+.fl{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 0}
+.fl input{display:block;width:100%;margin-top:6px;font:inherit;font-size:16px;color:var(--ink);
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-transform:none;letter-spacing:0}
+.inlinelabel{display:inline-flex;align-items:center;gap:8px;text-transform:uppercase}
+.inlinelabel input{display:inline-block;width:auto;margin:0;font-size:16px}
+[data-add="entry"]{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);
+  border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+input[type=number]{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;padding:7px 8px;width:4.5rem;text-align:center}
+select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+
+/* COLLECT */
+.clist,.cllist{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.centry{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
+.ctext{flex:1;min-width:140px;overflow-wrap:anywhere}
+.lexicon{display:flex;gap:6px}
+.lexbtn{font:inherit;font-size:11.5px;min-height:34px;padding:4px 10px;border:1px dashed var(--border);border-radius:16px;background:var(--card);color:var(--muted);cursor:pointer}
+.lexbtn.on{border-style:solid;border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.cdel,.acdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--muted);font-size:18px;cursor:pointer}
+
+/* CLUSTER */
+.clrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
+
+/* SCORE */
+.scrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--border)}
+.scin{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.scin label{font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+
+/* ACTIONS */
+.acrow{padding:12px 0;border-bottom:1px solid var(--border)}
+.acrisk{font-weight:600;margin:0 0 8px}
+.acitem{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.acitem input{flex:1;min-width:120px;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.acitem input[data-action="owner"]{flex:0 0 8rem}
+
+/* VOTE */
+.vrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.vtext{flex:1;overflow-wrap:anywhere}
+.vrow.topvote .vtext{color:var(--accent-ink);font-weight:600}
+.vstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink);font-size:20px;cursor:pointer}
+.vcount{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:700;min-width:1.5em;text-align:center}
+
+/* REGISTER table — scrolls inside its card (a data table, exports pinned wide) */
+.registerwrap{overflow-x:auto;margin-top:4px}
+.register{width:100%;min-width:560px;border-collapse:collapse;font-size:13.5px}
+.register th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
+.register td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.rnum{font-family:ui-monospace,Menlo,monospace;color:var(--muted)}
+.rtext{max-width:240px;overflow-wrap:anywhere}
+.rp{font-variant-numeric:tabular-nums;white-space:nowrap}
+.rexp b{font-variant-numeric:tabular-nums}
+.band{display:block;position:relative;height:5px;background:var(--track);border-radius:3px;margin:4px 0 2px}
+.bandfill{position:absolute;top:0;height:5px;background:var(--accent);border-radius:3px}
+.bandtext{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rrow.ageing{opacity:.82}
+.rrow.stale{opacity:.55}
+.rstale{white-space:nowrap;color:var(--muted);font-size:12px}
+.statuspill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:12px;background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--ink)}
+.statuspill.mitigating{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent-ink)}
+.statuspill.closed{background:color-mix(in srgb,var(--st-done,#1D7A3E) 15%,transparent);color:var(--st-done-ink,#1C753C)}
+.tagchip{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
+.tagchip.tiger{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--st-blocked-ink,#B3403A)}
+.tagchip.paper-tiger{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+.tagchip.elephant{background:color-mix(in srgb,var(--st-risk,#9A6A00) 15%,transparent);color:var(--st-risk-ink,#8E6200)}
+.clusterchip{font-size:10.5px;color:var(--muted);margin-left:6px}
+.actcount{font-size:10.5px;color:var(--muted);margin-left:6px}
+.unscored{color:var(--muted);font-style:italic}
+.portfolio{font-size:14px;margin:16px 0 0;max-width:70ch}
+.stalenag{font-size:13px;color:var(--st-risk-ink,#8E6200);margin:8px 0 0}
+
+/* countdown + nav + home */
+.countdown{font-family:ui-monospace,Menlo,monospace;font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;margin:8px 0}
+.navbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.navbar .primary{margin-left:auto}
+.gatewhy{color:var(--st-risk-ink,#8E6200);font-size:13px}
+#savedlist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.savedrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.savedrow .stitle{flex:1;font-weight:600;cursor:pointer;overflow-wrap:anywhere}
+.savedrow .smeta{color:var(--muted);font-size:12.5px}
+.savedrow .sdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer}
+.savedempty{color:var(--muted);font-size:14px}
+
+footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
+
+@media (max-width:560px){
+  .scrow,.acitem{gap:8px}
+  .register{min-width:520px}
+}
+@media (pointer:coarse){.btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}}
