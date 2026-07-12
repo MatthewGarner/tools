@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {rangeStats, probStats, RATIO_DIVERGENT, SPLIT_GAP, AGREE_SPREAD} from '../engine.js';
+import {rangeStats, probStats, chipsStats, delphiStats, RATIO_DIVERGENT, SPLIT_GAP, AGREE_SPREAD} from '../engine.js';
 
 /* ---- range fixtures ---- */
 const R_AGREE = [{low: 4, high: 8}, {low: 5, high: 9}, {low: 3, high: 7}];        // common zone 5–7
@@ -153,4 +153,64 @@ test('markdownSummary carries title, verdict, headlines, numbers', () => {
   assert.ok(md.includes(st[0].headline));
   assert.ok(md.includes('median'));
   assert.ok(md.includes('weeks'));
+});
+
+/* ---- chips (confidence auction) ---- */
+const {equal: ceq, ok: cok} = assert;
+const OPTS = ['A', 'B', 'C'];
+const a = alloc => ({alloc});
+
+test('chips: winners differ → "says A but bets on B"', () => {
+  const s = chipsStats([a([40, 30, 30]), a([40, 35, 25]), a([40, 30, 30]), a([0, 100, 0])], OPTS);
+  ceq(s.stated, 0);                        // A: 3 first-choice votes
+  ceq(s.conviction, 1);                    // B: 195 chips vs A 120
+  cok(s.discuss);
+  cok(s.headline.includes('says A') && s.headline.includes('bets on B'));
+});
+
+test('chips: same winner, weak share → conviction is spread', () => {
+  const s = chipsStats([a([40, 30, 30]), a([35, 35, 30]), a([38, 32, 30])], OPTS);
+  ceq(s.stated, 0); ceq(s.conviction, 0);
+  cok(s.perOption[0].share < 40 && s.discuss);
+  cok(s.headline.includes('conviction is spread'));
+});
+
+test('chips: same winner, strong share → wins both ways, no discuss', () => {
+  const s = chipsStats([a([70, 20, 10]), a([60, 20, 20]), a([80, 10, 10])], OPTS);
+  cok(!s.discuss);
+  cok(s.headline.includes('wins both ways'));
+});
+
+test('chips: exact top-pile tie is an abstention, reported', () => {
+  const s = chipsStats([a([50, 50, 0]), a([60, 20, 20])], OPTS);
+  ceq(s.abstentions, 1);
+  ceq(s.perOption[0].votes + s.perOption[1].votes + s.perOption[2].votes, 1);
+});
+
+test('chips: hedging note when median top pile < 50', () => {
+  const s = chipsStats([a([40, 30, 30]), a([35, 35, 30]), a([40, 40, 20])], OPTS);
+  cok(s.hedging && s.headline.includes('hedg'));
+});
+
+test('chips: bad sums normalised defensively', () => {
+  const s = chipsStats([a([30, 20, 0])], OPTS);        // sums 50 (relay should prevent; engine survives)
+  ceq(Math.round(s.perOption[0].share + s.perOption[1].share + s.perOption[2].share), 100);
+});
+
+test('chips: empty and single reuse existing kinds', () => {
+  ceq(chipsStats([], OPTS).kind, 'empty');
+  ceq(chipsStats([a([50, 30, 20])], OPTS).kind, 'single');
+});
+
+test('sessionStats routes chips values', () => {
+  const model = parse('Pick :: chips A | B | C');
+  const stats = sessionStats(model, [{values: [[60, 25, 15]]}, {values: [[10, 80, 10]]}]);
+  ceq(stats[0].perOption.length, 3);
+});
+
+test('delphiStats excludes chips from convergence', () => {
+  const model = parse('Pick :: chips A | B');
+  const d = delphiStats(model, [{who: 'x', values: [[60, 40]]}], [{who: 'x', values: [[40, 60]]}]);
+  cok(d[0].excluded);
+  cok(d[0].headline.includes("don't pool"));
 });
