@@ -178,6 +178,85 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+/* leaked-failsafe-timer guard — the review Critical: abandonInFlight() must
+   cancel the abandoned dispatch's 5s failsafe timer. If it doesn't, that timer
+   later markWorkerDead()s whatever worker is CURRENT (a healthy one serving a
+   later edit), nulls it with no respawn, and forces every subsequent edit onto
+   the main-thread runSync path for the session. We shrink SIM_TIMEOUT_MS to
+   500ms (globalThis.__cyclesSimTimeoutMs), fire an edit→revert abandon, then
+   wait PAST the shrunk window with no activity: with the leak the timer fires
+   and kills the (healthy, respawned) worker; with the fix nothing fires. */
+{
+  const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  const simCount = () => page.evaluate(() => window.__cyclesSimCount);
+  const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
+
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await page.waitForTimeout(1200);
+  check('cycles leak: boot settles, worker alive', await simCount() === 1 && await workerAlive() === true);
+
+  await page.evaluate(() => { window.__cyclesSimTimeoutMs = 500; });   // shrink the failsafe window
+  await page.getByRole('button', {name: 'Tight warranty'}).click();   // dispatch K1 → arms a 500ms failsafe timer
+  await page.waitForTimeout(200);                                     // K1 still in flight (real sim ~500ms)
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();  // revert (=== lastKey) → abandonInFlight must CANCEL K1's timer
+  await page.waitForTimeout(1400);   // > the abandoned timer's would-be fire time (dispatch+500ms) + margin, no activity
+
+  check('cycles leak: worker still alive after the abandoned failsafe window (timer was cancelled, not leaked)', await workerAlive() === true);
+
+  await page.evaluate(() => { window.__cyclesSimTimeoutMs = 5000; });  // restore before the next edit so its own timer can't race the real sim
+  const countBefore = await simCount();
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Meta+ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('spread: 42..97');
+  await page.waitForTimeout(1400);
+  check('cycles leak: a later sim-input edit still ran (count +1)', await simCount() === countBefore + 1);
+  check('cycles leak: a later edit still took the WORKER path (not the self-killed sync fallback)', await workerAlive() === true);
+  check('cycles leak: no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* failsafe-timeout fallback path — a worker that never answers must fall back
+   to a synchronous inline sim (renders, actions on) and mark the worker dead
+   for the session, WITHOUT corrupting the memo. We force it by shrinking the
+   window to 10ms so it always fires before the ~500ms real response; the
+   fallback routes through dispatch (bumps seq) so a post-terminate late message
+   can't commit lastKey=null. */
+{
+  const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  const simCount = () => page.evaluate(() => window.__cyclesSimCount);
+  const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
+
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await page.waitForTimeout(1200);
+  check('cycles timeout: boot settles, worker alive', await simCount() === 1 && await workerAlive() === true);
+
+  await page.evaluate(() => { window.__cyclesSimTimeoutMs = 10; });    // failsafe fires almost immediately, before any worker response
+  const countBefore = await simCount();
+  await page.getByRole('button', {name: 'Tight warranty'}).click();    // dispatch K1 → 10ms timer wins the race → sync fallback
+  await page.waitForTimeout(900);
+
+  check('cycles timeout: fallback rendered a diagram', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
+  check('cycles timeout: fallback verdict present', (await page.locator('#verdict').innerText()).trim().length > 20);
+  check('cycles timeout: actions enabled after the fallback commit', await page.locator('#dlsvg').isEnabled());
+  /* +2: the worker dispatch counts one real simulate (the abandoned off-thread
+     run), then the failsafe fallback routes through dispatch→runSync for a
+     second — both are genuine simulate() invocations. */
+  check('cycles timeout: worker dispatch + fallback both counted (+2)', await simCount() === countBefore + 2);
+  check('cycles timeout: worker marked dead for the session', await workerAlive() === false);
+  /* memo intact: a theme toggle forces a doRefresh on the same model; it must
+     hit the memoised key===lastKey path and NOT re-sim. If a post-terminate
+     late message had corrupted lastKey to null, key(non-null)!==lastKey(null)
+     would re-dispatch → count++. Count unchanged ⇒ lastKey was set correctly. */
+  await page.evaluate(() => { window.__cyclesSimTimeoutMs = 5000; });
+  const countAfterFallback = await simCount();
+  await page.emulateMedia({colorScheme: 'dark'});
+  await page.waitForTimeout(700);
+  check('cycles timeout: theme toggle is memoised (lastKey uncorrupted, no re-sim)', await simCount() === countAfterFallback);
+  check('cycles timeout: no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/energy/frequency/', theme);
   await page.getByRole('button', {name: 'Battery stack'}).click();

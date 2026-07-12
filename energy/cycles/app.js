@@ -73,11 +73,19 @@ let rafId = 0, debTimer = null, hashTimer = null;
    to clobber the current render: every path that lands on a renderable
    result OTHER than the pending request completing (null-key, revert to
    lastKey, or a fresh dispatch superseding a different in-flight one) calls
-   abandonInFlight() FIRST — bump seq (so a late reqId!==seq response is
-   dropped), clear pendingKey, terminate+respawn the worker (stop the wasted
-   CPU; a queued new sim must never wait behind an abandoned one). */
+   abandonInFlight() FIRST — clear the in-flight request's failsafe timer, bump
+   seq (so a late reqId!==seq response is dropped), clear pendingKey, terminate+
+   respawn the worker (stop the wasted CPU; a queued new sim must never wait
+   behind an abandoned one). The clearTimeout is load-bearing: without it the
+   abandoned dispatch's 5s timer survives and, ~5s later, markWorkerDead()s
+   whatever worker is CURRENT then — self-killing a healthy worker and forcing
+   every later edit onto the main thread for the rest of the session (review
+   Critical, reproduced with a mocked-timer harness). */
 let pendingKey = null, seq = 0, timeoutId = 0;
 const SIM_TIMEOUT_MS = 5000;
+/* test seam: a suite can shrink the failsafe window (globalThis.__cyclesSim-
+   TimeoutMs) so the timeout/leak paths are exercisable in ms, not 5s. */
+const simTimeoutMs = () => globalThis.__cyclesSimTimeoutMs || SIM_TIMEOUT_MS;
 
 function spawnWorker(){
   try{
@@ -88,9 +96,11 @@ function spawnWorker(){
   }catch(e){ return null; }
 }
 let worker = spawnWorker();
+globalThis.__cyclesWorkerAlive = () => worker != null;   // test hook: proves the worker wasn't self-killed
 
 function abandonInFlight(){
   if(pendingKey === null) return;
+  clearTimeout(timeoutId);                      // CRITICAL: cancel the abandoned dispatch's failsafe timer
   seq++;                                        // invalidate any in-flight/late response
   pendingKey = null;
   if(worker){ worker.terminate(); worker = spawnWorker(); }   // stop wasted CPU; fresh worker for next
@@ -118,9 +128,17 @@ function onWorkerMessage({out: res, reqId}){
   commit(res, pendingKey);
 }
 
+/* Both fallbacks (durable onerror + failsafe timeout) route through dispatch,
+   which runs abandonInFlight() (bumps seq) before the sync run. That seq bump
+   is what invalidates the just-terminated worker's reqId: terminate() isn't
+   guaranteed to drop an already-posted message, and without the bump a late
+   message for the same reqId would still pass onWorkerMessage's reqId===seq
+   guard and commit with pendingKey already null → lastKey=null, corrupting the
+   memo (review Important). worker is null here (markWorkerDead), so dispatch
+   goes straight to runSync — no new timer, no loop. */
 function onWorkerError(){
   markWorkerDead();                             // durable failure → don't retry the worker this session
-  if(pendingKey !== null) runSync(pendingKey, seq);
+  if(pendingKey !== null) dispatch(pendingKey);
 }
 
 function dispatch(key){
@@ -131,7 +149,7 @@ function dispatch(key){
   if(!worker) return runSync(key, id);
   __cyclesSimCount++;
   worker.postMessage({model, seed: 1, n: 5000, reqId: id});
-  timeoutId = setTimeout(() => { markWorkerDead(); runSync(key, id); }, SIM_TIMEOUT_MS);
+  timeoutId = setTimeout(() => { markWorkerDead(); dispatch(key); }, simTimeoutMs());
 }
 
 const stageEl = $('preview');
