@@ -40,12 +40,25 @@ export function parse(text){
 
     let q = null;
     const rangeM = kind.match(/^range(?:\s+(.+))?$/i);
+    const chipsM = kind.match(/^chips\s+(.+)$/i);
     if(/^prob$/i.test(kind)) q = {text: qtext, type: 'prob', unit: null, srcLine: ln};
     else if(rangeM){
       const unit = (rangeM[1] || '').trim() || null;
       if(!unit) warn('range without a unit — add one like "range weeks"');
       q = {text: qtext, type: 'range', unit, srcLine: ln};
-    } else { warn('unknown question type "' + kind + '" — use prob or "range <unit>"'); continue; }
+    } else if(chipsM){
+      let options = chipsM[1].split('|').map(s => s.trim());
+      if(options.some(o => !o)){ warn('empty option label between pipes'); options = options.filter(Boolean); }
+      const seen = new Set();
+      for(const o of options){
+        const k = o.toLowerCase();
+        if(seen.has(k)) warn('duplicate option "' + o + '"');
+        seen.add(k);
+      }
+      if(options.length < 2){ warn('chips needs at least 2 options — "chips A | B"'); continue; }
+      if(options.length > 8){ warn('chips takes at most 8 options — extras ignored'); options = options.slice(0, 8); }
+      q = {text: qtext, type: 'chips', options, unit: null, srcLine: ln};
+    } else { warn('unknown question type "' + kind + '" — use prob, "range <unit>", or "chips A | B"'); continue; }
 
     if(model.questions.length >= MAX_QUESTIONS){
       warn('question limit is ' + MAX_QUESTIONS + ' — "' + qtext.slice(0, 30) + '" ignored');
