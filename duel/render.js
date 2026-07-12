@@ -9,7 +9,7 @@ const NUM = {2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8
 export function renderDuel(state, pair){
   const n = state.items.length;
   const activeCount = active(state.duels).length;
-  const card = i => '<button class="card" data-pick="' + i + '">' + esc(state.items[i]) + '</button>';
+  const card = i => '<button class="pickcard" data-pick="' + i + '">' + esc(state.items[i]) + '</button>';
   return '<p class="framing">' + esc(state.q || 'Which comes first?') + '</p>' +
     '<div class="duelcards">' + card(pair[0]) + '<span class="vs">or</span>' + card(pair[1]) + '</div>' +
     '<p class="progress">duel ' + (activeCount + 1) + ' of ~' + budget(n) + '</p>';
