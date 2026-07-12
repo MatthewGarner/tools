@@ -16,6 +16,10 @@ const rng = r => !r ? '—' : r[0] === r[1] ? num(r[0]) : num(r[0]) + '–' + nu
 const pct = r => !r ? '—' : r[0] === r[1] ? r[0] + '%' : r[0] + '–' + r[1] + '%';
 const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: []};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
+/* portfolio-level concentration honesty note — null when no bet reaches the
+   engine's ≥40%-of-total-stake threshold, so callers reserve no gap for it */
+const concentrationLine = conc => !conc ? null :
+  '⚑ ' + conc.name + ' is ' + Math.round(conc.share * 100) + '% of total stake — one bet carries the book.';
 
 export function renderBoard(model, sim, ctx = {}){
   return (!!ctx.width && ctx.width < 520) ? renderNarrow(model, sim, ctx) : renderWide(model, sim, ctx);
@@ -30,7 +34,7 @@ function prep(model, sim){
   let elo = 0, ehi = 1;
   for(const b of flat){ const e = recOf(sim, b).ev; elo = Math.min(elo, e.p10); ehi = Math.max(ehi, e.p90); }
   const epad = (ehi - elo) * 0.05 || 1;
-  return {flat, flagged, totalStake, elo: elo - epad, ehi: ehi + epad, pf: sim.portfolio};
+  return {flat, flagged, totalStake, elo: elo - epad, ehi: ehi + epad, pf: sim.portfolio, conc: sim.concentration};
 }
 
 /* a failed-audit rubber stamp (rotated, red ruled border, letterspaced ink) */
@@ -56,8 +60,9 @@ function stampRow(parts, audits, xRight, cy, c){
 /* ---------------- WIDE: the ledger ---------------- */
 function renderWide(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
-  const {flat, flagged, totalStake, elo, ehi, pf} = prep(model, sim);
+  const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
   const pl = Math.round((pf.pLoss || 0) * 100);
+  const concLine = concentrationLine(conc);
   const C = {name: 30, stake: 300, odds: 388, payoff: 494, p10: 574, p50: 646, p90: 718, bar0: 736, bar1: 892, right: 930};
   const ex = v => C.bar0 + (v - elo) / (ehi - elo || 1) * (C.bar1 - C.bar0);
   const parts = [], body = [];
@@ -133,6 +138,12 @@ function renderWide(model, sim, ctx){
   body.push(txt(C.right, y + 24, flagged + ' FLAGGED', 9.5, flagged ? c.err : c.muted, {weight: 700, anchor: 'end', tracking: '0.05em'}));
   y += 40;
 
+  // concentration honesty note — one line, only when the engine flags a bet
+  if(concLine){
+    body.push(txt(C.name, y + 12, concLine, 11.5, c.status.risk, {weight: 600}));
+    y += 22;
+  }
+
   // outcome rail
   y = outcomeRail(body, pf, pl, 30, C.right, y, c);
   const panelBot = y + 8;
@@ -180,8 +191,9 @@ function outcomeRail(body, pf, pl, x0, x1, y, c, narrow){
 function renderNarrow(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
   const W = Math.max(300, Math.round(ctx.width)), pad = 16, inner = W - pad * 2;
-  const {flat, flagged, totalStake, elo, ehi, pf} = prep(model, sim);
+  const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
   const pl = Math.round((pf.pLoss || 0) * 100);
+  const concLine = concentrationLine(conc);
   const ex = (v, x0, w) => x0 + (v - elo) / (ehi - elo || 1) * w;
   const parts = [];
   let y = 30;
@@ -190,6 +202,12 @@ function renderNarrow(model, sim, ctx){
   parts.push(txt(pad, y, 'P(LOSES MONEY) ' + pl + '%', 15, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true})); y += 18;
   parts.push(txt(pad, y, 'NET EV ' + sgn(pf.p50) + ' [' + sgn(pf.p10) + ' – ' + sgn(pf.p90) + '] ' + (model.unit || ''), 11.5, c.muted, {mono: true})); y += 16;
   parts.push(txt(pad, y, flat.length + ' bets · ' + flagged + ' flagged · stake ' + num(totalStake), 11, c.muted)); y += 20;
+  if(concLine){
+    for(const ln of wrapText(concLine, '10.5px ' + SANS, inner, measure)){
+      parts.push(txt(pad, y, ln, 10.5, c.status.risk, {weight: 600})); y += 14;
+    }
+    y += 6;
+  }
 
   for(const g of model.groups){
     parts.push('<rect x="' + pad + '" y="' + y + '" width="4" height="16" rx="2" fill="' + c.accent + '"/>');

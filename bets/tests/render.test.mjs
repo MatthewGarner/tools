@@ -80,3 +80,28 @@ test('narrow relayout (<520) emits the stacked layout and keeps edit hooks', () 
   assert.match(svg, /data-edit="odds"/);
   assert.match(svg, /data-menu=""/);      // slip-level card-menu hook for coarse pointers
 });
+
+test('concentration: >=40%-stake bet gets a named note on both layouts', () => {
+  // fixture's Billing rewrite is 200 of 420 total stake = ~48%, so simulate()
+  // names it as sim.concentration — confirm the board actually surfaces it
+  assert.equal(sim.concentration.name, 'Billing rewrite');
+  const pct = Math.round(sim.concentration.share * 100);
+  const wide = renderBoard(model, sim, CTX);
+  const narrow = renderBoard(model, sim, {...CTX, width: 390});
+  for(const svg of [wide, narrow]){
+    assert.match(svg, /Billing rewrite is 48% of total stake/);
+    assert.ok(svg.includes(pct + '%'), 'note quotes the rounded share');
+  }
+});
+
+test('concentration: no bet at 40%+ renders no note', () => {
+  const flatSrc = `G\n  A: stake 25, odds 30-50%, payoff 40-90\n  B: stake 25, odds 30-50%, payoff 40-90\n  C: stake 25, odds 30-50%, payoff 40-90\n  D: stake 25, odds 30-50%, payoff 40-90`;
+  const m = parse(flatSrc), s = simulate(m);
+  assert.equal(s.concentration, null, 'fixture sanity: no bet reaches 40%');
+  const wide = renderBoard(m, s, CTX);
+  const narrow = renderBoard(m, s, {...CTX, width: 390});
+  for(const svg of [wide, narrow]){
+    assert.ok(!/carries the book/.test(svg), 'no concentration line when null');
+    assert.ok(!/⚑/.test(svg), 'no flag glyph when null');
+  }
+});
