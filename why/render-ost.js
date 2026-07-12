@@ -20,6 +20,191 @@ const ASSUMP_GLYPH = {untested: '?', testing: '~', holds: '✓', broken: '✗'};
 const STATUS_LABEL = {candidate: 'Candidate', testing: 'Testing', delivering: 'Delivering',
   shipped: 'Shipped', parked: 'Parked'};
 
+/* Narrow (phone) kind glyphs — the wide box-tree shows depth by position and
+   edges; the narrow outline clamps its indent at depth 3 (opportunities nest
+   freely), so a leading glyph + reading order carry the rest of the hierarchy. */
+const KIND_GLYPH = {outcome: '◆', opportunity: '→', solution: '▸'};
+const INDENT = 16;
+const MAX_INDENT_DEPTH = 3;
+const MIN_CARD = 140;   // floor so a maximally-clamped deep node never collapses
+
+/* Narrow (phone) relayout: a top-to-bottom indented outline — depth ≤3 shown
+   by a left indent (clamped beyond that; opportunities nest freely), full-
+   width cards that shrink with depth. Assumptions still fold into their
+   solution's OWN card (same as wide), not separate outline rows. Same
+   data-edit/data-line/data-hit targets as wide (at stacked coordinates), so
+   the card menu + assumption sub-popover need no app-side routing change.
+   Exports never set ctx.width, so this path is preview-only (mirrors
+   roadmap's renderNarrow: an early-return, fully self-contained pass). */
+function renderOstNarrow(model, projection, ctx, diff, C, T){
+  const {measure, edit = false} = ctx;
+  const W = ctx.width;
+  const PAD = T.pad;
+  const labelFont = '600 ' + T.labelSize + 'px ' + F.body;
+  const assumpFont = T.assumpSize + 'px ' + F.body;
+  const statusColor = st => ({
+    candidate: C.muted, testing: C.accent, delivering: C.status ? C.status.done : C.accent,
+    shipped: C.muted, parked: C.muted,
+  })[st] || C.muted;
+  const assumpColor = st => ({
+    untested: C.muted, testing: C.accent, holds: (C.status ? C.status.done : C.accent), broken: C.err,
+  })[st] || C.muted;
+  const aLines = new Map();
+  const cardWFor = depth => Math.max(MIN_CARD, W - 2*PAD - Math.min(depth, MAX_INDENT_DEPTH) * INDENT);
+
+  /* prep: depth-first: each node's OWN card width shrinks with depth (clamped),
+     so the label wrap (and assumption wrap) measure against that width, not a
+     constant — the brief's "depth-parameterised measurement". */
+  function prep(node, depth){
+    node._depth = depth;
+    node._assumps = node.children.filter(c => c.kind === 'assumption');
+    node._kids = node.children.filter(c => c.kind !== 'assumption');
+    const cardW = cardWFor(depth);
+    node._cardW = cardW;
+    const innerW = cardW - T.cardPadX*2;
+    const glyph = KIND_GLYPH[node.kind];
+    node._lines = wrapText((glyph ? glyph + ' ' : '') + node.label, labelFont, innerW, measure);
+    let h = T.cardPadY*2 + node._lines.length * T.labelLh;
+    if(node.kind === 'solution') h += T.pillH + T.pillGap;
+    for(const a of node._assumps){
+      aLines.set(a, wrapText(ASSUMP_GLYPH[a.status] + ' ' + a.label, assumpFont, innerW, measure));
+      h += aLines.get(a).length * T.assumpLh;
+    }
+    node._h = h;
+    node._kids.forEach(k => prep(k, depth + 1));
+  }
+  /* place: plain preorder stack — every node is its own row (no wide-style
+     postorder median centering; an outline reads top-to-bottom in order). */
+  let cursorY = 0;
+  function place(node){
+    node._x = PAD + Math.min(node._depth, MAX_INDENT_DEPTH) * INDENT;
+    node._y = cursorY;
+    cursorY += node._h + T.rowGap;
+    node._kids.forEach(place);
+  }
+  model.outcomes.forEach(o => { prep(o, 0); place(o); cursorY += 10; });
+
+  const s = [];
+  let y = 24;
+  if(model.title){
+    for(const l of wrapText(model.title, '700 19px ' + F.serif, W - PAD*2, measure)){
+      s.push('<text x="' + PAD + '" y="' + y + '" font-family=\'' + F.serif +
+        '\' font-size="19" font-weight="700" fill="' + C.ink + '">' + esc(l) + '</text>');
+      y += 24;
+    }
+  }
+  s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + T.dateSize + '" fill="' + C.muted + '">' +
+    new Date().toISOString().slice(0, 10) + '</text>');
+  y += 20;
+  let dropLines = [];
+  if(diff){
+    for(const l of wrapText(diff.narrative, '600 12px ' + F.body, W - PAD*2, measure)){
+      s.push('<text x="' + PAD + '" y="' + y + '" font-size="12" font-weight="600" fill="' + C.accent + '">' + esc(l) + '</text>');
+      y += 16;
+    }
+    if(diff.dropped.length) dropLines = diff.dropped.map(label => wrapText(label, '11px ' + F.body, W - PAD*2, measure));
+  }
+  y += 8;
+  const headerH = y;
+  const droppedTotalLines = dropLines.reduce((a, arr) => a + arr.length, 0);
+  const droppedH = dropLines.length ? (20 + droppedTotalLines * 15) : 0;
+  const H = Math.round(headerH + cursorY + droppedH + T.bottomPad);
+
+  function drawCard(node){
+    const x = node._x, ny = headerH + node._y, cardW = node._cardW;
+    const dimmed = projection.ost.dimmed.has(node);
+    const unaddressed = projection.ost.unaddressed.has(node);
+    if(dimmed) s.push('<g opacity="' + T.dimOp + '">');
+    const isOutcome = node.kind === 'outcome';
+    const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-menu="" data-raw=""' +
+      btnAttrs('More options: ' + node.label) : '';
+    s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + ny + '" width="' + cardW +
+      '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
+      '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
+      (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
+    const dBadge = diff && diff.badge(node);
+    if(dBadge){
+      const bcol = dBadge.kind === 'new' ? C.accent : C.muted;
+      const blabel = dBadge.label.toUpperCase();
+      const bw = measure(blabel, '600 ' + T.pillSize + 'px ' + F.body) + T.pillPadX*2;
+      const bx = x + cardW - bw - 4, by = ny - T.pillH/2;
+      const solid = isOutcome;
+      s.push('<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + T.pillH +
+        '" rx="' + T.pillH/2 + '" fill="' + (solid ? bcol : tint(bcol)) +
+        '" stroke="' + (solid ? C.card : bcol) + '" stroke-width="' + (solid ? 1.25 : 0.75) + '"/>');
+      s.push('<text x="' + (bx + T.pillPadX) + '" y="' + (by + T.pillH - 4.5) +
+        '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
+        '" fill="' + (solid ? C.card : bcol) + '">' + esc(blabel) + '</text>');
+    }
+    let ty = ny + T.cardPadY + T.labelSize;
+    for(const line of node._lines){
+      s.push('<text data-edit="label" data-line="' + node.srcLine + '" data-raw="' + esc(node.label) +
+        '" x="' + (x + T.cardPadX) + '" y="' + ty + '" font-size="' + T.labelSize +
+        '" font-weight="600"' + (isOutcome ? ' font-family=\'' + F.serif + '\'' : '') +
+        ' fill="' + C.ink + '"' + btnAttrs('Rename: ' + node.label) +
+        '>' + esc(line) + '</text>');
+      ty += T.labelLh;
+    }
+    if(node.kind === 'solution'){
+      const col = statusColor(node.status);
+      const label = STATUS_LABEL[node.status].toUpperCase();
+      const eip = ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status +
+        '"' + btnAttrs('Cycle status: ' + node.label);
+      const tw = measure(label, '600 ' + T.pillSize + 'px ' + F.body) + label.length * T.pillTracking;
+      s.push('<rect' + eip + ' x="' + (x + T.cardPadX) + '" y="' + (ty - T.labelSize + 3) + '" width="' + (tw + T.pillPadX*2) +
+        '" height="' + T.pillH + '" rx="' + T.pillH/2 + '" fill="' + tint(col) + '"/>');
+      s.push('<text' + eip + ' x="' + (x + T.cardPadX + T.pillPadX) + '" y="' + (ty - T.labelSize + 3 + T.pillH - 4.5) +
+        '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
+        '" fill="' + col + '">' + esc(label) + '</text>');
+      ty += T.pillH + T.pillGap;
+    }
+    for(const a of node._assumps){
+      const col = assumpColor(a.status);
+      const rows = aLines.get(a);
+      rows.forEach((row, i) => {
+        s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
+          '" x="' + (x + T.cardPadX) + '" y="' + ty + '" font-size="' + T.assumpSize +
+          '" fill="' + col + '"' + btnAttrs('Cycle assumption status: ' + a.label) +
+          '>' + esc(row) + '</text>');
+        if(edit && i === rows.length - 1){
+          const xx = Math.min(x + T.cardPadX + measure(row, assumpFont) + 8, x + cardW - T.cardPadX);
+          s.push('<text data-edit="removeassump" data-line="' + a.srcLine + '" data-raw=""' +
+            btnAttrs('Remove assumption ' + a.label) + ' x="' + xx +
+            '" y="' + ty + '" text-anchor="end" font-size="' + T.assumpSize +
+            '" fill="' + C.muted + '">×</text>');
+        }
+        ty += T.assumpLh;
+      });
+    }
+    if(dimmed) s.push('</g>');
+  }
+  for(const o of model.outcomes){
+    (function drawAll(n){ drawCard(n); n._kids.forEach(drawAll); })(o);
+  }
+  if(dropLines.length){
+    let dy = headerH + cursorY + 14;
+    s.push('<text x="' + PAD + '" y="' + dy + '" font-size="10" font-weight="600" letter-spacing="1" fill="' + C.muted +
+      '">DROPPED SINCE ' + esc(diff.since.toUpperCase()) + '</text>');
+    diff.dropped.forEach((label, i) => {
+      for(const l of dropLines[i]){
+        dy += 15;
+        s.push('<text x="' + PAD + '" y="' + dy + '" font-size="11" fill="' + C.muted +
+          '" text-decoration="line-through">' + esc(l) + '</text>');
+      }
+    });
+  }
+  const out = '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+  for(const o of model.outcomes){
+    (function clean(n){
+      delete n._y; delete n._h; delete n._depth; delete n._lines; delete n._cardW; delete n._x;
+      const kids = n._kids; delete n._kids; delete n._assumps;
+      kids.forEach(clean);
+    })(o);
+  }
+  return out;
+}
 
 export function renderOst(model, projection, ctx, diff = null){
   const {measure, slide = false, dark = false, edit = false} = ctx;
@@ -27,6 +212,9 @@ export function renderOst(model, projection, ctx, diff = null){
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
   const T = TOKENS;
+  const NARROW = 520;
+  const isNarrow = !!(ctx.width && ctx.width < NARROW);
+  if(isNarrow) return renderOstNarrow(model, projection, ctx, diff, C, T);
   const S = slide ? T.slideScale : 1;
   const statusColor = st => ({
     candidate: C.muted, testing: C.accent, delivering: C.status ? C.status.done : C.accent,

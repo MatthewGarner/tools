@@ -71,6 +71,22 @@ for(const [k, src] of Object.entries(docs)){
   variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
   variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
+
+  /* narrow (phone) relayout, edit:true — the only real-world path (exports
+     never set ctx.width): the indented outline (OST) and its map-view
+     inheritance of roadmap's narrow relayout (Task 2). */
+  variants['why-ost-narrow'] = norm(renderOst(m, pr, {...ctxBase, edit: true, width: 360}));
+  variants['why-map-narrow'] = norm(renderMap(m, pr, {...ctxBase, edit: true, width: 360}));
+
+  /* deep-tree fixture (#4-5 levels of freely-nesting opportunities down to a
+     solution): proves the depth clamp — depths 3, 4 and 5 all share the
+     depth-3 indent/card width instead of collapsing or running off-screen. */
+  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Users forget mid-afternoon habits\n' +
+    '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
+    '          Smart batching [testing]\n            ? batching preserves timing';
+  const dm = wparse(deepDoc);
+  const dpr = project(dm);
+  variants['why-ost-narrow-deep'] = norm(renderOst(dm, dpr, {...ctxBase, edit: true, width: 360}));
 }
 
 /* /map fixtures (dates normalised) */

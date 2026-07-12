@@ -9,6 +9,7 @@ import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
@@ -58,6 +59,8 @@ outcome: Grow referral revenue
 /* ---------- refresh loop ---------- */
 let model = null, projection = null, view = 'ost';
 let lastSvg = '', hashTimer = null;
+const previewEl = $('preview');
+function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
 }
@@ -67,8 +70,13 @@ function currentDiff(){
   if(!cur || !model || !model.outcomes.length) return null;
   return whyDiffView(whyDiff(cur.model, model), cur.label);
 }
+/* width rides the shared ctx into BOTH views: renderOst reads ctx.width
+   directly, and renderMap forwards {...ctx} untouched into roadmap's
+   renderer (render-map.js), so the map view inherits roadmap's narrow
+   relayout for free. Exports never pass edit:true, so they never carry a
+   width — the wide artefact stays pinned regardless of the on-screen bucket. */
 function activeRender(slide, edit){
-  const ctx = {colors: themeColors(), measure, slide, dark: isDark(), edit};
+  const ctx = {colors: themeColors(), measure, slide, dark: isDark(), edit, width: edit ? renderWidth() : undefined};
   return view === 'ost' ? renderOst(model, projection, ctx, currentDiff()) : renderMap(model, projection, ctx);
 }
 function doRefresh(){
@@ -237,6 +245,9 @@ wireExports({
 /* ---------- theme ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
 onThemeChange(rerender);
+
+/* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
+watchNarrowBucket(previewEl, rerender);
 
 /* ---------- boot ---------- */
 (function(){
