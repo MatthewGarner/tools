@@ -129,3 +129,13 @@ Choose a play
   Do nothing: 0`);
   await timed(100, () => evaluate(m, {sims: 10000}));
 });
+
+test('alarm: classify + gate-layout of 1000 dots under 60ms', async () => {
+  const {population, classify} = await import('../alarm/engine.js');
+  const {layoutFlow} = await import('../alarm/gate-canvas.js');
+  const pop = population();
+  await timed(60, () => {
+    const {dots} = classify(pop, {baseRate: 0.02, dprime: 2, t: 1.2});
+    layoutFlow(dots, [{split: d => d.alarm, fail: 'Quiet'}], {w: 900, h: 360, dotR: 3}, {passLabel: 'ALARM'});
+  });
+});

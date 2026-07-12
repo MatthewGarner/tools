@@ -284,6 +284,12 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-narrow-edit'] = wrender(wm, layoutMap(wm), {...wctx, width: 390}, {edit: true});
 }
 
+/* /alarm fixtures (pure numeric params → deterministic) */
+{
+  const {renderDistributions} = await import('../alarm/render.js');
+  variants['alarm-dist'] = renderDistributions({baseRate: 0.02, dprime: 2, t: 1.2}, ctxBase.colors, {w: 900, h: 220});
+}
+
 const mode = process.argv[2];
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;

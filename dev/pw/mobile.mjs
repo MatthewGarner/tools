@@ -12,7 +12,7 @@ const AUTOLOAD = [
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
   ['timeline', T + '/timeline/'], ['fermi', T + '/fermi/'], ['frequency', E + '/frequency/'],
-  ['intraday', E + '/intraday/'],
+  ['intraday', E + '/intraday/'], ['alarm', T + '/alarm/'],
 ];
 
 let pass = 0, fail = 0;
@@ -87,6 +87,7 @@ const CONTAINERS = [
   ['rank', T + '/rank/', ['.tblwrap']],
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
+  ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
 ];
 
 for(const [name, url, selectors] of CONTAINERS){

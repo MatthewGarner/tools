@@ -165,7 +165,25 @@ for(const theme of ['light', 'dark']){
     const crumb = page.locator('a.crumb');
     if(await crumb.count() !== 1 || await crumb.getAttribute('href') !== '/'){ allOk = false; break; }
   }
-  check('all ten tools carry the home crumb', allOk);
+  check('all eleven tools carry the home crumb', allOk);
+  await page.close();
+}
+
+/* ---- alarm (base-rate playground) ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/alarm/', theme);
+  await page.waitForTimeout(500);
+  check('alarm(' + theme + '): distribution renders', await page.locator('#distwrap svg').count() === 1);
+  check('alarm(' + theme + '): distribution SVG decodes as XML', await svgDecodes(page, '#distwrap svg'));
+  check('alarm(' + theme + '): gate canvas painted', await page.locator('#gate').evaluate(c => c.width > 100));
+  const before = (await page.locator('#verdictAlarm').innerText()).trim();
+  check('alarm(' + theme + '): verdict quotes an alarm fraction',
+    /in \d+ alarms|No alarms|Every alarm/.test(before));
+  await page.locator('#threshold').evaluate(e => { e.value = '0.2'; e.dispatchEvent(new Event('input', {bubbles: true})); });
+  await page.waitForTimeout(300);
+  const after = (await page.locator('#verdictAlarm').innerText()).trim();
+  check('alarm(' + theme + '): moving the threshold changes the verdict', before !== after);
+  check('alarm(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

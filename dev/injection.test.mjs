@@ -197,3 +197,11 @@ test('flow readout + triage renderers escape hostile lever labels (labels are ha
   assertClean(renderReadout(result, sweep, knee, params, ctx), 'flow-readout');
   assertClean(renderTriage(triage, params, 40, ctx), 'flow-triage');
 });
+
+test('alarm renderers stay well-formed under extreme numeric params (no user strings here — the surface is degenerate params, not labels)', async () => {
+  const {renderDistributions, renderBox} = await import('../alarm/render.js');
+  for(const p of [{baseRate: 0.001, dprime: 0, t: -3}, {baseRate: 0.5, dprime: 4, t: 6},
+    {baseRate: 0.02, dprime: 2, t: 1.2}])
+    assertClean(renderDistributions(p, ctx.colors, {w: 900, h: 220}), 'alarm-dist');
+  assertClean(renderBox({tp: 10, fp: 990, tn: 0, fn: 0}, ctx.colors), 'alarm-box');
+});
