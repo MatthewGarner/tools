@@ -66,6 +66,47 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       if(!active && document.activeElement === document.body) el.focus();
     }, 0);
   }
+  /* Build a popover of menu rows at `rect`. `activeEl` is the SVG trigger the
+     popover belongs to — used by opens/action rows for their data-line/edit
+     payload and as the focus-restore target. Rows: opens | action | commit
+     (self-contained {kind,line,oldRaw,value}) | submenu (nested rows). Shared
+     by the top-level menu open and every submenu row so there's one build path. */
+  function renderPopoverRows(rows, rect, activeEl){
+    const pop = document.createElement('div');
+    pop.className = 'eip-pop';
+    pop.style.left = rect.left + 'px';
+    pop.style.top = (rect.bottom + 4) + 'px';
+    for(const row of rows){
+      const b = document.createElement('button');
+      b.textContent = row.label;
+      if(row.danger) b.classList.add('danger');
+      if(row.on) b.classList.add('on');
+      b.addEventListener('click', () => {
+        if(row.commit){
+          close();
+          onCommit(row.commit.kind, row.commit.line, row.commit.oldRaw || '', row.commit.value, activeEl);
+        } else if(row.opens){
+          const t = activeEl.closest('svg').querySelector('[data-line="' + activeEl.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
+          close();
+          if(t) open(t);
+        } else if(row.submenu){
+          const r = b.getBoundingClientRect();        // capture BEFORE close() disposes the button
+          close();
+          renderPopoverRows(row.submenu, r, activeEl); // sub-popover; same focus-restore target
+        } else {                                       // action row
+          close();
+          onCommit(activeEl.dataset.edit, +activeEl.dataset.line, activeEl.dataset.raw || '', '✖' + row.label, activeEl);
+        }
+      });
+      pop.appendChild(b);
+    }
+    document.body.appendChild(pop);
+    clampToViewport(pop, rect);
+    const away = e => { if(!pop.contains(e.target)) close(); };
+    active = {input: pop, el: activeEl, away};
+    document.addEventListener('pointerdown', away, true);
+    trapPopoverFocus(pop, close);
+  }
   function open(el){
     close();
     const kind = el.dataset.edit;
@@ -81,35 +122,12 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     }
     /* menu kinds open a card popover: rows either open another target on the
        same card (data-line routes to the right sibling) or commit a '✖'-prefixed
-       action sentinel, same as the actions rows below */
+       action sentinel, same as the actions rows below. spec.menu may be a
+       function (el)=>rows, resolved here so it can read the trigger's own
+       data- payload (why's assumption submenus need the clicked line). */
     if(spec.menu){
-      const pop = document.createElement('div');
-      pop.className = 'eip-pop';
-      pop.style.left = rect.left + 'px';
-      pop.style.top = (rect.bottom + 4) + 'px';
-      for(const row of spec.menu){
-        const b = document.createElement('button');
-        b.textContent = row.label;
-        if(row.danger) b.classList.add('danger');
-        b.addEventListener('click', () => {
-          const line = +el.dataset.line;
-          if(row.opens){
-            const t = el.closest('svg').querySelector('[data-line="' + el.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
-            close();
-            if(t) open(t);
-          } else {                                  // action row
-            close();
-            onCommit(el.dataset.edit, line, el.dataset.raw || '', '✖' + row.label, el);
-          }
-        });
-        pop.appendChild(b);
-      }
-      document.body.appendChild(pop);
-      clampToViewport(pop, rect);
-      const away = e => { if(!pop.contains(e.target)) close(); };
-      active = {input: pop, el, away};
-      document.addEventListener('pointerdown', away, true);
-      trapPopoverFocus(pop, close);
+      const rows = typeof spec.menu === 'function' ? spec.menu(el) : spec.menu;
+      renderPopoverRows(rows, rect, el);
       return;
     }
     /* choice kinds open a popover menu (options, actions, or both) */

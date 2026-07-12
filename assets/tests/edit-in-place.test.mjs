@@ -20,3 +20,17 @@ test('coarse pointers redirect an in-card field tap to the same-line menu', () =
   assert.match(src, /getBoundingClientRect\(\)/, 'tests the tap against the menu hit-rect');
   assert.match(src, /!el\.hasAttribute\('data-menu'\)/, 'never redirects a menu element onto itself');
 });
+
+test('spec.menu may be a function, resolved at open time', () => {
+  assert.match(src, /typeof spec\.menu === 'function' \? spec\.menu\(el\) : spec\.menu/);
+});
+test('renderPopoverRows handles commit and submenu rows', () => {
+  assert.match(src, /function renderPopoverRows\(rows, rect, activeEl\)/);
+  assert.match(src, /row\.commit/, 'commit row branch');
+  assert.match(src, /onCommit\(row\.commit\.kind, row\.commit\.line/, 'commit calls onCommit with the row payload');
+  assert.match(src, /row\.submenu/, 'submenu row branch');
+  // \bclose\(\); requires the real statement (trailing semicolon) — the
+  // nearby comment says "close() disposes the button" with no semicolon,
+  // so a looser close\(\) would incidentally pass on the comment text.
+  assert.match(src, /getBoundingClientRect\(\)[\s\S]{0,100}\bclose\(\);[\s\S]{0,40}renderPopoverRows\(row\.submenu/, 'submenu captures rect before close, then re-renders');
+});

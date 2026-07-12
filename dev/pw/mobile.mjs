@@ -207,6 +207,55 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
+// why: solution card-menu overflow reachability (coarse). "Smart reminders"
+// (srcLine 5, the default "Habit retention" example) carries two assumptions,
+// so its dynamic solutionMenu shows six rows — assert the LAST one (Remove
+// branch) still renders reachable and clickable within the viewport (the
+// .eip-pop max-height/overflow-y rule), and that the per-assumption
+// sub-popover's status/remove buttons are all finger-size (>= 44px).
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(400);
+  const chip = page.getByRole('button', {name: 'Habit retention'});
+  if(await chip.count()) await chip.click();
+  await page.waitForTimeout(600);
+  const cardBody = page.locator('#preview svg rect[data-edit^="cardmenu-solution"][data-line="5"][data-hit]');
+  await cardBody.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box0 = await cardBody.boundingBox();
+  await page.mouse.click(box0.x + 8, box0.y + 4);
+  await page.waitForTimeout(300);
+
+  const rowTexts = await page.locator('.eip-pop button').allInnerTexts();
+  ok(rowTexts.length === 6, `why: solution menu shows base rows + one per assumption on phone (${rowTexts.length})`);
+
+  const vw = await page.evaluate(() => window.innerWidth);
+  const vh = await page.evaluate(() => window.innerHeight);
+  const lastBox = await page.locator('.eip-pop button').last().boundingBox();
+  ok(!!lastBox && lastBox.y >= 0 && lastBox.y + lastBox.height <= vh + 1,
+    'why: last row (Remove branch) is vertically within the viewport (the overflow-y rule)');
+  ok(!!lastBox && lastBox.x >= 0 && lastBox.x + lastBox.width <= vw + 1,
+    'why: last row (Remove branch) is horizontally within the viewport');
+
+  // sub-popover: tap an assumption row, check the four states + danger Remove render finger-size
+  await page.locator('.eip-pop button', {hasText: 'users want to be interrupted at work'}).click();
+  await page.waitForTimeout(300);
+  const subHeights = await page.locator('.eip-pop button').evaluateAll(els => els.map(el => el.getBoundingClientRect().height));
+  ok(subHeights.length === 5, `why: assumption sub-popover shows 4 states + Remove assumption on phone (${subHeights.length})`);
+  ok(subHeights.every(h => h >= 44), `why: every sub-popover button is >= 44px tall (min ${subHeights.length ? Math.min(...subHeights) : 'n/a'})`);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  // clickable: the last row actually commits and closes the popover on tap
+  await page.mouse.click(box0.x + 8, box0.y + 4);
+  await page.waitForTimeout(300);
+  await page.locator('.eip-pop button', {hasText: 'Remove branch'}).click();
+  await page.waitForTimeout(400);
+  ok(await page.locator('.eip-pop').count() === 0, 'why: Remove branch row is clickable and closes the popover');
+  await page.close();
+}
+
 await browser.close();
 console.log(`\n${pass} PASS, ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

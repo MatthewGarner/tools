@@ -16,6 +16,7 @@ import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
+import {solutionMenu} from './app-menu.js';
 
 const $ = id => document.getElementById(id);
 
@@ -143,7 +144,10 @@ attachEditInPlace($('preview'), {
        accepted no-op as roadmap's note-less "Edit note…" row */
     'cardmenu-outcome': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'opportunity'}),
     'cardmenu-opportunity': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'solution'}),
-    'cardmenu-solution': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'assumption'}),
+    /* dynamic: base Rename/Status/＋ Add rows plus one submenu row per
+       assumption (status picker + danger remove), resolved fresh from the
+       current model each time the menu opens — app-menu.js's solutionMenu. */
+    'cardmenu-solution': {menu: (el) => solutionMenu(model, +el.dataset.line)},
     /* map-view cards are roadmap-rendered (render-map.js → roadmap/render.js),
        so they carry a bare data-edit="cardmenu" with no per-kind suffix — the
        roadmap renderer doesn't know outcome/opportunity/solution. opens:'title'
