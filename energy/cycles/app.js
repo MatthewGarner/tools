@@ -91,7 +91,10 @@ function spawnWorker(){
   try{
     const w = new Worker(new URL('./sim-worker.js', import.meta.url), {type: 'module'});
     w.onmessage = ({data}) => onWorkerMessage(data);
-    w.onerror = onWorkerError;
+    /* only act on the CURRENT worker's error — an abandoned/terminated worker's
+       stray onerror must not markWorkerDead the healthy one that replaced it
+       (symmetric to onWorkerMessage's reqId!==seq guard). */
+    w.onerror = () => { if(worker === w) onWorkerError(); };
     return w;
   }catch(e){ return null; }
 }
