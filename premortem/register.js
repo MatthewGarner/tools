@@ -19,6 +19,25 @@ export function newEntry(text, over = {}){
     created: now, lastReviewed: now, ...over};
 }
 
+/* First-run seed so premortem greets with a populated, EV-ranked register instead
+   of a blank wizard form (the same first-impression fix duel makes by prefilling).
+   Fictional Habitat habit app — no real products. p in %, impact in £k, both 90%
+   ranges; a few carry an owned action so the register reads complete. */
+export function exampleDoc(){
+  const risk = (text, p, impact, action) => newEntry(text,
+    {p, impact, actions: action ? [{text: action, owner: '', done: false, votes: 0}] : []});
+  return {v: 1, id: 'example-habitat', title: 'Habitat 2.0 launch',
+    question: "It's launch + 90 days and Habitat 2.0 flopped. Why?",
+    unit: '£k', people: 5, phase: 'FRAME',
+    entries: [
+      risk('The new onboarding loses more users than the old flow', [30, 55], [60, 180], 'A/B the old vs new onboarding before cutover'),
+      risk('The sync-engine rewrite ships a data-loss bug', [10, 30], [100, 400], 'Shadow-write for two weeks before the switch'),
+      risk('App-store review rejects the referral mechanic', [15, 35], [30, 120], 'Pre-submit the referral flow for review'),
+      risk('Streak-freeze gets abused and cheapens the streak', [20, 40], [20, 70]),
+      risk('Push-notification changes tank opt-in rates', [25, 50], [15, 60]),
+    ]};
+}
+
 /* Map<id, {p50,p10,p90}> for scoreable entries, plus a .portfolio (per-sim sum). */
 export function exposure(entries, {seed = SEED, nsim = NSIM} = {}){
   const rand = mulberry32(seed), gauss = gaussian(rand);
