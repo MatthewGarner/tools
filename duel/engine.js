@@ -92,6 +92,54 @@ export function settledness(n, duels){
   });
 }
 
+/* budget: full round-robin at n ≤ 7, else ~2.5n; minDuels enables "finish now" */
+export const budget = n => n <= 7 ? n * (n - 1) / 2 : Math.ceil(2.5 * n);
+export const minDuels = n => Math.min(budget(n), Math.ceil(1.5 * n));
+
+/* the next pair to serve, or null. Information-driven priority tiers:
+   (1) close an observed triangle (x>y, y>z, x–z unduelled) → the transitivity test;
+   (2) unduelled pair adjacent in the current implied order;
+   (3) unduelled pair with the smallest Copeland gap; (4) any unduelled pair.
+   Deterministic: lowest-index pair wins within a tier. */
+export function nextPair(n, duels, {force = false} = {}){
+  const act = active(duels);
+  if(!force && act.length >= budget(n)) return null;
+  const dueled = new Set();
+  for(const x of act) dueled.add(Math.min(x.a, x.b) + '-' + Math.max(x.a, x.b));
+  const isUnd = (i, j) => !dueled.has(Math.min(i, j) + '-' + Math.max(i, j));
+  let anyUnd = false;
+  for(let i = 0; i < n && !anyUnd; i++) for(let j = i + 1; j < n; j++) if(isUnd(i, j)){ anyUnd = true; break; }
+  if(!anyUnd) return null;
+
+  const beats = new Map();                       // winner → Set(losers)
+  for(const x of act){ const w = x.w, l = other(x); (beats.get(w) || beats.set(w, new Set()).get(w)).add(l); }
+  let t1 = null;                                 // tier 1: triangle-closing
+  for(const [x, losers] of beats) for(const y of losers){
+    const yl = beats.get(y); if(!yl) continue;
+    for(const z of yl){
+      if(z === x || !isUnd(x, z)) continue;
+      const pair = [Math.min(x, z), Math.max(x, z)];
+      if(!t1 || pair[0] < t1[0] || (pair[0] === t1[0] && pair[1] < t1[1])) t1 = pair;
+    }
+  }
+  if(t1) return t1;
+
+  const order = impliedOrder(n, duels);          // tier 2: adjacent-in-order
+  for(let pos = 0; pos < order.length - 1; pos++){
+    const a = order[pos].idx, b = order[pos + 1].idx;
+    if(isUnd(a, b)) return [Math.min(a, b), Math.max(a, b)];
+  }
+
+  const s = copeland(n, duels);                  // tier 3/4: smallest gap, ties → lowest [i,j]
+  let best = null, bestDiff = Infinity;
+  for(let i = 0; i < n; i++) for(let j = i + 1; j < n; j++){
+    if(!isUnd(i, j)) continue;
+    const diff = Math.abs(s[i] - s[j]);
+    if(diff < bestDiff){ bestDiff = diff; best = [i, j]; }
+  }
+  return best;
+}
+
 /* one quotable verdict line. `settled` is the settledness() array (or null). */
 export function verdictCopy(order, settled, loopsFound, remainingBudget){
   if(loopsFound && loopsFound.length)

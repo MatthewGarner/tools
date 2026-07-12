@@ -55,3 +55,45 @@ test('verdict copy names the loop', () => {
     null, loops(3, [d(0,1,0), d(1,2,1), d(2,0,2)]), 0);
   assert.match(v, /loop|criteria/i);
 });
+
+/* ---- scheduler ---- */
+import {budget, minDuels, nextPair} from '../engine.js';
+
+test('budget: round-robin under 8, 2.5n above', () => {
+  assert.equal(budget(6), 15);
+  assert.equal(budget(12), 30);
+  assert.equal(minDuels(12), 18);
+});
+
+test('scheduler closes the triangle before anything else', () => {
+  // 0>1, 1>2 observed; 0–2 must come next (transitivity test)
+  assert.deepEqual(nextPair(9, [d(0,1,0), d(1,2,1)]), [0, 2]);
+});
+
+test('scheduler is deterministic and never repeats a live pair', () => {
+  const duels = [];
+  const seen = new Set();
+  for(let i = 0; i < budget(9); i++){
+    const p = nextPair(9, duels);
+    assert.ok(p, 'pair served within budget');
+    const key = p.join('-');
+    assert.ok(!seen.has(key), 'no repeat: ' + key);
+    seen.add(key);
+    duels.push(d(p[0], p[1], p[0]));       // first item always wins → transitive, no loops
+  }
+  assert.equal(nextPair(9, duels), null);                       // budget reached
+  assert.ok(nextPair(9, duels, {force: true}));                 // but force keeps serving
+});
+
+test('n ≤ 7 serves every pair exactly once', () => {
+  const duels = [];
+  let p;
+  while((p = nextPair(5, duels))) duels.push(d(p[0], p[1], p[1]));
+  assert.equal(duels.length, 10);           // 5·4/2
+});
+
+test('re-duel after supersede is served again', () => {
+  const duels = [{a:0,b:1,w:0,sup:true}];
+  const p = nextPair(3, duels);
+  assert.deepEqual(p, [0, 1]);              // superseded pair counts as unduelled
+});
