@@ -26,17 +26,31 @@ export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono, halo
     ' fill="' + fill + '">' + esc(str) + '</text>';
 }
 
+/* a11y attributes for a keyboard-operable, screen-reader-named SVG target:
+   a tab stop with button semantics (the shell handles Enter/Space). Extracted
+   from the ~20 inline copies the a11y pass left across the renderers so the
+   triplet and the escaping live in one place. `label` is plain text, escaped
+   here; returns a leading-space attribute string ready to splice into a tag. */
+export function btnAttrs(label){
+  return ' tabindex="0" role="button" aria-label="' + esc(label) + '"';
+}
+
 /* Wraps `inner` in a <g data-edit …> with an invisible, box-positioned hit
    rect painted LAST (so it captures pointer events over the visual).
    Caller supplies the box ({x,y,w,h,bg}) within its own plane — no anchor
    inference and no viewBox clamping here; that's the caller's job.
    `label` (plain text, escaped here) becomes the keyboard/AT accessible
-   name — every caller must supply one so the target is announced. */
-export function editTarget(inner, box, {kind, line, raw, extra, label}){
-  return '<g data-edit="' + kind + '" data-line="' + line + '" data-raw="' + esc(raw) + '"' +
-    (label ? ' tabindex="0" role="button" aria-label="' + esc(label) + '"' : '') +
+   name — every caller must supply one so the target is announced.
+   `raw` is optional: omit it (undefined) and no data-raw is written — a menu
+   trigger has no editable value. `hit: true` marks the rect data-hit="" so the
+   mobile WIDENED gate measures it (only whole-card/marker menu targets set
+   this; plane-level widens leave it off). */
+export function editTarget(inner, box, {kind, line, raw, extra, label, hit}){
+  return '<g data-edit="' + kind + '" data-line="' + line + '"' +
+    (raw != null ? ' data-raw="' + esc(raw) + '"' : '') +
+    (label ? btnAttrs(label) : '') +
     (extra ? ' ' + extra : '') + '>' + inner +
-    '<rect x="' + box.x + '" y="' + box.y + '" width="' + box.w + '" height="' + box.h +
+    '<rect' + (hit ? ' data-hit=""' : '') + ' x="' + box.x + '" y="' + box.y + '" width="' + box.w + '" height="' + box.h +
     '" fill="' + box.bg + '" fill-opacity="0"/></g>';
 }
 

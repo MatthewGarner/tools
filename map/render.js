@@ -1,6 +1,6 @@
 /* /map renderer: (model, resolved, readout, ctx) → SVG string. Pure. */
 import {PALETTES, scheme, mix} from '../assets/series.js';
-import {esc, wrapText, editTarget} from '../assets/svg.js';
+import {esc, wrapText, editTarget, btnAttrs} from '../assets/svg.js';
 import {paintOrder, labelAnchors} from './zones.js';
 
 const F = {
@@ -205,8 +205,8 @@ export function render(model, resolved, ro, ctx, diff = null){
   cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
   for(const c of cards){
     const flagged = flaggedLines.has(c.it.srcLine);
-    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '" tabindex="0" role="button"' +
-      ' aria-label="More options: ' + esc(c.it.label) + '">');
+    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '"' +
+      btnAttrs('More options: ' + c.it.label) + '>');
     /* invisible hit rect, full capsule width, centred on the capsule centre
        (not the dot — after nudge the capsule can sit well away from the
        authored dot). nudge() only separates the visible 20px capsules, never
@@ -240,12 +240,12 @@ export function render(model, resolved, ro, ctx, diff = null){
       '" rx="' + c.h / 2 + '" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
       '" x="' + (c.x + T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" font-size="' + T.cardSize * S +
-      '" font-weight="600" fill="' + C.ink + '" tabindex="0" role="button" aria-label="Rename: ' +
-      esc(c.it.label) + '">' + esc(c.label) + '</text>');
+      '" font-weight="600" fill="' + C.ink + '"' + btnAttrs('Rename: ' + c.it.label) +
+      '>' + esc(c.label) + '</text>');
     if(edit) body.push('<text data-edit="removeitem" data-line="' + c.it.srcLine + '" data-raw=""' +
       ' x="' + (c.x + c.w - T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" text-anchor="end"' +
-      ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
-      ' aria-label="Remove ' + esc(c.it.label) + '">×</text>');
+      ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Remove ' + c.it.label) +
+      '>×</text>');
     body.push('</g>');
   }
 
@@ -263,12 +263,12 @@ export function render(model, resolved, ro, ctx, diff = null){
         '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
       body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
         '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) +
-        '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
-        ' aria-label="Rename: ' + esc(it.label) + '">' + esc(label) + '</text>');
+        '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Rename: ' + it.label) +
+        '>' + esc(label) + '</text>');
       if(edit) body.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw=""' +
         ' x="' + (trayX + w - T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) + '" text-anchor="end"' +
-        ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
-        ' aria-label="Remove ' + esc(it.label) + '">×</text>');
+        ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Remove ' + it.label) +
+        '>×</text>');
       body.push('</g>');
       ty += T.trayCardH * S;
     }
@@ -350,8 +350,8 @@ export function render(model, resolved, ro, ctx, diff = null){
         const f = it.fields[0];
         body.push('<text data-edit="field" data-line="' + it.srcLine + '" data-key="' + esc(f.key) +
           '" data-raw="' + esc(f.val) + '" x="' + (bx + 10 * S) + '" y="' + (by + T.roMetaSize * S - 3 * S) +
-          '" font-size="' + T.roMetaSize * S + '" fill="' + C.muted + '" tabindex="0" role="button"' +
-          ' aria-label="Edit ' + esc(f.key) + ': ' + esc(f.val) + '">' +
+          '" font-size="' + T.roMetaSize * S + '" fill="' + C.muted + '"' +
+          btnAttrs('Edit ' + f.key + ': ' + f.val) + '>' +
           esc((f.key + ': ' + f.val).slice(0, 60)) + '</text>');
         by += (T.roMetaSize + 3) * S;
       }

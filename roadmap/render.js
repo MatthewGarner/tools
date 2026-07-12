@@ -34,7 +34,7 @@ export const TOKENS = {
 /* Palette schemes are shared series-wide. Re-exported for existing importers. */
 export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
-import {esc, tint, wrapText} from '../assets/svg.js';
+import {esc, tint, wrapText, btnAttrs} from '../assets/svg.js';
 
 
 
@@ -188,7 +188,7 @@ export function render(model, ctx){
         const x = colX(h);
         s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
           '" opacity="' + fadeOp.toFixed(2) + '"' +
-          (c.it.ghost ? '' : ' tabindex="0" role="button" aria-label="More options: ' + esc(c.it.title) + '"') + '>');
+          (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) + '>');
         s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
           '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
           '" stroke="' + C.border + '" stroke-width="1"' +
@@ -215,7 +215,7 @@ export function render(model, ctx){
         const ed = c.it.edit || {};
         const titleEip = (!c.it.ghost && ed.title !== false)
           ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
-            '" tabindex="0" role="button" aria-label="Rename: ' + esc(c.it.title) + '"' : '';
+            '"' + btnAttrs('Rename: ' + c.it.title) : '';
         c.lines.forEach((line, li2) => {
           const lastLine = li2 === c.lines.length - 1;
           s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
@@ -228,7 +228,7 @@ export function render(model, ctx){
         if(c.it.url) s.push('</a>');
         const noteEip = (c.it.note && (c.it.edit || {}).note !== false)
           ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
-            '" tabindex="0" role="button" aria-label="Edit note: ' + esc(c.it.title) + '"' : '';
+            '"' + btnAttrs('Edit note: ' + c.it.title) : '';
         for(const line of c.noteLines){
           s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
             '" fill="' + C.muted + '">' + esc(line) + '</text>');
@@ -237,7 +237,7 @@ export function render(model, ctx){
         if(c.it.status){
           const stEip = (c.it.edit || {}).status !== false
             ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status +
-              '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(c.it.title) + '">' : '<g>';
+              '"' + btnAttrs('Cycle status: ' + c.it.title) + '>' : '<g>';
           s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
             STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
         }
@@ -252,8 +252,8 @@ export function render(model, ctx){
           '<text data-edit="additem" data-lane="' + esc(lane) + '" data-col="' + esc(model.horizons[h]) +
           '" data-line="-1" data-raw="" x="' + (colX(h) + 8*S) + '" y="' + (cy + gh - 4*S) +
           '" font-size="' + 9*S + '" font-weight="600" fill="' + C.muted +
-          '" tabindex="0" role="button" aria-label="Add item to ' + esc(lane || 'roadmap') + ' ' + esc(model.horizons[h]) +
-          '">＋ add</text></g>');
+          '"' + btnAttrs('Add item to ' + (lane || 'roadmap') + ' ' + model.horizons[h]) +
+          '>＋ add</text></g>');
       }
     }
   });
