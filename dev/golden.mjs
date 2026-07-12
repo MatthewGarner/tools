@@ -340,6 +340,33 @@ for(const [k, src] of Object.entries(docs)){
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
 
+  /* view 2: risk-return quadrant (read-only; no compare wiring) */
+  const {renderQuadrant} = await import('../bets/render-quadrant.js');
+  variants['bets-quadrant'] = renderQuadrant(bm, bsim, ctxBase);
+  variants['bets-quadrant-narrow'] = renderQuadrant(bm, bsim, {...ctxBase, width: 390});
+
+  /* crowded fixture: the point of the greedy label-placement task — 12 bets
+     across 3 lanes, several deliberately clustered near break-even (odds
+     ~42-58%) and near each other so placement is genuinely stress-tested. */
+  const crowdedDoc = 'title: Q4 crowded portfolio\nunit: £k\n' +
+    'Growth\n  Search revamp: stake 120, odds 40-55%, payoff 300-500\n' +
+    '    kill: CTR flat after 2 sprints by 2026-09-01\n' +
+    '  Onboarding tweak: stake 60, odds 45-55%, payoff 90-140\n' +
+    '  Referral loop: stake 50, odds 42-52%, payoff 80-130\n' +
+    '  Paid acq test: stake 70, odds 35-50%, payoff 100-160\n' +
+    'Platform\n  Billing rewrite: stake 200, odds 90-100%, payoff 250-350\n' +
+    '  Infra migration: stake 90, odds 48-58%, payoff 120-200\n' +
+    '  API v2: stake 40, odds 44-54%, payoff 60-100\n' +
+    '  Cache layer: stake 55, odds 46-56%, payoff 70-120\n' +
+    'Risk\n  Sure loser: stake 100, odds 10-20%, payoff 50-80\n' +
+    '  Moonshot: stake 30, odds 5-15%, payoff 800-1500\n' +
+    '  Compliance fix: stake 80, odds 47-53%, payoff 100-150\n' +
+    '    kill: no lift after 1 sprint by 2026-10-01\n' +
+    '  Support tool: stake 45, odds 43-53%, payoff 65-110';
+  const bmCrowded = bparse(crowdedDoc), bsimCrowded = simulate(bmCrowded);
+  variants['bets-quadrant-crowded'] = renderQuadrant(bmCrowded, bsimCrowded, ctxBase);
+  variants['bets-quadrant-crowded-narrow'] = renderQuadrant(bmCrowded, bsimCrowded, {...ctxBase, width: 390});
+
   /* snapshot compare fixture: vs bdoc, "Paid acq push" is new, "Old idea" was
      killed, and Billing rewrite's odds moved 60-75% -> 90-100%. */
   const {betsDiff, betsDiffView} = await import('../bets/diff.js');

@@ -122,6 +122,29 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// bets Quadrant view (view 2): toggling to it on a phone must land the same
+// narrow relayout guarantee the board already gets above — no page-level
+// h-scroll, and the #preview container itself doesn't overflow sideways.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/bets/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(600);
+  const chip = page.getByRole('button', {name: 'Habitat portfolio'});
+  if(await chip.count()) await chip.click();
+  await page.waitForTimeout(600);
+  await page.getByRole('button', {name: 'Quadrant'}).click();
+  await page.waitForTimeout(400);
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+  ok(docSW <= vw + 1, `bets: quadrant view — no page-level h-scroll (${docSW} <= ${vw})`);
+  const {sw, cw} = await page.evaluate(() => {
+    const el = document.querySelector('#preview');
+    return {sw: el.scrollWidth, cw: el.clientWidth};
+  });
+  ok(sw <= cw + 2, `bets: quadrant view — #preview no horizontal overflow (${sw} <= ${cw})`);
+  await page.close();
+}
+
 // premortem register-phase walk: the register is behind the wizard, so drive a
 // fresh doc to a populated REGISTER on a phone and prove the dense table's own
 // horizontal scroll stays inside .registerwrap and never blows out the page body

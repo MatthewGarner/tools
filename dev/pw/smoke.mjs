@@ -727,6 +727,21 @@ for(const theme of ['light', 'dark']){
   check('bets(' + theme + '): board renders the ledger', svg.includes('Referral flow v2') && svg.includes('PORTFOLIO'));
   check('bets(' + theme + '): audits stamp the flagged bet', /NO KILL CRITERION/.test(svg) && /ODDS IMPLY CERTAINTY/.test(svg));
   check('bets(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  // view toggle: Board <-> Quadrant (view 2, read-only risk-return scatter)
+  await page.getByRole('button', {name: 'Quadrant'}).click();
+  await page.waitForTimeout(300);
+  const qsvg = await page.locator('#preview svg').innerHTML();
+  check('bets(' + theme + '): quadrant view renders a bubble', qsvg.includes('<circle'));
+  check('bets(' + theme + '): quadrant axis title present', qsvg.includes('ODDS OF SUCCESS'));
+  check('bets(' + theme + '): quadrant toggle marks aria-pressed',
+    await page.getByRole('button', {name: 'Quadrant'}).getAttribute('aria-pressed') === 'true' &&
+    await page.getByRole('button', {name: 'Board'}).getAttribute('aria-pressed') === 'false');
+  check('bets(' + theme + '): quadrant svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  await page.getByRole('button', {name: 'Board'}).click();
+  await page.waitForTimeout(300);
+  const backSvg = await page.locator('#preview svg').innerHTML();
+  check('bets(' + theme + '): toggling back to Board restores the ledger',
+    backSvg.includes('Referral flow v2') && backSvg.includes('PORTFOLIO'));
   check('bets(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
