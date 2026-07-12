@@ -76,7 +76,8 @@ export function promote(entry, p, impact){ return {...entry, kind: 'risk', p, im
 const pctRange = p => p ? p[0] + '–' + p[1] + '%' : '—';
 export function markdown(doc, exp, now = new Date()){
   const u = doc.unit ? ' ' + doc.unit : '';
-  const rows = ranked(doc.entries, exp).filter(scoreable);
+  const risks = (doc.entries || []).filter(isRisk);   // export the register (risks), never board items
+  const rows = ranked(risks, exp).filter(scoreable);
   const out = ['# ' + (doc.title || 'Risk register'),
     doc.question ? '\n_' + doc.question + '_' : '', '',
     '| # | Risk | Likelihood | Impact' + u + ' | Exposure' + u + ' (P50 [P10–P90]) | Status | Age |',
@@ -87,7 +88,7 @@ export function markdown(doc, exp, now = new Date()){
       (e.impact ? e.impact[0] + '–' + e.impact[1] : '—') + ' | ' +
       fmt(x.p50) + ' [' + fmt(x.p10) + '–' + fmt(x.p90) + '] | ' + e.status + ' | ' + staleness(e, now) + ' |');
   });
-  const acts = doc.entries.flatMap(e => e.actions.map(a => ({...a, risk: e.text})))
+  const acts = risks.flatMap(e => e.actions.map(a => ({...a, risk: e.text})))
     .sort((a, b) => (b.votes || 0) - (a.votes || 0));
   if(acts.length){
     out.push('', '## Actions', '');

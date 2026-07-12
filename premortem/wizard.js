@@ -1,11 +1,12 @@
 /* Pure phase machine for the premortem wizard. Gating lives here so the app and
    the tests agree on when a phase can advance; the doc's `phase` is the state. */
+import {isRisk} from './register.js';
 
 export const PHASES = ['FRAME', 'WRITE', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE', 'REGISTER'];
 const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
 
 export function canAdvance(doc){
-  const es = doc.entries || [];
+  const es = (doc.entries || []).filter(isRisk);   // board items (fact/assumption/belief) don't count toward the wizard gates
   switch(doc.phase){
     case 'FRAME': return doc.title?.trim() && doc.question?.trim()
       ? {ok: true} : {ok: false, why: 'Name the effort and the failure question first.'};
@@ -32,7 +33,7 @@ export function votePool(doc){ return (doc.people || 5) * 3; }
 /* one ± vote on an action; totals never exceed the pool or drop below 0 */
 export function castVote(doc, entryId, actionIdx, dir){
   const pool = votePool(doc);
-  const used = (doc.entries || []).reduce((s, e) => s + e.actions.reduce((t, a) => t + (a.votes || 0), 0), 0);
+  const used = (doc.entries || []).filter(isRisk).reduce((s, e) => s + e.actions.reduce((t, a) => t + (a.votes || 0), 0), 0);
   return {...doc, entries: doc.entries.map(e => e.id !== entryId ? e : {
     ...e, actions: e.actions.map((a, ai) => {
       if(ai !== actionIdx) return a;

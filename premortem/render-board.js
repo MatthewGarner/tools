@@ -40,8 +40,9 @@ function card(e, kind, promoting){
     return '<div class="bcard fact" data-id="' + e.id + '">' + head + '</div>';
   if(promoting){
     // p flips meaning: likelihood it BREAKS. Pre-fill from the inverse of the
-    // confidence-it-holds range when we have one.
-    const pf = conf ? [100 - conf[1], 100 - conf[0]] : [null, null];
+    // confidence-it-holds range when we have one (sorted, so a one-sided
+    // confidence like [40,0] can't pre-fill an inverted 100–60).
+    const pf = conf ? [100 - conf[1], 100 - conf[0]].sort((a, b) => a - b) : [null, null];
     return '<div class="bcard promoting" data-id="' + e.id + '">' + head +
       '<div class="promoteform">' +
       '<p class="pfhint">If this is wrong: how likely, and what does it cost?</p>' +

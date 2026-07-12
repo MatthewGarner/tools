@@ -84,6 +84,13 @@ test('promote turns an assumption into a scored risk', () => {
   assert.deepEqual(r.p, [20, 40]);
   assert.deepEqual(r.impact, [50, 100]);
 });
+test('promote pre-fill is sorted — a one-sided confidence never inverts the likelihood', () => {
+  const a = kinded('assume', 'assumption', {p: [40, 0], id: 'a1'});   // one-sided confidence → naive inverse would be 100–60
+  const h = renderBoard({entries: [a]}, new Date(), 'a1');
+  const lo = +h.match(/data-promotep="lo"[^>]*value="(\d+)"/)[1];
+  const hi = +h.match(/data-promotep="hi"[^>]*value="(\d+)"/)[1];
+  assert.ok(lo <= hi, 'likelihood-wrong pre-fill not inverted (' + lo + ' <= ' + hi + ')');
+});
 test('register shows only risks — board items never leak in', () => {
   const rs = [{...newEntry('real risk here'), p: [30, 50], impact: [100, 200]},
               kinded('lurking assumption', 'assumption', {p: [60, 80]})];

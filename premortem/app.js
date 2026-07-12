@@ -1,7 +1,7 @@
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
    the DOM, the phase machine wiring, localStorage autosave, the WRITE timer, undo,
    and import-from-link. The doc is the single state; every mutation autosaves. */
-import {newEntry, mergeEntries, markdown, exposure, promote} from './register.js';
+import {newEntry, mergeEntries, markdown, exposure, promote, isRisk} from './register.js';
 import {makeStore, toLink, fromLink} from './store.js';
 import {PHASES, canAdvance, advance, back, castVote} from './wizard.js';
 import {renderPhase} from './render-wizard.js';
@@ -35,10 +35,17 @@ function render(){
   if(timer){ clearInterval(timer); timer = 0; }
   if(home){ renderHome(); return; }
   renderToggle();
-  $('wizardview').hidden = view === 'board';
   $('boardview').hidden = view !== 'board';
+  $('wizardview').hidden = view === 'board';
   $('undo').disabled = undoStack.length === 0;
   if(view === 'board'){ $('boardpanel').innerHTML = renderBoard(doc, new Date(), promotingId); return; }
+  // "register" view reuses the wizard's phasepanel (and its action listeners) with
+  // the rail + nav hidden — it renders the register WITHOUT touching doc.phase, so
+  // the wizard keeps its position and the Wizard tab always restores it.
+  const reg = view === 'register';
+  $('phaserail').hidden = reg;
+  $('navbar').hidden = reg;
+  if(reg){ $('phasepanel').innerHTML = renderPhase({...doc, phase: 'REGISTER'}, new Date()); return; }
   reached.add(doc.phase);
   renderRail();
   $('phasepanel').innerHTML = renderPhase(doc, new Date());
@@ -50,13 +57,12 @@ function render(){
   if(doc.phase === 'WRITE') startTimer();
   if(doc.phase === 'FRAME') $('phasepanel').querySelector('[data-field="title"]')?.focus();
 }
-/* The three-way face toggle. "Register" is a shortcut to the wizard's terminal
-   phase — same renderer, so there is one register in the app, not two. */
+/* The three faces onto one doc (a button group, aria-pressed). None mutate
+   doc.phase — the register view just shows the register; the wizard keeps its
+   own terminal REGISTER phase reachable through the flow. */
 function renderToggle(){
-  const onRegister = view === 'wizard' && doc.phase === 'REGISTER';
-  const active = view === 'board' ? 'board' : onRegister ? 'register' : 'wizard';
-  const seg = (k, label) => '<button class="vtseg' + (active === k ? ' on' : '') +
-    '" data-view="' + k + '" role="tab" aria-selected="' + (active === k) + '">' + label + '</button>';
+  const seg = (k, label) => '<button class="vtseg' + (view === k ? ' on' : '') +
+    '" data-view="' + k + '" aria-pressed="' + (view === k) + '">' + label + '</button>';
   $('viewtoggle').innerHTML = seg('wizard', 'Wizard') + seg('board', 'Board') + seg('register', 'Register');
 }
 function renderRail(){
@@ -69,11 +75,12 @@ function renderRail(){
 }
 function renderHome(){
   const list = store.list().sort((a, b) => b.saved - a.saved);
-  $('savedlist').innerHTML = list.length ? list.map(m =>
-    '<div class="savedrow" data-id="' + m.id + '"><span class="stitle" data-open="' + m.id + '">' +
+  $('savedlist').innerHTML = list.length ? list.map(m => {
+    const n = m.risks ?? m.entries;   // risks only; old metas (pre-board) have no .risks but were all risks
+    return '<div class="savedrow" data-id="' + m.id + '"><span class="stitle" data-open="' + m.id + '">' +
     (m.title ? escHtml(m.title) : 'Untitled premortem') + '</span>' +
-    '<span class="smeta">' + m.entries + ' risk' + (m.entries === 1 ? '' : 's') + '</span>' +
-    '<button class="sdel" data-del="' + m.id + '" aria-label="Delete">×</button></div>').join('')
+    '<span class="smeta">' + n + ' risk' + (n === 1 ? '' : 's') + '</span>' +
+    '<button class="sdel" data-del="' + m.id + '" aria-label="Delete">×</button></div>'; }).join('')
     : '<p class="savedempty">No registers yet — start a premortem below.</p>';
 }
 const escHtml = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
@@ -107,10 +114,7 @@ $('phaserail').addEventListener('click', e => {
 });
 $('viewtoggle').addEventListener('click', e => {
   const b = e.target.closest('[data-view]'); if(!b) return;
-  promotingId = null;
-  const v = b.dataset.view;
-  if(v === 'register'){ view = 'wizard'; if(doc.phase !== 'REGISTER') mutate(() => { doc = {...doc, phase: 'REGISTER'}; }); else render(); }
-  else { view = v; render(); }
+  promotingId = null; view = b.dataset.view; render();
 });
 
 /* ---------- board (Facts / Assumptions / Beliefs) ---------- */
@@ -144,8 +148,9 @@ function confirmPromote(id){
     wrap.querySelector('.pfhint').textContent = 'Give both a likelihood-wrong range and an impact range.';
     return;
   }
-  promotingId = null; view = 'wizard';
-  mutate(() => { doc.entries = doc.entries.map(x => x.id === id ? promote(x, p, impact) : x); doc.phase = 'REGISTER'; });
+  p.sort((a, b) => a - b); impact.sort((a, b) => a - b);             // a lo/hi typed the wrong way round shouldn't display inverted
+  promotingId = null; view = 'register';                            // land on the register so they see it arrive
+  mutate(() => { doc.entries = doc.entries.map(x => x.id === id ? promote(x, p, impact) : x); });
 }
 
 /* ---------- home ---------- */
@@ -214,7 +219,7 @@ async function copyLink(){
   try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch(e){ prompt('Copy this link:', url); }
 }
 async function copyDoc(){
-  const md = markdown(doc, exposure(doc.entries), new Date());
+  const md = markdown(doc, exposure(doc.entries.filter(isRisk)), new Date());
   try{ await navigator.clipboard.writeText(md); toast('Copied for a doc'); }catch(e){ prompt('Copy this:', md); }
 }
 function toast(msg){
