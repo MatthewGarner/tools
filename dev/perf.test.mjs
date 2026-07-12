@@ -1,14 +1,24 @@
 /* Performance budgets for the heavy engines. Thresholds are ~4× a warm local
    run: they trip on algorithmic regressions, not machine noise. The browser-
-   side latency check lives in check.mjs. */
+   side latency check lives in check.mjs.
+   Run these SERIALLY (`node --test --test-concurrency=1 …`): node runs test
+   files in parallel by default, and a wall-clock micro-benchmark measured while
+   sibling files hammer the same cores reads slow and flakes (cycles, the
+   heaviest, sat right on its budget and tipped over once the energy suites ran
+   alongside it). PERF_SCALE multiplies every budget for slower/variable
+   silicon — CI sets it (GitHub runners are ~2× a warm Mac); local stays 1× so
+   the tight calibration still catches real regressions. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 
+const PERF_SCALE = Number(process.env.PERF_SCALE) || 1;
 const timed = async (budgetMs, fn) => {
+  const budget = budgetMs * PERF_SCALE;
   const t0 = performance.now();
   await fn();
   const ms = performance.now() - t0;
-  assert.ok(ms < budgetMs, ms.toFixed(0) + 'ms > ' + budgetMs + 'ms budget');
+  assert.ok(ms < budget, ms.toFixed(0) + 'ms > ' + budget + 'ms budget' +
+    (PERF_SCALE !== 1 ? ' (' + budgetMs + 'ms × ' + PERF_SCALE + ')' : ''));
 };
 
 test('rank: 4,000-run wobble under 500ms', async () => {
