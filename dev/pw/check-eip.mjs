@@ -1181,6 +1181,100 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- bets: direct odds/kill cell edits + undo, and the coarse-pointer card
+   menu (edit-stake via menu; Kill criterion… re-opens an existing kill field
+   or inserts a fresh child line for a bet with none) — mirrors roadmap's
+   card-menu shape (tap the row's data-hit rect, ONE undo per action, back
+   to a captured baseline before the next action starts clean). ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = trackErrors(p);
+  await p.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await p.waitForTimeout(500);
+  const baseline = await p.evaluate(() => localStorage.getItem('bets-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+
+  // direct odds edit on "Referral flow v2" (srcLine 5): commits + re-renders
+  await p.locator('[data-edit="odds"][data-line="5"]').click();
+  await p.waitForTimeout(200);
+  check('bets: odds cell opens prefilled', await p.locator('.eip-input').inputValue() === '40–60%');
+  await p.locator('.eip-input').fill('35-55');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tOdds = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: odds edit commits to the editor text', tOdds.includes('odds 35-55%') && !tOdds.includes('odds 40-60%'));
+  check('bets: board re-renders the new odds', (await p.locator('#preview svg').innerHTML()).includes('35–55%'));
+  await undo();
+  check('bets: one undo restores the pre-odds-edit baseline', (await p.evaluate(() => localStorage.getItem('bets-src'))) === baseline);
+
+  // direct kill edit on the same bet's kill child (srcLine 6): an empty value REMOVES the line
+  await p.locator('[data-edit="kill"][data-line="6"]').click();
+  await p.waitForTimeout(200);
+  check('bets: kill field opens prefilled', await p.locator('.eip-input').inputValue() === 'Signups per referral stay under 0.3 by 2026-09-15');
+  await p.locator('.eip-input').fill('');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tKill = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: empty kill value removes the kill line', !/kill:.*Signups per referral/.test(tKill));
+  check('bets: the bet now reads NO KILL CRITERION', (await p.locator('#preview svg').innerHTML()).includes('NO KILL CRITERION'));
+  await undo();
+  check('bets: one undo restores the removed kill line', (await p.evaluate(() => localStorage.getItem('bets-src'))) === baseline);
+
+  // coarse-pointer card menu: tap the row's own hit rect (not a sub-cell) on
+  // "Paid acquisition push" (srcLine 7) — the top-left padding sliver, same
+  // dodge-the-text-element trick roadmap's suite uses
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  await tapCard(7);
+  await p.waitForTimeout(200);
+  check('bets: card menu shows the four rows',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Edit stake…|Edit odds…|Edit payoff…|Kill criterion…');
+
+  await p.locator('.eip-pop button', {hasText: 'Edit stake…'}).click();
+  await p.waitForTimeout(200);
+  check('bets: menu Edit stake opens the stake input prefilled', await p.locator('.eip-input').inputValue() === '220');
+  await p.locator('.eip-input').fill('200');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tStake = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: menu Edit stake commits the new value', tStake.includes('stake 200,') && !tStake.includes('stake 220,'));
+  await undo();
+  check('bets: one undo restores the pre-menu-edit baseline', (await p.evaluate(() => localStorage.getItem('bets-src'))) === baseline);
+
+  // menu Kill criterion… re-opens the EXISTING kill field for a bet that has one
+  await tapCard(7);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Kill criterion…'}).click();
+  await p.waitForTimeout(200);
+  check('bets: menu Kill criterion reopens the existing kill field',
+    await p.locator('.eip-input').inputValue() === 'CAC exceeds £40 for two consecutive months');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
+  // menu Kill criterion… on a bare bet ("Sync engine rewrite", srcLine 11 —
+  // NO KILL CRITERION today) inserts a fresh child line instead
+  await tapCard(11);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Kill criterion…'}).click();
+  await p.waitForTimeout(400);
+  const tNewKill = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: menu Kill criterion on a bare bet inserts a fresh kill child line',
+    tNewKill.split(/\r?\n/).includes('    kill: reason'));
+  await undo();
+  check('bets: one undo removes the inserted kill placeholder', (await p.evaluate(() => localStorage.getItem('bets-src'))) === baseline);
+
+  check('bets: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

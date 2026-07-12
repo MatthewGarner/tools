@@ -139,3 +139,24 @@ test('alarm: classify + gate-layout of 1000 dots under 60ms', async () => {
     layoutFlow(dots, [{split: d => d.alarm, fail: 'Quiet'}], {w: 900, h: 360, dotR: 3}, {passLabel: 'ALARM'});
   });
 });
+
+test('bets: parse + 4,000-run simulate of the example portfolio under 50ms', async () => {
+  const {parse} = await import('../bets/parse.js');
+  const {simulate} = await import('../bets/engine.js');
+  const doc = `title: Habitat — Q3 bet portfolio
+unit: £k
+
+Growth bets
+  Referral flow v2: stake 80, odds 40-60%, payoff 300-500
+    kill: Signups per referral stay under 0.3 by 2026-09-15
+  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300
+    kill: CAC exceeds £40 for two consecutive months
+
+Platform bets
+  Sync engine rewrite: stake 150, odds 90-98%, payoff 180-260
+  Coach marketplace pilot: stake 60, odds 15-25%, payoff 250-450
+    kill: Fewer than 20 coaches onboarded by 2026-10-01
+  Wearables integration: stake 60, odds 30-40%, payoff 150-280
+    kill: No retail partner signed by 2026-11-01`;
+  await timed(50, () => simulate(parse(doc)));
+});

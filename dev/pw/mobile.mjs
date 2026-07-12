@@ -7,7 +7,7 @@ const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
 const AUTOLOAD = [
   ['roadmap', T + '/roadmap/'], ['tree', T + '/tree/'], ['why', T + '/why/'],
-  ['map', T + '/map/'], ['wardley', T + '/wardley/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
+  ['map', T + '/map/'], ['wardley', T + '/wardley/'], ['bets', T + '/bets/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
 ];
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
@@ -88,6 +88,7 @@ const CONTAINERS = [
   ['rank', T + '/rank/', ['.tblwrap']],
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
+  ['bets', T + '/bets/', ['#preview']],
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
   // (duel not listed: its readout is hidden until Start, so a load-time container
   // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,
@@ -184,7 +185,8 @@ for(const [name, url, selectors] of CONTAINERS){
 const WIDENED = [['roadmap', T + '/roadmap/', 'Habit app roadmap'],
                  ['map', T + '/map/', 'Assumption map'],
                  ['why', T + '/why/', 'Habit retention'],
-                 ['tree', T + '/tree/', 'Bid or no bid']];
+                 ['tree', T + '/tree/', 'Bid or no bid'],
+                 ['bets', T + '/bets/', 'Habitat portfolio']];
 
 for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
