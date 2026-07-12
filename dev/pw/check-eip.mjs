@@ -40,7 +40,7 @@ const svg = await page.locator('#preview svg').innerHTML();
 check('recommendation flipped to No bid', svg.includes('RECOMMENDED') && /RECOMMENDED[\s\S]{0,200}No bid/.test(svg));
 check('one undo reverts the edit', await (async () => {
   await page.locator('.cm-content').click();
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await page.waitForTimeout(500);
   return (await page.evaluate(() => localStorage.getItem('tree-src'))) === before;
 })());
@@ -91,7 +91,7 @@ check('label rename lands in text and diagram',
   const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
   const undo = async () => {
     await page.locator('.cm-content').click();
-    await page.keyboard.press('Meta+z');
+    await page.keyboard.press('ControlOrMeta+z');
     await page.waitForTimeout(500);
   };
 
@@ -290,7 +290,7 @@ check('no console/page errors', errors.length === 0);
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
   const undo = async () => {
     await p.locator('.cm-content').click();
-    await p.keyboard.press('Meta+z');
+    await p.keyboard.press('ControlOrMeta+z');
     await p.waitForTimeout(500);
   };
 
@@ -417,14 +417,22 @@ check('no console/page errors', errors.length === 0);
      gets its own round trip: commit, assert, ONE Meta+z, assert full revert
      back to the pre-menu baseline before the next action starts clean. ---- */
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  /* tap the top-left padding sliver, not the rect centre: the card paints its
+     title/note/status text over the hit rect, and Playwright's default .click()
+     targets the centre — on Linux (subtly different font metrics) that lands on
+     the text element and the menu never opens. Same fix the why suite uses. */
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const undo = async () => {
     await p.locator('.cm-content').click();
-    await p.keyboard.press('Meta+z');
+    await p.keyboard.press('ControlOrMeta+z');
     await p.waitForTimeout(500);
   };
 
-  await cardBody(4).click();
+  await tapCard(4);
   await p.waitForTimeout(200);
   check('roadmap: card body tap opens the menu with the expected rows',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Remove item');
@@ -440,7 +448,7 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await cardBody(4).click();
+  await tapCard(4);
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.waitForTimeout(200);
@@ -452,7 +460,7 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await cardBody(4).click();
+  await tapCard(4);
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
   await p.waitForTimeout(600);
@@ -494,7 +502,13 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(600);
 
   const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
-  await settledTap(mpage, mCardBody);
+  /* tap the top-left padding sliver, not settledTap's centre: the card paints
+     its title over the hit rect and the centre lands on that text on Linux (same
+     off-glyph concern the map-narrow block below handles manually). */
+  await mCardBody.scrollIntoViewIfNeeded();
+  await mpage.waitForTimeout(300);
+  const mCardBox = await mCardBody.boundingBox();
+  await mpage.mouse.click(mCardBox.x + 8, mCardBox.y + 4);
   await mpage.waitForTimeout(200);
   check('roadmap narrow: tap opens the card menu', await mpage.locator('.eip-pop').count() === 1);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Rename…'}));
@@ -539,7 +553,7 @@ check('no console/page errors', errors.length === 0);
   const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
   const undo = async () => {
     await p.locator('.cm-content').click();
-    await p.keyboard.press('Meta+z');
+    await p.keyboard.press('ControlOrMeta+z');
     await p.waitForTimeout(500);
   };
 
@@ -657,7 +671,7 @@ check('no console/page errors', errors.length === 0);
   check('risk: floor level rewrite lands', after.includes('floor: 90') && !after.includes('floor: 70'));
   check('risk: diagram re-rendered', (await p.locator('#preview svg').innerHTML()).includes('Floor 90'));
   await p.locator('.cm-content').click();
-  await p.keyboard.press('Meta+z');
+  await p.keyboard.press('ControlOrMeta+z');
   await p.waitForTimeout(500);
   check('risk: one undo reverts', (await p.evaluate(() => localStorage.getItem('risk-src'))) === before);
   check('risk: no console/page errors', errs.length === 0);
@@ -680,7 +694,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(1000);
   check('cycles: budget rewrite lands', (await p.evaluate(() => localStorage.getItem('cycles-src'))).includes('cycles: 3000 over 15yr'));
   await p.locator('.cm-content').click();
-  await p.keyboard.press('Meta+z');
+  await p.keyboard.press('ControlOrMeta+z');
   await p.waitForTimeout(700);
   check('cycles: one undo reverts', (await p.evaluate(() => localStorage.getItem('cycles-src'))) === before);
   check('cycles: no console/page errors', errs.length === 0);
@@ -721,7 +735,7 @@ check('no console/page errors', errors.length === 0);
   await wpage.waitForTimeout(500);
   const wsrc3 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: drag writes @ 0.NN', /Habit builder @ 0\.\d+/.test(wsrc3));
-  await wpage.keyboard.press('Meta+z');
+  await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(400);
   const wsrc4 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: Cmd+Z undoes the drag', wsrc4.includes('Habit builder @ product'));
@@ -770,7 +784,7 @@ check('no console/page errors', errors.length === 0);
   // CM keymaps need focus first (this section's existing pattern); ONE undo
   // must round-trip the whole removal (applyLineOps' single-dispatch proof)
   await wpage.locator('.cm-content').click();
-  await wpage.keyboard.press('Meta+z');
+  await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(500);
   const wsrc9 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: one undo restores the full pre-removal text (applyLineOps one history event)', wsrc9 === wsrc7);
@@ -790,7 +804,7 @@ check('no console/page errors', errors.length === 0);
   // renamed it to, so assert the join, not the name
   check('wardley: the 3-chain kept its ends after the splice', /habit tracking\s*->\s*habit builder\s*->\s*\S/i.test(wsrc10));
   await wpage.locator('.cm-content').click();
-  await wpage.keyboard.press('Meta+z');
+  await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(500);
   check('wardley: one undo restores the multi-op removal (single dispatch)',
     (await wpage.evaluate(() => localStorage.getItem('wardley-src'))) === wsrc9);

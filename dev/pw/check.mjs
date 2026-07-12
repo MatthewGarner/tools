@@ -44,8 +44,9 @@ await page.waitForTimeout(400);
 const after = await page.evaluate(() => localStorage.getItem('roadmap-src'));
 check('Alt+ArrowUp moves the line', before !== after);
 
-// Cmd+Z undo works
-await page.keyboard.press('Meta+z');
+// undo works — ControlOrMeta so it's Cmd on macOS (local) and Ctrl on Linux (CI);
+// CodeMirror binds undo to the OS modifier, so a hardcoded Meta fails on Linux
+await page.keyboard.press('ControlOrMeta+z');
 await page.waitForTimeout(400);
 const undone = await page.evaluate(() => localStorage.getItem('roadmap-src'));
 check('Cmd+Z undoes', undone === before);
@@ -115,9 +116,9 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   check('drag moves line under LATER in the text', movedIdx > laterIdx && laterIdx > 0);
   check('drag changed the doc', textAfter !== textBefore);
   check('no text selected after drag', (await dragPage.evaluate(() => window.getSelection().toString())) === '');
-  // one undo restores the pre-drag doc
+  // one undo restores the pre-drag doc (ControlOrMeta: Cmd on macOS, Ctrl on Linux/CI)
   await dragPage.locator('.cm-content').click();
-  await dragPage.keyboard.press('Meta+z');
+  await dragPage.keyboard.press('ControlOrMeta+z');
   await dragPage.waitForTimeout(500);
   const textUndone = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   check('Cmd+Z undoes the drag', textUndone === textBefore);
