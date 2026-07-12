@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "verify": "node smoke.mjs && node check.mjs && node layout.mjs && node check-eip.mjs && node map.mjs && node gauge.mjs && node pwa.mjs && node mobile.mjs"
+    "verify": "node smoke.mjs && node check.mjs && node layout.mjs && node check-eip.mjs && node map.mjs && node gauge.mjs && node pwa.mjs && node mobile.mjs && node webkit.mjs"
   },
   "devDependencies": {
     "playwright": "^1.57.0"
