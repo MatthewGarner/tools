@@ -158,6 +158,20 @@ for(const [name, url, selectors] of CONTAINERS){
   });
   ok(reg && reg.clipped, 'premortem: register table scroll is confined to .registerwrap (overflow-x)');
   ok(reg && reg.contained, 'premortem: .registerwrap fits within the viewport width');
+  // Stage 2: the FAB board's three columns must STACK on a phone (narrow relayout,
+  // not pan). Switch to the board face, add cards, assert single-column + no h-scroll.
+  await page.click('[data-view="board"]'); await page.waitForTimeout(150);
+  await page.fill('[data-add-kind="assumption"]', 'Users grant push permission');
+  await page.press('[data-add-kind="assumption"]', 'Enter'); await page.waitForTimeout(120);
+  await page.fill('[data-add-kind="fact"]', 'iOS is 70% of installs');
+  await page.press('[data-add-kind="fact"]', 'Enter'); await page.waitForTimeout(120);
+  const board = await page.evaluate(() => {
+    const b = document.querySelector('.board');
+    const cols = getComputedStyle(b).gridTemplateColumns.split(' ').filter(Boolean).length;
+    return {oneCol: cols === 1, docSW: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth};
+  });
+  ok(board.oneCol, 'premortem: FAB board stacks to one column on a phone (narrow relayout)');
+  ok(board.docSW <= board.vw + 1, `premortem: board face — no page-level h-scroll (${board.docSW} <= ${board.vw})`);
   await page.close();
   await pctx.close();
 }

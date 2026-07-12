@@ -38,15 +38,25 @@
   </div>
 
   <div id="workspace" hidden>
-    <ol class="phaserail" id="phaserail" aria-label="Workshop steps"></ol>
-    <div class="card">
-      <div id="phasepanel"></div>
+    <div class="toolbar">
+      <div class="viewtoggle" id="viewtoggle" role="group" aria-label="View"></div>
+      <button class="btn" id="undo" title="Undo (⌘Z)">↶ Undo</button>
     </div>
-    <div class="navbar">
-      <button class="btn" id="back">← Back</button>
-      <span class="gatewhy" id="gatewhy"></span>
-      <button class="btn" id="undo" title="Undo (⌘Z)">Undo</button>
-      <button class="btn primary" id="next">Next →</button>
+    <div id="wizardview">
+      <ol class="phaserail" id="phaserail" aria-label="Workshop steps"></ol>
+      <div class="card">
+        <div id="phasepanel"></div>
+      </div>
+      <div class="navbar" id="navbar">
+        <button class="btn" id="back">← Back</button>
+        <span class="gatewhy" id="gatewhy"></span>
+        <button class="btn primary" id="next">Next →</button>
+      </div>
+    </div>
+    <div id="boardview" hidden>
+      <div class="card">
+        <div id="boardpanel"></div>
+      </div>
     </div>
   </div>
 

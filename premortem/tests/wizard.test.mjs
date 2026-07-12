@@ -48,3 +48,23 @@ test('reload-resume: serialise round-trip keeps the phase + timer endsAt', () =>
   assert.equal(round.phase, 'WRITE');
   assert.equal(round.endsAt, 1234567890);
 });
+
+test('gates count risks only — a board-only doc cannot advance COLLECT or SCORE', () => {
+  const boardOnly = [{...newEntry('assume'), kind: 'assumption', p: [50, 70]},
+                     {...newEntry('a fact'), kind: 'fact'}];
+  assert.equal(canAdvance({phase: 'COLLECT', entries: boardOnly}).ok, false);
+  assert.equal(canAdvance({phase: 'SCORE', entries: boardOnly}).ok, false);
+  // a real risk in the mix flips both gates
+  const withRisk = [...boardOnly, {...newEntry('real risk'), p: [10, 20], impact: [1, 2]}];
+  assert.equal(canAdvance({phase: 'COLLECT', entries: withRisk}).ok, true);
+  assert.equal(canAdvance({phase: 'SCORE', entries: withRisk}).ok, true);
+});
+test('castVote pool counts risk actions only, not board items', () => {
+  // a stray assumption carrying actions (only reachable via an imported doc) must not eat the pool
+  let doc = {phase: 'VOTE', people: 1, entries: [
+    {...newEntry('r'), actions: [{text: 'a', votes: 0}]},
+    {...newEntry('x'), kind: 'assumption', actions: [{text: 'b', votes: 2}]}]};
+  const id = doc.entries[0].id;
+  for(let i = 0; i < 5; i++) doc = castVote(doc, id, 0, 1);   // pool = 3
+  assert.equal(doc.entries[0].actions[0].votes, 3);           // capped by risk-only used count, not blocked by the assumption's 2
+});

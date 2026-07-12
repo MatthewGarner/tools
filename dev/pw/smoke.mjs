@@ -198,6 +198,26 @@ for(const theme of ['light', 'dark']){
   check('premortem(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
+/* ---- premortem FAB board (Stage 2): three columns, promote → register ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/premortem/', theme);
+  await page.waitForTimeout(400);
+  await page.click('[data-view="board"]'); await page.waitForTimeout(150);
+  check('premortem board(' + theme + '): three FAB columns', await page.locator('.bcol').count() === 3);
+  await page.fill('[data-add-kind="assumption"]', 'Onboarding completes on 3G');
+  await page.press('[data-add-kind="assumption"]', 'Enter'); await page.waitForTimeout(150);
+  await page.locator('.bcard').filter({hasText: 'Onboarding'}).locator('[data-promote]').click(); await page.waitForTimeout(150);
+  const card = page.locator('.bcard.promoting');
+  await card.locator('[data-promotep="lo"]').fill('30');
+  await card.locator('[data-promotep="hi"]').fill('60');
+  await card.locator('[data-promoteimpact="lo"]').fill('100');
+  await card.locator('[data-promoteimpact="hi"]').fill('300');
+  await card.locator('[data-promoteok]').click(); await page.waitForTimeout(250);
+  check('premortem board(' + theme + '): promote lands on the register', (await page.locator('.vtseg.on').innerText()).trim() === 'Register');
+  check('premortem board(' + theme + '): promoted risk is a register row', (await page.locator('.register').innerText()).includes('Onboarding completes on 3G'));
+  check('premortem board(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
 
 /* ---- duel (pairwise showdown) ---- */
 for(const theme of ['light', 'dark']){

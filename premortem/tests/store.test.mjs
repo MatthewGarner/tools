@@ -37,3 +37,18 @@ test('fromLink rejects garbage without throwing', () => {
   assert.equal(fromLink('#not-base64!'), null);
   assert.equal(fromLink('#'), null);
 });
+
+test('save meta carries a risks-only count (board items do not inflate the home list)', () => {
+  const mem = new Map();
+  const store = makeStore({getItem: k => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: k => mem.delete(k)});
+  store.save({id: 'd1', title: 'T', entries: [
+    newEntry('a risk'), {...newEntry('a fact'), kind: 'fact'}, {...newEntry('an assumption'), kind: 'assumption'}]});
+  const meta = store.list().find(m => m.id === 'd1');
+  assert.equal(meta.risks, 1);
+  assert.equal(meta.entries, 3);
+});
+test('fromLink defaults a missing kind to risk (legacy/foreign docs stay visible)', () => {
+  const doc = {v: 1, id: 'orig', title: 'T', entries: [{id: 'e1', text: 'no kind here'}]};
+  const imported = fromLink(toLink(doc));
+  assert.equal(imported.entries[0].kind, 'risk');
+});

@@ -28,6 +28,34 @@ main{display:flex;flex-direction:column;gap:20px}
 .phaserail li.current{border-color:var(--accent);color:var(--card);background:var(--accent)}
 .phaserail li[aria-disabled="true"]{cursor:default;opacity:.6}
 
+/* toolbar: view toggle (Wizard / Board / Register) + always-visible undo */
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.toolbar .viewtoggle{margin-right:auto}
+.viewtoggle{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.vtseg{font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:6px 16px;border:0;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+.vtseg.on{background:var(--accent);color:var(--card)}
+
+/* FAB board — Facts / Assumptions / Beliefs, three columns onto the same doc */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
+.bcolh{font-family:Charter,Georgia,serif;font-size:15px;margin:0}
+.bcolhint{color:var(--muted);font-size:12px;margin:0;min-height:2.6em}
+.bcards{display:flex;flex-direction:column;gap:8px}
+.bcard{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.bcard.fact{border-style:dashed}                          /* facts are settled — quieter mark */
+.bchead{display:flex;align-items:flex-start;gap:8px}
+.bctext{flex:1;overflow-wrap:anywhere;font-size:14px}
+.bcdel{flex:0 0 auto;width:32px;height:32px;border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
+.bconf,.promoteform .scin{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.bconf label,.promoteform label{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+.bconf input[type=number],.promoteform input[type=number]{width:3.6rem}
+.bcpromote{align-self:flex-start;font-size:12.5px;padding:6px 10px}
+.badd{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:9px 11px}
+.promoteform{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:8px}
+.pfhint{font-size:12px;color:var(--muted);margin:0}
+.pfbtns{display:flex;gap:8px;flex-wrap:wrap}
+.boardverdict{font-size:14px;margin:18px 0 0;max-width:70ch}
+
 /* generic inputs */
 .fl{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 0}
 .fl input{display:block;width:100%;margin-top:6px;font:inherit;font-size:16px;color:var(--ink);
@@ -114,8 +142,16 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 
+/* narrow relayout: the three board columns stack (never pan) below 640px */
+@media (max-width:640px){
+  .board{grid-template-columns:1fr;gap:20px}
+  .bcolhint{min-height:0}
+}
 @media (max-width:560px){
   .scrow,.acitem{gap:8px}
   .register{min-width:520px}
 }
-@media (pointer:coarse){.btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}}
+@media (pointer:coarse){
+  .btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}
+  .bcdel{width:44px;height:44px;font-size:20px}
+}
