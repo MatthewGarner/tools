@@ -89,6 +89,7 @@ const CONTAINERS = [
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
   ['bets', T + '/bets/', ['#preview']],
+  ['roadmap', T + '/roadmap/', ['#preview']],
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
   // (duel not listed: its readout is hidden until Start, so a load-time container
   // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,

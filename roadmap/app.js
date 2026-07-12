@@ -3,6 +3,7 @@ import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify}
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
@@ -93,6 +94,8 @@ function makeDiff(model){
 /* ---------- refresh loop ---------- */
 let model = null, lastSvg = '', hashTimer = null;
 let pendingFlip = null;   // card rects keyed by title, set just before a drop's re-render
+const previewEl = $('preview');
+function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
@@ -120,7 +123,7 @@ function doRefresh(){
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true});
+    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: renderWidth()});
     if(svg !== lastSvg){
       pv.innerHTML = svg;
       lastSvg = svg;
@@ -452,6 +455,9 @@ $('preview').addEventListener('click', e => {
 /* ---------- theme change → re-render ---------- */
 function rerender(){ lastSvg = ''; refresh(); }
 onThemeChange(rerender);
+
+/* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
+watchNarrowBucket(previewEl, rerender);
 
 /* ---------- boot: hash > localStorage > empty ---------- */
 (function(){

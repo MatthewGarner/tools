@@ -29,6 +29,17 @@ for(const [k, src] of Object.entries(docs)){
     dropped: ['old thing one', 'old thing two', 'old thing three'],
     since: '2026-06-01', any: true,
   }});
+  /* narrow (phone) relayout, edit:true — the only real-world path (exports
+     never set ctx.width): plain no-lanes stack, lane sub-labels + certainty
+     fade + status pills, and the diff strip's single-column dropped list. */
+  variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
+  variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
+  variants['roadmap-narrow-diff'] = render(m, {...ctxBase, edit: true, width: 360, diff: {
+    badge: it => it.title === 'Smart reminders' ? {kind:'new', label:'New'} :
+                 it.title === 'Referral flow' ? {kind:'moved', label:'was Next'} : null,
+    dropped: ['old thing one', 'old thing two', 'old thing three'],
+    since: '2026-06-01', any: true,
+  }});
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

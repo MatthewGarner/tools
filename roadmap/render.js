@@ -34,7 +34,7 @@ export const TOKENS = {
 /* Palette schemes are shared series-wide. Re-exported for existing importers. */
 export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
-import {esc, tint, wrapText, btnAttrs} from '../assets/svg.js';
+import {esc, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 
 /* One card's paint: rect + badge/title/note/status/ghost/url. Pure — returns an SVG
    string for a single card at the given top-left (x, cy). Shared by the wide nested-
@@ -102,12 +102,186 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
   return s.join('');
 }
 
+/* Narrow (phone) relayout: horizons stack top-to-bottom in reading order
+   (NOW, then NEXT, then LATER), lanes group within each horizon as a
+   labelled sub-section, cards run full width at their OWN natural height —
+   no cross-horizon lane-height equalisation (that's meaningless once
+   horizons no longer share a grid row). Same drawCard markup, so every
+   data-edit/data-line/data-hit target is identical to the wide pass — the
+   card menu and edit-in-place need no app-side routing change. Exports
+   never set ctx.width, so this path is preview-only (mirrors wardley's
+   renderNarrow: an early-return, fully self-contained pass). */
+function renderNarrow(model, ctx, C, T){
+  const {measure, diff = null} = ctx;
+  const edit = !!ctx.edit;
+  const W = ctx.width;
+  const PAD = T.pad;
+  const nH = model.horizons.length;
+  const hasLanes = model.lanes.some(l => l);
+  const colW = W - PAD * 2;
+  const cardPadX = T.cardPadX, cardPadY = T.cardPadY, cardGap = T.cardGap;
+  const fsTitle = T.cardTitleSize, fsNote = T.noteSize;
+  const lhTitle = T.cardTitleLh, lhNote = T.noteLh;
+  const titleFont = '600 ' + fsTitle + 'px ' + F.body;
+  const noteFont = fsNote + 'px ' + F.body;
+  const innerW = colW - cardPadX * 2;
+
+  /* pre-lay every card at the FULL narrow width — its own wrap pass, since
+     colW here differs from the wide grid's columns. Per-card height only. */
+  const cells = {};
+  for(const lane of model.lanes) cells[lane] = model.horizons.map(() => []);
+  for(const it of model.items){
+    const badge = diff ? diff.badge(it) : null;
+    const lines = wrapText(it.title, titleFont, innerW, measure);
+    const noteLines = it.note ? wrapText(it.note, noteFont, innerW, measure) : [];
+    const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
+      (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0);
+    cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
+  }
+
+  const capsule = (px, py, label, col, inkCol = col) => {
+    const font = '600 ' + T.pillSize + 'px ' + F.body;
+    const tw = measure(label, font) + label.length * T.pillTracking;
+    const pw = tw + T.pillPadX*2, ph = T.pillH;
+    return {
+      svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
+        '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
+        (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
+        '<text x="' + (px + T.pillPadX) + '" y="' + (py + ph - 5.5) + '" font-size="' + T.pillSize +
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
+      w: pw,
+    };
+  };
+  const cardStyle = {T, S: 1, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
+
+  const s = [];
+  let y = 24;
+
+  /* title + date stack vertically (a right-aligned date would collide with
+     a wrapped title at phone width) */
+  if(model.title){
+    for(const l of wrapText(model.title, '700 19px ' + F.serif, W - PAD*2, measure)){
+      s.push('<text x="' + PAD + '" y="' + y + '" font-family=\'' + F.serif +
+        '\' font-size="19" font-weight="700" fill="' + C.ink + '">' + esc(l) + '</text>');
+      y += 24;
+    }
+  }
+  if(model.dateStr !== 'off'){
+    const d = model.dateStr || new Date().toISOString().slice(0, 10);
+    const dLabel = diff && diff.since ? d + ' · vs ' + diff.since : d;
+    s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + T.dateSize + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
+    y += 20;
+  } else y += 6;
+  y += 10;
+
+  const firstColCount = model.items.filter(i => i.h === 0).length;
+  const overWip = model.wip > 0 && firstColCount > model.wip;
+  const addH = 40;
+
+  model.horizons.forEach((hName, h) => {
+    /* horizon header + full-width accent bar */
+    s.push('<text x="' + PAD + '" y="' + (y + 12) + '" font-size="13" font-weight="700" letter-spacing="' +
+      T.colHeadTracking + '" fill="' + C.ink + '">' + esc(hName.toUpperCase()) + '</text>');
+    if(h === 0 && overWip){
+      s.push('<text x="' + (W - PAD) + '" y="' + (y + 12) + '" text-anchor="end" font-size="' + T.wipSize +
+        '" font-weight="600" fill="' + C.err + '">' + firstColCount + ' ITEMS</text>');
+    }
+    y += 20;
+    s.push('<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="3" rx="1.5" fill="' + C.accent + '"/>');
+    y += 16;
+
+    /* confidence fade: certainty decreases toward the horizon (unchanged formula) */
+    const fadeOp = (model.fade && nH > 1) ? (1 - (h / (nH - 1)) * T.fadeMax) : 1;
+    for(const lane of model.lanes){
+      if(hasLanes && lane){
+        s.push('<text x="' + PAD + '" y="' + (y + 10) + '" font-size="' + T.laneSize + '" font-weight="600" letter-spacing="' +
+          T.laneTracking + '" fill="' + C.muted + '">' + esc(lane.toUpperCase()) + '</text>');
+        y += 20;
+      }
+      for(const c of cells[lane][h]){
+        s.push(drawCard(c, PAD, y, colW, fadeOp, edit, cardStyle));
+        y += c.cardH + cardGap;
+      }
+      if(edit){
+        s.push(editTarget(
+          '<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="' + addH +
+            '" rx="10" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
+            '<text x="' + (PAD + colW/2) + '" y="' + (y + addH/2 + 4) +
+            '" text-anchor="middle" font-size="12" font-weight="600" fill="' + C.muted + '">＋ Add' +
+            (lane ? ' to ' + esc(lane) : '') + '</text>',
+          {x: PAD, y, w: colW, h: addH, bg: C.bg},
+          {kind: 'additem', line: -1, raw: '', extra: 'data-lane="' + esc(lane) + '" data-col="' + esc(hName) + '"',
+            label: 'Add item to ' + (lane || 'roadmap') + ' ' + hName}));
+        y += addH;
+      }
+      y += 14;   // gap after a lane group (or the single implicit lane)
+    }
+    y += 12;   // gap between horizons
+  });
+
+  /* legend: same capsules as wide, flow-wrapped across lines at this width */
+  const usedStatuses = [...new Set(model.items.map(i => i.status).filter(Boolean))];
+  const dropped = diff ? diff.dropped : [];
+  if(usedStatuses.length || (diff && diff.any)){
+    y += 6;
+    const rowH = T.pillH + 10;
+    let lx = PAD;
+    const capsuleWidth = label => measure(label, '600 ' + T.pillSize + 'px ' + F.body) + label.length*T.pillTracking + T.pillPadX*2;
+    const place = w => {
+      if(lx + w > W - PAD && lx > PAD){ lx = PAD; y += rowH; }
+      const at = lx; lx += w + 10; return at;
+    };
+    for(const st of ['done','doing','risk','blocked']){
+      if(!usedStatuses.includes(st)) continue;
+      const label = STATUS_LABEL[st].toUpperCase();
+      const px = place(capsuleWidth(label));
+      s.push(capsule(px, y, label, C.status[st], C.statusInk[st]).svg);
+    }
+    if(diff && diff.any){
+      const px = place(capsuleWidth('NEW'));
+      s.push(capsule(px, y, 'NEW', C.accent, C.accentInk).svg);
+    }
+    y += rowH;
+    if(diff && diff.any){
+      s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + T.legendSize + '" fill="' + C.muted + '">' +
+        esc('added since ' + diff.since) + '</text>');
+      y += 18;
+    }
+    y += 6;
+  }
+
+  /* dropped-items strip (diff mode): single column when narrow (wide's two-up
+     split only reads well with the extra width) */
+  if(dropped.length){
+    y += 4;
+    s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + T.droppedHeadSize + '" font-weight="600" letter-spacing="' +
+      T.droppedHeadTracking + '" fill="' + C.muted + '">DROPPED SINCE ' + esc(diff.since.toUpperCase()) + '</text>');
+    y += 16;
+    for(const d of dropped){
+      s.push('<text x="' + (PAD + T.droppedIndent) + '" y="' + y + '" font-size="' + T.droppedSize +
+        '" fill="' + C.muted + '" text-decoration="line-through">' + esc(d) + '</text>');
+      y += T.droppedRowH;
+    }
+    y += 6;
+  }
+
+  const H = Math.round(y + T.bottomPad);
+  /* data-narrow lets CSS scope touch-action to the ROOT svg — Chromium only
+     honours touch-action on the svg root, never on child elements */
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+}
+
 export function render(model, ctx){
   const {measure, diff = null, slide = false, dark = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
   const T = TOKENS;
+  const NARROW = 520;
+  const isNarrow = !!(ctx.width && ctx.width < NARROW);
+  if(isNarrow) return renderNarrow(model, ctx, C, T);
   const nH = model.horizons.length;
   const S = slide ? T.slideScale : 1;
   const PAD = T.pad*S, LANE_W = model.lanes.some(l => l) ? T.laneW*S : 0, GAP = T.colGap*S;
