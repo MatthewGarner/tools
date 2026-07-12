@@ -309,6 +309,37 @@ check('label rename lands in text and diagram',
     tLeafRootAdd === tLeafRoot + '\n  New outcome (p=rest): 0');
   await undo();
   check('tree: one undo restores the pre-add baseline (leaf root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === tLeafRoot);
+
+  /* IMPLICIT root: two top-level lines that carry (p=…) parse (zero warnings)
+     to a synthetic wrapper of kind='chance' at line -1. It DISPLAYS as chance,
+     but childLineFor(-1) is kind-blind and always inserts a top-level
+     "New option: 0" — so the label must be pinned to "＋ Add option", not the
+     "outcome" the chance kind would otherwise imply. This is the case the
+     explicit-leaf test missed. */
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await page.keyboard.type('Option A (p=0.5): 10\nOption B (p=rest): 20');
+  await page.waitForTimeout(700);
+  const tImplicit = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: two (p=…) tops parse to an implicit chance root, but its menu kind is pinned to root-decision at line -1',
+    tImplicit === 'Option A (p=0.5): 10\nOption B (p=rest): 20' &&
+    (await page.locator('#preview svg g[data-edit="cardmenu-root-decision"][data-line="-1"]').count()) === 1);
+
+  await tapMarker(-1);
+  await page.waitForTimeout(200);
+  check('tree: implicit-root marker tap opens an Add-only menu reading exactly "＋ Add option" (NOT outcome, despite the chance kind)',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
+  check('tree: implicit-root menu offers no Remove',
+    await page.locator('.eip-pop button.danger').count() === 0);
+
+  await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
+  await page.waitForTimeout(600);
+  const tImplicitAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: implicit-root menu Add option inserts an OPTION line (label matches childLineFor(-1) insertion)',
+    tImplicitAdd === tImplicit + '\nNew option: 0');
+  await undo();
+  check('tree: one undo restores the pre-add baseline (implicit root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === tImplicit);
 }
 
 check('no console/page errors', errors.length === 0);
