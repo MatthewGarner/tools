@@ -40,7 +40,13 @@ details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
   background:var(--bg);padding:1px 5px;border-radius:4px}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
-.preview svg g[data-line]{cursor:grab;touch-action:none}  /* fingers drag cards, not the page */
+/* drag is a fine-pointer (mouse) affordance only — touch-action:none here would
+   fight the narrow stack's vertical swipe-to-scroll on a phone; coarse pointers
+   get the card menu's "Move to…" row instead (app.js gates the drag handlers
+   the same way) */
+@media (pointer: fine){
+  .preview svg g[data-line]{cursor:grab;touch-action:none}
+}
 @media (prefers-reduced-motion: no-preference){
   .preview svg g[data-line]{transition:opacity .15s}
 }

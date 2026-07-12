@@ -669,7 +669,7 @@ check('no console/page errors', errors.length === 0);
   await tapCard(4);
   await p.waitForTimeout(200);
   check('roadmap: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Remove item');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -693,6 +693,26 @@ check('no console/page errors', errors.length === 0);
   check('roadmap: menu Status pick commits the new status', tStatus.includes('Streak shield [blocked]'));
   await undo();
   check('roadmap: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  /* Move to… row: a sub-popover lists the model's horizons (current one
+     marked `on`); picking a different one is the phone replacement for
+     dragging the card across columns — same undo/round-trip contract as
+     every other menu row. */
+  await tapCard(4);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Move to… submenu lists the model’s horizons',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Now|Next|Later');
+  check('roadmap: Move to… marks the item’s current horizon',
+    (await p.locator('.eip-pop button.on').innerText()) === 'Now');
+  await p.locator('.eip-pop button', {hasText: 'Next'}).click();
+  await p.waitForTimeout(600);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: Move to… Next relocates the item into the NEXT section',
+    tMove.indexOf('Streak shield [doing]') > tMove.indexOf('NEXT') && tMove.indexOf('NEXT') > tMove.indexOf('NOW'));
+  await undo();
+  check('roadmap: one undo restores the pre-move baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   await tapCard(4);
   await p.waitForTimeout(200);

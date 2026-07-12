@@ -13,7 +13,7 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 
@@ -148,24 +148,44 @@ const ws = initWorkspace({
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 
+/* Card menu rows: the static base plus a dynamic "Move to…" submenu listing
+   the model's horizons (current one marked `on`) — the phone-friendly
+   replacement for dragging a card to another column. Resolved fresh from the
+   current model each time the menu opens (same idiom as why's solutionMenu),
+   keyed off the clicked card's own srcLine. */
+function itemMenu(m, srcLine){
+  const item = m && m.items.find(i => i.srcLine === srcLine);
+  const moveRows = item ? m.horizons.map(h => ({
+    label: h, on: m.horizons[item.h] === h,
+    commit: {kind: 'movehorizon', line: srcLine, oldRaw: m.horizons[item.h], value: h},
+  })) : [];
+  return [
+    {label: 'Rename…', opens: 'title'},
+    {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
+    {label: 'Status…', opens: 'status'},        // dead when the item has no status
+    {label: 'Move to…', submenu: moveRows},
+    {label: 'Remove item', action: true, danger: true},
+  ];
+}
+
 attachEditInPlace($('preview'), {
   kinds: {
     title: {validate: eipValidators.title},
     note: {validate: eipValidators.note},
     status: {options: EDIT_STATUSES},
     additem: {validate: eipValidators.title},
-    cardmenu: {menu: [
-      {label: 'Rename…', opens: 'title'},
-      {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
-      {label: 'Status…', opens: 'status'},        // dead when the item has no status
-      {label: 'Remove item', action: true, danger: true},
-    ]},
+    cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
       const {afterLine} = addItemLine(editor.getText(), el.dataset.lane || null, el.dataset.col);
       const lane = el.dataset.lane;
       editor.insertLinesAfter(afterLine, [lane ? lane + ': ' + newValue : newValue]);
+      return;
+    }
+    if(kind === 'movehorizon'){
+      const text = moveHorizon(editor.getText(), lineNo, newValue);
+      if(text) editor.setText(text);   // one transaction → one undo step, same as drag
       return;
     }
     if(newValue === '✖Remove item'){
@@ -317,6 +337,12 @@ $('importgo').addEventListener('click', () => {
 let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null};
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+/* drag is a fine-pointer affordance only: on a coarse (touch) device it fights
+   the narrow stack's vertical swipe-to-scroll (no auto-scroll, no drop-zone
+   feedback that reads on a finger) — "Move to…" in the card menu is the phone
+   path instead. Checked live (not cached) so a hybrid device's primary-pointer
+   query stays current across the page's lifetime. */
+const finePointer = () => matchMedia('(pointer: fine)').matches;
 function cellAt(cx, cy){
   let cell = null, before = null;
   for(const el of document.elementsFromPoint(cx, cy)){
@@ -391,6 +417,7 @@ function flipAnimate(oldRects){
   }
 }
 $('preview').addEventListener('pointerdown', e => {
+  if(!finePointer()) return;   // coarse pointers use the card menu's Move to… row
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g || e.button !== 0) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);

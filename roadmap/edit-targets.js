@@ -1,5 +1,6 @@
 /* Pure line rewrites for edit-in-place on the roadmap diagram. No DOM. */
 import {parse} from './parse.js';
+import {moveItem} from './edit.js';
 
 export const STATUSES = ['done', 'doing', 'risk', 'blocked'];
 
@@ -46,4 +47,24 @@ export function addItemLine(text, lane, horizonName){
 /* Only lines that parse as items may be removed. */
 export function removeItemLine(text, srcLine){
   return parse(text).items.some(i => i.srcLine === srcLine);
+}
+
+/* ---- card-menu "Move to…" (phone replacement for drag, S3) ---- */
+
+/* Rewrite the item at srcLine so it sits under targetHorizon instead of its
+   current one — same lane, appended at the end of that horizon's lane-cell
+   (or right after the header when the lane has no items there yet). Reuses
+   moveItem (drag's own engine) rather than a second horizon-rewrite: the
+   card-menu path and the drag path stay a single source of truth. Returns
+   the new full text, or null when srcLine isn't an item, targetHorizon
+   doesn't resolve, or targetHorizon IS the item's current horizon (the menu
+   marks that row `on`; picking it is a no-op, not an error). */
+export function moveHorizon(text, srcLine, targetHorizon){
+  const model = parse(text);
+  const item = model.items.find(i => i.srcLine === srcLine);
+  if(!item) return null;
+  const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(targetHorizon).toLowerCase());
+  if(hIdx < 0 || hIdx === item.h) return null;
+  const r = moveItem(text, model, srcLine, {h: hIdx, lane: item.lane, beforeLine: null});
+  return r ? r.text : null;
 }

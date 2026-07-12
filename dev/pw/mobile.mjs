@@ -210,6 +210,65 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
+// roadmap coarse-pointer gate (Task 3): the drag affordance is a fine-pointer
+// (mouse) feature only — on a phone it must NOT arm (it would fight the
+// narrow stack's vertical swipe-to-scroll) and its CSS touch-action:none must
+// not be applied here either. The "Move to…" card-menu row is the phone
+// replacement, and it must still relocate a card across horizons.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(400);
+  const chip = page.getByRole('button', {name: 'Habit app roadmap'});
+  if(await chip.count()) await chip.click();
+  await page.waitForTimeout(600);
+
+  // no touch-action block: style.css gates touch-action:none to
+  // @media (pointer: fine), so a card group on this coarse-emulated context
+  // keeps the default (scrollable) value instead.
+  const touchAction = await page.evaluate(() => {
+    const g = document.querySelector('#preview svg g[data-edit="cardmenu"][data-line="4"]');
+    return g ? getComputedStyle(g).touchAction : null;
+  });
+  ok(touchAction !== null && touchAction !== 'none',
+    `roadmap: card group keeps touch-action:${touchAction} on a coarse pointer (vertical scroll isn't blocked)`);
+
+  // drag does not start on touch: app.js gates the drag pointerdown handler
+  // on matchMedia('(pointer: fine)') — this whole context reports coarse
+  // (devices['iPhone 13']), so a drag gesture over the card must produce no
+  // ghost and leave the source text untouched, regardless of which Playwright
+  // input API dispatches the events.
+  const cardBody = page.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
+  const cardBox = await cardBody.boundingBox();
+  const beforeDrag = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  await page.mouse.move(cardBox.x + 8, cardBox.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(cardBox.x + 8, cardBox.y + 220, {steps: 8});
+  const ghostDuring = await page.locator('.dragghost').count();
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const afterDrag = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  ok(ghostDuring === 0, 'roadmap: a coarse-pointer drag gesture never shows the drag ghost');
+  ok(beforeDrag === afterDrag, 'roadmap: a coarse-pointer drag gesture does not move the card');
+
+  // Move to… still works: tap the card body (top-left padding sliver, not the
+  // title text) → Move to… → a different horizon → the item relocates.
+  await cardBody.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box = await cardBody.boundingBox();
+  await page.mouse.click(box.x + 8, box.y + 4);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Move to…'}).click();
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Next'}).click();
+  await page.waitForTimeout(600);
+  const moved = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  ok(moved.includes('Streak freeze') && moved.indexOf('Streak freeze') > moved.indexOf('NEXT') &&
+    moved.indexOf('NEXT') > moved.indexOf('NOW'),
+    'roadmap: Move to… relocates the card into a different horizon on a coarse pointer');
+  await page.close();
+}
+
 // why: solution card-menu overflow reachability (coarse). "Smart reminders"
 // (srcLine 5, the default "Habit retention" example) carries two assumptions,
 // so its dynamic solutionMenu shows six rows — assert the LAST one (Remove
