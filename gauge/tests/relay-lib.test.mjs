@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createSession, putResponse, getSession, reveal, endSession, sha256hex,
-  clientIp, TTL_SECONDS, RATE_LIMIT_PER_MIN} from '../../api/gauge/_lib.js';
+  clientIp, validValues, TTL_SECONDS, RATE_LIMIT_PER_MIN} from '../../api/gauge/_lib.js';
 import {memoryKv} from '../../api/gauge/_kv.js';
 
 const ID = 'a'.repeat(32), KEY = 'b'.repeat(32), PID = 'c'.repeat(16);
@@ -147,4 +147,24 @@ test('response write re-arms the TTL — self-heals a session whose create-time 
   const r = await putResponse(kv, ID, {participantId: PID, values: [50]}, 'ip');
   assert.equal(r.status, 200);
   assert.notEqual(kv._store.get('gauge:' + ID).expiresAt, null);
+});
+
+/* ---- chips allocation arrays (2–8 numbers 0–100 summing to exactly 100) ---- */
+const vok = v => assert.ok(v);
+test('chips arrays: 2–8 elements 0–100 summing to 100 are valid values', () => {
+  vok(validValues([[60, 25, 15]]));
+  vok(validValues([[100, 0, 0, 0, 0, 0, 0, 0]]));   // 8 options
+  vok(validValues([[70, 30]]));                      // 2 options, not lo≤hi — sum rule admits it
+});
+
+test('chips arrays: wrong sums and shapes rejected', () => {
+  vok(!validValues([[60, 25, 10]]));     // sums 95
+  vok(!validValues([[50, 30, 25]]));     // sums 105
+  vok(!validValues([[110, -10, 0]]));    // out of 0–100 even though sum 100
+  vok(!validValues([[10, 10, 10, 10, 10, 10, 10, 10, 20]]));  // 9 elements
+});
+
+test('range pairs still validate by lo ≤ hi', () => {
+  vok(validValues([[3, 9]]));
+  vok(!validValues([[9, 3]]));           // not lo≤hi AND sums 12 ≠ 100
 });
