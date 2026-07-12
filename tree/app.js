@@ -11,7 +11,7 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
-import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators, applies, subtreeRange, childLineFor} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
@@ -94,12 +94,17 @@ attachEditInPlace($('preview'), {
     prob: {validate: validators.prob},
     value: {validate: validators.value},
     label: {validate: validators.label},
-    'node-decision': {actions: [{label: '＋ Add option'}, {label: 'Remove branch', danger: true}]},
-    'node-chance':   {actions: [{label: '＋ Add outcome'}, {label: 'Remove branch', danger: true}]},
-    'node-leaf':     {actions: [{label: '＋ Add outcome'}, {label: 'Remove', danger: true}]},
+    /* card menu supersedes the old node-<kind> add/remove-only popover with
+       Rename/Edit value or probability/Add/Remove; opens:'value'/'prob' is a
+       dead no-op on the (rare) node instance that doesn't carry that field —
+       e.g. the root marker has no incoming edge so no label/value/prob tspan
+       exists for it at all — same accepted no-op as why's fieldless rows. */
+    'cardmenu-decision': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'option'}),
+    'cardmenu-chance': cardMenu({field: {label: 'Edit probability…', opens: 'prob'}, add: 'outcome'}),
+    'cardmenu-leaf': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'outcome', remove: 'Remove'}),
   },
   onCommit(kind, lineNo, oldRaw, newValue){
-    if(kind.startsWith('node-')){
+    if(kind.startsWith('cardmenu-')){
       if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;

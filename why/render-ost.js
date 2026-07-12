@@ -100,9 +100,9 @@ export function renderOst(model, projection, ctx, diff = null){
     const unaddressed = projection.ost.unaddressed.has(node);
     if(dimmed) s.push('<g opacity="' + T.dimOp + '">');
     const isOutcome = node.kind === 'outcome';
-    /* edit-gated: the card body is a popover target (add child / remove branch) */
-    const cardEip = edit ? ' data-edit="card-' + node.kind + '" data-raw=""' +
-      ' tabindex="0" role="button" aria-label="' + esc(node.label) + ' — add or remove"' : '';
+    /* edit-gated: the card body is a menu target (rename / status / add child / remove branch) */
+    const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-raw=""' +
+      ' tabindex="0" role="button" aria-label="' + esc(node.label) + ' — options"' : '';
     s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
       '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +

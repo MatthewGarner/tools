@@ -40,6 +40,12 @@ footer a{color:var(--muted)}
 footer a:hover{color:var(--accent-ink)}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 
-/* node markers are popover targets (add child / remove branch) in edit mode */
-.preview svg [data-edit^="node-"]{cursor:pointer}
-.preview svg [data-edit^="node-"]:hover{fill:var(--accent);fill-opacity:.12}
+/* node markers are card-menu targets (rename / edit value or probability /
+   add child / remove branch) in edit mode. The hit rect carries its own
+   fill="…" fill-opacity="0" attribute (an SVG presentation attribute, lower
+   cascade priority than a normal rule but NOT overridden by inheriting a
+   value from its ancestor <g> — inheritance is lower priority still), so the
+   hover tint must target the rect itself, not rely on the g's fill cascading
+   down. */
+.preview svg [data-edit^="cardmenu"]{cursor:pointer}
+.preview svg [data-edit^="cardmenu"]:hover rect[data-hit]{fill:var(--accent);fill-opacity:.12}

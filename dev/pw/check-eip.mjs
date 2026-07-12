@@ -66,35 +66,188 @@ check('label rename lands in text and diagram',
   (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Walk away') &&
   (await page.locator('#preview svg').innerHTML()).includes('Walk away'));
 
-/* node popovers: add a child branch, remove a subtree, one undo restores it */
+/* card menu: tap a node marker (the invisible >=44px data-hit rect, not the
+   ~7px visible mark) → menu → Rename/Edit value or probability/Add/Remove
+   each commit a real source change, one undo apiece; a node tap opens the
+   NEW menu, not the old node-<kind> add/remove-only popover (superseded, no
+   longer emitted at all). "Submit bid" (decision, srcLine 4) carries a
+   value; "Outcome" (chance, srcLine 5) carries neither a value nor a
+   probability of its own (those live on ITS children, Win/Lose) — so its
+   Edit-probability row is a documented dead no-op here, same accepted
+   pattern as why's fieldless Status rows; its Rename/Add/Remove are still
+   live. "Win" (leaf, srcLine 6) carries both a probability and a value on
+   its own line — every row is live. Each action gets its own round trip:
+   commit, assert, ONE Meta+z, assert full revert to the pre-menu baseline
+   before the next action starts clean. */
 {
+  check('tree: the old node-<kind> popover target is gone',
+    (await page.evaluate(() => document.querySelectorAll('#preview svg [data-edit^="node-"]').length)) === 0);
+
+  const marker = line => page.locator('#preview svg g[data-edit^="cardmenu-"][data-line="' + line + '"] rect[data-hit]');
+  const tapMarker = async line => {
+    const box = await marker(line).boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
   const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
-  const dec = page.locator('[data-edit="node-decision"]').first();
-  const b = await dec.boundingBox();
-  await page.mouse.click(b.x + b.width/2, b.y + b.height/2);
+  const undo = async () => {
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(500);
+  };
+
+  // decision node ("Submit bid", srcLine 4): Rename, Edit value, Add option, Remove branch
+  await tapMarker(4);
   await page.waitForTimeout(200);
-  check('tree: node popover opens with add + remove',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option|Remove branch');
+  check('tree: decision marker tap opens the menu with the expected rows',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add option|Remove branch');
+
+  await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await page.waitForTimeout(200);
+  check('tree: decision menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Submit bid');
+  await page.locator('.eip-input').fill('Place bid');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  const tRename = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: decision menu Rename commits the new label', tRename.includes('Place bid: -150k') && !tRename.includes('Submit bid: -150k'));
+  await undo();
+  check('tree: one undo restores the pre-rename baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  await tapMarker(4);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Edit value…'}).click();
+  await page.waitForTimeout(200);
+  check('tree: decision menu Edit value opens the value input prefilled', await page.locator('.eip-input').inputValue() === '-150k');
+  await page.locator('.eip-input').fill('-200k');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  const tValue = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: decision menu Edit value commits the new value', tValue.includes('Submit bid: -200k'));
+  await undo();
+  check('tree: one undo restores the pre-value baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  await tapMarker(4);
+  await page.waitForTimeout(200);
   await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
   await page.waitForTimeout(600);
-  check('tree: add inserts a child option', (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('New option: 0'));
-  await page.keyboard.type('Renamed inline');   // placeholder is pre-selected in the editor
-  await page.waitForTimeout(600);
-  check('tree: placeholder pre-selected for rename',
-    (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Renamed inline: 0'));
-  const chance = page.locator('[data-edit="node-chance"]').first();
-  const cb = await chance.boundingBox();
-  await page.mouse.click(cb.x + cb.width/2, cb.y + cb.height/2);
+  const tAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: decision menu Add option inserts a new option line', tAdd.includes('New option: 0'));
+  await undo();
+  check('tree: one undo restores the pre-add baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  await tapMarker(4);
   await page.waitForTimeout(200);
-  await page.locator('.eip-pop button', {hasText: 'Remove branch'}).click();
+  await page.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await page.waitForTimeout(600);
-  const tRm = await page.evaluate(() => localStorage.getItem('tree-src'));
-  check('tree: remove branch drops the whole subtree', !tRm.includes('Win') && !tRm.includes('Lose'));
-  await page.locator('.cm-content').click();
-  await page.keyboard.press('Meta+z');
-  await page.waitForTimeout(500);
-  check('tree: one undo restores the subtree',
-    (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Lose'));
+  const tDecRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: decision menu Remove branch drops the option and its whole subtree',
+    !tDecRemove.includes('Submit bid') && !tDecRemove.includes('Outcome') && !tDecRemove.includes('Win (p='));
+  await undo();
+  check('tree: one undo restores the removed option (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  // chance node ("Outcome", srcLine 5): Rename works; Edit probability is a
+  // documented dead row; Remove branch drops the whole Win/Lose subtree
+  await tapMarker(5);
+  await page.waitForTimeout(200);
+  check('tree: chance marker tap opens the menu with the expected rows',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit probability…|＋ Add outcome|Remove branch');
+
+  await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await page.waitForTimeout(200);
+  check('tree: chance menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Outcome');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  await tapMarker(5);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Edit probability…'}).click();
+  await page.waitForTimeout(200);
+  check('tree: chance Edit probability is a documented dead no-op (Outcome carries no p of its own) — no popup opens',
+    await page.locator('.eip-input').count() === 0 && await page.locator('.eip-pop').count() === 0);
+
+  await tapMarker(5);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await page.waitForTimeout(600);
+  const tChanceRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: chance menu Remove branch drops the whole subtree', !tChanceRemove.includes('Win') && !tChanceRemove.includes('Lose'));
+  await undo();
+  check('tree: one undo restores the removed subtree (chance)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  // leaf node ("Win", srcLine 6): Rename, Edit value, Add outcome, Remove — every row live
+  await tapMarker(6);
+  await page.waitForTimeout(200);
+  check('tree: leaf marker tap opens the menu with the expected rows',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add outcome|Remove');
+
+  await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await page.waitForTimeout(200);
+  check('tree: leaf menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Win');
+  await page.locator('.eip-input').fill('Won');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  const tLeafRename = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: leaf menu Rename commits the new label', tLeafRename.includes('Won (p=0.3-0.45)') && !tLeafRename.includes('Win (p=0.3-0.45)'));
+  await undo();
+  check('tree: one undo restores the pre-rename baseline (leaf)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  await tapMarker(6);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Edit value…'}).click();
+  await page.waitForTimeout(200);
+  check('tree: leaf menu Edit value opens the value input prefilled', await page.locator('.eip-input').inputValue() === '2M to 5M');
+  await page.locator('.eip-input').fill('3M to 6M');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  const tLeafValue = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: leaf menu Edit value commits the new value', tLeafValue.includes('Win (p=0.3-0.45): 3M to 6M'));
+  await undo();
+  check('tree: one undo restores the pre-value baseline (leaf)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  await tapMarker(6);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
+  await page.waitForTimeout(600);
+  const tLeafAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: leaf menu Add outcome grows a first child under the leaf', tLeafAdd.includes('New outcome'));
+  await undo();
+  check('tree: one undo restores the pre-add baseline (leaf)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  await tapMarker(6);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
+  await page.waitForTimeout(600);
+  const tLeafRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: leaf menu Remove drops the node', !tLeafRemove.includes('Win (p=0.3-0.45)'));
+  await undo();
+  check('tree: one undo restores the removed leaf', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  /* regression: the >=44px marker hit rect must NOT swallow this node's own
+     short label/value/prob text. drawEdge places the label/value/prob band
+     just above-left of the marker; a box centred on the marker stole the tap
+     for a bare "0" value (Lose srcLine 7, No bid srcLine 8), so the direct
+     field editor never opened. Assert elementFromPoint at each field centre
+     resolves to the FIELD, not the cardmenu hit rect — the geometry the bug
+     turned on — then that tapping it opens the input, not the menu. */
+  for(const line of [7, 8]){
+    const hit = await page.evaluate(l => {
+      const t = document.querySelector('#preview svg [data-edit="value"][data-line="' + l + '"]');
+      if(!t) return 'no-tspan';
+      const r = t.getBoundingClientRect();
+      const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      const e = el && el.closest('[data-edit]');
+      return e ? e.getAttribute('data-edit') : 'none';
+    }, line);
+    check('tree: bare "0" value at line ' + line + ' is directly tappable (marker hit rect does not steal it)', hit === 'value');
+  }
+  {
+    const box = await page.locator('#preview svg [data-edit="value"][data-line="8"]').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+    check('tree: tapping the bare "0" value opens the value editor, not the card menu',
+      await page.locator('.eip-pop').count() === 0 && await page.locator('.eip-input').count() === 1);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+  }
 }
 
 check('no console/page errors', errors.length === 0);
@@ -119,37 +272,110 @@ check('no console/page errors', errors.length === 0);
   const t2 = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why: assumption cycles untested→testing', t2.includes('? users will invite friends [testing]'));
 
-  /* card popovers: add a child, remove a branch; × removes an assumption */
-  const opp = p.locator('[data-edit="card-opportunity"]').first();
-  const ob = await opp.boundingBox();
-  await p.mouse.click(ob.x + 6, ob.y + ob.height - 5);   // card padding, off the label text
+  /* ---- card menu: tap the card BODY (the invisible-fill data-hit rect, which
+     IS the card rect itself here — why is a drop-in, no wrapper <g>) opens
+     Rename/Status/Add/Remove. "Smart reminders" (srcLine 5, a solution) carries
+     both a label and a status pill so every row is live; each action gets its
+     own round trip: commit, assert, ONE Meta+z, assert full revert back to the
+     pre-menu baseline before the next action starts clean. ---- */
+  const cardBody = line => p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="' + line + '"][data-hit]');
+  /* solution cards stack label + status pill + assumption rows, so the card's
+     geometric centre (Playwright's default .click() target) usually lands on
+     assumption text painted on top of the rect — tap the top-left padding
+     sliver instead, above every card kind's first text baseline. */
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('Meta+z');
+    await p.waitForTimeout(500);
+  };
+
+  await tapCard(5);
   await p.waitForTimeout(200);
-  check('why: opportunity card popover opens',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add solution|Remove branch');
-  await p.locator('.eip-pop button', {hasText: 'Add solution'}).click();
-  await p.waitForTimeout(600);
-  const t3 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: add solution inserts a candidate line', t3.includes('New solution [candidate]'));
-  const ax = p.locator('[data-edit="removeassump"]').first();
-  const ab = await ax.boundingBox();
-  await p.mouse.click(ab.x + ab.width/2, ab.y + ab.height/2);
-  await p.waitForTimeout(600);
-  const t4 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: assumption × removes its line', t4.split('\n').length === t3.split('\n').length - 1);
-  const sol = p.locator('[data-edit="card-solution"]').first();
-  const sb = await sol.boundingBox();
-  await p.mouse.click(sb.x + 6, sb.y + sb.height - 5);
+  check('why: solution card tap opens the menu with the expected rows',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+
+  await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
-  await p.locator('.eip-pop button', {hasText: 'Remove branch'}).click();
+  check('why: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Smart reminders');
+  await p.locator('.eip-input').fill('Smart nudges');
+  await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
-  const t5 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: card Remove branch drops the solution', !t5.includes('Smart reminders'));
+  const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Rename commits the new label', tRename.includes('Smart nudges') && !tRename.includes('Smart reminders'));
+  await undo();
+  check('why: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  await p.waitForTimeout(200);
+  check('why: menu Status opens the status options popover', await p.locator('.eip-pop button', {hasText: 'delivering'}).count() === 1);
+  await p.locator('.eip-pop button', {hasText: 'shipped'}).click();   // current is 'delivering' (set above) — pick a distinct value so this is a real commit
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Status pick commits the new status', tStatus.includes('Smart reminders [shipped]'));
+  await undo();
+  check('why: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Add assumption'}).click();
+  await p.waitForTimeout(600);
+  const tAdd = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Add assumption inserts a new assumption line', tAdd.includes('New assumption'));
+  await undo();
+  check('why: one undo restores the pre-add baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: menu Remove branch drops the solution (and its assumptions)',
+    !tRemove.includes('Smart reminders') && !tRemove.includes('users want to be interrupted at work'));
+  await undo();
+  check('why: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  /* ---- outcome + opportunity cards: the guard-widen review flagged that
+     cardmenu-outcome/-opportunity do NOT start with 'card-', so without
+     widening the onCommit guard their Add/Remove rows would silently fall
+     through to the label rewrite instead of acting. Prove each kind's menu
+     carries its own Add label AND that Add/Remove actually commit. Status…
+     is a dead row on these two (no status pill on outcomes/opportunities) —
+     same accepted no-op as roadmap's note-less "Edit note…" row. ---- */
+  await tapCard(1);   // outcome: "Improve 90-day retention"
+  await p.waitForTimeout(200);
+  check('why: outcome card menu carries the outcome Add label',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add opportunity|Remove branch');
+  await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
+  await p.waitForTimeout(600);
+  const tOutAdd = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: outcome menu Add opportunity inserts a new opportunity line', tOutAdd.includes('New opportunity'));
+  await undo();
+  check('why: one undo restores the pre-add baseline (outcome)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(16);   // opportunity leaf "Progress feels invisible" — no children, safe to remove alone
+  await p.waitForTimeout(200);
+  check('why: opportunity card menu carries the opportunity Add label',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add solution|Remove branch');
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const tOppRemove = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why: opportunity menu Remove branch drops the opportunity', !tOppRemove.includes('Progress feels invisible'));
+  await undo();
+  check('why: one undo restores the removed opportunity', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
   check('why: export render has no edit affordances', await p.evaluate(async () => {
     const [{parse}, {project}, {renderOst}] = await Promise.all([
       import('/why/parse.js'), import('/why/project.js'), import('/why/render-ost.js')]);
     const m = parse(localStorage.getItem('why-src'));
     const svg = renderOst(m, project(m), {colors: {}, measure: () => 50, dark: false});
-    return !svg.includes('card-') && !svg.includes('removeassump');
+    return !svg.includes('cardmenu-') && !svg.includes('removeassump');
   }));
   check('why: no console/page errors', errs.length === 0);
   await p.close();
