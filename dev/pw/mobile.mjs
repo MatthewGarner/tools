@@ -12,7 +12,7 @@ const AUTOLOAD = [
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
   ['timeline', T + '/timeline/'], ['fermi', T + '/fermi/'], ['frequency', E + '/frequency/'],
-  ['intraday', E + '/intraday/'], ['alarm', T + '/alarm/'],
+  ['intraday', E + '/intraday/'], ['alarm', T + '/alarm/'], ['duel', T + '/duel/'],
 ];
 
 let pass = 0, fail = 0;
@@ -88,6 +88,9 @@ const CONTAINERS = [
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
+  // (duel not listed: its readout is hidden until Start, so a load-time container
+  // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,
+  // and the two-up duel cards stack via a pure CSS grid under 640px — can't pan)
 ];
 
 for(const [name, url, selectors] of CONTAINERS){
