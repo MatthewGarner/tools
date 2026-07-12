@@ -96,7 +96,7 @@ export function render(model, results, ctx){
     new Date().toISOString().slice(0, 10) + '</text>');
 
   /* capsule pill, shared visual language with the roadmap tool */
-  const capsule = (px, py, label, col) => {
+  const capsule = (px, py, label, col, inkCol = col) => {   // inkCol: contrast-boosted TEXT colour; fill still uses col
     const font = '600 ' + T.pillSize*S + 'px ' + F.body;
     const tw = measure(label, font) + label.length * T.pillTracking;
     const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
@@ -105,7 +105,7 @@ export function render(model, results, ctx){
         '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 4.5*S) + '" font-size="' + T.pillSize*S +
-        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + col + '">' + esc(label) + '</text>',
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
       w: pw,
     };
   };
@@ -115,7 +115,7 @@ export function render(model, results, ctx){
     const rec = results.policy.get(model.root);
     const st = results.stats.get(model.root);
     const vy = headerH + 14*S;
-    const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent);
+    const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent, C.accentInk);
     s.push(p.svg);
     s.push('<text x="' + (T.pad*S + p.w + 10*S) + '" y="' + vy + '" font-size="' + 15*S +
       '" font-weight="700" fill="' + C.ink + '">' + esc(rec.label) + '</text>');

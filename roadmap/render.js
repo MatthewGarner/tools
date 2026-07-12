@@ -142,7 +142,7 @@ export function render(model, ctx){
   }
 
   /* capsule pill: tinted fill, coloured label; used by cards, badges, and the legend */
-  const capsule = (px, py, label, col) => {
+  const capsule = (px, py, label, col, inkCol = col) => {   // inkCol: contrast-boosted TEXT colour; fill still uses col
     const font = '600 ' + T.pillSize*S + 'px ' + F.body;
     const tw = measure(label, font) + label.length * T.pillTracking;
     const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
@@ -151,7 +151,7 @@ export function render(model, ctx){
         '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 5.5*S) + '" font-size="' + T.pillSize*S +
-        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + col + '">' + esc(label) + '</text>',
+        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
       w: pw,
     };
   };
@@ -198,7 +198,7 @@ export function render(model, ctx){
         if(c.badge){
           const bcol = c.badge.kind === 'new' ? C.accent :
                        c.badge.kind === 'alert' ? C.err : C.muted;
-          s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol).svg);
+          s.push(capsule(x + cardPadX, cursor, c.badge.label.toUpperCase(), bcol, c.badge.kind === 'new' ? C.accentInk : bcol).svg);
           cursor += T.badgeH*S;
         }
         if(c.it.url) s.push('<a href="' + esc(c.it.url) + '" target="_blank" rel="noopener">');
@@ -239,7 +239,7 @@ export function render(model, ctx){
             ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status +
               '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(c.it.title) + '">' : '<g>';
           s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
-            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status]).svg + '</g>');
+            STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
         }
         s.push('</g>');
         cy += c.cardH + cardGap;
@@ -277,12 +277,12 @@ export function render(model, ctx){
     const capTop = y + T.legendY*S - T.pillH*S + 3*S;
     for(const st of ['done','doing','risk','blocked']){
       if(!usedStatuses.includes(st)) continue;
-      const p = capsule(lx, capTop, STATUS_LABEL[st].toUpperCase(), C.status[st]);
+      const p = capsule(lx, capTop, STATUS_LABEL[st].toUpperCase(), C.status[st], C.statusInk[st]);
       s.push(p.svg);
       lx += p.w + T.legendKeyGap*S;
     }
     if(diff && diff.any){
-      const p = capsule(lx, capTop, 'NEW', C.accent);
+      const p = capsule(lx, capTop, 'NEW', C.accent, C.accentInk);
       s.push(p.svg);
       lx += p.w + 6*S;
       s.push('<text x="' + lx + '" y="' + (y + T.legendY*S) + '" font-size="' + T.legendSize*S + '" fill="' + C.muted + '">' +
