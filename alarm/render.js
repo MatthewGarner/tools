@@ -6,14 +6,21 @@
    overlap/threshold trade-off (the standard signal-detection picture). */
 import {esc, txt} from '../assets/svg.js';
 
-const X0 = -3, X1 = 6;                       // score axis
+/* score axis + plot margins, shared so app.js can invert a drag's clientX → t */
+export const AXIS = {X0: -3, X1: 6, ML: 16, MR: 16};
+const {X0, X1} = AXIS;
 const pdf = z => Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
 const PEAK = pdf(0);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const r1 = n => (Math.round(n * 10) / 10).toString();
 
+/* invert the x-map: a pointer x within the SVG's own coordinate space → threshold */
+export function tFromSvgX(svgX, w){
+  return clamp(X0 + (svgX - AXIS.ML) / (w - AXIS.ML - AXIS.MR) * (X1 - X0), X0, X1);
+}
+
 export function renderDistributions({baseRate, dprime, t}, c, {w, h}){
-  const ml = 16, mr = 16, mt = 26, mb = 30;
+  const ml = AXIS.ML, mr = AXIS.MR, mt = 26, mb = 30;
   const px = w - ml - mr, py = h - mt - mb, base = mt + py;
   const xp = x => ml + (x - X0) / (X1 - X0) * px;
   const yp = v => base - clamp(v, 0, 1) * py * 0.9;   // v in 0..1, headroom at top

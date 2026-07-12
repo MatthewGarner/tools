@@ -40,22 +40,31 @@ export function layoutFlow(dots, stages, geom, opts){
     return {i, real: !!d.real, pass, bin};
   });
 
-  // start grid — left third, dots in index order
-  const startRect = {x: PAD, y: PAD, w: w / 3 - 2 * PAD, h: h - 2 * PAD};
-  const startById = new Map(packGrid(assigned.map(a => ({i: a.i})), startRect).map(p => [p.i, p]));
+  // terminal bins — full width, stacked vertically, HEIGHT proportional to count
+  // (mass-honest: the alarm bin is visibly the small one) with a legibility floor.
+  // Real dots first within each bin so the composition reads at a glance. Dots fly
+  // in from the left edge, so at rest the bins fill the whole canvas.
+  const innerW = w - 2 * PAD, total = dots.length || 1, FLOOR = 44;
+  const counts = [];
+  for(let b = 0; b < nBins; b++) counts[b] = assigned.filter(a => a.bin === b).length;
+  const avail = h - (nBins + 1) * PAD - nBins * LABEL_H;
+  let heights = counts.map(c => Math.max(FLOOR, avail * c / total));
+  const hsum = heights.reduce((s, x) => s + x, 0) || 1;
+  heights = heights.map(x => x * avail / hsum);
 
-  // terminal bins — right third, stacked vertically; real dots first within each
-  const binX = w * 2 / 3, binW = w / 3 - PAD, slot = h / nBins;
   const bins = [], positions = new Array(dots.length);
+  let cy = PAD;
   for(let b = 0; b < nBins; b++){
+    const bh = heights[b];
     const members = assigned.filter(a => a.bin === b)
       .sort((x, y) => (x.real === y.real ? x.i - y.i : x.real ? -1 : 1));
-    bins.push({x: binX, y: b * slot, w: binW, h: slot, label: binLabel(b, stages, opts), count: members.length});
-    const rect = {x: binX, y: b * slot + LABEL_H, w: binW, h: slot - LABEL_H - PAD};
+    bins.push({x: PAD, y: cy, w: innerW, h: bh + LABEL_H, label: binLabel(b, stages, opts), count: members.length});
+    const rect = {x: PAD, y: cy + LABEL_H, w: innerW, h: bh};
     for(const p of packGrid(members, rect)){
-      const s0 = startById.get(p.i);
-      positions[p.i] = {i: p.i, x0: s0.x, y0: s0.y, x1: p.x, y1: p.y, real: p.real, pass: assigned[p.i].pass, bin: b};
+      // start on the left edge at the dot's target row → a left→right fill wave
+      positions[p.i] = {i: p.i, x0: PAD, y0: p.y, x1: p.x, y1: p.y, real: p.real, pass: assigned[p.i].pass, bin: b};
     }
+    cy += bh + LABEL_H + PAD;
   }
   return {positions, bins};
 }

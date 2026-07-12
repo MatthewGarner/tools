@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base-rate playground</title>
+<meta name="description" content="Base-rate neglect made visceral: 1,000 cases flow through a detector — drag the threshold and watch the alarm bin fill with false alarms. '9 in 10 alarms at this threshold are false.'">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚨</text></svg>">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/assets/pwa.js" defer></script>
+</head>
+<body>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/about.css">
+<link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="../assets/mobile.css">
+
+<div class="wrap">
+  <header>
+    <a class="crumb" href="/">← All tools</a>
+    <h1>Base-rate playground</h1>
+    <p class="tagline">"99% accurate" means nothing until the base rate has had its say. A thousand cases flow through a detector; drag the threshold and watch the alarm bin fill up with the wrong ones.</p>
+  </header>
+
+  <main>
+  <div class="card">
+    <div class="chips" id="presets"><span class="lead">Try:</span>
+      <button class="chip" data-preset="alert-fatigue">Alert fatigue</button>
+      <button class="chip" data-preset="vendor-claim">Vendor claim</button>
+      <button class="chip" data-preset="screening">Screening classic</button>
+      <button class="chip" data-preset="capacity-test">Capacity test</button>
+      <span class="claim-slot"><button class="chip ghost" id="claimBtn" aria-haspopup="dialog" aria-expanded="false">Pin a claim…</button></span>
+      <span class="chip claimed" id="claimChip" hidden></span>
+    </div>
+
+    <div id="distwrap" aria-label="Score distributions with a draggable alarm threshold"></div>
+
+    <div class="controls">
+      <div class="ctl"><label>Base rate <output id="baseRateOut"></output></label>
+        <input type="range" id="baseRate" min="-3" max="-0.30103" step="0.01" value="-1.699"
+          aria-label="Base rate of real issues, log scale"></div>
+      <div class="ctl"><label>Detector quality d′ <output id="dprimeOut"></output></label>
+        <input type="range" id="dprime" min="0" max="4" step="0.05" value="2"
+          aria-label="Detector quality, d-prime"></div>
+      <div class="ctl"><label>Alarm threshold <output id="thresholdOut"></output></label>
+        <input type="range" id="threshold" min="-3" max="6" step="0.05" value="1.2"
+          aria-label="Alarm threshold; also draggable on the plot above"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>1,000 cases through the detector</h2>
+    <p class="cardintro">Filled dots are real issues, rings are benign. They stream through the gate: over the threshold rings the <b>alarm</b>, under it stays <b>quiet</b>. Watch the alarm bin — at a low base rate it fills with rings.</p>
+    <div id="gatewrap"><canvas id="gate" aria-label="1,000 cases flowing through the detector into alarm and quiet bins"></canvas></div>
+    <div class="actions">
+      <button class="btn" id="replay">Replay</button>
+      <span class="method" id="animnote"></span>
+    </div>
+  </div>
+
+  <div class="card readout">
+    <p class="verdict-alarm" id="verdictAlarm" aria-live="polite" aria-atomic="true"></p>
+    <p class="verdict-miss" id="verdictMiss"></p>
+    <p class="verdict-fine" id="verdictFine"></p>
+    <div id="boxwrap"></div>
+    <div class="actions">
+      <button class="btn" id="dlsvg">Download SVG</button>
+      <button class="btn" id="dlpng">Download PNG</button>
+      <button class="btn" id="copypng">Copy PNG</button>
+      <button class="btn" id="copydoc">Copy for a doc</button>
+      <button class="btn" id="copylink">Copy link</button>
+      <span class="method">Seeded 1,000-case population · counts read off the dots · the URL carries your settings</span>
+    </div>
+  </div>
+
+  <div class="about">
+    <h2>Why good detectors still cry wolf</h2>
+    <div class="prose">
+    <p>Base-rate neglect is the most durable statistical blind spot there is: we judge an alarm by how good the detector is and forget how rare the thing it's hunting for actually is. A test that's "99% accurate" sounds unimpeachable — but if one case in a thousand is real, then out of a thousand you catch the one real case and raise about ten false alarms alongside it. Nine or ten of every ten alarms are wrong, and no amount of detector quality fixes that; only a higher base rate does. This is the maths behind alert fatigue, vendor detection claims, medical screening, and fraud flags.</p>
+    <p>The picture makes it concrete. Two bell curves are the detector's score for benign cases and for real ones; the more they overlap, the worse the detector (that's d′, and its AUC). The threshold you drag is the line above which the detector shouts "alarm". Move it left and you catch more real issues but flood the alarm bin with false ones; move it right and the bin goes quiet but real issues sail through. The thousand dots below carry the base rate the curves can't show — that's the number doing the damage.</p>
+    <p>So the useful move on your own alert channel isn't "buy a better detector". It's: know your base rate first, then set the threshold for the precision you can actually live with — and if nine in ten alarms are false, expect people to stop looking, because they will. Pin a vendor's claimed sensitivity and specificity, then drag the base rate down to yours and watch the promised precision collapse. Sources: Kahneman on base-rate neglect; Gigerenzer's natural-frequency framing (<i>Reckoning with Risk</i>); signal-detection theory.</p>
+    </div>
+  </div>
+  </main>
+
+  <footer>
+    No accounts, no tracking. The URL carries your settings — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+
+<div class="claim-pop" id="claimPop" role="dialog" aria-label="Pin a vendor claim" hidden>
+  <p>The vendor's numbers — then drag the base rate to yours.</p>
+  <div class="claim-row">
+    <label>Sensitivity <input type="number" id="claimSens" min="1" max="99.9" step="0.1" value="99"> %</label>
+    <label>Specificity <input type="number" id="claimSpec" min="1" max="99.9" step="0.1" value="99"> %</label>
+  </div>
+  <div class="claim-actions">
+    <button class="btn" id="claimApply">Pin it</button>
+    <button class="btn ghost" id="claimCancel">Cancel</button>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
