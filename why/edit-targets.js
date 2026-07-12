@@ -1,8 +1,8 @@
 /* Pure line rewrites for edit-in-place on the /why diagram. No DOM. */
 import {parse} from './parse.js';
 
-export const SOLUTION_STATUSES = ['candidate', 'testing', 'delivering', 'shipped', 'parked'];
-export const ASSUMPTION_CYCLE = ['untested', 'testing', 'holds', 'broken'];
+/* single source in parse.js; the assumption cycle order is that status list */
+export {SOLUTION_STATUSES, ASSUMPTION_STATUSES as ASSUMPTION_CYCLE} from './parse.js';
 
 /* ---- add/remove nodes (S1 shared mechanics) ---- */
 

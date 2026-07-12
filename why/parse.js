@@ -1,8 +1,10 @@
 /* /why DSL → model. No DOM. Spec §1. */
 import {PALETTE_NAMES} from '../assets/series.js';
 
-const SOLUTION_STATUSES = ['candidate', 'testing', 'delivering', 'shipped', 'parked'];
-const ASSUMPTION_STATUSES = ['untested', 'testing', 'holds', 'broken'];
+/* Canonical status vocabularies — the single source. edit-targets.js re-exports
+   these (ASSUMPTION_STATUSES as ASSUMPTION_CYCLE, the cycle order = the list). */
+export const SOLUTION_STATUSES = ['candidate', 'testing', 'delivering', 'shipped', 'parked'];
+export const ASSUMPTION_STATUSES = ['untested', 'testing', 'holds', 'broken'];
 
 export function parse(text){
   const model = {title: '', palette: 'ocean', accent: null, outcomes: [], warnings: []};

@@ -70,3 +70,10 @@ test('childLineFor: unknown line returns null', () => {
   assert.equal(childLineFor(DOC, 4), null);
   assert.equal(childLineFor(DOC, 99), null);
 });
+
+test('status vocabularies are single-sourced from parse.js (no drift)', async () => {
+  const p = await import('../parse.js');
+  const et = await import('../edit-targets.js');
+  assert.equal(et.ASSUMPTION_CYCLE, p.ASSUMPTION_STATUSES, 'ASSUMPTION_CYCLE re-exports parse.ASSUMPTION_STATUSES (same array)');
+  assert.equal(et.SOLUTION_STATUSES, p.SOLUTION_STATUSES, 'SOLUTION_STATUSES single-sourced');
+});
