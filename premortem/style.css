@@ -102,13 +102,20 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .vstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink);font-size:20px;cursor:pointer}
 .vcount{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:700;min-width:1.5em;text-align:center}
 
-/* REGISTER table — scrolls inside its card (a data table, exports pinned wide) */
+/* REGISTER — the kept artefact: a light header zone, then a data table that
+   sizes to its content and centres (leftover width is margin, not sparse columns) */
+.reghead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:2px 0 12px}
+.regplane{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+.regsubject{font-family:Charter,Georgia,"Times New Roman",serif;font-size:16px;color:var(--ink)}
 .registerwrap{overflow-x:auto;margin-top:4px}
-.register{width:100%;min-width:560px;border-collapse:collapse;font-size:13.5px}
+.register{width:auto;min-width:560px;border-collapse:collapse;font-size:13.5px}
+.register .rexp{min-width:184px}
 .register th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
-.register td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.register td{padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+.register th{padding:6px 16px}
+.register td:first-child,.register th:first-child{padding-left:2px}
 .rnum{font-family:ui-monospace,Menlo,monospace;color:var(--muted)}
-.rtext{max-width:240px;overflow-wrap:anywhere}
+.rtext{max-width:58ch;overflow-wrap:anywhere}
 .rp{font-variant-numeric:tabular-nums;white-space:nowrap}
 .rexp b{font-variant-numeric:tabular-nums}
 .band{display:block;position:relative;height:5px;background:var(--track);border-radius:3px;margin:4px 0 2px}
@@ -127,7 +134,8 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .clusterchip{font-size:10.5px;color:var(--muted);margin-left:6px}
 .actcount{font-size:10.5px;color:var(--muted);margin-left:6px}
 .unscored{color:var(--muted);font-style:italic}
-.portfolio{font-size:14px;margin:16px 0 0;max-width:70ch}
+.portfolio{font-size:15px;margin:18px 0 0;max-width:70ch;padding-top:14px;border-top:1px solid var(--border)}
+.portfolio b{font-size:1.15em;font-variant-numeric:tabular-nums}
 .stalenag{font-size:13px;color:var(--st-risk-ink,#8E6200);margin:8px 0 0}
 
 /* countdown + nav + home */

@@ -38,7 +38,9 @@ export function renderRegister(doc, exp, now = new Date()){
     '</tr>';
   }).join('');
 
-  return '<div class="registerwrap"><table class="register"><thead><tr>' +
+  return '<div class="reghead"><span class="regplane">Risk register</span>' +
+    (doc.title ? '<span class="regsubject">' + esc(doc.title) + '</span>' : '') + '</div>' +
+    '<div class="registerwrap"><table class="register"><thead><tr>' +
     '<th></th><th>Risk</th><th>Exposure' + u + '</th><th>Likely</th><th>Status</th><th>Age</th></tr></thead>' +
     '<tbody>' + body + '</tbody></table></div>' +
     '<p class="portfolio">Portfolio exposure <b>' + fmt(port.p50) + u + '</b> [' + fmt(port.p10) + '–' + fmt(port.p90) +
