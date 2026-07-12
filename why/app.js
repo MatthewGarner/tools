@@ -144,10 +144,21 @@ attachEditInPlace($('preview'), {
     'cardmenu-outcome': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'opportunity'}),
     'cardmenu-opportunity': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'solution'}),
     'cardmenu-solution': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'assumption'}),
+    /* map-view cards are roadmap-rendered (render-map.js → roadmap/render.js),
+       so they carry a bare data-edit="cardmenu" with no per-kind suffix — the
+       roadmap renderer doesn't know outcome/opportunity/solution. opens:'title'
+       (not 'label') because that's the data-edit kind roadmap's renderer emits
+       for the title text. No Status/Add rows: map items carry no status pill
+       and adding a child node from a projected roadmap position is out of
+       scope here. */
+    cardmenu: {menu: [
+      {label: 'Rename…', opens: 'title'},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
     removeassump: {cycle: ['×']},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
-    if(kind.startsWith('cardmenu-')){
+    if(kind.startsWith('cardmenu')){
       if(newValue.startsWith('✖＋ Add')){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;

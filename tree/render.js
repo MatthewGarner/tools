@@ -199,9 +199,17 @@ export function render(model, results, ctx){
        the marker; every marker shifts by the same vector, so the WIDENED
        hit-vs-hit non-overlap (row/column spacing >=44*S) is unchanged. */
     if(edit){
+      /* The root gets an Add-only menu (cardmenu-root-<kind>) whose noun must
+         match what childLineFor inserts. For an EXPLICIT root that tracks its
+         kind (decision→option, chance/leaf→outcome). For the IMPLICIT root
+         (multiple tops wrapped in a synthetic node, line -1), childLineFor(-1)
+         ALWAYS inserts "New option: 0" regardless of the wrapper's kind — so
+         pin the label to decision/option even when a p=-carrying set of tops
+         makes the wrapper display as chance. */
+      const kind = node === model.root ? (node.implicit ? 'cardmenu-root-decision' : 'cardmenu-root-' + node.kind) : 'cardmenu-' + node.kind;
       s.push(editTarget('', {x: x - 22*S, y: y - 2*S, w: 44*S, h: 44*S, bg: C.bg},
-        {kind: 'cardmenu-' + node.kind, line: node.implicit ? -1 : node.srcLine, raw: '',
-          label: 'More options: ' + (node.label || 'node'), hit: true}));
+        {kind, line: node.implicit ? -1 : node.srcLine, raw: '',
+          label: 'More options: ' + (node.label || 'node'), hit: true, extra: 'data-menu=""'}));
     }
   }
   function walk(node, onPolicy){
