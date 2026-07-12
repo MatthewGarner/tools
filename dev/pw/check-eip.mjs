@@ -381,6 +381,93 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- why: map view card menu (roadmap-rendered cards carry a bare
+   data-edit="cardmenu", not the OST view's cardmenu-outcome/-opportunity/
+   -solution split — roadmap/render.js doesn't know why's node kinds. Fix 2
+   registers a single generic `cardmenu` kind {Rename…, Remove branch} for
+   it and widens the onCommit guard from startsWith('cardmenu-') to
+   startsWith('cardmenu') so the bare kind's ✖-sentinels reach the same
+   subtree-removal path OST uses (keyed on data-line = e.node.srcLine, which
+   render-map.js sets from the underlying why node — same source line
+   numbering as the OST view). "Smart reminders" (srcLine 5) lands in the
+   NEXT column since it's [testing]; "Streak freeze" is [delivering] → NOW.
+   Both are real (non-ghost) cards; the LATER-column ghost chips
+   ("Habits feel like chores", "Progress feels invisible") render with no
+   data-edit="cardmenu" at all (render.js skips it for c.it.ghost) so they
+   can't open a menu — not exercised here, that's the renderer's own
+   contract, not this fix's. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Habit retention'}).click();
+  await p.waitForTimeout(500);
+  await p.locator('#viewmap').click();
+  await p.waitForTimeout(500);
+
+  /* same off-glyph concern as the OST block above and the roadmap block
+     below (this IS roadmap's own card renderer): tap the top-left padding
+     sliver, not the geometric centre, since the title/note text paints
+     over the invisible-fill data-hit rect. */
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  check('why map: card body tap opens the menu with exactly Rename/Remove',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Remove branch');
+
+  await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await p.waitForTimeout(200);
+  check('why map: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Smart reminders');
+  await p.locator('.eip-input').fill('Smart nudges');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why map: menu Rename commits the new title', tRename.includes('Smart nudges') && !tRename.includes('Smart reminders'));
+  await undo();
+  check('why map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why map: menu Remove branch drops the solution (and its assumptions)',
+    !tRemove.includes('Smart reminders') && !tRemove.includes('users want to be interrupted at work'));
+  await undo();
+  check('why map: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  /* regression proof: the widened guard (startsWith('cardmenu-') →
+     startsWith('cardmenu')) must not disturb the OST view's per-kind menus —
+     switch back and confirm a cardmenu-solution card still shows its full
+     Rename/Status/Add/Remove set (the OST block above already exercises
+     each row end to end; this just proves the two views coexist on one
+     page load without one clobbering the other). */
+  await p.locator('#viewost').click();
+  await p.waitForTimeout(500);
+  const ostCardBody = p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="5"][data-hit]');
+  const ostBox = await ostCardBody.boundingBox();
+  await p.mouse.click(ostBox.x + 8, ostBox.y + 4);
+  await p.waitForTimeout(200);
+  check('why map: switching back to OST still opens the full cardmenu-solution menu',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
+  check('why map: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
 /* ---- roadmap: title edit + status popover ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
