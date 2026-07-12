@@ -220,3 +220,15 @@ test('duel renderers escape hostile item labels + framing question (HTML surface
   assertClean(renderOrder(state), 'duel-order');
   assertClean(renderLoops(state), 'duel-loops');
 });
+
+test('premortem wizard + register renderers escape hostile risk text (HTML surface)', async () => {
+  const {renderPhase} = await import('../premortem/render-wizard.js');
+  const {renderRegister} = await import('../premortem/render-register.js');
+  const {newEntry, exposure} = await import('../premortem/register.js');
+  const e = {...newEntry(EVIL[1]), tag: 'tiger', cluster: EVIL[3], p: [10, 30], impact: [5, 20],
+    actions: [{text: EVIL[0], owner: EVIL[2], done: false, votes: 1}]};
+  const doc = {title: EVIL[0], question: EVIL[1], unit: EVIL[3], people: 4, entries: [e]};
+  for(const phase of ['FRAME', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE'])
+    assertClean(renderPhase({...doc, phase}), 'premortem-' + phase);
+  assertClean(renderRegister(doc, exposure(doc.entries), new Date()), 'premortem-register');
+});
