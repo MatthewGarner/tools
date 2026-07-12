@@ -12,7 +12,8 @@ const AUTOLOAD = [
 const ALL = [...AUTOLOAD,
   ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
   ['timeline', T + '/timeline/'], ['fermi', T + '/fermi/'], ['frequency', E + '/frequency/'],
-  ['intraday', E + '/intraday/'], ['alarm', T + '/alarm/'],
+  ['intraday', E + '/intraday/'], ['alarm', T + '/alarm/'], ['duel', T + '/duel/'],
+  ['premortem', T + '/premortem/'],
 ];
 
 let pass = 0, fail = 0;
@@ -88,6 +89,15 @@ const CONTAINERS = [
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
+  // (duel not listed: its readout is hidden until Start, so a load-time container
+  // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,
+  // and the two-up duel cards stack via a pure CSS grid under 640px — can't pan)
+  // (premortem not listed: the register is (a) behind wizard nav — not present at
+  // load — and (b) an INTENTIONAL scroll container (a dense 6-col data table, the
+  // plan's exports-pinned-wide exception), so the generic no-overflow assertion is
+  // the wrong check. The bespoke register-phase walk below verifies the real
+  // invariant: that scroll is contained inside .registerwrap and never blows out
+  // the page body.)
 ];
 
 for(const [name, url, selectors] of CONTAINERS){
@@ -107,6 +117,49 @@ for(const [name, url, selectors] of CONTAINERS){
     ok(sw <= cw + 2, `${name}: ${sel} no horizontal overflow (${sw} <= ${cw})`);
   }
   await page.close();
+}
+
+// premortem register-phase walk: the register is behind the wizard, so drive a
+// fresh doc to a populated REGISTER on a phone and prove the dense table's own
+// horizontal scroll stays inside .registerwrap and never blows out the page body
+// (the wizard phase panels must reflow, not scroll — covered incidentally here).
+{
+  // fresh context: premortem is localStorage-backed, so a shared ctx would land
+  // on its saved-list home instead of a new FRAME.
+  const pctx = await browser.newContext({...devices['iPhone 13']});
+  const page = await pctx.newPage();
+  await page.goto(T + '/premortem/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(500);
+  await page.fill('[data-field="title"]', 'Habitat phone launch');
+  await page.fill('[data-field="question"]', 'It flopped. Why?');
+  await page.click('#next'); await page.waitForTimeout(120);
+  await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(120);
+  for(const t of ['Sign-up too slow on 3G', 'Push permission denied', 'Costs overshoot']){
+    await page.fill('[data-add="entry"]', t); await page.press('[data-add="entry"]', 'Enter'); await page.waitForTimeout(80);
+  }
+  await page.click('#next'); await page.waitForTimeout(100);   // CLUSTER
+  await page.click('#next'); await page.waitForTimeout(100);   // SCORE
+  await page.locator('.scrow').first().locator('[data-p="lo"]').fill('30');
+  await page.locator('.scrow').first().locator('[data-p="hi"]').fill('60');
+  await page.locator('.scrow').first().locator('[data-impact="lo"]').fill('100');
+  await page.locator('.scrow').first().locator('[data-impact="hi"]').fill('400');
+  await page.waitForTimeout(120);
+  await page.click('#next'); await page.waitForTimeout(100);   // ACTIONS
+  await page.click('#next'); await page.waitForTimeout(100);   // VOTE
+  await page.click('#next'); await page.waitForTimeout(250);   // REGISTER
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+  ok(docSW <= vw + 1, `premortem: register phase — no page-level h-scroll (${docSW} <= ${vw})`);
+  const reg = await page.evaluate(() => {
+    const w = document.querySelector('.registerwrap');
+    if(!w) return null;
+    return {clipped: getComputedStyle(w).overflowX === 'auto' || getComputedStyle(w).overflowX === 'scroll',
+            contained: w.clientWidth <= document.documentElement.clientWidth + 1};
+  });
+  ok(reg && reg.clipped, 'premortem: register table scroll is confined to .registerwrap (overflow-x)');
+  ok(reg && reg.contained, 'premortem: .registerwrap fits within the viewport width');
+  await page.close();
+  await pctx.close();
 }
 
 // WIDENED cardmenu gate: on phone width, every non-ghost card exposes a

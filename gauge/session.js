@@ -244,9 +244,30 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
   const readFields = () => [...$('pform').querySelectorAll('input[data-part]')].map(el => ({
     q: +el.closest('.q').dataset.q,
     part: el.dataset.part,
+    opt: el.dataset.opt !== undefined ? +el.dataset.opt : undefined,
     value: el.value,
     touched: el.dataset.touched === '1',
   }));
+
+  /* chips wiring: steppers (±5, clamped so the question total can't exceed 100) and
+     a live "N left" remainder that reddens off 100. Wrong sums are surfaced by
+     collectValues/markErrors on submit, exactly like range errors. */
+  const chipSum = qEl => [...qEl.querySelectorAll('input[data-part="chip"]')]
+    .reduce((s, el) => s + (+el.value || 0), 0);
+  $('pform').addEventListener('click', e => {
+    const btn = e.target.closest('.chipstep');
+    if(!btn) return;
+    const qEl = btn.closest('.q'), input = btn.closest('.chiprow').querySelector('input[data-part="chip"]');
+    const others = chipSum(qEl) - (+input.value || 0);
+    input.value = Math.max(0, Math.min(100 - others, (+input.value || 0) + 5 * +btn.dataset.dir));
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  $('pform').addEventListener('input', e => {
+    if(e.target.dataset.part !== 'chip') return;
+    const qEl = e.target.closest('.q'), left = qEl.querySelector('.chipsleft');
+    const sum = chipSum(qEl);
+    if(left){ left.textContent = String(100 - sum); left.classList.toggle('over', sum !== 100); }
+  });
   function markErrors(errors){
     for(const qEl of $('pform').querySelectorAll('.q[data-q]')){
       const err = errors.find(e => e.q === +qEl.dataset.q);

@@ -83,3 +83,21 @@ test('type is case-insensitive, :: may have any spacing', () => {
   assert.equal(m.questions[0].type, 'prob');
   assert.equal(m.questions[1].unit, 'Weeks');
 });
+
+/* ---- chips question type ---- */
+const {equal: eq, deepEqual: deq, ok: aok} = assert;
+test('chips question parses options', () => {
+  const m = parse('Pick a vendor :: chips Acme | BuildCo | In-house');
+  eq(m.questions.length, 1);
+  deq(m.questions[0], {text: 'Pick a vendor', type: 'chips',
+    options: ['Acme', 'BuildCo', 'In-house'], unit: null, srcLine: 0});
+});
+
+test('chips warnings: <2 options, >8 options, duplicate, empty label', () => {
+  aok(parse('Q :: chips OnlyOne').warnings.some(w => w.includes('at least 2')));
+  const nine = parse('Q :: chips a|b|c|d|e|f|g|h|i');
+  eq(nine.questions[0].options.length, 8);            // extras dropped
+  aok(nine.warnings.some(w => w.includes('8')));
+  aok(parse('Q :: chips A | a').warnings.some(w => w.includes('duplicate')));   // case-insensitive dupe
+  aok(parse('Q :: chips A || B').warnings.some(w => w.includes('empty')));
+});

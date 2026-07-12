@@ -110,6 +110,10 @@ for(const [k, src] of Object.entries(docs)){
   const agree = [{values: [[4, 8]]}, {values: [[5, 9]]}, {values: [[3, 7]]}];
   const m2 = gparse('Weeks :: range weeks');
   variants['gauge-overlay-agree'] = grender(m2, gstats(m2, agree), {...ctxBase});
+  const mc = gparse('title: Feature bets\nnames: on\nPick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish');
+  const cresp = [{values: [[50, 30, 20]], name: 'Ana'}, {values: [[45, 35, 20]], name: 'Ben'},
+    {values: [[40, 35, 25]], name: 'Cy'}, {values: [[0, 100, 0]], name: 'Di'}];
+  variants['gauge-overlay-chips'] = grender(mc, gstats(mc, cresp), {...ctxBase});
 }
 
 /* /flow readout fixtures (seeded sim → deterministic) */

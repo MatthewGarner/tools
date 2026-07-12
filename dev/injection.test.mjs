@@ -82,6 +82,12 @@ test('gauge overlay + FORM HTML escape hostile question text and names', async (
   assert.ok(!/<script/i.test(html.replace(/&lt;script/gi, '')), 'gauge-form: raw <script> leaked');
   assert.ok(!/onerror=/i.test(html.replace(/onerror&#?[=x]/gi, '').replace(/&quot;/g, '')) ||
     !/<img[^>]*onerror/i.test(html), 'gauge-form: live onerror attribute');
+  /* chips: hostile OPTION labels through the reveal panel + the allocation form */
+  const cm = parse('Pick :: chips ' + EVIL[1] + ' | ' + EVIL[3]);
+  const cresp = [{values: [[60, 40]], name: 'x'}, {values: [[40, 60]], name: 'y'}];
+  assertClean(renderOverlay(cm, sessionStats(cm, cresp), ctx), 'gauge-overlay-chips');
+  const chtml = renderForm(cm, {editable: true});
+  assert.ok(!/<img/i.test(chtml.replace(/&lt;img/gi, '')), 'gauge-form-chips: raw <img in option label');
 });
 
 test('timeline renderer escapes hostile lanes, labels and notes', async () => {
@@ -204,4 +210,25 @@ test('alarm renderers stay well-formed under extreme numeric params (no user str
     {baseRate: 0.02, dprime: 2, t: 1.2}])
     assertClean(renderDistributions(p, ctx.colors, {w: 900, h: 220}), 'alarm-dist');
   assertClean(renderBox({tp: 10, fp: 990, tn: 0, fn: 0}, ctx.colors), 'alarm-box');
+});
+
+test('duel renderers escape hostile item labels + framing question (HTML surface, no SVG)', async () => {
+  const {renderDuel, renderOrder, renderLoops} = await import('../duel/render.js');
+  const state = {q: EVIL[0], items: EVIL.slice(0, 4),
+    duels: [{a:0,b:1,w:0}, {a:1,b:2,w:1}, {a:2,b:0,w:2}]};   // a 3-cycle so renderLoops fires
+  assertClean(renderDuel(state, [0, 1]), 'duel-card');
+  assertClean(renderOrder(state), 'duel-order');
+  assertClean(renderLoops(state), 'duel-loops');
+});
+
+test('premortem wizard + register renderers escape hostile risk text (HTML surface)', async () => {
+  const {renderPhase} = await import('../premortem/render-wizard.js');
+  const {renderRegister} = await import('../premortem/render-register.js');
+  const {newEntry, exposure} = await import('../premortem/register.js');
+  const e = {...newEntry(EVIL[1]), tag: 'tiger', cluster: EVIL[3], p: [10, 30], impact: [5, 20],
+    actions: [{text: EVIL[0], owner: EVIL[2], done: false, votes: 1}]};
+  const doc = {title: EVIL[0], question: EVIL[1], unit: EVIL[3], people: 4, entries: [e]};
+  for(const phase of ['FRAME', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE'])
+    assertClean(renderPhase({...doc, phase}), 'premortem-' + phase);
+  assertClean(renderRegister(doc, exposure(doc.entries), new Date()), 'premortem-register');
 });
