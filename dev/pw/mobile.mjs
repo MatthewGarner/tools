@@ -89,6 +89,8 @@ const CONTAINERS = [
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
   ['bets', T + '/bets/', ['#preview']],
+  ['roadmap', T + '/roadmap/', ['#preview']],
+  ['why', T + '/why/', ['#preview']],
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
   // (duel not listed: its readout is hidden until Start, so a load-time container
   // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,
@@ -229,6 +231,142 @@ for(const [name, url, chip] of WIDENED){
   const overlap = hits.some((a, i) => hits.some((b2, j) => j > i &&
     a.x < b2.x + b2.w && b2.x < a.x + a.w && a.y < b2.y + b2.h && b2.y < a.y + a.h));
   ok(!overlap, `${name}: no two card tap rects intersect`);
+  await page.close();
+}
+
+// roadmap coarse-pointer gate (Task 3): the drag affordance is a fine-pointer
+// (mouse) feature only — on a phone it must NOT arm (it would fight the
+// narrow stack's vertical swipe-to-scroll) and its CSS touch-action:none must
+// not be applied here either. The "Move to…" card-menu row is the phone
+// replacement, and it must still relocate a card across horizons.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(400);
+  const chip = page.getByRole('button', {name: 'Habit app roadmap'});
+  if(await chip.count()) await chip.click();
+  await page.waitForTimeout(600);
+
+  // no touch-action block: style.css gates touch-action:none to
+  // @media (pointer: fine), so a card group on this coarse-emulated context
+  // keeps the default (scrollable) value instead.
+  const touchAction = await page.evaluate(() => {
+    const g = document.querySelector('#preview svg g[data-edit="cardmenu"][data-line="4"]');
+    return g ? getComputedStyle(g).touchAction : null;
+  });
+  ok(touchAction !== null && touchAction !== 'none',
+    `roadmap: card group keeps touch-action:${touchAction} on a coarse pointer (vertical scroll isn't blocked)`);
+
+  // drag does not start on touch: app.js gates the drag pointerdown handler
+  // on matchMedia('(pointer: fine)') — this whole context reports coarse
+  // (devices['iPhone 13']), so a drag gesture over the card must produce no
+  // ghost and leave the source text untouched, regardless of which Playwright
+  // input API dispatches the events.
+  const cardBody = page.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
+  const cardBox = await cardBody.boundingBox();
+  const beforeDrag = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  await page.mouse.move(cardBox.x + 8, cardBox.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(cardBox.x + 8, cardBox.y + 220, {steps: 8});
+  const ghostDuring = await page.locator('.dragghost').count();
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const afterDrag = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  ok(ghostDuring === 0, 'roadmap: a coarse-pointer drag gesture never shows the drag ghost');
+  ok(beforeDrag === afterDrag, 'roadmap: a coarse-pointer drag gesture does not move the card');
+
+  // Move to… still works: tap the card body (top-left padding sliver, not the
+  // title text) → Move to… → a different horizon → the item relocates.
+  await cardBody.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box = await cardBody.boundingBox();
+  await page.mouse.click(box.x + 8, box.y + 4);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Move to…'}).click();
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Next'}).click();
+  await page.waitForTimeout(600);
+  const moved = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  ok(moved.includes('Streak freeze') && moved.indexOf('Streak freeze') > moved.indexOf('NEXT') &&
+    moved.indexOf('NEXT') > moved.indexOf('NOW'),
+    'roadmap: Move to… relocates the card into a different horizon on a coarse pointer');
+  await page.close();
+}
+
+// why OST narrow relayout gate (Task 4): on phone width the OST view must be
+// a single-column indented outline (cards clustered near the left margin),
+// not the wide left-to-right box tree (cards spread across ~600px+). Card
+// x-positions only vary by the clamped indent (depth<=3 * 16px + a little
+// slack), so a small spread proves the stack, not the tree.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(400);
+  const chip = page.getByRole('button', {name: 'Habit retention'});
+  if(await chip.count()) await chip.click();
+  await page.waitForTimeout(600);
+  const stack = await page.evaluate(() => {
+    const rects = [...document.querySelectorAll('#preview svg rect[data-hit]')]
+      .map(el => el.getBoundingClientRect());
+    const xs = rects.map(r => r.x);
+    return {count: rects.length, spread: rects.length ? Math.max(...xs) - Math.min(...xs) : 0};
+  });
+  ok(stack.count >= 3, `why: OST narrow renders multiple cards (${stack.count})`);
+  ok(stack.spread <= 60,
+    `why: OST narrow is a single-column indented stack, not the wide LTR tree (card x-spread ${stack.spread}px)`);
+  await page.close();
+}
+
+// why deep-tree depth clamp (Task 4): a deliberately 5-level-deep opportunity
+// chain (opportunities nest freely — only solution/assumption depth is
+// warned) must not collapse to zero-width or blow out the page. Loaded via
+// the hash-state boot path (the reliable way to seed an exact fixture,
+// vs. fighting CodeMirror's literal-space indentation over keyboard.type).
+{
+  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Users forget mid-afternoon habits\n' +
+    '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
+    '          Smart batching [testing]\n            ? batching preserves timing';
+  const seed = {t: deepDoc, v: 'ost'};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  const page = await ctx.newPage();
+  await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+  ok(docSW <= vw + 1, `why: deep-tree fixture — no page-level h-scroll (${docSW} <= ${vw})`);
+  const deep = await page.evaluate(() => {
+    const rects = [...document.querySelectorAll('#preview svg rect[data-hit]')]
+      .map(el => el.getBoundingClientRect());
+    return {count: rects.length, minW: rects.length ? Math.min(...rects.map(r => r.width)) : 0,
+      xs: [...new Set(rects.map(r => Math.round(r.x)))]};
+  });
+  ok(deep.count >= 6, `why: deep-tree fixture renders every depth as its own card (${deep.count})`);
+  ok(deep.minW >= 100, `why: deep-tree fixture — even the deepest clamped card stays legible (min width ${Math.round(deep.minW)}px)`);
+  // depths 3, 4 and 5 share ONE indent (the clamp) — so distinct x positions
+  // should be 4 (depths 0,1,2, and the shared 3+ indent), not 6.
+  ok(deep.xs.length === 4, `why: deep-tree fixture clamps depth>=3 to a single shared indent (${deep.xs.length} distinct x positions)`);
+  await page.close();
+}
+
+// why map-view narrow outcome-band-heading gate (whole-branch review fix):
+// roadmap's renderNarrow never read model.laneGroups, so a MULTI-outcome
+// tree lost its outcome grouping entirely at phone width — every lane
+// rendered as an identical muted sub-label with no heading tying it to an
+// outcome. A two-outcome tree must show BOTH accent/serif band headings in
+// the narrow map view; this assertion fails against the pre-fix renderer.
+{
+  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Users forget mid-afternoon habits\n' +
+    '    Smart reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
+    '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
+    '  No reason to invite others\n';
+  const seed = {t: multiDoc, v: 'map'};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  const page = await ctx.newPage();
+  await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+  const map = await page.locator('#preview svg').innerHTML();
+  ok(map.includes('IMPROVE 90-DAY RETENTION'), 'why: narrow map view shows the first outcome band heading');
+  ok(map.includes('GROW REFERRAL REVENUE'), 'why: narrow map view shows the second outcome band heading (multi-outcome grouping preserved at phone width)');
   await page.close();
 }
 

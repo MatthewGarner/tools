@@ -29,6 +29,17 @@ for(const [k, src] of Object.entries(docs)){
     dropped: ['old thing one', 'old thing two', 'old thing three'],
     since: '2026-06-01', any: true,
   }});
+  /* narrow (phone) relayout, edit:true — the only real-world path (exports
+     never set ctx.width): plain no-lanes stack, lane sub-labels + certainty
+     fade + status pills, and the diff strip's single-column dropped list. */
+  variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
+  variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
+  variants['roadmap-narrow-diff'] = render(m, {...ctxBase, edit: true, width: 360, diff: {
+    badge: it => it.title === 'Smart reminders' ? {kind:'new', label:'New'} :
+                 it.title === 'Referral flow' ? {kind:'moved', label:'was Next'} : null,
+    dropped: ['old thing one', 'old thing two', 'old thing three'],
+    since: '2026-06-01', any: true,
+  }});
 }
 
 /* tree fixtures (dates normalised so captures are stable) */
@@ -60,6 +71,34 @@ for(const [k, src] of Object.entries(docs)){
   variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
   variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
+
+  /* narrow (phone) relayout, edit:true — the only real-world path (exports
+     never set ctx.width): the indented outline (OST) and its map-view
+     inheritance of roadmap's narrow relayout (Task 2). */
+  variants['why-ost-narrow'] = norm(renderOst(m, pr, {...ctxBase, edit: true, width: 360}));
+  variants['why-map-narrow'] = norm(renderMap(m, pr, {...ctxBase, edit: true, width: 360}));
+
+  /* multi-outcome map-view narrow fixture: every single-outcome fixture above
+     hid the dropped-band-header regression (a lone laneGroup still reads fine
+     without a heading) — two outcomes prove the fix actually distinguishes
+     which lanes belong to which outcome on a phone. */
+  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Users forget mid-afternoon habits\n' +
+    '    Smart reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
+    '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
+    '  No reason to invite others\n';
+  const mm = wparse(multiDoc);
+  const mpr = project(mm);
+  variants['why-map-narrow-multi'] = norm(renderMap(mm, mpr, {...ctxBase, edit: true, width: 360}));
+
+  /* deep-tree fixture (#4-5 levels of freely-nesting opportunities down to a
+     solution): proves the depth clamp — depths 3, 4 and 5 all share the
+     depth-3 indent/card width instead of collapsing or running off-screen. */
+  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Users forget mid-afternoon habits\n' +
+    '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
+    '          Smart batching [testing]\n            ? batching preserves timing';
+  const dm = wparse(deepDoc);
+  const dpr = project(dm);
+  variants['why-ost-narrow-deep'] = norm(renderOst(dm, dpr, {...ctxBase, edit: true, width: 360}));
 }
 
 /* /map fixtures (dates normalised) */

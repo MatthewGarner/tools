@@ -33,6 +33,7 @@ test('roadmap renderer escapes hostile titles/items/lanes', async () => {
   const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
     EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i)).join('\n');
   assertClean(render(parse(doc), {...ctx, edit: true}), 'roadmap');
+  assertClean(render(parse(doc), {...ctx, edit: true, width: 360}), 'roadmap-narrow');
 });
 
 test('why renderers escape hostile labels in both projections', async () => {
@@ -43,7 +44,9 @@ test('why renderers escape hostile labels in both projections', async () => {
   const doc = 'outcome: ' + EVIL[1] + '\n  ' + EVIL[2] + '\n    ' + EVIL[3] + ' [testing]\n      ? ' + EVIL[4];
   const m = parse(doc), pr = project(m);
   assertClean(renderOst(m, pr, {...ctx, edit: true}), 'why-ost');
+  assertClean(renderOst(m, pr, {...ctx, edit: true, width: 360}), 'why-ost-narrow');
   assertClean(renderMap(m, pr, ctx), 'why-map');
+  assertClean(renderMap(m, pr, {...ctx, width: 360}), 'why-map-narrow');
 });
 
 test('tree renderer escapes hostile option labels', async () => {
