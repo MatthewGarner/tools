@@ -1,0 +1,68 @@
+# The suite is only a gate if it runs. Locally that means remembering
+# `npm run verify`; here it's automatic on every push + PR, so a broken branch
+# shows red before it's merged to main (main deploys production on push, so the
+# real gate is the branch). Two jobs: `node` is the fast deterministic core (pure
+# modules + golden SVG regression, ~seconds, never flaky); `browser` runs the
+# nine Playwright suites against both origins. Parallel, so a browser hiccup
+# never masks a node failure. No secrets: the gauge suite spawns its own
+# in-memory relay (dev/gauge-dev.mjs), nothing here touches Upstash.
+name: verify
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: node gate + goldens
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Serial: perf.test.mjs is wall-clock, so it can't share cores with other
+      # files. The glob spans all three test roots — dev/, <tool>/tests/ AND
+      # energy/<tool>/tests/ (the last was silently missed by the old
+      # */tests/*.mjs pattern, leaving ~200 energy tests out of the gate).
+      # PERF_SCALE gives budgets headroom for slower CI silicon.
+      - name: Pure-module test gate
+        env:
+          PERF_SCALE: 3
+        run: node --test --test-concurrency=1 dev/*.test.mjs */tests/*.mjs energy/*/tests/*.mjs
+      - name: Golden SVG regression (must be byte-identical)
+        run: node dev/golden.mjs compare
+
+  browser:
+    name: playwright suites (both origins)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: dev/pw/package-lock.json
+      - name: Install harness deps
+        working-directory: dev/pw
+        run: npm ci
+      - name: Install Playwright browsers (chromium + real webkit)
+        working-directory: dev/pw
+        run: npx playwright install --with-deps chromium webkit
+      - name: Serve both origins and run the full gate
+        run: |
+          node dev/serve.mjs 8087 &
+          node dev/serve.mjs 8089 --origin=energy &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8087/ >/dev/null && curl -sf http://localhost:8089/ >/dev/null; then
+              echo "both origins up"; break
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:8087/ >/dev/null || { echo "tools origin never came up"; exit 1; }
+          curl -sf http://localhost:8089/ >/dev/null || { echo "energy origin never came up"; exit 1; }
+          cd dev/pw && npm run verify
