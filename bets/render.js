@@ -4,7 +4,7 @@
    coded box). Wide = the ledger; narrow (<520) = stacked position cards. Pure;
    colours + measure from ctx. Edit hooks on stake/odds/payoff/kill + a per-row
    data-menu for the coarse-pointer card menu. Every user string via txt()/esc. */
-import {esc, txt, tint, editTarget, wrapText} from '../assets/svg.js';
+import {esc, txt, tint, editTarget, wrapText, btnAttrs} from '../assets/svg.js';
 
 const WIDE = 960;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -85,7 +85,14 @@ function renderWide(model, sim, ctx){
     for(const b of g.bets){
       const rec = recOf(sim, b), e = rec.ev, sub = b.kill || rec.audits.length;
       const rowH = sub ? 46 : 30;
-      body.push('<g data-menu="" data-line="' + b.srcLine + '">');
+      /* the row's own hit rect paints FIRST (behind the stake/odds/payoff/kill
+         sub-targets that follow) so a click on one of THOSE still lands on
+         its own data-edit target — this rect only catches the gaps. Painting
+         it last (topmost) would swallow every click in the row, including
+         ones meant for the smaller cells (roadmap's cardmenu row is the
+         proven precedent for this ordering). */
+      body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>');
+      body.push('<rect data-hit="" x="30" y="' + y + '" width="' + (C.right - 30) + '" height="' + rowH + '" fill="transparent"/>');
       if(rec.audits.length) body.push('<rect x="30" y="' + y + '" width="' + (C.right - 30) + '" height="' + rowH + '" fill="' + c.err + '" fill-opacity="0.035"/>');
       body.push(txt(C.name, y + 19, b.name, 13, c.ink, {weight: 600}));
       cell(body, C.stake, y, rng(b.stake), e, c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, false);
@@ -108,7 +115,7 @@ function renderWide(model, sim, ctx){
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
       }
       if(rec.audits.length) stampRow(body, rec.audits, C.right, y + 36, c);
-      body.push('<rect data-hit="" x="30" y="' + y + '" width="' + (C.right - 30) + '" height="' + rowH + '" fill="transparent"/></g>');
+      body.push('</g>');
       y += rowH;
       body.push('<line x1="30" y1="' + y + '" x2="' + C.right + '" y2="' + y + '" stroke="' + c.border + '" stroke-width="0.75"/>');
     }
@@ -190,35 +197,44 @@ function renderNarrow(model, sim, ctx){
     y += 24;
     for(const b of g.bets){
       const rec = recOf(sim, b), e = rec.ev, top = y;
-      parts.push('<g data-menu="" data-line="' + b.srcLine + '">');
+      /* card content is buffered separately so the hit + background rects
+         (which need the FINAL cardH, only known once the card's content is
+         laid out) can still be unshifted to the FRONT of the card's markup —
+         same "hit rect paints first, fields on top" ordering as the wide
+         layout, so a tap on the stake/odds/payoff cells or the kill line
+         still lands on THEIR OWN data-edit target, not this card-level one. */
+      const card = [];
       y += 8;
-      parts.push(txt(pad + 12, y + 10, b.name, 14, c.ink, {weight: 600})); y += 22;
+      card.push(txt(pad + 12, y + 10, b.name, 14, c.ink, {weight: 600})); y += 22;
       // stake / odds / payoff, editable
-      ncell(parts, pad + 12, y, 'STAKE', rng(b.stake), c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)});
-      ncell(parts, pad + 12 + inner / 3, y, 'ODDS', pct(b.odds), c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)});
-      ncell(parts, pad + 12 + inner * 2 / 3, y, 'PAYOFF', rng(b.payoff), c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)});
+      ncell(card, pad + 12, y, 'STAKE', rng(b.stake), c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)});
+      ncell(card, pad + 12 + inner / 3, y, 'ODDS', pct(b.odds), c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)});
+      ncell(card, pad + 12 + inner * 2 / 3, y, 'PAYOFF', rng(b.payoff), c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)});
       y += 34;
       // EV bar + P10/P50/P90
       const bx = pad + 12, bw = inner - 24, neg = e.p50 < 0;
-      parts.push('<rect x="' + bx + '" y="' + y + '" width="' + bw + '" height="8" rx="4" fill="' + c.track + '"/>');
-      if(elo < 0) parts.push('<line x1="' + r2(ex(0, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(0, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
-      parts.push('<rect x="' + r2(ex(e.p10, bx, bw)) + '" y="' + y + '" width="' + r2(Math.max(1.5, ex(e.p90, bx, bw) - ex(e.p10, bx, bw))) + '" height="8" rx="4" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.55"/>');
-      parts.push('<line x1="' + r2(ex(e.p50, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(e.p50, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
+      card.push('<rect x="' + bx + '" y="' + y + '" width="' + bw + '" height="8" rx="4" fill="' + c.track + '"/>');
+      if(elo < 0) card.push('<line x1="' + r2(ex(0, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(0, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
+      card.push('<rect x="' + r2(ex(e.p10, bx, bw)) + '" y="' + y + '" width="' + r2(Math.max(1.5, ex(e.p90, bx, bw) - ex(e.p10, bx, bw))) + '" height="8" rx="4" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.55"/>');
+      card.push('<line x1="' + r2(ex(e.p50, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(e.p50, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
       y += 20;
-      parts.push(txt(pad + 12, y, 'EV ' + sgn(e.p50) + ' [' + sgn(e.p10) + ' – ' + sgn(e.p90) + ']', 11, neg ? c.err : c.muted, {mono: true, weight: neg ? 700 : 400}));
+      card.push(txt(pad + 12, y, 'EV ' + sgn(e.p50) + ' [' + sgn(e.p10) + ' – ' + sgn(e.p90) + ']', 11, neg ? c.err : c.muted, {mono: true, weight: neg ? 700 : 400}));
       y += 16;
       if(b.kill){
         const line = wrapText('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure)[0];
         const kinner = txt(pad + 12, y + 8, line, 10.5, c.muted);
-        parts.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: 22, bg: c.bg},
+        card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: 22, bg: c.bg},
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
         y += 16;
       }
-      if(rec.audits.length){ y += 12; stampRow(parts, rec.audits, W - pad - 8, y, c); y += 8; }
+      if(rec.audits.length){ y += 12; stampRow(card, rec.audits, W - pad - 8, y, c); y += 8; }
       y += 6;
       const cardH = y - top;
+      parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>');
+      parts.push('<rect data-hit="" x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" fill="transparent"/>');
       parts.push('<rect x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" rx="10" fill="' + c.card + '" fill-opacity="0.5" stroke="' + (rec.audits.length ? c.err : c.border) + '" stroke-width="1.2" stroke-opacity="' + (rec.audits.length ? '0.5' : '1') + '"/>');
-      parts.push('<rect data-hit="" x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" fill="transparent"/></g>');
+      parts.push(...card);
+      parts.push('</g>');
       y += 10;
     }
     y += 4;
