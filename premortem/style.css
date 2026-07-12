@@ -39,7 +39,7 @@ main{display:flex;flex-direction:column;gap:20px}
 .vtseg.on{background:var(--accent);color:var(--card)}
 
 /* FAB board — Facts / Assumptions / Beliefs, three columns onto the same doc */
-.board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bcolh{font-family:Charter,Georgia,serif;font-size:15px;margin:0}
 .bcolhint{color:var(--muted);font-size:12px;margin:0;min-height:2.6em}
@@ -153,7 +153,11 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 
-/* narrow relayout: the three board columns stack (never pan) below 640px */
+/* board columns step down 3→2→1 (never pan): 2-up in the mid band so cols
+   don't cram in the wider frame, 1-up on phones */
+@media (max-width:960px){
+  .board{grid-template-columns:repeat(2,1fr)}
+}
 @media (max-width:640px){
   .board{grid-template-columns:1fr;gap:20px}
   .bcolhint{min-height:0}
