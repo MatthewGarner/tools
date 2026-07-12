@@ -29,6 +29,7 @@
   </header>
 </div>
 
+<main>
 <div id="compose">
   <div class="workspace" id="workspace">
     <aside class="rail">
@@ -48,8 +49,8 @@
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
       <div class="viewtoggle" role="tablist">
-        <button id="viewform" role="tab">Form</button>
-        <button id="viewreveal" class="on" role="tab">Sample reveal</button>
+        <button id="viewform" role="tab" aria-selected="false">Form</button>
+        <button id="viewreveal" class="on" role="tab" aria-selected="true">Sample reveal</button>
       </div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <p class="headline" id="revealhead" aria-live="polite" aria-atomic="true"></p>
@@ -123,7 +124,10 @@
     <p><strong>Privacy:</strong> your questions never leave the link — the server sees only numbers, for 24 hours. The session definition travels in the URL fragment; the relay stores anonymous numbers (plus display names only if you switch <code>names: on</code>) and deletes everything 24 hours after the session's last activity — or immediately, when the facilitator ends the session after the reveal.</p>
     </div>
   </section>
+</div>
+</main>
 
+<div class="wrap">
   <footer>
     No accounts, no tracking. Your questions never leave the link — the server sees only numbers, for 24 hours.<br>
     Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.

@@ -136,10 +136,15 @@ function boot(){
     document.removeEventListener('pointerdown', away, true);
     pop.remove();
     /* restore focus to the hour-stack block that opened this — it's
-       tabindex="0" (merit-order/render.js's shared renderStack). Deferred:
-       see merit-order/app.js's closeCallout for why a synchronous .focus()
-       here can steal a different control's in-flight click gesture. */
-    if(el && typeof el.focus === 'function') setTimeout(() => el.focus(), 0);
+       tabindex="0" (merit-order/render.js's shared renderStack). Deferred +
+       guarded: see merit-order/app.js's closeCallout for why an unconditional
+       .focus() here can steal a different control's in-flight click gesture
+       (or, here, fight the scrub slider while the user is actively dragging
+       it — refresh() calls closeCallout() on every tick). Only restore when
+       nothing else claimed focus in the meantime. */
+    if(el && typeof el.focus === 'function') setTimeout(() => {
+      if(!activeCallout && document.activeElement === document.body) el.focus();
+    }, 0);
   }
   function openCallout(name, el){
     closeCallout();

@@ -177,14 +177,18 @@ function boot(){
     pop.remove();
     /* restore focus to the plant block that opened this — it's tabindex="0"
        (render.js) so a keyboard/AT user lands back where they started.
-       Deferred: this same closeCallout() runs from the capturing "away"
-       pointerdown listener whenever the user clicks a DIFFERENT control (a
-       world/condition chip) to dismiss the callout — calling .focus()
-       synchronously inside that capture-phase handler steals the in-flight
-       click gesture (confirmed empirically: the chip's own click handler
-       never ran, so applyWorld() never fired). A macrotask runs after the
-       browser finishes that click, so the chip's handler still gets it. */
-    if(el && typeof el.focus === 'function') setTimeout(() => el.focus(), 0);
+       Deferred + guarded: this same closeCallout() runs from the capturing
+       "away" pointerdown listener whenever the user clicks a DIFFERENT
+       control (a world/condition chip) to dismiss the callout — calling
+       .focus() synchronously (or unconditionally even deferred) steals that
+       in-flight click gesture (confirmed empirically: the chip's own click
+       handler never ran, so applyWorld() never fired). A macrotask runs
+       after the browser finishes that click, and by then activeElement is
+       <body> ONLY if nothing else claimed focus meanwhile — that's the one
+       case (Escape) that actually needs restoring. */
+    if(el && typeof el.focus === 'function') setTimeout(() => {
+      if(!activeCallout && document.activeElement === document.body) el.focus();
+    }, 0);
   }
   function openCallout(name, el){
     closeCallout();
