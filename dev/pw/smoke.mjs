@@ -165,7 +165,25 @@ for(const theme of ['light', 'dark']){
     const crumb = page.locator('a.crumb');
     if(await crumb.count() !== 1 || await crumb.getAttribute('href') !== '/'){ allOk = false; break; }
   }
-  check('all eleven tools carry the home crumb', allOk);
+  check('all twelve tools carry the home crumb', allOk);
+  await page.close();
+}
+
+/* ---- duel (pairwise showdown) ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/duel/', theme);
+  await page.waitForTimeout(400);
+  await page.locator('#start').click();          // starts on the prefilled example
+  await page.waitForTimeout(300);
+  check('duel(' + theme + '): duel cards appear after start', await page.locator('#duelwrap [data-pick]').count() === 2);
+  for(let i = 0; i < 4; i++){
+    if(await page.locator('#duelwrap [data-pick]').count() < 2) break;
+    await page.locator('#duelwrap [data-pick]').first().click();
+    await page.waitForTimeout(120);
+  }
+  check('duel(' + theme + '): implied-order list renders', await page.locator('#orderwrap .orow').count() >= 3);
+  check('duel(' + theme + '): verdict non-empty', (await page.locator('#verdict').innerText()).trim().length > 10);
+  check('duel(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 

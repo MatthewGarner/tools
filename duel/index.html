@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pairwise showdown</title>
+<meta name="description" content="Prioritise by rapid two-tap duels instead of scoring — out comes an implied ranking plus an intransitivity report: the A beats B beats C beats A loops that expose unshared criteria.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/assets/pwa.js" defer></script>
+</head>
+<body>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/about.css">
+<link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="../assets/mobile.css">
+
+<div class="wrap">
+  <header>
+    <a class="crumb" href="/">← All tools</a>
+    <h1>Pairwise showdown</h1>
+    <p class="tagline">Stop scoring things you don't believe to one decimal place. Pick a winner between two at a time; the order falls out — and where it can't, the loop tells you two people are ranking on different criteria.</p>
+  </header>
+
+  <main>
+  <div class="card" id="setupcard">
+    <div class="chips" id="examples"><span class="lead">Try:</span></div>
+    <label class="setuplabel" for="question">The question</label>
+    <input type="text" id="question" placeholder="Which should we build first?">
+    <label class="setuplabel" for="items">The contenders — one per line (3–20)</label>
+    <textarea id="items" rows="6" placeholder="Streak freeze&#10;Habit templates&#10;Smart reminders&#10;Accountability circles&#10;Progress cards"></textarea>
+    <p class="setupwarn" id="setupwarn" hidden></p>
+    <div class="actions"><button class="btn primary" id="start">Start duelling →</button></div>
+  </div>
+
+  <div class="card" id="duelcard" hidden>
+    <div id="duelwrap"></div>
+    <div class="actions">
+      <button class="btn" id="undo">Undo last</button>
+      <button class="btn" id="finish" hidden>Finish now</button>
+      <button class="btn" id="keep" hidden>Keep duelling</button>
+      <button class="btn" id="restart">New line-up</button>
+    </div>
+  </div>
+
+  <div class="card" id="readoutcard" hidden>
+    <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
+    <div class="readcols">
+      <div class="readcol"><h2>The order</h2><div id="orderwrap"></div></div>
+      <div class="readcol" id="loopcol" hidden><h2>No clean order</h2><div id="loopwrap"></div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="copydoc">Copy for a doc</button>
+      <button class="btn" id="copylink">Copy link</button>
+      <span class="method">Copeland order from your duels · the URL carries the whole session</span>
+    </div>
+  </div>
+
+  <div class="about">
+    <h2>Why duels beat scoring</h2>
+    <div class="prose">
+    <p>Scoring frameworks — RICE, weighted grids — ask you to put numbers on things nobody believes to one decimal place, then inherit that false precision into the ranking. A pairwise duel asks the one question people can actually answer: between these two, which first? Do enough of them and a full order falls out (Copeland: rank by wins minus losses), but you never had to invent a single number. The tool is stingy with your attention — it serves the duels that carry the most information (closing triangles, splitting near-ties), so a dozen taps usually settle a field of eight.</p>
+    <p>The real payoff is where the order <em>won't</em> settle. If you say A beats B, B beats C, then C beats A, there is no consistent ranking — and that's not a mistake, it's a signal. Each of those three judgements was made on a different criterion (A is cheaper, B ships sooner, C matters more), and the loop is the moment those unshared criteria surface. The tool finds every such loop (strongly-connected components of the beats-graph) and asks you to name the criterion on each edge; once you do, "three criteria pretending to be one" is the honest read.</p>
+    <p>So use the order when it's clean, and use the loops when it isn't — they're the argument worth having, found before anyone anchored on a spreadsheet. A "mushy" position just means two neighbours were never directly compared; the tool will offer you exactly those duels if you want to firm it up. No scores, no weights, no theatre — kin to the rank tool, without the numbers.</p>
+    </div>
+  </div>
+  </main>
+
+  <footer>
+    No accounts, no tracking. The URL carries your whole session — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
+  </footer>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
