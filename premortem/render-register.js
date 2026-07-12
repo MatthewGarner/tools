@@ -3,15 +3,16 @@
    the portfolio line with its independence caveat, and a stale-count nag. */
 import {esc} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
-import {ranked, staleness, staleCount} from './register.js';
+import {ranked, staleness, staleCount, isRisk} from './register.js';
 
 const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
 
 export function renderRegister(doc, exp, now = new Date()){
-  const rows = ranked(doc.entries || [], exp);
+  const risks = (doc.entries || []).filter(isRisk);   // the register is risks only; board items live on the board
+  const rows = ranked(risks, exp);
   const u = doc.unit ? ' ' + esc(doc.unit) : '';
   const port = exp.portfolio || {p50: 0, p10: 0, p90: 0};
-  const stale = staleCount(doc.entries || [], now);
+  const stale = staleCount(risks, now);
   const maxP90 = Math.max(1, ...rows.filter(scoreable).map(e => (exp.get(e.id) || {}).p90 || 0));
 
   const body = rows.map((e, i) => {

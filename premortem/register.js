@@ -10,6 +10,7 @@ let seq = 0;
 const iso = d => (d instanceof Date ? d : new Date()).toISOString();
 const effDist = lo => lo > 0 ? 'logn' : 'norm';           // matches fermi's effDist for auto
 const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
+export const isRisk = e => !!e && e.kind === 'risk';   // board items (fact/assumption/belief) share doc.entries but stay off the wizard + register
 
 export function newEntry(text, over = {}){
   const now = iso(new Date());

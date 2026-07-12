@@ -221,14 +221,19 @@ test('duel renderers escape hostile item labels + framing question (HTML surface
   assertClean(renderLoops(state), 'duel-loops');
 });
 
-test('premortem wizard + register renderers escape hostile risk text (HTML surface)', async () => {
+test('premortem wizard + register + board renderers escape hostile risk text (HTML surface)', async () => {
   const {renderPhase} = await import('../premortem/render-wizard.js');
   const {renderRegister} = await import('../premortem/render-register.js');
+  const {renderBoard} = await import('../premortem/render-board.js');
   const {newEntry, exposure} = await import('../premortem/register.js');
   const e = {...newEntry(EVIL[1]), tag: 'tiger', cluster: EVIL[3], p: [10, 30], impact: [5, 20],
     actions: [{text: EVIL[0], owner: EVIL[2], done: false, votes: 1}]};
-  const doc = {title: EVIL[0], question: EVIL[1], unit: EVIL[3], people: 4, entries: [e]};
+  // hostile board items, one of each kind, one mid-promote (inline form)
+  const board = ['fact', 'assumption', 'belief'].map(kind => ({...newEntry(EVIL[0]), kind, p: [40, 70]}));
+  const doc = {title: EVIL[0], question: EVIL[1], unit: EVIL[3], people: 4, entries: [e, ...board]};
   for(const phase of ['FRAME', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE'])
     assertClean(renderPhase({...doc, phase}), 'premortem-' + phase);
   assertClean(renderRegister(doc, exposure(doc.entries), new Date()), 'premortem-register');
+  assertClean(renderBoard(doc, new Date()), 'premortem-board');
+  assertClean(renderBoard(doc, new Date(), board[1].id), 'premortem-board-promoting');
 });
