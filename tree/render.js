@@ -1,6 +1,6 @@
 /* (model, results, ctx) → SVG string. ctx = {colors, measure, slide?, dark?}. No DOM. */
 import {PALETTES, scheme, fmt} from '../assets/series.js';
-import {esc, tint, wrapText} from '../assets/svg.js';
+import {esc, tint, wrapText, editTarget, btnAttrs} from '../assets/svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -135,18 +135,18 @@ export function render(model, results, ctx){
     /* edge labels sit above the child end; components are edit-in-place targets */
     s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 17*S) + '" text-anchor="end" font-size="' + T.labelSize*S +
       '" font-weight="600" fill="' + C.ink + '"><tspan data-edit="label" data-line="' + b.srcLine +
-      '" data-raw="' + esc(b.label) + '" tabindex="0" role="button" aria-label="Edit label: ' + esc(b.label) +
-      '">' + esc(b.label) + '</tspan></text>');
+      '" data-raw="' + esc(b.label) + '"' + btnAttrs('Edit label: ' + b.label) +
+      '>' + esc(b.label) + '</tspan></text>');
     const parts = [];
     if(b.p !== null && b.p !== undefined && a.kind === 'chance'){
       parts.push('<tspan data-edit="prob" data-line="' + b.srcLine + '" data-raw="' +
-        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '" tabindex="0" role="button" aria-label="Edit probability: ' +
-        esc(b.label) + '">' + esc(pStr(b.p)) + '</tspan>');
+        esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '"' + btnAttrs('Edit probability: ' + b.label) +
+        '>' + esc(pStr(b.p)) + '</tspan>');
     }
     if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')){
       parts.push('<tspan data-edit="value" data-line="' + b.srcLine + '" data-raw="' +
-        esc(b.valueRaw || '') + '" tabindex="0" role="button" aria-label="Edit payoff: ' +
-        esc(b.label) + '">' + esc(rangeStr(b.value)) + '</tspan>');
+        esc(b.valueRaw || '') + '"' + btnAttrs('Edit payoff: ' + b.label) +
+        '>' + esc(rangeStr(b.value)) + '</tspan>');
     }
     if(parts.length){
       s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 6*S) + '" text-anchor="end" font-size="' + T.subSize*S +
@@ -199,10 +199,9 @@ export function render(model, results, ctx){
        the marker; every marker shifts by the same vector, so the WIDENED
        hit-vs-hit non-overlap (row/column spacing >=44*S) is unchanged. */
     if(edit){
-      s.push('<g data-edit="cardmenu-' + node.kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) +
-        '" data-raw="" tabindex="0" role="button" aria-label="' + esc(node.label || 'node') + ' — options">' +
-        '<rect data-hit="" x="' + (x - 22*S) + '" y="' + (y - 2*S) + '" width="' + 44*S + '" height="' + 44*S +
-        '" fill="' + C.bg + '" fill-opacity="0"/></g>');
+      s.push(editTarget('', {x: x - 22*S, y: y - 2*S, w: 44*S, h: 44*S, bg: C.bg},
+        {kind: 'cardmenu-' + node.kind, line: node.implicit ? -1 : node.srcLine, raw: '',
+          label: 'More options: ' + (node.label || 'node'), hit: true}));
     }
   }
   function walk(node, onPolicy){
