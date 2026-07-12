@@ -11,6 +11,7 @@ const COLS = [
   ['assumption', 'Assumptions', 'Taken as true to move — but unverified'],
   ['belief', 'Beliefs', 'What we think will happen — our hypotheses'],
 ];
+const article = w => /^[aeiou]/i.test(w) ? 'an' : 'a';
 
 /* promotingId (optional) opens the inline promote form on one card. */
 export function renderBoard(doc, now = new Date(), promotingId = null){
@@ -23,7 +24,7 @@ export function renderBoard(doc, now = new Date(), promotingId = null){
       '<p class="bcolhint">' + hint + '</p>' +
       '<div class="bcards">' + cards + '</div>' +
       '<input class="badd" type="text" data-add-kind="' + kind + '" ' +
-        'placeholder="Add a ' + kind + ' — press Enter" aria-label="Add a ' + kind + '">' +
+        'placeholder="Add ' + article(kind) + ' ' + kind + ' — press Enter" aria-label="Add ' + article(kind) + ' ' + kind + '">' +
       '</section>';
   }).join('');
   return '<div class="board">' + cols + '</div>' +
@@ -33,8 +34,8 @@ export function renderBoard(doc, now = new Date(), promotingId = null){
 function card(e, kind, promoting){
   const promotable = kind !== 'fact';
   const conf = Array.isArray(e.p) ? e.p : null;
-  const head = '<span class="bctext" data-id="' + e.id + '">' + esc(e.text) + '</span>' +
-    '<button class="bcdel" data-boarddel="' + e.id + '" aria-label="Delete">×</button>';
+  const head = '<div class="bchead"><span class="bctext" data-id="' + e.id + '">' + esc(e.text) + '</span>' +
+    '<button class="bcdel" data-boarddel="' + e.id + '" aria-label="Delete">×</button></div>';
   if(!promotable)
     return '<div class="bcard fact" data-id="' + e.id + '">' + head + '</div>';
   if(promoting){

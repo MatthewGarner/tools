@@ -1,10 +1,11 @@
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
    the DOM, the phase machine wiring, localStorage autosave, the WRITE timer, undo,
    and import-from-link. The doc is the single state; every mutation autosaves. */
-import {newEntry, mergeEntries, markdown, exposure} from './register.js';
+import {newEntry, mergeEntries, markdown, exposure, promote} from './register.js';
 import {makeStore, toLink, fromLink} from './store.js';
 import {PHASES, canAdvance, advance, back, castVote} from './wizard.js';
 import {renderPhase} from './render-wizard.js';
+import {renderBoard} from './render-board.js';
 import {debounced} from '../assets/schedule.js';
 
 const $ = id => document.getElementById(id);
@@ -14,6 +15,7 @@ const LABELS = {FRAME: 'Frame', WRITE: 'Write', COLLECT: 'Collect', CLUSTER: 'Cl
 const WRITE_SECS = 120;
 
 let doc = null, undoStack = [], reached = new Set(), timer = 0;
+let view = 'wizard', promotingId = null;   // transient UI state (not persisted): 'wizard' | 'board'; id of the card mid-promote
 const saveNow = () => { if(doc) store.save(doc); };
 const save = debounced(saveNow, 300);
 
@@ -32,6 +34,11 @@ function render(){
   $('workspace').hidden = home;
   if(timer){ clearInterval(timer); timer = 0; }
   if(home){ renderHome(); return; }
+  renderToggle();
+  $('wizardview').hidden = view === 'board';
+  $('boardview').hidden = view !== 'board';
+  $('undo').disabled = undoStack.length === 0;
+  if(view === 'board'){ $('boardpanel').innerHTML = renderBoard(doc, new Date(), promotingId); return; }
   reached.add(doc.phase);
   renderRail();
   $('phasepanel').innerHTML = renderPhase(doc, new Date());
@@ -40,9 +47,17 @@ function render(){
   $('next').disabled = !gate.ok;
   $('gatewhy').textContent = gate.ok ? '' : gate.why;
   $('back').disabled = doc.phase === 'FRAME';
-  $('undo').disabled = undoStack.length === 0;
   if(doc.phase === 'WRITE') startTimer();
   if(doc.phase === 'FRAME') $('phasepanel').querySelector('[data-field="title"]')?.focus();
+}
+/* The three-way face toggle. "Register" is a shortcut to the wizard's terminal
+   phase — same renderer, so there is one register in the app, not two. */
+function renderToggle(){
+  const onRegister = view === 'wizard' && doc.phase === 'REGISTER';
+  const active = view === 'board' ? 'board' : onRegister ? 'register' : 'wizard';
+  const seg = (k, label) => '<button class="vtseg' + (active === k ? ' on' : '') +
+    '" data-view="' + k + '" role="tab" aria-selected="' + (active === k) + '">' + label + '</button>';
+  $('viewtoggle').innerHTML = seg('wizard', 'Wizard') + seg('board', 'Board') + seg('register', 'Register');
 }
 function renderRail(){
   const cur = PHASES.indexOf(doc.phase);
@@ -90,12 +105,54 @@ $('phaserail').addEventListener('click', e => {
   if(!li || li.getAttribute('aria-disabled') || li.dataset.goto === doc.phase) return;
   mutate(() => { doc = {...doc, phase: li.dataset.goto}; });
 });
+$('viewtoggle').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]'); if(!b) return;
+  promotingId = null;
+  const v = b.dataset.view;
+  if(v === 'register'){ view = 'wizard'; if(doc.phase !== 'REGISTER') mutate(() => { doc = {...doc, phase: 'REGISTER'}; }); else render(); }
+  else { view = v; render(); }
+});
+
+/* ---------- board (Facts / Assumptions / Beliefs) ---------- */
+const boardPanel = $('boardpanel');
+boardPanel.addEventListener('input', e => {
+  const d = e.target.dataset;
+  if(d.conf){ setRange(entry(d.id), 'p', d.conf, e.target.value); save(); }   // confidence-it-holds → e.p (flips on promote)
+});
+boardPanel.addEventListener('keydown', e => {
+  if(e.target.dataset.addKind && e.key === 'Enter'){
+    const v = e.target.value.trim(), kind = e.target.dataset.addKind;
+    if(v) mutate(() => { doc.entries.push(newEntry(v, {kind})); });
+    requestAnimationFrame(() => boardPanel.querySelector('[data-add-kind="' + kind + '"]')?.focus());
+  }
+});
+boardPanel.addEventListener('click', e => {
+  const d = e.target.dataset;
+  if(d.boarddel){ mutate(() => { doc.entries = doc.entries.filter(x => x.id !== d.boarddel); }); }
+  else if(d.promote){ promotingId = d.promote; render();
+    requestAnimationFrame(() => boardPanel.querySelector('[data-promoteimpact="lo"]')?.focus()); }
+  else if(d.promotecancel){ promotingId = null; render(); }
+  else if(d.promoteok){ confirmPromote(d.promoteok); }
+});
+function confirmPromote(id){
+  const wrap = boardPanel.querySelector('.bcard.promoting[data-id="' + id + '"]');
+  if(!wrap) return;
+  const num = sel => { const v = wrap.querySelector(sel)?.value; return v === '' || v == null ? null : +v; };
+  const p = [num('[data-promotep="lo"]'), num('[data-promotep="hi"]')];
+  const impact = [num('[data-promoteimpact="lo"]'), num('[data-promoteimpact="hi"]')];
+  if(p.some(x => x == null) || impact.some(x => x == null)){          // need both ranges to become a scored risk
+    wrap.querySelector('.pfhint').textContent = 'Give both a likelihood-wrong range and an impact range.';
+    return;
+  }
+  promotingId = null; view = 'wizard';
+  mutate(() => { doc.entries = doc.entries.map(x => x.id === id ? promote(x, p, impact) : x); doc.phase = 'REGISTER'; });
+}
 
 /* ---------- home ---------- */
-$('newbtn').addEventListener('click', () => { doc = newDoc(); undoStack = []; reached = new Set(); saveNow(); render(); });
+$('newbtn').addEventListener('click', () => { doc = newDoc(); undoStack = []; reached = new Set(); view = 'wizard'; promotingId = null; saveNow(); render(); });
 $('savedlist').addEventListener('click', e => {
   const open = e.target.closest('[data-open]'), del = e.target.closest('[data-del]');
-  if(open){ doc = store.load(open.dataset.open); undoStack = []; reached = new Set([doc.phase]); render(); }
+  if(open){ doc = store.load(open.dataset.open); undoStack = []; reached = new Set([doc.phase]); view = 'wizard'; promotingId = null; render(); }
   else if(del){ store.remove(del.dataset.del); renderHome(); }
 });
 
