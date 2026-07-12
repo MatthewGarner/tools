@@ -1,6 +1,6 @@
 /* OST projection renderer: left-to-right box tree. (model, projection, ctx) → SVG. */
 import {PALETTES, scheme} from '../assets/series.js';
-import {esc, tint, wrapText} from '../assets/svg.js';
+import {esc, tint, wrapText, btnAttrs} from '../assets/svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -102,7 +102,7 @@ export function renderOst(model, projection, ctx, diff = null){
     const isOutcome = node.kind === 'outcome';
     /* edit-gated: the card body is a menu target (rename / status / add child / remove branch) */
     const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-raw=""' +
-      ' tabindex="0" role="button" aria-label="' + esc(node.label) + ' — options"' : '';
+      btnAttrs('More options: ' + node.label) : '';
     s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
       '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
@@ -128,15 +128,15 @@ export function renderOst(model, projection, ctx, diff = null){
       s.push('<text data-edit="label" data-line="' + node.srcLine + '" data-raw="' + esc(node.label) +
         '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.labelSize*S +
         '" font-weight="600"' + (isOutcome ? ' font-family=\'' + F.serif + '\'' : '') +
-        ' fill="' + C.ink + '" tabindex="0" role="button" aria-label="Rename: ' + esc(node.label) +
-        '">' + esc(line) + '</text>');
+        ' fill="' + C.ink + '"' + btnAttrs('Rename: ' + node.label) +
+        '>' + esc(line) + '</text>');
       ty += T.labelLh*S;
     }
     if(node.kind === 'solution'){
       const col = statusColor(node.status);
       const label = STATUS_LABEL[node.status].toUpperCase();
       const eip = ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status +
-        '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(node.label) + '"';
+        '"' + btnAttrs('Cycle status: ' + node.label);
       const tw = measure(label, '600 ' + T.pillSize*S + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S) + '" width="' + (tw + T.pillPadX*2*S) +
         '" height="' + T.pillH*S + '" rx="' + T.pillH*S/2 + '" fill="' + tint(col) + '"/>');
@@ -151,12 +151,12 @@ export function renderOst(model, projection, ctx, diff = null){
       rows.forEach((row, i) => {
         s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
           '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
-          '" fill="' + col + '" tabindex="0" role="button" aria-label="Cycle assumption status: ' +
-          esc(a.label) + '">' + esc(row) + '</text>');
+          '" fill="' + col + '"' + btnAttrs('Cycle assumption status: ' + a.label) +
+          '>' + esc(row) + '</text>');
         if(edit && i === rows.length - 1){   /* one-click remove just past the row text (map's × idiom) */
           const xx = Math.min(x + T.cardPadX*S + measure(row, assumpFont) + 8*S, x + (T.cardW - T.cardPadX)*S);
-          s.push('<text data-edit="removeassump" data-line="' + a.srcLine + '" data-raw="" tabindex="0" role="button"' +
-            ' aria-label="Remove assumption ' + esc(a.label) + '" x="' + xx +
+          s.push('<text data-edit="removeassump" data-line="' + a.srcLine + '" data-raw=""' +
+            btnAttrs('Remove assumption ' + a.label) + ' x="' + xx +
             '" y="' + ty + '" text-anchor="end" font-size="' + T.assumpSize*S +
             '" fill="' + C.muted + '">×</text>');
         }
