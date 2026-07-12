@@ -5,6 +5,14 @@ import {newEntry, exposure, ranked, staleness, mergeEntries, promote, markdown,
 
 const risk = (text, p, impact) => ({...newEntry(text), p, impact});
 
+test('markdown exports risks only — a scoreable board item never leaks in', () => {
+  const rs = [risk('real risk', [30, 50], [100, 200]),
+    {...newEntry('lurking assumption'), kind: 'assumption', p: [40, 60], impact: [10, 20]}];  // scoreable but not a risk (only via import)
+  const md = markdown({title: 'T', unit: '£k', entries: rs}, exposure(rs, {seed: 1}), new Date());
+  assert.match(md, /real risk/);
+  assert.ok(!md.includes('lurking assumption'), 'board items never appear in the markdown register');
+});
+
 test('exposure: hand-checkable medians and ordering', () => {
   const rs = [risk('big', [40, 60], [100, 200]), risk('small', [5, 15], [10, 30])];
   const exp = exposure(rs, {seed: 1, nsim: 4000});

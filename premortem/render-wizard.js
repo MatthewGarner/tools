@@ -1,11 +1,12 @@
 /* Per-phase HTML for the premortem wizard. Every user string through esc().
    The interactive hooks (data-* attributes) are the contract app.js binds to. */
 import {esc} from '../assets/svg.js';
-import {exposure} from './register.js';
+import {exposure, isRisk} from './register.js';
 import {votePool} from './wizard.js';
 import {renderRegister} from './render-register.js';
 
 const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
+const risksOf = doc => (doc.entries || []).filter(isRisk);   // the wizard works the risks; facts/assumptions/beliefs live on the board
 const TAGS = ['tiger', 'paper-tiger', 'elephant'];
 
 export function renderPhase(doc, now = new Date()){
@@ -17,7 +18,7 @@ export function renderPhase(doc, now = new Date()){
     case 'SCORE': return score(doc);
     case 'ACTIONS': return actions(doc);
     case 'VOTE': return vote(doc);
-    case 'REGISTER': return renderRegister(doc, exposure(doc.entries || []), now);
+    case 'REGISTER': return renderRegister(doc, exposure(risksOf(doc)), now);
     default: return '';
   }
 }
@@ -35,7 +36,7 @@ function write(doc){
     '<button class="btn" data-act="skiptimer">Skip the timer</button></div>';
 }
 function collect(doc){
-  const list = (doc.entries || []).map(e =>
+  const list = risksOf(doc).map(e =>
     '<li class="centry" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
     '<span class="lexicon">' + TAGS.map(t => '<button class="lexbtn' + (e.tag === t ? ' on' : '') +
       '" data-tag="' + t + '" data-id="' + e.id + '">' + t.replace('-', ' ') + '</button>').join('') + '</span>' +
@@ -46,7 +47,7 @@ function collect(doc){
     '<p class="phint">Tag the big ones: <b>tiger</b> (real and urgent), <b>paper tiger</b> (loud but toothless), <b>elephant</b> (everyone sees it, nobody says it).</p></div>';
 }
 function cluster(doc){
-  const es = doc.entries || [];
+  const es = risksOf(doc);
   const clusters = [...new Set(es.map(e => e.cluster).filter(Boolean))];
   const rows = es.map(e =>
     '<li class="clrow" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
@@ -60,7 +61,7 @@ function cluster(doc){
     '<p class="phint">Group the same fear said different ways; merge exact duplicates so you don\'t double-count.</p></div>';
 }
 function score(doc){
-  const rows = (doc.entries || []).map(e =>
+  const rows = risksOf(doc).map(e =>
     '<div class="scrow" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
     '<span class="scin"><label>likelihood</label>' +
     '<input type="number" min="0" max="100" data-p="lo" data-id="' + e.id + '" value="' + (e.p ? e.p[0] : '') + '">–' +
@@ -87,8 +88,9 @@ function actions(doc){
 }
 function vote(doc){
   const pool = votePool(doc), people = doc.people || 5;
-  const used = (doc.entries || []).reduce((s, e) => s + e.actions.reduce((t, a) => t + (a.votes || 0), 0), 0);
-  const acts = (doc.entries || []).flatMap(e => e.actions.map((a, ai) => ({...a, eid: e.id, ai})))
+  const rs = risksOf(doc);
+  const used = rs.reduce((s, e) => s + e.actions.reduce((t, a) => t + (a.votes || 0), 0), 0);
+  const acts = rs.flatMap(e => e.actions.map((a, ai) => ({...a, eid: e.id, ai})))
     .sort((x, y) => (y.votes || 0) - (x.votes || 0));
   const rows = acts.map((a, rank) =>
     '<div class="vrow' + (rank < 5 && a.votes ? ' topvote' : '') + '"><span class="vtext">' + esc(a.text || '(unnamed action)') + '</span>' +

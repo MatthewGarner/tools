@@ -15,7 +15,9 @@ export function makeStore(backend = localStorage){
     save(doc){
       backend.setItem(KEY(doc.id), JSON.stringify(doc));
       const idx = readIdx().filter(m => m.id !== doc.id);
-      idx.push({id: doc.id, title: doc.title || '', entries: (doc.entries || []).length, saved: Date.now()});
+      const es = doc.entries || [];
+      idx.push({id: doc.id, title: doc.title || '', entries: es.length,
+        risks: es.filter(e => e.kind === 'risk').length, saved: Date.now()});
       writeIdx(idx);
     },
     load(id){ try{ return JSON.parse(backend.getItem(KEY(id))); }catch(e){ return null; } },
@@ -35,6 +37,7 @@ export function fromLink(hash){
     if(!s) return null;
     const doc = dec(s);
     if(!doc || typeof doc !== 'object' || Array.isArray(doc)) return null;
+    if(Array.isArray(doc.entries)) doc.entries.forEach(e => { if(e && e.kind == null) e.kind = 'risk'; });   // legacy/foreign docs: no kind ⇒ risk (else invisible on every face)
     return {...doc, id: freshId()};
   }catch(e){ return null; }
 }
