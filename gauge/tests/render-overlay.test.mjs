@@ -80,3 +80,27 @@ test('header pluralizes the response count', () => {
 test('deterministic: same inputs, identical string', () => {
   assert.equal(svg(), svg());
 });
+
+/* ---- chips reveal panel ---- */
+const ook = assert.ok;
+function wellFormed(svg){
+  ook(svg.startsWith('<svg') && svg.trimEnd().endsWith('</svg>'), 'svg envelope');
+  ook((svg.match(/"/g) || []).length % 2 === 0, 'balanced attribute quotes');
+  ook(!/\bNaN\b|\bundefined\b/.test(svg), 'no NaN/undefined');
+}
+test('chips panel: bar + share per option, both winner pills, XML-decodable', () => {
+  const model = parse('Pick :: chips Acme | BuildCo');
+  const stats = sessionStats(model, [{values: [[60, 40]]}, {values: [[55, 45]]}, {values: [[0, 100]]}]);
+  const svg = renderOverlay(model, stats, ctx);
+  ook(svg.includes('Acme') && svg.includes('BuildCo'));
+  ook(/SHOW OF HANDS/.test(svg));                    // stated pill
+  ook((svg.match(/first choice/g) || []).length >= 1);
+  ook(!svg.includes('NaN'));
+  wellFormed(svg);
+});
+
+test('chips panel escapes hostile option labels', () => {
+  const model = parse('Pick :: chips <img src=x> | B');
+  const svg = renderOverlay(model, sessionStats(model, [{values: [[60, 40]]}, {values: [[50, 50]]}]), ctx);
+  ook(!svg.includes('<img'));
+});

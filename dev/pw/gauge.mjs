@@ -1,6 +1,6 @@
 /* Gauge relay flow: facilitator + two participants against dev/gauge-dev.mjs.
    Run from dev/pw:  node gauge.mjs */
-import {chromium} from 'playwright';
+import {chromium, devices} from 'playwright';
 import {spawn} from 'node:child_process';
 
 const PORT = 8091;
@@ -192,6 +192,80 @@ try{
   check('no console errors (participant A)', A.errors.length === 0);
   check('no console errors (participant B)', B.errors.length === 0);
   check('no console errors (participant C)', C.errors.length === 0);
+
+  /* ---- confidence auction (chips): a divergent room + phone-width form ---- */
+  {
+    const cf = await (await browser.newContext()).newPage();
+    const errCF = watchErrors(cf);
+    await cf.goto(BASE + '/gauge/', {waitUntil: 'networkidle'});
+    await cf.getByRole('button', {name: 'Confidence auction'}).click();
+    await cf.waitForTimeout(400);
+    await cf.locator('#startbtn').click();
+    await cf.waitForSelector('#console:not([hidden])', {timeout: 10000});
+    const cJoin = await cf.locator('#joinlink').inputValue();
+    check('chips: session composed and started', true);
+
+    /* submit is blocked while the chips sum ≠ 100; a + stepper adds 5, clamped */
+    {
+      const p = await (await browser.newContext()).newPage();
+      await p.goto(cJoin, {waitUntil: 'networkidle'});
+      await p.locator('.q[data-q="0"] input[data-part=chip]').nth(0).fill('40');   // sum 40 ≠ 100
+      await p.locator('#psubmit').click();
+      await p.waitForTimeout(400);
+      check('chips: submit blocked while sum ≠ 100 (qerr shown)',
+        await p.locator('.q[data-q="0"] .qerr:not([hidden])').count() === 1);
+      await p.locator('.q[data-q="0"] .chipstep[data-dir="1"]').nth(1).click();
+      check('chips: + stepper adds 5 (clamped)',
+        +(await p.locator('.q[data-q="0"] input[data-part=chip]').nth(1).inputValue()) === 5);
+      await p.close();
+    }
+
+    async function chipsParticipant(alloc){
+      const page = await (await browser.newContext()).newPage();
+      const errs = watchErrors(page);
+      await page.goto(cJoin, {waitUntil: 'networkidle'});
+      const chips = page.locator('.q[data-q="0"] input[data-part=chip]');
+      for(let j = 0; j < alloc.length; j++) await chips.nth(j).fill(String(alloc[j]));
+      await page.locator('.q[data-q="1"] input[type=range]').evaluate(el => {
+        el.value = '70'; el.dispatchEvent(new Event('input', {bubbles: true}));
+      });
+      await page.locator('#psubmit').click();
+      await page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Submitted'));
+      return {page, errs};
+    }
+    /* stated = Streak overhaul (2 first choices), conviction = Social feed (165 chips) */
+    const cA = await chipsParticipant([40, 30, 30]);
+    const cB = await chipsParticipant([45, 35, 20]);
+    const cC = await chipsParticipant([0, 100, 0]);
+    await cf.waitForFunction(() => document.getElementById('ccount').textContent.includes('3'),
+      null, {timeout: 20000});
+    await cf.locator('#creveal').click();
+    await cf.locator('#creveal').click();
+    await cf.waitForSelector('#coverlay svg', {timeout: 10000});
+    const cOverlay = await cf.locator('#coverlay svg').innerHTML();
+    check('chips: reveal headline says-but-bets', /says/i.test(cOverlay) && /bets on/i.test(cOverlay));
+    check('chips: SHOW OF HANDS + first-choice on the overlay',
+      /SHOW OF HANDS/.test(cOverlay) && /first choice/.test(cOverlay));
+    check('chips: no NaN in overlay', !/NaN|undefined/.test(cOverlay));
+    await cf.screenshot({path: 'gauge-chips-reveal.png', fullPage: true});
+    check('chips: no console errors',
+      errCF.length === 0 && cA.errs.length === 0 && cB.errs.length === 0 && cC.errs.length === 0);
+
+    /* phone-width form: 44px steppers, 16px chip input, no page h-scroll */
+    const mctx = await browser.newContext({...devices['iPhone 13']});
+    const mp = await mctx.newPage();
+    await mp.goto(cJoin, {waitUntil: 'networkidle'});
+    await mp.waitForTimeout(500);
+    const step = await mp.locator('.q[data-q="0"] .chipstep').first().boundingBox();
+    check('chips phone: stepper ≥44px', !!step && step.width >= 44 && step.height >= 44);
+    const fs = await mp.locator('.q[data-q="0"] input[data-part=chip]').first()
+      .evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    check('chips phone: chip input ≥16px', fs >= 16);
+    const sw = await mp.evaluate(() => document.documentElement.scrollWidth);
+    const vw = await mp.evaluate(() => document.documentElement.clientWidth);
+    check('chips phone: no page h-scroll (' + sw + ' <= ' + vw + ')', sw <= vw + 1);
+    await mctx.close();
+  }
 }finally{
   await browser.close();
   server.kill();

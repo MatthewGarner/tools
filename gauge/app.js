@@ -33,6 +33,10 @@ Launch slips past November :: prob
 Support tickets in week one :: range tickets
 Daily actives a month after launch :: range users
 Beta cohort renews :: prob`},
+  {name: 'Confidence auction', src:
+`title: Feature bets
+Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish
+How confident are we in the estimate? :: prob`},
   {name: 'What does “likely” mean?', src:
 `title: What does “likely” mean here?
 names: off

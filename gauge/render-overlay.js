@@ -147,6 +147,51 @@ function probPanel(s, cw, c, dl){
   return {h, body: parts.join('')};
 }
 
+/* Confidence auction reveal: a bar per option (chip share; conviction winner in
+   full accent), the first-choice count, an outlined SHOW OF HANDS pill on the
+   stated winner, and a dot strip under each bar (one dot per person's allocation
+   to that option, on a 0–100 scale). measure (not dl — chips are delphi-excluded). */
+function chipsPanel(q, s, cw, c, measure){
+  const named = s.rows.some(r => r.name);
+  const labelW = Math.min(160, Math.max(64, ...s.perOption.map(o => measure(o.option, '600 12px ' + SANS) + 12)));
+  const x0 = labelW, barW = cw - x0;
+  const X = v => x0 + Math.max(0, Math.min(100, v)) / 100 * barW;
+  const ROWH = 46;
+  const parts = [];
+  s.perOption.forEach((o, j) => {
+    const y = j * ROWH;
+    const isConv = j === s.conviction, isStated = j === s.stated;
+    const barY = y + 2, barH = 14;
+    const w = Math.max(2, o.share / 100 * barW);
+    const label = wrapText(o.option, '600 12px ' + SANS, labelW - 8, measure)[0] || '';
+    parts.push('<text x="0" y="' + (barY + 11) + '" font-size="12" font-weight="600" fill="' + c.ink + '">' + esc(label) + '</text>');
+    parts.push('<rect x="' + x0 + '" y="' + barY + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="3" fill="' +
+      (isConv ? c.accent : tint(c.accent)) + '"' + (isConv ? '' : ' stroke="' + c.accent + '"') + '/>');
+    parts.push('<text x="' + (x0 + w + 6).toFixed(1) + '" y="' + (barY + 11) + '" font-size="11" font-weight="600" fill="' + c.ink + '">' + Math.round(o.share) + '%</text>');
+    const votesLabel = o.votes + ' first choice' + (o.votes === 1 ? '' : 's');
+    parts.push('<text x="' + cw + '" y="' + (barY + 11) + '" text-anchor="end" font-size="11" fill="' + (isConv ? c.accent : c.muted) + '">' + votesLabel + '</text>');
+    if(isStated){
+      const vw = measure(votesLabel, '11px ' + SANS), sohW = measure('SHOW OF HANDS', '600 10px ' + SANS) + 16;
+      const xR = cw - vw - 12;
+      parts.push('<rect x="' + (xR - sohW).toFixed(1) + '" y="' + (barY - 2) + '" width="' + sohW.toFixed(1) + '" height="18" rx="9" fill="none" stroke="' + c.ink + '"/>' +
+        '<text x="' + (xR - sohW / 2).toFixed(1) + '" y="' + (barY + 10.5) + '" text-anchor="middle" font-size="10" font-weight="600" letter-spacing=".06em" fill="' + c.ink + '">SHOW OF HANDS</text>');
+    }
+    const dy = barY + barH + 11;
+    o.allocs.forEach((v, k) => {
+      parts.push('<circle cx="' + X(v).toFixed(1) + '" cy="' + dy + '" r="3.5" fill="' + c.accent + '" fill-opacity=".7"/>');
+      if(named && s.n <= 8 && s.rows[k] && s.rows[k].name)
+        parts.push('<text x="' + X(v).toFixed(1) + '" y="' + (dy + 12) + '" text-anchor="middle" font-size="8" fill="' + c.muted + '">' + esc(s.rows[k].name) + '</text>');
+    });
+  });
+  let h = s.perOption.length * ROWH + 2;
+  if(s.abstentions){
+    parts.push('<text x="0" y="' + (h + 4) + '" font-size="11" fill="' + c.muted + '">' +
+      s.abstentions + ' split their top pile evenly</text>');
+    h += 18;
+  }
+  return {h, body: parts.join('')};
+}
+
 export function renderOverlay(model, stats, ctx, opts = {}){
   const c = ctx.colors, measure = ctx.measure;
   const delphi = opts.delphi || null, round1 = opts.round1 || null;
@@ -181,6 +226,7 @@ export function renderOverlay(model, stats, ctx, opts = {}){
     const dl = delphi && s.kind !== 'empty' && s.kind !== 'single'
       ? {d: delphi[i], prev: round1 ? round1[i] : null} : null;
     const inner = (s.kind === 'empty' || s.kind === 'single') ? messagePanel(s.headline, c)
+      : q.type === 'chips' ? (dl ? messagePanel(delphi[i].headline, c) : chipsPanel(q, s, cw, c, measure))
       : q.type === 'range' ? rangePanel(q, s, cw, c, dl) : probPanel(s, cw, c, dl);
     const panelH = PP + headH + inner.h + PP;
     parts.push('<rect x="' + PAD + '" y="' + y + '" width="' + panelW + '" height="' + panelH +

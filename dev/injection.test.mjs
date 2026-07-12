@@ -82,6 +82,12 @@ test('gauge overlay + FORM HTML escape hostile question text and names', async (
   assert.ok(!/<script/i.test(html.replace(/&lt;script/gi, '')), 'gauge-form: raw <script> leaked');
   assert.ok(!/onerror=/i.test(html.replace(/onerror&#?[=x]/gi, '').replace(/&quot;/g, '')) ||
     !/<img[^>]*onerror/i.test(html), 'gauge-form: live onerror attribute');
+  /* chips: hostile OPTION labels through the reveal panel + the allocation form */
+  const cm = parse('Pick :: chips ' + EVIL[1] + ' | ' + EVIL[3]);
+  const cresp = [{values: [[60, 40]], name: 'x'}, {values: [[40, 60]], name: 'y'}];
+  assertClean(renderOverlay(cm, sessionStats(cm, cresp), ctx), 'gauge-overlay-chips');
+  const chtml = renderForm(cm, {editable: true});
+  assert.ok(!/<img/i.test(chtml.replace(/&lt;img/gi, '')), 'gauge-form-chips: raw <img in option label');
 });
 
 test('timeline renderer escapes hostile lanes, labels and notes', async () => {

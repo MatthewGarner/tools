@@ -61,6 +61,57 @@ export function probStats(answers){
   return {kind, n, rows, median, spread, gap, camps, headline, discuss: kind !== 'agreement'};
 }
 
+/* Confidence auction: everyone splits 100 chips across the options. Read two ways —
+   STATED = first-choice show of hands (each person's top pile is one vote; an exact
+   top-pile tie abstains); CONVICTION = where the chips actually pile up. When they
+   disagree, "the room says A but bets on B". */
+function idxMax(xs){ let b = 0; xs.forEach((v, i) => { if(v > xs[b]) b = i; }); return b; }
+export function chipsStats(answers, options){
+  const n = answers.length;
+  if(n === 0) return {kind: 'empty', n, headline: 'No responses yet.', discuss: false};
+  const rows = answers.map(r => {
+    const sum = r.alloc.reduce((s, v) => s + v, 0);
+    const alloc = sum > 0 && sum !== 100 ? r.alloc.map(v => v * 100 / sum) : r.alloc;
+    return {...r, alloc};
+  });
+  const perOption = options.map((option, j) => ({option, total: 0, votes: 0, allocs: rows.map(r => r.alloc[j])}));
+  let abstentions = 0;
+  for(const r of rows){
+    r.alloc.forEach((v, j) => { perOption[j].total += v; });
+    const top = Math.max(...r.alloc);
+    const tops = r.alloc.filter(v => v === top).length;
+    if(tops > 1) abstentions++;
+    else perOption[r.alloc.indexOf(top)].votes++;
+  }
+  const grand = perOption.reduce((s, o) => s + o.total, 0) || 1;
+  perOption.forEach(o => { o.share = o.total / grand * 100; });
+  if(n === 1) return {kind: 'single', n, rows, perOption, abstentions,
+    headline: 'Only one response — nothing to compare yet.', discuss: false};
+  const stated = idxMax(perOption.map(o => o.votes));
+  const conviction = idxMax(perOption.map(o => o.total));
+  const tops = rows.map(r => Math.max(...r.alloc)).sort((x, y) => x - y);
+  const hedging = quantile(tops, 0.5) < 50;
+  const pct = v => Math.round(v) + '%';
+  let kind, headline;
+  /* headlines stay a concise quotable line — the panel below carries the numbers
+     (votes, share, per-person dots), so repeating them here just overflows. */
+  if(stated !== conviction){
+    kind = 'divergent';
+    headline = 'The room says ' + options[stated] + ' but bets on ' + options[conviction] + '.';
+  } else if(perOption[conviction].share < 40){
+    kind = 'weak';
+    headline = options[conviction] + ' wins both readings, but only ' +
+      pct(perOption[conviction].share) + ' of the chips — conviction is spread.';
+  } else {
+    kind = 'settled';
+    headline = options[conviction] + ' wins both ways — ' + perOption[stated].votes + ' of ' + n +
+      ' first choices and ' + pct(perOption[conviction].share) + ' of the chips.';
+  }
+  if(hedging) headline += ' The room is hedging — nobody bet big.';
+  return {kind, n, rows, perOption, stated, conviction, abstentions, hedging,
+    headline, discuss: kind !== 'settled'};
+}
+
 export function sessionStats(model, responses){
   return model.questions.map((q, i) => {
     const answers = [];
@@ -69,8 +120,11 @@ export function sessionStats(model, responses){
       if(v == null) continue;
       if(q.type === 'range' && Array.isArray(v)) answers.push({low: v[0], high: v[1], name: r.name});
       else if(q.type === 'prob' && typeof v === 'number') answers.push({value: v, name: r.name});
+      else if(q.type === 'chips' && Array.isArray(v) && v.length === q.options.length) answers.push({alloc: v, name: r.name});
     }
-    const s = q.type === 'range' ? rangeStats(answers) : probStats(answers);
+    const s = q.type === 'range' ? rangeStats(answers)
+      : q.type === 'chips' ? chipsStats(answers, q.options)
+      : probStats(answers);
     return {...s, question: q};
   });
 }
@@ -131,6 +185,8 @@ export function delphiStats(model, r1, r2){
   const fin = mergeFinal(r1, r2);
   return model.questions.map((q, i) => {
     const pick = entries => entries.map(e => e.values[i]).filter(v => v != null);
+    if(q.type === 'chips') return {question: q, n: pick(fin).length, n2: pick(r2).length,
+      excluded: true, convergencePct: 0, headline: "Chips don't pool — compare the two reveals."};
     const a1 = pick(r1), af = pick(fin);
     const n = af.length;
     let spread1 = 0, spread2 = 0, pooled = null, pooledRange = null, pooledMid = null;
@@ -176,7 +232,7 @@ export function delphiStats(model, r1, r2){
 const fmtN = v => Math.round(v * 10) / 10;
 
 export function delphiVerdict(dstats){
-  const active = dstats.filter(d => d.n > 0 && d.spread1 > 0);
+  const active = dstats.filter(d => d.n > 0 && d.spread1 > 0 && !d.excluded);
   if(!active.length) return '';
   const meanConv = active.reduce((a, d) => a + d.convergencePct, 0) / active.length;
   if(meanConv >= NARROWED) return 'Round 2 converged — spreads narrowed ' + Math.round(meanConv) + '% on average.';
@@ -197,6 +253,11 @@ export function markdownSummary(model, stats, delphi){
         ' · spread ' + pct(s.rows[0].value) + '–' + pct(s.rows[s.n - 1].value));
       if(s.camps) out.push('- camps: ' + s.camps.lo.n + ' near ' + pct(s.camps.lo.center) +
         ', ' + s.camps.hi.n + ' near ' + pct(s.camps.hi.center));
+    } else if(q.type === 'chips'){
+      for(const o of s.perOption)
+        out.push('- ' + o.option + ': ' + Math.round(o.share) + '% of chips · ' +
+          o.votes + ' first choice' + (o.votes === 1 ? '' : 's'));
+      if(s.abstentions) out.push('- ' + s.abstentions + ' split their top pile evenly');
     } else {
       const u = q.unit ? ' ' + q.unit : '';
       out.push('- ' + s.n + ' responses · pooled ' + s.pooled.lo + '–' + s.pooled.hi + u +

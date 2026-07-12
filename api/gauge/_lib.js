@@ -32,12 +32,19 @@ function toObj(flat){
   return o;
 }
 
-function validValues(values){
+const num01 = x => typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= 100;
+/* an array answer is EITHER a range pair (lo ≤ hi, any finite) OR a chip
+   allocation (2–8 values each 0–100 summing to exactly 100). The client knows
+   which from the question type; the relay only checks the shape. A 2-element
+   array that is both an ordered pair AND sums to 100 validates either way. */
+function validArrayValue(v){
+  if(v.length === 2 && v.every(x => typeof x === 'number' && Number.isFinite(x)) && v[0] <= v[1]) return true;
+  if(v.length >= 2 && v.length <= 8 && v.every(num01)) return v.reduce((s, x) => s + x, 0) === 100;
+  return false;
+}
+export function validValues(values){
   if(!Array.isArray(values) || values.length < 1 || values.length > 20) return false;
-  return values.every(v => v === null
-    || (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100)
-    || (Array.isArray(v) && v.length === 2 &&
-        v.every(x => typeof x === 'number' && Number.isFinite(x)) && v[0] <= v[1]));
+  return values.every(v => v === null || num01(v) || (Array.isArray(v) && validArrayValue(v)));
 }
 
 async function overLimit(kv, ip){
@@ -98,7 +105,7 @@ export async function putResponse(kv, id, body, ip){
   if(!body || typeof body !== 'object') return bad('body');
   const {participantId, values, name} = body;
   if(!PID_RE.test(String(participantId))) return bad('participantId');
-  if(!validValues(values)) return bad('values must be null | 0–100 | [low, high] with low ≤ high, max 20');
+  if(!validValues(values)) return bad('values must be null | 0–100 | [low, high] with low ≤ high | chip array (2–8 summing to 100), max 20');
   const [metaRaw, revealed, round, revealed2] = await kv.pipeline([
     ['HGET', key(id), 'meta'], ['HGET', key(id), 'revealed'],
     ['HGET', key(id), 'round'], ['HGET', key(id), 'revealed2']]);
