@@ -4,6 +4,7 @@
 import {parse} from './parse.js';
 import {simulate, verdictCopy, markdown} from './engine.js';
 import {renderBoard} from './render.js';
+import {renderQuadrant} from './render-quadrant.js';
 import {betsDiff, betsDiffView} from './diff.js';
 import {createEditor} from './editor.js';
 import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill} from './edit-targets.js';
@@ -52,6 +53,7 @@ Bets
 /* ---------- refresh loop ---------- */
 let model = null, sim = null, lastSvg = '', hashTimer = null;
 let snaps = null;   // wired below, after the editor exists
+let view = 'board';   // transient app state (not persisted): 'board' | 'quadrant'
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 /* the snapshot's own 4,000-run simulate() is memoised per parsed snapshot
    model (wireSnapshots already caches the PARSE, keyed by idx|length|label,
@@ -64,8 +66,8 @@ function currentCompare(){
   const cur = snaps && snaps.current();
   if(!cur || !hasBets(model)) return null;
   if(!prevSimCache.has(cur.model)) prevSimCache.set(cur.model, simulate(cur.model));
-  const view = betsDiffView(betsDiff(cur.model, model), cur.label);
-  return {...view, prevSim: prevSimCache.get(cur.model)};
+  const diffView = betsDiffView(betsDiff(cur.model, model), cur.label);
+  return {...diffView, prevSim: prevSimCache.get(cur.model)};
 }
 function findBet(m, srcLine){
   if(!m) return null;
@@ -82,18 +84,21 @@ function auditCounts(s){
   return counts;
 }
 /* width-aware: the live preview re-lays-out below 520px (narrowWidth's
-   built-in threshold); exports always render the wide artefact by omitting
-   width entirely. Compare is preview-only too — exports stay the plain
-   board whatever snapshot is selected, so a shared/exported slide never
-   carries stray "was …" annotations from the author's own review session. */
+   built-in threshold, shared by both views); exports always render the wide
+   artefact by omitting width entirely. Compare is preview-only AND
+   board-only — the quadrant is a portfolio-shape lens, not a diff, so it
+   never receives ctx.compare even when a snapshot is selected; exports stay
+   the plain view (board or quadrant) whatever snapshot is selected, so a
+   shared/exported slide never carries stray "was …" annotations from the
+   author's own review session. */
 function activeRender(forExport){
   const c = {colors: themeColors(), measure};
-  if(!forExport){
-    c.width = narrowWidth($('preview'));
+  if(!forExport) c.width = narrowWidth($('preview'));
+  if(!forExport && view === 'board'){
     const compare = currentCompare();
     if(compare) c.compare = compare;
   }
-  return renderBoard(model, sim, c);
+  return view === 'quadrant' ? renderQuadrant(model, sim, c) : renderBoard(model, sim, c);
 }
 function doRefresh(){
   const text = editor.getText();
@@ -148,6 +153,26 @@ const ws = initWorkspace({
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
 watchNarrowBucket($('preview'), () => { lastSvg = ''; refresh(); });
+
+/* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
+   scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
+   premortem's viewtoggle. Switching resets the memo so a view flip always
+   repaints, even though the two renderers usually already disagree. */
+function syncViewToggle(){
+  for(const b of $('viewtoggle').querySelectorAll('[data-view]')){
+    const on = b.dataset.view === view;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
+$('viewtoggle').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if(!b || b.dataset.view === view) return;
+  view = b.dataset.view;
+  syncViewToggle();
+  lastSvg = '';
+  refresh();
+});
 
 /* ---------- edit-in-place: direct cells + the coarse-pointer card menu ----------
    stake/odds/payoff/kill are the imported plain-input kinds; `cardmenu` is

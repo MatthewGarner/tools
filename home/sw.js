@@ -6,7 +6,7 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-8fb521c564';
+const CACHE = 'tools-a6f4e8f268';
 const PRECACHE = [
   '/',
   '/alarm/',
@@ -45,6 +45,7 @@ const PRECACHE = [
   '/bets/editor.js',
   '/bets/engine.js',
   '/bets/parse.js',
+  '/bets/render-quadrant.js',
   '/bets/render.js',
   '/bets/style.css',
   '/duel/',

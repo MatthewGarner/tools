@@ -51,6 +51,10 @@
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
+      <div class="viewtoggle" id="viewtoggle" role="group" aria-label="View">
+        <button class="vtseg on" data-view="board" aria-pressed="true">Board</button>
+        <button class="vtseg" data-view="quadrant" aria-pressed="false">Quadrant</button>
+      </div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
       <div class="actions">
