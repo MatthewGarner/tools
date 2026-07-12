@@ -165,7 +165,37 @@ for(const theme of ['light', 'dark']){
     const crumb = page.locator('a.crumb');
     if(await crumb.count() !== 1 || await crumb.getAttribute('href') !== '/'){ allOk = false; break; }
   }
-  check('all twelve tools carry the home crumb', allOk);
+  check('all thirteen tools carry the home crumb', allOk);
+  await page.close();
+}
+
+/* ---- premortem (fresh context each time — localStorage-backed, no cross-run state) ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/premortem/', theme);
+  await page.waitForTimeout(400);
+  // FRAME → fill → next
+  await page.fill('[data-field="title"]', 'Habitat launch');
+  await page.fill('[data-field="question"]', 'We failed. Why?');
+  await page.click('#next'); await page.waitForTimeout(150);
+  await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(150);   // WRITE → COLLECT
+  for(const t of ['Onboarding too slow', 'Costs blow up', 'Key hire quits']){
+    await page.fill('[data-add="entry"]', t); await page.press('[data-add="entry"]', 'Enter'); await page.waitForTimeout(100);
+  }
+  check('premortem(' + theme + '): collected 3 risks', await page.locator('.centry').count() === 3);
+  await page.click('#next'); await page.waitForTimeout(120);   // CLUSTER
+  await page.click('#next'); await page.waitForTimeout(120);   // SCORE
+  await page.locator('.scrow').first().locator('[data-p="lo"]').fill('30');
+  await page.locator('.scrow').first().locator('[data-p="hi"]').fill('55');
+  await page.locator('.scrow').first().locator('[data-impact="lo"]').fill('100');
+  await page.locator('.scrow').first().locator('[data-impact="hi"]').fill('300');
+  await page.waitForTimeout(150);
+  // advance the remaining ungated phases to the register: SCORE→ACTIONS→VOTE→REGISTER
+  await page.click('#next'); await page.waitForTimeout(100);   // ACTIONS
+  await page.click('#next'); await page.waitForTimeout(100);   // VOTE
+  await page.click('#next'); await page.waitForTimeout(200);   // REGISTER
+  check('premortem(' + theme + '): register renders ranked rows', await page.locator('.register .rrow').count() === 3);
+  check('premortem(' + theme + '): exposure MC + portfolio line', (await page.locator('.portfolio').innerText()).includes('Portfolio'));
+  check('premortem(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
