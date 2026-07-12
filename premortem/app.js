@@ -1,7 +1,7 @@
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
    the DOM, the phase machine wiring, localStorage autosave, the WRITE timer, undo,
    and import-from-link. The doc is the single state; every mutation autosaves. */
-import {newEntry, mergeEntries, markdown, exposure, promote, isRisk} from './register.js';
+import {newEntry, mergeEntries, markdown, exposure, promote, isRisk, exampleDoc} from './register.js';
 import {makeStore, toLink, fromLink} from './store.js';
 import {PHASES, canAdvance, advance, back, castVote} from './wizard.js';
 import {renderPhase} from './render-wizard.js';
@@ -52,7 +52,7 @@ function render(){
   const gate = canAdvance(doc);
   $('next').hidden = doc.phase === 'REGISTER';
   $('next').disabled = !gate.ok;
-  $('gatewhy').textContent = gate.ok ? '' : gate.why;
+  $('gatewhy').textContent = gateText(gate);
   $('back').disabled = doc.phase === 'FRAME';
   if(doc.phase === 'WRITE') startTimer();
   if(doc.phase === 'FRAME') $('phasepanel').querySelector('[data-field="title"]')?.focus();
@@ -179,7 +179,14 @@ function setRange(en, key, side, val){
   const next = side === 'lo' ? [v, cur[1]] : [cur[0], v];
   en[key] = (next[0] == null && next[1] == null) ? null : [next[0] ?? 0, next[1] ?? 0];
 }
-function refreshGate(){ const g = canAdvance(doc); $('next').disabled = !g.ok; $('gatewhy').textContent = g.ok ? '' : g.why; }
+/* don't scold the FRAME form before the user has started typing (both fields
+   empty = untouched); once they've named one, the guidance is helpful */
+function gateText(g){
+  if(g.ok) return '';
+  if(doc.phase === 'FRAME' && !doc.title?.trim() && !doc.question?.trim()) return '';
+  return g.why;
+}
+function refreshGate(){ const g = canAdvance(doc); $('next').disabled = !g.ok; $('gatewhy').textContent = gateText(g); }
 function updatePool(){ if(doc.phase === 'VOTE') render(); }
 
 $('phasepanel').addEventListener('keydown', e => {
@@ -236,5 +243,5 @@ function toast(msg){
   }
   const list = store.list();
   if(list.length){ doc = null; render(); }
-  else { doc = newDoc(); saveNow(); render(); }
+  else { doc = exampleDoc(); saveNow(); render(); }   // greet with a populated register, not a blank form
 })();

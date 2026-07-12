@@ -173,6 +173,14 @@ for(const theme of ['light', 'dark']){
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(400);
+  check('premortem(' + theme + '): first-run seeds the framed example (no premature nag)',
+    (await page.inputValue('[data-field="title"]')).trim().length > 0
+    && (await page.locator('#gatewhy').innerText()).trim() === ''
+    && !(await page.locator('#next').isDisabled()));
+  // first-run seeds + saves the example, so a reload lands on the home list; start
+  // a clean premortem for the wizard-flow counts (exercises the real "new" path)
+  await page.reload(); await page.waitForTimeout(300);
+  await page.click('#newbtn'); await page.waitForTimeout(200);
   // FRAME → fill → next
   await page.fill('[data-field="title"]', 'Habitat launch');
   await page.fill('[data-field="question"]', 'We failed. Why?');

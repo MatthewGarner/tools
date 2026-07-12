@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newEntry, exposure, ranked, staleness, mergeEntries, promote, markdown,
-        serialise, deserialise} from '../register.js';
+        serialise, deserialise, exampleDoc, isRisk} from '../register.js';
+import {canAdvance} from '../wizard.js';
 
 const risk = (text, p, impact) => ({...newEntry(text), p, impact});
 
@@ -60,4 +61,16 @@ test('markdown carries the honest table', () => {
   assert.match(md, /Launch slips/);
   assert.match(md, /30–50%/);
   assert.match(md, /£k/);
+});
+
+test('exampleDoc: a framed, fully-scored, rankable first-run register', () => {
+  const d = exampleDoc();
+  assert.ok(d.title.trim() && d.question.trim(), 'effort + question named');
+  assert.equal(canAdvance({...d, phase: 'FRAME'}).ok, true, 'passes the FRAME gate (no nag)');
+  assert.ok(d.entries.length >= 4, 'several risks');
+  assert.ok(d.entries.every(isRisk), 'every entry is a risk');
+  assert.ok(d.entries.every(e => Array.isArray(e.p) && Array.isArray(e.impact)), 'every risk is scored');
+  const exp = exposure(d.entries, {seed: 1});
+  assert.ok(exp.get(d.entries[0].id).p50 > 0, 'exposure computes a positive median');
+  assert.equal(ranked(d.entries, exp).length, d.entries.length, 'all risks rank');
 });
