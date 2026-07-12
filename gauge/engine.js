@@ -93,15 +93,14 @@ export function chipsStats(answers, options){
   const hedging = quantile(tops, 0.5) < 50;
   const pct = v => Math.round(v) + '%';
   let kind, headline;
+  /* headlines stay a concise quotable line — the panel below carries the numbers
+     (votes, share, per-person dots), so repeating them here just overflows. */
   if(stated !== conviction){
     kind = 'divergent';
-    headline = 'The room says ' + options[stated] + ' but bets on ' + options[conviction] +
-      ' — ' + options[stated] + ' takes the show of hands ' + perOption[stated].votes + '–' +
-      perOption[conviction].votes + ', ' + options[conviction] + ' holds ' +
-      pct(perOption[conviction].share) + ' of the chips.';
+    headline = 'The room says ' + options[stated] + ' but bets on ' + options[conviction] + '.';
   } else if(perOption[conviction].share < 40){
     kind = 'weak';
-    headline = options[conviction] + ' wins both readings, but with only ' +
+    headline = options[conviction] + ' wins both readings, but only ' +
       pct(perOption[conviction].share) + ' of the chips — conviction is spread.';
   } else {
     kind = 'settled';
