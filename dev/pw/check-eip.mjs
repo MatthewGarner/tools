@@ -417,6 +417,14 @@ check('no console/page errors', errors.length === 0);
      gets its own round trip: commit, assert, ONE Meta+z, assert full revert
      back to the pre-menu baseline before the next action starts clean. ---- */
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  /* tap the top-left padding sliver, not the rect centre: the card paints its
+     title/note/status text over the hit rect, and Playwright's default .click()
+     targets the centre — on Linux (subtly different font metrics) that lands on
+     the text element and the menu never opens. Same fix the why suite uses. */
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const undo = async () => {
     await p.locator('.cm-content').click();
@@ -424,7 +432,7 @@ check('no console/page errors', errors.length === 0);
     await p.waitForTimeout(500);
   };
 
-  await cardBody(4).click();
+  await tapCard(4);
   await p.waitForTimeout(200);
   check('roadmap: card body tap opens the menu with the expected rows',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Remove item');
@@ -440,7 +448,7 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await cardBody(4).click();
+  await tapCard(4);
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.waitForTimeout(200);
@@ -452,7 +460,7 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await cardBody(4).click();
+  await tapCard(4);
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
   await p.waitForTimeout(600);
