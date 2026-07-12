@@ -103,6 +103,7 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const {parse} = await import('../bets/parse.js');
   const {simulate} = await import('../bets/engine.js');
   const {renderBoard} = await import('../bets/render.js');
+  const {renderQuadrant} = await import('../bets/render-quadrant.js');
   const {betsDiff, betsDiffView} = await import('../bets/diff.js');
   const m = parse('title: T\nunit: £k\nG\n  A bet: stake 10, odds 20-40%, payoff 30-60\n    kill: watch this by 2026-01-01');
   const b = m.groups[0].bets[0];
@@ -110,6 +111,8 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const sim = simulate(m);
   assertClean(renderBoard(m, sim, ctx), 'bets');
   assertClean(renderBoard(m, sim, {...ctx, width: 390}), 'bets-narrow');
+  assertClean(renderQuadrant(m, sim, ctx), 'bets-quadrant');
+  assertClean(renderQuadrant(m, sim, {...ctx, width: 390}), 'bets-quadrant-narrow');
 
   /* compare path: a hostile SNAPSHOT model diffed against the hostile CURRENT
      model above — one bet shares the (evil) name so it shows up MOVED, one

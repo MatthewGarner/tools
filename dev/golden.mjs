@@ -301,6 +301,11 @@ for(const [k, src] of Object.entries(docs)){
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
 
+  /* view 2: risk-return quadrant (read-only; no compare wiring) */
+  const {renderQuadrant} = await import('../bets/render-quadrant.js');
+  variants['bets-quadrant'] = renderQuadrant(bm, bsim, ctxBase);
+  variants['bets-quadrant-narrow'] = renderQuadrant(bm, bsim, {...ctxBase, width: 390});
+
   /* snapshot compare fixture: vs bdoc, "Paid acq push" is new, "Old idea" was
      killed, and Billing rewrite's odds moved 60-75% -> 90-100%. */
   const {betsDiff, betsDiffView} = await import('../bets/diff.js');
