@@ -188,7 +188,8 @@ export function render(model, ctx){
         const x = colX(h);
         s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
           '" opacity="' + fadeOp.toFixed(2) + '"' +
-          (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) + '>');
+          (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) +
+          (edit && !c.it.ghost ? ' data-menu=""' : '') + '>');
         s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
           '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
           '" stroke="' + C.border + '" stroke-width="1"' +

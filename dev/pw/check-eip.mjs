@@ -248,6 +248,98 @@ check('label rename lands in text and diagram',
     await page.keyboard.press('Escape');
     await page.waitForTimeout(150);
   }
+
+  /* root node ("Bid decision", srcLine 3 — a DECISION root here): the explicit
+     root's card menu is reduced to Add-only — no Rename/Edit/Remove. Remove is
+     the whole-tree-deletion hazard (the root IS the tree); Rename/Edit were
+     dead rows (the root marker has no incoming edge, so no label/value/prob
+     tspan exists for it). The root's ＋ Add is the only way to add a top-level
+     node anywhere in the tool, so Add must still work exactly as before. The
+     label's noun tracks the root's kind (decision → option, chance/leaf →
+     outcome), matching what childLineFor actually inserts. */
+  await tapMarker(3);
+  await page.waitForTimeout(200);
+  check('tree: decision-root marker tap opens an Add-only menu (exactly "＋ Add option", no Rename/Edit/Remove)',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
+  check('tree: root menu offers no Remove (whole-tree deletion hazard closed)',
+    await page.locator('.eip-pop button.danger').count() === 0);
+
+  await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
+  await page.waitForTimeout(600);
+  const tRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: decision-root menu Add option appends a new top-level option after the whole subtree',
+    tRootAdd === t0 + '\n  New option: 0');
+  await undo();
+  check('tree: one undo restores the pre-add baseline (decision root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+
+  // a non-root node still gets its full menu — the root change is scoped to the root only
+  await tapMarker(4);
+  await page.waitForTimeout(200);
+  check('tree: a non-root (decision) marker still opens its full unchanged menu',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add option|Remove branch');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  /* non-decision root: a FRESH single-line root ("Just a number: 5") parses as
+     LEAF-kind — this is the primary mobile build-a-tree starting point. Its
+     Add row must read "＋ Add outcome" (NOT "option"), because childLineFor on
+     a leaf/chance root inserts "New outcome (p=…)"; the label must match the
+     insertion. Rewrite the whole editor to that one line, then round-trip. */
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await page.keyboard.type('Just a number: 5');
+  await page.waitForTimeout(700);
+  const tLeafRoot = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: fresh single-line root really is a leaf-kind root at line 0',
+    tLeafRoot === 'Just a number: 5' &&
+    (await page.locator('#preview svg g[data-edit="cardmenu-root-leaf"][data-line="0"]').count()) === 1);
+
+  await tapMarker(0);
+  await page.waitForTimeout(200);
+  check('tree: leaf-root marker tap opens an Add-only menu reading exactly "＋ Add outcome" (not "option")',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add outcome');
+  check('tree: leaf-root menu offers no Remove',
+    await page.locator('.eip-pop button.danger').count() === 0);
+
+  await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
+  await page.waitForTimeout(600);
+  const tLeafRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: leaf-root menu Add outcome inserts an OUTCOME line (label matches insertion)',
+    tLeafRootAdd === tLeafRoot + '\n  New outcome (p=rest): 0');
+  await undo();
+  check('tree: one undo restores the pre-add baseline (leaf root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === tLeafRoot);
+
+  /* IMPLICIT root: two top-level lines that carry (p=…) parse (zero warnings)
+     to a synthetic wrapper of kind='chance' at line -1. It DISPLAYS as chance,
+     but childLineFor(-1) is kind-blind and always inserts a top-level
+     "New option: 0" — so the label must be pinned to "＋ Add option", not the
+     "outcome" the chance kind would otherwise imply. This is the case the
+     explicit-leaf test missed. */
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await page.keyboard.type('Option A (p=0.5): 10\nOption B (p=rest): 20');
+  await page.waitForTimeout(700);
+  const tImplicit = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: two (p=…) tops parse to an implicit chance root, but its menu kind is pinned to root-decision at line -1',
+    tImplicit === 'Option A (p=0.5): 10\nOption B (p=rest): 20' &&
+    (await page.locator('#preview svg g[data-edit="cardmenu-root-decision"][data-line="-1"]').count()) === 1);
+
+  await tapMarker(-1);
+  await page.waitForTimeout(200);
+  check('tree: implicit-root marker tap opens an Add-only menu reading exactly "＋ Add option" (NOT outcome, despite the chance kind)',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
+  check('tree: implicit-root menu offers no Remove',
+    await page.locator('.eip-pop button.danger').count() === 0);
+
+  await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
+  await page.waitForTimeout(600);
+  const tImplicitAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: implicit-root menu Add option inserts an OPTION line (label matches childLineFor(-1) insertion)',
+    tImplicitAdd === tImplicit + '\nNew option: 0');
+  await undo();
+  check('tree: one undo restores the pre-add baseline (implicit root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === tImplicit);
 }
 
 check('no console/page errors', errors.length === 0);
@@ -381,6 +473,93 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- why: map view card menu (roadmap-rendered cards carry a bare
+   data-edit="cardmenu", not the OST view's cardmenu-outcome/-opportunity/
+   -solution split — roadmap/render.js doesn't know why's node kinds. Fix 2
+   registers a single generic `cardmenu` kind {Rename…, Remove branch} for
+   it and widens the onCommit guard from startsWith('cardmenu-') to
+   startsWith('cardmenu') so the bare kind's ✖-sentinels reach the same
+   subtree-removal path OST uses (keyed on data-line = e.node.srcLine, which
+   render-map.js sets from the underlying why node — same source line
+   numbering as the OST view). "Smart reminders" (srcLine 5) lands in the
+   NEXT column since it's [testing]; "Streak freeze" is [delivering] → NOW.
+   Both are real (non-ghost) cards; the LATER-column ghost chips
+   ("Habits feel like chores", "Progress feels invisible") render with no
+   data-edit="cardmenu" at all (render.js skips it for c.it.ghost) so they
+   can't open a menu — not exercised here, that's the renderer's own
+   contract, not this fix's. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Habit retention'}).click();
+  await p.waitForTimeout(500);
+  await p.locator('#viewmap').click();
+  await p.waitForTimeout(500);
+
+  /* same off-glyph concern as the OST block above and the roadmap block
+     below (this IS roadmap's own card renderer): tap the top-left padding
+     sliver, not the geometric centre, since the title/note text paints
+     over the invisible-fill data-hit rect. */
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async line => {
+    const box = await cardBody(line).boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  check('why map: card body tap opens the menu with exactly Rename/Remove',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Remove branch');
+
+  await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
+  await p.waitForTimeout(200);
+  check('why map: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Smart reminders');
+  await p.locator('.eip-input').fill('Smart nudges');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why map: menu Rename commits the new title', tRename.includes('Smart nudges') && !tRename.includes('Smart reminders'));
+  await undo();
+  check('why map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
+  await p.waitForTimeout(600);
+  const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
+  check('why map: menu Remove branch drops the solution (and its assumptions)',
+    !tRemove.includes('Smart reminders') && !tRemove.includes('users want to be interrupted at work'));
+  await undo();
+  check('why map: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+
+  /* regression proof: the widened guard (startsWith('cardmenu-') →
+     startsWith('cardmenu')) must not disturb the OST view's per-kind menus —
+     switch back and confirm a cardmenu-solution card still shows its full
+     Rename/Status/Add/Remove set (the OST block above already exercises
+     each row end to end; this just proves the two views coexist on one
+     page load without one clobbering the other). */
+  await p.locator('#viewost').click();
+  await p.waitForTimeout(500);
+  const ostCardBody = p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="5"][data-hit]');
+  const ostBox = await ostCardBody.boundingBox();
+  await p.mouse.click(ostBox.x + 8, ostBox.y + 4);
+  await p.waitForTimeout(200);
+  check('why map: switching back to OST still opens the full cardmenu-solution menu',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
+  check('why map: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
 /* ---- roadmap: title edit + status popover ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
@@ -500,6 +679,25 @@ check('no console/page errors', errors.length === 0);
   await mpage.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await mpage.getByRole('button', {name: 'Habit app roadmap'}).click();
   await mpage.waitForTimeout(600);
+
+  /* coarse menu-first redirect: tap the CENTRE of the title text itself — a
+     [data-edit="title"] field that shares the card's own srcLine (unlike
+     map's readout panel, which lives elsewhere). Fix 1's data-menu redirect
+     must catch that tap on the field and open the card menu instead of the
+     title editor (proving the redirect, not just the always-menu top-left
+     tap the rest of this block uses). */
+  {
+    const titleField = mpage.locator('#preview svg [data-edit="title"][data-line="4"]').first();
+    await titleField.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const titleBox = await titleField.boundingBox();
+    await mpage.mouse.click(titleBox.x + titleBox.width / 2, titleBox.y + titleBox.height / 2);
+    await mpage.waitForTimeout(200);
+    check('roadmap: coarse title-field tap opens the menu, not the title editor',
+      await mpage.locator('.eip-pop').count() === 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
 
   const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
   /* tap the top-left padding sliver, not settledTap's centre: the card paints
@@ -624,6 +822,38 @@ check('no console/page errors', errors.length === 0);
   await mpage.getByRole('button', {name: 'Assumption map'}).click();
   await mpage.waitForTimeout(600);
 
+  /* coarse menu-first redirect: tap the CENTRE of the label text itself — a
+     [data-edit="label"] field that shares the card's own srcLine — and
+     confirm it redirects to the card menu, not the label editor. */
+  {
+    const labelField = mpage.locator('#preview svg [data-edit="label"][data-line="3"]').first();
+    await labelField.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const labelBox = await labelField.boundingBox();
+    await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
+    await mpage.waitForTimeout(200);
+    check('map: coarse label-field tap opens the menu, not the label editor',
+      await mpage.locator('.eip-pop').count() === 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
+
+  /* the hit-rect gate: a readout-panel field tap shares its card's
+     data-line but sits far outside the menu's hit-rect (a different plane
+     entirely), so it must keep its direct value edit rather than redirect. */
+  {
+    const roField = mpage.locator('#preview svg text[data-edit="field"]').first();
+    await roField.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const roBox = await roField.boundingBox();
+    await mpage.mouse.click(roBox.x + roBox.width / 2, roBox.y + roBox.height / 2);
+    await mpage.waitForTimeout(200);
+    check('map: coarse readout field tap opens the value editor, not the menu',
+      await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1);
+    await mpage.keyboard.press('Escape');
+    await mpage.waitForTimeout(200);
+  }
+
   /* same off-glyph tap concern as the desktop block above: map's data-hit
      rect is snug around the capsule, so settledTap's centre tap would land
      on the label glyph — scroll-settle, then tap the left padding strip. */
@@ -650,6 +880,35 @@ check('no console/page errors', errors.length === 0);
   check('map narrow: commit lands after the away-tap proof',
     (await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Habit logging cools off'));
   check('map narrow: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
+/* ---- why narrow (mobile-emulated): coarse menu-first redirect ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  await mpage.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Habit retention'}).click();
+  await mpage.waitForTimeout(600);
+
+  /* "Smart reminders" (srcLine 5) is a solution card: tap its LABEL text
+     (a [data-edit="label"] field that shares the card's own srcLine — unlike
+     its assumption rows, which are authored on THEIR OWN line and correctly
+     stay direct, same as map's readout panel). The label sits fully inside
+     the card rect's hit area, so the redirect must find the same-line
+     data-menu rect and open the card menu instead of the label editor. */
+  const labelField = mpage.locator('#preview svg [data-edit="label"][data-line="5"]').first();
+  await labelField.scrollIntoViewIfNeeded();
+  await mpage.waitForTimeout(300);
+  const labelBox = await labelField.boundingBox();
+  await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
+  await mpage.waitForTimeout(200);
+  check('why: coarse label-field tap opens the menu, not the label editor',
+    await mpage.locator('.eip-pop').count() === 1);
+  await mpage.keyboard.press('Escape');
+  await mpage.waitForTimeout(200);
+  check('why narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
 

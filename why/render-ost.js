@@ -101,7 +101,7 @@ export function renderOst(model, projection, ctx, diff = null){
     if(dimmed) s.push('<g opacity="' + T.dimOp + '">');
     const isOutcome = node.kind === 'outcome';
     /* edit-gated: the card body is a menu target (rename / status / add child / remove branch) */
-    const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-raw=""' +
+    const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-menu="" data-raw=""' +
       btnAttrs('More options: ' + node.label) : '';
     s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
       '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
