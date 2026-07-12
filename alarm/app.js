@@ -64,9 +64,10 @@ function doRefresh(){
 
   // build layout + draw the settled frame immediately (numbers never wait on animation)
   const g = $('gate'), dpr = devicePixelRatio || 1, w = g.clientWidth || 640, h = 360;
-  if(g.width !== w * dpr){ g.width = w * dpr; g.height = h * dpr; }
-  lastLayout = layoutFlow(dots, [{split: d => d.alarm, fail: 'Quiet'}], {w, h, dotR: 3}, {passLabel: 'ALARM'});
-  lastLayout.dotR = 3;
+  const dotR = w < 480 ? 2 : 3;                  // shrink dots on narrow so they don't collide
+  if(g.width !== Math.round(w * dpr)){ g.width = Math.round(w * dpr); g.height = h * dpr; }
+  lastLayout = layoutFlow(dots, [{split: d => d.alarm, fail: 'Quiet'}], {w, h, dotR}, {passLabel: 'ALARM'});
+  lastLayout.dotR = dotR;
   driver.draw(lastLayout, dotColors(C), 1);
 
   clearTimeout(hashTimer);

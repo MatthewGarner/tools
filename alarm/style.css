@@ -53,10 +53,10 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   background:var(--accent);border:2px solid var(--card)}
 input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* the gate canvas: pans on phones, min-width keeps it legible */
-#gatewrap{overflow-x:auto}
+/* the gate canvas re-flows to its container width (a genuine narrow relayout,
+   not a pan) — layoutFlow re-packs the 1,000 dots and app.js shrinks the dot
+   radius on narrow; exports are the wide distribution SVG, never the canvas */
 #gate{display:block;width:100%;height:360px}
-@media (max-width:560px){#gate{min-width:520px}}
 
 /* verdict — the quotable readout */
 .readout .verdict-alarm{font-family:Charter,Georgia,serif;font-size:24px;line-height:1.25;
