@@ -81,6 +81,46 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+/* cycles: sim memoisation (perf fix Task 1 — theme/rotation/no-op edits
+   must NOT re-run the ~472ms Monte Carlo; only a sim-input edit should). */
+{
+  const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await page.waitForTimeout(1200);
+  const simCount = () => page.evaluate(() => window.__cyclesSimCount);
+
+  check('cycles memo: fresh boot settles to exactly 1 sim (double-trigger memoises)', await simCount() === 1);
+
+  const svgBefore = await page.locator('#preview svg').innerHTML();
+  await page.emulateMedia({colorScheme: 'dark'});
+  await page.waitForTimeout(600);
+  const svgAfterTheme = await page.locator('#preview svg').innerHTML();
+  check('cycles memo: theme toggle re-renders (colours flip)', svgAfterTheme !== svgBefore);
+  check('cycles memo: theme toggle does not re-simulate', await simCount() === 1);
+
+  await page.setViewportSize({width: 460, height: 900});
+  await page.waitForTimeout(700);
+  check('cycles memo: narrow-bucket resize does not re-simulate', await simCount() === 1);
+
+  await page.setViewportSize({width: 1400, height: 950});
+  await page.waitForTimeout(700);
+
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Meta+ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('spread: 40..95');
+  await page.waitForTimeout(600);
+  check('cycles memo: sim-input edit re-simulates (+1)', await simCount() === 2);
+
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('// a note, not a sim input');
+  await page.waitForTimeout(600);
+  check('cycles memo: comment-only edit does not re-simulate', await simCount() === 2);
+
+  check('cycles memo: no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/energy/frequency/', theme);
   await page.getByRole('button', {name: 'Battery stack'}).click();

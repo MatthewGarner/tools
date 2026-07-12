@@ -180,6 +180,15 @@ function augStats(bestYear, forgone){
     pNever, forgoneP50: forgone.length ? med(forgone) : 0};
 }
 
+/* Memoisation key: everything simulate() reads. Defined by EXCLUDING the
+   display/meta fields (and battery.mw, which simulate ignores — only mwh feeds
+   it) so any field added to the sim is keyed by default. null ⇒ not simulatable. */
+export function simKey(model){
+  if(!model || !complete(model)) return null;
+  const {title, accent, palette, warnings, srcLines, missing, battery, ...sim} = model;
+  return JSON.stringify({...sim, mwh: battery && battery.mwh});
+}
+
 export function simulate(model, {seed = 1, n = 10000} = {}){
   if(!model || !complete(model)) return null;
   const H = model.cycles.years, E0 = model.battery.mwh;

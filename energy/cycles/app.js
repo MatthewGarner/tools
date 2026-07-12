@@ -1,7 +1,7 @@
 /* State, refresh loop, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
-import {simulate, verdict} from './engine.js';
-import {render, toMarkdown} from './render.js';
+import {simulate, verdict, simKey} from './engine.js';
+import {render as renderSvg, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -53,7 +53,14 @@ cycles: 6000 over 15yr
 augment: 120..180 £/kWh`},
 ];
 
-let model = null, out = null, lastSvg = '';
+let model = null, out = null, lastSvg = '', lastText = '';
+/* Memoisation: doRefresh re-parses on every keystroke/theme-flip/resize, but
+   simulate() only needs to re-run when the sim-relevant fields actually
+   change (simKey excludes title/accent/palette/battery.mw/etc). lastKey
+   tracks the last model actually simulated; __cyclesSimCount is exposed on
+   globalThis (module-set, CSP-fine) so tests can assert the memoisation. */
+let lastKey = null;
+globalThis.__cyclesSimCount = 0;
 let rafId = 0, debTimer = null, hashTimer = null;
 
 const stageEl = $('preview');
@@ -62,7 +69,7 @@ function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
 }
 function activeRender(slide, edit = false, forExport = false){
-  return render(model, out, ctx(slide, forExport), {edit});
+  return renderSvg(model, out, ctx(slide, forExport), {edit});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -82,14 +89,14 @@ function renderVerdict(){
     el.appendChild(p);
   }
 }
-function doRefresh(){
-  const text = editor.getText();
-  model = parse(text);
-  out = simulate(model, {seed: 1, n: 5000});
+/* Draws from current `model`/`out` — never re-parses or re-simulates. Called
+   both after a real refresh and after a memoised (sim-skipped) one, so
+   theme toggles and narrow-bucket flips still update the DOM. */
+function render(){
   const pv = $('preview');
   if(!out){
     lastSvg = '';
-    pv.innerHTML = '<p class="placeholder">' + (text.trim()
+    pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
       ? 'Missing: ' + model.missing.join(', ') + ' — or load an example.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
@@ -99,9 +106,22 @@ function doRefresh(){
   renderVerdict();
   renderWarnings();
   setActionsEnabled(!!out);
+}
+function persistAndScheduleHash(text){
   try{ if(shouldPersist()) localStorage.setItem('cycles-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
+}
+function doRefresh(){
+  const text = editor.getText();
+  lastText = text;
+  model = parse(text);
+  const key = simKey(model);
+  persistAndScheduleHash(text);                 // the existing localStorage + writeHash timer, always
+  if(key === null){ out = null; lastKey = null; render(); return; }
+  if(key === lastKey){ render(); return; }      // memoised: theme/rotation/no-op/MW-only/comment edit
+  out = simulate(model, {seed: 1, n: 5000}); __cyclesSimCount++; lastKey = key;
+  render();
 }
 function refresh(){
   cancelAnimationFrame(rafId);
