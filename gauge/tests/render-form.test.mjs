@@ -56,3 +56,22 @@ test('collectValues: half-filled and inverted ranges error, prob clamped', () =>
   const clamp = collectValues(M, [{q: 0, part: 'prob', value: '140', touched: true}]);
   assert.equal(clamp.values[0], 100);
 });
+
+/* ---- chips allocation form ---- */
+const {equal: feq, deepEqual: fdeq, ok: fok} = assert;
+test('chips question renders a row per option with steppers', () => {
+  const html = renderForm(parse('Pick :: chips A | B | C'));
+  feq((html.match(/data-part="chip"/g) || []).length, 3);
+  feq((html.match(/class="chipstep/g) || []).length, 6);       // − and + per option
+  fok(html.includes('chipsleft'));
+});
+
+test('collectValues: full allocation collected, blank skipped, bad sum errors', () => {
+  const model = parse('Pick :: chips A | B | C');
+  const f = (j, v) => ({q: 0, part: 'chip', opt: j, value: String(v), touched: true});
+  fdeq(collectValues(model, [f(0, 60), f(1, 25), f(2, 15)]).values[0], [60, 25, 15]);
+  feq(collectValues(model, [f(0, ''), f(1, ''), f(2, '')]).values[0], null);
+  const bad = collectValues(model, [f(0, 60), f(1, 25), f(2, 5)]);
+  feq(bad.values[0], null);
+  fok(bad.errors.some(e => e.q === 0 && e.msg.includes('100')));
+});
