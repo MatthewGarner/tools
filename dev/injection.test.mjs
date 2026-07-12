@@ -211,3 +211,12 @@ test('alarm renderers stay well-formed under extreme numeric params (no user str
     assertClean(renderDistributions(p, ctx.colors, {w: 900, h: 220}), 'alarm-dist');
   assertClean(renderBox({tp: 10, fp: 990, tn: 0, fn: 0}, ctx.colors), 'alarm-box');
 });
+
+test('duel renderers escape hostile item labels + framing question (HTML surface, no SVG)', async () => {
+  const {renderDuel, renderOrder, renderLoops} = await import('../duel/render.js');
+  const state = {q: EVIL[0], items: EVIL.slice(0, 4),
+    duels: [{a:0,b:1,w:0}, {a:1,b:2,w:1}, {a:2,b:0,w:2}]};   // a 3-cycle so renderLoops fires
+  assertClean(renderDuel(state, [0, 1]), 'duel-card');
+  assertClean(renderOrder(state), 'duel-order');
+  assertClean(renderLoops(state), 'duel-loops');
+});
