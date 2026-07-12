@@ -140,6 +140,7 @@ footer{margin: 48px 0 8px}
   position: fixed; z-index: 60; display: flex; flex-direction: column;
   background: var(--card); border: 1px solid var(--border); border-radius: 8px;
   box-shadow: var(--shadow); padding: 4px; min-width: 130px;
+  max-height: calc(100vh - 24px); overflow-y: auto;
 }
 .eip-pop button{
   border: none; background: none; text-align: left; cursor: pointer;
