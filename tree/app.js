@@ -102,9 +102,16 @@ attachEditInPlace($('preview'), {
     'cardmenu-decision': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'option'}),
     'cardmenu-chance': cardMenu({field: {label: 'Edit probability…', opens: 'prob'}, add: 'outcome'}),
     'cardmenu-leaf': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'outcome', remove: 'Remove'}),
-    'cardmenu-root': {menu: [
-      {label: '＋ Add option', action: true},
-    ]},
+    /* the root's Add-only menu, one per root kind so the label's noun matches
+       what childLineFor actually inserts: a decision root gets a top-level
+       "option", a chance/leaf root grows an "outcome" (a fresh single-line
+       root parses as leaf — Add there inserts "New outcome (p=…)", so the
+       label must read "Add outcome", not "Add option"). Both '✖＋ Add option'
+       and '✖＋ Add outcome' sentinels are already handled by onCommit's
+       existing branch; cardmenu-root-* still starts with 'cardmenu-'. */
+    'cardmenu-root-decision': {menu: [{label: '＋ Add option', action: true}]},
+    'cardmenu-root-chance': {menu: [{label: '＋ Add outcome', action: true}]},
+    'cardmenu-root-leaf': {menu: [{label: '＋ Add outcome', action: true}]},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
     if(kind.startsWith('cardmenu-')){

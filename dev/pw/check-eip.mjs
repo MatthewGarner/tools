@@ -249,15 +249,17 @@ check('label rename lands in text and diagram',
     await page.waitForTimeout(150);
   }
 
-  /* root node ("Bid decision", srcLine 3): the explicit root's card menu is
-     reduced to Add-only — no Rename/Edit/Remove. Remove is the whole-tree-
-     deletion hazard (the root IS the tree); Rename/Edit were dead rows (the
-     root marker has no incoming edge, so no label/value/prob tspan exists
-     for it). The root's ＋ Add option is the only way to add a top-level
-     option anywhere in the tool, so Add must still work exactly as before. */
+  /* root node ("Bid decision", srcLine 3 — a DECISION root here): the explicit
+     root's card menu is reduced to Add-only — no Rename/Edit/Remove. Remove is
+     the whole-tree-deletion hazard (the root IS the tree); Rename/Edit were
+     dead rows (the root marker has no incoming edge, so no label/value/prob
+     tspan exists for it). The root's ＋ Add is the only way to add a top-level
+     node anywhere in the tool, so Add must still work exactly as before. The
+     label's noun tracks the root's kind (decision → option, chance/leaf →
+     outcome), matching what childLineFor actually inserts. */
   await tapMarker(3);
   await page.waitForTimeout(200);
-  check('tree: root marker tap opens an Add-only menu (no Rename/Edit/Remove)',
+  check('tree: decision-root marker tap opens an Add-only menu (exactly "＋ Add option", no Rename/Edit/Remove)',
     (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
   check('tree: root menu offers no Remove (whole-tree deletion hazard closed)',
     await page.locator('.eip-pop button.danger').count() === 0);
@@ -265,10 +267,10 @@ check('label rename lands in text and diagram',
   await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
   await page.waitForTimeout(600);
   const tRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
-  check('tree: root menu Add option appends a new top-level sibling after the whole subtree',
+  check('tree: decision-root menu Add option appends a new top-level option after the whole subtree',
     tRootAdd === t0 + '\n  New option: 0');
   await undo();
-  check('tree: one undo restores the pre-add baseline (root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
+  check('tree: one undo restores the pre-add baseline (decision root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   // a non-root node still gets its full menu — the root change is scoped to the root only
   await tapMarker(4);
@@ -277,6 +279,36 @@ check('label rename lands in text and diagram',
     (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add option|Remove branch');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
+
+  /* non-decision root: a FRESH single-line root ("Just a number: 5") parses as
+     LEAF-kind — this is the primary mobile build-a-tree starting point. Its
+     Add row must read "＋ Add outcome" (NOT "option"), because childLineFor on
+     a leaf/chance root inserts "New outcome (p=…)"; the label must match the
+     insertion. Rewrite the whole editor to that one line, then round-trip. */
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await page.keyboard.type('Just a number: 5');
+  await page.waitForTimeout(700);
+  const tLeafRoot = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: fresh single-line root really is a leaf-kind root at line 0',
+    tLeafRoot === 'Just a number: 5' &&
+    (await page.locator('#preview svg g[data-edit="cardmenu-root-leaf"][data-line="0"]').count()) === 1);
+
+  await tapMarker(0);
+  await page.waitForTimeout(200);
+  check('tree: leaf-root marker tap opens an Add-only menu reading exactly "＋ Add outcome" (not "option")',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add outcome');
+  check('tree: leaf-root menu offers no Remove',
+    await page.locator('.eip-pop button.danger').count() === 0);
+
+  await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
+  await page.waitForTimeout(600);
+  const tLeafRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: leaf-root menu Add outcome inserts an OUTCOME line (label matches insertion)',
+    tLeafRootAdd === tLeafRoot + '\n  New outcome (p=rest): 0');
+  await undo();
+  check('tree: one undo restores the pre-add baseline (leaf root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === tLeafRoot);
 }
 
 check('no console/page errors', errors.length === 0);
