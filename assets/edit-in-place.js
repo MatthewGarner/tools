@@ -34,16 +34,21 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     if(errEl) errEl.remove();
     /* restore focus to the trigger — it's tabindex="0" now (keyboard-fix),
        so a keyboard/AT user lands back where they started instead of at
-       document.body. A stale/detached el (e.g. a commit that already
-       re-rendered the diagram) makes focus() a harmless no-op.
-       Deferred: close() can run from the capturing "away" pointerdown
-       listener (clicking a DIFFERENT control to dismiss) or from an
-       input's blur (focus already moving elsewhere) — calling .focus()
-       synchronously in either case steals that in-flight click/focus
-       gesture (confirmed empirically: a chip's own click handler never
-       ran when this fired synchronously). A macrotask runs after the
-       browser finishes that gesture, so the real target still gets it. */
-    if(el && typeof el.focus === 'function') setTimeout(() => el.focus(), 0);
+       document.body. Deferred + guarded: close() can run from the capturing
+       "away" pointerdown listener (clicking a DIFFERENT control to dismiss),
+       from an input's blur (focus already moving elsewhere), or right before
+       a commit that itself grabs focus on purpose (e.g. tree/wardley focus
+       the editor to pre-select a new item's placeholder) — calling .focus()
+       synchronously, or unconditionally even deferred, steals that gesture
+       (confirmed empirically both ways: a chip's click handler never ran,
+       and separately the editor lost its placeholder selection). A macrotask
+       runs after the browser finishes the current gesture, and by then
+       activeElement is <body> ONLY if nothing else claimed focus in the
+       meantime — that's the one case a genuine dismiss (Escape, or a blur
+       with nowhere to go) actually needs restoring. */
+    if(el && typeof el.focus === 'function') setTimeout(() => {
+      if(!active && document.activeElement === document.body) el.focus();
+    }, 0);
   }
   function open(el){
     close();
