@@ -31,6 +31,13 @@ function moduleGraph(entry, seen = new Set()){
   for(const m of src.matchAll(/(?:import[^'"]*|from\s*|import\()\s*['"]([^'"]+)['"]/g)){
     if(m[1].endsWith('.js')) moduleGraph(resolveRef(dir, m[1]), seen);
   }
+  /* new Worker(new URL('./x.js', import.meta.url)) — a module Worker's script
+     is a real load-time dependency (the browser fetches it) even though it's
+     not a static import; the cycles perf fix (2026-07-12) is the first of
+     these. Match it explicitly so a future worker doesn't need an orphan
+     exception. */
+  for(const m of src.matchAll(/new\s+Worker\(\s*new\s+URL\(\s*['"]([^'"]+)['"]/g))
+    if(m[1].endsWith('.js')) moduleGraph(resolveRef(dir, m[1]), seen);
   return seen;
 }
 function pageLoad(page){
