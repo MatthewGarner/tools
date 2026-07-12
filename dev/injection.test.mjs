@@ -103,12 +103,28 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const {parse} = await import('../bets/parse.js');
   const {simulate} = await import('../bets/engine.js');
   const {renderBoard} = await import('../bets/render.js');
+  const {betsDiff, betsDiffView} = await import('../bets/diff.js');
   const m = parse('title: T\nunit: £k\nG\n  A bet: stake 10, odds 20-40%, payoff 30-60\n    kill: watch this by 2026-01-01');
   const b = m.groups[0].bets[0];
   m.title = EVIL[0]; m.groups[0].name = EVIL[1]; b.name = EVIL[2]; b.kill.text = EVIL[3];
   const sim = simulate(m);
   assertClean(renderBoard(m, sim, ctx), 'bets');
   assertClean(renderBoard(m, sim, {...ctx, width: 390}), 'bets-narrow');
+
+  /* compare path: a hostile SNAPSHOT model diffed against the hostile CURRENT
+     model above — one bet shares the (evil) name so it shows up MOVED, one
+     snapshot-only bet (a different evil name) is KILLED, and the snapshot
+     label itself (in the headline) is evil too. Exercises the NEW/KILLED
+     markers, the "was …" caption, and the ghost portfolio band. */
+  const old = parse('title: T\nunit: £k\nG\n  A bet: stake 10, odds 60-80%, payoff 30-60\n  Gone bet: stake 5, odds 10-20%, payoff 20-30');
+  old.groups[0].bets[0].name = EVIL[2];   // same key as current "A bet" -> odds differ -> MOVED
+  old.groups[0].bets[1].name = EVIL[4];   // absent from current -> KILLED
+  old.groups[0].name = EVIL[1];
+  const prevSim = simulate(old);
+  const view = betsDiffView(betsDiff(old, m), EVIL[5]);
+  const compareCtx = {...ctx, compare: {...view, prevSim}};
+  assertClean(renderBoard(m, sim, compareCtx), 'bets-compare');
+  assertClean(renderBoard(m, sim, {...compareCtx, width: 390}), 'bets-compare-narrow');
 });
 
 test('risk renderer + markdown escape hostile titles and structure labels', async () => {

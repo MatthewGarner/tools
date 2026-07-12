@@ -14,15 +14,17 @@ export function tint(hex){
    Coordinates round to 2 decimals. mono switches to the ui-monospace stack. */
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
 const r2 = n => (Math.round(n * 100) / 100).toString();
-export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono, halo} = {}){
+export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono, halo, strike} = {}){
   // halo: a stroke in the given colour painted BEHIND the glyphs (paint-order)
   // so an underlying line/grid reads behind the text — no blanked rectangle.
+  // strike: text-decoration line-through (ghost/removed content — bets' KILLED rows).
   return '<text x="' + r2(x) + '" y="' + r2(y) + '" font-size="' + size + '"' +
     (weight ? ' font-weight="' + weight + '"' : '') +
     (tracking ? ' letter-spacing="' + tracking + '"' : '') +
     (anchor ? ' text-anchor="' + anchor + '"' : '') +
     (mono ? ' font-family="' + MONO + '"' : '') +
     (halo ? ' stroke="' + halo + '" stroke-width="3" stroke-linejoin="round" paint-order="stroke"' : '') +
+    (strike ? ' text-decoration="line-through"' : '') +
     ' fill="' + fill + '">' + esc(str) + '</text>';
 }
 
