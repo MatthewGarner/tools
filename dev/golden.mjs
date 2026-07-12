@@ -300,6 +300,19 @@ for(const [k, src] of Object.entries(docs)){
   const bm = bparse(bdoc), bsim = simulate(bm);
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
+
+  /* snapshot compare fixture: vs bdoc, "Paid acq push" is new, "Old idea" was
+     killed, and Billing rewrite's odds moved 60-75% -> 90-100%. */
+  const {betsDiff, betsDiffView} = await import('../bets/diff.js');
+  const boldDoc = 'title: Q3 product portfolio\nunit: £k\n' +
+    'Growth\n  Search revamp: stake 120, odds 30-50%, payoff 400-900\n    kill: CTR flat after 2 sprints by 2026-09-01\n' +
+    '  Old idea: stake 40, odds 25-35%, payoff 60-100\n' +
+    'Platform\n  Billing rewrite: stake 200, odds 60-75%, payoff 250-350';
+  const bOld = bparse(boldDoc), bPrevSim = simulate(bOld);
+  const bView = betsDiffView(betsDiff(bOld, bm), '2026-06-01');
+  const bCompareCtx = {...ctxBase, compare: {...bView, prevSim: bPrevSim}};
+  variants['bets-compare'] = renderBoard(bm, bsim, bCompareCtx);
+  variants['bets-compare-narrow'] = renderBoard(bm, bsim, {...bCompareCtx, width: 390});
 }
 
 /* /alarm fixtures (pure numeric params → deterministic) */
