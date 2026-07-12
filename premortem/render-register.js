@@ -27,18 +27,18 @@ export function renderRegister(doc, exp, now = new Date()){
         (e.tag ? '<span class="tagchip ' + e.tag + '">' + esc(e.tag.replace('-', ' ')) + '</span>' : '') +
         (e.cluster ? '<span class="clusterchip">' + esc(e.cluster) + '</span>' : '') +
         (acts ? '<span class="actcount">' + acts + ' action' + (acts === 1 ? '' : 's') + '</span>' : '') + '</td>' +
-      '<td class="rp">' + (e.p ? e.p[0] + '–' + e.p[1] + '%' : '—') + '</td>' +
       '<td class="rexp">' + (sc
         ? '<b>' + fmt(x.p50) + '</b><span class="band" title="P10–P90"><span class="bandfill" style="left:' +
           bandX + '%;width:' + bandW + '%"></span></span><span class="bandtext">' + fmt(x.p10) + '–' + fmt(x.p90) + '</span>'
         : '<span class="unscored">unscored</span>') + '</td>' +
+      '<td class="rp">' + (e.p ? e.p[0] + '–' + e.p[1] + '%' : '—') + '</td>' +
       '<td><span class="statuspill ' + e.status + '">' + esc(e.status) + '</span></td>' +
       '<td class="rstale">' + st + (st !== 'fresh' ? ' <span class="stalemark">·</span>' : '') + '</td>' +
     '</tr>';
   }).join('');
 
   return '<div class="registerwrap"><table class="register"><thead><tr>' +
-    '<th></th><th>Risk</th><th>Likely</th><th>Exposure' + u + '</th><th>Status</th><th>Age</th></tr></thead>' +
+    '<th></th><th>Risk</th><th>Exposure' + u + '</th><th>Likely</th><th>Status</th><th>Age</th></tr></thead>' +
     '<tbody>' + body + '</tbody></table></div>' +
     '<p class="portfolio">Portfolio exposure <b>' + fmt(port.p50) + u + '</b> [' + fmt(port.p10) + '–' + fmt(port.p90) +
       '] — the sum if every risk landed independently; correlated risks stack higher than this.</p>' +
