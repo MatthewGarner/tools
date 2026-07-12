@@ -502,7 +502,13 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(600);
 
   const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
-  await settledTap(mpage, mCardBody);
+  /* tap the top-left padding sliver, not settledTap's centre: the card paints
+     its title over the hit rect and the centre lands on that text on Linux (same
+     off-glyph concern the map-narrow block below handles manually). */
+  await mCardBody.scrollIntoViewIfNeeded();
+  await mpage.waitForTimeout(300);
+  const mCardBox = await mCardBody.boundingBox();
+  await mpage.mouse.click(mCardBox.x + 8, mCardBox.y + 4);
   await mpage.waitForTimeout(200);
   check('roadmap narrow: tap opens the card menu', await mpage.locator('.eip-pop').count() === 1);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Rename…'}));
