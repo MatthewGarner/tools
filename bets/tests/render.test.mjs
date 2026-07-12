@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {simulate} from '../engine.js';
 import {renderBoard} from '../render.js';
+import {betsDiff, betsDiffView} from '../diff.js';
 
 const COLORS = {ink: '#141b21', muted: '#5b6670', accent: '#c05621', accentInk: '#8e4a1e',
   bg: '#f7f8f6', card: '#ffffff', border: '#e2e5e1', err: '#b3403a', track: '#e7e9e5',
@@ -103,5 +104,76 @@ test('concentration: no bet at 40%+ renders no note', () => {
   for(const svg of [wide, narrow]){
     assert.ok(!/carries the book/.test(svg), 'no concentration line when null');
     assert.ok(!/⚑/.test(svg), 'no flag glyph when null');
+  }
+});
+
+/* ---------------- snapshot compare ---------------- */
+// SRC (parsed as `model`/simulated as `sim` above) plays the SNAPSHOT; CUR_SRC
+// is the current portfolio after one edit of each kind: "Sure loser" killed,
+// "Fresh angle" added, "Billing rewrite"'s odds moved 90-100% -> 70-85%.
+const CUR_SRC = `title: Q3 portfolio
+unit: £k
+Growth
+  Search revamp: stake 120, odds 30-50%, payoff 400-900
+    kill: CTR flat after 2 sprints by 2026-09-01
+  Fresh angle: stake 50, odds 20-40%, payoff 80-150
+Platform
+  Billing rewrite: stake 200, odds 70-85%, payoff 250-350`;
+const curModel = parse(CUR_SRC);
+const curSim = simulate(curModel);
+const compareView = betsDiffView(betsDiff(model, curModel), '2026-06-01');
+const compareCtx = {...CTX, compare: {...compareView, prevSim: sim}};
+
+test('compare: headline counts 1 new / 1 killed / odds moved on 1', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  assert.match(svg, /Since 2026-06-01: 1 new · 1 killed · odds moved on 1\./);
+});
+
+test('compare: NEW marker on the added bet', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  assert.match(svg, />NEW</);
+  assert.match(svg, /Fresh angle/);
+});
+
+test('compare: KILLED ghost row for the dropped bet, in its lane', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  assert.match(svg, />KILLED</);
+  assert.match(svg, /Sure loser/);   // struck, but the name still reads
+});
+
+test('compare: moved odds show "was <old odds>"', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  assert.ok(svg.includes('was 90–100%'), 'old odds value shown as a "was" note');
+});
+
+test('compare: ghost portfolio band draws the snapshot P10-P90', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  assert.match(svg, /SNAPSHOT P10.P90/);
+});
+
+test('compare: narrow layout carries the same headline + NEW + KILLED markers', () => {
+  const svg = renderBoard(curModel, curSim, {...compareCtx, width: 390});
+  assert.match(svg, /Since 2026-06-01: 1 new · 1 killed · odds moved on 1\./);
+  assert.match(svg, />NEW</);
+  assert.match(svg, />KILLED</);
+  assert.ok(!/NaN|undefined/.test(svg), 'no NaN/undefined in narrow compare');
+});
+
+test('compare: well-formed, no NaN/undefined in the wide compare render', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  assert.ok(!/NaN|undefined/.test(svg));
+  assert.match(svg, /^<svg /);
+  assert.match(svg, /<\/svg>$/);
+  assert.ok(!/ data-edit(?![=])/.test(svg), 'no bare data-edit');
+});
+
+test('compare absent: no NEW/KILLED/Since leakage, board unchanged', () => {
+  const svgWide = renderBoard(curModel, curSim, CTX);
+  const svgNarrow = renderBoard(curModel, curSim, {...CTX, width: 390});
+  for(const svg of [svgWide, svgNarrow]){
+    assert.ok(!/Since /.test(svg), 'no compare headline without ctx.compare');
+    assert.ok(!/>NEW</.test(svg), 'no NEW marker without ctx.compare');
+    assert.ok(!/>KILLED</.test(svg), 'no KILLED marker without ctx.compare');
+    assert.ok(!/SNAPSHOT P10/.test(svg), 'no ghost band without ctx.compare');
   }
 });

@@ -1,10 +1,10 @@
-/* State, refresh loop, saved portfolios, exports, boot. Snapshot-compare is
-   NOT wired here — deferred to a follow-up (Task 5b); this ships a working
-   editor -> board -> exports loop with edit-in-place + the coarse-pointer
-   card menu. */
+/* State, refresh loop, saved portfolios, exports, boot, snapshot compare
+   (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
+   with edit-in-place + the coarse-pointer card menu. */
 import {parse} from './parse.js';
 import {simulate, verdictCopy, markdown} from './engine.js';
 import {renderBoard} from './render.js';
+import {betsDiff, betsDiffView} from './diff.js';
 import {createEditor} from './editor.js';
 import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
@@ -17,6 +17,7 @@ import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 
 const $ = id => document.getElementById(id);
 
@@ -50,7 +51,22 @@ Bets
 
 /* ---------- refresh loop ---------- */
 let model = null, sim = null, lastSvg = '', hashTimer = null;
+let snaps = null;   // wired below, after the editor exists
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
+/* the snapshot's own 4,000-run simulate() is memoised per parsed snapshot
+   model (wireSnapshots already caches the PARSE, keyed by idx|length|label,
+   and returns the same model object while that snapshot stays selected) — a
+   Monte Carlo pass is too costly to redo on every keystroke unmemoised, and
+   render.js must stay a pure function of its own inputs (no resimulating
+   there — see render.js's file header). */
+const prevSimCache = new WeakMap();
+function currentCompare(){
+  const cur = snaps && snaps.current();
+  if(!cur || !hasBets(model)) return null;
+  if(!prevSimCache.has(cur.model)) prevSimCache.set(cur.model, simulate(cur.model));
+  const view = betsDiffView(betsDiff(cur.model, model), cur.label);
+  return {...view, prevSim: prevSimCache.get(cur.model)};
+}
 function findBet(m, srcLine){
   if(!m) return null;
   for(const g of m.groups) for(const b of g.bets) if(b.srcLine === srcLine) return b;
@@ -67,10 +83,16 @@ function auditCounts(s){
 }
 /* width-aware: the live preview re-lays-out below 520px (narrowWidth's
    built-in threshold); exports always render the wide artefact by omitting
-   width entirely. */
+   width entirely. Compare is preview-only too — exports stay the plain
+   board whatever snapshot is selected, so a shared/exported slide never
+   carries stray "was …" annotations from the author's own review session. */
 function activeRender(forExport){
   const c = {colors: themeColors(), measure};
-  if(!forExport) c.width = narrowWidth($('preview'));
+  if(!forExport){
+    c.width = narrowWidth($('preview'));
+    const compare = currentCompare();
+    if(compare) c.compare = compare;
+  }
   return renderBoard(model, sim, c);
 }
 function doRefresh(){
@@ -107,6 +129,16 @@ function writeHash(){
   if(ws.collapsed()) state.e = 0;
   if(shouldPersist()) writeHashState(state);
 }
+snaps = wireSnapshots({
+  store: snapStore('bets-snaps'),
+  parse,
+  getSrc: () => editor.getText(),
+  makeLabel: () => new Date().toISOString().slice(0, 10) +
+    (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
+  els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
+  canSnap: () => hasBets(model),
+  onChange(){ lastSvg = ''; refresh(); },
+});
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
