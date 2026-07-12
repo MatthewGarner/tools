@@ -30,10 +30,10 @@ test('board carries lane names, title, and every slip name', () => {
   assert.match(svg, /Billing rewrite/);
 });
 
-test('header carries the fan verdict + P(loses money) + independence caveat', () => {
+test('header carries the verdict + P(loses money) + net EV + independence caveat', () => {
   const svg = renderBoard(model, sim, CTX);
-  assert.match(svg, /P\(loses money\)/);
-  assert.match(svg, /Portfolio net EV/);
+  assert.match(svg, /P\(loses money\)/i);
+  assert.match(svg, /NET EV/i);
   assert.match(svg, /independent/i);
 });
 
