@@ -1,17 +1,3 @@
-*{box-sizing:border-box}
-html,body{margin:0}
-body{
-  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  color:var(--ink);
-  background-color:var(--bg);
-  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
-                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:26px 26px;
-  padding:40px 0 40px;
-}
-h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
-  letter-spacing:-.01em;margin:0;text-wrap:balance}
-.tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
 .wrap.narrow{max-width:720px;margin:0 auto;padding:0 20px}
 .stitle{font-family:Charter,Georgia,serif;font-size:24px;margin:18px 0 4px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
@@ -19,7 +5,6 @@ h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weigh
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .chips .lead{font-size:12.5px;color:var(--muted)}
 #cmhost .cm-editor{min-height:440px}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
@@ -27,8 +12,6 @@ details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
   background:var(--bg);padding:1px 5px;border-radius:4px}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
-.placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
-.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600;min-height:44px;padding:10px 22px}
 .btn.primary:hover{color:var(--card);opacity:.92}
 .btn:disabled{opacity:.45;cursor:default}
@@ -105,9 +88,6 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 #coverlay svg,#presult svg{max-width:100%;height:auto}
 
 .about code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
-footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
-footer a{color:var(--muted)}
-footer a:hover{color:var(--accent-ink)}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 /* iOS zooms into any focused input under 16px — keep form inputs at 16px on small screens */
 @media (max-width:700px){
