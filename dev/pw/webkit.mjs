@@ -63,6 +63,25 @@ for(const theme of ['light', 'dark']){
   }
   await ctx.close();
 }
+
+/* motion-on carve-out: the rest of this suite forces reduced-motion, so the
+   stroke-dashoffset/getTotalLength reveal path is otherwise only exercised on
+   Blink (motion.mjs). Confirm the curves actually draw on the REAL Safari engine
+   — the "renders on Blink, breaks on Safari" class that shipped twice. */
+{
+  const ctx = await browser.newContext({...devices['iPhone 13']});   // motion ON
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
+  try{
+    await page.goto(T + '/alarm/', {waitUntil: 'networkidle', timeout: 20000});
+    await page.waitForTimeout(150);
+    const drew = await page.evaluate(() => document.querySelectorAll('#distwrap .mo-draw').length);
+    ok(drew >= 1, 'motion(webkit): alarm curves stroke-draw on real Safari (.mo-draw ' + drew + ')');
+    ok(errs.length === 0, 'motion(webkit): no page errors' + (errs.length ? ' — ' + errs[0] : ''));
+  }catch(e){ ok(false, 'motion(webkit): alarm loads — ' + String(e).split('\n')[0]); }
+  await ctx.close();
+}
 await browser.close();
 console.log('\n' + pass + ' PASS, ' + fail + ' FAIL' + (SHOTS ? '  (shots: ' + SHOTS + ')' : ''));
 process.exit(fail ? 1 : 0);
