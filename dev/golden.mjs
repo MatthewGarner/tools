@@ -234,6 +234,14 @@ for(const [k, src] of Object.entries(docs)){
   variants['timeline-slide'] = trender(tm, {...tctx, slide: true});
   variants['timeline-diff'] = trender(tm, tctx,
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
+
+  const {posterSvg} = await import('../assets/poster.js');
+  const {timelineReadout} = await import('../timeline/render.js');
+  const tPosterCtx = {...tctx, slide: true, bare: true, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}};
+  variants['timeline-poster'] = posterSvg({chart: trender(tm, tPosterCtx),
+    verdict: timelineReadout(tm, 20640), name: 'T — programme', date: '2026-07-13',
+    metrics: ['4 milestones', 'last by Jun 2027'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 
 /* /risk fixtures (seeded engine → deterministic) */
