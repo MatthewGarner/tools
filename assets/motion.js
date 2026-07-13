@@ -78,6 +78,12 @@ const ENOUGH = 0.15, DWELL = 420;
 function observeFullyInView(el, cb){
   let io = null, ro = null;                             // declared before stop() can name them
   let done = false, timer = 0, queued = false;
+  /* null until IO first reports. It is a VETO, never a precondition: only an explicit
+     "zero intersection" holds the reveal back. Requiring a positive IO report before
+     playing would re-create the stranding bug on any browser or moment where the
+     callback doesn't arrive. Safe because threshold 0 is in the list, so becoming
+     visible ALWAYS reports and clears the veto. */
+  let clipped = null;
   const fire = () => { if(done) return; done = true; stop(); cb(); };
   const stop = () => {
     done = true;                                        // also neutralises a check() already queued on rAF
@@ -86,7 +92,12 @@ function observeFullyInView(el, cb){
     removeEventListener('scroll', schedule, true); removeEventListener('resize', schedule);
   };
   /* How much of the element you can see, measured against the most this viewport
-     could ever show of it — its own height, or the viewport if it's taller. */
+     could ever show of it — its own height, or the viewport if it's taller. This is
+     a viewport measurement only: it can't see an ancestor's overflow clip, so a
+     container scrolled out of its own scrolling pane still reads as "visible". IO
+     CAN see that (its intersection rect is clipped by the ancestor chain), so its
+     isIntersecting is kept as a veto below — and the arm-time check is held one
+     frame so IO has reported before the veto is first consulted. */
   const seen = () => {
     const r = el.getBoundingClientRect();
     const vh = innerHeight || document.documentElement.clientHeight;
@@ -97,13 +108,17 @@ function observeFullyInView(el, cb){
   const check = () => {
     queued = false;
     if(done) return;
+    if(clipped === true) { clearTimeout(timer); timer = 0; return; }   // IO says an ancestor hides it
     const ratio = seen();
     if(ratio >= 1 - 0.002) return fire();               // as fully in view as it can be → now
     if(ratio >= ENOUGH){ if(!timer) timer = setTimeout(fire, DWELL); }  // on screen, can't get fuller → soon
     else { clearTimeout(timer); timer = 0; }            // off-screen → stay hidden (the promise)
   };
   const schedule = () => { if(!queued && !done){ queued = true; requestAnimationFrame(check); } };
-  io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(schedule, {threshold: [0, 0.25, 0.5, 0.75, 1]}) : null;
+  io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(entries => {
+    clipped = !entries[entries.length - 1].isIntersecting;   // sees ancestor overflow clips; rect maths can't
+    schedule();
+  }, {threshold: [0, 0.25, 0.5, 0.75, 1]}) : null;
   ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
   if(io) io.observe(el);
   addEventListener('scroll', schedule, {passive: true, capture: true});   // capture: catches scrolls in any pane
@@ -111,7 +126,13 @@ function observeFullyInView(el, cb){
   /* an element armed while it has no box — a view behind a tab (bets Board⇄Quadrant,
      premortem's phases) — gets neither scroll nor resize when it's finally shown */
   ro && ro.observe(el);
-  schedule();                                            // and settle the load state
+  /* Settle the load state — but a frame late, ON PURPOSE. rAF callbacks run BEFORE
+     the frame's intersection step, so a plain schedule() here would run the first
+     check with clipped still null; a clipped-but-rect-fully-visible element would
+     then fire immediately and play its reveal unseen, straight past the veto. One
+     extra frame lets IO deliver its initial entry first. This can only ever DELAY
+     the reveal by a frame, never withhold it — check() still runs unconditionally. */
+  if(io) requestAnimationFrame(schedule); else schedule();
   return {disconnect: stop};
 }
 

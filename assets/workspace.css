@@ -60,8 +60,10 @@
   box-shadow: var(--shadow); padding: 18px;
 }
 .stage .preview{overflow: auto}
-/* margin-inline centres the board when Fit caps its width to the fold (workspace.js) */
-.stage .preview svg{display: block; width: 100%; height: auto; margin-inline: auto}
+/* centring is applied inline by workspace.js, ONLY when Fit caps the width to the
+   fold — a blanket margin-inline:auto here would also recentre a zoomed-OUT board,
+   which is a silent change to how zoom has always looked */
+.stage .preview svg{display: block; width: 100%; height: auto}
 /* real HTML mirror of the diagram's quotable verdict/readout — screen readers
    get it via aria-live (set on the element in each tool's markup); sighted
    users get it too, so the answer is never SVG-text-only. Empty until a

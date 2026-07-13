@@ -54,16 +54,23 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   function applyZoom(){
     const svg = svgEl();
     if(!svg) return;
-    let w, mw;
-    if(zoom === 'fit'){ const cap = fitCap(svg); w = '100%'; mw = cap ? cap + 'px' : ''; }
-    else { w = Math.round(naturalWidth(svg) * zoom) + 'px'; mw = 'none'; }
+    let w, mw, mi;
+    if(zoom === 'fit'){
+      const cap = fitCap(svg);
+      w = '100%'; mw = cap ? cap + 'px' : '';
+      mi = cap ? 'auto' : '';        // centre ONLY a capped board; a zoomed board stays put
+    } else { w = Math.round(naturalWidth(svg) * zoom) + 'px'; mw = 'none'; mi = ''; }
     if(svg.style.width !== w) svg.style.width = w;         // idempotent: no style write, no ResizeObserver echo
     if(svg.style.maxWidth !== mw) svg.style.maxWidth = mw;
+    if(svg.style.marginInline !== mi) svg.style.marginInline = mi;
   }
   /* The rail collapse ANIMATES the pane's width, so the applyZoom() in setCollapsed
      runs against the pre-transition width. Watch the pane itself and re-apply as it
      settles; window resize is still needed for a vertical-only resize, which moves
-     the fold without moving the pane. */
+     the fold without moving the pane.
+     Both live for the page's lifetime by design: initWorkspace runs exactly once per
+     page (gauge's sits inside a one-shot boot()), so there is nothing to tear down —
+     and a destroy() no caller invokes would be dead API, not hygiene. */
   new ResizeObserver(applyZoom).observe(preview);
   addEventListener('resize', applyZoom);
   function setZoom(z){
