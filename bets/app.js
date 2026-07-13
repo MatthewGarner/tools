@@ -150,7 +150,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => hasBets(model),
-  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
+  onChange(){ flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),

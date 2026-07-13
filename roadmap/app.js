@@ -341,7 +341,6 @@ $('importgo').addEventListener('click', () => {
 /* ---------- drag-and-drop: a drop is a text edit ---------- */
 let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null};
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 /* drag is a fine-pointer affordance only: on a coarse (touch) device it fights
    the narrow stack's vertical swipe-to-scroll (no auto-scroll, no drop-zone
    feedback that reads on a finger) — "Move to…" in the card menu is the phone
