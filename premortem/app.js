@@ -34,6 +34,7 @@ function render(){
   $('workspace').hidden = home;
   if(timer){ clearInterval(timer); timer = 0; }
   if(home){ renderHome(); return; }
+  $('workspace').dataset.view = view;   // per-view widths key off #workspace[data-view]
   renderToggle();
   $('boardview').hidden = view !== 'board';
   $('wizardview').hidden = view === 'board';

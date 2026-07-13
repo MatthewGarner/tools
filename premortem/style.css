@@ -7,7 +7,10 @@ body{
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:26px 26px;padding:44px 20px 60px;
 }
-.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+/* per-view width discipline: the wizard flow stays a reading-width document even
+   though the frame is wide; board + register (which shares #wizardview) use the space */
+#workspace[data-view="wizard"] #wizardview{max-width:820px;margin-inline:auto}
 h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance}
 .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:64ch}
 main{display:flex;flex-direction:column;gap:20px}
@@ -36,7 +39,7 @@ main{display:flex;flex-direction:column;gap:20px}
 .vtseg.on{background:var(--accent);color:var(--card)}
 
 /* FAB board — Facts / Assumptions / Beliefs, three columns onto the same doc */
-.board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bcolh{font-family:Charter,Georgia,serif;font-size:15px;margin:0}
 .bcolhint{color:var(--muted);font-size:12px;margin:0;min-height:2.6em}
@@ -99,13 +102,25 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .vstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink);font-size:20px;cursor:pointer}
 .vcount{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:700;min-width:1.5em;text-align:center}
 
-/* REGISTER table — scrolls inside its card (a data table, exports pinned wide) */
+/* REGISTER — the kept artefact: a light header zone, then a data table that
+   sizes to its content and centres (leftover width is margin, not sparse columns) */
+.reghead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:2px 0 12px}
+.regplane{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+.regsubject{font-family:Charter,Georgia,"Times New Roman",serif;font-size:16px;color:var(--ink)}
 .registerwrap{overflow-x:auto;margin-top:4px}
-.register{width:100%;min-width:560px;border-collapse:collapse;font-size:13.5px}
-.register th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
-.register td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+/* columns stay tight (scannable): the metric columns minimise to content and
+   group tight-right, RISK caps at a reading measure. The table sizes to content
+   and shares its LEFT edge with the header zone + portfolio verdict so the three
+   read as one artefact; residual right space is benign panel background, not the
+   sparse inter-column gaps the old width:100% produced */
+.register{width:auto;min-width:560px;border-collapse:collapse;font-size:13.5px}
+.register td:nth-child(n+3),.register th:nth-child(n+3){width:1px;white-space:nowrap}
+.register .rexp{min-width:184px}
+.register th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 16px;border-bottom:1px solid var(--border)}
+.register td{padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+.register td:first-child,.register th:first-child{padding-left:2px}
 .rnum{font-family:ui-monospace,Menlo,monospace;color:var(--muted)}
-.rtext{max-width:240px;overflow-wrap:anywhere}
+.rtext{max-width:58ch;overflow-wrap:anywhere}
 .rp{font-variant-numeric:tabular-nums;white-space:nowrap}
 .rexp b{font-variant-numeric:tabular-nums}
 .band{display:block;position:relative;height:5px;background:var(--track);border-radius:3px;margin:4px 0 2px}
@@ -124,7 +139,8 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .clusterchip{font-size:10.5px;color:var(--muted);margin-left:6px}
 .actcount{font-size:10.5px;color:var(--muted);margin-left:6px}
 .unscored{color:var(--muted);font-style:italic}
-.portfolio{font-size:14px;margin:16px 0 0;max-width:70ch}
+.portfolio{font-size:15px;margin:18px 0 0;max-width:70ch;padding-top:14px;border-top:1px solid var(--border)}
+.portfolio b{font-size:1.15em;font-variant-numeric:tabular-nums}
 .stalenag{font-size:13px;color:var(--st-risk-ink,#8E6200);margin:8px 0 0}
 
 /* countdown + nav + home */
@@ -142,7 +158,11 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 
-/* narrow relayout: the three board columns stack (never pan) below 640px */
+/* board columns step down 3→2→1 (never pan): 2-up in the mid band so cols
+   don't cram in the wider frame, 1-up on phones */
+@media (max-width:960px){
+  .board{grid-template-columns:repeat(2,1fr)}
+}
 @media (max-width:640px){
   .board{grid-template-columns:1fr;gap:20px}
   .bcolhint{min-height:0}
@@ -150,6 +170,14 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 @media (max-width:560px){
   .scrow,.acitem{gap:8px}
   .register{min-width:520px}
+  /* toolbar stays one row: segments fill the width, Undo shrinks to its glyph */
+  .toolbar .viewtoggle{flex:1;display:flex;margin-right:0}
+  .viewtoggle .vtseg{flex:1;padding:6px 8px;text-align:center}
+  .ulabel{display:none}
+  #undo{min-width:44px;display:inline-flex;align-items:center;justify-content:center}
+  /* action row stacks: the mitigation gets its own full-width row, owner + × below */
+  .acitem input[data-action="text"]{flex-basis:100%}
+  .acitem input[data-action="owner"]{flex:1 1 auto}
 }
 @media (pointer:coarse){
   .btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}
