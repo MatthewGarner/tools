@@ -6,7 +6,7 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-393ba15fb3';
+const CACHE = 'tools-1abec5e20c';
 const PRECACHE = [
   '/',
   '/alarm/',
@@ -48,6 +48,7 @@ const PRECACHE = [
   '/bets/edit-targets.js',
   '/bets/editor.js',
   '/bets/engine.js',
+  '/bets/motion-spec.js',
   '/bets/parse.js',
   '/bets/render-quadrant.js',
   '/bets/render.js',
@@ -75,6 +76,7 @@ const PRECACHE = [
   '/gauge/editor.js',
   '/gauge/engine.js',
   '/gauge/handoff.js',
+  '/gauge/motion-spec.js',
   '/gauge/parse.js',
   '/gauge/relay-client.js',
   '/gauge/render-form.js',
@@ -88,6 +90,7 @@ const PRECACHE = [
   '/map/edit-targets.js',
   '/map/editor.js',
   '/map/handoff.js',
+  '/map/motion-spec.js',
   '/map/parse.js',
   '/map/readout.js',
   '/map/render.js',
@@ -110,6 +113,7 @@ const PRECACHE = [
   '/roadmap/edit-targets.js',
   '/roadmap/edit.js',
   '/roadmap/editor.js',
+  '/roadmap/motion-spec.js',
   '/roadmap/parse.js',
   '/roadmap/render.js',
   '/roadmap/style.css',
@@ -128,6 +132,7 @@ const PRECACHE = [
   '/tree/edit-targets.js',
   '/tree/editor.js',
   '/tree/engine.js',
+  '/tree/motion-spec.js',
   '/tree/parse.js',
   '/tree/render.js',
   '/tree/style.css',
@@ -136,6 +141,7 @@ const PRECACHE = [
   '/wardley/edit-targets.js',
   '/wardley/editor.js',
   '/wardley/layout.js',
+  '/wardley/motion-spec.js',
   '/wardley/parse.js',
   '/wardley/render.js',
   '/wardley/style.css',
@@ -145,6 +151,7 @@ const PRECACHE = [
   '/why/diff.js',
   '/why/edit-targets.js',
   '/why/editor.js',
+  '/why/motion-spec.js',
   '/why/parse.js',
   '/why/project.js',
   '/why/render-map.js',

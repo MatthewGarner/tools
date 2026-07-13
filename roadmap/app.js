@@ -12,10 +12,13 @@ import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -118,14 +121,14 @@ function doRefresh(){
   renderWarnings(model);
   const pv = $('preview');
   if(!model.items.length){
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
     const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: renderWidth()});
     if(svg !== lastSvg){
-      pv.innerHTML = svg;
+      paint(svg, REVEAL);
       lastSvg = svg;
       if(pendingFlip){ flipAnimate(pendingFlip); pendingFlip = null; }
     }
@@ -269,7 +272,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' \u2014 ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.items.length,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 
 /* ---------- saved roadmaps ---------- */
@@ -480,7 +483,7 @@ $('preview').addEventListener('click', e => {
 }, true);
 
 /* ---------- theme change → re-render ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

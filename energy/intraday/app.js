@@ -23,6 +23,8 @@ import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-comm
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
+import {mountMotion} from '../../assets/motion.js';
+import {REVEAL} from './motion-spec.js';
 
 export const PRESETS = {
   winter:    {label: 'Winter weekday',      mutate: {trough: 30, peak: 47, solarPeak: 2, sunrise: 8, sunset: 16}},
@@ -57,6 +59,7 @@ function boot(){
      this always returns a concrete number. ---- */
   const NARROW = 520;   // also used below for the "bring into view" pointer-coarse check
   const priceEl = $('pricewrap'), stackEl = $('stackwrap');
+  const pricePaint = mountMotion(priceEl), stackPaint = mountMotion(stackEl);
   const renderWidth = el => narrowWidth(el, {fallback: 900});
 
   function refresh(){
@@ -75,7 +78,7 @@ function boot(){
       {width: priceW, height: 420, colors, palette: palette(), measure},
       drawUpTo ? {cursor: hour, upTo: hour} : {cursor: hour});
     priceEl.classList.toggle('narrow', priceW < NARROW);
-    if(priceSvg !== lastPriceSvg){ priceEl.innerHTML = priceSvg; lastPriceSvg = priceSvg; }
+    pricePaint(priceSvg, REVEAL); lastPriceSvg = priceSvg;
 
     const net = result.flat.hours[hour].demand;
     const stackW = renderWidth(stackEl);
@@ -89,7 +92,7 @@ function boot(){
        legendStorageNote: false,   // no storage rows in this stack — the arbitrage-spread clause can't apply (S8)
        ...(fleetActs ? {demandLabel: `net demand ${fmtGW(net)} GW`} : {})});
     stackEl.classList.toggle('narrow', stackW < NARROW);
-    if(stackSvg !== lastStackSvg){ stackEl.innerHTML = stackSvg; lastStackSvg = stackSvg; }
+    stackPaint(stackSvg, REVEAL); lastStackSvg = stackSvg;
 
     closeCallout();   // the band under a callout may have moved/resized — never let it go stale
     $('verdict').textContent = buildDayVerdict(result, p);

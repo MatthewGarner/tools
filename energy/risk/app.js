@@ -10,9 +10,12 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
+import {mountMotion} from "../../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 const EXAMPLES = [
   {name: 'Route to market', src:
@@ -58,7 +61,7 @@ function doRefresh(){
   sim = simulate(model);
   const pv = $('preview');
   if(!sim){
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'Add a merchant line — like “merchant: 60..180” — to have something to compare against.'
       : 'Start typing — or load an example.') + '</p>';
@@ -66,7 +69,7 @@ function doRefresh(){
   } else {
     if(focusIdx !== null && focusIdx >= sim.rows.length) focusIdx = null;
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = riskVerdict(sim, model, focusIdx);
   }
   renderWarnings();
@@ -102,7 +105,7 @@ $('preview').addEventListener('click', e => {
   if(!row) return;
   const i = +row.dataset.focus;
   focusIdx = (focusIdx === i) ? null : i;
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   doRefresh();
 });
 /* keyboard equivalent: every [data-focus] row carries tabindex="0" (render.js) */
@@ -113,7 +116,7 @@ $('preview').addEventListener('keydown', e => {
   e.preventDefault();
   const i = +row.dataset.focus;
   focusIdx = (focusIdx === i) ? null : i;
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   doRefresh();
 });
 
@@ -166,7 +169,7 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

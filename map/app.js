@@ -11,6 +11,8 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
@@ -18,6 +20,7 @@ import {mapDiff, mapDiffView} from './diff.js';
 import {gaugeHandoff} from './handoff.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 const EXAMPLES = [
   {name: 'Assumption map', src:
@@ -122,7 +125,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!hasContent()){
     ro = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No map yet — add an item, or a preset: line.'
       : 'Start typing — or load an example.') + '</p>';
@@ -130,7 +133,7 @@ function doRefresh(){
   } else {
     ro = readout(model, resolved);
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = ro.verdict;
   }
   renderWarnings();
@@ -159,7 +162,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.items.length,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -337,7 +340,7 @@ $('togauge').addEventListener('click', () => {
 });
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- boot ---------- */

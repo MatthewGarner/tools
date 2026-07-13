@@ -14,6 +14,8 @@ import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -22,6 +24,7 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -107,7 +110,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!hasBets(model)){
     sim = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No bets yet — add one under a group heading, e.g. “Search revamp: stake 120, odds 30-50%, payoff 400-900”.'
       : 'Start typing — or load an example.') + '</p>';
@@ -115,7 +118,7 @@ function doRefresh(){
   } else {
     sim = simulate(model);
     const svg = activeRender(false);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = verdictCopy(sim.portfolio, auditCounts(sim));
   }
   renderWarningList($('warns'), model.warnings);
@@ -143,7 +146,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => hasBets(model),
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -153,7 +156,7 @@ const ws = initWorkspace({
 
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
-watchNarrowBucket($('preview'), () => { lastSvg = ''; refresh(); });
+watchNarrowBucket($('preview'), () => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
    scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
@@ -171,7 +174,7 @@ $('viewtoggle').addEventListener('click', e => {
   if(!b || b.dataset.view === view) return;
   view = b.dataset.view;
   syncViewToggle();
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   refresh();
 });
 
@@ -295,7 +298,7 @@ wireExports({
 });
 
 /* ---------- theme ---------- */
-onThemeChange(() => { lastSvg = ''; refresh(); });
+onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot: hash > localStorage > example ---------- */
 (function(){

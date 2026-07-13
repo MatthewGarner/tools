@@ -10,9 +10,12 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
+import {mountMotion} from "../../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 const EXAMPLES = [
   {name: 'Wexcombe base case', src:
@@ -187,13 +190,13 @@ function renderVerdict(){
 function render(){
   const pv = $('preview');
   if(!out){
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
       ? 'Missing: ' + model.missing.join(', ') + ' — or load an example.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
   }
   renderVerdict();
   renderWarnings();
@@ -284,7 +287,7 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

@@ -15,11 +15,14 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
 import {solutionMenu} from './app-menu.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 
 const EXAMPLES = [
@@ -85,14 +88,14 @@ function doRefresh(){
   const pv = $('preview');
   if(!model.outcomes.length){
     projection = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No tree yet — start with an outcome: line.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
     projection = project(model);
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
@@ -119,7 +122,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.outcomes.length,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -134,7 +137,7 @@ function setView(v){
   $('viewmap').classList.toggle('on', v === 'map');
   $('viewost').setAttribute('aria-selected', String(v === 'ost'));
   $('viewmap').setAttribute('aria-selected', String(v === 'map'));
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   refresh();
 }
 $('viewost').addEventListener('click', () => setView('ost'));
@@ -243,7 +246,7 @@ wireExports({
 });
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

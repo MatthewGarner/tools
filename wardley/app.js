@@ -11,11 +11,14 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const EXAMPLES = [
@@ -89,7 +92,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!model.components.size){
     layout = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No components yet — write one like “Streak engine @ custom”.'
       : 'Start typing — or load an example.') + '</p>';
@@ -97,7 +100,7 @@ function doRefresh(){
   } else {
     layout = layoutMap(model);
     const svg = activeRender();
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = mapReadout(model, layout).verdict;
   }
   renderWarnings();
@@ -125,7 +128,7 @@ snaps = wireSnapshots({
   makeLabel: () => todayISO() + (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.components.size,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -139,7 +142,7 @@ const ro = new ResizeObserver(() => {
   const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
   if(bucket === sizeBucket) return;
   sizeBucket = bucket;
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   refresh();
 });
 ro.observe($('preview'), {box: 'content-box'});
@@ -307,7 +310,7 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-onThemeChange(() => { lastSvg = ''; refresh(); });
+onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot ---------- */
 (function(){

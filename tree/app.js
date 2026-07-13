@@ -11,10 +11,13 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators, applies, subtreeRange, childLineFor} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 
 const EXAMPLES = [
@@ -55,7 +58,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!model.root){
     results = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No tree yet — add an indented option or two.'
       : 'Start typing — or load an example.') + '</p>';
@@ -63,7 +66,7 @@ function doRefresh(){
   } else {
     results = evaluate(model);
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true});
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = treeVerdict(model, results);
   }
   renderWarnings();
@@ -181,7 +184,7 @@ wireExports({
 });
 
 /* ---------- theme change ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- boot ---------- */
