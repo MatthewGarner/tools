@@ -30,7 +30,7 @@ console.log('real WebKit', browser.version(), '\n');
 
 for(const theme of ['light', 'dark']){
   const ctx = await browser.newContext({...devices['iPhone 13'],
-    colorScheme: theme === 'dark' ? 'dark' : 'light'});
+    colorScheme: theme === 'dark' ? 'dark' : 'light', reducedMotion: 'reduce'});
   for(const [base, path] of TOOLS){
     const page = await ctx.newPage();
     const errs = [], csp = [];
