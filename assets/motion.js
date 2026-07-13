@@ -50,24 +50,59 @@ export function revealIn(container, spec = {}, onPlay){
   container._moIO = observeFullyInView(container, play);
 }
 
-/* Fire cb the moment the whole element is in the viewport — or, if it's taller
-   than the viewport, when it fills it (as-seen-as-it-can-be). Fires on load,
-   scroll, or tab-visible alike. Horizontal panning is ignored (a wide diagram
-   is "seen" even when it pans). Falls back to firing immediately if there's no
-   IntersectionObserver. */
+/* Fire cb once the element is as fully in view as the viewport allows: the whole
+   thing if it fits, or filling the viewport if it's taller. Horizontal panning is
+   ignored (a wide diagram is "seen" even when it pans).
+
+   Liveness is the hard part, and getting it wrong ships blank boards (2026-07-13:
+   map/gauge/cycles on a laptop, five more on a phone). Two rules keep content from
+   ever being stranded at opacity 0:
+     - Geometry is measured on every scroll/resize frame, not inferred from IO
+       threshold crossings. A crossing list only samples the ratios it happens to
+       cross, so a normal scroll can skip clean over the fully-in-view band and the
+       reveal never fires. IO is kept purely as the cheap "it's near the viewport"
+       trigger.
+     - An element can be permanently UNABLE to satisfy the gate — a board below the
+       fold on a page with nothing left to scroll. So once it has been mostly on
+       screen for a moment, it plays anyway. The user is looking at it; a late
+       reveal beats an invisible one. It still never plays while off-screen, which
+       is the promise that matters. */
+const MOSTLY = 0.6, DWELL = 420;   // ≥60% of what the viewport could show, for 420ms
 function observeFullyInView(el, cb){
-  if(typeof IntersectionObserver === 'undefined'){ cb(); return null; }
-  const io = new IntersectionObserver((entries) => {
-    for(const e of entries){
-      const b = e.boundingClientRect, vp = e.rootBounds;
-      if(!vp) continue;
-      const fitsInside = b.top >= vp.top - 1 && b.bottom <= vp.bottom + 1;   // whole element in view
-      const fillsView = b.top <= vp.top + 1 && b.bottom >= vp.bottom - 1;    // taller than viewport
-      if(e.isIntersecting && (fitsInside || fillsView)){ io.disconnect(); cb(); return; }
-    }
-  }, {threshold: [0, 0.25, 0.5, 0.75, 1]});
-  io.observe(el);
-  return io;
+  let done = false, timer = 0, queued = false;
+  const fire = () => { if(done) return; done = true; stop(); cb(); };
+  const stop = () => {
+    clearTimeout(timer); timer = 0;
+    io && io.disconnect(); ro && ro.disconnect();
+    removeEventListener('scroll', schedule, true); removeEventListener('resize', schedule);
+  };
+  /* seen = the visible fraction of the most this viewport could ever show of it */
+  const seen = () => {
+    const r = el.getBoundingClientRect();
+    const vh = innerHeight || document.documentElement.clientHeight;
+    const vis = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    const most = Math.min(r.height, vh);                 // fits ⇒ its height; taller ⇒ the viewport
+    return (r.height <= 0 || vis <= 0 || most <= 0) ? 0 : vis / most;
+  };
+  const check = () => {
+    queued = false;
+    if(done) return;
+    const ratio = seen();
+    if(ratio >= 1 - 0.002) return fire();               // as fully in view as it can be → now
+    if(ratio >= MOSTLY){ if(!timer) timer = setTimeout(fire, DWELL); }   // can't fill the fold → soon
+    else { clearTimeout(timer); timer = 0; }            // off-screen (or barely on) → stay hidden
+  };
+  const schedule = () => { if(!queued && !done){ queued = true; requestAnimationFrame(check); } };
+  const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(schedule, {threshold: [0, 0.25, 0.5, 0.75, 1]}) : null;
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+  if(io) io.observe(el);
+  addEventListener('scroll', schedule, {passive: true, capture: true});   // capture: catches scrolls in any pane
+  addEventListener('resize', schedule);
+  /* an element armed while it has no box — a view behind a tab (bets Board⇄Quadrant,
+     premortem's phases) — gets neither scroll nor resize when it's finally shown */
+  ro && ro.observe(el);
+  schedule();                                            // and settle the load state
+  return {disconnect: stop};
 }
 
 /* FLIP: capture keyed rects before the swap; after, invert+release. Two-pass
