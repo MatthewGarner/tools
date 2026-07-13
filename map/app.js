@@ -6,7 +6,7 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -219,13 +219,7 @@ attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-for(const ex of EXAMPLES){
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = ex.name;
-  b.addEventListener('click', () => editor.setText(ex.src));
-  $('chips').appendChild(b);
-}
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- saved ---------- */
 const SAVED_KEY = 'map-saved';

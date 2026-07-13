@@ -39,3 +39,17 @@
 @media (pointer: coarse){
   .crumb{padding:10px 12px;margin:-10px 0 2px -12px}
 }
+/* chip-row lead label, warning list, and saved-item chips — extracted
+   2026-07-13 from per-tool copies (byte-identical in 6-14 places; .savedchip is
+   the CSS companion to the already-shared saved-items.js). NB the .chips row
+   container stays per-tool: it has genuine margin variants a shared rule would
+   cascade-override. */
+.chips .lead{font-size:12.5px;color:var(--muted)}
+#warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
+.savedchip{display:inline-flex;align-items:stretch;border:1px solid var(--border);
+  border-radius:999px;overflow:hidden}
+.savedchip button{border:none;background:none;color:var(--ink);cursor:pointer;
+  font-family:inherit;font-size:12.5px;padding:4px 6px 4px 12px}
+.savedchip button:hover{color:var(--accent-ink)}
+.savedchip .chipdel{padding:4px 10px 4px 4px;color:var(--muted)}
+.savedchip .chipdel:hover{color:var(--err)}
