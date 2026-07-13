@@ -271,3 +271,12 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
   assertClean(renderBoard(doc, new Date()), 'premortem-board');
   assertClean(renderBoard(doc, new Date(), board[1].id), 'premortem-board-promoting');
 });
+
+test('poster composer escapes hostile verdict/name/metric strings', async () => {
+  const {posterSvg} = await import('../assets/poster.js');
+  const chart = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120"><rect width="200" height="120" fill="#fff"/></svg>';
+  const out = posterSvg({chart, verdict: EVIL[0], name: EVIL[1], date: '2026-07-13',
+    metrics: [EVIL[2], EVIL[3], EVIL[4]], accent: '#0a6c94',
+    colors: {...ctx.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctx.measure});
+  assertClean(out, 'poster');
+});
