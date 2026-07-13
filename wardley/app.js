@@ -11,11 +11,14 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const EXAMPLES = [
@@ -97,7 +100,7 @@ function doRefresh(){
   } else {
     layout = layoutMap(model);
     const svg = activeRender();
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = mapReadout(model, layout).verdict;
   }
   renderWarnings();

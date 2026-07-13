@@ -15,11 +15,14 @@ import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
 import {solutionMenu} from './app-menu.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 
 const EXAMPLES = [
@@ -92,7 +95,7 @@ function doRefresh(){
   } else {
     projection = project(model);
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);

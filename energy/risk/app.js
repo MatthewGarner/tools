@@ -10,9 +10,12 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify}
 import {wireExports} from '../../assets/exports.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
+import {mountMotion} from "../../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 const EXAMPLES = [
   {name: 'Route to market', src:
@@ -66,7 +69,7 @@ function doRefresh(){
   } else {
     if(focusIdx !== null && focusIdx >= sim.rows.length) focusIdx = null;
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = riskVerdict(sim, model, focusIdx);
   }
   renderWarnings();

@@ -10,9 +10,12 @@ import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 const ctx = () => ({colors: themeColors(), measure});
 const encodeState = obj => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 const relay = createRelay();
@@ -141,7 +144,7 @@ async function initCompose(hash){
       out = renderOverlay(model, stats, ctx());
       head = verdict(stats);
     }
-    if(out !== lastOut){ pv.innerHTML = out; lastOut = out; }
+    paint(out, REVEAL); lastOut = out;
     $('revealhead').textContent = head;
     renderWarnings();
     $('startbtn').disabled = !model.questions.length;

@@ -25,6 +25,9 @@ export function revealIn(container, spec = {}, onPlay){
     onceEnd(el, () => clean(el, 'mo-draw'));
   });
   const drawnSet = new Set(drawn);
+  // when hero strokes draw, hold the fades back ~0.4s so the draw leads; when
+  // there's nothing to draw, start the fades immediately (no blank pause).
+  container.style.setProperty('--mo-fade-base', drawn.length ? '.4s' : '0s');
   const hold = spec.hold ? new Set(svg.querySelectorAll(spec.hold)) : new Set();
   const kids = [...svg.children].filter(el => el.nodeName !== 'defs' && el.nodeName !== 'style');
   // the first full-bleed <rect fill> (no rx) is the backdrop — it appears

@@ -97,6 +97,30 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
   await page.close();
 }
 
+/* ---- rollout: every tool reveals in view + settles to its authored state ----
+   draw tools (tree/why) draw; fade tools reveal; none stuck hidden; no errors.
+   (energy tools reached via /energy/<tool>/ on the same base, like smoke.) */
+for(const [tool, path, container, draws] of [
+  ['tree', '/tree/', '#preview', true], ['why', '/why/', '#preview', true],
+  ['roadmap', '/roadmap/', '#preview', false], ['map', '/map/', '#preview', false],
+  ['bets', '/bets/', '#preview', false], ['gauge', '/gauge/', '#preview', false],
+  ['wardley', '/wardley/', '#preview', false], ['risk', '/energy/risk/', '#preview', false],
+  ['cycles', '/energy/cycles/', '#preview', false], ['intraday', '/energy/intraday/', '#pricewrap', false],
+]){
+  const {page, errors} = await open(path, {viewport: {width: 1200, height: 800}});
+  await page.$eval(container, el => el.scrollIntoView({block: 'center'})).catch(() => {});
+  await page.waitForFunction(s => document.querySelector(s)?.classList.contains('mo-go'), container, {timeout: 3000}).catch(() => {});
+  if(draws) check(tool + ': draws hero strokes in view (.mo-draw >= 1)', await $count(page, container + ' .mo-draw') >= 1);
+  check(tool + ': reveal plays in view (.mo-go)', await hasGo(page, container));
+  await page.waitForTimeout(1100);
+  // no top-level SVG child is stuck at opacity 0 (a reveal that never completed)
+  const stuck = await page.evaluate(s => { const svg = document.querySelector(s + ' svg');
+    return svg ? [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length : 0; }, container);
+  check(tool + ': nothing stuck hidden after settle', stuck === 0);
+  check(tool + ': no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const r of results) console.log(r);
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

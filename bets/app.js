@@ -14,6 +14,8 @@ import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -22,6 +24,7 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -115,7 +118,7 @@ function doRefresh(){
   } else {
     sim = simulate(model);
     const svg = activeRender(false);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL); lastSvg = svg;
     $('verdict').textContent = verdictCopy(sim.portfolio, auditCounts(sim));
   }
   renderWarningList($('warns'), model.warnings);

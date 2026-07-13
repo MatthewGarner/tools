@@ -12,10 +12,13 @@ import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {mountMotion} from "../assets/motion.js";
+import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
+const paint = mountMotion($("preview"));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -125,7 +128,7 @@ function doRefresh(){
   } else {
     const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: renderWidth()});
     if(svg !== lastSvg){
-      pv.innerHTML = svg;
+      paint(svg, REVEAL);
       lastSvg = svg;
       if(pendingFlip){ flipAnimate(pendingFlip); pendingFlip = null; }
     }
