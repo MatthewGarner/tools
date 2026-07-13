@@ -96,7 +96,8 @@ function observeFullyInView(el, cb){
      a viewport measurement only: it can't see an ancestor's overflow clip, so a
      container scrolled out of its own scrolling pane still reads as "visible". IO
      CAN see that (its intersection rect is clipped by the ancestor chain), so its
-     isIntersecting is kept as a veto below. */
+     isIntersecting is kept as a veto below — and the arm-time check is held one
+     frame so IO has reported before the veto is first consulted. */
   const seen = () => {
     const r = el.getBoundingClientRect();
     const vh = innerHeight || document.documentElement.clientHeight;
@@ -125,7 +126,13 @@ function observeFullyInView(el, cb){
   /* an element armed while it has no box — a view behind a tab (bets Board⇄Quadrant,
      premortem's phases) — gets neither scroll nor resize when it's finally shown */
   ro && ro.observe(el);
-  schedule();                                            // and settle the load state
+  /* Settle the load state — but a frame late, ON PURPOSE. rAF callbacks run BEFORE
+     the frame's intersection step, so a plain schedule() here would run the first
+     check with clipped still null; a clipped-but-rect-fully-visible element would
+     then fire immediately and play its reveal unseen, straight past the veto. One
+     extra frame lets IO deliver its initial entry first. This can only ever DELAY
+     the reveal by a frame, never withhold it — check() still runs unconditionally. */
+  if(io) requestAnimationFrame(schedule); else schedule();
   return {disconnect: stop};
 }
 
