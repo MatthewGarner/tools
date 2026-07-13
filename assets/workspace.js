@@ -82,5 +82,11 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   return {
     collapsed: () => workspace.classList.contains('collapsed'),
     setCollapsed,
+    applyZoom,                          // run synchronously post-swap so a FLIP reads final-scale rects
+    scale: () => {                      // MEASURED effective scale (fit has no numeric zoom)
+      const svg = svgEl(); if(!svg) return 1;
+      const vbw = svg.viewBox.baseVal.width || naturalWidth(svg);
+      return vbw ? svg.getBoundingClientRect().width / vbw : 1;
+    },
   };
 }

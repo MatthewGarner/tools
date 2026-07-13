@@ -8,6 +8,8 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
+import {mountMotion} from '../assets/motion.js';
+import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -67,7 +69,9 @@ function doRefresh(){
     $('verdict').textContent = '';
   } else {
     const svg = activeRender(false, true);
-    if(svg !== lastSvg){ pv.innerHTML = svg; lastSvg = svg; }
+    paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
+    lastSvg = svg;
+    motionOverride = undefined;
     $('verdict').textContent = timelineReadout(model, model.today ?? todayDay());
   }
   renderWarnings();
@@ -102,6 +106,8 @@ const ws = initWorkspace({
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
+const paint = mountMotion($('preview'));   // reveal on load, zoom-scaled FLIP on edit
+let motionOverride;                         // 'none' for theme/relayout re-renders
 
 attachEditInPlace($('preview'), {
   kinds: {
@@ -201,7 +207,7 @@ function panToToday(){
 new MutationObserver(panToToday).observe($('preview'), {childList: true});
 
 /* ---------- theme ---------- */
-onThemeChange(() => { lastSvg = ''; refresh(); });
+onThemeChange(() => { motionOverride = 'none'; paint.reset(); lastSvg = ''; refresh(); });
 
 /* ---------- boot ---------- */
 (function(){
