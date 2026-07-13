@@ -108,11 +108,16 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .regplane{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
 .regsubject{font-family:Charter,Georgia,"Times New Roman",serif;font-size:16px;color:var(--ink)}
 .registerwrap{overflow-x:auto;margin-top:4px}
+/* columns stay tight (scannable): the metric columns minimise to content and
+   group tight-right, RISK caps at a reading measure. The table sizes to content
+   and shares its LEFT edge with the header zone + portfolio verdict so the three
+   read as one artefact; residual right space is benign panel background, not the
+   sparse inter-column gaps the old width:100% produced */
 .register{width:auto;min-width:560px;border-collapse:collapse;font-size:13.5px}
+.register td:nth-child(n+3),.register th:nth-child(n+3){width:1px;white-space:nowrap}
 .register .rexp{min-width:184px}
-.register th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
+.register th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 16px;border-bottom:1px solid var(--border)}
 .register td{padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
-.register th{padding:6px 16px}
 .register td:first-child,.register th:first-child{padding-left:2px}
 .rnum{font-family:ui-monospace,Menlo,monospace;color:var(--muted)}
 .rtext{max-width:58ch;overflow-wrap:anywhere}
@@ -169,7 +174,7 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
   .toolbar .viewtoggle{flex:1;display:flex;margin-right:0}
   .viewtoggle .vtseg{flex:1;padding:6px 8px;text-align:center}
   .ulabel{display:none}
-  #undo{min-width:44px;justify-content:center}
+  #undo{min-width:44px;display:inline-flex;align-items:center;justify-content:center}
   /* action row stacks: the mitigation gets its own full-width row, owner + × below */
   .acitem input[data-action="text"]{flex-basis:100%}
   .acitem input[data-action="owner"]{flex:1 1 auto}
