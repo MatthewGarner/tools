@@ -306,7 +306,8 @@ for(const [k, src] of Object.entries(docs)){
   const moState = mk(DEFAULT_PARAMS);
   const moResult = moDispatch(moState.generators, moState.demand);
   const moBare = renderStack(moState, mctx, {forExport: true, labelCollide: 'drop', bare: true});
-  variants['merit-order-poster'] = moPoster({chart: moBare, verdict: moVerdict(moResult, moState),
+  const moFull = moVerdict(moResult, moState);
+  variants['merit-order-poster'] = moPoster({chart: moBare, verdict: (moFull.match(/^.*?\.(?=\s|$)/) || [moFull])[0],
     name: 'Merit order', date: '2026-07-13',
     metrics: ['clears £' + Math.round(moResult.clearingPrice) + '/MWh', 'demand ' + moState.demand + ' GW'],
     accent: '#C05621', colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});

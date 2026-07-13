@@ -419,8 +419,9 @@ function boot(){
   function posterData(){
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
+    const full = buildVerdict(result, cs);          // headline + teaching clauses
     return {
-      verdict: buildVerdict(result, cs),
+      verdict: (full.match(/^.*?\.(?=\s|$)/) || [full])[0],   // hero = the quotable headline only
       name: 'Merit order',
       metrics: ['clears £' + Math.round(result.clearingPrice) + '/MWh',
                 result.marginalName ? 'marginal: ' + result.marginalName : null,

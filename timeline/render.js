@@ -141,7 +141,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const readoutY = plotBottom + 26 * S;
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15) * S : 0;
   const W = Math.round(plotX + plotW + T.pad * S);
-  const H = Math.round(readoutY + 24 * S + droppedH + T.pad * S);
+  const H = Math.round((bare ? plotBottom : readoutY + 24 * S) + droppedH + T.pad * S);
 
   const s = [];
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
