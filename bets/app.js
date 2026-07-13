@@ -11,6 +11,7 @@ import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill} from './ed
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -260,17 +261,35 @@ function renderSaved(){
 function svgString(){
   return (hasBets(model) && sim) ? activeRender(true) : null;
 }
+const isoToday = () => new Date().toISOString().slice(0, 10);
+function posterData(){
+  const counts = auditCounts(sim);
+  const p = sim.portfolio;
+  const kills = counts.kill || 0;
+  return {
+    verdict: verdictCopy(p, counts),
+    name: model.title || 'Bets board',
+    metrics: [
+      'net EV ' + (p.p50 >= 0 ? '+' : '') + Math.round(p.p50),
+      'P(loses) ' + Math.round(p.pLoss * 100) + '%',
+      kills ? kills + (kills === 1 ? ' bet unfoldable' : ' bets unfoldable') : null,
+    ].filter(Boolean),
+  };
+}
+function posterString(){
+  if(!(hasBets(model) && sim)) return null;
+  return posterSvg({chart: activeRender(true), ...posterData(), date: isoToday(),
+    accent: themeColors().accent, colors: themeColors(), measure});
+}
 function slug(){
   return slugify(model && model.title, 'bets');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng'), copymd: $('copymd')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlposter: $('dlposter'), copypng: $('copypng'), copymd: $('copymd')},
+  /* SVG / PNG / Copy PNG = the clean wide board (deck-ready as-is); the Poster
+     button wraps it in the shared poster frame (hero verdict + footer). */
   getSvg: svgString,
-  /* render.js has no separate slide-proportions layout yet (unlike roadmap/
-     wardley/tree) — the board's ledger shape is already deck-ready, so this
-     is the same wide render for now; revisit if a distinct slide crop earns
-     its keep. */
-  getSvgSlide: svgString,
+  getPoster: posterString,
   getMarkdown: () => (hasBets(model) && sim) ? markdown(model, sim, location.href) : null,
   slug,
 });

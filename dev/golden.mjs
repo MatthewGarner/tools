@@ -348,6 +348,14 @@ for(const [k, src] of Object.entries(docs)){
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
 
+  const {posterSvg: betsPoster} = await import('../assets/poster.js');
+  const {verdictCopy: betsVerdict} = await import('../bets/engine.js');
+  const bCounts = {kill: 1};
+  variants['bets-poster'] = betsPoster({chart: renderBoard(bm, bsim, ctxBase),
+    verdict: betsVerdict(bsim.portfolio, bCounts), name: 'Q3 product portfolio', date: '2026-07-13',
+    metrics: ['net EV ' + Math.round(bsim.portfolio.p50), 'P(loses) ' + Math.round(bsim.portfolio.pLoss * 100) + '%'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
+
   /* view 2: risk-return quadrant (read-only; no compare wiring) */
   const {renderQuadrant} = await import('../bets/render-quadrant.js');
   variants['bets-quadrant'] = renderQuadrant(bm, bsim, ctxBase);
