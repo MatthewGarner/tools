@@ -1,5 +1,5 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
-import {parse} from './parse.js';
+import {parse, fmtDay} from './parse.js';
 import {render, toMarkdown, timelineReadout} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
@@ -7,6 +7,7 @@ import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLi
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -45,11 +46,11 @@ function currentDiff(){
   if(!cur || !model || !model.items.length) return null;
   return timelineDiffView(timelineDiff(cur.model, model), cur.label);
 }
-function ctx(slide){
-  return {colors: themeColors(), measure, slide, dark: isDark(), today: todayDay()};
+function ctx(slide, bare = false){
+  return {colors: themeColors(), measure, slide, bare, dark: isDark(), today: todayDay()};
 }
-function activeRender(slide, edit = false){
-  return render(model, ctx(slide), currentDiff(), {edit});
+function activeRender(slide, edit = false, bare = false){
+  return render(model, ctx(slide, bare), currentDiff(), {edit});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -141,16 +142,33 @@ for(const ex of EXAMPLES){
 }
 
 /* ---------- exports ---------- */
-function svgString(slide){
-  return (model && model.items.length) ? activeRender(slide) : null;
+function svgString(slide, bare = false){
+  return (model && model.items.length) ? activeRender(slide, false, bare) : null;
+}
+function posterData(){
+  const today = model.today ?? todayDay();
+  const items = model.items;
+  const lastP90 = items.length ? Math.max(...items.map(i => i.p90)) : today;
+  return {
+    verdict: timelineReadout(model, today),
+    name: model.title || 'Milestone timeline',
+    metrics: [items.length + (items.length === 1 ? ' milestone' : ' milestones'),
+              'last by ' + fmtDay(lastP90, {month: true})],
+  };
+}
+function posterString(){
+  if(!(model && model.items.length)) return null;
+  return posterSvg({chart: svgString(true, true), ...posterData(),
+    date: todayISO(), accent: model.accent || themeColors().accent,
+    colors: themeColors(), measure});
 }
 function slug(){
   return slugify(model.title, 'timeline');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
-  getSvg: () => svgString(false),
-  getSvgSlide: () => svgString(true),
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlposter: $('dlposter'), copypng: $('copypng')},
+  getSvg: () => svgString(true),
+  getPoster: posterString,
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

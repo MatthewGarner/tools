@@ -70,6 +70,8 @@ export function timelineReadout(model, today){
 
 export function render(model, ctx, diff = null, {edit = false} = {}){
   const {measure, slide = false, dark = false} = ctx;
+  const bare = !!ctx.bare;            // poster-embed: drop chrome the frame owns
+  const hasTitle = !!model.title && !bare;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -128,7 +130,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     laneMaxRightX.set(lane, extent);
   }
 
-  const headerH = ((model.title ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0)) * S;
+  const headerH = ((hasTitle ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0)) * S;
   let laneY = headerH + T.tickH * S;
   const laneTop = new Map();
   for(const lane of model.lanes){
@@ -139,19 +141,19 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const readoutY = plotBottom + 26 * S;
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15) * S : 0;
   const W = Math.round(plotX + plotW + T.pad * S);
-  const H = Math.round(readoutY + 24 * S + droppedH + T.pad * S);
+  const H = Math.round((bare ? plotBottom : readoutY + 24 * S) + droppedH + T.pad * S);
 
   const s = [];
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
-  if(model.title){
+  if(hasTitle){
     s.push('<text x="' + T.pad * S + '" y="' + T.titleY * S + '" font-family="' + F.serif +
       '" font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' +
       esc(model.title) + '</text>');
   }
-  s.push(txt(W - T.pad * S, (model.title ? T.titleY : 14) * S, fmtDay(today), T.dateSize * S,
+  if(!bare) s.push(txt(W - T.pad * S, (hasTitle ? T.titleY : 14) * S, fmtDay(today), T.dateSize * S,
     C.muted, {anchor: 'end'}));
   if(diff){
-    s.push(txt(T.pad * S, (model.title ? T.titleY + 19 : 14) * S, diff.sinceLine, T.sinceSize * S,
+    s.push(txt(T.pad * S, (hasTitle ? T.titleY + 19 : 14) * S, diff.sinceLine, T.sinceSize * S,
       C.accent, {weight: 600}));
   }
 
@@ -274,7 +276,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       ' x="' + (W - T.pad * S) + '" y="' + readoutY + '" text-anchor="end" font-size="' +
       (T.labelSize * S) + '" fill="' + C.muted + '">＋ Add milestone</text>');
   }
-  if(bits.length){
+  if(!bare && bits.length){
     s.push('<text x="' + T.pad * S + '" y="' + readoutY + '" font-family="' + F.serif +
       '" font-size="' + T.readoutSize * S + '" font-weight="600" fill="' + C.ink + '">' +
       esc(bits.join('  ')) + '</text>');

@@ -14,6 +14,7 @@ export function themeColors(){
   const cs = getComputedStyle(document.documentElement);
   const g = n => cs.getPropertyValue(n).trim();
   return {card: g('--card'), border: g('--border'), ink: g('--ink'), muted: g('--muted'),
+    grid: g('--grid'),
     accent: g('--accent'), accentInk: g('--accent-ink'), bg: g('--bg'), err: g('--err'), track: g('--track'),
     status: {done: g('--st-done'), doing: g('--st-doing'), risk: g('--st-risk'), blocked: g('--st-blocked')},
     // contrast-boosted variants for pill TEXT over the 12% tint (WCAG 4.5:1) — the fill still uses `status`

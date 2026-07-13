@@ -234,6 +234,14 @@ for(const [k, src] of Object.entries(docs)){
   variants['timeline-slide'] = trender(tm, {...tctx, slide: true});
   variants['timeline-diff'] = trender(tm, tctx,
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
+
+  const {posterSvg} = await import('../assets/poster.js');
+  const {timelineReadout} = await import('../timeline/render.js');
+  const tPosterCtx = {...tctx, slide: true, bare: true, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}};
+  variants['timeline-poster'] = posterSvg({chart: trender(tm, tPosterCtx),
+    verdict: timelineReadout(tm, 20640), name: 'T — programme', date: '2026-07-13',
+    metrics: ['4 milestones', 'last by Jun 2027'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 
 /* /risk fixtures (seeded engine → deterministic) */
@@ -291,6 +299,18 @@ for(const [k, src] of Object.entries(docs)){
   variants['merit-order-negative'] = renderStack(mk(paramsFor('gbToday', 'negative')), mctx, mopts);
   variants['merit-order-fes-ht'] = renderStack(mkw('ht', paramsFor('ht', null)), mctx, mopts);
   variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, mopts);
+
+  const {posterSvg: moPoster} = await import('../assets/poster.js');
+  const {buildVerdict: moVerdict} = await import('../energy/merit-order/render.js');
+  const {dispatch: moDispatch} = await import('../energy/merit-order/engine.js');
+  const moState = mk(DEFAULT_PARAMS);
+  const moResult = moDispatch(moState.generators, moState.demand);
+  const moBare = renderStack(moState, mctx, {forExport: true, labelCollide: 'drop', bare: true});
+  const moFull = moVerdict(moResult, moState);
+  variants['merit-order-poster'] = moPoster({chart: moBare, verdict: (moFull.match(/^.*?\.(?=\s|$)/) || [moFull])[0],
+    name: 'Merit order', date: '2026-07-13',
+    metrics: ['clears £' + Math.round(moResult.clearingPrice) + '/MWh', 'demand ' + moState.demand + ' GW'],
+    accent: '#C05621', colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 
 /* /intraday fixtures (deterministic by construction) */
@@ -339,6 +359,14 @@ for(const [k, src] of Object.entries(docs)){
   const bm = bparse(bdoc), bsim = simulate(bm);
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
+
+  const {posterSvg: betsPoster} = await import('../assets/poster.js');
+  const {verdictCopy: betsVerdict} = await import('../bets/engine.js');
+  const bCounts = {kill: 1};
+  variants['bets-poster'] = betsPoster({chart: renderBoard(bm, bsim, ctxBase),
+    verdict: betsVerdict(bsim.portfolio, bCounts), name: 'Q3 product portfolio', date: '2026-07-13',
+    metrics: ['net EV ' + Math.round(bsim.portfolio.p50), 'P(loses) ' + Math.round(bsim.portfolio.pLoss * 100) + '%'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 
   /* view 2: risk-return quadrant (read-only; no compare wiring) */
   const {renderQuadrant} = await import('../bets/render-quadrant.js');

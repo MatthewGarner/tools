@@ -2,6 +2,7 @@
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
 import {chromium} from 'playwright';
+import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {trackErrors} from './_harness.mjs';
 
@@ -33,6 +34,22 @@ async function svgDecodes(page, selector){
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     });
   }, selector);
+}
+
+/* The Poster export (#dlposter) runs the full production path: getPoster()
+   composes the poster SVG, svgToCanvas decodes it as an <img> (nested <svg> +
+   <pattern>) and toBlob rasterizes it. A captured PNG download with real bytes
+   proves the whole chain — the decode gap that silently killed exports twice. */
+async function posterDownloads(page){
+  try{
+    const [dl] = await Promise.all([
+      page.waitForEvent('download', {timeout: 6000}),
+      page.locator('#dlposter').click(),
+    ]);
+    if(!/-poster\.png$/.test(dl.suggestedFilename())) return false;
+    const buf = readFileSync(await dl.path());
+    return buf.length > 4000 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+  }catch(e){ return false; }
 }
 
 /* ---- landing ---- */
@@ -281,6 +298,7 @@ for(const theme of ['light', 'dark']){
   check('merit-order(' + theme + '): storage rendered below gas (data-storage marker)',
     await page.locator('svg g[data-storage]').count() >= 1);
   check('merit-order(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#chartwrap svg'));
+  check('merit-order(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   // slider drag: nudge carbon; the SVG must re-render without error
   await page.locator('#carbon').evaluate(el => {
     el.value = '90'; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true}));
@@ -742,6 +760,7 @@ for(const theme of ['light', 'dark']){
   const backSvg = await page.locator('#preview svg').innerHTML();
   check('bets(' + theme + '): toggling back to Board restores the ledger',
     backSvg.includes('Referral flow v2') && backSvg.includes('PORTFOLIO'));
+  check('bets(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('bets(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -758,6 +777,7 @@ for(const theme of ['light', 'dark']){
   check('timeline(' + theme + '): whiskers + today line', /data-ms="whisker"/.test(svg) && /data-today/.test(svg));
   check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('timeline(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
