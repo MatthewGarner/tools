@@ -13,6 +13,8 @@ import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-comm
 import {wireExports} from '../../assets/exports.js';
 import {posterSvg} from '../../assets/poster.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
+import {mountMotion} from '../../assets/motion.js';
+import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
 
@@ -22,6 +24,7 @@ function boot(){
   const $ = id => document.getElementById(id);
   const chartwrap = $('chartwrap');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const paint = mountMotion(chartwrap);   // owns the memoized swap + reveal/FLIP
   const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const catalogue = () => WORLDS[state.world].catalogue;
@@ -30,7 +33,7 @@ function boot(){
 
   /* ---- state ---- */
   let state = {world: 'gbToday', condition: null, params: {...WORLDS.gbToday.params}, adv: {}};
-  let lastSvg = '', hashTimer = null;
+  let hashTimer = null;
   let wasNegative = false, lastMarginalName;
   let dragging = false;
 
@@ -308,27 +311,6 @@ function boot(){
   });
 
   /* ---- FLIP + flash: settle-only, reduced-motion gated ---- */
-  function measurePlantRects(){
-    const map = new Map();
-    for(const g of chartwrap.querySelectorAll('g[data-plant]')) map.set(g.dataset.plant, g.getBoundingClientRect());
-    return map;
-  }
-  function flipAnimate(oldRects){
-    for(const g of chartwrap.querySelectorAll('g[data-plant]')){
-      const old = oldRects.get(g.dataset.plant);
-      if(!old) continue;
-      const now = g.getBoundingClientRect();
-      const dx = old.left - now.left, dy = old.top - now.top;
-      if(Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-      g.style.transition = 'none';
-      g.style.transform = `translate(${dx}px,${dy}px)`;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        g.style.transition = '';
-        g.style.transform = '';
-        g.addEventListener('transitionend', () => { g.style.transition = ''; }, {once: true});
-      }));
-    }
-  }
   function flashEl(el){
     if(!el) return;
     el.classList.remove('flash');
@@ -378,18 +360,17 @@ function boot(){
   }
 
   /* ---- the refresh loop ---- */
-  function render(settle){
-    const animate = settle && !reducedMotion.matches;
-    const oldRects = animate ? measurePlantRects() : null;
-
+  function render(settle, motionMode){
+    // settle=false (mid-drag) → no motion; settle=true → reveal (first) then FLIP.
+    // motionMode forces 'none' for theme/relayout re-renders.
+    const mode = motionMode !== undefined ? motionMode : (settle ? undefined : 'none');
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
     const rw = renderWidth();
     const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});
-    if(svg !== lastSvg){   // skip the DOM rewrite (+ hit-rect reparent) when the render is byte-identical
-      lastSvg = svg;
-      chartwrap.innerHTML = svg;
-      chartwrap.classList.toggle('mo-narrow', rw !== undefined);   // drop the min-width pan floor when rendering narrow
+    const changed = paint(svg, REVEAL, {flipAttr: 'data-plant', mode});   // owns memo + reveal/FLIP
+    if(changed){   // a real swap — reparent the hit-rect + drop the pan floor when narrow
+      chartwrap.classList.toggle('mo-narrow', rw !== undefined);
       chartwrap.appendChild(hitRect);
       positionHitRect();
     }
@@ -398,11 +379,8 @@ function boot(){
     syncChips();
     $('verdict').textContent = buildVerdict(result, cs);
 
-    if(animate){
-      if(oldRects) flipAnimate(oldRects);
-      if(lastMarginalName !== undefined && result.marginalName !== lastMarginalName){
-        flashEl(chartwrap.querySelector('g[data-plant="' + result.marginalName + '"]'));
-      }
+    if(settle && !reducedMotion.matches && lastMarginalName !== undefined && result.marginalName !== lastMarginalName){
+      flashEl(chartwrap.querySelector('g[data-plant="' + result.marginalName + '"]'));
     }
     if(!settle && !reducedMotion.matches && !wasNegative && result.clearingPrice < 0){
       flashEl(chartwrap.querySelector('.negative-band'));
@@ -446,7 +424,7 @@ function boot(){
   onThemeChange(() => render(false));
 
   /* ---- narrow-bucket resize: re-render (chart + hit-rect) only when the bucket flips ---- */
-  watchNarrowBucket(chartwrap, () => render(true));
+  watchNarrowBucket(chartwrap, () => render(true, 'none'));   // relayout: no reveal/FLIP (positions changed for viewport reasons)
 
   /* ---- boot: URL state (v2), else GB-today defaults ---- */
   const restored = decodeStateV2(readHashState());
