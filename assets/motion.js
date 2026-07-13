@@ -11,9 +11,9 @@ function clean(el, cls){ el.classList.remove(cls); el.style.removeProperty('--mo
 /* Reveal: hero strokes (spec.draw) draw on; the SVG's other top-level children
    fade+settle group-staggered behind them. getTotalLength is a geometry read
    (not a layout reflow). Never dash-draws an already-dashed element. */
-export function revealIn(container, spec = {}){
-  if(motionStill()) return;
-  const svg = container.querySelector('svg'); if(!svg) return;
+export function revealIn(container, spec = {}, onPlay){
+  if(reducedMotion.matches){ if(onPlay) onPlay(); return; }   // instant, no animation, count as revealed
+  const svg = container.querySelector('svg'); if(!svg){ if(onPlay) onPlay(); return; }
   const drawn = (spec.draw ? [...svg.querySelectorAll(spec.draw)] : [])
     .filter(el => el.getTotalLength && !el.getAttribute('stroke-dasharray'))
     .slice(0, 12);
@@ -37,6 +37,34 @@ export function revealIn(container, spec = {}){
       el.classList.add('mo-fade');
       onceEnd(el, () => clean(el, 'mo-fade'));
     });
+  // The animation is applied PAUSED (css: .mo-draw/.mo-fade animation-play-state:
+  // paused). It only plays once the WHOLE element is in view — never off-screen.
+  // Adding .mo-go to the container unpauses. Re-arm disconnects the prior observer.
+  if(container._moIO) container._moIO.disconnect();
+  container.classList.remove('mo-go');
+  let played = false;
+  const play = () => { if(played) return; played = true; container.classList.add('mo-go'); if(onPlay) onPlay(); };
+  container._moIO = observeFullyInView(container, play);
+}
+
+/* Fire cb the moment the whole element is in the viewport — or, if it's taller
+   than the viewport, when it fills it (as-seen-as-it-can-be). Fires on load,
+   scroll, or tab-visible alike. Horizontal panning is ignored (a wide diagram
+   is "seen" even when it pans). Falls back to firing immediately if there's no
+   IntersectionObserver. */
+function observeFullyInView(el, cb){
+  if(typeof IntersectionObserver === 'undefined'){ cb(); return null; }
+  const io = new IntersectionObserver((entries) => {
+    for(const e of entries){
+      const b = e.boundingClientRect, vp = e.rootBounds;
+      if(!vp) continue;
+      const fitsInside = b.top >= vp.top - 1 && b.bottom <= vp.bottom + 1;   // whole element in view
+      const fillsView = b.top <= vp.top + 1 && b.bottom >= vp.bottom - 1;    // taller than viewport
+      if(e.isIntersecting && (fitsInside || fillsView)){ io.disconnect(); cb(); return; }
+    }
+  }, {threshold: [0, 0.25, 0.5, 0.75, 1]});
+  io.observe(el);
+  return io;
 }
 
 /* FLIP: capture keyed rects before the swap; after, invert+release. Two-pass
@@ -65,27 +93,33 @@ export function applyFlip(container, attr, old, {scale = 1} = {}){
   }));
 }
 
-/* One helper owns {lastSvg, mode} + the memoized swap, so per-tool wiring is
-   ~3 lines and the fire-once state machine can't drift. mode: first paint
-   reveals, every paint after flips; pass mode:'none' for theme/relayout;
-   paint.reveal() re-arms a reveal (example load); paint.reset() forces the next
-   paint even if the string repeats (theme re-render). onSwap runs synchronously
-   after the swap, before motion (e.g. timeline applies zoom so applyFlip reads
+/* One helper owns {lastSvg, revealed} + the memoized swap, so per-tool wiring is
+   ~3 lines and the state machine can't drift. The reveal stays ARMED until it
+   actually plays (the element is scrolled fully into view) — so an edit to a
+   below-the-fold diagram before you reach it re-arms rather than loses the
+   reveal. Once played, paints FLIP (on a settle) or plain-swap (mode:'none' for
+   theme/relayout/mid-drag). paint.reveal() re-arms (example load); paint.reset()
+   forces the next paint even if the string repeats. onSwap runs synchronously
+   after the swap, before motion (timeline applies zoom so applyFlip reads
    final-scale rects). */
 export function mountMotion(container){
-  let lastSvg = '', mode = 'reveal';
+  let lastSvg = '', revealed = false;
   function paint(svg, spec = {}, {flipAttr, scale, onSwap, mode: force} = {}){
     if(svg === lastSvg) return;
-    const m = force || mode;
+    if(!revealed){                                       // arm/re-arm until the reveal plays
+      container.innerHTML = svg; lastSvg = svg;
+      if(onSwap) onSwap();
+      revealIn(container, spec, () => { revealed = true; });   // reduced-motion → plays instantly
+      return container;
+    }
+    const m = force || 'flip';                           // revealed: flip on settle, else plain swap
     const flipState = (m === 'flip' && flipAttr) ? captureFlip(container, flipAttr) : null;
     container.innerHTML = svg; lastSvg = svg;
     if(onSwap) onSwap();
-    if(m === 'reveal') revealIn(container, spec);
-    else if(flipState) applyFlip(container, flipAttr, flipState, {scale: (scale ? scale() : 1)});
-    mode = 'flip';
+    if(flipState) applyFlip(container, flipAttr, flipState, {scale: (scale ? scale() : 1)});
     return container;
   }
-  paint.reveal = () => { mode = 'reveal'; };
+  paint.reveal = () => { revealed = false; };
   paint.reset = () => { lastSvg = ''; };
   return paint;
 }
