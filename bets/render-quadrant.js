@@ -277,7 +277,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
       '" stroke="' + it.hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
     marks.push('<line x1="' + r2(it.cx) + '" y1="' + r2(it.vy0) + '" x2="' + r2(it.cx) + '" y2="' + r2(it.vy1) +
       '" stroke="' + it.hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
-    marks.push('<circle cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius) + '" fill="' + it.hue +
+    marks.push('<circle data-key="' + esc(it.name) + '" cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius) + '" fill="' + it.hue +
       '" fill-opacity="0.32" stroke="' + it.hue + '" stroke-width="1.5"/>');
     if(!it.kill) marks.push('<circle cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius + 4) +
       '" fill="none" stroke="' + c.err + '" stroke-width="1.5" stroke-dasharray="3 3"/>');
