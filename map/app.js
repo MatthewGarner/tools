@@ -270,6 +270,7 @@ wireExports({
 /* ---------- drag-to-place: a drop is a text edit ---------- */
 let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, srcEl: null};
+const finePointer = () => matchMedia('(pointer: fine)').matches;   // coarse pointers use the card menu
 function planeCoords(cx, cy){
   const plane = document.querySelector('#preview svg rect[data-plane]');
   if(!plane) return null;
@@ -287,6 +288,7 @@ function endDrag(){
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
 }
 $('preview').addEventListener('pointerdown', e => {
+  if(!finePointer()) return;   // coarse pointers use the card menu's move affordance
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g || e.button !== 0) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
@@ -327,6 +329,9 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
 });
+/* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
+   ghost instead of stranding it until the next pointerup */
+window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
 }, true);

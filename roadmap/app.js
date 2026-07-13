@@ -453,6 +453,9 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
 });
+/* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
+   ghost + dropline instead of stranding them until the next pointerup */
+window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
 }, true);
