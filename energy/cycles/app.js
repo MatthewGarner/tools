@@ -190,7 +190,7 @@ function renderVerdict(){
 function render(){
   const pv = $('preview');
   if(!out){
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (lastText.trim()
       ? 'Missing: ' + model.missing.join(', ') + ' — or load an example.'
       : 'Start typing — or load an example.') + '</p>';
@@ -287,7 +287,7 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

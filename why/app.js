@@ -88,7 +88,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!model.outcomes.length){
     projection = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No tree yet — start with an outcome: line.'
       : 'Start typing — or load an example.') + '</p>';
@@ -122,7 +122,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.outcomes.length,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -137,7 +137,7 @@ function setView(v){
   $('viewmap').classList.toggle('on', v === 'map');
   $('viewost').setAttribute('aria-selected', String(v === 'ost'));
   $('viewmap').setAttribute('aria-selected', String(v === 'map'));
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   refresh();
 }
 $('viewost').addEventListener('click', () => setView('ost'));
@@ -246,7 +246,7 @@ wireExports({
 });
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

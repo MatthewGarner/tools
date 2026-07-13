@@ -61,7 +61,7 @@ function doRefresh(){
   sim = simulate(model);
   const pv = $('preview');
   if(!sim){
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'Add a merchant line — like “merchant: 60..180” — to have something to compare against.'
       : 'Start typing — or load an example.') + '</p>';
@@ -105,7 +105,7 @@ $('preview').addEventListener('click', e => {
   if(!row) return;
   const i = +row.dataset.focus;
   focusIdx = (focusIdx === i) ? null : i;
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   doRefresh();
 });
 /* keyboard equivalent: every [data-focus] row carries tabindex="0" (render.js) */
@@ -116,7 +116,7 @@ $('preview').addEventListener('keydown', e => {
   e.preventDefault();
   const i = +row.dataset.focus;
   focusIdx = (focusIdx === i) ? null : i;
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   doRefresh();
 });
 
@@ -169,7 +169,7 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

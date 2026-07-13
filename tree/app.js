@@ -58,7 +58,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!model.root){
     results = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No tree yet — add an indented option or two.'
       : 'Start typing — or load an example.') + '</p>';
@@ -184,7 +184,7 @@ wireExports({
 });
 
 /* ---------- theme change ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- boot ---------- */

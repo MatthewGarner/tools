@@ -92,7 +92,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!model.components.size){
     layout = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No components yet — write one like “Streak engine @ custom”.'
       : 'Start typing — or load an example.') + '</p>';
@@ -128,7 +128,7 @@ snaps = wireSnapshots({
   makeLabel: () => todayISO() + (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.components.size,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -142,7 +142,7 @@ const ro = new ResizeObserver(() => {
   const bucket = (w && w < NARROW) ? 'narrow' : 'wide';
   if(bucket === sizeBucket) return;
   sizeBucket = bucket;
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   refresh();
 });
 ro.observe($('preview'), {box: 'content-box'});
@@ -310,7 +310,7 @@ function flash(id, msg, ms){
 }
 
 /* ---------- theme ---------- */
-onThemeChange(() => { lastSvg = ''; refresh(); });
+onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot ---------- */
 (function(){

@@ -121,7 +121,7 @@ function doRefresh(){
   renderWarnings(model);
   const pv = $('preview');
   if(!model.items.length){
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
@@ -272,7 +272,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' \u2014 ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.items.length,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 
 /* ---------- saved roadmaps ---------- */
@@ -483,7 +483,7 @@ $('preview').addEventListener('click', e => {
 }, true);
 
 /* ---------- theme change → re-render ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */

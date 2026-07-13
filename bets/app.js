@@ -110,7 +110,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!hasBets(model)){
     sim = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No bets yet — add one under a group heading, e.g. “Search revamp: stake 120, odds 30-50%, payoff 400-900”.'
       : 'Start typing — or load an example.') + '</p>';
@@ -146,7 +146,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => hasBets(model),
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -156,7 +156,7 @@ const ws = initWorkspace({
 
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
-watchNarrowBucket($('preview'), () => { lastSvg = ''; refresh(); });
+watchNarrowBucket($('preview'), () => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
    scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
@@ -174,7 +174,7 @@ $('viewtoggle').addEventListener('click', e => {
   if(!b || b.dataset.view === view) return;
   view = b.dataset.view;
   syncViewToggle();
-  lastSvg = '';
+  lastSvg = ''; paint.reset();
   refresh();
 });
 
@@ -298,7 +298,7 @@ wireExports({
 });
 
 /* ---------- theme ---------- */
-onThemeChange(() => { lastSvg = ''; refresh(); });
+onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot: hash > localStorage > example ---------- */
 (function(){

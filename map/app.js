@@ -125,7 +125,7 @@ function doRefresh(){
   const pv = $('preview');
   if(!hasContent()){
     ro = null;
-    lastSvg = '';
+    lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No map yet — add an item, or a preset: line.'
       : 'Start typing — or load an example.') + '</p>';
@@ -162,7 +162,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => model && model.items.length,
-  onChange(){ lastSvg = ''; refresh(); },
+  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -340,7 +340,7 @@ $('togauge').addEventListener('click', () => {
 });
 
 /* ---------- theme ---------- */
-function rerender(){ lastSvg = ''; refresh(); }
+function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- boot ---------- */
