@@ -16,25 +16,11 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/motion.css">
-<style>
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{
-    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    color:var(--ink);
-    background-color:var(--bg);
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
-                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:26px 26px;
-    padding:44px 20px 60px;
-  }
-  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-  h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
-    letter-spacing:-.01em;margin:0;text-wrap:balance}
-  .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:60ch}
+<style>  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
     box-shadow:var(--shadow);padding:22px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
@@ -74,11 +60,7 @@
   .readcard, .batchcard, .triagecard{overflow:hidden}
   #verdictwrap, #batchwrap, #triagewrap{overflow-x:auto}
   #verdictwrap svg, #batchwrap svg, #triagewrap svg{display:block;width:100%;height:auto;min-width:640px}
-  .actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
   .method{color:var(--muted);font-size:12.5px}
-  footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
-  footer a{color:var(--muted)}
-  footer a:hover{color:var(--accent-ink)}
   @media (pointer: coarse){
     .seg button{min-height:44px;display:inline-flex;align-items:center}
   }

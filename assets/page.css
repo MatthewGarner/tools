@@ -1,0 +1,26 @@
+/* Shared page scaffold — the tool-agnostic page chrome every tool inherits.
+   Linked BEFORE each tool's own style.css, so a tool can still override any
+   rule here. Extracted 2026-07-13 from the per-tool copies (they were
+   byte-identical bar imperceptible drift in .tagline/.actions, converged here).
+   Tokens come from tokens.css; this file assumes it is already linked. */
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:26px 26px;
+  padding:40px 0 40px;
+}
+h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
+  letter-spacing:-.01em;margin:0;text-wrap:balance}
+.tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
+.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--accent-ink)}

@@ -16,26 +16,14 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
-<style>
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{
-    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    color:var(--ink);
-    background-color:var(--bg);
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
-                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:26px 26px;
-    padding:44px 20px 60px;
-  }
-  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+<style>  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
   h1{
     font-family:Charter,Georgia,"Times New Roman",serif;
     font-size:32px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance;
   }
-  .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:56ch}
   .card{
     background:var(--card);border:1px solid var(--border);border-radius:8px;
     box-shadow:var(--shadow);padding:22px;
@@ -100,7 +88,6 @@
   }
   .spark{display:block;width:56px;height:26px}
   .dash{color:var(--muted);text-align:center}
-  .placeholder{color:var(--muted);font-size:14.5px;margin:0}
   #results{display:none}
   /* while the formula is unreadable, ghost the last result so it can't be mistaken for a current answer */
   #results.is-stale{opacity:.32;filter:grayscale(.5);pointer-events:none}
@@ -175,11 +162,7 @@
   .srow .bar{height:100%;background:var(--accent);border-radius:4px;min-width:2px}
   .srow .sp{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;
     color:var(--muted)}
-  .actions{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}
   .method{color:var(--muted);font-size:12.5px}
-  footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
-  footer a{color:var(--muted)}
-  footer a:hover{color:var(--accent-ink)}
   @media (max-width:560px){
     .tiles{grid-template-columns:1fr;gap:8px}
     .tile.mid{order:-1}
