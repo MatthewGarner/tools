@@ -1,16 +1,7 @@
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-.chips .lead{font-size:12.5px;color:var(--muted)}
 #cmhost .cm-editor{min-height:440px}
-.savedchip{display:inline-flex;align-items:stretch;border:1px solid var(--border);
-  border-radius:999px;overflow:hidden}
-.savedchip button{border:none;background:none;color:var(--ink);cursor:pointer;
-  font-family:inherit;font-size:12.5px;padding:4px 6px 4px 12px}
-.savedchip button:hover{color:var(--accent-ink)}
-.savedchip .chipdel{padding:4px 10px 4px 4px;color:var(--muted)}
-.savedchip .chipdel:hover{color:var(--err)}
-#warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
@@ -21,7 +12,12 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 
 /* drag */
-.preview svg g[data-line]{cursor:grab;touch-action:none}  /* fingers drag cards, not the page */
+@media (pointer: fine){
+  /* fine only: drag is a mouse affordance (see app.js finePointer gate).
+     touch-action:none here would fight a phone's vertical swipe-to-scroll —
+     on coarse pointers a card must stay a scroll surface, not a drag handle. */
+  .preview svg g[data-line]{cursor:grab;touch-action:none}
+}
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
   padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;

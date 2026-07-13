@@ -10,16 +10,18 @@
    `npx playwright install webkit` once. SHOTS=1 dumps screenshots for eyeballing. */
 import {webkit, devices} from 'playwright';
 import {mkdirSync} from 'node:fs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
 const SHOTS = process.env.SHOTS ? '/tmp/wk-shots' : null;
 if(SHOTS) mkdirSync(SHOTS, {recursive: true});
 
+// DERIVED from tool-dirs.mjs (+ the two landing pages) so a new tool can never be
+// silently skipped by this real-Safari gate — see mobile.mjs for the same pattern.
 const TOOLS = [
-  [T, 'fermi'], [T, 'flow'], [T, 'rank'], [T, 'map'], [T, 'timeline'],
-  [T, 'roadmap'], [T, 'tree'], [T, 'wardley'], [T, 'bets'], [T, 'gauge'], [T, 'why'], [T, 'alarm'], [T, 'duel'], [T, 'premortem'], [T, ''],
-  [E, ''], [E, 'risk'], [E, 'cycles'], [E, 'frequency'], [E, 'merit-order'], [E, 'intraday'],
+  ...TOOL_DIRS.map(d => [T, d]), [T, ''],
+  ...ENERGY_TOOL_DIRS.map(d => [E, d]), [E, ''],
 ];
 
 let pass = 0, fail = 0;

@@ -60,6 +60,19 @@ export function onThemeChange(fn){
 
 /* Rebuild a soft-warning <ul> from a list of strings. Callers assemble their own
    array (one model, merged models, or a pre-computed extra) and pass it. */
+/* the example-chip row every DSL tool builds: one `.chip` button per item
+   (labelled ex.name) that calls onPick(ex) — replaces a byte-identical 7-line
+   loop copied into 10 tools. Host is the container element (e.g. $('chips')). */
+export function exampleChips(host, list, onPick){
+  for(const ex of list){
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = ex.name;
+    b.addEventListener('click', () => onPick(ex));
+    host.appendChild(b);
+  }
+}
+
 export function renderWarningList(el, warnings){
   el.textContent = '';
   for(const w of warnings){

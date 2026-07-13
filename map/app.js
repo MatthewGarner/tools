@@ -6,7 +6,7 @@ import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -219,13 +219,7 @@ attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-for(const ex of EXAMPLES){
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = ex.name;
-  b.addEventListener('click', () => editor.setText(ex.src));
-  $('chips').appendChild(b);
-}
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- saved ---------- */
 const SAVED_KEY = 'map-saved';
@@ -270,6 +264,7 @@ wireExports({
 /* ---------- drag-to-place: a drop is a text edit ---------- */
 let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, srcEl: null};
+const finePointer = () => matchMedia('(pointer: fine)').matches;   // coarse pointers reposition via the source @ x,y
 function planeCoords(cx, cy){
   const plane = document.querySelector('#preview svg rect[data-plane]');
   if(!plane) return null;
@@ -287,6 +282,7 @@ function endDrag(){
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
 }
 $('preview').addEventListener('pointerdown', e => {
+  if(!finePointer()) return;   // fine-only: on coarse, reposition by editing the source @ x,y (Move… cardmenu row is a follow-up)
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g || e.button !== 0) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
@@ -327,6 +323,9 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
 });
+/* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
+   ghost instead of stranding it until the next pointerup */
+window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
 }, true);

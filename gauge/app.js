@@ -7,7 +7,7 @@ import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
-import {measure, themeColors, onThemeChange, renderWarningList} from '../assets/app-common.js';
+import {measure, themeColors, onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -169,13 +169,7 @@ async function initCompose(hash){
   wireFormEvents($('preview'));
 
   /* examples */
-  for(const ex of EXAMPLES){
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.textContent = ex.name;
-    b.addEventListener('click', () => editor.setText(ex.src));
-    $('chips').appendChild(b);
-  }
+  exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
   /* exports (sample reveal) */
   const svgString = () => (model && model.questions.length)

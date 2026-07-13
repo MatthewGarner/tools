@@ -1,5 +1,5 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -204,13 +204,7 @@ attachEditInPlace($('preview'), {
 });
 
 /* ---------- example + import chips ---------- */
-for(const ex of EXAMPLES){
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = ex.name;
-  b.addEventListener('click', () => editor.setText(ex.src));
-  $('chips').appendChild(b);
-}
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 {
   const b = document.createElement('button');
   b.className = 'chip';
@@ -453,6 +447,9 @@ window.addEventListener('pointerup', e => {
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape' && drag.armed) endDrag();
 });
+/* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
+   ghost + dropline instead of stranding them until the next pointerup */
+window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
 }, true);

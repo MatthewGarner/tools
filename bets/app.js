@@ -9,7 +9,7 @@ import {betsDiff, betsDiffView} from './diff.js';
 import {createEditor} from './editor.js';
 import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -232,13 +232,7 @@ attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-for(const ex of EXAMPLES){
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = ex.name;
-  b.addEventListener('click', () => editor.setText(ex.src));
-  $('chips').appendChild(b);
-}
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- saved portfolios ---------- */
 const SAVED_KEY = 'bets-saved';

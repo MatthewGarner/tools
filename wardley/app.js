@@ -7,7 +7,7 @@ import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, removeComponent} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify} from '../assets/app-common.js';
+import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
@@ -273,13 +273,7 @@ $('preview').addEventListener('click', e => {
 }, true);
 
 /* ---------- example chips ---------- */
-for(const ex of EXAMPLES){
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = ex.name;
-  b.addEventListener('click', () => editor.setText(ex.src));
-  $('chips').appendChild(b);
-}
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function svgString(){

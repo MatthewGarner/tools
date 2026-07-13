@@ -2,19 +2,25 @@
    Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
 import {chromium, devices} from 'playwright';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
-const AUTOLOAD = [
-  ['roadmap', T + '/roadmap/'], ['tree', T + '/tree/'], ['why', T + '/why/'],
-  ['map', T + '/map/'], ['wardley', T + '/wardley/'], ['bets', T + '/bets/'], ['cycles', E + '/cycles/'], ['risk', E + '/risk/'],
+// Every tool is swept for phone h-scroll / <16px-fields / scaffold parity — the
+// list is DERIVED from tool-dirs.mjs so a new tool can never be silently forgotten
+// (merit-order once was, living only in CONTAINERS below). AUTOLOAD and CONTAINERS
+// are name-keyed metadata; a coverage guard asserts every key is a real tool.
+const ALL = [
+  ...TOOL_DIRS.map(d => [d, T + '/' + d + '/']),
+  ...ENERGY_TOOL_DIRS.map(d => [d, E + '/' + d + '/']),
 ];
-const ALL = [...AUTOLOAD,
-  ['rank', T + '/rank/'], ['flow', T + '/flow/'], ['gauge', T + '/gauge/'],
-  ['timeline', T + '/timeline/'], ['fermi', T + '/fermi/'], ['frequency', E + '/frequency/'],
-  ['intraday', E + '/intraday/'], ['alarm', T + '/alarm/'], ['duel', T + '/duel/'],
-  ['premortem', T + '/premortem/'],
-];
+const ALL_NAMES = new Set(ALL.map(([n]) => n));
+// the subset that renders a default SVG example on first-run (gets the extra
+// autoload check). NB canvas-output tools (fermi, frequency) also autoload but
+// draw to <canvas> — the SVG-presence check below can't see them, so they're out.
+const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk',
+  'gauge', 'timeline']);
+const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
@@ -102,6 +108,11 @@ const CONTAINERS = [
   // invariant: that scroll is contained inside .registerwrap and never blows out
   // the page body.)
 ];
+
+// coverage guard: every name-keyed metadata entry must be a real (derived) tool —
+// a rename, typo, or removed tool fails loud here instead of silently skipping checks
+for(const n of AUTOLOAD_NAMES) ok(ALL_NAMES.has(n), `AUTOLOAD metadata "${n}" is a known tool`);
+for(const [n] of CONTAINERS) ok(ALL_NAMES.has(n), `CONTAINERS metadata "${n}" is a known tool`);
 
 for(const [name, url, selectors] of CONTAINERS){
   const page = await ctx.newPage();
