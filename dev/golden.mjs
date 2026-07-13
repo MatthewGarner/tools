@@ -299,6 +299,17 @@ for(const [k, src] of Object.entries(docs)){
   variants['merit-order-negative'] = renderStack(mk(paramsFor('gbToday', 'negative')), mctx, mopts);
   variants['merit-order-fes-ht'] = renderStack(mkw('ht', paramsFor('ht', null)), mctx, mopts);
   variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, mopts);
+
+  const {posterSvg: moPoster} = await import('../assets/poster.js');
+  const {buildVerdict: moVerdict} = await import('../energy/merit-order/render.js');
+  const {dispatch: moDispatch} = await import('../energy/merit-order/engine.js');
+  const moState = mk(DEFAULT_PARAMS);
+  const moResult = moDispatch(moState.generators, moState.demand);
+  const moBare = renderStack(moState, mctx, {forExport: true, labelCollide: 'drop', bare: true});
+  variants['merit-order-poster'] = moPoster({chart: moBare, verdict: moVerdict(moResult, moState),
+    name: 'Merit order', date: '2026-07-13',
+    metrics: ['clears £' + Math.round(moResult.clearingPrice) + '/MWh', 'demand ' + moState.demand + ' GW'],
+    accent: '#C05621', colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 
 /* /intraday fixtures (deterministic by construction) */

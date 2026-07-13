@@ -172,10 +172,11 @@ export function renderStack(state, ctx, opts = {}){
   const showLegend = result.totalRent > 0;
   const legendY = tickY + 26;
   const verdictTopBase = (showLegend ? legendY : tickY) + 34;
+  const showVerdict = opts.forExport && !opts.bare;   // bare: the poster frame owns the verdict
   const verdictText = buildVerdict(result, state);
   const vLines = wrapText(verdictText, '15px ' + FONT, x1 - x0, ctx.measure);
   const vBlockH = 28 + vLines.length * 22 + 16;
-  const H = Math.round((opts.forExport ? verdictTopBase + vBlockH : verdictTopBase) + 24);
+  const H = Math.round((showVerdict ? verdictTopBase + vBlockH : verdictTopBase) + 24);
 
   P.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">`);
   P.push(`<defs>` +
@@ -280,8 +281,9 @@ export function renderStack(state, ctx, opts = {}){
     P.push(txt(x0, (showLegend ? legendY : tickY) + 22, 'tap a band to name it', 11, C.muted));
   }
 
-  // verdict — export-only (HTML #verdict carries it on screen)
-  if(opts.forExport){
+  // verdict — export-only (HTML #verdict carries it on screen); suppressed in
+  // bare mode (the poster frame renders the verdict as its hero line)
+  if(showVerdict){
     const vy = (showLegend ? legendY : tickY) + 30;
     P.push(`<rect x='${x0 - 16}' y='${r2(vy)}' width='4' height='${vLines.length * 22 + 8}' fill='${C.accent}'/>`);
     P.push(txt(x0, vy - 4, 'THE TRADE', 11.5, C.muted, {weight: 700, tracking: '.08em'}));

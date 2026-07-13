@@ -11,6 +11,7 @@ import {encodeStateV2, decodeStateV2} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
+import {posterSvg} from '../../assets/poster.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {rafBatched} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
@@ -414,9 +415,28 @@ function boot(){
   }
 
   /* ---- exports ---- */
+  const isoToday = () => new Date().toISOString().slice(0, 10);
+  function posterData(){
+    const cs = currentState();
+    const result = dispatch(cs.generators, cs.demand);
+    return {
+      verdict: buildVerdict(result, cs),
+      name: 'Merit order',
+      metrics: ['clears £' + Math.round(result.clearingPrice) + '/MWh',
+                result.marginalName ? 'marginal: ' + result.marginalName : null,
+                'demand ' + cs.demand + ' GW'].filter(Boolean),
+    };
+  }
   wireExports({
-    buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
+    buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlposter: $('dlposter'), copypng: $('copypng'), copymd: $('copydoc')},
     getSvg: () => renderStack(currentState(), {colors: themeColors(), measure, palette: palette()}, {forExport: true, labelCollide: 'drop'}),
+    getPoster: () => {
+      const cs = currentState();
+      const chart = renderStack(cs, {colors: themeColors(), measure, palette: palette()},
+        {forExport: true, labelCollide: 'drop', bare: true});
+      return posterSvg({chart, ...posterData(), date: isoToday(),
+        accent: themeColors().accent, colors: themeColors(), measure});
+    },
     getMarkdown: () => { const cs = currentState(); return toMarkdown(cs, dispatch(cs.generators, cs.demand)); },
     slug: () => 'merit-order',
   });
