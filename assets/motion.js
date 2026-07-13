@@ -41,8 +41,10 @@ export function revealIn(container, spec = {}, onPlay){
       onceEnd(el, () => clean(el, 'mo-fade'));
     });
   // The animation is applied PAUSED (css: .mo-draw/.mo-fade animation-play-state:
-  // paused). It only plays once the WHOLE element is in view — never off-screen.
-  // Adding .mo-go to the container unpauses. Re-arm disconnects the prior observer.
+  // paused); adding .mo-go to the container unpauses it. It plays once the element
+  // is in view (see observeFullyInView) and never while it's off-screen — but it
+  // MUST always end up playing, because paused means opacity 0.
+  // Re-arm disconnects the prior observer.
   if(container._moIO) container._moIO.disconnect();
   container.classList.remove('mo-go');
   let played = false;
@@ -50,29 +52,28 @@ export function revealIn(container, spec = {}, onPlay){
   container._moIO = observeFullyInView(container, play);
 }
 
-/* Fire cb once the element is as fully in view as the viewport allows: the whole
-   thing if it fits, or filling the viewport if it's taller. Horizontal panning is
-   ignored (a wide diagram is "seen" even when it pans).
+/* Fire cb once the element is as fully in view as the viewport allows — the whole
+   thing if it fits, or filling the viewport if it's taller — and, failing that, as
+   soon as a meaningful part of it has been on screen for a beat. Horizontal panning
+   is ignored (a wide diagram is "seen" even when it pans).
 
-   Liveness is the hard part, and getting it wrong ships blank boards (2026-07-13:
-   map/gauge/cycles on a laptop, five more on a phone). Two rules keep content from
-   ever being stranded at opacity 0:
-     - Geometry is measured on every scroll/resize frame, not inferred from IO
+   Liveness is the hard part here, and getting it wrong ships blank boards: the
+   reveal is applied PAUSED at opacity 0, so an element that never unpauses is
+   invisible forever (2026-07-13: map/gauge/cycles on a laptop, five more on a
+   phone). Two rules keep content from being stranded:
+     - Geometry is measured on every scroll/resize frame, never inferred from IO
        threshold crossings. A crossing list only samples the ratios it happens to
        cross, so a normal scroll can skip clean over the fully-in-view band and the
-       reveal never fires. IO is kept purely as the cheap "it's near the viewport"
+       reveal never fires. IO is kept only as the cheap "it's near the viewport"
        trigger.
-     - An element can be permanently UNABLE to satisfy the gate — a board below the
-       fold on a page with nothing left to scroll. So once it has been mostly on
-       screen for a moment, it plays anyway. The user is looking at it; a late
-       reveal beats an invisible one. It still never plays while off-screen, which
-       is the promise that matters. */
-/* ENOUGH is deliberately LOW. Any higher threshold leaves a band where a board the
-   user is looking at stays blank forever — 0.6 still stranded /bets/ on a 1100×520
-   window (49% of itself, 32% of the screen: under both). There is no "safe" high
-   threshold; there is only the size of the hole. A reveal the user half-notices is a
-   non-event, a blank board is a bug, so we arm as soon as a meaningful part of the
-   element is on screen and let the immediate-fire below handle the common case. */
+     - An element can be permanently UNABLE to be fully in view — a board below the
+       fold on a page with nothing left to scroll — so the dwell below plays it
+       anyway. ENOUGH is deliberately LOW: any higher threshold just leaves a band
+       where a board the user is looking at stays blank, and 0.6 still stranded
+       /bets/ on a 1100×520 window (49% of itself, 32% of the screen — under both).
+       There is no "safe" high threshold, only the size of the hole. A reveal the
+       user half-notices is a non-event; a blank board is a bug.
+   A genuinely off-screen element still never plays — that is the promise. */
 const ENOUGH = 0.15, DWELL = 420;
 function observeFullyInView(el, cb){
   let io = null, ro = null;                             // declared before stop() can name them
