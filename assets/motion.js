@@ -67,34 +67,43 @@ export function revealIn(container, spec = {}, onPlay){
        screen for a moment, it plays anyway. The user is looking at it; a late
        reveal beats an invisible one. It still never plays while off-screen, which
        is the promise that matters. */
-const MOSTLY = 0.6, DWELL = 420;   // ≥60% of what the viewport could show, for 420ms
+/* ENOUGH is deliberately LOW. Any higher threshold leaves a band where a board the
+   user is looking at stays blank forever — 0.6 still stranded /bets/ on a 1100×520
+   window (49% of itself, 32% of the screen: under both). There is no "safe" high
+   threshold; there is only the size of the hole. A reveal the user half-notices is a
+   non-event, a blank board is a bug, so we arm as soon as a meaningful part of the
+   element is on screen and let the immediate-fire below handle the common case. */
+const ENOUGH = 0.15, DWELL = 420;
 function observeFullyInView(el, cb){
+  let io = null, ro = null;                             // declared before stop() can name them
   let done = false, timer = 0, queued = false;
   const fire = () => { if(done) return; done = true; stop(); cb(); };
   const stop = () => {
+    done = true;                                        // also neutralises a check() already queued on rAF
     clearTimeout(timer); timer = 0;
     io && io.disconnect(); ro && ro.disconnect();
     removeEventListener('scroll', schedule, true); removeEventListener('resize', schedule);
   };
-  /* seen = the visible fraction of the most this viewport could ever show of it */
+  /* How much of the element you can see, measured against the most this viewport
+     could ever show of it — its own height, or the viewport if it's taller. */
   const seen = () => {
     const r = el.getBoundingClientRect();
     const vh = innerHeight || document.documentElement.clientHeight;
     const vis = Math.min(r.bottom, vh) - Math.max(r.top, 0);
-    const most = Math.min(r.height, vh);                 // fits ⇒ its height; taller ⇒ the viewport
-    return (r.height <= 0 || vis <= 0 || most <= 0) ? 0 : vis / most;
+    const most = Math.min(r.height, vh);
+    return (r.height <= 0 || vis <= 0 || most <= 0 || vh <= 0) ? 0 : vis / most;
   };
   const check = () => {
     queued = false;
     if(done) return;
     const ratio = seen();
     if(ratio >= 1 - 0.002) return fire();               // as fully in view as it can be → now
-    if(ratio >= MOSTLY){ if(!timer) timer = setTimeout(fire, DWELL); }   // can't fill the fold → soon
-    else { clearTimeout(timer); timer = 0; }            // off-screen (or barely on) → stay hidden
+    if(ratio >= ENOUGH){ if(!timer) timer = setTimeout(fire, DWELL); }  // on screen, can't get fuller → soon
+    else { clearTimeout(timer); timer = 0; }            // off-screen → stay hidden (the promise)
   };
   const schedule = () => { if(!queued && !done){ queued = true; requestAnimationFrame(check); } };
-  const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(schedule, {threshold: [0, 0.25, 0.5, 0.75, 1]}) : null;
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+  io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(schedule, {threshold: [0, 0.25, 0.5, 0.75, 1]}) : null;
+  ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
   if(io) io.observe(el);
   addEventListener('scroll', schedule, {passive: true, capture: true});   // capture: catches scrolls in any pane
   addEventListener('resize', schedule);

@@ -134,9 +134,15 @@ for(const [tool, path, container, draws] of ROLLOUT){
          one geometry the old gate accepted) always reveals it.
    A container fully BELOW the fold at load must still stay pre-hidden: that's
    the "only-when-seen" promise, asserted for flow above. */
+/* Everything still un-revealed: children held at opacity 0 (.mo-fade), AND anything
+   still wearing a reveal class — a stranded .mo-draw hides via stroke-dashoffset at
+   opacity 1, so opacity alone can't see it. No <svg> at all counts as a failure, not
+   a pass: an empty preview must never be the thing that makes this suite green. */
 const hiddenKids = (page, sel) => page.evaluate(s => {
   const svg = document.querySelector(s + ' svg');
-  return svg ? [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length : 0;
+  if(!svg) return -1;
+  const dark = [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length;
+  return dark + svg.querySelectorAll('.mo-fade, .mo-draw').length;
 }, sel);
 const onScreen = (page, sel) => page.$eval(sel, el => {
   const r = el.getBoundingClientRect();
@@ -148,13 +154,26 @@ const onScreen = (page, sel) => page.$eval(sel, el => {
    opacity assertion below catches it. A fixed wait races the stagger under load. */
 const settle = (page, sel) => page.waitForFunction(
   s => !document.querySelector(`${s} .mo-fade, ${s} .mo-draw`), sel, {timeout: 4000}).catch(() => {});
+/* the off-thread tools (cycles) paint from a worker, so the pane can still be a
+   placeholder when we look — wait for a diagram to exist before judging it */
+const drawn = (page, sel) => page.waitForSelector(`${sel} svg`, {timeout: 8000}).catch(() => {});
 
-for(const [label, viewport] of [['desktop', {width: 1440, height: 900}], ['phone', {width: 390, height: 844}]]){
+let onLoadChecks = 0;
+for(const [label, viewport] of [
+  ['desktop', {width: 1440, height: 900}],
+  ['short', {width: 1100, height: 520}],      // a half-height window: the board can't fit the fold, and
+                                              // it lands only ~half of ITSELF on screen — yet half the
+                                              // SCREEN is board, so it must still reveal (it didn't)
+  ['phone', {width: 390, height: 844}],
+]){
   for(const [tool, path, container] of ROLLOUT){
     const {page, errors} = await open(path, {viewport});
+    await drawn(page, container);
     await settle(page, container);                          // no scrolling at all
-    if(await onScreen(page, container))
+    if(await onScreen(page, container)){
+      onLoadChecks++;
       check(`${label} ${tool}: visible on load ⇒ not blank (no scroll)`, await hiddenKids(page, container) === 0);
+    }
     await page.$eval(container, el => el.scrollIntoView({block: 'start'})).catch(() => {});
     await settle(page, container);
     check(`${label} ${tool}: scrolling to it always reveals (never stranded)`, await hiddenKids(page, container) === 0);
@@ -162,6 +181,10 @@ for(const [label, viewport] of [['desktop', {width: 1440, height: 900}], ['phone
     await page.close();
   }
 }
+/* onScreen() skips the load check for a container below the fold — fine, but if a
+   selector ever rots, EVERY load check would skip and the suite would go green on
+   nothing. Pin that the checks actually ran. */
+check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} times)`, onLoadChecks >= 12);
 
 for(const r of results) console.log(r);
 await browser.close();
