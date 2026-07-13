@@ -96,7 +96,7 @@ function makeDiff(model){
 
 /* ---------- refresh loop ---------- */
 let model = null, lastSvg = '', hashTimer = null;
-let pendingFlip = null;   // card rects keyed by title, set just before a drop's re-render
+let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(m){
@@ -128,9 +128,11 @@ function doRefresh(){
   } else {
     const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: renderWidth()});
     if(svg !== lastSvg){
-      paint(svg, REVEAL);
+      // drop-reorder / date edits glide cards to their new home (shared FLIP,
+      // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
+      paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom});
       lastSvg = svg;
-      if(pendingFlip){ flipAnimate(pendingFlip); pendingFlip = null; }
+      flipNext = false;
     }
   }
   setActionsEnabled(!!lastSvg);
@@ -398,27 +400,8 @@ function endDrag(){
   document.body.style.cursor = '';
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
 }
-/* FLIP: after the post-drop re-render, glide every card from its old position */
-function flipAnimate(oldRects){
-  if(reducedMotion.matches) return;
-  const key = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
-  for(const g of document.querySelectorAll('#preview svg g[data-line]')){
-    const it = model && model.items.find(i => i.srcLine === +g.dataset.line);
-    if(!it) continue;
-    const old = oldRects.get(key(it.title));
-    if(!old) continue;
-    const now = g.getBoundingClientRect();
-    const dx = old.left - now.left, dy = old.top - now.top;
-    if(Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-    g.style.transition = 'none';
-    g.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      g.style.transition = 'transform 240ms cubic-bezier(.2,.8,.2,1)';
-      g.style.transform = '';
-      g.addEventListener('transitionend', () => { g.style.transition = ''; }, {once: true});
-    }));
-  }
-}
+/* (FLIP glide migrated to the shared motion.js applyFlip — keyed data-key=title,
+   zoom-scale-aware; triggered via flipNext on a drop, see doRefresh.) */
 $('preview').addEventListener('pointerdown', e => {
   if(!finePointer()) return;   // coarse pointers use the card menu's Move to… row
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
@@ -465,14 +448,7 @@ window.addEventListener('pointerup', e => {
     beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
   const r = moveItem(editor.getText(), model, src, target);
   if(!r) return;
-  /* snapshot card positions by title, then let the re-render FLIP them into place */
-  const oldRects = new Map();
-  const key = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
-  for(const g of document.querySelectorAll('#preview svg g[data-line]')){
-    const it = model.items.find(i => i.srcLine === +g.dataset.line);
-    if(it) oldRects.set(key(it.title), g.getBoundingClientRect());
-  }
-  pendingFlip = oldRects;
+  flipNext = true;   // the post-drop re-render captures + glides cards into place (shared FLIP)
   editor.setText(r.text);   // one transaction → one undo step
 });
 window.addEventListener('keydown', e => {

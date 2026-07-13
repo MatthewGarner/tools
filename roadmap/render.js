@@ -36,6 +36,10 @@ export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 
+/* stable per-card identity for the shared FLIP (renumber-safe, unlike srcLine) —
+   the title, normalised. Matches the app's drop-FLIP key. */
+const titleKey = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
+
 /* One card's paint: rect + badge/title/note/status/ghost/url. Pure — returns an SVG
    string for a single card at the given top-left (x, cy). Shared by the wide nested-
    loop layout below and (a later narrow layout) at stacked coordinates. */
@@ -43,7 +47,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
   const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote} = st;
   const s = [];
   s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
-    '" opacity="' + fadeOp.toFixed(2) + '"' +
+    '" data-key="' + esc(titleKey(c.it.title)) + '" opacity="' + fadeOp.toFixed(2) + '"' +
     (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) +
     (edit && !c.it.ghost ? ' data-menu=""' : '') + '>');
   s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
