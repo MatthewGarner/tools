@@ -93,6 +93,40 @@ for(const {path, chip, view} of TOOLS){
   await ctx.close();
 }
 
+/* ---- Fit fits the fold, but never at the cost of legibility (2026-07-13) ----
+   Fit caps the board's width by its own aspect so the whole artefact lands in view.
+   Two ways that can go wrong, neither visible to a phone suite (real phones are
+   coarse-pointer and open at natural size, so they never take the Fit branch):
+     - a NARROW desktop window (fine pointer, < the 520px bucket) gets the tall
+       narrow-relayout artefact, whose aspect × fold crushed it to a fraction of
+       the pane — a 120px-wide roadmap;
+     - any board the cap would shrink past legibility should keep its size and let
+       the user scroll instead.
+   So: below the bucket the board still fills its pane, and on a laptop it never
+   renders below 70% of the pane. */
+for(const [label, viewport, minFill] of [
+  ['narrow window', {width: 420, height: 800}, 0.9],
+  ['laptop', {width: 1440, height: 900}, 0.7],
+]){
+  for(const {path, chip, view} of TOOLS){
+    const page = await browser.newPage({viewport});
+    const errors = trackErrors(page);
+    await page.goto(BASE + path, {waitUntil: 'networkidle'});
+    if(view) await page.locator(view).waitFor({timeout: 3000}).catch(() => {});
+    await page.waitForTimeout(400);
+    const m = await page.evaluate(() => {
+      const pv = document.querySelector('.preview'), svg = pv && pv.querySelector('svg');
+      if(!svg) return null;
+      return {svg: svg.getBoundingClientRect().width, pane: pv.clientWidth};
+    });
+    if(m && m.pane > 0)
+      check(`${path} ${label}: board is not crushed (${Math.round(m.svg)}px of ${m.pane}px pane)`,
+        m.svg >= m.pane * minFill);
+    check(`${path} ${label}: no console/page errors`, errors.length === 0);
+    await page.close();
+  }
+}
+
 console.log(results.join('\n'));
 await browser.close();
 process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

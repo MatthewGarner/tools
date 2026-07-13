@@ -97,16 +97,18 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
   await page.close();
 }
 
-/* ---- rollout: every tool reveals in view + settles to its authored state ----
-   draw tools (tree/why) draw; fade tools reveal; none stuck hidden; no errors.
-   (energy tools reached via /energy/<tool>/ on the same base, like smoke.) */
-for(const [tool, path, container, draws] of [
+const ROLLOUT = [
   ['tree', '/tree/', '#preview', true], ['why', '/why/', '#preview', true],
   ['roadmap', '/roadmap/', '#preview', false], ['map', '/map/', '#preview', false],
   ['bets', '/bets/', '#preview', false], ['gauge', '/gauge/', '#preview', false],
   ['wardley', '/wardley/', '#preview', false], ['risk', '/energy/risk/', '#preview', false],
   ['cycles', '/energy/cycles/', '#preview', false], ['intraday', '/energy/intraday/', '#pricewrap', false],
-]){
+];
+
+/* ---- rollout: every tool reveals in view + settles to its authored state ----
+   draw tools (tree/why) draw; fade tools reveal; none stuck hidden; no errors.
+   (energy tools reached via /energy/<tool>/ on the same base, like smoke.) */
+for(const [tool, path, container, draws] of ROLLOUT){
   const {page, errors} = await open(path, {viewport: {width: 1200, height: 800}});
   await page.$eval(container, el => el.scrollIntoView({block: 'center'})).catch(() => {});
   await page.waitForFunction(s => document.querySelector(s)?.classList.contains('mo-go'), container, {timeout: 3000}).catch(() => {});
@@ -120,6 +122,69 @@ for(const [tool, path, container, draws] of [
   check(tool + ': no console errors', errors.length === 0);
   await page.close();
 }
+
+/* ---- THE anti-stranding guarantee (the 2026-07-13 blank-board bug) ----
+   A reveal that is gated on "fully in view" strands content forever when the
+   element can never satisfy the gate: map/gauge sit below the fold on a laptop,
+   roadmap/why/wardley/bets do on a phone — all four shipped blank at opacity 0.
+   So, for every tool, at desktop AND phone:
+     (1) on load, with NO scrolling, a container the user can see is never blank;
+     (2) scrolling it to the top of the viewport (what a user actually does —
+         not the scrollIntoView({block:'center'}) above, which manufactures the
+         one geometry the old gate accepted) always reveals it.
+   A container fully BELOW the fold at load must still stay pre-hidden: that's
+   the "only-when-seen" promise, asserted for flow above. */
+/* Everything still un-revealed: children held at opacity 0 (.mo-fade), AND anything
+   still wearing a reveal class — a stranded .mo-draw hides via stroke-dashoffset at
+   opacity 1, so opacity alone can't see it. No <svg> at all counts as a failure, not
+   a pass: an empty preview must never be the thing that makes this suite green. */
+const hiddenKids = (page, sel) => page.evaluate(s => {
+  const svg = document.querySelector(s + ' svg');
+  if(!svg) return -1;
+  const dark = [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length;
+  return dark + svg.querySelectorAll('.mo-fade, .mo-draw').length;
+}, sel);
+const onScreen = (page, sel) => page.$eval(sel, el => {
+  const r = el.getBoundingClientRect();
+  return r.top < innerHeight && r.bottom > 0 && r.height > 0;
+}).catch(() => false);
+/* Wait for the reveal to SETTLE, never a fixed sleep: motion.js strips .mo-fade/
+   .mo-draw on animationend, so "no classes left" is the one true done signal — and
+   a stranded reveal keeps its classes (paused) forever, so this times out and the
+   opacity assertion below catches it. A fixed wait races the stagger under load. */
+const settle = (page, sel) => page.waitForFunction(
+  s => !document.querySelector(`${s} .mo-fade, ${s} .mo-draw`), sel, {timeout: 4000}).catch(() => {});
+/* the off-thread tools (cycles) paint from a worker, so the pane can still be a
+   placeholder when we look — wait for a diagram to exist before judging it */
+const drawn = (page, sel) => page.waitForSelector(`${sel} svg`, {timeout: 8000}).catch(() => {});
+
+let onLoadChecks = 0;
+for(const [label, viewport] of [
+  ['desktop', {width: 1440, height: 900}],
+  ['short', {width: 1100, height: 520}],      // a half-height window: the board can't fit the fold, and
+                                              // it lands only ~half of ITSELF on screen — yet half the
+                                              // SCREEN is board, so it must still reveal (it didn't)
+  ['phone', {width: 390, height: 844}],
+]){
+  for(const [tool, path, container] of ROLLOUT){
+    const {page, errors} = await open(path, {viewport});
+    await drawn(page, container);
+    await settle(page, container);                          // no scrolling at all
+    if(await onScreen(page, container)){
+      onLoadChecks++;
+      check(`${label} ${tool}: visible on load ⇒ not blank (no scroll)`, await hiddenKids(page, container) === 0);
+    }
+    await page.$eval(container, el => el.scrollIntoView({block: 'start'})).catch(() => {});
+    await settle(page, container);
+    check(`${label} ${tool}: scrolling to it always reveals (never stranded)`, await hiddenKids(page, container) === 0);
+    check(`${label} ${tool}: no console errors`, errors.length === 0);
+    await page.close();
+  }
+}
+/* onScreen() skips the load check for a container below the fold — fine, but if a
+   selector ever rots, EVERY load check would skip and the suite would go green on
+   nothing. Pin that the checks actually ran. */
+check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} times)`, onLoadChecks >= 12);
 
 for(const r of results) console.log(r);
 await browser.close();

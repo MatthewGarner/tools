@@ -15,17 +15,57 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     const w = svg.getAttribute('width');
     return w ? parseFloat(w) : svg.viewBox.baseVal.width;
   }
+  /* On LANDING, "Fit" fits the FOLD — not just the pane width. Filling the pane's
+     width makes a square-ish board (map, gauge) taller than the viewport, so you
+     arrive at half a diagram; and the reveal, which waits for the whole thing to be
+     in view, was left holding that half at opacity 0. So cap the width by the
+     board's OWN aspect (never letterbox it), with a floor below which we'd rather
+     overflow than shrink past legibility.
+     Collapsing the rail is the user asking for ROOM, so it releases the cap and the
+     board grows to the full pane as it always has — they can scroll, and the reveal
+     now follows them. Coarse pointers open at natural size and pan (setZoom below),
+     so none of this touches phones. */
+  const FIT_FLOOR = 560;        // px: never chase a fold shorter than this
+  const WIDE = 520;             // the narrow-relayout bucket (assets/narrow-width.js) — below it, don't cap
+  const LEGIBLE = 0.7;          // never shrink a board past this fraction of the width Fit would give it
+  function foldHeight(){
+    const top = preview.getBoundingClientRect().top + scrollY;   // the pane's document offset
+    return Math.max(FIT_FLOOR, innerHeight - top - 28);           // 28 = breathing room under the fold
+  }
+  /* The cap is a LANDING nicety, and it must never cost legibility to get it:
+     - below the narrow bucket the renderer already emits a tall, pane-width
+       artefact; capping THAT by its own (very tall) aspect crushes it to a
+       fraction of the pane (a 120px roadmap), so leave narrow panes alone;
+     - if fitting the fold would shrink the board past LEGIBLE, don't. Better a
+       full-size board you scroll (the reveal now follows you) than a legible-
+       ceiling breach. */
+  /* border-box, NOT clientWidth: a scrollbar appearing inside the pane changes
+     clientWidth, which would feed back into the cap and let it oscillate */
+  const paneWidth = () => preview.getBoundingClientRect().width;
+  function fitCap(svg){
+    if(workspace.classList.contains('collapsed')) return 0;      // collapse = "give it room"
+    const vb = svg.viewBox.baseVal;
+    const aspect = (vb && vb.height) ? vb.width / vb.height : 0;
+    const pane = paneWidth();
+    if(!aspect || pane < WIDE) return 0;
+    const cap = Math.round(aspect * foldHeight());
+    return cap >= pane * LEGIBLE ? cap : 0;
+  }
   function applyZoom(){
     const svg = svgEl();
     if(!svg) return;
-    if(zoom === 'fit'){
-      svg.style.width = '100%';
-      svg.style.maxWidth = '';
-    } else {
-      svg.style.width = Math.round(naturalWidth(svg) * zoom) + 'px';
-      svg.style.maxWidth = 'none';
-    }
+    let w, mw;
+    if(zoom === 'fit'){ const cap = fitCap(svg); w = '100%'; mw = cap ? cap + 'px' : ''; }
+    else { w = Math.round(naturalWidth(svg) * zoom) + 'px'; mw = 'none'; }
+    if(svg.style.width !== w) svg.style.width = w;         // idempotent: no style write, no ResizeObserver echo
+    if(svg.style.maxWidth !== mw) svg.style.maxWidth = mw;
   }
+  /* The rail collapse ANIMATES the pane's width, so the applyZoom() in setCollapsed
+     runs against the pre-transition width. Watch the pane itself and re-apply as it
+     settles; window resize is still needed for a vertical-only resize, which moves
+     the fold without moving the pane. */
+  new ResizeObserver(applyZoom).observe(preview);
+  addEventListener('resize', applyZoom);
   function setZoom(z){
     zoom = z;
     for(const b of zoomHost.querySelectorAll('button')){
@@ -67,6 +107,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     tab.textContent = c ? '›' : '‹';
     tab.title = (c ? 'Show' : 'Hide') + ' the editor  [';
     tab.setAttribute('aria-expanded', String(!c));
+    applyZoom();                                    // collapsing releases the fold cap (see applyZoom)
     if(onCollapseChange) onCollapseChange(c);
   }
   tab.addEventListener('click', () => setCollapsed(!workspace.classList.contains('collapsed')));
