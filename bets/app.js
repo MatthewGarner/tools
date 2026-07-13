@@ -58,6 +58,7 @@ Bets
 let model = null, sim = null, lastSvg = '', hashTimer = null;
 let snaps = null;   // wired below, after the editor exists
 let view = 'board';   // transient app state (not persisted): 'board' | 'quadrant'
+let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-flip re-render
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 /* the snapshot's own 4,000-run simulate() is memoised per parsed snapshot
    model (wireSnapshots already caches the PARSE, keyed by idx|length|label,
@@ -118,7 +119,10 @@ function doRefresh(){
   } else {
     sim = simulate(model);
     const svg = activeRender(false);
-    paint(svg, REVEAL); lastSvg = svg;
+    // quadrant dots glide to new positions as you tune a bet (data-key=bet name);
+    // board view has no data-key marks so FLIP is a no-op there.
+    paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
+    lastSvg = svg; flipMode = undefined;
     $('verdict').textContent = verdictCopy(sim.portfolio, auditCounts(sim));
   }
   renderWarningList($('warns'), model.warnings);
@@ -146,7 +150,7 @@ snaps = wireSnapshots({
     (model && model.title ? ' — ' + model.title.slice(0, 30) : ''),
   els: {snap: $('snap'), sel: $('snapsel'), del: $('snapdel')},
   canSnap: () => hasBets(model),
-  onChange(){ lastSvg = ''; paint.reset(); refresh(); },
+  onChange(){ flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); },
 });
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
@@ -156,7 +160,7 @@ const ws = initWorkspace({
 
 /* narrow-bucket resize: re-render only when the bucket actually flips —
    activeRender() re-measures clientWidth itself, this just knows WHEN to */
-watchNarrowBucket($('preview'), () => { lastSvg = ''; paint.reset(); refresh(); });
+watchNarrowBucket($('preview'), () => { flipMode = 'none'; lastSvg = ''; paint.reset(); refresh(); });   // resize → new layout, don't glide
 
 /* ---------- view toggle: Board (the ledger) <-> Quadrant (the risk-return
    scatter, read-only). A button group, aria-pressed (not a tablist) — mirrors
@@ -174,7 +178,7 @@ $('viewtoggle').addEventListener('click', e => {
   if(!b || b.dataset.view === view) return;
   view = b.dataset.view;
   syncViewToggle();
-  lastSvg = ''; paint.reset();
+  flipMode = 'none'; lastSvg = ''; paint.reset();   // board<->quadrant: different layout, no glide
   refresh();
 });
 
