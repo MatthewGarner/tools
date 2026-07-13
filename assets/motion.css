@@ -1,0 +1,21 @@
+/* Signature motion — all timing/keyframes live here; JS only toggles classes +
+   custom props, so nothing animation-related is ever serialized into an SVG
+   string (goldens stay byte-identical). Reduced-motion is gated in JS too; this
+   !important block is the belt-and-braces CSS kill. */
+/* Reveal animations are applied PAUSED (elements sit in their hidden pre-state:
+   .mo-draw fully dashed-offset, .mo-fade at opacity 0). motion.js adds .mo-go to
+   the container only once the whole element is in view, which unpauses them — so
+   nothing ever animates off-screen. */
+.mo-draw{stroke-dasharray:var(--mo-len);stroke-dashoffset:var(--mo-len);
+  animation:mo-draw .7s cubic-bezier(.4,.1,.2,1) forwards;animation-delay:calc(var(--mo-i)*40ms);
+  animation-play-state:paused}
+@keyframes mo-draw{to{stroke-dashoffset:0}}
+.mo-fade{animation:mo-fade .38s ease both;animation-delay:calc(.4s + var(--mo-i)*45ms);
+  animation-play-state:paused}
+@keyframes mo-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.mo-go .mo-draw,.mo-go .mo-fade{animation-play-state:running}
+.mo-flip{transition:transform 240ms cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion:reduce){
+  .mo-draw,.mo-fade,.mo-flip{animation:none!important;transition:none!important;
+    stroke-dasharray:none!important;stroke-dashoffset:0!important;opacity:1!important;transform:none!important}
+}

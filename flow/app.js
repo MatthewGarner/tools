@@ -5,11 +5,14 @@ import {renderReadout, renderBatch, renderTriage, readoutVerdict, markdownSummar
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {mountMotion} from '../assets/motion.js';
+import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../assets/schedule.js';
 
 const $ = id => document.getElementById(id);
 const NO_LIMIT = 40;                       // the slider's top position (21) means "no limit"
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const readoutPaint = mountMotion($('verdictwrap'));   // reveal: the wait-time curve draws on first load
 
 const PRESETS = {
   overloaded: {demand: 6, size: 4, team: 4, wip: 12, v: 'high'},
@@ -71,7 +74,7 @@ function doRefresh(){
   lastParams = p;
   const ctx = {colors: themeColors(), measure};
   const svg = renderReadout(result, lastSweep, lastKnee, p, ctx);
-  if(svg !== lastSvg){ $('verdictwrap').innerHTML = svg; lastSvg = svg; }
+  readoutPaint(svg, REVEAL); lastSvg = svg;   // curve draws on first load; later renders just swap
   $('verdict').textContent = readoutVerdict(result);
 
   lastEcon = batchEconomics(econParams());

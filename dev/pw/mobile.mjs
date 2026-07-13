@@ -20,7 +20,7 @@ let pass = 0, fail = 0;
 const ok = (c, m) => { if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({...devices['iPhone 13']});
+const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
 
 for(const [name, url] of ALL){
   const page = await ctx.newPage();
@@ -152,7 +152,7 @@ for(const [name, url, selectors] of CONTAINERS){
 {
   // fresh context: premortem is localStorage-backed, so a shared ctx would land
   // on its saved-list home instead of a new FRAME.
-  const pctx = await browser.newContext({...devices['iPhone 13']});
+  const pctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const page = await pctx.newPage();
   await page.goto(T + '/premortem/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(500);

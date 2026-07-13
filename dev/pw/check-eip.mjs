@@ -3,7 +3,7 @@ import {chromium, devices} from 'playwright';
 import {trackErrors} from './_harness.mjs';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
-const page = await browser.newPage({viewport: {width: 1500, height: 1000}});
+const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
 const errors = trackErrors(page);
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -346,7 +346,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- why: popover status + cycle assumption ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit retention'}).click();
@@ -541,7 +541,7 @@ check('no console/page errors', errors.length === 0);
    can't open a menu — not exercised here, that's the renderer's own
    contract, not this fix's. ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit retention'}).click();
@@ -617,7 +617,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- roadmap: title edit + status popover ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit app roadmap'}).click();
@@ -748,7 +748,7 @@ check('no console/page errors', errors.length === 0);
    tap a card, open Rename, then tap INTO the input itself; the popover's
    away-pointerdown listener must not treat that as an outside click ---- */
 {
-  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
@@ -806,7 +806,7 @@ check('no console/page errors', errors.length === 0);
 /* ---- map: card menu (tap card body → menu; rename/field/remove; real drag
    suppresses the menu) ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Assumption map'}).click();
@@ -890,7 +890,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- map narrow (mobile-emulated): card menu away-listener leak proof ---- */
 {
-  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
@@ -960,7 +960,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- why narrow (mobile-emulated): coarse menu-first redirect ---- */
 {
-  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
@@ -989,7 +989,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- risk (energy) ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/risk/', {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Route to market'}).click();
@@ -1014,7 +1014,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- cycles (energy) ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/cycles/', {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Wexcombe base case'}).click();
@@ -1037,7 +1037,7 @@ check('no console/page errors', errors.length === 0);
 
 /* ---- wardley: name edit, stage cycle, drag writes text, vertical no-op ---- */
 {
-  const wpage = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const wpage = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const werrors = trackErrors(wpage);
   await wpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
   await wpage.waitForTimeout(500);
@@ -1160,7 +1160,7 @@ check('no console/page errors', errors.length === 0);
    remove — a 430px DESKTOP viewport (above) still reports pointer:fine, so the
    focus-opt-out assertion needs a real touch-emulated context. ---- */
 {
-  const mctx = await browser.newContext({...devices['iPhone 13']});
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
@@ -1237,7 +1237,7 @@ check('no console/page errors', errors.length === 0);
 /* ---- timeline desktop: per-lane add zone opens empty, typed value replaces
    the dated placeholder (not "New milestone" — that would test nothing) ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   const seed = {t: 'title: Pen test doc\nGrid: Existing item 2026-08 .. 2026-10\n'};
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
@@ -1262,7 +1262,7 @@ check('no console/page errors', errors.length === 0);
    card-menu shape (tap the row's data-hit rect, ONE undo per action, back
    to a captured baseline before the next action starts clean). ---- */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}});
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habitat portfolio'}).click();

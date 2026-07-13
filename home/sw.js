@@ -6,13 +6,14 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-1e38016b13';
+const CACHE = 'tools-393ba15fb3';
 const PRECACHE = [
   '/',
   '/alarm/',
   '/alarm/app.js',
   '/alarm/engine.js',
   '/alarm/gate-canvas.js',
+  '/alarm/motion-spec.js',
   '/alarm/render.js',
   '/alarm/style.css',
   '/assets/about.css',
@@ -27,6 +28,8 @@ const PRECACHE = [
   '/assets/icons/icon-maskable-512.png',
   '/assets/mobile.css',
   '/assets/mobile.js',
+  '/assets/motion.css',
+  '/assets/motion.js',
   '/assets/narrow-width.js',
   '/assets/popover-focus.js',
   '/assets/poster.js',
@@ -64,6 +67,7 @@ const PRECACHE = [
   '/flow/app.js',
   '/flow/economics.js',
   '/flow/engine.js',
+  '/flow/motion-spec.js',
   '/flow/render.js',
   '/gauge/',
   '/gauge/app.js',
@@ -115,6 +119,7 @@ const PRECACHE = [
   '/timeline/diff.js',
   '/timeline/edit-targets.js',
   '/timeline/editor.js',
+  '/timeline/motion-spec.js',
   '/timeline/parse.js',
   '/timeline/render.js',
   '/timeline/style.css',

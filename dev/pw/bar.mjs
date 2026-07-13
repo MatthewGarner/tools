@@ -21,8 +21,8 @@ const browser = await chromium.launch();
 
 async function shot(path, theme, phone){
   const ctx = phone
-    ? await browser.newContext({...devices['iPhone 13'], colorScheme: theme})
-    : await browser.newContext({viewport: {width: 1440, height: 950}, colorScheme: theme});
+    ? await browser.newContext({...devices['iPhone 13'], colorScheme: theme, reducedMotion: 'reduce'})
+    : await browser.newContext({viewport: {width: 1440, height: 950}, colorScheme: theme, reducedMotion: 'reduce'});
   const page = await ctx.newPage();
   await page.goto(BASE + path, {waitUntil: 'networkidle'}).catch(() => {});
   await page.waitForTimeout(900);
@@ -42,7 +42,7 @@ async function sheet(phone, out){
   for(const theme of ['light', 'dark'])
     for(const p of [ref, tool])
       cells.push({theme, p, b64: await shot(p, theme, phone)});
-  const page = await browser.newPage({viewport: {width: phone ? 900 : 2960, height: 400}});
+  const page = await browser.newPage({viewport: {width: phone ? 900 : 2960, height: 400}, reducedMotion: 'reduce'});
   const w = phone ? 400 : 1440;
   await page.setContent('<body style="margin:0;background:#888;font-family:system-ui">' +
     '<div style="display:grid;grid-template-columns:repeat(2,' + w + 'px);gap:16px;padding:16px;width:max-content">' +

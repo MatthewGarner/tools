@@ -234,7 +234,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
         '" fill="' + tint(col) + '"/>');
       s.push(diamond(x90, y, r * 0.8, C.card, col, ' data-ms="p90"'));
     }
-    s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50"' +
+    s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') +
         '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(it.label) + '"' : '')));
 

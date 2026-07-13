@@ -12,7 +12,7 @@ const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 async function freshPage(path, theme = 'light'){
-  const page = await browser.newPage({colorScheme: theme});
+  const page = await browser.newPage({colorScheme: theme, reducedMotion: 'reduce'});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   return {page, errors};

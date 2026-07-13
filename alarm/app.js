@@ -7,6 +7,8 @@ import {layoutFlow, makeDriver} from './gate-canvas.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {themeColors, onThemeChange} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {mountMotion} from '../assets/motion.js';
+import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 
 const $ = id => document.getElementById(id);
@@ -14,6 +16,7 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const DIST_W = 900, DIST_H = 220;
 const POP = population();                              // built once; classify re-derives
 const driver = makeDriver($('gate'));
+const distPaint = mountMotion($('distwrap'));          // reveal: the curves draw on first load
 
 /* preset params. claim: [sens, spec] → fromClaim sets d′ and t. */
 const PRESETS = {
@@ -52,7 +55,7 @@ function doRefresh(){
   lastCounts = counts;
 
   const distSvg = renderDistributions(p, C, {w: DIST_W, h: DIST_H});
-  if(distSvg !== lastDistSvg){ $('distwrap').innerHTML = distSvg; lastDistSvg = distSvg; }
+  distPaint(distSvg, REVEAL); lastDistSvg = distSvg;   // curves draw on first load; later renders just swap
 
   const boxHtml = renderBox(counts, C);
   if(boxHtml !== lastBoxHtml){ $('boxwrap').innerHTML = boxHtml; lastBoxHtml = boxHtml; }

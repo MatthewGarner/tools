@@ -106,7 +106,7 @@ footer a:hover{color:var(--accent-ink)}
 
 /* Task 5 drives these on preset/dial changes: plant bars re-flow (transform),
    a value can flash to draw the eye. Both reduced-motion-guarded. */
-[data-plant]{cursor:pointer;transition:transform 240ms cubic-bezier(.2,.8,.2,1)}
+[data-plant]{cursor:pointer}   /* FLIP glide now via .mo-flip (assets/motion.css) */
 .flash{animation:merit-flash 480ms ease-out}
 @keyframes merit-flash{from{opacity:.35}to{opacity:1}}
 @media (prefers-reduced-motion: reduce){
