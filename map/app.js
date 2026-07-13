@@ -264,7 +264,7 @@ wireExports({
 /* ---------- drag-to-place: a drop is a text edit ---------- */
 let suppressClick = false;   // a completed drag must not open the card menu
 const drag = {armed: null, active: false, ghost: null, srcEl: null};
-const finePointer = () => matchMedia('(pointer: fine)').matches;   // coarse pointers use the card menu
+const finePointer = () => matchMedia('(pointer: fine)').matches;   // coarse pointers reposition via the source @ x,y
 function planeCoords(cx, cy){
   const plane = document.querySelector('#preview svg rect[data-plane]');
   if(!plane) return null;
@@ -282,7 +282,7 @@ function endDrag(){
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
 }
 $('preview').addEventListener('pointerdown', e => {
-  if(!finePointer()) return;   // coarse pointers use the card menu's move affordance
+  if(!finePointer()) return;   // fine-only: on coarse, reposition by editing the source @ x,y (Move… cardmenu row is a follow-up)
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g || e.button !== 0) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);

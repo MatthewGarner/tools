@@ -15,8 +15,11 @@ const ALL = [
   ...ENERGY_TOOL_DIRS.map(d => [d, E + '/' + d + '/']),
 ];
 const ALL_NAMES = new Set(ALL.map(([n]) => n));
-// the subset that renders a default example on first-run (gets the extra autoload check)
-const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk']);
+// the subset that renders a default SVG example on first-run (gets the extra
+// autoload check). NB canvas-output tools (fermi, frequency) also autoload but
+// draw to <canvas> — the SVG-presence check below can't see them, so they're out.
+const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk',
+  'gauge', 'timeline']);
 const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;

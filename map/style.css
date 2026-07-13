@@ -12,7 +12,12 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 
 /* drag */
-.preview svg g[data-line]{cursor:grab;touch-action:none}  /* fingers drag cards, not the page */
+@media (pointer: fine){
+  /* fine only: drag is a mouse affordance (see app.js finePointer gate).
+     touch-action:none here would fight a phone's vertical swipe-to-scroll —
+     on coarse pointers a card must stay a scroll surface, not a drag handle. */
+  .preview svg g[data-line]{cursor:grab;touch-action:none}
+}
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
   padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;
