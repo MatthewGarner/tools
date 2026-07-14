@@ -827,6 +827,12 @@ for(const theme of ['light', 'dark']){
       .evaluateAll(els => els.map(el => el.dataset.style));
     check('roadmap: ' + style + ' chip is the only one marked active',
       activeStyles.length === 1 && activeStyles[0] === style);
+    /* the class is for the eye; aria-pressed is the state a SR user hears —
+       the house toggle groups (bets, merit-order, premortem, zoom) set both */
+    const pressed = await page.locator('#stylepicker [data-style][aria-pressed="true"]')
+      .evaluateAll(els => els.map(el => el.dataset.style));
+    check('roadmap: ' + style + ' chip is the only one with aria-pressed=true',
+      pressed.length === 1 && pressed[0] === style);
 
     const [dl] = await Promise.all([
       page.waitForEvent('download', {timeout: 8000}),

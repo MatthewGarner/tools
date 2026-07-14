@@ -15,7 +15,7 @@ import {
   roadmapVerdict, W, H, M,
   renderRegisterBody, registerColumns,
   renderFocusBody, focusHeroIndex, focusColumnCount,
-  renderGridBody, gridFit,
+  renderGridBody, gridFit, MAX_UP,
 } from '../render-deck.js';
 
 const INNER = W - M * 2;
@@ -509,11 +509,19 @@ test('focus rail: certainty fade only applies when model.fade is on', () => {
    GRID — the existing chart, scaled to fit
    ================================================================== */
 
-test('gridFit: fits without scaling up past 1x when the chart already fits', () => {
+/* a small board GROWS to fill the frame (it's vector, and a 3-item chart printed
+   at 1:1 on a 1920 slide is a stamp in a field of air) — but never past MAX_UP */
+test('gridFit: a small chart scales UP to the binding dimension, centred', () => {
   const fit = gridFit(800, 400, 1720, 754);
-  assert.equal(fit.scale, 1);
-  assert.equal(fit.x, (1720 - 800) / 2);
-  assert.equal(fit.y, (754 - 400) / 2);
+  assert.equal(fit.scale, 754 / 400 > MAX_UP ? MAX_UP : 754 / 400,
+    'height-bound at 1.885x, so the cap bites');
+  assert.equal(fit.scale, MAX_UP);
+  assert.equal(fit.x, (1720 - 800 * MAX_UP) / 2);
+  assert.equal(fit.y, (754 - 400 * MAX_UP) / 2);
+});
+
+test('gridFit: the upscale cap holds however tiny the board', () => {
+  assert.equal(gridFit(100, 50, 1720, 754).scale, MAX_UP, 'never a comically zoomed card');
 });
 
 test('gridFit: scales DOWN to the binding dimension (width- or height-bound)', () => {

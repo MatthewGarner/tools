@@ -113,8 +113,11 @@ function renderWarnings(m){
    doc with no style: line still shows Grid active, not none) */
 function syncStylePicker(m){
   const active = effectiveStyle(m);
-  for(const b of $('stylepicker').querySelectorAll('[data-style]'))
-    b.classList.toggle('on', b.dataset.style === active);
+  for(const b of $('stylepicker').querySelectorAll('[data-style]')){
+    const on = b.dataset.style === active;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));   // a SR user hears which style will export
+  }
 }
 function writeHash(){
   const state = {t: editor.getText()};

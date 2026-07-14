@@ -710,8 +710,12 @@ export function renderFocusBody(model, ctx, y0, y1){
    containment story). title/date are suppressed on the INNER chart via a
    model clone (the frame prints them once); the chart rides in a nested
    <svg x y width height viewBox>, which clips to its own box for free. */
+/* Vector, so a small board may grow to fill the frame — a 3-item chart printed
+   at 1:1 on a 1920 slide is a stamp in a field of air, and projected type wants
+   the size. Capped at MAX_UP: past that the cards read as a mistake, not a chart. */
+export const MAX_UP = 1.4;
 export function gridFit(w, h, boxW, boxH){
-  const scale = Math.max(0, Math.min(w > 0 ? boxW / w : 1, h > 0 ? boxH / h : 1, 1));
+  const scale = Math.max(0, Math.min(w > 0 ? boxW / w : 1, h > 0 ? boxH / h : 1, MAX_UP));
   return {scale, x: (boxW - w * scale) / 2, y: (boxH - h * scale) / 2};
 }
 function svgDims(svg){
