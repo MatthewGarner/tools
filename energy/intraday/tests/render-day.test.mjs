@@ -52,7 +52,29 @@ test('buildDayVerdict: quotes the spread, and the flattening when a fleet works'
   assert.match(v6, /£\d+ → £\d+/, 'raw → flattened spread');
   assert.match(v6, /per MW/, 'the fleet’s own margin is quoted');
   assert.ok(r6.droppedGWh > 0, 'fixture: 6 GW drops trades at GB defaults');
-  assert.match(v6, /walking away from [\d.]+ GWh/, 'abandoned trades are quoted');
+  assert.match(v6, /only paid for \d+% of the tank/, 'the cannibalised tank is quoted');
+  assert.match(v6, /perfect foresight/, 'the kept figure is scoped as a ceiling, not an estimate');
+});
+
+/* The tank clause replaced "walking away from N GWh": same fact, but a bare GWh has
+   no denominator (is 6.9 GWh a rounding error or a catastrophe?) while a % carries
+   its own scale — and it's the number the SoC lane draws. These pin the claim and
+   its two gates. */
+test('verdict: the tank % is the SoC lane\'s own number (they can never disagree)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const pct = Math.round(100 * Math.max(...r.sched.soc) / (p.fleetGW * p.fleetH));
+  assert.match(buildDayVerdict(r, p), new RegExp('only paid for ' + pct + '% of the tank'),
+    'verdict must compute from peak SoC / capacity, exactly as the lane caption does');
+});
+
+test('verdict: no tank clause when the fleet fills its tank (no false 100% achievement)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 1};              // small enough that the back-off cuts nothing
+  const r = runDay(p);
+  assert.ok(r.droppedGWh <= 0.05, 'fixture premise: a 1 GW fleet keeps its whole plan');
+  const v = buildDayVerdict(r, p);
+  assert.ok(!/of the tank/.test(v), 'a fleet that used all its tank has no tank lesson to teach');
+  assert.match(v, /per MW/, 'the price-cannibalisation lesson still lands on the £ figures alone');
 });
 
 test('renderDay: dropped trades ghost as dashed bars when the back-off bites', () => {
@@ -500,4 +522,25 @@ test('soc lane: absent when no fleet trades (canvas does not reserve an empty la
   const svg = renderDay(runDay(p), p, ctx);
   assert.ok(!svg.includes("data-soc=''"), 'no ribbon');
   assert.ok(!svg.includes('state of charge'), 'no caption');
+});
+
+/* The export's verdict band must sit BELOW everything the chart drew. It didn't:
+   the band was anchored to a hand-copied `plotBottom + 79`, which stopped tracking
+   the canvas the moment the SoC lane grew it, and the verdict printed straight over
+   the ribbon in every SVG/PNG export. The goldens didn't catch it — the bytes
+   changed, and I recaptured them as "expected". So pin the invariant itself. */
+test('export: the verdict sits below the whole chart, never on top of it', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const svg = renderDay(runDay(p), p, ctx, {forExport: true});
+
+  const socCaption = svg.match(/<text[^>]*y="([\d.]+)"[^>]*>state of charge/);
+  assert.ok(socCaption, 'fixture premise: the export carries the soc lane');
+  const laneBottom = Number(socCaption[1]);
+
+  const band = svg.match(/<g data-verdict=''>(.*?)<\/g>/s);
+  assert.ok(band, 'the export carries a verdict band');
+  const firstLineY = Number(band[1].match(/y="([\d.]+)"/)[1]);
+
+  assert.ok(firstLineY > laneBottom,
+    'verdict first line (y=' + firstLineY + ') must clear the soc lane caption (y=' + laneBottom + ')');
 });

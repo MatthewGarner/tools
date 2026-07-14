@@ -62,7 +62,7 @@ function segColour(name, palette){
 }
 
 export function buildDayVerdict(result, p){
-  const {raw, flat, achievedMargin, plannedMargin, dischargedGWh, droppedGWh} = result;
+  const {raw, flat, sched, achievedMargin, plannedMargin, dischargedGWh, droppedGWh} = result;
   const at = h => String(h).padStart(2, '0') + ':00';
   const req = (a, b) => Math.round(a) === Math.round(b);
   // plateau: report "from hh:00" when the extreme extends over a run of equal-
@@ -96,10 +96,22 @@ export function buildDayVerdict(result, p){
   const verb = (Xr - Yr >= 1)
     ? `flattens the day's spread £${Xr} → £${Yr}`
     : `leaves the day's spread at £${Xr}`;
-  const dropped = droppedGWh > 0.05
-    ? ` — walking away from ${r1(droppedGWh)} GWh of trades the day no longer paid for`
+  /* Tank, not dropped-GWh: a bare "6.9 GWh" has no denominator; "43% of the tank"
+     carries its own scale and is the number the SoC lane draws. From PEAK SoC/cap —
+     the lane's own number — so line and ribbon can never disagree. "The day it MADE"
+     stays true even when max−min doesn't move (6 GW × 1 h remakes the mid-day prices
+     without shifting the spread). Gated on droppedGWh (only when the back-off really
+     cut the plan) and ≤95% (a marginal trim is not a lesson). */
+  const cap = p.fleetGW * p.fleetH;
+  const pct = cap > 0 ? Math.round(100 * Math.max(...sched.soc) / cap) : 0;
+  const tank = (droppedGWh > 0.05 && pct <= 95)
+    ? ` — the day it made only paid for ${pct}% of the tank`
     : '';
-  return `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. It planned £${perMWPlanned} per MW per day on the raw shape and kept £${perMW}${dropped}.`;
+  /* "Even with perfect foresight" amplifies rather than hedges — it knows the whole
+     day and STILL keeps £3 of £117 — and stamps the scope on a line built to travel:
+     the kept figure is a ceiling (no degradation, no forecast error) and the poster
+     quotes it without the about copy attached. */
+  return `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. Even with perfect foresight it keeps £${perMW} of the £${perMWPlanned} per MW per day it planned on the raw shape${tank}.`;
 }
 
 export function renderDay(result, p, ctx, opts = {}){
@@ -144,7 +156,11 @@ export function renderDay(result, p, ctx, opts = {}){
   // export verdict: wrapped to the plot width, its own band below the strip
   // caption (or the x labels when no strip) — the canvas grows to hold it
   const vLines = opts.forExport ? wrapText(buildDayVerdict(result, p), '12px ' + FONT, plotW, measure) : [];
-  const bandBottom = plotBottom + (hasFleet ? 79 : 16);   // strip-caption / x-label baseline
+  /* Hangs off the BOTTOM OF THE CANVAS, never a hand-copied offset: it used to be
+     `plotBottom + (hasFleet ? 79 : 16)`, which stopped tracking the canvas the moment
+     the SoC lane grew it — the verdict printed over the ribbon in every export. From
+     baseH it can't drift when the next lane lands. (−3/−6 reproduce the old offsets.) */
+  const bandBottom = baseH - (hasFleet ? 3 : 6);   // last drawn baseline: strip/soc caption, or x-labels
   const vy0 = bandBottom + 24, vLineH = 18;
   const H = opts.forExport ? Math.max(baseH, Math.round(vy0 + (vLines.length - 1) * vLineH + 12)) : baseH;
 

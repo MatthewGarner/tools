@@ -338,10 +338,11 @@ for(const theme of ['light', 'dark']){
   await page.locator('#fleetGW').dispatchEvent('input');
   await page.waitForTimeout(150);
   const v6 = await page.locator('#verdict').innerText();
-  // verdict may append " — walking away from N GWh of trades..." after the flattened
-  // figure; the raw→flat pair always appears before that clause, so the substring
-  // match tolerates it without anchoring the end of the string.
+  // the verdict may append " — the day it made only paid for N% of the tank" after
+  // the flattened figure; the raw→flat pair always appears before that clause, so
+  // the substring match tolerates it without anchoring the end of the string.
   check('intraday(' + theme + '): fleet flattens (raw → flat quoted)', /£\d+ → £\d+/.test(v6));
+  check('intraday(' + theme + '): verdict names the cannibalised tank', /% of the tank/.test(v6));
   check('intraday(' + theme + '): ghost raw shape appears', await page.locator('[data-raw-shape]').count() === 1);
   await page.locator('#scrub').fill('3');
   await page.locator('#scrub').dispatchEvent('input');
