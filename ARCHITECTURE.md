@@ -11,7 +11,7 @@ enumerable, this points at the code that enumerates it.
 ## The shape of a tool
 
 One folder per tool: an `index.html` plus a handful of ES modules, with node tests
-beside it under `tests/`. There's no build step and no runtime dependency — every
+beside it under `<tool>/tests/`. There's no build step and no runtime dependency — every
 tool ships as static files, and state lives in the URL hash so any model is a
 bookmarkable, shareable link.
 
