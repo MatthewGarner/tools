@@ -10,9 +10,10 @@
    the VERDICT as a standfirst → body band → footer rule + metrics). Styles fill the
    body; colour comes from the document (`palette:` / `accent:` via scheme()), never
    from the style — a style owns STRUCTURE. */
-import {txt, wrapText, tint} from '../assets/svg.js';
+import {txt, wrapText, tint, esc} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
 import {PALETTES, scheme} from '../assets/series.js';
+import {render as renderChart} from './render.js';
 
 export const W = 1920, H = 1080, M = 100;
 const INNER = W - M * 2;                      // 1720
@@ -397,11 +398,386 @@ export function renderBoardBody(model, ctx, y0, y1){
   return boardBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
 }
 
-/* Style dispatch (E): style: DSL key, else grid on a time axis, else board.
-   Grid/focus/register aren't built yet (stage 1 is board only) — an
-   unimplemented pick falls back to board, and the map is the ONLY place a
-   later stage needs to touch to slot styles 2-4 in. */
-const STYLE_RENDERERS = {board: renderBoardDeck};
+/* ================= REGISTER: the roadmap as a formal table =================
+   Columns are FRACTIONS of the 1720 inner width (item .35 / lane .12 /
+   horizon .11 / status .12 / note .30) — a column the document doesn't use
+   (no lanes, no statuses, no notes) is DROPPED and its share redistributed
+   proportionally across whatever remains (item always stays, since it's the
+   spine of the table). Rows sort horizon -> lane (model.lanes order) ->
+   srcLine; the horizon name prints once per group (ditto-suppressed) for a
+   formal-table read. Diff: a NEW capsule rides after the title; a moved
+   item's "was X" badge label prints italic in the horizon cell (even when
+   the horizon name itself is dittoed blank); dropped items become struck
+   rows with a DROPPED capsule. Both the live table and the dropped section
+   are capFit-capped against their own budget — the prototype left the
+   dropped section unbounded, which is exactly the bug capFit forecloses. */
+const REGISTER_COLS = [
+  {key: 'item', label: 'ITEM', frac: 0.35, always: true},
+  {key: 'lane', label: 'LANE', frac: 0.12},
+  {key: 'horizon', label: 'HORIZON', frac: 0.11},
+  {key: 'status', label: 'STATUS', frac: 0.12},
+  {key: 'note', label: 'NOTE', frac: 0.30},
+];
+
+export function registerColumns(model){
+  const hasLane = model.lanes.some(l => l);
+  const hasStatus = model.items.some(i => i.status);
+  const hasNote = model.items.some(i => i.note);
+  const used = REGISTER_COLS.filter(c => c.always ||
+    (c.key === 'lane' && hasLane) ||
+    (c.key === 'horizon' && model.horizons.length > 1) ||
+    (c.key === 'status' && hasStatus) ||
+    (c.key === 'note' && hasNote));
+  const total = used.reduce((a, c) => a + c.frac, 0) || 1;
+  let x = M;
+  return used.map(c => {
+    const w = c.frac / total * INNER;
+    const col = {key: c.key, label: c.label, x, w};
+    x += w;
+    return col;
+  });
+}
+
+function registerRows(model){
+  const laneRank = new Map(model.lanes.map((l, i) => [l, i]));
+  return [...model.items].sort((a, b) =>
+    (a.h - b.h) || ((laneRank.get(a.lane) ?? 0) - (laneRank.get(b.lane) ?? 0)) || (a.srcLine - b.srcLine));
+}
+
+const italTxt = (x, y, s, size, fill) => '<text x="' + r2(x) + '" y="' + r2(y) +
+  '" font-size="' + size + '" font-style="italic" fill="' + fill + '">' + esc(s) + '</text>';
+
+function registerBodyFn(model, ctx, C){
+  return (y0, y1) => {
+    const {measure, diff = null} = ctx;
+    const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;
+    const dropped = diff && diff.dropped ? diff.dropped : [];
+    const cols = registerColumns(model);
+    const col = k => cols.find(c => c.key === k);
+    const itemCol = col('item'), laneCol = col('lane'), hCol = col('horizon'),
+      stCol = col('status'), noteCol = col('note');
+    const RPAD = 12, headH = 40;
+    const zoneH = y1 - y0;
+    const availH = Math.max(0, zoneH - headH);
+
+    const s = [];
+    for(const c of cols)
+      s.push(txt(c.x + RPAD, y0 + 24, c.label, 12, C.muted, {weight: 700, tracking: 1.4}));
+    s.push(line(M, y0 + headH - 6, W - M, y0 + headH - 6, C.border, 1.5));
+
+    const rows = registerRows(model);
+    if(!rows.length && !dropped.length){
+      s.push(rect(M, y0 + headH + 10, INNER, 60, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
+      s.push(txt(W / 2, y0 + headH + 46, 'Nothing on the register yet', 14, C.muted, {anchor: 'middle'}));
+      return s.join('');
+    }
+
+    /* budget: the dropped section (if any) gets up to 30% of the body, never
+       crowding the live table out entirely and never itself left unbounded */
+    const dRowH = 34, dHeadH = dropped.length ? 28 : 0;
+    const dWant = dHeadH + dropped.length * dRowH;
+    const dBudget = dropped.length ? Math.min(dWant, Math.max(dHeadH + dRowH, availH * 0.3), availH) : 0;
+    const liveBudget = Math.max(0, availH - dBudget);
+
+    const titleFont = '700 15px ' + SANS, secFont = '13px ' + SANS, noteFont = '13px ' + SANS;
+    const capsuleW = label => measure(label, '600 12px ' + SANS) + label.length * 0.6 + 18;
+
+    const layout = noteMax => rows.map((it, i) => {
+      const b = badgeOf(it);
+      const groupFirst = i === 0 || rows[i - 1].h !== it.h;
+      const newCapW = b && b.kind === 'new' ? capsuleW(b.label.toUpperCase()) + 10 : 0;
+      const tl = wrapN(it.title, titleFont, itemCol.w - RPAD * 2 - newCapW, 2, measure);
+      const nl = noteCol && it.note ? wrapN(it.note, noteFont, noteCol.w - RPAD * 2, noteMax, measure) : [];
+      const hLines = [];
+      if(hCol && groupFirst) hLines.push(model.horizons[it.h]);
+      if(hCol && b && b.kind === 'moved') hLines.push(b.label);
+      const contentH = Math.max(tl.length * 19, nl.length * 17, hLines.length * 17,
+        (stCol && it.status) ? 22 : 0, 17);
+      return {it, b, tl, nl, hLines, groupFirst, h: RPAD * 2 + contentH};
+    });
+    let laidRows = layout(2);
+    const sumH = list => list.reduce((a, r) => a + r.h, 0);
+    if(sumH(laidRows) > liveBudget) laidRows = layout(1);
+    const shown = capFit(laidRows.map(r => r.h), liveBudget, 0, 30);
+
+    let ry = y0 + headH;
+    for(const r of laidRows.slice(0, shown)){
+      const {it, b, tl, nl, hLines} = r;
+      const wash = it.status === 'blocked' ? C.status.blocked + '33'
+        : it.status === 'risk' ? tint(C.status.risk) : null;
+      if(wash) s.push(rect(M, ry, INNER, r.h, wash));
+      let ty = ry + RPAD + 13;
+      tl.forEach((ln, li) => {
+        s.push(txt(itemCol.x + RPAD, ty, ln, 15, C.ink, {weight: 700}));
+        if(li === 0 && b && b.kind === 'new'){
+          const lw = measure(ln, titleFont);
+          s.push(badgeCapsule(itemCol.x + RPAD + lw + 10, ty - 15, b, C, measure).svg);
+        }
+        ty += 19;
+      });
+      if(laneCol && it.lane)
+        s.push(txt(laneCol.x + RPAD, ry + RPAD + 13, clip1(it.lane, secFont, laneCol.w - RPAD * 2, measure), 13, C.muted));
+      if(hCol){
+        let hy = ry + RPAD + 13;
+        hLines.forEach((ln, li) => {
+          if(li === 0 && r.groupFirst) s.push(txt(hCol.x + RPAD, hy, ln, 13, C.ink, {weight: 700}));
+          else s.push(italTxt(hCol.x + RPAD, hy, ln, 12.5, C.muted));
+          hy += 17;
+        });
+      }
+      if(stCol && it.status)
+        s.push(statusCapsule(stCol.x + RPAD, ry + (r.h - 22) / 2, it.status, C, measure).svg);
+      if(noteCol && nl.length){
+        let ny = ry + RPAD + 13;
+        for(const ln of nl){ s.push(txt(noteCol.x + RPAD, ny, ln, 13, C.muted)); ny += 17; }
+      }
+      ry += r.h;
+      s.push(line(M, ry, W - M, ry, C.border, 1, 0.5));
+    }
+    if(shown < laidRows.length){
+      s.push(rect(M, ry, INNER, 30, 'none', {rx: 8, stroke: C.border, sw: 1, dash: '4 4'}));
+      s.push(txt(M + 14, ry + 20, '+ ' + (laidRows.length - shown) + ' more', 13, C.muted, {weight: 600}));
+      ry += 30 + 6;
+    }
+
+    if(dropped.length){
+      ry += 8;
+      s.push(txt(M, ry + 14, 'DROPPED SINCE ' + (diff.since || '').toUpperCase(), 11, C.muted, {weight: 700, tracking: 1.2}));
+      ry += 26;
+      const dLabel = 'DROPPED · ' + (diff.since || '');
+      const dCapW = capsuleW(dLabel);   // capsule() below draws dLabel as-is (no uppercase), so no uppercase here either
+      const dTitleFont = '14px ' + SANS;
+      const dTitleMaxW = Math.max(20, INNER - 16 - dCapW - 12);
+      const dRows = dropped.map(name => ({name, h: dRowH}));
+      const room = Math.max(0, y1 - ry);
+      const shownD = capFit(dRows.map(r => r.h), room, 0, 30);
+      for(const d of dRows.slice(0, shownD)){
+        const clipped = clip1(d.name, dTitleFont, dTitleMaxW, measure);
+        s.push(txt(M + 8, ry + 20, clipped, 14, C.muted, {strike: true}));
+        const tw = measure(clipped, dTitleFont);
+        s.push(capsule(M + 8 + tw + 12, ry + 5, dLabel, C.muted, C.muted, measure).svg);
+        ry += dRowH;
+      }
+      if(shownD < dRows.length)
+        s.push(txt(M, ry + 16, '+ ' + (dRows.length - shownD) + ' more dropped', 13, C.muted, {weight: 600}));
+    }
+    return s.join('');
+  };
+}
+
+function renderRegisterDeck(model, ctx, C){
+  return deckFrame(model, ctx, C, registerBodyFn(model, ctx, C));
+}
+export function renderRegisterBody(model, ctx, y0, y1){
+  return registerBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
+}
+
+/* ================= FOCUS: attention-weighted =================
+   Hero = the first NON-EMPTY horizon (an empty Now must not produce an
+   empty hero — the prototype crashed indexing hs[-1]). Hero column ~1060px
+   under an accent wash that HUGS the card stack: the stack is laid out
+   FIRST (pure geometry, no drawing dependency on the wash), then the wash
+   is sized to its actual painted extent and emitted before it — content-
+   driven height, never a stretched box. 1 column at <=5 items, 2 columns at
+   >=6 (row-pair equalised: a pair shares the taller card's height). The
+   remaining horizons flatten into a ~600px rail of ranked indexes,
+   certainty-faded by the house formula (gated on model.fade). */
+export function focusHeroIndex(model){
+  const idx = model.horizons.findIndex((_, h) => model.items.some(it => it.h === h));
+  return idx < 0 ? 0 : idx;
+}
+export function focusColumnCount(n){ return n >= 6 ? 2 : 1; }
+
+const HERO_W = 1060, HGAP = 60, RAIL_W = INNER - HERO_W - HGAP;   // 1060 + 60 + 600 = 1720
+const HWASH_PAD = 22;
+
+function layoutHeroCard(it, cardW, measure){
+  const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
+  const PAD = HWASH_PAD;
+  const laneH = it.lane ? 22 : 0;
+  const tl = wrapN(it.title, fT, cardW - PAD * 2, 2, measure);
+  const nl = it.note ? wrapN(it.note, fN, cardW - PAD * 2, 2, measure) : [];
+  const statusH = it.status ? 34 : 0;
+  const h = PAD * 2 + laneH + tl.length * 32 + (nl.length ? nl.length * 21 + 6 : 0) + statusH;
+  return {it, tl, nl, h: Math.max(h, PAD * 2 + 32)};
+}
+
+function paintHeroCard(c, x, y, w, C, measure){
+  const PAD = HWASH_PAD;
+  const s = [];
+  const flag = c.it.status === 'risk' ? C.status.risk : c.it.status === 'blocked' ? C.status.blocked : null;
+  s.push(rect(x, y, w, c.h, C.card, {rx: 14, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
+  if(c.it.lane){
+    const laneLbl = c.it.lane.toUpperCase();
+    const lw = measure(laneLbl, '700 11px ' + SANS) + laneLbl.length * 0.6;
+    s.push(txt(x + w - PAD - lw, y + PAD + 8, laneLbl, 11, C.muted, {weight: 700, tracking: 1.2}));
+  }
+  let ty = y + PAD + (c.it.lane ? 22 : 0) + 24;
+  for(const ln of c.tl){ s.push(txt(x + PAD, ty, ln, 26, C.ink, {weight: 700})); ty += 32; }
+  if(c.nl.length){ ty += 4; for(const ln of c.nl){ s.push(txt(x + PAD, ty, ln, 16, C.muted)); ty += 21; } }
+  if(c.it.status) s.push(statusCapsule(x + PAD, y + c.h - PAD - 22, c.it.status, C, measure).svg);
+  return s.join('');
+}
+
+function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure}){
+  const twoCol = focusColumnCount(list.length) === 2;
+  const colGap = 18, rowGap = 16;
+  const cardW = twoCol ? (w - colGap) / 2 : w;
+  const laid = list.map(it => layoutHeroCard(it, cardW, measure));
+  const rows = [];
+  if(twoCol) for(let i = 0; i < laid.length; i += 2) rows.push(laid.slice(i, i + 2));
+  else for(const c of laid) rows.push([c]);
+  const rowH = r => Math.max(...r.map(c => c.h));
+  const shown = capFit(rows.map(rowH), availH, rowGap, 40);
+
+  const s = [];
+  let cy = y0;
+  for(const row of rows.slice(0, shown)){
+    const h = rowH(row);
+    row.forEach((c, i) => s.push(paintHeroCard({...c, h}, x + i * (cardW + colGap), cy, cardW, C, measure)));
+    cy += h + rowGap;
+  }
+  if(shown < rows.length){
+    s.push(rect(x, cy, w, 40, 'none', {rx: 20, stroke: C.border, sw: 1, dash: '4 4'}));
+    const hiddenItems = rows.slice(shown).reduce((a, r) => a + r.length, 0);
+    s.push(txt(x + 18, cy + 26, '+ ' + hiddenItems + ' more in ' + heroName, 14, C.muted, {weight: 600}));
+    cy += 40;
+  }
+  return {svg: s.join(''), bottom: cy};
+}
+
+function focusBodyFn(model, ctx, C){
+  return (y0, y1) => {
+    const {measure} = ctx;
+    const hs = model.horizons, nH = hs.length;
+    const heroIdx = focusHeroIndex(model);
+    const heroItems = model.items.filter(i => i.h === heroIdx).sort((a, b) => a.srcLine - b.srcLine);
+    const heroX = M, headerH = 44;
+
+    const s = [];
+    const overWip = heroIdx === 0 && model.wip > 0 && heroItems.length > model.wip;
+    const countLbl = overWip ? heroItems.length + ' — OVER WIP ' + model.wip : String(heroItems.length);
+    s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
+    s.push(txt(heroX + HERO_W, y0 + 30, countLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700, tracking: 1}));
+
+    const washY0 = y0 + headerH;
+    let stack;
+    if(!heroItems.length){
+      stack = {
+        svg: rect(heroX + HWASH_PAD, washY0 + HWASH_PAD, HERO_W - HWASH_PAD * 2, 84, 'none',
+          {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}) +
+          txt(heroX + HERO_W / 2, washY0 + HWASH_PAD + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'}),
+        bottom: washY0 + HWASH_PAD + 84,
+      };
+    } else {
+      const availH = Math.max(60, y1 - (washY0 + HWASH_PAD) - HWASH_PAD);
+      stack = paintHeroStack(heroItems, {
+        x: heroX + HWASH_PAD, y0: washY0 + HWASH_PAD, w: HERO_W - HWASH_PAD * 2,
+        availH, heroName: hs[heroIdx], C, measure,
+      });
+    }
+    const washH = Math.min(y1, stack.bottom + HWASH_PAD) - washY0;
+    s.push(rect(heroX, washY0, HERO_W, Math.max(0, washH), C.accent + '0D', {rx: 16}));
+    s.push(stack.svg);
+
+    /* rail: every other horizon, flattened into ranked rows, certainty-faded
+       by the house formula (only when model.fade) — capFit-capped as a
+       single flat sequence of header/row units so termination is provable
+       without per-section bookkeeping. */
+    const railX = heroX + HERO_W + HGAP;
+    const units = [];
+    let rank = 0;
+    for(let h = 0; h < nH; h++){
+      if(h === heroIdx) continue;
+      const list = model.items.filter(i => i.h === h).sort((a, b) => a.srcLine - b.srcLine);
+      if(!list.length) continue;
+      units.push({type: 'header', h, height: 34});
+      for(const it of list){ rank++; units.push({type: 'row', h, it, rank, height: 38}); }
+    }
+    const railAvail = Math.max(0, y1 - y0 - 6);
+    const shownU = capFit(units.map(u => u.height), railAvail, 0, 34);
+    let ry = y0 + 6;
+    for(const u of units.slice(0, shownU)){
+      const fadeOp = model.fade && nH > 1 ? 1 - (u.h / (nH - 1)) * 0.35 : 1;
+      if(u.type === 'header'){
+        s.push(txt(railX, ry + 16, hs[u.h].toUpperCase(), 13, C.muted, {weight: 700, tracking: 1.4}));
+        s.push(line(railX, ry + 24, railX + RAIL_W, ry + 24, C.border, 1, 0.6));
+      } else {
+        const numeral = String(u.rank).padStart(2, '0');
+        const laneLbl = u.it.lane ? u.it.lane.toUpperCase() : '';
+        const laneW = laneLbl ? measure(laneLbl, '700 10px ' + SANS) + laneLbl.length * 0.6 : 0;
+        const titleMaxW = Math.max(20, RAIL_W - 34 - (laneW ? laneW + 14 : 0));
+        s.push('<g opacity="' + fadeOp.toFixed(2) + '">');
+        s.push(txt(railX, ry + 24, numeral, 15, C.muted, {weight: 700}));
+        s.push(txt(railX + 34, ry + 24, clip1(u.it.title, '15px ' + SANS, titleMaxW, measure), 15, C.ink));
+        if(laneLbl) s.push(txt(railX + RAIL_W, ry + 22, laneLbl, 10, C.muted, {anchor: 'end', weight: 700, tracking: 1}));
+        s.push('</g>');
+      }
+      ry += u.height;
+    }
+    if(shownU < units.length){
+      const hiddenRows = units.slice(shownU).filter(u => u.type === 'row').length;
+      if(hiddenRows) s.push(txt(railX, ry + 20, '+ ' + hiddenRows + ' more', 13, C.muted, {weight: 600}));
+    }
+    return s.join('');
+  };
+}
+
+function renderFocusDeck(model, ctx, C){
+  return deckFrame(model, ctx, C, focusBodyFn(model, ctx, C));
+}
+export function renderFocusBody(model, ctx, y0, y1){
+  return focusBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
+}
+
+/* ================= GRID: the existing chart, scaled to fit the deck =================
+   This deliberately REPLACES a bespoke timeline: render.js already stacks N
+   items per lane x period — stacking IS the grid. `render.js` is only ever
+   CALLED, never edited (the whole containment story). title/date are
+   suppressed on the INNER chart via a model clone (the frame prints them
+   once, at the top); the chart rides in a nested <svg x y width height
+   viewBox>, which clips to its own box for free as a second line of
+   defence against a fit-maths mistake. */
+export function gridFit(w, h, boxW, boxH){
+  const scale = Math.max(0, Math.min(w > 0 ? boxW / w : 1, h > 0 ? boxH / h : 1, 1));
+  return {scale, x: (boxW - w * scale) / 2, y: (boxH - h * scale) / 2};
+}
+function svgDims(svg){
+  const w = svg.match(/\swidth="(\d+(?:\.\d+)?)"/);
+  const h = svg.match(/\sheight="(\d+(?:\.\d+)?)"/);
+  return {w: w ? +w[1] : 1, h: h ? +h[1] : 1};
+}
+function innerOfSvg(svg){
+  const open = svg.indexOf('>') + 1;
+  const close = svg.lastIndexOf('</svg>');
+  return svg.slice(open, close > 0 ? close : svg.length);
+}
+
+function gridBodyFn(model, ctx, C){
+  return (y0, y1) => {
+    const {measure, diff = null, dark = false} = ctx;
+    const inner = renderChart({...model, title: '', dateStr: 'off'},
+      {colors: ctx.colors, measure, diff, dark, slide: true});
+    const {w, h} = svgDims(inner);
+    const bodyH = Math.max(0, y1 - y0);
+    const fit = gridFit(w, h, INNER, bodyH);
+    const x = M + fit.x, y = y0 + fit.y;
+    return '<svg x="' + r2(x) + '" y="' + r2(y) + '" width="' + r2(w * fit.scale) +
+      '" height="' + r2(h * fit.scale) + '" viewBox="0 0 ' + w + ' ' + h + '">' + innerOfSvg(inner) + '</svg>';
+  };
+}
+
+function renderGridDeck(model, ctx, C){
+  return deckFrame(model, ctx, C, gridBodyFn(model, ctx, C));
+}
+export function renderGridBody(model, ctx, y0, y1){
+  return gridBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
+}
+
+/* Style dispatch (E): style: DSL key, else grid on a time axis, else board. */
+const STYLE_RENDERERS = {
+  board: renderBoardDeck, register: renderRegisterDeck, focus: renderFocusDeck, grid: renderGridDeck,
+};
 
 export function renderDeck(model, ctx = {}){
   const wanted = model.style || (model.timeAxis ? 'grid' : 'board');

@@ -1,18 +1,24 @@
 /* Stage 1: the shared deck frame + the BOARD style + its overflow ladder.
-   The ladder (drop notes -> clamp titles -> cap+chip -> flip to list rows,
-   itself capped) must be PROVEN TO TERMINATE: nothing the board paints may
+   Stage 2/3: REGISTER (formal table), FOCUS (hero + ranked rail), GRID
+   (the existing chart, scaled to fit) — same containment discipline: every
+   style's overflow ladder must be PROVEN TO TERMINATE, nothing painted may
    ever fall below the body zone it was given. Goldens use the stub measure
    (t.length*7) too, so these tests don't prove real-metrics wrap decisions —
-   that's the real-metrics PNG render (Stage 1 verification step 5) — but they
-   DO prove the ladder's bookkeeping (capFit, listMode, the chip) never lets a
-   column overrun its box, at any item count / horizon count / lane count. */
+   that's the real-metrics PNG render (verification step 5) — but they DO
+   prove the ladder's bookkeeping (capFit, listMode, the chip) never lets a
+   column/row/card overrun its box, at any item/horizon/lane count. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {
   renderDeck, renderBoardBody, typeRamp, boardGeometry, capFit, diffCounts,
   roadmapVerdict, W, H, M,
+  renderRegisterBody, registerColumns,
+  renderFocusBody, focusHeroIndex, focusColumnCount,
+  renderGridBody, gridFit,
 } from '../render-deck.js';
+
+const INNER = W - M * 2;
 
 const measure = t => t.length * 7;
 const colors = {
@@ -237,22 +243,29 @@ test('style selection: unset + no time axis -> board', () => {
   assert.match(svg, /NOW</);
 });
 
-test('style selection: unset + a time axis wants grid, which is not built yet -> falls back to board', () => {
+test('style selection: unset + a time axis wants grid, which IS built now -> renders the embedded chart, not board columns', () => {
   const model = parse('horizons: quarterly from Q3 2026 x3\nQ3 2026\nCore: A\nQ4 2026\nCore: B');
   assert.equal(model.timeAxis, true);
   assert.equal(model.style, null);
   const svg = renderDeck(model, ctx);   // must not throw
   assert.match(svg, /Q3 2026</);
+  assert.match(svg, /<svg[^>]*\sx="/, 'grid embeds the inner chart as a nested <svg x=...> element');
 });
 
-test('style selection: an explicit but unimplemented style (focus/register/grid) falls back to board without crashing', () => {
-  for(const style of ['focus', 'register', 'grid']){
-    const model = parse('style: ' + style + '\nNOW\nCore: A');
-    assert.equal(model.style, style);
-    const svg = renderDeck(model, ctx);
-    assert.match(svg, /^<svg/);
-    assert.match(svg, /NOW</);
-  }
+test('style selection: register/focus/grid are all built now — each renders its own distinct structure, not board', () => {
+  const register = renderDeck(parse('style: register\nNOW\nCore: A'), ctx);
+  assert.match(register, /^<svg/);
+  assert.match(register, />ITEM</, 'register prints its own column headers');
+  assert.doesNotMatch(register, /Nothing scheduled/, 'not board\'s empty-column ghost copy');
+
+  const focus = renderDeck(parse('style: focus\nNOW\nCore: A'), ctx);
+  assert.match(focus, /^<svg/);
+  assert.match(focus, />NOW</);
+  assert.doesNotMatch(focus, />ITEM</, 'not register\'s table header');
+
+  const grid = renderDeck(parse('style: grid\nNOW\nCore: A'), ctx);
+  assert.match(grid, /^<svg/);
+  assert.match(grid, /<svg[^>]*\sx="/, 'grid embeds the inner chart as a nested <svg x=...> element');
 });
 
 test('style selection: style: board renders board explicitly', () => {
@@ -284,4 +297,278 @@ test('frame: the footer rule sits at y=1002 and metrics at y=1036, always', () =
   const svg = renderDeck(model, ctx);
   assert.match(svg, /<line x1="100" y1="1002" x2="1820" y2="1002"/);
   assert.match(svg, /<text x="100" y="1036"/);
+});
+
+/* generic bounds-sweep for a style's BODY-only fragment, given the (y0, y1)
+   it was handed — reuses the board section's bottoms()/attrsOf() above,
+   which parse by attribute name, not by which style built the tag. */
+function assertBodyContained(renderFn, model, y0, y1, extraCtx = {}, label = ''){
+  const body = renderFn(model, {...ctx, ...extraCtx}, y0, y1);
+  const max = Math.max(0, ...bottoms(body));
+  assert.ok(max <= y1 + 0.5, (label || 'body') + ' painted below y1=' + y1 + ' (max observed ' + max + ')\n' + body.slice(0, 400));
+  return body;
+}
+
+/* ==================================================================
+   REGISTER — the roadmap as a formal table
+   ================================================================== */
+
+const regDoc = (n, lane = 'Core') => {
+  let doc = 'title: T\ndate: 2026-07-14\nNOW\n';
+  for(let i = 0; i < n; i++) doc += lane + ': Item number ' + i + '\n';
+  doc += 'NEXT\n' + lane + ': placeholder\nLATER\n' + lane + ': placeholder';
+  return doc;
+};
+
+test('register containment: 30 rows in one horizon never overruns the body', () => {
+  const model = parse(regDoc(30));
+  const body = assertBodyContained(renderRegisterBody, model, 214, 968, {}, 'register');
+  assert.match(body, /\+ \d+ more/, 'the row cap must show a "+N more" chip');
+});
+
+test('register containment: 8 horizons (ditto-suppression cycles 8x) never overruns the body', () => {
+  let doc = 'title: T\ndate: 2026-07-14\nhorizons: A,B,C,D,E,F,G,H\n';
+  for(const h of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']) doc += '\n' + h + '\nCore: one\nGrowth: two\nPlatform: three';
+  const model = parse(doc);
+  assert.equal(model.horizons.length, 8);
+  assertBodyContained(renderRegisterBody, model, 214, 968, {}, 'register 8-horizon');
+});
+
+test('register containment: 8 lanes in one horizon never overruns the body', () => {
+  const lanes = ['Core', 'Growth', 'Platform', 'Insights', 'Coach', 'Billing', 'Support', 'Web'];
+  const doc = 'title: T\ndate: 2026-07-14\nNOW\n' + lanes.map(l => l + ': item in ' + l).join('\n') +
+    '\nNEXT\nCore: x\nLATER\nCore: y';
+  const model = parse(doc);
+  assert.equal(model.lanes.length, 8);
+  assertBodyContained(renderRegisterBody, model, 214, 968, {}, 'register 8-lane');
+});
+
+test('register containment: a 60-word title never overruns the body', () => {
+  const long = Array.from({length: 60}, (_, i) => 'word' + i).join(' ');
+  const model = parse('title: T\ndate: 2026-07-14\nNOW\nCore: ' + long + '\nNEXT\nCore: x\nLATER\nCore: y');
+  assertBodyContained(renderRegisterBody, model, 214, 968, {}, 'register 60-word title');
+});
+
+test('register containment: 15 dropped rows are CAPPED, not left unbounded (the prototype\'s bug)', () => {
+  /* a busy live table (forces its OWN row cap too) so the dropped section is
+     genuinely fighting for space, not just idly rendering into a mostly-
+     empty page — the scenario the prototype's unbounded dropped list broke. */
+  const model = parse(regDoc(20));
+  const dropped = Array.from({length: 15}, (_, i) => 'Old thing number ' + i);
+  const diff = {any: true, since: '12 Jun', badge: () => null, dropped};
+  const body = assertBodyContained(renderRegisterBody, model, 214, 968, {diff}, 'register w/ 15 dropped');
+  assert.match(body, /DROPPED SINCE 12 JUN/);
+  assert.match(body, /\+ \d+ more dropped/, '15 dropped rows must be capped with a chip once the live table is busy too');
+});
+
+test('register containment: 15 dropped rows never overrun the body even against a SPARSE live table (plenty of natural room, no cap needed)', () => {
+  const model = parse('title: T\ndate: 2026-07-14\nNOW\nCore: A\nNEXT\nCore: B\nLATER\nCore: C');
+  const dropped = Array.from({length: 15}, (_, i) => 'Old thing number ' + i);
+  const diff = {any: true, since: '12 Jun', badge: () => null, dropped};
+  const body = assertBodyContained(renderRegisterBody, model, 214, 968, {diff}, 'register sparse + 15 dropped');
+  assert.match(body, /Old thing number 14/, 'plenty of room here, so all 15 can show uncapped — containment is what matters');
+});
+
+test('register containment: an empty register (0 items, no diff) does not crash', () => {
+  const model = parse('title: T\ndate: 2026-07-14');
+  const body = assertBodyContained(renderRegisterBody, model, 214, 968, {}, 'empty register');
+  assert.match(body, /Nothing on the register yet/);
+});
+
+test('register column-set: a full-featured doc keeps all 5 columns, in order', () => {
+  const model = parse('title: T\nNOW\nCore: A [doing] -- a note');
+  const cols = registerColumns(model);
+  assert.deepEqual(cols.map(c => c.key), ['item', 'lane', 'horizon', 'status', 'note']);
+});
+
+test('register column-set: a laneless doc drops LANE and redistributes its width', () => {
+  const model = parse('title: T\nNOW\nplain item [doing] -- note');
+  const cols = registerColumns(model);
+  assert.ok(!cols.some(c => c.key === 'lane'), 'a laneless doc has no LANE column');
+  const total = cols.reduce((a, c) => a + c.w, 0);
+  assert.ok(Math.abs(total - INNER) < 0.5, 'the dropped column\'s width is redistributed, not lost');
+});
+
+test('register column-set: a doc with no statuses drops STATUS; a doc with no notes drops NOTE', () => {
+  const noStatus = parse('title: T\nNOW\nCore: A -- has a note');
+  assert.ok(!registerColumns(noStatus).some(c => c.key === 'status'));
+  const noNote = parse('title: T\nNOW\nCore: A [doing]');
+  assert.ok(!registerColumns(noNote).some(c => c.key === 'note'));
+});
+
+test('register column-set: item is ALWAYS present, even in the barest doc', () => {
+  const model = parse('title: T\nNOW\nplain item');
+  const cols = registerColumns(model);
+  assert.equal(cols[0].key, 'item');
+  assert.equal(cols.length, 2, 'only item + horizon survive with no lane/status/note');
+});
+
+test('register rows: horizon is ditto-suppressed within a group', () => {
+  const doc = 'title: T\nNOW\nGrowth: G-item\nCore: C-item\nNEXT\nCore: N-item';
+  const model = parse(doc);
+  const body = renderRegisterBody(model, ctx, 214, 968);
+  const nowCount = (body.match(/>Now</g) || []).length;
+  assert.equal(nowCount, 1, 'the 2nd row in the Now group must NOT repeat the horizon label');
+  assert.match(body, />Next</);
+});
+
+test('register diff: a NEW item gets a capsule after its title; a moved item gets an italic "was X" in the horizon cell', () => {
+  const model = parse('title: T\ndate: 2026-07-14\nNOW\nCore: Fresh thing\nCore: Moved thing\nNEXT\nCore: x\nLATER\nCore: y');
+  const diff = {
+    any: true, since: '12 Jun',
+    badge: it => it.title === 'Fresh thing' ? {kind: 'new', label: 'New'} :
+                 it.title === 'Moved thing' ? {kind: 'moved', label: 'was Next'} : null,
+    dropped: [],
+  };
+  const body = renderRegisterBody(model, {...ctx, diff}, 214, 968);
+  assert.match(body, />NEW</);
+  assert.match(body, /font-style="italic"[^>]*>was Next</);
+});
+
+test('register: at-risk rows are washed, blocked rows washed harder (a distinct, stronger fill)', () => {
+  const model = parse('title: T\nNOW\nCore: risky [risk]\nCore: stuck [blocked]\nCore: fine\nNEXT\nCore: x\nLATER\nCore: y');
+  const body = renderRegisterBody(model, ctx, 214, 968);
+  assert.match(body, /fill="#9A6A001F"/, 'at-risk wash is the standard 12% tint');
+  assert.match(body, /fill="#B3403A33"/, 'blocked wash is stronger than the at-risk tint');
+});
+
+/* ==================================================================
+   FOCUS — attention-weighted
+   ================================================================== */
+
+test('focus hero selection: an empty first horizon does not crash and picks the first NON-EMPTY one (the prototype crashed on hs[-1])', () => {
+  const model = parse('title: T\nNOW\n\nNEXT\nCore: A\nLATER\nCore: B');
+  assert.equal(focusHeroIndex(model), 1, 'Now is empty, so Next (index 1) is the hero');
+  const body = assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus w/ empty first horizon');
+  assert.match(body, />NEXT</);
+  assert.doesNotMatch(body, /Nothing scheduled/, 'the hero itself (Next) has an item, so no empty-hero ghost');
+});
+
+test('focus hero selection: an entirely empty board falls back to horizon 0, not a crash', () => {
+  const model = parse('title: T\ndate: 2026-07-14');
+  assert.equal(model.items.length, 0);
+  assert.equal(focusHeroIndex(model), 0);
+  const body = assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus w/ empty board');
+  assert.match(body, /Nothing scheduled/);
+});
+
+test('focus column threshold: 1 column at <=5 items, 2 columns at >=6', () => {
+  assert.equal(focusColumnCount(1), 1);
+  assert.equal(focusColumnCount(5), 1);
+  assert.equal(focusColumnCount(6), 2);
+  assert.equal(focusColumnCount(12), 2);
+});
+
+test('focus: WIP breach on the hero (horizon 0) prints "N — OVER WIP W" at the wash edge', () => {
+  const items = Array.from({length: 8}, (_, i) => 'Core: Item ' + i).join('\n');
+  const model = parse('title: T\ndate: 2026-07-14\nwip: 6\nNOW\n' + items);
+  const body = renderFocusBody(model, ctx, 214, 968);
+  assert.match(body, />8 — OVER WIP 6</);
+});
+
+test('focus containment: an over-WIP 8-item hero (2-column, row-pair equalised) never overruns the body', () => {
+  const items = Array.from({length: 8}, (_, i) =>
+    'Core: Item number ' + i + (i % 3 === 0 ? ' -- a short note' : '')).join('\n');
+  const model = parse('title: T\ndate: 2026-07-14\nwip: 6\nNOW\n' + items + '\nNEXT\nCore: x\nLATER\nCore: y');
+  const body = assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus 8-item hero');
+  assert.match(body, /fill="#0[89a-fA-F][0-9a-fA-F]*0D"/, 'the accent wash should be present');
+});
+
+test('focus containment: 30 items in the hero (forces the overflow chip) never overruns the body', () => {
+  const items = Array.from({length: 30}, (_, i) => 'Core: Item number ' + i).join('\n');
+  const model = parse('title: T\ndate: 2026-07-14\nwip: off\nNOW\n' + items + '\nNEXT\nCore: x\nLATER\nCore: y');
+  const body = assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus 30-item hero');
+  assert.match(body, /\+ \d+ more in Now/, 'the overflow chip must name the horizon');
+});
+
+test('focus containment: 8 horizons (a deep rail, certainty-faded) never overruns the body', () => {
+  let doc = 'title: T\ndate: 2026-07-14\nhorizons: A,B,C,D,E,F,G,H\n';
+  for(const h of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']) doc += '\n' + h + '\nCore: one\nGrowth: two';
+  const model = parse(doc);
+  assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus 8 horizons');
+});
+
+test('focus containment: a 60-word title never overruns the body (hero card)', () => {
+  const long = Array.from({length: 60}, (_, i) => 'word' + i).join(' ');
+  const model = parse('title: T\ndate: 2026-07-14\nNOW\nCore: ' + long + '\nNEXT\nCore: x\nLATER\nCore: y');
+  assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus 60-word title');
+});
+
+test('focus rail: certainty fade only applies when model.fade is on', () => {
+  const doc = 'title: T\ndate: 2026-07-14\nNOW\nCore: hero item\nNEXT\nCore: rail item';
+  const faded = renderFocusBody(parse(doc), ctx, 214, 968);
+  const fadedOps = [...faded.matchAll(/<g opacity="([\d.]+)">/g)].map(m => +m[1]);
+  assert.ok(fadedOps.some(o => o < 1), 'fade on: at least one rail row should be faded below 1');
+
+  const unfaded = renderFocusBody(parse('fade: off\n' + doc), ctx, 214, 968);
+  const unfadedOps = [...unfaded.matchAll(/<g opacity="([\d.]+)">/g)].map(m => +m[1]);
+  assert.ok(unfadedOps.length > 0 && unfadedOps.every(o => o === 1), 'fade off: no rail row should be faded');
+});
+
+/* ==================================================================
+   GRID — the existing chart, scaled to fit
+   ================================================================== */
+
+test('gridFit: fits without scaling up past 1x when the chart already fits', () => {
+  const fit = gridFit(800, 400, 1720, 754);
+  assert.equal(fit.scale, 1);
+  assert.equal(fit.x, (1720 - 800) / 2);
+  assert.equal(fit.y, (754 - 400) / 2);
+});
+
+test('gridFit: scales DOWN to the binding dimension (width- or height-bound)', () => {
+  const wide = gridFit(3440, 754, 1720, 754);    // 2x too wide -> width-bound
+  assert.equal(wide.scale, 0.5);
+  const tall = gridFit(1720, 1508, 1720, 754);   // 2x too tall -> height-bound
+  assert.equal(tall.scale, 0.5);
+});
+
+test('gridFit: centres the scaled box inside the target box', () => {
+  const fit = gridFit(1000, 500, 1720, 754);
+  assert.equal(fit.x, (1720 - 1000 * fit.scale) / 2);
+  assert.equal(fit.y, (754 - 500 * fit.scale) / 2);
+});
+
+function gridNestedBox(svg){
+  const m = svg.match(/<svg\s+x="([-\d.]+)"\s+y="([-\d.]+)"\s+width="([\d.]+)"\s+height="([\d.]+)"/);
+  assert.ok(m, 'grid body must be a single nested <svg x y width height> element');
+  return {x: +m[1], y: +m[2], w: +m[3], h: +m[4]};
+}
+
+test('grid: scale-and-centre keeps the nested chart within the body band, at torture sizes', () => {
+  const cases = [
+    'horizons: quarterly from Q3 2026 x8\nQ3 2026\nCore: A\nQ4 2026\nCore: B',   // 8 horizons
+    'NOW\n' + ['Core', 'Growth', 'Platform', 'Insights', 'Coach', 'Billing', 'Support', 'Web']
+      .map(l => l + ': item').join('\n'),                                       // 8 lanes
+  ];
+  for(const doc of cases){
+    const model = parse('title: T\ndate: 2026-07-14\n' + doc);
+    const y0 = 214, y1 = 968;
+    const body = renderGridBody(model, ctx, y0, y1);
+    const box = gridNestedBox(body);
+    assert.ok(box.x >= M - 0.5 && box.x + box.w <= (W - M) + 0.5, 'nested chart overruns horizontally: ' + JSON.stringify(box));
+    assert.ok(box.y >= y0 - 0.5 && box.y + box.h <= y1 + 0.5, 'nested chart overruns vertically: ' + JSON.stringify(box));
+  }
+});
+
+test('grid suppresses the inner chart\'s title and date — neither double-prints', () => {
+  const model = parse('title: Unique Grid Title\ndate: 2026-07-14\nNOW\nCore: A');
+  const svg = renderDeck({...model, style: 'grid'}, ctx);
+  const titleHits = (svg.match(/Unique Grid Title/g) || []).length;
+  assert.equal(titleHits, 1, 'the deck frame prints the title once; the inner chart must not print it again');
+  const dateHits = (svg.match(/2026-07-14/g) || []).length;
+  assert.equal(dateHits, 1, 'the deck frame prints the date once; the inner chart must not print it again');
+});
+
+test('grid: default style for a time-axis doc embeds the chart (no explicit style: needed)', () => {
+  const model = parse('horizons: monthly from Jul 2026 x4\nJul 2026\nCore: A\nAug 2026\nCore: B');
+  assert.equal(model.timeAxis, true);
+  const svg = renderDeck(model, ctx);
+  assert.match(svg, /<svg[^>]*\sx="/);
+});
+
+test('grid containment: an empty board does not crash', () => {
+  const model = parse('title: T\ndate: 2026-07-14\nstyle: grid');
+  const svg = renderDeck(model, ctx);
+  assert.match(svg, /^<svg/);
 });

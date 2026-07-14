@@ -59,6 +59,46 @@ test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropp
   assertClean(renderDeck(parse(flipDoc), {...ctx, diff}), 'roadmap-deck-board-list');
 });
 
+test('roadmap DECK (register style) escapes hostile titles/notes/lanes + status washes + the NEW capsule, "was X" italic cell and struck DROPPED rows', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const doc = 'style: register\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
+      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
+  const m = parse(doc);
+  const diff = {
+    any: true, since: EVIL[2],
+    badge: it => it.srcLine % 3 === 0 ? {kind: 'new', label: EVIL[3]} :
+                 it.srcLine % 3 === 1 ? {kind: 'moved', label: EVIL[4]} : null,
+    dropped: [EVIL[5], EVIL[1]],
+  };
+  assertClean(renderDeck(m, {...ctx, diff}), 'roadmap-deck-register');
+
+  /* enough dropped names to force the dropped section's own cap (capFit) —
+     a distinct rendering path (the clipped struck title + DROPPED capsule
+     placement loop) the small-dropped-list pass above never reaches. */
+  const manyDropped = {...diff, dropped: Array.from({length: 15}, (_, i) => EVIL[i % EVIL.length] + ' dropped ' + i)};
+  assertClean(renderDeck(m, {...ctx, diff: manyDropped}), 'roadmap-deck-register-dropped-cap');
+});
+
+test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const doc = 'style: focus\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length] +
+      (i % 2 === 0 ? ' [risk]' : ' [blocked]')).join('\n') +
+    '\nNEXT\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: rail ' + label(i)).join('\n');
+  assertClean(renderDeck(parse(doc), ctx), 'roadmap-deck-focus');
+});
+
+test('roadmap DECK (grid style) escapes hostile titles/notes/lanes via the embedded chart (render.js\'s own escaping — called, never modified)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const doc = 'style: grid\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
+  assertClean(renderDeck(parse(doc), ctx), 'roadmap-deck-grid');
+});
+
 test('why renderers escape hostile labels in both projections', async () => {
   const {parse} = await import('../why/parse.js');
   const {project} = await import('../why/project.js');
