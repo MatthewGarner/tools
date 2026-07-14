@@ -183,6 +183,116 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.close();
 }
 
+/* the three drag gestures (Task 8). Cards are resolved by TITLE, never by
+   data-line — line numbers are a property of the example doc, not a stable
+   identity (the deck build's lesson). Each gesture gets its own fresh page
+   and doc: moveItem renumbers OTHER lines on a drop, so chaining gestures on
+   one page would make each step's geometry depend on the previous step. */
+{
+  /* right-edge widen (x2 -> x3) — and the SAME gesture is how a PLAIN card
+     BECOMES a span: Task 4's early return in drawSpanDecoration nearly deleted
+     the right handle from a 1-column card, so this path has no other test. */
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
+    'Core: Sync engine rewrite [doing] x2\nCore: Smart reminders\n');
+  await p.waitForTimeout(700);
+
+  const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
+  const barLine = await bar.first().getAttribute('data-line');
+  const rEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + barLine + '"]');
+  const edgeBox = await rEdge.boundingBox();
+  const q1Cell = await p.locator('#preview svg rect[data-cell="2|Core"]').boundingBox();   // Q1 2027
+  await p.mouse.move(edgeBox.x + edgeBox.width / 2, edgeBox.y + edgeBox.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(q1Cell.x + q1Cell.width / 2, q1Cell.y + q1Cell.height / 2, {steps: 10});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  let src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: right-edge drag widens the span (x2 -> x3)',
+    /Sync engine rewrite \[doing\] x3/.test(src));
+
+  const plain = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Smart reminders'});
+  const plainLine = await plain.first().getAttribute('data-line');
+  const plainEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + plainLine + '"]');
+  const plainBox = await plainEdge.boundingBox();
+  const q4Cell = await p.locator('#preview svg rect[data-cell="1|Core"]').boundingBox();   // Q4 2026
+  await p.mouse.move(plainBox.x + plainBox.width / 2, plainBox.y + plainBox.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(q4Cell.x + q4Cell.width / 2, q4Cell.y + q4Cell.height / 2, {steps: 10});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: a plain card\'s right edge creates a span (Smart reminders -> x2)',
+    /Smart reminders x2/.test(src));
+  await p.close();
+}
+{
+  /* left edge: moves the start, holds the end — dragged earlier, it LENGTHENS
+     the item (Q4-start x2 becomes Q3-start x3; the end, Q1 2027, is untouched) */
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\nQ4 2026\n' +
+    'Core: Long haul project [doing] x2\n');
+  await p.waitForTimeout(700);
+
+  const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Long haul project'});
+  const barLine = await bar.first().getAttribute('data-line');
+  const lEdge = p.locator('#preview svg rect[data-span-edge="l"][data-line="' + barLine + '"]');
+  const edgeBox = await lEdge.boundingBox();
+  const q3Cell = await p.locator('#preview svg rect[data-cell="0|Core"]').boundingBox();   // Q3 2026
+  await p.mouse.move(edgeBox.x + edgeBox.width / 2, edgeBox.y + edgeBox.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(q3Cell.x + q3Cell.width / 2, q3Cell.y + q3Cell.height / 2, {steps: 10});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const lines = src.split('\n');
+  const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
+  const itemIdx = lines.findIndex(l => l.includes('Long haul project'));
+  check('roadmap: left-edge drag lengthens the item and holds its end (x2 -> x3)',
+    /Long haul project \[doing\] x3/.test(src));
+  check('roadmap: left-edge drag moved the item under its new (earlier) start',
+    itemIdx >= 0 && itemIdx < q4Idx);
+  await p.close();
+}
+{
+  /* middle drag: today's card move, UNCHANGED — the xN token travels with the
+     line, so duration is preserved for free */
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
+    'Core: Sync engine rewrite [doing] x2\nQ1 2027\n');
+  await p.waitForTimeout(700);
+
+  const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
+  const box = await bar.first().boundingBox();
+  const q1Cell = await p.locator('#preview svg rect[data-cell="2|Core"]').boundingBox();   // Q1 2027
+  await p.mouse.move(box.x + box.width / 2, box.y + 10);   // grab well clear of either edge handle
+  await p.mouse.down();
+  await p.mouse.move(q1Cell.x + q1Cell.width / 2, q1Cell.y + q1Cell.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const lines = src.split('\n');
+  const q1Idx = lines.findIndex(l => l.trim() === 'Q1 2027');
+  const itemIdx = lines.findIndex(l => l.includes('Sync engine rewrite'));
+  check('roadmap: middle drag preserves the duration (still x2)',
+    /Sync engine rewrite \[doing\] x2/.test(src));
+  check('roadmap: middle drag actually moved the item (now under Q1 2027)',
+    itemIdx >= 0 && itemIdx > q1Idx);
+  await p.close();
+}
+
 check('no stray console/page errors', errors.length === 0);   // was folded into the exit condition
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');

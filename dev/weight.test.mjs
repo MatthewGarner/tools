@@ -68,8 +68,14 @@ const PAGES = {
      graph via app.js) gained the three pure span rewrites — setSpan,
      setSpanStart, moveItemKeepingSpan — the model layer Task 8 wires to the
      edge-drag gestures. Honest feature cost, not creep; actual load ~497.9k,
-     headroom ~100B. */
-  'roadmap/index.html': 498_000,
+     headroom ~100B.
+     498k -> 503k (2026-07-14, spans Task 8): the three drag gestures. render.js
+     splits drawSpanItem into drawSpanDecoration (unchanged) + a wrapper that
+     always emits the edge-handle rects, and app.js wires pointerdown/move/up
+     for the edge mode plus the cellAt beforeLine fix. Honest feature cost —
+     this is the interaction the whole spec is for; actual load ~502.6k,
+     headroom ~350B. */
+  'roadmap/index.html': 503_000,
   /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
      to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
      is an honest shared-code cost why pays too, even though /why can never itself
@@ -79,8 +85,12 @@ const PAGES = {
      cost, same reason /why can never trigger it. Actual load ~473.05k, headroom ~1k.
      474k -> 475k (2026-07-14, Task 6): the narrow-layout run-line/"also running"
      addition to render.js is shared code too — /why's map view rides renderNarrow
-     even though it can never itself carry a span. Actual load ~474.4k. */
-  'why/index.html': 475_000, 'tree/index.html': 470_000,
+     even though it can never itself carry a span. Actual load ~474.4k.
+     475k -> 476k (2026-07-14, Task 8): drawSpanItem's split (drawSpanDecoration +
+     the edge-handle wrapper) is shared code in render.js, which why/render-map.js
+     delegates to — even though /why never sets ctx.edit and so never emits a
+     single edge-handle rect itself. Actual load ~475.45k, headroom ~550B. */
+  'why/index.html': 476_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
   'bets/index.html': 480_000,

@@ -516,19 +516,19 @@ export function render(model, ctx){
      span's width — so wrap, note, status pill, badge, URL, the data-edit targets
      and the card menu all behave exactly as they do for a 1-column card. A slim
      "beam" was prototyped and rejected: it drops the note and clips long titles,
-     and in a tool whose content is the text, that is disqualifying. */
-  function drawSpanItem(c, x, cy, fadeOp, edit2){
-    const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle)];
-    /* A 1-column card gets NO cap and NO range label — it is just a card. It DOES
-       still get its right-edge handle (Task 8), which is how a plain card becomes
-       a spanning one by mouse; so this early return must skip the DECORATION only,
-       never the handles. Task 8 appends them after this call, not inside it. */
-    if(c.span === 1 && !c.it.spanEnd) return svg[0];
+     and in a tool whose content is the text, that is disqualifying.
+     The cap/range-label/cut-edge decoration is split out from the handles below:
+     a 1-column card gets NO decoration (it is just a card) but DOES still get
+     its right-edge handle — that is how a plain card BECOMES a span by mouse —
+     so the early return here must skip the decoration only, never the handles. */
+  function drawSpanDecoration(c, x, cy, fadeOp){
+    if(c.span === 1 && !c.it.spanEnd) return '';
     /* duration cue: a slim left cap in the status colour — MUTED when the item has
        no status (in light theme the accent is the same hex as the doing status, so
        an accent cap would fake an IN PROGRESS pill) */
     const capCol = c.it.status ? C.status[c.it.status] : C.muted;
     const capOp = (c.it.status ? 1 : 0.55) * fadeOp;
+    const svg = [];
     svg.push('<rect x="' + (x + 1.5) + '" y="' + (cy + 4*S) + '" width="' + 3*S +
       '" height="' + (c.cardH - 8*S) + '" rx="' + 1.5*S + '" fill="' + capCol +
       '" opacity="' + capOp.toFixed(2) + '"/>');
@@ -542,6 +542,27 @@ export function render(model, ctx){
         '" stroke="' + C.bg + '" stroke-width="2"/>');
       svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
         '" stroke="' + C.muted + '" stroke-width="1.2" stroke-dasharray="3 3" opacity="' + fadeOp.toFixed(2) + '"/>');
+    }
+    return svg.join('');
+  }
+
+  /* Edge handles: fine-pointer only (CSS gates the cursor, app.js gates the
+     gesture). A 1-COLUMN item gets a RIGHT handle ONLY — two handles 60px apart
+     would be a coin-toss, and "move the start of a 1-column item" IS "move the
+     item". That right handle is emitted for plain cards too — it is how a plain
+     card becomes a span by mouse. Preview-only: edit2 is false for every export
+     and every golden, so `compare` cannot see these rects. */
+  function drawSpanItem(c, x, cy, fadeOp, edit2){
+    const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle),
+                 drawSpanDecoration(c, x, cy, fadeOp)];
+    if(edit2){
+      const EW = 14*S;
+      if(c.span > 1){
+        svg.push('<rect data-span-edge="l" data-line="' + c.it.srcLine + '" x="' + x + '" y="' + cy +
+          '" width="' + EW + '" height="' + c.cardH + '" fill="transparent"/>');
+      }
+      svg.push('<rect data-span-edge="r" data-line="' + c.it.srcLine + '" x="' + (x + c.w - EW) +
+        '" y="' + cy + '" width="' + EW + '" height="' + c.cardH + '" fill="transparent"/>');
     }
     return svg.join('');
   }
