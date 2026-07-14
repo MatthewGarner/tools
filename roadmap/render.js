@@ -349,6 +349,11 @@ export function render(model, ctx){
   }
 
   const edit = !!ctx.edit;               // preview-only affordances; exports/goldens render without
+  /* does anything actually span? Several things (the drop-zone emission order below,
+     and the per-column ACTIVE counts) must behave EXACTLY as they do today on a
+     span-free doc — byte for byte — or the degeneration proof that keeps /why safe
+     stops holding. Gating on the model, not on the time axis, is what buys that. */
+  const anySpan = model.items.some(i => (i.span || 1) > 1);
   const addH = edit ? 20*S : 0;          // per-cell '+' ghost budget
   const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
   const colHeadH = T.colHeadH*S;
@@ -489,11 +494,22 @@ export function render(model, ctx){
     }
     const {at, rowH, depth, yTrack} = lanePack[lane];
     const list = laneList[lane];
+    const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
+    const cellRect = h => '<rect data-cell="' + h + '|' + esc(lane) + '" x="' + colX(h) + '" y="' + top +
+      '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>';
+    /* A spanning card is drawn at its START column but paints across the ones after
+       it — and a transparent rect is still a PAINTED hit target. Emitted per-column
+       (rect, then that column's cards), the NEXT column's drop-zone lands on top of
+       the bar and makes it pointer-dead: no card menu, no edit-in-place, and no
+       edge handle, over everything past its first column.
+       So when the doc has spans, lay ALL the drop zones down first, then the cards
+       on top. Gated on anySpan, because the order is itself a byte: a span-free doc
+       must emit exactly what it emits today, or the degeneration proof (and with it
+       /why's containment) evaporates. Dropping is unaffected either way — cellAt
+       uses elementsFromPoint, which sees the rect through the card. */
+    if(anySpan) for(let h = 0; h < nH; h++) s.push(cellRect(h));
     for(let h = 0; h < nH; h++){
-      /* drop-zone hit rect under the cards (full cell band, transparent) */
-      const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
-      s.push('<rect data-cell="' + h + '|' + esc(lane) + '" x="' + colX(h) + '" y="' + top +
-        '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>');
+      if(!anySpan) s.push(cellRect(h));
       /* confidence fade: certainty decreases toward the horizon */
       const fadeOp = (model.fade && nH > 1) ? (1 - (h / (nH - 1)) * T.fadeMax) : 1;
       /* an item is DRAWN by its START column only — it paints across the rest.

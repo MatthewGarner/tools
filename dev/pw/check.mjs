@@ -152,6 +152,37 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.close();
 }
 
+/* A spanning card is drawn at its start column but paints across the ones after it —
+   and a transparent rect is a PAINTED hit target. Emitted per-column, the NEXT
+   column's drop-zone lands ON TOP of the bar and makes it pointer-dead: no card
+   menu, no edit-in-place, no edge handle, over everything past its first column.
+   Bytes cannot see this (the SVG is identical either way), so it is checked here.
+   Both properties must hold at once: the bar is grabbable across its whole length,
+   AND every column it crosses still accepts a drop. */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('horizons: monthly from Jul 2026 x6\nJul 2026\nA: Long bar one x4\nA: Short\n');
+  await p.waitForTimeout(700);
+  const probe = await p.evaluate(() => [0, 1, 2, 3].map(h => {
+    const cell = document.querySelector('#preview svg rect[data-cell="' + h + '|A"]');
+    if(!cell) return {h, card: false, drop: false};
+    const b = cell.getBoundingClientRect();
+    const stack = document.elementsFromPoint(b.x + b.width / 2, b.y + 12);
+    return {h,
+      card: !!stack[0].closest('g[data-line]'),
+      drop: stack.some(e => e.matches && e.matches('rect[data-cell="' + h + '|A"]'))};
+  }));
+  check('roadmap: a span is grabbable across every column it covers (drop-zones do not occlude it)',
+    probe.every(o => o.card));
+  check('roadmap: every column a span crosses still accepts a drop',
+    probe.every(o => o.drop));
+  await p.close();
+}
+
 check('no stray console/page errors', errors.length === 0);   // was folded into the exit condition
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
