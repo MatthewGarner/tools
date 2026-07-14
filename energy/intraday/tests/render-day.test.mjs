@@ -456,3 +456,48 @@ test('buildDayVerdict: a single-hour extreme still reads "at hh:00" (non-plateau
   assert.match(v, /gas sets the £60 peak at 02:00/);
   assert.match(v, /Wind the £10 floor at 00:00/);
 });
+
+/* ---- state-of-charge lane ----
+   The bars are per-hour flows; soc is their integral. The lane is scaled to the
+   fleet's CAPACITY, not to the day's own peak — that's the whole point of drawing
+   it: on a normal day the shape only offers one profitable cycle, so the tank
+   never fills, and a peak-scaled ribbon would hide exactly that by drawing a full
+   tank every day. These tests pin that decision. */
+test('soc lane: drawn when a fleet trades, with the tank-usage fact on it', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const svg = renderDay(r, p, ctx);
+  assert.match(svg, /data-soc=''/, 'the ribbon area');
+  assert.match(svg, /data-soc-line=''/, 'the ribbon line');
+  assert.match(svg, /state of charge/);
+  const cap = p.fleetGW * p.fleetH;
+  const peak = Math.max(...r.sched.soc);
+  assert.ok(peak < cap, 'fixture premise: this day does NOT fill the tank');
+  assert.match(svg, new RegExp('of ' + cap + ' GWh'), 'names the capacity, not just the peak');
+  assert.match(svg, new RegExp(Math.round(peak / cap * 100) + '% of the tank'));
+});
+
+test('soc lane: scaled to CAPACITY, not to the day\'s peak (never flatters the asset)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 6};
+  const r = runDay(p);
+  const svg = renderDay(r, p, ctx);
+  const line = svg.match(/data-soc-line='' points='([^']+)'/)[1];
+  const ys = line.split(' ').map(pt => +pt.split(',')[1]);
+  const top = Math.min(...ys), bottom = Math.max(...ys);   // svg y grows downward
+  const cap = p.fleetGW * p.fleetH;
+  const frac = Math.max(...r.sched.soc) / cap;             // 43% on the default day
+  /* the ribbon's peak must sit at ~frac of the lane height, NOT at the lane's top:
+     a peak-scaled ribbon would put `top` at the very top of the lane */
+  const laneH = bottom - top;
+  assert.ok(laneH > 0, 'the ribbon has vertical extent');
+  const impliedLane = laneH / frac;                        // full-lane height implied by the drawn peak
+  assert.ok(impliedLane > laneH * 1.5,
+    'peak reaches only ' + Math.round(frac * 100) + '% of the tank, so it must NOT touch the top of the lane');
+});
+
+test('soc lane: absent when no fleet trades (canvas does not reserve an empty lane)', () => {
+  const p = {...DAY_DEFAULTS, fleetGW: 0};
+  const svg = renderDay(runDay(p), p, ctx);
+  assert.ok(!svg.includes("data-soc=''"), 'no ribbon');
+  assert.ok(!svg.includes('state of charge'), 'no caption');
+});

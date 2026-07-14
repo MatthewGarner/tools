@@ -9,9 +9,14 @@
    line, distinct from everything. Charge/discharge bars in a strip under the
    axis, storage hue (tinted fill, never colour-alone: bars carry ▲/▼ direction
    via position); at fleet 0 the strip band is dropped and the canvas shrinks.
-   Narrow (<520px): 12-hourly axis labels + short strip caption. Changeover
-   labels flip to end-anchor near the right edge at ANY width (h23 changeovers
-   sit ON it).
+   Under the strip, the STATE-OF-CHARGE lane: the bars are per-hour FLOWS, soc is
+   their integral — the stock — so it gets its own lane on its own GWh scale,
+   scaled to the tank's CAPACITY (a fleet that only fills to 43% draws a ribbon at
+   43%; scaling to the day's own peak would flatter it). Never overlaid on the
+   price plot: £/MWh and GWh don't share an axis, and a "full" line inside that
+   plot reads as a price. Narrow (<520px): 12-hourly axis labels + short strip and
+   soc captions. Changeover labels flip to end-anchor near the right edge at ANY
+   width (h23 changeovers sit ON it).
 
    House anatomy: an in-plane letterspaced title (both screen + export, merit-
    order's exact style). forExport additionally gets a page bg + chart-card
@@ -114,9 +119,16 @@ export function renderDay(result, p, ctx, opts = {}){
   const plotH = 304;                                    // fixed: fleet / no-fleet share the price-shape proportions
   const plotW = width - M.l - M.r;
   const plotBottom = M.t + plotH;
+  /* The strip shows FLOWS (charge/discharge per hour); soc is their integral —
+     the STOCK. It gets its own lane on its own GWh scale, never overlaid on the
+     price plot: £/MWh and GWh don't share an axis, and a "full" line drawn inside
+     the price plot reads as a price (it landed on ~£34 when we tried it). */
+  const hasSoc = hasFleet && result.sched && result.sched.soc;
+  const socLaneH = 40;
   // content-driven bottom: the strip band only when a fleet trades, else a bare
   // x-axis — so the fleet-0 canvas shrinks instead of reserving an empty strip
-  const belowBand = hasFleet ? 82 : 22;                 // strip: 28 gap + 40 strip + 11 cap + 3 ; bare: x-labels
+  // soc lane: 22 gap + 40 lane + 14 caption + 4 under it
+  const belowBand = (hasFleet ? 82 : 22) + (hasSoc ? socLaneH + 30 : 0);
   const baseH = plotBottom + belowBand;
 
   const dataMaxP = Math.max(...raw.prices, ...flat.prices, 10);
@@ -273,6 +285,43 @@ export function renderDay(result, p, ctx, opts = {}){
     parts.push(txt(M.l, stripY + stripH + 11,
       isNarrow ? 'dashed = abandoned' : 'discharge ↑ / charge ↓ · dashed = planned then abandoned',
       10, colors.muted));
+
+    /* ---- state of charge: the tank, on its own scale ----
+       Scaled to CAPACITY, not to the day's own peak — so a fleet that only ever
+       fills to 43% draws a ribbon that sits at 43%. That's the fact worth having:
+       on most days the shape offers one profitable cycle, so the asset charges
+       overnight, idles through the middle of the day and empties into the peak,
+       never touching the top of its tank. Scaling to the peak would flatter it. */
+    if(hasSoc){
+      const soc = result.sched.soc;                       // 25 points: level at each hour boundary
+      const cap = Math.max(p.fleetGW * p.fleetH, 0.001);  // GWh the fleet can hold
+      const peak = Math.max(...soc);
+      const bY = stripY + stripH + 22, bH = socLaneH;
+      const yS = v => bY + bH - (Math.max(0, Math.min(v, cap)) / cap) * bH;
+      parts.push(`<rect x='${r1(M.l)}' y='${r1(bY)}' width='${r1(plotW)}' height='${r1(bH)}' fill='${storageHue}' opacity='0.07'/>`);
+      /* the level after each hour's trading, so a charge bar above lifts the
+         ribbon in the same column — the bars are visibly this line's slope */
+      const pts = [`${r1(M.l)},${r1(yS(soc[0]))}`];
+      for(let h = 0; h < 24; h++) pts.push(`${r1(x(h))},${r1(yS(soc[h + 1]))}`);
+      parts.push(`<path data-soc='' d='M${r1(M.l)},${r1(bY + bH)} L${pts.join(' L')} L${r1(x(23))},${r1(bY + bH)} Z' fill='${storageHue}' opacity='0.34'/>`);
+      parts.push(`<polyline data-soc-line='' points='${pts.join(' ')}' fill='none' stroke='${storageHue}' stroke-width='2'/>`);
+      parts.push(`<line x1='${r1(M.l)}' y1='${r1(bY)}' x2='${r1(M.l + plotW)}' y2='${r1(bY)}' stroke='${storageHue}' stroke-width='1' stroke-dasharray='2 3' opacity='0.55'/>`);
+      parts.push(txt(M.l - 8, bY + 4, 'full', 9.5, colors.muted, {anchor: 'end'}));
+      parts.push(txt(M.l - 8, bY + bH + 3, 'empty', 9.5, colors.muted, {anchor: 'end'}));
+      /* the fact the ribbon exists to make: how much of the tank the day actually
+         used. Wide: its own end-anchored line above the lane. Narrow: folded into
+         the caption — as its own line it collided with the strip's caption. */
+      const peakH = soc.indexOf(peak);
+      const pct = Math.round(peak / cap * 100);
+      parts.push(`<circle cx='${r1(x(Math.min(peakH, 23)))}' cy='${r1(yS(peak))}' r='2.5' fill='${storageHue}'/>`);
+      if(!isNarrow)
+        parts.push(txt(M.l + plotW, bY - 5,
+          `peak ${r1(peak)} of ${r1(cap)} GWh — ${pct}% of the tank`, 10, colors.muted, {anchor: 'end'}));
+      parts.push(txt(M.l, bY + bH + 14,
+        isNarrow ? `state of charge — peak ${pct}% of the tank`
+                 : 'state of charge — fills in the cheap hours, holds, empties into the peak',
+        10, colors.muted));
+    }
   }
 
   // scrub cursor: ink, dashed — distinct from the coloured line, the muted ghost
