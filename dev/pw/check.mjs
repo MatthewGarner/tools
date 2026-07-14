@@ -67,7 +67,7 @@ const wipDoc = 'NOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).jo
 const wipPage = await browser.newPage();
 await wipPage.goto(BASE + '#' + Buffer.from(wipDoc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
 await wipPage.waitForTimeout(400);
-check('WIP warning fires', (await wipPage.locator('#warns').innerText()).includes('not a strategy'));
+check('WIP warning fires', (await wipPage.locator('#warns').innerText()).includes('Now has 7 items in flight (wip: 6).'));
 check('WIP flag in svg', (await wipPage.locator('#preview svg').innerHTML()).includes('7 ITEMS'));
 await wipPage.close();
 

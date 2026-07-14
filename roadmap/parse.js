@@ -87,13 +87,24 @@ const snippet = s => '"' + s.slice(0, 30) + (s.length > 30 ? '…' : '') + '"';
    the app decides the default (grid for a time axis, board otherwise). */
 export const DECK_STYLES = ['board', 'focus', 'register', 'grid'];
 
-/* The deck's standfirst. AUTHORED, never synthesised: an export headline is a
-   claim the author is making to a room, and a tool that writes it for them puts
-   words in their mouth. Empty is a legitimate answer — the deck simply omits it. */
-export function wipBreach(model){
-  const first = model.items.filter(i => i.h === 0).length;
-  if(!(model.wip > 0 && first > model.wip)) return null;
-  return model.horizons[0] + ' has ' + first + ' items — that’s a list, not a strategy.';
+/* Items ACTIVE in a column: those whose span covers it. On a span-free doc this is
+   exactly "items written in this column", so span-free behaviour is unchanged by
+   construction. */
+export function activeCount(model, h){
+  return model.items.filter(i => i.h <= h && h <= i.h + Math.max(1, i.span || 1) - 1).length;
+}
+
+/* One plain sentence per breaching column. STATES THE FACT — the tool reports what
+   is true and leaves the judgement to the author (the rule the deck headline set).
+   app.js appends its own "(Raise or silence …)" hint to the list. */
+export function wipBreaches(model){
+  if(!(model.wip > 0)) return [];
+  const out = [];
+  for(let h = 0; h < model.horizons.length; h++){
+    const n = activeCount(model, h);
+    if(n > model.wip) out.push(model.horizons[h] + ' has ' + n + ' items in flight (wip: ' + model.wip + ').');
+  }
+  return out;
 }
 
 export function parse(text){

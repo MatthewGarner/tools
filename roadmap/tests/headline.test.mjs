@@ -10,7 +10,7 @@
    not a sentence printed on their slide. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse, wipBreach} from '../parse.js';
+import {parse, wipBreaches} from '../parse.js';
 import {setHeadline, setStyle} from '../edit-targets.js';
 
 /* ---------------- parse ---------------- */
@@ -66,20 +66,15 @@ test('settings in the config block (where the UI writes them) never warn', () =>
 
 /* ---------------- the WIP breach is an editor warning, and only that ---------------- */
 
-test('wipBreach still speaks, and still lives in parse (app.js appends its own hint)', () => {
+test('the WIP breach is an editor warning, and it states the fact', () => {
   const m = parse('wip: 2\nNOW\nCore: A\nCore: B\nCore: C');
-  assert.equal(wipBreach(m), 'Now has 3 items — that’s a list, not a strategy.');
+  assert.deepEqual(wipBreaches(m), ['Now has 3 items in flight (wip: 2).']);
 });
 
-test('wipBreach: silent at the threshold, silent when off', () => {
-  assert.equal(wipBreach(parse('wip: 3\nNOW\nCore: A\nCore: B\nCore: C')), null, 'at wip, not over it');
-  assert.equal(wipBreach(parse('wip: off\nNOW\n' +
-    Array.from({length: 9}, (_, i) => 'Core: I' + i).join('\n'))), null);
-});
-
-test('wipBreach names the first horizon, whatever it is called', () => {
-  const m = parse('wip: 1\nhorizons: Q3 2026, Q4 2026\nQ3 2026\nCore: A\nCore: B');
-  assert.match(wipBreach(m), /^Q3 2026 has 2 items/);
+test('wipBreaches: silent at the threshold, silent when off', () => {
+  assert.deepEqual(wipBreaches(parse('wip: 3\nNOW\nCore: A\nCore: B\nCore: C')), []);
+  assert.deepEqual(wipBreaches(parse('wip: off\nNOW\n' +
+    Array.from({length: 9}, (_, i) => 'Core: I' + i).join('\n'))), []);
 });
 
 /* ---------------- setHeadline: the field and the DSL are one act ---------------- */

@@ -5,7 +5,7 @@ import {renderDeck, effectiveStyle} from './render-deck.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {parse, STATUS_LABEL, wipBreach} from './parse.js';
+import {parse, STATUS_LABEL, wipBreaches} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -104,8 +104,9 @@ function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
-  const breach = wipBreach(m);
-  if(breach) m.warnings.push(breach + ' (Raise or silence with wip: N / wip: off.)');
+  const breaches = wipBreaches(m);
+  for(const breach of breaches) m.warnings.push(breach);
+  if(breaches.length) m.warnings.push('(Raise or silence with wip: N / wip: off.)');
   renderWarningList(warns, m.warnings);
 }
 /* export-style picker: active chip reflects the RESOLVED style (a quarterly

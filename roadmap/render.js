@@ -1,5 +1,5 @@
 /* (model, ctx) → SVG string. ctx = {colors, measure, diff?, slide?}. No DOM. */
-import {STATUS_LABEL} from './parse.js';
+import {STATUS_LABEL, activeCount} from './parse.js';
 import {packLane} from './pack.js';
 
 const F = {
@@ -186,6 +186,10 @@ function renderNarrow(model, ctx, C, T){
 
   const firstColCount = model.items.filter(i => i.h === 0).length;
   const overWip = model.wip > 0 && firstColCount > model.wip;
+  /* a span doc reports its per-section "also running" line instead (Task 6) — the
+     historical start-count flag must not draw alongside it, or the phone and the
+     desktop would state different counts for the same board. */
+  const anySpan = model.items.some(i => (i.span || 1) > 1);
   const addH = 40;
 
   /* optional lane groups (why's map view rides this): the same first-lane
@@ -203,7 +207,7 @@ function renderNarrow(model, ctx, C, T){
     /* horizon header + full-width accent bar */
     s.push('<text x="' + PAD + '" y="' + (y + 12) + '" font-size="13" font-weight="700" letter-spacing="' +
       T.colHeadTracking + '" fill="' + C.ink + '">' + esc(hName.toUpperCase()) + '</text>');
-    if(h === 0 && overWip){
+    if(h === 0 && overWip && !anySpan){
       s.push('<text x="' + (W - PAD) + '" y="' + (y + 12) + '" text-anchor="end" font-size="' + T.wipSize +
         '" font-weight="600" fill="' + C.err + '">' + firstColCount + ' ITEMS</text>');
     }
@@ -435,10 +439,24 @@ export function render(model, ctx){
     s.push('<text x="' + colX(h) + '" y="' + (headerH + T.colHeadTextY*S) +
       '" font-size="' + T.colHeadSize*S + '" font-weight="600" letter-spacing="' + T.colHeadTracking + '" fill="' + C.muted + '">' +
       esc(model.horizons[h].toUpperCase()) + '</text>');
-    if(h === 0 && overWip){
+    if(h === 0 && overWip && !anySpan){    // the historical first-column flag
       s.push('<text x="' + (colX(0) + colW) + '" y="' + (headerH + T.colHeadTextY*S) +
         '" text-anchor="end" font-size="' + T.wipSize*S + '" font-weight="600" fill="' + C.err + '">' +
         firstColCount + ' ITEMS</text>');
+    }
+    if(anySpan && model.wip > 0){
+      /* inline after the name — a right-aligned count crowds the next header.
+         Transcribed from the prototype Matt approved: 8*S gap, weight 700 when over,
+         and a ZERO count prints nothing (an empty column says so by being empty). */
+      const n = activeCount(model, h);
+      if(n){
+        const over = n > model.wip;
+        const nameW = measure(model.horizons[h].toUpperCase(), '600 ' + T.colHeadSize*S + 'px ' + F.body) +
+          model.horizons[h].length * T.colHeadTracking;
+        s.push('<text x="' + (colX(h) + nameW + 8*S) + '" y="' + (headerH + T.colHeadTextY*S) +
+          '" font-size="' + T.wipSize*S + '" font-weight="' + (over ? 700 : 600) + '" fill="' + (over ? C.err : C.muted) +
+          '"' + (over ? '' : ' opacity="0.7"') + '>' + (over ? '· ' + n + ' ACTIVE' : '· ' + n) + '</text>');
+      }
     }
     s.push('<rect x="' + colX(h) + '" y="' + (headerH + T.colHeadBarY*S) + '" width="' + T.colHeadBarW*S +
       '" height="' + T.colHeadBarH*S + '" rx="' + (T.colHeadBarH*S/2) + '" fill="' + C.accent + '"/>');
