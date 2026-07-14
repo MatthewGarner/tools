@@ -63,8 +63,13 @@ const PAGES = {
      render, so it is in the first-load graph by design.
      495k -> 496k (2026-07-14, spans Task 6): the phone narrow layout gained the
      run-line (appended to noteLines) and the per-section "also running" block —
-     an honest feature cost, actual load ~495.5k, headroom ~500B. */
-  'roadmap/index.html': 496_000,
+     an honest feature cost, actual load ~495.5k, headroom ~500B.
+     496k -> 498k (2026-07-14, spans Task 7): edit-targets.js (already in the
+     graph via app.js) gained the three pure span rewrites — setSpan,
+     setSpanStart, moveItemKeepingSpan — the model layer Task 8 wires to the
+     edge-drag gestures. Honest feature cost, not creep; actual load ~497.9k,
+     headroom ~100B. */
+  'roadmap/index.html': 498_000,
   /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
      to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
      is an honest shared-code cost why pays too, even though /why can never itself
