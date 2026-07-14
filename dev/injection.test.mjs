@@ -43,6 +43,9 @@ test('roadmap SPANS escape hostile titles in the range label, the run line and t
     'Q3 2026\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' x' + (i % 3 + 1)).join('\n');
   assertClean(render(parse(doc), ctx), 'roadmap-spans');
   assertClean(render(parse(doc), {...ctx, width: 360}), 'roadmap-spans-narrow');
+  /* wide + edit:true + a time axis is the ONLY combination that emits the span-edge
+     handle rects, and no golden renders it — so it is scanned here, or nowhere */
+  assertClean(render(parse(doc), {...ctx, edit: true}), 'roadmap-spans-edit');
 });
 
 test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropped/badge strings, in both card and flipped-to-list layouts', async () => {

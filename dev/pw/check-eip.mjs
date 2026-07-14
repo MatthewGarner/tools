@@ -803,6 +803,27 @@ check('no console/page errors', errors.length === 0);
   check('roadmap: Runs until… picking the third column commits x3 into the source',
     /Sync engine rewrite \[doing\] x3/.test(src));
 
+  /* An item running PAST the board has no row for its true end, so NOTHING may be
+     marked current — an `on` row is still clickable, and tapping the row the menu
+     itself calls "current" would commit the last visible column as the end and
+     silently shorten the work. x6 on a 4-column board must not become x4. */
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: Big programme x6\n');
+  await p.waitForTimeout(700);
+  await tapCard('Big programme');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Runs until…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: an off-board span marks NO row as current (its true end is not on the list)',
+    await p.locator('.eip-pop button.on').count() === 0);
+  await p.locator('.eip-pop button', {hasText: 'Q2 2027'}).click();   // the last visible column
+  await p.waitForTimeout(600);
+  const offSrc = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: picking the last visible column on an off-board span is an explicit choice (x4), not a silent truncation of x6',
+    /Big programme x4/.test(offSrc));
+
   // now/next/later doc: NOT a time axis — the row must not appear at all
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+a');

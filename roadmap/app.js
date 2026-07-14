@@ -189,10 +189,17 @@ function itemMenu(m, srcLine){
      be shortened here but not lengthened past the board — that needs the DSL. Only on
      a time axis, and only when there is more than one column to choose from: on a
      now/next/later doc (m.timeAxis is false) the row must not appear at all. */
+  /* An item that runs PAST the board has no row to mark: its true end is not on this
+     list. Marking the last visible column `on` would be a lie — and, because an `on`
+     row is still clickable, tapping the row the menu itself calls "current" would
+     commit that column as the end and silently shorten the work (x6 -> x4 on a
+     4-column board). So off-board items get no mark, and every row is a real change.
+     Uses the PAINTED span for the mark, which is only ever the true end when the item
+     fits the board. */
   const untilRows = (item && m.timeAxis)
     ? m.horizons.slice(item.h).map((hName, k) => ({
         label: hName,
-        on: k === Math.max(1, item.span || 1) - 1,
+        on: !item.spanEnd && k === Math.max(1, item.span || 1) - 1,
         commit: {kind: 'setspan', line: srcLine, oldRaw: '', value: String(k + 1)},
       }))
     : [];
@@ -228,7 +235,10 @@ attachEditInPlace($('preview'), {
       return;
     }
     if(kind === 'setspan'){
-      editor.setText(setSpan(editor.getText(), lineNo, +newValue));
+      /* picking the end an item already has is not an edit — committing it anyway
+         would push an empty transaction onto the undo stack */
+      const cur = editor.getText(), next = setSpan(cur, lineNo, +newValue);
+      if(next !== cur) editor.setText(next);
       return;
     }
     if(newValue === '✖Remove item'){
@@ -477,6 +487,9 @@ function endDrag(){
 $('preview').addEventListener('pointerdown', e => {
   if(!finePointer()) return;   // coarse pointers use the card menu's Move to… / Runs until… rows
   if(e.button !== 0) return;
+  /* a pointerup lost outside the window (drag off-screen, alt-tab mid-gesture) can
+     leave a mode armed; starting a new gesture always begins from a clean slate */
+  endDrag();
   /* the edge gesture, checked FIRST: the handle rects are siblings painted AFTER
      (never children of) the card's own <g>, so this can never be confused with
      the card-body drag below. No ghost, no dropline — an edge is not a card move. */
