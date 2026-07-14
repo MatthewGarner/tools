@@ -74,8 +74,13 @@ const PAGES = {
      always emits the edge-handle rects, and app.js wires pointerdown/move/up
      for the edge mode plus the cellAt beforeLine fix. Honest feature cost —
      this is the interaction the whole spec is for; actual load ~502.6k,
-     headroom ~350B. */
-  'roadmap/index.html': 503_000,
+     headroom ~350B.
+     503k -> 504k (2026-07-14, spans Task 9): the coarse-pointer half of the
+     edge drag — itemMenu grows a dynamic "Runs until…" submenu (mirrors the
+     shipped "Move to…" one) and onCommit gains its setspan branch. Honest
+     feature cost, zero new interaction machinery; actual load ~503.66k,
+     headroom ~340B. */
+  'roadmap/index.html': 504_000,
   /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
      to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
      is an honest shared-code cost why pays too, even though /why can never itself

@@ -752,6 +752,72 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- roadmap: "Runs until…" — the coarse-pointer half of the edge drag
+   (Task 9). Same submenu machinery as "Move to…": picking a column commits
+   the same setSpan text rewrite a right-edge drag would. The row must appear
+   ONLY on a time axis and only when there's more than one column to choose
+   from — on a now/next/later doc it must not appear at all. Cards resolved
+   by TITLE, never by data-line (see the desktop block above). ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
+    'Core: Sync engine rewrite [doing] x2\n');
+  await p.waitForTimeout(700);
+
+  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: title}).first().getAttribute('data-line');
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  /* the top-left padding sliver the other blocks tap is INSIDE the left-edge
+     span handle on a spanning card (Task 8's data-span-edge rects paint last,
+     so they sit on top of the card body in their ~12px bands at each end) —
+     tap the horizontal centre near the top instead, clear of both handles. */
+  const tapCard = async title => {
+    const box = await cardBody(await lineOfCard(title)).boundingBox();
+    await p.mouse.click(box.x + box.width / 2, box.y + 4);
+  };
+
+  await tapCard('Sync engine rewrite');
+  await p.waitForTimeout(200);
+  check('roadmap: the card menu offers Runs until… on a time axis',
+    await p.locator('.eip-pop button', {hasText: 'Runs until…'}).count() === 1);
+
+  await p.locator('.eip-pop button', {hasText: 'Runs until…'}).click();
+  await p.waitForTimeout(200);
+  /* the item runs Q3 2026 -> Q4 2026 (x2): the submenu lists Q3 2026, Q4 2026,
+     Q1 2027, Q2 2027 (its own start through the board's last column), with
+     Q4 2026 (the current end) marked `on`. */
+  check('roadmap: Runs until… lists this item’s start column through the board’s last',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Q3 2026|Q4 2026|Q1 2027|Q2 2027');
+  check('roadmap: Runs until… marks the current end',
+    (await p.locator('.eip-pop button.on').innerText()) === 'Q4 2026');
+
+  // pick the THIRD column (Q1 2027) — commits x3
+  await p.locator('.eip-pop button', {hasText: 'Q1 2027'}).click();
+  await p.waitForTimeout(600);
+  const src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: Runs until… picking the third column commits x3 into the source',
+    /Sync engine rewrite \[doing\] x3/.test(src));
+
+  // now/next/later doc: NOT a time axis — the row must not appear at all
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Sync engine rewrite [doing]\n');
+  await p.waitForTimeout(700);
+  await tapCard('Sync engine rewrite');
+  await p.waitForTimeout(200);
+  check('roadmap: no Runs until… without a time axis',
+    await p.locator('.eip-pop button', {hasText: 'Runs until…'}).count() === 0);
+
+  check('roadmap: no console/page errors (Runs until…)', errs.length === 0);
+  await p.close();
+}
+
 /* ---- roadmap narrow (mobile-emulated): card menu away-listener leak proof —
    tap a card, open Rename, then tap INTO the input itself; the popover's
    away-pointerdown listener must not treat that as an outside click ---- */

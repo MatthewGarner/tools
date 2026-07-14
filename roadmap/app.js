@@ -183,13 +183,28 @@ function itemMenu(m, srcLine){
     label: h, on: m.horizons[item.h] === h,
     commit: {kind: 'movehorizon', line: srcLine, oldRaw: m.horizons[item.h], value: h},
   })) : [];
-  return [
+  /* the coarse-pointer half of the edge drag: pick the column this item runs UNTIL.
+     Same submenu machinery as "Move to…" — no new interaction to learn or maintain.
+     Only on-board ends are offerable; an off-board span (x6 on a 4-column board) can
+     be shortened here but not lengthened past the board — that needs the DSL. Only on
+     a time axis, and only when there is more than one column to choose from: on a
+     now/next/later doc (m.timeAxis is false) the row must not appear at all. */
+  const untilRows = (item && m.timeAxis)
+    ? m.horizons.slice(item.h).map((hName, k) => ({
+        label: hName,
+        on: k === Math.max(1, item.span || 1) - 1,
+        commit: {kind: 'setspan', line: srcLine, oldRaw: '', value: String(k + 1)},
+      }))
+    : [];
+  const rows = [
     {label: 'Rename…', opens: 'title'},
     {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
     {label: 'Status…', opens: 'status'},        // dead when the item has no status
     {label: 'Move to…', submenu: moveRows},
-    {label: 'Remove item', action: true, danger: true},
   ];
+  if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
+  rows.push({label: 'Remove item', action: true, danger: true});
+  return rows;
 }
 
 attachEditInPlace($('preview'), {
@@ -210,6 +225,10 @@ attachEditInPlace($('preview'), {
     if(kind === 'movehorizon'){
       const text = moveHorizon(editor.getText(), lineNo, newValue);
       if(text) editor.setText(text);   // one transaction → one undo step, same as drag
+      return;
+    }
+    if(kind === 'setspan'){
+      editor.setText(setSpan(editor.getText(), lineNo, +newValue));
       return;
     }
     if(newValue === '✖Remove item'){
