@@ -44,6 +44,38 @@ for(const [k, src] of Object.entries(docs)){
     dropped: ['old thing one', 'old thing two', 'old thing three'],
     since: '2026-06-01', any: true,
   }});
+  /* two cards stacked in ONE cell, at slide scale — the ONLY fixture exercising
+     the track-to-track y accumulation at S=1.35, where (a+h)+g !== a+(h+g).
+     Captured BEFORE the packer landed: it pins the pre-change bytes. */
+  variants['roadmap-stack-slide'] = render(parse(
+    'title: Stacked\ndate: 2026-07-04\nNOW\nCore: First card\nCore: Second card\nCore: Third card\n' +
+    'NEXT\nCore: Lonely'), {...ctxBase, slide: true});
+
+  /* SPANS: mixed lengths in one lane (the torture case the layout was chosen on),
+     and an item running past the board edge. Wide + slide; the narrow span layout
+     is captured in Task 6. */
+  const spanDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
+    'horizons: monthly from Jul 2026 x6\nwip: 4\n' +
+    'Jul 2026\nPlatform: Sync engine rewrite [doing] x6 -- conflicts are the #1 support driver\n' +
+    'Platform: Habit templates library [done]\nPlatform: Streak freeze [doing] x2\n' +
+    'Aug 2026\nPlatform: Referral flow [risk] x3 -- waiting on app-store review\n' +
+    'Platform: Widget gallery\n' +
+    'Sep 2026\nPlatform: Accountability circles x2\nPlatform: Coach marketplace\n';
+  const spanModel = parse(spanDoc);
+  variants['roadmap-spans'] = render(spanModel, {...ctxBase});
+  variants['roadmap-spans-slide'] = render(spanModel, {...ctxBase, slide: true});
+
+  const spanEdgeDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
+    'horizons: quarterly from Q3 2026 x4\nwip: 4\n' +
+    'Q3 2026\nInfra: Data platform rebuild x6 -- runs well past this board\n' +
+    'Infra: Sync engine rewrite [doing] x4\n' +
+    'Q4 2026\nApp: Smart reminders x2\n';
+  variants['roadmap-spans-edge'] = render(parse(spanEdgeDoc), {...ctxBase});
+
+  /* the phone span layout: a span is a LABEL in its start section, plus every
+     section it runs THROUGH lists it under "also running" — a span-free doc
+     has runLines = [] and no through items, so no OTHER narrow golden can move. */
+  variants['roadmap-spans-narrow'] = render(spanModel, {...ctxBase, edit: true, width: 360});
 }
 
 /* deck exports (roadmap/render-deck.js) — a separate module from render.js
@@ -138,6 +170,13 @@ for(const [k, src] of Object.entries(docs)){
   variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
   variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
+  /* WIDE + edit:true — the shape a /why user actually sees in the browser, and the
+     one the golden suite was BLIND to: every other why fixture is either edit:false
+     (exports) or narrow. Roadmap's spans added an edit-only affordance (the span-edge
+     handles) that /why silently inherited, and nothing here could see it. This is the
+     containment guard: /why delegates to roadmap's renderer, so an edit-mode change
+     there must be visible HERE. */
+  variants['why-map-edit'] = norm(renderMap(m, pr, {...ctxBase, edit: true}));
 
   /* narrow (phone) relayout, edit:true — the only real-world path (exports
      never set ctx.width): the indented outline (OST) and its map-view

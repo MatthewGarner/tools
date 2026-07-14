@@ -5,7 +5,7 @@ import {renderDeck, effectiveStyle} from './render-deck.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {parse, STATUS_LABEL, wipBreach} from './parse.js';
+import {parse, STATUS_LABEL, wipBreaches} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -16,7 +16,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -46,10 +46,10 @@ Platform: Wearables integration`},
   {name:'Quarterly view', src:
 `title: Platform Delivery Plan
 horizons: quarterly from Q3 2026 x4
-wip: off
+wip: 3
 
 Q3 2026
-Infra: Sync engine rewrite [doing]
+Infra: Sync engine rewrite [doing] x2
 App: Habit templates library [done]
 
 Q4 2026
@@ -104,8 +104,9 @@ function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
-  const breach = wipBreach(m);
-  if(breach) m.warnings.push(breach + ' (Raise or silence with wip: N / wip: off.)');
+  const breaches = wipBreaches(m);
+  for(const breach of breaches) m.warnings.push(breach);
+  if(breaches.length) m.warnings.push('(Raise or silence with wip: N / wip: off.)');
   renderWarningList(warns, m.warnings);
 }
 /* export-style picker: active chip reflects the RESOLVED style (a quarterly
@@ -182,13 +183,35 @@ function itemMenu(m, srcLine){
     label: h, on: m.horizons[item.h] === h,
     commit: {kind: 'movehorizon', line: srcLine, oldRaw: m.horizons[item.h], value: h},
   })) : [];
-  return [
+  /* the coarse-pointer half of the edge drag: pick the column this item runs UNTIL.
+     Same submenu machinery as "Move to…" — no new interaction to learn or maintain.
+     Only on-board ends are offerable; an off-board span (x6 on a 4-column board) can
+     be shortened here but not lengthened past the board — that needs the DSL. Only on
+     a time axis, and only when there is more than one column to choose from: on a
+     now/next/later doc (m.timeAxis is false) the row must not appear at all. */
+  /* An item that runs PAST the board has no row to mark: its true end is not on this
+     list. Marking the last visible column `on` would be a lie — and, because an `on`
+     row is still clickable, tapping the row the menu itself calls "current" would
+     commit that column as the end and silently shorten the work (x6 -> x4 on a
+     4-column board). So off-board items get no mark, and every row is a real change.
+     Uses the PAINTED span for the mark, which is only ever the true end when the item
+     fits the board. */
+  const untilRows = (item && m.timeAxis)
+    ? m.horizons.slice(item.h).map((hName, k) => ({
+        label: hName,
+        on: !item.spanEnd && k === Math.max(1, item.span || 1) - 1,
+        commit: {kind: 'setspan', line: srcLine, oldRaw: '', value: String(k + 1)},
+      }))
+    : [];
+  const rows = [
     {label: 'Rename…', opens: 'title'},
     {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
     {label: 'Status…', opens: 'status'},        // dead when the item has no status
     {label: 'Move to…', submenu: moveRows},
-    {label: 'Remove item', action: true, danger: true},
   ];
+  if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
+  rows.push({label: 'Remove item', action: true, danger: true});
+  return rows;
 }
 
 attachEditInPlace($('preview'), {
@@ -209,6 +232,13 @@ attachEditInPlace($('preview'), {
     if(kind === 'movehorizon'){
       const text = moveHorizon(editor.getText(), lineNo, newValue);
       if(text) editor.setText(text);   // one transaction → one undo step, same as drag
+      return;
+    }
+    if(kind === 'setspan'){
+      /* picking the end an item already has is not an edit — committing it anyway
+         would push an empty transaction onto the undo stack */
+      const cur = editor.getText(), next = setSpan(cur, lineNo, +newValue);
+      if(next !== cur) editor.setText(next);
       return;
     }
     if(newValue === '✖Remove item'){
@@ -383,7 +413,8 @@ $('importgo').addEventListener('click', () => {
 
 /* ---------- drag-and-drop: a drop is a text edit ---------- */
 let suppressClick = false;   // a completed drag must not open the card menu
-const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null};
+const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null,
+  edge: null, edgeChip: null};   // edge = the span edit gesture (left/right handle); its own mode
 /* drag is a fine-pointer affordance only: on a coarse (touch) device it fights
    the narrow stack's vertical swipe-to-scroll (no auto-scroll, no drop-zone
    feedback that reads on a finger) — "Move to…" in the card menu is the phone
@@ -400,6 +431,13 @@ function cellAt(cx, cy){
   }
   if(!cell) return null;
   const [h, lane] = cell.dataset.cell.split('|');
+  /* a spanning card paints over columns it does not START in, so the g[data-line]
+     found here may belong to another cell entirely — moveItem trusts beforeLine
+     blindly, and would misfile the drop into the span's start column */
+  if(before !== null){
+    const b = model && model.items.find(i => i.srcLine === before);
+    if(!b || b.h !== +h || b.lane !== lane) before = null;
+  }
   return {el: cell, h: +h, lane, beforeLine: before};
 }
 function clearHover(){
@@ -438,16 +476,32 @@ function positionDropline(cell, srcLine){
 function endDrag(){
   clearHover();
   if(drag.ghost) drag.ghost.remove();
+  if(drag.edgeChip) drag.edgeChip.remove();
   if(drag.srcEl) drag.srcEl.style.opacity = '';
   document.body.style.cursor = '';
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
+  drag.edge = null; drag.edgeChip = null;   // a cancelled edge must not leave the mode armed
 }
 /* (FLIP glide migrated to the shared motion.js applyFlip — keyed data-key=title,
    zoom-scale-aware; triggered via flipNext on a drop, see doRefresh.) */
 $('preview').addEventListener('pointerdown', e => {
-  if(!finePointer()) return;   // coarse pointers use the card menu's Move to… row
+  if(!finePointer()) return;   // coarse pointers use the card menu's Move to… / Runs until… rows
+  if(e.button !== 0) return;
+  /* a pointerup lost outside the window (drag off-screen, alt-tab mid-gesture) can
+     leave a mode armed; starting a new gesture always begins from a clean slate */
+  endDrag();
+  /* the edge gesture, checked FIRST: the handle rects are siblings painted AFTER
+     (never children of) the card's own <g>, so this can never be confused with
+     the card-body drag below. No ghost, no dropline — an edge is not a card move. */
+  const edgeEl = e.target.closest && e.target.closest('[data-span-edge]');
+  if(edgeEl){
+    e.preventDefault();
+    drag.edge = {side: edgeEl.dataset.spanEdge, line: +edgeEl.dataset.line};
+    document.body.style.cursor = 'col-resize';
+    return;
+  }
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
-  if(!g || e.button !== 0) return;
+  if(!g) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
   if(!item) return;
   e.preventDefault();   // no text selection while dragging
@@ -455,6 +509,35 @@ $('preview').addEventListener('pointerdown', e => {
   drag.srcEl = g;
 });
 window.addEventListener('pointermove', e => {
+  if(drag.edge){
+    /* no re-render during the gesture — cards must not jump under the cursor.
+       Highlight the target column band (the same hover mechanism the card drag
+       uses) and float a live range chip; the edit commits once, on release, and
+       the shipped FLIP glides the result into place afterwards. */
+    clearHover();
+    const cell = cellAt(e.clientX, e.clientY);
+    const it = model && model.items.find(i => i.srcLine === drag.edge.line);
+    if(cell){
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      drag.hover = cell;
+    }
+    if(!drag.edgeChip){
+      const chip = document.createElement('div');
+      chip.className = 'spanchip';
+      document.body.appendChild(chip);
+      drag.edgeChip = chip;
+    }
+    if(it && cell){
+      const span = Math.max(1, cell.h - it.h + 1);
+      drag.edgeChip.textContent = drag.edge.side === 'r'
+        ? it.title + ' → ' + span + ' col' + (span === 1 ? '' : 's')
+        : it.title + ' from ' + model.horizons[cell.h];
+    }
+    drag.edgeChip.style.left = (e.clientX + 12) + 'px';
+    drag.edgeChip.style.top = (e.clientY + 14) + 'px';
+    return;
+  }
   if(!drag.armed) return;
   if(!drag.active){
     if(Math.hypot(e.clientX - drag.armed.x, e.clientY - drag.armed.y) < 4) return;
@@ -479,6 +562,22 @@ window.addEventListener('pointermove', e => {
   }
 });
 window.addEventListener('pointerup', e => {
+  if(drag.edge){
+    const edge = drag.edge;
+    const cell = cellAt(e.clientX, e.clientY);
+    endDrag();
+    suppressClick = true;
+    if(!cell || !model) return;
+    const it = model.items.find(i => i.srcLine === edge.line);
+    const targetH = cell ? cell.h : null;
+    if(it && targetH !== null){
+      const next = edge.side === 'r'
+        ? setSpan(editor.getText(), it.srcLine, targetH - it.h + 1)   // setSpan clamps at 1
+        : setSpanStart(editor.getText(), it.srcLine, targetH, model);
+      if(next !== editor.getText()){ flipNext = true; editor.setText(next); }
+    }
+    return;
+  }
   if(!drag.armed) return;
   const wasActive = drag.active;
   const src = drag.armed.line;
@@ -494,11 +593,11 @@ window.addEventListener('pointerup', e => {
   editor.setText(r.text);   // one transaction → one undo step
 });
 window.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && drag.armed) endDrag();
+  if(e.key === 'Escape' && (drag.armed || drag.edge)) endDrag();
 });
 /* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
    ghost + dropline instead of stranding them until the next pointerup */
-window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
+window.addEventListener('pointercancel', () => { if(drag.armed || drag.edge) endDrag(); });
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
 }, true);

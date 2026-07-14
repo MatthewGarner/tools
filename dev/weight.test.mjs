@@ -57,11 +57,25 @@ const PAGES = {
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
-  /* roadmap 480k -> 495k (2026-07-14): it is the first tool to ship a SECOND
-     renderer — render-deck.js, the 16:9 export compositions. Eager, not lazy:
-     app.js needs its effectiveStyle() to light the right picker chip on every
-     render, so it is in the first-load graph by design. */
-  'roadmap/index.html': 495_000, 'why/index.html': 470_000, 'tree/index.html': 470_000,
+  /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
+     graph by design, on a page whose bulk is vendored CodeMirror:
+       - the 16:9 DECK EXPORT (render-deck.js) — roadmap is the first tool to ship a
+         SECOND renderer; app.js needs its effectiveStyle() on every render to light
+         the right picker chip, so it cannot be lazy;
+       - multi-column SPANS — pack.js, the span mark, the three drag gestures, the
+         phone run-line, and the pure rewrites in edit-targets.js.
+     Set with real headroom on purpose: the previous six raises each left ~300B, so
+     every subsequent commit tripped the gate and taught the next author to raise it
+     reflexively — which is how a budget stops being a budget. Actual load ~507.7k. */
+  'roadmap/index.html': 515_000,
+  /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
+     roadmap/render.js, so every byte of the span layout is a cost /why pays for a
+     feature it can never use (it has no time axis, so it can never carry a span —
+     which is also why it emits not one span-edge rect). Honest shared-code cost of
+     the delegation, set with headroom for the same reason as roadmap above.
+     the span mark, the per-column counts, the narrow run-line, the packer and the
+     edge-handle wrapper all live in the shared renderer. Actual load ~475.5k. */
+  'why/index.html': 480_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
   'bets/index.html': 480_000,

@@ -1,5 +1,6 @@
 /* (model, ctx) → SVG string. ctx = {colors, measure, diff?, slide?}. No DOM. */
-import {STATUS_LABEL} from './parse.js';
+import {STATUS_LABEL, activeCount} from './parse.js';
+import {packLane} from './pack.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -142,7 +143,18 @@ function renderNarrow(model, ctx, C, T){
   for(const it of model.items){
     const badge = diff ? diff.badge(it) : null;
     const lines = wrapText(it.title, titleFont, innerW, measure);
-    const noteLines = it.note ? wrapText(it.note, noteFont, innerW, measure) : [];
+    /* a span cannot be a LENGTH here — the phone stack sections by horizon and a
+       card belongs to exactly one section — so it becomes a LABEL. Appended to
+       noteLines rather than drawn as its own block: drawCard centres on a contentH
+       it derives from these lines, and height without content would shift the title. */
+    const endName = it.spanEnd ||
+      model.horizons[Math.min(model.horizons.length - 1, it.h + Math.max(1, it.span || 1) - 1)];
+    const runLine = ((it.span || 1) > 1 || it.spanEnd)
+      ? 'runs ' + model.horizons[it.h] + ' → ' + endName : null;
+    const noteLines = [
+      ...(it.note ? wrapText(it.note, noteFont, innerW, measure) : []),
+      ...(runLine ? wrapText(runLine, noteFont, innerW, measure) : []),
+    ];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0);
     cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
@@ -185,6 +197,10 @@ function renderNarrow(model, ctx, C, T){
 
   const firstColCount = model.items.filter(i => i.h === 0).length;
   const overWip = model.wip > 0 && firstColCount > model.wip;
+  /* a span doc reports its per-section "also running" line instead (Task 6) — the
+     historical start-count flag must not draw alongside it, or the phone and the
+     desktop would state different counts for the same board. */
+  const anySpan = model.items.some(i => (i.span || 1) > 1);
   const addH = 40;
 
   /* optional lane groups (why's map view rides this): the same first-lane
@@ -202,7 +218,7 @@ function renderNarrow(model, ctx, C, T){
     /* horizon header + full-width accent bar */
     s.push('<text x="' + PAD + '" y="' + (y + 12) + '" font-size="13" font-weight="700" letter-spacing="' +
       T.colHeadTracking + '" fill="' + C.ink + '">' + esc(hName.toUpperCase()) + '</text>');
-    if(h === 0 && overWip){
+    if(h === 0 && overWip && !anySpan){
       s.push('<text x="' + (W - PAD) + '" y="' + (y + 12) + '" text-anchor="end" font-size="' + T.wipSize +
         '" font-weight="600" fill="' + C.err + '">' + firstColCount + ' ITEMS</text>');
     }
@@ -244,6 +260,19 @@ function renderNarrow(model, ctx, C, T){
         y += addH;
       }
       y += 14;   // gap after a lane group (or the single implicit lane)
+    }
+    /* items in flight THROUGH this month but not starting in it — without this the
+       month reads empty while the work is running, and the phone view would
+       contradict the board */
+    const through = model.items.filter(i => i.h < h && h <= i.h + Math.max(1, i.span || 1) - 1);
+    if(through.length){
+      const label = 'also running: ' + through.map(i => i.title).join(' · ');
+      for(const l of wrapText(label, noteFont, W - PAD*2, measure)){
+        s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + fsNote +
+          '" fill="' + C.muted + '">' + esc(l) + '</text>');
+        y += lhNote;
+      }
+      y += 6;
     }
     y += 12;   // gap between horizons
   });
@@ -321,25 +350,57 @@ export function render(model, ctx){
   const lhTitle = T.cardTitleLh*S, lhNote = T.noteLh*S;
   const titleFont = '600 ' + fsTitle + 'px ' + F.body;
   const noteFont = fsNote + 'px ' + F.body;
-  const innerW = colW - cardPadX*2;
 
-  /* pre-lay every card */
-  const cells = {};   // lane -> [per horizon: array of {it,lines,noteLines,badge,cardH}]
-  for(const lane of model.lanes) cells[lane] = model.horizons.map(() => []);
+  /* pre-lay every item. An item's paint width is its column span; width-1 items
+     keep the historical numbers exactly. */
+  const laneList = {};    // lane -> [{it,lines,noteLines,badge,cardH,h0,h1,span,w}] in SOURCE order
+  for(const lane of model.lanes) laneList[lane] = [];
   for(const it of model.items){
     const badge = diff ? diff.badge(it) : null;    // {kind:'new'|'moved', label}
-    const lines = wrapText(it.title, titleFont, innerW, measure);
-    const noteLines = it.note ? wrapText(it.note, noteFont, innerW, measure) : [];
+    const span = Math.max(1, Math.min(it.span || 1, nH - it.h));
+    const w = colW + (span - 1)*(colW + GAP);
+    const iw = w - cardPadX*2;
+    const lines = wrapText(it.title, titleFont, iw, measure);
+    const noteLines = it.note ? wrapText(it.note, noteFont, iw, measure) : [];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH*S : 0) + (badge ? T.badgeH*S : 0);
-    cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
+    laneList[it.lane].push({it, lines, noteLines, badge, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
   }
 
-  /* cards in a lane are peers: equalise heights to the lane's tallest card */
+  /* does anything actually span? Several things (the equalisation rule below, the
+     drop-zone emission order, the per-column ACTIVE counts) must behave EXACTLY as
+     they do today on a span-free doc — byte for byte — or the degeneration proof
+     that keeps /why safe stops holding. Gating on the model, not on the time axis,
+     is what buys that. */
+  const anySpan = model.items.some(i => (i.span || 1) > 1);
+
+  /* Pack every lane ONCE — the packing depends only on the intervals, and both the
+     height rule below and the layout further down need it. */
+  const packed = {};
+  for(const lane of model.lanes) packed[lane] = packLane(laneList[lane]);
+
+  /* Cards that sit SIDE BY SIDE are peers, and should share a height.
+     Which cards are those? The ones in the same TRACK — a track IS a row. Lane-wide
+     equalisation only ever matched that by accident: before spans, track index and
+     stack index were the same thing, so "the lane" and "the row" coincided.
+     Once durations differ they stop coinciding, and lane-wide starts inflating every
+     short card in a lane up to the height of its tallest bar — a 6-month programme
+     with a note would leave ~35px of dead air inside each one-line card beside it.
+     So: equalise per TRACK when the doc spans (measured: 14–24% tighter boards, and
+     it costs nothing in stability — zero cards resize under a span edit), and keep
+     the historical lane-wide rule when it does not, byte for byte. */
   for(const lane of model.lanes){
-    let maxH = 0;
-    for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) maxH = Math.max(maxH, c.cardH);
-    if(maxH > 0) for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) c.cardH = maxH;
+    const list = laneList[lane];
+    if(anySpan){
+      const {at, nTracks} = packed[lane];
+      const rowMax = new Array(nTracks).fill(0);
+      list.forEach((c, i) => { if(c.cardH > rowMax[at[i]]) rowMax[at[i]] = c.cardH; });
+      list.forEach((c, i) => { c.cardH = rowMax[at[i]]; });
+    } else {
+      let maxH = 0;
+      for(const c of list) maxH = Math.max(maxH, c.cardH);
+      if(maxH > 0) for(const c of list) c.cardH = maxH;
+    }
   }
 
   const edit = !!ctx.edit;               // preview-only affordances; exports/goldens render without
@@ -356,15 +417,41 @@ export function render(model, ctx){
     }
   }
   const laneTops = [];
+  const lanePack = {};   // lane -> {at, rowH[], depth[], yTrack[]}
   let y = headerH + colHeadH;
   for(const lane of model.lanes){
     if(groupAtLane.has(lane)) y += bandH;
+    const list = laneList[lane];
+    const {at, nTracks} = packed[lane];   // packed once, above
+    /* a track row is as tall as its tallest item. On a span-free doc equalisation is
+       lane-wide, so every non-empty track is the lane max — uniform rows, exactly as
+       today. On a spanning doc equalisation is per-track, so this IS that track's
+       height. Either way the expression is the same. */
+    const rowH = new Array(nTracks).fill(0);
+    list.forEach((c, i) => { if(c.cardH > rowH[at[i]]) rowH[at[i]] = c.cardH; });
+    /* deepest track covering each column — drives this lane's height */
+    const depth = model.horizons.map(() => -1);
+    list.forEach((c, i) => { for(let h = c.h0; h <= c.h1; h++) if(at[i] > depth[h]) depth[h] = at[i]; });
     let maxH = 0;
     for(let h = 0; h < nH; h++){
-      const stack = cells[lane][h];
-      const sH = stack.reduce((a, c) => a + c.cardH, 0) + Math.max(0, stack.length-1)*cardGap + addH;
+      /* accumulate, never multiply: slide renders at S=1.35 and these heights are
+         non-integer — sum-by-addition is what reproduces today's reduce() bytes */
+      let a = 0;
+      for(let t = 0; t <= depth[h]; t++) a = a + rowH[t];
+      const sH = a + Math.max(0, depth[h])*cardGap + addH;
       if(sH > maxH) maxH = sH;
     }
+    /* y of each track. `cy += rowH[t] + cardGap` — the SAME shape as today's
+       per-card accumulator. Do NOT flatten to `a + rowH[t] + cardGap`: that is
+       (a+h)+g, a different double at S=1.35, and no current slide golden would
+       catch the change. */
+    const yTrack = [y + T.stackTop*S];
+    for(let t = 0; t < nTracks; t++){
+      let cy = yTrack[t];
+      cy += rowH[t] + cardGap;
+      yTrack.push(cy);
+    }
+    lanePack[lane] = {at, rowH, depth, yTrack};
     laneTops.push(y);
     y += Math.max(maxH, T.laneMinH*S) + T.laneBottomPad*S;
   }
@@ -399,10 +486,24 @@ export function render(model, ctx){
     s.push('<text x="' + colX(h) + '" y="' + (headerH + T.colHeadTextY*S) +
       '" font-size="' + T.colHeadSize*S + '" font-weight="600" letter-spacing="' + T.colHeadTracking + '" fill="' + C.muted + '">' +
       esc(model.horizons[h].toUpperCase()) + '</text>');
-    if(h === 0 && overWip){
+    if(h === 0 && overWip && !anySpan){    // the historical first-column flag
       s.push('<text x="' + (colX(0) + colW) + '" y="' + (headerH + T.colHeadTextY*S) +
         '" text-anchor="end" font-size="' + T.wipSize*S + '" font-weight="600" fill="' + C.err + '">' +
         firstColCount + ' ITEMS</text>');
+    }
+    if(anySpan && model.wip > 0){
+      /* inline after the name — a right-aligned count crowds the next header.
+         Transcribed from the prototype Matt approved: 8*S gap, weight 700 when over,
+         and a ZERO count prints nothing (an empty column says so by being empty). */
+      const n = activeCount(model, h);
+      if(n){
+        const over = n > model.wip;
+        const nameW = measure(model.horizons[h].toUpperCase(), '600 ' + T.colHeadSize*S + 'px ' + F.body) +
+          model.horizons[h].length * T.colHeadTracking;
+        s.push('<text x="' + (colX(h) + nameW + 8*S) + '" y="' + (headerH + T.colHeadTextY*S) +
+          '" font-size="' + T.wipSize*S + '" font-weight="' + (over ? 700 : 600) + '" fill="' + (over ? C.err : C.muted) +
+          '"' + (over ? '' : ' opacity="0.7"') + '>' + (over ? '· ' + n + ' ACTIVE' : '· ' + n) + '</text>');
+      }
     }
     s.push('<rect x="' + colX(h) + '" y="' + (headerH + T.colHeadBarY*S) + '" width="' + T.colHeadBarW*S +
       '" height="' + T.colHeadBarH*S + '" rx="' + (T.colHeadBarH*S/2) + '" fill="' + C.accent + '"/>');
@@ -426,6 +527,76 @@ export function render(model, ctx){
   /* shared context drawCard needs — same across every card in this render */
   const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
 
+  const shortCol = name => String(name).split(' ')[0].toUpperCase();
+  /* On-board ends drop the year — the column headers supply it. An OFF-board end
+     must keep it: on a Q3 2026–Q2 2027 board, a bare "Q4" reads as Q4 2026, which
+     is ON the board, so the label would claim a 2-column span for a bar painted 4
+     columns wide. */
+  const rangeLabel = c => shortCol(model.horizons[c.h0]) + ' – ' +
+    (c.it.spanEnd ? c.it.spanEnd.toUpperCase() + ' ›' : shortCol(model.horizons[c.h1]));
+
+  /* A spanning item is the SAME SPECIES as a card, drawn wider — drawCard at the
+     span's width — so wrap, note, status pill, badge, URL, the data-edit targets
+     and the card menu all behave exactly as they do for a 1-column card. A slim
+     "beam" was prototyped and rejected: it drops the note and clips long titles,
+     and in a tool whose content is the text, that is disqualifying.
+     The cap/range-label/cut-edge decoration is split out from the handles below:
+     a 1-column card gets NO decoration (it is just a card) but DOES still get
+     its right-edge handle — that is how a plain card BECOMES a span by mouse —
+     so the early return here must skip the decoration only, never the handles. */
+  function drawSpanDecoration(c, x, cy, fadeOp){
+    if(c.span === 1 && !c.it.spanEnd) return '';
+    /* duration cue: a slim left cap in the status colour — MUTED when the item has
+       no status (in light theme the accent is the same hex as the doing status, so
+       an accent cap would fake an IN PROGRESS pill) */
+    const capCol = c.it.status ? C.status[c.it.status] : C.muted;
+    const capOp = (c.it.status ? 1 : 0.55) * fadeOp;
+    const svg = [];
+    svg.push('<rect x="' + (x + 1.5) + '" y="' + (cy + 4*S) + '" width="' + 3*S +
+      '" height="' + (c.cardH - 8*S) + '" rx="' + 1.5*S + '" fill="' + capCol +
+      '" opacity="' + capOp.toFixed(2) + '"/>');
+    svg.push('<text x="' + (x + c.w - cardPadX) + '" y="' + (cy + c.cardH - cardPadY + 2*S) +
+      '" text-anchor="end" font-size="' + 9*S + '" font-weight="600" letter-spacing="0.8" fill="' + C.muted +
+      '" opacity="' + fadeOp.toFixed(2) + '">' + esc(rangeLabel(c)) + '</text>');
+    if(c.it.spanEnd){
+      /* runs past the board: a dashed cut edge, drawn over a bg-coloured line so it
+         reads as a cut rather than a border */
+      svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
+        '" stroke="' + C.bg + '" stroke-width="2"/>');
+      svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
+        '" stroke="' + C.muted + '" stroke-width="1.2" stroke-dasharray="3 3" opacity="' + fadeOp.toFixed(2) + '"/>');
+    }
+    return svg.join('');
+  }
+
+  /* Edge handles: fine-pointer only (CSS gates the cursor, app.js gates the
+     gesture). A 1-COLUMN item gets a RIGHT handle ONLY — two handles 60px apart
+     would be a coin-toss, and "move the start of a 1-column item" IS "move the
+     item". That right handle is emitted for plain cards too — it is how a plain
+     card becomes a span by mouse. Preview-only: edit2 is false for every export
+     and every golden, so `compare` cannot see these rects. */
+  function drawSpanItem(c, x, cy, fadeOp, edit2){
+    const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle),
+                 drawSpanDecoration(c, x, cy, fadeOp)];
+    /* Handles ONLY on a time axis. A span is meaningless on now/next/later, so there
+       is nothing to resize there — and, crucially, `/why`'s map view delegates to
+       this renderer with edit:true and never sets a time axis. Without this gate it
+       inherits a 14px painted rect at both ends of every card: invisible, inert, and
+       sitting on top of its own card-menu and edit-in-place targets.
+       The wide goldens render with edit:false and why's edit:true goldens are narrow,
+       so NOTHING in the golden suite could see that — the property test caught it. */
+    if(edit2 && model.timeAxis){
+      const EW = 14*S;
+      if(c.span > 1){
+        svg.push('<rect data-span-edge="l" data-line="' + c.it.srcLine + '" x="' + x + '" y="' + cy +
+          '" width="' + EW + '" height="' + c.cardH + '" fill="transparent"/>');
+      }
+      svg.push('<rect data-span-edge="r" data-line="' + c.it.srcLine + '" x="' + (x + c.w - EW) +
+        '" y="' + cy + '" width="' + EW + '" height="' + c.cardH + '" fill="transparent"/>');
+    }
+    return svg.join('');
+  }
+
   /* lanes */
   model.lanes.forEach((lane, li) => {
     const top = laneTops[li];
@@ -446,19 +617,37 @@ export function render(model, ctx){
           '" font-size="' + T.laneSize*S + '" font-weight="600" letter-spacing="' + T.laneTracking + '" fill="' + C.muted + '">' + esc(l) + '</text>');
       });
     }
+    const {at, rowH, depth, yTrack} = lanePack[lane];
+    const list = laneList[lane];
+    const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
+    const cellRect = h => '<rect data-cell="' + h + '|' + esc(lane) + '" x="' + colX(h) + '" y="' + top +
+      '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>';
+    /* A spanning card is drawn at its START column but paints across the ones after
+       it — and a transparent rect is still a PAINTED hit target. Emitted per-column
+       (rect, then that column's cards), the NEXT column's drop-zone lands on top of
+       the bar and makes it pointer-dead: no card menu, no edit-in-place, and no
+       edge handle, over everything past its first column.
+       So when the doc has spans, lay ALL the drop zones down first, then the cards
+       on top. Gated on anySpan, because the order is itself a byte: a span-free doc
+       must emit exactly what it emits today, or the degeneration proof (and with it
+       /why's containment) evaporates. Dropping is unaffected either way — cellAt
+       uses elementsFromPoint, which sees the rect through the card. */
+    if(anySpan) for(let h = 0; h < nH; h++) s.push(cellRect(h));
     for(let h = 0; h < nH; h++){
-      /* drop-zone hit rect under the cards (full cell band, transparent) */
-      const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
-      s.push('<rect data-cell="' + h + '|' + esc(lane) + '" x="' + colX(h) + '" y="' + top +
-        '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>');
+      if(!anySpan) s.push(cellRect(h));
       /* confidence fade: certainty decreases toward the horizon */
       const fadeOp = (model.fade && nH > 1) ? (1 - (h / (nH - 1)) * T.fadeMax) : 1;
-      let cy = top + T.stackTop*S;
-      for(const c of cells[lane][h]){
-        const x = colX(h);
-        s.push(drawCard(c, x, cy, colW, fadeOp, edit, cardStyle));
-        cy += c.cardH + cardGap;
-      }
+      /* an item is DRAWN by its START column only — it paints across the rest.
+         Emit in track order so the SVG reads top-to-bottom. */
+      list.map((c, i) => [at[i], c, i]).filter(([, c]) => c.h0 === h)
+        .sort((a, b) => a[0] - b[0])
+        .forEach(([t, c]) => s.push(drawSpanItem(c, colX(h), yTrack[t], fadeOp, edit)));
+      /* the ghost goes under the deepest track occupied in THIS column — a span
+         passing through occupies a track here without starting here, and a
+         "bottom of the last card I drew" rule would put the ghost on top of it.
+         Degenerate-identical: with no spans, depth[h] = k-1 for a k-card cell, so
+         yTrack[k] is exactly today's post-loop accumulator. */
+      const cy = yTrack[depth[h] + 1];
       if(edit){
         const gw = 44*S, gh = 15*S;
         s.push('<g data-add="1" opacity="0.75">' +

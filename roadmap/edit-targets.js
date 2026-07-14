@@ -112,3 +112,49 @@ export const setStyle = (text, style) => setConfigKey(text, 'style', style);
    lines by itself, so a headline is always exactly one source line. */
 export const setHeadline = (text, headline) =>
   setConfigKey(text, 'headline', String(headline || '').replace(/[\r\n]+/g, ' '));
+
+/* ---- span edits (the three drag gestures) ---- */
+
+/* Rewrite the `xN` token on one line.
+   Operate ONLY on the head of the line — the part before ` -- note` / ` -> url`.
+   parse strips the note BEFORE the token, so a note may legitimately END in "x2"
+   ("Core: A -- twice weekly x2"): a whole-line regex would delete it out of the
+   user's note on every right-edge drag. */
+export function setSpan(text, srcLine, span){
+  const n = Math.max(1, Math.floor(span));
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return text;
+  const line = lines[srcLine];
+  const cut = [line.search(/\s--\s/), line.search(/\s->\s/)].filter(i => i >= 0);
+  const at = cut.length ? Math.min(...cut) : line.length;
+  let head = line.slice(0, at), tail = line.slice(at);
+  head = head.replace(/\s+x\d+\s*$/i, '');            // drop any existing token
+  lines[srcLine] = (n > 1 ? head.trimEnd() + ' x' + n : head.trimEnd()) + tail;
+  return lines.join('\n');
+}
+
+/* The MIDDLE drag. With xN the token is part of the line, so moving the line moves
+   the duration with it — this is the SHIPPED moveHorizon (edit-targets.js:62), which
+   already does the horizon-name → {h, lane} translation and returns string | null.
+   The name exists to pin the duration-preserving guarantee with a test. */
+export function moveItemKeepingSpan(text, srcLine, horizonName){
+  return moveHorizon(text, srcLine, horizonName) || text;
+}
+
+/* The LEFT edge: move the start, hold the END still.
+   Uses declaredSpan, NOT span: span is clamped to the board, so an off-board `x6`
+   painted 4 wide would be rewritten as x3 when dragged one column right — silently
+   shortening work the author said runs past the edge. */
+export function setSpanStart(text, srcLine, newH, model){
+  const it = model.items.find(i => i.srcLine === srcLine);
+  if(!it) return text;
+  const declared = Math.max(1, it.declaredSpan || it.span || 1);
+  const declaredEnd = it.h + declared - 1;
+  const start = Math.max(0, Math.min(newH, declaredEnd));    // never past its own end
+  if(start === it.h) return text;
+  const r = moveItem(text, model, srcLine, {h: start, lane: it.lane, beforeLine: null});
+  if(!r) return text;
+  /* moveItem hands back the item's NEW line index — no re-find, so two items with
+     the same title in one lane cannot cross-wire */
+  return setSpan(r.text, r.cursorLine, declaredEnd - start + 1);
+}

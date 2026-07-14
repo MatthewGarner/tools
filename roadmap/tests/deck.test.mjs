@@ -425,6 +425,16 @@ test('register rows: horizon is ditto-suppressed within a group', () => {
   assert.match(body, />Next</);
 });
 
+test('register names a spanning item’s range in the horizon cell', () => {
+  const m = parse('style: register\nhorizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: A x2');
+  assert.match(renderDeck(m, ctx), />Q3 2026 – Q4 2026</);
+});
+
+test('register prints the range even when the item is NOT first in its group (ditto-suppression must not eat it)', () => {
+  const m = parse('style: register\nhorizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: First\nCore: Second x2');
+  assert.match(renderDeck(m, ctx), />Q3 2026 – Q4 2026</);
+});
+
 test('register diff: a NEW item gets a capsule after its title; a moved item gets an italic "was X" in the horizon cell', () => {
   const model = parse('title: T\ndate: 2026-07-14\nNOW\nCore: Fresh thing\nCore: Moved thing\nNEXT\nCore: x\nLATER\nCore: y');
   const diff = {

@@ -40,6 +40,26 @@ export function genHorizons(spec){
   return out;
 }
 
+/* Continue the board's cadence past its last column, so an item that runs off the
+   edge can still NAME its true end. 24 steps is far more than any board needs. */
+export function horizonContinuation(horizons){
+  const last = horizons[horizons.length - 1];
+  const out = [];
+  const q = String(last).match(/^Q([1-4])\s*(\d{4})$/i);
+  if(q){
+    let qi = parseInt(q[1], 10) - 1, yr = parseInt(q[2], 10);
+    for(let i = 0; i < 24; i++){ qi++; if(qi === 4){ qi = 0; yr++; } out.push('Q' + (qi + 1) + ' ' + yr); }
+    return out;
+  }
+  const mm = String(last).match(/^([A-Za-z]{3,})\s+(\d{4})$/);
+  if(!mm) return null;
+  let mi = MONTHS.findIndex(x => mm[1].toLowerCase().startsWith(x.toLowerCase()));
+  if(mi < 0) return null;
+  let yr = parseInt(mm[2], 10);
+  for(let i = 0; i < 24; i++){ mi++; if(mi === 12){ mi = 0; yr++; } out.push(MONTHS[mi] + ' ' + yr); }
+  return out;
+}
+
 /* edit distance ≤ 1 (one substitution, insertion, or deletion) — enough to
    catch header typos like NOWW or Q3 2027 without fuzzy-matching real items */
 function near(a, b){
@@ -67,13 +87,24 @@ const snippet = s => '"' + s.slice(0, 30) + (s.length > 30 ? '…' : '') + '"';
    the app decides the default (grid for a time axis, board otherwise). */
 export const DECK_STYLES = ['board', 'focus', 'register', 'grid'];
 
-/* The deck's standfirst. AUTHORED, never synthesised: an export headline is a
-   claim the author is making to a room, and a tool that writes it for them puts
-   words in their mouth. Empty is a legitimate answer — the deck simply omits it. */
-export function wipBreach(model){
-  const first = model.items.filter(i => i.h === 0).length;
-  if(!(model.wip > 0 && first > model.wip)) return null;
-  return model.horizons[0] + ' has ' + first + ' items — that’s a list, not a strategy.';
+/* Items ACTIVE in a column: those whose span covers it. On a span-free doc this is
+   exactly "items written in this column", so span-free behaviour is unchanged by
+   construction. */
+export function activeCount(model, h){
+  return model.items.filter(i => i.h <= h && h <= i.h + Math.max(1, i.span || 1) - 1).length;
+}
+
+/* One plain sentence per breaching column. STATES THE FACT — the tool reports what
+   is true and leaves the judgement to the author (the rule the deck headline set).
+   app.js appends its own "(Raise or silence …)" hint to the list. */
+export function wipBreaches(model){
+  if(!(model.wip > 0)) return [];
+  const out = [];
+  for(let h = 0; h < model.horizons.length; h++){
+    const n = activeCount(model, h);
+    if(n > model.wip) out.push(model.horizons[h] + ' has ' + n + ' items in flight (wip: ' + model.wip + ').');
+  }
+  return out;
 }
 
 export function parse(text){
@@ -176,9 +207,40 @@ export function parse(text){
     const noteMatch = line.match(/\s--\s+(.*)$/);
     if(noteMatch){ note = noteMatch[1].trim(); line = line.slice(0, noteMatch.index).trim(); }
 
+    /* `xN` = span in COLUMNS. Parsed last, so [status], -> url and -- note have
+       already been stripped off the end of the line. Time axis only: on now/next/
+       later a duration is meaningless, so the token stays part of the title and
+       says so (never silently eaten). /why never sets timeAxis, so /why can never
+       parse a span. */
+    let span = 1, declaredSpan = 1, spanEnd = null;
+    const xM = line.match(/\s+x(\d+)\s*$/i);
+    if(xM){
+      if(model.timeAxis){
+        span = declaredSpan = Math.max(1, parseInt(xM[1], 10));
+        line = line.slice(0, xM.index).trim();
+      } else if(parseInt(xM[1], 10) > 1){
+        model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) +
+          ' — spans need a time axis (horizons: quarterly/monthly …); "' + xM[0].trim() +
+          '" kept as part of the title');
+      }
+    }
+    if(span > 1){
+      const nHz = model.horizons.length;
+      const declaredEnd = currentH + span - 1;
+      if(declaredEnd > nHz - 1){
+        const cont = horizonContinuation(model.horizons);
+        const k = declaredEnd - nHz;
+        /* the continuation walks 24 steps; past that there is simply no label —
+           null, never undefined (the spanEnd contract is string | null) */
+        spanEnd = (cont && k < cont.length) ? cont[k] : null;
+        span = nHz - currentH;              // clamp the PAINTED width to the board
+      }
+    }
+
     if(!line) continue;
     if(!model.lanes.includes(lane)) model.lanes.push(lane);
-    model.items.push({lane, h: currentH, title: line, note, status, url, srcLine: ln});
+    model.items.push({lane, h: currentH, title: line, note, status, url,
+      span, declaredSpan, spanEnd, srcLine: ln});
   }
   if(preHeader.length === 1){
     const n = preHeader[0];
