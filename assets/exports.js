@@ -2,7 +2,7 @@
    2026-07-06). Every button is optional — pass the ones the surface has. */
 import {download, svgToCanvas} from './app-common.js';
 
-export function wireExports({buttons, getSvg, getSvgSlide, getPoster, getMarkdown, slug}){
+export function wireExports({buttons, getSvg, getSvgSlide, getCopy, getPoster, getMarkdown, slug}){
   const flash = (btn, msg, revert) => {
     btn.textContent = msg;
     setTimeout(() => { btn.textContent = revert; }, 2000);
@@ -24,10 +24,11 @@ export function wireExports({buttons, getSvg, getSvgSlide, getPoster, getMarkdow
     if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-poster.png', b), 'image/png'));
   });
   if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
-    const svg = getSvg();
+    const svg = (getCopy || getSvg)();   // getCopy: copy something other than the plain chart (roadmap copies the deck)
     if(!svg) return;
     if(!navigator.clipboard || !window.ClipboardItem)
       return flash(buttons.copypng, 'Clipboard unavailable — use Download', 'Copy PNG');
+    // stays synchronous to clipboard.write — awaiting first loses Safari's transient-activation window
     const blobPromise = new Promise((resolve, reject) =>
       svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
     navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])

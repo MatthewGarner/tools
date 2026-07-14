@@ -126,3 +126,39 @@ test('a bare item title one letter from a horizon is NOT flagged mid-document', 
   assert.ok(!m.warnings.some(w => w.includes('did you mean')));
   assert.equal(m.items[0].title, 'New');
 });
+
+/* ---- deck export styles: the `style:` key + the time-axis flag ---- */
+
+test('style: selects a deck composition, defaults to null (app picks)', () => {
+  assert.equal(parse('title: T\nNOW\nCore: A').style, null, 'absent → the app decides');
+  assert.equal(parse('style: register\nNOW\nCore: A').style, 'register');
+  assert.equal(parse('STYLE:  Focus \nNOW\nCore: A').style, 'focus', 'case/space tolerant, like palette:');
+});
+
+test('style: an unknown value soft-warns and falls back (never a hard error)', () => {
+  const m = parse('style: banana\nNOW\nCore: A');
+  assert.equal(m.style, null, 'falls back rather than passing junk to the renderer');
+  assert.match(m.warnings[0], /line 1/);
+  assert.match(m.warnings[0], /board|focus|register|grid/, 'the warning lists the options');
+  assert.equal(m.items.length, 1, 'the rest of the doc still parses');
+});
+
+test('style: a missing colon is caught by the near-miss list, not silently made an item', () => {
+  const m = parse('style focus\nNOW\nCore: A');
+  assert.match(m.warnings[0], /missing colon/);
+  assert.equal(m.items.length, 1, 'the "style focus" line is skipped, not filed as an item');
+});
+
+test('timeAxis: true only when the horizons are TIME-generated (quarterly or monthly)', () => {
+  assert.equal(parse('horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: A').timeAxis, true);
+  assert.equal(parse('horizons: monthly from Jul 2026 x3\nJUL 2026\nCore: A').timeAxis, true,
+    'months count as a time axis, exactly like quarters');
+  assert.equal(parse('horizons: Now, Next, Later\nNOW\nCore: A').timeAxis, false);
+  assert.equal(parse('NOW\nCore: A').timeAxis, false, 'the default horizons are not a time axis');
+});
+
+test('timeAxis: recomputed per horizons line — a later manual list must clear it (last wins)', () => {
+  const m = parse('horizons: monthly from Jul 2026 x3\nhorizons: Now, Next, Later\nNOW\nCore: A');
+  assert.deepEqual(m.horizons, ['Now', 'Next', 'Later'], 'last horizons line wins');
+  assert.equal(m.timeAxis, false, 'a sticky flag would lie about the axis actually in use');
+});
