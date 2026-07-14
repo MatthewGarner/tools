@@ -170,6 +170,13 @@ for(const [k, src] of Object.entries(docs)){
   variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
   variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
+  /* WIDE + edit:true — the shape a /why user actually sees in the browser, and the
+     one the golden suite was BLIND to: every other why fixture is either edit:false
+     (exports) or narrow. Roadmap's spans added an edit-only affordance (the span-edge
+     handles) that /why silently inherited, and nothing here could see it. This is the
+     containment guard: /why delegates to roadmap's renderer, so an edit-mode change
+     there must be visible HERE. */
+  variants['why-map-edit'] = norm(renderMap(m, pr, {...ctxBase, edit: true}));
 
   /* narrow (phone) relayout, edit:true — the only real-world path (exports
      never set ctx.width): the indented outline (OST) and its map-view

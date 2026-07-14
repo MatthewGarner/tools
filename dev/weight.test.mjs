@@ -57,49 +57,25 @@ const PAGES = {
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
-  /* roadmap 480k -> 495k (2026-07-14): it is the first tool to ship a SECOND
-     renderer — render-deck.js, the 16:9 export compositions. Eager, not lazy:
-     app.js needs its effectiveStyle() to light the right picker chip on every
-     render, so it is in the first-load graph by design.
-     495k -> 496k (2026-07-14, spans Task 6): the phone narrow layout gained the
-     run-line (appended to noteLines) and the per-section "also running" block —
-     an honest feature cost, actual load ~495.5k, headroom ~500B.
-     496k -> 498k (2026-07-14, spans Task 7): edit-targets.js (already in the
-     graph via app.js) gained the three pure span rewrites — setSpan,
-     setSpanStart, moveItemKeepingSpan — the model layer Task 8 wires to the
-     edge-drag gestures. Honest feature cost, not creep; actual load ~497.9k,
-     headroom ~100B.
-     498k -> 503k (2026-07-14, spans Task 8): the three drag gestures. render.js
-     splits drawSpanItem into drawSpanDecoration (unchanged) + a wrapper that
-     always emits the edge-handle rects, and app.js wires pointerdown/move/up
-     for the edge mode plus the cellAt beforeLine fix. Honest feature cost —
-     this is the interaction the whole spec is for; actual load ~502.6k,
-     headroom ~350B.
-     503k -> 504k (2026-07-14, spans Task 9): the coarse-pointer half of the
-     edge drag — itemMenu grows a dynamic "Runs until…" submenu (mirrors the
-     shipped "Move to…" one) and onCommit gains its setspan branch. Honest
-     feature cost, zero new interaction machinery; actual load ~503.66k,
-     headroom ~340B.
-     504k -> 506k (2026-07-14, spans Task 10): the syntax-table `xN` row and
-     the about-copy paragraph explaining span occupancy vs /timeline's
-     landing-date uncertainty — user-facing docs for a shipped feature, not
-     engine creep; actual load ~505.34k, headroom ~660B. */
-  'roadmap/index.html': 506_000,
-  /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
-     to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
-     is an honest shared-code cost why pays too, even though /why can never itself
-     parse a span (it never sets timeAxis).
-     473k -> 474k (2026-07-14, Task 5): per-column active counts (activeCount import +
-     the inline "· N ACTIVE" header block) grow render.js again, same shared-delegation
-     cost, same reason /why can never trigger it. Actual load ~473.05k, headroom ~1k.
-     474k -> 475k (2026-07-14, Task 6): the narrow-layout run-line/"also running"
-     addition to render.js is shared code too — /why's map view rides renderNarrow
-     even though it can never itself carry a span. Actual load ~474.4k.
-     475k -> 476k (2026-07-14, Task 8): drawSpanItem's split (drawSpanDecoration +
-     the edge-handle wrapper) is shared code in render.js, which why/render-map.js
-     delegates to — even though /why never sets ctx.edit and so never emits a
-     single edge-handle rect itself. Actual load ~475.45k, headroom ~550B. */
-  'why/index.html': 476_000, 'tree/index.html': 470_000,
+  /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
+     graph by design, on a page whose bulk is vendored CodeMirror:
+       - the 16:9 DECK EXPORT (render-deck.js) — roadmap is the first tool to ship a
+         SECOND renderer; app.js needs its effectiveStyle() on every render to light
+         the right picker chip, so it cannot be lazy;
+       - multi-column SPANS — pack.js, the span mark, the three drag gestures, the
+         phone run-line, and the pure rewrites in edit-targets.js.
+     Set with real headroom on purpose: the previous six raises each left ~300B, so
+     every subsequent commit tripped the gate and taught the next author to raise it
+     reflexively — which is how a budget stops being a budget. Actual load ~507.7k. */
+  'roadmap/index.html': 515_000,
+  /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
+     roadmap/render.js, so every byte of the span layout is a cost /why pays for a
+     feature it can never use (it has no time axis, so it can never carry a span —
+     which is also why it emits not one span-edge rect). Honest shared-code cost of
+     the delegation, set with headroom for the same reason as roadmap above.
+     the span mark, the per-column counts, the narrow run-line, the packer and the
+     edge-handle wrapper all live in the shared renderer. Actual load ~475.5k. */
+  'why/index.html': 480_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
   'bets/index.html': 480_000,

@@ -35,9 +35,15 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
    fight the narrow stack's vertical swipe-to-scroll on a phone; coarse pointers
    get the card menu's "Move to…" row instead (app.js gates the drag handlers
    the same way) */
+/* An edge handle is a MOUSE affordance: dragging a 14px band is not a finger
+   gesture, and the phone has "Runs until…" in the card menu instead. Left painted,
+   the rects would sit on top of the card's own tap targets and swallow taps meant
+   for that menu — in a band at both ends of every spanning card. So they are inert
+   unless the pointer is fine. */
+.preview svg rect[data-span-edge]{pointer-events:none}
 @media (pointer: fine){
   .preview svg g[data-edit="cardmenu"]{cursor:grab;touch-action:none}
-  .preview svg rect[data-span-edge]{cursor:col-resize}
+  .preview svg rect[data-span-edge]{pointer-events:auto;cursor:col-resize}
 }
 @media (prefers-reduced-motion: no-preference){
   .preview svg g[data-line]{transition:opacity .15s}

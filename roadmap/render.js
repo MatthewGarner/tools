@@ -367,21 +367,43 @@ export function render(model, ctx){
     laneList[it.lane].push({it, lines, noteLines, badge, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
   }
 
-  /* cards in a lane are peers: equalise heights to the lane's tallest.
-     LANE-WIDE, never per-track — a per-track height would shrink a short card in
-     a quiet column and break the byte-identical degeneration. */
+  /* does anything actually span? Several things (the equalisation rule below, the
+     drop-zone emission order, the per-column ACTIVE counts) must behave EXACTLY as
+     they do today on a span-free doc — byte for byte — or the degeneration proof
+     that keeps /why safe stops holding. Gating on the model, not on the time axis,
+     is what buys that. */
+  const anySpan = model.items.some(i => (i.span || 1) > 1);
+
+  /* Pack every lane ONCE — the packing depends only on the intervals, and both the
+     height rule below and the layout further down need it. */
+  const packed = {};
+  for(const lane of model.lanes) packed[lane] = packLane(laneList[lane]);
+
+  /* Cards that sit SIDE BY SIDE are peers, and should share a height.
+     Which cards are those? The ones in the same TRACK — a track IS a row. Lane-wide
+     equalisation only ever matched that by accident: before spans, track index and
+     stack index were the same thing, so "the lane" and "the row" coincided.
+     Once durations differ they stop coinciding, and lane-wide starts inflating every
+     short card in a lane up to the height of its tallest bar — a 6-month programme
+     with a note would leave ~35px of dead air inside each one-line card beside it.
+     So: equalise per TRACK when the doc spans (measured: 14–24% tighter boards, and
+     it costs nothing in stability — zero cards resize under a span edit), and keep
+     the historical lane-wide rule when it does not, byte for byte. */
   for(const lane of model.lanes){
-    let maxH = 0;
-    for(const c of laneList[lane]) maxH = Math.max(maxH, c.cardH);
-    if(maxH > 0) for(const c of laneList[lane]) c.cardH = maxH;
+    const list = laneList[lane];
+    if(anySpan){
+      const {at, nTracks} = packed[lane];
+      const rowMax = new Array(nTracks).fill(0);
+      list.forEach((c, i) => { if(c.cardH > rowMax[at[i]]) rowMax[at[i]] = c.cardH; });
+      list.forEach((c, i) => { c.cardH = rowMax[at[i]]; });
+    } else {
+      let maxH = 0;
+      for(const c of list) maxH = Math.max(maxH, c.cardH);
+      if(maxH > 0) for(const c of list) c.cardH = maxH;
+    }
   }
 
   const edit = !!ctx.edit;               // preview-only affordances; exports/goldens render without
-  /* does anything actually span? Several things (the drop-zone emission order below,
-     and the per-column ACTIVE counts) must behave EXACTLY as they do today on a
-     span-free doc — byte for byte — or the degeneration proof that keeps /why safe
-     stops holding. Gating on the model, not on the time axis, is what buys that. */
-  const anySpan = model.items.some(i => (i.span || 1) > 1);
   const addH = edit ? 20*S : 0;          // per-cell '+' ghost budget
   const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
   const colHeadH = T.colHeadH*S;
@@ -400,10 +422,11 @@ export function render(model, ctx){
   for(const lane of model.lanes){
     if(groupAtLane.has(lane)) y += bandH;
     const list = laneList[lane];
-    const {at, nTracks} = packLane(list);
-    /* a track row is as tall as its tallest item — which, because equalisation is
-       lane-wide, is the lane max for every non-empty track: uniform rows, exactly
-       as today */
+    const {at, nTracks} = packed[lane];   // packed once, above
+    /* a track row is as tall as its tallest item. On a span-free doc equalisation is
+       lane-wide, so every non-empty track is the lane max — uniform rows, exactly as
+       today. On a spanning doc equalisation is per-track, so this IS that track's
+       height. Either way the expression is the same. */
     const rowH = new Array(nTracks).fill(0);
     list.forEach((c, i) => { if(c.cardH > rowH[at[i]]) rowH[at[i]] = c.cardH; });
     /* deepest track covering each column — drives this lane's height */
@@ -555,7 +578,14 @@ export function render(model, ctx){
   function drawSpanItem(c, x, cy, fadeOp, edit2){
     const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle),
                  drawSpanDecoration(c, x, cy, fadeOp)];
-    if(edit2){
+    /* Handles ONLY on a time axis. A span is meaningless on now/next/later, so there
+       is nothing to resize there — and, crucially, `/why`'s map view delegates to
+       this renderer with edit:true and never sets a time axis. Without this gate it
+       inherits a 14px painted rect at both ends of every card: invisible, inert, and
+       sitting on top of its own card-menu and edit-in-place targets.
+       The wide goldens render with edit:false and why's edit:true goldens are narrow,
+       so NOTHING in the golden suite could see that — the property test caught it. */
+    if(edit2 && model.timeAxis){
       const EW = 14*S;
       if(c.span > 1){
         svg.push('<rect data-span-edge="l" data-line="' + c.it.srcLine + '" x="' + x + '" y="' + cy +
