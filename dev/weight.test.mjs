@@ -67,7 +67,7 @@ const PAGES = {
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
      block) and app.js gained a small popover focus-trap import + keydown
      handler — an honest feature cost, not creep; actual load ~102.2k. */
-  'energy/intraday/index.html': 120_000,   // +motion.js/css (shared reveal layer); heaviest page (reuses the merit stack)
+  'energy/intraday/index.html': 122_000,   // heaviest page (reuses the merit stack) + the shared reveal layer; raised 120k→122k when motion.js gained clip-awareness (2026-07-14) pushed it +580B over
 };
 
 test('per-page load stays under budget', () => {
