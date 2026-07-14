@@ -2,6 +2,7 @@
    Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
 import {chromium, devices} from 'playwright';
+import {report} from './_harness.mjs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
 const T = process.env.BASE || 'http://localhost:8087';
@@ -30,7 +31,10 @@ const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'r
 
 for(const [name, url] of ALL){
   const page = await ctx.newPage();
-  await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
+  // a swallowed goto used to leave the page on about:blank and let the checks
+  // below pass VACUOUSLY (docSW≤vw trivially true) — a dead server read green
+  const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+  if(!loaded){ ok(false, name + ': page loads'); await page.close(); continue; }
   await page.waitForTimeout(900);
   // clientWidth is the stable layout-viewport width; innerWidth expands to fit
   // overflowing content on mobile, which masks exactly the h-scroll we're testing for.
@@ -60,7 +64,7 @@ for(const [name, url] of ALL){
     return {
       font: cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: h1 ? getComputedStyle(h1).fontFamily.includes('Charter') : true,
+      h1: h1 ? getComputedStyle(h1).fontFamily.includes('Charter') : false,   // no h1 is a FAIL, not a vacuous pass
     };
   });
   ok(parity.font, `${name}: body wears the system font stack`);
@@ -71,7 +75,8 @@ for(const [name, url] of ALL){
 
 for(const [name, url] of AUTOLOAD){
   const page = await ctx.newPage();
-  await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
+  const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+  if(!loaded){ ok(false, name + ': page loads'); await page.close(); continue; }
   await page.waitForTimeout(1000);
   const hash = await page.evaluate(() => location.hash);
   const hasOutput = await page.evaluate(() =>
@@ -116,7 +121,8 @@ for(const [n] of CONTAINERS) ok(ALL_NAMES.has(n), `CONTAINERS metadata "${n}" is
 
 for(const [name, url, selectors] of CONTAINERS){
   const page = await ctx.newPage();
-  await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
+  const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+  if(!loaded){ ok(false, name + ': page loads'); await page.close(); continue; }
   await page.waitForTimeout(1000);
   for(const sel of selectors){
     const found = await page.evaluate((s) => !!document.querySelector(s), sel);
@@ -431,5 +437,4 @@ for(const [name, url, chip] of WIDENED){
 }
 
 await browser.close();
-console.log(`\n${pass} PASS, ${fail} FAIL`);
-process.exit(fail ? 1 : 0);
+report('mobile', {pass, fail, min: ALL.length * 3});   // ≥3 checks/tool; catches a crash or empty derived list

@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 const browser = await chromium.launch();
@@ -152,7 +152,8 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.close();
 }
 
+check('no stray console/page errors', errors.length === 0);   // was folded into the exit condition
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) || errors.length ? 1 : 0);
+report('check', {...tally(results), min: 8});

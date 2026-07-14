@@ -4,7 +4,7 @@
    and reduced-motion yields the final frame. Run from dev/pw with a server up
    (BASE knob; energy tools via /energy/<tool>/ on the same base, like smoke). */
 import {chromium} from 'playwright';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -188,4 +188,4 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
 
 for(const r of results) console.log(r);
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('motion', {...tally(results), min: 60});

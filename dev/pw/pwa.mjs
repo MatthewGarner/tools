@@ -6,6 +6,7 @@
    to :8089 via the EPORT env knob — reused if already alive, e.g. another
    suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
+import {report, tally} from './_harness.mjs';
 import {spawn} from 'node:child_process';
 import {ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
@@ -170,4 +171,4 @@ async function installAndWait(page){
 console.log(results.join('\n'));
 esrv && esrv.kill();
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('pwa', {...tally(results), min: 12});

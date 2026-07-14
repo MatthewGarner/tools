@@ -9,6 +9,7 @@
    energy), same BASE/EBASE knobs as the siblings. Needs the webkit browser:
    `npx playwright install webkit` once. SHOTS=1 dumps screenshots for eyeballing. */
 import {webkit, devices} from 'playwright';
+import {report} from './_harness.mjs';
 import {mkdirSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
@@ -85,5 +86,5 @@ for(const theme of ['light', 'dark']){
   await ctx.close();
 }
 await browser.close();
-console.log('\n' + pass + ' PASS, ' + fail + ' FAIL' + (SHOTS ? '  (shots: ' + SHOTS + ')' : ''));
-process.exit(fail ? 1 : 0);
+if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
+report('webkit', {pass, fail, min: TOOLS.length * 2});   // ≥1 check/tool/theme; catches a crash or empty derived list
