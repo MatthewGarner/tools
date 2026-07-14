@@ -69,29 +69,46 @@ export function moveHorizon(text, srcLine, targetHorizon){
   return r ? r.text : null;
 }
 
-/* ---- deck export style picker (S4) ---- */
+/* ---- config keys the UI can commit: style: (the picker) and headline: (the field) ---- */
 
-/* Rewrite (or insert) the `style:` config line. parse.js treats config keys
-   as last-wins across the WHOLE document (a style: line is recognised no
-   matter where it sits), so a naive prepend beside an existing later line
-   would be silently masked by that later line — this always finds and
-   rewrites whichever line actually wins. With no existing line, it lands in
+/* Rewrite (or insert, or with an empty value REMOVE) a config line. parse.js
+   treats config keys as last-wins across the WHOLE document (the key is
+   recognised no matter where it sits), so a naive prepend beside an existing
+   later line would be silently masked by that later line — this always finds
+   and rewrites whichever line actually wins. With no existing line, it lands in
    the config block: right before the first horizon header (after title:/
    horizons:/etc — never blindly at line 0). */
-export function setStyle(text, style){
-  if(!text.trim()) return 'style: ' + style;
+export function setConfigKey(text, key, value){
+  const v = String(value == null ? '' : value).trim();
+  const line = key + ': ' + v;
+  if(!text.trim()) return v ? line : text;
   const model = parse(text);
   const lines = text.split(/\r?\n/);
-  let last = -1;
+  const re = new RegExp('^' + key + '\\s*:', 'i');
+  const hits = [];
   for(let i = 0; i < lines.length; i++)
-    if(/^style\s*:/i.test(lines[i].trim())) last = i;
-  if(last >= 0){ lines[last] = 'style: ' + style; return lines.join('\n'); }
+    if(re.test(lines[i].trim())) hits.push(i);
+  if(hits.length){
+    /* Clearing deletes EVERY matching line, not just the winner: delete the last
+       of two and an earlier one takes over, so the value the author just cleared
+       comes straight back (and the field, resyncing, refills itself). Setting a
+       value rewrites only the winner — the others were already dead. */
+    if(!v) for(let i = hits.length - 1; i >= 0; i--) lines.splice(hits[i], 1);
+    else lines[hits[hits.length - 1]] = line;
+    return lines.join('\n');
+  }
+  if(!v) return text;
   let at = lines.length;
   for(let i = 0; i < lines.length; i++){
     const t = lines[i].trim().replace(/:$/, '');
     if(!t || t.startsWith('//')) continue;
     if(model.horizons.some(h => h.toLowerCase() === t.toLowerCase())){ at = i; break; }
   }
-  lines.splice(at, 0, 'style: ' + style);
+  lines.splice(at, 0, line);
   return lines.join('\n');
 }
+export const setStyle = (text, style) => setConfigKey(text, 'style', style);
+/* Newlines would forge extra DSL lines out of one field; the deck wraps to two
+   lines by itself, so a headline is always exactly one source line. */
+export const setHeadline = (text, headline) =>
+  setConfigKey(text, 'headline', String(headline || '').replace(/[\r\n]+/g, ' '));

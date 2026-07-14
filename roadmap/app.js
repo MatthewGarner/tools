@@ -1,11 +1,11 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {wipBreach, renderDeck, effectiveStyle} from './render-deck.js';
+import {renderDeck, effectiveStyle} from './render-deck.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {parse, STATUS_LABEL} from './parse.js';
+import {parse, STATUS_LABEL, wipBreach} from './parse.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -16,7 +16,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -25,6 +25,7 @@ const paint = mountMotion($("preview"));
 const EXAMPLES = [
   {name:'Habit app roadmap', src:
 `title: Habitat — Product Roadmap
+headline: Retention first — everything in Now defends the streak
 horizons: Now, Next, Later
 
 NOW
@@ -103,8 +104,6 @@ function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
-  /* the breach sentence is shared with the deck's verdict (render-deck.js) so the
-     editor warning and the exported standfirst can never drift apart */
   const breach = wipBreach(m);
   if(breach) m.warnings.push(breach + ' (Raise or silence with wip: N / wip: off.)');
   renderWarningList(warns, m.warnings);
@@ -119,6 +118,13 @@ function syncStylePicker(m){
     b.setAttribute('aria-pressed', String(on));   // a SR user hears which style will export
   }
 }
+/* The headline field mirrors the doc's `headline:` line. Not while the author is
+   typing IN it — a round-trip through parse would fight their cursor — so it
+   syncs only when it isn't focused. */
+function syncHeadline(m){
+  const el = $('headline');
+  if(document.activeElement !== el && el.value !== m.headline) el.value = m.headline;
+}
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
@@ -130,6 +136,7 @@ function doRefresh(){
   editor.setHorizons(model.horizons);
   renderWarnings(model);
   syncStylePicker(model);
+  syncHeadline(model);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -256,6 +263,22 @@ $('stylepicker').addEventListener('click', e => {
   const b = e.target.closest('[data-style]');
   if(b) editor.setText(setStyle(editor.getText(), b.dataset.style));
 });
+/* the headline field is the same act as typing `headline:` — one debounced text
+   edit into the doc, so it undoes, persists and travels in the URL like the rest.
+   editor.setText replaces the WHOLE doc, so a commit still pending when the user
+   clicks into the editor would remap their selection and teleport the cursor —
+   and a commit still pending when they hit Download would export the old deck.
+   Committing on blur closes both: whatever fires the debounce afterwards finds
+   the text already correct and the guard below makes it a no-op. */
+function commitHeadlineNow(){
+  const cur = editor.getText();
+  const next = setHeadline(cur, $('headline').value);
+  if(next !== cur) editor.setText(next);
+}
+const commitHeadline = debounced(commitHeadlineNow, 400);
+$('headline').addEventListener('input', commitHeadline);
+$('headline').addEventListener('blur', commitHeadlineNow);
+$('headline').addEventListener('keydown', e => { if(e.key === 'Enter') commitHeadlineNow(); });
 /* copymd keeps its inline handler: label is 'Copy as markdown' / 'Copied', not
    wireExports' literal 'Copy for doc' revert — migrating would change the label. */
 $('copymd').addEventListener('click', async () => {

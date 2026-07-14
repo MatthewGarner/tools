@@ -5,9 +5,9 @@
    so renderer-coverage.test.mjs FORCES this into the injection corpus.
 
    1920×1080, one shared frame (accent rule → Charter title → date → the
-   VERDICT standfirst → body band → footer rule + metrics). Styles fill the
-   body; colour comes from the doc (palette:/accent: via scheme()), never
-   the style — a style owns STRUCTURE. */
+   author's `headline:` standfirst, if they wrote one → body band → footer rule
+   + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
+   via scheme()), never the style — a style owns STRUCTURE. */
 import {txt, wrapText, tint, esc} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
 import {PALETTES, scheme} from '../assets/series.js';
@@ -22,56 +22,7 @@ const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
 const SERIF = 'Charter, Georgia, "Times New Roman", serif';
 const r2 = n => Math.round(n * 100) / 100;
 
-/* The WIP warning is ONE string, shared with app.js's editor warning (which appends
-   its own "(Raise or silence with wip: N / wip: off.)"). Two copies would drift. */
-export function wipBreach(model){
-  const first = model.items.filter(i => i.h === 0).length;
-  if(!(model.wip > 0 && first > model.wip)) return null;
-  return model.horizons[0] + ' has ' + first + ' items — that’s a list, not a strategy.';
-}
-
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
-const clip = (s, max) => s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
-
-/* The quotable line. Priority-ordered: bad news leads, and the load claim
-   ("Now carries 4 of 10 items") is the constant spine. */
-export function roadmapVerdict(model, diff = null){
-  const items = model.items, n = items.length;
-  if(!n) return 'Nothing on the board yet.';
-
-  const breach = wipBreach(model);
-  if(breach) return breach;                                    // 1 — the tool's own words
-
-  const first = model.horizons[0];
-  const inFirst = items.filter(i => i.h === 0).length;
-  if(!inFirst){                                                 /* "carries 0 of 3" reads like a bug */
-    const rest = model.horizons.slice(1);
-    const names = rest.length > 1
-      ? rest.slice(0, -1).join(', ') + ' and ' + rest[rest.length - 1]
-      : rest[0];
-    return 'Nothing in ' + first + ' — ' + plural(n, 'item', 'items') + ' queued in ' + names + '.';
-  }
-  const load = first + ' carries ' + inFirst + ' of ' + plural(n, 'item', 'items');
-
-  const flagged = [...items.filter(i => i.status === 'blocked'),   // blocked leads
-                   ...items.filter(i => i.status === 'risk')];
-  if(flagged.length){                                           // 2 — flags
-    const named = flagged.slice(0, 2)
-      .map(i => clip(i.title, 40) + ' ' + (i.status === 'blocked' ? 'blocked' : 'at risk'));
-    const more = flagged.length - named.length;
-    return load + ' — ' + named.join(', ') + (more ? ', +' + more + ' more flagged' : '') + '.';
-  }
-  if(diff && diff.any){                                         // 3 — what moved
-    const bits = [];
-    if(diff.added) bits.push(diff.added + ' added');
-    if(diff.moved) bits.push(diff.moved + ' moved');
-    if(diff.dropped) bits.push(diff.dropped + ' dropped');
-    if(bits.length) return load + ' — since ' + diff.since + ': ' + bits.join(', ') + '.';
-    return load + '.';                                          // never a dangling "since X: ."
-  }
-  const doing = items.filter(i => i.status === 'doing').length; // 4 — plain
-  return load + (doing ? ' — ' + doing + ' in progress.' : '.');
-}
 
 /* metrics footer — the same facts every deck carries */
 export function deckMetrics(model){
@@ -83,20 +34,6 @@ export function deckMetrics(model){
           by('blocked') ? by('blocked') + ' blocked' : null].filter(Boolean).join(' · ');
 }
 
-/* roadmapVerdict's diff contract is COUNTS (added/moved/dropped as numbers) —
-   pinned by verdict.test.mjs. app.js's live diff (and the badges below) is
-   shaped for BADGES instead: `badge(item)` plus a `dropped` array of titles.
-   Bridges the two without forcing app.js to compute the counts twice. */
-export function diffCounts(model, diff){
-  if(!diff || !diff.any) return null;
-  let added = 0, moved = 0;
-  for(const it of model.items){
-    const b = diff.badge ? diff.badge(it) : null;
-    if(b && b.kind === 'new') added++;
-    else if(b && b.kind === 'moved') moved++;
-  }
-  return {any: true, since: diff.since, added, moved, dropped: diff.dropped ? diff.dropped.length : 0};
-}
 
 /* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/
    svg.js/series.js stay at zero hunks, and svg.js has no rect/line helper or
@@ -335,14 +272,16 @@ function boardBodyFn(model, ctx, C){
   };
 }
 
-/* Shared frame: accent rule -> Charter title -> date -> verdict standfirst
-   (wrapped to <=2 lines, budgeting the body band down when it wraps) -> body
-   -> footer rule -> metrics. `today` is INJECTED via ctx (no `new Date()`
+/* Shared frame: accent rule -> Charter title -> date -> the AUTHORED headline
+   standfirst (wrapped to <=2 lines, budgeting the body band down when it wraps)
+   -> body -> footer rule -> metrics. `today` is INJECTED via ctx (no `new Date()`
    here): printed when model.dateStr is null, suppressed entirely on the
-   literal string 'off' (mirrors render.js's date semantics). */
+   literal string 'off' (mirrors render.js's date semantics).
+
+   No headline is not a defect: the standfirst is dropped and the body takes the
+   band back, so the deck reads as a titled board rather than one with a hole. */
 function deckFrame(model, ctx, C, bodyFn){
   const {measure} = ctx;
-  const verdict = roadmapVerdict(model, diffCounts(model, ctx.diff));
   const s = [];
   s.push(rect(0, 0, W, H, C.bg));
   s.push(rect(M, 64, 56, 5, C.accent, {rx: 2.5}));
@@ -350,10 +289,13 @@ function deckFrame(model, ctx, C, bodyFn){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || ctx.today || '');
   if(dateLabel) s.push(txt(W - M, 124, dateLabel, 17, C.muted, {anchor: 'end'}));
 
-  let bodyTop = 214;
-  const vLines = wrapN(verdict, '600 22px ' + SERIF, INNER, 2, measure);
-  s.push(serifGroup(vLines.map((ln, i) => txt(M, 170 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
-  bodyTop += (vLines.length - 1) * 30;
+  const headline = (model.headline || '').trim();
+  let bodyTop = 176;
+  if(headline){
+    const vLines = wrapN(headline, '600 22px ' + SERIF, INNER, 2, measure);
+    s.push(serifGroup(vLines.map((ln, i) => txt(M, 170 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
+    bodyTop = 214 + (vLines.length - 1) * 30;
+  }
 
   s.push(bodyFn(bodyTop, 968));
   s.push(line(M, 1002, W - M, 1002, C.border));

@@ -11,8 +11,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {
-  renderDeck, renderBoardBody, typeRamp, boardGeometry, capFit, diffCounts,
-  roadmapVerdict, W, H, M,
+  renderDeck, renderBoardBody, typeRamp, boardGeometry, capFit, W, H, M,
   renderRegisterBody, registerColumns,
   renderFocusBody, focusHeroIndex, focusColumnCount,
   renderGridBody, gridFit, MAX_UP,
@@ -123,7 +122,7 @@ test('containment: an empty board (no items at all) does not crash', () => {
   assert.equal(model.items.length, 0);
   const svg = renderDeck(model, ctx);
   assert.match(svg, /^<svg/);
-  assert.match(svg, /Nothing on the board yet\./);
+  assert.match(svg, /Nothing scheduled/, 'the empty columns say so themselves — the frame does not editorialise');
 });
 
 test('a no-title/no-date doc renders deterministically with an injected today, and omits the date on "off"', () => {
@@ -199,25 +198,6 @@ test('capFit: terminates (returns a finite count) even when nothing fits', () =>
   assert.equal(capFit([], 500, 10, 40), 0);
 });
 
-/* ---------------- diffCounts: bridging badge-shaped diff into verdict counts ---------------- */
-
-test('diffCounts: null/absent diff stays null (never fabricates a diff)', () => {
-  assert.equal(diffCounts(parse('NOW\nCore: A'), null), null);
-  assert.equal(diffCounts(parse('NOW\nCore: A'), {any: false}), null);
-});
-
-test('diffCounts: tallies badges + dropped length into the counts roadmapVerdict expects', () => {
-  const model = parse('NOW\nCore: A\nCore: B\nCore: C');
-  const diff = {
-    any: true, since: '12 Jun',
-    badge: it => it.title === 'A' ? {kind: 'new', label: 'New'} : it.title === 'B' ? {kind: 'moved', label: 'was Next'} : null,
-    dropped: ['Old thing'],
-  };
-  assert.deepEqual(diffCounts(model, diff), {any: true, since: '12 Jun', added: 1, moved: 1, dropped: 1});
-  const v = roadmapVerdict(model, diffCounts(model, diff));
-  assert.match(v, /1 added, 1 moved, 1 dropped/);
-});
-
 /* ---------------- board renders diff badges + the dropped footer strip ---------------- */
 
 test('board renders NEW/MOVED badges on cards and a struck dropped strip in the footer', () => {
@@ -283,13 +263,46 @@ test('frame: root svg carries double-quoted integer width/height (svgToCanvas + 
   assert.equal(W, 1920); assert.equal(H, 1080); assert.equal(M, 100);
 });
 
-test('frame: a long verdict wraps to at most 2 lines and budgets the body band down', () => {
-  const many = Array.from({length: 6}, (_, i) => 'Core: Item ' + i + ' [blocked]').join('\n');
-  const model = parse('title: T\ndate: 2026-07-14\nwip: off\nNOW\n' + many);
-  const v = roadmapVerdict(model);
-  assert.ok(v.length > 40, 'the flagged-items branch should produce a long verdict here');
+/* ---------------- the headline: AUTHORED, never generated ---------------- */
+
+test('the deck NEVER writes a headline for you — no headline: line, no standfirst', () => {
+  const model = parse('title: T\ndate: 2026-07-14\nwip: 2\nNOW\nCore: Alpha [risk]\nCore: Beta\nCore: Gamma');
   const svg = renderDeck(model, ctx);
+  /* every phrase the old auto-verdict used to synthesise, from the very model
+     state (over-WIP, flagged) that used to trigger it */
+  assert.doesNotMatch(svg, /carries/, 'no "Now carries 4 of 10 items"');
+  assert.doesNotMatch(svg, /list, not a strategy/, 'the WIP breach is an EDITOR warning, not a claim on a slide');
+  assert.doesNotMatch(svg, /at risk\.</, 'no synthesised flag sentence');
+});
+
+test('an authored headline prints as the standfirst, verbatim', () => {
+  const svg = renderDeck(parse('title: T\ndate: 2026-07-14\nheadline: We are betting on retention\nNOW\nCore: A'), ctx);
+  assert.match(svg, />We are betting on retention</);
+});
+
+test('the headline is user text: it is escaped, not injected', () => {
+  const svg = renderDeck(parse('title: T\nheadline: A <script>alert(1)</script> & co\nNOW\nCore: A'), ctx);
+  assert.doesNotMatch(svg, /<script>/);
+  assert.match(svg, /&lt;script&gt;/);
+  assert.match(svg, /&amp; co/);
+});
+
+test('a long headline wraps to at most 2 lines and budgets the body band down', () => {
+  const long = 'headline: ' + 'A rather long strategic claim about where this quarter is going '.repeat(4);
+  const svg = renderDeck(parse('title: T\ndate: 2026-07-14\n' + long + '\nNOW\nCore: A'), ctx);
   assert.match(svg, /^<svg/);   // renders without throwing at whatever wrap depth results
+});
+
+test('no headline: the body starts HIGHER — the deck has no hole where a standfirst was', () => {
+  const doc = 'title: T\ndate: 2026-07-14\nNOW\nCore: A\nNEXT\nCore: B';
+  const bare = renderDeck(parse(doc), ctx);
+  const withH = renderDeck(parse('headline: Something to say\n' + doc), ctx);
+  const topOf = svg => {
+    const m = svg.match(/<rect x="100" y="([\d.]+)"/g).map(s => +s.match(/y="([\d.]+)"/)[1]);
+    return Math.min(...m.filter(y => y > 130));   // first body element under the header
+  };
+  assert.ok(topOf(bare) < topOf(withH),
+    'body top ' + topOf(bare) + ' should sit above ' + topOf(withH) + ' when there is no standfirst');
 });
 
 test('frame: the footer rule sits at y=1002 and metrics at y=1036, always', () => {

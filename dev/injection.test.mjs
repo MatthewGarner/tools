@@ -39,7 +39,9 @@ test('roadmap renderer escapes hostile titles/items/lanes', async () => {
 test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropped/badge strings, in both card and flipped-to-list layouts', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {renderDeck} = await import('../roadmap/render-deck.js');
-  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+  /* headline: is user text that lands in the frame's standfirst — the one string
+     on a deck the author writes freehand, so it gets the hostile treatment too */
+  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nheadline: ' + EVIL[1] + '\nNOW\n' +
     EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
   const m = parse(doc);
   const diff = {

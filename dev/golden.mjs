@@ -64,8 +64,11 @@ for(const [k, src] of Object.entries(docs)){
   variants['deck-board-list'] = renderDeck(parse(listDoc), {...ctxBase});
 
   /* REGISTER: badges (NEW capsule + "was X" italic horizon cell) + dropped
-     rows (struck, DROPPED capsule) — the formal-table diff read. */
-  const registerDoc = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\nNOW\n' +
+     rows (struck, DROPPED capsule) — the formal-table diff read. Also the one
+     fixture carrying an AUTHORED `headline:`, so the standfirst (and the body
+     band it pushes down) stays pinned; the others prove the no-headline frame. */
+  const registerDoc = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\n' +
+    'headline: We are consolidating — three bets, no more\nNOW\n' +
     'Core: Streak freeze [doing] -- shipping soon\n' +
     'Growth: Referral flow [risk] -- needs legal review\n' +
     'Platform: Billing migration [blocked] -- waiting on vendor\n' +
@@ -79,8 +82,9 @@ for(const [k, src] of Object.entries(docs)){
   };
   variants['deck-register-diff'] = renderDeck(parse(registerDoc), {...ctxBase, diff: registerDiff});
 
-  /* FOCUS: an over-WIP Now (verdict path 1: the WIP-breach sentence) with
-     enough items to force the 2-column hero (>=6) and a faded ranked rail. */
+  /* FOCUS: an over-WIP Now (which the deck must NOT editorialise about — the
+     breach is an editor warning, never a line on the slide) with enough items
+     to force the 2-column hero (>=6) and a faded ranked rail. */
   const focusDoc = 'title: Product roadmap\nstyle: focus\ndate: 2026-07-04\nwip: 6\nNOW\n' +
     Array.from({length: 8}, (_, i) => (['Core', 'Growth', 'Platform'][i % 3]) + ': Item number ' + i +
       (i % 3 === 0 ? ' -- a short supporting note' : '') +

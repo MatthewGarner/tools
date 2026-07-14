@@ -846,6 +846,50 @@ for(const theme of ['light', 'dark']){
       isPng && bytes.length > 2000);
   }
 
+  /* the deck HEADLINE: authored, never generated. The field and the DSL key are
+     one act, in BOTH directions — the field commits a `headline:` line, and a
+     `headline:` line typed in the editor shows up in the field. */
+  const srcOf = () => page.evaluate(() => localStorage.getItem('roadmap-src') || '');
+  const settle = () => page.waitForTimeout(900);   // 400ms field debounce + 120ms editor debounce + rAF
+  await page.locator('#headline').fill('');
+  await page.locator('#headline').blur();
+  await settle();
+  check('roadmap: clearing the headline field removes the headline: line entirely',
+    !/^headline:/m.test(await srcOf()));
+
+  await page.locator('#headline').fill('We are betting on retention');
+  await page.locator('#headline').blur();
+  await settle();
+  check('roadmap: the headline field commits a headline: line into the doc text',
+    /^headline: We are betting on retention$/m.test(await srcOf()));
+
+  /* the OTHER direction: edit the doc, the field follows (it is unfocused, so
+     syncHeadline actually runs — filling the field and reading it straight back
+     would assert nothing) */
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.insertText('title: T\nheadline: Written in the editor\nNOW\nCore: A');
+  await settle();
+  check('roadmap: a headline: line typed in the editor shows up in the field',
+    await page.locator('#headline').inputValue() === 'Written in the editor');
+
+  const deckSvg = await page.evaluate(async () => {
+    const {parse} = await import('/roadmap/parse.js');
+    const {renderDeck} = await import('/roadmap/render-deck.js');
+    const {measure, themeColors} = await import('/assets/app-common.js');
+    const ctx = {colors: themeColors(), measure, today: '2026-07-14'};
+    /* the exact state the old auto-verdict fired on: over-WIP AND flagged */
+    const loaded = 'wip: 2\nNOW\nCore: Alpha [risk]\nCore: Beta\nCore: Gamma';
+    return {
+      withHeadline: renderDeck(parse('headline: We are betting on retention\n' + loaded), ctx),
+      without: renderDeck(parse(loaded), ctx),
+    };
+  });
+  check('roadmap: the deck prints the authored headline',
+    deckSvg.withHeadline.includes('We are betting on retention'));
+  check('roadmap: with no headline the deck synthesises NOTHING in its place',
+    !/carries|list, not a strategy|Nothing on the board/.test(deckSvg.without));
+
   // clearing the doc leaves nothing to export — the picker follows setActionsEnabled,
   // same as every other export button in .actions
   await page.locator('.cm-content').click();

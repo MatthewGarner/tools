@@ -267,10 +267,14 @@ for(const [name, url, chip] of WIDENED){
   // no touch-action block: style.css gates touch-action:none to
   // @media (pointer: fine), so a card group on this coarse-emulated context
   // keeps the default (scrollable) value instead.
-  const touchAction = await page.evaluate(() => {
-    const g = document.querySelector('#preview svg g[data-edit="cardmenu"][data-line="4"]');
+  // The card is found by its TITLE: its srcLine belongs to the shipped example,
+  // and hard-coding it made this suite break when that example gained a line.
+  const cardLine = await page.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: 'Streak freeze'}).first().getAttribute('data-line');
+  const touchAction = await page.evaluate(line => {
+    const g = document.querySelector('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"]');
     return g ? getComputedStyle(g).touchAction : null;
-  });
+  }, cardLine);
   ok(touchAction !== null && touchAction !== 'none',
     `roadmap: card group keeps touch-action:${touchAction} on a coarse pointer (vertical scroll isn't blocked)`);
 
@@ -279,7 +283,7 @@ for(const [name, url, chip] of WIDENED){
   // (devices['iPhone 13']), so a drag gesture over the card must produce no
   // ghost and leave the source text untouched, regardless of which Playwright
   // input API dispatches the events.
-  const cardBody = page.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
+  const cardBody = page.locator('#preview svg g[data-edit="cardmenu"][data-line="' + cardLine + '"] rect[data-hit]');
   const cardBox = await cardBody.boundingBox();
   const beforeDrag = await page.evaluate(() => localStorage.getItem('roadmap-src'));
   await page.mouse.move(cardBox.x + 8, cardBox.y + 4);

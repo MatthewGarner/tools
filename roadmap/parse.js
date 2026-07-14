@@ -67,8 +67,17 @@ const snippet = s => '"' + s.slice(0, 30) + (s.length > 30 ? '…' : '') + '"';
    the app decides the default (grid for a time axis, board otherwise). */
 export const DECK_STYLES = ['board', 'focus', 'register', 'grid'];
 
+/* The deck's standfirst. AUTHORED, never synthesised: an export headline is a
+   claim the author is making to a room, and a tool that writes it for them puts
+   words in their mouth. Empty is a legitimate answer — the deck simply omits it. */
+export function wipBreach(model){
+  const first = model.items.filter(i => i.h === 0).length;
+  if(!(model.wip > 0 && first > model.wip)) return null;
+  return model.horizons[0] + ' has ' + first + ' items — that’s a list, not a strategy.';
+}
+
 export function parse(text){
-  const model = {title:'', dateStr:null, horizons:[...DEFAULT_HORIZONS],
+  const model = {title:'', dateStr:null, headline:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
     style:null, timeAxis:false};
   let currentH = -1;
@@ -78,11 +87,21 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|horizons|wip|fade|palette|accent|style)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|horizons|wip|fade|palette|accent|style)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].trim();
+      /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
+         genuinely called "Headline" (or "Date", or "Style") is eaten as config —
+         its items vanish from the board and, worse, its text would surface on the
+         exported deck. Settings below the first header are always either that
+         collision or a stray, so say what was read. Never fires for the UI, which
+         writes into the config block above the first horizon. */
+      if(currentH >= 0)
+        model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' read as the ' + key +
+          ': setting, not an item in a lane called "' + config[1] + '" — settings belong above the first horizon header');
       if(key === 'title') model.title = val;
       else if(key === 'date') model.dateStr = val;
+      else if(key === 'headline') model.headline = val;
       else if(key === 'palette'){
         const p = val.toLowerCase();
         if(PALETTE_NAMES.includes(p)) model.palette = p;
@@ -132,7 +151,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|horizons|wip|fade|palette|accent|style)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|horizons|wip|fade|palette|accent|style)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;

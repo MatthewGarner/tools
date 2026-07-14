@@ -646,17 +646,24 @@ check('no console/page errors', errors.length === 0);
   check('roadmap: cell ghost adds a lane-prefixed item', t3.includes('Growth: EIP suite added'));
 
   /* ---- card menu: tap the card BODY (the invisible data-hit rect, not a
-     field) opens the menu; "Streak shield" (srcLine 4) carries both a note
-     and a status so the Edit-note/Status rows aren't vacuous. Each action
-     gets its own round trip: commit, assert, ONE Meta+z, assert full revert
-     back to the pre-menu baseline before the next action starts clean. ---- */
+     field) opens the menu; "Streak shield" carries both a note and a status so
+     the Edit-note/Status rows aren't vacuous. Each action gets its own round
+     trip: commit, assert, ONE Meta+z, assert full revert back to the pre-menu
+     baseline before the next action starts clean.
+
+     The card is found by its TITLE, not by a hard-coded data-line: srcLine is a
+     property of the shipped example, and pinning it here means any edit to that
+     example (adding `headline:` did exactly this) breaks the suite for reasons
+     that have nothing to do with edit-in-place. ---- */
+  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: title}).first().getAttribute('data-line');
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   /* tap the top-left padding sliver, not the rect centre: the card paints its
      title/note/status text over the hit rect, and Playwright's default .click()
      targets the centre — on Linux (subtly different font metrics) that lands on
      the text element and the menu never opens. Same fix the why suite uses. */
-  const tapCard = async line => {
-    const box = await cardBody(line).boundingBox();
+  const tapCard = async title => {
+    const box = await cardBody(await lineOfCard(title)).boundingBox();
     await p.mouse.click(box.x + 8, box.y + 4);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -666,7 +673,7 @@ check('no console/page errors', errors.length === 0);
     await p.waitForTimeout(500);
   };
 
-  await tapCard(4);
+  await tapCard("Streak shield");
   await p.waitForTimeout(200);
   check('roadmap: card body tap opens the menu with the expected rows',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
@@ -682,7 +689,7 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await tapCard(4);
+  await tapCard("Streak shield");
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.waitForTimeout(200);
@@ -698,7 +705,7 @@ check('no console/page errors', errors.length === 0);
      marked `on`); picking a different one is the phone replacement for
      dragging the card across columns — same undo/round-trip contract as
      every other menu row. */
-  await tapCard(4);
+  await tapCard("Streak shield");
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
   await p.waitForTimeout(200);
@@ -714,7 +721,7 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the pre-move baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await tapCard(4);
+  await tapCard("Streak shield");
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
   await p.waitForTimeout(600);
@@ -723,10 +730,11 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  /* real mouse drag: "Sync engine rewrite" (Platform/Now, srcLine 7) dropped
-     into Platform/Next moves it (byte-preserved line, relocated after the
-     NEXT header) and must NOT leave a card menu open (proves suppressClick) */
-  const dragSrc = await cardBody(7).boundingBox();
+  /* real mouse drag: "Sync engine rewrite" (Platform/Now) dropped into
+     Platform/Next moves it (byte-preserved line, relocated after the NEXT
+     header) and must NOT leave a card menu open (proves suppressClick).
+     Resolved by title, not by srcLine — see lineOfCard above. */
+  const dragSrc = await cardBody(await lineOfCard('Sync engine rewrite')).boundingBox();
   const dragDst = await p.locator('#preview svg rect[data-cell="1|Platform"]').boundingBox();
   await p.mouse.move(dragSrc.x + dragSrc.width / 2, dragSrc.y + dragSrc.height / 2);
   await p.mouse.down();
@@ -761,8 +769,13 @@ check('no console/page errors', errors.length === 0);
      must catch that tap on the field and open the card menu instead of the
      title editor (proving the redirect, not just the always-menu top-left
      tap the rest of this block uses). */
+  /* resolved from the card's TITLE, not a hard-coded srcLine — see the desktop
+     block above: pinning the shipped example's line numbers makes this suite a
+     hostage of that example's content. */
+  const mLine = await mpage.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: 'Streak freeze'}).first().getAttribute('data-line');
   {
-    const titleField = mpage.locator('#preview svg [data-edit="title"][data-line="4"]').first();
+    const titleField = mpage.locator('#preview svg [data-edit="title"][data-line="' + mLine + '"]').first();
     await titleField.scrollIntoViewIfNeeded();
     await mpage.waitForTimeout(300);
     const titleBox = await titleField.boundingBox();
@@ -774,7 +787,7 @@ check('no console/page errors', errors.length === 0);
     await mpage.waitForTimeout(200);
   }
 
-  const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="4"] rect[data-hit]');
+  const mCardBody = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="' + mLine + '"] rect[data-hit]');
   /* tap the top-left padding sliver, not settledTap's centre: the card paints
      its title over the hit rect and the centre lands on that text on Linux (same
      off-glyph concern the map-narrow block below handles manually). */

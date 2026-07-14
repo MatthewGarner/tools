@@ -10,7 +10,7 @@ function makeLang(horizons){
       if(stream.sol()){
         const line = stream.string.trim();
         if(line.startsWith('//')){ stream.skipToEnd(); return 'comment'; }
-        if(/^(title|date|horizons|wip|fade|palette|accent|style)\s*:/i.test(line)){
+        if(/^(title|date|headline|horizons|wip|fade|palette|accent|style)\s*:/i.test(line)){
           stream.match(/^\s*[a-z]+\s*:/i); return 'keyword';
         }
         if(hset.has(line.replace(/:$/, '').toLowerCase())){ stream.skipToEnd(); return 'heading'; }

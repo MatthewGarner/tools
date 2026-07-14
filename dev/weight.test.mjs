@@ -59,8 +59,8 @@ const PAGES = {
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
   /* roadmap 480k -> 495k (2026-07-14): it is the first tool to ship a SECOND
      renderer — render-deck.js, the 16:9 export compositions. Eager, not lazy:
-     app.js needs its wipBreach() for the editor warning and effectiveStyle()
-     for the picker on every render, so it is in the first-load graph by design. */
+     app.js needs its effectiveStyle() to light the right picker chip on every
+     render, so it is in the first-load graph by design. */
   'roadmap/index.html': 495_000, 'why/index.html': 470_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
