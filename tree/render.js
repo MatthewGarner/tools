@@ -46,7 +46,7 @@ export function treeVerdict(model, results){
 }
 
 export function render(model, results, ctx){
-  const {measure, slide = false, dark = false, edit = false} = ctx;
+  const {measure, slide = false, dark = false, edit = false, bare = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -71,8 +71,11 @@ export function render(model, results, ctx){
     node._depth = depth;
   })(model.root, 0);
 
-  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
-  const verdictH = (model.root.kind === 'decision' ? T.verdictH : 0)*S;
+  /* poster-embed: the frame owns the title, date and hero recommendation —
+     drop them and let the tree grow up to fill the space, never invented. */
+  const showTitle = !!model.title && !bare;
+  const headerH = (showTitle ? T.headerH : T.headerHNoTitle)*S;
+  const verdictH = (!bare && model.root.kind === 'decision' ? T.verdictH : 0)*S;
   const treeTop = headerH + verdictH;
   const flips = results.flips || [];
   const flipsH = flips.length ? (14 + flips.length * T.flipRowH)*S : 0;
@@ -87,13 +90,15 @@ export function render(model, results, ctx){
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
 
   /* title + date */
-  if(model.title){
+  if(showTitle){
     s.push('<text x="' + T.pad*S + '" y="' + T.titleY*S + '" font-family=\'' + F.serif +
       '\' font-size="' + T.titleSize*S + '" font-weight="700" fill="' + C.ink + '">' + esc(model.title) + '</text>');
   }
-  s.push('<text x="' + (W - T.pad*S) + '" y="' + (model.title ? T.titleY : 14)*S +
-    '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
-    new Date().toISOString().slice(0, 10) + '</text>');
+  if(!bare){
+    s.push('<text x="' + (W - T.pad*S) + '" y="' + (showTitle ? T.titleY : 14)*S +
+      '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
+      new Date().toISOString().slice(0, 10) + '</text>');
+  }
 
   /* capsule pill, shared visual language with the roadmap tool */
   const capsule = (px, py, label, col, inkCol = col) => {   // inkCol: contrast-boosted TEXT colour; fill still uses col
@@ -110,8 +115,9 @@ export function render(model, results, ctx){
     };
   };
 
-  /* verdict block: hero recommendation, muted evidence line */
-  if(model.root.kind === 'decision'){
+  /* verdict block: hero recommendation, muted evidence line — dropped when
+     bare (treeVerdict is the poster frame's hero, reused verbatim, not redrawn) */
+  if(!bare && model.root.kind === 'decision'){
     const rec = results.policy.get(model.root);
     const st = results.stats.get(model.root);
     const vy = headerH + 14*S;

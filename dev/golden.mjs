@@ -46,12 +46,23 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {parse: tparse} = await import('../tree/parse.js');
   const {evaluate} = await import('../tree/engine.js');
-  const {render: trender} = await import('../tree/render.js');
+  const {render: trender, treeVerdict} = await import('../tree/render.js');
   const bid = 'title: T\nRoot\n  Bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0';
   const m = tparse(bid);
   const r = evaluate(m);
   variants['tree-bid'] = trender(m, r, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
   variants['tree-bid-slide'] = trender(m, r, {...ctxBase, slide: true}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+
+  const {posterSvg: treePoster} = await import('../assets/poster.js');
+  const leaves = (function countLeaves(n){ return n.children.length === 0 ? 1 : n.children.reduce((a, c) => a + countLeaves(c), 0); })(m.root);
+  variants['tree-poster'] = treePoster({
+    chart: trender(m, r, {...ctxBase, slide: true, bare: true}),
+    verdict: treeVerdict(m, r), name: m.title || 'Decision tree', date: '2026-07-14',
+    metrics: [
+      ...(m.root.kind === 'decision' ? [m.root.children.length + ' options'] : []),
+      leaves + ' outcomes'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
+    measure: ctxBase.measure});
 }
 
 /* /why fixtures (dates normalised) */
@@ -259,8 +270,8 @@ for(const [k, src] of Object.entries(docs)){
 /* /risk fixtures (seeded engine → deterministic) */
 {
   const {parse: rparse} = await import('../energy/risk/parse.js');
-  const {simulate} = await import('../energy/risk/engine.js');
-  const {render: rrender} = await import('../energy/risk/render.js');
+  const {simulate, fmtUnit: rFmtUnit} = await import('../energy/risk/engine.js');
+  const {render: rrender, riskVerdict, focusedIndex} = await import('../energy/risk/render.js');
   const rdoc = 'title: Route to market — Wexcombe 100MW/2h\nmerchant: 60..180\n' +
     'floor: 70 share 60% fee 5\ntoll: 95\ninsure: premium 6 attach 65 limit 30';
   const rm = rparse(rdoc);
@@ -269,12 +280,22 @@ for(const [k, src] of Object.entries(docs)){
   variants['risk-routes-slide'] = rrender(rm, rs, {...ctxBase, slide: true});
   variants['risk-routes-narrow'] = rrender(rm, rs, {...ctxBase, width: 360});
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
+
+  const {posterSvg: rPoster} = await import('../assets/poster.js');
+  const rFi = focusedIndex(rs.rows, null);
+  const rRow = rs.rows[rFi];
+  variants['risk-poster'] = rPoster({
+    chart: rrender(rm, rs, {...ctxBase, slide: true}, {bare: true}),
+    verdict: riskVerdict(rs, rm, null), name: rm.title || 'Risk transfer', date: '2026-07-14',
+    metrics: [rs.rows.length + ' structures', rRow.label + ' P50 ' + rFmtUnit(rRow.p50, rm.unit)],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
+    measure: ctxBase.measure});
 }
 
 /* /cycles fixtures (seeded engine → deterministic; n reduced for capture speed) */
 {
   const {parse: cparse} = await import('../energy/cycles/parse.js');
-  const {simulate: csim} = await import('../energy/cycles/engine.js');
+  const {simulate: csim, verdict: cVerdict, fmtUnit: cFmtUnit} = await import('../energy/cycles/engine.js');
   const {render: crender} = await import('../energy/cycles/render.js');
   const cdoc = 'title: Cycle budget — Wexcombe 100MW/2h\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%';
   const cm = cparse(cdoc);
@@ -284,6 +305,16 @@ for(const [k, src] of Object.entries(docs)){
   variants['cycles-full-narrow'] = crender(cm, co, {...ctxBase, width: 360});
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
+
+  const {posterSvg: cPoster} = await import('../assets/poster.js');
+  variants['cycles-poster'] = cPoster({
+    chart: crender(cm, co, {...ctxBase, slide: true}, {bare: true}),
+    verdict: cVerdict('threshold', co), name: cm.title || 'Cycle budget', date: '2026-07-14',
+    metrics: [cm.battery.mw + 'MW / ' + cm.battery.mwh + 'MWh',
+              cFmtUnit(co.threshold.p50, '£/MWh') + ' τ',
+              Math.round(co.threshold.clearingDays) + ' days/yr clear'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
+    measure: ctxBase.measure});
 }
 
 /* /frequency fixtures (pure ODE, no seed needed — deterministic by construction) */
@@ -342,7 +373,7 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {parse: wparse} = await import('../wardley/parse.js');
   const {layoutMap} = await import('../wardley/layout.js');
-  const {renderMap: wrender} = await import('../wardley/render.js');
+  const {renderMap: wrender, mapReadout} = await import('../wardley/render.js');
   const wdoc = 'title: Habitat platform\nanchor: Habit tracking\n' +
     'Streak engine @ custom\nNotification service @ product\nUser DB @ commodity\nPush gateway\n' +
     'Habit tracking -> Streak engine -> Notification service -> Push gateway\nStreak engine -> User DB';
@@ -357,6 +388,17 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-narrow'] = wrender(wm, layoutMap(wm), {...wctx, width: 390});
   variants['wardley-edit'] = wrender(wm, layoutMap(wm), wctx, {edit: true});
   variants['wardley-narrow-edit'] = wrender(wm, layoutMap(wm), {...wctx, width: 390}, {edit: true});
+
+  const {posterSvg: wPoster} = await import('../assets/poster.js');
+  const wComps = layoutMap(wm).nodes.filter(n => !n.anchor);
+  const wGhosts = wComps.filter(n => n.ghost).length;
+  variants['wardley-poster'] = wPoster({
+    chart: wrender(wm, layoutMap(wm), wctx, {bare: true}),
+    verdict: mapReadout(wm, layoutMap(wm)).verdict, name: wm.title || 'Wardley map', date: '2026-07-14',
+    metrics: [wComps.length + ' components', wm.edges.length + ' dependencies',
+              ...(wGhosts ? [wGhosts + ' unplaced'] : [])],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
+    measure: ctxBase.measure});
 }
 
 /* /bets fixtures (DSL → seeded MC → board; deterministic) */
@@ -375,7 +417,7 @@ for(const [k, src] of Object.entries(docs)){
   const {posterSvg: betsPoster} = await import('../assets/poster.js');
   const {verdictCopy: betsVerdict} = await import('../bets/engine.js');
   const bCounts = {kill: 1};
-  variants['bets-poster'] = betsPoster({chart: renderBoard(bm, bsim, ctxBase),
+  variants['bets-poster'] = betsPoster({chart: renderBoard(bm, bsim, {...ctxBase, bare: true}),
     verdict: betsVerdict(bsim.portfolio, bCounts), name: 'Q3 product portfolio', date: '2026-07-13',
     metrics: ['net EV ' + Math.round(bsim.portfolio.p50), 'P(loses) ' + Math.round(bsim.portfolio.pLoss * 100) + '%'],
     accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});

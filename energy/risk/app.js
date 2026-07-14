@@ -1,13 +1,14 @@
 /* State, refresh loop, focus, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
-import {simulate} from './engine.js';
-import {render, toMarkdown, riskVerdict} from './render.js';
+import {simulate, fmtUnit} from './engine.js';
+import {render, toMarkdown, riskVerdict, focusedIndex} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
+import {posterSvg} from '../../assets/poster.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
 import {mountMotion} from "../../assets/motion.js";
@@ -49,8 +50,8 @@ function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
 }
-function activeRender(slide, edit = false, forExport = false){
-  return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx});
+function activeRender(slide, edit = false, forExport = false, bare = false){
+  return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx, bare});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -135,16 +136,33 @@ attachEditInPlace($('preview'), {
 exampleChips($('chips'), EXAMPLES, ex => { focusIdx = null; editor.setText(ex.src); });
 
 /* ---------- exports ---------- */
-function svgString(slide){
-  return sim ? activeRender(slide, false, true) : null;   // forExport: width undefined => canonical 1200/1280
+const isoToday = () => new Date().toISOString().slice(0, 10);
+function svgString(slide, bare = false){
+  return sim ? activeRender(slide, false, true, bare) : null;   // forExport: width undefined => canonical 1200/1280
+}
+function posterData(){
+  const fi = focusedIndex(sim.rows, focusIdx);
+  const r = sim.rows[fi];
+  return {
+    verdict: riskVerdict(sim, model, focusIdx),
+    name: model.title || 'Risk transfer',
+    metrics: [sim.rows.length + (sim.rows.length === 1 ? ' structure' : ' structures'),
+              r.label + ' P50 ' + fmtUnit(r.p50, model.unit)],
+  };
+}
+function posterString(){
+  if(!sim) return null;
+  return posterSvg({chart: svgString(true, true), ...posterData(),
+    date: isoToday(), accent: model.accent || themeColors().accent, colors: themeColors(), measure});
 }
 function slug(){
   return slugify(model && model.title, 'risk');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
   getSvg: () => svgString(false),
   getSvgSlide: () => svgString(true),
+  getPoster: posterString,
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

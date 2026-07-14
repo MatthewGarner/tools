@@ -26,7 +26,7 @@ export function riskVerdict(sim, model, focus = null){
   return v ? 'The trade — ' + rows[fi].label + ': ' + v : '';
 }
 
-export function render(model, sim, ctx, {edit = false, focus = null} = {}){
+export function render(model, sim, ctx, {edit = false, focus = null, bare = false} = {}){
   if(!sim) return '';
   const C = ctx.colors;
   const accent = model.accent || C.accent;
@@ -34,8 +34,11 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const isNarrow = !!(ctx.width && ctx.width < NARROW);
   const W = ctx.width ?? (ctx.slide ? 1280 : 1200);
   const LBL = 250, x0 = isNarrow ? 48 : LBL + 20, x1 = W - 48;
-  const titleLines = model.title ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
-  const TOP = model.title ? (isNarrow ? 30 + titleLines.length * 24 : 92) : 56;
+  /* poster-embed: the frame owns the title and the hero verdict band —
+     everything else (rows, pills, axis) is content and stays. */
+  const showTitle = model.title && !bare;
+  const titleLines = showTitle ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
+  const TOP = showTitle ? (isNarrow ? 30 + titleLines.length * 24 : 92) : 56;
   const rows = sim.rows;
   const fi = focusedIndex(rows, focus);
   const vX = v => Math.max(x0, Math.min(x1,
@@ -64,16 +67,17 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const rowTop = []; { let acc = TOP; for(const r of rows){ rowTop.push(acc); acc += rowH(r); } }
   const rowsTotal = rows.reduce((s, r) => s + rowH(r), 0);
 
-  /* verdict block height computed up front so the svg height is exact */
+  /* verdict block height computed up front so the svg height is exact —
+     dropped when bare (the poster frame's hero already carries it) */
   const vText = verdict(rows[fi], model.unit);
-  const vLines = vText ? wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure) : [];
+  const vLines = (bare || !vText) ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
   const AXIS = 34;
   const H = TOP + rowsTotal + AXIS + (vLines.length ? 40 + vLines.length * 24 + 24 : 24);
 
   parts.push('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'' + W + '\' height=\'' + H +
     '\' viewBox=\'0 0 ' + W + ' ' + H + '\' font-family=\'' + FONT + '\'>');
   parts.push('<rect width=\'' + W + '\' height=\'' + H + '\' fill=\'' + C.bg + '\'/>');
-  if(model.title){
+  if(showTitle){
     parts.push('<rect x=\'48\' y=\'' + (isNarrow ? 14 : 34) + '\' width=\'34\' height=\'4\' fill=\'' + accent + '\'/>');
     if(isNarrow) titleLines.forEach((l, i) => parts.push(txt(48, 38 + i * 24, l, 18, C.ink, {weight: 700})));
     else parts.push(txt(48, 66, model.title, 26, C.ink, {weight: 700}));

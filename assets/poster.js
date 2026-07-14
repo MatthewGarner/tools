@@ -16,9 +16,10 @@ const HERO = 28, HEROLH = 38;    // hero verdict size + line height
 const STEP = 26;                 // grid pitch, matches the landing pages
 
 /* chart's natural pixel box, read from its root <svg> (renderers emit integer
-   double-quoted width/height). */
+   width/height — most double-quoted, cycles/risk single-quoted per their own
+   XML-discipline convention, so the quote char is a wildcard here). */
 function chartDims(chart){
-  const m = chart.match(/width="(\d+)" height="(\d+)"/);
+  const m = chart.match(/width=['"](\d+)['"] height=['"](\d+)['"]/);
   return {w: m ? +m[1] : 900, h: m ? +m[2] : 400};
 }
 

@@ -22,7 +22,7 @@ function bins(S, min, max, n = 64){
   return out.map(b => b / peak);
 }
 
-export function render(model, out, ctx, {edit = false} = {}){
+export function render(model, out, ctx, {edit = false, bare = false} = {}){
   if(!out) return '';
   const C = ctx.colors;
   const accent = model.accent || C.accent;
@@ -30,8 +30,12 @@ export function render(model, out, ctx, {edit = false} = {}){
   const isNarrow = !!(ctx.width && ctx.width < NARROW);
   const W = ctx.width ?? (ctx.slide ? 1280 : 1200);
   const x0 = isNarrow ? 48 : 300, x1 = W - 48;
-  const titleLines = model.title ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
-  const TOP = model.title ? (isNarrow ? 34 + titleLines.length * 24 : 92) : 56, GAP = 18;
+  /* poster-embed: the frame owns the title and the threshold band's headline
+     verdict (reused as its hero) — the second/augment bands' own verdicts stay,
+     they're distinct content the frame doesn't repeat. */
+  const showTitle = model.title && !bare;
+  const titleLines = showTitle ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
+  const TOP = showTitle ? (isNarrow ? 34 + titleLines.length * 24 : 92) : 56, GAP = 18;
   const parts = [];
   const P = [];   // deferred: parts helper functions below push here then join
 
@@ -109,7 +113,7 @@ export function render(model, out, ctx, {edit = false} = {}){
 
   /* ---- measure heights first (verdicts wrap) ---- */
   const vw = W - 96 - 40;
-  const vT = verdict('threshold', out);
+  const vT = bare ? '' : verdict('threshold', out);
   const vS = verdict('second', out);
   const vA = verdict('augment', out);
   const wrapN = t => t ? wrapText(t, '15px ' + FONT, vw, ctx.measure).length : 0;
@@ -144,7 +148,7 @@ export function render(model, out, ctx, {edit = false} = {}){
   parts.push('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'' + W + '\' height=\'' + H +
     '\' viewBox=\'0 0 ' + W + ' ' + H + '\' font-family=\'' + FONT + '\'>');
   parts.push('<rect width=\'' + W + '\' height=\'' + H + '\' fill=\'' + C.bg + '\'/>');
-  if(model.title){
+  if(showTitle){
     parts.push('<rect x=\'48\' y=\'' + (isNarrow ? 18 : 34) + '\' width=\'34\' height=\'4\' fill=\'' + accent + '\'/>');
     if(isNarrow) titleLines.forEach((l, i) => parts.push(txt(48, 42 + i * 24, l, 18, C.ink, {weight: 700})));
     else parts.push(txt(48, 66, model.title, 26, C.ink, {weight: 700}));
@@ -200,9 +204,11 @@ export function render(model, out, ctx, {edit = false} = {}){
     pill(px, row2,
       'binds: warranty ' + Math.round(out.threshold.bindingShare * 10) + '/10 · wear ' +
       Math.round((1 - out.threshold.bindingShare) * 10) + '/10', {col: C.muted});
-    /* verdict */
-    parts.push('<rect x=\'48\' y=\'' + (y + B1H - wrapN(vT) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vT) * 22) + '\' fill=\'' + accent + '\'/>');
-    verdictLines(y + B1H - wrapN(vT) * 22 + 10, vT, vw);
+    /* verdict — dropped when bare (the poster frame's hero already carries it) */
+    if(vT){
+      parts.push('<rect x=\'48\' y=\'' + (y + B1H - wrapN(vT) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vT) * 22) + '\' fill=\'' + accent + '\'/>');
+      verdictLines(y + B1H - wrapN(vT) * 22 + 10, vT, vw);
+    }
   }
 
   /* ================= band 2: the second cycle ================= */

@@ -9,6 +9,7 @@ import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -74,13 +75,14 @@ function currentCompare(){
 }
 /* width-aware: the preview re-lays-out below NARROW; exports stay pinned wide */
 let sizeBucket = 'wide';
-function activeRender(forExport = false){
+function activeRender(forExport = false, bare = false){
   const compare = currentCompare();
   const c = ctx();
   if(!forExport && sizeBucket === 'narrow') c.width = $('preview').clientWidth;
   const opts = {};
   if(compare) opts.compare = compare;
   if(!forExport) opts.edit = true;   // chrome only for the live preview, never exports
+  if(bare) opts.bare = true;
   return renderMap(model, layout, c, opts);
 }
 function renderWarnings(){
@@ -276,16 +278,34 @@ $('preview').addEventListener('click', e => {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
-function svgString(){
-  return (model && model.components.size) ? activeRender(true) : null;
+function svgString(bare = false){
+  return (model && model.components.size) ? activeRender(true, bare) : null;
+}
+function posterData(){
+  const comps = layout.nodes.filter(n => !n.anchor);
+  const ghostN = comps.filter(n => n.ghost).length;
+  return {
+    verdict: mapReadout(model, layout).verdict,
+    name: model.title || 'Wardley map',
+    metrics: [comps.length + (comps.length === 1 ? ' component' : ' components'),
+              model.edges.length + (model.edges.length === 1 ? ' dependency' : ' dependencies'),
+              ...(ghostN ? [ghostN + ' unplaced'] : [])],
+  };
+}
+function posterString(){
+  const chart = svgString(true);
+  if(!chart) return null;
+  return posterSvg({chart, ...posterData(), date: todayISO(),
+    accent: themeColors().accent, colors: themeColors(), measure});
 }
 function slug(){
   return slugify(model.title, 'wardley');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
   getSvg: () => svgString(),
   getSvgSlide: () => svgString(),
+  getPoster: posterString,
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
