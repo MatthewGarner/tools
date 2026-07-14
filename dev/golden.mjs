@@ -44,6 +44,12 @@ for(const [k, src] of Object.entries(docs)){
     dropped: ['old thing one', 'old thing two', 'old thing three'],
     since: '2026-06-01', any: true,
   }});
+  /* two cards stacked in ONE cell, at slide scale — the ONLY fixture exercising
+     the track-to-track y accumulation at S=1.35, where (a+h)+g !== a+(h+g).
+     Captured BEFORE the packer landed: it pins the pre-change bytes. */
+  variants['roadmap-stack-slide'] = render(parse(
+    'title: Stacked\ndate: 2026-07-04\nNOW\nCore: First card\nCore: Second card\nCore: Third card\n' +
+    'NEXT\nCore: Lonely'), {...ctxBase, slide: true});
 }
 
 /* deck exports (roadmap/render-deck.js) — a separate module from render.js
