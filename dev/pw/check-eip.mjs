@@ -1,6 +1,6 @@
 /* Edit-in-place browser checks (tree). */
 import {chromium, devices} from 'playwright';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, report, tally} from './_harness.mjs';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
 const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
@@ -1352,4 +1352,4 @@ check('no console/page errors', errors.length === 0);
 
 console.log(results.join('\n'));
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('check-eip', {...tally(results), min: 85});

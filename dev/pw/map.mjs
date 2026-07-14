@@ -1,7 +1,7 @@
 /* Map deep suite: real mouse drag writes @ x,y; tray placement; zone-rename
    edit-in-place (insert path); undo restores. */
 import {chromium} from 'playwright';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -99,4 +99,4 @@ check('suite: no console errors', errors.length === 0);
 if(errors.length) results.push(...errors.slice(0, 3));
 console.log(results.join('\n'));
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('map', {...tally(results), min: 6});

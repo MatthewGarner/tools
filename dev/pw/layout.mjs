@@ -1,6 +1,6 @@
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
 import {chromium, devices} from 'playwright';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -129,4 +129,4 @@ for(const [label, viewport, minFill] of [
 
 console.log(results.join('\n'));
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('layout', {...tally(results), min: 60});

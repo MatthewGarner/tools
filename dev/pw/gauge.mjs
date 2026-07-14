@@ -1,6 +1,7 @@
 /* Gauge relay flow: facilitator + two participants against dev/gauge-dev.mjs.
    Run from dev/pw:  node gauge.mjs */
 import {chromium, devices} from 'playwright';
+import {report, tally} from './_harness.mjs';
 import {spawn} from 'node:child_process';
 
 const PORT = 8091;
@@ -271,4 +272,4 @@ try{
   server.kill();
 }
 console.log(results.join('\n'));
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('gauge', {...tally(results), min: 20});

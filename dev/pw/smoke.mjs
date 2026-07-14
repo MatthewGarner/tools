@@ -4,7 +4,7 @@
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
-import {trackErrors} from './_harness.mjs';
+import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -808,4 +808,4 @@ for(const theme of ['light', 'dark']){
 
 console.log(results.join('\n'));
 await browser.close();
-process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);
+report('smoke', {...tally(results), min: 150});
