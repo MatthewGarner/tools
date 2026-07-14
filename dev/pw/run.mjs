@@ -66,9 +66,12 @@ try{
     for(const [port, extra] of [[TP, []], [EP, ['--origin=energy']]])
       servers.push(spawn('node', ['dev/serve.mjs', String(port), '--exit-with-parent', ...extra],
         {cwd: ROOT, detached: true, stdio: 'ignore'}));
-    const up = (await waitHealthy(TP)) && (await waitHealthy(EP));
+    // require OUR servers alive too: if a foreign process held the port and our
+    // serve died EADDRINUSE, waitHealthy would green against the wrong server —
+    // the stale-server false-green this whole gate exists to kill.
+    const up = (await waitHealthy(TP)) && (await waitHealthy(EP)) && servers.every(c => c.exitCode === null);
     results.push(['servers up (:' + TP + ' :' + EP + ')', up ? 0 : 1]);
-    if(!up){ console.error('servers did not come up'); failed = true; }
+    if(!up){ console.error('servers did not come up (or ours died — port taken?)'); failed = true; }
   }
 
   if(!failed){

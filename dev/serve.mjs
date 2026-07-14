@@ -18,7 +18,8 @@ const ORIGIN_ENERGY = process.argv.includes('--origin=energy');
    1 (launchd/init) — poll for that and self-exit so no zombie server squats the
    port for the next run (a different worktree). unref so it never holds the loop. */
 if(process.argv.includes('--exit-with-parent')){
-  setInterval(() => { if(process.ppid === 1) process.exit(0); }, 2000).unref();
+  const parent = process.ppid;   // reparenting to ANYTHING (pid 1, or a subreaper on Linux/containers) means the launcher died
+  setInterval(() => { if(process.ppid !== parent) process.exit(0); }, 2000).unref();
 }
 const HEADERS = Object.fromEntries(
   JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'))
