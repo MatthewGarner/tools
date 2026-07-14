@@ -1,6 +1,10 @@
 /* Golden-output harness: renders fixed models through render.js and writes/compares
-   exact SVG strings. Usage: node dev/golden.mjs capture|compare */
+   exact SVG strings. Usage: node dev/golden.mjs capture|compare|verify
+   - compare: byte-identical check, warns if dev/golden has uncommitted changes
+   - verify : compare AND assert dev/golden is fully committed (pre-merge gate) */
 import {writeFileSync, readFileSync, mkdirSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {parse} from '../roadmap/parse.js';
 import {render} from '../roadmap/render.js';
 
@@ -415,7 +419,17 @@ for(const [k, src] of Object.entries(docs)){
   variants['alarm-dist'] = renderDistributions({baseRate: 0.02, dprime: 2, t: 1.2}, ctxBase.colors, {w: 900, h: 220});
 }
 
-const mode = process.argv[2];
+/* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),
+   or null if git can't be run. cwd-independent (worktree-safe) — resolves the
+   repo root from this file, not process.cwd(). */
+function dirtyGoldens(){
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const r = spawnSync('git', ['-C', root, 'status', '--porcelain', '--', 'dev/golden'], {encoding: 'utf8'});
+  if(r.error || r.status !== 0 || typeof r.stdout !== 'string') return null;
+  return r.stdout.split('\n').filter(Boolean).map(l => l.slice(3).replace(/^dev\/golden\//, ''));
+}
+
+const mode = process.argv[2];   // capture | compare | verify (compare + assert committed)
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
 for(const [k, svg] of Object.entries(variants)){
@@ -427,6 +441,24 @@ for(const [k, svg] of Object.entries(variants)){
     const want = readFileSync(file, 'utf8');
     if(want === svg) console.log('IDENTICAL ' + k);
     else { console.log('DIFFERS ' + k + ' (' + want.length + ' -> ' + svg.length + ')'); fails++; }
+  }
+}
+
+/* uncommitted-golden guard (the why-map incident): a `capture` writes to
+   dev/golden, so `compare` can pass "IDENTICAL" against edits you never
+   committed — a false green that only CI (clean checkout) would catch, and only
+   post-merge. `compare` warns loudly at the tail (where the eye lands after the
+   IDENTICAL wall); `verify` hard-fails, and is what the pre-merge runner invokes. */
+if(mode === 'compare' || mode === 'verify'){
+  const dirty = dirtyGoldens();
+  if(dirty === null){
+    if(mode === 'verify'){ console.error('\ngolden verify: could not run git to check for uncommitted goldens — failing closed.'); process.exit(1); }
+    // compare: don't break the dev loop over a missing/again git
+  } else if(dirty.length){
+    console.error('\nWARNING: ' + dirty.length + ' golden file(s) uncommitted (' + dirty.join(', ') +
+      ') — an "IDENTICAL" pass compared against your working-tree edits, NOT committed state.' +
+      '\nCommit or revert them before merging (a delegating tool’s goldens shift when a shared renderer changes).');
+    if(mode === 'verify') fails++;
   }
 }
 process.exit(fails ? 1 : 0);
