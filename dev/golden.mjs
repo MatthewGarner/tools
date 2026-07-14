@@ -130,6 +130,18 @@ for(const [k, src] of Object.entries(docs)){
   const rr = mresolve(curMap);
   variants['map-diff'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxBase}, md));
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
+
+  const {posterSvg: mapPoster} = await import('../assets/poster.js');
+  const pm = mparse(mdocs['map-assumptions']);
+  const pr = mresolve(pm);
+  const pro = mreadout(pm, pr);
+  variants['map-poster'] = mapPoster({
+    chart: norm(mrender(pm, pr, pro, {...ctxBase, slide: true, bare: true})),
+    verdict: pro.verdict, name: pm.title || 'Map', date: '2026-07-14',
+    metrics: [pm.items.length + ' items', ...(pro.flagged.length ? [pro.flagged.length + ' flagged'] : []),
+              ...(pro.unplaced.length ? [pro.unplaced.length + ' unplaced'] : [])],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
+    measure: ctxBase.measure});
 }
 
 /* /gauge overlay fixtures (fully deterministic) */

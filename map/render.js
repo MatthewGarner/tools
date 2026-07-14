@@ -64,12 +64,16 @@ export function render(model, resolved, ro, ctx, diff = null){
     good: C.status.done, accent: C.accent})[tone] || null;
 
   const edit = !!ctx.edit;   // preview-only affordances; exports and goldens render without
+  /* poster-embed: drop the chrome the poster frame owns — its own title, date and
+     hero verdict — but keep the zone columns, which are content, not chrome. */
+  const bare = !!ctx.bare;
+  const showTitle = !!model.title && !bare;
   const flaggedLines = new Set(ro.flagged.map(f => f.item.srcLine));
   const placed = model.items.filter(i => i.x != null);
   const hasTray = ro.unplaced.length > 0;
 
   /* ---- geometry ---- */
-  const headerH = (model.title ? T.headerH : T.headerHNoTitle) * S;
+  const headerH = (showTitle ? T.headerH : T.headerHNoTitle) * S;
   const planeX = (T.pad + T.axisW) * S, planeY = headerH;
   const planeW = T.planeW * S, planeH = T.planeH * S;
   const trayX = planeX + planeW + T.trayGap * S;
@@ -288,7 +292,7 @@ export function render(model, resolved, ro, ctx, diff = null){
   /* ---- readout panel ---- */
   const roX = T.pad * S, roW = W - T.pad * 2 * S;
   let roY = Math.max(planeY + planeH + T.axisH * S, trayBottom) + T.roGap * S;
-  const verdictLines = wrapText(ro.verdict, '600 ' + T.verdictSize * S + 'px ' + F.serif, roW, measure);
+  const verdictLines = bare ? [] : wrapText(ro.verdict, '600 ' + T.verdictSize * S + 'px ' + F.serif, roW, measure);
   for(const line of verdictLines){
     body.push('<text x="' + roX + '" y="' + (roY + T.verdictSize * S) + '" font-family=\'' + F.serif +
       '\' font-size="' + T.verdictSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(line) + '</text>');
@@ -371,13 +375,14 @@ export function render(model, resolved, ro, ctx, diff = null){
   s.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>');
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
-  if(model.title)
+  if(showTitle)
     s.push('<text x="' + T.pad * S + '" y="' + T.titleY * S + '" font-family=\'' + F.serif +
       '\' font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' +
       esc(model.title) + '</text>');
-  s.push('<text x="' + (W - T.pad * S) + '" y="' + (model.title ? T.titleY : 14) * S +
-    '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +
-    new Date().toISOString().slice(0, 10) + '</text>');
+  if(!bare)
+    s.push('<text x="' + (W - T.pad * S) + '" y="' + (showTitle ? T.titleY : 14) * S +
+      '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +
+      new Date().toISOString().slice(0, 10) + '</text>');
   s.push(...body, '</svg>');
   return s.join('');
 }

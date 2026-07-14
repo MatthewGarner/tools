@@ -8,6 +8,7 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {posterSvg} from '../assets/poster.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
@@ -115,8 +116,8 @@ function currentDiff(){
   if(!cur || !model || !ro) return null;
   return mapDiffView(mapDiff(cur.model, model), cur.label);
 }
-function activeRender(slide, edit = false){
-  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit}, currentDiff());
+function activeRender(slide, edit = false, bare = false){
+  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit, bare}, currentDiff());
 }
 function doRefresh(){
   const text = editor.getText();
@@ -246,17 +247,36 @@ function renderSaved(){
 }
 
 /* ---------- exports ---------- */
-function svgString(slide){
+function svgString(slide, bare = false){
   if(!hasContent() || !ro) return null;
-  return activeRender(slide);
+  return activeRender(slide, false, bare);
+}
+const isoToday = () => new Date().toISOString().slice(0, 10);
+function posterData(){
+  const n = model.items.length;
+  return {
+    verdict: ro.verdict,
+    name: model.title || 'Map',
+    metrics: [n + (n === 1 ? ' item' : ' items'),
+              ...(ro.flagged.length ? [ro.flagged.length + ' flagged'] : []),
+              ...(ro.unplaced.length ? [ro.unplaced.length + ' unplaced'] : [])],
+  };
+}
+function posterString(){
+  const chart = svgString(true, true);
+  if(!chart) return null;
+  return posterSvg({chart, ...posterData(), date: isoToday(),
+    accent: themeColors().accent, colors: themeColors(), measure});
 }
 function slug(){
   return slugify(model.title || model.preset, 'map');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng'), copymd: $('copymd')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'),
+            copypng: $('copypng'), copymd: $('copymd')},
   getSvg: () => svgString(false),
   getSvgSlide: () => svgString(true),
+  getPoster: posterString,
   getMarkdown: () => ro ? toMarkdown(ro, model) : null,
   slug,
 });
