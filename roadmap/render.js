@@ -1,5 +1,6 @@
 /* (model, ctx) → SVG string. ctx = {colors, measure, diff?, slide?}. No DOM. */
 import {STATUS_LABEL} from './parse.js';
+import {packLane} from './pack.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -321,25 +322,30 @@ export function render(model, ctx){
   const lhTitle = T.cardTitleLh*S, lhNote = T.noteLh*S;
   const titleFont = '600 ' + fsTitle + 'px ' + F.body;
   const noteFont = fsNote + 'px ' + F.body;
-  const innerW = colW - cardPadX*2;
 
-  /* pre-lay every card */
-  const cells = {};   // lane -> [per horizon: array of {it,lines,noteLines,badge,cardH}]
-  for(const lane of model.lanes) cells[lane] = model.horizons.map(() => []);
+  /* pre-lay every item. An item's paint width is its column span; width-1 items
+     keep the historical numbers exactly. */
+  const laneList = {};    // lane -> [{it,lines,noteLines,badge,cardH,h0,h1,span,w}] in SOURCE order
+  for(const lane of model.lanes) laneList[lane] = [];
   for(const it of model.items){
     const badge = diff ? diff.badge(it) : null;    // {kind:'new'|'moved', label}
-    const lines = wrapText(it.title, titleFont, innerW, measure);
-    const noteLines = it.note ? wrapText(it.note, noteFont, innerW, measure) : [];
+    const span = Math.max(1, Math.min(it.span || 1, nH - it.h));
+    const w = colW + (span - 1)*(colW + GAP);
+    const iw = w - cardPadX*2;
+    const lines = wrapText(it.title, titleFont, iw, measure);
+    const noteLines = it.note ? wrapText(it.note, noteFont, iw, measure) : [];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH*S : 0) + (badge ? T.badgeH*S : 0);
-    cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
+    laneList[it.lane].push({it, lines, noteLines, badge, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
   }
 
-  /* cards in a lane are peers: equalise heights to the lane's tallest card */
+  /* cards in a lane are peers: equalise heights to the lane's tallest.
+     LANE-WIDE, never per-track — a per-track height would shrink a short card in
+     a quiet column and break the byte-identical degeneration. */
   for(const lane of model.lanes){
     let maxH = 0;
-    for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) maxH = Math.max(maxH, c.cardH);
-    if(maxH > 0) for(let h = 0; h < nH; h++) for(const c of cells[lane][h]) c.cardH = maxH;
+    for(const c of laneList[lane]) maxH = Math.max(maxH, c.cardH);
+    if(maxH > 0) for(const c of laneList[lane]) c.cardH = maxH;
   }
 
   const edit = !!ctx.edit;               // preview-only affordances; exports/goldens render without
@@ -356,15 +362,40 @@ export function render(model, ctx){
     }
   }
   const laneTops = [];
+  const lanePack = {};   // lane -> {at, rowH[], depth[], yTrack[]}
   let y = headerH + colHeadH;
   for(const lane of model.lanes){
     if(groupAtLane.has(lane)) y += bandH;
+    const list = laneList[lane];
+    const {at, nTracks} = packLane(list);
+    /* a track row is as tall as its tallest item — which, because equalisation is
+       lane-wide, is the lane max for every non-empty track: uniform rows, exactly
+       as today */
+    const rowH = new Array(nTracks).fill(0);
+    list.forEach((c, i) => { if(c.cardH > rowH[at[i]]) rowH[at[i]] = c.cardH; });
+    /* deepest track covering each column — drives this lane's height */
+    const depth = model.horizons.map(() => -1);
+    list.forEach((c, i) => { for(let h = c.h0; h <= c.h1; h++) if(at[i] > depth[h]) depth[h] = at[i]; });
     let maxH = 0;
     for(let h = 0; h < nH; h++){
-      const stack = cells[lane][h];
-      const sH = stack.reduce((a, c) => a + c.cardH, 0) + Math.max(0, stack.length-1)*cardGap + addH;
+      /* accumulate, never multiply: slide renders at S=1.35 and these heights are
+         non-integer — sum-by-addition is what reproduces today's reduce() bytes */
+      let a = 0;
+      for(let t = 0; t <= depth[h]; t++) a = a + rowH[t];
+      const sH = a + Math.max(0, depth[h])*cardGap + addH;
       if(sH > maxH) maxH = sH;
     }
+    /* y of each track. `cy += rowH[t] + cardGap` — the SAME shape as today's
+       per-card accumulator. Do NOT flatten to `a + rowH[t] + cardGap`: that is
+       (a+h)+g, a different double at S=1.35, and no current slide golden would
+       catch the change. */
+    const yTrack = [y + T.stackTop*S];
+    for(let t = 0; t < nTracks; t++){
+      let cy = yTrack[t];
+      cy += rowH[t] + cardGap;
+      yTrack.push(cy);
+    }
+    lanePack[lane] = {at, rowH, depth, yTrack};
     laneTops.push(y);
     y += Math.max(maxH, T.laneMinH*S) + T.laneBottomPad*S;
   }
@@ -426,6 +457,16 @@ export function render(model, ctx){
   /* shared context drawCard needs — same across every card in this render */
   const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
 
+  /* A spanning item is the SAME SPECIES as a card, drawn wider — drawCard at the
+     span's width — so wrap, note, status pill, badge, URL, the data-edit targets
+     and the card menu all behave exactly as they do for a 1-column card. A slim
+     "beam" was prototyped and rejected: it drops the note and clips long titles,
+     and in a tool whose content is the text, that is disqualifying.
+     Task 4 adds the cap, the range label and the off-board cut edge. */
+  function drawSpanItem(c, x, cy, fadeOp, edit2){
+    return drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle);
+  }
+
   /* lanes */
   model.lanes.forEach((lane, li) => {
     const top = laneTops[li];
@@ -446,6 +487,8 @@ export function render(model, ctx){
           '" font-size="' + T.laneSize*S + '" font-weight="600" letter-spacing="' + T.laneTracking + '" fill="' + C.muted + '">' + esc(l) + '</text>');
       });
     }
+    const {at, rowH, depth, yTrack} = lanePack[lane];
+    const list = laneList[lane];
     for(let h = 0; h < nH; h++){
       /* drop-zone hit rect under the cards (full cell band, transparent) */
       const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
@@ -453,12 +496,17 @@ export function render(model, ctx){
         '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>');
       /* confidence fade: certainty decreases toward the horizon */
       const fadeOp = (model.fade && nH > 1) ? (1 - (h / (nH - 1)) * T.fadeMax) : 1;
-      let cy = top + T.stackTop*S;
-      for(const c of cells[lane][h]){
-        const x = colX(h);
-        s.push(drawCard(c, x, cy, colW, fadeOp, edit, cardStyle));
-        cy += c.cardH + cardGap;
-      }
+      /* an item is DRAWN by its START column only — it paints across the rest.
+         Emit in track order so the SVG reads top-to-bottom. */
+      list.map((c, i) => [at[i], c, i]).filter(([, c]) => c.h0 === h)
+        .sort((a, b) => a[0] - b[0])
+        .forEach(([t, c]) => s.push(drawSpanItem(c, colX(h), yTrack[t], fadeOp, edit)));
+      /* the ghost goes under the deepest track occupied in THIS column — a span
+         passing through occupies a track here without starting here, and a
+         "bottom of the last card I drew" rule would put the ghost on top of it.
+         Degenerate-identical: with no spans, depth[h] = k-1 for a k-card cell, so
+         yTrack[k] is exactly today's post-loop accumulator. */
+      const cy = yTrack[depth[h] + 1];
       if(edit){
         const gw = 44*S, gh = 15*S;
         s.push('<g data-add="1" opacity="0.75">' +

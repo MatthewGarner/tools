@@ -50,6 +50,27 @@ for(const [k, src] of Object.entries(docs)){
   variants['roadmap-stack-slide'] = render(parse(
     'title: Stacked\ndate: 2026-07-04\nNOW\nCore: First card\nCore: Second card\nCore: Third card\n' +
     'NEXT\nCore: Lonely'), {...ctxBase, slide: true});
+
+  /* SPANS: mixed lengths in one lane (the torture case the layout was chosen on),
+     and an item running past the board edge. Wide + slide; the narrow span layout
+     is captured in Task 6. */
+  const spanDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
+    'horizons: monthly from Jul 2026 x6\nwip: 4\n' +
+    'Jul 2026\nPlatform: Sync engine rewrite [doing] x6 -- conflicts are the #1 support driver\n' +
+    'Platform: Habit templates library [done]\nPlatform: Streak freeze [doing] x2\n' +
+    'Aug 2026\nPlatform: Referral flow [risk] x3 -- waiting on app-store review\n' +
+    'Platform: Widget gallery\n' +
+    'Sep 2026\nPlatform: Accountability circles x2\nPlatform: Coach marketplace\n';
+  const spanModel = parse(spanDoc);
+  variants['roadmap-spans'] = render(spanModel, {...ctxBase});
+  variants['roadmap-spans-slide'] = render(spanModel, {...ctxBase, slide: true});
+
+  const spanEdgeDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
+    'horizons: quarterly from Q3 2026 x4\nwip: 4\n' +
+    'Q3 2026\nInfra: Data platform rebuild x6 -- runs well past this board\n' +
+    'Infra: Sync engine rewrite [doing] x4\n' +
+    'Q4 2026\nApp: Smart reminders x2\n';
+  variants['roadmap-spans-edge'] = render(parse(spanEdgeDoc), {...ctxBase});
 }
 
 /* deck exports (roadmap/render-deck.js) — a separate module from render.js
