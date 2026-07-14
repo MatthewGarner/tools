@@ -34,8 +34,8 @@ jobs:
         env:
           PERF_SCALE: 3
         run: node --test --test-concurrency=1 dev/*.test.mjs */tests/*.mjs energy/*/tests/*.mjs
-      - name: Golden SVG regression (must be byte-identical)
-        run: node dev/golden.mjs compare
+      - name: Golden SVG regression (byte-identical + fully committed)
+        run: node dev/golden.mjs verify
 
   browser:
     name: playwright suites (both origins)

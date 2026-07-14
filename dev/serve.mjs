@@ -14,6 +14,12 @@ import {toRepoPath, toToolsPath, energyRedirectSources} from './origins.mjs';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.argv[2]) || 8087;
 const ORIGIN_ENERGY = process.argv.includes('--origin=energy');
+/* when launched by dev/pw/run.mjs: if the parent is SIGKILLed we reparent to pid
+   1 (launchd/init) — poll for that and self-exit so no zombie server squats the
+   port for the next run (a different worktree). unref so it never holds the loop. */
+if(process.argv.includes('--exit-with-parent')){
+  setInterval(() => { if(process.ppid === 1) process.exit(0); }, 2000).unref();
+}
 const HEADERS = Object.fromEntries(
   JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'))
     .headers[0].headers.map(h => [h.key, h.value]));
