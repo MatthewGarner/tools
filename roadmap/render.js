@@ -462,14 +462,46 @@ export function render(model, ctx){
   /* shared context drawCard needs — same across every card in this render */
   const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
 
+  const shortCol = name => String(name).split(' ')[0].toUpperCase();
+  /* On-board ends drop the year — the column headers supply it. An OFF-board end
+     must keep it: on a Q3 2026–Q2 2027 board, a bare "Q4" reads as Q4 2026, which
+     is ON the board, so the label would claim a 2-column span for a bar painted 4
+     columns wide. */
+  const rangeLabel = c => shortCol(model.horizons[c.h0]) + ' – ' +
+    (c.it.spanEnd ? c.it.spanEnd.toUpperCase() + ' ›' : shortCol(model.horizons[c.h1]));
+
   /* A spanning item is the SAME SPECIES as a card, drawn wider — drawCard at the
      span's width — so wrap, note, status pill, badge, URL, the data-edit targets
      and the card menu all behave exactly as they do for a 1-column card. A slim
      "beam" was prototyped and rejected: it drops the note and clips long titles,
-     and in a tool whose content is the text, that is disqualifying.
-     Task 4 adds the cap, the range label and the off-board cut edge. */
+     and in a tool whose content is the text, that is disqualifying. */
   function drawSpanItem(c, x, cy, fadeOp, edit2){
-    return drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle);
+    const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle)];
+    /* A 1-column card gets NO cap and NO range label — it is just a card. It DOES
+       still get its right-edge handle (Task 8), which is how a plain card becomes
+       a spanning one by mouse; so this early return must skip the DECORATION only,
+       never the handles. Task 8 appends them after this call, not inside it. */
+    if(c.span === 1 && !c.it.spanEnd) return svg[0];
+    /* duration cue: a slim left cap in the status colour — MUTED when the item has
+       no status (in light theme the accent is the same hex as the doing status, so
+       an accent cap would fake an IN PROGRESS pill) */
+    const capCol = c.it.status ? C.status[c.it.status] : C.muted;
+    const capOp = (c.it.status ? 1 : 0.55) * fadeOp;
+    svg.push('<rect x="' + (x + 1.5) + '" y="' + (cy + 4*S) + '" width="' + 3*S +
+      '" height="' + (c.cardH - 8*S) + '" rx="' + 1.5*S + '" fill="' + capCol +
+      '" opacity="' + capOp.toFixed(2) + '"/>');
+    svg.push('<text x="' + (x + c.w - cardPadX) + '" y="' + (cy + c.cardH - cardPadY + 2*S) +
+      '" text-anchor="end" font-size="' + 9*S + '" font-weight="600" letter-spacing="0.8" fill="' + C.muted +
+      '" opacity="' + fadeOp.toFixed(2) + '">' + esc(rangeLabel(c)) + '</text>');
+    if(c.it.spanEnd){
+      /* runs past the board: a dashed cut edge, drawn over a bg-coloured line so it
+         reads as a cut rather than a border */
+      svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
+        '" stroke="' + C.bg + '" stroke-width="2"/>');
+      svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
+        '" stroke="' + C.muted + '" stroke-width="1.2" stroke-dasharray="3 3" opacity="' + fadeOp.toFixed(2) + '"/>');
+    }
+    return svg.join('');
   }
 
   /* lanes */

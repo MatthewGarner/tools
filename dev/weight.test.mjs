@@ -61,7 +61,12 @@ const PAGES = {
      renderer — render-deck.js, the 16:9 export compositions. Eager, not lazy:
      app.js needs its effectiveStyle() to light the right picker chip on every
      render, so it is in the first-load graph by design. */
-  'roadmap/index.html': 495_000, 'why/index.html': 470_000, 'tree/index.html': 470_000,
+  'roadmap/index.html': 495_000,
+  /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
+     to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
+     is an honest shared-code cost why pays too, even though /why can never itself
+     parse a span (it never sets timeAxis). Actual load ~471.4k, headroom ~1.6k. */
+  'why/index.html': 473_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
   'bets/index.html': 480_000,
