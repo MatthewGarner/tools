@@ -103,15 +103,24 @@ function renderWide(model, sim, ctx){
   const ex = v => C.bar0 + (v - elo) / (ehi - elo || 1) * (C.bar1 - C.bar0);
   const parts = [], body = [];
 
-  // header strap
-  parts.push('<text x="30" y="52" font-family="Charter, Georgia, serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
-  parts.push(txt(30, 74, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
-  parts.push(txt(C.right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
-  parts.push(txt(C.right, 72, 'NET EV ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
-  if(compare) parts.push(txt(30, 96, compare.headline, 11.5, c.accentInk, {weight: 700, tracking: '0.01em'}));
+  /* header strap. bare (poster-embed): the frame owns the title, the P(loses)
+     headline and the net-EV line — its hero says the first two and its footer
+     repeats all three — so drop them and keep only the positions strap, which is
+     the one fact the frame never prints. */
+  const bare = !!ctx.bare;
+  /* emit order is load-bearing: the goldens are byte-compared, so the non-bare
+     path must push exactly what it always did, in the order it always did */
+  if(!bare)
+    parts.push('<text x="30" y="52" font-family="Charter, Georgia, serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
+  parts.push(txt(30, bare ? 20 : 74, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
+  if(!bare){
+    parts.push(txt(C.right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
+    parts.push(txt(C.right, 72, 'NET EV ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
+  }
+  if(compare) parts.push(txt(30, bare ? 42 : 96, compare.headline, 11.5, c.accentInk, {weight: 700, tracking: '0.01em'}));
 
   // column heads
-  const panelTop = compare ? 112 : 90, colHeadY = panelTop + 26;
+  const panelTop = bare ? (compare ? 58 : 36) : (compare ? 112 : 90), colHeadY = panelTop + 26;
   for(const [s, x, a] of [['POSITION', C.name, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['P50', C.p50, 'end'], ['P90', C.p90, 'end']])
     body.push(txt(x, colHeadY, s, 9, c.muted, {weight: 700, tracking: '0.08em', anchor: a}));

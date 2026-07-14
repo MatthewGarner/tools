@@ -81,6 +81,7 @@ for(const theme of ['light', 'dark']){
   check('risk(' + theme + '): diagram renders', await page.locator('#preview svg').count() === 1);
   check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
   check('risk(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
+  check('risk(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('risk(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('risk(' + theme + '): no console errors', errors.length === 0);
@@ -94,6 +95,7 @@ for(const theme of ['light', 'dark']){
   check('cycles(' + theme + '): three bands render', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
   check('cycles(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('Cycles are worth'));
   check('cycles(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
+  check('cycles(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('cycles(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -550,6 +552,7 @@ for(const theme of ['light', 'dark']){
   check('tree(' + theme + '): verdict present', svg.includes('RECOMMENDED'));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
   check('tree(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('tree(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('tree(' + theme + '): Tab indents, Shift-Tab restores', await (async () => {
     const before = await page.evaluate(() => localStorage.getItem('tree-src'));
     await page.locator('.cm-content').click();
@@ -626,6 +629,7 @@ for(const theme of ['light', 'dark']){
     return svg.includes('WATERMELON WATCH') && /reported green/.test(svg);
   })());
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  check('map(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('map(' + theme + '): flagged assumptions hand off to gauge (#93)', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(500);
@@ -729,6 +733,7 @@ for(const theme of ['light', 'dark']){
   const svg = await page.locator('#preview svg').innerHTML();
   check('wardley(' + theme + '): anchors + stage columns render', svg.includes('Habit tracking') && svg.includes('commodity'));
   check('wardley(' + theme + '): ghost renders dashed', /Analytics pipeline/.test(svg) && /stroke-dasharray/.test(svg));
+  check('wardley(' + theme + '): Poster exports a PNG', await posterDownloads(page));
   check('wardley(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('wardley(' + theme + '): no console errors', errors.length === 0);
   await page.close();

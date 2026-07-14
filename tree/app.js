@@ -8,6 +8,7 @@ import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {posterSvg} from '../assets/poster.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
@@ -163,17 +164,41 @@ function renderSaved(){
 }
 
 /* ---------- exports ---------- */
-function svgString(slide){
+const isoToday = () => new Date().toISOString().slice(0, 10);
+function svgString(slide, bare = false){
   if(!model || !model.root || !results) return null;
-  return render(model, results, {colors: themeColors(), measure, slide, dark: isDark()});
+  return render(model, results, {colors: themeColors(), measure, slide, dark: isDark(), bare});
+}
+function countLeaves(node){
+  return node.children.length === 0 ? 1 : node.children.reduce((a, c) => a + countLeaves(c), 0);
+}
+function posterData(){
+  const n = model.root.kind === 'decision' ? model.root.children.length : null;
+  const leaves = countLeaves(model.root);
+  const flips = (results.flips || []).length;
+  return {
+    verdict: treeVerdict(model, results),
+    name: model.title || 'Decision tree',
+    metrics: [
+      ...(n !== null ? [n + (n === 1 ? ' option' : ' options')] : []),
+      leaves + (leaves === 1 ? ' outcome' : ' outcomes'),
+      ...(flips ? [flips + (flips === 1 ? ' flip condition' : ' flip conditions')] : []),
+    ],
+  };
+}
+function posterString(){
+  if(!model || !model.root || !results) return null;
+  return posterSvg({chart: svgString(true, true), ...posterData(),
+    date: isoToday(), accent: model.accent || themeColors().accent, colors: themeColors(), measure});
 }
 function slug(){
   return slugify(model.title, 'decision-tree');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
   getSvg: () => svgString(),
   getSvgSlide: () => svgString(true),
+  getPoster: posterString,
   slug,
 });
 

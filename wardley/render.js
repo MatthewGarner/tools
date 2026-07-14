@@ -370,29 +370,37 @@ export function renderMap(model, layout, ctx, opts = {}){
   const c = ctx.colors, measure = ctx.measure;
   const {w, pad} = GEOM;
   const ramp = ctx.palette || [c.accent, c.accent, c.accent, c.accent];
+  /* poster-embed: drop the chrome the poster frame owns — its own title, date
+     and hero verdict — but keep the metrics line and flags, which are content. */
+  const bare = !!opts.bare;
 
   /* ---- header ---- */
   const head = [];
-  let headerH = 58;
-  head.push('<text x="' + pad + '" y="38" font-family="' + SERIF + '" font-size="24" font-weight="700" fill="' +
-    c.ink + '">' + esc(model.title || 'Wardley map') + '</text>');
-  /* date label wants an ISO string; other tools' ctx carries today as a day
-     number — accept strings only, so a shared ctx can never crash the header */
-  if(typeof ctx.today === 'string') head.push('<text x="' + (w - pad) +
-    '" y="26" text-anchor="end" font-size="12" fill="' + c.muted + '">' + esc(ctx.today) + '</text>');
+  let headerH = bare ? 0 : 58;
   const comps = layout.nodes.filter(n => !n.anchor);
   const ghostN = comps.filter(n => n.ghost).length;
-  head.push('<text x="' + pad + '" y="56" font-size="12.5" fill="' + c.muted + '">' +
-    comps.length + ' component' + (comps.length === 1 ? '' : 's') + ' · ' +
-    model.edges.length + ' dependenc' + (model.edges.length === 1 ? 'y' : 'ies') +
-    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
+  /* bare: the poster frame owns the title, the date AND the metrics line — its
+     footer prints "N components · M dependencies · X unplaced" verbatim, so
+     keeping it here would print it twice on the same artifact. */
+  if(!bare){
+    head.push('<text x="' + pad + '" y="38" font-family="' + SERIF + '" font-size="24" font-weight="700" fill="' +
+      c.ink + '">' + esc(model.title || 'Wardley map') + '</text>');
+    /* date label wants an ISO string; other tools' ctx carries today as a day
+       number — accept strings only, so a shared ctx can never crash the header */
+    if(typeof ctx.today === 'string') head.push('<text x="' + (w - pad) +
+      '" y="26" text-anchor="end" font-size="12" fill="' + c.muted + '">' + esc(ctx.today) + '</text>');
+    head.push('<text x="' + pad + '" y="56" font-size="12.5" fill="' + c.muted + '">' +
+      comps.length + ' component' + (comps.length === 1 ? '' : 's') + ' · ' +
+      model.edges.length + ' dependenc' + (model.edges.length === 1 ? 'y' : 'ies') +
+      (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
+  }
 
   let compareInfo = null;
   if(opts.compare){
     compareInfo = compareParts(model, layout, {...opts.compare, measure}, c);
-    head.push('<text x="' + pad + '" y="76" font-size="13" font-weight="600" fill="' + c.accent + '">' +
+    head.push('<text x="' + pad + '" y="' + (bare ? 16 : 76) + '" font-size="13" font-weight="600" fill="' + c.accent + '">' +
       esc(compareInfo.headline) + '</text>');
-    headerH = 84;
+    headerH = bare ? 26 : 84;   /* the drift headline IS content — it survives bare */
   }
 
   /* ---- plane (translated below the header; layout coords are plane-local) ---- */
@@ -462,13 +470,16 @@ export function renderMap(model, layout, ctx, opts = {}){
   const readTop = headerH + planeH + 10;
   read.push('<line x1="' + pad + '" y1="' + readTop + '" x2="' + (w - pad) + '" y2="' + readTop +
     '" stroke="' + c.border + '"/>');
-  read.push('<text x="' + pad + '" y="' + (readTop + 26) + '" font-size="14" font-weight="600" fill="' +
+  /* bare: the verdict line is dropped (the poster frame's hero already carries
+     it) — the flags stack up into the space it would have taken */
+  if(!bare) read.push('<text x="' + pad + '" y="' + (readTop + 26) + '" font-size="14" font-weight="600" fill="' +
     c.ink + '">' + esc(r.verdict) + '</text>');
+  const flagsY0 = readTop + (bare ? 26 : 48);
   r.flags.forEach((f, i) => {
-    read.push('<text x="' + pad + '" y="' + (readTop + 48 + i * 19) + '" font-size="12.5" fill="' +
+    read.push('<text x="' + pad + '" y="' + (flagsY0 + i * 19) + '" font-size="12.5" fill="' +
       c.muted + '">' + esc(f) + '</text>');
   });
-  const H = Math.round(readTop + 40 + r.flags.length * 19 + 14);
+  const H = Math.round(readTop + (bare ? 18 : 40) + r.flags.length * 19 + 14);
 
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + H +
     '" viewBox="0 0 ' + w + ' ' + H + '" font-family="' + SANS + '">' +

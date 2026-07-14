@@ -96,8 +96,8 @@ function auditCounts(s){
    the plain view (board or quadrant) whatever snapshot is selected, so a
    shared/exported slide never carries stray "was …" annotations from the
    author's own review session. */
-function activeRender(forExport){
-  const c = {colors: themeColors(), measure};
+function activeRender(forExport, bare = false){
+  const c = {colors: themeColors(), measure, bare};
   if(!forExport) c.width = narrowWidth($('preview'));
   if(!forExport && view === 'board'){
     const compare = currentCompare();
@@ -279,7 +279,7 @@ function posterData(){
 }
 function posterString(){
   if(!(hasBets(model) && sim)) return null;
-  return posterSvg({chart: activeRender(true), ...posterData(), date: isoToday(),
+  return posterSvg({chart: activeRender(true, true), ...posterData(), date: isoToday(),
     accent: themeColors().accent, colors: themeColors(), measure});
 }
 function slug(){
