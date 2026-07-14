@@ -46,6 +46,24 @@ for(const [k, src] of Object.entries(docs)){
   }});
 }
 
+/* deck exports (roadmap/render-deck.js) — a separate module from render.js
+   (the whole containment story: /why delegates to render.js, never to the
+   deck). `date:` is fixed in the doc, so the capture is deterministic without
+   needing ctx.today at all. */
+{
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  variants['deck-board'] = renderDeck(parse(docs.lanes), {...ctxBase});
+  /* the flipped-to-list rendering path (a distinct code path from card
+     columns — the prototype's version of this had no cap and overflowed the
+     frame, which is exactly what this golden pins down). */
+  const listDoc = 'title: Portfolio board\ndate: 2026-07-04\nNOW\n' +
+    Array.from({length: 24}, (_, i) => (i % 3 === 0 ? 'Core: ' : i % 3 === 1 ? 'Growth: ' : 'Platform: ') +
+      'Item number ' + i + (i % 5 === 0 ? ' [risk]' : i % 7 === 0 ? ' [blocked]' : '') +
+      (i % 4 === 0 ? ' -- a short note on this one' : '')).join('\n') +
+    '\nNEXT\nCore: placeholder\nLATER\nCore: placeholder';
+  variants['deck-board-list'] = renderDeck(parse(listDoc), {...ctxBase});
+}
+
 /* tree fixtures (dates normalised so captures are stable) */
 {
   const {parse: tparse} = await import('../tree/parse.js');

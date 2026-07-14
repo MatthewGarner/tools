@@ -63,9 +63,14 @@ function near(a, b){
 
 const snippet = s => '"' + s.slice(0, 30) + (s.length > 30 ? '…' : '') + '"';
 
+/* deck export compositions (roadmap/render-deck.js). `style:` is null when unset —
+   the app decides the default (grid for a time axis, board otherwise). */
+export const DECK_STYLES = ['board', 'focus', 'register', 'grid'];
+
 export function parse(text){
   const model = {title:'', dateStr:null, horizons:[...DEFAULT_HORIZONS],
-    lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null};
+    lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
+    style:null, timeAxis:false};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -73,7 +78,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|horizons|wip|fade|palette|accent)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|horizons|wip|fade|palette|accent|style)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
@@ -93,10 +98,20 @@ export function parse(text){
         else model.warnings.push('line ' + (ln+1) + ': wip wants a number or off — kept ' + model.wip);
       }
       else if(key === 'fade') model.fade = !/^off$/i.test(val);
+      else if(key === 'style'){
+        const st = val.toLowerCase();
+        if(DECK_STYLES.includes(st)) model.style = st;
+        else model.warnings.push('line ' + (ln+1) + ': unknown style "' + snippet(val) + '" — use ' + DECK_STYLES.join(' / '));
+      }
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
-        if(hs.length >= 2 && hs.length <= 8) model.horizons = hs;
+        if(hs.length >= 2 && hs.length <= 8){
+          model.horizons = hs;
+          /* recomputed per horizons line, never sticky: a later manual list must clear
+             it, or the flag would claim a time axis the doc no longer uses (last wins) */
+          model.timeAxis = !!gen;
+        }
         else model.warnings.push('line ' + (ln+1) + ': horizons needs 2–8 names, or e.g. "quarterly from Q3 2026 x4" — kept ' + model.horizons.join('/'));
       }
       continue;
@@ -117,7 +132,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|horizons|wip|fade|palette|accent)\s+\S/i);
+      const ck = line.match(/^(title|date|horizons|wip|fade|palette|accent|style)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;

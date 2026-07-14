@@ -36,6 +36,29 @@ test('roadmap renderer escapes hostile titles/items/lanes', async () => {
   assertClean(render(parse(doc), {...ctx, edit: true, width: 360}), 'roadmap-narrow');
 });
 
+test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropped/badge strings, in both card and flipped-to-list layouts', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
+  const m = parse(doc);
+  const diff = {
+    any: true, since: EVIL[2],
+    badge: it => it.srcLine % 2 === 0 ? {kind: 'new', label: EVIL[3]} : {kind: 'moved', label: EVIL[4]},
+    dropped: [EVIL[5], EVIL[1]],
+  };
+  assertClean(renderDeck(m, {...ctx, diff}), 'roadmap-deck-board');
+
+  /* the same hostile strings again, but repeated enough times in one column to
+     force the list-mode flip — a distinct rendering path with its own escaping
+     (clip1'd sub-lines, struck dropped rows) that the card-mode pass above
+     never reaches. */
+  const flipDoc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    Array.from({length: 20}, (_, i) => EVIL[i % EVIL.length].replace(/:/g, ';') + ' lane: item ' + i +
+      ' -- ' + EVIL[(i + 2) % EVIL.length]).join('\n');
+  assertClean(renderDeck(parse(flipDoc), {...ctx, diff}), 'roadmap-deck-board-list');
+});
+
 test('why renderers escape hostile labels in both projections', async () => {
   const {parse} = await import('../why/parse.js');
   const {project} = await import('../why/project.js');

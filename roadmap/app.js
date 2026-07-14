@@ -1,6 +1,7 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
+import {wipBreach, renderDeck} from './render-deck.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -102,11 +103,10 @@ function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
-  const firstColCount = m.items.filter(i => i.h === 0).length;
-  if(m.wip > 0 && firstColCount > m.wip){
-    m.warnings.push(m.horizons[0] + ' has ' + firstColCount +
-      ' items — that’s a list, not a strategy. (Raise or silence with wip: N / wip: off.)');
-  }
+  /* the breach sentence is shared with the deck's verdict (render-deck.js) so the
+     editor warning and the exported standfirst can never drift apart */
+  const breach = wipBreach(m);
+  if(breach) m.warnings.push(breach + ' (Raise or silence with wip: N / wip: off.)');
   renderWarningList(warns, m.warnings);
 }
 function writeHash(){
@@ -217,9 +217,16 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 }
 
 /* ---------- exports ---------- */
+const todayISO = () => new Date().toISOString().slice(0, 10);
 function svgString(slide){
   if(!model || !model.items.length) return null;
   return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
+}
+/* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
+   16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the raw chart. */
+function deckSvgString(){
+  if(!model || !model.items.length) return null;
+  return renderDeck(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
 }
 function slug(){
   return slugify(model.title, 'roadmap');
@@ -227,7 +234,8 @@ function slug(){
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
   getSvg: () => svgString(),
-  getSvgSlide: () => svgString(true),
+  getSvgSlide: () => deckSvgString(),
+  getCopy: () => deckSvgString(),
   slug,
 });
 /* copymd keeps its inline handler: label is 'Copy as markdown' / 'Copied', not
