@@ -401,18 +401,29 @@ function registerBodyFn(model, ctx, C){
     const titleFont = '700 15px ' + SANS, secFont = '13px ' + SANS, noteFont = '13px ' + SANS;
     const capsuleW = label => measure(label, '600 12px ' + SANS) + label.length * 0.6 + 18;
 
+    /* the horizon cell is ditto-suppressed within a group — but a SPAN is a
+       property of the ITEM, not of the group, so it must print on every
+       spanning row, first-in-group or not, or a spanning item that isn't
+       first would show no range at all. */
+    const spanRange = it => ((it.span || 1) > 1 || it.spanEnd)
+      ? model.horizons[it.h] + ' – ' +
+        (it.spanEnd || model.horizons[Math.min(model.horizons.length - 1, it.h + it.span - 1)])
+      : null;
+
     const layout = noteMax => rows.map((it, i) => {
       const b = badgeOf(it);
       const groupFirst = i === 0 || rows[i - 1].h !== it.h;
+      const range = hCol ? spanRange(it) : null;
+      const printH = groupFirst || !!range;
       const newCapW = b && b.kind === 'new' ? capsuleW(b.label.toUpperCase()) + 10 : 0;
       const tl = wrapN(it.title, titleFont, itemCol.w - RPAD * 2 - newCapW, 2, measure);
       const nl = noteCol && it.note ? wrapN(it.note, noteFont, noteCol.w - RPAD * 2, noteMax, measure) : [];
       const hLines = [];
-      if(hCol && groupFirst) hLines.push(model.horizons[it.h]);
+      if(hCol && printH) hLines.push(range || model.horizons[it.h]);
       if(hCol && b && b.kind === 'moved') hLines.push(b.label);
       const contentH = Math.max(tl.length * 19, nl.length * 17, hLines.length * 17,
         (stCol && it.status) ? 22 : 0, 17);
-      return {it, b, tl, nl, hLines, groupFirst, h: RPAD * 2 + contentH};
+      return {it, b, tl, nl, hLines, printH, h: RPAD * 2 + contentH};
     });
     let laidRows = layout(2);
     const sumH = list => list.reduce((a, r) => a + r.h, 0);
@@ -439,7 +450,7 @@ function registerBodyFn(model, ctx, C){
       if(hCol){
         let hy = ry + RPAD + 13;
         hLines.forEach((ln, li) => {
-          if(li === 0 && r.groupFirst) s.push(txt(hCol.x + RPAD, hy, ln, 13, C.ink, {weight: 700}));
+          if(li === 0 && r.printH) s.push(txt(hCol.x + RPAD, hy, ln, 13, C.ink, {weight: 700}));
           else s.push(italTxt(hCol.x + RPAD, hy, ln, 12.5, C.muted));
           hy += 17;
         });

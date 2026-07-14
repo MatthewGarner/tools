@@ -36,6 +36,15 @@ test('roadmap renderer escapes hostile titles/items/lanes', async () => {
   assertClean(render(parse(doc), {...ctx, edit: true, width: 360}), 'roadmap-narrow');
 });
 
+test('roadmap SPANS escape hostile titles in the range label, the run line and the "also running" list', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {render} = await import('../roadmap/render.js');
+  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nhorizons: quarterly from Q3 2026 x4\n' +
+    'Q3 2026\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' x' + (i % 3 + 1)).join('\n');
+  assertClean(render(parse(doc), ctx), 'roadmap-spans');
+  assertClean(render(parse(doc), {...ctx, width: 360}), 'roadmap-spans-narrow');
+});
+
 test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropped/badge strings, in both card and flipped-to-list layouts', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {renderDeck} = await import('../roadmap/render-deck.js');

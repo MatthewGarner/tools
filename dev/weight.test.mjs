@@ -79,8 +79,12 @@ const PAGES = {
      edge drag — itemMenu grows a dynamic "Runs until…" submenu (mirrors the
      shipped "Move to…" one) and onCommit gains its setspan branch. Honest
      feature cost, zero new interaction machinery; actual load ~503.66k,
-     headroom ~340B. */
-  'roadmap/index.html': 504_000,
+     headroom ~340B.
+     504k -> 506k (2026-07-14, spans Task 10): the syntax-table `xN` row and
+     the about-copy paragraph explaining span occupancy vs /timeline's
+     landing-date uncertainty — user-facing docs for a shipped feature, not
+     engine creep; actual load ~505.34k, headroom ~660B. */
+  'roadmap/index.html': 506_000,
   /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
      to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
      is an honest shared-code cost why pays too, even though /why can never itself

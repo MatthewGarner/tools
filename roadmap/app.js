@@ -46,10 +46,10 @@ Platform: Wearables integration`},
   {name:'Quarterly view', src:
 `title: Platform Delivery Plan
 horizons: quarterly from Q3 2026 x4
-wip: off
+wip: 3
 
 Q3 2026
-Infra: Sync engine rewrite [doing]
+Infra: Sync engine rewrite [doing] x2
 App: Habit templates library [done]
 
 Q4 2026
