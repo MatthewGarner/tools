@@ -808,6 +808,47 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
+
+  /* export-style picker (S4): 4 chips, enabled once there's a preview, Board
+     active by default (no style:, no time axis) */
+  check('roadmap: style picker has 4 chips', await page.locator('#stylepicker [data-style]').count() === 4);
+  check('roadmap: style picker enabled once there is something to export',
+    await page.locator('#stylepicker [data-style="board"]').isEnabled());
+  check('roadmap: Board is the default active chip',
+    await page.locator('#stylepicker [data-style="board"]').evaluate(el => el.classList.contains('on')));
+
+  for(const style of ['focus', 'register', 'grid', 'board']){
+    await page.locator('#stylepicker [data-style="' + style + '"]').click();
+    await page.waitForTimeout(400);
+    const src = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+    check('roadmap: clicking ' + style + ' commits style: ' + style + ' into the doc text',
+      new RegExp('style:\\s*' + style, 'i').test(src || ''));
+    const activeStyles = await page.locator('#stylepicker [data-style].on')
+      .evaluateAll(els => els.map(el => el.dataset.style));
+    check('roadmap: ' + style + ' chip is the only one marked active',
+      activeStyles.length === 1 && activeStyles[0] === style);
+
+    const [dl] = await Promise.all([
+      page.waitForEvent('download', {timeout: 8000}),
+      page.locator('#dlslide').click(),
+    ]);
+    const chunks = [];
+    for await (const chunk of await dl.createReadStream()) chunks.push(chunk);
+    const bytes = Buffer.concat(chunks);
+    const isPng = bytes.length > 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+    check('roadmap: ' + style + ' deck exports a real PNG (' + bytes.length + ' bytes)',
+      isPng && bytes.length > 2000);
+  }
+
+  // clearing the doc leaves nothing to export — the picker follows setActionsEnabled,
+  // same as every other export button in .actions
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+  await page.waitForTimeout(400);
+  check('roadmap: style picker disables when the doc has nothing to export',
+    await page.locator('#stylepicker [data-style="board"]').isDisabled());
+
   check('roadmap: no console errors', errors.length === 0);
   await page.close();
 }

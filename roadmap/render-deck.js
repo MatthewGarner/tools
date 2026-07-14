@@ -1,15 +1,13 @@
 /* (model, ctx, {style}) → a 16:9 DECK svg. Pure — no DOM, no `new Date()`.
-   Deliberately a SEPARATE module from render.js: /why's map view delegates to
-   roadmap's renderRoadmap, so anything added there lands in /why too (it shifted
-   why's goldens once). render.js stays the working chart; the deck lives here.
+   SEPARATE from render.js: /why's map view delegates to renderRoadmap, so
+   anything added there lands in /why too (shifted its goldens once).
+   render.js stays the working chart; the deck lives here. Named render-*.js
+   so renderer-coverage.test.mjs FORCES this into the injection corpus.
 
-   Named render-*.js on purpose: dev/renderer-coverage.test.mjs then FORCES this file
-   into the injection corpus, so the escaping guarantee is enforced, not remembered.
-
-   The deck is 1920×1080 with one shared frame (accent rule → Charter title → date →
-   the VERDICT as a standfirst → body band → footer rule + metrics). Styles fill the
-   body; colour comes from the document (`palette:` / `accent:` via scheme()), never
-   from the style — a style owns STRUCTURE. */
+   1920×1080, one shared frame (accent rule → Charter title → date → the
+   VERDICT standfirst → body band → footer rule + metrics). Styles fill the
+   body; colour comes from the doc (palette:/accent: via scheme()), never
+   the style — a style owns STRUCTURE. */
 import {txt, wrapText, tint, esc} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
 import {PALETTES, scheme} from '../assets/series.js';
@@ -17,10 +15,9 @@ import {render as renderChart} from './render.js';
 
 export const W = 1920, H = 1080, M = 100;
 const INNER = W - M * 2;                      // 1720
-/* local font stacks — deliberately NOT threaded through assets/svg.js's txt()
-   (which has no font-family override): serif carries a double-quoted "Times
-   New Roman", so it rides in a single-quoted font-family wrapper <g>, mirroring
-   render.js's own font-family=\'…\' pattern for the same reason. */
+/* local font stacks — not threaded through svg.js's txt() (no font-family
+   override there): serif's double-quoted "Times New Roman" rides in a
+   single-quoted <g font-family='…'>, mirroring render.js's own pattern. */
 const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 const SERIF = 'Charter, Georgia, "Times New Roman", serif';
 const r2 = n => Math.round(n * 100) / 100;
@@ -87,10 +84,9 @@ export function deckMetrics(model){
 }
 
 /* roadmapVerdict's diff contract is COUNTS (added/moved/dropped as numbers) —
-   pinned by verdict.test.mjs. The live diff object app.js builds (and the
-   board/card badges below need) is shaped for BADGES instead: a `badge(item)`
-   function plus a `dropped` array of titles. Bridging the two here keeps both
-   contracts honest without forcing app.js to compute the same counts twice. */
+   pinned by verdict.test.mjs. app.js's live diff (and the badges below) is
+   shaped for BADGES instead: `badge(item)` plus a `dropped` array of titles.
+   Bridges the two without forcing app.js to compute the counts twice. */
 export function diffCounts(model, diff){
   if(!diff || !diff.any) return null;
   let added = 0, moved = 0;
@@ -102,11 +98,10 @@ export function diffCounts(model, diff){
   return {any: true, since: diff.since, added, moved, dropped: diff.dropped ? diff.dropped.length : 0};
 }
 
-/* ================= shared SVG micro-builders (deck-local; NOT assets/svg.js —
-   render.js/svg.js/series.js stay at zero hunks, and svg.js has no rect/line
-   helper or font-family override to extend). Attribute order is fixed, which
-   the deck.test.mjs bounds-sweep relies on being attribute-order-independent
-   anyway (it parses by name, not position). ================= */
+/* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/
+   svg.js/series.js stay at zero hunks, and svg.js has no rect/line helper or
+   font-family override). Attribute order is fixed; deck.test.mjs's bounds
+   sweep parses by name so it doesn't care. */
 function rect(x, y, w, h, fill, o = {}){
   return '<rect x="' + r2(x) + '" y="' + r2(y) + '" width="' + r2(w) + '" height="' + r2(h) +
     '" fill="' + fill + '"' +
@@ -120,10 +115,9 @@ function line(x1, y1, x2, y2, stroke, w = 1, opacity = 1){
 }
 const serifGroup = inner => '<g font-family=\'' + SERIF + '\'>' + inner + '</g>';
 
-/* ellipsis-clip to one line; wrap-to-N-lines with an ellipsis on the overflow
-   line — mined from the prototype's clip1/wrapN, rewired onto wrapText/measure
-   passed explicitly (house convention: pure helpers take measure as an arg,
-   never close over a DOM-side singleton). */
+/* ellipsis-clip to one line; wrap-to-N-lines with an ellipsis on overflow.
+   measure passed explicitly (pure helpers take it as an arg, never close
+   over a DOM-side singleton). */
 function clip1(text, font, maxW, measure){
   let s = String(text);
   if(measure(s, font) <= maxW) return s;
@@ -138,9 +132,9 @@ function wrapN(text, font, maxW, maxLines, measure){
   return kept;
 }
 
-/* capsule pill: tinted fill (house 12% tint via assets/svg.js's tint()),
-   contrast-boosted ink text — same shape as render.js's local capsule, at
-   deck scale. Never colour-alone: the label text always carries the word. */
+/* capsule pill: tinted fill (house 12% tint via svg.js's tint()), contrast
+   ink — render.js's local capsule, at deck scale. Never colour-alone: the
+   label text always carries the word. */
 function capsule(x, y, label, col, inkCol, measure){
   const font = '600 12px ' + SANS;
   const w = measure(label, font) + label.length * 0.6 + 18, h = 22;
@@ -157,9 +151,8 @@ const badgeCapsule = (x, y, b, C, measure) => b.kind === 'new'
   ? capsule(x, y, b.label.toUpperCase(), C.accent, C.accentInk, measure)
   : capsule(x, y, b.label.toUpperCase(), C.muted, C.muted, measure);
 
-/* Column type ramp, by width — exactly the prototype's breakpoints
-   (_deck2.mjs:491-494): wider columns get bigger type and room for a note;
-   the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
+/* Column type ramp, by width: wider columns get bigger type and room for a
+   note; the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
 export function typeRamp(colW){
   return colW >= 500 ? {fsT: 21, fsN: 15, pad: 20, notes: 2}
        : colW >= 380 ? {fsT: 19, fsN: 14, pad: 16, notes: 2}
@@ -168,12 +161,10 @@ export function typeRamp(colW){
 }
 
 /* Greedy "how many rows/cards fit" with a reserved chip budget — the terminal
-   rung of the overflow ladder, shared by card columns and list columns. Pure:
-   given fixed-height items, returns how many can show before a trailing "+N
-   more" chip is needed. Invariant that makes containment provable: whenever
-   the returned count is less than heights.length, the accumulated height of
-   the shown items (+ gaps) plus `chipReserve` is still <= availH — so the
-   chip the caller draws immediately after always lands in bounds too. */
+   rung of the overflow ladder, shared by card and list columns. Invariant
+   that makes containment provable: whenever the returned count is less than
+   heights.length, shown-height + gaps + chipReserve is still <= availH — so
+   the "+N more" chip the caller draws right after always lands in bounds. */
 export function capFit(heights, availH, gap, chipReserve){
   const n = heights.length;
   const total = heights.reduce((a, h) => a + h, 0) + Math.max(0, n - 1) * gap;
@@ -187,12 +178,11 @@ export function capFit(heights, availH, gap, chipReserve){
   return shown;
 }
 
-/* Board-wide density check (_deck2.mjs:499-509): estimate every column's
-   layout with the SMALLEST clamped card height for this ramp — if even that
-   estimate would still hide more than 25% of a column's items (after
-   budgeting room for the "+N more" chip), the WHOLE board flips to list rows.
-   A worst-case estimate (not each column's actual computed heights) keeps the
-   decision a single deterministic pass, independent of card layout order. */
+/* Board-wide density check: estimate every column with the SMALLEST clamped
+   card height for this ramp — if that estimate would still hide >25% of a
+   column's items (after budgeting the "+N more" chip), the WHOLE board flips
+   to list rows. A worst-case estimate keeps the decision a single
+   deterministic pass, independent of card layout order. */
 export function boardGeometry(model, zoneH){
   const nH = model.horizons.length;
   const gap = 28;
@@ -212,10 +202,8 @@ export function boardGeometry(model, zoneH){
   return {colW, gap, ramp, headH, availH, minCardH, counts, listMode};
 }
 
-/* CARD column: the drop-notes -> clamp-title -> cap+chip ladder (steps 1-2
-   are the prototype's; step 3 is capFit, which also FIXES the card path's own
-   uncapped-in-theory tail by sharing the same proven-terminating helper the
-   list path uses). */
+/* CARD column: drop-notes -> clamp-title -> cap+chip ladder, capFit sharing
+   the same proven-terminating helper the list path uses. */
 function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, measure}){
   const fT = '700 ' + ramp.fsT + 'px ' + SANS, fN = ramp.fsN + 'px ' + SANS;
   const layCards = (noteLines, titleLines) => list.map(it => {
@@ -265,11 +253,9 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
 }
 
 /* LIST column (the flipped board): title + a muted LANE · STATUS · note
-   sub-line, single line each (clip1, never wraps) so row height is a fixed
-   38/56 — flagged rows carry a 3px status-coloured edge bar, never colour
-   alone (the status word is IN the sub-line). Capped with capFit + its own
-   "+N more" chip: the prototype's list mode had NO cap here and overflowed
-   the frame at 30+ items — this is the fix. */
+   sub-line, single line each (clip1, never wraps), fixed row height 38/56 —
+   flagged rows carry a 3px status-coloured edge bar, never colour alone.
+   capFit-capped with its own "+N more" chip. */
 function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure}){
   const rows = list.map(it => {
     const sub = [it.lane ? it.lane.toUpperCase() : '',
@@ -300,13 +286,11 @@ function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure}){
   return {svg: s.join(''), shown, total: rows.length};
 }
 
-/* BOARD body: horizons as columns (lane rail dropped — lane rides as a tag on
-   each card/row instead), the first horizon washed with the accent, an
-   in-plane letterspaced label + count per column, certainty fade across
-   horizons (gated to model.fade), and the drop-notes/clamp-title/cap+chip/
-   flip-to-list overflow ladder above. Returns a (y0, y1) -> svg fragment, so
-   deckFrame can budget its body band around whatever the standfirst wrapped
-   to (1 or 2 lines). */
+/* BOARD body: horizons as columns (lane rides as a tag, no rail), first
+   horizon washed with the accent, in-plane letterspaced label + count per
+   column, certainty fade (gated to model.fade), the overflow ladder above.
+   Returns (y0, y1) -> svg so deckFrame can budget the band around a 1- or
+   2-line standfirst wrap. */
 function boardBodyFn(model, ctx, C){
   return (y0, y1) => {
     const {measure, diff = null} = ctx;
@@ -351,12 +335,11 @@ function boardBodyFn(model, ctx, C){
   };
 }
 
-/* Shared frame: accent rule -> Charter title -> date -> the verdict standfirst
+/* Shared frame: accent rule -> Charter title -> date -> verdict standfirst
    (wrapped to <=2 lines, budgeting the body band down when it wraps) -> body
-   -> footer rule -> metrics. `today` is INJECTED via ctx (no `new Date()` in
-   this module): printed when model.dateStr is null, suppressed entirely when
-   it's the literal string 'off' (mirrors render.js's date semantics — the
-   prototype printed the literal "off", which was a bug). */
+   -> footer rule -> metrics. `today` is INJECTED via ctx (no `new Date()`
+   here): printed when model.dateStr is null, suppressed entirely on the
+   literal string 'off' (mirrors render.js's date semantics). */
 function deckFrame(model, ctx, C, bodyFn){
   const {measure} = ctx;
   const verdict = roadmapVerdict(model, diffCounts(model, ctx.diff));
@@ -392,25 +375,19 @@ function renderBoardDeck(model, ctx, C){
 
 /* Test-only entry point: the board BODY fragment alone (no frame), so the
    overflow-ladder torture tests can bounds-sweep against y1 directly instead
-   of having to exclude the frame's own footer text (which legitimately sits
-   below the footer rule at y=1036 — metrics and the dropped-list caption). */
+   of excluding the frame's own footer text (legitimately below y=1036). */
 export function renderBoardBody(model, ctx, y0, y1){
   return boardBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
 }
 
-/* ================= REGISTER: the roadmap as a formal table =================
-   Columns are FRACTIONS of the 1720 inner width (item .35 / lane .12 /
-   horizon .11 / status .12 / note .30) — a column the document doesn't use
-   (no lanes, no statuses, no notes) is DROPPED and its share redistributed
-   proportionally across whatever remains (item always stays, since it's the
-   spine of the table). Rows sort horizon -> lane (model.lanes order) ->
-   srcLine; the horizon name prints once per group (ditto-suppressed) for a
-   formal-table read. Diff: a NEW capsule rides after the title; a moved
-   item's "was X" badge label prints italic in the horizon cell (even when
-   the horizon name itself is dittoed blank); dropped items become struck
-   rows with a DROPPED capsule. Both the live table and the dropped section
-   are capFit-capped against their own budget — the prototype left the
-   dropped section unbounded, which is exactly the bug capFit forecloses. */
+/* REGISTER: the roadmap as a formal table. Columns are FRACTIONS of the
+   1720 inner width (item .35/lane .12/horizon .11/status .12/note .30) — an
+   unused column (no lanes/statuses/notes) is DROPPED, its share
+   redistributed (item always stays). Rows sort horizon -> lane -> srcLine;
+   the horizon name prints once per group (ditto-suppressed). Diff: a NEW
+   capsule after the title; a moved item's "was X" label prints italic in
+   the horizon cell; dropped items become struck rows with a DROPPED
+   capsule. Live table + dropped section are both capFit-capped. */
 const REGISTER_COLS = [
   {key: 'item', label: 'ITEM', frac: 0.35, always: true},
   {key: 'lane', label: 'LANE', frac: 0.12},
@@ -572,16 +549,13 @@ export function renderRegisterBody(model, ctx, y0, y1){
   return registerBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
 }
 
-/* ================= FOCUS: attention-weighted =================
-   Hero = the first NON-EMPTY horizon (an empty Now must not produce an
-   empty hero — the prototype crashed indexing hs[-1]). Hero column ~1060px
-   under an accent wash that HUGS the card stack: the stack is laid out
-   FIRST (pure geometry, no drawing dependency on the wash), then the wash
-   is sized to its actual painted extent and emitted before it — content-
-   driven height, never a stretched box. 1 column at <=5 items, 2 columns at
-   >=6 (row-pair equalised: a pair shares the taller card's height). The
-   remaining horizons flatten into a ~600px rail of ranked indexes,
-   certainty-faded by the house formula (gated on model.fade). */
+/* FOCUS: attention-weighted. Hero = the first NON-EMPTY horizon (an empty
+   Now must not produce an empty hero). Hero column ~1060px under an accent
+   wash that HUGS the card stack: the stack lays out FIRST (pure geometry),
+   then the wash is sized to its painted extent and emitted before it —
+   content-driven height, never a stretched box. 1 column at <=5 items, 2 at
+   >=6 (row-pair equalised). Remaining horizons flatten into a ~600px rail
+   of ranked indexes, certainty-faded (gated on model.fade). */
 export function focusHeroIndex(model){
   const idx = model.horizons.findIndex((_, h) => model.items.some(it => it.h === h));
   return idx < 0 ? 0 : idx;
@@ -730,14 +704,12 @@ export function renderFocusBody(model, ctx, y0, y1){
   return focusBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
 }
 
-/* ================= GRID: the existing chart, scaled to fit the deck =================
-   This deliberately REPLACES a bespoke timeline: render.js already stacks N
-   items per lane x period — stacking IS the grid. `render.js` is only ever
-   CALLED, never edited (the whole containment story). title/date are
-   suppressed on the INNER chart via a model clone (the frame prints them
-   once, at the top); the chart rides in a nested <svg x y width height
-   viewBox>, which clips to its own box for free as a second line of
-   defence against a fit-maths mistake. */
+/* GRID: the existing chart, scaled to fit the deck. Deliberately REPLACES a
+   bespoke timeline: render.js already stacks N items per lane x period —
+   stacking IS the grid. render.js is only ever CALLED, never edited (the
+   containment story). title/date are suppressed on the INNER chart via a
+   model clone (the frame prints them once); the chart rides in a nested
+   <svg x y width height viewBox>, which clips to its own box for free. */
 export function gridFit(w, h, boxW, boxH){
   const scale = Math.max(0, Math.min(w > 0 ? boxW / w : 1, h > 0 ? boxH / h : 1, 1));
   return {scale, x: (boxW - w * scale) / 2, y: (boxH - h * scale) / 2};
@@ -774,13 +746,17 @@ export function renderGridBody(model, ctx, y0, y1){
   return gridBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
 }
 
-/* Style dispatch (E): style: DSL key, else grid on a time axis, else board. */
+/* Style dispatch (E): style: DSL key, else grid on a time axis, else board.
+   Exported so the picker (app.js) can show which chip is ACTIVE without a
+   second copy of this resolution rule. */
+export function effectiveStyle(model){
+  return model.style || (model.timeAxis ? 'grid' : 'board');
+}
 const STYLE_RENDERERS = {
   board: renderBoardDeck, register: renderRegisterDeck, focus: renderFocusDeck, grid: renderGridDeck,
 };
 
 export function renderDeck(model, ctx = {}){
-  const wanted = model.style || (model.timeAxis ? 'grid' : 'board');
-  const renderFn = STYLE_RENDERERS[wanted] || STYLE_RENDERERS.board;
+  const renderFn = STYLE_RENDERERS[effectiveStyle(model)] || STYLE_RENDERERS.board;
   return renderFn(model, ctx, paletteColors(model, ctx));
 }

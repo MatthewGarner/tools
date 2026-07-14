@@ -1,7 +1,7 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {wipBreach, renderDeck} from './render-deck.js';
+import {wipBreach, renderDeck, effectiveStyle} from './render-deck.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -16,7 +16,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -109,6 +109,13 @@ function renderWarnings(m){
   if(breach) m.warnings.push(breach + ' (Raise or silence with wip: N / wip: off.)');
   renderWarningList(warns, m.warnings);
 }
+/* export-style picker: active chip reflects the RESOLVED style (a quarterly
+   doc with no style: line still shows Grid active, not none) */
+function syncStylePicker(m){
+  const active = effectiveStyle(m);
+  for(const b of $('stylepicker').querySelectorAll('[data-style]'))
+    b.classList.toggle('on', b.dataset.style === active);
+}
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
@@ -119,6 +126,7 @@ function doRefresh(){
   model = parse(text);
   editor.setHorizons(model.horizons);
   renderWarnings(model);
+  syncStylePicker(model);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -237,6 +245,13 @@ wireExports({
   getSvgSlide: () => deckSvgString(),
   getCopy: () => deckSvgString(),
   slug,
+});
+/* clicking a chip COMMITS style: as a text edit (one transaction, one undo
+   step, URL-coherent) — the doc stays the only source of truth, the normal
+   refresh loop re-syncs the active chip */
+$('stylepicker').addEventListener('click', e => {
+  const b = e.target.closest('[data-style]');
+  if(b) editor.setText(setStyle(editor.getText(), b.dataset.style));
 });
 /* copymd keeps its inline handler: label is 'Copy as markdown' / 'Copied', not
    wireExports' literal 'Copy for doc' revert — migrating would change the label. */

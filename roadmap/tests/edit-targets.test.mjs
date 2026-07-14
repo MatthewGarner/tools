@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {applies, validators, addItemLine, removeItemLine, moveHorizon} from '../edit-targets.js';
+import {applies, validators, addItemLine, removeItemLine, moveHorizon, setStyle} from '../edit-targets.js';
 import {parse} from '../parse.js';
 
 test('title rewrite keeps lane, status, note, link', () => {
@@ -85,4 +85,49 @@ test('moveHorizon: lands right after the header when the lane is new to that hor
   const lines = text.split('\n');
   const nextIdx = lines.indexOf('NEXT');
   assert.equal(lines[nextIdx + 1].trim(), 'Growth: Referral flow [risk]');
+});
+
+/* setStyle — the export-style picker's rewrite (S4) */
+test('setStyle on an empty doc produces just the config line', () => {
+  assert.equal(setStyle('', 'grid'), 'style: grid');
+  assert.equal(setStyle('   \n  ', 'board'), 'style: board');
+});
+
+test('setStyle inserts into the config block, right before the first horizon header', () => {
+  const text = setStyle(DOC, 'grid');
+  const lines = text.split('\n');
+  assert.equal(lines[3], 'style: grid');
+  assert.equal(lines[4], 'NOW');
+  assert.equal(text, DOC.replace('\nNOW', '\nstyle: grid\nNOW'));   // rest untouched
+});
+
+test('setStyle rewrites an existing style: line in place, not a prepend', () => {
+  const withStyle = 'style: board\n' + DOC;
+  const text = setStyle(withStyle, 'register');
+  assert.equal(text, 'style: register\n' + DOC);
+});
+
+test('setStyle targets the LAST style: line so a duplicate can never mask the new value', () => {
+  const text = 'style: board\nNOW\nCore: thing\nstyle: focus';
+  const out = setStyle(text, 'grid');
+  const lines = out.split('\n');
+  assert.equal(lines[0], 'style: board');    // earlier duplicate left alone
+  assert.equal(lines[3], 'style: grid');     // the one that actually wins gets rewritten
+  assert.equal(parse(out).style, 'grid');    // last-wins: this is what the doc resolves to
+});
+
+test('setStyle appends at the end when the doc has no horizon header to anchor to', () => {
+  const text = setStyle('Core: stray item', 'focus');
+  assert.equal(text, 'Core: stray item\nstyle: focus');
+});
+
+test('setStyle skips comments and blank lines when finding where to insert', () => {
+  const doc = '// note\ntitle: X\n\nNOW\nCore: thing';
+  const text = setStyle(doc, 'register');
+  assert.equal(text, '// note\ntitle: X\n\nstyle: register\nNOW\nCore: thing');
+});
+
+test('setStyle round-trips: the new style is what parse() resolves', () => {
+  const text = setStyle(DOC, 'focus');
+  assert.equal(parse(text).style, 'focus');
 });
