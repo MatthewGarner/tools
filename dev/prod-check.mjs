@@ -6,6 +6,8 @@ import {createHash, randomBytes} from 'node:crypto';
 const BASE = 'https://tools.matthewgarner.me';
 const out = [];
 const check = (n, ok) => out.push((ok ? 'PASS ' : 'FAIL ') + n);
+/* Soft: a served public doc is untidy, not harmful — report, never fail the check. */
+const note = (n, ok) => out.push((ok ? 'NOTE ' : 'WARN ') + n);
 
 const home = await fetch(BASE + '/');
 check('homepage 200', home.status === 200);
@@ -14,6 +16,7 @@ check('nosniff', home.headers.get('x-content-type-options') === 'nosniff');
 check('sw.js served', (await fetch(BASE + '/sw.js')).status === 200);
 check('manifest served', (await fetch(BASE + '/manifest.webmanifest')).status === 200);
 check('/wardley/ 200 (newest tool)', (await fetch(BASE + '/wardley/')).status === 200);
+note('ARCHITECTURE.md off the served site (tools)', (await fetch(BASE + '/ARCHITECTURE.md')).status === 404);
 
 const hex = n => randomBytes(n).toString('hex');
 const id = hex(16), key = hex(16);
@@ -39,6 +42,7 @@ try{
   check('energy /frequency/ 200', (await fetch(EBASE + '/frequency/')).status === 200);
   check('energy /merit-order/ 200', (await fetch(EBASE + '/merit-order/')).status === 200);
   check('energy /intraday/ 200', (await fetch(EBASE + '/intraday/')).status === 200);
+  note('ARCHITECTURE.md off the served site (energy)', (await fetch(EBASE + '/ARCHITECTURE.md')).status === 404);
   const red = await fetch('https://tools.matthewgarner.me/energy/', {redirect: 'manual'});
   check('tools /energy/* redirects to energy origin',
     (red.headers.get('location') || '').startsWith(EBASE));

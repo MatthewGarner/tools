@@ -1,0 +1,13 @@
+# Public-on-GitHub docs, kept off the served site (tidiness, not security).
+ARCHITECTURE.md
+README.md
+
+# Genuinely-private local files. Vercel's default upload set does NOT honour
+# .gitignore, so the documented prod-promote fallback (`npx vercel deploy --prod`
+# from the main checkout) would otherwise upload these. This is the real reason
+# .vercelignore is worth adding.
+CLAUDE.md
+docs/
+.claude/
+.bar/
+.superpowers/
