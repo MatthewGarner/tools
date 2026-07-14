@@ -60,16 +60,22 @@ const PAGES = {
   /* roadmap 480k -> 495k (2026-07-14): it is the first tool to ship a SECOND
      renderer — render-deck.js, the 16:9 export compositions. Eager, not lazy:
      app.js needs its effectiveStyle() to light the right picker chip on every
-     render, so it is in the first-load graph by design. */
-  'roadmap/index.html': 495_000,
+     render, so it is in the first-load graph by design.
+     495k -> 496k (2026-07-14, spans Task 6): the phone narrow layout gained the
+     run-line (appended to noteLines) and the per-section "also running" block —
+     an honest feature cost, actual load ~495.5k, headroom ~500B. */
+  'roadmap/index.html': 496_000,
   /* why 470k -> 473k (2026-07-14, roadmap spans Task 4): why/render-map.js delegates
      to roadmap/render.js, so the span mark (drawSpanItem's cap/range-label/cut-edge)
      is an honest shared-code cost why pays too, even though /why can never itself
      parse a span (it never sets timeAxis).
      473k -> 474k (2026-07-14, Task 5): per-column active counts (activeCount import +
      the inline "· N ACTIVE" header block) grow render.js again, same shared-delegation
-     cost, same reason /why can never trigger it. Actual load ~473.05k, headroom ~1k. */
-  'why/index.html': 474_000, 'tree/index.html': 470_000,
+     cost, same reason /why can never trigger it. Actual load ~473.05k, headroom ~1k.
+     474k -> 475k (2026-07-14, Task 6): the narrow-layout run-line/"also running"
+     addition to render.js is shared code too — /why's map view rides renderNarrow
+     even though it can never itself carry a span. Actual load ~474.4k. */
+  'why/index.html': 475_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
   'bets/index.html': 480_000,

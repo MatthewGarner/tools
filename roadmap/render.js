@@ -143,7 +143,18 @@ function renderNarrow(model, ctx, C, T){
   for(const it of model.items){
     const badge = diff ? diff.badge(it) : null;
     const lines = wrapText(it.title, titleFont, innerW, measure);
-    const noteLines = it.note ? wrapText(it.note, noteFont, innerW, measure) : [];
+    /* a span cannot be a LENGTH here — the phone stack sections by horizon and a
+       card belongs to exactly one section — so it becomes a LABEL. Appended to
+       noteLines rather than drawn as its own block: drawCard centres on a contentH
+       it derives from these lines, and height without content would shift the title. */
+    const endName = it.spanEnd ||
+      model.horizons[Math.min(model.horizons.length - 1, it.h + Math.max(1, it.span || 1) - 1)];
+    const runLine = ((it.span || 1) > 1 || it.spanEnd)
+      ? 'runs ' + model.horizons[it.h] + ' → ' + endName : null;
+    const noteLines = [
+      ...(it.note ? wrapText(it.note, noteFont, innerW, measure) : []),
+      ...(runLine ? wrapText(runLine, noteFont, innerW, measure) : []),
+    ];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0);
     cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
@@ -249,6 +260,19 @@ function renderNarrow(model, ctx, C, T){
         y += addH;
       }
       y += 14;   // gap after a lane group (or the single implicit lane)
+    }
+    /* items in flight THROUGH this month but not starting in it — without this the
+       month reads empty while the work is running, and the phone view would
+       contradict the board */
+    const through = model.items.filter(i => i.h < h && h <= i.h + Math.max(1, i.span || 1) - 1);
+    if(through.length){
+      const label = 'also running: ' + through.map(i => i.title).join(' · ');
+      for(const l of wrapText(label, noteFont, W - PAD*2, measure)){
+        s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + fsNote +
+          '" fill="' + C.muted + '">' + esc(l) + '</text>');
+        y += lhNote;
+      }
+      y += 6;
     }
     y += 12;   // gap between horizons
   });

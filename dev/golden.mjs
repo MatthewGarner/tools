@@ -71,6 +71,11 @@ for(const [k, src] of Object.entries(docs)){
     'Infra: Sync engine rewrite [doing] x4\n' +
     'Q4 2026\nApp: Smart reminders x2\n';
   variants['roadmap-spans-edge'] = render(parse(spanEdgeDoc), {...ctxBase});
+
+  /* the phone span layout: a span is a LABEL in its start section, plus every
+     section it runs THROUGH lists it under "also running" — a span-free doc
+     has runLines = [] and no through items, so no OTHER narrow golden can move. */
+  variants['roadmap-spans-narrow'] = render(spanModel, {...ctxBase, edit: true, width: 360});
 }
 
 /* deck exports (roadmap/render-deck.js) — a separate module from render.js
