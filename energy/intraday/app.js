@@ -39,7 +39,9 @@ function boot(){
   const $ = id => document.getElementById(id);
   const SLIDERS = ['trough', 'peak', 'solarPeak', 'gas', 'carbon', 'fleetGW', 'fleetH'];
   const DECIMAL = new Set(['fleetGW', 'fleetH']);   // half-GW/half-hour steps read as one decimal
-  let p = {...DAY_DEFAULTS}, preset = null, hour = 18, result = null;
+  /* the scrub starts at 00:00, where Play starts too — landing on 18:00 and then
+     jumping back to midnight the moment you pressed Play read as a glitch */
+  let p = {...DAY_DEFAULTS}, preset = null, hour = 0, result = null;
   let hashTimer = null, lastPriceSvg = '', lastStackSvg = '';
 
   const restored = decodeDayState(readHashState());
