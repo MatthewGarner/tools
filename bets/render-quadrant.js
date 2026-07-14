@@ -328,14 +328,23 @@ function renderWide(model, sim, ctx){
   const parts = [];
   const right = 930;
 
-  parts.push('<text x="30" y="52" font-family="Charter, Georgia, serif" font-size="24" fill="' + c.ink + '">' +
-    esc(model.title || 'Bets board') + '</text>');
-  parts.push(txt(30, 74, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
+  /* bare (poster-embed): same contract as the board — the frame owns the title,
+     the P(loses) headline and the net-EV line, so drop them and keep only the
+     bets strap. Without this the Quadrant poster printed the title twice and
+     P(loses) three times. Emit order is preserved for the non-bare path: the
+     goldens are a byte compare. */
+  const bare = !!ctx.bare;
+  if(!bare)
+    parts.push('<text x="30" y="52" font-family="Charter, Georgia, serif" font-size="24" fill="' + c.ink + '">' +
+      esc(model.title || 'Bets board') + '</text>');
+  parts.push(txt(30, bare ? 20 : 74, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
     10, c.muted, {mono: true, tracking: '0.05em'}));
-  parts.push(txt(right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
-  parts.push(txt(right, 72, 'NET EV ' + sgn(P.pf.p50) + ' · P10 ' + sgn(P.pf.p10) + ' · P90 ' + sgn(P.pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
+  if(!bare){
+    parts.push(txt(right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
+    parts.push(txt(right, 72, 'NET EV ' + sgn(P.pf.p50) + ' · P10 ' + sgn(P.pf.p10) + ' · P90 ' + sgn(P.pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
+  }
 
-  const panelTop = 90;
+  const panelTop = bare ? 36 : 90;
   const geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right - 4, plotY1: panelTop + 22 + 400,
     dark, rMin: 10, rMax: 30, nameSize: 12.5, microSize: nameOnly ? null : 10, tickSize: 9.5, axisTitleSize: 10.5,
     legendSize: 9.5, unit: model.unit, padX: 16, padTop: 16};

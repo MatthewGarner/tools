@@ -146,7 +146,9 @@ function posterData(){
   return {
     verdict: riskVerdict(sim, model, focusIdx),
     name: model.title || 'Risk transfer',
-    metrics: [sim.rows.length + (sim.rows.length === 1 ? ' structure' : ' structures'),
+    /* rows = the structures PLUS the merchant baseline, so counting rows would
+       claim one structure more than the model actually has */
+    metrics: [model.structures.length + (model.structures.length === 1 ? ' structure' : ' structures'),
               r.label + ' P50 ' + fmtUnit(r.p50, model.unit)],
   };
 }
