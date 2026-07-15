@@ -1,6 +1,7 @@
 # Public-on-GitHub docs, kept off the served site (tidiness, not security).
 ARCHITECTURE.md
 README.md
+DSL.md
 
 # Genuinely-private local files. Vercel's default upload set does NOT honour
 # .gitignore, so the documented prod-promote fallback (`npx vercel deploy --prod`
