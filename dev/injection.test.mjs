@@ -50,7 +50,8 @@ test('roadmap SPANS escape hostile titles in the range label, the run line and t
 
 test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropped/badge strings, in both card and flipped-to-list layouts', async () => {
   const {parse} = await import('../roadmap/parse.js');
-  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const {renderBoardDeck} = await import('../roadmap/render-board.js');
+  const {paletteColors} = await import('../roadmap/render-deck.js');
   /* headline: is user text that lands in the frame's standfirst — the one string
      on a deck the author writes freehand, so it gets the hostile treatment too */
   const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nheadline: ' + EVIL[1] + '\nNOW\n' +
@@ -61,7 +62,7 @@ test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropp
     badge: it => it.srcLine % 2 === 0 ? {kind: 'new', label: EVIL[3]} : {kind: 'moved', label: EVIL[4]},
     dropped: [EVIL[5], EVIL[1]],
   };
-  assertClean(renderDeck(m, {...ctx, diff}), 'roadmap-deck-board');
+  assertClean(renderBoardDeck(m, {...ctx, diff}, paletteColors(m, {...ctx, diff})), 'roadmap-deck-board');
 
   /* the same hostile strings again, but repeated enough times in one column to
      force the list-mode flip — a distinct rendering path with its own escaping
@@ -70,7 +71,8 @@ test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropp
   const flipDoc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
     Array.from({length: 20}, (_, i) => EVIL[i % EVIL.length].replace(/:/g, ';') + ' lane: item ' + i +
       ' -- ' + EVIL[(i + 2) % EVIL.length]).join('\n');
-  assertClean(renderDeck(parse(flipDoc), {...ctx, diff}), 'roadmap-deck-board-list');
+  const flipM = parse(flipDoc);
+  assertClean(renderBoardDeck(flipM, {...ctx, diff}, paletteColors(flipM, {...ctx, diff})), 'roadmap-deck-board-list');
 });
 
 test('roadmap DECK (register style) escapes hostile titles/notes/lanes + status washes + the NEW capsule, "was X" italic cell and struck DROPPED rows', async () => {

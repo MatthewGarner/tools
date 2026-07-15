@@ -48,6 +48,24 @@ export function wrapN(text, font, maxW, maxLines, measure){
   return kept;
 }
 
+/* Greedy "how many rows/cards fit" with a reserved chip budget — the terminal
+   rung of the overflow ladder, shared by card and list columns. Invariant
+   that makes containment provable: whenever the returned count is less than
+   heights.length, shown-height + gaps + chipReserve is still <= availH — so
+   the "+N more" chip the caller draws right after always lands in bounds. */
+export function capFit(heights, availH, gap, chipReserve){
+  const n = heights.length;
+  const total = heights.reduce((a, h) => a + h, 0) + Math.max(0, n - 1) * gap;
+  if(total <= availH) return n;
+  let acc = 0, shown = 0;
+  for(const h of heights){
+    if(acc + h + (shown ? gap : 0) + chipReserve > availH) break;
+    acc += h + (shown ? gap : 0);
+    shown++;
+  }
+  return shown;
+}
+
 /* capsule pill: tinted fill (house 12% tint via svg.js's tint()), contrast
    ink — render.js's local capsule, at deck scale. Never colour-alone: the
    label text always carries the word. */
