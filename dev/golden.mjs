@@ -197,6 +197,15 @@ for(const [k, src] of Object.entries(docs)){
   const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
     'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
   variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
+
+  /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
+     edit:false (the export/golden path — zero edit markup) so this golden
+     pins the LAYOUT (fixed live width, content-driven height, the light
+     frame, the hero zone + ranked rail) rather than the edit-only
+     affordances, which dev/injection.test.mjs exercises instead. */
+  const {renderFocusLive} = await import('../roadmap/render-focus.js');
+  const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
+  variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

@@ -84,8 +84,16 @@ const PAGES = {
      render-board.js gained renderBoardLive + paintBoardCard (columns-as-cards analogue
      of renderRegisterLive/paintRow), reached via render-deck.js's existing eager import
      of render-board.js — genuinely new first-load code, not creep. Actual load ~540.9k;
-     set with ~7k real headroom on purpose (see the "previous six raises" note above). */
-  'roadmap/index.html': 548_000,
+     set with ~7k real headroom on purpose (see the "previous six raises" note above).
+     548k -> 566k (2026-07-15, renderFocusLive — the focus deck's live-edit sibling):
+     render-focus.js gained renderFocusLive + paintFocusHeroCard + paintFocusRailRow
+     (the hero-plus-rail analogue of renderBoardLive/paintBoardCard, plus a compact
+     ranked-row paint the other two live views don't have), reached via
+     render-deck.js's existing eager import of render-focus.js — genuinely new
+     first-load code, not creep. Actual load ~557.9k; set with ~8k real headroom on
+     purpose (see the "previous six raises" note above for why thin headroom is a
+     trap — this is now the fourth consecutive live-view raise on this page). */
+  'roadmap/index.html': 566_000,
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
