@@ -118,8 +118,17 @@ test('roadmap REGISTER LIVE escapes a hostile horizons: line, edit:true (flows i
 test('roadmap BOARD LIVE escapes hostile titles/notes/lanes/statuses, edit:true (the only place board edit markup renders)', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const doc = 'title: <x>\nNOW\n"><script>: Core "><img src=x>\nGrowth: Note item -- </text><a>\nNEXT\nGrowth: <b>later</b>';
+  const doc = 'style: board\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
+      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
   assertClean(renderBoardLive(parse(doc), {...ctx, edit: true}), 'board-live-edit');
+});
+
+test('roadmap BOARD LIVE escapes a hostile horizons: line, edit:true (flows into data-col + the +add aria-label)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const doc = 'style: board\ndate: 2026-07-06\nhorizons: ' + EVIL[0] + ', ' + EVIL[1] + '\n' + EVIL[0] + '\nCore: item one\n' + EVIL[1] + '\n';
+  assertClean(renderBoardLive(parse(doc), {...ctx, edit: true}), 'board-live-horizons-edit');
 });
 
 test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {

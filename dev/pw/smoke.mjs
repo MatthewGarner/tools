@@ -816,6 +816,17 @@ for(const theme of ['light', 'dark']){
   check('roadmap: a plain doc (no style:) renders the CHART by default, not board-live',
     (await page.locator('#preview svg [data-cell]').count()) >= 1 &&
     (await page.locator('#preview svg [data-hdrop]').count()) === 0);
+  // the picker chip reflects the EXPORT style (effectiveStyle), so Board lights on
+  // a plain doc even though the preview is the chart — the deliberate seam.
+  check('roadmap: the Board chip lights on a plain doc (reflects the export style)',
+    await page.locator('#stylepicker [data-style="board"]').evaluate(el => el.classList.contains('on')));
+  // the headline journey (2026-07-15 fix): clicking the lit Board chip on a plain
+  // doc writes style:board and switches the preview from the chart to the live board.
+  await page.locator('#stylepicker [data-style="board"]').click();
+  await page.waitForTimeout(400);
+  check('roadmap: clicking Board on a plain doc switches the preview to the live board',
+    (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-cell]').count()) === 0);
 
   await page.locator('#stylepicker [data-style="register"]').click();
   await page.waitForTimeout(400);
