@@ -5,6 +5,7 @@
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, txt, tint} from '../assets/svg.js';
 import {fmtDay, STATUSES} from './parse.js';
+import {mergeBias} from './mergebias.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -97,7 +98,8 @@ export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFo
 
 /* plain-text mirror of the SVG's "one quotable line" readout — the HTML text
    app.js shows next to the diagram. Pure; same inputs render() itself uses. */
-export function timelineReadout(model, today){
+/* the "Next up / Widest whisker" operational bits (the pre-merge readout) */
+function restBits(model, today){
   const items = model.items;
   const upcoming = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0];
   const ranged = items.filter(i => !i.single);
@@ -114,6 +116,32 @@ export function timelineReadout(model, today){
   return bits.join('  ');
 }
 
+/* the merge-bias verdict copy — full (DOM / poster hero, wraps) + short (in-chart). */
+function mergeCopy(mb){
+  const pc = p => Math.round(p * 100) + '%';
+  const later = mb.d80 - mb.byDate;
+  const laterStr = later < 7 ? Math.round(later) + (Math.round(later) === 1 ? ' day' : ' days') : wk(later);
+  const tail = mb.excludedSingle ? ' · ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
+  const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtDay(mb.byDate) +
+    ' — even the last is a coin flip, so together ' + pc(mb.pAll) + '. For 80% joint confidence, promise ' +
+    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail;
+  const short = 'Merge risk: all ' + mb.rangedLanes + ' lanes by ' + fmtDay(mb.byDate) + ' ≈ ' + pc(mb.pAll) +
+    ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
+  return {full, short};
+}
+
+/* plain-text mirror of the SVG readout (the DOM #verdict) — merge leads when present */
+export function timelineReadout(model, today){
+  const mb = mergeBias(model, today);
+  return [mb ? mergeCopy(mb).full : null, restBits(model, today)].filter(Boolean).join('  ');
+}
+
+/* the poster hero: the merge sentence alone when present (else the operational readout) */
+export function posterVerdict(model, today){
+  const mb = mergeBias(model, today);
+  return mb ? mergeCopy(mb).full : restBits(model, today);
+}
+
 export function render(model, ctx, diff = null, {edit = false} = {}){
   const {measure, slide = false, dark = false} = ctx;
   const bare = !!ctx.bare;            // poster-embed: drop chrome the frame owns
@@ -124,6 +152,17 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const S = slide ? T.slideScale : 1;
   const today = model.today ?? ctx.today;
   const items = model.items;
+
+  /* readout rows computed up front (H depends on the count): the merge-bias
+     short line leads when applicable, then the operational bits. Non-merge
+     models keep exactly one row ⇒ byte-identical to before. */
+  const mb = mergeBias(model, today);
+  const rowH = 22 * S;
+  const readoutRows = [];
+  { const rest = restBits(model, today);
+    if(mb) readoutRows.push(mergeCopy(mb).short);
+    if(rest) readoutRows.push(rest); }
+  const readoutExtra = Math.max(0, readoutRows.length - 1) * rowH;
 
   /* time domain: everything visible, today included */
   const lo0 = items.length ? Math.min(...items.map(i => i.p50), today) : today - 30;
@@ -184,7 +223,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const readoutY = plotBottom + 26 * S;
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15) * S : 0;
   const W = Math.round(plotX + plotW + T.pad * S);
-  const H = Math.round((bare ? plotBottom : readoutY + 24 * S) + droppedH + T.pad * S);
+  const H = Math.round((bare ? plotBottom : readoutY + 24 * S + readoutExtra) + droppedH + T.pad * S);
 
   const s = [];
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
@@ -318,21 +357,22 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     }
   }
 
-  /* readout: one quotable line */
-  const readoutLine = timelineReadout(model, today);
-  const bits = readoutLine ? [readoutLine] : [];
+  /* readout: the merge line (when applicable) then the operational bits, one
+     <text> per row so the long merge sentence never clips the SVG width */
   if(edit){
     s.push('<text data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add milestone"' +
       ' x="' + (W - T.pad * S) + '" y="' + readoutY + '" text-anchor="end" font-size="' +
       (T.labelSize * S) + '" fill="' + C.muted + '">＋ Add milestone</text>');
   }
-  if(!bare && bits.length){
-    s.push('<text x="' + T.pad * S + '" y="' + readoutY + '" font-family="' + F.serif +
-      '" font-size="' + T.readoutSize * S + '" font-weight="600" fill="' + C.ink + '">' +
-      esc(bits.join('  ')) + '</text>');
+  if(!bare){
+    readoutRows.forEach((row, i) => {
+      s.push('<text x="' + T.pad * S + '" y="' + (readoutY + i * rowH) + '" font-family="' + F.serif +
+        '" font-size="' + T.readoutSize * S + '" font-weight="600" fill="' + C.ink + '">' +
+        esc(row) + '</text>');
+    });
   }
   if(diff && diff.dropped.length){
-    let dy = readoutY + 22 * S;
+    let dy = readoutY + 22 * S + readoutExtra;
     s.push(txt(T.pad * S, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), T.droppedSize * S - 1, C.muted,
       {weight: 600, tracking: 1}));
     for(const label of diff.dropped){
