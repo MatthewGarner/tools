@@ -2,10 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {applies, validators, addItemLine, removeItemLine, moveHorizon, setStyle} from '../edit-targets.js';
 import {parse} from '../parse.js';
+import {moveItem} from '../edit.js';
 /* Every drag gesture is ONE text edit, committed as a single CodeMirror
    transaction — one undo step, URL-coherent, re-rendered by the normal loop.
    The renderer is never mutated as a model. */
 import {setSpan, setSpanStart, moveItemKeepingSpan} from '../edit-targets.js';
+import {setLane, addNote, addStatus, ensureHorizonHeader} from '../edit-targets.js';
 
 test('title rewrite keeps lane, status, note, link', () => {
   assert.equal(applies.title('Core: Streak freeze [doing] -- top request -> https://x', 'Streak freeze', 'Streak shield'),
@@ -233,4 +235,77 @@ test('two items with the SAME title in one lane cannot cross-wire', () => {
   const moved = parse(out).items.filter(i => i.title === 'Cleanup');
   assert.equal(moved.length, 2);
   assert.equal(moved.filter(i => i.span === 1).length, 1, 'the untouched twin keeps span 1');
+});
+
+/* ---- register cell edits: setLane / addNote / addStatus / ensureHorizonHeader ---- */
+
+const REG = 'horizons: Now, Next\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\nAlpha\n';
+
+/* ---- setLane ---- */
+test('setLane changes an existing lane prefix, keeping status and note', () => {
+  const out = setLane(REG, 2, 'Platform');
+  assert.match(out, /^Platform: Sync engine rewrite \[doing\] -- conflicts$/m);
+  assert.equal(parse(out).items[0].lane, 'Platform');
+});
+test('setLane ADDS a prefix to a laneless item', () => {
+  const out = setLane(REG, 3, 'Growth');
+  assert.match(out, /^Growth: Alpha$/m);
+});
+test('setLane("") CLEARS the prefix', () => {
+  assert.match(setLane(REG, 2, ''), /^Sync engine rewrite \[doing\] -- conflicts$/m);
+});
+test('setLane refuses a config-key name — it would eat the item and print it as a standfirst', () => {
+  for(const bad of ['Headline', 'headline', 'Title', 'style', 'Wip']){
+    const out = setLane(REG, 3, bad);
+    assert.equal(out, REG, bad + ' must be rejected as a lane (config-key collision, parse.js:121)');
+  }
+});
+test('setLane refuses brackets, a leading //, and a colon inside the name', () => {
+  for(const bad of ['a[b', 'x]y', '// note', 'Ship v2: done']){
+    assert.equal(setLane(REG, 3, bad), REG);
+  }
+});
+test('setLane will not CLEAR when the title itself contains ": " (would re-parse as a lane)', () => {
+  const laned = 'NOW\nCore: Ship v2: the sequel\n';
+  assert.equal(setLane(laned, 1, ''), laned, 'clearing would leave "Ship v2: the sequel" → re-lanes as "Ship v2"');
+});
+
+/* ---- addNote / addStatus (the empty-cell inserts the shipped appliers corrupt) ---- */
+test('addNote inserts " -- note" on a note-less item, before any -> url', () => {
+  assert.match(addNote('NOW\nCore: A -> https://x.test/y\n', 1, 'why it matters'),
+    /^Core: A -- why it matters -> https:\/\/x\.test\/y$/m);
+});
+test('addNote lands after an xN token and preserves the span (round-trips)', () => {
+  const out = addNote('horizons: quarterly from Q3 2026 x2\nQ3 2026\nCore: A x2\n', 2, 'note');
+  assert.match(out, /^Core: A x2 -- note$/m);
+  const it = parse(out).items[0];
+  assert.equal(it.span, 2);
+  assert.equal(it.note, 'note');
+});
+test('addStatus inserts a bracket status on a status-less item', () => {
+  assert.match(addStatus('NOW\nCore: A -- n\n', 1, 'risk'), /^Core: A \[risk\] -- n$/m);
+});
+test('addStatus rejects an unknown status', () => {
+  assert.equal(addStatus('NOW\nCore: A\n', 1, 'banana'), 'NOW\nCore: A\n');
+});
+
+/* ---- ensureHorizonHeader ---- */
+test('ensureHorizonHeader appends a missing horizon header at the end, and a subsequent moveItem lands in it', () => {
+  const text = 'NOW\nCore: A';
+  const model = parse(text);         // default horizons: Now, Next, Later — only NOW written
+  assert.equal(model.horizons[2], 'Later');
+  const out = ensureHorizonHeader(text, model, 2);
+  assert.match(out, /\nLater$/, 'header appended at the end');
+
+  const model2 = parse(out);
+  const item = model2.items[0];
+  const r = moveItem(out, model2, item.srcLine, {h: 2, lane: item.lane, beforeLine: null});
+  assert.ok(r, 'moveItem now finds the Later header and succeeds');
+  const moved = parse(r.text).items[0];
+  assert.equal(parse(r.text).horizons[moved.h], 'Later');
+});
+test('ensureHorizonHeader is a no-op when the header already exists', () => {
+  const text = 'NOW\nCore: A\nNEXT\nCore: B';
+  const model = parse(text);
+  assert.equal(ensureHorizonHeader(text, model, 1), text);
 });
