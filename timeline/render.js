@@ -49,6 +49,16 @@ const wk = days => {
   return w + (w === 1 ? ' week' : ' weeks');
 };
 
+/* the whisker band fill. Light: the shared 12% capsule tint (unchanged). Dark:
+   a stronger tint of the milestone colour over the lane card — 12% vanishes on
+   #1B242C (band-vs-card contrast 1.17); 0x47 (~28%) lifts it to ~1.47 while the
+   in-band ink title (7.4:1) and muted sub (~3.5:1) stay legible in both themes.
+   Non-6-digit colours fall back to the 'none' stroke, exactly as tint() does. */
+function whiskerFill(col, dark){
+  if(!dark) return tint(col);
+  return /^#[0-9a-fA-F]{6}$/.test(col) ? col + '47' : tint(col);
+}
+
 /* the dates/note sub-line under each label — the extent pass and the milestone
    loop measure this exact string (module-level so msLabelAnchor stays pure) */
 export function subOf(it){
@@ -268,7 +278,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       const bh = Math.min(T.rowH - 10, 15) * S;
       s.push('<rect data-ms="whisker" x="' + x50.toFixed(1) + '" y="' + (y - bh / 2).toFixed(1) +
         '" width="' + (x90 - x50).toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + (bh / 2).toFixed(1) +
-        '" fill="' + tint(col) + '"/>');
+        '" fill="' + whiskerFill(col, dark) + '"/>');
       s.push(diamond(x90, y, r * 0.8, C.card, col, ' data-ms="p90"'));
     }
     s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
