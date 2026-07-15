@@ -4,6 +4,7 @@ import {wireExports} from '../assets/exports.js';
 import {renderDeck, effectiveStyle} from './render-deck.js';
 import {renderRegisterLive} from './render-register.js';
 import {renderBoardLive} from './render-board.js';
+import {renderFocusLive, focusHeroIndex} from './render-focus.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -18,7 +19,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -164,6 +165,7 @@ function doRefresh(){
     const svg = narrow ? render(model, {...liveCtx, width: w})
       : model.style === 'register' ? renderRegisterLive(model, liveCtx)
       : model.style === 'board' ? renderBoardLive(model, liveCtx)
+      : model.style === 'focus' ? renderFocusLive(model, liveCtx)
       : render(model, {...liveCtx, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
@@ -222,18 +224,34 @@ function itemMenu(m, srcLine){
         commit: {kind: 'setspan', line: srcLine, oldRaw: '', value: String(k + 1)},
       }))
     : [];
-  const rows = [
-    {label: 'Rename…', opens: 'title'},
-    {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
-    {label: 'Status…', opens: 'status'},        // dead when the item has no status
-  ];
-  /* Register + board only: the lane cell/tag (data-edit="lane") is reachable by a
-     direct tap on a fine pointer, but coarse pointers (iPad ≥520px) reroute every
-     in-card field tap to this menu instead — without a row here, the lane field
-     would be unreachable on those devices. The chart carries no data-edit="lane"
-     target at all (no lane column), so an `opens` row there would resolve to
-     nothing. */
-  if(m && (m.style === 'register' || m.style === 'board')) rows.push({label: 'Lane…', opens: 'lane'});
+  /* Focus hero vs rail (Matt's "clean rail + Status submenu" call, Task 5): the
+     HERO card carries the full set of inline edit targets (title/note/status/lane,
+     paintFocusHeroCard), same as a register/board card. The RAIL row is a clean
+     ranked index (paintFocusRailRow) — title only, no inline status/lane/note
+     targets — so a rail item's "Status…" can't `opens:'status'` (there is no
+     target to find) and Lane…/Edit note… rows would be permanently dead. Instead
+     the rail gets a Status… SUBMENU of the four statuses that commits directly,
+     the same commit-row machinery the card-menu programme already ships (e.g.
+     "Move to…" below). Clearing a rail item's status is out of scope for v1 —
+     promote it to the hero, whose inline status editor clears. */
+  const focusRail = m && m.style === 'focus' && item && item.h !== focusHeroIndex(m);
+  const statusRow = focusRail
+    ? {label: 'Status…', submenu: EDIT_STATUSES.map(st => ({
+        label: STATUS_LABEL[st] || st, on: item && item.status === st,
+        commit: {kind: 'status', line: srcLine, oldRaw: (item && item.status) || '', value: st},
+      }))}                                          // rail: a submenu, no inline target
+    : {label: 'Status…', opens: 'status'};          // hero/register/board: the inline target
+  const rows = focusRail
+    ? [{label: 'Rename…', opens: 'title'}, statusRow]                                     // clean rail
+    : [{label: 'Rename…', opens: 'title'}, {label: 'Edit note…', opens: 'note'}, statusRow];
+  /* Register + board + focus-HERO only: the lane cell/tag (data-edit="lane") is
+     reachable by a direct tap on a fine pointer, but coarse pointers (iPad ≥520px)
+     reroute every in-card field tap to this menu instead — without a row here, the
+     lane field would be unreachable on those devices. The chart carries no
+     data-edit="lane" target at all (no lane column), so an `opens` row there would
+     resolve to nothing — same reason the rail (no lane target either) is excluded. */
+  if(m && (m.style === 'register' || m.style === 'board' || (m.style === 'focus' && !focusRail)))
+    rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
   rows.push({label: 'Remove item', action: true, danger: true});
@@ -252,14 +270,14 @@ attachEditInPlace($('preview'), {
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
       let text = editor.getText();
-      /* register + board only: their horizon groups are synthesised even when the
-         source has no header line for them (the common default Now/Next/Later case
-         where only NOW is ever written) — addItemLine can't find a line to anchor
-         after, and misfiles the new item into whatever section happens to sit last
-         in the file. Give the target horizon a real header first; ensureHorizonHeader
-         is a no-op when the line already exists, and appending at the end never
-         shifts any other item's srcLine. */
-      if(model && (model.style === 'register' || model.style === 'board')){
+      /* register + board + focus only: their horizon groups are synthesised even
+         when the source has no header line for them (the common default Now/Next/
+         Later case where only NOW is ever written) — addItemLine can't find a line
+         to anchor after, and misfiles the new item into whatever section happens to
+         sit last in the file. Give the target horizon a real header first;
+         ensureHorizonHeader is a no-op when the line already exists, and appending
+         at the end never shifts any other item's srcLine. */
+      if(model && (model.style === 'register' || model.style === 'board' || model.style === 'focus')){
         const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(el.dataset.col).toLowerCase());
         if(hIdx >= 0) text = ensureHorizonHeader(text, model, hIdx);
       }
@@ -332,7 +350,8 @@ function plainStyleSvg(){
      downloads the chart (not board-live), exactly as it renders. */
   if(model.style === 'register') return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
   if(model.style === 'board') return renderBoardLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
-  return render(model, base);                                                                        // plain / grid / focus → the chart
+  if(model.style === 'focus') return renderFocusLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
+  return render(model, base);                                                                        // plain / grid → the chart
 }
 /* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
    16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
@@ -513,10 +532,11 @@ function hbandAt(cx, cy){
     if(el.matches && el.matches('#preview svg rect[data-hdrop]')) return +el.dataset.hdrop;
   return null;
 }
-/* the horizon-band drag serves the live band-compositions (register + board) and
-   only when EXPLICITLY selected — a plain doc renders the chart, whose drag is the
-   lane×horizon cell path (cellAt), not the band path. Lockstep with doRefresh. */
-const inBandView = () => model && (model.style === 'register' || model.style === 'board');
+/* the horizon-band drag serves the live band-compositions (register + board +
+   focus) and only when EXPLICITLY selected — a plain doc renders the chart, whose
+   drag is the lane×horizon cell path (cellAt), not the band path. Lockstep with
+   doRefresh (focus drags rail↔hero via its own data-hdrop bands, same mechanism). */
+const inBandView = () => model && (model.style === 'register' || model.style === 'board' || model.style === 'focus');
 function clearHover(){
   if(drag.hover){
     drag.hover.el.setAttribute('fill', 'transparent');
@@ -711,6 +731,27 @@ window.addEventListener('pointercancel', () => { if(drag.armed || drag.edge) end
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
 }, true);
+
+/* the focus lens: a rail header (data-lens="<horizon>") commits focus:<horizon> —
+   a plain click, not edit-in-place, so it needs its own handler + keyboard mirror
+   (eip's Enter/Space shell only fires for [data-edit], and the header carries
+   neither [data-edit] nor sits inside a [data-menu] cardmenu group, so there is no
+   collision with either). The capture-phase suppressClick handler above still
+   guards a drag-ended click — it stops the event before it ever reaches this
+   bubble-phase listener, same as it already does for edit-in-place. */
+function commitLens(name){
+  const cur = editor.getText(), next = setFocus(cur, name);
+  if(next !== cur) editor.setText(next);   // guard: naming the current hero is a no-op
+}
+$('preview').addEventListener('click', e => {
+  const lens = e.target.closest && e.target.closest('[data-lens]');
+  if(lens){ e.preventDefault(); commitLens(lens.dataset.lens); }
+}, false);
+$('preview').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const lens = e.target.closest && e.target.closest('[data-lens]');
+  if(lens){ e.preventDefault(); commitLens(lens.dataset.lens); }
+});
 
 /* ---------- theme change → re-render ---------- */
 function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
