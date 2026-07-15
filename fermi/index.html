@@ -121,6 +121,14 @@
   .cfrow .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:15px}
   .cfrow .del:hover{color:var(--err)}
   .cftail{color:var(--muted);font-size:12.5px;margin:8px 0 0}
+  #cfdebtbox{margin:14px 0 0;padding-top:14px;border-top:1px solid var(--border)}
+  .cfdebttoggle{display:inline-flex;gap:9px;align-items:center;font-size:14px;font-weight:600;
+    color:var(--ink);cursor:pointer;min-height:24px}
+  .cfdebttoggle input{width:18px;height:18px;flex:none}
+  .cfdebttoggle .note{color:var(--muted);font-weight:500}
+  #cfdebtfields{margin-top:12px}
+  #cfcase{font-size:14px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;
+    background:var(--bg);color:var(--ink);font-family:inherit}
   #cfwrap svg{display:block;width:100%;height:auto;margin-top:6px}
   .viewseg button{border:none;background:none;color:var(--muted);cursor:pointer;
     font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
@@ -226,6 +234,16 @@
         <span class="note" id="cftailnote"></span>
       </div>
       <p class="cftail">Each range is a 90% interval for that period's net cashflow. t0 is the investment (negative) or starting cash (positive); periods beyond the last row repeat its range, resampled each run.</p>
+      <div id="cfdebtbox" hidden>
+        <label class="cfdebttoggle"><input type="checkbox" id="cfdebton"> Size debt against this cashflow<span class="note"> — levered vs unlevered IRR</span></label>
+        <div class="cfmeta" id="cfdebtfields" hidden>
+          <label>Target DSCR <input id="cfdscr" inputmode="decimal" aria-label="Target DSCR"></label>
+          <label>Cost of debt %/yr <input id="cfrd" inputmode="decimal" aria-label="Cost of debt percent per year"></label>
+          <label>Tenor <input id="cften" type="number" min="1" max="60" placeholder="auto" aria-label="Debt tenor in periods"></label>
+          <label>Size off <select id="cfcase" aria-label="Sizing case"><option value="central">Central (P50)</option><option value="downside">Downside (P90 exceedance)</option></select></label>
+        </div>
+        <p class="cftail">Senior debt sculpted to a target DSCR, fixed at close, then revenue varies against it. Only shows for an investment (money out then in).</p>
+      </div>
     </div>
   </section>
 
