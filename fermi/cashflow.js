@@ -4,7 +4,7 @@
    The cumulative band and payback/cash-out are UNDISCOUNTED — only NPV and IRR
    touch the discount rate. */
 import {mulberry32, gaussian, quantile} from '../assets/series.js';
-import {samplerFor, Z90} from './engine.js';
+import {samplerFor, Z90, irrOf} from './engine.js';
 
 const mid = p => (p.lo + p.hi) / 2;
 
@@ -71,22 +71,3 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
   };
 }
 
-/* IRR of one sampled flow vector: bisection on NPV(r) over (−0.99, 10];
-   null when the endpoints don't bracket a root (e.g. flows never change sign). */
-function irrOf(flows, horizon){
-  const f = r => {
-    const d = 1 / (1 + r);
-    let acc = 0;
-    for(let t = horizon; t >= 0; t--) acc = acc * d + flows[t];
-    return acc;
-  };
-  let lo = -0.9899, hi = 10;
-  let flo = f(lo), fhi = f(hi);
-  if(!(isFinite(flo) && isFinite(fhi)) || flo * fhi > 0) return null;
-  for(let i = 0; i < 60; i++){
-    const m = (lo + hi) / 2, fm = f(m);
-    if(fm === 0) return m;
-    if(flo * fm < 0){ hi = m; fhi = fm; } else { lo = m; flo = fm; }
-  }
-  return (lo + hi) / 2;
-}
