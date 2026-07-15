@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname, join} from 'node:path';
-import {SHARDS, ALL_SUITES} from './pw/shards.mjs';
+import {SHARDS, ALL_SUITES, SUITE_SECONDS} from './pw/shards.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(here, 'pw', 'package.json'), 'utf8'));
@@ -27,6 +27,14 @@ test('no suite is assigned to two shards', () => {
 
 test('every sharded suite file exists', () => {
   for(const s of ALL_SUITES) assert.ok(existsSync(join(here, 'pw', s)), 'missing suite file: ' + s);
+});
+
+test('SUITE_SECONDS has a duration hint for every verify suite (the --jobs pool schedules longest-first)', () => {
+  for(const s of verifySuites)
+    assert.ok(typeof SUITE_SECONDS[s] === 'number', 'dev/pw/shards.mjs SUITE_SECONDS is missing a hint for ' + s +
+      ' — add its approx CI seconds so the local --jobs pool orders it');
+  for(const k of Object.keys(SUITE_SECONDS))
+    assert.ok(verifySuites.includes(k), 'SUITE_SECONDS names a non-suite: ' + k);
 });
 
 test('each shard declares chromium (optionally + webkit), nothing else', () => {
