@@ -146,6 +146,16 @@ for(const [k, src] of Object.entries(docs)){
   /* GRID: a quarterly (time-axis) doc — style: grid is also the DEFAULT here
      (no style: line needed) since genHorizons sets model.timeAxis. */
   variants['deck-grid'] = renderDeck(parse(docs.quarterly), {...ctxBase});
+
+  /* REGISTER LIVE (Task 4): the editable-table preview paint, captured at
+     edit:false (the export/golden path — zero edit markup) so this golden
+     pins the LAYOUT (fixed live width, content-driven height, the light
+     frame, the column header row, one section per horizon) rather than the
+     edit-only affordances, which dev/injection.test.mjs exercises instead. */
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
+    'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
+  variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

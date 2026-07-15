@@ -72,8 +72,15 @@ const PAGES = {
      genuinely new code, not creep, and tipped the page 67B over on their own — the
      "real headroom" above was already down to ~4k after the previous raise. Expect
      another raise when renderRegisterLive lands (the register deck's live-edit
-     renderer, tracked separately) — noted here so that one isn't a surprise. */
-  'roadmap/index.html': 516_000,
+     renderer, tracked separately) — noted here so that one isn't a surprise.
+     516k -> 533k (2026-07-15, renderRegisterLive — the flagged raise above landed):
+     the register's LIVE editable-table renderer (render-register.js: renderRegisterLive
+     + paintRow + cellText + statusWithTarget) plus its column-model sibling
+     (deck-parts.js: registerColumnsLive) — genuinely new first-load code (this renderer
+     is reached from render-deck.js's existing eager import, same reasoning as the deck
+     export above), not creep. Actual load ~525.4k; set with ~7.6k real headroom on
+     purpose (see the "previous six raises" note above for why thin headroom is a trap). */
+  'roadmap/index.html': 533_000,
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —

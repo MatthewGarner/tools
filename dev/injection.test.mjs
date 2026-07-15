@@ -97,6 +97,22 @@ test('roadmap DECK (register style) escapes hostile titles/notes/lanes + status 
     'roadmap-deck-register-dropped-cap');
 });
 
+test('roadmap REGISTER LIVE escapes hostile titles/notes/lanes/statuses, edit:true (the only place the edit markup renders)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const doc = 'style: register\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
+      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
+  assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-edit');
+});
+
+test('roadmap REGISTER LIVE escapes a hostile horizons: line, edit:true (flows into data-col + the +add aria-label)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const doc = 'style: register\ndate: 2026-07-06\nhorizons: ' + EVIL[0] + ', ' + EVIL[1] + '\n' + EVIL[0] + '\nCore: item one\n' + EVIL[1] + '\n';
+  assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-horizons-edit');
+});
+
 test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {renderDeck} = await import('../roadmap/render-deck.js');

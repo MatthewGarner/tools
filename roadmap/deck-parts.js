@@ -90,6 +90,16 @@ const REGISTER_COLS = [
   {key: 'note', label: 'NOTE', frac: 0.30},
 ];
 
+function columnsFor(used){
+  const total = used.reduce((a, c) => a + c.frac, 0) || 1;
+  let x = REGISTER_GEOM.M;
+  return used.map(c => {
+    const w = c.frac / total * REGISTER_GEOM.INNER;
+    const col = {key: c.key, label: c.label, x, w};
+    x += w;
+    return col;
+  });
+}
 export function registerColumns(model){
   const hasLane = model.lanes.some(l => l);
   const hasStatus = model.items.some(i => i.status);
@@ -99,14 +109,19 @@ export function registerColumns(model){
     (c.key === 'horizon' && model.horizons.length > 1) ||
     (c.key === 'status' && hasStatus) ||
     (c.key === 'note' && hasNote));
-  const total = used.reduce((a, c) => a + c.frac, 0) || 1;
-  let x = REGISTER_GEOM.M;
-  return used.map(c => {
-    const w = c.frac / total * REGISTER_GEOM.INNER;
-    const col = {key: c.key, label: c.label, x, w};
-    x += w;
-    return col;
-  });
+  return columnsFor(used);
+}
+/* LIVE variant (Task 4): an EDITABLE table needs the ADD affordance on lane/
+   status/note even when no row currently carries one — that's the whole
+   point of an empty-cell target ("+ lane" / "+ status" / "+ note"). So,
+   unlike the read-only deck export, those three columns are never dropped
+   for emptiness here. Horizon still drops at <=1 horizon (nothing to show
+   there — every row would repeat the same single name). Shares the deck's
+   fraction table and re-normalisation (columnsFor) so the two column sets
+   stay proportioned identically wherever they overlap. */
+export function registerColumnsLive(model){
+  const used = REGISTER_COLS.filter(c => c.always || c.key !== 'horizon' || model.horizons.length > 1);
+  return columnsFor(used);
 }
 
 export function registerRows(model){
