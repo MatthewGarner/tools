@@ -2,6 +2,7 @@
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {renderDeck, effectiveStyle} from './render-deck.js';
+import {renderRegisterLive} from './render-register.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -16,7 +17,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -131,6 +132,7 @@ function writeHash(){
   if(ws.collapsed()) state.e = 0;
   if(shouldPersist()) writeHashState(state);
 }
+const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
   const text = editor.getText();
   model = parse(text);
@@ -145,7 +147,12 @@ function doRefresh(){
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: renderWidth()});
+    const w = renderWidth();                       // number only <520, else undefined
+    const narrow = !!w && w < 520;
+    const view = effectiveStyle(model);
+    const svg = (!narrow && view === 'register')
+      ? renderRegisterLive(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()})
+      : render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
@@ -207,8 +214,14 @@ function itemMenu(m, srcLine){
     {label: 'Rename…', opens: 'title'},
     {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
     {label: 'Status…', opens: 'status'},        // dead when the item has no status
-    {label: 'Move to…', submenu: moveRows},
   ];
+  /* Register only: the lane cell (data-edit="lane") is reachable by a direct tap
+     on a fine pointer, but coarse pointers (iPad ≥520px) reroute every in-card
+     field tap to this menu instead — without a row here, the lane cell would be
+     unreachable on those devices. The chart carries no data-edit="lane" target at
+     all (no lane column), so an `opens` row there would resolve to nothing. */
+  if(m && effectiveStyle(m) === 'register') rows.push({label: 'Lane…', opens: 'lane'});
+  rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
   rows.push({label: 'Remove item', action: true, danger: true});
   return rows;
@@ -219,14 +232,29 @@ attachEditInPlace($('preview'), {
     title: {validate: eipValidators.title},
     note: {validate: eipValidators.note},
     status: {options: EDIT_STATUSES},
+    lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
     cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
-      const {afterLine} = addItemLine(editor.getText(), el.dataset.lane || null, el.dataset.col);
+      let text = editor.getText();
+      /* register only: its horizon groups are synthesised even when the source has
+         no header line for them (the common default Now/Next/Later case where only
+         NOW is ever written) — addItemLine can't find a line to anchor after, and
+         misfiles the new item into whatever section happens to sit last in the
+         file. Give the target horizon a real header first; ensureHorizonHeader is
+         a no-op when the line already exists, and appending at the end never
+         shifts any other item's srcLine. */
+      if(model && effectiveStyle(model) === 'register'){
+        const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(el.dataset.col).toLowerCase());
+        if(hIdx >= 0) text = ensureHorizonHeader(text, model, hIdx);
+      }
+      const {afterLine} = addItemLine(text, el.dataset.lane || null, el.dataset.col);
       const lane = el.dataset.lane;
-      editor.insertLinesAfter(afterLine, [lane ? lane + ': ' + newValue : newValue]);
+      const lines = text.split(/\r?\n/);
+      lines.splice(afterLine + 1, 0, lane ? lane + ': ' + newValue : newValue);
+      editor.setText(lines.join('\n'));   // one transaction → one undo step, even when a header was inserted too
       return;
     }
     if(kind === 'movehorizon'){
@@ -243,6 +271,21 @@ attachEditInPlace($('preview'), {
     }
     if(newValue === '✖Remove item'){
       if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
+      return;
+    }
+    if(kind === 'lane'){
+      const next = setLane(editor.getText(), lineNo, newValue);
+      if(next !== editor.getText()) editor.setText(next);
+      return;
+    }
+    if(kind === 'note' && !oldRaw){                 // adding a note where there was none
+      const next = addNote(editor.getText(), lineNo, newValue);
+      if(next !== editor.getText()) editor.setText(next);
+      return;
+    }
+    if(kind === 'status' && !oldRaw){               // setting a status where there was none
+      const next = addStatus(editor.getText(), lineNo, newValue);
+      if(next !== editor.getText()) editor.setText(next);
       return;
     }
     const line = editor.getLine(lineNo);
@@ -265,13 +308,19 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 }
 
 /* ---------- exports ---------- */
-const todayISO = () => new Date().toISOString().slice(0, 10);
-function svgString(slide){
+/* Download SVG/PNG = the current STYLE's plain, content-sized artefact (WYSIWYG),
+   independent of the preview: on a phone the preview falls back to the chart stack
+   but a register doc still exports the register table. Deck PNG / Copy PNG stay the
+   16:9 deck (renderDeck already picks by style). */
+function plainStyleSvg(){
   if(!model || !model.items.length) return null;
-  return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
+  const base = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()};
+  if(effectiveStyle(model) === 'register')
+    return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
+  return render(model, base);                                          // board/grid/focus → the chart
 }
 /* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
-   16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the raw chart. */
+   16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
 function deckSvgString(){
   if(!model || !model.items.length) return null;
   return renderDeck(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
@@ -281,7 +330,7 @@ function slug(){
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
-  getSvg: () => svgString(),
+  getSvg: () => plainStyleSvg(),
   getSvgSlide: () => deckSvgString(),
   getCopy: () => deckSvgString(),
   slug,
@@ -440,6 +489,16 @@ function cellAt(cx, cy){
   }
   return {el: cell, h: +h, lane, beforeLine: before};
 }
+/* register: the drop target is a horizon BAND; the item keeps its own lane.
+   The band is painted UNDER its rows (A2), so it's found by digging the
+   elementsFromPoint stack — same idiom as cellAt, not "on top" like a normal
+   hit target. */
+function hbandAt(cx, cy){
+  for(const el of document.elementsFromPoint(cx, cy))
+    if(el.matches && el.matches('#preview svg rect[data-hdrop]')) return +el.dataset.hdrop;
+  return null;
+}
+const inRegister = () => model && effectiveStyle(model) === 'register';
 function clearHover(){
   if(drag.hover){
     drag.hover.el.setAttribute('fill', 'transparent');
@@ -553,12 +612,25 @@ window.addEventListener('pointermove', e => {
   drag.ghost.style.left = (e.clientX + 12) + 'px';
   drag.ghost.style.top = (e.clientY + 14) + 'px';
   clearHover();
-  const cell = cellAt(e.clientX, e.clientY);
-  if(cell){
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
-    drag.hover = cell;
-    positionDropline(cell, drag.armed.line);
+  if(inRegister()){
+    /* register: no drop-line (there's no lane/order to preview — the row keeps
+       its own lane and lands at the end of the target horizon), just the band
+       highlight. */
+    const h = hbandAt(e.clientX, e.clientY);
+    if(h !== null){
+      const band = document.querySelector('#preview svg rect[data-hdrop="' + h + '"]');
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      band.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      drag.hover = {el: band, h, lane: null};
+    }
+  } else {
+    const cell = cellAt(e.clientX, e.clientY);
+    if(cell){
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      drag.hover = cell;
+      positionDropline(cell, drag.armed.line);
+    }
   }
 });
 window.addEventListener('pointerup', e => {
@@ -581,12 +653,32 @@ window.addEventListener('pointerup', e => {
   if(!drag.armed) return;
   const wasActive = drag.active;
   const src = drag.armed.line;
-  const cell = wasActive ? cellAt(e.clientX, e.clientY) : null;
+  const it = model && model.items.find(i => i.srcLine === src);
+  let target = null;
+  if(wasActive && inRegister() && it){
+    const h = hbandAt(e.clientX, e.clientY);
+    if(h !== null && h !== it.h) target = {h, lane: it.lane, beforeLine: null};   // keep the row's own lane
+  } else if(wasActive){
+    const cell = cellAt(e.clientX, e.clientY);
+    if(cell) target = {h: cell.h, lane: cell.lane, beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
+  }
   endDrag();
   if(wasActive) suppressClick = true;
-  if(!wasActive || !cell || !model) return;
-  const target = {h: cell.h, lane: cell.lane,
-    beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
+  if(!target || !model) return;
+  if(inRegister()){
+    /* the target horizon may have no header line yet (a synthesised empty
+       group in the default Now/Next/Later doc) — moveItem needs one to
+       anchor on; re-parse because the header may be new, but existing
+       srcLines are unshifted (ensureHorizonHeader appends at the END), so
+       `src` stays valid. */
+    const t = ensureHorizonHeader(editor.getText(), model, target.h);
+    const m2 = parse(t);
+    const r = moveItem(t, m2, src, target);
+    if(!r) return;
+    flipNext = true;
+    editor.setText(r.text);
+    return;
+  }
   const r = moveItem(editor.getText(), model, src, target);
   if(!r) return;
   flipNext = true;   // the post-drop re-render captures + glides cards into place (shared FLIP)

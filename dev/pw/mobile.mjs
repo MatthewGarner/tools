@@ -2,6 +2,7 @@
    Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
 import {chromium, devices} from 'playwright';
+import {readFile} from 'node:fs/promises';
 import {report} from './_harness.mjs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
@@ -312,6 +313,59 @@ for(const [name, url, chip] of WIDENED){
     moved.indexOf('NEXT') > moved.indexOf('NOW'),
     'roadmap: Move to… relocates the card into a different horizon on a coarse pointer');
   await page.close();
+}
+
+// roadmap register phone fallback + the mobile-export exception (Task 8): on a
+// phone-width `style: register` doc the preview falls back to the chart's narrow
+// STACK — the register table can't fit a phone — but Download SVG still exports
+// the REGISTER, because export is keyed off effectiveStyle, not the rendered
+// preview (the whole point of routing exports through plainStyleSvg).
+{
+  const doc = 'title: Habitat — Product Roadmap\nstyle: register\nhorizons: Now, Next, Later\n\n' +
+    'NOW\nCore: Streak freeze [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
+    'NEXT\nCore: Smart reminders\n\nLATER\nCore: Accountability circles';
+  const seed = {t: doc};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  // fresh context (explicit acceptDownloads) so the Download SVG blob is captured
+  const rctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce', acceptDownloads: true});
+  const page = await rctx.newPage();
+  await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+
+  // (1) FALLBACK: the preview is the chart's narrow STACK (g[data-line] cards),
+  // NOT the live register (whose edit-mode drop bands are data-hdrop). A7: the
+  // narrow chart emits no data-cell, so anchor on g[data-line] present +
+  // [data-hdrop] absent (the live register would carry the bands; the stack won't).
+  const fb = await page.evaluate(() => ({
+    lines: document.querySelectorAll('#preview svg g[data-line]').length,
+    hdrop: document.querySelectorAll('#preview svg [data-hdrop]').length,
+  }));
+  ok(fb.lines > 0, `roadmap: register on a phone falls back to the chart stack (${fb.lines} g[data-line] cards)`);
+  ok(fb.hdrop === 0, 'roadmap: register phone fallback is the chart, not the live register (no data-hdrop bands)');
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+  ok(docSW <= vw + 1, `roadmap: register phone fallback — no page-level h-scroll (${docSW} <= ${vw})`);
+  // the Register chip still reflects the RESOLVED style (syncStylePicker) even
+  // though the preview shows the stack — the doc is still a register doc.
+  const chipOn = await page.evaluate(() =>
+    !!document.querySelector('#stylepicker [data-style="register"].on'));
+  ok(chipOn, 'roadmap: Register chip stays active on a phone (the doc is still a register)');
+
+  // (2) THE MOBILE-EXPORT EXCEPTION (Matt's explicit requirement): Download SVG
+  // exports the REGISTER TABLE, not the chart the preview is showing. Read the
+  // downloaded blob and assert the register header (ITEM/HORIZON) is present and
+  // no data-cell (which would mean the chart leaked into the export).
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('#dlsvg'),
+  ]);
+  const svg = await readFile(await dl.path(), 'utf8');
+  ok(svg.includes('>ITEM<') && svg.includes('>HORIZON<'),
+    'roadmap: phone Download SVG exports the register table (ITEM/HORIZON header), not the stack');
+  ok(!svg.includes('data-cell'),
+    'roadmap: phone register export is the table, not the chart (no data-cell)');
+  await page.close();
+  await rctx.close();
 }
 
 // why OST narrow relayout gate (Task 4): on phone width the OST view must be

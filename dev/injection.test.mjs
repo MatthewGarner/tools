@@ -75,7 +75,8 @@ test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropp
 
 test('roadmap DECK (register style) escapes hostile titles/notes/lanes + status washes + the NEW capsule, "was X" italic cell and struck DROPPED rows', async () => {
   const {parse} = await import('../roadmap/parse.js');
-  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const {paletteColors} = await import('../roadmap/render-deck.js');
+  const {renderRegisterDeck} = await import('../roadmap/render-register.js');
   const doc = 'style: register\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
     EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
       (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
@@ -86,13 +87,30 @@ test('roadmap DECK (register style) escapes hostile titles/notes/lanes + status 
                  it.srcLine % 3 === 1 ? {kind: 'moved', label: EVIL[4]} : null,
     dropped: [EVIL[5], EVIL[1]],
   };
-  assertClean(renderDeck(m, {...ctx, diff}), 'roadmap-deck-register');
+  assertClean(renderRegisterDeck(m, {...ctx, diff}, paletteColors(m, {...ctx, diff})), 'roadmap-deck-register');
 
   /* enough dropped names to force the dropped section's own cap (capFit) —
      a distinct rendering path (the clipped struck title + DROPPED capsule
      placement loop) the small-dropped-list pass above never reaches. */
   const manyDropped = {...diff, dropped: Array.from({length: 15}, (_, i) => EVIL[i % EVIL.length] + ' dropped ' + i)};
-  assertClean(renderDeck(m, {...ctx, diff: manyDropped}), 'roadmap-deck-register-dropped-cap');
+  assertClean(renderRegisterDeck(m, {...ctx, diff: manyDropped}, paletteColors(m, {...ctx, diff: manyDropped})),
+    'roadmap-deck-register-dropped-cap');
+});
+
+test('roadmap REGISTER LIVE escapes hostile titles/notes/lanes/statuses, edit:true (the only place the edit markup renders)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const doc = 'style: register\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
+      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
+  assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-edit');
+});
+
+test('roadmap REGISTER LIVE escapes a hostile horizons: line, edit:true (flows into data-col + the +add aria-label)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const doc = 'style: register\ndate: 2026-07-06\nhorizons: ' + EVIL[0] + ', ' + EVIL[1] + '\n' + EVIL[0] + '\nCore: item one\n' + EVIL[1] + '\n';
+  assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-horizons-edit');
 });
 
 test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {

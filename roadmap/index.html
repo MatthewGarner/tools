@@ -53,7 +53,7 @@
           <tr><td><code>fade: off</code></td><td>disable the certainty fade on later columns</td></tr>
           <tr><td><code>palette: ember</code></td><td>diagram scheme — accent, background wash, card tint: <code>ocean</code> (default) · <code>slate</code> · <code>ember</code> · <code>plum</code></td></tr>
           <tr><td><code>accent: #C05621</code></td><td>any hex; derives a matching scheme (overrides palette)</td></tr>
-          <tr><td><code>style: focus</code></td><td>export deck layout — <code>board</code> (columns) · <code>focus</code> (hero + rail) · <code>register</code> (table) · <code>grid</code> (chart, deck-scaled); changes downloads/Copy PNG only, never the preview</td></tr>
+          <tr><td><code>style: focus</code></td><td>export deck layout — <code>board</code> (columns) · <code>focus</code> (hero + rail) · <code>register</code> (table) · <code>grid</code> (chart, deck-scaled); changes the export, and <code>register</code> also becomes a live editable view</td></tr>
           <tr><td><code>Core: Sync engine rewrite x3</code></td><td>the item runs for <strong>3 columns</strong> from the section it sits under — a duration, on a time axis only (<code>horizons: monthly/quarterly …</code>). Drag its edges to change start or end; drag its middle to move it with its length. Every column then shows how many items are <em>active</em> in it</td></tr>
           <tr><td><code>headline: We are betting on retention</code></td><td>the line under the title on the deck — yours to write, never generated (also the field above the preview). Omit it and the deck carries none</td></tr>
           <tr><td><code>NOW</code> / <code>NEXT</code> / <code>LATER</code></td><td>start a column section (a horizon name on its own line)</td></tr>
@@ -70,7 +70,7 @@
     <section class="stage">
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="actions">
-        <span class="method" id="stylelbl">Export style:</span>
+        <span class="method" id="stylelbl">View and export style:</span>
         <div class="stylepick" id="stylepicker" role="group" aria-labelledby="stylelbl">
           <button class="chip" data-style="board" aria-pressed="false">Board</button>
           <button class="chip" data-style="focus" aria-pressed="false">Focus</button>
@@ -91,7 +91,7 @@
         <button class="btn" id="snap">Snapshot</button>
         <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
         <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
-        <span class="method">Deck PNG and Copy PNG give the 16:9 deck in your chosen export style; SVG/PNG give the plain board · snapshot before each planning cycle to get the "what changed" slide · exports match the on-screen theme</span>
+        <span class="method">View + export style · Download SVG/PNG give this style; Deck PNG / Copy PNG give it as a 16:9 slide · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>
       </div>
     </section>
 </div>
@@ -104,6 +104,7 @@
     <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty — which is also why later columns fade slightly. See <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">Janna Bastow on inventing now/next/later</a>, and her <a href="https://www.prodpad.com/blog/timeline-roadmap-issues/" target="_blank" rel="noopener">case against timeline roadmaps</a>. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>) — the certainty fade applies just the same.</p>
     <p>The snapshot/compare feature exists because the most useful roadmap artefact isn't the roadmap — it's <em>what changed since last time</em>. Snapshot before each planning cycle; the comparison renders new, moved, and dropped items as an exportable slide.</p>
     <p>Exports leave at 16:9, because a roadmap's destination is almost always a deck: pick a structure with <code>style:</code> (columns, a hero for the current horizon, a formal register, or the chart itself), and colour still comes from <code>palette:</code>/<code>accent:</code> — a style owns structure, never colour. The headline under the title is the one thing the tool won't write for you. It could: the model knows which horizon is overloaded and what's at risk. But a headline is a claim you're making to a room, and a tool that drafts it for you has put words in your mouth — so <code>headline:</code> stays blank until you write it, and the deck simply omits it if you don't. The tool still tells <em>you</em> when Now is overloaded; it just says it in the editor, where an argument belongs, rather than on your slide.</p>
+    <p>The style picker does more than choose an export now: Register is a live view you edit in place. It renders as a spreadsheet — click a cell to change a title, note, status or lane, and drag a row to move its item to another horizon. Board and Grid stay the chart in the preview, because a table is the wrong shape for a swimlane. On a phone the register can't fit, so editing falls back to the card stack — Download still gives you whichever style you chose.</p>
     <p>A span (<code>x3</code>) means an item runs for that many columns straight — full occupancy, not a landing-date guess. That distinction is deliberate: honest uncertainty about <em>when</em> something lands is what <a href="/timeline/">Timeline</a> is for, with its own P50/P90 language; a span here says the opposite, that the work is committed and running for its whole length. Drag its edges to change how long it runs, or its middle to move it without changing the length. A span can also leave an item active in a column it was never written under, so the WIP guardrail now counts everything active in a column, not just what starts there — a crunch two quarters out, invisible before, now warns.</p>
     </div>
   </section>

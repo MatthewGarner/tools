@@ -114,6 +114,24 @@ for(const [k, src] of Object.entries(docs)){
   };
   variants['deck-register-diff'] = renderDeck(parse(registerDoc), {...ctxBase, diff: registerDiff});
 
+  /* Register byte-gate (2026-07-15): deck-register-diff carries a diff and is the
+     only register golden. Pin the shapes a live-view refactor could perturb —
+     no diff, dropped-column redistribution, the 8-horizon type ramp — BEFORE the
+     refactor, so "IDENTICAL" actually guards the export path. */
+  const regPlain = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\n' +
+    'NOW\nCore: Streak freeze [doing] -- shipping soon\nGrowth: Referral flow [risk]\n' +
+    'NEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done] -- eventually';
+  variants['deck-register'] = renderDeck(parse(regPlain), {...ctxBase});
+  /* laneless AND status-less AND note-less → LANE/STATUS/NOTE columns all drop */
+  const regDrop = 'title: Bare\nstyle: register\ndate: 2026-07-04\nNOW\nAlpha\nBeta\nNEXT\nGamma';
+  variants['deck-register-dropcol'] = renderDeck(parse(regDrop), {...ctxBase});
+  /* 8 horizons — the smallest type ramp / widest horizon set */
+  const reg8 = 'title: Long horizon\nstyle: register\ndate: 2026-07-04\n' +
+    'horizons: quarterly from Q1 2026 x8\n' +
+    Array.from({length: 8}, (_, i) => 'Q' + (i % 4 + 1) + ' ' + (2026 + Math.floor(i / 4)) +
+      '\nCore: Item ' + i + (i % 2 ? ' [doing]' : '')).join('\n');
+  variants['deck-register-8h'] = renderDeck(parse(reg8), {...ctxBase});
+
   /* FOCUS: an over-WIP Now (which the deck must NOT editorialise about — the
      breach is an editor warning, never a line on the slide) with enough items
      to force the 2-column hero (>=6) and a faded ranked rail. */
@@ -128,6 +146,16 @@ for(const [k, src] of Object.entries(docs)){
   /* GRID: a quarterly (time-axis) doc — style: grid is also the DEFAULT here
      (no style: line needed) since genHorizons sets model.timeAxis. */
   variants['deck-grid'] = renderDeck(parse(docs.quarterly), {...ctxBase});
+
+  /* REGISTER LIVE (Task 4): the editable-table preview paint, captured at
+     edit:false (the export/golden path — zero edit markup) so this golden
+     pins the LAYOUT (fixed live width, content-driven height, the light
+     frame, the column header row, one section per horizon) rather than the
+     edit-only affordances, which dev/injection.test.mjs exercises instead. */
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
+    'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
+  variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

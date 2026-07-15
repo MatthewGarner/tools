@@ -66,8 +66,21 @@ const PAGES = {
          phone run-line, and the pure rewrites in edit-targets.js.
      Set with real headroom on purpose: the previous six raises each left ~300B, so
      every subsequent commit tripped the gate and taught the next author to raise it
-     reflexively — which is how a budget stops being a budget. Actual load ~507.7k. */
-  'roadmap/index.html': 515_000,
+     reflexively — which is how a budget stops being a budget. Actual load ~507.7k.
+     515k -> 516k (2026-07-15, register model layer): the register table's pure cell
+     rewrites (setLane/addNote/addStatus/ensureHorizonHeader in edit-targets.js) are
+     genuinely new code, not creep, and tipped the page 67B over on their own — the
+     "real headroom" above was already down to ~4k after the previous raise. Expect
+     another raise when renderRegisterLive lands (the register deck's live-edit
+     renderer, tracked separately) — noted here so that one isn't a surprise.
+     516k -> 533k (2026-07-15, renderRegisterLive — the flagged raise above landed):
+     the register's LIVE editable-table renderer (render-register.js: renderRegisterLive
+     + paintRow + cellText + statusWithTarget) plus its column-model sibling
+     (deck-parts.js: registerColumnsLive) — genuinely new first-load code (this renderer
+     is reached from render-deck.js's existing eager import, same reasoning as the deck
+     export above), not creep. Actual load ~525.4k; set with ~7.6k real headroom on
+     purpose (see the "previous six raises" note above for why thin headroom is a trap). */
+  'roadmap/index.html': 533_000,
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
