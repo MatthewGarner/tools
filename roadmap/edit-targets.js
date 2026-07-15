@@ -118,6 +118,8 @@ export function setConfigKey(text, key, value){
   return lines.join('\n');
 }
 export const setStyle = (text, style) => setConfigKey(text, 'style', style);
+/* the focus style's lens — which horizon is the hero */
+export const setFocus = (text, name) => setConfigKey(text, 'focus', name);
 /* Newlines would forge extra DSL lines out of one field; the deck wraps to two
    lines by itself, so a headline is always exactly one source line. */
 export const setHeadline = (text, headline) =>
@@ -173,7 +175,7 @@ export function setSpanStart(text, srcLine, newH, model){
 
 /* Exported so a later validator (the register "lane" cell edit) can reuse the
    same config-key collision list rather than a second, driftable copy. */
-export const CONFIG_KEYS = /^(title|date|headline|horizons|wip|fade|palette|accent|style)$/i;
+export const CONFIG_KEYS = /^(title|date|headline|horizons|wip|fade|palette|accent|style|focus)$/i;
 
 /* peel the head of a line — the part before ` -- note` / ` -> url` — the same cut
    setSpan uses, so an inserted token/prefix lands in the right place. */

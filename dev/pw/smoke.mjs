@@ -864,6 +864,45 @@ for(const theme of ['light', 'dark']){
     !/data-cell/.test(brdSvg) && !/data-hdrop/.test(brdSvg) && !/data-edit=/.test(brdSvg));
   await page.waitForTimeout(300);
 
+  /* Focus view (Task 5): the live hero+rail lens, the lens click, WYSIWYG export.
+     A fresh doc (explicit style: focus — focus is never a default, so a plain doc
+     stays the chart per the Board lesson). Items resolved BY TITLE throughout, the
+     suite convention — a line number is a property of the example doc, not a
+     stable identity. */
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.insertText(
+    'title: Focus Test\nstyle: focus\nNOW\nCore: Alpha task\nNEXT\nCore: Beta task\nLATER\nCore: Gamma task');
+  await page.waitForTimeout(600);
+  check('roadmap: Focus view renders live (a drop band + a hero card menu + a rail lens)',
+    (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Alpha task'}).count()) >= 1 &&
+    (await page.locator('#preview svg [data-lens="Later"]').count()) >= 1);
+
+  // the lens: clicking a rail header commits focus:<horizon> into the doc AND
+  // switches the hero — the LATER item (Gamma task) now paints as a hero card.
+  await page.locator('#preview svg [data-lens="Later"]').click();
+  await page.waitForTimeout(600);
+  const focusSrc = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: clicking a rail lens commits focus: <horizon> into the doc text',
+    /^focus:\s*Later\s*$/mi.test(focusSrc || ''));
+  check('roadmap: the lens click switches the hero (Gamma task is now a hero card)',
+    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Gamma task'}).count()) >= 1);
+
+  // WYSIWYG export: Download SVG from Focus view yields the live focus artefact, not the chart
+  const [foc] = await Promise.all([
+    page.waitForEvent('download', {timeout: 8000}),
+    page.locator('#dlsvg').click(),
+  ]);
+  const focSvg = readFileSync(await foc.path(), 'utf8');
+  check('roadmap: Download SVG in Focus view exports the live focus artefact (hero + rail content, no chart data-cell, no edit markup)',
+    /Gamma task/.test(focSvg) && /LATER/.test(focSvg) &&
+    !/data-cell/.test(focSvg) && !/data-hdrop/.test(focSvg) && !/data-edit=/.test(focSvg));
+
+  // back to Board (the state the S4 loop below expects as its starting chip)
+  await page.locator('#stylepicker [data-style="board"]').click();
+  await page.waitForTimeout(400);
+
   /* export-style picker (S4): 4 chips, enabled once there's a preview, Board
      active by default (no style:, no time axis) */
   check('roadmap: style picker has 4 chips', await page.locator('#stylepicker [data-style]').count() === 4);

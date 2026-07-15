@@ -131,14 +131,30 @@ test('roadmap BOARD LIVE escapes a hostile horizons: line, edit:true (flows into
   assertClean(renderBoardLive(parse(doc), {...ctx, edit: true}), 'board-live-horizons-edit');
 });
 
+test('roadmap FOCUS LIVE escapes hostile titles/notes/lanes/statuses (hero + rail), a hostile horizons: line (data-col/data-lens), and a hostile compare diff (the moved-badge path is UNIQUE to render-focus.js — it bypasses badgeCapsule\'s upper-casing so "was X" stays readable — plus dropped-line titles)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderFocusLive} = await import('../roadmap/render-focus.js');
+  const doc = 'style: focus\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nhorizons: ' + EVIL[2] + ', ' + EVIL[3] + '\n' +
+    EVIL[2] + '\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length] +
+      (i % 2 === 0 ? ' [risk]' : ' [blocked]')).join('\n') +
+    '\n' + EVIL[3] + '\n' +
+    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: rail ' + label(i)).join('\n');
+  const m = parse(doc);
+  const diff = {since: EVIL[0], dropped: [EVIL[4], EVIL[1]], badge: it => ({kind: 'moved', label: EVIL[1]})};
+  assertClean(renderFocusLive(m, {...ctx, edit: true, diff}), 'focus-live-edit');
+});
+
 test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {
   const {parse} = await import('../roadmap/parse.js');
-  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const {renderFocusDeck} = await import('../roadmap/render-focus.js');
+  const {paletteColors} = await import('../roadmap/render-deck.js');
   const doc = 'style: focus\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
     EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length] +
       (i % 2 === 0 ? ' [risk]' : ' [blocked]')).join('\n') +
     '\nNEXT\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: rail ' + label(i)).join('\n');
-  assertClean(renderDeck(parse(doc), ctx), 'roadmap-deck-focus');
+  const m = parse(doc);
+  assertClean(renderFocusDeck(m, ctx, paletteColors(m, ctx)), 'roadmap-deck-focus');
 });
 
 test('roadmap DECK (grid style) escapes hostile titles/notes/lanes via the embedded chart (render.js\'s own escaping — called, never modified)', async () => {

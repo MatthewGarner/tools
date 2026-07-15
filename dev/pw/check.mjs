@@ -259,6 +259,142 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   await p.close();
 }
 
+// focus: the rail<->hero band drags (Task 6). A quarterly doc so Q3 2026 is
+// the hero (first non-empty horizon, no `focus:` key written) and Q4 2026 /
+// Q1 2027 are rail sections. Same band mechanism as register/board (data-hdrop,
+// painted UNDER its section's rows) but focus also lays a transparent
+// data-lens hit-rect OVER the header portion of that same band — the third
+// case below (Fable-flagged) proves hbandAt digs through that lens rect to
+// find the band underneath, so the header is not a dead drop zone. Rows
+// resolved BY TITLE, never data-line.
+const focusDragDoc =
+  'title: Focus drag test\n' +
+  'style: focus\n' +
+  'horizons: quarterly from Q3 2026 x4\n' +
+  '\n' +
+  'Q3 2026\n' +
+  'Core: Hero card A\n' +
+  'Growth: Hero card B\n' +
+  '\n' +
+  'Q4 2026\n' +
+  'Ops: Rail card to promote\n' +
+  'Core: Rail card headertest\n' +
+  '\n' +
+  'Q1 2027\n';
+
+// (a) drag a RAIL card onto the HERO band (data-hdrop="0", Q3 2026) — promoted
+// into the focused horizon, own lane preserved.
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(focusDragDoc);
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const hit = await rowOf('Rail card to promote').locator('rect[data-hit]').boundingBox();
+  const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();   // Q3 2026, the hero
+  await p.mouse.move(hit.x + 8, hit.y + 4);
+  await p.mouse.down();
+  await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const lines = tMove.split('\n');
+  const q3Idx = lines.findIndex(l => l.trim() === 'Q3 2026');
+  const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
+  const movedIdx = lines.findIndex(l => l.includes('Rail card to promote'));
+  check('focus: dragging a rail card onto the HERO band promotes it into the focused horizon',
+    movedIdx > q3Idx && movedIdx < q4Idx);
+  check('focus: the promoted card keeps its own lane', lines[movedIdx].trim() === 'Ops: Rail card to promote');
+  check('focus: no text selected after the promote drag', (await p.evaluate(() => window.getSelection().toString())) === '');
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus: one undo restores the pre-drag baseline (promote)', tUndo === baseline);
+  await p.close();
+}
+
+// (b) drag a HERO card onto a RAIL section's band (data-hdrop="1", Q4 2026) —
+// demoted out of the hero, own lane preserved.
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(focusDragDoc);
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const hit = await rowOf('Hero card B').locator('rect[data-hit]').boundingBox();
+  const band = await p.locator('#preview svg rect[data-hdrop="1"]').boundingBox();   // Q4 2026, a rail section
+  await p.mouse.move(hit.x + 8, hit.y + 4);
+  await p.mouse.down();
+  await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const lines = tMove.split('\n');
+  const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
+  const q1Idx = lines.findIndex(l => l.trim() === 'Q1 2027');
+  const movedIdx = lines.findIndex(l => l.includes('Hero card B'));
+  check('focus: dragging a hero card onto a RAIL section band demotes it out of the hero',
+    movedIdx > q4Idx && movedIdx < q1Idx);
+  check('focus: the demoted card keeps its own lane', lines[movedIdx].trim() === 'Growth: Hero card B');
+  check('focus: no text selected after the demote drag', (await p.evaluate(() => window.getSelection().toString())) === '');
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus: one undo restores the pre-drag baseline (demote)', tUndo === baseline);
+  await p.close();
+}
+
+// (c) Fable-flagged: drop a card OVER a rail HEADER ([data-lens="Q4 2026"]).
+// The header's own transparent hit-rect (for the click-to-lens gesture) sits
+// ON TOP of that same section's data-hdrop band (the band is painted first,
+// under the whole section including its header, per render-focus.js) — this
+// proves hbandAt's elementsFromPoint walk digs THROUGH the lens rect down to
+// the band, so the header is not a dead drop zone.
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(focusDragDoc);
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const hit = await rowOf('Hero card A').locator('rect[data-hit]').boundingBox();
+  const header = await p.locator('#preview svg [data-lens="Q4 2026"]').boundingBox();
+  await p.mouse.move(hit.x + 8, hit.y + 4);
+  await p.mouse.down();
+  await p.mouse.move(header.x + header.width / 2, header.y + header.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const lines = tMove.split('\n');
+  const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
+  const q1Idx = lines.findIndex(l => l.trim() === 'Q1 2027');
+  const movedIdx = lines.findIndex(l => l.includes('Hero card A'));
+  check('focus: dropping a card OVER a rail HEADER still lands in that section (hbandAt digs through the lens rect to the band)',
+    movedIdx > q4Idx && movedIdx < q1Idx);
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus: one undo restores the pre-drag baseline (drop-over-header)', tUndo === baseline);
+  await p.close();
+}
+
 // screenshots for the visual record
 await page.screenshot({path: 'parity-light.png', fullPage: true});
 await page2.screenshot({path: 'parity-dark.png', fullPage: true});

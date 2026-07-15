@@ -1146,6 +1146,191 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- roadmap: FOCUS — the live lens (Task 6). A quarterly doc so the rail
+   carries a WRITTEN horizon (Q4 2026, with items), a WRITTEN empty horizon
+   (Q1 2027, "Nothing scheduled" + add row) and a HEADERLESS horizon (Q2 2027,
+   no header line anywhere in the source) — the same headerless-horizon shape
+   A4 fixed for register/board, now proven on focus's own +add path. No
+   `focus:` key is written, so focusHeroIndex falls back to the first
+   NON-EMPTY horizon (Q3 2026) — the hero. Density is Matt's 2026-07-15 call
+   (see render-focus.js): the HERO card gets full inline edit targets
+   (title/note/status/lane), the RAIL row stays a clean ranked index (rename
+   only) with status reachable through a card-menu "Status…" submenu instead.
+   Rows/cards resolved by TITLE, never data-line. Each action gets its own
+   round trip: commit, assert, ONE Meta+z, assert full revert to the
+   pre-action baseline before the next action starts clean. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(
+    'title: Focus test\n' +
+    'style: focus\n' +
+    'horizons: quarterly from Q3 2026 x4\n' +
+    '\n' +
+    'Q3 2026\n' +
+    'Core: Hero rename target\n' +
+    'Lane-less hero target\n' +
+    'Core: Note-less hero target\n' +
+    'Core: Status-less hero target\n' +
+    '\n' +
+    'Q4 2026\n' +
+    'Core: Rail rename target\n' +
+    'Core: Rail status target\n' +
+    '\n' +
+    'Q1 2027\n');
+  await p.waitForTimeout(700);
+
+  const cardOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const tapCard = async title => {
+    const box = await cardOf(title).locator('rect[data-hit]').boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  // ================= HERO: full inline edit targets =================
+
+  // ---- rename via the hero card's title ----
+  await p.locator('[data-edit="title"]', {hasText: 'Hero rename target'}).first().click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Hero renamed OK');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus hero: title-cell rename lands in the source',
+    tRename.includes('Core: Hero renamed OK') && !tRename.includes('Hero rename target'));
+  await undo();
+  check('focus hero: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- tap the hero card's lane tag → set a lane (setLane) ----
+  await cardOf('Lane-less hero target').locator('[data-edit="lane"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Growth');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus hero: lane-tag edit adds "Lane: " to a laneless hero card', tLane.includes('Growth: Lane-less hero target'));
+  await undo();
+  check('focus hero: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- "+ note" on a note-less hero card (addNote) ----
+  await cardOf('Note-less hero target').locator('[data-edit="note"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('first note');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus hero: "+ note" adds " -- " to a note-less hero card', tNote.includes('Core: Note-less hero target -- first note'));
+  await undo();
+  check('focus hero: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- "+ status" on a status-less hero card (addStatus) ----
+  await cardOf('Status-less hero target').locator('[data-edit="status"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'risk'}).click();
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus hero: "+ status" adds "[status]" to a status-less hero card', tStatus.includes('Core: Status-less hero target [risk]'));
+  await undo();
+  check('focus hero: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ================= RAIL: clean index (rename only) + Status… submenu =================
+
+  // ---- rename via the rail row's title ----
+  await p.locator('[data-edit="title"]', {hasText: 'Rail rename target'}).first().click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Rail renamed OK');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRailRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus rail: title-cell rename lands in the source',
+    tRailRename.includes('Core: Rail renamed OK') && !tRailRename.includes('Rail rename target'));
+  await undo();
+  check('focus rail: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- the clean rail: no inline status/lane/note target on a rail row ----
+  const railLine = await cardOf('Rail status target').getAttribute('data-line');
+  check('focus rail: no inline status target on a rail row (clean index)',
+    (await p.locator('[data-line="' + railLine + '"][data-edit="status"]').count()) === 0);
+  check('focus rail: no inline lane target on a rail row (clean index)',
+    (await p.locator('[data-line="' + railLine + '"][data-edit="lane"]').count()) === 0);
+  check('focus rail: no inline note target on a rail row (clean index)',
+    (await p.locator('[data-line="' + railLine + '"][data-edit="note"]').count()) === 0);
+
+  // ---- the rail row's card menu → Status… submenu → "At risk" (the submenu commit path) ----
+  await tapCard('Rail status target');
+  await p.waitForTimeout(200);
+  check('focus rail: the card menu offers a Status… submenu row (no inline status target to open)',
+    (await p.locator('.eip-pop button').allInnerTexts()).includes('Status…'));
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  await p.waitForTimeout(200);
+  check('focus rail: the Status… submenu lists the four statuses by their labels',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Done|In progress|At risk|Blocked');
+  await p.locator('.eip-pop button', {hasText: 'At risk'}).click();
+  await p.waitForTimeout(600);
+  const tRailStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus rail: Status… → At risk commits "[risk]" onto the rail item\'s own line (submenu commit path)',
+    tRailStatus.includes('Core: Rail status target [risk]'));
+  await undo();
+  check('focus rail: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ================= LENS: a rail header commits focus: and re-heros =================
+
+  // ---- click a rail header → focus: <horizon> is written, and that horizon's
+  // items become hero cards (full inline edit targets, e.g. a "+ note" ghost
+  // that a rail row never carries) ----
+  check('focus lens: baseline has no focus: key yet', !baseline.includes('focus:'));
+  await p.locator('[data-lens="Q4 2026"]').click();
+  await p.waitForTimeout(600);
+  const tLens = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus lens: clicking a rail header writes focus: <horizon>', /focus:\s*Q4 2026/.test(tLens));
+  check('focus lens: the newly-focused horizon\'s items render as hero cards (gain a note edit target)',
+    (await cardOf('Rail rename target').locator('[data-edit="note"]').count()) === 1);
+  await undo();
+  check('focus lens: one undo restores the pre-lens baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- keyboard path: focus (Tab-equivalent) a rail header, then press Enter — same commit ----
+  await p.locator('[data-lens="Q1 2027"]').focus();
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tLensKb = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus lens: Enter on a focused rail header also commits focus: (keyboard path)',
+    /focus:\s*Q1 2027/.test(tLensKb));
+  await undo();
+  check('focus lens: one undo restores the pre-keyboard-lens baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- "＋ add" into a HEADERLESS rail horizon (Q2 2027 has no header line
+  // anywhere in the source) — proves ensureHorizonHeader is wired into
+  // focus's own +add path too, not just register/board's ----
+  const preAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus rail: baseline is restored and Q2 2027 has no literal header yet',
+    preAdd === baseline && !preAdd.includes('Q2 2027'));
+  await p.locator('[data-edit="additem"][data-col="Q2 2027"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('New headerless rail item');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('focus rail: the missing Q2 2027 header is created and the item lands right after it',
+    /Q2 2027\s*\nNew headerless rail item/.test(tAdd));
+  check('focus rail: the new item renders as a rail row, filed under Q2 2027 (not lost)',
+    (await cardOf('New headerless rail item').count()) === 1);
+  await undo();
+  check('focus rail: one undo removes BOTH the synthesised header and the item (one transaction)',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('focus: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
 /* ---- roadmap: the Lane… row must NOT appear on a plain now/next/later CHART
    doc (no style: line → the chart, the default working surface). The chart has
    no data-edit="lane" target at all, so an `opens` row there would resolve to

@@ -110,7 +110,7 @@ export function wipBreaches(model){
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, timeAxis:false};
+    style:null, focus:undefined, timeAxis:false};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -118,7 +118,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|horizons|wip|fade|palette|accent|style)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|horizons|wip|fade|palette|accent|style|focus)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].trim();
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
@@ -153,6 +153,7 @@ export function parse(text){
         if(DECK_STYLES.includes(st)) model.style = st;
         else model.warnings.push('line ' + (ln+1) + ': unknown style "' + snippet(val) + '" — use ' + DECK_STYLES.join(' / '));
       }
+      else if(key === 'focus') model.focus = val || undefined;
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
@@ -182,7 +183,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|horizons|wip|fade|palette|accent|style)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|horizons|wip|fade|palette|accent|style|focus)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;
