@@ -114,4 +114,22 @@ test('known-value: deterministic ranges give hand-checkable D AND levered output
   let npv = 0; for(let t = 0; t <= H; t++) npv += eqCF[t] / Math.pow(1.10, t);
   assert.ok(Math.abs(s.debt.eqNpv.p50 - npv) < 5, 'eqNpv ' + s.debt.eqNpv.p50 + ' vs ' + npv);
   assert.equal(s.debt.tStar, 1);
+  assert.equal(s.debt.levIrr.undefinedShare, 0);           // stale-copy-by-one would NaN trial 0 (Fable M3)
+  assert.equal(s.debt.levIrr.p10, s.debt.levIrr.p90);      // identical trials ⇒ exact equality (no trial-shift)
+});
+
+test('monthly grain: levered eqNpv/levIrr use per-month discounting + annualisation (Fable I2)', () => {
+  const H = 12, V = 300e3, dscr = 1.3, cod = 0.065, rate = 12;
+  const rdM = Math.pow(1 + cod, 1 / 12) - 1, reM = Math.pow(1 + rate / 100, 1 / 12) - 1;
+  const ds = V / dscr;
+  let D = 0; for(let k = 0; k < H; k++) D += ds / Math.pow(1 + rdM, k);   // tenor 12, k = t−1
+  const Ddrawn = D / (1 + rdM);                                          // one construction month
+  const eqCF = [-5e6 + Ddrawn, ...Array(H).fill(V - ds)];
+  let npv = 0; for(let t = 0; t <= H; t++) npv += eqCF[t] / Math.pow(1 + reM, t);
+  const levAnnual = Math.pow(1 + irrOf(eqCF, H), 12) - 1;
+  const s = simulateCashflow({periods: [fixed(-5e6), ...Array(H).fill(fixed(V))], horizon: H,
+    grain: 'month', rate: fixed(rate), debt: {dscr, costOfDebt: cod, sizingCase: 'central'}});
+  assert.ok(Math.abs(s.debt.D - D) < 5, 'D ' + s.debt.D + ' vs ' + D);
+  assert.ok(Math.abs(s.debt.eqNpv.p50 - npv) < 5, 'eqNpv monthly discounting');
+  assert.ok(Math.abs(s.debt.levIrr.p50 - levAnnual) < 1e-3, 'levIrr monthly annualisation');
 });

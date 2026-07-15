@@ -14,6 +14,11 @@ const perRate = (r, grain) => grain === 'month' ? Math.pow(1 + r, 1 / 12) - 1 : 
    dscr a number; tenor optional (default = available); sizingCase central|downside.
    Returns {ok:false, reason} or the frozen debt structure. */
 export function sizeDebt({periods, horizon, grain = 'year', dscr, costOfDebt, tenor, sizingCase = 'central'}){
+  // input-validity gates first: a blank field coerces to 0 (dscr) and a bad
+  // rate must not sculpt Infinity/NaN into a plausible-looking card.
+  if(!(dscr > 0)) return {ok: false, reason: 'DSCR must be positive'};
+  if(!(costOfDebt > -1) || !isFinite(costOfDebt)) return {ok: false, reason: 'cost of debt must be above −100%'};
+
   const at = t => periods[Math.min(t, periods.length - 1)];
 
   // COD = cumulative-midpoint trough + 1 (blip-proof; aligns with peak funding)

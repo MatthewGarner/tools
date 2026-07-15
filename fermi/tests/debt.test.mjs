@@ -83,6 +83,13 @@ test('gearing cap: tiny capex + fat ops caps D at build cost', () => {
   assert.ok(s.gearingPct <= 1.0001);
 });
 
+test('invalid dscr / cost-of-debt → clean {ok:false}, never garbage ok:true (Fable I1)', () => {
+  assert.equal(sizeDebt({...BUILD, dscr: 0}).ok, false);        // cleared field coerces to 0
+  assert.equal(sizeDebt({...BUILD, dscr: NaN}).ok, false);
+  assert.equal(sizeDebt({...BUILD, costOfDebt: -1.5}).ok, false);
+  assert.equal(sizeDebt({...BUILD, costOfDebt: Infinity}).ok, false);
+});
+
 test('D<=0 (negative ops) → no debt capacity (M6)', () => {
   const s = sizeDebt({periods: P([[-7e6, -7e6], [-1e6, -0.5e6], [-1e6, -0.5e6]]), horizon: 5,
     grain: 'year', dscr: 1.3, costOfDebt: 0.065, sizingCase: 'central'});
