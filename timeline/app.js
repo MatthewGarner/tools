@@ -186,15 +186,23 @@ function flash(id, msg, ms){
   setTimeout(() => { b.textContent = was; }, ms);
 }
 
-/* fingers open at 100% zoom — pan so the today line starts in view */
+/* fingers open at 100% zoom — pan so the first upcoming milestone lands ~30% in
+   (TODAY stays in view when it's close), not the empty left board. Falls back to
+   the today line if there's no [data-next] marker (empty doc). */
 let panned = false;
 function panToToday(){
   if(panned || !matchMedia('(pointer: coarse)').matches) return;
-  const line = $('preview').querySelector('[data-today]');
+  const pv = $('preview');
+  const next = pv.querySelector('[data-next]');
+  if(next){
+    const m = /M([\d.]+)/.exec(next.getAttribute('d'));   // the P50 diamond's cx
+    if(m){ pv.scrollLeft = Math.max(0, parseFloat(m[1]) - pv.clientWidth * 0.30); panned = true; return; }
+  }
+  const line = pv.querySelector('[data-today]');
   if(!line) return;
   const x = parseFloat(line.getAttribute('x1'));
   if(isFinite(x)){
-    $('preview').scrollLeft = Math.max(0, x - $('preview').clientWidth * 0.25);
+    pv.scrollLeft = Math.max(0, x - pv.clientWidth * 0.25);
     panned = true;
   }
 }

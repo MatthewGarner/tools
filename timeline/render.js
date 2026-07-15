@@ -49,6 +49,52 @@ const wk = days => {
   return w + (w === 1 ? ' week' : ' weeks');
 };
 
+/* the whisker band fill. Light: the shared 12% capsule tint (unchanged). Dark:
+   a stronger tint of the milestone colour over the lane card — 12% vanishes on
+   #1B242C (band-vs-card contrast 1.17); 0x47 (~28%) lifts it to ~1.47 while the
+   in-band ink title (7.4:1) and muted sub (~3.5:1) stay legible in both themes.
+   Non-6-digit colours fall back to the 'none' stroke, exactly as tint() does. */
+export function whiskerFill(col, dark){
+  if(!dark) return tint(col);
+  return /^#[0-9a-fA-F]{6}$/.test(col) ? col + '47' : tint(col);
+}
+
+/* the dates/note sub-line under each label — the extent pass and the milestone
+   loop measure this exact string (module-level so msLabelAnchor stays pure) */
+export function subOf(it){
+  return (it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
+    : fmtDay(it.p50, {month: (it.p90 - it.p50) > 45}) + ' → ' + fmtDay(it.p90, {month: (it.p90 - it.p50) > 45})) +
+    (it.note ? ' · ' + it.note : '');
+}
+
+const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' ').trim();
+
+/* Where a milestone's label sits so the P90 diamond never splices it. Default:
+   just right of P50 (today's look). If the widest label line would reach the P90
+   diamond's LEFT tip (x90 - 0.8r), move the whole block to the right of the
+   diamond; if THAT overflows the plot AND a left-flip stays on-board AND there's
+   no ghost/slip in that space, flip LEFT of P50, right-anchored (the TODAY-flag
+   idiom). If neither side fits (or compare mode occupies the left), keep it
+   right-of-P90 and accept a right-edge clip — a readable title beats an invisible
+   one. Only ranged milestones with a real whisker move. PURE; `r` is pre-scaled
+   (never double-scale it); `hasGhost` is passed in (the compare pull-in trail
+   lives left of x50, exactly where a flip would land). */
+export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFont, noteFont, hasGhost){
+  const titleW = measure(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''), labelFont);
+  const subW = measure(subOf(it), noteFont);
+  const widest = Math.max(titleW, subW);
+  const rightOfP50 = x50 + (r + 5 * S);
+  const hasWhisker = !it.single && (x90 - x50) > 1;
+  if(hasWhisker && rightOfP50 + widest > x90 - 0.8 * r - 4 * S){
+    const afterP90 = x90 + 0.8 * r + 6 * S;
+    if(afterP90 + widest <= plotX + plotW - 4 * S) return {labelX: afterP90, anchorEnd: false, widest, titleW, subW};
+    const flipX = x50 - r - 6 * S;                                    // right-anchored block ends here
+    if(!hasGhost && flipX - widest >= plotX + 4 * S) return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
+    return {labelX: afterP90, anchorEnd: false, widest, titleW, subW};    // both tight / compare → keep right, clip
+  }
+  return {labelX: rightOfP50, anchorEnd: false, widest, titleW, subW};
+}
+
 /* plain-text mirror of the SVG's "one quotable line" readout — the HTML text
    app.js shows next to the diagram. Pure; same inputs render() itself uses. */
 export function timelineReadout(model, today){
@@ -92,20 +138,16 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const colorOf = it => it.status === 'done' ? C.status.done
     : it.status === 'risk' ? C.err : C.accent;
 
-  /* the dates/note sub-line under each label — built once here so the extent
-     tracking below and the milestone loop measure the exact same string */
+  /* the label font + the (module-level) subOf sub-line the extent pass and the
+     milestone loop both measure through msLabelAnchor */
   const noteFont = T.noteSize * S + 'px ' + F.body;
-  const subOf = it => (it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
-    : fmtDay(it.p50, {month: (it.p90 - it.p50) > 45}) + ' → ' + fmtDay(it.p90, {month: (it.p90 - it.p50) > 45})) +
-    (it.note ? ' · ' + it.note : '');
 
   /* row packing per lane: items sorted by P50; first row whose extent has ended.
-     laneMaxRightX is a SEPARATE per-lane extent taken from the strings each
-     row actually renders — per item, the max of the whisker geometry, the
-     label line, and the dates/note sub-line (smaller note font, but with no
-     label prefix it often runs wider than packing's label-font rightX) — so
-     the per-lane add zone anchors past everything the lane really draws.
-     Packing's rightX stays untouched: it feeds row assignment and the goldens. */
+     Both the row-fit rightX AND the per-lane laneMaxRightX (which anchors the
+     edit-mode add zone) derive from msLabelAnchor's CHOSEN label block — right-of-
+     P50, right-of-P90, or the left-flip — so packing, the add zone and the drawn
+     label always agree. A flip-left label reaches LEFT of its P50 diamond, so its
+     startX opens a NEW row instead of splicing the previous milestone's P90. */
   const laneRows = new Map();
   const laneMaxRightX = new Map();
   const labelFont = '600 ' + T.labelSize * S + 'px ' + F.body;
@@ -113,18 +155,19 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     const rows = [];
     let extent = 0;
     for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
-      const startX = X(it.p50) - T.msR * S - 4;
-      const labelText = it.label + (it.note ? '  ' + it.note : '') + (it.single && it.status !== 'done' ? ' ±?' : '');
-      const rightX = Math.max(X(it.p90) + T.msR * S, X(it.p50) + 10 * S + measure(labelText, labelFont));
-      let r = rows.findIndex(right => startX > right + 12 * S);
-      if(r < 0){ r = rows.length; rows.push(rightX); }
-      else rows[r] = rightX;
-      it._row = r;
-      const lx = X(it.p50) + (T.msR + 5) * S;   // = labelX in the milestone loop
-      extent = Math.max(extent,
-        X(it.p90) + T.msR * S,
-        lx + measure(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''), labelFont),
-        lx + measure(subOf(it), noteFont));
+      const x50 = X(it.p50), x90 = X(it.p90), r = T.msR * S;
+      const hasGhost = !!(diff && diff.byKey.get(keyOf(it)));
+      const {labelX: lx, anchorEnd, widest} =
+        msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFont, noteFont, hasGhost);
+      it._labelX = lx; it._anchorEnd = anchorEnd;
+      const labelRight = anchorEnd ? lx : lx + widest;                             // the label block's right edge
+      const startX = anchorEnd ? Math.min(x50 - r - 4, lx - widest) : x50 - r - 4; // its left edge (a flip opens a new row)
+      const rightX = Math.max(x90 + r, labelRight);
+      let ri = rows.findIndex(right => startX > right + 12 * S);
+      if(ri < 0){ ri = rows.length; rows.push(rightX); }
+      else rows[ri] = rightX;
+      it._row = ri;
+      extent = Math.max(extent, x90 + r, labelRight);
     }
     laneRows.set(lane, rows.length || 1);
     laneMaxRightX.set(lane, extent);
@@ -213,7 +256,10 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     ' L' + (cx - r).toFixed(1) + ' ' + cy.toFixed(1) + ' Z" fill="' + fill +
     '" stroke="' + stroke + '" stroke-width="1.5"/>';
 
-  const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' ').trim();
+  // the coarse-pointer pan target (app.js) and the "Next up" the readout names:
+  // earliest not-done milestone at/after today, else the first milestone. Chosen
+  // once, stamped by object identity (a duplicate lane|label key must not mark two).
+  const nextUp = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0] || items[0];
   for(const it of items){
     const col = colorOf(it);
     const k = keyOf(it);
@@ -231,29 +277,32 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       const bh = Math.min(T.rowH - 10, 15) * S;
       s.push('<rect data-ms="whisker" x="' + x50.toFixed(1) + '" y="' + (y - bh / 2).toFixed(1) +
         '" width="' + (x90 - x50).toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + (bh / 2).toFixed(1) +
-        '" fill="' + tint(col) + '"/>');
+        '" fill="' + whiskerFill(col, dark) + '"/>');
       s.push(diamond(x90, y, r * 0.8, C.card, col, ' data-ms="p90"'));
     }
     s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
+      (it === nextUp ? ' data-next=""' : '') +
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') +
         '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(it.label) + '"' : '')));
 
-    const labelX = x50 + (r + 5 * S);
+    const labelX = it._labelX;
+    const ae = it._anchorEnd ? ' text-anchor="end"' : '';   // flip-left labels are right-anchored
     const eipL = edit ? ' data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
       '" tabindex="0" role="button" aria-label="Edit label: ' + esc(it.label) + '"' : '';
     const eipD = edit ? ' data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) +
       '" tabindex="0" role="button" aria-label="Edit dates: ' + esc(it.label) + '"' : '';
-    s.push('<text' + eipL + ' x="' + labelX.toFixed(1) + '" y="' + (y - 2 * S).toFixed(1) +
+    s.push('<text' + eipL + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y - 2 * S).toFixed(1) +
       '" font-size="' + T.labelSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(it.label) +
       (it.single && it.status !== 'done'
         ? ' <tspan font-weight="400" fill="' + C.muted + '">±?</tspan>' : '') + '</text>');
     const sub = subOf(it);
-    s.push('<text' + eipD + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +
+    s.push('<text' + eipD + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +
       '" font-size="' + T.noteSize * S + '" fill="' + C.muted + '">' + esc(sub) + '</text>');
     if(edit){
+      // when flipped the × goes BEFORE the sub, end-anchored (start-anchored clears it by ~1px only)
+      const rmX = it._anchorEnd ? labelX - measure(sub, noteFont) - 8 * S : labelX + measure(sub, noteFont) + 8 * S;
       s.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw="" tabindex="0" role="button"' +
-        ' aria-label="Remove ' + esc(it.label) + '" x="' +
-        (labelX + measure(sub, noteFont) + 8 * S).toFixed(1) +
+        ' aria-label="Remove ' + esc(it.label) + '"' + ae + ' x="' + rmX.toFixed(1) +
         '" y="' + (y + 10.5 * S).toFixed(1) + '" font-size="' + T.noteSize * S +
         '" fill="' + C.muted + '">×</text>');
     }
@@ -263,8 +312,9 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
         ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, anchor: 'end'}));
     }
     if(diff && diff.newKeys.has(k)){
-      s.push(txt(labelX + measure(it.label, labelFont) + 8 * S, y - 2 * S, 'NEW', 8.5 * S, C.accent,
-        {weight: 600, tracking: 0.6}));
+      const newX = it._anchorEnd ? labelX - measure(it.label, labelFont) - 8 * S : labelX + measure(it.label, labelFont) + 8 * S;
+      s.push(txt(newX, y - 2 * S, 'NEW', 8.5 * S, C.accent,
+        {weight: 600, tracking: 0.6, anchor: it._anchorEnd ? 'end' : undefined}));
     }
   }
 
