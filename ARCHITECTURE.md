@@ -50,6 +50,10 @@ The DSLs share conventions: soft, line-numbered warnings rather than hard errors
 `accent:` config keys; two-space indents; and a source-line reference on every
 parsed node so a warning can point back at the line that caused it.
 
+The full grammar of every DSL tool — config keys, node syntax, worked examples, and
+which tool supports what — is collected in `DSL.md`, kept true to the parsers by a test
+that parses every example through the real `parse.js`.
+
 ## Shared code
 
 Anything used by three or more tools moves into `assets/` and gets imported rather
