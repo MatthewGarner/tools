@@ -8,19 +8,18 @@
    author's `headline:` standfirst, if they wrote one → body band → footer rule
    + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
    via scheme()), never the style — a style owns STRUCTURE. */
-import {txt, wrapText, tint, esc} from '../assets/svg.js';
+import {txt} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
+import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule, badgeCapsule,
+  SANS, SERIF, r2} from './deck-parts.js';
+import {renderRegisterDeck} from './render-register.js';
+export {registerColumns} from './deck-parts.js';
+export {renderRegisterBody} from './render-register.js';
 
 export const W = 1920, H = 1080, M = 100;
 const INNER = W - M * 2;                      // 1720
-/* local font stacks — not threaded through svg.js's txt() (no font-family
-   override there): serif's double-quoted "Times New Roman" rides in a
-   single-quoted <g font-family='…'>, mirroring render.js's own pattern. */
-const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-const SERIF = 'Charter, Georgia, "Times New Roman", serif';
-const r2 = n => Math.round(n * 100) / 100;
 
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
@@ -34,59 +33,6 @@ export function deckMetrics(model){
           by('blocked') ? by('blocked') + ' blocked' : null].filter(Boolean).join(' · ');
 }
 
-
-/* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/
-   svg.js/series.js stay at zero hunks, and svg.js has no rect/line helper or
-   font-family override). Attribute order is fixed; deck.test.mjs's bounds
-   sweep parses by name so it doesn't care. */
-function rect(x, y, w, h, fill, o = {}){
-  return '<rect x="' + r2(x) + '" y="' + r2(y) + '" width="' + r2(w) + '" height="' + r2(h) +
-    '" fill="' + fill + '"' +
-    (o.rx != null ? ' rx="' + o.rx + '"' : '') +
-    (o.stroke ? ' stroke="' + o.stroke + '" stroke-width="' + (o.sw || 1) + '"' : '') +
-    (o.dash ? ' stroke-dasharray="' + o.dash + '"' : '') + '/>';
-}
-function line(x1, y1, x2, y2, stroke, w = 1, opacity = 1){
-  return '<line x1="' + r2(x1) + '" y1="' + r2(y1) + '" x2="' + r2(x2) + '" y2="' + r2(y2) +
-    '" stroke="' + stroke + '" stroke-width="' + w + '" opacity="' + opacity + '"/>';
-}
-const serifGroup = inner => '<g font-family=\'' + SERIF + '\'>' + inner + '</g>';
-
-/* ellipsis-clip to one line; wrap-to-N-lines with an ellipsis on overflow.
-   measure passed explicitly (pure helpers take it as an arg, never close
-   over a DOM-side singleton). */
-function clip1(text, font, maxW, measure){
-  let s = String(text);
-  if(measure(s, font) <= maxW) return s;
-  while(s.length > 1 && measure(s + '…', font) > maxW) s = s.slice(0, -1);
-  return s + '…';
-}
-function wrapN(text, font, maxW, maxLines, measure){
-  const lines = wrapText(text, font, maxW, measure);
-  if(lines.length <= maxLines) return lines;
-  const kept = lines.slice(0, maxLines);
-  kept[maxLines - 1] = clip1(kept[maxLines - 1] + ' ' + lines.slice(maxLines).join(' '), font, maxW, measure);
-  return kept;
-}
-
-/* capsule pill: tinted fill (house 12% tint via svg.js's tint()), contrast
-   ink — render.js's local capsule, at deck scale. Never colour-alone: the
-   label text always carries the word. */
-function capsule(x, y, label, col, inkCol, measure){
-  const font = '600 12px ' + SANS;
-  const w = measure(label, font) + label.length * 0.6 + 18, h = 22;
-  const fill = tint(col);
-  return {
-    svg: rect(x, y, w, h, fill, {rx: 11, stroke: fill === 'none' ? col : null, sw: 1}) +
-      txt(x + 9, y + 15.5, label, 12, inkCol || col, {weight: 600, tracking: 0.6}),
-    w,
-  };
-}
-const statusCapsule = (x, y, st, C, measure) =>
-  capsule(x, y, STATUS_LABEL[st].toUpperCase(), C.status[st], C.statusInk[st], measure);
-const badgeCapsule = (x, y, b, C, measure) => b.kind === 'new'
-  ? capsule(x, y, b.label.toUpperCase(), C.accent, C.accentInk, measure)
-  : capsule(x, y, b.label.toUpperCase(), C.muted, C.muted, measure);
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
    note; the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
@@ -280,7 +226,7 @@ function boardBodyFn(model, ctx, C){
 
    No headline is not a defect: the standfirst is dropped and the body takes the
    band back, so the deck reads as a titled board rather than one with a hole. */
-function deckFrame(model, ctx, C, bodyFn){
+export function deckFrame(model, ctx, C, bodyFn){
   const {measure} = ctx;
   const s = [];
   s.push(rect(0, 0, W, H, C.bg));
@@ -304,7 +250,7 @@ function deckFrame(model, ctx, C, bodyFn){
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' + s.join('') + '</svg>';
 }
 
-function paletteColors(model, ctx){
+export function paletteColors(model, ctx){
   const dark = !!ctx.dark;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
@@ -320,186 +266,6 @@ function renderBoardDeck(model, ctx, C){
    of excluding the frame's own footer text (legitimately below y=1036). */
 export function renderBoardBody(model, ctx, y0, y1){
   return boardBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
-}
-
-/* REGISTER: the roadmap as a formal table. Columns are FRACTIONS of the
-   1720 inner width (item .35/lane .12/horizon .11/status .12/note .30) — an
-   unused column (no lanes/statuses/notes) is DROPPED, its share
-   redistributed (item always stays). Rows sort horizon -> lane -> srcLine;
-   the horizon name prints once per group (ditto-suppressed). Diff: a NEW
-   capsule after the title; a moved item's "was X" label prints italic in
-   the horizon cell; dropped items become struck rows with a DROPPED
-   capsule. Live table + dropped section are both capFit-capped. */
-const REGISTER_COLS = [
-  {key: 'item', label: 'ITEM', frac: 0.35, always: true},
-  {key: 'lane', label: 'LANE', frac: 0.12},
-  {key: 'horizon', label: 'HORIZON', frac: 0.11},
-  {key: 'status', label: 'STATUS', frac: 0.12},
-  {key: 'note', label: 'NOTE', frac: 0.30},
-];
-
-export function registerColumns(model){
-  const hasLane = model.lanes.some(l => l);
-  const hasStatus = model.items.some(i => i.status);
-  const hasNote = model.items.some(i => i.note);
-  const used = REGISTER_COLS.filter(c => c.always ||
-    (c.key === 'lane' && hasLane) ||
-    (c.key === 'horizon' && model.horizons.length > 1) ||
-    (c.key === 'status' && hasStatus) ||
-    (c.key === 'note' && hasNote));
-  const total = used.reduce((a, c) => a + c.frac, 0) || 1;
-  let x = M;
-  return used.map(c => {
-    const w = c.frac / total * INNER;
-    const col = {key: c.key, label: c.label, x, w};
-    x += w;
-    return col;
-  });
-}
-
-function registerRows(model){
-  const laneRank = new Map(model.lanes.map((l, i) => [l, i]));
-  return [...model.items].sort((a, b) =>
-    (a.h - b.h) || ((laneRank.get(a.lane) ?? 0) - (laneRank.get(b.lane) ?? 0)) || (a.srcLine - b.srcLine));
-}
-
-const italTxt = (x, y, s, size, fill) => '<text x="' + r2(x) + '" y="' + r2(y) +
-  '" font-size="' + size + '" font-style="italic" fill="' + fill + '">' + esc(s) + '</text>';
-
-function registerBodyFn(model, ctx, C){
-  return (y0, y1) => {
-    const {measure, diff = null} = ctx;
-    const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;
-    const dropped = diff && diff.dropped ? diff.dropped : [];
-    const cols = registerColumns(model);
-    const col = k => cols.find(c => c.key === k);
-    const itemCol = col('item'), laneCol = col('lane'), hCol = col('horizon'),
-      stCol = col('status'), noteCol = col('note');
-    const RPAD = 12, headH = 40;
-    const zoneH = y1 - y0;
-    const availH = Math.max(0, zoneH - headH);
-
-    const s = [];
-    for(const c of cols)
-      s.push(txt(c.x + RPAD, y0 + 24, c.label, 12, C.muted, {weight: 700, tracking: 1.4}));
-    s.push(line(M, y0 + headH - 6, W - M, y0 + headH - 6, C.border, 1.5));
-
-    const rows = registerRows(model);
-    if(!rows.length && !dropped.length){
-      s.push(rect(M, y0 + headH + 10, INNER, 60, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
-      s.push(txt(W / 2, y0 + headH + 46, 'Nothing on the register yet', 14, C.muted, {anchor: 'middle'}));
-      return s.join('');
-    }
-
-    /* budget: the dropped section (if any) gets up to 30% of the body, never
-       crowding the live table out entirely and never itself left unbounded */
-    const dRowH = 34, dHeadH = dropped.length ? 28 : 0;
-    const dWant = dHeadH + dropped.length * dRowH;
-    const dBudget = dropped.length ? Math.min(dWant, Math.max(dHeadH + dRowH, availH * 0.3), availH) : 0;
-    const liveBudget = Math.max(0, availH - dBudget);
-
-    const titleFont = '700 15px ' + SANS, secFont = '13px ' + SANS, noteFont = '13px ' + SANS;
-    const capsuleW = label => measure(label, '600 12px ' + SANS) + label.length * 0.6 + 18;
-
-    /* the horizon cell is ditto-suppressed within a group — but a SPAN is a
-       property of the ITEM, not of the group, so it must print on every
-       spanning row, first-in-group or not, or a spanning item that isn't
-       first would show no range at all. */
-    const spanRange = it => ((it.span || 1) > 1 || it.spanEnd)
-      ? model.horizons[it.h] + ' – ' +
-        (it.spanEnd || model.horizons[Math.min(model.horizons.length - 1, it.h + it.span - 1)])
-      : null;
-
-    const layout = noteMax => rows.map((it, i) => {
-      const b = badgeOf(it);
-      const groupFirst = i === 0 || rows[i - 1].h !== it.h;
-      const range = hCol ? spanRange(it) : null;
-      const printH = groupFirst || !!range;
-      const newCapW = b && b.kind === 'new' ? capsuleW(b.label.toUpperCase()) + 10 : 0;
-      const tl = wrapN(it.title, titleFont, itemCol.w - RPAD * 2 - newCapW, 2, measure);
-      const nl = noteCol && it.note ? wrapN(it.note, noteFont, noteCol.w - RPAD * 2, noteMax, measure) : [];
-      const hLines = [];
-      if(hCol && printH) hLines.push(range || model.horizons[it.h]);
-      if(hCol && b && b.kind === 'moved') hLines.push(b.label);
-      const contentH = Math.max(tl.length * 19, nl.length * 17, hLines.length * 17,
-        (stCol && it.status) ? 22 : 0, 17);
-      return {it, b, tl, nl, hLines, printH, h: RPAD * 2 + contentH};
-    });
-    let laidRows = layout(2);
-    const sumH = list => list.reduce((a, r) => a + r.h, 0);
-    if(sumH(laidRows) > liveBudget) laidRows = layout(1);
-    const shown = capFit(laidRows.map(r => r.h), liveBudget, 0, 30);
-
-    let ry = y0 + headH;
-    for(const r of laidRows.slice(0, shown)){
-      const {it, b, tl, nl, hLines} = r;
-      const wash = it.status === 'blocked' ? C.status.blocked + '33'
-        : it.status === 'risk' ? tint(C.status.risk) : null;
-      if(wash) s.push(rect(M, ry, INNER, r.h, wash));
-      let ty = ry + RPAD + 13;
-      tl.forEach((ln, li) => {
-        s.push(txt(itemCol.x + RPAD, ty, ln, 15, C.ink, {weight: 700}));
-        if(li === 0 && b && b.kind === 'new'){
-          const lw = measure(ln, titleFont);
-          s.push(badgeCapsule(itemCol.x + RPAD + lw + 10, ty - 15, b, C, measure).svg);
-        }
-        ty += 19;
-      });
-      if(laneCol && it.lane)
-        s.push(txt(laneCol.x + RPAD, ry + RPAD + 13, clip1(it.lane, secFont, laneCol.w - RPAD * 2, measure), 13, C.muted));
-      if(hCol){
-        let hy = ry + RPAD + 13;
-        hLines.forEach((ln, li) => {
-          if(li === 0 && r.printH) s.push(txt(hCol.x + RPAD, hy, ln, 13, C.ink, {weight: 700}));
-          else s.push(italTxt(hCol.x + RPAD, hy, ln, 12.5, C.muted));
-          hy += 17;
-        });
-      }
-      if(stCol && it.status)
-        s.push(statusCapsule(stCol.x + RPAD, ry + (r.h - 22) / 2, it.status, C, measure).svg);
-      if(noteCol && nl.length){
-        let ny = ry + RPAD + 13;
-        for(const ln of nl){ s.push(txt(noteCol.x + RPAD, ny, ln, 13, C.muted)); ny += 17; }
-      }
-      ry += r.h;
-      s.push(line(M, ry, W - M, ry, C.border, 1, 0.5));
-    }
-    if(shown < laidRows.length){
-      s.push(rect(M, ry, INNER, 30, 'none', {rx: 8, stroke: C.border, sw: 1, dash: '4 4'}));
-      s.push(txt(M + 14, ry + 20, '+ ' + (laidRows.length - shown) + ' more', 13, C.muted, {weight: 600}));
-      ry += 30 + 6;
-    }
-
-    if(dropped.length){
-      ry += 8;
-      s.push(txt(M, ry + 14, 'DROPPED SINCE ' + (diff.since || '').toUpperCase(), 11, C.muted, {weight: 700, tracking: 1.2}));
-      ry += 26;
-      const dLabel = 'DROPPED · ' + (diff.since || '');
-      const dCapW = capsuleW(dLabel);   // capsule() below draws dLabel as-is (no uppercase), so no uppercase here either
-      const dTitleFont = '14px ' + SANS;
-      const dTitleMaxW = Math.max(20, INNER - 16 - dCapW - 12);
-      const dRows = dropped.map(name => ({name, h: dRowH}));
-      const room = Math.max(0, y1 - ry);
-      const shownD = capFit(dRows.map(r => r.h), room, 0, 30);
-      for(const d of dRows.slice(0, shownD)){
-        const clipped = clip1(d.name, dTitleFont, dTitleMaxW, measure);
-        s.push(txt(M + 8, ry + 20, clipped, 14, C.muted, {strike: true}));
-        const tw = measure(clipped, dTitleFont);
-        s.push(capsule(M + 8 + tw + 12, ry + 5, dLabel, C.muted, C.muted, measure).svg);
-        ry += dRowH;
-      }
-      if(shownD < dRows.length)
-        s.push(txt(M, ry + 16, '+ ' + (dRows.length - shownD) + ' more dropped', 13, C.muted, {weight: 600}));
-    }
-    return s.join('');
-  };
-}
-
-function renderRegisterDeck(model, ctx, C){
-  return deckFrame(model, ctx, C, registerBodyFn(model, ctx, C));
-}
-export function renderRegisterBody(model, ctx, y0, y1){
-  return registerBodyFn(model, ctx, paletteColors(model, ctx))(y0, y1);
 }
 
 /* FOCUS: attention-weighted. Hero = the first NON-EMPTY horizon (an empty
