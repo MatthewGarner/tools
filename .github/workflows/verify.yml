@@ -3,7 +3,7 @@
 # shows red before it's merged to main (main deploys production on push, so the
 # real gate is the branch). Two jobs: `node` is the fast deterministic core (pure
 # modules + golden SVG regression, ~seconds, never flaky); `browser` runs the
-# nine Playwright suites against both origins. Parallel, so a browser hiccup
+# ten Playwright suites against both origins. Parallel, so a browser hiccup
 # never masks a node failure. No secrets: the gauge suite spawns its own
 # in-memory relay (dev/gauge-dev.mjs), nothing here touches Upstash.
 name: verify
@@ -50,9 +50,27 @@ jobs:
       - name: Install harness deps
         working-directory: dev/pw
         run: npm ci
+      # The browser BINARIES (~/.cache/ms-playwright, ~100-200MB for chromium +
+      # real webkit) are the slow part of every run — cache them, keyed on the
+      # pinned playwright version in the lockfile so a version bump busts it. The
+      # OS deps (apt libs) live outside that path and can't be cached, so they're
+      # (re)installed each run: `install --with-deps` on a miss (also downloads +
+      # populates the cache), `install-deps` alone on a hit (deps only, browsers
+      # restored from cache — no download).
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('dev/pw/package-lock.json') }}
       - name: Install Playwright browsers (chromium + real webkit)
         working-directory: dev/pw
-        run: npx playwright install --with-deps chromium webkit
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps chromium webkit
+          else
+            npx playwright install --with-deps chromium webkit
+          fi
       - name: Serve both origins and run the full gate
         run: |
           node dev/serve.mjs 8087 &
