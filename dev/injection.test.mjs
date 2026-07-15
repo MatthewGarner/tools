@@ -115,6 +115,13 @@ test('roadmap REGISTER LIVE escapes a hostile horizons: line, edit:true (flows i
   assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-horizons-edit');
 });
 
+test('roadmap BOARD LIVE escapes hostile titles/notes/lanes/statuses, edit:true (the only place board edit markup renders)', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const doc = 'title: <x>\nNOW\n"><script>: Core "><img src=x>\nGrowth: Note item -- </text><a>\nNEXT\nGrowth: <b>later</b>';
+  assertClean(renderBoardLive(parse(doc), {...ctx, edit: true}), 'board-live-edit');
+});
+
 test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {renderDeck} = await import('../roadmap/render-deck.js');

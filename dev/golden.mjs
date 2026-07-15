@@ -172,6 +172,16 @@ for(const [k, src] of Object.entries(docs)){
   const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
     'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
   variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
+
+  /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
+     edit:false (the export/golden path — zero edit markup) so this golden
+     pins the LAYOUT (content-width columns, content-driven height, the
+     light frame, one section per horizon) rather than the edit-only
+     affordances, which dev/injection.test.mjs exercises instead. */
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
+    'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
+  variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
 }
 
 /* tree fixtures (dates normalised so captures are stable) */
