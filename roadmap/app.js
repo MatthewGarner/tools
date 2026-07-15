@@ -489,6 +489,16 @@ function cellAt(cx, cy){
   }
   return {el: cell, h: +h, lane, beforeLine: before};
 }
+/* register: the drop target is a horizon BAND; the item keeps its own lane.
+   The band is painted UNDER its rows (A2), so it's found by digging the
+   elementsFromPoint stack — same idiom as cellAt, not "on top" like a normal
+   hit target. */
+function hbandAt(cx, cy){
+  for(const el of document.elementsFromPoint(cx, cy))
+    if(el.matches && el.matches('#preview svg rect[data-hdrop]')) return +el.dataset.hdrop;
+  return null;
+}
+const inRegister = () => model && effectiveStyle(model) === 'register';
 function clearHover(){
   if(drag.hover){
     drag.hover.el.setAttribute('fill', 'transparent');
@@ -539,7 +549,6 @@ $('preview').addEventListener('pointerdown', e => {
   /* a pointerup lost outside the window (drag off-screen, alt-tab mid-gesture) can
      leave a mode armed; starting a new gesture always begins from a clean slate */
   endDrag();
-  if(model && effectiveStyle(model) === 'register') return;   // register drag arrives in Task 7
   /* the edge gesture, checked FIRST: the handle rects are siblings painted AFTER
      (never children of) the card's own <g>, so this can never be confused with
      the card-body drag below. No ghost, no dropline — an edge is not a card move. */
@@ -603,12 +612,25 @@ window.addEventListener('pointermove', e => {
   drag.ghost.style.left = (e.clientX + 12) + 'px';
   drag.ghost.style.top = (e.clientY + 14) + 'px';
   clearHover();
-  const cell = cellAt(e.clientX, e.clientY);
-  if(cell){
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
-    drag.hover = cell;
-    positionDropline(cell, drag.armed.line);
+  if(inRegister()){
+    /* register: no drop-line (there's no lane/order to preview — the row keeps
+       its own lane and lands at the end of the target horizon), just the band
+       highlight. */
+    const h = hbandAt(e.clientX, e.clientY);
+    if(h !== null){
+      const band = document.querySelector('#preview svg rect[data-hdrop="' + h + '"]');
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      band.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      drag.hover = {el: band, h, lane: null};
+    }
+  } else {
+    const cell = cellAt(e.clientX, e.clientY);
+    if(cell){
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      cell.el.setAttribute('fill', /^#[0-9a-fA-F]{6}$/.test(accent) ? accent + '10' : 'transparent');
+      drag.hover = cell;
+      positionDropline(cell, drag.armed.line);
+    }
   }
 });
 window.addEventListener('pointerup', e => {
@@ -631,12 +653,32 @@ window.addEventListener('pointerup', e => {
   if(!drag.armed) return;
   const wasActive = drag.active;
   const src = drag.armed.line;
-  const cell = wasActive ? cellAt(e.clientX, e.clientY) : null;
+  const it = model && model.items.find(i => i.srcLine === src);
+  let target = null;
+  if(wasActive && inRegister() && it){
+    const h = hbandAt(e.clientX, e.clientY);
+    if(h !== null && h !== it.h) target = {h, lane: it.lane, beforeLine: null};   // keep the row's own lane
+  } else if(wasActive){
+    const cell = cellAt(e.clientX, e.clientY);
+    if(cell) target = {h: cell.h, lane: cell.lane, beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
+  }
   endDrag();
   if(wasActive) suppressClick = true;
-  if(!wasActive || !cell || !model) return;
-  const target = {h: cell.h, lane: cell.lane,
-    beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
+  if(!target || !model) return;
+  if(inRegister()){
+    /* the target horizon may have no header line yet (a synthesised empty
+       group in the default Now/Next/Later doc) — moveItem needs one to
+       anchor on; re-parse because the header may be new, but existing
+       srcLines are unshifted (ensureHorizonHeader appends at the END), so
+       `src` stays valid. */
+    const t = ensureHorizonHeader(editor.getText(), model, target.h);
+    const m2 = parse(t);
+    const r = moveItem(t, m2, src, target);
+    if(!r) return;
+    flipNext = true;
+    editor.setText(r.text);
+    return;
+  }
   const r = moveItem(editor.getText(), model, src, target);
   if(!r) return;
   flipNext = true;   // the post-drop re-render captures + glides cards into place (shared FLIP)

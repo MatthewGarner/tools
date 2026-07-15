@@ -125,6 +125,84 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   await dragPage.close();
 }
 
+// register: drag a whole row onto another horizon's band (Task 7). The drop
+// target is the horizon BAND (rect[data-hdrop]), painted UNDER its rows (A2)
+// — the item keeps its OWN lane, unlike the chart drop which also targets a
+// lane. Rows resolved BY TITLE, never data-line (a line number is a property
+// of the example doc, not a stable identity).
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await p.waitForTimeout(400);
+  await p.getByRole('button', {name: 'Register'}).click();
+  await p.waitForTimeout(400);
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  // "Smart reminders" starts under NEXT — drag it onto NOW's band (data-hdrop="0")
+  const hit = await rowOf('Smart reminders').locator('rect[data-hit]').boundingBox();
+  const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();
+  await p.mouse.move(hit.x + 8, hit.y + 4);
+  await p.mouse.down();
+  await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const nowIdx = tMove.split('\n').findIndex(l => l.trim() === 'NOW');
+  const nextIdx = tMove.split('\n').findIndex(l => l.trim() === 'NEXT');
+  const movedIdx = tMove.split('\n').findIndex(l => l.includes('Smart reminders'));
+  check('register: dragging a row onto a horizon band moves it under that horizon',
+    movedIdx > nowIdx && movedIdx < nextIdx);
+  check('register: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: one undo restores the pre-drag baseline', tUndo === baseline);
+  await p.close();
+}
+
+// register: drag into an EMPTY, HEADERLESS horizon — proves ensureHorizonHeader
+// (A4) is wired into the drop path, not just the "Move to…"/+add paths. Q1 2027
+// has no header line anywhere in the source before the drop.
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(
+    'title: Register drag test\n' +
+    'style: register\n' +
+    'horizons: quarterly from Q3 2026 x4\n' +
+    '\n' +
+    'Q3 2026\n' +
+    'Core: Drag into the void\n');
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register (headerless): baseline has no literal Q1 2027 header yet', !baseline.includes('Q1 2027'));
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const hit = await rowOf('Drag into the void').locator('rect[data-hit]').boundingBox();
+  const band = await p.locator('#preview svg rect[data-hdrop="2"]').boundingBox();   // Q1 2027, index 2
+  await p.mouse.move(hit.x + 8, hit.y + 4);
+  await p.mouse.down();
+  await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register (headerless): the drop creates the header and relocates the row (A4, not a silent no-op)',
+    /Q1 2027\s*\nCore: Drag into the void/.test(tMove));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register (headerless): one undo removes BOTH the synthesised header and the move (one transaction)',
+    tUndo === baseline);
+  await p.close();
+}
+
 // screenshots for the visual record
 await page.screenshot({path: 'parity-light.png', fullPage: true});
 await page2.screenshot({path: 'parity-dark.png', fullPage: true});
