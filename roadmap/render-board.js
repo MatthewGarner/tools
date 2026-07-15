@@ -215,7 +215,11 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf}){
   const tl = wrapN(it.title, fT, cw - RPAD * 2, 2, measure);
   const nl = it.note ? wrapN(it.note, fN, cw - RPAD * 2, 2, measure) : [];
   const footH = it.lane || it.status || edit ? 26 : 8;
-  const h = RPAD * 2 + tl.length * 24 + (nl.length ? nl.length * 19 + 4 : 0) + footH;
+  // reserve the note row's height: a real note, OR (edit only) the "+ note" ghost
+  // row emitted below — without this the ghost collides with the lane/status foot.
+  // edit:false with no note reserves nothing, so the export/golden path is unchanged.
+  const noteH = nl.length ? nl.length * 19 + 4 : (edit ? 19 : 0);
+  const h = RPAD * 2 + tl.length * 24 + noteH + footH;
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
   const flag = it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
   const g = [];
