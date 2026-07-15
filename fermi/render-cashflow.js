@@ -31,9 +31,11 @@ export function financeVerdict(d){
   // data-driven downside: only claim "cuts both ways" when the levered downside
   // actually dips below the unlevered P50 (with independent years it often doesn't).
   const crosses = lp10 != null && un != null && lp10 < un;
-  const bits = [crosses
-    ? 'leverage cuts both ways — levered IRR P10 ' + pct1(lp10) + ' vs unlevered ' + pct1(un)
-    : 'levered IRR P10 ' + pct1(lp10) + ' holds above unlevered ' + pct1(un),
+  const bits = [lp10 == null
+    ? 'levered IRR undefined in ' + Math.round(d.levIrr.undefinedShare * 100) + '% of runs'
+    : crosses
+      ? 'leverage cuts both ways — levered IRR P10 ' + pct1(lp10) + ' vs unlevered ' + pct1(un)
+      : 'levered IRR P10 ' + pct1(lp10) + ' holds above unlevered ' + pct1(un),
     'equity NPV P50 ' + money(d.eqNpv.p50),
     '~' + cover + '% of operating-years under ' + dv + '× cover'];
   let sub = bits.join('; ') + '.';
@@ -218,7 +220,9 @@ export function cashflowMarkdown(r, spec, url){
     lines.push('');
     lines.push('- senior debt ' + fmt(d.D) + ' · gearing ' + Math.round(d.gearingPct * 100) + '% · tenor ' + d.tenor + ' ' + r.grain + 's');
     lines.push('- sculpted to ' + dscrF(d.dscrTarget) + '× DSCR off the ' + d.sizingCase + ' case · cost of debt ' + (d.costOfDebt * 100).toFixed(2) + '%');
-    lines.push('- Levered IRR P50 ' + pct1(d.levIrr.p50) + ' (P10 ' + pct1(d.levIrr.p10) + ' – P90 ' + pct1(d.levIrr.p90) + ') vs unlevered P50 ' + pct1(d.unlevIrr.p50));
+    lines.push('- Levered IRR P50 ' + pct1(d.levIrr.p50) + ' (P10 ' + pct1(d.levIrr.p10) + ' – P90 ' + pct1(d.levIrr.p90) + ')' +
+      (d.levIrr.undefinedShare >= 0.01 ? ' (undefined in ' + Math.round(d.levIrr.undefinedShare * 100) + '% of runs)' : '') +
+      ' vs unlevered P50 ' + pct1(d.unlevIrr.p50));
     lines.push('- _cover shortfall counts operating-years below covenant; periods are sampled independently, so the levered spread is tighter than correlated revenue would give_');
   } else if(r.debt && !r.debt.ok){
     lines.push('- debt sizing: ' + r.debt.reason);

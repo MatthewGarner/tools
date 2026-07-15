@@ -92,3 +92,11 @@ test('markdown carries the financing block when debt on', () => {
   assert.match(md, /DSCR/);
   assert.match(md, /independent/i);   // the honest per-period-independence caveat
 });
+
+test('markdown discloses levered undefined-run share when material (Fable final I1)', () => {
+  const marginal = {periods: [R(-1.2e6, -1.0e6), ...Array(6).fill(R(50e3, 180e3))], horizon: 6,
+    grain: 'year', rate: R(9, 11), debt: {dscr: 1.1, costOfDebt: 0.09, sizingCase: 'central'}};
+  const r = simulateCashflow(marginal, {seed: 2, n: 4000});
+  assert.ok(r.debt.ok && r.debt.levIrr.undefinedShare > 0.05, 'fixture undefinedShare ' + r.debt?.levIrr?.undefinedShare);
+  assert.match(cashflowMarkdown(r, marginal, 'https://x.test/#y'), /Levered IRR.*undefined in \d+% of runs/);
+});
