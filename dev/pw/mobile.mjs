@@ -368,6 +368,48 @@ for(const [name, url, chip] of WIDENED){
   await rctx.close();
 }
 
+// roadmap FOCUS phone fallback + the mobile-export exception: on a phone-width
+// `style: focus` doc the preview falls back to the chart's narrow STACK (the
+// hero+rail lens can't fit a phone), but Download SVG still exports the live
+// FOCUS artefact — export is keyed off the explicit model.style, not the
+// rendered preview (plainStyleSvg, viewport-independent).
+{
+  const doc = 'title: Habitat — Product Roadmap\nstyle: focus\nhorizons: Now, Next, Later\n\n' +
+    'NOW\nCore: Streak freeze [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
+    'NEXT\nCore: Smart reminders\n\nLATER\nCore: Accountability circles';
+  const seed = {t: doc};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  const fctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce', acceptDownloads: true});
+  const page = await fctx.newPage();
+  await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+  // FALLBACK: the chart's narrow stack (g[data-line] cards), NOT the live focus
+  // lens (whose edit-mode markup is data-hdrop bands + data-lens headers).
+  const fb = await page.evaluate(() => ({
+    lines: document.querySelectorAll('#preview svg g[data-line]').length,
+    hdrop: document.querySelectorAll('#preview svg [data-hdrop]').length,
+    lens: document.querySelectorAll('#preview svg [data-lens]').length,
+  }));
+  ok(fb.lines > 0, `roadmap: focus on a phone falls back to the chart stack (${fb.lines} g[data-line] cards)`);
+  ok(fb.hdrop === 0 && fb.lens === 0, 'roadmap: focus phone fallback is the chart, not the live lens (no data-hdrop/data-lens)');
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+  ok(docSW <= vw + 1, `roadmap: focus phone fallback — no page-level h-scroll (${docSW} <= ${vw})`);
+  const chipOn = await page.evaluate(() => !!document.querySelector('#stylepicker [data-style="focus"].on'));
+  ok(chipOn, 'roadmap: Focus chip stays active on a phone (the doc is still a focus doc)');
+  // THE MOBILE-EXPORT EXCEPTION: Download SVG exports the live FOCUS artefact
+  // (hero content), not the chart the preview shows — and carries no chart
+  // data-cell and no edit markup (edit:false export path).
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlsvg')]);
+  const svg = await readFile(await dl.path(), 'utf8');
+  ok(svg.includes('Streak freeze') && !svg.includes('data-cell'),
+    'roadmap: phone Download SVG exports the live focus artefact (hero content), not the chart stack');
+  ok(!svg.includes('data-edit') && !svg.includes('data-hdrop'),
+    'roadmap: phone focus export is the plain artefact (no edit markup)');
+  await page.close();
+  await fctx.close();
+}
+
 // why OST narrow relayout gate (Task 4): on phone width the OST view must be
 // a single-column indented outline (cards clustered near the left margin),
 // not the wide left-to-right box tree (cards spread across ~600px+). Card
