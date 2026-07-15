@@ -70,3 +70,46 @@ export function sizeDebt({periods, horizon, grain = 'year', dscr, costOfDebt, te
     drawByT, dsByT, service,
   };
 }
+
+/* Phase 3 — vary revenue against the frozen debt across the already-sampled
+   trials (no redraw). flowPaths is row-major n×(H+1) of per-trial project cash
+   flows; rates the per-trial equity discount rate. Emits the levered/equity
+   distributions + the per-operating-year cover-shortfall share. */
+export function leverTrials(s, {flowPaths, rates, n, horizon, grain}){
+  const W = horizon + 1;
+  const eq = new Float64Array(W);
+  const levIrr = [], eqNpv = [], minD = [];
+  let posNpv = 0, irrUndef = 0, shortfall = 0, servedPeriods = 0;
+  for(let t = s.tStar; t < s.tStar + s.tenor; t++) if(s.dsByT[t] > 0) servedPeriods++;
+
+  for(let i = 0; i < n; i++){
+    const base = i * W, r = rates[i], perR = grain === 'month' ? Math.pow(1 + r, 1 / 12) - 1 : r;
+    let npv = 0, minDscr = Infinity;
+    for(let t = 0; t < W; t++){
+      const proj = flowPaths[base + t];
+      eq[t] = proj + (s.drawByT[t] || 0) - (s.dsByT[t] || 0);
+      npv += eq[t] / Math.pow(1 + perR, t);
+      if(s.dsByT[t] > 0){
+        const d = proj / s.dsByT[t];
+        if(d < minDscr) minDscr = d;
+        if(d < s.dscrTarget) shortfall++;
+      }
+    }
+    if(npv > 0) posNpv++;
+    eqNpv.push(npv);
+    const ir = irrOf(eq, horizon);
+    if(ir === null) irrUndef++;
+    else levIrr.push(grain === 'month' ? Math.pow(1 + ir, 12) - 1 : ir);
+    if(isFinite(minDscr)) minD.push(minDscr);
+  }
+
+  const S = a => Float64Array.from(a).sort();
+  const q = (a, p) => a.length ? quantile(a, p) : null;
+  const L = S(levIrr), N = S(eqNpv), M = S(minD);
+  return {
+    levIrr: {p10: q(L, .1), p50: q(L, .5), p90: q(L, .9), undefinedShare: irrUndef / n},
+    eqNpv: {p10: q(N, .1), p50: q(N, .5), p90: q(N, .9), pPos: posNpv / n},
+    minDscr: {p10: q(M, .1), p50: q(M, .5), p90: q(M, .9)},
+    coverShortfall: servedPeriods ? shortfall / (n * servedPeriods) : 0,
+  };
+}

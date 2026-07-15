@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {distQuantile, distMedian, irrOf} from '../engine.js';
+import {mulberry32} from '../../assets/series.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} vs ${b} (eps ${eps})`);
 
@@ -112,4 +113,52 @@ test('grant blip mid-build: no draw against the inflow, lender IRR still = rd (I
   assert.equal(s.tStar, 3);                         // trough at t2, ops from t3
   assert.equal(s.drawByT[1], 0, 'no debt drawn against the grant inflow');
   near(irrOf(lenderFlows(s), 8), 0.065, 1e-4);
+});
+
+/* ---------- Task 3: leverTrials (per-trial levering) ---------- */
+import {leverTrials} from '../debt.js';
+
+// independent per-(trial,period) draws across the op range → each period breaches
+// its cover independently, so coverShortfall is a per-period share (not a min).
+function mcPaths(range, capex, H, n, seed = 99){
+  const rand = mulberry32(seed);
+  const paths = new Float64Array(n * (H + 1));
+  for(let i = 0; i < n; i++){
+    paths[i * (H + 1)] = capex;
+    for(let t = 1; t <= H; t++){
+      const u = Math.min(0.999, Math.max(0.001, rand()));
+      paths[i * (H + 1) + t] = distQuantile(range.lo, range.hi, 'auto', u);
+    }
+  }
+  return paths;
+}
+
+test('coverShortfall ≈ 0.5 at central sizing (per-period, NOT the ~0.998 min-stat) + spread (C1)', () => {
+  const H = 9, n = 4000, s = sizeDebt(BUILD);
+  const paths = mcPaths({lo: 1.0e6, hi: 1.4e6}, -7e6, H, n);
+  const rates = new Float64Array(n).fill(0.10);
+  const r = leverTrials(s, {flowPaths: paths, rates, n, horizon: H, grain: 'year'});
+  assert.ok(Math.abs(r.coverShortfall - 0.5) < 0.05, 'coverShortfall ' + r.coverShortfall);
+  assert.ok(r.levIrr.p10 < r.levIrr.p90, 'levered IRR has spread (no trial-collapse)');
+  assert.ok(r.eqNpv.p10 < r.eqNpv.p90, 'equity NPV has spread');
+});
+
+test('coverShortfall ≈ 0.1 at downside sizing (M4)', () => {
+  const H = 9, n = 4000, s = sizeDebt({...BUILD, sizingCase: 'downside'});
+  const paths = mcPaths({lo: 1.0e6, hi: 1.4e6}, -7e6, H, n);
+  const rates = new Float64Array(n).fill(0.10);
+  const r = leverTrials(s, {flowPaths: paths, rates, n, horizon: H, grain: 'year'});
+  assert.ok(Math.abs(r.coverShortfall - 0.1) < 0.03, 'coverShortfall ' + r.coverShortfall);
+});
+
+test('positive leverage: project IRR > cost of debt ⇒ levered P50 > unlevered', () => {
+  const H = 9, n = 500, s = sizeDebt(BUILD);
+  const p50 = Math.sqrt(1.0e6 * 1.4e6);
+  const paths = new Float64Array(n * (H + 1));
+  for(let i = 0; i < n; i++){ paths[i * (H + 1)] = -7e6; for(let t = 1; t <= H; t++) paths[i * (H + 1) + t] = p50; }
+  const rates = new Float64Array(n).fill(0.10);
+  const proj = irrOf([-7e6, ...Array(9).fill(p50)], 9);
+  const r = leverTrials(s, {flowPaths: paths, rates, n, horizon: H, grain: 'year'});
+  assert.ok(proj > 0.065, 'project IRR ' + proj);
+  assert.ok(r.levIrr.p50 > proj, 'levered ' + r.levIrr.p50 + ' vs project ' + proj);
 });
