@@ -873,6 +873,9 @@ const CF_EXAMPLES = [
    periods: [{lo: '-250k', hi: '-180k'}, {lo: '-40k', hi: '20k'}, {lo: '30k', hi: '90k'}, {lo: '60k', hi: '140k'}]},
   {name: 'Runway', grain: 'month', horizon: 24, rlo: '0', rhi: '0',
    periods: [{lo: '400k', hi: '400k'}, {lo: '-45k', hi: '-25k'}]},
+  {name: 'Geared build (levered IRR)', grain: 'year', horizon: 15, rlo: '9', rhi: '11',
+   debtOn: true, dscr: '1.45', rd: '6.5', tenor: '9', sizingCase: 'central',
+   periods: [{lo: '-7.2M', hi: '-6.8M'}, ...Array(15).fill({lo: '880k', hi: '1.35M'})]},
 ];
 let cfResult = null, cfSpec = null, cfSig = '', cfSvg = '', cfTimer = null, cfHashTimer = null;
 
@@ -1032,6 +1035,9 @@ for(const ex of CF_EXAMPLES){
   b.addEventListener('click', () => {
     cf.grain = ex.grain; cf.horizon = ex.horizon; cf.rlo = ex.rlo; cf.rhi = ex.rhi;
     cf.periods = ex.periods.map(p => ({...p}));
+    cf.debtOn = !!ex.debtOn;
+    cf.dscr = ex.dscr || '1.30'; cf.rd = ex.rd || '6.5';
+    cf.tenor = ex.tenor || ''; cf.sizingCase = ex.sizingCase || 'central';
     renderCfRows();
     cfPaint();
   });

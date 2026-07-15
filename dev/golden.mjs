@@ -415,6 +415,9 @@ for(const [k, src] of Object.entries(docs)){
   variants['fermi-cashflow-invest'] = renderCashflow(simulateCashflow(invest, {seed: 0xCA5F, n: 10000}), invest, cctx);
   const runway = {periods: [R(400e3, 400e3), R(-45e3, -25e3)], horizon: 24, grain: 'month', rate: R(0, 0)};
   variants['fermi-cashflow-runway'] = renderCashflow(simulateCashflow(runway, {seed: 0xCA5F, n: 10000}), runway, cctx);
+  const geared = {periods: [R(-7.2e6, -6.8e6), ...Array(15).fill(R(880e3, 1.35e6))], horizon: 15,
+    grain: 'year', rate: R(9, 11), debt: {dscr: 1.45, costOfDebt: 0.065, tenor: 9, sizingCase: 'central'}};
+  variants['fermi-cashflow-geared'] = renderCashflow(simulateCashflow(geared, {seed: 0xCA5F, n: 10000}), geared, cctx);
 }
 
 /* /timeline fixtures (today pinned in the doc → deterministic) */

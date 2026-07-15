@@ -20,20 +20,27 @@ const dscrF = n => n.toFixed(2);
    the honest downside (leverage cuts both ways) + the per-operating-year cover
    shortfall. All IRR quantiles null-guarded (high gearing ⇒ undefined). */
 export function financeVerdict(d){
-  const un = d.unlevIrr.p50, lv = d.levIrr.p50;
+  const un = d.unlevIrr.p50, lv = d.levIrr.p50, lp10 = d.levIrr.p10;
   const caseWord = d.sizingCase === 'downside' ? 'downside' : 'central';
   const verb = (lv != null && un != null) ? (lv > un ? 'lifts' : 'trims') : 'reshapes';
+  const dv = dscrF(d.dscrTarget), cover = Math.round(d.coverShortfall * 100);
   const head = lv == null
-    ? 'Gearing to ' + fmt(d.D) + ' at ' + dscrF(d.dscrTarget) + '× DSCR — equity IRR undefined at this gearing.'
-    : 'Gearing to ' + fmt(d.D) + ' (' + dscrF(d.dscrTarget) + '× DSCR, ' + caseWord + ' case) ' + verb +
+    ? 'Gearing to ' + fmt(d.D) + ' at ' + dv + '× DSCR — equity IRR undefined at this gearing.'
+    : 'Gearing to ' + fmt(d.D) + ' (' + dv + '× DSCR, ' + caseWord + ' case) ' + verb +
       ' equity IRR ' + pct1(un) + ' → ' + pct1(lv) + ' (P50).';
-  const bits = ['levered IRR P10 ' + pct1(d.levIrr.p10) + ' vs unlevered ' + pct1(un),
+  // data-driven downside: only claim "cuts both ways" when the levered downside
+  // actually dips below the unlevered P50 (with independent years it often doesn't).
+  const crosses = lp10 != null && un != null && lp10 < un;
+  const bits = [crosses
+    ? 'leverage cuts both ways — levered IRR P10 ' + pct1(lp10) + ' vs unlevered ' + pct1(un)
+    : 'levered IRR P10 ' + pct1(lp10) + ' holds above unlevered ' + pct1(un),
     'equity NPV P50 ' + money(d.eqNpv.p50),
-    '~' + Math.round(d.coverShortfall * 100) + '% of operating-years under ' + dscrF(d.dscrTarget) + '× cover'];
-  let sub = 'Leverage cuts both ways: ' + bits.join('; ') + '.';
+    '~' + cover + '% of operating-years under ' + dv + '× cover'];
+  let sub = bits.join('; ') + '.';
+  if(!crosses && cover >= 25) sub += ' The risk sits in cover, not the (independent-year) IRR spread.';
   if(d.capped) sub += ' Gearing capped at 100% of build.';
   if(d.tenorClamped) sub += ' Tenor capped at the operating life.';
-  if(d.sizingCase === 'central' && d.coverShortfall > 0.25) sub += ' Size off the downside case for a bankable structure.';
+  if(d.sizingCase === 'central' && cover >= 25) sub += ' Size off the downside case for a bankable structure.';
   return {head, sub};
 }
 
