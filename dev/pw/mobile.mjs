@@ -163,6 +163,30 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// timeline coarse-pointer pan (Ship 1 B): the board opens PANNED so the first
+// upcoming milestone (the renderer's [data-next] marker) sits in the visible
+// window, not the empty left board. Resolve the target by [data-next] — the
+// autoload example carries no today: pin, so a label-derived expectation rots
+// after 2026; [data-next] tracks the renderer's own "Next up" choice and exists
+// on every non-empty doc (fallback included).
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/timeline/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(1200);   // autoload render + the MutationObserver pan
+  const m = await page.evaluate(() => {
+    const pv = document.querySelector('#preview');
+    const next = pv && pv.querySelector('[data-next]');
+    if(!pv || !next) return null;
+    const p = pv.getBoundingClientRect(), n = next.getBoundingClientRect();
+    return {nc: n.left + n.width / 2, pL: p.left, pR: p.left + p.width, sl: pv.scrollLeft};
+  });
+  ok(m !== null, 'timeline: the [data-next] pan marker is present on the coarse-pointer board');
+  ok(m && m.nc >= m.pL - 1 && m.nc <= m.pR + 1,
+    `timeline: coarse-pointer pan lands the next-up milestone in view` +
+    (m ? ` (center ${Math.round(m.nc)} in [${Math.round(m.pL)}, ${Math.round(m.pR)}], scrollLeft ${Math.round(m.sl)})` : ''));
+  await page.close();
+}
+
 // premortem register-phase walk: the register is behind the wizard, so drive a
 // fresh doc to a populated REGISTER on a phone and prove the dense table's own
 // horizontal scroll stays inside .registerwrap and never blows out the page body

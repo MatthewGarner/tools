@@ -247,6 +247,10 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     ' L' + (cx - r).toFixed(1) + ' ' + cy.toFixed(1) + ' Z" fill="' + fill +
     '" stroke="' + stroke + '" stroke-width="1.5"/>';
 
+  // the coarse-pointer pan target (app.js) and the "Next up" the readout names:
+  // earliest not-done milestone at/after today, else the first milestone. Chosen
+  // once, stamped by object identity (a duplicate lane|label key must not mark two).
+  const nextUp = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0] || items[0];
   for(const it of items){
     const col = colorOf(it);
     const k = keyOf(it);
@@ -268,6 +272,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       s.push(diamond(x90, y, r * 0.8, C.card, col, ' data-ms="p90"'));
     }
     s.push(diamond(x50, y, r, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
+      (it === nextUp ? ' data-next=""' : '') +
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') +
         '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(it.label) + '"' : '')));
 
