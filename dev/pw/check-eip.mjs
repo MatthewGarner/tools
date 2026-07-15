@@ -960,6 +960,31 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('register: one undo restores the pre-move baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
+  // ---- Move to… an EMPTY, HEADERLESS horizon: Q1 2027 has no header line
+  // anywhere in the source (same shape A4 fixed for "+add", now fixed for the
+  // move path too — moveHorizon ensures the header before delegating to
+  // moveItem). Pre-fix this was a SILENT no-op: the popover closed as though
+  // it worked and the source was untouched — proven here by asserting the row
+  // actually leaves Q3 2026 and lands under Q1 2027, not just "no crash" ----
+  const preMoveEmpty = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: baseline is restored and Q1 2027 has no literal header yet',
+    preMoveEmpty === baseline && !preMoveEmpty.includes('Q1 2027'));
+  await tapCard('Rename target');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Q1 2027'}).click();
+  await p.waitForTimeout(600);
+  const tMoveEmpty = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: Move to… a headerless horizon creates the header and relocates the row (not a silent no-op)',
+    /Q1 2027\s*\nCore: Rename target/.test(tMoveEmpty));
+  const movedRow = await rowOf('Rename target').innerHTML();
+  check('register: the moved row is grouped under Q1 2027 in the rendered table, not left under Q3 2026',
+    movedRow.includes('Q1 2027') && !movedRow.includes('Q3 2026'));
+  await undo();
+  check('register: one undo removes BOTH the synthesised header and the move (one transaction)',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
   // ---- +add into an EMPTY, HEADERLESS horizon (A4): Q1 2027 has no header
   // line anywhere in the source before this click — the item must land under
   // THAT horizon (proves ensureHorizonHeader ran), not misfiled into Q4 2026

@@ -58,14 +58,24 @@ export function removeItemLine(text, srcLine){
    card-menu path and the drag path stay a single source of truth. Returns
    the new full text, or null when srcLine isn't an item, targetHorizon
    doesn't resolve, or targetHorizon IS the item's current horizon (the menu
-   marks that row `on`; picking it is a no-op, not an error). */
+   marks that row `on`; picking it is a no-op, not an error).
+
+   moveItem (edit.js) requires a literal header line for an empty target
+   cell — with no items AND no header it returns null, a silent no-op. That
+   is exactly the register's synthesised empty horizons (default Now/Next/
+   Later with only NOW ever written) and the card-menu "Move to…" list,
+   which offers every horizon regardless of whether it has a header. Ensure
+   the header first (ensureHorizonHeader is a no-op when it already exists —
+   appends at the END, so no existing srcLine shifts, and model/hIdx, both
+   resolved before the ensure, stay valid without a re-parse). */
 export function moveHorizon(text, srcLine, targetHorizon){
   const model = parse(text);
   const item = model.items.find(i => i.srcLine === srcLine);
   if(!item) return null;
   const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(targetHorizon).toLowerCase());
   if(hIdx < 0 || hIdx === item.h) return null;
-  const r = moveItem(text, model, srcLine, {h: hIdx, lane: item.lane, beforeLine: null});
+  const withHeader = ensureHorizonHeader(text, model, hIdx);
+  const r = moveItem(withHeader, model, srcLine, {h: hIdx, lane: item.lane, beforeLine: null});
   return r ? r.text : null;
 }
 

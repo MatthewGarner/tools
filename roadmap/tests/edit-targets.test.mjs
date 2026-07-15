@@ -93,6 +93,27 @@ test('moveHorizon: lands right after the header when the lane is new to that hor
   assert.equal(lines[nextIdx + 1].trim(), 'Growth: Referral flow [risk]');
 });
 
+test('moveHorizon: into a headerless default horizon creates the header, then moves — no more silent no-op', () => {
+  const text = 'NOW\nCore: A\nCore: B';
+  const model = parse(text);
+  assert.equal(model.horizons[2], 'Later', 'default horizons: Now/Next/Later, no header line written for Later');
+  const out = moveHorizon(text, 1, 'Later');   // srcLine 1 = "Core: A"
+  assert.ok(out, 'must not silently no-op just because Later has no header line');
+  const m = parse(out);
+  const moved = m.items.find(i => i.title === 'A');
+  assert.equal(m.horizons[moved.h], 'Later');
+  assert.equal(moved.lane, 'Core');
+  const other = m.items.find(i => i.title === 'B');
+  assert.equal(m.horizons[other.h], 'Now', 'sibling item untouched');
+});
+
+test('moveHorizon: a move into a horizon that already HAS a header is byte-identical to calling moveItem directly (ensureHorizonHeader is a no-op there — regression guard)', () => {
+  const model = parse(DOC);
+  const item = model.items.find(i => i.srcLine === 4);
+  const direct = moveItem(DOC, model, 4, {h: 1, lane: item.lane, beforeLine: null});
+  assert.equal(moveHorizon(DOC, 4, 'Next'), direct.text);
+});
+
 /* setStyle — the export-style picker's rewrite (S4) */
 test('setStyle on an empty doc produces just the config line', () => {
   assert.equal(setStyle('', 'grid'), 'style: grid');
