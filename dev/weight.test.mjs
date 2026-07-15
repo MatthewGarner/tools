@@ -53,7 +53,11 @@ function pageLoad(page){
 
 const PAGES = {
   'home/index.html': 40_000,
-  'fermi/index.html': 120_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
+  /* fermi 120k -> 132k (2026-07-15, debt sizing / levered returns): debt.js
+     (sculpt + co-fund + leverTrials), engine.js probit/distQuantile/irrOf, the
+     financing card in render-cashflow.js, and the debt inputs in app.js. Eager
+     in the first-load graph (cashflow mode shares the module set). */
+  'fermi/index.html': 132_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
