@@ -447,12 +447,22 @@ for(const [k, src] of Object.entries(docs)){
     'App: Next thing 2026-08-20';
   variants['timeline-longnote'] = trender(tparse(tlNote), {...tctx});
 
+  // merge-bias: ≥2 ranged lane-completions ⇒ the 2nd readout row + merge poster hero
+  const tMerge = 'title: Programme — merge risk\ntoday: 2026-07-06\n' +
+    'Grid: Energisation 2027-02 .. 2027-06 [risk]\nBuild: Commissioning 2027-03 .. 2027-08\nConsents: DCO 2027-01 .. 2027-05';
+  const tmm = tparse(tMerge);
+  variants['timeline-mergebias'] = trender(tmm, tctx);
+
   const {posterSvg} = await import('../assets/poster.js');
-  const {timelineReadout} = await import('../timeline/render.js');
+  const {posterVerdict} = await import('../timeline/render.js');
   const tPosterCtx = {...tctx, slide: true, bare: true, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}};
   variants['timeline-poster'] = posterSvg({chart: trender(tm, tPosterCtx),
-    verdict: timelineReadout(tm, 20640), name: 'T — programme', date: '2026-07-13',
+    verdict: posterVerdict(tm, 20640), name: 'T — programme', date: '2026-07-13',
     metrics: ['4 milestones', 'last by Jun 2027'],
+    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
+  variants['timeline-mergebias-poster'] = posterSvg({chart: trender(tmm, tPosterCtx),
+    verdict: posterVerdict(tmm, 20640), name: 'Programme — merge risk', date: '2026-07-13',
+    metrics: ['3 milestones', 'last by Aug 2027'],
     accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 

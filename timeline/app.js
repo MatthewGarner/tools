@@ -1,6 +1,6 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, fmtDay} from './parse.js';
-import {render, toMarkdown, timelineReadout} from './render.js';
+import {render, toMarkdown, timelineReadout, posterVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
@@ -150,7 +150,7 @@ function posterData(){
   const items = model.items;
   const lastP90 = items.length ? Math.max(...items.map(i => i.p90)) : today;
   return {
-    verdict: timelineReadout(model, today),
+    verdict: posterVerdict(model, today),
     name: model.title || 'Milestone timeline',
     metrics: [items.length + (items.length === 1 ? ' milestone' : ' milestones'),
               'last by ' + fmtDay(lastP90, {month: true})],
