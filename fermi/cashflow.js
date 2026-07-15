@@ -4,11 +4,12 @@
    The cumulative band and payback/cash-out are UNDISCOUNTED — only NPV and IRR
    touch the discount rate. */
 import {mulberry32, gaussian, quantile} from '../assets/series.js';
-import {samplerFor, Z90} from './engine.js';
+import {samplerFor, Z90, irrOf} from './engine.js';
+import {sizeDebt, leverTrials} from './debt.js';
 
 const mid = p => (p.lo + p.hi) / 2;
 
-export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed = 0xCA5F, n = 10000} = {}){
+export function simulateCashflow({periods, horizon, grain = 'year', rate, debt}, {seed = 0xCA5F, n = 10000} = {}){
   horizon = Math.min(60, Math.max(horizon || periods.length - 1, periods.length - 1));
   const rand = mulberry32(seed), gauss = gaussian(rand);
 
@@ -26,6 +27,14 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
   for(let t = 1; t <= horizon; t++) laterSum += mid(periods[Math.min(t, periods.length - 1)]);
   const framing = mid(periods[0]) > 0 && laterSum < 0 ? 'runway' : 'invest';
   const kind = framing === 'runway' ? 'cashout' : 'payback';
+
+  /* debt sizing (levered returns) reuses these draws — no new rand() calls, so
+     existing URLs/goldens stay byte-identical. Retain the per-trial flow path
+     and rate ONLY when wanted, and always by COPY (flows is reused each trial). */
+  const wantDebt = debt && framing === 'invest';
+  const W = horizon + 1;
+  const flowPaths = wantDebt ? new Float64Array(n * W) : null;
+  const rateStore = wantDebt ? new Float64Array(n) : null;
 
   let npvs = new Array(n), irrs = [], events = [];
   const cumByT = Array.from({length: horizon + 1}, () => new Array(n));
@@ -47,6 +56,7 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
         if(kind === 'cashout' && cum < 0) event = t;
       }
     }
+    if(wantDebt){ const base = i * W; for(let t = 0; t < W; t++) flowPaths[base + t] = flows[t]; rateStore[i] = r; }
     npvs[i] = npv;
     if(npv > 0) posCount++;
     if(event >= 0) events.push(event); else never++;
@@ -59,34 +69,33 @@ export function simulateCashflow({periods, horizon, grain = 'year', rate}, {seed
   irrs = Float64Array.from(irrs).sort();
   events = Float64Array.from(events).sort();
   const q = (s, p) => s.length ? quantile(s, p) : null;
+  const irr = {p10: q(irrs, .1), p50: q(irrs, .5), p90: q(irrs, .9), undefinedShare: irrUndefined / n};
+
+  /* debt block: null (runway / not requested), {ok:false, reason} (no build to
+     fund), or the financing readout. Typed arrays (drawByT/dsByT) are stripped
+     so nothing that can't serialise leaks into the URL/JSON. */
+  let debtOut = null;
+  if(debt && wantDebt){
+    const sized = sizeDebt({periods, horizon, grain, dscr: debt.dscr, costOfDebt: debt.costOfDebt,
+      tenor: debt.tenor, sizingCase: debt.sizingCase});
+    if(!sized.ok) debtOut = sized;
+    else {
+      const lev = leverTrials(sized, {flowPaths, rates: rateStore, n, horizon, grain});
+      const {drawByT, dsByT, ...scalars} = sized;
+      debtOut = {...scalars, ...lev, unlevIrr: irr};
+    }
+  }
+
   return {
     n, horizon, grain, framing, npvSorted: npvs,
     npv: {p10: q(npvs, .1), p50: q(npvs, .5), p90: q(npvs, .9), pPos: posCount / n},
-    irr: {p10: q(irrs, .1), p50: q(irrs, .5), p90: q(irrs, .9), undefinedShare: irrUndefined / n},
+    irr,
     period: {kind, p10: q(events, .1), p50: q(events, .5), p90: q(events, .9), neverShare: never / n},
     band: cumByT.map(col => {
       const s = Float64Array.from(col).sort();
       return {p10: quantile(s, .1), p50: quantile(s, .5), p90: quantile(s, .9)};
     }),
+    debt: debtOut,
   };
 }
 
-/* IRR of one sampled flow vector: bisection on NPV(r) over (−0.99, 10];
-   null when the endpoints don't bracket a root (e.g. flows never change sign). */
-function irrOf(flows, horizon){
-  const f = r => {
-    const d = 1 / (1 + r);
-    let acc = 0;
-    for(let t = horizon; t >= 0; t--) acc = acc * d + flows[t];
-    return acc;
-  };
-  let lo = -0.9899, hi = 10;
-  let flo = f(lo), fhi = f(hi);
-  if(!(isFinite(flo) && isFinite(fhi)) || flo * fhi > 0) return null;
-  for(let i = 0; i < 60; i++){
-    const m = (lo + hi) / 2, fm = f(m);
-    if(fm === 0) return m;
-    if(flo * fm < 0){ hi = m; fhi = fm; } else { lo = m; flo = fm; }
-  }
-  return (lo + hi) / 2;
-}

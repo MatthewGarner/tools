@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {simulateCashflow} from '../cashflow.js';
+import {irrOf} from '../engine.js';
 
 const R = (lo, hi) => ({lo, hi});
 const fixed = v => ({lo: v, hi: v});
@@ -73,4 +74,62 @@ test('band is the undiscounted cumulative path', () => {
   assert.equal(r.band[0].p50, -100);
   assert.equal(r.band[1].p50, -50);
   assert.equal(r.band[2].p50, 0);      // discount rate must not touch the path
+});
+
+/* ---------- debt sizing hook (Task 4) ---------- */
+
+test('debt off ⇒ npv/irr/period/band byte-identical (RNG safety)', () => {
+  const spec = {periods: [R(-7e6, -7e6), R(1e6, 1.4e6), R(1e6, 1.4e6)], horizon: 5, grain: 'year', rate: R(8, 12)};
+  const a = simulateCashflow(spec);
+  const b = simulateCashflow({...spec, debt: {dscr: 1.3, costOfDebt: 0.065, sizingCase: 'central'}});
+  assert.deepEqual(a.npv, b.npv);
+  assert.deepEqual(a.irr, b.irr);
+  assert.deepEqual(a.period, b.period);
+  assert.deepEqual(a.band, b.band);
+});
+
+test('debt attaches for invest (with spread), null for runway', () => {
+  const inv = simulateCashflow({periods: [R(-7e6, -7e6), ...Array(6).fill(R(1.0e6, 1.4e6))], horizon: 6,
+    grain: 'year', rate: R(8, 12), debt: {dscr: 1.3, costOfDebt: 0.065}});
+  assert.equal(inv.debt.ok, true);
+  assert.ok(inv.debt.D > 0);
+  assert.ok(inv.debt.unlevIrr && inv.debt.levIrr);
+  assert.ok(inv.debt.levIrr.p10 < inv.debt.levIrr.p90, 'levered IRR spread (no trial-collapse, C1)');
+  assert.ok(inv.debt.eqNpv.p10 < inv.debt.eqNpv.p90, 'equity NPV spread');
+  assert.deepEqual(inv.debt.unlevIrr, inv.irr, 'unlevIrr === the returned project irr');
+  const run = simulateCashflow({periods: [R(400e3, 400e3), R(-45e3, -25e3)], horizon: 3, grain: 'year',
+    rate: R(8, 12), debt: {dscr: 1.3, costOfDebt: 0.065}});
+  assert.equal(run.debt, null);
+});
+
+test('known-value: deterministic ranges give hand-checkable D AND levered outputs (I5/C1)', () => {
+  const H = 9, ds = 1.2e6 / 1.3, rd = 0.065;
+  let D = 0; for(let k = 0; k < 9; k++) D += ds / Math.pow(1 + rd, k);
+  const Ddrawn = D / (1 + rd);                          // one construction period ⇒ accr = (1+rd)^1
+  const eqCF = [-7e6 + Ddrawn, ...Array(9).fill(1.2e6 - ds)];
+  const s = simulateCashflow({periods: [fixed(-7e6), ...Array(9).fill(fixed(1.2e6))], horizon: H,
+    grain: 'year', rate: fixed(10), debt: {dscr: 1.3, costOfDebt: 0.065, sizingCase: 'central'}});
+  assert.ok(Math.abs(s.debt.D - D) < 5, 'D ' + s.debt.D + ' vs ' + D);
+  assert.ok(Math.abs(s.debt.levIrr.p50 - irrOf(eqCF, H)) < 1e-3, 'levIrr flows through retained paths');
+  let npv = 0; for(let t = 0; t <= H; t++) npv += eqCF[t] / Math.pow(1.10, t);
+  assert.ok(Math.abs(s.debt.eqNpv.p50 - npv) < 5, 'eqNpv ' + s.debt.eqNpv.p50 + ' vs ' + npv);
+  assert.equal(s.debt.tStar, 1);
+  assert.equal(s.debt.levIrr.undefinedShare, 0);           // stale-copy-by-one would NaN trial 0 (Fable M3)
+  assert.equal(s.debt.levIrr.p10, s.debt.levIrr.p90);      // identical trials ⇒ exact equality (no trial-shift)
+});
+
+test('monthly grain: levered eqNpv/levIrr use per-month discounting + annualisation (Fable I2)', () => {
+  const H = 12, V = 300e3, dscr = 1.3, cod = 0.065, rate = 12;
+  const rdM = Math.pow(1 + cod, 1 / 12) - 1, reM = Math.pow(1 + rate / 100, 1 / 12) - 1;
+  const ds = V / dscr;
+  let D = 0; for(let k = 0; k < H; k++) D += ds / Math.pow(1 + rdM, k);   // tenor 12, k = t−1
+  const Ddrawn = D / (1 + rdM);                                          // one construction month
+  const eqCF = [-5e6 + Ddrawn, ...Array(H).fill(V - ds)];
+  let npv = 0; for(let t = 0; t <= H; t++) npv += eqCF[t] / Math.pow(1 + reM, t);
+  const levAnnual = Math.pow(1 + irrOf(eqCF, H), 12) - 1;
+  const s = simulateCashflow({periods: [fixed(-5e6), ...Array(H).fill(fixed(V))], horizon: H,
+    grain: 'month', rate: fixed(rate), debt: {dscr, costOfDebt: cod, sizingCase: 'central'}});
+  assert.ok(Math.abs(s.debt.D - D) < 5, 'D ' + s.debt.D + ' vs ' + D);
+  assert.ok(Math.abs(s.debt.eqNpv.p50 - npv) < 5, 'eqNpv monthly discounting');
+  assert.ok(Math.abs(s.debt.levIrr.p50 - levAnnual) < 1e-3, 'levIrr monthly annualisation');
 });

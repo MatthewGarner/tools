@@ -866,12 +866,16 @@ lint();
 /* ---------- cashflow mode (#13, absorbs #57) ---------- */
 let pageMode = 'est';
 const cf = {grain: 'year', horizon: 5, rlo: '8', rhi: '12',
+  debtOn: false, dscr: '1.30', rd: '6.5', tenor: '', sizingCase: 'central',
   periods: [{lo: '-250k', hi: '-180k'}, {lo: '-40k', hi: '20k'}, {lo: '30k', hi: '90k'}, {lo: '60k', hi: '140k'}]};
 const CF_EXAMPLES = [
   {name: 'New feature investment', grain: 'year', horizon: 5, rlo: '8', rhi: '12',
    periods: [{lo: '-250k', hi: '-180k'}, {lo: '-40k', hi: '20k'}, {lo: '30k', hi: '90k'}, {lo: '60k', hi: '140k'}]},
   {name: 'Runway', grain: 'month', horizon: 24, rlo: '0', rhi: '0',
    periods: [{lo: '400k', hi: '400k'}, {lo: '-45k', hi: '-25k'}]},
+  {name: 'Geared build (levered IRR)', grain: 'year', horizon: 15, rlo: '9', rhi: '11',
+   debtOn: true, dscr: '1.45', rd: '6.5', tenor: '9', sizingCase: 'central',
+   periods: [{lo: '-7.2M', hi: '-6.8M'}, ...Array(15).fill({lo: '880k', hi: '1.35M'})]},
 ];
 let cfResult = null, cfSpec = null, cfSig = '', cfSvg = '', cfTimer = null, cfHashTimer = null;
 
@@ -931,6 +935,9 @@ function renderCfRows(){
     ' repeat the t' + (cf.periods.length - 1) + ' range';
   $('cfgrain').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.g === cf.grain));
   $('cfrlo').value = cf.rlo; $('cfrhi').value = cf.rhi; $('cfhorizon').value = cf.horizon;
+  $('cfdebton').checked = cf.debtOn;
+  $('cfdebtfields').hidden = !cf.debtOn;
+  $('cfdscr').value = cf.dscr; $('cfrd').value = cf.rd; $('cften').value = cf.tenor; $('cfcase').value = cf.sizingCase;
 }
 $('cfadd').addEventListener('click', () => {
   const last = cf.periods[cf.periods.length - 1];
@@ -955,6 +962,14 @@ $('cfhorizon').addEventListener('input', () => {
     ' repeat the t' + (cf.periods.length - 1) + ' range';
   cfSchedule();
 });
+$('cfdebton').addEventListener('change', () => {
+  cf.debtOn = $('cfdebton').checked;
+  $('cfdebtfields').hidden = !cf.debtOn;
+  cfSchedule();
+});
+for(const [id, key] of [['cfdscr', 'dscr'], ['cfrd', 'rd'], ['cften', 'tenor']])
+  $(id).addEventListener('input', () => { cf[key] = $(id).value; cfSchedule(); });
+$('cfcase').addEventListener('change', () => { cf.sizingCase = $('cfcase').value; cfSchedule(); });
 function cfSchedule(){ clearTimeout(cfTimer); cfTimer = setTimeout(cfPaint, 150); }
 
 function cfParse(){
@@ -966,8 +981,14 @@ function cfParse(){
   }
   const rlo = parseFloat(cf.rlo), rhi = parseFloat(cf.rhi);
   if(!isFinite(rlo) || !isFinite(rhi)) return null;
-  return {periods, horizon: Math.max(cf.horizon, periods.length - 1), grain: cf.grain,
+  const spec = {periods, horizon: Math.max(cf.horizon, periods.length - 1), grain: cf.grain,
     rate: {lo: Math.min(rlo, rhi), hi: Math.max(rlo, rhi)}};
+  if(cf.debtOn){
+    // pass raw values through; sizeDebt gates invalid dscr / cost-of-debt cleanly
+    spec.debt = {dscr: parseFloat(cf.dscr), costOfDebt: parseFloat(cf.rd) / 100,
+      tenor: cf.tenor ? parseInt(cf.tenor, 10) : undefined, sizingCase: cf.sizingCase};
+  }
+  return spec;
 }
 function cfPaint(){
   if(pageMode !== 'cf') return;
@@ -976,6 +997,7 @@ function cfPaint(){
     $('cfwrap').innerHTML = '<p class="placeholder">Waiting on ranges — every period needs two numbers (k / M suffixes fine), and the discount rate two percentages.</p>';
     cfResult = null; cfSig = ''; cfSvg = '';
     $('cftout').textContent = '—';
+    $('cfdebtbox').hidden = true;
     return;
   }
   const sig = JSON.stringify(spec);
@@ -987,6 +1009,9 @@ function cfPaint(){
   }
   const svg = renderCashflow(cfResult, cfSpec, {colors: themeColors()});
   if(svg !== cfSvg){ $('cfwrap').innerHTML = svg; cfSvg = svg; }
+  // debt sizing only makes sense for an investment (money out then in)
+  $('cfdebtbox').hidden = cfResult.framing !== 'invest';
+  $('cfdebtfields').hidden = !cf.debtOn;
   cfRenderThresh();
   clearTimeout(cfHashTimer);
   cfHashTimer = setTimeout(cfWriteHash, 400);
@@ -1010,6 +1035,9 @@ for(const ex of CF_EXAMPLES){
   b.addEventListener('click', () => {
     cf.grain = ex.grain; cf.horizon = ex.horizon; cf.rlo = ex.rlo; cf.rhi = ex.rhi;
     cf.periods = ex.periods.map(p => ({...p}));
+    cf.debtOn = !!ex.debtOn;
+    cf.dscr = ex.dscr || '1.30'; cf.rd = ex.rd || '6.5';
+    cf.tenor = ex.tenor || ''; cf.sizingCase = ex.sizingCase || 'central';
     renderCfRows();
     cfPaint();
   });
@@ -1032,6 +1060,10 @@ $('cfcopydoc').addEventListener('click', async () => {
 function cfWriteHash(){
   const state = {m: 'cf', g: cf.grain, h: cf.horizon, rl: cf.rlo, rh: cf.rhi,
     p: cf.periods.map(p => [p.lo, p.hi])};
+  if(cf.debtOn){
+    state.d1 = 1; state.dscr = cf.dscr; state.rd = cf.rd; state.dcase = cf.sizingCase;
+    if(cf.tenor) state.ten = cf.tenor;
+  }
   writeHashState(state);
 }
 function cfWriteHashSafe(){ clearTimeout(cfHashTimer); cfHashTimer = setTimeout(cfWriteHash, 100); }
@@ -1044,6 +1076,13 @@ if(boot && boot.m === 'cf'){
   if(typeof boot.rh === 'string') cf.rhi = boot.rh;
   if(Array.isArray(boot.p) && boot.p.length){
     cf.periods = boot.p.slice(0, 61).map(pair => ({lo: String(pair[0] ?? ''), hi: String(pair[1] ?? '')}));
+  }
+  if(boot.d1){
+    cf.debtOn = true;
+    if(typeof boot.dscr === 'string') cf.dscr = boot.dscr;
+    if(typeof boot.rd === 'string') cf.rd = boot.rd;
+    if(boot.ten != null) cf.tenor = String(boot.ten);
+    if(boot.dcase === 'downside' || boot.dcase === 'central') cf.sizingCase = boot.dcase;
   }
   setMode('cf');
 }

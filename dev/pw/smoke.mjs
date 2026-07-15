@@ -510,6 +510,12 @@ for(const theme of ['light', 'dark']){
     const svg = await page.locator('#cfwrap svg').innerHTML();
     return /RUNWAY/.test(svg) && /month \d+/.test(svg);
   })());
+  check('fermi(' + theme + '): geared example renders the financing card', await (async () => {
+    await page.getByRole('button', {name: 'Geared build (levered IRR)'}).click();
+    await page.waitForTimeout(600);
+    const svg = await page.locator('#cfwrap svg').innerHTML();
+    return /FINANCING VERDICT/.test(svg) && /LEVERED/.test(svg) && /equity IRR/i.test(svg) && !/NaN|undefined/.test(svg);
+  })());
   check('fermi(' + theme + '): cashflow svg decodes as an image', await svgDecodes(page, '#cfwrap svg'));
   check('fermi(' + theme + '): estimate mode restores untouched', await (async () => {
     await page.locator('#modeest').click();

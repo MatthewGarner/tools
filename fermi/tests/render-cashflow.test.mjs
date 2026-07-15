@@ -57,3 +57,46 @@ test('markdown carries the verdict, assumptions, and seeded-runs note', () => {
   assert.match(md, /seeded runs|Monte Carlo/i);
   assert.match(md, /example\.test/);
 });
+
+/* ---------- financing card (debt sizing) ---------- */
+const gearedSpec = {periods: [R(-7e6, -7e6), ...Array(8).fill(R(1.0e6, 1.4e6))], horizon: 9,
+  grain: 'year', rate: R(8, 12), debt: {dscr: 1.3, costOfDebt: 0.065, sizingCase: 'central'}};
+
+test('financing card renders the verdict + both IRR rows when debt sizing on', () => {
+  const r = simulateCashflow(gearedSpec, {seed: 2, n: 4000});
+  const svg = renderCashflow(r, gearedSpec, ctx);
+  assert.match(svg, /FINANCING VERDICT/);
+  assert.match(svg, /equity IRR/i);
+  assert.match(svg, />LEVERED</);
+  assert.match(svg, />UNLEVERED</);
+  assert.ok(svg.startsWith('<svg') && svg.includes('</svg>'));
+  assert.doesNotMatch(svg, /NaN|undefined|>null</);
+});
+
+test('no financing card when debt off (existing render untouched)', () => {
+  const r = simulateCashflow({periods: [R(-7e6, -7e6), R(1e6, 1.4e6)], horizon: 3, grain: 'year', rate: R(8, 12)}, {seed: 2, n: 2000});
+  assert.doesNotMatch(renderCashflow(r, investSpec, ctx), /FINANCING/i);
+});
+
+test('financing card surfaces a clean reason when debt cannot be sized', () => {
+  const r = simulateCashflow({periods: [R(1e6, 1e6), R(1e6, 1e6)], horizon: 2, grain: 'year', rate: R(8, 12),
+    debt: {dscr: 1.3, costOfDebt: 0.065}}, {seed: 2, n: 1000});   // all-positive: invest framing, no build
+  assert.equal(r.debt.ok, false);
+  assert.match(renderCashflow(r, investSpec, ctx), /construction spend/i);
+});
+
+test('markdown carries the financing block when debt on', () => {
+  const r = simulateCashflow(gearedSpec, {seed: 2, n: 4000});
+  const md = cashflowMarkdown(r, gearedSpec, 'https://example.test/fermi/#x');
+  assert.match(md, /Levered IRR|equity IRR/i);
+  assert.match(md, /DSCR/);
+  assert.match(md, /independent/i);   // the honest per-period-independence caveat
+});
+
+test('markdown discloses levered undefined-run share when material (Fable final I1)', () => {
+  const marginal = {periods: [R(-1.2e6, -1.0e6), ...Array(6).fill(R(50e3, 180e3))], horizon: 6,
+    grain: 'year', rate: R(9, 11), debt: {dscr: 1.1, costOfDebt: 0.09, sizingCase: 'central'}};
+  const r = simulateCashflow(marginal, {seed: 2, n: 4000});
+  assert.ok(r.debt.ok && r.debt.levIrr.undefinedShare > 0.05, 'fixture undefinedShare ' + r.debt?.levIrr?.undefinedShare);
+  assert.match(cashflowMarkdown(r, marginal, 'https://x.test/#y'), /Levered IRR.*undefined in \d+% of runs/);
+});

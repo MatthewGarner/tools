@@ -349,9 +349,16 @@ test('fermi cashflow renderer stays clean (verdict text is numeric-only today â€
     {p10: -200, p50: 900, p90: 2600}, {p10: 400, p50: 1800, p90: 4200}, {p10: 1200, p50: 3200, p90: 6000}];
   const r = {framing: 'invest', grain: 'year', horizon: 4,
     npv: {p10: -500, p50: 1200, p90: 4800, pPos: 0.7},
-    irr: {p50: 0.18, undefinedShare: 0.05},
+    irr: {p10: 0.05, p50: 0.18, p90: 0.3, undefinedShare: 0.05},
     period: {p50: 2, p10: 1, p90: 3, neverShare: 0.1, kind: 'payback'}, band};
   assertClean(renderCashflow(r, {}, ctx), 'fermi-cashflow');
+  // debt-sizing branch: card is numeric, reason is the only string surface (escaped via txt)
+  const debt = {ok: true, D: 4.2e6, D_drawn: 4.0e6, tStar: 1, tenor: 12, dscrTarget: 1.3, costOfDebt: 0.065,
+    sizingCase: 'central', gearingPct: 0.6, capped: false, coverShortfall: 0.48,
+    unlevIrr: r.irr, levIrr: {p10: 0.02, p50: 0.15, p90: 0.35, undefinedShare: 0.02},
+    eqNpv: {p10: -1e6, p50: 1.9e6, p90: 5e6, pPos: 0.7}, minDscr: {p10: 1.05, p50: 1.3, p90: 1.7}, service: []};
+  assertClean(renderCashflow({...r, debt}, {}, ctx), 'fermi-cashflow-debt');
+  assertClean(renderCashflow({...r, debt: {ok: false, reason: '<script>xss</script>&"'}}, {}, ctx), 'fermi-cashflow-debt-reason');
 });
 
 test('flow readout + triage renderers escape hostile lever labels (labels are hardcoded engine vocabulary today; hostile-ified here so future free text can\'t slip through)', async () => {
