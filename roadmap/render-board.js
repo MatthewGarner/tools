@@ -5,7 +5,7 @@
    injection corpus. */
 import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
-import {rect, line, clip1, wrapN, capFit, badgeCapsule, statusCapsule, serifGroup, SANS, SERIF} from './deck-parts.js';
+import {rect, line, clip1, wrapN, capFit, badgeCapsule, statusCapsule, serifGroup, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
