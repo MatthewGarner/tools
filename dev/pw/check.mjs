@@ -62,10 +62,9 @@ await page.locator('#snapsel').selectOption({index: 1});
 await page.waitForTimeout(400);
 check('compare shows NEW badge', (await page.locator('#preview svg').innerHTML()).includes('>NEW<'));
 
-// wip warning: load a 7-item NOW doc via URL hash. Pinned to style: grid — a
-// plain now/next/later doc otherwise resolves to the board live view (its own
-// WIP flag reads "N · OVER WIP", not the chart's "N ITEMS" this test checks).
-const wipDoc = 'style: grid\nNOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).join('\n') + '\nNEXT\nx';
+// wip warning: load a 7-item NOW doc via URL hash (a plain now/next/later doc
+// renders the chart — board-live is opt-in via an explicit style: line)
+const wipDoc = 'NOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).join('\n') + '\nNEXT\nx';
 const wipPage = await browser.newPage();
 await wipPage.goto(BASE + '#' + Buffer.from(wipDoc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
 await wipPage.waitForTimeout(400);
@@ -97,16 +96,13 @@ const impSvg = await page2.locator('#preview svg').innerHTML();
 check('markdown import renders', impSvg.includes('Imported item') && impSvg.includes('Imported Plan'));
 
 // drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform.
-// This is the CHART's own lane x horizon cell drag (data-cell), a different
-// gesture from the horizon-band drag register/board share below — pin Grid
-// explicitly so it keeps testing the chart regardless of what a plain
-// now/next/later doc resolves to by default (board, since e11f0c1).
+// The flagship doc is a plain now/next/later roadmap → the CHART, whose drag is
+// the lane×horizon cell gesture (data-cell) — distinct from the horizon-band
+// drag register/board share below.
 {
   const dragPage = await browser.newPage();
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
   await dragPage.getByRole('button', {name: 'Habit app roadmap'}).click();
-  await dragPage.waitForTimeout(400);
-  await dragPage.getByRole('button', {name: 'Grid'}).click();
   await dragPage.waitForTimeout(400);
   const textBefore = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Full offline mode'});

@@ -150,11 +150,15 @@ function doRefresh(){
   } else {
     const w = renderWidth();                       // number only <520, else undefined
     const narrow = !!w && w < 520;
-    const view = effectiveStyle(model);
+    /* a live composition previews only when its style is EXPLICITLY set. A plain
+       now/next/later doc resolves to effectiveStyle 'board' for EXPORT, but its
+       live preview stays the chart — the classic working surface — and board-live
+       appears only when the author (or the picker) writes style:board. inBandView
+       below must stay in lockstep with these arms. */
     const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()};
     const svg = narrow ? render(model, {...liveCtx, width: w})
-      : view === 'register' ? renderRegisterLive(model, liveCtx)
-      : view === 'board' ? renderBoardLive(model, liveCtx)
+      : model.style === 'register' ? renderRegisterLive(model, liveCtx)
+      : model.style === 'board' ? renderBoardLive(model, liveCtx)
       : render(model, {...liveCtx, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
@@ -224,7 +228,7 @@ function itemMenu(m, srcLine){
      would be unreachable on those devices. The chart carries no data-edit="lane"
      target at all (no lane column), so an `opens` row there would resolve to
      nothing. */
-  if(m && (effectiveStyle(m) === 'register' || effectiveStyle(m) === 'board')) rows.push({label: 'Lane…', opens: 'lane'});
+  if(m && (m.style === 'register' || m.style === 'board')) rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
   rows.push({label: 'Remove item', action: true, danger: true});
@@ -250,7 +254,7 @@ attachEditInPlace($('preview'), {
          in the file. Give the target horizon a real header first; ensureHorizonHeader
          is a no-op when the line already exists, and appending at the end never
          shifts any other item's srcLine. */
-      if(model && (effectiveStyle(model) === 'register' || effectiveStyle(model) === 'board')){
+      if(model && (model.style === 'register' || model.style === 'board')){
         const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(el.dataset.col).toLowerCase());
         if(hIdx >= 0) text = ensureHorizonHeader(text, model, hIdx);
       }
@@ -319,10 +323,11 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 function plainStyleSvg(){
   if(!model || !model.items.length) return null;
   const base = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()};
-  const view = effectiveStyle(model);
-  if(view === 'register') return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
-  if(view === 'board') return renderBoardLive(model, {...base, today: todayISO()});         // edit omitted → edit:false, no markup
-  return render(model, base);                                                                // grid/focus → the chart (for now)
+  /* WYSIWYG: Download matches the PREVIEW — explicit style only, so a plain doc
+     downloads the chart (not board-live), exactly as it renders. */
+  if(model.style === 'register') return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
+  if(model.style === 'board') return renderBoardLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
+  return render(model, base);                                                                        // plain / grid / focus → the chart
 }
 /* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
    16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
@@ -503,7 +508,10 @@ function hbandAt(cx, cy){
     if(el.matches && el.matches('#preview svg rect[data-hdrop]')) return +el.dataset.hdrop;
   return null;
 }
-const inBandView = () => model && (effectiveStyle(model) === 'register' || effectiveStyle(model) === 'board');
+/* the horizon-band drag serves the live band-compositions (register + board) and
+   only when EXPLICITLY selected — a plain doc renders the chart, whose drag is the
+   lane×horizon cell path (cellAt), not the band path. Lockstep with doRefresh. */
+const inBandView = () => model && (model.style === 'register' || model.style === 'board');
 function clearHover(){
   if(drag.hover){
     drag.hover.el.setAttribute('fill', 'transparent');

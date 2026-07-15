@@ -808,6 +808,14 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  /* The flagship is a plain now/next/later doc (no style: line). Guards the
+     2026-07-15 decision: the CHART stays the default working surface — making
+     Board its own live view must NOT change what a plain roadmap renders. The
+     chart carries data-cell drag cells and never data-hdrop (that's the live
+     board/register composition, opt-in via an explicit style:). */
+  check('roadmap: a plain doc (no style:) renders the CHART by default, not board-live',
+    (await page.locator('#preview svg [data-cell]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-hdrop]').count()) === 0);
 
   await page.locator('#stylepicker [data-style="register"]').click();
   await page.waitForTimeout(400);

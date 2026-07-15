@@ -622,14 +622,10 @@ check('no console/page errors', errors.length === 0);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit app roadmap'}).click();
   await p.waitForTimeout(500);
-  /* Pin Grid explicitly: this block exercises the CHART's own markup — the
-     lane x horizon cell-ghost additem (data-lane+data-col), the cell drag,
-     and a card menu with no Lane… row — and a plain now/next/later doc
-     otherwise resolves to the board live view by default (since e11f0c1),
-     which has none of that shape. Board's own edit/drag coverage lives in
-     the dedicated board blocks elsewhere in this file. */
-  await p.getByRole('button', {name: 'Grid'}).click();
-  await p.waitForTimeout(400);
+  /* The flagship is a plain now/next/later doc → the CHART, whose own markup
+     this block exercises (the lane×horizon cell-ghost additem, the cell drag,
+     a card menu with no Lane… row). Board's edit/drag coverage lives in the
+     dedicated board blocks elsewhere in this file. */
   await p.locator('[data-edit="title"]', {hasText: 'Streak freeze'}).first().click();
   await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Streak shield');
@@ -1150,13 +1146,12 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
-/* ---- roadmap: the Lane… row must NOT appear on a CHART doc — the chart has
+/* ---- roadmap: the Lane… row must NOT appear on a plain now/next/later CHART
+   doc (no style: line → the chart, the default working surface). The chart has
    no data-edit="lane" target at all, so an `opens` row there would resolve to
-   nothing (A10's negative case). A plain now/next/later doc with no style:
-   line now resolves to the board default (since e11f0c1), and board DOES
-   carry a Lane… row (app.js's effectiveStyle check includes 'board') — so
-   this negative case needs Grid pinned explicitly to still exercise the
-   chart it's actually about. ---- */
+   nothing (A10's negative case). This also guards the default: board-live's
+   Lane… row must NOT leak onto a plain doc — it appears only on explicit
+   style:board. ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
@@ -1164,7 +1159,7 @@ check('no console/page errors', errors.length === 0);
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
-  await p.keyboard.insertText('style: grid\nNOW\nCore: Ship it\n');
+  await p.keyboard.insertText('NOW\nCore: Ship it\n');
   await p.waitForTimeout(700);
 
   const line = await p.locator('#preview svg g[data-edit="cardmenu"]')
