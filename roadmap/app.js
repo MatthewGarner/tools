@@ -3,6 +3,7 @@ import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify,
 import {wireExports} from '../assets/exports.js';
 import {renderDeck, effectiveStyle} from './render-deck.js';
 import {renderRegisterLive} from './render-register.js';
+import {renderBoardLive} from './render-board.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -150,9 +151,11 @@ function doRefresh(){
     const w = renderWidth();                       // number only <520, else undefined
     const narrow = !!w && w < 520;
     const view = effectiveStyle(model);
-    const svg = (!narrow && view === 'register')
-      ? renderRegisterLive(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()})
-      : render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: w});
+    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()};
+    const svg = narrow ? render(model, {...liveCtx, width: w})
+      : view === 'register' ? renderRegisterLive(model, liveCtx)
+      : view === 'board' ? renderBoardLive(model, liveCtx)
+      : render(model, {...liveCtx, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
@@ -215,12 +218,13 @@ function itemMenu(m, srcLine){
     {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
     {label: 'Status…', opens: 'status'},        // dead when the item has no status
   ];
-  /* Register only: the lane cell (data-edit="lane") is reachable by a direct tap
-     on a fine pointer, but coarse pointers (iPad ≥520px) reroute every in-card
-     field tap to this menu instead — without a row here, the lane cell would be
-     unreachable on those devices. The chart carries no data-edit="lane" target at
-     all (no lane column), so an `opens` row there would resolve to nothing. */
-  if(m && effectiveStyle(m) === 'register') rows.push({label: 'Lane…', opens: 'lane'});
+  /* Register + board only: the lane cell/tag (data-edit="lane") is reachable by a
+     direct tap on a fine pointer, but coarse pointers (iPad ≥520px) reroute every
+     in-card field tap to this menu instead — without a row here, the lane field
+     would be unreachable on those devices. The chart carries no data-edit="lane"
+     target at all (no lane column), so an `opens` row there would resolve to
+     nothing. */
+  if(m && (effectiveStyle(m) === 'register' || effectiveStyle(m) === 'board')) rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
   rows.push({label: 'Remove item', action: true, danger: true});
@@ -239,14 +243,14 @@ attachEditInPlace($('preview'), {
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
       let text = editor.getText();
-      /* register only: its horizon groups are synthesised even when the source has
-         no header line for them (the common default Now/Next/Later case where only
-         NOW is ever written) — addItemLine can't find a line to anchor after, and
-         misfiles the new item into whatever section happens to sit last in the
-         file. Give the target horizon a real header first; ensureHorizonHeader is
-         a no-op when the line already exists, and appending at the end never
+      /* register + board only: their horizon groups are synthesised even when the
+         source has no header line for them (the common default Now/Next/Later case
+         where only NOW is ever written) — addItemLine can't find a line to anchor
+         after, and misfiles the new item into whatever section happens to sit last
+         in the file. Give the target horizon a real header first; ensureHorizonHeader
+         is a no-op when the line already exists, and appending at the end never
          shifts any other item's srcLine. */
-      if(model && effectiveStyle(model) === 'register'){
+      if(model && (effectiveStyle(model) === 'register' || effectiveStyle(model) === 'board')){
         const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(el.dataset.col).toLowerCase());
         if(hIdx >= 0) text = ensureHorizonHeader(text, model, hIdx);
       }
@@ -315,9 +319,10 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 function plainStyleSvg(){
   if(!model || !model.items.length) return null;
   const base = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()};
-  if(effectiveStyle(model) === 'register')
-    return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
-  return render(model, base);                                          // board/grid/focus → the chart
+  const view = effectiveStyle(model);
+  if(view === 'register') return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
+  if(view === 'board') return renderBoardLive(model, {...base, today: todayISO()});         // edit omitted → edit:false, no markup
+  return render(model, base);                                                                // grid/focus → the chart (for now)
 }
 /* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
    16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
@@ -498,7 +503,7 @@ function hbandAt(cx, cy){
     if(el.matches && el.matches('#preview svg rect[data-hdrop]')) return +el.dataset.hdrop;
   return null;
 }
-const inRegister = () => model && effectiveStyle(model) === 'register';
+const inBandView = () => model && (effectiveStyle(model) === 'register' || effectiveStyle(model) === 'board');
 function clearHover(){
   if(drag.hover){
     drag.hover.el.setAttribute('fill', 'transparent');
@@ -612,10 +617,10 @@ window.addEventListener('pointermove', e => {
   drag.ghost.style.left = (e.clientX + 12) + 'px';
   drag.ghost.style.top = (e.clientY + 14) + 'px';
   clearHover();
-  if(inRegister()){
-    /* register: no drop-line (there's no lane/order to preview — the row keeps
-       its own lane and lands at the end of the target horizon), just the band
-       highlight. */
+  if(inBandView()){
+    /* register/board: no drop-line (there's no lane/order to preview — the row
+       keeps its own lane and lands at the end of the target horizon), just the
+       band highlight. */
     const h = hbandAt(e.clientX, e.clientY);
     if(h !== null){
       const band = document.querySelector('#preview svg rect[data-hdrop="' + h + '"]');
@@ -655,7 +660,7 @@ window.addEventListener('pointerup', e => {
   const src = drag.armed.line;
   const it = model && model.items.find(i => i.srcLine === src);
   let target = null;
-  if(wasActive && inRegister() && it){
+  if(wasActive && inBandView() && it){
     const h = hbandAt(e.clientX, e.clientY);
     if(h !== null && h !== it.h) target = {h, lane: it.lane, beforeLine: null};   // keep the row's own lane
   } else if(wasActive){
@@ -665,7 +670,7 @@ window.addEventListener('pointerup', e => {
   endDrag();
   if(wasActive) suppressClick = true;
   if(!target || !model) return;
-  if(inRegister()){
+  if(inBandView()){
     /* the target horizon may have no header line yet (a synthesised empty
        group in the default Now/Next/Later doc) — moveItem needs one to
        anchor on; re-parse because the header may be new, but existing

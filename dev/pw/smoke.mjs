@@ -823,7 +823,26 @@ for(const theme of ['light', 'dark']){
   const regSvg = readFileSync(await reg.path(), 'utf8');
   check('roadmap: Download SVG in Register view exports the register table (has the ITEM/HORIZON header)',
     /ITEM/.test(regSvg) && /HORIZON/.test(regSvg) && !/data-cell/.test(regSvg));
-  await page.locator('#stylepicker [data-style="board"]').click();   // back to the chart for later checks
+  await page.locator('#stylepicker [data-style="board"]').click();
+  await page.waitForTimeout(400);
+  // Board view (Task 4): the live editable board, not the chart — the chart carries
+  // data-cell and never data-hdrop; the live board carries data-hdrop drop bands and
+  // data-edit="cardmenu" groups. Cards resolved BY TITLE, never data-line (the suite
+  // convention — a line number is a property of the example doc, not a stable identity).
+  check('roadmap: Board view renders the live editable board (drop bands + card menus present)',
+    (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-edit="cardmenu"]').count()) >= 1);
+  check('roadmap: Board card resolved by title carries data-edit=cardmenu',
+    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Streak freeze'}).count()) >= 1);
+  // WYSIWYG export: Download SVG from Board view yields the live board artefact, not the chart
+  const [brd] = await Promise.all([
+    page.waitForEvent('download', {timeout: 8000}),
+    page.locator('#dlsvg').click(),
+  ]);
+  const brdSvg = readFileSync(await brd.path(), 'utf8');
+  check('roadmap: Download SVG in Board view exports the live board (card + column content, no chart data-cell, no edit markup)',
+    /Streak freeze/.test(brdSvg) && /NOW/.test(brdSvg) &&
+    !/data-cell/.test(brdSvg) && !/data-hdrop/.test(brdSvg) && !/data-edit=/.test(brdSvg));
   await page.waitForTimeout(300);
 
   /* export-style picker (S4): 4 chips, enabled once there's a preview, Board
