@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks} from '../render.js';
+import {render, ticks, timelineReadout, posterVerdict} from '../render.js';
 
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
@@ -142,4 +142,33 @@ test('empty model renders a placeholder-free minimal svg without crashing', () =
   const svg = render(parse('title: X'), ctx);
   assert.match(svg, /<svg/);
   assert.doesNotMatch(svg, /NaN/);
+});
+
+/* ---------- merge-bias readout ---------- */
+const MERGE_DOC = `title: Programme — merge risk
+Grid: Energisation 2027-02 .. 2027-06
+Build: Commissioning 2027-03 .. 2027-08
+Consents: DCO 2027-01 .. 2027-05`;
+
+test('merge readout: ≥2 ranged lanes → verdict leads with Merge risk', () => {
+  const m = parse(MERGE_DOC);
+  assert.match(timelineReadout(m, ctx.today), /^Merge risk: 3 ranged lanes/);
+});
+
+test('posterVerdict is the merge sentence only (no operational bits)', () => {
+  const v = posterVerdict(parse(MERGE_DOC), ctx.today);
+  assert.match(v, /Merge risk/);
+  assert.doesNotMatch(v, /Next up|Widest whisker/);
+});
+
+test('merge SVG carries TWO readout rows (short merge + operational)', () => {
+  const svg = render(parse(MERGE_DOC), ctx);
+  assert.match(svg, /Merge risk: all 3 lanes/);      // short in-chart form
+  assert.match(svg, /Next up:/);                     // the operational row still present
+  assert.doesNotMatch(svg, /NaN|undefined/);
+});
+
+test('non-merge doc: no Merge risk, unchanged single-row readout', () => {
+  assert.doesNotMatch(timelineReadout(parse(DOC), ctx.today), /Merge risk/);
+  assert.doesNotMatch(render(parse(DOC), ctx), /Merge risk/);
 });
