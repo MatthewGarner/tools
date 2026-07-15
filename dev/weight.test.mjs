@@ -79,8 +79,13 @@ const PAGES = {
      (deck-parts.js: registerColumnsLive) — genuinely new first-load code (this renderer
      is reached from render-deck.js's existing eager import, same reasoning as the deck
      export above), not creep. Actual load ~525.4k; set with ~7.6k real headroom on
-     purpose (see the "previous six raises" note above for why thin headroom is a trap). */
-  'roadmap/index.html': 533_000,
+     purpose (see the "previous six raises" note above for why thin headroom is a trap).
+     533k -> 548k (2026-07-15, renderBoardLive — the board deck's live-edit sibling):
+     render-board.js gained renderBoardLive + paintBoardCard (columns-as-cards analogue
+     of renderRegisterLive/paintRow), reached via render-deck.js's existing eager import
+     of render-board.js — genuinely new first-load code, not creep. Actual load ~540.9k;
+     set with ~7k real headroom on purpose (see the "previous six raises" note above). */
+  'roadmap/index.html': 548_000,
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —

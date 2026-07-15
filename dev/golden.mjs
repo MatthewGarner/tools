@@ -95,6 +95,22 @@ for(const [k, src] of Object.entries(docs)){
     '\nNEXT\nCore: placeholder\nLATER\nCore: placeholder';
   variants['deck-board-list'] = renderDeck(parse(listDoc), {...ctxBase});
 
+  const wipDoc = 'title: Habitat board\ndate: 2026-07-04\nwip: 2\nNOW\n' +
+    'Core: Streak freeze\nCore: Widget gallery\nGrowth: Referral loop\nNEXT\nCore: Coach marketplace';
+  variants['deck-board-wip'] = renderDeck(parse(wipDoc), {...ctxBase});
+
+  const emptyColDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze\nNEXT\nLATER\nGrowth: Coach marketplace';
+  variants['deck-board-empty'] = renderDeck(parse(emptyColDoc), {...ctxBase});
+
+  const boardDiffDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\n' +
+    'Core: Streak freeze [doing] -- ship first\nGrowth: Widget gallery\nNEXT\nCore: Coach marketplace';
+  const boardDiff = {
+    since: 'Q1', badge: it => it.title === 'Streak freeze' ? {kind: 'new', label: 'NEW'}
+      : it.title === 'Widget gallery' ? {kind: 'moved', label: 'was Next'} : null,
+    dropped: ['Legacy import'],
+  };
+  variants['deck-board-diff'] = renderDeck(parse(boardDiffDoc), {...ctxBase, diff: boardDiff});
+
   /* REGISTER: badges (NEW capsule + "was X" italic horizon cell) + dropped
      rows (struck, DROPPED capsule) — the formal-table diff read. Also the one
      fixture carrying an AUTHORED `headline:`, so the standfirst (and the body
@@ -156,6 +172,16 @@ for(const [k, src] of Object.entries(docs)){
   const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
     'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
   variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
+
+  /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
+     edit:false (the export/golden path — zero edit markup) so this golden
+     pins the LAYOUT (content-width columns, content-driven height, the
+     light frame, one section per horizon) rather than the edit-only
+     affordances, which dev/injection.test.mjs exercises instead. */
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
+    'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
+  variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

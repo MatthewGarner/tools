@@ -62,7 +62,8 @@ await page.locator('#snapsel').selectOption({index: 1});
 await page.waitForTimeout(400);
 check('compare shows NEW badge', (await page.locator('#preview svg').innerHTML()).includes('>NEW<'));
 
-// wip warning: load a 7-item NOW doc via URL hash
+// wip warning: load a 7-item NOW doc via URL hash (a plain now/next/later doc
+// renders the chart — board-live is opt-in via an explicit style: line)
 const wipDoc = 'NOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).join('\n') + '\nNEXT\nx';
 const wipPage = await browser.newPage();
 await wipPage.goto(BASE + '#' + Buffer.from(wipDoc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
@@ -94,7 +95,10 @@ await page2.waitForTimeout(400);
 const impSvg = await page2.locator('#preview svg').innerHTML();
 check('markdown import renders', impSvg.includes('Imported item') && impSvg.includes('Imported Plan'));
 
-// drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform
+// drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform.
+// The flagship doc is a plain now/next/later roadmap → the CHART, whose drag is
+// the lane×horizon cell gesture (data-cell) — distinct from the horizon-band
+// drag register/board share below.
 {
   const dragPage = await browser.newPage();
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
@@ -200,6 +204,58 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register (headerless): one undo removes BOTH the synthesised header and the move (one transaction)',
     tUndo === baseline);
+  await p.close();
+}
+
+// board: drag a card from NOW onto NEXT's column band (rect[data-hdrop="1"]).
+// The board reuses register's drop machinery (inBandView includes 'board' in
+// app.js), so the drop target is the horizon BAND, not a lane cell — the
+// dragged card keeps its OWN lane, same as register's row-drag. Rows resolved
+// BY TITLE, never data-line.
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(
+    'title: Board drag test\n' +
+    'style: board\n' +
+    '\n' +
+    'NOW\n' +
+    'Growth: Draggable card\n' +
+    'Core: Stays put\n' +
+    '\n' +
+    'NEXT\n' +
+    'Core: Existing next item\n' +
+    '\n' +
+    'LATER\n' +
+    'Core: Existing later item\n');
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const hit = await rowOf('Draggable card').locator('rect[data-hit]').boundingBox();
+  const band = await p.locator('#preview svg rect[data-hdrop="1"]').boundingBox();   // NEXT
+  await p.mouse.move(hit.x + 8, hit.y + 4);
+  await p.mouse.down();
+  await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const lines = tMove.split('\n');
+  const nextIdx = lines.findIndex(l => l.trim() === 'NEXT');
+  const laterIdx = lines.findIndex(l => l.trim() === 'LATER');
+  const movedIdx = lines.findIndex(l => l.includes('Draggable card'));
+  check('board: dragging a card onto a column band moves it under that column',
+    movedIdx > nextIdx && movedIdx < laterIdx);
+  check('board: the moved card keeps its own lane', lines[movedIdx].trim() === 'Growth: Draggable card');
+  check('board: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: one undo restores the pre-drag baseline', tUndo === baseline);
   await p.close();
 }
 

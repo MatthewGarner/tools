@@ -808,6 +808,25 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
+  /* The flagship is a plain now/next/later doc (no style: line). Guards the
+     2026-07-15 decision: the CHART stays the default working surface — making
+     Board its own live view must NOT change what a plain roadmap renders. The
+     chart carries data-cell drag cells and never data-hdrop (that's the live
+     board/register composition, opt-in via an explicit style:). */
+  check('roadmap: a plain doc (no style:) renders the CHART by default, not board-live',
+    (await page.locator('#preview svg [data-cell]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-hdrop]').count()) === 0);
+  // the picker chip reflects the EXPORT style (effectiveStyle), so Board lights on
+  // a plain doc even though the preview is the chart — the deliberate seam.
+  check('roadmap: the Board chip lights on a plain doc (reflects the export style)',
+    await page.locator('#stylepicker [data-style="board"]').evaluate(el => el.classList.contains('on')));
+  // the headline journey (2026-07-15 fix): clicking the lit Board chip on a plain
+  // doc writes style:board and switches the preview from the chart to the live board.
+  await page.locator('#stylepicker [data-style="board"]').click();
+  await page.waitForTimeout(400);
+  check('roadmap: clicking Board on a plain doc switches the preview to the live board',
+    (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-cell]').count()) === 0);
 
   await page.locator('#stylepicker [data-style="register"]').click();
   await page.waitForTimeout(400);
@@ -823,7 +842,26 @@ for(const theme of ['light', 'dark']){
   const regSvg = readFileSync(await reg.path(), 'utf8');
   check('roadmap: Download SVG in Register view exports the register table (has the ITEM/HORIZON header)',
     /ITEM/.test(regSvg) && /HORIZON/.test(regSvg) && !/data-cell/.test(regSvg));
-  await page.locator('#stylepicker [data-style="board"]').click();   // back to the chart for later checks
+  await page.locator('#stylepicker [data-style="board"]').click();
+  await page.waitForTimeout(400);
+  // Board view (Task 4): the live editable board, not the chart — the chart carries
+  // data-cell and never data-hdrop; the live board carries data-hdrop drop bands and
+  // data-edit="cardmenu" groups. Cards resolved BY TITLE, never data-line (the suite
+  // convention — a line number is a property of the example doc, not a stable identity).
+  check('roadmap: Board view renders the live editable board (drop bands + card menus present)',
+    (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
+    (await page.locator('#preview svg [data-edit="cardmenu"]').count()) >= 1);
+  check('roadmap: Board card resolved by title carries data-edit=cardmenu',
+    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Streak freeze'}).count()) >= 1);
+  // WYSIWYG export: Download SVG from Board view yields the live board artefact, not the chart
+  const [brd] = await Promise.all([
+    page.waitForEvent('download', {timeout: 8000}),
+    page.locator('#dlsvg').click(),
+  ]);
+  const brdSvg = readFileSync(await brd.path(), 'utf8');
+  check('roadmap: Download SVG in Board view exports the live board (card + column content, no chart data-cell, no edit markup)',
+    /Streak freeze/.test(brdSvg) && /NOW/.test(brdSvg) &&
+    !/data-cell/.test(brdSvg) && !/data-hdrop/.test(brdSvg) && !/data-edit=/.test(brdSvg));
   await page.waitForTimeout(300);
 
   /* export-style picker (S4): 4 chips, enabled once there's a preview, Board

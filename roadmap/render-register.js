@@ -4,8 +4,8 @@
    renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
-  registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM} from './deck-parts.js';
-import {capFit, deckFrame, paletteColors, deckMetrics} from './render-deck.js';
+  registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit} from './deck-parts.js';
+import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
 
 function registerBodyFn(model, ctx, C){
   return (y0, y1) => {
