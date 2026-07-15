@@ -839,6 +839,199 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- roadmap: REGISTER — inline cell edits (title/lane/note/status), the
+   headerless-horizon "+add" fix (A4), and the coarse-pointer Lane… menu row
+   (A10). A dedicated quarterly doc: the xN token exercises addNote's
+   after-the-token ordering (A1's regression guard) and the time axis means
+   "Runs until…" sits in the menu alongside Lane… — both accounted for below.
+   Q4 2026 carries a written header with no items (a legitimate Move to…
+   target); Q1 2027 carries NO header anywhere in the source — the headerless
+   case A4 fixes. Rows resolved by TITLE, never data-line (see the desktop
+   block above). Each action gets its own round trip: commit, assert, ONE
+   Meta+z, assert full revert to the pre-menu baseline before the next action
+   starts clean. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText(
+    'title: Register test\n' +
+    'style: register\n' +
+    'horizons: quarterly from Q3 2026 x4\n' +
+    '\n' +
+    'Q3 2026\n' +
+    'Core: Rename target\n' +
+    'Lane-less target\n' +
+    'Core: Note-less target\n' +
+    'Core: Spanning target x2\n' +
+    'Core: Status-less target\n' +
+    '\n' +
+    'Q4 2026\n');
+  await p.waitForTimeout(700);
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  /* tap the top-left padding sliver, not the rect centre: the row paints its
+     title/lane/status/note text over the hit rect, and a centred click can
+     land on that text instead (same fix the chart block above uses). */
+  const tapCard = async title => {
+    const box = await rowOf(title).locator('rect[data-hit]').boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  // ---- rename via the title cell ----
+  await p.locator('[data-edit="title"]', {hasText: 'Rename target'}).first().click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Renamed OK');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: title-cell rename lands in the source',
+    tRename.includes('Core: Renamed OK') && !tRename.includes('Rename target'));
+  await undo();
+  check('register: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- add a lane to a laneless row (setLane) ----
+  await rowOf('Lane-less target').locator('[data-edit="lane"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Growth');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: lane-cell edit adds "Lane: " to a laneless row', tLane.includes('Growth: Lane-less target'));
+  await undo();
+  check('register: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- add a note to a note-less row (addNote) ----
+  await rowOf('Note-less target').locator('[data-edit="note"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('first note');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: note-cell edit adds " -- " to a note-less row', tNote.includes('Core: Note-less target -- first note'));
+  await undo();
+  check('register: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- add a note to a row carrying an xN span: the note must land AFTER
+  // the token (A1's regression guard — the bug it guards against would have
+  // produced "Spanning target -- keeps span x2", silently destroying the span) ----
+  await rowOf('Spanning target').locator('[data-edit="note"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('keeps span');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tSpanNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: note on a spanning row lands AFTER xN, preserving the span (A1 regression guard)',
+    /Core: Spanning target x2 -- keeps span/.test(tSpanNote));
+  await undo();
+  check('register: one undo restores the pre-span-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- set a status on a status-less row (addStatus) ----
+  await rowOf('Status-less target').locator('[data-edit="status"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'risk'}).click();
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: status-cell pick adds "[status]" to a status-less row', tStatus.includes('Core: Status-less target [risk]'));
+  await undo();
+  check('register: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- change horizon via the row menu "Move to…" ----
+  await tapCard('Rename target');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
+  await p.waitForTimeout(200);
+  check('register: Move to… submenu lists the model’s horizons',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Q3 2026|Q4 2026|Q1 2027|Q2 2027');
+  await p.locator('.eip-pop button', {hasText: 'Q4 2026'}).click();
+  await p.waitForTimeout(600);
+  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: Move to… relocates the row into the target horizon',
+    tMove.indexOf('Rename target') > tMove.indexOf('Q4 2026') && tMove.indexOf('Q4 2026') > tMove.indexOf('Q3 2026'));
+  await undo();
+  check('register: one undo restores the pre-move baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- +add into an EMPTY, HEADERLESS horizon (A4): Q1 2027 has no header
+  // line anywhere in the source before this click — the item must land under
+  // THAT horizon (proves ensureHorizonHeader ran), not misfiled into Q4 2026
+  // (the last WRITTEN header, where the pre-fix bug would silently drop it) ----
+  const preAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: baseline is restored and the target horizon has no literal header yet',
+    preAdd === baseline && !preAdd.includes('Q1 2027'));
+  await p.locator('[data-edit="additem"][data-col="Q1 2027"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('New headerless item');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: the missing header is created and the item lands right after it',
+    /Q1 2027\s*\nNew headerless item/.test(tAdd));
+  const addedRow = await rowOf('New headerless item').innerHTML();
+  check('register: the new item is grouped under Q1 2027 in the rendered table, not misfiled into Q4 2026',
+    addedRow.includes('Q1 2027') && !addedRow.includes('Q4 2026'));
+  await undo();
+  check('register: one undo removes BOTH the synthesised header and the item (one transaction)',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- the Lane… menu row (A10): register only, reachable via the row menu
+  // for coarse pointers that reroute in-card field taps ----
+  await tapCard('Rename target');
+  await p.waitForTimeout(200);
+  check('register: the card menu offers a Lane… row',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+      'Rename…|Edit note…|Status…|Lane…|Move to…|Runs until…|Remove item');
+  await p.locator('.eip-pop button', {hasText: 'Lane…'}).click();
+  await p.waitForTimeout(200);
+  check('register: Lane… opens the lane input prefilled with the current lane',
+    await p.locator('.eip-input').inputValue() === 'Core');
+  await p.locator('.eip-input').fill('Ops');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tMenuLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('register: Lane… commits the new lane',
+    tMenuLane.includes('Ops: Rename target') && !tMenuLane.includes('Core: Rename target'));
+  await undo();
+  check('register: one undo restores the pre-Lane-menu baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('register: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
+/* ---- roadmap: the Lane… row must NOT appear on a plain now/next/later
+   CHART doc (no style: line → board default) — the chart has no
+   data-edit="lane" target at all, so an `opens` row there would resolve to
+   nothing (A10's negative case). ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Ship it\n');
+  await p.waitForTimeout(700);
+
+  const line = await p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: 'Ship it'}).first().getAttribute('data-line');
+  const box = await p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]').boundingBox();
+  await p.mouse.click(box.x + 8, box.y + 4);
+  await p.waitForTimeout(200);
+  check('roadmap: the Lane… row does not appear on a chart (now/next/later) doc',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
+
+  check('roadmap: no console/page errors (chart Lane… absence)', errs.length === 0);
+  await p.close();
+}
+
 /* ---- roadmap narrow (mobile-emulated): card menu away-listener leak proof —
    tap a card, open Rename, then tap INTO the input itself; the popover's
    away-pointerdown listener must not treat that as an outside click ---- */

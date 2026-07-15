@@ -17,7 +17,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart, setLane, addNote, addStatus, CONFIG_KEYS} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -214,8 +214,14 @@ function itemMenu(m, srcLine){
     {label: 'Rename…', opens: 'title'},
     {label: 'Edit note…', opens: 'note'},      // dead when the item has no note (accepted)
     {label: 'Status…', opens: 'status'},        // dead when the item has no status
-    {label: 'Move to…', submenu: moveRows},
   ];
+  /* Register only: the lane cell (data-edit="lane") is reachable by a direct tap
+     on a fine pointer, but coarse pointers (iPad ≥520px) reroute every in-card
+     field tap to this menu instead — without a row here, the lane cell would be
+     unreachable on those devices. The chart carries no data-edit="lane" target at
+     all (no lane column), so an `opens` row there would resolve to nothing. */
+  if(m && effectiveStyle(m) === 'register') rows.push({label: 'Lane…', opens: 'lane'});
+  rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
   rows.push({label: 'Remove item', action: true, danger: true});
   return rows;
@@ -226,15 +232,29 @@ attachEditInPlace($('preview'), {
     title: {validate: eipValidators.title},
     note: {validate: eipValidators.note},
     status: {options: EDIT_STATUSES},
-    lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[[\]\n]/.test(v) && !v.includes(': '); }},
+    lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
     cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
-      const {afterLine} = addItemLine(editor.getText(), el.dataset.lane || null, el.dataset.col);
+      let text = editor.getText();
+      /* register only: its horizon groups are synthesised even when the source has
+         no header line for them (the common default Now/Next/Later case where only
+         NOW is ever written) — addItemLine can't find a line to anchor after, and
+         misfiles the new item into whatever section happens to sit last in the
+         file. Give the target horizon a real header first; ensureHorizonHeader is
+         a no-op when the line already exists, and appending at the end never
+         shifts any other item's srcLine. */
+      if(model && effectiveStyle(model) === 'register'){
+        const hIdx = model.horizons.findIndex(h => h.toLowerCase() === String(el.dataset.col).toLowerCase());
+        if(hIdx >= 0) text = ensureHorizonHeader(text, model, hIdx);
+      }
+      const {afterLine} = addItemLine(text, el.dataset.lane || null, el.dataset.col);
       const lane = el.dataset.lane;
-      editor.insertLinesAfter(afterLine, [lane ? lane + ': ' + newValue : newValue]);
+      const lines = text.split(/\r?\n/);
+      lines.splice(afterLine + 1, 0, lane ? lane + ': ' + newValue : newValue);
+      editor.setText(lines.join('\n'));   // one transaction → one undo step, even when a header was inserted too
       return;
     }
     if(kind === 'movehorizon'){
