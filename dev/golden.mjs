@@ -431,6 +431,19 @@ for(const [k, src] of Object.entries(docs)){
   variants['timeline-diff'] = trender(tm, tctx,
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
 
+  // short whisker + long label → today the P90 diamond splices the date text.
+  // NOTE SEPARATOR IS // (the DSL), not · (· is only the renderer's formatting of a
+  // parsed note; a · in the source makes parse fail the 2nd date → a single, and the
+  // re-anchor gate !single would EXCLUDE it — the fixture wouldn't pin the bug).
+  // tlShort pins BOTH arms: Feature freeze → right-of-P90, Store review → flip-left.
+  const tlShort = 'title: Q3 launch\nApp: Feature freeze 2026-08-14 .. 2026-08-28\n' +
+    'App: Store review passed 2026-10-15 .. 2026-11-15 // review times vary wildly';
+  variants['timeline-shortwhisker'] = trender(tparse(tlShort), {...tctx});
+  // pins the M4 packing push: item 1's dates+note sub-line is wider than its label.
+  const tlNote = 'title: Notes\nApp: Ship it 2026-08-01 .. 2026-08-05 // a deliberately long trailing note that runs wide\n' +
+    'App: Next thing 2026-08-20';
+  variants['timeline-longnote'] = trender(tparse(tlNote), {...tctx});
+
   const {posterSvg} = await import('../assets/poster.js');
   const {timelineReadout} = await import('../timeline/render.js');
   const tPosterCtx = {...tctx, slide: true, bare: true, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}};
