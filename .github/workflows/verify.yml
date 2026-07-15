@@ -1,17 +1,25 @@
 # The suite is only a gate if it runs. Locally that means remembering
 # `npm run verify`; here it's automatic on every push + PR, so a broken branch
 # shows red before it's merged to main (main deploys production on push, so the
-# real gate is the branch). Two jobs: `node` is the fast deterministic core (pure
-# modules + golden SVG regression, ~seconds, never flaky); `browser` runs the
-# ten Playwright suites against both origins. Parallel, so a browser hiccup
-# never masks a node failure. No secrets: the gauge suite spawns its own
-# in-memory relay (dev/gauge-dev.mjs), nothing here touches Upstash.
+# real gate is the branch). `node` is the fast deterministic core (pure modules +
+# golden SVG regression, ~seconds, never flaky). The ten Playwright suites used to
+# run serially in one ~11-min job; now they're SHARDED across a parallel matrix
+# (dev/pw/shards.mjs is the single source; dev/ci-shards.test.mjs guards it against
+# drift), so CI tracks the slowest shard (~4 min) instead of the sum. Runners are
+# free on a public repo. No secrets: the gauge suite spawns its own in-memory relay
+# (dev/gauge-dev.mjs), nothing here touches Upstash.
 name: verify
 
 on:
   push:
   pull_request:
   workflow_dispatch:
+
+# rapid pushes to the same ref cancel their in-flight run instead of queueing
+# 11-minute zombies, and this collapses the push + PR double-run into one.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -37,9 +45,30 @@ jobs:
       - name: Golden SVG regression (byte-identical + fully committed)
         run: node dev/golden.mjs verify
 
-  browser:
-    name: playwright suites (both origins)
+  # Expand the single-source shard partition into the matrix below. A tiny job
+  # (~15s) so the browser list never gets a second copy in this YAML — the only
+  # copy lives in dev/pw/shards.mjs, guarded by dev/ci-shards.test.mjs.
+  shards:
+    name: shard matrix
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: gen
+        run: echo "matrix=$(node dev/pw/shards.mjs --json)" >> "$GITHUB_OUTPUT"
+
+  browser:
+    name: ${{ matrix.shard.name }}
+    needs: shards
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false          # runners are free — one red shard shouldn't hide the others' signal
+      matrix:
+        shard: ${{ fromJSON(needs.shards.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,28 +79,27 @@ jobs:
       - name: Install harness deps
         working-directory: dev/pw
         run: npm ci
-      # The browser BINARIES (~/.cache/ms-playwright, ~100-200MB for chromium +
-      # real webkit) are the slow part of every run — cache them, keyed on the
-      # pinned playwright version in the lockfile so a version bump busts it. The
-      # OS deps (apt libs) live outside that path and can't be cached, so they're
-      # (re)installed each run: `install --with-deps` on a miss (also downloads +
-      # populates the cache), `install-deps` alone on a hit (deps only, browsers
-      # restored from cache — no download).
+      # Cache the browser BINARIES (~/.cache/ms-playwright), keyed on the shard's
+      # browser SET + the pinned playwright version. The OS deps (apt libs) live
+      # outside that path and can't be cached, so they're (re)installed each run:
+      # `install --with-deps` on a miss (downloads + populates the cache),
+      # `install-deps` alone on a hit (deps only, browsers restored — no download).
+      # Only the motion+webkit shard installs webkit; the rest are chromium-only.
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('dev/pw/package-lock.json') }}
-      - name: Install Playwright browsers (chromium + real webkit)
+          key: ${{ runner.os }}-playwright-${{ matrix.shard.cachekey }}-${{ hashFiles('dev/pw/package-lock.json') }}
+      - name: Install Playwright browsers
         working-directory: dev/pw
         run: |
           if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-            npx playwright install-deps chromium webkit
+            npx playwright install-deps ${{ matrix.shard.browsers }}
           else
-            npx playwright install --with-deps chromium webkit
+            npx playwright install --with-deps ${{ matrix.shard.browsers }}
           fi
-      - name: Serve both origins and run the full gate
+      - name: Serve both origins and run this shard's suites
         run: |
           node dev/serve.mjs 8087 &
           node dev/serve.mjs 8089 --origin=energy &
@@ -83,4 +111,9 @@ jobs:
           done
           curl -sf http://localhost:8087/ >/dev/null || { echo "tools origin never came up"; exit 1; }
           curl -sf http://localhost:8089/ >/dev/null || { echo "energy origin never came up"; exit 1; }
-          cd dev/pw && npm run verify
+          cd dev/pw
+          for s in ${{ matrix.shard.suites }}; do
+            echo "::group::$s"
+            node "$s" || exit 1
+            echo "::endgroup::"
+          done
