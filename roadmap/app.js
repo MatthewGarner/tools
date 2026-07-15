@@ -111,8 +111,13 @@ function renderWarnings(m){
   if(breaches.length) m.warnings.push('(Raise or silence with wip: N / wip: off.)');
   renderWarningList(warns, m.warnings);
 }
-/* export-style picker: active chip reflects the RESOLVED style (a quarterly
-   doc with no style: line still shows Grid active, not none) */
+/* export-style picker: active chip reflects the RESOLVED (export) style via
+   effectiveStyle — a quarterly doc with no style: line shows Grid active, not
+   none. DELIBERATE SEAM (2026-07-15, Matt's call): on a plain now/next/later doc
+   effectiveStyle resolves to 'board', so the Board chip lights even though the
+   live PREVIEW is the chart (live compositions render only on an EXPLICIT
+   model.style — see doRefresh). The chip is honest about what Deck PNG exports;
+   clicking it writes style:board and opts the preview into the live board. */
 function syncStylePicker(m){
   const active = effectiveStyle(m);
   for(const b of $('stylepicker').querySelectorAll('[data-style]')){
