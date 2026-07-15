@@ -165,25 +165,33 @@ for(const [name, url, selectors] of CONTAINERS){
 
 // timeline coarse-pointer pan (Ship 1 B): the board opens PANNED so the first
 // upcoming milestone (the renderer's [data-next] marker) sits in the visible
-// window, not the empty left board. Resolve the target by [data-next] — the
-// autoload example carries no today: pin, so a label-derived expectation rots
-// after 2026; [data-next] tracks the renderer's own "Next up" choice and exists
-// on every non-empty doc (fallback included).
+// window, not the empty left board. Resolve the target by the [data-next] marker
+// (it tracks the renderer's own "Next up" choice), and seed a PINNED-today doc
+// with a far-RIGHT next-up so the pan MUST scroll: an unpinned autoload example
+// rots — once its dates pass, the fallback first item lands near the left and
+// this check would pass even with the pan broken.
 {
+  const doc = 'title: Pan\ntoday: 2026-07-06\nApp: Kickoff 2026-07-10 [done]\nApp: Far launch 2027-08-01 .. 2027-11-01';
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t: doc}))), 'binary').toString('base64');
   const page = await ctx.newPage();
-  await page.goto(T + '/timeline/', {waitUntil: 'networkidle'}).catch(()=>{});
-  await page.waitForTimeout(1200);   // autoload render + the MutationObserver pan
+  await page.goto(T + '/timeline/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(1200);   // render + the MutationObserver pan
   const m = await page.evaluate(() => {
     const pv = document.querySelector('#preview');
     const next = pv && pv.querySelector('[data-next]');
     if(!pv || !next) return null;
     const p = pv.getBoundingClientRect(), n = next.getBoundingClientRect();
-    return {nc: n.left + n.width / 2, pL: p.left, pR: p.left + p.width, sl: pv.scrollLeft};
+    return {nc: n.left + n.width / 2, pL: p.left, pR: p.left + p.width,
+      sl: pv.scrollLeft, cw: pv.clientWidth, sw: pv.scrollWidth};
   });
   ok(m !== null, 'timeline: the [data-next] pan marker is present on the coarse-pointer board');
   ok(m && m.nc >= m.pL - 1 && m.nc <= m.pR + 1,
-    `timeline: coarse-pointer pan lands the next-up milestone in view` +
+    `timeline: coarse-pointer pan lands the far-right next-up milestone in view` +
     (m ? ` (center ${Math.round(m.nc)} in [${Math.round(m.pL)}, ${Math.round(m.pR)}], scrollLeft ${Math.round(m.sl)})` : ''));
+  // the board is wider than the pane AND the pan actually scrolled — a broken pan
+  // (scrollLeft 0) would leave the far-right milestone off-screen right, failing above.
+  ok(m && m.sw > m.cw + 50 && m.sl > 0,
+    `timeline: the pan scrolled the wide board off its origin (scrollLeft ${m ? Math.round(m.sl) : '?'}, board ${m ? Math.round(m.sw) : '?'} > pane ${m ? Math.round(m.cw) : '?'})`);
   await page.close();
 }
 

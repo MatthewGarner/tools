@@ -5,7 +5,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, msLabelAnchor} from '../render.js';
+import {render, msLabelAnchor, whiskerFill} from '../render.js';
 
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
@@ -59,6 +59,20 @@ test('msLabelAnchor: single-date milestones never re-anchor', () => {
   const {labelX, anchorEnd} = msLabelAnchor(it, 100, 100, 6, 1, 0, 200, measure, LF, NF, false);
   assert.equal(anchorEnd, false);
   assert.equal(labelX, 100 + 6 + 5);
+});
+
+/* ---- C: the dark whisker band fill ---- */
+
+test('whiskerFill: light keeps the shared 12% tint; dark is a stronger tint of the same colour', () => {
+  assert.equal(whiskerFill('#2E93C4', false), '#2E93C41F');   // light unchanged (tint = col + 1F)
+  assert.equal(whiskerFill('#2E93C4', true), '#2E93C447');    // dark accent, stronger
+  assert.equal(whiskerFill('#E07A72', true), '#E07A7247');    // dark err (ranged [risk] whiskers)
+  assert.ok(parseInt('47', 16) > parseInt('1F', 16), 'dark alpha must exceed the light alpha');
+});
+
+test('whiskerFill: non-6-digit colours fall back to none in BOTH themes (as tint does)', () => {
+  assert.equal(whiskerFill('#b33', true), 'none');            // the golden ctx uses 3-digit err
+  assert.equal(whiskerFill('#b33', false), 'none');
 });
 
 /* ---- integration invariants on the real SVG (edit:true → labels carry data-edit) ---- */
@@ -121,13 +135,15 @@ function noSameLaneLabelOverlap(svg){
 test('P90 diamond never sits inside a same-row label extent (edit)', () => {
   const doc = 'App: Feature freeze 2026-08-14 .. 2026-08-28\n' +
     'App: Store review 2026-10-15 .. 2026-11-15 // review times vary wildly';
-  const svg = render(parse(doc), {...ctx, edit: true});
+  const svg = render(parse(doc), ctx, null, {edit: true});   // edit is the 4th arg, NOT a ctx key
+  assert.ok(labelsOf(svg).length > 0, 'no labels parsed — the invariant check would be vacuous');
   assert.ok(noP90InsideSameRowLabel(svg), 'a P90 diamond overlaps same-row label text');
 });
 
 test('a wide sub-line does not let two same-lane milestones overlap on one row', () => {
   const doc = 'App: Ship it 2026-08-01 .. 2026-08-05 // a deliberately long trailing note that runs wide\n' +
     'App: Next thing 2026-08-20';
-  const svg = render(parse(doc), {...ctx, edit: true});
+  const svg = render(parse(doc), ctx, null, {edit: true});
+  assert.ok(labelsOf(svg).length >= 2, 'fewer than two labels parsed — the overlap check would be vacuous');
   assert.ok(noSameLaneLabelOverlap(svg), 'sub-line width ignored — labels overlap on one row');
 });

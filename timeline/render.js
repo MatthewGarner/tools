@@ -54,7 +54,7 @@ const wk = days => {
    #1B242C (band-vs-card contrast 1.17); 0x47 (~28%) lifts it to ~1.47 while the
    in-band ink title (7.4:1) and muted sub (~3.5:1) stay legible in both themes.
    Non-6-digit colours fall back to the 'none' stroke, exactly as tint() does. */
-function whiskerFill(col, dark){
+export function whiskerFill(col, dark){
   if(!dark) return tint(col);
   return /^#[0-9a-fA-F]{6}$/.test(col) ? col + '47' : tint(col);
 }
@@ -143,12 +143,11 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const noteFont = T.noteSize * S + 'px ' + F.body;
 
   /* row packing per lane: items sorted by P50; first row whose extent has ended.
-     laneMaxRightX is a SEPARATE per-lane extent taken from the strings each
-     row actually renders — per item, the max of the whisker geometry, the
-     label line, and the dates/note sub-line (smaller note font, but with no
-     label prefix it often runs wider than packing's label-font rightX) — so
-     the per-lane add zone anchors past everything the lane really draws.
-     Packing's rightX stays untouched: it feeds row assignment and the goldens. */
+     Both the row-fit rightX AND the per-lane laneMaxRightX (which anchors the
+     edit-mode add zone) derive from msLabelAnchor's CHOSEN label block — right-of-
+     P50, right-of-P90, or the left-flip — so packing, the add zone and the drawn
+     label always agree. A flip-left label reaches LEFT of its P50 diamond, so its
+     startX opens a NEW row instead of splicing the previous milestone's P90. */
   const laneRows = new Map();
   const laneMaxRightX = new Map();
   const labelFont = '600 ' + T.labelSize * S + 'px ' + F.body;
