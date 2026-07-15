@@ -169,6 +169,11 @@ for(const [k, src] of Object.entries(docs)){
   const focusDiffDoc = 'title: Habitat roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing]\nGrowth: Referral flow\nNEXT\nCore: Smart reminders';
   variants['deck-focus-diff'] = renderDeck(parse(focusDiffDoc), {...ctxBase, diff: {since: 'Q1', dropped: ['Legacy import', 'Old onboarding']}});
 
+  /* focus: config key — proves the lens overrides the default first-non-empty
+     pick on the deck too (heroes LATER, not NOW, even though NOW has items). */
+  const focusKeyDoc = 'title: Habitat roadmap\nstyle: focus\nfocus: Later\ndate: 2026-07-04\nNOW\nCore: Streak freeze\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
+  variants['deck-focus-keyed'] = renderDeck(parse(focusKeyDoc), {...ctxBase});   // heroes LATER, not NOW
+
   /* GRID: a quarterly (time-axis) doc — style: grid is also the DEFAULT here
      (no style: line needed) since genHorizons sets model.timeAxis. */
   variants['deck-grid'] = renderDeck(parse(docs.quarterly), {...ctxBase});

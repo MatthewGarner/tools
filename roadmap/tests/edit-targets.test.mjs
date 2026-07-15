@@ -159,6 +159,20 @@ test('setStyle round-trips: the new style is what parse() resolves', () => {
   assert.equal(parse(text).style, 'focus');
 });
 
+/* setFocus — the focus lens (Task 3) */
+test('setFocus commits/updates the focus: key; round-trips through parse', async () => {
+  const {setFocus} = await import('../edit-targets.js');
+  const t = setFocus('title: R\nNOW\nCore: A\nLATER\nCore: B', 'Later');
+  assert.match(t, /focus:\s*Later/);
+  assert.equal(parse(t).focus, 'Later');
+});
+test('CONFIG_KEYS reserves "focus", so setLane refuses to rename an item to "Focus:"', async () => {
+  const {setLane, CONFIG_KEYS} = await import('../edit-targets.js');
+  assert.ok(CONFIG_KEYS.test('focus'));
+  const text = 'NOW\nCore: Ship it';                       // srcLine 1 is the item
+  assert.equal(setLane(text, 1, 'Focus'), text);           // refused → text unchanged
+});
+
 /* ---- span edits (S7) ---- */
 
 const SPAN_DOC = 'horizons: quarterly from Q3 2026 x4\n' +   // line 0

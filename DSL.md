@@ -40,7 +40,7 @@ The ten grammars differ, but they're a family and obey the same rules:
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `horizons` `wip` `fade` `style` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -73,6 +73,8 @@ swimlanes, WIP limits, and a deck export.
 - `fade:` anything other than `off` turns on the certainty fade for later horizons.
 - `palette:` / `accent:` — as above.
 - `style:` deck layout, one of `board`, `focus`, `register`, `grid`.
+- `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
+  first non-empty horizon when absent, blank, or naming no real horizon.
 
 **Node syntax:**
 - A line equal to a horizon name (case-insensitive, trailing `:` optional) opens that
@@ -91,6 +93,8 @@ title: Team roadmap
 palette: ocean
 horizons: Now, Next, Later
 wip: 6
+style: focus
+focus: Later
 NOW
 Platform: Onboarding revamp [doing] -- cut signup steps
 NEXT

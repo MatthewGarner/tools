@@ -10,14 +10,23 @@ import {deckFrame, paletteColors, M} from './render-deck.js';
    are in the TDZ at module-load and throw. INNER is 1720 on the 1920 deck. */
 const HERO_W = 1060, HGAP = 60, RAIL_W = 600, HWASH_PAD = 22;
 
-/* FOCUS: attention-weighted. Hero = the first NON-EMPTY horizon (an empty
-   Now must not produce an empty hero). Hero column ~1060px under an accent
+/* FOCUS: attention-weighted. Hero = the horizon named by `focus:`, or — when
+   that key is absent, blank, or names no real horizon — the first NON-EMPTY
+   horizon (an empty Now must not produce an empty hero by default; a doc
+   with no focus: key resolves exactly as before the key existed). An
+   explicitly named horizon wins even if it's empty — that's the lens doing
+   its job, not a bug. Hero column ~1060px under an accent
    wash that HUGS the card stack: the stack lays out FIRST (pure geometry),
    then the wash is sized to its painted extent and emitted before it —
    content-driven height, never a stretched box. 1 column at <=5 items, 2 at
    >=6 (row-pair equalised). Remaining horizons flatten into a ~600px rail
    of ranked indexes, certainty-faded (gated on model.fade). */
 export function focusHeroIndex(model){
+  if(model.focus){
+    const want = model.focus.toLowerCase();
+    const named = model.horizons.findIndex(h => h.toLowerCase() === want);
+    if(named >= 0) return named;   // an explicitly named horizon wins, even if empty
+  }
   const idx = model.horizons.findIndex((_, h) => model.items.some(it => it.h === h));
   return idx < 0 ? 0 : idx;
 }
