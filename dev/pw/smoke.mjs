@@ -809,6 +809,23 @@ for(const theme of ['light', 'dark']){
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
 
+  await page.locator('#stylepicker [data-style="register"]').click();
+  await page.waitForTimeout(400);
+  check('roadmap: Register view renders the live editable table (rows carry data-line)',
+    (await page.locator('#preview svg [data-edit="cardmenu"]').count()) >= 1);
+  check('roadmap: Register rows expose editable cells',
+    (await page.locator('#preview svg [data-edit="title"]').count()) >= 1);
+  // WYSIWYG export: Download SVG from Register view yields the register table, not the chart
+  const [reg] = await Promise.all([
+    page.waitForEvent('download', {timeout: 8000}),
+    page.locator('#dlsvg').click(),
+  ]);
+  const regSvg = readFileSync(await reg.path(), 'utf8');
+  check('roadmap: Download SVG in Register view exports the register table (has the ITEM/HORIZON header)',
+    /ITEM/.test(regSvg) && /HORIZON/.test(regSvg) && !/data-cell/.test(regSvg));
+  await page.locator('#stylepicker [data-style="board"]').click();   // back to the chart for later checks
+  await page.waitForTimeout(300);
+
   /* export-style picker (S4): 4 chips, enabled once there's a preview, Board
      active by default (no style:, no time axis) */
   check('roadmap: style picker has 4 chips', await page.locator('#stylepicker [data-style]').count() === 4);

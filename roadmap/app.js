@@ -2,6 +2,7 @@
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {renderDeck, effectiveStyle} from './render-deck.js';
+import {renderRegisterLive} from './render-register.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -16,7 +17,7 @@ import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setSpan, setSpanStart, setLane, addNote, addStatus, CONFIG_KEYS} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -131,6 +132,7 @@ function writeHash(){
   if(ws.collapsed()) state.e = 0;
   if(shouldPersist()) writeHashState(state);
 }
+const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
   const text = editor.getText();
   model = parse(text);
@@ -145,7 +147,12 @@ function doRefresh(){
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    const svg = render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: renderWidth()});
+    const w = renderWidth();                       // number only <520, else undefined
+    const narrow = !!w && w < 520;
+    const view = effectiveStyle(model);
+    const svg = (!narrow && view === 'register')
+      ? renderRegisterLive(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()})
+      : render(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
@@ -219,6 +226,7 @@ attachEditInPlace($('preview'), {
     title: {validate: eipValidators.title},
     note: {validate: eipValidators.note},
     status: {options: EDIT_STATUSES},
+    lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[[\]\n]/.test(v) && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
     cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
   },
@@ -245,6 +253,21 @@ attachEditInPlace($('preview'), {
       if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
       return;
     }
+    if(kind === 'lane'){
+      const next = setLane(editor.getText(), lineNo, newValue);
+      if(next !== editor.getText()) editor.setText(next);
+      return;
+    }
+    if(kind === 'note' && !oldRaw){                 // adding a note where there was none
+      const next = addNote(editor.getText(), lineNo, newValue);
+      if(next !== editor.getText()) editor.setText(next);
+      return;
+    }
+    if(kind === 'status' && !oldRaw){               // setting a status where there was none
+      const next = addStatus(editor.getText(), lineNo, newValue);
+      if(next !== editor.getText()) editor.setText(next);
+      return;
+    }
     const line = editor.getLine(lineNo);
     const newLine = eipApplies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
@@ -265,13 +288,19 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 }
 
 /* ---------- exports ---------- */
-const todayISO = () => new Date().toISOString().slice(0, 10);
-function svgString(slide){
+/* Download SVG/PNG = the current STYLE's plain, content-sized artefact (WYSIWYG),
+   independent of the preview: on a phone the preview falls back to the chart stack
+   but a register doc still exports the register table. Deck PNG / Copy PNG stay the
+   16:9 deck (renderDeck already picks by style). */
+function plainStyleSvg(){
   if(!model || !model.items.length) return null;
-  return render(model, {colors: themeColors(), measure, diff: makeDiff(model), slide, dark: isDark()});
+  const base = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()};
+  if(effectiveStyle(model) === 'register')
+    return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
+  return render(model, base);                                          // board/grid/focus → the chart
 }
 /* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
-   16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the raw chart. */
+   16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
 function deckSvgString(){
   if(!model || !model.items.length) return null;
   return renderDeck(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
@@ -281,7 +310,7 @@ function slug(){
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
-  getSvg: () => svgString(),
+  getSvg: () => plainStyleSvg(),
   getSvgSlide: () => deckSvgString(),
   getCopy: () => deckSvgString(),
   slug,
@@ -490,6 +519,7 @@ $('preview').addEventListener('pointerdown', e => {
   /* a pointerup lost outside the window (drag off-screen, alt-tab mid-gesture) can
      leave a mode armed; starting a new gesture always begins from a clean slate */
   endDrag();
+  if(model && effectiveStyle(model) === 'register') return;   // register drag arrives in Task 7
   /* the edge gesture, checked FIRST: the handle rects are siblings painted AFTER
      (never children of) the card's own <g>, so this can never be confused with
      the card-body drag below. No ghost, no dropline — an edge is not a card move. */
