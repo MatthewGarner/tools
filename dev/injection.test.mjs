@@ -133,12 +133,14 @@ test('roadmap BOARD LIVE escapes a hostile horizons: line, edit:true (flows into
 
 test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {
   const {parse} = await import('../roadmap/parse.js');
-  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const {renderFocusDeck} = await import('../roadmap/render-focus.js');
+  const {paletteColors} = await import('../roadmap/render-deck.js');
   const doc = 'style: focus\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
     EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length] +
       (i % 2 === 0 ? ' [risk]' : ' [blocked]')).join('\n') +
     '\nNEXT\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: rail ' + label(i)).join('\n');
-  assertClean(renderDeck(parse(doc), ctx), 'roadmap-deck-focus');
+  const m = parse(doc);
+  assertClean(renderFocusDeck(m, ctx, paletteColors(m, ctx)), 'roadmap-deck-focus');
 });
 
 test('roadmap DECK (grid style) escapes hostile titles/notes/lanes via the embedded chart (render.js\'s own escaping — called, never modified)', async () => {
