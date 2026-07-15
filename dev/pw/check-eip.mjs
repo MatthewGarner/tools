@@ -622,6 +622,14 @@ check('no console/page errors', errors.length === 0);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit app roadmap'}).click();
   await p.waitForTimeout(500);
+  /* Pin Grid explicitly: this block exercises the CHART's own markup — the
+     lane x horizon cell-ghost additem (data-lane+data-col), the cell drag,
+     and a card menu with no Lane… row — and a plain now/next/later doc
+     otherwise resolves to the board live view by default (since e11f0c1),
+     which has none of that shape. Board's own edit/drag coverage lives in
+     the dedicated board blocks elsewhere in this file. */
+  await p.getByRole('button', {name: 'Grid'}).click();
+  await p.waitForTimeout(400);
   await p.locator('[data-edit="title"]', {hasText: 'Streak freeze'}).first().click();
   await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Streak shield');
@@ -1031,10 +1039,18 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
-/* ---- roadmap: the Lane… row must NOT appear on a plain now/next/later
-   CHART doc (no style: line → board default) — the chart has no
-   data-edit="lane" target at all, so an `opens` row there would resolve to
-   nothing (A10's negative case). ---- */
+/* ---- roadmap: BOARD — inline card edits (title/lane/note/status) and the
+   +add-into-an-EMPTY-HEADERLESS-column path (ensureHorizonHeader), mirroring
+   the register block above onto the board's own card markup: paintBoardCard
+   emits the same data-edit targets (title/note/lane/status/additem) inside
+   the same cardmenu <g> wrapper, so the shared edit-in-place plumbing is what's
+   under test here, not new markup. A default now/next/later doc where only
+   NOW/NEXT carry a header line — LATER stays headerless, the common real
+   shape the code comments call out — so the "+add to Later" click exercises
+   ensureHorizonHeader exactly like register's headerless case did. Cards
+   resolved by TITLE, never data-line. Each action gets its own round trip:
+   commit, assert, ONE Meta+z, assert full revert to the pre-action baseline
+   before the next action starts clean. ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
@@ -1042,7 +1058,113 @@ check('no console/page errors', errors.length === 0);
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
-  await p.keyboard.insertText('NOW\nCore: Ship it\n');
+  await p.keyboard.insertText(
+    'title: Board test\n' +
+    'style: board\n' +
+    '\n' +
+    'NOW\n' +
+    'Core: Rename target\n' +
+    'Lane-less target\n' +
+    'Core: Note-less target\n' +
+    'Core: Status-less target\n' +
+    '\n' +
+    'NEXT\n' +
+    'Core: Existing next item\n');
+  await p.waitForTimeout(700);
+
+  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+
+  // ---- rename via the card's title field ----
+  await p.locator('[data-edit="title"]', {hasText: 'Rename target'}).first().click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Renamed OK');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: title edit lands in the source',
+    tRename.includes('Core: Renamed OK') && !tRename.includes('Rename target'));
+  await undo();
+  check('board: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- the lane tag on a laneless card (setLane) ----
+  await rowOf('Lane-less target').locator('[data-edit="lane"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('Growth');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: lane-tag edit adds "Lane: " to a laneless card', tLane.includes('Growth: Lane-less target'));
+  await undo();
+  check('board: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- "+ note" on a note-less card (addNote) ----
+  await rowOf('Note-less target').locator('[data-edit="note"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('first note');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: "+ note" adds " -- " to a note-less card', tNote.includes('Core: Note-less target -- first note'));
+  await undo();
+  check('board: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- "+ status" on a status-less card (addStatus) ----
+  await rowOf('Status-less target').locator('[data-edit="status"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'risk'}).click();
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: "+ status" adds "[status]" to a status-less card', tStatus.includes('Core: Status-less target [risk]'));
+  await undo();
+  check('board: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- "＋ add to Later": Later is an EMPTY, HEADERLESS column (no header
+  // line anywhere in the source) — proves ensureHorizonHeader is wired into
+  // the board's +add path too, not just register's. Pre-fix this would
+  // misfile the item into NEXT (the last WRITTEN header) instead of creating
+  // Later's header — a silent no-op the same shape A4 fixed. ----
+  const preAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: baseline is restored and Later has no literal header yet',
+    preAdd === baseline && !preAdd.includes('Later'));
+  await p.locator('[data-edit="additem"][data-col="Later"]').click();
+  await p.waitForTimeout(200);
+  await p.locator('.eip-input').fill('New headerless card');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('board: the missing Later header is created and the item lands right after it',
+    /Later\s*\nNew headerless card/.test(tAdd));
+  check('board: the new item renders as a card, filed under Later (not lost)',
+    (await rowOf('New headerless card').count()) === 1);
+  await undo();
+  check('board: one undo removes BOTH the synthesised header and the item (one transaction)',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('board: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
+/* ---- roadmap: the Lane… row must NOT appear on a CHART doc — the chart has
+   no data-edit="lane" target at all, so an `opens` row there would resolve to
+   nothing (A10's negative case). A plain now/next/later doc with no style:
+   line now resolves to the board default (since e11f0c1), and board DOES
+   carry a Lane… row (app.js's effectiveStyle check includes 'board') — so
+   this negative case needs Grid pinned explicitly to still exercise the
+   chart it's actually about. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('style: grid\nNOW\nCore: Ship it\n');
   await p.waitForTimeout(700);
 
   const line = await p.locator('#preview svg g[data-edit="cardmenu"]')
