@@ -23,13 +23,24 @@ export const validators = {
   },
 };
 
-/* drag drop: rewrite or insert `@ x,y` in the pre-:: part of the line */
+/* drag drop + tap-to-place: rewrite or insert `@ x,y`. Mirrors the parser
+   exactly: the trailing // comment is split off FIRST (an @ or :: inside it is
+   never touched), the position is the ANCHORED trailing @ x,y of the pre-::
+   head (a mid-label @ the parser reads as text stays text), and coords are
+   clamped to 0–100 integers so a tap just outside the plane can't write a
+   warning-triggering value. Comment-only and config lines pass through. */
 export function setPosition(line, x, y){
-  const cut = line.indexOf('::');
-  const head = (cut < 0 ? line : line.slice(0, cut))
-    .replace(/@\s*-?[\d.]+\s*,\s*-?[\d.]+/, '').replace(/\s+$/, '');
-  const rest = cut < 0 ? '' : ' ' + line.slice(cut);
-  return head + ' @ ' + x + ',' + y + rest;
+  const t = line.trim();
+  if(t.startsWith('//') || CONFIG_LINE.test(t)) return line;
+  const cm = line.match(/\s\/\/.*$/);
+  const comment = cm ? cm[0] : '';
+  const body = cm ? line.slice(0, cm.index) : line;
+  const cut = body.indexOf('::');
+  const head = (cut < 0 ? body : body.slice(0, cut))
+    .replace(/@\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/, '').replace(/\s+$/, '');
+  const rest = cut < 0 ? '' : ' ' + body.slice(cut);
+  const cl = v => Math.max(0, Math.min(100, Math.round(v)));
+  return head + ' @ ' + cl(x) + ',' + cl(y) + rest + comment;
 }
 
 export function editLabel(line, oldRaw, newRaw){
