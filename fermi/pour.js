@@ -3,21 +3,32 @@
    ranked-driver rows into the existing histogram ("the pile IS the histogram"), then
    leaves a quotable verdict. Canvas + a DOM verdict — no SVG (not a render*.js file). */
 
-const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(p * (s.length - 1))]; };
-
-/* Which ranked row widens the pile most (IQR of its cumulative column), or the
-   flat-model fallback. Widenings telescope (Σ === totalIqr), so "flat" is measured
-   top-vs-RUNNER-UP, never top-vs-total (which can't fire for ≤3 rows). */
-export function pourVerdict(trace, {names}){
-  const {order, draws} = trace;
-  if(!draws.length) return {text: '', topName: null};
-  const iqrAt = i => { const col = draws.map(d => d.steps[i]); return q(col, .75) - q(col, .25); };
-  const prev = i => i === 0 ? 0 : iqrAt(i - 1);        // the spout column is all-at-base → IQR 0 (honest)
-  const widen = order.map((n, i) => ({n, w: iqrAt(i) - prev(i)}));
-  const totalIqr = iqrAt(order.length - 1) || 1;
-  const [t1, t2] = widen.slice().sort((a, b) => b.w - a.w);
+/* Which ranked row widens the pile most — measured as the VARIANCE the pour gains as it
+   crosses each row, in the histogram's axis space (tx). Variance telescopes ADDITIVELY
+   (Σ of the per-row deltas === the total variance), so equal contributors read as equal
+   deltas. IQR-widening does NOT: its √-concave growth always over-credits the first
+   sens-sorted row, so a symmetric a*b model would falsely name a "dominant" driver (and
+   the default piano example contradicted its own sens hint on screen). Measured over
+   exactly the grains the pour draws — same off-axis / ≤0-under-log drop as mountPour — so
+   the words match what's on screen. "Flat" is top-vs-RUNNER-UP (deltas telescope, so
+   top-vs-total can't fire for ≤3 rows). One driver ⇒ it owns all the spread (never "shared"). */
+export function pourVerdict(trace, layout, {names}){
+  const {order} = trace;
+  const tx = (layout && layout.tx) || (x => x);
+  const keep = trace.draws.filter(d =>
+    (!layout || (d.y >= layout.lo && d.y <= layout.hi)) &&
+    !(layout && layout.useLog && d.steps.some(x => x <= 0)));
+  if(!keep.length || !order.length) return {text: '', topName: null};
+  const vari = xs => { const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+    return xs.reduce((a, b) => a + (b - m) * (b - m), 0) / xs.length; };
+  const cum = order.map((n, i) => vari(keep.map(d => tx(d.steps[i]))));   // variance after each row
+  const widen = order.map((n, i) => ({n, w: cum[i] - (i === 0 ? 0 : cum[i - 1])}));  // spout col ≡ base ⇒ var 0
+  const total = cum[cum.length - 1] || 1;
   const nm = n => (names[n] || n).replace(/_/g, ' ');
-  if(!t2 || (t1.w - t2.w) / totalIqr < 0.15)
+  const [t1, t2] = widen.slice().sort((a, b) => b.w - a.w);
+  if(order.length === 1)                               // one driver ⇒ all of it (never "shared")
+    return {text: 'All of the spread is born at ' + nm(t1.n) + '.', topName: t1.n};
+  if(!t2 || (t1.w - t2.w) / total < 0.15)
     return {text: 'No single input dominates — the spread is shared across the drivers.', topName: null};
   return {text: 'Most of the spread is born at ' + nm(t1.n) + ' — the pile widens most as it crosses that row.', topName: t1.n};
 }
@@ -35,7 +46,7 @@ export function mountPour(histCanvas, wrapEl){
     if(raf){ cancelAnimationFrame(raf); raf = 0; }
     if(overlay){ overlay.remove(); overlay = null; octx = null; }
   }
-  function play(trace, layout, rows, colors, {reduced = false} = {}){
+  function play(trace, layout, rows, colors, {reduced = false, dom = null} = {}){
     teardown();
     const cw = histCanvas.clientWidth, histH = histCanvas.clientHeight || 180;
     const padT = 26, padB = 20, plotH = histH - padT - padB;
@@ -59,7 +70,8 @@ export function mountPour(histCanvas, wrapEl){
     const k = trace.order.length;
     const bandTop = 58, bandBot = barsTop - 16;
     const rowY = i => bandTop + (bandBot - bandTop) * (i + 0.5) / Math.max(1, k);
-    const dom = trace.order[0];
+    // highlight the dominant row ONLY when the verdict names one (dom !== null) — a shared
+    // model leaves every row equal weight, so the picture never overstates what the words say.
 
     // per-grain x sequence [spout, afterRow0..afterRow(k-1)=final]; drop off-axis / ≤0-log grains
     const grains = [];
@@ -102,16 +114,22 @@ export function mountPour(histCanvas, wrapEl){
       timers.push(setTimeout(() => fade(), 3600));
       return;
     }
-    // animate
-    let landed = 0; const total = grains.length; let spawned = 0; const spawnRate = Math.ceil(total / 68);
-    const fallY = (bandTop - spoutY), rowSpan = (bandBot - bandTop) / Math.max(1, k - 0.001);
-    function frame(){
-      spawned = Math.min(total, spawned + spawnRate);
+    // animate — timestamp-driven so the pace is identical at 30 / 60 / 120Hz (rAF passes ts).
+    // Wall-clock targets reproduce the 60fps feel Matt tuned: fall ~790ms, spawn window
+    // ~1130ms, fade ~280ms. dt is clamped so a backgrounded tab doesn't teleport every grain.
+    let landed = 0; const total = grains.length;
+    const FALL_MS = 790, SPAWN_MS = 1130, FADE_MS = 280;
+    const rowSpan = (bandBot - bandTop) / Math.max(1, k - 0.001);
+    let t0 = 0, prevTs = 0;
+    function frame(ts){
+      if(!t0){ t0 = ts; prevTs = ts; }
+      const dt = Math.min(50, ts - prevTs); prevTs = ts;
+      const spawned = Math.min(total, Math.floor(total * (ts - t0) / SPAWN_MS));
       backdrop(1);
       octx.fillStyle = C.accent; octx.globalAlpha = 0.7;
       for(let i = 0; i < spawned; i++){
         const g = grains[i]; if(g.done) continue;
-        g.t += 0.021;
+        g.t += dt / FALL_MS;
         // y from spout down to baseline over t in [0,1]
         const yy = spoutY + (baseline - spoutY) * Math.min(1, g.t);
         // x: interpolate through the row stations as y crosses each rowY
@@ -130,7 +148,9 @@ export function mountPour(histCanvas, wrapEl){
     }
     raf = requestAnimationFrame(frame);
     function fade(){
-      let a = 1; const step = () => { a -= 0.06; if(a <= 0){ teardown(); return; }
+      let a = 1, pf = 0;
+      const step = ts => { if(!pf) pf = ts; a -= Math.min(50, ts - pf) / FADE_MS; pf = ts;
+        if(a <= 0){ teardown(); return; }
         overlay.style.opacity = a; raf = requestAnimationFrame(step); };
       raf = requestAnimationFrame(step);
     }

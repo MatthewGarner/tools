@@ -56,8 +56,17 @@ const PAGES = {
   /* fermi 120k -> 132k (2026-07-15, debt sizing / levered returns): debt.js
      (sculpt + co-fund + leverTrials), engine.js probit/distQuantile/irrOf, the
      financing card in render-cashflow.js, and the debt inputs in app.js. Eager
-     in the first-load graph (cashflow mode shares the module set). */
-  'fermi/index.html': 148_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
+     in the first-load graph (cashflow mode shares the module set).
+     132k -> 148k (2026-07-16, the "Replay the maths" pour): histlayout.js (shared
+     axis geometry), engine.js traceDraws (seeded telescoping replay), pour.js
+     (mountPour canvas overlay + the honest verdict), and the Replay wiring in app.js.
+     148k -> 152k (2026-07-16, Fable pour scrutiny): the verdict metric moved from IQR
+     to variance-delta (telescopes additively, so equal drivers read equal — kills a
+     false-dominance verdict) and the animation became timestamp-driven (frame-rate
+     independent). Genuinely new code, not creep; actual load ~148.2k, ~3.8k real
+     headroom on purpose (Stage B's confession lands on this page next — see the
+     roadmap live-view raises for why thin headroom is a trap). */
+  'fermi/index.html': 152_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */

@@ -396,7 +396,12 @@ function lint(){
     {seed: SEEDS[active], p10, p90});
 
   last = {ast, ranges, dists, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, invalid: N - sorted.length};
-  $('replay').disabled = !sens.length;   // pour needs at least one ranged driver
+  // pour needs at least one ranged driver AND a finite all-medians point estimate to pour FROM
+  // (e.g. a / b with b crossing 0 pins to a 0 divisor → no spout); disable with a reason, never a dead button.
+  const meds = {}; for(const n of varNames){ const [lo, hi] = ranges[n]; meds[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }
+  const baseFinite = isFinite(evalNode(ast, meds));
+  $('replay').disabled = !sens.length || !baseFinite;
+  $('replay').title = (sens.length && !baseFinite) ? 'This model has no finite point estimate to pour from.' : '';
   lastBy[active] = {raw: main.raw, p10, p50, p90};
   if(compareOn){
     const other = active === 'A' ? 'B' : 'A';
@@ -704,10 +709,10 @@ function replay(){
     accent: (active === 'A') ? C.accent : C.accent2};
   const shareByName = Object.fromEntries(last.sens.map(s => [s.name, s.share]));
   const rows = trace.order.map(n => ({name: n, share: shareByName[n] || 0}));
-  const v = pourVerdict(trace, {names: Object.fromEntries(last.varNames.map(n => [n, n]))});
+  const v = pourVerdict(trace, layout, {names: Object.fromEntries(last.varNames.map(n => [n, n]))});
   pourVerdictText = v.text;
   $('pourverdict').textContent = v.text;
-  pour.play(trace, layout, rows, colors, {reduced: reducedMotion()});
+  pour.play(trace, layout, rows, colors, {reduced: reducedMotion(), dom: v.topName});
 }
 $('replay').addEventListener('click', replay);
 // press-and-hold on the P50 tile is the accelerator (pointerdown only — not also click)
