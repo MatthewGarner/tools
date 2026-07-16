@@ -6,6 +6,7 @@ import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {onThemeChange} from '../assets/app-common.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
 /* headEl carries the quotable headline as real HTML text, mirrored from the
@@ -13,12 +14,13 @@ const ENDED = 'This session has ended — sessions live 24 hours.';
    users get it too (never SVG-only). */
 const showOverlay = (el, headEl, model, responses, ctx) => {
   const stats = sessionStats(model, responses);
-  el.innerHTML = renderOverlay(model, stats, ctx());
+  el.innerHTML = renderOverlay(model, stats, ctx(), {width: narrowWidth(el)});
   if(headEl) headEl.textContent = verdict(stats);
 };
-const delphiSvg = (model, r1, r2, ctx) =>
+/* width only on screen (narrowWidth of the host element) — export paths omit it */
+const delphiSvg = (model, r1, r2, ctx, width) =>
   renderOverlay(model, sessionStats(model, mergeFinal(r1, r2)), ctx(),
-    {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1)});
+    {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1), width});
 const setDelphiHead = (headEl, model, r1, r2) => {
   if(headEl) headEl.textContent = delphiVerdict(delphiStats(model, r1, r2));
 };
@@ -75,7 +77,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('creveal').textContent = 'Round 2 revealed — locked';
     $('cstate').textContent = '';
     $('cquestions').hidden = true;
-    $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
+    $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay')));
     setDelphiHead($('chead'), model, responses, responses2);
     refreshHandoff();
   }
@@ -221,10 +223,12 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('cstate').textContent = 'Responses deleted from the relay — exports still work from this tab.';
   });
 
-  onThemeChange(() => {
-    if(responses2) $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx);
+  const repaint = () => {
+    if(responses2) $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay')));
     else if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx);
-  });
+  };
+  onThemeChange(repaint);
+  watchNarrowBucket($('coverlay'), repaint);   // phone rotation / resize re-lays-out
 }
 
 export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
@@ -328,7 +332,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       lastDelphi = {r1: r.data.responses, r2: r.data.responses2};
       lastResponses = null;
       say('');
-      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
+      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx, narrowWidth($('presult')));
       setDelphiHead($('phead'), model, lastDelphi.r1, lastDelphi.r2);
       return;
     }
@@ -340,11 +344,13 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     showOverlay($('presult'), $('phead'), model, lastResponses, ctx);
   });
 
-  onThemeChange(() => {
+  const repaint = () => {
     if(lastDelphi){
-      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx);
+      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx, narrowWidth($('presult')));
       setDelphiHead($('phead'), model, lastDelphi.r1, lastDelphi.r2);
     }
     else if(lastResponses) showOverlay($('presult'), $('phead'), model, lastResponses, ctx);
-  });
+  };
+  onThemeChange(repaint);
+  watchNarrowBucket($('presult'), repaint);   // phone rotation / resize re-lays-out
 }
