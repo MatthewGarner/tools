@@ -46,6 +46,17 @@ const indentCmd = dir => view => {
 export const indentMore = indentCmd(1);
 export const indentLess = indentCmd(-1);
 
+/* Rule 2 (mobile input): phones have no ⌘Z, so "every edit is an undoable text
+   rewrite" needs a visible control. The pinned vendor bundle doesn't export
+   undo/redo — but historyKeymap (already imported) carries the Mod-z binding
+   whose `run` IS @codemirror/commands' undo; calling it through the keymap
+   reuses the shipped bytes instead of rebuilding + re-pinning the vendor.
+   Resolved once at module load so a repinned bundle that dropped the binding
+   fails loudly at import time, not silently at tap time. */
+const undoBinding = historyKeymap.find(k => k.key === 'Mod-z');
+if(!undoBinding) throw new Error('editor-common: vendored historyKeymap lost its Mod-z binding');
+const undoCmd = undoBinding.run;
+
 export const BASE_HIGHLIGHTS = [
   {tag: tags.keyword, color: 'var(--accent-ink)', fontWeight: '600'},
   {tag: tags.comment, color: 'var(--muted)', opacity: '0.55'},
@@ -117,6 +128,11 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
       view.dispatch({changes: {from: line.from, to: line.to, insert: text}});
     },
     getLine(n){ return view.state.doc.line(n + 1).text; },
+    /* Deliberately does NOT refocus the editor: the touch Undo button is the
+       only caller, and focusing a CodeMirror contenteditable from a button tap
+       raises the phone's soft keyboard over the artefact the user is looking
+       at. Returns whether anything was undone (no-op on an empty history). */
+    undo: () => undoCmd(view),
     insertLinesAfter(n, texts){
       const line = view.state.doc.line(n + 1);
       view.dispatch({changes: {from: line.to, to: line.to, insert: '\n' + texts.join('\n')}});

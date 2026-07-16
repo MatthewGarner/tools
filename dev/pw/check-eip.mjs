@@ -1951,6 +1951,168 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- PHONE gate (coarse pointer, mobile-input Stage 0). Rule 1: a bare tap
+   on the diagram must NEVER commit a text change silently — a multi-value
+   cycle opens a marked options popover, a ['×'] remove cycle opens a danger
+   confirm, and the card-menu redirect keeps winning where a data-menu sibling
+   covers the tap. Rule 2: the ↶ touch Undo button reverts a real commit
+   through the editor's history. This is the behavioural check that would have
+   caught the original /why silent [testing]→[holds] rewrite. Fine-pointer
+   behaviour is locked by the desktop blocks above (they click cycle targets
+   and expect the INSTANT step). ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const sliverTap = async (p, loc) => {   // top-left padding sliver — same dodge-the-text trick as the desktop blocks
+    await loc.scrollIntoViewIfNeeded();
+    await p.waitForTimeout(300);
+    const box = await loc.boundingBox();
+    await p.mouse.click(box.x + 8, box.y + 4);
+  };
+
+  /* why: the astatus multi-value cycle (the original trap) */
+  {
+    const p = await mctx.newPage();
+    const errs = trackErrors(p);
+    await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Habit retention'}).click();
+    await p.waitForTimeout(700);
+    const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
+    await settledTap(p, p.locator('[data-edit="astatus"][data-raw="testing"]').first());
+    await p.waitForTimeout(250);
+    check('phone why: astatus tap opens the cycle popover — no instant commit',
+      await p.locator('.eip-pop').count() === 1);
+    check('phone why: doc text UNCHANGED while the popover is open',
+      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+    check('phone why: popover lists the four states with the current one marked',
+      (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken' &&
+      (await p.locator('.eip-pop button.on').innerText()) === 'testing');
+    await p.locator('.eip-pop button', {hasText: 'holds'}).click();
+    await p.waitForTimeout(700);
+    const picked = await p.evaluate(() => localStorage.getItem('why-src'));
+    check('phone why: picking commits EXACTLY the picked value (not "next in cycle")',
+      picked.includes('? users want to be interrupted at work [holds]'));
+    /* Rule 2: the touch Undo button reverts through the editor's history */
+    await settledTap(p, p.locator('.actions .touch-undo'));
+    await p.waitForTimeout(600);
+    check('phone why: ↶ Undo reverts the popover commit',
+      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+    /* the data-menu redirect still wins where a menu sibling covers the tap */
+    await sliverTap(p, p.locator('#preview svg rect[data-edit^="cardmenu"][data-hit]').first());
+    await p.waitForTimeout(250);
+    check('phone why: card-body tap opens exactly ONE menu popover (redirect wins, nothing double-fires)',
+      await p.locator('.eip-pop').count() === 1 &&
+      await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1);
+    check('phone why: menu open commits nothing',
+      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+    /* away-dismiss: a pointerdown anywhere outside the popover closes it.
+       Synthetic on body — a coordinate tap risks hitting the crumb link or
+       another [data-edit] target, and a locator click scroll-closes first. */
+    await p.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})));
+    await p.waitForTimeout(250);
+    check('phone why: away pointerdown dismisses the popover without a commit',
+      await p.locator('.eip-pop').count() === 0 &&
+      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+    check('phone why: no console/page errors', errs.length === 0);
+    await p.close();
+  }
+
+  /* map: the ['×'] remove cycle → one-row danger confirm (readout panel —
+     no data-menu sibling covers it, so this drives the cycle-popover fallback) */
+  {
+    const p = await mctx.newPage();
+    const errs = trackErrors(p);
+    await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Assumption map'}).click();
+    await p.waitForTimeout(700);
+    const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
+    await settledTap(p, p.locator('[data-edit="removeitem"]').first());
+    await p.waitForTimeout(250);
+    check('phone map: × tap opens the danger confirm — no instant removal',
+      await p.locator('.eip-pop button.danger').count() === 1 &&
+      (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove');
+    check('phone map: doc text UNCHANGED while the confirm is open',
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+    await p.locator('.eip-pop button.danger').click();
+    await p.waitForTimeout(700);
+    const removed = await p.evaluate(() => localStorage.getItem('map-src'));
+    check('phone map: confirming commits the removal', removed !== baseline &&
+      removed.split('\n').length === baseline.split('\n').length - 1);
+    await settledTap(p, p.locator('.actions .touch-undo'));
+    await p.waitForTimeout(600);
+    check('phone map: ↶ Undo restores the removed line',
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+    check('phone map: no console/page errors', errs.length === 0);
+    await p.close();
+  }
+
+  /* roadmap at 390: the narrow chart's card menu opens (a sample of the
+     narrow-relayout tools keeping their tap-to-edit entry point) */
+  {
+    const p = await mctx.newPage();
+    const errs = trackErrors(p);
+    await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+    await p.waitForTimeout(700);
+    const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+    await sliverTap(p, p.locator('#preview svg g[data-edit="cardmenu"] rect[data-hit]').first());
+    await p.waitForTimeout(250);
+    check('phone roadmap: narrow-chart card tap opens the menu, commits nothing',
+      await p.locator('.eip-pop').count() === 1 &&
+      (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+    await p.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})));
+    await p.waitForTimeout(250);
+    check('phone roadmap: no console/page errors', errs.length === 0);
+    await p.close();
+  }
+
+  /* Rule 3 mechanism: a kind may declare inputmode and it lands on the input.
+     No tool opts in yet, so drive the shared module directly with a synthetic
+     kind — this guards the plumbing until the first real opt-in. */
+  {
+    const p = await mctx.newPage();
+    await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+    const im = await p.evaluate(async () => {
+      const {attachEditInPlace} = await import('/assets/edit-in-place.js');
+      const host = document.createElement('div');
+      host.innerHTML = '<span data-edit="n" data-line="0" data-raw="42">42</span>';
+      document.body.appendChild(host);
+      attachEditInPlace(host, {kinds: {n: {inputmode: 'decimal'}}, onCommit(){}});
+      host.querySelector('[data-edit]').dispatchEvent(new MouseEvent('click', {bubbles: true}));
+      const input = document.querySelector('.eip-input');
+      return input ? input.inputMode : 'no-input';
+    });
+    check('phone: a kind\'s declared inputmode lands on the edit input (Rule 3)', im === 'decimal');
+    await p.close();
+  }
+
+  await mctx.close();
+}
+
+/* ---- timeline at coarse-WIDE (tablet): the single non-× step sentinel
+   (['cycle']) keeps the INSTANT step on coarse pointers — Rule 1's one
+   deliberate exception — and the touch Undo reverts it. ---- */
+{
+  const tctx = await browser.newContext({...devices['iPad Pro 11 landscape'], reducedMotion: 'reduce'});
+  const p = await tctx.newPage();
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/timeline/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'App launch programme'}).click();
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('timeline-src'));
+  await settledTap(p, p.locator('[data-edit="status"]').first());
+  await p.waitForTimeout(600);
+  const stepped = await p.evaluate(() => localStorage.getItem('timeline-src'));
+  check('tablet timeline: the ["cycle"] sentinel still steps instantly on coarse (no popover)',
+    await p.locator('.eip-pop').count() === 0 && stepped !== baseline);
+  await settledTap(p, p.locator('.actions .touch-undo'));
+  await p.waitForTimeout(600);
+  check('tablet timeline: ↶ Undo reverts the stepped status',
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
+  check('tablet timeline: no console/page errors', errs.length === 0);
+  await p.close();
+  await tctx.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 report('check-eip', {...tally(results), min: 85});

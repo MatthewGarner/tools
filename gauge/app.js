@@ -10,7 +10,7 @@ import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {initWorkspace} from '../assets/workspace.js';
+import {initWorkspace, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
@@ -100,6 +100,7 @@ async function initCompose(hash){
     doc: '',
     onChange: debounced(() => refresh(), 120),
   });
+  mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
   /* add/remove questions from the form preview — text edits through the editor, undoable */
   $('preview').addEventListener('click', e => {
     const del = e.target.closest && e.target.closest('.qdel');
