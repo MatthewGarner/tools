@@ -164,35 +164,34 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
-// timeline coarse-pointer pan (Ship 1 B): the board opens PANNED so the first
-// upcoming milestone (the renderer's [data-next] marker) sits in the visible
-// window, not the empty left board. Resolve the target by the [data-next] marker
-// (it tracks the renderer's own "Next up" choice), and seed a PINNED-today doc
-// with a far-RIGHT next-up so the pan MUST scroll: an unpinned autoload example
-// rots — once its dates pass, the fallback first item lands near the left and
-// this check would pass even with the pan broken.
+// timeline phone behaviour (Ship 2 SUPERSEDES Ship 1's coarse-pointer pan): below
+// 520px the board RELAYOUTS into stacked rows on a shared axis (the house "relayout,
+// not pan" bar), so the whole board fits the pane and there is no horizontal pan. The
+// [data-next] marker still rides the "Next up" milestone (kept for parity and for
+// wide-but-coarse contexts where panToToday still applies). Assert the narrow relayout
+// is what a phone gets, it fits sideways, and the next-up milestone is in view.
 {
   const doc = 'title: Pan\ntoday: 2026-07-06\nApp: Kickoff 2026-07-10 [done]\nApp: Far launch 2027-08-01 .. 2027-11-01';
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t: doc}))), 'binary').toString('base64');
   const page = await ctx.newPage();
   await page.goto(T + '/timeline/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
-  await page.waitForTimeout(1200);   // render + the MutationObserver pan
+  await page.waitForTimeout(1200);
   const m = await page.evaluate(() => {
     const pv = document.querySelector('#preview');
+    const svg = pv && pv.querySelector('svg');
     const next = pv && pv.querySelector('[data-next]');
-    if(!pv || !next) return null;
+    if(!pv || !svg || !next) return null;
     const p = pv.getBoundingClientRect(), n = next.getBoundingClientRect();
-    return {nc: n.left + n.width / 2, pL: p.left, pR: p.left + p.width,
-      sl: pv.scrollLeft, cw: pv.clientWidth, sw: pv.scrollWidth};
+    return {narrow: svg.hasAttribute('data-narrow'), nc: n.left + n.width / 2,
+      pL: p.left, pR: p.left + p.width, sw: pv.scrollWidth, cw: pv.clientWidth};
   });
-  ok(m !== null, 'timeline: the [data-next] pan marker is present on the coarse-pointer board');
+  ok(m !== null, 'timeline: the phone board renders with a [data-next] milestone marker');
+  ok(m && m.narrow, 'timeline: below 520px the board relayouts to the narrow stack (not a wide pan-board)');
+  ok(m && m.sw <= m.cw + 2,
+    `timeline: the narrow board fits the pane — no horizontal pan (${m ? Math.round(m.sw) : '?'} <= ${m ? Math.round(m.cw) : '?'})`);
   ok(m && m.nc >= m.pL - 1 && m.nc <= m.pR + 1,
-    `timeline: coarse-pointer pan lands the far-right next-up milestone in view` +
-    (m ? ` (center ${Math.round(m.nc)} in [${Math.round(m.pL)}, ${Math.round(m.pR)}], scrollLeft ${Math.round(m.sl)})` : ''));
-  // the board is wider than the pane AND the pan actually scrolled — a broken pan
-  // (scrollLeft 0) would leave the far-right milestone off-screen right, failing above.
-  ok(m && m.sw > m.cw + 50 && m.sl > 0,
-    `timeline: the pan scrolled the wide board off its origin (scrollLeft ${m ? Math.round(m.sl) : '?'}, board ${m ? Math.round(m.sw) : '?'} > pane ${m ? Math.round(m.cw) : '?'})`);
+    `timeline: the next-up milestone is horizontally in view` +
+    (m ? ` (center ${Math.round(m.nc)} in [${Math.round(m.pL)}, ${Math.round(m.pR)}])` : ''));
   await page.close();
 }
 
