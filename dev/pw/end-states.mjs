@@ -24,6 +24,10 @@ export const END_STATES = [
   {name: 'signal-vs-noise', origin: 'T',
     path: '/signal-vs-noise/#' + b64({seed: 42, calls: [{person: 3, quarter: 3}, {person: 5, quarter: 4}]}),
     sel: '#stage', readySel: '#endcard:not([hidden])'},
+  /* gauge's payoff (the reveal overlay) autoloads as the sample reveal on first
+     run — load-reachable without the relay, so the legibility gate can cover it */
+  {name: 'gauge', origin: 'T', path: '/gauge/',
+    sel: '#preview', readySel: '#preview svg[role="img"]'},
 ];
 
 export const LEGIBLE_FLOOR = 8;   // separates the bug class (~4–5px) from designed fine print (~9–10px); NOT a design bar

@@ -218,6 +218,10 @@ test('gauge overlay + FORM HTML escape hostile question text and names', async (
   const cm = parse('Pick :: chips ' + EVIL[1] + ' | ' + EVIL[3]);
   const cresp = [{values: [[60, 40]], name: 'x'}, {values: [[40, 60]], name: 'y'}];
   assertClean(renderOverlay(cm, sessionStats(cm, cresp), ctx), 'gauge-overlay-chips');
+  /* narrow (phone) relayout wraps titles/verdict/headlines — hostile text must
+     survive the wrapped paths too (incl. the chips narrow branch) */
+  assertClean(renderOverlay(m, sessionStats(m, responses), ctx, {width: 360}), 'gauge-overlay-narrow');
+  assertClean(renderOverlay(cm, sessionStats(cm, cresp), ctx, {width: 360}), 'gauge-overlay-chips-narrow');
   const chtml = renderForm(cm, {editable: true});
   assert.ok(!/<img/i.test(chtml.replace(/&lt;img/gi, '')), 'gauge-form-chips: raw <img in option label');
 });

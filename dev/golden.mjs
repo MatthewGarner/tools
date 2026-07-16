@@ -349,6 +349,9 @@ for(const [k, src] of Object.entries(docs)){
   const cresp = [{values: [[50, 30, 20]], name: 'Ana'}, {values: [[45, 35, 20]], name: 'Ben'},
     {values: [[40, 35, 25]], name: 'Cy'}, {values: [[0, 100, 0]], name: 'Di'}];
   variants['gauge-overlay-chips'] = grender(mc, gstats(mc, cresp), {...ctxBase});
+  /* narrow (phone) relayout: same fixtures at a 360px width */
+  variants['gauge-overlay-narrow'] = grender(m, gstats(m, resp), {...ctxBase}, {width: 360});
+  variants['gauge-overlay-chips-narrow'] = grender(mc, gstats(mc, cresp), {...ctxBase}, {width: 360});
 }
 
 /* /flow readout fixtures (seeded sim → deterministic) */

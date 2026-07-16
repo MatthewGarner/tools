@@ -9,6 +9,7 @@ import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
 import {measure, themeColors, onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {initWorkspace} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -141,7 +142,8 @@ async function initCompose(hash){
       out = '<div class="formpreview">' + renderForm(model, {editable: true}) + '</div>';
     } else {
       const stats = sessionStats(model, sampleResponses(model));
-      out = renderOverlay(model, stats, ctx());
+      // the PREVIEW carries the narrow width (<520 ⇒ phone relayout); exports never do
+      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv)});
       head = verdict(stats);
     }
     paint(out, REVEAL); lastOut = out;
@@ -205,9 +207,10 @@ async function initCompose(hash){
     location.reload();   // boot re-routes into console mode
   });
 
-  /* theme */
+  /* theme + narrow/wide bucket flips re-render through the same loop */
   function rerender(){ lastOut = ''; refresh(); }
   onThemeChange(rerender);
+  watchNarrowBucket($('preview'), rerender);
 
   /* boot */
   let text = hash && typeof hash.t === 'string' ? hash.t : '';

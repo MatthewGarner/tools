@@ -104,6 +104,7 @@ const CONTAINERS = [
   ['bets', T + '/bets/', ['#preview']],
   ['roadmap', T + '/roadmap/', ['#preview']],
   ['timeline', T + '/timeline/', ['#preview']],   // Ship 2 narrow relayout: #preview must not overflow sideways
+  ['gauge', T + '/gauge/', ['#preview']],   // reveal overlay narrow relayout: was a fixed-960 pan that truncated its verdict
   ['why', T + '/why/', ['#preview']],
   ['signal-vs-noise', T + '/signal-vs-noise/', ['#stage']],   // grid relayouts 3→2→1 cols; #stage svg is width:100%
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
