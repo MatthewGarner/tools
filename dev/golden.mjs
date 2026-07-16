@@ -447,6 +447,14 @@ for(const [k, src] of Object.entries(docs)){
     'App: Next thing 2026-08-20';
   variants['timeline-longnote'] = trender(tparse(tlNote), {...tctx});
 
+  // narrow relayout (Ship 2): the same docs at a phone container width. Until
+  // renderNarrow exists these capture the WIDE board (ctx.width ignored) — the
+  // renderNarrow task turns them into the stacked shared-axis relayout (the
+  // reviewed golden diff). The diff variant carries width in its ctx (2nd arg).
+  variants['timeline-narrow'] = trender(tm, {...tctx, width: 360});
+  variants['timeline-narrow-diff'] = trender(tm, {...tctx, width: 360},
+    timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
+
   // merge-bias: ≥2 ranged lane-completions ⇒ the 2nd readout row + merge poster hero
   const tMerge = 'title: Programme — merge risk\ntoday: 2026-07-06\n' +
     'Grid: Energisation 2027-02 .. 2027-06 [risk]\nBuild: Commissioning 2027-03 .. 2027-08\nConsents: DCO 2027-01 .. 2027-05';
