@@ -33,6 +33,17 @@ export function pourVerdict(trace, layout, {names}){
   return {text: 'Most of the spread is born at ' + nm(t1.n) + ' — the pile widens most as it crosses that row.', topName: t1.n};
 }
 
+/* Per-row incremental kick, read off the grains the pour actually draws (xs = [spout, afterRow0,
+   …, afterRow(k-1)]). out[r][j] = xs[j][r+1] - xs[j][r] — the sideways displacement grain j gets
+   as driver r is introduced. Kicks telescope (Σ_r out[r][j] === final landing offset from the
+   spout), so the residue strip is byte-for-byte the animated population and can't disagree with
+   what the eye watched. Kick-space, anchored at the spout — NOT a model value for rows ≥ 1. */
+export function rowKicks(xsList, k){
+  const out = Array.from({length: k}, () => []);
+  for(const xs of xsList) for(let r = 0; r < k; r++) out[r].push(xs[r + 1] - xs[r]);
+  return out;
+}
+
 /* The pour animation. A transient overlay canvas over the histogram area (a taller panel:
    a single spout at the point-estimate → the ranked-driver rows → the pile) that plays, then
    fades out revealing the real #hist (same distribution, by construction). pointer-events:none;
@@ -83,6 +94,27 @@ export function mountPour(histCanvas, wrapEl){
     const settled = new Int32Array(NB);
     const binOf = x => Math.max(0, Math.min(NB - 1, Math.floor(x / (cw / NB))));
 
+    // residue strips: one offscreen canvas per row; each grain stamps a faint ink tick at
+    // spoutX+kick as it crosses that row, so overlap composites toward darkness = a 1-D density
+    // with NO normalization (extent carries magnitude — a quiet driver is a short dense dash, a
+    // dominant one a long smudge). Persists across frames (backdrop() clears the main overlay).
+    const rowH = (bandBot - bandTop) / Math.max(1, k);
+    const stripH = Math.max(4, Math.min(8, rowH * 0.3));
+    const stripY = i => rowY(i) + 2;
+    const strip = [], sctx = [];
+    for(let r = 0; r < k; r++){
+      const c = document.createElement('canvas');
+      c.width = Math.round(cw * dpr); c.height = Math.round(stripH * dpr);
+      const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = C.ink; g.globalAlpha = 0.10;
+      strip.push(c); sctx.push(g);
+    }
+    const stampTick = (r, kick) => {
+      const x = Math.max(4, Math.min(cw - 4, spoutX + kick));   // off-axis kicks saturate at the clamp, never vanish
+      sctx[r].fillRect(x - 0.75, 0, 1.5, stripH);
+    };
+    for(const g of grains) g.dep = 0;   // next row whose residue tick this grain still owes
+
     function backdrop(alpha){
       octx.clearRect(0, 0, cw, H);
       octx.globalAlpha = alpha; octx.fillStyle = C.card;
@@ -99,6 +131,11 @@ export function mountPour(histCanvas, wrapEl){
         octx.fillText(n.replace(/_/g, ' '), 12, y - 3);
         octx.fillStyle = isD ? C.accent : C.faint; octx.font = '11px system-ui'; octx.textAlign = 'right';
         octx.fillText(Math.round((rows[i] ? rows[i].share : 0) * 100) + '%', cw - 12, y - 3);
+        // residue strip in kick-space: a faint origin tick at the spout, then the accumulated ink
+        // ticks. Shared origin ⇒ kick spreads compare row-to-row; a flat driver = a dense dash on
+        // the origin. NOT a full-height gridline (a strip x is a kick, never a model value).
+        octx.fillStyle = C.faint; octx.fillRect(spoutX - 0.5, stripY(i), 1, stripH);
+        octx.drawImage(strip[i], 0, stripY(i), cw, stripH);
       });
       // the pile so far
       const cmax = Math.max(1, ...settled);
@@ -108,10 +145,12 @@ export function mountPour(histCanvas, wrapEl){
       octx.globalAlpha = 1;
     }
 
-    if(reduced){                                    // end-state instantly
+    if(reduced){                                    // end-state instantly: pile + the full residue strips
+      const ks = rowKicks(grains.map(g => g.xs), k);   // the TESTED per-row kick (frame() inlines the same quantity)
       for(const g of grains) settled[binOf(g.fin)]++;
+      for(let r = 0; r < k; r++) for(const kick of ks[r]) stampTick(r, kick);   // source-over same-colour ⇒ order-independent
       backdrop(1);
-      timers.push(setTimeout(() => fade(), 3600));
+      timers.push(setTimeout(() => fade(), 4000));
       return;
     }
     // animate — timestamp-driven so the pace is identical at 30 / 60 / 120Hz (rAF passes ts).
@@ -135,6 +174,11 @@ export function mountPour(histCanvas, wrapEl){
         g.t += dt / FALL_MS;
         // y from spout down to baseline over t in [0,1]
         const yy = spoutY + (baseline - spoutY) * Math.min(1, g.t);
+        // leave a residue tick in each row's strip the moment this grain crosses it (a landing
+        // grain at yy=baseline deposits any rows it still owes). The kick `xs[r+1]-xs[r]` is
+        // rowKicks' per-row quantity, inlined here for the incremental per-frame deposit; the
+        // reduced-motion path calls rowKicks directly, so the two paths can't drift.
+        while(g.dep < k && yy >= rowY(g.dep)){ stampTick(g.dep, g.xs[g.dep + 1] - g.xs[g.dep]); g.dep++; }
         // x: interpolate through the row stations as y crosses each rowY
         let x = g.xs[0];
         for(let r = 0; r < k; r++){ const ry = rowY(r);
@@ -146,7 +190,7 @@ export function mountPour(histCanvas, wrapEl){
         octx.fillRect(x - 1.3, yy - 1.3, 2.7, 2.7);
       }
       octx.globalAlpha = 1;
-      if(landed >= total){ timers.push(setTimeout(() => fade(), 2600)); return; }
+      if(landed >= total){ timers.push(setTimeout(() => fade(), 4000)); return; }
       raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
