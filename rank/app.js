@@ -1,6 +1,7 @@
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
-import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy} from './engine.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife} from './engine.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {captureFlip, applyFlip} from '../assets/motion.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -46,6 +47,7 @@ function renderHead(){
   const th0 = document.createElement('th');
   th0.innerHTML = '<span class="lbl">Initiative</span>';
   tr.appendChild(th0);
+  const sliderMax = 2 * Math.max(1, ...state.criteria.map(x => x.w || 0));   // 0 → 2× the largest weight (M3)
   state.criteria.forEach((c, ci) => {
     const th = document.createElement('th');
     const nm = document.createElement('input');
@@ -61,8 +63,18 @@ function renderHead(){
     const w = document.createElement('input');
     w.className = 'weight'; w.type = 'number'; w.min = '0'; w.step = '0.5'; w.value = c.w;
     w.setAttribute('aria-label', c.name + ' weight');
-    w.addEventListener('input', () => { c.w = parseFloat(w.value) || 0; schedule(200); });
-    wrow.append(wl, w);
+    const sl = document.createElement('input');
+    sl.className = 'wslider'; sl.type = 'range'; sl.min = '0';
+    sl.max = String(sliderMax); sl.step = String(Math.max(0.1, sliderMax / 100)); sl.value = c.w;
+    sl.setAttribute('aria-label', c.name + ' weight slider');
+    // drag = live deterministic re-rank (FLIP), MC re-runs on commit (change)
+    const setW = val => { c.w = val; w.value = val; sl.value = val; liveReweight(); };
+    w.addEventListener('input', () => setW(parseFloat(w.value) || 0));
+    sl.addEventListener('input', () => setW(parseFloat(sl.value)));
+    const commit = () => schedule(0);
+    w.addEventListener('change', commit);
+    sl.addEventListener('change', commit);
+    wrow.append(wl, w, sl);
     th.append(nm, wrow);
     tr.appendChild(th);
   });
@@ -135,6 +147,30 @@ function renderRows(){
 /* ---------- simulation (pure, in ./engine.js) ---------- */
 function compute(){ lastResult = simulate(state); }
 
+/* Live drag path: re-rank by the DETERMINISTIC score (cheap — no MC), FLIP the existing rows
+   into the new order, update positions + knife pills, fade the MC-derived readouts as pending.
+   The full simulate() re-runs on commit (change) via schedule(0), which clears the fade. */
+function liveReweight(){
+  const holder = $('rrows');
+  if(!lastResult || !holder.children.length) return;
+  const valid = it => it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0;
+  const score = it => state.criteria.reduce((a, c, ci) => a + c.w * it.s[ci], 0) / it.e;
+  const order = state.items.map((_, i) => i).filter(i => valid(state.items[i]))
+    .sort((a, b) => (score(state.items[b]) - score(state.items[a])) ||
+      (state.items[a].name || '').localeCompare(state.items[b].name || ''));
+  const old = captureFlip(holder, 'data-item-idx');
+  order.forEach((idx, pos) => {
+    const row = holder.querySelector('.rrow[data-item-idx="' + idx + '"]');
+    if(!row) return;
+    holder.appendChild(row);                       // reorder DOM to the new rank
+    row.querySelector('.pos').textContent = pos + 1;
+  });
+  applyFlip(holder, 'data-item-idx', old);
+  const knife = perRowKnife(state);
+  holder.querySelectorAll('.rrow').forEach(row => row.classList.toggle('knife', !!knife[+row.dataset.itemIdx]));
+  $('results').classList.add('pending');           // MC bars/ptop/verdict stale mid-drag → certainty-fade
+}
+
 /* ---------- render results ---------- */
 function pctStr(p){
   return p > 0.995 ? '>99%' : p < 0.005 ? '<1%' : Math.round(p * 100) + '%';
@@ -148,6 +184,7 @@ function renderResults(){
   }
   $('ph').style.display = 'none';
   $('results').style.display = 'block';
+  $('results').classList.remove('pending');   // fresh MC — the readouts are current again
   const {stats, baseOrder, n, k} = R;
 
   const {headline, body, contested} = verdictCopy(stats, k);
@@ -168,14 +205,22 @@ function renderResults(){
 
   const holder = $('rrows');
   holder.textContent = '';
+  const knife = perRowKnife(state);   // per-row ±10% fragility (I10 — labelled below)
   baseOrder.forEach((idx, pos) => {
     const s = stats.find(x => x.i === idx);
     const row = document.createElement('div');
-    row.className = 'rrow';
+    row.className = 'rrow' + (knife[s.i] ? ' knife' : '');
     row.dataset.itemIdx = String(s.i);   // lets a name-only edit patch this row without a resim (see patchInitiativeName)
     const p = document.createElement('div'); p.className = 'pos'; p.textContent = pos + 1;
     const nm = document.createElement('div'); nm.className = 'nm';
-    nm.textContent = s.name; nm.title = s.name;
+    const nmtext = document.createElement('span'); nmtext.className = 'nmtext';
+    nmtext.textContent = s.name; nmtext.title = s.name;
+    nm.appendChild(nmtext);
+    const kp = document.createElement('span'); kp.className = 'knifepill';
+    kp.textContent = 'knife-edge';
+    kp.title = 'This rank flips under a ±10% nudge of a single weight';
+    kp.setAttribute('aria-label', 'knife-edge: rank flips under a ±10% weight nudge');
+    nm.appendChild(kp);
     const bar = document.createElement('div');
     bar.className = 'rankbar';
     bar.style.gridTemplateColumns = 'repeat(' + n + ',1fr)';
@@ -323,7 +368,7 @@ function scheduleHashOnly(ms){
 function patchInitiativeName(i, name){
   const row = $('rrows').querySelector('.rrow[data-item-idx="' + i + '"]');
   if(!row) return;
-  const nm = row.querySelector('.nm');
+  const nm = row.querySelector('.nmtext');
   nm.textContent = name; nm.title = name;
   const bar = row.querySelector('.rankbar');
   bar.setAttribute('aria-label', name + ': median rank ' + bar.dataset.med +
