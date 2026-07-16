@@ -45,6 +45,16 @@ test('fermi: 20k estimate + sensitivity under 900ms', async () => {
   });
 });
 
+test('fermi: traceDraws 250-grain replay under 100ms', async () => {
+  const E = await import('../fermi/engine.js');
+  const ast = E.parse(E.tokenize('a * b * c * d * e'));
+  const varNames = E.collectVars(ast, []);
+  const ranges = Object.fromEntries(varNames.map(n => [n, [2, 9]]));
+  const dists = Object.fromEntries(varNames.map(n => [n, 'auto']));
+  const m = {ast, varNames, ranges, dists};
+  await timed(100, () => E.traceDraws(m, {seed: 1, g: 250, order: varNames}));
+});
+
 test('fermi cashflow: 10k runs × 60 periods with IRR under 1200ms', async () => {
   const {simulateCashflow} = await import('../fermi/cashflow.js');
   const periods = [{lo: -500, hi: -300}, {lo: 10, hi: 60}];
