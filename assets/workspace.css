@@ -139,6 +139,12 @@ footer{margin: 48px 0 8px}
   .zoomctl button{min-height: 44px; padding: 13px 15px; font-size: 13px}
   .eip-pop button{min-height:44px; padding: 12px 12px}
 }
+/* Touch Undo (mobile-input Rule 2): phones have no ⌘Z. Hidden wherever a
+   keyboard is likely; the coarse block above already supplies the 44px hit. */
+.btn.touch-undo{display: none}
+@media (pointer: coarse){
+  .btn.touch-undo{display: inline-flex}
+}
 /* phones are for viewing and zooming: the zoom control gets the full row */
 @media (max-width: 900px) and (pointer: coarse){
   .zoomctl{display: flex; width: 100%}

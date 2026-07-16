@@ -12,7 +12,7 @@ import {posterSvg} from '../assets/poster.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
-import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
@@ -88,6 +88,7 @@ const editor = createEditor({
   doc: '',
   onChange: debounced(refresh, 120),
 });
+mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   if(!shouldPersist()) return;
   const state = {t: editor.getText()};

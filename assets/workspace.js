@@ -1,10 +1,32 @@
 /* Collapsible rail + zoom controller for the DSL tools' workspace. */
 
 /* Export/copy/snapshot buttons act on the rendered diagram; until one exists
-   they'd be silent no-ops, so reflect that state instead. */
+   they'd be silent no-ops, so reflect that state instead. The touch Undo
+   button is exempt: it acts on the EDITOR's history, which exists (and may
+   hold a revertable edit) even while the preview shows a placeholder. */
 export function setActionsEnabled(on){
-  for(const el of document.querySelectorAll('.actions button, .actions select'))
+  for(const el of document.querySelectorAll('.actions button:not(.touch-undo), .actions select'))
     el.disabled = !on;
+}
+
+/* Rule 2 (mobile input): phones have no ⌘Z, so "every edit is an undoable text
+   rewrite" is only true with a visible control. One ↶ Undo button per tool,
+   mounted in the stage's actions row (on phones the stage sits ABOVE the
+   editor, so the button is next to the diagram the mis-tap happened on).
+   Coarse pointers only — workspace.css hides it wherever a keyboard is likely.
+   Always enabled: undo on an empty history is a harmless no-op, and the
+   vendored bundle doesn't export undoDepth to gate it more precisely. */
+export function mountTouchUndo(actionsEl, editor){
+  if(!actionsEl) return null;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn touch-undo';
+  b.textContent = '↶ Undo';
+  b.setAttribute('aria-label', 'Undo');
+  b.addEventListener('click', () => editor.undo());
+  const zoom = actionsEl.querySelector('.zoomctl');
+  actionsEl.insertBefore(b, zoom ? zoom.nextSibling : actionsEl.firstChild);
+  return b;
 }
 
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange}){

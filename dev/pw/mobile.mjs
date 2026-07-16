@@ -72,6 +72,23 @@ for(const [name, url] of ALL){
   ok(parity.font, `${name}: body wears the system font stack`);
   ok(parity.bg, `${name}: body background is the token --bg`);
   ok(parity.h1, `${name}: h1 wears Charter`);
+  /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
+     must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
+     have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the
+     mounted editor (not a hand-kept list), so a new DSL tool that forgets
+     mountTouchUndo fails here. */
+  const undo = await page.evaluate(() => {
+    if(!document.querySelector('#cmhost .cm-editor')) return 'no-editor';
+    const b = document.querySelector('.actions .touch-undo');
+    if(!b) return 'missing';
+    const r = b.getBoundingClientRect();
+    if(getComputedStyle(b).display === 'none' || r.height === 0) return 'hidden-on-coarse';
+    if(r.height < 44) return 'undersized:' + Math.round(r.height) + 'px';
+    if(b.disabled) return 'disabled';
+    if((b.getAttribute('aria-label') || '') !== 'Undo') return 'unlabelled';
+    return 'ok';
+  });
+  if(undo !== 'no-editor') ok(undo === 'ok', `${name}: coarse-pointer ↶ Undo in the actions row (${undo})`);
   await page.close();
 }
 

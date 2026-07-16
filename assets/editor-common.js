@@ -46,6 +46,17 @@ const indentCmd = dir => view => {
 export const indentMore = indentCmd(1);
 export const indentLess = indentCmd(-1);
 
+/* Rule 2 (mobile input): phones have no ⌘Z, so "every edit is an undoable text
+   rewrite" needs a visible control. The pinned vendor bundle doesn't export
+   undo/redo — but historyKeymap (already imported) carries the Mod-z binding
+   whose `run` IS @codemirror/commands' undo; calling it through the keymap
+   reuses the shipped bytes instead of rebuilding + re-pinning the vendor.
+   Resolved once at module load so a repinned bundle that dropped the binding
+   fails loudly at import time, not silently at tap time. */
+const undoBinding = historyKeymap.find(k => k.key === 'Mod-z');
+if(!undoBinding) throw new Error('editor-common: vendored historyKeymap lost its Mod-z binding');
+const undoCmd = undoBinding.run;
+
 export const BASE_HIGHLIGHTS = [
   {tag: tags.keyword, color: 'var(--accent-ink)', fontWeight: '600'},
   {tag: tags.comment, color: 'var(--muted)', opacity: '0.55'},
@@ -117,6 +128,16 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
       view.dispatch({changes: {from: line.from, to: line.to, insert: text}});
     },
     getLine(n){ return view.state.doc.line(n + 1).text; },
+    /* The touch Undo button is the only caller. undoCmd itself doesn't focus, but
+       undoing an add restores a selection INTO the editor, which CM can focus to
+       show the caret — raising the phone's soft keyboard over the artefact. So on a
+       coarse pointer, blur the contentDOM straight back if the undo grabbed it.
+       Returns whether anything was undone (no-op on an empty history). */
+    undo(){
+      const r = undoCmd(view);
+      if(matchMedia('(pointer: coarse)').matches && document.activeElement === view.contentDOM) view.contentDOM.blur();
+      return r;
+    },
     insertLinesAfter(n, texts){
       const line = view.state.doc.line(n + 1);
       view.dispatch({changes: {from: line.to, to: line.to, insert: '\n' + texts.join('\n')}});
@@ -177,5 +198,9 @@ export function insertAndSelect(editor, afterLine, newLine, select, {focus = tru
   const text = select || newLine;
   const idx = select ? Math.max(0, newLine.indexOf(select)) : 0;
   editor.view.dispatch({selection: {anchor: ln.from + idx, head: ln.from + idx + text.length}});
-  if(focus) editor.view.focus();
+  // focus lands the caret on the placeholder to type it — a desktop convenience. On a
+  // COARSE pointer it yanks focus into the DSL and raises the soft keyboard over the
+  // artefact the user is editing in place; suppress it there (they tap the new item to
+  // name it in place instead). (mobile-input focus fix, 2026-07-16)
+  if(focus && !matchMedia('(pointer: coarse)').matches) editor.view.focus();
 }
