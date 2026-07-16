@@ -30,3 +30,72 @@ export function makeScenario(seed, params = {}){
     signalPerson, signalQuarter, signalDrop, firstCatchable,
     params: {people, quarters, baseMean, noiseSd, signalDrop, z}};
 }
+
+const sideOf = (v, band) => v < band.lo ? 'lo' : v > band.hi ? 'hi' : null;
+
+/* the EVIDENCE available at the moment of a call: the length of the consecutive
+   same-side out-of-band run ending at quarter q (0 = in-band, nothing unusual). */
+export function evidenceRun(s, p, q){
+  const row = s.shown[p], side = sideOf(row[q], s.band);
+  if(!side) return 0;
+  let run = 0;
+  for(let k = q; k >= 0 && sideOf(row[k], s.band) === side; k--) run++;
+  return run;
+}
+
+/* Grade the DECISION at the moment of the call (evidence, symmetric across
+   people), and report the OUTCOME against the seeded truth (the honest ledger).
+   Never grade decision quality by outcome — that's resulting, the bias the essay
+   condemns. calls = [{person, quarter}]. */
+export function scoreCalls(s, calls){
+  const sp = s.signalPerson, sq = s.signalQuarter;
+  const sorted = [...calls].sort((a, b) => a.quarter - b.quarter);
+  const perCall = [];
+  let falseAlarms = 0, coinFlip = 0, defensible = 0, caught = null;
+  for(const {person, quarter} of sorted){
+    const run = evidenceRun(s, person, quarter);
+    const quality = run >= 2 ? 'defensible' : 'coin-flip';    // evidence — symmetric across people
+    const isSignal = person === sp && quarter >= sq;
+    let outcome;
+    if(!isSignal){ outcome = 'falseAlarm'; falseAlarms++; }
+    else if(!caught){
+      outcome = 'caught';
+      // catch tag by evidence-at-call: run≤1 is a coin flip (lucky if right); a
+      // sustained run promptly acted is clean; a sustained run acted late names its cost.
+      const tag = run <= 1 ? 'lucky'
+        : (s.firstCatchable !== null && quarter <= s.firstCatchable + 1) ? 'clean' : 'late';
+      caught = {tag, quarter, run};
+    } else outcome = 'followup';
+    if(quality === 'defensible') defensible++; else coinFlip++;
+    perCall.push({person, quarter, truth: isSignal ? 'signal' : 'noise', outcome, evidenceRun: run, quality});
+  }
+  const acted = new Set(calls.map(c => c.person + ':' + c.quarter));
+  let correctHolds = 0;
+  for(let p = 0; p < s.people; p++) for(let q = 0; q < s.quarters; q++)
+    if(!(p === sp && q >= sq) && !acted.has(p + ':' + q)) correctHolds++;
+  return {perCall, falseAlarms, caught, coinFlip, defensible, correctHolds};
+}
+
+/* the verdict — leads with ACTS (not the flattering 48-cell grid), and is
+   detectability-aware (never shames a miss nobody could have caught). */
+export function verdict(s, calls){
+  const sc = scoreCalls(s, calls);
+  const detectable = s.firstCatchable !== null;
+  const name = s.names[s.signalPerson];
+  const nAct = calls.length;
+  const conv = nAct + (nAct === 1 ? ' special-cause conversation' : ' special-cause conversations');
+  const noise = sc.falseAlarms + (sc.falseAlarms === 1 ? ' chased noise' : ' chased noise');
+  let line;
+  if(sc.caught){
+    const tail = {lucky: 'you flagged the real decline (' + name + ') — but on a single point, that call was a coin flip',
+      clean: 'and you caught the one real decline (' + name + ')',
+      late: 'and you caught ' + name + '’s real decline, late'}[sc.caught.tag];
+    line = conv + '. ' + noise + ' — ' + tail + '.';
+  } else if(!detectable){
+    line = conv + '. ' + noise + '. ' + name + '’s decline was unspottable in ' + s.quarters +
+      ' quarters — nobody could know.';
+  } else {
+    line = conv + '. ' + noise + '. The one real decline — ' + name + '’s — you missed.';
+  }
+  return {line, detectable, firstCatchable: s.firstCatchable, ...sc};
+}

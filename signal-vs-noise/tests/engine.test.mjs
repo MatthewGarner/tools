@@ -55,3 +55,68 @@ test('shown is clamped ≥ 0 (no negative features)', () => {
   for(let seed = 1; seed <= 200; seed++)
     for(const row of makeScenario(seed).shown) for(const v of row) assert.ok(v >= 0);
 });
+
+/* ---------- Task 2: scoring (grade the decision, not the outcome) ---------- */
+import {scoreCalls, verdict, evidenceRun} from '../engine.js';
+
+const firstExcursionCalls = s => {   // act on each person's FIRST out-of-band point (single-point evidence)
+  const c = [];
+  for(let p = 0; p < s.people; p++) for(let q = 0; q < s.quarters; q++)
+    if(s.shown[p][q] < s.band.lo || s.shown[p][q] > s.band.hi){ c.push({person: p, quarter: q}); break; }
+  return c;
+};
+
+test('NOT resulting: acting on single-point spikes does not earn a clean scorecard even when it bags the signal (C1)', () => {
+  const s = makeScenario(42);
+  const sc = scoreCalls(s, firstExcursionCalls(s));
+  assert.ok(sc.falseAlarms >= 1, 'the noise spikes (Dot 23, Fin 9) are false alarms');
+  assert.ok(sc.caught, 'the single-point Ben grab is recorded as a catch…');            // M-a
+  assert.equal(sc.caught.tag, 'lucky', '…but tagged LUCKY, not clean — a coin flip that happened to be right');
+  assert.ok(sc.coinFlip >= sc.defensible, 'single-point acts are coin-flips');
+});
+
+test('hold everything → miss + zero false alarms', () => {
+  const sc = scoreCalls(makeScenario(42), []);
+  assert.equal(sc.falseAlarms, 0); assert.equal(sc.caught, null);
+});
+
+test('perfect play (act on the 2nd consecutive decline excursion) → clean catch, no false alarms', () => {
+  const s = makeScenario(42);
+  const sc = scoreCalls(s, [{person: s.signalPerson, quarter: s.firstCatchable}]);
+  assert.equal(sc.falseAlarms, 0); assert.equal(sc.caught.tag, 'clean');
+});
+
+test('C-B: an in-band act during the decline is NOT clean (zero evidence ≠ a good call)', () => {
+  // synthetic: person 0 declines from q3, but q3 luckily bounces INTO the band
+  const band = {lo: 10, hi: 22};
+  const s = {people: 2, quarters: 6, names: ['A', 'B'], signalPerson: 0, signalQuarter: 3, firstCatchable: 4,
+    band, shown: [[16, 15, 17, 12, 5, 4], [16, 15, 17, 15, 16, 15]]};   // A: q3=12 in-band, q4/q5 below
+  const sc = scoreCalls(s, [{person: 0, quarter: 3}]);
+  assert.equal(sc.caught.tag, 'lucky', 'an in-band gut call is a coin flip, not a clean catch');
+  assert.equal(sc.perCall[0].quality, 'coin-flip');
+});
+
+test('C-C symmetry: equal evidence → equal quality, opposite outcome by truth', () => {
+  const s = makeScenario(28);   // Eve has a noise 2-run (q1-2 below band); Cy is the signal, catchable
+  const eve = s.names.indexOf('Eve');
+  assert.equal(evidenceRun(s, eve, 2), 2, 'Eve q2 is a genuine 2-run');
+  const noiseCall = scoreCalls(s, [{person: eve, quarter: 2}]).perCall[0];
+  const sigCall = scoreCalls(s, [{person: s.signalPerson, quarter: s.firstCatchable}]).perCall[0];
+  assert.equal(noiseCall.quality, 'defensible');            // a 2-run act is a good decision…
+  assert.equal(sigCall.quality, 'defensible');              // …the same, whoever it's on
+  assert.equal(noiseCall.outcome, 'falseAlarm');            // but the truth differs
+  assert.equal(sigCall.outcome, 'caught');
+});
+
+test('I6 detectability-aware: undetectable seed + no calls says nobody could know; detectable + no calls says missed', () => {
+  const hard = makeScenario(11);                             // firstCatchable === null
+  assert.equal(hard.firstCatchable, null);
+  assert.match(verdict(hard, []).line, /nobody could know|unspottable|couldn.t/i);
+  assert.match(verdict(makeScenario(42), []).line, /missed/i);
+});
+
+test('I5 verdict leads with ACTS, never the 48-cell denominator', () => {
+  const v = verdict(makeScenario(42), [{person: 3, quarter: 3}, {person: 5, quarter: 4}]);
+  assert.match(v.line, /conversation/i);
+  assert.doesNotMatch(v.line, /correct|of 48|%/);
+});
