@@ -2016,8 +2016,13 @@ check('no console/page errors', errors.length === 0);
     await p.close();
   }
 
-  /* map: the ['×'] remove cycle → one-row danger confirm (readout panel —
-     no data-menu sibling covers it, so this drives the cycle-popover fallback) */
+  /* map: the coarse card-menu REDIRECT branch. map's items carry BOTH a small ×
+     removeitem cycle AND a cardmenu whose hit-rect covers it — so a coarse tap on
+     the × is redirected to the card menu (line ~284 in edit-in-place.js) rather
+     than firing the ['×'] cycle popover. Confirm: the redirect wins (a menu, not a
+     bare × confirm), nothing commits on open, its danger Remove removes the line,
+     and ↶ Undo restores it. The standalone ['×'] cycle-popover (no menu sibling)
+     is proved on timeline-tablet below. */
   {
     const p = await mctx.newPage();
     const errs = trackErrors(p);
@@ -2027,15 +2032,16 @@ check('no console/page errors', errors.length === 0);
     const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
     await settledTap(p, p.locator('[data-edit="removeitem"]').first());
     await p.waitForTimeout(250);
-    check('phone map: × tap opens the danger confirm — no instant removal',
-      await p.locator('.eip-pop button.danger').count() === 1 &&
-      (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove');
-    check('phone map: doc text UNCHANGED while the confirm is open',
+    check('phone map: × tap redirects to the card MENU (not a silent removal, not a bare × confirm)',
+      await p.locator('.eip-pop').count() === 1 &&
+      await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1 &&
+      await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).count() === 1);
+    check('phone map: doc text UNCHANGED while the menu is open',
       (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
-    await p.locator('.eip-pop button.danger').click();
+    await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
     await p.waitForTimeout(700);
     const removed = await p.evaluate(() => localStorage.getItem('map-src'));
-    check('phone map: confirming commits the removal', removed !== baseline &&
+    check('phone map: the menu Remove commits the removal', removed !== baseline &&
       removed.split('\n').length === baseline.split('\n').length - 1);
     await settledTap(p, p.locator('.actions .touch-undo'));
     await p.waitForTimeout(600);
@@ -2108,6 +2114,28 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   check('tablet timeline: ↶ Undo reverts the stepped status',
     (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
+
+  /* the standalone ['×'] cycle popover (Rule 1's remove branch): timeline has NO
+     card menu, so its × removeitem has no data-menu sibling — the redirect can't
+     fire and openCyclePopover(isRemove) IS the path. A bare tap must open a
+     one-row danger confirm, commit NOTHING until confirmed, then remove on tap. */
+  const base2 = await p.evaluate(() => localStorage.getItem('timeline-src'));
+  await settledTap(p, p.locator('[data-edit="removeitem"]').first());
+  await p.waitForTimeout(300);
+  check('tablet timeline: × tap opens a one-row danger confirm (cycle-popover fallback, no menu sibling)',
+    await p.locator('.eip-pop button.danger').count() === 1 &&
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove');
+  check('tablet timeline: doc UNCHANGED while the × confirm is open — no silent removal',
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2);
+  await p.locator('.eip-pop button.danger').click();
+  await p.waitForTimeout(600);
+  check('tablet timeline: confirming × removes the milestone line',
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) !== base2);
+  await settledTap(p, p.locator('.actions .touch-undo'));
+  await p.waitForTimeout(600);
+  check('tablet timeline: ↶ Undo restores the removed milestone',
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2);
+
   check('tablet timeline: no console/page errors', errs.length === 0);
   await p.close();
   await tctx.close();
