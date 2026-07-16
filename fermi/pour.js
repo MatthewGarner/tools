@@ -146,8 +146,9 @@ export function mountPour(histCanvas, wrapEl){
     }
 
     if(reduced){                                    // end-state instantly: pile + the full residue strips
-      for(const g of grains){ settled[binOf(g.fin)]++;
-        for(let r = 0; r < k; r++) stampTick(r, g.xs[r + 1] - g.xs[r]); }
+      const ks = rowKicks(grains.map(g => g.xs), k);   // the TESTED per-row kick (frame() inlines the same quantity)
+      for(const g of grains) settled[binOf(g.fin)]++;
+      for(let r = 0; r < k; r++) for(const kick of ks[r]) stampTick(r, kick);   // source-over same-colour ⇒ order-independent
       backdrop(1);
       timers.push(setTimeout(() => fade(), 4000));
       return;
@@ -174,7 +175,9 @@ export function mountPour(histCanvas, wrapEl){
         // y from spout down to baseline over t in [0,1]
         const yy = spoutY + (baseline - spoutY) * Math.min(1, g.t);
         // leave a residue tick in each row's strip the moment this grain crosses it (a landing
-        // grain at yy=baseline deposits any rows it still owes)
+        // grain at yy=baseline deposits any rows it still owes). The kick `xs[r+1]-xs[r]` is
+        // rowKicks' per-row quantity, inlined here for the incremental per-frame deposit; the
+        // reduced-motion path calls rowKicks directly, so the two paths can't drift.
         while(g.dep < k && yy >= rowY(g.dep)){ stampTick(g.dep, g.xs[g.dep + 1] - g.xs[g.dep]); g.dep++; }
         // x: interpolate through the row stations as y crosses each rowY
         let x = g.xs[0];
