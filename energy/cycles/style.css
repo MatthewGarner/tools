@@ -7,6 +7,7 @@
 
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
+.stage .preview{--reserve-ar: 1200 / 912}   /* load-grace: default example's viewBox — see workspace.css */
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
@@ -15,3 +16,19 @@ details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
+/* Load-grace, phone: the Monte-Carlo lands ~0.5s AFTER first paint (worker-gated),
+   so unlike the other tools the swap is CLS-visible (measured 0.34–0.50). The
+   narrow artefact is far taller than any phone fold (~1500px at 304px panes), so
+   reserve past the fold: nothing below the preview is visible at first paint,
+   and the landing can only move off-screen content. 80vh clears the tallest
+   phone fold (Pixel 7 needs ≥672px) and stays well under the landed height, so
+   the reservation never strands whitespace. Scoped to the narrow-relayout bucket
+   (<520px viewports ⇒ <520px containers here) — wider stacked layouts get the
+   wide artefact, which the --reserve-ar above already sizes exactly. */
+/* aspect-ratio:auto is load-bearing — with a definite min-height, the wide
+   aspect would transfer INTO width (531px tall ⇒ 699px wide in a 304px pane)
+   and push the centred hint text off-pane. max-height:none: the shared fold
+   cap must not fight this taller-than-fold reservation. */
+@media (max-width:520px){
+  .stage .preview .placeholder{min-height: 80vh; max-height: none; aspect-ratio: auto}
+}
