@@ -7,6 +7,12 @@ import {mulberry32, gaussian} from '../assets/series.js';
 
 const NAMES = ['Ada', 'Ben', 'Cy', 'Dot', 'Eve', 'Fin', 'Gil', 'Hal'];
 
+/* the hand-picked first-play scenario: Ben's clean sustained decline, Dot's
+   tempting high spike (praise → regresses), Fin's tempting low (warn → bounces)
+   — a naive player is forced into one "praise backfires" AND one "tough love
+   works" illusion, and the real decline is catchable. */
+export const AUTHORED_SEED = 42;
+
 export function makeScenario(seed, params = {}){
   const {people = 6, quarters = 8, baseMean = 16, noiseSd = 3, signalDrop = 9, z = 2} = params;
   const rand = mulberry32(seed), gauss = gaussian(rand);

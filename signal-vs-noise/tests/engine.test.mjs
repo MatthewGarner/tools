@@ -162,3 +162,31 @@ test('scoreCalls + funnel read only shown+band (invariant to garbage outputs —
   assert.deepEqual(scoreCalls(g, calls), scoreCalls(s, calls));
   assert.deepEqual(funnelRatio(g), funnelRatio(s));
 });
+
+/* ---------- Task 4: authored scenario + edges ---------- */
+import {AUTHORED_SEED} from '../engine.js';
+
+test('authored scenario forces BOTH illusions + a catchable real decline (M6)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(s.names[s.signalPerson], 'Ben');
+  assert.ok(s.firstCatchable !== null, 'the real decline is catchable');
+  let praiseTrap = false, warnTrap = false;
+  for(let p = 0; p < s.people; p++){ if(p === s.signalPerson) continue;
+    for(let q = 0; q < s.quarters - 1; q++){
+      const r = revealFor(s, p, q);
+      if(s.shown[p][q] > s.band.hi && r.regressed === true && r.kind === 'praise') praiseTrap = true;
+      if(s.shown[p][q] < s.band.lo && r.regressed === true && r.kind === 'warn') warnTrap = true;
+    }}
+  assert.ok(praiseTrap, 'a tempting high spike that regresses → praise-backfires illusion');
+  assert.ok(warnTrap, 'a tempting low spike that bounces → tough-love-works illusion');
+});
+
+test('edges: all-acts, and scoring on an undetectable scenario', () => {
+  const s = makeScenario(42);
+  const all = []; for(let p = 0; p < s.people; p++) for(let q = 0; q < s.quarters; q++) all.push({person: p, quarter: q});
+  const sc = scoreCalls(s, all);
+  assert.ok(sc.falseAlarms > 30 && sc.caught, 'all-acts flags every noise cell + the signal');
+  const hard = makeScenario(11);
+  assert.equal(scoreCalls(hard, []).caught, null);
+  assert.match(verdict(hard, []).line, /nobody could know/i);
+});
