@@ -83,8 +83,14 @@ export function parse(text){
       m.charge = {lo: c, hi: c};
       m.chargeDefaulted = true;
       m.warnings.push('no charge: line — assuming charge cost ≈ 45% of spread for the efficiency penalty');
-    } else if((m.charge.lo + m.charge.hi) / 2 >= p50)
-      m.warnings.push('charging costs more than the spread earns at these numbers — check charge:');
+    } else if(m.rte && (m.rte.lo + m.rte.hi) / 2 > 0){
+      // charge only bites as the round-trip efficiency penalty k = (1/rte − 1)·charge
+      // (~11% of charge at rte 0.9); comparing charge itself to the spread warned ~9× too eagerly.
+      const rteMid = (m.rte.lo + m.rte.hi) / 2;
+      const k = (1 / rteMid - 1) * (m.charge.lo + m.charge.hi) / 2;
+      if(k >= p50)
+        m.warnings.push('the round-trip efficiency penalty exceeds the spread — check rte: / charge:');
+    }
     if(!m.drift)
       m.warnings.push('no drift: line — flat spreads flatter the augmentation case; is that intended?');
   }
