@@ -68,11 +68,12 @@ const FLOORS = {
      whole (real) surface */
   'energy/cycles': {kinds: 1, menu: false},
   'energy/risk':   {kinds: 1, menu: false},
-  /* THE PILOT TARGET: timeline's narrow relayout emits no edit markup at all —
-     a phone user gets zero tap-to-edit. Asserted EXACTLY so the mobile-input
-     pilot (which makes timeline's narrow view editable) must raise this floor
-     to its real number when it lands. */
-  timeline:  {kinds: 0, menu: false, pilot: 'timeline narrow emits no edit targets — mobile-input pilot target'},
+  /* THE PILOT, LANDED: timeline's narrow relayout is now fully phone-editable —
+     every milestone row is a data-menu cardmenu whose ＋ Add capsules + field/
+     routing targets emit 7 distinct kinds (additem, cardmenu, dates, label, note,
+     setlane, status). The floor ratchets up here; menu:true asserts the card-menu
+     entry point survives. */
+  timeline:  {kinds: 7, menu: true},
 };
 
 /* ---- house-example docs (trimmed from each tool's first example chip) ---- */

@@ -1816,22 +1816,99 @@ check('no console/page errors', errors.length === 0);
   check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
   check('wardley narrow: no console/page errors', merrors.length === 0);
 
-  /* ---- Ship 2: /timeline gates inline editing OUT on a phone — below 520px it
-     RELAYOUTS (data-narrow) into stacked rows and you edit via the DSL editor, so
-     unlike the wide board its narrow preview carries NO edit-in-place targets. (The
-     old test here clicked a milestone label to open an eip-input near the screen edge;
-     there is no such target now. The eip-input viewport-clamp itself stays covered by
-     the wardley/map narrow card-menu checks above.) ---- */
+  /* ---- mobile-input PILOT: /timeline's narrow relayout is now fully phone-
+     editable ("the card is the control"). Every milestone row is a data-menu
+     cardmenu; tapping it opens Rename/Dates/Status…/Lane…/note/Remove — no
+     silent commit on a coarse tap. ＋ Add to <lane> capsules close each lane.
+     Same round-trip contract as the tree/why blocks above: commit, assert, ONE
+     touch-Undo, assert full revert to the pre-menu baseline before the next
+     action starts clean. ---- */
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/', {waitUntil: 'networkidle'});
-  await mpage.waitForTimeout(700);
+  await mpage.getByRole('button', {name: 'App launch programme'}).click();
+  await mpage.waitForTimeout(800);
   const tlNarrow = await mpage.evaluate(() => {
-    const prev = document.getElementById('preview');
-    const svg = prev && prev.querySelector('svg');
+    const svg = document.querySelector('#preview svg');
     return {narrow: !!(svg && svg.hasAttribute('data-narrow')),
-      edits: prev ? prev.querySelectorAll('svg [data-edit]').length : -1};
+      menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length};
   });
   check('timeline narrow: the phone preview is the narrow relayout (data-narrow)', tlNarrow.narrow);
-  check('timeline narrow: inline edits gated OUT — no data-edit targets (edit via the DSL editor)', tlNarrow.edits === 0);
+  check('timeline narrow: every milestone row is now a data-menu cardmenu (the pilot landed)', tlNarrow.menus === 7);
+
+  const tlHit = line => mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tlTapCard = async line => {
+    const h = tlHit(line);
+    await h.scrollIntoViewIfNeeded();
+    await mpage.waitForTimeout(300);
+    const b = await h.boundingBox();
+    await mpage.mouse.click(b.x + 24, b.y + b.height / 2);   // left of the diamonds — the title/sub band
+    await mpage.waitForTimeout(300);
+  };
+  const tlUndo = async () => {
+    await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+    await mpage.waitForTimeout(600);
+  };
+  const tlSrc = () => mpage.evaluate(() => localStorage.getItem('timeline-src'));
+  const tlBase = await tlSrc();
+
+  // Feature freeze (App, srcLine 1): the full menu, no silent commit
+  await tlTapCard(1);
+  check('timeline narrow: milestone tap opens the card menu with the expected rows (one popover)',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Status…|Lane…|Add note…|Remove milestone' &&
+    await mpage.locator('.eip-pop').count() === 1);
+  check('timeline narrow: a coarse card tap commits NOTHING on its own (menu-first, no silent step)',
+    (await tlSrc()) === tlBase);
+
+  // Status… → marked picker (none/done/risk); pick risk — a real rewrite, no bare-tap step
+  await mpage.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  await mpage.waitForTimeout(250);
+  check('timeline narrow: Status… opens a marked picker (none current), not a blind step',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk' &&
+    (await mpage.locator('.eip-pop button.on').innerText()) === 'none');
+  await mpage.locator('.eip-pop button', {hasText: 'risk'}).click();
+  await mpage.waitForTimeout(600);
+  check('timeline narrow: Status pick commits [risk]', /App: Feature freeze [^\n]*\[risk\]/.test(await tlSrc()));
+  await tlUndo();
+  check('timeline narrow: one Undo reverts the status', (await tlSrc()) === tlBase);
+
+  // Lane… → submenu (existing lanes + New lane…); pick Marketing → rewrites the prefix
+  await tlTapCard(1);
+  await mpage.locator('.eip-pop button', {hasText: 'Lane…'}).click();
+  await mpage.waitForTimeout(250);
+  check('timeline narrow: Lane… lists the model’s lanes (current marked) + New lane…',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'App|Marketing|Compliance|New lane…' &&
+    (await mpage.locator('.eip-pop button.on').innerText()) === 'App');
+  await mpage.locator('.eip-pop button', {hasText: 'Marketing'}).click();
+  await mpage.waitForTimeout(600);
+  check('timeline narrow: Lane… pick rewrites the lane prefix', /^Marketing: Feature freeze\b/m.test(await tlSrc()));
+  await tlUndo();
+  check('timeline narrow: one Undo reverts the lane', (await tlSrc()) === tlBase);
+
+  // ＋ Add to App capsule → inserts a lane-prefixed milestone; coarse add opts OUT of editor focus
+  await settledTap(mpage, mpage.locator('#preview svg g[data-edit="additem"][data-lane="App"]'));
+  await mpage.waitForTimeout(200);
+  await mpage.locator('.eip-input').fill('Pen test');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(600);
+  check('timeline narrow: ＋ Add to App inserts a lane-prefixed dated milestone',
+    /^App: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(await tlSrc()));
+  check('timeline narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+    !document.activeElement || !document.activeElement.closest('.cm-editor')));
+  await tlUndo();
+  check('timeline narrow: one Undo removes the added milestone', (await tlSrc()) === tlBase);
+
+  // Remove milestone → danger action drops the line; Undo restores it
+  await tlTapCard(1);
+  await mpage.locator('.eip-pop button.danger', {hasText: 'Remove milestone'}).click();
+  await mpage.waitForTimeout(600);
+  check('timeline narrow: Remove milestone drops the row', !/Feature freeze/.test(await tlSrc()));
+  await tlUndo();
+  check('timeline narrow: one Undo restores the removed milestone', (await tlSrc()) === tlBase);
+
+  check('timeline narrow: no h-scroll with the edit targets added', await mpage.evaluate(() => {
+    const pv = document.getElementById('preview');
+    return pv.scrollWidth <= pv.clientWidth + 1;
+  }));
+  check('timeline narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
 
@@ -2118,9 +2195,11 @@ check('no console/page errors', errors.length === 0);
   await mctx.close();
 }
 
-/* ---- timeline at coarse-WIDE (tablet): the single non-× step sentinel
-   (['cycle']) keeps the INSTANT step on coarse pointers — Rule 1's one
-   deliberate exception — and the touch Undo reverts it. ---- */
+/* ---- timeline at coarse-WIDE (tablet): the Stage-0 [IMPORTANT] fix — the wide
+   status target is now the real state list, so a COARSE tap opens the marked
+   picker instead of silently stepping (the ['cycle'] sentinel's mis-tap trap is
+   closed); a fine click still steps (proved by the desktop lane block + node
+   tests). The × removeitem cycle keeps its one-row danger confirm. ---- */
 {
   const tctx = await browser.newContext({...devices['iPad Pro 11 landscape'], reducedMotion: 'reduce'});
   const p = await tctx.newPage();
@@ -2130,13 +2209,18 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('timeline-src'));
   await settledTap(p, p.locator('[data-edit="status"]').first());
+  await p.waitForTimeout(400);
+  check('tablet timeline: a coarse status tap opens the marked picker — NO silent step',
+    await p.locator('.eip-pop').count() === 1 &&
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk' &&
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
+  await p.locator('.eip-pop button', {hasText: 'risk'}).click();
   await p.waitForTimeout(600);
   const stepped = await p.evaluate(() => localStorage.getItem('timeline-src'));
-  check('tablet timeline: the ["cycle"] sentinel still steps instantly on coarse (no popover)',
-    await p.locator('.eip-pop').count() === 0 && stepped !== baseline);
+  check('tablet timeline: picking a status commits it (no blind step)', stepped !== baseline && /\[risk\]/.test(stepped));
   await settledTap(p, p.locator('.actions .touch-undo'));
   await p.waitForTimeout(600);
-  check('tablet timeline: ↶ Undo reverts the stepped status',
+  check('tablet timeline: ↶ Undo reverts the picked status',
     (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
 
   /* the standalone ['×'] cycle popover (Rule 1's remove branch): timeline has NO
