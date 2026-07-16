@@ -262,7 +262,17 @@ export function render(model, resolved, ro, ctx, diff = null){
     for(const it of ro.unplaced){
       const label = truncate(it.label);
       const w = Math.min(measure(label, font) + T.cardPadX * 2 * S, T.trayW * S);
-      body.push('<g data-line="' + it.srcLine + '" data-tray="1">');
+      /* edit mode: the tray card is a cardmenu trigger too (Place on map… is
+         the coarse-pointer placement path — drag needs a fine pointer). The
+         hit rect caps at the row pitch so adjacent rows meet, never overlap.
+         Exports/goldens (edit:false) keep the plain group. */
+      body.push('<g data-line="' + it.srcLine + '" data-tray="1"' +
+        (edit ? ' data-edit="cardmenu"' + btnAttrs('More options: ' + it.label) + ' data-menu=""' : '') + '>');
+      if(edit){
+        const halfH = Math.max(T.cardH * S / 2, Math.min(22 * S, T.trayCardH * S / 2));
+        body.push('<rect data-hit="" x="' + trayX + '" y="' + (ty + T.cardH * S / 2 - halfH) +
+          '" width="' + w + '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
+      }
       body.push('<rect x="' + trayX + '" y="' + ty + '" width="' + w + '" height="' + T.cardH * S +
         '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
       body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
