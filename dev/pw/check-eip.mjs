@@ -1775,8 +1775,8 @@ check('no console/page errors', errors.length === 0);
   // component menu: tap Cache's ⋯ → danger row removes the declaration + any edge mentions
   await wpage.locator('[data-edit="componentmenu"][data-raw="Cache"]').first().click();
   await wpage.waitForTimeout(200);
-  check('wardley: component menu shows the danger row',
-    (await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove component');
+  check('wardley: component menu shows Needs… then the danger row',
+    (await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Needs…|Remove component');
   await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
   await wpage.waitForTimeout(500);
   const wsrc8 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
@@ -1862,6 +1862,85 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(600);
   const msrc3 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
+
+  /* ---- mobile-input wardley stage: EDGES become phone-editable. The ⋯ menu
+     grows a Needs… submenu — every OTHER component as a marked toggle row
+     (on = "this -> that" exists); a tap toggles the edge via addEdge/removeEdge,
+     the chain-splitting rewrite. State here is the pristine Habitat example
+     (the Inbox add/place/remove round-tripped). ---- */
+  const wSrc = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  // open Habit builder's ⋯ → the menu carries Needs… above the danger Remove
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Habit builder"]').first());
+  await mpage.waitForTimeout(200);
+  check('wardley needs: the ⋯ menu shows the Needs… row',
+    await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
+    await mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).count() === 1);
+  // open the checklist: 6 other components, existing deps marked, anchor + self absent
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
+  await mpage.waitForTimeout(200);
+  check('wardley needs: checklist lists every OTHER component (anchor + self absent)',
+    await mpage.locator('.eip-pop button').count() === 6 &&
+    await mpage.locator('.eip-pop button', {hasText: 'Habit builder'}).count() === 0 &&
+    await mpage.locator('.eip-pop button', {hasText: 'Habit tracking'}).count() === 0);
+  check('wardley needs: exactly the existing deps are marked on',
+    (await mpage.locator('.eip-pop button.on').allInnerTexts()).sort().join('|') ===
+    'Notification service|Streak engine');
+  check('wardley needs: opening menu + checklist commits NOTHING (no silent commit)',
+    (await wSrc()) === msrc3);
+  check('wardley needs: no page h-scroll with the checklist open', await mpage.evaluate(() =>
+    document.documentElement.scrollWidth <= innerWidth + 1));
+
+  // toggle OFF the MID-CHAIN pair: Habit builder -> Streak engine sits in the
+  // middle of "Habit tracking -> Habit builder -> Streak engine -> User DB" —
+  // the split must leave both halves as their own chains
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Streak engine'}));
+  await mpage.waitForTimeout(600);
+  const wsrc1 = await wSrc();
+  check('wardley needs: mid-chain toggle OFF splits the chain into two 2-node chains',
+    /^Habit tracking -> Habit builder$/m.test(wsrc1) &&
+    /^Streak engine -> User DB$/m.test(wsrc1) &&
+    !/Habit builder\s*->\s*Streak engine/.test(wsrc1));
+  check('wardley needs: the map redraws with one fewer dependency',
+    await mpage.locator('#preview svg text', {hasText: '8 dependencies'}).count() === 1);
+  check('wardley needs: coarse toggle does NOT focus the editor', await mpage.evaluate(() =>
+    !document.activeElement || !document.activeElement.closest('.cm-editor')));
+  await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+  await mpage.waitForTimeout(600);
+  check('wardley needs: ONE ↶ Undo restores the split chain (single dispatch)',
+    (await wSrc()) === msrc3);
+
+  // toggle ON: Social feed gains "needs User DB" — a fresh 2-node line appends
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Social feed"]').first());
+  await mpage.waitForTimeout(200);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
+  await mpage.waitForTimeout(200);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'User DB'}));
+  await mpage.waitForTimeout(600);
+  const wsrc2 = await wSrc();
+  check('wardley needs: toggle ON appends the edge as its own line',
+    /^Social feed -> User DB$/m.test(wsrc2));
+  check('wardley needs: the map redraws with the new dependency counted',
+    await mpage.locator('#preview svg text', {hasText: '10 dependencies'}).count() === 1);
+
+  // WIDE map, still coarse (tablet-shaped): the added edge is a drawn arrow,
+  // and the same menu path removes it — the single-edge-line case in browser
+  await mpage.setViewportSize({width: 1194, height: 834});
+  await mpage.waitForTimeout(800);
+  check('wardley needs: the wide map draws the added edge (10 arrows)',
+    await mpage.locator('#preview svg .edge').count() === 10);
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Social feed"]').first());
+  await mpage.waitForTimeout(200);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
+  await mpage.waitForTimeout(200);
+  check('wardley needs: wide checklist marks the just-added dep on',
+    await mpage.locator('.eip-pop button.on', {hasText: 'User DB'}).count() === 1);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'User DB'}));
+  await mpage.waitForTimeout(600);
+  check('wardley needs: wide toggle OFF deletes the whole single-edge line (back to baseline)',
+    (await wSrc()) === msrc3 &&
+    await mpage.locator('#preview svg .edge').count() === 9);
+  await mpage.setViewportSize({width: 390, height: 844});   // back to phone for the blocks below
+  await mpage.waitForTimeout(600);
   check('wardley narrow: no console/page errors', merrors.length === 0);
 
   /* ---- mobile-input PILOT: /timeline's narrow relayout is now fully phone-
