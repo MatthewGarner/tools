@@ -202,66 +202,77 @@ function renderNarrow(model, ctx, C, today, diff){
     flagL = (x + pw > W - 2) ? x - pw : x; flagR = flagL + pw;
   }
 
-  /* tick header: full-height gridlines + greedily-placed month labels (never
-     off-canvas-left, never colliding, never under the TODAY flag) */
+  /* month labels at the TOP only — the gridlines + the TODAY rule live INSIDE each
+     whisker track below (per-track segments over a faint band), so no vertical scale
+     line ever crosses a milestone's left-aligned label text. Greedy label placement:
+     never off-canvas-left, never colliding, never under the TODAY flag. */
+  const tickX = ticks(lo, hi).map(tk => ({x: X(tk.day), label: tk.label}));
   let lastLabelR = -1e9;
-  for(const tk of ticks(lo, hi)){
-    const x = X(tk.day);
-    s.push('<line x1="' + x.toFixed(1) + '" y1="' + AXIS + '" x2="' + x.toFixed(1) + '" y2="' +
-      contentBottom.toFixed(1) + '" stroke="' + C.border + '" stroke-width="1" opacity="0.4"/>');
-    const lw = measure(tk.label, '10px ' + F.body), l = x - lw / 2, r = x + lw / 2;
+  for(const tk of tickX){
+    const lw = measure(tk.label, '10px ' + F.body), l = tk.x - lw / 2, r = tk.x + lw / 2;
     const underFlag = todayVisible && r >= flagL - 3 && l <= flagR + 3;
     if(l >= 2 && r <= W - 2 && l >= lastLabelR + 6 && !underFlag){
-      s.push(txt(x, AXIS - 9, tk.label, 10, C.muted, {anchor: 'middle'}));
+      s.push(txt(tk.x, AXIS - 9, tk.label, 10, C.muted, {anchor: 'middle'}));
       lastLabelR = r;
     }
   }
 
-  /* TODAY dashed rule through all rows + the flag capping it */
+  /* the TODAY flag caps the scale header; the dashed rule is drawn per-track below */
   if(todayVisible){
-    const x = X(today);
-    s.push('<line data-today="" x1="' + x.toFixed(1) + '" y1="' + (sinceH + 15) + '" x2="' +
-      x.toFixed(1) + '" y2="' + contentBottom.toFixed(1) + '" stroke="' + C.ink +
-      '" stroke-width="1.5" stroke-dasharray="5 3"/>');
     s.push('<rect x="' + flagL.toFixed(1) + '" y="' + (sinceH + 1) + '" width="' + (flagR - flagL).toFixed(1) +
       '" height="14" rx="3" fill="' + C.ink + '"/>');
     s.push(txt((flagL + flagR) / 2, sinceH + 11, 'TODAY', 8, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
   }
 
-  /* since-line (compare): its OWN top row, left-aligned (Fable I4). Descriptive
-     text (here + titles/dates/lane heads/dropped) carries a C.bg halo so the
-     gridlines and the TODAY rule read BEHIND it, never through it. */
+  /* since-line (compare): its OWN top row, left-aligned (Fable I4) */
   if(diff){
     const sl = wrapText(diff.sinceLine, noteFont, plotW, measure);
-    s.push(txt(PAD, 11, sl[0] + (sl.length > 1 ? '…' : ''), 10, C.accent, {weight: 600, halo: C.bg}));
+    s.push(txt(PAD, 11, sl[0] + (sl.length > 1 ? '…' : ''), 10, C.accent, {weight: 600}));
   }
+  const todayX = todayVisible ? X(today) : null;
 
   const diamond = (cx, cy, r, fill, stroke, extra = '') =>
     '<path' + extra + ' d="M' + cx.toFixed(1) + ' ' + (cy - r).toFixed(1) + ' L' + (cx + r).toFixed(1) +
     ' ' + cy.toFixed(1) + ' L' + cx.toFixed(1) + ' ' + (cy + r).toFixed(1) + ' L' + (cx - r).toFixed(1) +
     ' ' + cy.toFixed(1) + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>';
 
-  /* pass 2 — lane headers + milestone rows */
+  /* pass 2 — lane headers + milestone rows (labels sit on the plain bg above each
+     track; every scale line is confined to the track band, so nothing crosses text) */
   for(const row of laid){
     if(row.header){
-      s.push(txt(PAD, row.top + 15, row.header.toUpperCase(), 10.5, C.muted, {weight: 600, tracking: 1, halo: C.bg}));
+      s.push(txt(PAD, row.top + 15, row.header.toUpperCase(), 10.5, C.muted, {weight: 600, tracking: 1}));
       continue;
     }
     const {it, titleLines, top} = row;
     const col = colorOf(it), k = keyOf(it);
     const ty = top + 13;
     titleLines.forEach((ln, i) => {
-      s.push(txt(PAD, ty + i * TITLE_LH, ln, 12.5, C.ink, {weight: 600, halo: C.bg}));
+      s.push(txt(PAD, ty + i * TITLE_LH, ln, 12.5, C.ink, {weight: 600}));
     });
     const titleBottom = ty + (titleLines.length - 1) * TITLE_LH;
     if(diff && diff.newKeys.has(k))
       s.push(txt(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, titleBottom, 'NEW', 8.5,
-        C.accent, {weight: 600, tracking: 0.6, halo: C.bg}));
+        C.accent, {weight: 600, tracking: 0.6}));
     const subLines = wrapText(subOf(it), noteFont, plotW, measure);
-    s.push(txt(PAD, titleBottom + DATES_LH, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted, {halo: C.bg}));
-    /* whisker track on the shared axis */
-    const cy = titleBottom + DATES_LH + 4 + TRACK / 2;
+    s.push(txt(PAD, titleBottom + DATES_LH, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted));
+
+    /* the whisker track: a faint C.card band (so the whisker tint composites over
+       C.card exactly as Ship 1 validated), with the month gridlines + the TODAY rule
+       drawn INSIDE it — never across the label text above */
+    const cy = titleBottom + DATES_LH + 4 + TRACK / 2, tTop = cy - TRACK / 2, tBot = cy + TRACK / 2;
     const x50 = X(it.p50), x90 = X(it.p90);
+    s.push('<rect x="' + plotX + '" y="' + tTop.toFixed(1) + '" width="' + plotW + '" height="' + TRACK +
+      '" rx="6" fill="' + C.card + '" stroke="' + C.border + '"/>');
+    for(const tk of tickX){
+      if(tk.x < plotX || tk.x > plotX + plotW) continue;
+      s.push('<line x1="' + tk.x.toFixed(1) + '" y1="' + tTop.toFixed(1) + '" x2="' + tk.x.toFixed(1) +
+        '" y2="' + tBot.toFixed(1) + '" stroke="' + C.border + '" stroke-width="1" opacity="0.55"/>');
+    }
+    if(todayX !== null)
+      s.push('<line data-today="" x1="' + todayX.toFixed(1) + '" y1="' + tTop.toFixed(1) + '" x2="' +
+        todayX.toFixed(1) + '" y2="' + tBot.toFixed(1) + '" stroke="' + C.ink +
+        '" stroke-width="1.5" stroke-dasharray="4 3"/>');
+
     const ghost = diff && diff.byKey.get(k);
     if(ghost && ghost.oldP50 !== it.p50){
       const gx = X(ghost.oldP50);
@@ -279,15 +290,15 @@ function renderNarrow(model, ctx, C, today, diff){
       (it === nextUp ? ' data-next=""' : '')));
     if(ghost && ghost.slipDays)
       s.push(txt(x50 + msR + 4, cy - 5, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 9.5,
-        ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.bg}));
+        ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.card}));
   }
 
   /* dropped list (compare) at the foot */
   let dy = contentBottom;
   if(diff && diff.dropped.length){
     dy += 14;
-    s.push(txt(PAD, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), 10, C.muted, {weight: 600, tracking: 1, halo: C.bg}));
-    for(const label of diff.dropped){ dy += 14; s.push(txt(PAD, dy, label, 10.5, C.muted, {strike: true, halo: C.bg})); }
+    s.push(txt(PAD, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), 10, C.muted, {weight: 600, tracking: 1}));
+    for(const label of diff.dropped){ dy += 14; s.push(txt(PAD, dy, label, 10.5, C.muted, {strike: true})); }
   }
   const H = Math.round(dy + BOTPAD);
   return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
