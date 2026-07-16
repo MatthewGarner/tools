@@ -28,7 +28,10 @@ function loadHash(){
   const st = readHashState();
   if(!st || typeof st.seed !== 'number') return;
   seed = st.seed;
-  params = st.params && typeof st.params.noiseSd === 'number' ? {noiseSd: st.params.noiseSd} : {};
+  // Number.isFinite (not typeof) rejects NaN; clamp keeps a hand-crafted noiseSd
+  // from overflowing the band arithmetic to Infinity → NaN chart coords.
+  params = st.params && Number.isFinite(st.params.noiseSd)
+    ? {noiseSd: Math.min(8, Math.max(1, st.params.noiseSd))} : {};
   const s = scenario();   // a hostile URL must never brick the page: bound person/quarter to this scenario
   calls = Array.isArray(st.calls)
     ? dedupe(st.calls.filter(c => c && Number.isInteger(c.person) && c.person >= 0 && c.person < s.people
@@ -132,7 +135,8 @@ function markdown(){
 function render(){
   const s = scenario(), C = themeColors();
   if(phase === 'done'){
-    stage.innerHTML = renderCollapse(s, C, calls);
+    stage.innerHTML = renderCollapse(s, C, calls, {narrow: cols === 1});   // phone: re-wrapped narrow relayout
+
     reveal.hidden = true; controls.hidden = true; endcard.hidden = false;
     lessonsEl.innerHTML = lessonsLine();
     return;
@@ -159,7 +163,7 @@ onThemeChange(render);
 // narrow relayout: re-render only when the column bucket actually flips
 new ResizeObserver(() => {
   const next = colsFor(stage.clientWidth);
-  if(next !== cols){ cols = next; if(phase !== 'done') render(); }
+  if(next !== cols){ cols = next; render(); }   // bucket flip reflows the grid OR the collapse
 }).observe(stage);
 
 loadHash();

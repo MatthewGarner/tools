@@ -405,6 +405,7 @@ test('signal-vs-noise renderers stay well-formed — names come from a fixed con
   assertClean(renderGrid(s, ctx.colors, {turn: 4, calls}), 'signal-noise-grid');
   assertClean(renderGrid(s, ctx.colors, {turn: 4, calls, cols: 1}), 'signal-noise-grid-narrow');
   assertClean(renderCollapse(s, ctx.colors, calls), 'signal-noise-collapse');
+  assertClean(renderCollapse(s, ctx.colors, calls, {narrow: true}), 'signal-noise-collapse-narrow');
 });
 
 test('duel renderers escape hostile item labels + framing question (HTML surface, no SVG)', async () => {

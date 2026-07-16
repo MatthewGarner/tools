@@ -39,4 +39,11 @@ test('collapse is the verdict artefact: verdict line, the real-signal name, the 
   assert.match(svg, /funnel/i);                       // the Deming footnote
   assert.doesNotMatch(svg, /xMR|control chart|UCL/i);
   assert.doesNotMatch(svg, /NaN|undefined/);
+  // the phone RELAYOUT (re-wrapped narrow width, not a shrink): narrower canvas,
+  // same payoff content, still well-formed
+  const narrow = renderCollapse(s, C, calls, {narrow: true});
+  assert.match(narrow, /width="356"/, 'narrow collapse relayouts to a phone width');
+  assert.match(narrow, /real decline/i);
+  assert.match(narrow, /spike, or shift/i);
+  assert.doesNotMatch(narrow, /NaN|undefined/);
 });

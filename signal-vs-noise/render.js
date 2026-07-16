@@ -82,20 +82,24 @@ function btn(x, y, w, h, act, person, quarter, on, c){
 }
 
 /* ---------- the collapse / verdict artefact ---------- */
-export function renderCollapse(s, c, calls = []){
-  const W = 760, PAD = 24;
+// narrow=true is the phone RELAYOUT (re-wrapped for ~356px, not a shrink or a pan);
+// exports always pass the wide artefact (app.js getSvg omits narrow).
+export function renderCollapse(s, c, calls = [], {narrow = false} = {}){
+  const W = narrow ? 356 : 760, PAD = narrow ? 16 : 24;
+  const vFont = narrow ? 16 : 18, vWrap = narrow ? 30 : 74, vLine = narrow ? 21 : 24;
   const v = verdict(s, calls);
   const parts = [];
   let y = 34;
   parts.push(txt(PAD, y, 'THE VERDICT', 10, c.muted, {weight: 600, tracking: 1})); y += 26;
   // wrap the verdict line
-  for(const line of wrap(v.line, 74)){ parts.push(txt(PAD, y, line, 18, c.ink, {weight: 600})); y += 24; }
+  for(const line of wrap(v.line, vWrap)){ parts.push(txt(PAD, y, line, vFont, c.ink, {weight: 600})); y += vLine; }
   y += 4;
-  parts.push(txt(PAD, y, 'Every call you made, on one shared band. Rings = you opened a conversation. Only the sustained walk out of the band was real.',
-    12, c.muted)); y += 22;
+  for(const line of wrap('Every call you made, on one shared band. Rings = you opened a conversation. Only the sustained walk out of the band was real.',
+    narrow ? 44 : 130)){ parts.push(txt(PAD, y, line, 12, c.muted)); y += 17; }
+  y += 6;
 
   // the shared collapse chart
-  const chTop = y, chH = 180, chL = PAD, chW = W - PAD * 2;
+  const chTop = y, chH = narrow ? 140 : 180, chL = PAD, chW = W - PAD * 2;
   const lo = Math.max(0, Math.min(s.band.lo, ...s.shown.flat()) - 2);
   const hi = Math.max(s.band.hi, ...s.shown.flat()) + 2;
   parts.push(bandRect(chL, chW, chTop, chH, c, lo, hi, s.band));
@@ -122,11 +126,11 @@ export function renderCollapse(s, c, calls = []){
   y = chTop + chH + 26;
 
   for(const line of wrap(v.coinFlip + ' of your calls were single-point coin flips · ' + v.correctHolds +
-    ' noise readings left alone · re-aiming the target to each quarter’s number would review a gap with about twice the variance (Deming’s funnel).', 96)){
+    ' noise readings left alone · re-aiming the target to each quarter’s number would review a gap with about twice the variance (Deming’s funnel).', narrow ? 42 : 96)){
     parts.push(txt(PAD, y, line, 11.5, c.muted)); y += 16;
   }
   y += 6;
-  for(const line of wrap('You only get this band in a simulation — your real team doesn’t come with one. What transfers isn’t the band, it’s the question: spike, or shift?', 90)){
+  for(const line of wrap('You only get this band in a simulation — your real team doesn’t come with one. What transfers isn’t the band, it’s the question: spike, or shift?', narrow ? 40 : 90)){
     parts.push(txt(PAD, y, line, 12.5, c.ink, {weight: 600})); y += 17;
   }
   return svg(W, y + PAD - 6, c, parts.join(''), esc(v.line));
