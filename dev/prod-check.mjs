@@ -15,7 +15,7 @@ check('CSP header present', (home.headers.get('content-security-policy') || '').
 check('nosniff', home.headers.get('x-content-type-options') === 'nosniff');
 check('sw.js served', (await fetch(BASE + '/sw.js')).status === 200);
 check('manifest served', (await fetch(BASE + '/manifest.webmanifest')).status === 200);
-check('/wardley/ 200 (newest tool)', (await fetch(BASE + '/wardley/')).status === 200);
+check('/signal-vs-noise/ 200 (newest tool)', (await fetch(BASE + '/signal-vs-noise/')).status === 200);
 note('ARCHITECTURE.md off the served site (tools)', (await fetch(BASE + '/ARCHITECTURE.md')).status === 404);
 
 const hex = n => randomBytes(n).toString('hex');
