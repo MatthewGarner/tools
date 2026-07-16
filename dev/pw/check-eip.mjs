@@ -2016,6 +2016,30 @@ check('no console/page errors', errors.length === 0);
     await p.close();
   }
 
+  /* focus fix (Matt's report, 2026-07-16): a coarse add-from-diagram or touch Undo
+     must NOT pull focus into the DSL editor — that raises the soft keyboard over the
+     artefact you're editing in place. why adds through the SHARED insertAndSelect
+     default (unlike wardley, which opts out explicitly), so it's the honest guard for
+     the shared path. The wardley coarse block above only proves wardley's own opt-out. */
+  {
+    const p = await mctx.newPage();
+    const errs = trackErrors(p);
+    await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Habit retention'}).click();
+    await p.waitForTimeout(700);
+    const inCm = () => p.evaluate(() => !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.cm-editor')));
+    await sliverTap(p, p.locator('#preview svg rect[data-edit^="cardmenu"][data-hit]').first());
+    await p.waitForTimeout(250);
+    await p.locator('.eip-pop button', {hasText: /Add/}).first().click();
+    await p.waitForTimeout(600);
+    check('phone why: coarse add-from-diagram does NOT focus the DSL editor (no soft-keyboard jump)', !(await inCm()));
+    await settledTap(p, p.locator('.actions .touch-undo'));
+    await p.waitForTimeout(600);
+    check('phone why: coarse ↶ Undo does NOT focus the DSL editor', !(await inCm()));
+    check('phone why (focus block): no console/page errors', errs.length === 0);
+    await p.close();
+  }
+
   /* map: the coarse card-menu REDIRECT branch. map's items carry BOTH a small ×
      removeitem cycle AND a cardmenu whose hit-rect covers it — so a coarse tap on
      the × is redirected to the card menu (line ~284 in edit-in-place.js) rather
