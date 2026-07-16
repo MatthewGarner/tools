@@ -6,6 +6,7 @@ import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {mountMotion} from '../assets/motion.js';
@@ -68,7 +69,8 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
     $('verdict').textContent = '';
   } else {
-    const svg = activeRender(false, true);
+    // the PREVIEW carries the narrow width (<520 ⇒ renderNarrow); exports never do
+    const svg = render(model, {...ctx(false), width: narrowWidth(pv)}, currentDiff(), {edit: true});
     paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
     lastSvg = svg;
     motionOverride = undefined;
@@ -209,7 +211,11 @@ function panToToday(){
 new MutationObserver(panToToday).observe($('preview'), {childList: true});
 
 /* ---------- theme ---------- */
-onThemeChange(() => { motionOverride = 'none'; paint.reset(); lastSvg = ''; refresh(); });
+function rerender(){ motionOverride = 'none'; paint.reset(); lastSvg = ''; refresh(); }
+onThemeChange(rerender);
+/* narrow↔wide bucket flip: re-render with motion OFF — the diamonds would otherwise
+   FLIP-glide (flipAttr:'data-mskey' on every paint) between board and stacked-row coordinates. */
+watchNarrowBucket($('preview'), rerender);
 
 /* ---------- boot ---------- */
 (function(){
