@@ -32,3 +32,14 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 @media (max-width:520px){
   .stage .preview .placeholder{min-height: 80vh; max-height: none; aspect-ratio: auto}
 }
+
+/* "recomputing…" hint: the Monte-Carlo runs ~0.7s off-thread, so a keystroke
+   leaves the (stale) artefact on screen with no acknowledgement. app.js toggles
+   .recomputing on .stage while a worker sim is in flight (audit 2026-07-16). */
+.stage{position: relative}
+.stage.recomputing::after{
+  content: 'recomputing…'; position: absolute; top: 14px; right: 14px; z-index: 3;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--muted);
+  background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+  padding: 3px 11px; box-shadow: var(--shadow); pointer-events: none;
+}

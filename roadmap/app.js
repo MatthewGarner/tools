@@ -374,7 +374,11 @@ wireExports({
    refresh loop re-syncs the active chip */
 $('stylepicker').addEventListener('click', e => {
   const b = e.target.closest('[data-style]');
-  if(b) editor.setText(setStyle(editor.getText(), b.dataset.style));
+  // setText fires the editor's 120ms typing debounce; a chip is a single-shot edit,
+  // so refresh() immediately (rafBatched → next frame) — the switch feels instant,
+  // not ~150ms behind a bets-style toggle (audit 2026-07-16). The debounced pass
+  // still fires and coalesces (same doc ⇒ memoised render, no flash).
+  if(b){ editor.setText(setStyle(editor.getText(), b.dataset.style)); refresh(); }
 });
 /* the headline field is the same act as typing `headline:` — one debounced text
    edit into the doc, so it undoes, persists and travels in the URL like the rest.
