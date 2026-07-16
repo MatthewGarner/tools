@@ -676,6 +676,18 @@ for(const [k, src] of Object.entries(docs)){
   variants['alarm-dist'] = renderDistributions({baseRate: 0.02, dprime: 2, t: 1.2}, ctxBase.colors, {w: 900, h: 220});
 }
 
+/* /signal-vs-noise fixtures (seeded scenario → deterministic): mid-game grid at
+   3 cols and the 1-col narrow relayout, plus the collapse verdict artefact. */
+{
+  const {makeScenario, AUTHORED_SEED} = await import('../signal-vs-noise/engine.js');
+  const {renderGrid, renderCollapse} = await import('../signal-vs-noise/render.js');
+  const s = makeScenario(AUTHORED_SEED);
+  const calls = [{person: 3, quarter: 3}, {person: 5, quarter: 4}, {person: s.signalPerson, quarter: 7}];
+  variants['signal-noise-grid'] = renderGrid(s, ctxBase.colors, {turn: 4, calls});
+  variants['signal-noise-grid-narrow'] = renderGrid(s, ctxBase.colors, {turn: 4, calls, cols: 1});
+  variants['signal-noise-collapse'] = renderCollapse(s, ctxBase.colors, calls);
+}
+
 /* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),
    or null if git can't be run. cwd-independent (worktree-safe) — resolves the
    repo root from this file, not process.cwd(). */

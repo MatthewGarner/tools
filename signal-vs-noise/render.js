@@ -18,9 +18,12 @@ function bandRect(x, w, top, h, c, lo, hi, band){
 }
 
 /* ---------- the play grid ---------- */
-export function renderGrid(s, c, {turn = s.quarters - 1, calls = []} = {}){
-  const W = 760, PAD = 22, cols = 3, gap = 12;
-  const cardW = (W - PAD * 2 - gap * (cols - 1)) / cols, cardH = 96;
+export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3} = {}){
+  const PAD = 22, gap = 12, cardW = 230;               // cardW fixed → cols drives width (narrow relayout, not a shrink)
+  // one-column phones scale the whole SVG up ~1.4×, so buttons/cards go taller to
+  // clear the 44px coarse-pointer target after that scale (the composition bar).
+  const btnH = cols === 1 ? 32 : 16, cardH = cols === 1 ? 128 : 96;
+  const W = PAD * 2 + cols * cardW + gap * (cols - 1);
   const rows = Math.ceil(s.people / cols);
   const gridTop = 70;
   const HT = gridTop + rows * (cardH + gap) + PAD;
@@ -32,8 +35,9 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = []} = {}){
   const acted = new Set(calls.map(x => x.person + ':' + x.quarter));
   const parts = [];
   parts.push(txt(PAD, 30, 'SIGNAL vs NOISE', 15, c.ink, {weight: 700, tracking: 0.5}));
-  parts.push(txt(PAD, 50, 'Quarter ' + (turn + 1) + ' of ' + s.quarters + ' · features shipped · judge each new number',
-    11.5, c.muted));
+  const sub = cols === 1 ? 'Q' + (turn + 1) + '/' + s.quarters + ' · judge each number'
+    : 'Quarter ' + (turn + 1) + ' of ' + s.quarters + ' · features shipped · judge each new number';
+  parts.push(txt(PAD, 50, sub, 11.5, c.muted));
   parts.push(txt(W - PAD, 30, 'your calls: ' + calls.length, 11.5, c.muted, {anchor: 'end'}));
 
   for(let p = 0; p < s.people; p++){
@@ -57,20 +61,21 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = []} = {}){
         '" r="' + (last ? 3.2 : 1.8) + '" fill="' + (last ? c.accent : c.muted) + '"/>');
     }
     // act / hold targets for THIS quarter (app wires the clicks via data-*)
-    const bt = cy + cardH - 20, bw = (cardW - 22 - 6) / 2;
+    const bt = cy + cardH - btnH - 6, bw = (cardW - 22 - 6) / 2;
     const on = acted.has(p + ':' + turn);
-    parts.push(btn(cx + 11, bt, bw, 'talk', p, turn, on, c));
-    parts.push(btn(cx + 11 + bw + 6, bt, bw, 'leave', p, turn, false, c));
+    parts.push(btn(cx + 11, bt, bw, btnH, 'talk', p, turn, on, c));
+    parts.push(btn(cx + 11 + bw + 6, bt, bw, btnH, 'leave', p, turn, false, c));
   }
   return svg(W, HT, c, parts.join(''), 'Signal vs noise — quarter ' + (turn + 1));
 }
 
-function btn(x, y, w, act, person, quarter, on, c){
+function btn(x, y, w, h, act, person, quarter, on, c){
   const label = act === 'talk' ? 'talk to them' : 'leave it';
   const fill = on ? c.err : c.card, stroke = on ? c.err : c.border, ink = on ? c.card : c.muted;
+  const fs = h >= 28 ? 11 : 9.5;
   return '<g data-act="' + act + '" data-person="' + person + '" data-quarter="' + quarter + '" role="button" tabindex="0">' +
-    '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="16" rx="5" fill="' + fill +
-    '" stroke="' + stroke + '"/>' + txt(x + w / 2, y + 11.5, label, 9.5, ink, {weight: 600, anchor: 'middle'}) + '</g>';
+    '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + h + '" rx="5" fill="' + fill +
+    '" stroke="' + stroke + '"/>' + txt(x + w / 2, y + h / 2 + 3.4, label, fs, ink, {weight: 600, anchor: 'middle'}) + '</g>';
 }
 
 /* ---------- the collapse / verdict artefact ---------- */
@@ -107,10 +112,6 @@ export function renderCollapse(s, c, calls = []){
         parts.push('<circle cx="' + f1(xq(q)) + '" cy="' + f1(yMap(s.shown[p][q], chTop, chH, lo, hi)) +
           '" r="5.5" fill="none" stroke="' + c.accent + '" stroke-width="1.6"/>');
     }
-    // true-mean tick (the difference you thought you saw)
-    const tm = isSig ? s.trueMean[p] - s.signalDrop : s.trueMean[p];
-    parts.push('<line x1="' + f1(chL) + '" y1="' + f1(yMap(tm, chTop, chH, lo, hi)) + '" x2="' + f1(chL + 8) +
-      '" y2="' + f1(yMap(tm, chTop, chH, lo, hi)) + '" stroke="' + c.ink + '" stroke-width="1" opacity="0.5"/>');
   }
   if(s.signalPerson != null)
     parts.push(txt(f1(chL + chW), f1(yMap(s.shown[s.signalPerson][s.quarters - 1], chTop, chH, lo, hi) + 15),

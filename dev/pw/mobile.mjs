@@ -21,7 +21,7 @@ const ALL_NAMES = new Set(ALL.map(([n]) => n));
 // autoload check). NB canvas-output tools (fermi, frequency) also autoload but
 // draw to <canvas> — the SVG-presence check below can't see them, so they're out.
 const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk',
-  'gauge', 'timeline']);
+  'gauge', 'timeline', 'signal-vs-noise']);
 const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;
@@ -81,7 +81,7 @@ for(const [name, url] of AUTOLOAD){
   await page.waitForTimeout(1000);
   const hash = await page.evaluate(() => location.hash);
   const hasOutput = await page.evaluate(() =>
-    !!document.querySelector('.stage svg, .preview svg, #chartwrap svg, main svg'));
+    !!document.querySelector('.stage svg, .preview svg, #chartwrap svg, #stage svg, main svg'));
   ok(hasOutput, `${name}: renders a default example on phone first-run`);
   ok(hash === '', `${name}: URL not polluted by auto-load (hash="${hash}")`);
   await page.close();
@@ -104,6 +104,7 @@ const CONTAINERS = [
   ['roadmap', T + '/roadmap/', ['#preview']],
   ['timeline', T + '/timeline/', ['#preview']],   // Ship 2 narrow relayout: #preview must not overflow sideways
   ['why', T + '/why/', ['#preview']],
+  ['signal-vs-noise', T + '/signal-vs-noise/', ['#stage']],   // grid relayouts 3→2→1 cols; #stage svg is width:100%
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
   // (duel not listed: its readout is hidden until Start, so a load-time container
   // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,
