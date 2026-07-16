@@ -4,7 +4,7 @@ import {EditorState} from '../../roadmap/vendor/codemirror.js';
 import {lineOpsChanges} from '../../assets/editor-common.js';
 import {parse} from '../parse.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
-  addComponent, removeComponent} from '../edit-targets.js';
+  addComponent, removeComponent, addEdge, removeEdge} from '../edit-targets.js';
 
 const DOC = `title: T
 anchor: Need
@@ -194,4 +194,134 @@ test('renaming an edge-created ghost emits ONE op on its line (no duplicate → 
   // applyLineOps must accept it (would throw on a duplicate line op)
   const st = EditorState.create({doc});
   assert.doesNotThrow(() => st.update({changes: lineOpsChanges(st, out)}));
+});
+
+/* ================= addEdge / removeEdge (the Needs… toggle) =================
+   An edge is a PAIR inside a possibly-longer chain line, so removal is a
+   chain-split rewrite; addition appends a fresh 2-node line (unambiguous, and
+   the doc reads the same). Both are degeneration-proof: bad input → no-op. */
+
+const applyOps = (text, ops) => {
+  const lines = text.split('\n');
+  for(const o of ops) lines[o.line] = o.text;
+  return lines.filter(l => l !== null).join('\n');
+};
+const addApplied = (text, r) => {
+  const lines = text.split('\n');
+  lines.splice(r.afterLine + 1, 0, r.newLine);
+  return lines.join('\n');
+};
+
+test('addEdge appends "from -> to" after the last non-blank line', () => {
+  const r = addEdge(HABITAT, 'Habit builder', 'Analytics pipeline');
+  assert.deepEqual(r, {afterLine: 8, newLine: 'Habit builder -> Analytics pipeline'});
+  const m = parse(addApplied(HABITAT, r));
+  assert.ok(m.edges.some(e => e.from === 'habit builder' && e.to === 'analytics pipeline'));
+});
+test('addEdge round-trips clean: edge count +1, no new warnings, no new components', () => {
+  const before = parse(HABITAT);
+  const m = parse(addApplied(HABITAT, addEdge(HABITAT, 'Habit builder', 'Analytics pipeline')));
+  assert.equal(m.edges.length, before.edges.length + 1);
+  assert.equal(m.warnings.length, before.warnings.length);
+  assert.equal(m.components.size, before.components.size);
+});
+test('addEdge skips trailing blank lines when placing the new line', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\n\n';
+  assert.equal(addEdge(doc, 'B', 'C').afterLine, 2);
+});
+test('addEdge is a no-op when the pair already exists (even mid-chain — duplicates count twice)', () => {
+  assert.equal(addEdge(HABITAT, 'Habit tracking', 'Habit builder'), null);
+  assert.equal(addEdge(HABITAT, 'habit TRACKING', 'HABIT builder'), null);   // case-insensitive
+});
+test('addEdge: reverse direction is independent — B->A adds even when A->B exists', () => {
+  const r = addEdge(HABITAT, 'Streak engine', 'Habit builder');
+  assert.equal(r.newLine, 'Streak engine -> Habit builder');
+});
+test('addEdge: the anchor is a valid FROM end', () => {
+  const r = addEdge(HABITAT, 'Habit tracking', 'Streak engine');
+  assert.equal(r.newLine, 'Habit tracking -> Streak engine');
+});
+test('addEdge no-ops on self, empties and unknown names (degeneration-proof)', () => {
+  assert.equal(addEdge(HABITAT, 'Habit builder', 'Habit builder'), null);
+  assert.equal(addEdge(HABITAT, 'Habit builder', 'habit BUILDER'), null);
+  assert.equal(addEdge(HABITAT, '', 'Habit builder'), null);
+  assert.equal(addEdge(HABITAT, 'Habit builder', '  '), null);
+  assert.equal(addEdge(HABITAT, 'Nope', 'Habit builder'), null);
+  assert.equal(addEdge(HABITAT, 'Habit builder', 'Nope'), null);
+});
+test('addEdge refuses a name the edge line cannot carry (anchor literally named "a -> b")', () => {
+  // `anchor: a -> b` is a legal anchor whose NAME contains an arrow — written
+  // into an edge line it would shatter into different edges; must no-op
+  const doc = 'anchor: a -> b\nX @ custom';
+  assert.equal(addEdge(doc, 'a -> b', 'X'), null);
+  assert.equal(addEdge(doc, 'X', 'a -> b'), null);
+});
+
+test('removeEdge end-of-chain: A -> B -> C minus (B,C) leaves A -> B', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\nA -> B -> C';
+  assert.deepEqual(removeEdge(doc, 'B', 'C'), [{line: 3, text: 'A -> B'}]);
+});
+test('removeEdge start-of-chain: A -> B -> C minus (A,B) leaves B -> C', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\nA -> B -> C';
+  assert.deepEqual(removeEdge(doc, 'A', 'B'), [{line: 3, text: 'B -> C'}]);
+});
+test('removeEdge middle-split: A -> B -> C -> D minus (B,C) leaves TWO chains', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\nD @ custom\nA -> B -> C -> D';
+  const ops = removeEdge(doc, 'B', 'C');
+  assert.deepEqual(ops, [{line: 4, text: 'A -> B\nC -> D'}]);
+  const m = parse(applyOps(doc, ops));
+  assert.deepEqual(m.edges.map(e => e.from + '>' + e.to).sort(), ['a>b', 'c>d']);
+  // the multiline op must be a single CM change (one dispatch = one undo)
+  const st = EditorState.create({doc});
+  assert.doesNotThrow(() => st.update({changes: lineOpsChanges(st, ops)}));
+});
+test('removeEdge single-edge line: the whole line goes', () => {
+  const doc = 'anchor: A\nB @ custom\nA -> B';
+  assert.deepEqual(removeEdge(doc, 'A', 'B'), [{line: 2, text: null}]);
+});
+test('removeEdge hits EVERY line carrying the pair', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\nA -> B\nC -> A -> B';
+  assert.deepEqual(removeEdge(doc, 'A', 'B'),
+    [{line: 3, text: null}, {line: 4, text: 'C -> A'}]);
+});
+test('removeEdge repeated pair in ONE line: A -> B -> A -> B minus (A,B) leaves B -> A', () => {
+  const doc = 'anchor: A\nB @ custom\nA -> B -> A -> B';
+  assert.deepEqual(removeEdge(doc, 'A', 'B'), [{line: 2, text: 'B -> A'}]);
+});
+test('removeEdge no-ops: absent pair, reverse direction, self pair, empties, unknowns', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\nA -> B -> C';
+  assert.deepEqual(removeEdge(doc, 'A', 'C'), []);     // not adjacent = not an edge
+  assert.deepEqual(removeEdge(doc, 'B', 'A'), []);     // reverse not removed
+  assert.deepEqual(removeEdge(doc, 'B', 'B'), []);
+  assert.deepEqual(removeEdge(doc, '', 'B'), []);
+  assert.deepEqual(removeEdge(doc, 'B', '  '), []);
+  assert.deepEqual(removeEdge(doc, 'Nope', 'Also nope'), []);
+});
+test('removeEdge is case-insensitive and keeps the original indent', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\n  A -> B -> C';
+  assert.deepEqual(removeEdge(doc, 'b', 'c'), [{line: 3, text: '  A -> B'}]);
+});
+test('removeEdge keeps a trailing comment on the kept line; middle-split parks it on the LAST fragment', () => {
+  const doc = 'anchor: A\nB @ custom\nC @ custom\nA -> B -> C   // the chain';
+  assert.deepEqual(removeEdge(doc, 'B', 'C'), [{line: 3, text: 'A -> B   // the chain'}]);
+  const doc2 = 'anchor: A\nB @ custom\nC @ custom\nD @ custom\nA -> B -> C -> D   // the chain';
+  assert.deepEqual(removeEdge(doc2, 'B', 'C'), [{line: 4, text: 'A -> B\nC -> D   // the chain'}]);
+});
+test('removeEdge deletes a whole line comment-and-all (removeComponent precedent)', () => {
+  const doc = 'anchor: A\nB @ custom\nA -> B   // note dies with the line';
+  assert.deepEqual(removeEdge(doc, 'A', 'B'), [{line: 2, text: null}]);
+});
+test('removeEdge matches through a malformed empty segment the way the parser does', () => {
+  // parse() filters empty segments, so "A ->  -> B" IS the edge (A,B); removing
+  // it must not leave a stub behind
+  const doc = 'anchor: A\nB @ custom\nA ->  -> B';
+  assert.deepEqual(removeEdge(doc, 'A', 'B'), [{line: 2, text: null}]);
+});
+test('removeEdge whole-flow on the house example: mid-chain split, siblings untouched', () => {
+  const ops = removeEdge(HABITAT, 'Habit builder', 'Streak engine');
+  const m = parse(applyOps(HABITAT, ops));
+  assert.ok(!m.edges.some(e => e.from === 'habit builder' && e.to === 'streak engine'));
+  assert.ok(m.edges.some(e => e.from === 'habit tracking' && e.to === 'habit builder'));
+  assert.ok(m.edges.some(e => e.from === 'streak engine' && e.to === 'analytics pipeline'));
+  assert.equal(m.components.size, parse(HABITAT).components.size);   // nobody became a ghost casualty
 });
