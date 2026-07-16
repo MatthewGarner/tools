@@ -118,15 +118,24 @@ function restBits(model, today){
 
 /* the merge-bias verdict copy — full (DOM / poster hero, wraps) + short (in-chart). */
 function mergeCopy(mb){
-  const pc = p => Math.round(p * 100) + '%';
+  // a probability model must never print a bare "0%": round-to-zero becomes "<1%"
+  // (the false-certainty class of the 2026-07-16 honesty batch). pAll ≤ 0.5 always.
+  const pc = p => { const r = Math.round(p * 100); return r === 0 && p > 0 ? '<1%' : r + '%'; };
+  const pAll = pc(mb.pAll);
   const later = mb.d80 - mb.byDate;
   const laterStr = later < 7 ? Math.round(later) + (Math.round(later) === 1 ? ' day' : ' days') : wk(later);
   const tail = mb.excludedSingle ? ' · ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
+  // a fitted lane already past its P90 poisons pAll toward optimism — name it in the
+  // prose forms (in the chart the stale whisker sits visibly left of the TODAY rule).
+  const staleTail = mb.stale ? ' · ' + mb.stale + (mb.stale > 1
+    ? ' lanes past their P90 — re-estimate them' : ' lane past its P90 — re-estimate it') : '';
   const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtDay(mb.byDate) +
-    ' — even the last is a coin flip, so together ' + pc(mb.pAll) + '. For 80% joint confidence, promise ' +
-    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail;
-  const short = 'Merge risk: all ' + mb.rangedLanes + ' lanes by ' + fmtDay(mb.byDate) + ' ≈ ' + pc(mb.pAll) +
-    ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
+    ' — even the last is a coin flip, so together ' + pAll + '. For 80% joint confidence, promise ' +
+    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail;
+  // short is the in-chart form: "all N ranged lanes" (the chart may show more, single-date
+  // ones aren't in the joint); drop the ≈ when the value is already an inequality.
+  const short = 'Merge risk: all ' + mb.rangedLanes + ' ranged lanes by ' + fmtDay(mb.byDate) + ' ' +
+    (pAll.startsWith('<') ? pAll : '≈ ' + pAll) + ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
   return {full, short};
 }
 

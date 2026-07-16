@@ -51,6 +51,18 @@ test('all-done lanes are dropped (landed, not "single-date") (M1)', () => {
   assert.ok(mb && mb.rangedLanes === 2 && mb.excludedSingle === 0);     // done C not counted as excluded-single
 });
 
+test('stale lane: a fitted lane past its own P90 is flagged and KEPT (a)', () => {
+  // A finishes 100..130; at today=140 it has blown its P90 and is still open, B (150..200) hasn't
+  const mb = mergeBias({items: [R('A', 100, 130), R('B', 150, 200)]}, 140);
+  assert.ok(mb && mb.rangedLanes === 2, 'the stale lane stays in the joint — dropping it would only RAISE pAll');
+  assert.equal(mb.stale, 1);
+  // strict boundary: p90 === today is "due today", not past
+  assert.equal(mergeBias({items: [R('A', 100, 130), R('B', 150, 200)]}, 130).stale, 0);
+  // a DONE lane past its P90 never flags — it landed, and is dropped before the count
+  const withDone = mergeBias({items: [R('A', 100, 130), R('B', 150, 200), R('C', 80, 110, false, 'done')]}, 140);
+  assert.equal(withDone.stale, 1);
+});
+
 test('σ=0 (same-day range) excluded + counted, even when it would set X (I2)', () => {
   const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), R('C', 140, 140)]}, 0);   // C !single but p90===p50
   assert.ok(mb && mb.rangedLanes === 2);
