@@ -68,8 +68,12 @@ const FLOORS = {
      landed — name (rename) + addbet/addgroup capsules join the unconditional
      stake/odds/payoff/kill cells and the per-card data-menu: 8 distinct kinds. */
   bets:      {kinds: 8, menu: true},
-  /* wardley's tap menu is its own componentmenu KIND (an actions popover),
-     not the data-menu redirect attribute — menu:false is accurate, not a gap */
+  /* wardley's tap menu is its own componentmenu KIND (a card menu: Needs…
+     edge-toggle submenu + Remove), not the data-menu redirect attribute —
+     menu:false is accurate, not a gap. The Needs… rows (mobile-input stage,
+     2026-07-16) are menu rows built from the model in app.js, not data-edit
+     targets, so the floor honestly stays at 4 (additem, anchor, componentmenu,
+     name/stage mix per width); the behaviour is gated in dev/pw/check-eip.mjs. */
   wardley:   {kinds: 4, menu: false},
   /* cycles/risk: the num capsules survive the narrow relayout — 1 kind is the
      whole (real) surface */
