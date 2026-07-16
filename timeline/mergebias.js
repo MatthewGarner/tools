@@ -26,9 +26,16 @@ export function mergeBias(model, today = 0){
     const cur = byLane.get(it.lane);
     if(!cur || it.p50 > cur.p50 || (it.p50 === cur.p50 && it.p90 > cur.p90)) byLane.set(it.lane, it);
   }
-  const lanes = []; let excludedSingle = 0;
+  const lanes = []; let excludedSingle = 0, stale = 0;
   for(const it of byLane.values()){
-    if(!it.single && it.p90 - it.p50 > 0) lanes.push({p50: it.p50, p90: it.p90, sigma: (it.p90 - it.p50) / Z_P90});
+    if(!it.single && it.p90 - it.p50 > 0){
+      lanes.push({p50: it.p50, p90: it.p90, sigma: (it.p90 - it.p50) / Z_P90});
+      // stale = a fitted lane already PAST its own P90 finish and still open: the joint
+      // treats it as ~98% safe, so the pAll it feeds is falsified-optimistic. FLAG it (a
+      // prose caveat), never exclude it — dropping the riskiest lane would only RAISE pAll.
+      // Strict: p90 === today is "due today", not past. (All-stale ⇒ byDate ≤ today ⇒ already null.)
+      if(it.p90 < today) stale++;
+    }
     else excludedSingle++;                               // single-date or same-day range: no distribution to fit
   }
   if(lanes.length < 2) return null;
@@ -42,5 +49,5 @@ export function mergeBias(model, today = 0){
   for(let g = 0; g < 40 && jointAt(lanes, hi) < 0.80; g++) hi = byDate + (hi - byDate) * 2;
   for(let i = 0; i < 60; i++){ const m = (lo + hi) / 2; if(jointAt(lanes, m) < 0.80) lo = m; else hi = m; }
   const d80 = Math.ceil(hi);                              // whole day, so the quoted date actually clears 0.80
-  return {rangedLanes: lanes.length, byDate, pAll, d80, weeksLater: (d80 - byDate) / 7, laneP, excludedSingle};
+  return {rangedLanes: lanes.length, byDate, pAll, d80, weeksLater: (d80 - byDate) / 7, laneP, excludedSingle, stale};
 }

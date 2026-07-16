@@ -163,9 +163,31 @@ test('posterVerdict is the merge sentence only (no operational bits)', () => {
 
 test('merge SVG carries TWO readout rows (short merge + operational)', () => {
   const svg = render(parse(MERGE_DOC), ctx);
-  assert.match(svg, /Merge risk: all 3 lanes/);      // short in-chart form
-  assert.match(svg, /Next up:/);                     // the operational row still present
+  assert.match(svg, /Merge risk: all 3 ranged lanes/);   // short in-chart form (c): "ranged", matches the joint
+  assert.match(svg, /Next up:/);                          // the operational row still present
   assert.doesNotMatch(svg, /NaN|undefined/);
+});
+
+test('short form counts RANGED lanes, not every lane — single-date lanes are not in the joint (c)', () => {
+  // 3 ranged + 1 single-date completion: the chart shows 4 lanes, the joint fits 3
+  const doc = MERGE_DOC + '\nOps: Handover 2027-09';
+  assert.match(render(parse(doc), ctx), /Merge risk: all 3 ranged lanes/);
+});
+
+test('stale-lane flag: a fitted lane past its P90 is named in the prose form only (a)', () => {
+  // today 2026-07-06: A finished 2026-01..2026-03 (P90 past) and is still open; B is ahead
+  const doc = 'title: Stale\nA: Finish 2026-01 .. 2026-03\nB: Launch 2026-11 .. 2027-02';
+  assert.match(timelineReadout(parse(doc), ctx.today), /1 lane past its P90 — re-estimate it/);
+  assert.doesNotMatch(render(parse(doc), ctx), /past its P90/);   // short stays terse (the whisker shows it)
+});
+
+test('<1% rounding: a probability model never prints a bare 0% (b)', () => {
+  const doc = 'title: Nine\n' + Array.from({length: 9}, (_, i) => `L${i}: Finish 2027-01 .. 2027-04`).join('\n');
+  assert.match(timelineReadout(parse(doc), ctx.today), /together <1%\./);   // full form, plain text
+  const svg = render(parse(doc), ctx);
+  assert.match(svg, /&lt;1%/);                          // short form, XML-escaped (never a raw <1% mid-attr)
+  assert.doesNotMatch(svg, /≈ &lt;1%/);                 // ≈ dropped when the value is already an inequality
+  assert.doesNotMatch(svg, /\b0%/);
 });
 
 test('non-merge doc: no Merge risk, unchanged single-row readout', () => {

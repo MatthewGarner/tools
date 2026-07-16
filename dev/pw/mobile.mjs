@@ -5,6 +5,7 @@ import {chromium, devices} from 'playwright';
 import {readFile} from 'node:fs/promises';
 import {report} from './_harness.mjs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
+import {END_STATES, measureEndState, assertEndState, LEGIBLE_FLOOR} from './end-states.mjs';
 
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
@@ -162,6 +163,12 @@ for(const [name, url, selectors] of CONTAINERS){
     return {sw: el.scrollWidth, cw: el.clientWidth};
   });
   ok(sw <= cw + 2, `bets: quadrant view — #preview no horizontal overflow (${sw} <= ${cw})`);
+  // the quadrant is an interaction-reached SVG (view is app state, not URL-encodable, so
+  // it can't join END_STATES) — but the same shrink-to-fit could wreck it, so reuse the
+  // legibility measure on the surface this block already drove to.
+  const q = await measureEndState(page, '#preview', null);
+  ok(q.minFont != null && q.minFont >= LEGIBLE_FLOOR,
+    `bets: quadrant view — smallest text stays legible (${q.minFont != null ? q.minFont.toFixed(1) : '?'}px >= ${LEGIBLE_FLOOR})`);
   await page.close();
 }
 
@@ -214,6 +221,19 @@ for(const [name, url, selectors] of CONTAINERS){
   ok(w > 520, `timeline: phone Download SVG keeps the wide board width (${w} > 520)`);
   await page.close();
   await ectx.close();
+}
+
+// End-state legibility gate (shared table + measurement in end-states.mjs; webkit.mjs
+// runs the same on real Safari). Every check above only sees each tool's FIRST render;
+// this drives tools to their interaction-reached payoff and gates its legibility.
+for(const es of END_STATES){
+  const base = es.origin === 'E' ? E : T;
+  const page = await ctx.newPage();
+  const loaded = await page.goto(base + es.path, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+  if(!loaded){ ok(false, `${es.name}: end-state page loads`); await page.close(); continue; }
+  await page.waitForTimeout(800);
+  await assertEndState(page, ok, es.name, await measureEndState(page, es.sel, es.readySel), es.sel);
+  await page.close();
 }
 
 // premortem register-phase walk: the register is behind the wizard, so drive a
