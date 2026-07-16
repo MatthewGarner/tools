@@ -18,6 +18,11 @@ const state = {
   sw: 1,               // score wobble: ± points
 };
 let lastResult = null;
+// True while a weight SLIDER is being dragged (pointer down). The live path (liveReweight,
+// deterministic FLIP) runs on every input; the full MC resim — which rewrites the verdict
+// lines that now sit ABOVE the phone strip — is deferred to release so the control and rows
+// don't reflow under the thumb on a drag-and-hold. Typed/keyboard edits keep the safety commit.
+let sliderDown = false;
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -86,12 +91,22 @@ function renderHead(){
       if(src !== ssl) ssl.value = val;
       sval.textContent = Math.round(val * 10) / 10;
       liveReweight();
-      schedule(600);
+      if(!sliderDown) schedule(600);   // pointer-drag defers the MC resim to release (no reflow under the thumb); typed/keyboard edits keep the safety
     };
     w.addEventListener('input', () => { if(w.value !== '') setW(parseFloat(w.value), w); });
     sl.addEventListener('input', () => setW(parseFloat(sl.value), sl));
     ssl.addEventListener('input', () => setW(parseFloat(ssl.value), ssl));
+    // a slider drag: hold off the resim while the pointer is down, then commit on release —
+    // pointerup is guaranteed even when the value ends where it began (drag-back-to-start),
+    // where `change` never fires, so this also subsumes the I2 stuck-fade safety.
+    [sl, ssl].forEach(el => {
+      el.addEventListener('pointerdown', () => { sliderDown = true; });
+      const release = () => { if(sliderDown){ sliderDown = false; schedule(0); } };
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+    });
     const commit = () => {
+      sliderDown = false;
       if(w.value === ''){ c.w = 0; w.value = 0; sl.value = 0; ssl.value = 0; sval.textContent = 0; }   // coerce empty→0 only on blur
       schedule(0);
     };
