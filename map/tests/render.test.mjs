@@ -123,11 +123,24 @@ test('placed cards carry data-edit="cardmenu" with a >=44px data-hit rect as the
   assert.ok(g, 'expected cardmenu group with a data-hit rect as its first child');
   const h = +g[1].match(/height="([\d.]+)"/)[1];
   assert.ok(h >= 44, 'hit rect must be at least 44px tall, got ' + h);
-  /* the tray (unplaced) item keeps its plain data-line group, no cardmenu, no data-hit */
+  /* export/golden path (edit:false): the tray item keeps its plain data-line
+     group — no cardmenu, no data-hit */
   const trayGroup = svg.match(/<g data-line="\d+" data-tray="1">[\s\S]*?<\/g>/);
   assert.ok(trayGroup, 'expected a tray group');
   assert.ok(!trayGroup[0].includes('cardmenu') && !trayGroup[0].includes('data-hit'),
-    'tray items must stay menu-less (drag-to-place is their affordance)');
+    'tray items must stay bare in export renders (goldens are edit:false)');
+});
+
+test('edit mode: tray items become cardmenu triggers (Place on map… is the coarse placement path)', () => {
+  const svg = run('preset: assumptions\nPlaced one @ 20,80\nUnplaced one', {edit: true});
+  const trayGroup = svg.match(/<g data-line="\d+" data-tray="1"[^>]*>(<rect data-hit=""[^>]*\/>)/);
+  assert.ok(trayGroup, 'expected an edit-mode tray group with a data-hit rect as its first child');
+  assert.ok(trayGroup[0].includes('data-edit="cardmenu"'), 'tray group must be a cardmenu trigger in edit mode');
+  assert.ok(trayGroup[0].includes('data-menu=""'), 'tray cardmenu must carry the coarse-redirect data-menu marker');
+  assert.ok(trayGroup[0].includes('role="button"'), 'tray cardmenu must be keyboard-operable');
+  /* the hit rect fills the row pitch (26px) — capped so adjacent rows never overlap */
+  const h = +trayGroup[1].match(/height="([\d.]+)"/)[1];
+  assert.equal(h, 26);
 });
 
 test('cardmenu hit rect is centred on the capsule, not the authored dot', () => {
@@ -197,7 +210,7 @@ Legal sign-off on health claims
 `;
   for(const extra of [{edit: true}, {edit: true, slide: true}]){
     const rects = hitRects(run(src, extra));
-    assert.equal(rects.length, 7, 'seven placed cards get hit rects (the 8th is unplaced)');
+    assert.equal(rects.length, 8, 'seven placed cards + the unplaced tray item get hit rects');
     const hit = anyOverlap(rects);
     assert.equal(hit, null, extra.slide ? 'slide-mode default overlaps ' + hit : 'default overlaps ' + hit);
   }
