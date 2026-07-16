@@ -48,32 +48,40 @@ function renderHead(){
   th0.innerHTML = '<span class="lbl">Initiative</span>';
   tr.appendChild(th0);
   const sliderMax = 2 * Math.max(1, ...state.criteria.map(x => x.w || 0));   // 0 → 2× the largest weight (M3)
+  const wstrip = $('wstrip'); wstrip.textContent = '';   // phone weight surface (header is display:none on phones)
+  const sliderStep = String(Math.max(0.1, sliderMax / 100));
   state.criteria.forEach((c, ci) => {
     const th = document.createElement('th');
     const nm = document.createElement('input');
     nm.className = 'cname'; nm.value = c.name;
     nm.setAttribute('aria-label', 'Criterion ' + (ci+1) + ' name');
-    // name-only edit: simulate() never reads .name for the numeric result, and
-    // criterion names don't appear anywhere in the results panel — no resim,
-    // just debounce the hash write (see scheduleHashOnly, batch 7).
-    nm.addEventListener('input', () => { c.name = nm.value; scheduleHashOnly(400); });
     const wrow = document.createElement('div');
     wrow.className = 'wrow';
     const wl = document.createElement('span'); wl.textContent = 'w';
     const w = document.createElement('input');
     w.className = 'weight'; w.type = 'number'; w.min = '0'; w.step = '0.5'; w.value = c.w;
     w.setAttribute('aria-label', c.name + ' weight');
-    const sl = document.createElement('input');
-    sl.className = 'wslider'; sl.type = 'range'; sl.min = '0';
-    sl.max = String(sliderMax); sl.step = String(Math.max(0.1, sliderMax / 100)); sl.value = c.w;
-    sl.setAttribute('aria-label', c.name + ' weight slider');
-    // drag = live deterministic re-rank (FLIP), MC re-runs on commit (change)
-    const setW = val => { c.w = val; w.value = val; sl.value = val; liveReweight(); };
+    const mkSlider = label => { const s = document.createElement('input');
+      s.className = 'wslider'; s.type = 'range'; s.min = '0'; s.max = String(sliderMax); s.step = sliderStep;
+      s.value = c.w; s.setAttribute('aria-label', label); return s; };
+    const sl = mkSlider(c.name + ' weight slider');
+    // phone strip control (the header is display:none on phones)
+    const srow = document.createElement('div'); srow.className = 'wsrow';
+    const slab = document.createElement('span'); slab.className = 'wslabel'; slab.textContent = c.name || 'Criterion';
+    const ssl = mkSlider((c.name || 'Criterion') + ' weight');
+    const sval = document.createElement('span'); sval.className = 'wsval'; sval.textContent = c.w;
+    srow.append(slab, ssl, sval); wstrip.appendChild(srow);
+    // name edit updates BOTH labels; no resim (names don't affect the numeric result — batch 7)
+    nm.addEventListener('input', () => { c.name = nm.value; slab.textContent = nm.value || 'Criterion';
+      w.setAttribute('aria-label', nm.value + ' weight'); scheduleHashOnly(400); });
+    // drag ANY control = live deterministic re-rank (FLIP); MC re-runs on commit (change)
+    const setW = val => { c.w = val; w.value = val; sl.value = val; ssl.value = val;
+      sval.textContent = Math.round(val * 10) / 10; liveReweight(); };
     w.addEventListener('input', () => setW(parseFloat(w.value) || 0));
     sl.addEventListener('input', () => setW(parseFloat(sl.value)));
+    ssl.addEventListener('input', () => setW(parseFloat(ssl.value)));
     const commit = () => schedule(0);
-    w.addEventListener('change', commit);
-    sl.addEventListener('change', commit);
+    [w, sl, ssl].forEach(el => el.addEventListener('change', commit));
     wrow.append(wl, w, sl);
     th.append(nm, wrow);
     tr.appendChild(th);

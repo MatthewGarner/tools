@@ -114,6 +114,20 @@
     background:color-mix(in srgb, var(--err) 13%, transparent);color:var(--err)}
   .rrow.knife .knifepill{display:inline-block}
   .wslider{display:block;width:100%;margin:5px 0 0;height:18px;accent-color:var(--accent);cursor:pointer}
+  /* phone weight strip: the header (with the desktop sliders) is display:none on phones,
+     so the drag-weights mechanism needs its own visible, ≥44px surface below the cards */
+  .wstrip{display:none}
+  @media (max-width:640px){
+    .wstrip{display:block;margin:16px 0 2px}
+    .wstrip::before{content:"Weights — drag to test the ranking";display:block;font-size:11px;
+      font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+    .wsrow{display:grid;grid-template-columns:minmax(64px,32%) 1fr 42px;gap:10px;align-items:center;
+      padding:6px 0;border-top:1px solid var(--border)}
+    .wsrow:first-of-type{border-top:none}
+    .wslabel{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wsval{font-family:ui-monospace,Menlo,monospace;font-size:13px;text-align:right;color:var(--muted)}
+    .wstrip .wslider{min-height:44px;height:44px;margin:0}
+  }
   /* while a weight is being dragged the deterministic re-rank is live; the MC-derived readouts are stale → fade */
   #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
   #results.pending .verdict, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
@@ -184,6 +198,7 @@
         <tbody id="rows"></tbody>
       </table>
     </div>
+    <div class="wstrip" id="wstrip" aria-label="Criterion weights — drag to test the ranking"></div>
     <div class="toolbar">
       <button class="btn" id="addrow">＋ Add initiative</button>
       <button class="btn" id="pastebtn">Paste from spreadsheet</button>
