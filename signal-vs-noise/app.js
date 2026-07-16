@@ -157,7 +157,9 @@ wireExports({
   slug: () => slugify('signal-vs-noise-' + seed, 'signal-vs-noise')
 });
 $('again').addEventListener('click', () => startPlay((Math.random() * 2 ** 32) >>> 0));
-$('noise').addEventListener('input', e => { params = {...params, noiseSd: +e.target.value}; startPlay(); });
+// 'change' (release), not 'input': restarting mid-drag would hide the endcard + this
+// very slider out from under the pointer, so a sweep never lands (audit 2026-07-16).
+$('noise').addEventListener('change', e => { params = {...params, noiseSd: +e.target.value}; startPlay(); });
 
 onThemeChange(render);
 // narrow relayout: re-render only when the column bucket actually flips
