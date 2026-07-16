@@ -1,10 +1,11 @@
 /* Formula parsing + Monte Carlo + sensitivity live in ./engine.js (pure, tested);
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
-  distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
+  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, sig, fmt} from './engine.js';
 import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
+import {mountPour, pourVerdict} from './pour.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -340,6 +341,8 @@ function lint(){
   $('err').style.display = 'none';
   const src = $('formula').value.trim();
   last = null;
+  // a recompute (any edit / scenario switch) invalidates a running pour + its verdict
+  pour.stop(); pourVerdictText = ''; $('pourverdict').textContent = ''; $('replay').disabled = true;
   lastBy[active] = null;
   if(!src){
     renderVarRows([]);
@@ -393,6 +396,7 @@ function lint(){
     {seed: SEEDS[active], p10, p90});
 
   last = {ast, ranges, dists, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, invalid: N - sorted.length};
+  $('replay').disabled = !sens.length;   // pour needs at least one ranged driver
   lastBy[active] = {raw: main.raw, p10, p50, p90};
   if(compareOn){
     const other = active === 'A' ? 'B' : 'A';
@@ -508,6 +512,9 @@ function applyView(){
   $('viewtree').setAttribute('aria-selected', String(tree));
   $('driverwrap').hidden = !tree;
   document.querySelector('.histwrap').hidden = tree;
+  $('replay').hidden = tree;                    // the pour is dist-view only
+  $('pourverdict').hidden = tree;
+  if(tree) pour.stop();
   $('threshrow').hidden = tree;
   $('png').hidden = tree;
   $('treesvg').hidden = !tree;
@@ -675,11 +682,43 @@ $('tin').addEventListener('input', () => {
   writeHashSafe();
 });
 
+/* ---------- "Replay the maths" — the pour ---------- */
+const pour = mountPour($('hist'), document.querySelector('.histwrap'));
+let pourVerdictText = '';
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function replay(){
+  if(!last || !last.sens || !last.sens.length || view !== 'dist' || pageMode !== 'est') return;
+  const model = {ast: last.ast, varNames: last.varNames, ranges: last.ranges, dists: last.dists};
+  const order = last.sens.map(s => s.name);
+  const trace = traceDraws(model, {seed: SEEDS[active], g: 500, order});
+  if(!trace.ok) return;
+  const cw = $('hist').clientWidth;
+  let layout = histLayout(last.sorted, {width: cw, threshold: threshValue()});
+  if(!layout.ok) return;
+  // >5% grains ≤0-under-log or off-axis → re-layout linear for the pour (spec I1)
+  const bad = (layout.useLog ? trace.draws.filter(d => d.steps.some(x => x <= 0)).length : 0) +
+    trace.draws.filter(d => d.y < layout.lo || d.y > layout.hi).length + trace.dropped;
+  if(bad / 500 > 0.05) layout = histLayout(last.sorted, {width: cw, forceLinear: true});
+  const C = themeColors();
+  const colors = {card: C.card, line: C.border, ink: C.ink, muted: C.muted, faint: C.muted,
+    accent: (active === 'A') ? C.accent : C.accent2};
+  const shareByName = Object.fromEntries(last.sens.map(s => [s.name, s.share]));
+  const rows = trace.order.map(n => ({name: n, share: shareByName[n] || 0}));
+  const v = pourVerdict(trace, {names: Object.fromEntries(last.varNames.map(n => [n, n]))});
+  pourVerdictText = v.text;
+  $('pourverdict').textContent = v.text;
+  pour.play(trace, layout, rows, colors, {reduced: reducedMotion()});
+}
+$('replay').addEventListener('click', replay);
+// press-and-hold on the P50 tile is the accelerator (pointerdown only — not also click)
+$('p50').addEventListener('pointerdown', e => { e.preventDefault(); replay(); });
+$('p50').addEventListener('contextmenu', e => { e.preventDefault(); });
+
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
 // a ResizeObserver can fire multiple ticks per resize drag; coalesce to one redraw/frame
-if(window.ResizeObserver) new ResizeObserver(rafBatched(() => drawHist())).observe($('hist'));
-onThemeChange(redrawAll);
+if(window.ResizeObserver) new ResizeObserver(rafBatched(() => { pour.stop(); drawHist(); })).observe($('hist'));
+onThemeChange(() => { pour.stop(); redrawAll(); });
 
 /* ---------- chips / copy / boot ---------- */
 for(const ex of EXAMPLES){
@@ -730,6 +769,7 @@ $('copydoc').addEventListener('click', async () => {
     lines.push('Biggest lever: ' + top.name.replace(/_/g,' ') +
       ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.');
   }
+  if(pourVerdictText){ lines.push(''); lines.push(pourVerdictText); }
   const pcmp = compareOn ? pBeatsStr() : null;
   if(pcmp !== null){
     lines.push('');

@@ -142,8 +142,11 @@
   #tip{
     position:absolute;pointer-events:none;display:none;background:var(--ink);color:var(--bg);
     font-size:12.5px;padding:4px 9px;border-radius:5px;white-space:nowrap;
-    font-variant-numeric:tabular-nums;transform:translate(-50%,-130%);
+    font-variant-numeric:tabular-nums;transform:translate(-50%,-130%);z-index:8;
   }
+  .replaybtn{margin-top:10px;user-select:none;-webkit-user-select:none}
+  .pourverdict{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);min-height:1.1em}
+  .pourverdict b{color:var(--ink);font-weight:600}
   .warn{color:var(--err);font-size:13px;margin-top:8px;display:none}
   .thresh{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:14.5px}
   .thresh input{
@@ -278,11 +281,13 @@
         <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>
         <button id="viewtree" role="tab" aria-selected="false">Driver tree</button>
       </div>
+      <button id="replay" class="btn replaybtn" title="Watch the answer's uncertainty being built — pour the draws through the drivers">↻ Replay the maths</button>
       <div id="driverwrap" hidden></div>
       <div class="histwrap">
         <canvas id="hist" aria-label="Histogram of 20,000 simulated outcomes"></canvas>
         <div id="tip"></div>
       </div>
+      <p class="pourverdict" id="pourverdict" aria-live="polite"></p>
       <div class="thresh" id="threshrow">
         <span>Chance the answer exceeds</span>
         <input id="tin" placeholder="e.g. 100k" aria-label="Threshold value" spellcheck="false" autocomplete="off">
