@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simulate, verdictCopy} from '../engine.js';
+import {simulate, verdictCopy, perRowKnife} from '../engine.js';
 
 const state = {
   criteria: [{name: 'Value', w: 3}, {name: 'Time', w: 2}, {name: 'Risk', w: 1}],
@@ -84,4 +84,30 @@ test('verdict: all k slots secure counts as settled even with a flickering chall
   ], 3);
   assert.match(headline, /The top 3 is settled/);
   assert.doesNotMatch(body, /remaining 0/);
+});
+
+test('perRowKnife flags rows that flip rank under a ±10% single-weight nudge', () => {
+  const st = {
+    criteria: [{name: 'X', w: 10}, {name: 'Y', w: 16}],
+    effort: {name: 'E', w: 1},
+    items: [
+      {name: 'T', s: [10, 10], e: 1},   // robust #1 (huge lead — dominates both criteria)
+      {name: 'A', s: [8, 5], e: 1},      // knife-edge with B (flips under X−10% / Y+10%)
+      {name: 'B', s: [3, 8], e: 1},      // knife-edge with A
+      {name: 'C', s: [1, 1], e: 1},      // robust last
+    ], k: 2, ww: 50, sw: 1,
+  };
+  assert.deepEqual(perRowKnife(st), [false, true, true, false]);   // strong: the exact array (incl. #1 robust)
+});
+
+test('perRowKnife: excluded (invalid) items never knife, but their valid neighbours still flag', () => {
+  const st = {
+    criteria: [{name: 'X', w: 10}, {name: 'Y', w: 16}], effort: {name: 'E', w: 1},
+    items: [
+      {name: 'A', s: [8, 5], e: 1},      // knife-edge pair — proves the probe fires
+      {name: 'B', s: [3, 8], e: 1},
+      {name: 'Bad', s: [0, 5], e: 1},    // s[0]=0 ⇒ excluded from the ranking ⇒ never knife
+    ], k: 2, ww: 50, sw: 1,
+  };
+  assert.deepEqual(perRowKnife(st), [true, true, false]);   // non-vacuous: A/B flag, Bad stays false via the valid() guard
 });

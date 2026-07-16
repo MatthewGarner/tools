@@ -1,6 +1,7 @@
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
-import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy} from './engine.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife} from './engine.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {captureFlip, applyFlip} from '../assets/motion.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -17,6 +18,11 @@ const state = {
   sw: 1,               // score wobble: ± points
 };
 let lastResult = null;
+// True while a weight SLIDER is being dragged (pointer down). The live path (liveReweight,
+// deterministic FLIP) runs on every input; the full MC resim — which rewrites the verdict
+// lines that now sit ABOVE the phone strip — is deferred to release so the control and rows
+// don't reflow under the thumb on a drag-and-hold. Typed/keyboard edits keep the safety commit.
+let sliderDown = false;
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -46,23 +52,66 @@ function renderHead(){
   const th0 = document.createElement('th');
   th0.innerHTML = '<span class="lbl">Initiative</span>';
   tr.appendChild(th0);
+  const sliderMax = 2 * Math.max(1, ...state.criteria.map(x => x.w || 0));   // 0 → 2× the largest weight (M3)
+  const wstrip = $('wstrip'); wstrip.textContent = '';   // phone weight surface (header is display:none on phones)
+  const sliderStep = String(Math.max(0.1, sliderMax / 100));
   state.criteria.forEach((c, ci) => {
     const th = document.createElement('th');
     const nm = document.createElement('input');
     nm.className = 'cname'; nm.value = c.name;
     nm.setAttribute('aria-label', 'Criterion ' + (ci+1) + ' name');
-    // name-only edit: simulate() never reads .name for the numeric result, and
-    // criterion names don't appear anywhere in the results panel — no resim,
-    // just debounce the hash write (see scheduleHashOnly, batch 7).
-    nm.addEventListener('input', () => { c.name = nm.value; scheduleHashOnly(400); });
     const wrow = document.createElement('div');
     wrow.className = 'wrow';
     const wl = document.createElement('span'); wl.textContent = 'w';
     const w = document.createElement('input');
     w.className = 'weight'; w.type = 'number'; w.min = '0'; w.step = '0.5'; w.value = c.w;
     w.setAttribute('aria-label', c.name + ' weight');
-    w.addEventListener('input', () => { c.w = parseFloat(w.value) || 0; schedule(200); });
-    wrow.append(wl, w);
+    const mkSlider = label => { const s = document.createElement('input');
+      s.className = 'wslider'; s.type = 'range'; s.min = '0'; s.max = String(sliderMax); s.step = sliderStep;
+      s.value = c.w; s.setAttribute('aria-label', label); return s; };
+    const sl = mkSlider(c.name + ' weight slider');
+    // phone strip control (the header is display:none on phones)
+    const srow = document.createElement('div'); srow.className = 'wsrow';
+    const slab = document.createElement('span'); slab.className = 'wslabel'; slab.textContent = c.name || 'Criterion';
+    const ssl = mkSlider((c.name || 'Criterion') + ' weight');
+    const sval = document.createElement('span'); sval.className = 'wsval'; sval.textContent = c.w;
+    srow.append(slab, ssl, sval); wstrip.appendChild(srow);
+    // name edit updates BOTH labels; no resim (names don't affect the numeric result — batch 7)
+    nm.addEventListener('input', () => { c.name = nm.value; slab.textContent = nm.value || 'Criterion';
+      w.setAttribute('aria-label', nm.value + ' weight'); scheduleHashOnly(400); });
+    // drag/type ANY control = live deterministic re-rank (FLIP); MC re-runs on commit (change).
+    // NEVER write back to the control the user is typing in (C1: Chrome returns '' for '1.', so a
+    // write-back stomps the keystroke). A debounced safety commit (I2) covers drag-back-to-start /
+    // typed edits, where `change` may never fire.
+    const setW = (val, src) => {
+      if(!isFinite(val)) return;
+      c.w = val;
+      if(src !== w) w.value = val;
+      if(src !== sl) sl.value = val;
+      if(src !== ssl) ssl.value = val;
+      sval.textContent = Math.round(val * 10) / 10;
+      liveReweight();
+      if(!sliderDown) schedule(600);   // pointer-drag defers the MC resim to release (no reflow under the thumb); typed/keyboard edits keep the safety
+    };
+    w.addEventListener('input', () => { if(w.value !== '') setW(parseFloat(w.value), w); });
+    sl.addEventListener('input', () => setW(parseFloat(sl.value), sl));
+    ssl.addEventListener('input', () => setW(parseFloat(ssl.value), ssl));
+    // a slider drag: hold off the resim while the pointer is down, then commit on release —
+    // pointerup is guaranteed even when the value ends where it began (drag-back-to-start),
+    // where `change` never fires, so this also subsumes the I2 stuck-fade safety.
+    [sl, ssl].forEach(el => {
+      el.addEventListener('pointerdown', () => { sliderDown = true; });
+      const release = () => { if(sliderDown){ sliderDown = false; schedule(0); } };
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+    });
+    const commit = () => {
+      sliderDown = false;
+      if(w.value === ''){ c.w = 0; w.value = 0; sl.value = 0; ssl.value = 0; sval.textContent = 0; }   // coerce empty→0 only on blur
+      schedule(0);
+    };
+    [w, sl, ssl].forEach(el => el.addEventListener('change', commit));
+    wrow.append(wl, w, sl);
     th.append(nm, wrow);
     tr.appendChild(th);
   });
@@ -135,6 +184,31 @@ function renderRows(){
 /* ---------- simulation (pure, in ./engine.js) ---------- */
 function compute(){ lastResult = simulate(state); }
 
+/* Live drag path: re-rank by the DETERMINISTIC score (cheap — no MC), FLIP the existing rows
+   into the new order, update positions + knife pills, fade the MC-derived readouts as pending.
+   The full simulate() re-runs on commit (change) via schedule(0), which clears the fade. */
+function liveReweight(){
+  const holder = $('rrows');
+  if(!lastResult || !holder.children.length) return;
+  const valid = it => it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0;
+  const score = it => state.criteria.reduce((a, c, ci) => a + c.w * it.s[ci], 0) / it.e;
+  // stable sort over index-ascending, NO name tie-break — matches simulate()'s baseOrder exactly
+  // (which has none), so genuinely-tied rows don't fake a flip on-screen then snap back on commit (I1)
+  const order = state.items.map((_, i) => i).filter(i => valid(state.items[i]))
+    .sort((a, b) => score(state.items[b]) - score(state.items[a]));
+  const old = captureFlip(holder, 'data-item-idx');
+  order.forEach((idx, pos) => {
+    const row = holder.querySelector('.rrow[data-item-idx="' + idx + '"]');
+    if(!row) return;
+    holder.appendChild(row);                       // reorder DOM to the new rank
+    row.querySelector('.pos').textContent = pos + 1;
+  });
+  applyFlip(holder, 'data-item-idx', old);
+  const knife = perRowKnife(state);
+  holder.querySelectorAll('.rrow').forEach(row => row.classList.toggle('knife', !!knife[+row.dataset.itemIdx]));
+  $('results').classList.add('pending');           // MC bars/ptop/verdict stale mid-drag → certainty-fade
+}
+
 /* ---------- render results ---------- */
 function pctStr(p){
   return p > 0.995 ? '>99%' : p < 0.005 ? '<1%' : Math.round(p * 100) + '%';
@@ -148,6 +222,7 @@ function renderResults(){
   }
   $('ph').style.display = 'none';
   $('results').style.display = 'block';
+  $('results').classList.remove('pending');   // fresh MC — the readouts are current again
   const {stats, baseOrder, n, k} = R;
 
   const {headline, body, contested} = verdictCopy(stats, k);
@@ -168,14 +243,22 @@ function renderResults(){
 
   const holder = $('rrows');
   holder.textContent = '';
+  const knife = perRowKnife(state);   // per-row ±10% fragility (I10 — labelled below)
   baseOrder.forEach((idx, pos) => {
     const s = stats.find(x => x.i === idx);
     const row = document.createElement('div');
-    row.className = 'rrow';
+    row.className = 'rrow' + (knife[s.i] ? ' knife' : '');
     row.dataset.itemIdx = String(s.i);   // lets a name-only edit patch this row without a resim (see patchInitiativeName)
     const p = document.createElement('div'); p.className = 'pos'; p.textContent = pos + 1;
     const nm = document.createElement('div'); nm.className = 'nm';
-    nm.textContent = s.name; nm.title = s.name;
+    const nmtext = document.createElement('span'); nmtext.className = 'nmtext';
+    nmtext.textContent = s.name; nmtext.title = s.name;
+    nm.appendChild(nmtext);
+    const kp = document.createElement('span'); kp.className = 'knifepill';
+    kp.textContent = 'knife-edge';
+    kp.title = 'This rank flips under a ±10% nudge of a single weight';
+    kp.setAttribute('aria-label', 'knife-edge: rank flips under a ±10% weight nudge');
+    nm.appendChild(kp);
     const bar = document.createElement('div');
     bar.className = 'rankbar';
     bar.style.gridTemplateColumns = 'repeat(' + n + ',1fr)';
@@ -323,7 +406,7 @@ function scheduleHashOnly(ms){
 function patchInitiativeName(i, name){
   const row = $('rrows').querySelector('.rrow[data-item-idx="' + i + '"]');
   if(!row) return;
-  const nm = row.querySelector('.nm');
+  const nm = row.querySelector('.nmtext');
   nm.textContent = name; nm.title = name;
   const bar = row.querySelector('.rankbar');
   bar.setAttribute('aria-label', name + ': median rank ' + bar.dataset.med +
