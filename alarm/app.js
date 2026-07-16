@@ -60,7 +60,7 @@ function doRefresh(){
   const boxHtml = renderBox(counts, C);
   if(boxHtml !== lastBoxHtml){ $('boxwrap').innerHTML = boxHtml; lastBoxHtml = boxHtml; }
 
-  const v = verdicts(counts);
+  const v = verdicts(counts, p);
   $('verdictAlarm').textContent = v.alarm;
   $('verdictMiss').textContent = v.miss;
   $('verdictFine').textContent = v.fine;
@@ -193,7 +193,7 @@ wireExports({buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng
   getSvg: () => lastDistSvg || null, slug});
 $('copydoc').addEventListener('click', async () => {
   if(!lastCounts) return;
-  const md = markdown(lastParams, derived(lastParams), lastCounts, verdicts(lastCounts), location.href);
+  const md = markdown(lastParams, derived(lastParams), lastCounts, verdicts(lastCounts, lastParams), location.href);
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
