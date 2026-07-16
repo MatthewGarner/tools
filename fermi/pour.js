@@ -115,10 +115,13 @@ export function mountPour(histCanvas, wrapEl){
       return;
     }
     // animate — timestamp-driven so the pace is identical at 30 / 60 / 120Hz (rAF passes ts).
-    // Wall-clock targets reproduce the 60fps feel Matt tuned: fall ~790ms, spawn window
-    // ~1130ms, fade ~280ms. dt is clamped so a backgrounded tab doesn't teleport every grain.
+    // Wall-clock targets (Matt's feel notes): the descent is DELIBERATELY slow so the eye can
+    // watch a grain kick sideways as it crosses each driver row — the cascade steps must be
+    // legible, not a blur. fall ~1700ms (a ~26px row band ≈ 140ms/row, perceptible) / spawn
+    // window ~1500ms (cohorts arrive, not a flood) / fade ~280ms. dt clamped so a backgrounded
+    // tab doesn't teleport every grain.
     let landed = 0; const total = grains.length;
-    const FALL_MS = 790, SPAWN_MS = 1130, FADE_MS = 280;
+    const FALL_MS = 1700, SPAWN_MS = 1500, FADE_MS = 280;
     const rowSpan = (bandBot - bandTop) / Math.max(1, k - 0.001);
     let t0 = 0, prevTs = 0;
     function frame(ts){
