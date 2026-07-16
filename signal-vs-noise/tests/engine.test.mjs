@@ -45,10 +45,18 @@ test('firstCatchable is the first 2-consecutive below-band run in the decline (s
   assert.ok(s.firstCatchable >= s.signalQuarter, 'inside the decline');
 });
 
-test('signalDrop is ABSOLUTE, not noise-scaled: cranking noise makes the decline genuinely undetectable (C-A)', () => {
-  // same seed, huge noise, same absolute drop ⇒ the drop drowns and firstCatchable goes null on most seeds
-  let nulls = 0; for(let seed = 1; seed <= 60; seed++) if(makeScenario(seed, {noiseSd: 9}).firstCatchable === null) nulls++;
-  assert.ok(nulls > 40, 'cranked noise should make most scenarios undetectable, got ' + nulls + '/60');
+test('signalDrop is ABSOLUTE (a k·noiseSd impostor fails) AND the detectability gradient is real (C-A/I2)', () => {
+  // direct: at ANY noise, drop:0 vs drop:9 differ by EXACTLY 9 post-sq (an impostor that
+  // scales the drop with noise shifts both equally → diff 0 → this fails on it).
+  for(const noiseSd of [3, 6, 9]){
+    const a = makeScenario(7, {noiseSd, signalDrop: 0}), b = makeScenario(7, {noiseSd, signalDrop: 9});
+    const sp = a.signalPerson;
+    for(let q = a.signalQuarter; q < a.quarters; q++)
+      assert.ok(Math.abs((a.outputs[sp][q] - b.outputs[sp][q]) - 9) < 1e-9, 'shift == signalDrop @ noiseSd ' + noiseSd);
+  }
+  // real gradient where the ≥0 clamp isn't dominant (noiseSd 6 → band.lo ≈ 3.5): more noise → more undetectable
+  const nulls = nsd => { let n = 0; for(let s = 1; s <= 60; s++) if(makeScenario(s, {noiseSd: nsd}).firstCatchable === null) n++; return n; };
+  assert.ok(nulls(6) > nulls(3) + 15, 'more noise → more undetectable: ' + nulls(3) + ' → ' + nulls(6));
 });
 
 test('shown is clamped ≥ 0 (no negative features)', () => {
@@ -189,4 +197,36 @@ test('edges: all-acts, and scoring on an undetectable scenario', () => {
   const hard = makeScenario(11);
   assert.equal(scoreCalls(hard, []).caught, null);
   assert.match(verdict(hard, []).line, /nobody could know/i);
+});
+
+/* ---------- Task 4b: Fable engine-checkpoint gaps (I3/I4/M4) ---------- */
+
+test('no resulting-by-identity: a pre-decline act on the signal person is a false alarm, not a catch (I3)', () => {
+  const s = makeScenario(42);   // Ben declines at q4; acting on Ben at q1 is pre-decline noise
+  const sc = scoreCalls(s, [{person: s.signalPerson, quarter: 1}]);
+  assert.equal(sc.perCall[0].outcome, 'falseAlarm');
+  assert.equal(sc.caught, null);
+});
+
+test('catch tags render distinct verdict lines: lucky / clean / late (I4)', () => {
+  const s = makeScenario(42), sp = s.signalPerson;   // Ben, fc=5, decline q4..7
+  assert.equal(scoreCalls(s, [{person: sp, quarter: 7}]).caught.tag, 'late');
+  assert.match(verdict(s, [{person: sp, quarter: 7}]).line, /late/i);
+  assert.equal(scoreCalls(s, [{person: sp, quarter: s.firstCatchable}]).caught.tag, 'clean');
+  assert.match(verdict(s, [{person: sp, quarter: s.firstCatchable}]).line, /caught the one real decline/i);
+  assert.equal(scoreCalls(s, [{person: sp, quarter: 4}]).caught.tag, 'lucky');
+  assert.match(verdict(s, [{person: sp, quarter: 4}]).line, /coin flip/i);
+});
+
+test('revealFor is truth-blind: identical output under mutated truth fields (M4)', () => {
+  const s = makeScenario(42);
+  const g = {...s, signalPerson: (s.signalPerson + 1) % s.people, signalQuarter: 0, firstCatchable: 0,
+    trueMean: s.trueMean.map(() => 0)};
+  for(let p = 0; p < s.people; p++) for(let q = 0; q < s.quarters - 1; q++)
+    assert.deepEqual(revealFor(g, p, q), revealFor(s, p, q));
+});
+
+test('duplicate cell acts are deduped (M1)', () => {
+  const s = makeScenario(42);
+  assert.equal(scoreCalls(s, [{person: 3, quarter: 3}, {person: 3, quarter: 3}]).falseAlarms, 1);
 });

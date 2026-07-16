@@ -14,7 +14,8 @@ const NAMES = ['Ada', 'Ben', 'Cy', 'Dot', 'Eve', 'Fin', 'Gil', 'Hal'];
 export const AUTHORED_SEED = 42;
 
 export function makeScenario(seed, params = {}){
-  const {people = 6, quarters = 8, baseMean = 16, noiseSd = 3, signalDrop = 9, z = 2} = params;
+  let {people = 6, quarters = 8, baseMean = 16, noiseSd = 3, signalDrop = 9, z = 2} = params;
+  people = Math.min(people, NAMES.length);   // never render an undefined name (M5)
   const rand = mulberry32(seed), gauss = gaussian(rand);
   const betweenSd = 0.3 * noiseSd;                       // the system dominates the individual (Deming) — not clones
   const trueMean = Array.from({length: people}, () => baseMean + betweenSd * gauss());
@@ -55,6 +56,7 @@ export function evidenceRun(s, p, q){
    condemns. calls = [{person, quarter}]. */
 export function scoreCalls(s, calls){
   const sp = s.signalPerson, sq = s.signalQuarter;
+  calls = [...new Map(calls.map(c => [c.person + ':' + c.quarter, c])).values()];   // dedupe cells (M1)
   const sorted = [...calls].sort((a, b) => a.quarter - b.quarter);
   const perCall = [];
   let falseAlarms = 0, coinFlip = 0, defensible = 0, caught = null;
@@ -69,7 +71,7 @@ export function scoreCalls(s, calls){
       // catch tag by evidence-at-call: run≤1 is a coin flip (lucky if right); a
       // sustained run promptly acted is clean; a sustained run acted late names its cost.
       const tag = run <= 1 ? 'lucky'
-        : (s.firstCatchable !== null && quarter <= s.firstCatchable + 1) ? 'clean' : 'late';
+        : (s.firstCatchable === null || quarter <= s.firstCatchable + 1) ? 'clean' : 'late';   // beating the standard is clean (M2)
       caught = {tag, quarter, run};
     } else outcome = 'followup';
     if(quality === 'defensible') defensible++; else coinFlip++;
@@ -90,7 +92,7 @@ export function verdict(s, calls){
   const name = s.names[s.signalPerson];
   const nAct = calls.length;
   const conv = nAct + (nAct === 1 ? ' special-cause conversation' : ' special-cause conversations');
-  const noise = sc.falseAlarms + (sc.falseAlarms === 1 ? ' chased noise' : ' chased noise');
+  const noise = sc.falseAlarms + ' chased noise';
   let line;
   if(sc.caught){
     const tail = {lucky: 'you flagged the real decline (' + name + ') — but on a single point, that call was a coin flip',
@@ -114,17 +116,20 @@ export function revealFor(s, p, actedQuarter){
   if(actedQuarter + 1 >= s.quarters) return {next: null, regressed: null, kind: null, illusion: null};
   const row = s.shown[p], cur = row[actedQuarter], next = row[actedQuarter + 1];
   const kind = cur >= (s.band.lo + s.band.hi) / 2 ? 'praise' : 'warn';   // praised a high / warned a low
+  const inBand = sideOf(cur, s.band) === null;
   const name = s.names[p];
   let regressed, illusion;
-  if(next === cur){ regressed = 'held'; illusion = name + ' is flat — noise doesn’t owe you a reaction.'; }
-  else {
-    regressed = kind === 'praise' ? next < cur : next > cur;             // moved back toward the middle
-    illusion = regressed
-      ? (kind === 'praise' ? '“Looks like praise made ' + name + ' complacent.”'
-                           : '“Looks like the tough conversation with ' + name + ' worked.”')
-      : (kind === 'praise' ? name + ' is up again — luck cuts both ways; outliers regress on average, not every time.'
-                           : name + ' slipped further — a warning is no cure for a bad draw.');
-  }
+  if(next === cur) regressed = 'held';
+  else regressed = kind === 'praise' ? next < cur : next > cur;          // moved back toward the middle
+  // QUOTED lines are the player's tempting inference; UNQUOTED (tool-voice) lines
+  // stay instance-neutral / conditional — revealFor is truth-blind, so it must
+  // never assert THIS swing was noise (it might be the real signal). (Fable C1)
+  if(inBand) illusion = name + ' sat well inside the normal range — there was nothing unusual to react to.';
+  else if(regressed === 'held') illusion = name + ' held flat — one quarter proves nothing either way.';
+  else if(regressed) illusion = kind === 'praise' ? '“Looks like praise made ' + name + ' complacent.”'
+                                                  : '“Looks like the tough conversation with ' + name + ' worked.”';
+  else illusion = kind === 'praise' ? name + ' is up again — regression pulls outliers back on average, not every time.'
+                                    : name + ' is down again — if that was a bad draw, no conversation would have cured it.';
   return {next, regressed, kind, illusion};
 }
 
@@ -134,15 +139,20 @@ export function revealFor(s, p, actedQuarter){
    team's output, which cannot change. Pooled over non-signal people (so the real
    step doesn't pollute the fixed side); degenerate seeds fall back to the analytic. */
 export function funnelRatio(s){
-  const varOf = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length; };
+  const ssq = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return a.reduce((x, y) => x + (y - m) ** 2, 0); };
   const fixedDevs = [], reaimDevs = [];
+  let peopleUsed = 0;
   for(let p = 0; p < s.people; p++){
     if(p === s.signalPerson) continue;
+    peopleUsed++;
     const row = s.shown[p], mean = row.reduce((a, b) => a + b, 0) / row.length;
     for(let q = 0; q < row.length; q++) fixedDevs.push(row[q] - mean);      // gap to a fixed target: var = within-person σ²
     for(let q = 1; q < row.length; q++) reaimDevs.push(row[q] - row[q - 1]); // gap to last quarter: ~2σ²
   }
-  const fixedVar = varOf(fixedDevs), reaimVar = varOf(reaimDevs);
+  // dof-correct: the fixed side estimates `peopleUsed` person-means, the reaim side one —
+  // the biased-N estimator inflated the printed ratio ~15% vs the honest ~2 (Fable I1).
+  const fixedVar = ssq(fixedDevs) / (fixedDevs.length - peopleUsed);
+  const reaimVar = ssq(reaimDevs) / (reaimDevs.length - 1);
   const ratio = fixedVar > 0 ? reaimVar / fixedVar : null;
   if(ratio === null || ratio < 1.2) return {ratio: null, phrase: '~2× (Deming rule 2)'};
   return {ratio, phrase: '~' + (Math.round(ratio * 10) / 10) + '×'};
