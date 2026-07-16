@@ -1816,41 +1816,22 @@ check('no console/page errors', errors.length === 0);
   check('wardley narrow: remove via the card menu drops Inbox', !/\bInbox\b/.test(msrc3));
   check('wardley narrow: no console/page errors', merrors.length === 0);
 
-  /* ---- clamp check (same mobile context): a milestone label near the right
-     screen edge on /timeline/ — its eip-input must stay inside the viewport.
-     Scroll to bring the RIGHTMOST label's right edge near the pane's right
-     edge (not to scrollWidth — the plot has trailing margin past the last
-     label, which would scroll every label off the left of the view). ---- */
+  /* ---- Ship 2: /timeline gates inline editing OUT on a phone — below 520px it
+     RELAYOUTS (data-narrow) into stacked rows and you edit via the DSL editor, so
+     unlike the wide board its narrow preview carries NO edit-in-place targets. (The
+     old test here clicked a milestone label to open an eip-input near the screen edge;
+     there is no such target now. The eip-input viewport-clamp itself stays covered by
+     the wardley/map narrow card-menu checks above.) ---- */
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/', {waitUntil: 'networkidle'});
   await mpage.waitForTimeout(700);
-  const edgeLabel = await mpage.evaluate(() => {
+  const tlNarrow = await mpage.evaluate(() => {
     const prev = document.getElementById('preview');
-    prev.scrollLeft = 0;
-    const pr0 = prev.getBoundingClientRect();
-    const labels = [...prev.querySelectorAll('svg [data-edit="label"]')];
-    let best = null, bestRight = -Infinity;
-    for(const el of labels){
-      const r = el.getBoundingClientRect();
-      const right = (r.left - pr0.left) + r.width;
-      if(right > bestRight){ bestRight = right; best = el; }
-    }
-    if(!best) return null;
-    const r0 = best.getBoundingClientRect();
-    prev.scrollLeft = Math.max(0, (r0.left - pr0.left) + r0.width - prev.clientWidth + 40);
-    const r1 = best.getBoundingClientRect();
-    return {x: r1.left, y: r1.top, w: r1.width, h: r1.height};
+    const svg = prev && prev.querySelector('svg');
+    return {narrow: !!(svg && svg.hasAttribute('data-narrow')),
+      edits: prev ? prev.querySelectorAll('svg [data-edit]').length : -1};
   });
-  check('timeline narrow: a milestone label sits near the scrolled-right edge', !!edgeLabel);
-  if(edgeLabel){
-    const vp = mpage.viewportSize();
-    await mpage.mouse.click(edgeLabel.x + edgeLabel.w / 2, edgeLabel.y + edgeLabel.h / 2);
-    await mpage.waitForTimeout(300);
-    const ib = await mpage.locator('.eip-input').boundingBox();
-    check('timeline narrow: eip-input clamps within the viewport', !!ib &&
-      ib.x >= 0 && ib.x + ib.width <= vp.width + 1 && ib.y >= 0 && ib.y + ib.height <= vp.height + 1);
-    await mpage.keyboard.press('Escape');
-    await mpage.waitForTimeout(200);
-  }
+  check('timeline narrow: the phone preview is the narrow relayout (data-narrow)', tlNarrow.narrow);
+  check('timeline narrow: inline edits gated OUT — no data-edit targets (edit via the DSL editor)', tlNarrow.edits === 0);
   await mctx.close();
 }
 
