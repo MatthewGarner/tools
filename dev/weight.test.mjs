@@ -65,8 +65,15 @@ const PAGES = {
      false-dominance verdict) and the animation became timestamp-driven (frame-rate
      independent). Genuinely new code, not creep; actual load ~148.2k, ~3.8k real
      headroom on purpose (Stage B's confession lands on this page next — see the
-     roadmap live-view raises for why thin headroom is a trap). */
-  'fermi/index.html': 152_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
+     roadmap live-view raises for why thin headroom is a trap).
+     152k -> 176k (2026-07-16, Stage B step 2 — the "What must be true" confession, the
+     flagged raise above): solve.js (the bisection solver — solveStretch + confess) plus
+     the confession interaction in app.js (threshold grab-handle drag, live #tout, the
+     ghost-row render + dashed ghost sparklines, Adopt/undo, the err-tinted verdict) and
+     its CSS. Genuinely new first-load code (the whole feature), not creep; actual load
+     ~169.5k, ~6.5k real headroom on purpose (see the "previous six raises" note for why
+     thin headroom is a trap). */
+  'fermi/index.html': 176_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
