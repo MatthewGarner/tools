@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {simulate, wipSweep, kneeWip} from '../engine.js';
-import {renderReadout, markdownSummary} from '../render.js';
+import {renderReadout, markdownSummary, readoutVerdict} from '../render.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
@@ -19,9 +19,22 @@ const rig = params => {
 test('verdict states the wait/work split in days', () => {
   const {result, sweep, knee} = rig(healthy);
   const svg = renderReadout(result, sweep, knee, healthy, ctx);
-  assert.match(svg, /typical item takes/i);
+  assert.match(svg, /average item takes/i);
   assert.match(svg, /working/);
   assert.match(svg, /waiting/);
+});
+
+test('verdict uses means so working + waiting reconstruct the total; wait not falsely 0 (Fable I2)', () => {
+  // low utilisation + high variability: workMean > lead.p50 — the old bug case
+  const p = {demandPerWeek: 1, itemDays: 4, team: 4, wipLimit: 4, cov: 1.0};
+  const result = simulate(p);
+  assert.ok(result.workDays > result.lead.p50, 'fixture must trigger the old bug (mean work > median lead)');
+  assert.ok(Math.abs((result.workDays + result.waitDays) - result.lead.mean) < 1e-9, 'means decompose exactly');
+  const nums = [...readoutVerdict(result).matchAll(/([\d.]+) days?/g)].map(m => Number(m[1]));
+  const [total, work, wait] = nums;
+  assert.ok(work <= total + 0.1, `working ${work} must not exceed the stated total ${total} (the old bug)`);
+  assert.ok(Math.abs((work + wait) - total) <= 0.2, `working+waiting=${work}+${wait} ≈ total ${total}`);
+  assert.ok(Math.abs(total - result.lead.mean) <= Math.abs(total - result.lead.p50) + 1e-9, 'total tracks the mean, not the median');
 });
 
 test('histogram renders bars and percentile markers', () => {
@@ -55,7 +68,7 @@ test('day counts are singular/plural safe', () => {
 test('markdown summary carries the headline numbers', () => {
   const {result, sweep, knee} = rig(overloaded);
   const md = markdownSummary(result, sweep, knee, overloaded);
-  assert.match(md, /typical item/i);
+  assert.match(md, /average item/i);
   assert.match(md, /Throughput/);
   assert.match(md, /WIP/);
   assert.match(md, /demand exceeds capacity/i);
