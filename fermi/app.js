@@ -6,7 +6,7 @@ import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
 import {mountPour, pourVerdict} from './pour.js';
-import {confess} from './solve.js';
+import {confess, asciiNum} from './solve.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -679,7 +679,7 @@ function drawHist(hoverIdx){
   canvas.addEventListener('pointermove', e => {
     if(draggingHandle){                                   // M2: no hover tooltip during a drag; move the line live
       const v = valAt(e.clientX); if(v === null) return;
-      threshStr = fmt(v); $('tin').value = threshStr; renderThresh(); drawHist();
+      threshStr = threshFmt(v); $('tin').value = threshStr; renderThresh(); drawHist();
       e.preventDefault(); return;
     }
     if(!bins.length) return;
@@ -723,13 +723,15 @@ function drawHist(hoverIdx){
     const rect = canvas.getBoundingClientRect();
     const idx = Math.max(0, Math.min(bins.length - 1, Math.floor((e.clientX - rect.left) / (rect.width / bins.length))));
     const b = bins[idx];
-    threshStr = fmt((b.v0 + b.v1) / 2);
+    threshStr = threshFmt((b.v0 + b.v1) / 2);
     $('tin').value = threshStr;
     renderThresh();
     drawHist();
     writeHashSafe();
     runConfession();
   });
+  // I-2: Escape dissolves the confession (ghosts + verdict), writing nothing
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && lastConfess) clearConfession(); });
 })();
 const confessDebounced = debounced(runConfession, 500);   // I3: the typed path must not solve per keystroke
 $('tin').addEventListener('input', () => {
@@ -774,7 +776,7 @@ $('p50').addEventListener('contextmenu', e => { e.preventDefault(); });
 
 /* ---------- "What must be true" — the confession ---------- */
 let lastConfess = null;   // {c, T} cache so a theme flip repaints without re-solving
-const asciiNum = x => sig(x, 3).replace(/−/g, '-').replace(/e\+/g, 'e');   // parseNum rejects U+2212 AND e+
+const threshFmt = v => fmt(v).replace(/−/g, '-');   // I-1: ASCII minus so a negative threshold parses back
 const nmOf = n => n.replace(/_/g, ' ');
 const stretchLabel = r => r.kind === 'mult'
   ? '×' + r.factor.toFixed(1) + ' stretch'
@@ -841,10 +843,11 @@ function paintConfession(){
     v.append(b, document.createTextNode(' (' + stretchLabel(c.best) + ')' + tail));
   } else if(c.pair && c.pair.feasible){
     renderGhost(c.pair.a, false); renderGhost(c.pair.b, false);
-    v.textContent = 'No single assumption gets you to ' + fmt(T) + '. The cheapest pair, moved together: '
+    const goal = (c.dir < 0 ? 'keeps you under ' : 'gets you to ') + fmt(T);
+    v.textContent = 'No single assumption ' + goal + '. The cheapest pair, moved together: '
       + nmOf(c.pair.a.varName) + ' ' + stretchLabel(c.pair.a) + ' and ' + nmOf(c.pair.b.varName) + ' ' + stretchLabel(c.pair.b) + '.';
   } else {
-    v.textContent = 'Nothing plausible gets you to ' + fmt(T) + '.';
+    v.textContent = 'Nothing plausible ' + (c.dir < 0 ? 'keeps you under ' : 'gets you to ') + fmt(T) + '.';
   }
 }
 function runConfession(){
@@ -863,7 +866,9 @@ function adoptConfession(r){
   varRowsSig = '';   // I4: force renderVarRows to repaint the input values
   lint();            // clears the confession UI, recomputes, repaints inputs; threshold stays put
   const v = $('confessverdict'); v.hidden = false; v.className = 'confessverdict';
-  v.textContent = 'Adopted — ' + nmOf(r.varName) + ' is now ' + fmt(r.range[0]) + '–' + fmt(r.range[1]) + '. ';
+  // keep the price visible: an adopted >1× wish still names how far it stretched what you believed
+  const tag = r.normCost > 1 ? ' (a ' + stretchLabel(r) + ' of what you believed)' : '';
+  v.textContent = 'Adopted — ' + nmOf(r.varName) + ' is now ' + fmt(r.range[0]) + '–' + fmt(r.range[1]) + tag + '. ';
   const undo = document.createElement('button'); undo.className = 'adopt'; undo.type = 'button'; undo.textContent = 'Undo';
   undo.addEventListener('click', () => {
     varState.clear(); for(const [k, s] of snap) varState.set(k, s);

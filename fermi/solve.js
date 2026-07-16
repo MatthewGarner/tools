@@ -8,8 +8,12 @@
    The effective dist is FROZEN at solve start and threaded through simulateModel (not re-derived
    from the shifted lo), so an 'auto' var whose lo crosses 0 can't flip shape mid-bisection. */
 
-import {simulateModel, effDist} from './engine.js';
+import {simulateModel, effDist, sig} from './engine.js';
 import {quantile} from '../assets/series.js';
+
+/* Adopt writes ranges into varState as strings that parseNum can read back: fmt/sig emit a
+   U+2212 minus and an `e+` exponent, both of which parseNum (ASCII `-`, `e-?\d+`) rejects as NaN. */
+export const asciiNum = x => sig(x, 3).replace(/−/g, '-').replace(/e\+/g, 'e');
 
 const CAP = 3;   // normalized-stretch cap: ×e^(3·halfwidth) up, or ±3 half-widths for additive
 
@@ -76,6 +80,14 @@ function mag(r, s){
     ? [r.orig[0] * Math.exp(s * r.hw), r.orig[1] * Math.exp(s * r.hw)]
     : [r.orig[0] + s * r.hw, r.orig[1] + s * r.hw];
 }
+// a candidate re-expressed at a NEW signed stretch s — ALL derived fields (range/factor/delta/
+// normCost/dir), so the pair verdict's label matches the range it prints (C-1: was carrying the
+// capped single-solve numbers, overpricing ~3× and always err-tinting).
+function atStretch(r, s){
+  const mult = r.kind === 'mult';
+  return {...r, s, dir: Math.sign(s) || r.dir, normCost: Math.abs(s), range: mag(r, s),
+    factor: mult ? Math.exp(s * r.hw) : 1, delta: mult ? 0 : s * r.hw};
+}
 
 /* Across all non-point inputs: the cheapest single feasible stretch (+ alternates), or — when no
    single reaches T within the cap — the cheapest PAIR moved together, or the terminal "nothing
@@ -113,5 +125,5 @@ export function confess(model, {seed, np = 8000, target, cap = CAP}){
   const pairFeasible = (p50Pair(cap) - target) * (base - target) <= 0;   // does the pair reach T within cap?
   return {best: null, alternates: [], feasible: pairFeasible, dir,
     pair: {s: sPair, feasible: pairFeasible, achievedP50: pairP50,
-      a: {...a0, range: mag(a0, a0.dir * sPair)}, b: {...b0, range: mag(b0, b0.dir * sPair)}}};
+      a: atStretch(a0, a0.dir * sPair), b: atStretch(b0, b0.dir * sPair)}};
 }

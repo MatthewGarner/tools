@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {tokenize, parse, collectVars, simulateModel} from '../engine.js';
+import {tokenize, parse, collectVars, simulateModel, parseNum} from '../engine.js';
 import {quantile} from '../../assets/series.js';
-import {solveStretch, confess} from '../solve.js';
+import {solveStretch, confess, asciiNum} from '../solve.js';
 
 const SEED = 0x5EED, NP = 8000;
 const mk = (f, ranges, dists) => { const ast = parse(tokenize(f)); return {ast, varNames: collectVars(ast, []), ranges, dists}; };
@@ -76,6 +76,20 @@ test('confess: target beyond any single cap ⇒ no best, a pair of the two highe
   assert.ok(c.pair && c.pair.s <= 3);
   assert.equal(c.feasible, true);
   assert.ok(hit(c.pair.achievedP50, target), 'the pair moved together hits T');
+  // C-1: each pair member's label must match the range printed beside it — the verdict prints
+  // factor/normCost, so they must be rebuilt at the SHARED stretch, not the capped single solve.
+  for(const mem of [c.pair.a, c.pair.b]){
+    assert.ok(Math.abs(mem.range[1] / mem.orig[1] - mem.factor) < 1e-6, 'mult member: range ratio === factor');
+    assert.ok(Math.abs(mem.normCost - c.pair.s) < 1e-9, 'member normCost === the shared pair stretch (not the cap)');
+  }
+});
+
+test('asciiNum round-trips through parseNum — negative + e+ endpoints never NaN (I7)', () => {
+  for(const x of [-3.01, -3.2e-8, 1.27e21, 0.0456, -7.5]){
+    const back = parseNum(asciiNum(x));
+    assert.ok(isFinite(back), asciiNum(x) + ' must parse, got ' + back);
+    assert.ok(Math.abs(back - x) / (Math.abs(x) || 1) < 0.01, `${asciiNum(x)} ≈ ${x}`);
+  }
 });
 
 test('confess: an impossible target ⇒ terminal (feasible false, pair.feasible false)', () => {
