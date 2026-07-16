@@ -13,10 +13,14 @@ test('grid renders a card per person + act/hold targets; valid SVG; no NaN', () 
   assert.doesNotMatch(svg, /NaN|undefined/);
 });
 
-test('grid leaks NOTHING it does not render: byte-identical under future quarters zeroed + truth permuted (I-5)', () => {
+test('grid leaks NOTHING it does not render: byte-identical under future quarters zeroed + every truth field REPLACED (I-5)', () => {
+  // REPLACE (not permute) trueMean/outputs — a permuted array survives any aggregate
+  // read (min/max/sum), so an impostor domain reading s.outputs.flat() or ...s.trueMean
+  // would slip a permutation-only test; 999-replacement makes it bite (Fable I-5).
   const g = {...s,
-    shown: s.shown.map(r => r.map((v, q) => q > 3 ? 0 : v)),   // future quarters zeroed
-    trueMean: [...s.trueMean].reverse(),                        // truth permuted
+    shown: s.shown.map(r => r.map((v, q) => q > 3 ? 0 : v)),    // future quarters zeroed
+    outputs: s.outputs.map(r => r.map(() => 999)),              // pre-round truth (carries the drop) — replaced
+    trueMean: s.trueMean.map(() => 999),                        // per-person true baseline — replaced
     signalPerson: (s.signalPerson + 2) % s.people, signalQuarter: 0, firstCatchable: 0};
   assert.equal(renderGrid(g, C, {turn: 3}), renderGrid(s, C, {turn: 3}), 'the grid reads only visible quarters + band');
 });

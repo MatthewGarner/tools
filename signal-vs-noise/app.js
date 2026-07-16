@@ -14,10 +14,14 @@ const stage = $('stage'), reveal = $('reveal'), nextBtn = $('next'), hint = $('h
 
 let seed = AUTHORED_SEED, params = {}, calls = [], turn = 0, phase = 'play', lessons = [];
 let cols = 3;   // grid columns; a ResizeObserver flips 3→2→1 on a container bucket (narrow relayout)
-const colsFor = w => w && w < 380 ? 1 : w && w < 560 ? 2 : 3;
+const colsFor = w => w && w < 430 ? 1 : w && w < 620 ? 2 : 3;   // portrait phones (incl. large) → 1 touch-sized col
 
 const scenario = () => makeScenario(seed, params);
 const dedupe = cs => [...new Map(cs.map(c => [c.person + ':' + c.quarter, c])).values()];
+// the wrong "lesson" a call teaches, or null — the quoted, regressed illusion.
+// Shared by the live reveal and the shared-URL reconstruction (loadHash).
+const lessonLabel = r => r.illusion && r.illusion.startsWith('“')
+  ? (r.kind === 'praise' ? 'Praise breeds complacency' : 'Tough love works') : null;
 
 /* ---------- URL state ---------- */
 function loadHash(){
@@ -25,11 +29,19 @@ function loadHash(){
   if(!st || typeof st.seed !== 'number') return;
   seed = st.seed;
   params = st.params && typeof st.params.noiseSd === 'number' ? {noiseSd: st.params.noiseSd} : {};
+  const s = scenario();   // a hostile URL must never brick the page: bound person/quarter to this scenario
   calls = Array.isArray(st.calls)
-    ? dedupe(st.calls.filter(c => Number.isInteger(c.person) && Number.isInteger(c.quarter)))
+    ? dedupe(st.calls.filter(c => c && Number.isInteger(c.person) && c.person >= 0 && c.person < s.people
+        && Number.isInteger(c.quarter) && c.quarter >= 0 && c.quarter < s.quarters))
     : [];
   phase = calls.length ? 'done' : 'play';   // a shared/replayed run opens on its verdict
-  turn = 0; lessons = [];
+  turn = 0;
+  // reconstruct the wrong-lessons ledger so a shared URL's collapse copy is faithful
+  lessons = [];
+  for(const {person, quarter} of [...calls].sort((a, b) => a.quarter - b.quarter)){
+    const l = lessonLabel(revealFor(s, person, quarter));
+    if(l && !lessons.includes(l)) lessons.push(l);
+  }
 }
 const saveRun = () => writeHashState({seed, ...(params.noiseSd ? {params: {noiseSd: params.noiseSd}} : {}),
   ...(calls.length ? {calls} : {})});
@@ -76,12 +88,9 @@ function buildReveal(s, q){
   const cards = acted.map(({person}) => {
     const r = revealFor(s, person, q);
     if(r.next === null) return '';
-    const lesson = r.illusion.startsWith('“');   // the quoted, regressed inference
-    if(lesson){
-      const l = r.kind === 'praise' ? 'Praise breeds complacency' : 'Tough love works';
-      if(!lessons.includes(l)) lessons.push(l);
-    }
-    return '<div class="rvl-card' + (lesson ? ' lesson' : '') + '">' +
+    const l = lessonLabel(r);
+    if(l && !lessons.includes(l)) lessons.push(l);
+    return '<div class="rvl-card' + (l ? ' lesson' : '') + '">' +
       '<div class="rvl-top"><span class="rvl-name">' + s.names[person] + '</span>' +
       '<span class="rvl-move">' + s.shown[person][q] + ' → ' + r.next + '</span></div>' +
       '<p>' + r.illusion + '</p></div>';
@@ -104,7 +113,7 @@ function lessonsLine(){
     return 'No tidy “lesson” stuck this run — but that’s the luck of the draw, not skill. React to enough noise and the false lessons arrive.';
   const strike = lessons.map(l => '<s>' + l + '</s>').join(', ');
   return 'The lessons this game was teaching you — ' + strike +
-    ' — were regression to the mean, not cause and effect. The process never changed.';
+    ' — were regression to the mean, not cause and effect. Only one thing on this team truly changed, and no conversation caused it.';
 }
 
 function markdown(){
@@ -112,8 +121,8 @@ function markdown(){
   return ['**Signal vs noise — ' + s.people + ' people, ' + s.quarters + ' quarters**', '',
     v.line, '',
     '- ' + v.falseAlarms + ' of your ' + calls.length + ' conversations chased noise the process would have produced anyway.',
-    '- ' + v.correctHolds + ' quarters correctly left alone.',
-    '- Re-aiming targets to each quarter’s number reviews a gap with ' + f.phrase + ' the variance (Deming’s funnel).',
+    '- ' + v.correctHolds + ' noise readings correctly left alone.',
+    '- Re-aiming targets to each quarter’s number reviews a gap with ' + (f.ratio ? '~' + (Math.round(f.ratio * 10) / 10) + '×' : 'about 2×') + ' the variance (Deming’s funnel).',
     '',
     'The band is an oracle you only get in a simulation. What transfers is the question every swing deserves: spike, or shift?'
   ].join('\n');

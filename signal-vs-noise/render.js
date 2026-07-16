@@ -20,9 +20,12 @@ function bandRect(x, w, top, h, c, lo, hi, band){
 /* ---------- the play grid ---------- */
 export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3} = {}){
   const PAD = 22, gap = 12, cardW = 230;               // cardW fixed → cols drives width (narrow relayout, not a shrink)
-  // one-column phones scale the whole SVG up ~1.4×, so buttons/cards go taller to
-  // clear the 44px coarse-pointer target after that scale (the composition bar).
-  const btnH = cols === 1 ? 32 : 16, cardH = cols === 1 ? 128 : 96;
+  // one-column phones scale this ~274-wide SVG up to the container (iPhone 13
+  // stage ≈348 ⇒ ×1.27; Pixel 7 ≈372 ⇒ ×1.36), so a 38px button clears the 44px
+  // coarse-pointer target on both gate devices (38×1.27 ≈ 48px). (Landscape phones
+  // / tablets can land in cols 2–3 where the 16px SVG buttons fall short of 44px —
+  // a known limit beyond the two-device bar; app.js keeps portrait phones in cols 1.)
+  const btnH = cols === 1 ? 38 : 16, cardH = cols === 1 ? 134 : 96;
   const W = PAD * 2 + cols * cardW + gap * (cols - 1);
   const rows = Math.ceil(s.people / cols);
   const gridTop = 70;
@@ -119,7 +122,7 @@ export function renderCollapse(s, c, calls = []){
   y = chTop + chH + 26;
 
   for(const line of wrap(v.coinFlip + ' of your calls were single-point coin flips · ' + v.correctHolds +
-    ' quarters correctly left alone · re-aiming the target to each quarter’s number would review a gap with about twice the variance (Deming’s funnel).', 96)){
+    ' noise readings left alone · re-aiming the target to each quarter’s number would review a gap with about twice the variance (Deming’s funnel).', 96)){
     parts.push(txt(PAD, y, line, 11.5, c.muted)); y += 16;
   }
   y += 6;
