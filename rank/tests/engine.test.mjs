@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simulate, verdictCopy} from '../engine.js';
+import {simulate, verdictCopy, perRowKnife, flipAnalysis} from '../engine.js';
 
 const state = {
   criteria: [{name: 'Value', w: 3}, {name: 'Time', w: 2}, {name: 'Risk', w: 1}],
@@ -84,4 +84,30 @@ test('verdict: all k slots secure counts as settled even with a flickering chall
   ], 3);
   assert.match(headline, /The top 3 is settled/);
   assert.doesNotMatch(body, /remaining 0/);
+});
+
+test('perRowKnife flags rows that flip rank under a ±10% single-weight nudge', () => {
+  const st = {
+    criteria: [{name: 'X', w: 10}, {name: 'Y', w: 16}],
+    effort: {name: 'E', w: 1},
+    items: [
+      {name: 'T', s: [10, 10], e: 1},   // robust #1 (huge lead)
+      {name: 'A', s: [8, 5], e: 1},      // knife-edge with B
+      {name: 'B', s: [3, 8], e: 1},      // knife-edge with A
+      {name: 'C', s: [1, 1], e: 1},      // robust last
+    ], k: 2, ww: 50, sw: 1,
+  };
+  assert.deepEqual(perRowKnife(st), [false, true, true, false]);
+  // consistency: the robust #1 is not knife AND flipAnalysis agrees it's robust (>10% or immovable)
+  const fa = flipAnalysis(st);
+  assert.ok(!fa.easiest || Math.abs(fa.easiest.pct) > 10, 'top pair robust in both');
+});
+
+test('perRowKnife: point/invalid items are never knife', () => {
+  const st = {
+    criteria: [{name: 'X', w: 5}], effort: {name: 'E', w: 1},
+    items: [{name: 'A', s: [8], e: 2}, {name: 'B', s: [6], e: 2}, {name: 'Bad', s: [0], e: 2}],
+    k: 2, ww: 50, sw: 1,
+  };
+  assert.equal(perRowKnife(st)[2], false);
 });

@@ -162,6 +162,32 @@ export function flipCopy(flip, ww){
       ' beyond the ±' + ww + '% wobble.'};
 }
 
+/* Per-row fragility probe (the knife-edge pill): does a ±nudge of ANY single criterion weight
+   change THIS item's rank, by the tool's own score benefit/effort? Pure, deterministic. A fixed
+   hair-trigger (default ±10%), distinct from the ww-keyed flipCopy verdict — labelled on-surface. */
+export function perRowKnife(state, nudge = 0.1){
+  const idx = state.items.map((_, i) => i);
+  const valid = i => { const it = state.items[i]; return it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0; };
+  const rankOf = ws => {                       // pos[] over all items; ranks the valid ones by score desc, tie→name
+    const score = it => state.criteria.reduce((a, c, ci) => a + ws[ci] * it.s[ci], 0) / it.e;
+    const order = idx.filter(valid).sort((a, b) => (score(state.items[b]) - score(state.items[a])) ||
+      (state.items[a].name || '').localeCompare(state.items[b].name || ''));
+    const pos = []; order.forEach((it, r) => { pos[it] = r; }); return pos;
+  };
+  const w0 = state.criteria.map(c => c.w);
+  const base = rankOf(w0);
+  const knife = state.items.map(() => false);
+  for(let ci = 0; ci < w0.length; ci++){
+    if(!(w0[ci] > 0)) continue;
+    for(const m of [1 - nudge, 1 + nudge]){
+      const w2 = w0.slice(); w2[ci] = w0[ci] * m;
+      const p2 = rankOf(w2);
+      for(let i = 0; i < state.items.length; i++) if(valid(i) && p2[i] !== base[i]) knife[i] = true;
+    }
+  }
+  return knife;
+}
+
 /* #87 ranking diff: two pasted priority orders → pairwise concordance (Kendall
    τ over the shared items, re-ranked within the shared set) + the items whose
    displacement drives the disagreement. Pure. */
