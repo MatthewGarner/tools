@@ -42,7 +42,7 @@ test('audits: each arm isolated, order = kill, certainty, loses', () => {
   assert.deepEqual(auditsOf(s, 'Edge ok'), ['NO KILL CRITERION']);                  // 89-99: neither extreme
 });
 
-test('ODDS IMPLY CERTAINTY fires only at the extremes, never a tight mid-band (Fable I1)', () => {
+test('ODDS IMPLY CERTAINTY fires only at the extremes, never a tight mid-band (Fable M4)', () => {
   const auditsOfDoc = odds => {
     const m = parse(`G\n  X: stake 10, odds ${odds}, payoff 100-120\n    kill: k`);
     return simulate(m).bets.get(m.groups[0].bets[0].srcLine).audits;
