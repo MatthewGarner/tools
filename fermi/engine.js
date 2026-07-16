@@ -256,3 +256,39 @@ export function computeSensitivity(model, {seed, np = 8000, p10, p90}){
   sens.sort((a, b) => b.share - a.share);
   return {sens, fullRatio};
 }
+
+/* Replay the seeded MC run and decompose each finite draw into telescoping pin-paths
+   for the "Replay the maths" pour. A SEPARATE replay (own mulberry32+gaussian, the
+   SAME sampler construction and per-iteration `for name of varNames` order as
+   simulateModel) — so the RNG sequence is bit-identical and NO RNG call is added to any
+   existing path (fermi's RNG-order compat contract). steps[i] = the value with
+   order[0..i] at that draw's SAMPLED values and the rest at medians, so steps[k-1] === y
+   (telescoping — exact for any AST, incl / and cross-terms). `order` (the sens ranking)
+   is completed internally with any varying var it dropped. `dropped` is raw — the POUR,
+   which knows the axis, decides the ≤0-under-log drop. Returns first `g` finite+clean draws. */
+export function traceDraws({ast, varNames, ranges, dists}, {seed, g, order}){
+  const medians = {};
+  for(const n of varNames){ const [lo, hi] = ranges[n];
+    medians[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }   // lo===hi exact (avoids sqrt overflow)
+  const base = evalNode(ast, medians);
+  const varying = varNames.filter(n => ranges[n][0] !== ranges[n][1]);
+  const seen = new Set(order);
+  const full = [...order.filter(n => varying.includes(n)), ...varying.filter(n => !seen.has(n))];
+  const rand = mulberry32(seed), gauss = gaussian(rand);
+  const samplers = {};
+  for(const n of varNames) samplers[n] = samplerFor(ranges[n][0], ranges[n][1], dists[n], rand, gauss);
+  const draws = []; let dropped = 0;
+  for(let it = 0; it < g * 40 && draws.length < g; it++){          // BOUNDED — a degenerate model can't hang
+    const sampled = {};
+    for(const n of varNames) sampled[n] = samplers[n]();           // SAME per-iteration order as simulateModel
+    const y = evalNode(ast, sampled);
+    if(!isFinite(y)) continue;                                     // match simulateModel's raw filter
+    const steps = []; const cur = {...medians}; let bad = false;
+    for(const n of full){ cur[n] = sampled[n]; const x = evalNode(ast, cur);
+      if(!isFinite(x)) bad = true; steps.push(x); }
+    if(bad){ dropped++; continue; }                                // a non-finite intermediate step
+    draws.push({y, steps});
+  }
+  const ok = isFinite(base) && draws.length > 0;
+  return {base, order: full, draws, dropped, ok};
+}

@@ -1,9 +1,11 @@
 /* Formula parsing + Monte Carlo + sensitivity live in ./engine.js (pure, tested);
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
-  distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
+  distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, sig, fmt} from './engine.js';
 import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
+import {histLayout} from './histlayout.js';
+import {mountPour, pourVerdict} from './pour.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -339,6 +341,8 @@ function lint(){
   $('err').style.display = 'none';
   const src = $('formula').value.trim();
   last = null;
+  // a recompute (any edit / scenario switch) invalidates a running pour + its verdict
+  pour.stop(); pourVerdictText = ''; $('pourverdict').textContent = ''; $('replay').disabled = true;
   lastBy[active] = null;
   if(!src){
     renderVarRows([]);
@@ -392,6 +396,12 @@ function lint(){
     {seed: SEEDS[active], p10, p90});
 
   last = {ast, ranges, dists, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, invalid: N - sorted.length};
+  // pour needs at least one ranged driver AND a finite all-medians point estimate to pour FROM
+  // (e.g. a / b with b crossing 0 pins to a 0 divisor → no spout); disable with a reason, never a dead button.
+  const meds = {}; for(const n of varNames){ const [lo, hi] = ranges[n]; meds[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }
+  const baseFinite = isFinite(evalNode(ast, meds));
+  $('replay').disabled = !sens.length || !baseFinite;
+  $('replay').title = (sens.length && !baseFinite) ? 'This model has no finite point estimate to pour from.' : '';
   lastBy[active] = {raw: main.raw, p10, p50, p90};
   if(compareOn){
     const other = active === 'A' ? 'B' : 'A';
@@ -507,6 +517,9 @@ function applyView(){
   $('viewtree').setAttribute('aria-selected', String(tree));
   $('driverwrap').hidden = !tree;
   document.querySelector('.histwrap').hidden = tree;
+  $('replay').hidden = tree;                    // the pour is dist-view only
+  $('pourverdict').hidden = tree;
+  if(tree) pour.stop();
   $('threshrow').hidden = tree;
   $('png').hidden = tree;
   $('treesvg').hidden = !tree;
@@ -537,37 +550,21 @@ function drawHist(hoverIdx){
   ctx.clearRect(0, 0, cw, ch);
   const C = themeColors();
 
-  const lo = quantile(r.sorted, .003), hi = quantile(r.sorted, .997);
-  if(!(hi > lo)) return;
-  const useLog = lo > 0 && hi / lo > 30;
-  const tx = useLog ? Math.log : (x => x);
-  const tlo = tx(lo), thi = tx(hi);
-  const NB = 44;
-  const counts = new Array(NB).fill(0);
-  let total = 0;
-  for(let i = 0; i < r.valid.length; i++){
-    const v = r.valid[i];
-    if(v < lo || v > hi) continue;
-    let b = Math.floor((tx(v) - tlo) / (thi - tlo) * NB);
-    if(b === NB) b = NB - 1;
-    if(b >= 0 && b < NB){ counts[b]++; total++; }
-  }
-  const cmax = Math.max(...counts) || 1;
-  const padT = 26, padB = 20;
+  const tv = threshValue();
+  const L = histLayout(r.sorted, {width: cw, threshold: tv});   // the shared geometry seam
+  if(!L.ok) return;
+  const {lo, hi, useLog, tx, inv, tlo, thi, NB, px, cmax} = L;
+  bins = L.bins;
+  const padT = 26, padB = 20;         // drawing constants — stay local to drawHist
   const plotH = ch - padT - padB;
   const bw = cw / NB;
-  const inv = useLog ? Math.exp : (x => x);
 
-  const tv = threshValue();
-  bins = [];
   for(let b = 0; b < NB; b++){
-    const x0v = inv(tlo + (thi - tlo) * b / NB);
-    const x1v = inv(tlo + (thi - tlo) * (b + 1) / NB);
-    bins.push({x: b * bw, w: bw, v0: x0v, v1: x1v, share: counts[b] / total});
-    const h = counts[b] / cmax * plotH;
+    const bin = bins[b];
+    const h = bin.count / cmax * plotH;
     if(h < 0.5) continue;
     ctx.fillStyle = (active === 'A') ? C.accent : C.accent2;
-    const base = (tv === null) ? 0.82 : ((x0v + x1v) / 2 > tv ? 0.95 : 0.4);
+    const base = (tv === null) ? 0.82 : ((bin.v0 + bin.v1) / 2 > tv ? 0.95 : 0.4);
     ctx.globalAlpha = (hoverIdx === b) ? 1 : base;
     const bx = b * bw + 1, bwv = Math.max(1, bw - 2), by = padT + plotH - h;
     ctx.beginPath();
@@ -586,7 +583,6 @@ function drawHist(hoverIdx){
   ctx.stroke();
 
   /* percentile markers */
-  const px = v => (tx(v) - tlo) / (thi - tlo) * cw;
   ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
   for(const [v, name] of [[r.p10, 'P10'], [r.p50, 'P50'], [r.p90, 'P90']]){
     const x = px(v);
@@ -691,11 +687,43 @@ $('tin').addEventListener('input', () => {
   writeHashSafe();
 });
 
+/* ---------- "Replay the maths" — the pour ---------- */
+const pour = mountPour($('hist'), document.querySelector('.histwrap'));
+let pourVerdictText = '';
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function replay(){
+  if(!last || !last.sens || !last.sens.length || view !== 'dist' || pageMode !== 'est') return;
+  const model = {ast: last.ast, varNames: last.varNames, ranges: last.ranges, dists: last.dists};
+  const order = last.sens.map(s => s.name);
+  const trace = traceDraws(model, {seed: SEEDS[active], g: 500, order});
+  if(!trace.ok) return;
+  const cw = $('hist').clientWidth;
+  let layout = histLayout(last.sorted, {width: cw, threshold: threshValue()});
+  if(!layout.ok) return;
+  // >5% grains ≤0-under-log or off-axis → re-layout linear for the pour (spec I1)
+  const bad = (layout.useLog ? trace.draws.filter(d => d.steps.some(x => x <= 0)).length : 0) +
+    trace.draws.filter(d => d.y < layout.lo || d.y > layout.hi).length + trace.dropped;
+  if(bad / 500 > 0.05) layout = histLayout(last.sorted, {width: cw, forceLinear: true});
+  const C = themeColors();
+  const colors = {card: C.card, line: C.border, ink: C.ink, muted: C.muted, faint: C.muted,
+    accent: (active === 'A') ? C.accent : C.accent2};
+  const shareByName = Object.fromEntries(last.sens.map(s => [s.name, s.share]));
+  const rows = trace.order.map(n => ({name: n, share: shareByName[n] || 0}));
+  const v = pourVerdict(trace, layout, {names: Object.fromEntries(last.varNames.map(n => [n, n]))});
+  pourVerdictText = v.text;
+  $('pourverdict').textContent = v.text;
+  pour.play(trace, layout, rows, colors, {reduced: reducedMotion(), dom: v.topName});
+}
+$('replay').addEventListener('click', replay);
+// press-and-hold on the P50 tile is the accelerator (pointerdown only — not also click)
+$('p50').addEventListener('pointerdown', e => { e.preventDefault(); replay(); });
+$('p50').addEventListener('contextmenu', e => { e.preventDefault(); });
+
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
 // a ResizeObserver can fire multiple ticks per resize drag; coalesce to one redraw/frame
-if(window.ResizeObserver) new ResizeObserver(rafBatched(() => drawHist())).observe($('hist'));
-onThemeChange(redrawAll);
+if(window.ResizeObserver) new ResizeObserver(rafBatched(() => { pour.stop(); drawHist(); })).observe($('hist'));
+onThemeChange(() => { pour.stop(); redrawAll(); });
 
 /* ---------- chips / copy / boot ---------- */
 for(const ex of EXAMPLES){
@@ -746,6 +774,7 @@ $('copydoc').addEventListener('click', async () => {
     lines.push('Biggest lever: ' + top.name.replace(/_/g,' ') +
       ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.');
   }
+  if(pourVerdictText){ lines.push(''); lines.push(pourVerdictText); }
   const pcmp = compareOn ? pBeatsStr() : null;
   if(pcmp !== null){
     lines.push('');
