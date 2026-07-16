@@ -12,6 +12,7 @@ import {webkit, devices} from 'playwright';
 import {report} from './_harness.mjs';
 import {mkdirSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
+import {END_STATES, measureEndState, assertEndState} from './end-states.mjs';
 
 const T = process.env.BASE || 'http://localhost:8087';
 const E = process.env.EBASE || 'http://localhost:8089';
@@ -62,6 +63,23 @@ for(const theme of ['light', 'dark']){
     }catch(e){
       ok(false, label + ': loads — ' + String(e).split('\n')[0]);
     }
+    await page.close();
+  }
+  await ctx.close();
+}
+
+/* End-state legibility on the REAL Safari engine (shared table+measure with mobile.mjs).
+   The shrink-to-fit bug class shipped TWICE specifically past the Blink-emulated suites,
+   so the interaction-reached payoff artefacts get gated on WebKit too, not just Blink. */
+{
+  const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  for(const es of END_STATES){
+    const base = es.origin === 'E' ? E : T;
+    const page = await ctx.newPage();
+    const loaded = await page.goto(base + es.path, {waitUntil: 'networkidle', timeout: 20000}).then(() => true).catch(() => false);
+    if(!loaded){ ok(false, `${es.name} (webkit): end-state loads`); await page.close(); continue; }
+    await page.waitForTimeout(500);
+    await assertEndState(page, ok, es.name + ' (webkit)', await measureEndState(page, es.sel, es.readySel), es.sel);
     await page.close();
   }
   await ctx.close();

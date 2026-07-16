@@ -103,7 +103,7 @@ export function renderCollapse(s, c, calls = [], {narrow = false} = {}){
   const lo = Math.max(0, Math.min(s.band.lo, ...s.shown.flat()) - 2);
   const hi = Math.max(s.band.hi, ...s.shown.flat()) + 2;
   parts.push(bandRect(chL, chW, chTop, chH, c, lo, hi, s.band));
-  parts.push(txt(chL + chW - 4, yMap(s.band.hi, chTop, chH, lo, hi) - 3, 'routine-variation band', 9, c.muted, {anchor: 'end'}));
+  parts.push(txt(chL + chW - 4, yMap(s.band.hi, chTop, chH, lo, hi) - 3, 'routine-variation band', narrow ? 10 : 9, c.muted, {anchor: 'end'}));
   const xq = q => chL + q / (s.quarters - 1) * chW;
   const acted = new Set(calls.map(x => x.person + ':' + x.quarter));
   for(let p = 0; p < s.people; p++){
