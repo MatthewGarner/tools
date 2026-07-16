@@ -3,7 +3,7 @@
    uncertainty IS the picture: solid diamond at P50, whisker to an open diamond
    at P90 — no bar edges pretending to be commitments. */
 import {PALETTES, scheme} from '../assets/series.js';
-import {esc, txt, tint, wrapText} from '../assets/svg.js';
+import {esc, txt, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 import {fmtDay, STATUSES} from './parse.js';
 import {mergeBias} from './mergebias.js';
 
@@ -157,12 +157,19 @@ export function posterVerdict(model, today){
    whisker" reads the same as on desktop). One month-tick scale header at the top
    (labels placed greedily, never off-canvas-left and never under the TODAY flag);
    TODAY a dashed rule through every row. Preview-only (exports never set ctx.width);
-   inline edits are gated OUT (below 44px — edit via the DSL editor) but compare
-   (ghosts/slips/since/NEW/dropped) stays. Self-contained early-return, mirroring
-   roadmap/wardley's renderNarrow. S is always 1 here — narrow never scales, so
-   radii and spacings are plain constants; the backdrop is prepended once at the
-   end (single-pass height, no string surgery). */
-function renderNarrow(model, ctx, C, today, diff){
+   compare (ghosts/slips/since/NEW/dropped) stays. Self-contained early-return,
+   mirroring roadmap/wardley's renderNarrow. S is always 1 here — narrow never
+   scales, so radii and spacings are plain constants; the backdrop is prepended once
+   at the end (single-pass height, no string surgery).
+
+   EDIT (the mobile-DSL-input pilot): each milestone row is the whole tap target —
+   a data-menu cardmenu <g> whose ≥44px data-hit rect spans title+dates+whisker,
+   with data-edit="label"/"dates"/"status" siblings the menu's `opens:` rows route
+   to, plus pointer-events:none note/setlane routing anchors for the free-text menu
+   rows. A full-width dashed "＋ Add to <lane>" capsule closes every named lane and
+   a global "＋ Add milestone" closes the board. All edit markup is gated behind
+   `edit`, so the non-edit path (and its goldens) is byte-for-byte unchanged. */
+function renderNarrow(model, ctx, C, today, diff, edit = false){
   const {measure} = ctx;
   const dark = !!ctx.dark;
   const items = model.items;
@@ -172,6 +179,7 @@ function renderNarrow(model, ctx, C, today, diff){
   const AXIS = 26 + sinceH;                          // header: since-row (compare) + tick/flag band
   const LANEHDR = 22, LANEGAP = 8;
   const TITLE_LH = 17, DATES_LH = 15, TRACK = 22, ROWGAP = 14, TOPPAD = 8, BOTPAD = 14;
+  const ADDH = 44;                                   // ≥44px dashed "＋ Add" capsule (edit only)
   const titleFont = '600 12.5px ' + F.body, noteFont = '10.5px ' + F.body;
   const colorOf = it => it.status === 'done' ? C.status.done : it.status === 'risk' ? C.err : C.accent;
 
@@ -185,7 +193,9 @@ function renderNarrow(model, ctx, C, today, diff){
   const plotX = PAD, plotW = W - PAD * 2;
   const X = day => plotX + (day - lo) / (hi - lo) * plotW;
 
-  /* pass 1 — lay out lanes/rows, recording each block's top */
+  /* pass 1 — lay out lanes/rows, recording each block's top. In edit mode each
+     named lane closes with an ＋ Add capsule slot and the whole board closes with
+     a global one (the laneless add). */
   const laid = [];
   let y = AXIS + TOPPAD;
   for(const lane of model.lanes){
@@ -196,8 +206,10 @@ function renderNarrow(model, ctx, C, today, diff){
       laid.push({it, titleLines, top: y});
       y += titleLines.length * TITLE_LH + DATES_LH + TRACK + ROWGAP;
     }
+    if(edit && lane){ laid.push({addLane: lane, top: y}); y += ADDH + LANEGAP; }
   }
-  const contentBottom = y - ROWGAP;                  // strip the trailing gap (BOTPAD added once at H)
+  if(edit){ laid.push({addAll: true, top: y}); y += ADDH; }
+  const contentBottom = edit ? y : y - ROWGAP;       // strip the trailing gap (BOTPAD added once at H)
 
   const nextUp = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0] || items[0];
   const s = [];
@@ -253,6 +265,20 @@ function renderNarrow(model, ctx, C, today, diff){
     ' ' + cy.toFixed(1) + ' L' + cx.toFixed(1) + ' ' + (cy + r).toFixed(1) + ' L' + (cx - r).toFixed(1) +
     ' ' + cy.toFixed(1) + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>';
 
+  /* a full-width dashed ＋ capsule (edit only), mirroring roadmap's narrow ＋ idiom
+     — the hit rect (editTarget, painted last) is the whole ADDH-tall band */
+  const addCapsule = (lane, top) => {
+    const cw = W - PAD * 2, cap = ADDH - 8;
+    return editTarget(
+      '<rect x="' + PAD + '" y="' + (top + 4).toFixed(1) + '" width="' + cw + '" height="' + cap +
+        '" rx="10" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
+      txt(PAD + cw / 2, top + 4 + cap / 2 + 4, (lane ? '＋ Add to ' + lane : '＋ Add milestone'), 12.5,
+        C.muted, {anchor: 'middle', weight: 600}),
+      {x: PAD, y: top, w: cw, h: ADDH, bg: C.bg},
+      {kind: 'additem', line: -1, raw: '', extra: 'data-lane="' + esc(lane) + '"',
+        label: lane ? 'Add milestone into ' + lane : 'Add milestone'});
+  };
+
   /* pass 2 — lane headers + milestone rows (labels sit on the plain bg above each
      track; every scale line is confined to the track band, so nothing crosses text) */
   for(const row of laid){
@@ -260,24 +286,51 @@ function renderNarrow(model, ctx, C, today, diff){
       s.push(txt(PAD, row.top + 15, row.header.toUpperCase(), 10.5, C.muted, {weight: 600, tracking: 1}));
       continue;
     }
+    if(row.addLane){ s.push(addCapsule(row.addLane, row.top)); continue; }
+    if(row.addAll){ s.push(addCapsule('', row.top)); continue; }
     const {it, titleLines, top} = row;
     const col = colorOf(it), k = keyOf(it);
     const ty = top + 13;
-    titleLines.forEach((ln, i) => {
-      s.push(txt(PAD, ty + i * TITLE_LH, ln, 12.5, C.ink, {weight: 600}));
-    });
     const titleBottom = ty + (titleLines.length - 1) * TITLE_LH;
-    if(diff && diff.newKeys.has(k))
-      s.push(txt(Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, W - PAD - 24),
-        titleBottom, 'NEW', 8.5, C.accent, {weight: 600, tracking: 0.6}));   // clamp so it never clips off-canvas
     const subLines = wrapText(subOf(it), noteFont, plotW, measure);
-    s.push(txt(PAD, titleBottom + DATES_LH, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted));
-
+    const subY = titleBottom + DATES_LH;
     /* the whisker track: a faint C.card band (so the whisker tint composites over
        C.card exactly as Ship 1 validated), with the month gridlines + the TODAY rule
        drawn INSIDE it — never across the label text above */
-    const cy = titleBottom + DATES_LH + 4 + TRACK / 2, tTop = cy - TRACK / 2, tBot = cy + TRACK / 2;
+    const cy = subY + 4 + TRACK / 2, tTop = cy - TRACK / 2, tBot = cy + TRACK / 2;
     const x50 = X(it.p50), x90 = X(it.p90);
+
+    /* EDIT: the whole row is one tap target — a data-menu cardmenu <g> with a ≥44px
+       data-hit rect (painted first, so the visible field targets sit on top of it and
+       a fine tap still reaches them; a coarse tap reroutes to the menu). The note/
+       setlane anchors are pointer-events:none — menu-only routing for the free-text
+       rows, never a stray direct hit. */
+    if(edit){
+      s.push('<g data-edit="cardmenu" data-line="' + it.srcLine + '" data-menu=""' +
+        btnAttrs('Milestone: ' + it.label) + '>');
+      s.push('<rect data-hit="" x="4" y="' + (top - 2).toFixed(1) + '" width="' + (W - 8) +
+        '" height="' + (tBot - top + 6).toFixed(1) + '" fill="' + C.bg + '" fill-opacity="0"/>');
+      s.push('<rect data-edit="setlane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) +
+        '" pointer-events="none" x="' + PAD + '" y="' + (ty - 12).toFixed(1) + '" width="' +
+        Math.min(220, plotW).toFixed(1) + '" height="' + TITLE_LH + '" fill-opacity="0"/>');
+      s.push('<rect data-edit="note" data-line="' + it.srcLine + '" data-raw="' + esc(it.note || '') +
+        '" pointer-events="none" x="' + PAD + '" y="' + (subY - 11).toFixed(1) + '" width="' +
+        Math.min(260, plotW).toFixed(1) + '" height="' + DATES_LH + '" fill-opacity="0"/>');
+      s.push('<g data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) + '"' +
+        btnAttrs('Edit label: ' + it.label) + '>');
+    }
+    titleLines.forEach((ln, i) => {
+      s.push(txt(PAD, ty + i * TITLE_LH, ln, 12.5, C.ink, {weight: 600}));
+    });
+    if(edit) s.push('</g>');
+    if(diff && diff.newKeys.has(k))
+      s.push(txt(Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, W - PAD - 24),
+        titleBottom, 'NEW', 8.5, C.accent, {weight: 600, tracking: 0.6}));   // clamp so it never clips off-canvas
+    if(edit) s.push('<g data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) + '"' +
+      btnAttrs('Edit dates: ' + it.label) + '>');
+    s.push(txt(PAD, subY, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted));
+    if(edit) s.push('</g>');
+
     s.push('<rect x="' + plotX + '" y="' + tTop.toFixed(1) + '" width="' + plotW + '" height="' + TRACK +
       '" rx="6" fill="' + C.card + '" stroke="' + C.border + '"/>');
     for(const tk of tickX){
@@ -304,10 +357,13 @@ function renderNarrow(model, ctx, C, today, diff){
       s.push(diamond(x90, cy, msR * 0.8, C.card, col, ' data-ms="p90"'));
     }
     s.push(diamond(x50, cy, msR, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
-      (it === nextUp ? ' data-next=""' : '')));
+      (it === nextUp ? ' data-next=""' : '') +
+      (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') + '"' +
+        btnAttrs('Status: ' + it.label) : '')));
     if(ghost && ghost.slipDays)
       s.push(txt(x50 + msR + 4, cy - 4, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 9.5,
         ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.card}));   // baseline inside the band
+    if(edit) s.push('</g>');
   }
 
   /* dropped list (compare) at the foot */
@@ -336,7 +392,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
 
   /* narrow (phone) relayout — preview-only early return; exports never set width */
   const NARROW = 520;
-  if(ctx.width && ctx.width < NARROW && items.length) return renderNarrow(model, ctx, C, today, diff);
+  if(ctx.width && ctx.width < NARROW && items.length) return renderNarrow(model, ctx, C, today, diff, edit);
 
   /* readout rows computed up front (H depends on the count): the merge-bias
      short line leads when applicable, then the operational bits. Non-merge

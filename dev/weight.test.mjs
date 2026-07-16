@@ -137,7 +137,13 @@ const PAGES = {
   'why/index.html': 490_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
-  'bets/index.html': 480_000,
+  /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
+     phone structure surface is real feature bytes across three modules —
+     edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
+     render.js the edit-gated rename targets + ＋ capsules (~1.6k), app.js the
+     betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
+     headroom — in line with the other DSL pages. */
+  'bets/index.html': 486_000,
   'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module

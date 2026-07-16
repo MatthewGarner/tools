@@ -53,6 +53,46 @@ test('edit hooks on stake / odds / payoff / kill with data-line', () => {
   assert.match(svg, /data-edit="kill" data-line="5"/);
 });
 
+/* ---- mobile-input stage: the edit-gated structure surface (ctx.edit) ---- */
+
+test('edit:true narrow — name targets, per-group ＋ Add bet (group srcLine), one ＋ Add group', () => {
+  const svg = renderBoard(model, sim, {...CTX, width: 390, edit: true});
+  assert.match(svg, /data-edit="name" data-line="4" data-raw="Search revamp"/);
+  assert.match(svg, /data-edit="name" data-line="8" data-raw="Billing rewrite"/);
+  assert.match(svg, /data-edit="addbet" data-line="3"/);   // Growth's capsule
+  assert.match(svg, /data-edit="addbet" data-line="7"/);   // Platform's capsule
+  assert.equal([...svg.matchAll(/data-edit="addbet"/g)].length, 2, 'one capsule per group');
+  assert.equal([...svg.matchAll(/data-edit="addgroup"/g)].length, 1, 'one add-group at the foot');
+  assert.match(svg, /＋ Add bet/);
+  assert.match(svg, /＋ Add group/);
+});
+
+test('edit:true narrow — the ＋ capsule hit band is ≥44px tall (coarse floor)', () => {
+  const svg = renderBoard(model, sim, {...CTX, width: 390, edit: true});
+  assert.match(svg, /data-edit="addbet"[\s\S]{0,600}?height="44"/);
+  assert.match(svg, /data-edit="addgroup"[\s\S]{0,600}?height="44"/);
+});
+
+test('edit:true wide — the rename target exists too (the shared card menu routes to it); capsules stay narrow-only', () => {
+  const svg = renderBoard(model, sim, {...CTX, edit: true});
+  assert.match(svg, /data-edit="name" data-line="4" data-raw="Search revamp"/);
+  assert.ok(!/data-edit="addbet"|data-edit="addgroup"/.test(svg), 'no capsules on the wide ledger');
+});
+
+test('edit gated OUT: without ctx.edit neither layout carries name/addbet/addgroup markup (goldens unchanged)', () => {
+  for(const c of [CTX, {...CTX, width: 390}]){
+    const svg = renderBoard(model, sim, c);
+    assert.ok(!/data-edit="name"|data-edit="addbet"|data-edit="addgroup"|＋ Add/.test(svg));
+  }
+});
+
+test('edit:true — hostile group name is escaped in the ＋ Add bet aria-label', () => {
+  const m = parse('G "quote" <x> &\n  B: stake 10, odds 20-40%, payoff 30-60');
+  const svg = renderBoard(m, simulate(m), {...CTX, width: 390, edit: true});
+  assert.ok(!svg.includes('<x>'), 'raw angle brackets never reach the markup');
+  assert.match(svg, /&lt;x&gt;/);
+});
+
 test('hostile bet name is escaped', () => {
   const m = parse(`G\n  <img src=x onerror=alert(1)>: stake 10, odds 20-40%, payoff 30-60`);
   const svg = renderBoard(m, simulate(m), CTX);

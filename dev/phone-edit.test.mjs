@@ -60,7 +60,10 @@ const FLOORS = {
   why:       {kinds: 7, menu: true},
   tree:      {kinds: 7, menu: true},
   map:       {kinds: 6, menu: true},
-  bets:      {kinds: 5, menu: true},
+  /* bets (mobile-input stage, 2026-07-16): the narrow board's structure surface
+     landed — name (rename) + addbet/addgroup capsules join the unconditional
+     stake/odds/payoff/kill cells and the per-card data-menu: 8 distinct kinds. */
+  bets:      {kinds: 8, menu: true},
   /* wardley's tap menu is its own componentmenu KIND (an actions popover),
      not the data-menu redirect attribute — menu:false is accurate, not a gap */
   wardley:   {kinds: 4, menu: false},
@@ -68,11 +71,12 @@ const FLOORS = {
      whole (real) surface */
   'energy/cycles': {kinds: 1, menu: false},
   'energy/risk':   {kinds: 1, menu: false},
-  /* THE PILOT TARGET: timeline's narrow relayout emits no edit markup at all —
-     a phone user gets zero tap-to-edit. Asserted EXACTLY so the mobile-input
-     pilot (which makes timeline's narrow view editable) must raise this floor
-     to its real number when it lands. */
-  timeline:  {kinds: 0, menu: false, pilot: 'timeline narrow emits no edit targets — mobile-input pilot target'},
+  /* THE PILOT, LANDED: timeline's narrow relayout is now fully phone-editable —
+     every milestone row is a data-menu cardmenu whose ＋ Add capsules + field/
+     routing targets emit 7 distinct kinds (additem, cardmenu, dates, label, note,
+     setlane, status). The floor ratchets up here; menu:true asserts the card-menu
+     entry point survives. */
+  timeline:  {kinds: 7, menu: true},
 };
 
 /* ---- house-example docs (trimmed from each tool's first example chip) ---- */
@@ -122,12 +126,12 @@ const DRIVERS = {
     const m = parse(doc), r = resolve(m);
     return render(m, r, readout(m, r), {...ctx, edit: true});
   },
-  async bets(doc){   // bets' renderer takes no edit flag: edit markup is unconditional
+  async bets(doc){   // value cells are unconditional; ctx.edit gates the structure surface
     const {parse} = await import('../bets/parse.js');
     const {simulate} = await import('../bets/engine.js');
     const {renderBoard} = await import('../bets/render.js');
     const m = parse(doc);
-    return renderBoard(m, simulate(m), {...ctx, width: W});
+    return renderBoard(m, simulate(m), {...ctx, edit: true, width: W});
   },
   async wardley(doc){
     const {parse} = await import('../wardley/parse.js');

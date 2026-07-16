@@ -260,8 +260,10 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const b = m.groups[0].bets[0];
   m.title = EVIL[0]; m.groups[0].name = EVIL[1]; b.name = EVIL[2]; b.kill.text = EVIL[3];
   const sim = simulate(m);
-  assertClean(renderBoard(m, sim, ctx), 'bets');
-  assertClean(renderBoard(m, sim, {...ctx, width: 390}), 'bets-narrow');
+  /* edit:true — the ONLY place the rename target + ＋ capsule markup renders
+     (the evil group name flows into the capsule's aria-label) */
+  assertClean(renderBoard(m, sim, {...ctx, edit: true}), 'bets');
+  assertClean(renderBoard(m, sim, {...ctx, edit: true, width: 390}), 'bets-narrow');
   assertClean(renderQuadrant(m, sim, ctx), 'bets-quadrant');
   assertClean(renderQuadrant(m, sim, {...ctx, width: 390}), 'bets-quadrant-narrow');
 
@@ -277,8 +279,8 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const prevSim = simulate(old);
   const view = betsDiffView(betsDiff(old, m), EVIL[5]);
   const compareCtx = {...ctx, compare: {...view, prevSim}};
-  assertClean(renderBoard(m, sim, compareCtx), 'bets-compare');
-  assertClean(renderBoard(m, sim, {...compareCtx, width: 390}), 'bets-compare-narrow');
+  assertClean(renderBoard(m, sim, {...compareCtx, edit: true}), 'bets-compare');
+  assertClean(renderBoard(m, sim, {...compareCtx, edit: true, width: 390}), 'bets-compare-narrow');
 });
 
 test('risk renderer + markdown escape hostile titles and structure labels', async () => {

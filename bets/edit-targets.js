@@ -7,8 +7,14 @@
    IMPORTANT: bets/parse.js's srcLine is 1-BASED (`srcLine = i + 1`), unlike
    wardley's 0-based srcLine — every function here takes the 1-based srcLine
    (as it appears on the model / data-line) and converts to the 0-based
-   `line` index the ops need. Every rewrite here is line-local (no parse()
-   needed) — stake/odds/payoff/kill all resolve from their own srcLine. */
+   `line` index the ops need. The VALUE rewrites (stake/odds/payoff/kill) are
+   line-local (no parse() needed); the STRUCTURE rewrites (rename/remove/add
+   — the phone card menu + ＋ capsules, mobile-input stage) parse first so a
+   stale/mistargeted srcLine degenerates to a no-op null, never a mangled
+   document. addBetLine/addGroupLine return {afterLine, newLine, select} for
+   insertAndSelect (timeline's addItemLine convention); the rest return the
+   applyLineOps [{line, text}] shape (text: null deletes). */
+import {parse} from './parse.js';
 
 const KILL_BY = /^(.*?)\s+by\s+(\d{4}-\d{2}-\d{2})$/;   // mirrors parse.js's parseKill regex
 const KILL_LINE = /^(\s*)kill:\s*(.*)$/i;
@@ -96,9 +102,91 @@ export function rewriteKill(text, srcLine, raw, value){
   return [{line: idx, text: indent + 'kill: ' + finalBody + comment}];
 }
 
+/* ---------------- structure rewrites (rename / remove / add) ---------------- */
+
+/* a bet or group name lives before the first ':' on its line — a colon inside
+   it would re-split the attrs (or read as a config key), '//' would start a
+   comment. One rule serves both (validators.name === validators.group). */
+const cleanName = v => {
+  const s = String(v ?? '').trim();
+  return s.length > 0 && !s.includes('\n') && !s.includes(':') && !s.includes('//');
+};
+export const validators = {name: cleanName, group: cleanName};
+
+const findBet = (model, srcLine) => {
+  for(const g of model.groups) for(const b of g.bets) if(b.srcLine === srcLine) return b;
+  return null;
+};
+
+/* last 0-based index of a bet's block: the bet line plus the contiguous run of
+   ≥4-indented child lines under it (kill + any indented comments). A blank
+   line or a shallower indent ends the block. */
+function betBlockEnd(lines, idx){
+  let end = idx;
+  while(end + 1 < lines.length && lines[end + 1].trim() &&
+        lines[end + 1].match(/^ */)[0].length >= 4) end++;
+  return end;
+}
+
+/* Rewrite a bet's name (the span before the first ':'), keeping indent, attrs
+   and any trailing comment. Parse-verified: a srcLine that isn't a bet is a
+   no-op null, as is a structure-breaking new name. */
+export function renameBet(text, srcLine, oldName, newName){
+  const name = String(newName ?? '').trim();
+  if(!cleanName(name)) return null;
+  if(!findBet(parse(text), srcLine)) return null;
+  const lines = text.split(/\r?\n/);
+  const idx = srcLine - 1;
+  const [code, comment] = splitComment(lines[idx]);
+  const indent = code.match(/^ */)[0];
+  const colon = code.indexOf(':');
+  const rest = colon < 0 ? '' : code.slice(colon);
+  return [{line: idx, text: indent + name + rest + comment}];
+}
+
+/* Delete a bet's whole block: its line + the contiguous ≥4-indented children
+   (kill + indented comments). A kill child that parse still attributes to
+   this bet but sits past a shallower interruption is caught via the model —
+   the interrupting line itself (a user comment) is conservatively kept. */
+export function removeBet(text, srcLine){
+  const bet = findBet(parse(text), srcLine);
+  if(!bet) return null;
+  const lines = text.split(/\r?\n/);
+  const idx = srcLine - 1;
+  const ops = [];
+  for(let i = idx; i <= betBlockEnd(lines, idx); i++) ops.push({line: i, text: null});
+  if(bet.kill && !ops.some(o => o.line === bet.kill.srcLine - 1))
+    ops.push({line: bet.kill.srcLine - 1, text: null});
+  return ops;
+}
+
+/* A new bet lands after the target group's last bet block (kill children
+   included), or right under the heading when the group is empty. The
+   placeholder parses warning-free and renders mid-board. */
+export function addBetLine(text, groupSrcLine){
+  const g = parse(text).groups.find(gr => gr.srcLine === groupSrcLine);
+  if(!g) return null;
+  const lines = text.split(/\r?\n/);
+  let after = groupSrcLine - 1;                       // 0-based heading index
+  if(g.bets.length) after = betBlockEnd(lines, g.bets[g.bets.length - 1].srcLine - 1);
+  return {afterLine: after, newLine: '  New bet: stake 50, odds 40-60%, payoff 100-200', select: 'New bet'};
+}
+
+/* A new group heading closes the document — after the last non-blank line,
+   so trailing whitespace never strands it. */
+export function addGroupLine(text){
+  const lines = String(text ?? '').split(/\r?\n/);
+  let after = 0;
+  for(let i = 0; i < lines.length; i++) if(lines[i].trim()) after = i;
+  return {afterLine: after, newLine: 'New group', select: 'New group'};
+}
+
 export const kinds = {
   stake:  {validate: v => parseRange(v) !== null},
   odds:   {validate: v => parseRange(v) !== null},
   payoff: {validate: v => parseRange(v) !== null},
   kill:   {validate: () => true},
+  name:     {validate: validators.name},
+  addbet:   {validate: validators.name},
+  addgroup: {validate: validators.group},
 };
