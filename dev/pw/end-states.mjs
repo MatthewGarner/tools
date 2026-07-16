@@ -56,8 +56,9 @@ export async function measureEndState(page, sel, readySel){
   }, {s: sel, r: readySel});
 }
 
-/* Assert one end-state through a suite's own `ok`. `smallestOnly` measures legibility
-   without the end-state framing (for surfaces reached by click, not URL — bets quadrant). */
+/* Assert one end-state through a suite's own `ok` (mobile.mjs + webkit.mjs share this).
+   Surfaces reached by click rather than URL (the bets quadrant) aren't END_STATES entries;
+   they call measureEndState directly and assert legibility inline. */
 export async function assertEndState(page, ok, name, m, sel){
   ok(m.hasSvg, `${name}: end-state renders an artefact in ${sel}`);
   if(!m.hasSvg) return;
