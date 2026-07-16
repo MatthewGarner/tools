@@ -218,6 +218,10 @@ test('gauge overlay + FORM HTML escape hostile question text and names', async (
   const cm = parse('Pick :: chips ' + EVIL[1] + ' | ' + EVIL[3]);
   const cresp = [{values: [[60, 40]], name: 'x'}, {values: [[40, 60]], name: 'y'}];
   assertClean(renderOverlay(cm, sessionStats(cm, cresp), ctx), 'gauge-overlay-chips');
+  /* narrow (phone) relayout wraps titles/verdict/headlines — hostile text must
+     survive the wrapped paths too (incl. the chips narrow branch) */
+  assertClean(renderOverlay(m, sessionStats(m, responses), ctx, {width: 360}), 'gauge-overlay-narrow');
+  assertClean(renderOverlay(cm, sessionStats(cm, cresp), ctx, {width: 360}), 'gauge-overlay-chips-narrow');
   const chtml = renderForm(cm, {editable: true});
   assert.ok(!/<img/i.test(chtml.replace(/&lt;img/gi, '')), 'gauge-form-chips: raw <img in option label');
 });
@@ -256,8 +260,10 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const b = m.groups[0].bets[0];
   m.title = EVIL[0]; m.groups[0].name = EVIL[1]; b.name = EVIL[2]; b.kill.text = EVIL[3];
   const sim = simulate(m);
-  assertClean(renderBoard(m, sim, ctx), 'bets');
-  assertClean(renderBoard(m, sim, {...ctx, width: 390}), 'bets-narrow');
+  /* edit:true — the ONLY place the rename target + ＋ capsule markup renders
+     (the evil group name flows into the capsule's aria-label) */
+  assertClean(renderBoard(m, sim, {...ctx, edit: true}), 'bets');
+  assertClean(renderBoard(m, sim, {...ctx, edit: true, width: 390}), 'bets-narrow');
   assertClean(renderQuadrant(m, sim, ctx), 'bets-quadrant');
   assertClean(renderQuadrant(m, sim, {...ctx, width: 390}), 'bets-quadrant-narrow');
 
@@ -273,8 +279,8 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const prevSim = simulate(old);
   const view = betsDiffView(betsDiff(old, m), EVIL[5]);
   const compareCtx = {...ctx, compare: {...view, prevSim}};
-  assertClean(renderBoard(m, sim, compareCtx), 'bets-compare');
-  assertClean(renderBoard(m, sim, {...compareCtx, width: 390}), 'bets-compare-narrow');
+  assertClean(renderBoard(m, sim, {...compareCtx, edit: true}), 'bets-compare');
+  assertClean(renderBoard(m, sim, {...compareCtx, edit: true, width: 390}), 'bets-compare-narrow');
 });
 
 test('risk renderer + markdown escape hostile titles and structure labels', async () => {

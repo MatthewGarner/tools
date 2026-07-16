@@ -107,6 +107,38 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     document.addEventListener('pointerdown', away, true);
     trapPopoverFocus(pop, close);
   }
+  /* coarse-pointer cycle popover (Rule 1): a multi-value cycle → marked option
+     buttons that commit the picked value (empty value reads as "none"); a ['×']
+     remove cycle → a single danger button that commits '×'. Positioned + dismissed
+     like the choice popover; the app's onCommit maps the value exactly as a fine
+     click would, so no per-tool changes are needed. */
+  function openCyclePopover(el, rect, kind, raw, cyc, isRemove){
+    const line = +el.dataset.line;
+    const pop = document.createElement('div');
+    pop.className = 'eip-pop';
+    pop.style.left = rect.left + 'px';
+    pop.style.top = (rect.bottom + 4) + 'px';
+    if(isRemove){
+      const b = document.createElement('button');
+      b.textContent = 'Remove'; b.classList.add('danger');
+      b.addEventListener('click', () => { close(); onCommit(kind, line, raw, '×', el); });
+      pop.appendChild(b);
+    } else {
+      for(const v of cyc){
+        const b = document.createElement('button');
+        b.textContent = v || 'none';
+        if(v === raw) b.classList.add('on');
+        b.addEventListener('click', () => { close(); if(v !== raw) onCommit(kind, line, raw, v, el); });
+        pop.appendChild(b);
+      }
+    }
+    document.body.appendChild(pop);
+    clampToViewport(pop, rect);
+    const away = e => { if(!pop.contains(e.target)) close(); };
+    active = {input: pop, el, away};
+    document.addEventListener('pointerdown', away, true);
+    trapPopoverFocus(pop, close);
+  }
   function open(el){
     close();
     const kind = el.dataset.edit;
@@ -114,10 +146,17 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     if(!spec) return;
     const rect = el.getBoundingClientRect();
     const raw = el.dataset.raw || '';
-    /* cycle kinds commit immediately: click steps to the next value */
+    /* cycle kinds step to the next value on click. On a COARSE pointer a bare tap
+       must NOT commit silently (the mis-tap trap): a multi-value cycle opens a
+       marked options popover to PICK; a ['×'] remove cycle opens a one-row danger
+       confirm. Fine pointers, and a single non-× step sentinel (timeline's wide
+       status), keep the instant step. (mobile-input Rule 1) */
     if(spec.cycle){
-      const i = spec.cycle.indexOf(raw);
-      onCommit(kind, +el.dataset.line, raw, spec.cycle[(i + 1 + spec.cycle.length) % spec.cycle.length], el);
+      const cyc = spec.cycle;
+      const isRemove = cyc.length === 1 && cyc[0] === '×';
+      if(coarse() && (cyc.length > 1 || isRemove)){ openCyclePopover(el, rect, kind, raw, cyc, isRemove); return; }
+      const i = cyc.indexOf(raw);
+      onCommit(kind, +el.dataset.line, raw, cyc[(i + 1 + cyc.length) % cyc.length], el);
       return;
     }
     /* menu kinds open a card popover: rows either open another target on the
@@ -180,6 +219,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.className = 'eip-input';
     input.value = el.dataset.raw || '';
     input.setAttribute('aria-label', 'Edit ' + kind);
+    if(spec.inputmode) input.inputMode = spec.inputmode;   // numeric keypad on phones (Rule 3); dates stay text for `..`
     input.style.left = rect.left + 'px';
     input.style.top = (rect.top - 6) + 'px';
     input.style.minWidth = Math.max(rect.width + 34, 96) + 'px';

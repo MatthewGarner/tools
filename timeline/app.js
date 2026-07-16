@@ -1,9 +1,9 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
-import {parse, fmtDay} from './parse.js';
+import {parse, fmtDay, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineReadout, posterVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
-import {validators, editLabel, editDates, cycleStatus, addItemLine, removeItemLine} from './edit-targets.js';
+import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -12,7 +12,7 @@ import {posterSvg} from '../assets/poster.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
-import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
@@ -88,6 +88,7 @@ const editor = createEditor({
   doc: '',
   onChange: debounced(refresh, 120),
 });
+mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   if(!shouldPersist()) return;
   const state = {t: editor.getText()};
@@ -111,13 +112,52 @@ const ws = initWorkspace({
 const paint = mountMotion($('preview'));   // reveal on load, zoom-scaled FLIP on edit
 let motionOverride;                         // 'none' for theme/relayout re-renders
 
+/* the phone card menu ("the card is the control"): Rename/Dates open the inline
+   field target; Status/Lane are marked-picker submenus that commit directly (a
+   coarse tap never blind-steps); Note opens the free-text anchor; Remove is a
+   danger action. Resolved fresh from the current model each open (roadmap's
+   itemMenu idiom), keyed on the tapped row's own srcLine. */
+function milestoneMenu(m, srcLine){
+  const it = m && m.items.find(i => i.srcLine === srcLine);
+  const cur = (it && it.status) || '';
+  const statusRow = {label: 'Status…', submenu: ['', ...STATUSES].map(st => ({
+    label: st || 'none', on: cur === st,
+    commit: {kind: 'status', line: srcLine, oldRaw: cur, value: st},
+  }))};
+  /* existing lanes are quick-picks; "New lane…" opens the setlane anchor's input
+     so any name (existing or brand-new) can be typed — a lane exists once one
+     item carries it. */
+  const laneRow = {label: 'Lane…', submenu: [
+    ...m.lanes.filter(Boolean).map(l => ({
+      label: l, on: !!(it && it.lane === l),
+      commit: {kind: 'setlane', line: srcLine, oldRaw: (it && it.lane) || '', value: l},
+    })),
+    {label: 'New lane…', opens: 'setlane'},
+  ]};
+  return [
+    {label: 'Rename…', opens: 'label'},
+    {label: 'Dates…', opens: 'dates'},
+    statusRow,
+    laneRow,
+    {label: (it && it.note) ? 'Edit note…' : 'Add note…', opens: 'note'},
+    {label: 'Remove milestone', action: true, danger: true},
+  ];
+}
+
 attachEditInPlace($('preview'), {
   kinds: {
     label: {validate: validators.label},
     dates: {validate: validators.dates},
-    status: {cycle: ['cycle']},
+    /* the real state list (not the ['cycle'] sentinel): a FINE click still steps
+       '' → done → risk → '' instantly (edit-in-place hands us the next value), a
+       COARSE tap opens the marked picker — no silent status commit on any coarse
+       pointer, wide or narrow (the Stage-0 [IMPORTANT] fix). */
+    status: {cycle: ['', ...STATUSES]},
+    setlane: {validate: validators.lane},
+    note: {validate: validators.note},
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
+    cardmenu: {menu: (el) => milestoneMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
@@ -128,12 +168,14 @@ attachEditInPlace($('preview'), {
         {focus: matchMedia('(pointer: fine)').matches});
       return;
     }
-    if(kind === 'removeitem'){
+    if(kind === 'removeitem' || newValue === '✖Remove milestone'){
       if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
       return;
     }
     const line = editor.getLine(lineNo);
-    const newLine = kind === 'status' ? cycleStatus(line, oldRaw)
+    const newLine = kind === 'status' ? setStatus(line, newValue)
+      : kind === 'setlane' ? setLane(line, newValue)
+      : kind === 'note' ? editNote(line, oldRaw, newValue)
       : kind === 'dates' ? editDates(line, oldRaw, newValue)
       : editLabel(line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);

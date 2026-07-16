@@ -7,13 +7,14 @@ import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
 import {betsDiff, betsDiffView} from './diff.js';
 import {createEditor} from './editor.js';
-import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill} from './edit-targets.js';
+import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
+  renameBet, removeBet, addBetLine, addGroupLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
-import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -98,7 +99,9 @@ function auditCounts(s){
    author's own review session. */
 function activeRender(forExport, bare = false){
   const c = {colors: themeColors(), measure, bare};
-  if(!forExport) c.width = narrowWidth($('preview'));
+  /* live preview is editable (rename target + narrow ＋ capsules); exports and
+     goldens render without ctx.edit, so the artefact never carries edit chrome */
+  if(!forExport){ c.width = narrowWidth($('preview')); c.edit = true; }
   if(!forExport && view === 'board'){
     const compare = currentCompare();
     if(compare) c.compare = compare;
@@ -137,6 +140,7 @@ const editor = createEditor({
   doc: '',
   onChange: debounced(refresh, 120),
 });
+mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
@@ -183,15 +187,20 @@ $('viewtoggle').addEventListener('click', e => {
 });
 
 /* ---------- edit-in-place: direct cells + the coarse-pointer card menu ----------
-   stake/odds/payoff/kill are the imported plain-input kinds; `cardmenu` is
-   this app's own addition — the per-row `data-menu` target render.js already
-   emits opens a 4-row popover. Three rows (`opens: 'stake'|'odds'|'payoff'`)
-   reuse attachEditInPlace's built-in "open a sibling field sharing this
-   data-line" lookup for free, because those three cells share the ROW's own
+   stake/odds/payoff/kill/name/addbet/addgroup are the imported plain-input
+   kinds; `cardmenu` is this app's own addition — the per-row `data-menu`
+   target render.js emits opens betMenu(). Rename/stake/odds/payoff rows
+   (`opens:`) reuse attachEditInPlace's built-in "open a sibling field sharing
+   this data-line" lookup for free, because those cells share the ROW's own
    data-line (the bet's srcLine). The kill row can't use that trick: the kill
    CHILD line has its OWN srcLine (a few lines below the bet), so it's wired
    as a plain action — re-open the existing kill field via a synthetic click
-   if one exists, else insert a fresh `kill:` child line under the bet. */
+   if one exists, else insert a fresh `kill:` child line under the bet.
+   Remove bet is the danger action → removeBet's whole-block delete. The
+   narrow ＋ capsules (addbet carries the GROUP's srcLine, addgroup -1) open
+   an empty input; the typed name replaces the placeholder in the inserted
+   line — and a COARSE add never focuses the editor (the soft keyboard would
+   bury the artefact; mobile-input focus rule). */
 function openOrAddKill(lineNo){
   const bet = findBet(model, lineNo);
   if(!bet) return;
@@ -208,20 +217,42 @@ function openOrAddKill(lineNo){
   insertAndSelect(editor, idx, killIndent + 'kill: reason', 'reason',
     {focus: matchMedia('(pointer: fine)').matches});
 }
-const REWRITE = {stake: rewriteStake, odds: rewriteOdds, payoff: rewritePayoff, kill: rewriteKill};
+/* the per-bet card menu, built fresh from the current model (same idiom as
+   timeline's milestoneMenu): Rename + the three value rows route to sibling
+   targets on the same data-line; kill (dynamic label) and Remove are actions. */
+function betMenu(m, srcLine){
+  const bet = findBet(m, srcLine);
+  return [
+    {label: 'Rename…', opens: 'name'},
+    {label: 'Edit stake…', opens: 'stake'},
+    {label: 'Edit odds…', opens: 'odds'},
+    {label: 'Edit payoff…', opens: 'payoff'},
+    {label: (bet && bet.kill) ? 'Edit kill criterion…' : 'Add kill criterion…', action: true},
+    {label: 'Remove bet', action: true, danger: true},
+  ];
+}
+const REWRITE = {stake: rewriteStake, odds: rewriteOdds, payoff: rewritePayoff, kill: rewriteKill, name: renameBet};
 attachEditInPlace($('preview'), {
   kinds: {
     ...kinds,
-    cardmenu: {menu: [
-      {label: 'Edit stake…', opens: 'stake'},
-      {label: 'Edit odds…', opens: 'odds'},
-      {label: 'Edit payoff…', opens: 'payoff'},
-      {label: 'Kill criterion…', action: true},
-    ]},
+    cardmenu: {menu: el => betMenu(model, +el.dataset.line)},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
     if(kind === 'cardmenu'){
-      if(newValue === '✖Kill criterion…') openOrAddKill(lineNo);
+      if(newValue === '✖Edit kill criterion…' || newValue === '✖Add kill criterion…') openOrAddKill(lineNo);
+      else if(newValue === '✖Remove bet'){
+        const ops = removeBet(editor.getText(), lineNo);
+        if(ops) applyLineOps(editor, ops);
+      }
+      return;
+    }
+    if(kind === 'addbet' || kind === 'addgroup'){
+      const r = kind === 'addbet' ? addBetLine(editor.getText(), lineNo) : addGroupLine(editor.getText());
+      if(!r) return;
+      const typed = newValue.replace(/^✖/, '').trim();
+      const placeholder = kind === 'addbet' ? 'New bet' : 'New group';
+      insertAndSelect(editor, r.afterLine, typed ? r.newLine.replace(placeholder, typed) : r.newLine,
+        typed || placeholder, {focus: matchMedia('(pointer: fine)').matches});
       return;
     }
     const rewrite = REWRITE[kind];

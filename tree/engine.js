@@ -129,40 +129,11 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
   /* drop the per-sim arrays now head-to-head has used them */
   (function scrub(node){ delete node._arr; node.children.forEach(scrub); })(model.root);
 
-  /* deterministic midpoint rollback with optional overrides, for flip analysis */
-  function evalDet(pOver = new Map(), vOver = new Map()){
-    function walk(node){
-      const own = vOver.has(node) ? vOver.get(node) : (node.value ? mid(node.value) : 0);
-      if(node.kind === 'leaf') return own;
-      if(node.kind === 'decision'){
-        return own + Math.max(...node.children.map(walk));
-      }
-      const explicit = node.children.filter(c => c.p !== 'rest');
-      const restChild = node.children.find(c => c.p === 'rest');
-      let ps = new Map(explicit.map(c => [c, pOver.has(c) ? pOver.get(c) : mid(c.p)]));
-      let sum = [...ps.values()].reduce((a, b) => a + b, 0);
-      if(restChild){
-        if(sum > 1){ for(const [k, v] of ps) ps.set(k, v / sum); sum = 1; }
-        ps.set(restChild, 1 - sum);
-      } else if(sum > 0){
-        for(const [k, v] of ps) ps.set(k, v / sum);
-      }
-      let total = own;
-      for(const c of node.children) total += (ps.get(c) || 0) * walk(c);
-      return total;
-    }
-    if(model.root.kind !== 'decision') return {rec: null};
-    let best = null, bestV = -Infinity;
-    for(const c of model.root.children){
-      const v = (model.root.value ? mid(model.root.value) : 0) + walk(c);
-      if(v > bestV){ bestV = v; best = c; }
-    }
-    return {rec: best};
-  }
+  /* deterministic midpoint rollback is now the pure export evalDet(model, ...) below (B0). */
 
   const flips = [];
   if(model.root.kind === 'decision' && model.root.children.length > 1){
-    const baseRec = evalDet().rec;
+    const baseRec = evalDet(model).rec;
 
     /* probability flips: bisect each explicit chance-child probability */
     const probNodes = [];
@@ -173,7 +144,7 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
       node.children.forEach(collect);
     })(model.root);
     for(const c of probNodes){
-      const recAt = v => evalDet(new Map([[c, v]])).rec;
+      const recAt = v => evalDet(model, new Map([[c, v]])).rec;
       /* coarse scan for a change, then bisect the boundary */
       let prev = recAt(0), changeLo = null, changeHi = null;
       for(let i = 1; i <= COARSE; i++){
@@ -198,7 +169,7 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     /* payoff flips: pin each ranged value at either end */
     (function collectV(node){
       if(node.value && node.value.lo !== node.value.hi){
-        const at = v => evalDet(new Map(), new Map([[node, v]])).rec;
+        const at = v => evalDet(model, new Map(), new Map([[node, v]])).rec;
         if(at(node.value.lo) !== baseRec || at(node.value.hi) !== baseRec){
           flips.push({kind: 'payoff', label: node.label, lo: node.value.lo, hi: node.value.hi});
         }
@@ -208,4 +179,37 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
   }
 
   return {policy, stats, headToHead, flips, warnings};
+}
+
+/* Deterministic midpoint rollback with optional per-node parameter OVERRIDES — the pure primitive
+   the flip search (above) uses, and the /tree priced-insistence walk (flipAlong/loadBearing) will.
+   Returns {rec, values}: the recommended root option AND the per-root-option deterministic values
+   (so callers have margins). evalDet only ever mids real ranges here (rest is filtered), so a plain
+   midpoint suffices. Extracted from `evaluate` (B0) — behaviour-preserving: `flips` identical + goldens IDENTICAL. */
+export function evalDet(model, pOver = new Map(), vOver = new Map()){
+  const mid = r => (r.lo + r.hi) / 2;
+  function walk(node){
+    const own = vOver.has(node) ? vOver.get(node) : (node.value ? mid(node.value) : 0);
+    if(node.kind === 'leaf') return own;
+    if(node.kind === 'decision') return own + Math.max(...node.children.map(walk));
+    const explicit = node.children.filter(c => c.p !== 'rest');
+    const restChild = node.children.find(c => c.p === 'rest');
+    const ps = new Map(explicit.map(c => [c, pOver.has(c) ? pOver.get(c) : mid(c.p)]));
+    let sum = [...ps.values()].reduce((a, b) => a + b, 0);
+    if(restChild){
+      if(sum > 1){ for(const [k, v] of ps) ps.set(k, v / sum); sum = 1; }
+      ps.set(restChild, 1 - sum);
+    } else if(sum > 0){
+      for(const [k, v] of ps) ps.set(k, v / sum);
+    }
+    let total = own;
+    for(const c of node.children) total += (ps.get(c) || 0) * walk(c);
+    return total;
+  }
+  if(model.root.kind !== 'decision') return {rec: null, values: []};
+  const base = model.root.value ? mid(model.root.value) : 0;
+  const values = model.root.children.map(c => base + walk(c));
+  let best = null, bestV = -Infinity;
+  model.root.children.forEach((c, i) => { if(values[i] > bestV){ bestV = values[i]; best = c; } });
+  return {rec: best, values};
 }

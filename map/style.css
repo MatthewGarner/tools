@@ -2,6 +2,7 @@
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
+.stage .preview{--reserve-ar: 936 / 845}   /* load-grace: default example's viewBox — see workspace.css */
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
@@ -18,6 +19,20 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
      on coarse pointers a card must stay a scroll surface, not a drag handle. */
   .preview svg g[data-line]{cursor:grab;touch-action:none}
 }
+/* Move… / Place on map…: the armed one-shot placement state (see app.js).
+   Accent 12% tint + accent-ink label is the house pill pairing (duel, alarm). */
+.placehint{
+  display:flex;align-items:center;gap:12px;justify-content:space-between;
+  margin:0 0 10px;padding:6px 6px 6px 14px;border-radius:10px;
+  background:color-mix(in srgb,var(--accent) 12%,var(--card));
+  border:1px solid var(--accent);color:var(--accent-ink);
+  font-size:14px;font-weight:600;
+}
+.placehint span{min-width:0}   /* wrap long labels; the bar is transient */
+.placehint .btn{min-height:44px;flex:none}
+.preview.placing svg{cursor:crosshair}
+.preview.placing rect[data-plane]{stroke:var(--accent);stroke-width:1.5}
+
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
   padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;

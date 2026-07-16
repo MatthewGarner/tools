@@ -47,9 +47,11 @@ for(const {path, chip, view} of TOOLS){
   check(path + ' collapsed state round-trips', !(await p2.locator('.rail').isVisible()));
   await p2.close();
 
-  /* keyboard toggle */
+  /* keyboard toggle. 600ms (was 300) clears the rail's 0.28s reopen visibility
+     transition with margin — 300ms lost the race under CI parallel load and flaked
+     '[ reopens rail' recurrently (confirmed pass serially each time). */
   await page.keyboard.press('[');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(600);
   check(path + ' [ reopens rail', await page.locator('.rail').isVisible());
 
   /* zoom */

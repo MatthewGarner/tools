@@ -72,6 +72,23 @@ for(const [name, url] of ALL){
   ok(parity.font, `${name}: body wears the system font stack`);
   ok(parity.bg, `${name}: body background is the token --bg`);
   ok(parity.h1, `${name}: h1 wears Charter`);
+  /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
+     must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
+     have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the
+     mounted editor (not a hand-kept list), so a new DSL tool that forgets
+     mountTouchUndo fails here. */
+  const undo = await page.evaluate(() => {
+    if(!document.querySelector('#cmhost .cm-editor')) return 'no-editor';
+    const b = document.querySelector('.actions .touch-undo');
+    if(!b) return 'missing';
+    const r = b.getBoundingClientRect();
+    if(getComputedStyle(b).display === 'none' || r.height === 0) return 'hidden-on-coarse';
+    if(r.height < 44) return 'undersized:' + Math.round(r.height) + 'px';
+    if(b.disabled) return 'disabled';
+    if((b.getAttribute('aria-label') || '') !== 'Undo') return 'unlabelled';
+    return 'ok';
+  });
+  if(undo !== 'no-editor') ok(undo === 'ok', `${name}: coarse-pointer ↶ Undo in the actions row (${undo})`);
   await page.close();
 }
 
@@ -104,6 +121,7 @@ const CONTAINERS = [
   ['bets', T + '/bets/', ['#preview']],
   ['roadmap', T + '/roadmap/', ['#preview']],
   ['timeline', T + '/timeline/', ['#preview']],   // Ship 2 narrow relayout: #preview must not overflow sideways
+  ['gauge', T + '/gauge/', ['#preview']],   // reveal overlay narrow relayout: was a fixed-960 pan that truncated its verdict
   ['why', T + '/why/', ['#preview']],
   ['signal-vs-noise', T + '/signal-vs-noise/', ['#stage']],   // grid relayouts 3→2→1 cols; #stage svg is width:100%
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
@@ -169,6 +187,27 @@ for(const [name, url, selectors] of CONTAINERS){
   const q = await measureEndState(page, '#preview', null);
   ok(q.minFont != null && q.minFont >= LEGIBLE_FLOOR,
     `bets: quadrant view — smallest text stays legible (${q.minFont != null ? q.minFont.toFixed(1) : '?'}px >= ${LEGIBLE_FLOOR})`);
+  await page.close();
+}
+
+// rank robustness shuffle on a phone: the header (with the desktop weight sliders) is
+// display:none below 640px, so the drag-weights mechanism relies on the #wstrip surface —
+// which must be visible, ≥44px, and actually re-rank the rows when dragged.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/rank/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(500);
+  const chip = await page.$('.chip');
+  if(chip){ await chip.click(); await page.waitForTimeout(500); }
+  const strip = await page.$$eval('#wstrip .wslider', els => els.map(e => Math.round(e.getBoundingClientRect().height)));
+  ok(strip.length >= 2, `rank: phone weight strip present (${strip.length} sliders)`);
+  ok(strip.every(h => h >= 44), `rank: phone weight sliders ≥44px (${strip.join(',')})`);
+  const before = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
+  const sliders = await page.$$('#wstrip .wslider');
+  if(sliders.length){ await sliders[sliders.length - 1].evaluate(el => { el.value = el.max; el.dispatchEvent(new Event('input', {bubbles:true})); }); }
+  await page.waitForTimeout(200);
+  const after = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
+  ok(before !== after, `rank: dragging a phone weight re-ranks the rows`);
   await page.close();
 }
 

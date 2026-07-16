@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="/assets/motion.css">
 <style>  .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
     box-shadow:var(--shadow);padding:22px}
@@ -106,8 +107,31 @@
   .rrow:first-of-type{border-top:none}
   .rrow .pos{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;
     font-weight:600;font-size:15px;color:var(--muted);text-align:right}
-  .rrow .nm{font-size:14.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;
-    white-space:nowrap}
+  .rrow .nm{font-size:14.5px;font-weight:500;display:flex;align-items:center;gap:7px;min-width:0}
+  .rrow .nmtext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .knifepill{flex:none;display:none;font-size:10.5px;font-weight:600;letter-spacing:.02em;
+    padding:1px 7px;border-radius:999px;white-space:nowrap;
+    background:color-mix(in srgb, var(--err) 13%, transparent);color:var(--err)}
+  .rrow.knife .knifepill{display:inline-block}
+  .wslider{display:block;width:100%;margin:5px 0 0;height:18px;accent-color:var(--accent);cursor:pointer}
+  /* phone weight strip: the header (with the desktop sliders) is display:none on phones,
+     so the drag-weights mechanism needs its own visible, ≥44px surface below the cards */
+  .wstrip{display:none}
+  @media (max-width:640px){
+    .wstrip{display:block;margin:2px 0 12px;padding:10px 12px;border:1px solid var(--border);
+      border-radius:8px;background:color-mix(in srgb, var(--accent) 5%, var(--card))}
+    .wstrip::before{content:"Weights — drag to re-rank the list below";display:block;font-size:11px;
+      font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+    .wsrow{display:grid;grid-template-columns:minmax(64px,32%) 1fr 42px;gap:10px;align-items:center;
+      padding:6px 0;border-top:1px solid var(--border)}
+    .wsrow:first-of-type{border-top:none}
+    .wslabel{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wsval{font-family:ui-monospace,Menlo,monospace;font-size:13px;text-align:right;color:var(--muted)}
+    .wstrip .wslider{min-height:44px;height:44px;margin:0}
+  }
+  /* while a weight is being dragged the deterministic re-rank is live; the MC-derived readouts are stale → fade */
+  #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
+  #results.pending .verdict, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
   .rankbar{display:grid;gap:2px;height:20px}
   .rankbar .cell{background:var(--track);border-radius:3px;position:relative}
   .rankbar .cell.in{background:var(--accent);opacity:.35}
@@ -200,11 +224,13 @@
       <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
       <p class="subverdict" id="subverdict" aria-live="polite" aria-atomic="true"></p>
       <p class="flipline" id="flipline"></p>
+      <div class="wstrip" id="wstrip" role="group" aria-label="Criterion weights — drag to re-rank the list below"></div>
       <div id="rrows"></div>
       <div class="legend">
         <span class="key"><span class="swatch med" style="border-radius:3px"></span> median rank</span>
         <span class="key"><span class="swatch dim"></span> 90% rank range</span>
         <span class="key">P(top-k) = share of simulations where the initiative makes the cut</span>
+        <span class="key"><span class="knifepill" style="display:inline-block">knife-edge</span> = this rank flips under a ±10% nudge of one weight — a stricter probe than the ±N% wobble above</span>
       </div>
       <div class="actions">
         <button class="btn" id="copydoc">Copy for a doc</button>

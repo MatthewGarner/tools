@@ -32,6 +32,11 @@
   box-shadow: var(--shadow); padding: 18px;
   max-height: calc(100vh - 48px); overflow-y: auto;
 }
+/* Load-grace: #cmhost is empty until CodeMirror mounts (~55ms after first paint),
+   then jumps to .cm-editor's min-height and shoves the about band — the single
+   biggest measured load shift on every DSL tool. Reserve the same height the
+   editor will occupy (every tool pins .cm-editor to 440px, 280px under 900px). */
+#cmhost{min-height: 440px}
 .workspace.collapsed .rail{
   opacity: 0; visibility: hidden; padding-left: 0; padding-right: 0;
   border-color: transparent; box-shadow: none; pointer-events: none;
@@ -64,6 +69,23 @@
    fold — a blanket margin-inline:auto here would also recentre a zoomed-OUT board,
    which is a silent change to how zoom has always looked */
 .stage .preview svg{display: block; width: 100%; height: auto}
+/* Load-grace: the placeholder reserves the artefact's own footprint, so the
+   autoloaded diagram lands into space that already exists instead of shoving
+   .actions/.about down (measured CLS 0.17–0.33 desktop, 0.34–0.50 cycles-phone).
+   Each tool sets --reserve-ar to its default example's viewBox ratio — an aspect,
+   not a px height, so the reservation tracks the landing height at any pane width
+   (svg is width:100%/height:auto). Capped at the fold, mirroring workspace.js's
+   fit cap (FIT_FLOOR 560 / fold ≈ 100vh − header ~280), because Fit never lets a
+   board land taller than that. Reserving the PLACEHOLDER (not the pane) means a
+   rendered artefact can never sit above stranded whitespace — the reservation is
+   gone the moment the svg exists. Default auto = no reservation (old behaviour). */
+.stage .preview .placeholder{
+  aspect-ratio: var(--reserve-ar, auto);
+  max-height: max(560px, calc(100vh - 280px));
+  /* centre the hint in the reserved box; flex (not grid) so the anonymous text
+     item can shrink and wrap on narrow panes instead of clipping at max-content */
+  display: flex; align-items: center; justify-content: center;
+}
 /* real HTML mirror of the diagram's quotable verdict/readout — screen readers
    get it via aria-live (set on the element in each tool's markup); sighted
    users get it too, so the answer is never SVG-text-only. Empty until a
@@ -73,7 +95,10 @@
 .verdict:empty{display: none}
 .verdict p{margin: 0 0 8px}
 .verdict p:last-child{margin-bottom: 0}
-.zoomctl{display: inline-flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden}
+/* min-width/height = the settled size of the four injected buttons (Fit/100%/−/+),
+   so the actions row doesn't reflow when workspace.js mounts them (load-grace) */
+.zoomctl{display: inline-flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  min-width: 153px; min-height: 29px}
 .zoomctl button{
   border: none; background: none; color: var(--muted); cursor: pointer;
   font-family: inherit; font-size: 12px; font-weight: 600; padding: 6px 10px;
@@ -91,6 +116,7 @@ footer{margin: 48px 0 8px}
   .workspace{display: flex; flex-direction: column; gap: 16px; margin-top: 20px}
   .rail{width: auto; max-height: none; overflow: visible; opacity: 1 !important;
     padding: 18px !important; border-color: var(--border) !important}
+  #cmhost{min-height: 280px}   /* matches the tools' narrow .cm-editor height */
   .stage{ order: -1; }   /* phones are for viewing: diagram above the editor */
   .rail{ order: 0; }
   /* indent/outdent buttons for indented DSLs — fingers have no Tab key.
@@ -112,6 +138,12 @@ footer{margin: 48px 0 8px}
   .chip, .btn, .viewtoggle button{min-height: 44px; display: inline-flex; align-items: center}
   .zoomctl button{min-height: 44px; padding: 13px 15px; font-size: 13px}
   .eip-pop button{min-height:44px; padding: 12px 12px}
+}
+/* Touch Undo (mobile-input Rule 2): phones have no ⌘Z. Hidden wherever a
+   keyboard is likely; the coarse block above already supplies the 44px hit. */
+.btn.touch-undo{display: none}
+@media (pointer: coarse){
+  .btn.touch-undo{display: inline-flex}
 }
 /* phones are for viewing and zooming: the zoom control gets the full row */
 @media (max-width: 900px) and (pointer: coarse){

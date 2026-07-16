@@ -4,14 +4,14 @@ import {layoutMap} from './layout.js';
 import {renderMap, toMarkdown, mapReadout, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
-  addComponent, removeComponent} from './edit-targets.js';
+  addComponent, removeComponent, addEdge, removeEdge} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
-import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -117,6 +117,7 @@ const editor = createEditor({
   doc: '',
   onChange: debounced(refresh, 120),
 });
+mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   if(!shouldPersist()) return;
   const state = {t: editor.getText()};
@@ -153,10 +154,32 @@ ro.observe($('preview'), {box: 'content-box'});
 function applyEdits(edits){
   applyLineOps(editor, edits);
 }
+/* The ⋯ menu for a component (phone edges, mobile-input stage): Needs… lists
+   every OTHER component as a marked toggle row — on = "this -> that" exists —
+   and Remove stays the danger action. Resolved fresh from the current model at
+   each open (timeline's milestoneMenu idiom). A row commits the self-contained
+   kind "needs" ("needs" is a commit payload, not a data-edit target, so it
+   lives outside `kinds`); the app toggles via addEdge/removeEdge. Edges also
+   touching this component the OTHER way (that -> this) are that component's
+   own Needs… rows — each direction is its own edge. */
+function componentMenuRows(el){
+  const from = el.dataset.raw || '', fk = from.toLowerCase();
+  const line = +el.dataset.line;
+  const rows = [];
+  const targets = model
+    ? [...model.components.values()].filter(c => c.name.toLowerCase() !== fk) : [];
+  if(targets.length) rows.push({label: 'Needs…', submenu: targets.map(c => ({
+    label: c.name,
+    on: model.edges.some(e => e.from === fk && e.to === c.name.toLowerCase()),
+    commit: {kind: 'needs', line, oldRaw: from, value: c.name},
+  }))});
+  rows.push({label: 'Remove component', action: true, danger: true});
+  return rows;
+}
 attachEditInPlace($('preview'), {
   kinds: {...kinds,
     additem: {validate: kinds.name.validate},
-    componentmenu: {actions: [{label: 'Remove component', danger: true}]}},
+    componentmenu: {menu: componentMenuRows}},
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'additem'){
       const r = addComponent(editor.getText(), newValue, el.dataset.stage || null);
@@ -167,6 +190,17 @@ attachEditInPlace($('preview'), {
     if(kind === 'componentmenu'){
       if(newValue === '✖Remove component')
         applyLineOps(editor, removeComponent(editor.getText(), lineNo, el.dataset.raw));
+      return;
+    }
+    if(kind === 'needs'){
+      /* toggle: removeEdge doubles as the existence check (ops iff the pair is
+         in the text right now), so a stale menu can never write a duplicate.
+         Neither branch focuses the editor — no soft-keyboard jump on coarse. */
+      const text = editor.getText();
+      const ops = removeEdge(text, oldRaw, newValue);
+      if(ops.length){ applyEdits(ops); return; }
+      const r = addEdge(text, oldRaw, newValue);
+      if(r) editor.insertLinesAfter(r.afterLine, [r.newLine]);
       return;
     }
     const text = editor.getText();

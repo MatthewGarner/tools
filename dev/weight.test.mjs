@@ -113,19 +113,37 @@ const PAGES = {
      render-deck.js's existing eager import of render-focus.js — genuinely new
      first-load code, not creep. Actual load ~557.9k; set with ~8k real headroom on
      purpose (see the "previous six raises" note above for why thin headroom is a
-     trap — this is now the fourth consecutive live-view raise on this page). */
-  'roadmap/index.html': 566_000,
+     trap — this is now the fourth consecutive live-view raise on this page).
+     566k -> 574k (2026-07-16, mobile-input Stage 0): the shared editor/workspace
+     modules every DSL page loads grew ~2.6k real bytes — createEditorCore's undo()
+     via the vendored historyKeymap, mountTouchUndo + the coarse-only button CSS
+     (Rule 2, phones have no ⌘Z). The chip-bypass merge had already eaten the old
+     headroom (actual was ~565.6k before this change); actual now ~568.2k, set with
+     ~5.8k real headroom. */
+  'roadmap/index.html': 574_000,
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
      which is also why it emits not one span-edge rect). Honest shared-code cost of
      the delegation, set with headroom for the same reason as roadmap above.
      the span mark, the per-column counts, the narrow run-line, the packer and the
-     edge-handle wrapper all live in the shared renderer. Actual load ~475.5k. */
-  'why/index.html': 480_000, 'tree/index.html': 470_000,
+     edge-handle wrapper all live in the shared renderer. Actual load ~475.5k.
+     480k -> 490k (2026-07-16, mobile-input Stage 0): why pulls the same shared
+     editor/workspace growth every DSL page did — createEditorCore.undo() via the
+     vendored historyKeymap + mountTouchUndo (Rule 2). why's old headroom was already
+     thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
+     4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
+     other DSL page had >8k headroom and stays put. */
+  'why/index.html': 490_000, 'tree/index.html': 470_000,
   'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
-  'bets/index.html': 480_000,
+  /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
+     phone structure surface is real feature bytes across three modules —
+     edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
+     render.js the edit-gated rename targets + ＋ capsules (~1.6k), app.js the
+     betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
+     headroom — in line with the other DSL pages. */
+  'bets/index.html': 486_000,
   'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module

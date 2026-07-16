@@ -15,7 +15,7 @@ import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {initWorkspace, setActionsEnabled} from '../assets/workspace.js';
+import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
@@ -187,6 +187,7 @@ const editor = createEditor({
   doc: '',
   onChange: debounced(refresh, 120),
 });
+mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
@@ -374,7 +375,11 @@ wireExports({
    refresh loop re-syncs the active chip */
 $('stylepicker').addEventListener('click', e => {
   const b = e.target.closest('[data-style]');
-  if(b) editor.setText(setStyle(editor.getText(), b.dataset.style));
+  // setText fires the editor's 120ms typing debounce; a chip is a single-shot edit,
+  // so refresh() immediately (rafBatched → next frame) — the switch feels instant,
+  // not ~150ms behind a bets-style toggle (audit 2026-07-16). The debounced pass
+  // still fires and coalesces (same doc ⇒ memoised render, no flash).
+  if(b){ editor.setText(setStyle(editor.getText(), b.dataset.style)); refresh(); }
 });
 /* the headline field is the same act as typing `headline:` — one debounced text
    edit into the doc, so it undoes, persists and travels in the URL like the rest.

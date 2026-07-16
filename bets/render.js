@@ -8,7 +8,12 @@
    shape (newKeys/movedFields/killed/headline from betsDiffView) plus a
    `prevSim` app.js resimulates and memoises (never here — a Monte Carlo run
    per keystroke isn't free). Absent ctx.compare, output stays byte-identical
-   to the pre-compare goldens: every addition below is gated on `compare`. */
+   to the pre-compare goldens: every addition below is gated on `compare`.
+   ctx.edit (mobile-input stage, 2026-07-16) gates the STRUCTURE surface the
+   same way: a rename target on every bet name (both layouts — the shared card
+   menu's Rename… row routes to it), plus narrow-only ＋ Add bet / ＋ Add group
+   capsules. Absent ctx.edit, output stays byte-identical to the goldens; the
+   value targets + per-card data-menu predate the flag and stay unconditional. */
 import {esc, txt, tint, editTarget, wrapText, btnAttrs} from '../assets/svg.js';
 import {betKey} from './diff.js';
 
@@ -95,7 +100,7 @@ function pill(x, y, label, color, anchor = 'start'){
 /* ---------------- WIDE: the ledger ---------------- */
 function renderWide(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
-  const compare = ctx.compare || null;
+  const compare = ctx.compare || null, edit = !!ctx.edit;
   const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
   const pl = Math.round((pf.pLoss || 0) * 100);
   const concLine = concentrationLine(conc);
@@ -167,7 +172,13 @@ function renderWide(model, sim, ctx){
       body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>');
       body.push('<rect data-hit="" x="30" y="' + y + '" width="' + (C.right - 30) + '" height="' + rowH + '" fill="transparent"/>');
       if(rec.audits.length) body.push('<rect x="30" y="' + y + '" width="' + (C.right - 30) + '" height="' + rowH + '" fill="' + c.err + '" fill-opacity="0.035"/>');
-      body.push(txt(C.name, y + 19, b.name, 13, c.ink, {weight: 600}));
+      /* the rename target (edit only — the card menu's Rename… row routes here);
+         clamped clear of the stake cell's own hit box at C.stake - 64 */
+      const nameTxt = txt(C.name, y + 19, b.name, 13, c.ink, {weight: 600});
+      if(edit) body.push(editTarget(nameTxt,
+        {x: C.name - 6, y: y + 4, w: r2(Math.min(measure(b.name, '600 13px ' + SANS) + 16, 200)), h: 26, bg: c.bg},
+        {kind: 'name', line: b.srcLine, raw: b.name, label: 'Rename: ' + b.name}));
+      else body.push(nameTxt);
       if(isNew){
         const nameW = measure(b.name, '600 13px ' + SANS);
         const nx = Math.min(C.name + nameW + 8, C.stake - 42);
@@ -305,8 +316,17 @@ function outcomeRail(body, pf, pl, x0, x1, y, c, narrow, compare){
 /* ---------------- NARROW: stacked position cards ---------------- */
 function renderNarrow(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
-  const compare = ctx.compare || null;
+  const compare = ctx.compare || null, edit = !!ctx.edit;
   const W = Math.max(300, Math.round(ctx.width)), pad = 16, inner = W - pad * 2;
+  /* a full-width dashed ＋ capsule (edit only) — timeline/roadmap's narrow add
+     idiom: the whole 44px band is the hit rect (coarse-pointer floor), the
+     visible dashed capsule sits inset within it. */
+  const addCapsule = (label, aria, kind, line, top) => editTarget(
+    '<rect x="' + pad + '" y="' + r2(top + 4) + '" width="' + inner + '" height="36" rx="10" fill="none" stroke="' +
+      c.border + '" stroke-dasharray="3 4"/>' +
+    txt(pad + inner / 2, top + 26, label, 12.5, c.muted, {anchor: 'middle', weight: 600}),
+    {x: pad, y: r2(top), w: inner, h: 44, bg: c.bg},
+    {kind, line, raw: '', label: aria});
   const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
   const pl = Math.round((pf.pLoss || 0) * 100);
   const concLine = concentrationLine(conc);
@@ -368,7 +388,14 @@ function renderNarrow(model, sim, ctx){
          still lands on THEIR OWN data-edit target, not this card-level one. */
       const card = [];
       y += 8;
-      card.push(txt(pad + 12, y + 10, b.name, 14, c.ink, {weight: 600}));
+      /* the rename target (edit only): the menu's Rename… row routes here, and a
+         fine tap on the name opens it directly. Painted before the value cells,
+         so their own hit boxes win the small overlap band below the name. */
+      const nameTxt = txt(pad + 12, y + 10, b.name, 14, c.ink, {weight: 600});
+      if(edit) card.push(editTarget(nameTxt,
+        {x: pad + 8, y: r2(y - 6), w: r2(Math.min(measure(b.name, '600 14px ' + SANS) + 16, inner - 24)), h: 26, bg: c.bg},
+        {kind: 'name', line: b.srcLine, raw: b.name, label: 'Rename: ' + b.name}));
+      else card.push(nameTxt);
       if(isNew){
         const nameW = measure(b.name, '600 14px ' + SANS);
         card.push(pill(Math.min(pad + 12 + nameW + 8, pad + inner - 40), y + 3, 'NEW', c.accentInk));
@@ -415,6 +442,9 @@ function renderNarrow(model, sim, ctx){
       usedKilledKeys.add(gk);
       for(const kb of killedMap.get(gk).bets) pushGhostCard(kb);
     }
+    /* the group's ＋ Add bet capsule closes its block (timeline's lane idiom);
+       data-line carries the GROUP's srcLine so the app can target the insert */
+    if(edit){ parts.push(addCapsule('＋ Add bet', 'Add bet to ' + g.name, 'addbet', g.srcLine, y)); y += 52; }
     y += 4;
   }
   for(const [gk, glane] of killedMap){
@@ -425,6 +455,7 @@ function renderNarrow(model, sim, ctx){
     for(const kb of glane.bets) pushGhostCard(kb);
     y += 4;
   }
+  if(edit){ parts.push(addCapsule('＋ Add group', 'Add group', 'addgroup', -1, y)); y += 56; }
   // portfolio outcome rail
   parts.push(txt(pad, y + 10, 'PORTFOLIO — ' + flat.length + ' BETS', 10, c.ink, {weight: 700, tracking: '0.05em'})); y += 22;
   y = outcomeRail(parts, pf, pl, pad, W - pad, y, c, true, compare);

@@ -65,12 +65,41 @@ test('narrow: a TODAY rule and month-tick labels render', () => {
   assert.match(svg, /Aug 2026|Sep 2026|Oct 2026/);
 });
 
-test('narrow gates inline edits OUT even with edit:true (below 44px; edit via the DSL editor)', () => {
-  const svg = render(parse(DOC), {...ctx, width: W}, null, {edit: true});
+test('narrow WITHOUT edit emits no edit markup (preview is inert until the app asks)', () => {
+  const svg = render(parse(DOC), {...ctx, width: W});
   assert.match(svg, /data-narrow=""/);
   assert.doesNotMatch(svg, /data-edit/);
-  assert.doesNotMatch(svg, />×</);
-  assert.doesNotMatch(svg, />＋/);
+  assert.doesNotMatch(svg, /data-menu/);
+});
+
+test('narrow WITH edit: every milestone is a data-menu cardmenu with a ≥44px hit rect + field/routing targets', () => {
+  const svg = render(parse(DOC), {...ctx, width: W}, null, {edit: true});
+  assert.match(svg, /data-narrow=""/);
+  // one cardmenu group + one data-hit per milestone (4)
+  assert.equal((svg.match(/data-edit="cardmenu"/g) || []).length, 4);
+  assert.equal((svg.match(/data-menu=""/g) || []).length, 4);
+  assert.equal((svg.match(/data-hit=""/g) || []).length, 4);
+  // the menu's opens: rows route to these siblings; setlane/note are the free-text anchors
+  for(const kind of ['label', 'dates', 'status', 'setlane', 'note'])
+    assert.ok((svg.match(new RegExp('data-edit="' + kind + '"', 'g')) || []).length === 4,
+      kind + ' target missing on some row');
+  // the hit rect clears 44px (title + dates + track); every cardmenu group is keyboard-operable
+  const hitH = [...svg.matchAll(/data-hit="" x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)"/g)].map(m => +m[1]);
+  assert.ok(hitH.length === 4 && hitH.every(h => h >= 44), 'card hit rects must clear 44px: ' + hitH);
+  assert.equal((svg.match(/data-edit="cardmenu"[^>]*role="button"/g) || []).length, 4);
+  // the routing anchors never steal a direct tap
+  assert.equal((svg.match(/data-edit="(setlane|note)"[^>]*pointer-events="none"/g) || []).length, 8);
+});
+
+test('narrow WITH edit: a dashed ＋ Add capsule closes each named lane and a global one closes the board', () => {
+  const svg = render(parse(DOC), {...ctx, width: W}, null, {edit: true});
+  // App + Ops named lanes → two "＋ Add to <lane>" capsules; laneless global → "＋ Add milestone"
+  assert.match(svg, /＋ Add to App/);
+  assert.match(svg, /＋ Add to Ops/);
+  assert.match(svg, /＋ Add milestone/);
+  const adds = [...svg.matchAll(/<g data-edit="additem"[^>]*aria-label="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(adds, ['Add milestone into App', 'Add milestone into Ops', 'Add milestone']);
+  assert.equal((svg.match(/data-edit="additem" data-line="-1"/g) || []).length, 3);
 });
 
 test('narrow compare: ghost diamonds, slip labels, NEW badge, since-line and dropped list all render', async () => {

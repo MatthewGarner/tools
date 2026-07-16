@@ -101,6 +101,69 @@ export function addComponent(text, name, stage){
   return {afterLine: Math.max(0, last), newLine, select: name};
 }
 
+/* ---- edges (the Needs… toggle): an edge is a PAIR inside a possibly-longer
+   chain line, never a line of its own by construction. ---- */
+
+/* Add "from -> to" as a fresh line after the last non-blank line. A new 2-node
+   line is the unambiguous form (splicing into an existing chain would change
+   OTHER edges); appending also always lands after the config block. Returns
+   {afterLine, newLine} for insertLinesAfter, or null (no-op) when: either end
+   is blank/unknown/self, the pair already exists anywhere (a duplicate edge
+   draws twice and double-counts in the metrics + needs tallies), or the line
+   would not round-trip (an anchor may legally be NAMED "a -> b" — written into
+   an edge line it shatters into different edges). */
+export function addEdge(text, fromName, toName){
+  const from = String(fromName || '').trim(), to = String(toName || '').trim();
+  const fk = from.toLowerCase(), tk = to.toLowerCase();
+  if(!fk || !tk || fk === tk) return null;
+  const model = parse(text);
+  const known = k => model.components.has(k) || model.anchors.some(a => a.name.toLowerCase() === k);
+  if(!known(fk) || !known(tk)) return null;
+  if(model.edges.some(e => e.from === fk && e.to === tk)) return null;
+  const newLine = from + ' -> ' + to;
+  if(!parse(text + '\n' + newLine).edges.some(e => e.from === fk && e.to === tk)) return null;
+  const lines = linesOf(text);
+  let last = 0;
+  for(let i = 0; i < lines.length; i++) if(lines[i].trim()) last = i;
+  return {afterLine: last, newLine};
+}
+
+/* Remove every occurrence of the pair from -> to. The pair may sit mid-chain:
+   split the chain at each match into up-to-two fragments per cut, drop 1-node
+   fragments (a bare name would re-declare a ghost), keep every OTHER edge on
+   the line. Ops for applyLineOps: {line, text} rewrites (a middle split emits
+   a two-line text — still ONE change, one undo) or {line, text: null} deletes
+   when nothing chain-shaped survives (comment goes with the line, the
+   removeComponent precedent). Empty segments are filtered the way parse() does,
+   so "A ->  -> B" matches the (A,B) edge the parser actually sees. No-op on
+   self/blank/absent pairs; reverse direction is its own edge, never touched. */
+export function removeEdge(text, fromName, toName){
+  const from = String(fromName || '').trim().toLowerCase();
+  const to = String(toName || '').trim().toLowerCase();
+  if(!from || !to || from === to) return [];
+  const ops = [];
+  linesOf(text).forEach((line, i) => {
+    const [code, comment] = splitComment(line);
+    if(!code.includes('->')) return;
+    const names = code.split('->').map(s => s.trim()).filter(Boolean);
+    if(names.length < 2) return;
+    const frags = [[names[0]]];
+    let cut = false;
+    for(let j = 1; j < names.length; j++){
+      if(names[j - 1].toLowerCase() === from && names[j].toLowerCase() === to){
+        frags.push([names[j]]);
+        cut = true;
+      } else frags[frags.length - 1].push(names[j]);
+    }
+    if(!cut) return;
+    const kept = frags.filter(f => f.length >= 2);
+    if(!kept.length){ ops.push({line: i, text: null}); return; }
+    const indent = code.match(/^\s*/)[0];
+    ops.push({line: i, text: kept.map(f => indent + f.join(' -> ')).join('\n') + comment});
+  });
+  return ops;
+}
+
 /* ops [{line, text|null}] (null = delete) for applyLineOps: drop the
    declaration, splice the name out of every edge chain that mentions it.
    The declaration delete fires ONLY when the srcLine's CODE isn't itself an

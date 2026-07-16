@@ -10,7 +10,7 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify,
 import {wireExports} from '../../assets/exports.js';
 import {posterSvg} from '../../assets/poster.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
-import {initWorkspace, setActionsEnabled} from '../../assets/workspace.js';
+import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/workspace.js';
 import {mountMotion} from "../../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
@@ -153,8 +153,9 @@ function dispatch(key){
   pendingKey = key;
   const id = ++seq;
   setActionsEnabled(false);
-  if(!worker) return runSync(key, id);
+  if(!worker) return runSync(key, id);          // sync path commits instantly — no wait to signal
   __cyclesSimCount++;
+  busy(true);                                   // the MC is 0.5–2s off-thread; acknowledge the wait
   worker.postMessage({model, seed: 1, n: 5000, reqId: id});
   timeoutId = setTimeout(() => { markWorkerDead(); dispatch(key); }, simTimeoutMs());
 }
@@ -188,7 +189,11 @@ function renderVerdict(){
 /* Draws from current `model`/`out` — never re-parses or re-simulates. Called
    both after a real refresh and after a memoised (sim-skipped) one, so
    theme toggles and narrow-bucket flips still update the DOM. */
+/* "recomputing…" hint while the off-thread MC runs: the preview shows the STALE
+   artefact for ~0.7s after a keystroke with no acknowledgement otherwise (audit). */
+function busy(on){ const s = stageEl.closest('.stage'); if(s) s.classList.toggle('recomputing', on); }
 function render(){
+  busy(false);                                  // a result (or empty) landed — stop signalling
   const pv = $('preview');
   if(!out){
     lastSvg = ''; paint.reset();
@@ -228,6 +233,7 @@ const editor = createEditor({
   doc: '',
   onChange(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); },
 });
+mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
