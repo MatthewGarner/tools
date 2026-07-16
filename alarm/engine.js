@@ -104,7 +104,7 @@ export function inN(frac){
 
 /* The quotable lines. alarm = share of alarms that are false (the headline);
    miss = share of real issues that sail through; fine = the expected-value fine print. */
-export function verdicts(counts){
+export function verdicts(counts, params){
   const {tp, fp, tn, fn} = counts;
   const alarms = tp + fp, reals = tp + fn;
   let alarm;
@@ -119,11 +119,16 @@ export function verdicts(counts){
   else miss = '…and ' + inN(fn / reals).text + ' real issues sails through.';
 
   const pct = x => Math.round(x * 100);
-  const precision = alarms ? tp / alarms : 0;
-  const recall = reals ? tp / reals : 0;
-  const spec = (fp + tn) ? tn / (fp + tn) : 0;
-  const fine = 'Expected: precision ' + pct(precision) + '%, sensitivity ' + pct(recall) +
-    '%, specificity ' + pct(spec) + '%.';
+  // the "Expected:" line is ANALYTIC: sensitivity/specificity are detector
+  // properties (base-rate-independent), so reading them off the 1,000-dot sample
+  // prints noise at the base-rate floor (0–1 real dots → "0%") — strictly more
+  // misleading than the observed 2×2 box beside it, which honestly shows "—".
+  const {sensitivity, fpr, specificity} = derived({dprime: params.dprime, t: params.t});
+  const br = params.baseRate;
+  const den = br * sensitivity + (1 - br) * fpr;             // Bayes precision, guarded
+  const precision = den ? (br * sensitivity) / den : 0;
+  const fine = 'Expected: precision ' + pct(precision) + '%, sensitivity ' + pct(sensitivity) +
+    '%, specificity ' + pct(specificity) + '%.';
   return {alarm, miss, fine};
 }
 

@@ -140,7 +140,9 @@ function restartAnim(result){
   const note = $('animnote');
   if(reducedMotion.matches || !result.events){
     note.textContent = 'motion off — steady-state averages shown';
-    $('cbacklog').textContent = Math.max(0, Math.round(result.backlogSlopePerWeek * 10)) || (result.utilisation > 0.95 ? '↑' : '~0');
+    $('cbacklog').textContent = result.backlogSlopePerWeek > 0.5
+      ? '+' + result.backlogSlopePerWeek.toFixed(1) + '/wk'
+      : (result.utilisation > 0.95 ? '↑' : '~0');
     $('cwip').textContent = result.impliedWip.toFixed(1);
     $('cdone').textContent = result.throughputPerWeek.toFixed(1) + '/wk';
     drawFrame(null, 0);

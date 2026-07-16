@@ -39,9 +39,26 @@ test('inN: honest small fractions', () => {
   assert.equal(inN(1).text, 'every one');
 });
 test('verdict copy: normal and zero-alarm branches', () => {
-  const v = verdicts({tp: 10, fp: 90, tn: 880, fn: 20});
+  const params = {baseRate: 0.1, dprime: 2, t: 1};
+  const v = verdicts({tp: 10, fp: 90, tn: 880, fn: 20}, params);
   assert.match(v.alarm, /9 in 10 alarms/);
   assert.match(v.miss, /in .* sails through|of .* real issues/);
-  const z = verdicts({tp: 0, fp: 0, tn: 950, fn: 50});
+  const z = verdicts({tp: 0, fp: 0, tn: 950, fn: 50}, params);
   assert.match(z.alarm, /No alarms/);
+});
+
+test('the "Expected:" fine line is analytic, not sample noise (Fable I3)', () => {
+  const params = {baseRate: 0.001, dprime: 2, t: 1};
+  const d = derived(params);
+  const analyticSens = Math.round(d.sensitivity * 100);   // phi(1) ≈ 84%, base-rate-independent
+  assert.ok(analyticSens > 50, 'detector sensitivity is substantial, not the sample-noise 0%');
+  // a sample at the base-rate floor where the observed recall would be 0% (fn=1, tp=0)
+  const noisy = verdicts({tp: 0, fp: 5, tn: 990, fn: 1}, params);
+  assert.match(noisy.fine, new RegExp('sensitivity ' + analyticSens + '%'));
+  assert.doesNotMatch(noisy.fine, /sensitivity 0%/);
+  // sensitivity/specificity are detector properties → independent of base rate
+  const other = verdicts({tp: 50, fp: 40, tn: 900, fn: 10}, {...params, baseRate: 0.2});
+  const sens = f => f.match(/sensitivity (\d+)%/)[1], spec = f => f.match(/specificity (\d+)%/)[1];
+  assert.equal(sens(noisy.fine), sens(other.fine), 'sensitivity independent of base rate');
+  assert.equal(spec(noisy.fine), spec(other.fine), 'specificity independent of base rate');
 });

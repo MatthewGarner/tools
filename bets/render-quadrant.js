@@ -7,7 +7,8 @@
    odds lo→hi at y=EV.p50, a vertical bar spanning EV.p10→p90 at x=odds-mid —
    a wide cross literally reads "we don't know". The board's audits become
    PLACES here: LOSES AT P50 -> the loss region below the y=0 break-even line;
-   ODDS IMPLY CERTAINTY -> the certainty zone (odds >= 90%); NO KILL CRITERION
+   ODDS IMPLY CERTAINTY -> the certainty zone (odds >= 90%; the stamp also fires
+   on the mirror <= 10% near-certain-loss end, which has no zone drawn here); NO KILL CRITERION
    -> a dashed ring around the bubble. Lane hues come from the shared,
    ALREADY-VALIDATED PALETTES ramp (assets/series.js: ocean/slate/ember/plum)
    cycled per lane — never an invented hex. Pure; colours + measure from ctx.

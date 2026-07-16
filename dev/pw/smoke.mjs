@@ -704,7 +704,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(700);
   check('flow(' + theme + '): readout SVG renders', await page.locator('#verdictwrap svg').count() === 1);
   const svg = await page.locator('#verdictwrap svg').innerHTML();
-  check('flow(' + theme + '): verdict present', /typical item takes/i.test(svg));
+  check('flow(' + theme + '): verdict present', /average item takes/i.test(svg));
   check('flow(' + theme + '): overload honesty line', /demand exceeds capacity/i.test(svg));
   check('flow(' + theme + '): histogram bars', (svg.match(/<rect/g) || []).length > 5);
   check('flow(' + theme + '): batch U-curve renders', await page.locator('#batchwrap svg').count() === 1);

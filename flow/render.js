@@ -15,8 +15,10 @@ const f1 = n => (Math.round(n * 10) / 10).toString();
    shows next to the diagram. Pure; same inputs renderReadout itself uses. */
 export function readoutVerdict(result){
   const lead = result.lead;
-  const bits = ['A typical item takes ' + day(lead.p50) + ' — ' + day(result.workDays) +
-    ' working, ' + day(Math.max(0, lead.p50 - result.workDays)) + ' waiting.'];
+  // means, not the median: working + waiting = total is EXACT only for means
+  // (median of a sum ≠ sum of medians), so lead.p50 here contradicted the parts.
+  const bits = ['The average item takes ' + day(lead.mean) + ' — ' + day(result.workDays) +
+    ' working, ' + day(result.waitDays) + ' waiting.'];
   if(result.backlogSlopePerWeek > 0.5){
     bits.push('Backlog growing ~' + f1(result.backlogSlopePerWeek) +
       '/week — demand exceeds capacity; no WIP limit fixes that.');
@@ -35,9 +37,9 @@ export function renderReadout(result, sweep, knee, params, ctx){
   y += 38;
   const lead = result.lead;
   s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' +
-    'A typical item takes <tspan font-weight="700">' + esc(day(lead.p50)) + '</tspan>' +
+    'The average item takes <tspan font-weight="700">' + esc(day(lead.mean)) + '</tspan>' +
     ' — <tspan font-weight="600">' + esc(day(result.workDays)) + ' working</tspan>, ' +
-    '<tspan font-weight="600" fill="' + C.err + '">' + esc(day(Math.max(0, lead.p50 - result.workDays))) + ' waiting</tspan>.' +
+    '<tspan font-weight="600" fill="' + C.err + '">' + esc(day(result.waitDays)) + ' waiting</tspan>.' +
     '</text>');
   y += 24;
   s.push(txt(PAD, y, 'P85 ' + day(lead.p85) + ' · P95 ' + day(lead.p95) +
@@ -269,8 +271,8 @@ export function markdownSummary(result, sweep, knee, params, extras){
   lines.push('**Flow check** — demand ' + params.demandPerWeek + '/week · item ~' + params.itemDays +
     ' days · team ' + params.team + ' · WIP limit ' + params.wipLimit);
   lines.push('');
-  lines.push('A typical item takes **' + day(result.lead.p50) + '** — ' + day(result.workDays) +
-    ' working, ' + day(Math.max(0, result.lead.p50 - result.workDays)) + ' waiting. P85 ' +
+  lines.push('The average item takes **' + day(result.lead.mean) + '** — ' + day(result.workDays) +
+    ' working, ' + day(result.waitDays) + ' waiting. P85 ' +
     day(result.lead.p85) + ', P95 ' + day(result.lead.p95) + '.');
   lines.push('Throughput ' + f1(result.throughputPerWeek) + '/week · team busy ' +
     Math.round(result.utilisation * 100) + '%.');

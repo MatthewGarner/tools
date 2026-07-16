@@ -56,11 +56,20 @@ test('optional bands: second/augment absent → null, no warning about them', ()
   assert.ok(!m.warnings.some(w => w.includes('second') || w.includes('augment')));
 });
 
-test('soft warnings: inverted range, fade 0, charge ≥ spread, unknown key, horizon > 30', () => {
-  const m = parse(['battery: 100MW / 200MWh', 'spread: 85..35', 'charge: 90', 'drift: 0',
+test('soft warnings: inverted range, fade 0, efficiency penalty > spread, unknown key, horizon > 30', () => {
+  // genuinely underwater: k = (1/0.88−1)·90 ≈ £12.3 exceeds the ~£9.8 spread
+  const m = parse(['battery: 100MW / 200MWh', 'spread: 12..8', 'charge: 90', 'drift: 0',
     'rte: 88%', 'fade: 0 %/cycle', 'calendar: 1.5 %/yr', 'cycles: 6000 over 40yr',
     'nonsense: 12'].join('\n'));
-  assert.deepEqual(m.spread, {lo: 35, hi: 85});
-  for(const frag of ['inverted', 'free cycling', 'charging costs more', 'don’t know', '30'])
+  assert.deepEqual(m.spread, {lo: 8, hi: 12});
+  for(const frag of ['inverted', 'free cycling', 'efficiency penalty', 'don’t know', '30'])
     assert.ok(m.warnings.some(w => w.includes(frag)), 'want: ' + frag + ' got ' + JSON.stringify(m.warnings));
+});
+
+test('no FALSE underwater warning on a profitable model (Fable I1: compare k, not charge, to spread)', () => {
+  // charge £90 » spread ~£54.5, but k = (1/0.88−1)·90 ≈ £12.3 « £54.5 → profitable
+  const m = parse(['battery: 100MW / 200MWh', 'spread: 35..85', 'charge: 90',
+    'rte: 88%', 'fade: 0.01 %/cycle', 'calendar: 1.5 %/yr', 'cycles: 6000 over 20yr'].join('\n'));
+  assert.ok(!m.warnings.some(w => w.includes('efficiency penalty') || w.includes('charging costs')),
+    'a profitable model must not warn: ' + JSON.stringify(m.warnings));
 });
