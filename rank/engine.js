@@ -170,8 +170,7 @@ export function perRowKnife(state, nudge = 0.1){
   const valid = i => { const it = state.items[i]; return it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0; };
   const rankOf = ws => {                       // pos[] over all items; ranks the valid ones by score desc, tie→name
     const score = it => state.criteria.reduce((a, c, ci) => a + ws[ci] * it.s[ci], 0) / it.e;
-    const order = idx.filter(valid).sort((a, b) => (score(state.items[b]) - score(state.items[a])) ||
-      (state.items[a].name || '').localeCompare(state.items[b].name || ''));
+    const order = idx.filter(valid).sort((a, b) => score(state.items[b]) - score(state.items[a]));   // stable, no tie-break (matches baseOrder)
     const pos = []; order.forEach((it, r) => { pos[it] = r; }); return pos;
   };
   const w0 = state.criteria.map(c => c.w);

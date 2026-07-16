@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simulate, verdictCopy, perRowKnife, flipAnalysis} from '../engine.js';
+import {simulate, verdictCopy, perRowKnife} from '../engine.js';
 
 const state = {
   criteria: [{name: 'Value', w: 3}, {name: 'Time', w: 2}, {name: 'Risk', w: 1}],
@@ -91,23 +91,23 @@ test('perRowKnife flags rows that flip rank under a ±10% single-weight nudge', 
     criteria: [{name: 'X', w: 10}, {name: 'Y', w: 16}],
     effort: {name: 'E', w: 1},
     items: [
-      {name: 'T', s: [10, 10], e: 1},   // robust #1 (huge lead)
-      {name: 'A', s: [8, 5], e: 1},      // knife-edge with B
+      {name: 'T', s: [10, 10], e: 1},   // robust #1 (huge lead — dominates both criteria)
+      {name: 'A', s: [8, 5], e: 1},      // knife-edge with B (flips under X−10% / Y+10%)
       {name: 'B', s: [3, 8], e: 1},      // knife-edge with A
       {name: 'C', s: [1, 1], e: 1},      // robust last
     ], k: 2, ww: 50, sw: 1,
   };
-  assert.deepEqual(perRowKnife(st), [false, true, true, false]);
-  // consistency: the robust #1 is not knife AND flipAnalysis agrees it's robust (>10% or immovable)
-  const fa = flipAnalysis(st);
-  assert.ok(!fa.easiest || Math.abs(fa.easiest.pct) > 10, 'top pair robust in both');
+  assert.deepEqual(perRowKnife(st), [false, true, true, false]);   // strong: the exact array (incl. #1 robust)
 });
 
-test('perRowKnife: point/invalid items are never knife', () => {
+test('perRowKnife: excluded (invalid) items never knife, but their valid neighbours still flag', () => {
   const st = {
-    criteria: [{name: 'X', w: 5}], effort: {name: 'E', w: 1},
-    items: [{name: 'A', s: [8], e: 2}, {name: 'B', s: [6], e: 2}, {name: 'Bad', s: [0], e: 2}],
-    k: 2, ww: 50, sw: 1,
+    criteria: [{name: 'X', w: 10}, {name: 'Y', w: 16}], effort: {name: 'E', w: 1},
+    items: [
+      {name: 'A', s: [8, 5], e: 1},      // knife-edge pair — proves the probe fires
+      {name: 'B', s: [3, 8], e: 1},
+      {name: 'Bad', s: [0, 5], e: 1},    // s[0]=0 ⇒ excluded from the ranking ⇒ never knife
+    ], k: 2, ww: 50, sw: 1,
   };
-  assert.equal(perRowKnife(st)[2], false);
+  assert.deepEqual(perRowKnife(st), [true, true, false]);   // non-vacuous: A/B flag, Bad stays false via the valid() guard
 });

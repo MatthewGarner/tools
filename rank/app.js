@@ -74,13 +74,27 @@ function renderHead(){
     // name edit updates BOTH labels; no resim (names don't affect the numeric result — batch 7)
     nm.addEventListener('input', () => { c.name = nm.value; slab.textContent = nm.value || 'Criterion';
       w.setAttribute('aria-label', nm.value + ' weight'); scheduleHashOnly(400); });
-    // drag ANY control = live deterministic re-rank (FLIP); MC re-runs on commit (change)
-    const setW = val => { c.w = val; w.value = val; sl.value = val; ssl.value = val;
-      sval.textContent = Math.round(val * 10) / 10; liveReweight(); };
-    w.addEventListener('input', () => setW(parseFloat(w.value) || 0));
-    sl.addEventListener('input', () => setW(parseFloat(sl.value)));
-    ssl.addEventListener('input', () => setW(parseFloat(ssl.value)));
-    const commit = () => schedule(0);
+    // drag/type ANY control = live deterministic re-rank (FLIP); MC re-runs on commit (change).
+    // NEVER write back to the control the user is typing in (C1: Chrome returns '' for '1.', so a
+    // write-back stomps the keystroke). A debounced safety commit (I2) covers drag-back-to-start /
+    // typed edits, where `change` may never fire.
+    const setW = (val, src) => {
+      if(!isFinite(val)) return;
+      c.w = val;
+      if(src !== w) w.value = val;
+      if(src !== sl) sl.value = val;
+      if(src !== ssl) ssl.value = val;
+      sval.textContent = Math.round(val * 10) / 10;
+      liveReweight();
+      schedule(600);
+    };
+    w.addEventListener('input', () => { if(w.value !== '') setW(parseFloat(w.value), w); });
+    sl.addEventListener('input', () => setW(parseFloat(sl.value), sl));
+    ssl.addEventListener('input', () => setW(parseFloat(ssl.value), ssl));
+    const commit = () => {
+      if(w.value === ''){ c.w = 0; w.value = 0; sl.value = 0; ssl.value = 0; sval.textContent = 0; }   // coerce empty→0 only on blur
+      schedule(0);
+    };
     [w, sl, ssl].forEach(el => el.addEventListener('change', commit));
     wrow.append(wl, w, sl);
     th.append(nm, wrow);
@@ -163,9 +177,10 @@ function liveReweight(){
   if(!lastResult || !holder.children.length) return;
   const valid = it => it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0;
   const score = it => state.criteria.reduce((a, c, ci) => a + c.w * it.s[ci], 0) / it.e;
+  // stable sort over index-ascending, NO name tie-break — matches simulate()'s baseOrder exactly
+  // (which has none), so genuinely-tied rows don't fake a flip on-screen then snap back on commit (I1)
   const order = state.items.map((_, i) => i).filter(i => valid(state.items[i]))
-    .sort((a, b) => (score(state.items[b]) - score(state.items[a])) ||
-      (state.items[a].name || '').localeCompare(state.items[b].name || ''));
+    .sort((a, b) => score(state.items[b]) - score(state.items[a]));
   const old = captureFlip(holder, 'data-item-idx');
   order.forEach((idx, pos) => {
     const row = holder.querySelector('.rrow[data-item-idx="' + idx + '"]');

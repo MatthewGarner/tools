@@ -190,6 +190,27 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// rank robustness shuffle on a phone: the header (with the desktop weight sliders) is
+// display:none below 640px, so the drag-weights mechanism relies on the #wstrip surface —
+// which must be visible, ≥44px, and actually re-rank the rows when dragged.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/rank/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(500);
+  const chip = await page.$('.chip');
+  if(chip){ await chip.click(); await page.waitForTimeout(500); }
+  const strip = await page.$$eval('#wstrip .wslider', els => els.map(e => Math.round(e.getBoundingClientRect().height)));
+  ok(strip.length >= 2, `rank: phone weight strip present (${strip.length} sliders)`);
+  ok(strip.every(h => h >= 44), `rank: phone weight sliders ≥44px (${strip.join(',')})`);
+  const before = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
+  const sliders = await page.$$('#wstrip .wslider');
+  if(sliders.length){ await sliders[sliders.length - 1].evaluate(el => { el.value = el.max; el.dispatchEvent(new Event('input', {bubbles:true})); }); }
+  await page.waitForTimeout(200);
+  const after = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
+  ok(before !== after, `rank: dragging a phone weight re-ranks the rows`);
+  await page.close();
+}
+
 // timeline phone behaviour (Ship 2 SUPERSEDES Ship 1's coarse-pointer pan): below
 // 520px the board RELAYOUTS into stacked rows on a shared axis (the house "relayout,
 // not pan" bar), so the whole board fits the pane and there is no horizontal pan. The
