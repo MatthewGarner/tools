@@ -447,10 +447,10 @@ for(const [k, src] of Object.entries(docs)){
     'App: Next thing 2026-08-20';
   variants['timeline-longnote'] = trender(tparse(tlNote), {...tctx});
 
-  // narrow relayout (Ship 2): the same docs at a phone container width. Until
-  // renderNarrow exists these capture the WIDE board (ctx.width ignored) — the
-  // renderNarrow task turns them into the stacked shared-axis relayout (the
-  // reviewed golden diff). The diff variant carries width in its ctx (2nd arg).
+  // narrow relayout (Ship 2): the same docs at a phone container width render the
+  // stacked shared-axis relayout (renderNarrow) — lane sections, per-milestone track
+  // bands with the whisker on one shared axis. The diff variant carries width in its
+  // ctx (2nd arg) so compare (ghosts/slips/since/NEW/dropped) is exercised on narrow.
   variants['timeline-narrow'] = trender(tm, {...tctx, width: 360});
   variants['timeline-narrow-diff'] = trender(tm, {...tctx, width: 360},
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));

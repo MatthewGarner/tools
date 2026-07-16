@@ -195,6 +195,26 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// timeline phone-export exception (Fable): below 520px the PREVIEW is the narrow
+// relayout, but Download SVG must still export the WIDE board — exports never set
+// ctx.width. The renderer half is unit-tested; this closes the app-wiring half (a
+// future width leak into svgString/ctx() would otherwise ship a phone-sized export).
+{
+  const ectx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce', acceptDownloads: true});
+  const page = await ectx.newPage();
+  await page.goto(T + '/timeline/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+  ok(await page.evaluate(() => !!document.querySelector('#preview svg[data-narrow]')),
+    'timeline: the phone PREVIEW is the narrow relayout (precondition for the export check)');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlsvg')]);
+  const svg = await readFile(await dl.path(), 'utf8');
+  const w = parseInt((svg.match(/<svg[^>]*width="(\d+)"/) || [])[1] || '0', 10);
+  ok(!/data-narrow/.test(svg), 'timeline: phone Download SVG is the WIDE board (no data-narrow), not the narrow preview');
+  ok(w > 520, `timeline: phone Download SVG keeps the wide board width (${w} > 520)`);
+  await page.close();
+  await ectx.close();
+}
+
 // premortem register-phase walk: the register is behind the wizard, so drive a
 // fresh doc to a populated REGISTER on a phone and prove the dense table's own
 // horizontal scroll stays inside .registerwrap and never blows out the page body

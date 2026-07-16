@@ -203,17 +203,25 @@ function renderNarrow(model, ctx, C, today, diff){
   }
 
   /* month labels at the TOP only — the gridlines + the TODAY rule live INSIDE each
-     whisker track below (per-track segments over a faint band), so no vertical scale
-     line ever crosses a milestone's left-aligned label text. Greedy label placement:
-     never off-canvas-left, never colliding, never under the TODAY flag. */
+     whisker track below, so no vertical scale line ever crosses a milestone's
+     left-aligned label text. Labels are COMPACT ("Aug", not "Aug 2026") so the phone
+     header reads as a real scale — the year rides along only at year-turns and on the
+     first label shown. Greedy: never off-canvas-left, never colliding, never under
+     the TODAY flag. */
   const tickX = ticks(lo, hi).map(tk => ({x: X(tk.day), label: tk.label}));
-  let lastLabelR = -1e9;
+  const compact = (label, first) => {                 // "Aug 2026"→"Aug"; year at Jan/Q1 or the first shown
+    const sp = label.indexOf(' ');
+    const head = sp < 0 ? label : label.slice(0, sp);
+    return (first || head === 'Jan' || head === 'Q1') && sp >= 0 ? head + " '" + label.slice(-2) : head;
+  };
+  let lastLabelR = -1e9, firstLabel = true;
   for(const tk of tickX){
-    const lw = measure(tk.label, '10px ' + F.body), l = tk.x - lw / 2, r = tk.x + lw / 2;
+    const lab = compact(tk.label, firstLabel);
+    const lw = measure(lab, '10px ' + F.body), l = tk.x - lw / 2, r = tk.x + lw / 2;
     const underFlag = todayVisible && r >= flagL - 3 && l <= flagR + 3;
     if(l >= 2 && r <= W - 2 && l >= lastLabelR + 6 && !underFlag){
-      s.push(txt(tk.x, AXIS - 9, tk.label, 10, C.muted, {anchor: 'middle'}));
-      lastLabelR = r;
+      s.push(txt(tk.x, AXIS - 9, lab, 10, C.muted, {anchor: 'middle'}));
+      lastLabelR = r; firstLabel = false;
     }
   }
 
@@ -251,8 +259,8 @@ function renderNarrow(model, ctx, C, today, diff){
     });
     const titleBottom = ty + (titleLines.length - 1) * TITLE_LH;
     if(diff && diff.newKeys.has(k))
-      s.push(txt(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, titleBottom, 'NEW', 8.5,
-        C.accent, {weight: 600, tracking: 0.6}));
+      s.push(txt(Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, W - PAD - 24),
+        titleBottom, 'NEW', 8.5, C.accent, {weight: 600, tracking: 0.6}));   // clamp so it never clips off-canvas
     const subLines = wrapText(subOf(it), noteFont, plotW, measure);
     s.push(txt(PAD, titleBottom + DATES_LH, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted));
 
@@ -289,8 +297,8 @@ function renderNarrow(model, ctx, C, today, diff){
     s.push(diamond(x50, cy, msR, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
       (it === nextUp ? ' data-next=""' : '')));
     if(ghost && ghost.slipDays)
-      s.push(txt(x50 + msR + 4, cy - 5, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 9.5,
-        ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.card}));
+      s.push(txt(x50 + msR + 4, cy - 4, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 9.5,
+        ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.card}));   // baseline inside the band
   }
 
   /* dropped list (compare) at the foot */
