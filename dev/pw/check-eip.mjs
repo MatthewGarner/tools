@@ -1453,7 +1453,7 @@ check('no console/page errors', errors.length === 0);
   await tapCard(3);
   await p.waitForTimeout(200);
   check('map: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Remove');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Move…|Remove');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -1487,6 +1487,54 @@ check('no console/page errors', errors.length === 0);
   check('map: menu Remove drops the card', !tRemove.includes('Users will log habits daily'));
   await undo();
   check('map: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+  /* Move…: the menu row arms a one-shot tap-the-plane placement (built for
+     coarse pointers, but not gated — it works with a mouse too) */
+  await tapCard(3);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
+  await p.waitForTimeout(250);
+  check('map: Move… arms the placement hint and commits nothing',
+    await p.locator('.placehint').count() === 1 &&
+    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+  const plane0 = await p.locator('#preview svg rect[data-plane]').boundingBox();
+  await p.mouse.click(plane0.x + plane0.width * 0.25, plane0.y + plane0.height * 0.25);
+  await p.waitForTimeout(600);
+  check('map: the place-tap writes @ 25,75 as one text edit',
+    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Users will log habits daily @ 25,75'));
+  check('map: placement disarms after the tap', await p.locator('.placehint').count() === 0);
+  await undo();
+  check('map: one undo restores the pre-move baseline',
+    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+  /* an off-plane tap cancels the armed placement without a write */
+  await tapCard(3);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
+  await p.waitForTimeout(250);
+  await p.mouse.click(plane0.x + plane0.width / 2, plane0.y - 40);
+  await p.waitForTimeout(400);
+  check('map: an off-plane tap cancels the placement, nothing written',
+    await p.locator('.placehint').count() === 0 &&
+    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+  /* tray items get the same menu with Place on map… — the unplaced item's
+     only non-drag placement path */
+  const trayHit = p.locator('#preview svg g[data-tray] rect[data-hit]');
+  const trayBox = await trayHit.boundingBox();
+  await p.mouse.click(trayBox.x + 4, trayBox.y + trayBox.height / 2);
+  await p.waitForTimeout(200);
+  check('map: tray card menu offers Place on map…',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Place on map…|Remove');
+  await p.locator('.eip-pop button', {hasText: 'Place on map…'}).click();
+  await p.waitForTimeout(250);
+  await p.mouse.click(plane0.x + plane0.width * 0.6, plane0.y + plane0.height * 0.3);
+  await p.waitForTimeout(600);
+  check('map: placing the tray item writes @ 60,70 (leaves the tray)',
+    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Legal sign-off on health claims @ 60,70'));
+  await undo();
+  check('map: one undo restores the pre-place baseline',
+    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
 
   /* real mouse drag: "Streak anxiety drives churn" (@ 75,80) dropped near
      the plane centre rewrites its position and must NOT open a card menu */
@@ -2262,6 +2310,67 @@ check('no console/page errors', errors.length === 0);
     await p.waitForTimeout(600);
     check('phone map: ↶ Undo restores the removed line',
       (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+    /* Move… (mobile-input map stage): the card menu arms a ONE-SHOT
+       tap-the-plane placement — the coarse repositioning path (the fine drag
+       needs a mouse). The tap's client coords map through the plane rect's
+       live getBoundingClientRect, so the coarse 100% zoom + pan are already
+       in the maths; assert the written @ x,y lands within ±2 of the tap. */
+    const mHit = p.locator('#preview svg g[data-edit="cardmenu"][data-line="3"] rect[data-hit]');
+    await mHit.scrollIntoViewIfNeeded();
+    await p.waitForTimeout(300);
+    const mBox = await mHit.boundingBox();
+    await p.mouse.click(mBox.x + 4, mBox.y + mBox.height / 2);
+    await p.waitForTimeout(250);
+    check('phone map: the card menu offers Move…',
+      await p.locator('.eip-pop button', {hasText: 'Move…'}).count() === 1);
+    await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
+    await p.waitForTimeout(300);
+    check('phone map: Move… arms the hint (with a Cancel), commits nothing',
+      await p.locator('.placehint').count() === 1 &&
+      await p.locator('.placehint .btn', {hasText: 'Cancel'}).count() === 1 &&
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+    /* tap a point inside plane ∩ preview clip ∩ viewport (the plane is wider
+       than the phone; only the visible part is tappable, as for a real thumb) */
+    const plane = await p.locator('#preview svg rect[data-plane]').boundingBox();
+    const pvBox = await p.locator('#preview').boundingBox();
+    const vp = p.viewportSize();
+    const x0 = Math.max(plane.x, pvBox.x, 0) + 12, x1 = Math.min(plane.x + plane.width, pvBox.x + pvBox.width, vp.width) - 12;
+    const y0 = Math.max(plane.y, pvBox.y, 0) + 12, y1 = Math.min(plane.y + plane.height, pvBox.y + pvBox.height, vp.height) - 12;
+    const tapX = (x0 + x1) / 2, tapY = (y0 + y1) / 2;
+    const expX = Math.round((tapX - plane.x) / plane.width * 100);
+    const expY = Math.round((1 - (tapY - plane.y) / plane.height) * 100);
+    await p.touchscreen.tap(tapX, tapY);
+    await p.waitForTimeout(700);
+    const mPlaced = (await p.evaluate(() => localStorage.getItem('map-src'))).match(/Users will log habits daily @ (\d+),(\d+)/);
+    check('phone map: the place-tap writes @ x,y within ±2 of the tapped point',
+      mPlaced && Math.abs(+mPlaced[1] - expX) <= 2 && Math.abs(+mPlaced[2] - expY) <= 2);
+    check('phone map: placement disarms after the tap', await p.locator('.placehint').count() === 0);
+    check('phone map: coarse place does NOT focus the editor (no soft-keyboard jump)',
+      await p.evaluate(() => !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.cm-editor'))));
+    check('phone map: no page h-scroll while placing',
+      await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    await settledTap(p, p.locator('.actions .touch-undo'));
+    await p.waitForTimeout(600);
+    check('phone map: ↶ Undo reverts the placement',
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
+    /* the armed state is escapable (no silent trap): Cancel disarms, no write */
+    await mHit.scrollIntoViewIfNeeded();
+    await p.waitForTimeout(300);
+    const mBox2 = await mHit.boundingBox();
+    await p.mouse.click(mBox2.x + 4, mBox2.y + mBox2.height / 2);
+    await p.waitForTimeout(250);
+    await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
+    await p.waitForTimeout(300);
+    const cBox = await p.locator('.placehint .btn').boundingBox();
+    check('phone map: the hint Cancel is a >=44px target', cBox.height >= 44);
+    await p.touchscreen.tap(cBox.x + cBox.width / 2, cBox.y + cBox.height / 2);
+    await p.waitForTimeout(300);
+    check('phone map: Cancel disarms without a write',
+      await p.locator('.placehint').count() === 0 &&
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+
     check('phone map: no console/page errors', errs.length === 0);
     await p.close();
   }
