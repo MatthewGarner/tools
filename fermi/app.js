@@ -4,6 +4,7 @@ import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, sig, fmt} from './engine.js';
 import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
+import {histLayout} from './histlayout.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
@@ -537,37 +538,21 @@ function drawHist(hoverIdx){
   ctx.clearRect(0, 0, cw, ch);
   const C = themeColors();
 
-  const lo = quantile(r.sorted, .003), hi = quantile(r.sorted, .997);
-  if(!(hi > lo)) return;
-  const useLog = lo > 0 && hi / lo > 30;
-  const tx = useLog ? Math.log : (x => x);
-  const tlo = tx(lo), thi = tx(hi);
-  const NB = 44;
-  const counts = new Array(NB).fill(0);
-  let total = 0;
-  for(let i = 0; i < r.valid.length; i++){
-    const v = r.valid[i];
-    if(v < lo || v > hi) continue;
-    let b = Math.floor((tx(v) - tlo) / (thi - tlo) * NB);
-    if(b === NB) b = NB - 1;
-    if(b >= 0 && b < NB){ counts[b]++; total++; }
-  }
-  const cmax = Math.max(...counts) || 1;
-  const padT = 26, padB = 20;
+  const tv = threshValue();
+  const L = histLayout(r.sorted, {width: cw, threshold: tv});   // the shared geometry seam
+  if(!L.ok) return;
+  const {lo, hi, useLog, tx, inv, tlo, thi, NB, px, cmax} = L;
+  bins = L.bins;
+  const padT = 26, padB = 20;         // drawing constants — stay local to drawHist
   const plotH = ch - padT - padB;
   const bw = cw / NB;
-  const inv = useLog ? Math.exp : (x => x);
 
-  const tv = threshValue();
-  bins = [];
   for(let b = 0; b < NB; b++){
-    const x0v = inv(tlo + (thi - tlo) * b / NB);
-    const x1v = inv(tlo + (thi - tlo) * (b + 1) / NB);
-    bins.push({x: b * bw, w: bw, v0: x0v, v1: x1v, share: counts[b] / total});
-    const h = counts[b] / cmax * plotH;
+    const bin = bins[b];
+    const h = bin.count / cmax * plotH;
     if(h < 0.5) continue;
     ctx.fillStyle = (active === 'A') ? C.accent : C.accent2;
-    const base = (tv === null) ? 0.82 : ((x0v + x1v) / 2 > tv ? 0.95 : 0.4);
+    const base = (tv === null) ? 0.82 : ((bin.v0 + bin.v1) / 2 > tv ? 0.95 : 0.4);
     ctx.globalAlpha = (hoverIdx === b) ? 1 : base;
     const bx = b * bw + 1, bwv = Math.max(1, bw - 2), by = padT + plotH - h;
     ctx.beginPath();
@@ -586,7 +571,6 @@ function drawHist(hoverIdx){
   ctx.stroke();
 
   /* percentile markers */
-  const px = v => (tx(v) - tlo) / (thi - tlo) * cw;
   ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
   for(const [v, name] of [[r.p10, 'P10'], [r.p50, 'P50'], [r.p90, 'P90']]){
     const x = px(v);
