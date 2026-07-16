@@ -65,7 +65,9 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
 function auditsFor(bet, ev){
   const a = [];
   if(!bet.kill) a.push('NO KILL CRITERION');
-  if(bet.odds && (bet.odds[0] >= 90 || (bet.odds[1] - bet.odds[0]) < 10)) a.push('ODDS IMPLY CERTAINTY');
+  // near-certainty at EITHER extreme (a fact dressed as a forecast); a tight
+  // MID band is over-precision, a different sin — it must not stamp here.
+  if(bet.odds && (bet.odds[0] >= 90 || bet.odds[1] <= 10)) a.push('ODDS IMPLY CERTAINTY');
   if(ev.p50 < 0) a.push('LOSES AT P50');
   return a;
 }
