@@ -39,15 +39,11 @@ export function editDates(line, oldRaw, newRaw){
   return line.slice(0, i) + newRaw.trim() + line.slice(i + oldRaw.length);
 }
 
-/* status cycles '' → done → risk → '' on the P50 diamond (fine-pointer wide step) */
-export function cycleStatus(line, oldStatus){
-  const order = ['', ...STATUSES];
-  return setStatus(line, order[(order.indexOf(oldStatus || '') + 1) % order.length]);
-}
-
 /* SET a milestone's status to an explicit value (the generalisation of the old
    cycleStatus's strip+insert — a coarse tap picks the value from a marked list
-   rather than blind-stepping). '' clears the tag; an unknown value is a no-op.
+   rather than blind-stepping; a fine click still steps because edit-in-place
+   hands us the next value from the cycle array). '' clears the tag; an unknown
+   value is a no-op.
    Comment-aware: the [tag] lands before the // note, never inside it. Both the
    FINE instant-step (edit-in-place hands us the cycled-to value) and the COARSE
    picker (the picked value) route here, so one setter serves both. */

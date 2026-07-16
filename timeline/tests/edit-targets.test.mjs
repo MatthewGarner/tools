@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, editLabel, editDates, cycleStatus, setStatus, setLane, editNote, addItemLine, removeItemLine}
+import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine}
   from '../edit-targets.js';
 
 test('validators: labels reject dates/config/brackets; dates accept 1–2 parseable dates', () => {
@@ -20,15 +20,6 @@ test('editLabel / editDates rewrite in place', () => {
     'Grid: Connection offer 2026-08 .. 2026-10 [risk] // note');
   assert.equal(editDates(line, '2026-08 .. 2026-10', '2026-09 .. 2026-12'),
     'Grid: Offer 2026-09 .. 2026-12 [risk] // note');
-});
-
-test('cycleStatus: none → done → risk → none, note preserved', () => {
-  const base = 'Grid: Offer 2026-08 .. 2026-10 // note';
-  const done = cycleStatus(base, '');
-  assert.equal(done, 'Grid: Offer 2026-08 .. 2026-10 [done] // note');
-  const risk = cycleStatus(done, 'done');
-  assert.equal(risk, 'Grid: Offer 2026-08 .. 2026-10 [risk] // note');
-  assert.equal(cycleStatus(risk, 'risk'), base);
 });
 
 test('addItemLine: after the last item, dated around today, placeholder selectable', () => {
