@@ -231,6 +231,21 @@ test('timeline renderer escapes hostile lanes, labels and notes', async () => {
   assertClean(render(parse(doc), ctx, null, {edit: true}), 'timeline');
 });
 
+test('timeline NARROW renderer escapes hostile text (title/label/note + since-line + dropped)', async () => {
+  const {parse} = await import('../timeline/parse.js');
+  const {render} = await import('../timeline/render.js');
+  const {timelineDiff, timelineDiffView} = await import('../timeline/diff.js');
+  const doc = 'title: ' + EVIL[0] + '\n' +
+    EVIL.map((e, i) => e.replace(/[:\[\]]/g, ' ') + ': item ' + i + ' 2026-0' + (i % 8 + 1) +
+      ' .. 2026-1' + (i % 2) + ' // ' + EVIL[(i + 2) % EVIL.length]).join('\n');
+  // plain narrow (edit:true — narrow still emits NO edit markup, and escapes everything)
+  assertClean(render(parse(doc), {...ctx, width: 360}, null, {edit: true}), 'timeline-narrow');
+  // hostile-diff narrow: an EVIL snapshot label → since-line, an EVIL dropped-item label
+  const dropLine = 'Drop: ' + EVIL[3].replace(/[:\[\]\/]/g, ' ').trim() + ' 2026-05 .. 2026-07';
+  const diff = timelineDiffView(timelineDiff(parse(doc + '\n' + dropLine), parse(doc)), EVIL[0]);
+  assertClean(render(parse(doc), {...ctx, width: 360}, diff), 'timeline-narrow-diff');
+});
+
 test('bets board renderer escapes hostile bet names, kill text, title, lane', async () => {
   const {parse} = await import('../bets/parse.js');
   const {simulate} = await import('../bets/engine.js');

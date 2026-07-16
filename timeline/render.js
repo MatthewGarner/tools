@@ -3,7 +3,7 @@
    uncertainty IS the picture: solid diamond at P50, whisker to an open diamond
    at P90 — no bar edges pretending to be commitments. */
 import {PALETTES, scheme} from '../assets/series.js';
-import {esc, txt, tint} from '../assets/svg.js';
+import {esc, txt, tint, wrapText} from '../assets/svg.js';
 import {fmtDay, STATUSES} from './parse.js';
 import {mergeBias} from './mergebias.js';
 
@@ -142,6 +142,159 @@ export function posterVerdict(model, today){
   return mb ? mergeCopy(mb).full : restBits(model, today);
 }
 
+/* Narrow (phone) relayout: lane sections stack top-to-bottom; each milestone is a
+   full-width ROW — a wrapped bold title + a muted dates/note line, then its whisker
+   on a SHARED time axis so equal date-ranges get equal pixel widths ("widest
+   whisker" reads the same as on desktop). One month-tick scale header at the top
+   (labels placed greedily, never off-canvas-left and never under the TODAY flag);
+   TODAY a dashed rule through every row. Preview-only (exports never set ctx.width);
+   inline edits are gated OUT (below 44px — edit via the DSL editor) but compare
+   (ghosts/slips/since/NEW/dropped) stays. Self-contained early-return, mirroring
+   roadmap/wardley's renderNarrow. S is always 1 here — narrow never scales, so
+   radii and spacings are plain constants; the backdrop is prepended once at the
+   end (single-pass height, no string surgery). */
+function renderNarrow(model, ctx, C, today, diff){
+  const {measure} = ctx;
+  const dark = !!ctx.dark;
+  const items = model.items;
+  const W = ctx.width;
+  const PAD = 16, msR = 5;
+  const sinceH = diff ? 16 : 0;
+  const AXIS = 26 + sinceH;                          // header: since-row (compare) + tick/flag band
+  const LANEHDR = 22, LANEGAP = 8;
+  const TITLE_LH = 17, DATES_LH = 15, TRACK = 22, ROWGAP = 14, TOPPAD = 8, BOTPAD = 14;
+  const titleFont = '600 12.5px ' + F.body, noteFont = '10.5px ' + F.body;
+  const colorOf = it => it.status === 'done' ? C.status.done : it.status === 'risk' ? C.err : C.accent;
+
+  /* shared time axis — the exact wide-path domain */
+  const lo0 = Math.min(...items.map(i => i.p50), today);
+  const hi0 = Math.max(...items.map(i => i.p90), today);
+  const ghostDays = diff ? [...diff.byKey.values()].map(g => g.oldP50) : [];
+  const lo1 = Math.min(lo0, ...ghostDays), hi1 = Math.max(hi0, ...ghostDays);
+  const padD = Math.max(14, Math.round((hi1 - lo1) * 0.05));
+  const lo = lo1 - padD, hi = hi1 + padD;
+  const plotX = PAD, plotW = W - PAD * 2;
+  const X = day => plotX + (day - lo) / (hi - lo) * plotW;
+
+  /* pass 1 — lay out lanes/rows, recording each block's top */
+  const laid = [];
+  let y = AXIS + TOPPAD;
+  for(const lane of model.lanes){
+    if(lane){ y += LANEGAP; laid.push({header: lane, top: y}); y += LANEHDR; }
+    for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
+      const titleLines = wrapText(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''),
+        titleFont, plotW, measure);
+      laid.push({it, titleLines, top: y});
+      y += titleLines.length * TITLE_LH + DATES_LH + TRACK + ROWGAP;
+    }
+  }
+  const contentBottom = y - ROWGAP;                  // strip the trailing gap (BOTPAD added once at H)
+
+  const nextUp = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0] || items[0];
+  const s = [];
+
+  /* TODAY flag rect computed first so the tick labels can dodge it (Fable M6) */
+  const todayVisible = today >= lo && today <= hi;
+  let flagL = Infinity, flagR = -Infinity;
+  if(todayVisible){
+    const x = X(today);
+    const pw = measure('TODAY', '700 8px ' + F.body) + 10;
+    flagL = (x + pw > W - 2) ? x - pw : x; flagR = flagL + pw;
+  }
+
+  /* tick header: full-height gridlines + greedily-placed month labels (never
+     off-canvas-left, never colliding, never under the TODAY flag) */
+  let lastLabelR = -1e9;
+  for(const tk of ticks(lo, hi)){
+    const x = X(tk.day);
+    s.push('<line x1="' + x.toFixed(1) + '" y1="' + AXIS + '" x2="' + x.toFixed(1) + '" y2="' +
+      contentBottom.toFixed(1) + '" stroke="' + C.border + '" stroke-width="1" opacity="0.4"/>');
+    const lw = measure(tk.label, '10px ' + F.body), l = x - lw / 2, r = x + lw / 2;
+    const underFlag = todayVisible && r >= flagL - 3 && l <= flagR + 3;
+    if(l >= 2 && r <= W - 2 && l >= lastLabelR + 6 && !underFlag){
+      s.push(txt(x, AXIS - 9, tk.label, 10, C.muted, {anchor: 'middle'}));
+      lastLabelR = r;
+    }
+  }
+
+  /* TODAY dashed rule through all rows + the flag capping it */
+  if(todayVisible){
+    const x = X(today);
+    s.push('<line data-today="" x1="' + x.toFixed(1) + '" y1="' + (sinceH + 15) + '" x2="' +
+      x.toFixed(1) + '" y2="' + contentBottom.toFixed(1) + '" stroke="' + C.ink +
+      '" stroke-width="1.5" stroke-dasharray="5 3"/>');
+    s.push('<rect x="' + flagL.toFixed(1) + '" y="' + (sinceH + 1) + '" width="' + (flagR - flagL).toFixed(1) +
+      '" height="14" rx="3" fill="' + C.ink + '"/>');
+    s.push(txt((flagL + flagR) / 2, sinceH + 11, 'TODAY', 8, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
+  }
+
+  /* since-line (compare): its OWN top row, left-aligned (Fable I4). Descriptive
+     text (here + titles/dates/lane heads/dropped) carries a C.bg halo so the
+     gridlines and the TODAY rule read BEHIND it, never through it. */
+  if(diff){
+    const sl = wrapText(diff.sinceLine, noteFont, plotW, measure);
+    s.push(txt(PAD, 11, sl[0] + (sl.length > 1 ? '…' : ''), 10, C.accent, {weight: 600, halo: C.bg}));
+  }
+
+  const diamond = (cx, cy, r, fill, stroke, extra = '') =>
+    '<path' + extra + ' d="M' + cx.toFixed(1) + ' ' + (cy - r).toFixed(1) + ' L' + (cx + r).toFixed(1) +
+    ' ' + cy.toFixed(1) + ' L' + cx.toFixed(1) + ' ' + (cy + r).toFixed(1) + ' L' + (cx - r).toFixed(1) +
+    ' ' + cy.toFixed(1) + ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>';
+
+  /* pass 2 — lane headers + milestone rows */
+  for(const row of laid){
+    if(row.header){
+      s.push(txt(PAD, row.top + 15, row.header.toUpperCase(), 10.5, C.muted, {weight: 600, tracking: 1, halo: C.bg}));
+      continue;
+    }
+    const {it, titleLines, top} = row;
+    const col = colorOf(it), k = keyOf(it);
+    const ty = top + 13;
+    titleLines.forEach((ln, i) => {
+      s.push(txt(PAD, ty + i * TITLE_LH, ln, 12.5, C.ink, {weight: 600, halo: C.bg}));
+    });
+    const titleBottom = ty + (titleLines.length - 1) * TITLE_LH;
+    if(diff && diff.newKeys.has(k))
+      s.push(txt(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, titleBottom, 'NEW', 8.5,
+        C.accent, {weight: 600, tracking: 0.6, halo: C.bg}));
+    const subLines = wrapText(subOf(it), noteFont, plotW, measure);
+    s.push(txt(PAD, titleBottom + DATES_LH, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted, {halo: C.bg}));
+    /* whisker track on the shared axis */
+    const cy = titleBottom + DATES_LH + 4 + TRACK / 2;
+    const x50 = X(it.p50), x90 = X(it.p90);
+    const ghost = diff && diff.byKey.get(k);
+    if(ghost && ghost.oldP50 !== it.p50){
+      const gx = X(ghost.oldP50);
+      s.push('<line x1="' + gx.toFixed(1) + '" y1="' + cy.toFixed(1) + '" x2="' + x50.toFixed(1) + '" y2="' +
+        cy.toFixed(1) + '" stroke="' + C.muted + '" stroke-width="1" stroke-dasharray="2 3" opacity="0.8"/>');
+      s.push(diamond(gx, cy, msR * 0.85, 'none', C.muted, ' data-ms="ghost" stroke-dasharray="2 2"'));
+    }
+    if(!it.single && x90 - x50 > 1){
+      const bh = 12;
+      s.push('<rect data-ms="whisker" x="' + x50.toFixed(1) + '" y="' + (cy - bh / 2).toFixed(1) + '" width="' +
+        (x90 - x50).toFixed(1) + '" height="' + bh + '" rx="' + (bh / 2) + '" fill="' + whiskerFill(col, dark) + '"/>');
+      s.push(diamond(x90, cy, msR * 0.8, C.card, col, ' data-ms="p90"'));
+    }
+    s.push(diamond(x50, cy, msR, col, C.card, ' data-ms="p50" data-mskey="' + esc(k) + '"' +
+      (it === nextUp ? ' data-next=""' : '')));
+    if(ghost && ghost.slipDays)
+      s.push(txt(x50 + msR + 4, cy - 5, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 9.5,
+        ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.bg}));
+  }
+
+  /* dropped list (compare) at the foot */
+  let dy = contentBottom;
+  if(diff && diff.dropped.length){
+    dy += 14;
+    s.push(txt(PAD, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), 10, C.muted, {weight: 600, tracking: 1, halo: C.bg}));
+    for(const label of diff.dropped){ dy += 14; s.push(txt(PAD, dy, label, 10.5, C.muted, {strike: true, halo: C.bg})); }
+  }
+  const H = Math.round(dy + BOTPAD);
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + F.body + '">' +
+    '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+}
+
 export function render(model, ctx, diff = null, {edit = false} = {}){
   const {measure, slide = false, dark = false} = ctx;
   const bare = !!ctx.bare;            // poster-embed: drop chrome the frame owns
@@ -152,6 +305,10 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const S = slide ? T.slideScale : 1;
   const today = model.today ?? ctx.today;
   const items = model.items;
+
+  /* narrow (phone) relayout — preview-only early return; exports never set width */
+  const NARROW = 520;
+  if(ctx.width && ctx.width < NARROW && items.length) return renderNarrow(model, ctx, C, today, diff);
 
   /* readout rows computed up front (H depends on the count): the merge-bias
      short line leads when applicable, then the operational bits. Non-merge
