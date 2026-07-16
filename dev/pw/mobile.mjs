@@ -102,6 +102,7 @@ const CONTAINERS = [
   ['wardley', T + '/wardley/', ['#preview']],
   ['bets', T + '/bets/', ['#preview']],
   ['roadmap', T + '/roadmap/', ['#preview']],
+  ['timeline', T + '/timeline/', ['#preview']],   // Ship 2 narrow relayout: #preview must not overflow sideways
   ['why', T + '/why/', ['#preview']],
   ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
   // (duel not listed: its readout is hidden until Start, so a load-time container
