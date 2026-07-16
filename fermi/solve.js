@@ -65,7 +65,7 @@ export function solveStretch(model, {seed, np = 8000, target, varName, cap = CAP
     }
   }
   const s = res.s;
-  return {kind: mult ? 'mult' : 'add', varName, s, dir: Math.sign(s) || 1, hw,
+  return {kind: mult ? 'mult' : 'add', dist: d, varName, s, dir: Math.sign(s) || 1, hw,
     factor: mult ? Math.exp(s * hw) : 1, delta: mult ? 0 : s * hw, range: rangeAt(s), orig: [lo, hi],
     normCost: res.feasible ? Math.abs(s) : cap, achievedP50: res.achievedP50, valid: res.valid, feasible: res.feasible};
 }

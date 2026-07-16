@@ -138,7 +138,7 @@
   #cfwrap{overflow-x:auto}
   #cfwrap svg{min-width:680px}
   .histwrap{position:relative;margin-top:20px}
-  #hist{display:block;width:100%;height:180px;cursor:crosshair}
+  #hist{display:block;width:100%;height:180px;cursor:crosshair;touch-action:pan-y}
   #tip{
     position:absolute;pointer-events:none;display:none;background:var(--ink);color:var(--bg);
     font-size:12.5px;padding:4px 9px;border-radius:5px;white-space:nowrap;
@@ -147,6 +147,18 @@
   .replaybtn{margin-top:10px;user-select:none;-webkit-user-select:none}
   .pourverdict{margin:10px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted);min-height:1.1em}
   .pourverdict b{color:var(--ink);font-weight:600}
+  /* the confession — "what must be true" */
+  .confessverdict{margin:8px 0 0;font-size:13.5px;line-height:1.5;color:var(--muted)}
+  .confessverdict b{color:var(--ink);font-weight:600}
+  .confessverdict b.over{color:var(--err)}
+  .cghost{display:flex;align-items:center;gap:10px;padding:1px 0 7px;font-size:12.5px;color:var(--muted)}
+  .cspark{width:56px;height:26px;flex:none;opacity:.9}
+  .ctxt{flex:1;min-width:0;font-variant-numeric:tabular-nums}
+  .cghost.over .ctxt{color:var(--err)}
+  .adopt{font:inherit;font-size:12px;padding:3px 11px;border:1px solid var(--border);border-radius:999px;
+    background:var(--card);color:var(--ink);cursor:pointer;flex:none}
+  .adopt:hover{border-color:var(--ink)}
+  .adopt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .warn{color:var(--err);font-size:13px;margin-top:8px;display:none}
   .thresh{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:14.5px}
   .thresh input{
@@ -189,6 +201,7 @@
     /* fingers need 44px: the segmented toggles and fit-selects predated this and were 29–33px */
     .tab,.savedchip button,.pagemode button,.cfseg button,.viewseg button{min-height:44px;display:inline-flex;align-items:center}
     .vrow select,#tin,#cftin{min-height:44px}
+    .adopt{min-height:44px;padding:8px 16px}
   }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">
@@ -292,8 +305,9 @@
         <span>Chance the answer exceeds</span>
         <input id="tin" placeholder="e.g. 100k" aria-label="Threshold value" spellcheck="false" autocomplete="off">
         <span>=</span><b id="tout">—</b>
-        <span class="hint">(or click the chart)</span>
+        <span class="hint">(or drag the goal line — the inputs confess)</span>
       </div>
+      <p class="confessverdict" id="confessverdict" aria-live="polite" hidden></p>
       <p class="warn" id="warn"></p>
       <div id="sens">
         <h2>What's worth researching</h2>
