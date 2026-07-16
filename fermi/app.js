@@ -6,13 +6,14 @@ import {quantile, readHashState, writeHashState} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
 import {mountPour, pourVerdict} from './pour.js';
+import {confess, asciiNum} from './solve.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {rafBatched} from '../assets/schedule.js';
+import {rafBatched, debounced} from '../assets/schedule.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -39,6 +40,10 @@ const N = 20000;
 const varState = new Map();           // name -> {lo:'', hi:''}
 let last = null;                      // latest run: {varNames, valid, sorted, p10, p50, p90, sens, invalid}
 let threshStr = '';                   // threshold input, as typed
+let threshHandle = null;              // {x,y} of the draggable threshold grab tab (set in drawHist), for hit-testing
+let curLayout = null;                 // the live histLayout (px/inv) so a drag can map clientX -> value
+let draggingHandle = false;           // suppresses click-to-set + hover tooltip during a threshold drag
+let confessSnapshot = null;           // pre-Adopt varState snapshot for the one-shot Undo
 const $ = id => document.getElementById(id);
 
 /* ---------- scenarios (A/B compare) ---------- */
@@ -343,6 +348,7 @@ function lint(){
   last = null;
   // a recompute (any edit / scenario switch) invalidates a running pour + its verdict
   pour.stop(); pourVerdictText = ''; $('pourverdict').textContent = ''; $('replay').disabled = true;
+  clearConfession();   // any recompute (edit / scenario switch) invalidates a shown confession
   lastBy[active] = null;
   if(!src){
     renderVarRows([]);
@@ -519,7 +525,7 @@ function applyView(){
   document.querySelector('.histwrap').hidden = tree;
   $('replay').hidden = tree;                    // the pour is dist-view only
   $('pourverdict').hidden = tree;
-  if(tree) pour.stop();
+  if(tree){ pour.stop(); clearConfession(); }   // the confession is dist-view only too
   $('threshrow').hidden = tree;
   $('png').hidden = tree;
   $('treesvg').hidden = !tree;
@@ -552,6 +558,7 @@ function drawHist(hoverIdx){
 
   const tv = threshValue();
   const L = histLayout(r.sorted, {width: cw, threshold: tv});   // the shared geometry seam
+  curLayout = L.ok ? L : null;                                   // the drag maps clientX -> value through this
   if(!L.ok) return;
   const {lo, hi, useLog, tx, inv, tlo, thi, NB, px, cmax} = L;
   bins = L.bins;
@@ -627,7 +634,8 @@ function drawHist(hoverIdx){
       }
     }
   }
-  /* threshold line */
+  /* threshold line + draggable grab handle */
+  threshHandle = null;
   if(tv !== null && tv >= lo && tv <= hi){
     const x = px(tv);
     ctx.strokeStyle = C.err;
@@ -636,6 +644,16 @@ function drawHist(hoverIdx){
     ctx.moveTo(x + 0.5, padT - 4);
     ctx.lineTo(x + 0.5, padT + plotH);
     ctx.stroke();
+    // the grab handle: a small rounded tab at the top of the line — the ONLY place the drag starts
+    const hw2 = 7, hh = 10, hy = padT - 4 - hh;
+    ctx.fillStyle = C.err;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(x - hw2, hy, hw2 * 2, hh, 3); else ctx.rect(x - hw2, hy, hw2 * 2, hh);
+    ctx.fill();
+    // grip lines
+    ctx.strokeStyle = C.card; ctx.lineWidth = 1;
+    for(const dx of [-2.5, 0, 2.5]){ ctx.beginPath(); ctx.moveTo(x + dx, hy + 3); ctx.lineTo(x + dx, hy + hh - 3); ctx.stroke(); }
+    threshHandle = {x, y: hy + hh / 2};
   }
   /* axis end labels */
   ctx.fillStyle = C.muted;
@@ -650,8 +668,20 @@ function drawHist(hoverIdx){
 /* histogram hover */
 (function(){
   const canvas = $('hist'), tip = $('tip');
-  let lastHover = -1;
+  let lastHover = -1, downOnHandle = false;
+  const HITPAD = 22;   // half of a 44px coarse-pointer hit box around the grab handle
+  const valAt = clientX => {
+    const L = curLayout; if(!L) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    return Math.max(L.lo, Math.min(L.hi, L.inv(L.tlo + (x / rect.width) * (L.thi - L.tlo))));   // clamp to axis
+  };
   canvas.addEventListener('pointermove', e => {
+    if(draggingHandle){                                   // M2: no hover tooltip during a drag; move the line live
+      const v = valAt(e.clientX); if(v === null) return;
+      threshStr = threshFmt(v); $('tin').value = threshStr; renderThresh(); drawHist();
+      e.preventDefault(); return;
+    }
     if(!bins.length) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -668,23 +698,48 @@ function drawHist(hoverIdx){
     lastHover = -1;
     drawHist();
   });
+  canvas.addEventListener('pointerdown', e => {                     // drag starts ONLY on the handle
+    if(!threshHandle) return;
+    const rect = canvas.getBoundingClientRect();
+    if(Math.abs(e.clientX - rect.left - threshHandle.x) > HITPAD ||
+       Math.abs(e.clientY - rect.top - threshHandle.y) > HITPAD) return;
+    downOnHandle = true; draggingHandle = true;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+    tip.style.display = 'none';
+    e.preventDefault();
+  });
+  const endDrag = e => {
+    if(!draggingHandle) return;
+    draggingHandle = false;
+    try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+    writeHashSafe();
+    runConfession();                                               // the solver runs on release
+    requestAnimationFrame(() => { downOnHandle = false; });        // keep the flag through the click that follows (M3)
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
   canvas.addEventListener('click', e => {
-    if(!bins.length) return;
+    if(!bins.length || downOnHandle) return;                       // M3: a tap on the handle must not jump T
     const rect = canvas.getBoundingClientRect();
     const idx = Math.max(0, Math.min(bins.length - 1, Math.floor((e.clientX - rect.left) / (rect.width / bins.length))));
     const b = bins[idx];
-    threshStr = fmt((b.v0 + b.v1) / 2);
+    threshStr = threshFmt((b.v0 + b.v1) / 2);
     $('tin').value = threshStr;
     renderThresh();
     drawHist();
     writeHashSafe();
+    runConfession();
   });
+  // I-2: Escape dissolves the confession (ghosts + verdict), writing nothing
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && lastConfess) clearConfession(); });
 })();
+const confessDebounced = debounced(runConfession, 500);   // I3: the typed path must not solve per keystroke
 $('tin').addEventListener('input', () => {
   threshStr = $('tin').value;
-  renderThresh();
+  renderThresh();          // cheap P(>T), per keystroke
   drawHist();
   writeHashSafe();
+  confessDebounced();      // the solver, debounced
 });
 
 /* ---------- "Replay the maths" — the pour ---------- */
@@ -719,11 +774,114 @@ $('replay').addEventListener('click', replay);
 $('p50').addEventListener('pointerdown', e => { e.preventDefault(); replay(); });
 $('p50').addEventListener('contextmenu', e => { e.preventDefault(); });
 
+/* ---------- "What must be true" — the confession ---------- */
+let lastConfess = null;   // {c, T} cache so a theme flip repaints without re-solving
+const threshFmt = v => fmt(v).replace(/−/g, '-');   // I-1: ASCII minus so a negative threshold parses back
+const nmOf = n => n.replace(/_/g, ' ');
+const stretchLabel = r => r.kind === 'mult'
+  ? '×' + r.factor.toFixed(1) + ' stretch'
+  : 'shifted ' + (r.delta >= 0 ? '+' : '−') + fmt(Math.abs(r.delta));
+function clearConfession(){
+  document.querySelectorAll('.cghost').forEach(el => el.remove());
+  const v = $('confessverdict'); v.textContent = ''; v.className = 'confessverdict'; v.hidden = true;
+  lastConfess = null;
+}
+function drawGhostSpark(canvas, lo, hi, d, color){
+  const w = 56, h = 26, dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const a = Math.min(lo, hi), b = Math.max(lo, hi); let x0, x1, pdf;
+  if(d === 'uni'){ const pad = (b - a) * .18; x0 = a - pad; x1 = b + pad; pdf = x => (x >= a && x <= b) ? 1 : 0; }
+  else if(d === 'logn' && a > 0){ const mu = (Math.log(a) + Math.log(b)) / 2, sg = (Math.log(b) - Math.log(a)) / (2 * Z90);
+    x0 = Math.exp(mu - 3.2 * sg); x1 = Math.exp(mu + 3.2 * sg);
+    pdf = x => x > 0 ? Math.exp(-((Math.log(x) - mu) ** 2) / (2 * sg * sg)) / x : 0; }
+  else { const mu = (a + b) / 2, sg = (b - a) / (2 * Z90); x0 = mu - 3.2 * sg; x1 = mu + 3.2 * sg;
+    pdf = x => Math.exp(-((x - mu) ** 2) / (2 * sg * sg)); }
+  const N = 40, ys = []; let pmax = 0;
+  for(let i = 0; i <= N; i++){ const p = pdf(x0 + (x1 - x0) * i / N); ys.push(p); if(p > pmax) pmax = p; }
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([3, 2]); ctx.beginPath();
+  for(let i = 0; i <= N; i++){ const x = i / N * w, y = h - 2 - ys[i] / (pmax || 1) * (h - 6); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function renderGhost(r, primary){
+  const idx = currentVarNames.indexOf(r.varName);
+  const rows = $('vrows').querySelectorAll('.vrow');   // static, class-scoped ⇒ ignores inserted .cghost
+  if(idx < 0 || idx >= rows.length) return;
+  const C = themeColors(), over = r.normCost > 1;
+  const g = document.createElement('div'); g.className = 'cghost' + (over ? ' over' : '');
+  const spark = document.createElement('canvas'); spark.className = 'cspark'; spark.setAttribute('aria-hidden', 'true');
+  const txt = document.createElement('span'); txt.className = 'ctxt';
+  txt.textContent = '→ ' + fmt(r.range[0]) + ' – ' + fmt(r.range[1]) + ' (' + stretchLabel(r) + ')';
+  g.append(spark, txt);
+  if(primary){
+    const adopt = document.createElement('button'); adopt.className = 'adopt'; adopt.type = 'button'; adopt.textContent = 'Adopt';
+    adopt.addEventListener('click', () => adoptConfession(r));
+    g.appendChild(adopt);
+  }
+  rows[idx].after(g);
+  drawGhostSpark(spark, r.range[0], r.range[1], r.dist, over ? C.err : (active === 'A' ? C.accent : C.accent2));
+}
+function paintConfession(){
+  document.querySelectorAll('.cghost').forEach(el => el.remove());
+  if(!lastConfess) return;
+  const {c, T} = lastConfess, v = $('confessverdict'); v.hidden = false; v.className = 'confessverdict';
+  if(c === 'even'){ v.textContent = 'You’re already at even odds for ' + fmt(T) + '.'; return; }
+  if(c.best){
+    renderGhost(c.best, true);
+    for(const alt of c.alternates.slice(0, 3)) renderGhost(alt, false);
+    const lead = c.dir < 0 ? 'To keep this under ' + fmt(T) + ', you’d have to believe '
+                           : 'For even odds at ' + fmt(T) + ', believe ';
+    const tail = c.alternates.length
+      ? ' — the cheapest single change. Or ' + c.alternates.slice(0, 2).map(a => nmOf(a.varName) + ' ' + stretchLabel(a)).join(', ') + '.'
+      : ' — the cheapest single change.';
+    v.textContent = '';
+    v.append(document.createTextNode(lead));
+    const b = document.createElement('b');
+    b.textContent = nmOf(c.best.varName) + ' ≈ ' + fmt(c.best.range[0]) + '–' + fmt(c.best.range[1]);
+    if(c.best.normCost > 1) b.className = 'over';
+    v.append(b, document.createTextNode(' (' + stretchLabel(c.best) + ')' + tail));
+  } else if(c.pair && c.pair.feasible){
+    renderGhost(c.pair.a, false); renderGhost(c.pair.b, false);
+    const goal = (c.dir < 0 ? 'keeps you under ' : 'gets you to ') + fmt(T);
+    v.textContent = 'No single assumption ' + goal + '. The cheapest pair, moved together: '
+      + nmOf(c.pair.a.varName) + ' ' + stretchLabel(c.pair.a) + ' and ' + nmOf(c.pair.b.varName) + ' ' + stretchLabel(c.pair.b) + '.';
+  } else {
+    v.textContent = 'Nothing plausible ' + (c.dir < 0 ? 'keeps you under ' : 'gets you to ') + fmt(T) + '.';
+  }
+}
+function runConfession(){
+  clearConfession();
+  if(!last || threshValue() === null || view !== 'dist' || pageMode !== 'est') return;
+  const T = threshValue();
+  if(last.p50 && Math.abs(T - last.p50) / Math.abs(last.p50) < 0.02){ lastConfess = {c: 'even', T}; paintConfession(); return; }   // M4
+  const model = {ast: last.ast, varNames: last.varNames, ranges: last.ranges, dists: last.dists};
+  lastConfess = {c: confess(model, {seed: SEEDS[active], target: T}), T};
+  paintConfession();
+}
+function adoptConfession(r){
+  const snap = new Map([...varState].map(([k, s]) => [k, {...s}]));   // pre-adopt snapshot for Undo (closure-local)
+  const st = varState.get(r.varName);
+  st.lo = asciiNum(r.range[0]); st.hi = asciiNum(r.range[1]);
+  varRowsSig = '';   // I4: force renderVarRows to repaint the input values
+  lint();            // clears the confession UI, recomputes, repaints inputs; threshold stays put
+  const v = $('confessverdict'); v.hidden = false; v.className = 'confessverdict';
+  // keep the price visible: an adopted >1× wish still names how far it stretched what you believed
+  const tag = r.normCost > 1 ? ' (a ' + stretchLabel(r) + ' of what you believed)' : '';
+  v.textContent = 'Adopted — ' + nmOf(r.varName) + ' is now ' + fmt(r.range[0]) + '–' + fmt(r.range[1]) + tag + '. ';
+  const undo = document.createElement('button'); undo.className = 'adopt'; undo.type = 'button'; undo.textContent = 'Undo';
+  undo.addEventListener('click', () => {
+    varState.clear(); for(const [k, s] of snap) varState.set(k, s);
+    varRowsSig = ''; lint();
+  });
+  v.appendChild(undo);
+}
+
 /* redraw on resize + theme change */
 function redrawAll(){ drawHist(); drawSparks(); lastTreeSvg = ''; renderDriverView(); cfSvg = ''; cfPaint(); }
 // a ResizeObserver can fire multiple ticks per resize drag; coalesce to one redraw/frame
 if(window.ResizeObserver) new ResizeObserver(rafBatched(() => { pour.stop(); drawHist(); })).observe($('hist'));
-onThemeChange(() => { pour.stop(); redrawAll(); });
+onThemeChange(() => { pour.stop(); redrawAll(); if(lastConfess) paintConfession(); });
 
 /* ---------- chips / copy / boot ---------- */
 for(const ex of EXAMPLES){
@@ -775,6 +933,7 @@ $('copydoc').addEventListener('click', async () => {
       ' — knowing it exactly shrinks the spread from ' + fullLabel + ' to ' + top.label + '.');
   }
   if(pourVerdictText){ lines.push(''); lines.push(pourVerdictText); }
+  if(lastConfess){ const cv = $('confessverdict').textContent.replace(/\s*(Adopt|Undo)$/, '').trim(); if(cv){ lines.push(''); lines.push(cv); } }
   const pcmp = compareOn ? pBeatsStr() : null;
   if(pcmp !== null){
     lines.push('');
