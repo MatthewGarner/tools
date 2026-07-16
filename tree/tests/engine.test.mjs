@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {evaluate} from '../engine.js';
+import {evaluate, evalDet} from '../engine.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, (msg || '') + ' got ' + a + ' want ~' + b);
 
@@ -96,4 +96,15 @@ test('degenerate: single leaf root', () => {
   near(r.stats.get(m.root).mean, 42, 0.001);
   assert.equal(r.headToHead.length, 0);
   assert.equal(r.flips.length, 0);
+});
+
+test('evalDet (extracted pure export): max-midpoint root option + per-option values + override flips it', () => {
+  const m = parse('Root\n  Bid: -150k\n    Outcome\n      Win (p=0.6): 2M\n      Lose (p=rest): 0\n  No bid: 0');
+  const r = evalDet(m);
+  assert.equal(r.rec, m.root.children[0]);            // Bid (EV 1.05M) > No bid (0)
+  assert.equal(r.values.length, 2);
+  near(r.values[0], 1050000, 1, 'bid det value');
+  near(r.values[1], 0, 1, 'no-bid det value');
+  const win = m.root.children[0].children[0].children[0];   // Root>Bid>Outcome>Win
+  assert.equal(evalDet(m, new Map([[win, 0]])).rec, m.root.children[1], 'Win p→0 makes Bid EV −150k → No bid wins');
 });
