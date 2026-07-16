@@ -70,6 +70,7 @@ const PAGES = {
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
+  'signal-vs-noise/index.html': 100_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
        - the 16:9 DECK EXPORT (render-deck.js) — roadmap is the first tool to ship a
