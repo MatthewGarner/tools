@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {pourVerdict} from '../pour.js';
+import {pourVerdict, rowKicks} from '../pour.js';
 
 // null layout ⇒ identity transform, no off-axis filter (keeps all draws) — tests the metric directly.
 
@@ -52,4 +52,19 @@ test('pourVerdict counts only the grains the pour draws (off-axis dropped) — h
 
 test('pourVerdict is empty for an empty trace', () => {
   assert.equal(pourVerdict({order: ['a'], draws: []}, null, {names: {}}).text, '');
+});
+
+test('rowKicks: per-row incremental kick, telescoping to the final landing offset (residue strip core)', () => {
+  // 2 rows: grain A kicks +10 then +5; grain B kicks +20 then -3. xs = [spout, spout+k0, spout+k0+k1]
+  const spout = 100;
+  const xsList = [
+    [spout, spout + 10, spout + 10 + 5],
+    [spout, spout + 20, spout + 20 - 3],
+  ];
+  const k = rowKicks(xsList, 2);
+  assert.deepEqual(k[0], [10, 20]);          // row 0 kicks, per grain
+  assert.deepEqual(k[1], [5, -3]);           // row 1 kicks, per grain
+  // telescoping: a grain's kicks sum to its final x minus the spout
+  for(let j = 0; j < xsList.length; j++)
+    assert.equal(k[0][j] + k[1][j], xsList[j][2] - xsList[j][0]);
 });

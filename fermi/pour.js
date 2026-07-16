@@ -33,6 +33,17 @@ export function pourVerdict(trace, layout, {names}){
   return {text: 'Most of the spread is born at ' + nm(t1.n) + ' — the pile widens most as it crosses that row.', topName: t1.n};
 }
 
+/* Per-row incremental kick, read off the grains the pour actually draws (xs = [spout, afterRow0,
+   …, afterRow(k-1)]). out[r][j] = xs[j][r+1] - xs[j][r] — the sideways displacement grain j gets
+   as driver r is introduced. Kicks telescope (Σ_r out[r][j] === final landing offset from the
+   spout), so the residue strip is byte-for-byte the animated population and can't disagree with
+   what the eye watched. Kick-space, anchored at the spout — NOT a model value for rows ≥ 1. */
+export function rowKicks(xsList, k){
+  const out = Array.from({length: k}, () => []);
+  for(const xs of xsList) for(let r = 0; r < k; r++) out[r].push(xs[r + 1] - xs[r]);
+  return out;
+}
+
 /* The pour animation. A transient overlay canvas over the histogram area (a taller panel:
    a single spout at the point-estimate → the ranked-driver rows → the pile) that plays, then
    fades out revealing the real #hist (same distribution, by construction). pointer-events:none;
