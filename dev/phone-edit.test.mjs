@@ -59,6 +59,10 @@ const FLOORS = {
   roadmap:   {kinds: 5, menu: true},
   why:       {kinds: 7, menu: true},
   tree:      {kinds: 7, menu: true},
+  /* map (mobile-input stage, 2026-07-16): Move…/Place on map… landed as a
+     cardmenu ROW and the tray gained the same cardmenu kind — no NEW data-edit
+     kind, so the floor honestly stays at 6 (additem, axis, cardmenu, field,
+     label, removeitem). The behaviour is gated in dev/pw/check-eip.mjs. */
   map:       {kinds: 6, menu: true},
   /* bets (mobile-input stage, 2026-07-16): the narrow board's structure surface
      landed — name (rename) + addbet/addgroup capsules join the unconditional
