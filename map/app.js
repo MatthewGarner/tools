@@ -120,6 +120,11 @@ function activeRender(slide, edit = false, bare = false){
   return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit, bare}, currentDiff());
 }
 function doRefresh(){
+  /* any re-parse invalidates an armed Move…/Place placement: its line number
+     may be stale (a keyboard-only user can Tab into the editor and edit lines
+     above without the pointerdown that normally disarms). The placement's own
+     replaceLine disarms synchronously first, so this is always a no-op there. */
+  disarmPlace();
   const text = editor.getText();
   model = parse(text);
   resolved = resolve(model);
