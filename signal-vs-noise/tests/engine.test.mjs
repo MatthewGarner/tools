@@ -120,3 +120,45 @@ test('I5 verdict leads with ACTS, never the 48-cell denominator', () => {
   assert.match(v.line, /conversation/i);
   assert.doesNotMatch(v.line, /correct|of 48|%/);
 });
+
+/* ---------- Task 3: reveal + funnel ---------- */
+import {revealFor, funnelRatio} from '../engine.js';
+
+test('reveal fires for BOTH branches, direction per kind, never contradicts the draws (C2)', () => {
+  const seen = new Set();
+  for(let seed = 1; seed <= 40; seed++){ const s = makeScenario(seed); const mid = (s.band.lo + s.band.hi) / 2;
+    for(let p = 0; p < s.people; p++) for(let q = 0; q < s.quarters - 1; q++){
+      const r = revealFor(s, p, q); if(r.next === null) continue;
+      const cur = s.shown[p][q], kind = cur >= mid ? 'praise' : 'warn';
+      assert.equal(r.kind, kind);
+      if(r.next === cur) assert.equal(r.regressed, 'held');
+      else if(kind === 'praise') assert.equal(r.regressed, r.next < cur);
+      else assert.equal(r.regressed, r.next > cur);
+      seen.add(kind + ':' + r.regressed);
+    }}
+  for(const c of ['praise:true', 'praise:false', 'warn:true', 'warn:false']) assert.ok(seen.has(c), 'missing branch ' + c);
+  assert.ok([...seen].some(x => x.endsWith(':held')), 'a flat/held case must occur');
+});
+
+test('reveal leaks no ground truth (illusion copy only — I1)', () => {
+  for(let seed = 1; seed <= 20; seed++){ const s = makeScenario(seed);
+    for(let p = 0; p < s.people; p++) for(let q = 0; q < s.quarters - 1; q++){
+      const r = revealFor(s, p, q);
+      if(r.illusion) assert.doesNotMatch(r.illusion, /true mean|really|actually|signal|declin/i);
+    }}
+});
+
+test('funnel: reviewed-gap variance ~doubles across seeds; degenerate → analytic phrase (I4)', () => {
+  let ok = 0;
+  for(let seed = 1; seed <= 300; seed++){ const f = funnelRatio(makeScenario(seed));
+    if(f.ratio === null) assert.match(f.phrase, /2×|rule 2/i);
+    else { assert.ok(f.ratio > 1); ok++; } }
+  assert.ok(ok > 250, 'the doubling shows on the vast majority of seeds, got ' + ok);
+});
+
+test('scoreCalls + funnel read only shown+band (invariant to garbage outputs — I4)', () => {
+  const s = makeScenario(42), g = {...s, outputs: s.outputs.map(r => r.map(() => 999))};
+  const calls = [{person: s.signalPerson, quarter: s.firstCatchable}, {person: 3, quarter: 3}];
+  assert.deepEqual(scoreCalls(g, calls), scoreCalls(s, calls));
+  assert.deepEqual(funnelRatio(g), funnelRatio(s));
+});

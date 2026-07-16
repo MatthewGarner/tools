@@ -99,3 +99,45 @@ export function verdict(s, calls){
   }
   return {line, detectable, firstCatchable: s.firstCatchable, ...sc};
 }
+
+/* the between-turn reveal DATA (copy lives here; render/app style it). Fires on
+   EVERY act and branches honestly — regression is on-average, not per-draw, so a
+   praised outlier that rises again gets the other half of the truth, and an
+   integer tie is 'held'. Never discloses ground truth (that lands at the collapse). */
+export function revealFor(s, p, actedQuarter){
+  if(actedQuarter + 1 >= s.quarters) return {next: null, regressed: null, kind: null, illusion: null};
+  const row = s.shown[p], cur = row[actedQuarter], next = row[actedQuarter + 1];
+  const kind = cur >= (s.band.lo + s.band.hi) / 2 ? 'praise' : 'warn';   // praised a high / warned a low
+  const name = s.names[p];
+  let regressed, illusion;
+  if(next === cur){ regressed = 'held'; illusion = name + ' is flat — noise doesn’t owe you a reaction.'; }
+  else {
+    regressed = kind === 'praise' ? next < cur : next > cur;             // moved back toward the middle
+    illusion = regressed
+      ? (kind === 'praise' ? '“Looks like praise made ' + name + ' complacent.”'
+                           : '“Looks like the tough conversation with ' + name + ' worked.”')
+      : (kind === 'praise' ? name + ' is up again — luck cuts both ways; outliers regress on average, not every time.'
+                           : name + ' slipped further — a warning is no cure for a bad draw.');
+  }
+  return {next, regressed, kind, illusion};
+}
+
+/* the Deming-funnel counterfactual: a manager who re-aims the target to each
+   quarter's number reviews a GAP with ~2× the variance (var(x_t − x_{t−1}) = 2σ²
+   vs σ² for a fixed target) — the extra "exceptions" are self-inflicted. NOT the
+   team's output, which cannot change. Pooled over non-signal people (so the real
+   step doesn't pollute the fixed side); degenerate seeds fall back to the analytic. */
+export function funnelRatio(s){
+  const varOf = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length; };
+  const fixedDevs = [], reaimDevs = [];
+  for(let p = 0; p < s.people; p++){
+    if(p === s.signalPerson) continue;
+    const row = s.shown[p], mean = row.reduce((a, b) => a + b, 0) / row.length;
+    for(let q = 0; q < row.length; q++) fixedDevs.push(row[q] - mean);      // gap to a fixed target: var = within-person σ²
+    for(let q = 1; q < row.length; q++) reaimDevs.push(row[q] - row[q - 1]); // gap to last quarter: ~2σ²
+  }
+  const fixedVar = varOf(fixedDevs), reaimVar = varOf(reaimDevs);
+  const ratio = fixedVar > 0 ? reaimVar / fixedVar : null;
+  if(ratio === null || ratio < 1.2) return {ratio: null, phrase: '~2× (Deming rule 2)'};
+  return {ratio, phrase: '~' + (Math.round(ratio * 10) / 10) + '×'};
+}
