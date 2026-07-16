@@ -181,13 +181,23 @@ attachEditInPlace($('preview'), {
     axis: {validate: validators.axis},
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
-    cardmenu: {menu: [
-      {label: 'Rename…', opens: 'label'},
-      {label: 'Edit field…', opens: 'field'},   // opens the FIRST field target; dead if the item has none
-      {label: 'Remove', action: true, danger: true},
-    ]},
+    cardmenu: {menu: el => {
+      const it = model && model.items.find(i => i.srcLine === +el.dataset.line);
+      return [
+        {label: 'Rename…', opens: 'label'},
+        {label: 'Edit field…', opens: 'field'},   // opens the FIRST field target; dead if the item has none
+        /* the coarse-pointer placement path (drag needs a fine pointer): arms a
+           one-shot tap-the-plane placement — see the placing block below */
+        {label: it && it.x != null ? 'Move…' : 'Place on map…', action: true},
+        {label: 'Remove', action: true, danger: true},
+      ];
+    }},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(newValue === '✖Move…' || newValue === '✖Place on map…'){
+      armPlace(lineNo);
+      return;
+    }
     if(newValue === '✖Remove'){
       if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
       return;
@@ -317,6 +327,7 @@ window.addEventListener('pointermove', e => {
   if(!drag.active){
     if(Math.hypot(e.clientX - drag.armed.x, e.clientY - drag.armed.y) < 4) return;
     drag.active = true;
+    disarmPlace();   // a real drag while armed IS the placement gesture — never double-write
     const ghost = document.createElement('div');
     ghost.className = 'dragghost';
     document.body.appendChild(ghost);
@@ -342,13 +353,74 @@ window.addEventListener('pointerup', e => {
   if(newLine !== line) editor.replaceLine(src, newLine);   // one transaction → one undo step
 });
 window.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && drag.armed) endDrag();
+  if(e.key === 'Escape'){
+    if(drag.armed) endDrag();
+    if(placing) disarmPlace();
+  }
 });
 /* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
    ghost instead of stranding it until the next pointerup */
 window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
 $('preview').addEventListener('click', e => {
   if(suppressClick){ e.stopPropagation(); suppressClick = false; }
+}, true);
+
+/* ---------- Move… / Place on map…: one-shot tap-the-plane placement ----------
+   The card menu ARMS a placement; the NEXT tap on the plane writes @ x,y via
+   setPosition — the coarse-pointer sibling of the fine drag (wardley's
+   tap-the-strip, generalised to 2D). planeCoords() reads the plane rect's
+   live getBoundingClientRect, so workspace zoom and coarse pan are already
+   accounted for. Always escapable (no silent trap): Escape, the hint's
+   Cancel, an off-plane tap, or any tap outside the preview all disarm —
+   only an on-plane tap commits (one undoable text edit), and nothing here
+   focuses the editor (no soft-keyboard jump on phones). */
+let placing = null;   // {line, hint}
+function disarmPlace(){
+  if(!placing) return;
+  placing.hint.remove();
+  placing = null;
+  $('preview').classList.remove('placing');
+}
+function armPlace(line){
+  const item = model && model.items.find(i => i.srcLine === line);
+  if(!item) return;
+  disarmPlace();
+  const hint = document.createElement('div');
+  hint.className = 'placehint';
+  hint.setAttribute('role', 'status');   // AT hears the armed state
+  const msg = document.createElement('span');
+  msg.textContent = 'Tap the map to place “' + item.label + '”';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn';
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', disarmPlace);
+  hint.append(msg, cancel);
+  const pv = $('preview');
+  pv.parentElement.insertBefore(hint, pv);
+  pv.classList.add('placing');
+  placing = {line, hint};
+}
+/* capture: while armed, the tap is a placement (or a cancel), never an
+   edit-in-place open underneath */
+$('preview').addEventListener('click', e => {
+  if(!placing) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const line = placing.line;
+  const at = planeCoords(e.clientX, e.clientY);
+  disarmPlace();
+  if(!at) return;                        // off-plane tap = cancel, nothing written
+  const src = editor.getLine(line);
+  const newLine = setPosition(src, at.x, at.y);
+  if(newLine !== src) editor.replaceLine(line, newLine);   // one transaction → one undo step
+}, true);
+/* a tap that leaves the preview entirely (editor, action row…) disarms
+   without being swallowed — the user has moved on */
+document.addEventListener('pointerdown', e => {
+  if(!placing) return;
+  if($('preview').contains(e.target) || placing.hint.contains(e.target)) return;
+  disarmPlace();
 }, true);
 
 /* ---------- #93: flagged items → gauge session ---------- */
