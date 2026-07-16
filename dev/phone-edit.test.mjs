@@ -60,7 +60,10 @@ const FLOORS = {
   why:       {kinds: 7, menu: true},
   tree:      {kinds: 7, menu: true},
   map:       {kinds: 6, menu: true},
-  bets:      {kinds: 5, menu: true},
+  /* bets (mobile-input stage, 2026-07-16): the narrow board's structure surface
+     landed — name (rename) + addbet/addgroup capsules join the unconditional
+     stake/odds/payoff/kill cells and the per-card data-menu: 8 distinct kinds. */
+  bets:      {kinds: 8, menu: true},
   /* wardley's tap menu is its own componentmenu KIND (an actions popover),
      not the data-menu redirect attribute — menu:false is accurate, not a gap */
   wardley:   {kinds: 4, menu: false},
@@ -123,12 +126,12 @@ const DRIVERS = {
     const m = parse(doc), r = resolve(m);
     return render(m, r, readout(m, r), {...ctx, edit: true});
   },
-  async bets(doc){   // bets' renderer takes no edit flag: edit markup is unconditional
+  async bets(doc){   // value cells are unconditional; ctx.edit gates the structure surface
     const {parse} = await import('../bets/parse.js');
     const {simulate} = await import('../bets/engine.js');
     const {renderBoard} = await import('../bets/render.js');
     const m = parse(doc);
-    return renderBoard(m, simulate(m), {...ctx, width: W});
+    return renderBoard(m, simulate(m), {...ctx, edit: true, width: W});
   },
   async wardley(doc){
     const {parse} = await import('../wardley/parse.js');
