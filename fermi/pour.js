@@ -103,7 +103,7 @@ export function mountPour(histCanvas, wrapEl){
       return;
     }
     // animate
-    let landed = 0; const total = grains.length; let spawned = 0; const spawnRate = Math.ceil(total / 55);
+    let landed = 0; const total = grains.length; let spawned = 0; const spawnRate = Math.ceil(total / 68);
     const fallY = (bandTop - spoutY), rowSpan = (bandBot - bandTop) / Math.max(1, k - 0.001);
     function frame(){
       spawned = Math.min(total, spawned + spawnRate);
@@ -111,7 +111,7 @@ export function mountPour(histCanvas, wrapEl){
       octx.fillStyle = C.accent; octx.globalAlpha = 0.7;
       for(let i = 0; i < spawned; i++){
         const g = grains[i]; if(g.done) continue;
-        g.t += 0.028;
+        g.t += 0.021;
         // y from spout down to baseline over t in [0,1]
         const yy = spoutY + (baseline - spoutY) * Math.min(1, g.t);
         // x: interpolate through the row stations as y crosses each rowY
