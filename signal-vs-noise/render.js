@@ -97,7 +97,7 @@ export function renderCollapse(s, c, calls = [], {width} = {}){
   const w = width ?? 760;
   const narrow = w < 520;          // phone: pinned 356 layout, byte-identical to before
   const wide = w >= 900;           // desktop-wide: chart opens; prose stays capped
-  const W = narrow ? 356 : wide ? Math.min(1090, Math.round(w)) : 760, PAD = narrow ? 16 : 24;
+  const W = narrow ? 356 : Math.min(1090, Math.max(760, Math.round(w))), PAD = narrow ? 16 : 24;
   const vFont = narrow ? 16 : wide ? 20 : 18, vLine = narrow ? 21 : wide ? 26 : 24;
   // headline (display type) is exempt from the body-prose measure — at wide it runs to
   // ~100ch so a ~90-char verdict sits on one line; narrow/non-wide keep today's widths.
@@ -119,7 +119,7 @@ export function renderCollapse(s, c, calls = [], {width} = {}){
   y += 6;
 
   // the shared collapse chart
-  const chTop = y, chH = narrow ? 140 : wide ? Math.max(180, Math.min(260, Math.round(W * 0.24))) : 180, chL = PAD, chW = W - PAD * 2;
+  const chTop = y, chH = narrow ? 140 : (width != null && w > 760) ? Math.max(180, Math.min(260, Math.round(W * 0.24))) : 180, chL = PAD, chW = W - PAD * 2;
   const lo = Math.max(0, Math.min(s.band.lo, ...s.shown.flat()) - 2);
   const hi = Math.max(s.band.hi, ...s.shown.flat()) + 2;
   parts.push(bandRect(chL, chW, chTop, chH, c, lo, hi, s.band));
