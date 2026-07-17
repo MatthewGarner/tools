@@ -2783,6 +2783,147 @@ insure: premium 6 attach 65 limit 30`;
   await tctx.close();
 }
 
+/* ---- mobile-input TAIL, LAST stage (gauge): the ODD ONE OUT — its compose
+   surface is an HTML participant form, not an SVG diagram, so attachEditInPlace
+   (surface-agnostic) drives phone-first question AUTHORING. Every affordance is
+   an undoable TEXT rewrite; config keys stay editor-only. No per-card ⋯ menu —
+   every edit is a direct visible target (qtext/qtype/unit/opt/rmopt/addopt +
+   removeq + the addq picker). Compose boots in reveal view, so switch to Form
+   first. Same commit/assert/ONE-Undo/revert contract as the other tails. Also
+   asserts the shared .eip-input 16px coarse floor (the phone bar's iOS-zoom rule,
+   assets/workspace.css — global, so proving it here guards every tool). ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  const BASEU = (process.env.BASE || 'http://localhost:8087');
+  const GDOC = `title: Q3 commitment review
+names: off
+
+We ship the referral loop :: prob
+Weeks to migrate billing :: range weeks
+Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
+  const gEnc = t => Buffer.from(JSON.stringify({t}), 'utf8').toString('base64');
+  const gSrc = () => mpage.evaluate(() => localStorage.getItem('gauge-src'));
+  const gTap = async sel => {
+    const pt = await mpage.evaluate(s => { const g = document.querySelector(s); if(!g) return null;
+      g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect();
+      return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, sel);
+    if(!pt) return false;
+    await mpage.waitForTimeout(150); await mpage.mouse.click(pt.x, pt.y); await mpage.waitForTimeout(300); return true;
+  };
+  const gBtn = async txt => { await mpage.locator('.eip-pop button', {hasText: txt}).click(); await mpage.waitForTimeout(400); };
+  const gUndo = async () => { await gTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); };
+  const inCm = () => mpage.evaluate(() => !!document.activeElement && !!document.activeElement.closest('.cm-editor'));
+
+  await mpage.goto(BASEU + '/gauge/#' + gEnc(GDOC), {waitUntil: 'networkidle'});
+  await mpage.waitForTimeout(500);
+  await mpage.locator('#viewform').click();     // compose boots in reveal view
+  await mpage.waitForTimeout(500);
+  const gBase = await gSrc();
+  check('gauge: the compose form is the editable authoring surface', gBase === GDOC &&
+    await mpage.locator('.formpreview .gform [data-edit]').count() > 0);
+  check('gauge: no per-card ⋯ menu (every edit is a direct target)',
+    await mpage.locator('.formpreview [data-menu]').count() === 0);
+
+  // --- edit question TEXT: no silent commit, round-trip, one Undo ---
+  await gTap('[data-edit="qtext"][data-line="3"]');
+  check('gauge: qtext opens the eip-input prefilled', await mpage.locator('.eip-input').inputValue() === 'We ship the referral loop');
+  const eipFs = await mpage.evaluate(() => { const i = document.querySelector('.eip-input'); return i ? parseFloat(getComputedStyle(i).fontSize) : 0; });
+  check('gauge: shared .eip-input is ≥16px on coarse (no iOS zoom — assets/workspace.css)', eipFs >= 16);
+  await mpage.keyboard.press('Escape');
+  await mpage.waitForTimeout(200);
+  check('gauge: Escaping the qtext editor commits nothing', (await gSrc()) === gBase);
+  await gTap('[data-edit="qtext"][data-line="3"]');
+  await mpage.locator('.eip-input').fill('Ship the loop by Q3');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(400);
+  check('gauge: qtext edit rewrites the text, keeps the kind tail',
+    /^Ship the loop by Q3 :: prob$/m.test(await gSrc()));
+  check('gauge: a coarse text edit does NOT focus the DSL editor', !(await inCm()));
+  await gUndo();
+  check('gauge: one Undo reverts the qtext edit', (await gSrc()) === gBase);
+
+  // --- change TYPE: a picker, nothing commits on a bare tap ---
+  await gTap('[data-edit="qtype"][data-line="3"]');
+  check('gauge: qtype opens a prob/range/chips picker with prob marked',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'prob|range|chips' &&
+    (await mpage.locator('.eip-pop button.on').innerText()) === 'prob');
+  check('gauge: opening the type picker commits nothing (menu-first)', (await gSrc()) === gBase);
+  await gBtn('range');
+  check('gauge: →range supplies a placeholder unit', /^We ship the referral loop :: range units$/m.test(await gSrc()));
+  await gUndo();
+  check('gauge: one Undo reverts the type change', (await gSrc()) === gBase);
+
+  // --- edit UNIT on the range question ---
+  await gTap('[data-edit="unit"][data-line="4"]');
+  check('gauge: unit pill opens prefilled with the current unit', await mpage.locator('.eip-input').inputValue() === 'weeks');
+  await mpage.locator('.eip-input').fill('months');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(400);
+  check('gauge: unit edit rewrites the range tail', /^Weeks to migrate billing :: range months$/m.test(await gSrc()));
+  await gUndo();
+  check('gauge: one Undo reverts the unit edit', (await gSrc()) === gBase);
+
+  // --- chip options: add (one-tap), rename, remove (coarse danger confirm) ---
+  await gTap('[data-edit="addopt"][data-line="5"]');
+  check('gauge: ＋ Add option one-taps a 4th option (no popover)',
+    /:: chips Streak overhaul \| Social feed \| Onboarding polish \| Option D$/m.test(await gSrc()) &&
+    await mpage.locator('.eip-pop').count() === 0);
+  check('gauge: coarse add-option opts OUT of editor focus', !(await inCm()));
+  await gUndo();
+  check('gauge: one Undo removes the added option', (await gSrc()) === gBase);
+
+  await gTap('[data-edit="opt"][data-line="5"][data-opt="0"]');
+  check('gauge: chip option opens prefilled with its label', await mpage.locator('.eip-input').inputValue() === 'Streak overhaul');
+  await mpage.locator('.eip-input').fill('Streak v2');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(400);
+  check('gauge: option rename rewrites just that option', /:: chips Streak v2 \| Social feed \| Onboarding polish$/m.test(await gSrc()));
+  await gUndo();
+  check('gauge: one Undo reverts the option rename', (await gSrc()) === gBase);
+
+  await gTap('[data-edit="rmopt"][data-line="5"][data-opt="1"]');
+  check('gauge: removing an option opens a one-row danger confirm (no silent removal)',
+    await mpage.locator('.eip-pop button.danger').count() === 1 &&
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove' &&
+    (await gSrc()) === gBase);
+  await mpage.locator('.eip-pop button.danger').click();
+  await mpage.waitForTimeout(400);
+  check('gauge: confirming drops that option', /:: chips Streak overhaul \| Onboarding polish$/m.test(await gSrc()));
+  await gUndo();
+  check('gauge: one Undo restores the removed option', (await gSrc()) === gBase);
+
+  // --- add QUESTION via the ＋ Add picker (type choice IS the commit) ---
+  await gTap('[data-edit="addq"]');
+  check('gauge: ＋ Add question opens a Probability/Range/Chips picker (no silent add)',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Probability|Range|Chips' &&
+    (await gSrc()) === gBase);
+  await gBtn('Chips');
+  check('gauge: picking Chips appends a 2-option chips question',
+    /\nNew question :: chips Option A \| Option B$/.test(await gSrc()));
+  check('gauge: coarse add-question opts OUT of editor focus', !(await inCm()));
+  await gUndo();
+  check('gauge: one Undo removes the added question', (await gSrc()) === gBase);
+
+  // --- remove QUESTION: coarse danger confirm ---
+  await gTap('[data-edit="removeq"][data-line="3"]');
+  check('gauge: removing a question opens a one-row danger confirm (no silent removal)',
+    await mpage.locator('.eip-pop button.danger').count() === 1 && (await gSrc()) === gBase);
+  await mpage.locator('.eip-pop button.danger').click();
+  await mpage.waitForTimeout(400);
+  check('gauge: confirming drops the question line', !/We ship the referral loop/.test(await gSrc()));
+  await gUndo();
+  check('gauge: one Undo restores the removed question', (await gSrc()) === gBase);
+
+  check('gauge: no page h-scroll on the compose form at phone width', await mpage.evaluate(() => {
+    const pv = document.getElementById('preview');
+    return pv.scrollWidth <= pv.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1;
+  }));
+  check('gauge: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 report('check-eip', {...tally(results), min: 100});
