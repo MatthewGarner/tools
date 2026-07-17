@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/motion.css">
-<style>  .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+<style>  .wrap{max-width:860px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
     box-shadow:var(--shadow);padding:22px}
   .lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
@@ -186,6 +186,14 @@
   /* fingers get full-size controls */
   @media (pointer: coarse){
     td .del{min-width:40px;min-height:40px}
+  }
+
+  /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+     the reading gutter lives on the base .wrap (unconditional — prose sat flush
+     through the 640→max-width tablet band too); ≤640 cards full-bleed as native
+     sheets (side borders + radius dropped, top/bottom hairlines kept). */
+  @media (max-width:640px){
+    .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
   }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">

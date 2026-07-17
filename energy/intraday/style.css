@@ -8,7 +8,7 @@
 :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
 :root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
 
-.wrap{max-width:1020px;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:0 4px}
+.wrap{max-width:1020px;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:0 16px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:20px}
 .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px;margin-top:12px}
 /* min-width:0 overrides the flex/grid automatic-minimum-size default (content
@@ -54,3 +54,11 @@
 .verdict{font-family:Charter,Georgia,serif;font-size:16.5px;margin:10px 0 0}
 /* reduced-motion: keep Play operable (do NOT hide it — a11y); app.js drops the
    draw-as-you-play reveal so the cursor steps over the full curve instead. */
+
+/* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+   the base .wrap carries the 16px reading gutter at every width now (was a 4px
+   desktop inset — prose sat near-flush through the 640→1020 tablet band); ≤640
+   cards full-bleed as native sheets (side borders + radius dropped, hairlines kept). */
+@media (max-width:640px){
+  .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+}

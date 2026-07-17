@@ -1,6 +1,6 @@
 /* /signal-vs-noise — centred column scaffold + the play/reveal surface.
    Shared bits come from tokens/page/about/controls/mobile.css. */
-.wrap{max-width:840px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.wrap{max-width:840px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
 header{display:flex;flex-direction:column;gap:2px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:20px}
@@ -46,4 +46,12 @@ header{display:flex;flex-direction:column;gap:2px}
 @media (pointer:coarse){
   .btn{min-height:44px;display:inline-flex;align-items:center}
   .rangelab input[type=range]{min-height:24px}
+}
+
+/* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+   the reading gutter lives on the base .wrap (unconditional — prose sat flush
+   through the 640→max-width tablet band too); ≤640 cards full-bleed as native
+   sheets (side borders + radius dropped, top/bottom hairlines kept). */
+@media (max-width:640px){
+  .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
 }

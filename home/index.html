@@ -64,6 +64,11 @@
   footer{color:var(--muted);font-size:12.5px;line-height:1.6}
   footer a{color:var(--muted)}
   footer a:hover{color:var(--accent-ink)}
+  /* Phone edge system: 16px page gutter, consistent with the tool pages
+     ("16px prose / 10px surface", Camp A in assets/workspace.css). */
+  @media (max-width:640px){
+    body{padding-left:16px;padding-right:16px}
+  }
 </style>
 <link rel="stylesheet" href="/assets/mobile.css">
 
