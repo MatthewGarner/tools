@@ -162,6 +162,10 @@ footer{margin: 48px 0 8px}
   padding: 4px 8px; box-shadow: var(--shadow);
 }
 .eip-input:focus{outline: none}
+/* Fingers: the phone bar's own rule — a focused input under 16px makes iOS zoom
+   the page. The eip input is the shared text-entry surface for every tool's
+   edit-in-place, so the floor lives here once. Asserted in dev/pw/check-eip.mjs. */
+@media (pointer: coarse){ .eip-input{font-size: 16px} }
 .eip-input.invalid{border-color: var(--err); animation: eip-shake .3s}
 @keyframes eip-shake{
   20%{transform: translateX(-3px)} 40%{transform: translateX(3px)}

@@ -100,11 +100,48 @@ body[data-mode="console"] header .tagline{display:none}
 body[data-mode="participant"] header h1,
 body[data-mode="console"] header h1{font-size:22px}
 
-/* add/remove questions on the compose preview */
-.qtext .qdel{float:right;border:none;background:none;color:var(--muted);cursor:pointer;
-  font-size:16px;line-height:1;padding:2px 8px;border-radius:5px}
-.qtext .qdel:hover{color:var(--err)}
-.gform .addq{display:block;width:100%;margin-top:4px;padding:10px;font-family:inherit;
-  font-size:13px;font-weight:600;color:var(--muted);background:none;cursor:pointer;
+/* ---- compose-mode question authoring (editable form only) ----
+   Every affordance is an edit-in-place target (assets/edit-in-place.js); the
+   shared [data-edit] hover gives text targets a dotted underline. Pill/×/capsule
+   targets opt out of that and read as controls. */
+.qhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.qhead .qnum{align-self:center}
+.qtitle{flex:1 1 auto;min-width:8ch;overflow-wrap:anywhere}
+.qtypepill{flex:none;font-size:11px;font-weight:600;letter-spacing:.02em;
+  padding:3px 10px;border-radius:999px;line-height:1.5;cursor:pointer;
+  color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.qtypepill:hover{text-decoration:none;background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.qhead .qdel{margin-left:auto;flex:none;color:var(--muted);cursor:pointer;
+  font-size:17px;line-height:1;padding:2px 8px;border-radius:6px;font-weight:400}
+.qhead .qdel:hover{color:var(--err);text-decoration:none;
+  background:color-mix(in srgb,var(--err) 10%,transparent)}
+/* editable unit — a pill in the rangerow; ghost when the unit is missing */
+.unitpill{cursor:pointer;font-size:12.5px;padding:3px 10px;border-radius:999px;line-height:1.5;
+  color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.unitpill:hover{text-decoration:none;background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.unitpill.ghost{color:var(--muted);background:none;border:1.5px dashed var(--border);font-style:italic}
+.unitpill.ghost:hover{color:var(--accent-ink);border-color:var(--accent);background:none}
+/* per-option remove (× shown only above the 2-option floor) */
+.chiprow .rmopt{flex:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;
+  padding:2px 6px;border-radius:6px}
+.chiprow .rmopt:hover{color:var(--err);text-decoration:none;
+  background:color-mix(in srgb,var(--err) 10%,transparent)}
+.chipopt[data-edit]{cursor:pointer}
+/* ghost capsules: ＋ Add option (per chips question) and ＋ Add question (form) */
+.addopt{display:inline-block;margin:2px 0 2px 32px;padding:6px 12px;font-size:12.5px;font-weight:600;
+  color:var(--muted);cursor:pointer;border:1.5px dashed var(--border);border-radius:8px}
+.addopt:hover{color:var(--accent-ink);border-color:var(--accent);text-decoration:none}
+.gform .addq{display:block;width:100%;margin-top:4px;padding:11px;font-family:inherit;text-align:center;
+  font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
   border:1.5px dashed var(--border);border-radius:8px}
-.gform .addq:hover{color:var(--accent-ink);border-color:var(--accent)}
+.gform .addq:hover{color:var(--accent-ink);border-color:var(--accent);text-decoration:none}
+/* Fingers: every authoring control clears the 44px tap floor. The text/option
+   targets grow their hit box; the eip input's own 16px floor lives in
+   assets/workspace.css (shared across every tool). */
+@media (pointer:coarse){
+  .qhead{min-height:44px}
+  .qtitle,.qtypepill,.qhead .qdel,.unitpill,.chiprow .rmopt,.chipopt[data-edit]{
+    display:inline-flex;align-items:center;min-height:44px}
+  .addopt,.gform .addq{min-height:44px;display:flex;align-items:center;justify-content:center}
+  .addopt{display:inline-flex}
+}

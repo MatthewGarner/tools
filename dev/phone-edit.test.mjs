@@ -92,6 +92,15 @@ const FLOORS = {
      setlane, status). The floor ratchets up here; menu:true asserts the card-menu
      entry point survives. */
   timeline:  {kinds: 7, menu: true},
+  /* gauge (mobile-input tail, LAST stage, 2026-07-17): the compose FORM is HTML,
+     not an SVG diagram — attachEditInPlace is surface-agnostic, so the participant
+     form gains authoring chrome: qtext/qtype/removeq per head, unit on ranges,
+     opt/rmopt/addopt on chips, and a doc-level addq picker = 8 distinct kinds.
+     No per-card ⋯ menu (menu:false) — every edit has a direct visible affordance,
+     so a data-menu redirect would be pure indirection (the wardley precedent).
+     The DOC below carries all three types (3-option chips so rmopt renders, a
+     unit'd range) so every kind is exercised. */
+  gauge:     {kinds: 8, menu: false},
 };
 
 /* ---- house-example docs (trimmed from each tool's first example chip) ---- */
@@ -102,6 +111,7 @@ const DOCS = {
   tree: 'title: Bid for the Acme contract\ncurrency: £\n\nBid decision\n  Submit bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0',
   map: 'preset: assumptions\ntitle: Habitat — launch assumptions\n\nUsers will log habits daily @ 30,90 :: test: watch 5 onboarding sessions\nStreak anxiety drives churn @ 75,80 :: note: held in Q2 interviews\nLegal sign-off on health claims',
   bets: 'title: Habitat — Q3 bet portfolio\nunit: £k\n\nGrowth bets\n  Referral flow v2: stake 80, odds 40-60%, payoff 300-500\n    kill: Signups per referral stay under 0.3 by 2026-09-15\n  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300',
+  gauge: 'title: Q3 commitment review\nnames: off\n\nWe ship the referral loop :: prob\nWeeks to migrate billing :: range weeks\nPick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish',
   wardley: 'title: Habitat platform\nanchor: Habit tracking\n\nHabit builder @ product\nStreak engine @ custom\nUser DB @ commodity\n\nHabit tracking -> Habit builder -> Streak engine -> User DB',
   'energy/cycles': 'title: Cycle budget — Wexcombe 100MW/2h\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%',
   'energy/risk': 'title: Route to market — Wexcombe 100MW/2h\nmerchant: 60..180\n\nfloor: 70 share 60% fee 5\ntoll: 95\ninsure: premium 6 attach 65 limit 30',
@@ -147,6 +157,11 @@ const DRIVERS = {
     const {renderBoard} = await import('../bets/render.js');
     const m = parse(doc);
     return renderBoard(m, simulate(m), {...ctx, edit: true, width: W});
+  },
+  async gauge(doc){   // the odd one out: the compose surface is HTML, not SVG
+    const {parse} = await import('../gauge/parse.js');
+    const {renderForm} = await import('../gauge/render-form.js');
+    return renderForm(parse(doc), {editable: true});
   },
   async wardley(doc){
     const {parse} = await import('../wardley/parse.js');
