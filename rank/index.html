@@ -45,10 +45,13 @@
   th .cname{width:100%;min-width:86px;font-size:12.5px;font-weight:600;padding:5px 7px;
     border:none;background:none;color:var(--ink)}
   th .cname:hover,th .cname:focus{background:var(--bg)}
-  th .wrow{display:flex;align-items:center;gap:5px;margin-top:2px}
+  th .wrow{display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap}
   th .wrow span{font-size:10.5px;color:var(--muted);letter-spacing:.05em}
   th .weight{width:52px;font-size:13px;padding:4px 6px;text-align:center;
     font-variant-numeric:tabular-nums}
+  /* the drag-to-re-rank slider gets its own full-width track BELOW the number,
+     not a stub crammed beside it (desktop) */
+  th .wrow .wslider{flex:0 0 100%;margin:8px 0 2px;height:22px}
   td{padding:3px 8px;border-top:1px solid var(--border)}
   td .iname{width:100%;min-width:230px;font-size:14.5px;padding:7px 9px;border:none;text-overflow:ellipsis;
     background:none;font-weight:500}
@@ -132,6 +135,10 @@
   /* while a weight is being dragged the deterministic re-rank is live; the MC-derived readouts are stale → fade */
   #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
   #results.pending .verdict, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
+  @media (prefers-reduced-motion: reduce){
+    #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
+    #results.pending .verdict, #results.pending .subverdict{transition:none}   /* dim instantly, no animated fade */
+  }
   .rankbar{display:grid;gap:2px;height:20px}
   .rankbar .cell{background:var(--track);border-radius:3px;position:relative}
   .rankbar .cell.in{background:var(--accent);opacity:.35}
