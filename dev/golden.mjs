@@ -686,9 +686,9 @@ for(const [k, src] of Object.entries(docs)){
   const {renderGrid, renderCollapse} = await import('../signal-vs-noise/render.js');
   const s = makeScenario(AUTHORED_SEED);
   const calls = [{person: 3, quarter: 3}, {person: 5, quarter: 4}, {person: s.signalPerson, quarter: 7}];
-  variants['signal-noise-grid'] = renderGrid(s, ctxBase.colors, {turn: 4, calls});
+  variants['signal-noise-grid'] = renderGrid(s, ctxBase.colors, {turn: 4, calls, width: 1088});
   variants['signal-noise-grid-narrow'] = renderGrid(s, ctxBase.colors, {turn: 4, calls, cols: 1});
-  variants['signal-noise-collapse'] = renderCollapse(s, ctxBase.colors, calls);
+  variants['signal-noise-collapse'] = renderCollapse(s, ctxBase.colors, calls, {width: 1088});
   variants['signal-noise-collapse-narrow'] = renderCollapse(s, ctxBase.colors, calls, {width: 356});
 }
 
