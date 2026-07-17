@@ -1,6 +1,7 @@
 /* Pure line rewrites for edit-in-place on the tree diagram. No DOM.
    Each apply() replaces exactly one component of one source line. */
 import {parse, parseMoney} from './parse.js';
+import {shiftRange, formatRange} from './format.js';
 
 export const validators = {
   prob(v){
@@ -88,3 +89,18 @@ export const applies = {
     return line.slice(0, start) + newRaw.trim() + line.slice(start + oldRaw.length);
   },
 };
+
+/* The priced-insistence slider's release-commit (B3, C2): translate the field's stated interval
+   to the new midpoint x, WIDTH PRESERVED (shiftRange), format it back to DSL text, and splice it
+   into the line via the existing applies.prob/applies.value (same regex/index-of splice either
+   edit-in-place path already uses — one rewrite, one commit, undoable). `node` is the parsed node
+   the line currently belongs to (its own p/value + pRaw/valueRaw); returns the line unchanged if
+   the field isn't a real range (missing, or 'rest' — never hot, so never reachable via the slider,
+   but a defensive no-op here rather than a throw). */
+export function applyExplore(line, node, x, isProb){
+  const range = isProb ? node.p : node.value;
+  if(!range || range === 'rest') return line;
+  const oldRaw = isProb ? (node.pRaw || '') : (node.valueRaw || '');
+  const text = formatRange(shiftRange(range, x, isProb), isProb);
+  return isProb ? applies.prob(line, oldRaw, text) : applies.value(line, oldRaw, text);
+}

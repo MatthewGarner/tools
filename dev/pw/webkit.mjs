@@ -103,6 +103,48 @@ for(const theme of ['light', 'dark']){
   }catch(e){ ok(false, 'motion(webkit): alarm loads — ' + String(e).split('\n')[0]); }
   await ctx.close();
 }
+
+/* tree B4 (real WebKit): the coarse-pointer sticky-bottom explore bar is
+   CSS-only (`@media (pointer:coarse)`), and this file exists precisely
+   because Blink-emulated coarse-pointer checks (mobile.mjs, which walks the
+   full card-menu → Explore… → slider mechanism) have twice missed a real-
+   Safari-only layout break. Engage the same path here and confirm the
+   fixed-position bar renders without blowing out the page on the actual
+   WebKit engine at phone width. */
+{
+  const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const page = await ctx.newPage();
+  try{
+    await page.goto(T + '/tree/', {waitUntil: 'networkidle', timeout: 20000});
+    await page.waitForTimeout(900);
+    const line = await page.evaluate(() => {
+      const el = document.querySelector('#preview svg [data-hot]');
+      return el ? el.dataset.line : null;
+    });
+    if(line !== null){
+      const marker = page.locator(`#preview svg [data-menu][data-line="${line}"]`);
+      const box = await marker.locator('[data-hit]').boundingBox();
+      if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(300);
+      const row = page.locator('.eip-pop button', {hasText: 'Explore'}).first();
+      if(await row.count()) await row.click();
+      await page.waitForTimeout(300);
+    }
+    const m = await page.evaluate(() => {
+      const de = document.scrollingElement || document.documentElement;
+      const bar = document.getElementById('explorebar');
+      return {sw: de.scrollWidth, cw: de.clientWidth,
+        barVisible: bar ? (getComputedStyle(bar).display !== 'none' && !bar.hidden) : false,
+        barFixed: bar ? getComputedStyle(bar).position === 'fixed' : false};
+    });
+    ok(m.sw - m.cw <= 1, `tree (webkit): the sticky explore bar causes no horizontal overflow (${m.sw} <= ${m.cw})`);
+    ok(m.barVisible && m.barFixed, 'tree (webkit): the explore bar engaged via the card menu and is position:fixed on a coarse pointer');
+  }catch(e){
+    ok(false, 'tree (webkit): sticky explore bar check — ' + String(e).split('\n')[0]);
+  }
+  await page.close();
+  await ctx.close();
+}
 await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
 report('webkit', {pass, fail, min: TOOLS.length * 2});   // ≥1 check/tool/theme; catches a crash or empty derived list

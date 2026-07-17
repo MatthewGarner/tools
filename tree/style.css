@@ -21,3 +21,95 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
    down. */
 .preview svg [data-edit^="cardmenu"]{cursor:pointer}
 .preview svg [data-edit^="cardmenu"]:hover rect[data-hit]{fill:var(--accent);fill-opacity:.12}
+
+/* C3: taps register immediately (no 300ms delay) without blocking the pan
+   the workspace already provides — `.stage .preview{overflow:auto}` (see
+   assets/workspace.css) is the native scroll container, and `manipulation`
+   permits pan-x/pan-y (only double-tap-zoom is dropped); `pan-y` — forbidden
+   by spec C3 — would block the horizontal strip pan coarse pointers rely on
+   to see a board-width tree. Unconditional: touch-action only affects touch
+   input, so it's a no-op for mouse/trackpad. */
+.stage .preview svg{touch-action:manipulation}
+
+/* ---------- B3: the priced-insistence walk ---------- */
+
+/* hot numbers (B2's in-string data-hot mark, already carrying a dotted accent
+   underline): a pointer affordance + a visibly distinct "currently bound"
+   state, applied by app.js after each paint (never in the SVG string itself —
+   goldens stay untouched, this is a post-insert class same as the crossfade). */
+.preview svg [data-hot]{cursor:pointer}
+.preview svg [data-hot].active-hot{fill:var(--accent);font-weight:700}
+.preview svg [data-hot]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* the live re-route crossfade (mid-drag, evalDet-driven — a post-insert class
+   layer only; the SAME <g data-opt> already carries a T.fadeOp opacity
+   PRESENTATION ATTRIBUTE for the settled off-policy case, and any stylesheet
+   rule — including this one — beats a presentation attribute regardless of
+   specificity, so .live-on cleanly overrides it without !important). */
+.preview svg [data-opt]{transition:opacity .18s ease}
+.preview svg [data-opt].live-on{opacity:1}
+.preview svg [data-opt].live-off{opacity:.42}
+/* the MC verdict/EV readouts take a certainty-fade while the live midpoint
+   layer is being dragged — they're stale until release re-runs the full
+   10k-sim evaluate (the honesty crux, C4). */
+.preview svg [data-mc],.preview svg [data-verdict]{transition:opacity .18s ease}
+.preview svg [data-mc].pending,.preview svg [data-verdict].pending{opacity:.4}
+@media (prefers-reduced-motion:reduce){
+  .preview svg [data-opt],.preview svg [data-mc],.preview svg [data-verdict]{transition:none}
+}
+
+/* the one persistent slider bar: hidden until a number is engaged, sits just
+   below the diagram on desktop. (Sticky-bottom-bar-on-coarse-pointer is B4;
+   this markup/CSS is deliberately clean for that to hook into.) */
+.explore-bar{margin:10px 0 2px;padding:12px 14px;background:var(--card);
+  border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow)}
+.explore-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.explore-label{font-size:13px;font-weight:600;color:var(--ink)}
+.explore-close{border:none;background:none;color:var(--muted);font-size:14px;line-height:1;
+  cursor:pointer;padding:6px;border-radius:6px;min-width:32px;min-height:32px}
+.explore-close:hover{color:var(--ink);background:var(--track)}
+/* coarse-pointer minimum tap target (44px, the house rule) — the card menu's
+   "Explore…" row reaches this bar on phones already, ahead of B4's own pass. */
+@media (pointer:coarse){
+  .explore-close{min-width:44px;min-height:44px}
+}
+.explore-track{position:relative;height:30px;display:flex;align-items:center}
+.explore-range{width:100%;margin:0;height:30px;accent-color:var(--accent);cursor:pointer;
+  position:relative;z-index:2;background:transparent}
+/* the stated-range band (the input's own 90% interval) + flip notches sit
+   UNDER the native track, positioned by percentage — an approximation (native
+   range tracks inset slightly for the thumb at each end) accepted for v1. */
+.explore-band{position:absolute;top:50%;height:6px;transform:translateY(-50%);
+  background:var(--accent);opacity:.22;border-radius:3px;pointer-events:none;z-index:1}
+.explore-notch{position:absolute;top:50%;width:2px;height:16px;
+  transform:translate(-50%,-50%);background:var(--accent2);pointer-events:none;z-index:1}
+.explore-priced{margin:8px 0 0;font-size:13px;color:var(--muted)}
+
+/* B4 (spec I6): on a coarse pointer the one persistent slider becomes a
+   safe-area sticky BOTTOM bar, pinned to the VIEWPORT rather than sitting
+   in-flow below the diagram — "below the tree" fails on a tall tree, since a
+   tap on a top node would otherwise leave the bar (and the live re-routing
+   route) many screens down, off-screen, while the user is still looking at
+   the node they just tapped. position:fixed removes it from the stage's
+   normal flow the same way its default `hidden` state already does, so the
+   verdict/seam/actions rows below it are never displaced by its presence —
+   it only floats above whatever sits at the viewport bottom while a number
+   is actively engaged (never permanently; it's hidden otherwise, unchanged).
+   Fine pointers are untouched — this whole block is gated to coarse, so
+   desktop keeps today's plain inline placement exactly as shipped in B3. */
+@media (pointer:coarse){
+  .explore-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    margin:0; border-radius:0; border-width:1px 0 0;
+    box-shadow:0 -2px 10px rgba(0,0,0,.15);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  /* the native range's own box IS its tap target — 30px (desktop) misses the
+     44px floor; the thumb/track and the ✕ (already 44px, see the coarse rule
+     above) both clear it inside the sticky bar. */
+  .explore-track, .explore-range{height:44px}
+}
+
+/* the at-rest honesty seam (I-6): persistent, not just mid-drag — shown
+   whenever the midpoint story's winner disagrees with the settled MC policy. */
+.seam{margin:2px 0 0;font-size:12.5px;color:var(--muted);font-style:italic}
