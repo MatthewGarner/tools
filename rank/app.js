@@ -2,16 +2,13 @@
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife} from './engine.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
+import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
 const state = {
-  criteria: [
-    {name:'Value', w:3},
-    {name:'Time criticality', w:2},
-    {name:'Risk reduction', w:1},
-  ],
-  effort: {name:'Effort', w:1},
+  criteria: DEFAULT_CRITERIA.map(c => ({...c})),   // clone — weights are mutated on drag
+  effort: {...DEFAULT_EFFORT},
   items: [],           // {name, s:[b1,b2,b3], e}
   k: 3,
   ww: 50,              // weight wobble: ±% as a 90% interval
@@ -24,26 +21,7 @@ let lastResult = null;
 // don't reflow under the thumb on a drag-and-hold. Typed/keyboard edits keep the safety commit.
 let sliderDown = false;
 
-/* ---------- examples ---------- */
-const EXAMPLES = [
-  {name:'Ops & infra backlog', k:3, items:[
-    ['Incident response automation',    8, 7, 6, 6],
-    ['Observability dashboard overhaul',7, 5, 5, 5],
-    ['Legacy job scheduler migration',  6, 4, 8, 8],
-    ['Cloud cost reporting',            4, 6, 3, 3],
-    ['Disaster recovery drill tooling', 5, 3, 9, 8],
-    ['Access control audit',            6, 8, 6, 4],
-    ['Internal API gateway rewrite',    7, 6, 5, 5],
-  ]},
-  {name:'Classic product backlog', k:3, items:[
-    ['Onboarding revamp',    8, 5, 3, 5],
-    ['Enterprise SSO',       6, 8, 4, 4],
-    ['Mobile app parity',    7, 4, 3, 9],
-    ['Billing self-serve',   5, 6, 5, 4],
-    ['Analytics dashboard',  6, 3, 4, 6],
-    ['API rate-limit tier',  4, 7, 6, 3],
-  ]},
-];
+/* examples + default weights live in ./examples.js (pure, invariant-tested) */
 
 /* ---------- table rendering ---------- */
 function renderHead(){
@@ -488,11 +466,15 @@ for(const ex of EXAMPLES){
 }
 
 if(readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
-else state.items = [
-  {name:'', s:[5,5,5], e:5},
-  {name:'', s:[5,5,5], e:5},
-  {name:'', s:[5,5,5], e:5},
-];
+else {
+  // Open on a real, contested backlog (not 3 identical rows that never re-sort) so the
+  // drag-weights mechanism is live and a knife-edge shows the moment you land. Matches
+  // the first chip, and never writes the hash (readHash's absence is the trigger).
+  const ex = EXAMPLES[0];
+  state.items = ex.items.map(r => ({name: r[0], s: r.slice(1, 4), e: r[4]}));
+  state.k = ex.k;
+  $('kin').value = ex.k;
+}
 renderHead();
 renderRows();
 compute();
