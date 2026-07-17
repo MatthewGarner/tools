@@ -290,15 +290,18 @@ for(const [name, url, selectors] of CONTAINERS){
 {
   const page = await ctx.newPage();
   await page.goto(T + '/rank/', {waitUntil: 'networkidle'}).catch(()=>{});
-  await page.waitForTimeout(500);
-  const chip = await page.$('.chip');
-  if(chip){ await chip.click(); await page.waitForTimeout(500); }
+  await page.waitForTimeout(700);
+  // Test the FIRST-LOAD default (no chip click): it must open on a real contested example
+  // whose ranking re-sorts under a weight drag — the old identical-rows default never did.
   const strip = await page.$$eval('#wstrip .wslider', els => els.map(e => Math.round(e.getBoundingClientRect().height)));
-  ok(strip.length >= 2, `rank: phone weight strip present (${strip.length} sliders)`);
+  ok(strip.length >= 2, `rank: phone weight strip present on first load (${strip.length} sliders)`);
   ok(strip.every(h => h >= 44), `rank: phone weight sliders ≥44px (${strip.join(',')})`);
+  const knifeOnLoad = await page.$$eval('#rrows .rrow.knife', els => els.length);
+  ok(knifeOnLoad >= 1, `rank: a knife-edge pill shows on first load (${knifeOnLoad})`);
   const before = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
   const sliders = await page.$$('#wstrip .wslider');
-  if(sliders.length){ await sliders[sliders.length - 1].evaluate(el => { el.value = el.max; el.dispatchEvent(new Event('input', {bubbles:true})); }); }
+  // zero the FIRST weight (Value) — removing the dominant criterion re-sorts a benefit/effort ranking
+  if(sliders.length){ await sliders[0].evaluate(el => { el.value = el.min; el.dispatchEvent(new Event('input', {bubbles:true})); }); }
   await page.waitForTimeout(200);
   const after = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
   ok(before !== after, `rank: dragging a phone weight re-ranks the rows`);
