@@ -134,7 +134,7 @@ export function revealFor(s, p, actedQuarter){
 }
 
 /* the Deming-funnel counterfactual: a manager who re-aims the target to each
-   quarter's number reviews a GAP with ~2× the variance (var(x_t − x_{t−1}) = 2σ²
+   quarter's number opens a GAP with ~2× the variance (var(x_t − x_{t−1}) = 2σ²
    vs σ² for a fixed target) — the extra "exceptions" are self-inflicted. NOT the
    team's output, which cannot change. Pooled over non-signal people (so the real
    step doesn't pollute the fixed side); degenerate seeds fall back to the analytic. */

@@ -126,7 +126,7 @@ function markdown(){
     v.line, '',
     '- ' + v.falseAlarms + ' of your ' + calls.length + ' conversations chased noise the process would have produced anyway.',
     '- ' + v.correctHolds + ' noise readings correctly left alone.',
-    '- Re-aiming targets to each quarter’s number reviews a gap with ' + (f.ratio ? '~' + (Math.round(f.ratio * 10) / 10) + '×' : 'about 2×') + ' the variance (Deming’s funnel).',
+    '- Re-aiming targets to each quarter’s number opens a gap with ' + (f.ratio ? '~' + (Math.round(f.ratio * 10) / 10) + '×' : 'about 2×') + ' the variance (Deming’s funnel).',
     '',
     'The band is an oracle you only get in a simulation. What transfers is the question every swing deserves: spike, or shift?'
   ].join('\n');

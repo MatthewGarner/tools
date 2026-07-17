@@ -146,7 +146,7 @@ export function renderCollapse(s, c, calls = [], {width} = {}){
   y = chTop + chH + 26;
 
   for(const line of wrap(v.coinFlip + ' of your calls were single-point coin flips · ' + v.correctHolds +
-    ' noise readings left alone · re-aiming the target to each quarter’s number would review a gap with about twice the variance (Deming’s funnel).', statWrap)){
+    ' noise readings left alone · re-aiming the target to each quarter’s number would open a gap with about twice the variance (Deming’s funnel).', statWrap)){
     parts.push(txt(PAD, y, line, statFont, c.muted)); y += 16;
   }
   y += 6;
