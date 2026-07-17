@@ -1,14 +1,13 @@
 /* /intraday page styles — tokens only, both themes via tokens.css.
    Ember accent (WCAG-checked on real surfaces, both themes — see cycles/risk/frequency/merit-order).
-   Deliberately narrower than the workspace-hero tools (no DSL editor here): single
-   1020px reading column, same family as fermi/rank/flow — about.css's own comment
-   anticipates this ("narrower pages... resolve to one column"). */
+   No DSL editor: a single stacked column, but (Route B, 2026-07-17) at the
+   panel's true measured width — full 1760px band, not the old 1020px pin. */
 :root{--accent:#C05621;--accent-ink:#A34413}
 @media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
 :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
 :root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
 
-.wrap{max-width:1020px;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:0 16px}
+.wrap{max-width:1760px;margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:0 24px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:20px}
 .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px;margin-top:12px}
 /* min-width:0 overrides the flex/grid automatic-minimum-size default (content
@@ -56,9 +55,10 @@
    draw-as-you-play reveal so the cursor steps over the full curve instead. */
 
 /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
-   the base .wrap carries the 16px reading gutter at every width now (was a 4px
-   desktop inset — prose sat near-flush through the 640→1020 tablet band); ≤640
-   cards full-bleed as native sheets (side borders + radius dropped, hairlines kept). */
+   the base .wrap carries a 24px band gutter matching the workspace siblings; ≤640
+   drops to 16px, which the full-bleed cards below cancel (side borders + radius
+   dropped, hairlines kept) so content still reads flush as a native sheet. */
 @media (max-width:640px){
+  .wrap{padding-inline:16px}
   .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
 }

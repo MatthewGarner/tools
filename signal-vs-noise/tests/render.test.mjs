@@ -5,6 +5,8 @@ import {renderGrid, renderCollapse} from '../render.js';
 
 const C = {ink: '#222', muted: '#667', border: '#ddd', card: '#fff', bg: '#f7f8f6', accent: '#3b6ea5', err: '#b3403a'};
 const s = makeScenario(AUTHORED_SEED);
+const rootW = svg => Number(/<svg[^>]*\bwidth="(\d+)"/.exec(svg)[1]);
+const svgH = svg => Number(/<svg[^>]*\bheight="(\d+)"/.exec(svg)[1]);
 
 test('grid renders a card per person + act/hold targets; valid SVG; no NaN', () => {
   const svg = renderGrid(s, C, {turn: 3, calls: []});
@@ -30,6 +32,22 @@ test('grid never uses control-chart / xMR vocabulary in the copy (I2)', () => {
   assert.doesNotMatch(svg, /xMR|control chart|control limit|UCL|LCL/i);
 });
 
+test('renderGrid: no-width default is unchanged (3 cols → 758)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(rootW(renderGrid(s, C, {turn: 4, calls: []})), 758);
+});
+
+test('renderGrid: wide width fills to ~1088 (cards grow, not zoom)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  const w = rootW(renderGrid(s, C, {turn: 4, calls: [], width: 1088}));
+  assert.ok(w >= 1080 && w <= 1096, 'expected ~1088, got ' + w);
+});
+
+test('renderGrid: cols=1 (phone) ignores width — stays 274 for the tap-target scale-up', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(rootW(renderGrid(s, C, {turn: 4, calls: [], cols: 1, width: 1088})), 274);
+});
+
 test('collapse is the verdict artefact: verdict line, the real-signal name, the oracle caption; valid; no NaN', () => {
   const calls = [{person: 3, quarter: 3}, {person: 5, quarter: 4}, {person: s.signalPerson, quarter: 7}];
   const svg = renderCollapse(s, C, calls);
@@ -41,9 +59,38 @@ test('collapse is the verdict artefact: verdict line, the real-signal name, the 
   assert.doesNotMatch(svg, /NaN|undefined/);
   // the phone RELAYOUT (re-wrapped narrow width, not a shrink): narrower canvas,
   // same payoff content, still well-formed
-  const narrow = renderCollapse(s, C, calls, {narrow: true});
+  const narrow = renderCollapse(s, C, calls, {width: 356});
   assert.match(narrow, /width="356"/, 'narrow collapse relayouts to a phone width');
   assert.match(narrow, /real decline/i);
   assert.match(narrow, /spike, or shift/i);
   assert.doesNotMatch(narrow, /NaN|undefined/);
+});
+
+test('renderCollapse: no-width default unchanged (wide 760)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(rootW(renderCollapse(s, C, [])), 760);
+});
+
+test('renderCollapse: narrow (356) branch reached by width<520', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(rootW(renderCollapse(s, C, [], {width: 356})), 356);
+});
+
+test('renderCollapse: wide width opens the chart (wider AND taller)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  const wide = renderCollapse(s, C, [], {width: 1088});
+  const base = renderCollapse(s, C, []);                 // 760
+  assert.ok(rootW(wide) >= 1080, 'root width ~1088, got ' + rootW(wide));
+  // the shared chart band grows in height too (the tangle is vertical) → overall SVG taller
+  assert.ok(svgH(wide) > svgH(base), 'wide collapse should be taller (chH scaled)');
+});
+
+test('renderCollapse: body prose stays capped (no <text> line spans the full chart)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  const wide = renderCollapse(s, C, [], {width: 1088});
+  // pull the muted body lines (the description/stats), assert none exceeds ~95 chars
+  const bodyLines = [...wide.matchAll(/<text[^>]*>([^<]{40,})<\/text>/g)].map(m => m[1]);
+  assert.ok(bodyLines.some(l => l.length > 20), 'sanity: found body text');
+  assert.ok(bodyLines.every(l => l.length <= 100), 'no body line should run past ~100 chars: ' +
+    (bodyLines.find(l => l.length > 100) || ''));
 });

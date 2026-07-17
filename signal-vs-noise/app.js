@@ -7,6 +7,7 @@ import {renderGrid, renderCollapse} from './render.js';
 import {themeColors, onThemeChange, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {debounced} from '../assets/schedule.js';
 
 const $ = id => document.getElementById(id);
 const stage = $('stage'), reveal = $('reveal'), nextBtn = $('next'), hint = $('hint'),
@@ -135,13 +136,13 @@ function markdown(){
 function render(){
   const s = scenario(), C = themeColors();
   if(phase === 'done'){
-    stage.innerHTML = renderCollapse(s, C, calls, {narrow: cols === 1});   // phone: re-wrapped narrow relayout
+    stage.innerHTML = renderCollapse(s, C, calls, {width: stage.clientWidth || 760});   // narrow/wide derived from width
 
     reveal.hidden = true; controls.hidden = true; endcard.hidden = false;
     lessonsEl.innerHTML = lessonsLine();
     return;
   }
-  stage.innerHTML = renderGrid(s, C, {turn, calls, cols});
+  stage.innerHTML = renderGrid(s, C, {turn, calls, cols, width: stage.clientWidth || 760});
   endcard.hidden = true; controls.hidden = false;
   reveal.hidden = phase !== 'reveal';
   hint.hidden = phase === 'reveal';
@@ -152,7 +153,7 @@ function render(){
 /* ---------- exports + replay + theme ---------- */
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copymd: $('copymd')},
-  getSvg: () => phase === 'done' ? renderCollapse(scenario(), themeColors(), calls) : null,
+  getSvg: () => phase === 'done' ? renderCollapse(scenario(), themeColors(), calls, {width: 1088}) : null,
   getMarkdown: markdown,
   slug: () => slugify('signal-vs-noise-' + seed, 'signal-vs-noise')
 });
@@ -162,11 +163,14 @@ $('again').addEventListener('click', () => startPlay((Math.random() * 2 ** 32) >
 $('noise').addEventListener('change', e => { params = {...params, noiseSd: +e.target.value}; startPlay(); });
 
 onThemeChange(render);
-// narrow relayout: re-render only when the column bucket actually flips
-new ResizeObserver(() => {
-  const next = colsFor(stage.clientWidth);
-  if(next !== cols){ cols = next; render(); }   // bucket flip reflows the grid OR the collapse
-}).observe(stage);
+// re-render on a column-bucket flip OR a >8px width change (debounced): the grid
+// cards and the collapse chart now scale with the measured width, not just cols.
+let lastW = stage.clientWidth;
+const onResize = debounced(() => {
+  const next = colsFor(stage.clientWidth), w = stage.clientWidth;
+  if(next !== cols || Math.abs(w - lastW) > 8){ cols = next; lastW = w; render(); }
+}, 100);
+new ResizeObserver(onResize).observe(stage);
 
 loadHash();
 if(params.noiseSd) $('noise').value = params.noiseSd;

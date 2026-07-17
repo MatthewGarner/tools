@@ -167,7 +167,12 @@ const PAGES = {
      ~330B "16px prose / full-bleed card" phone edge block in style.css tipped it
      285B over. Every card-band page pays the same ~330B; intraday trips first
      because it was already the heaviest. Actual ~126.3k, headroom ~0.7k. */
-  'energy/intraday/index.html': 127_000,
+  /* Raised 127k → 128k (2026-07-17, desktop width pass), consciously: two honest
+     growths landed together — the Route B true-measured-width render (app.js resize
+     plumbing + comments, ~0.5k) and the merged tokens.css color-scheme Safari
+     dark-flash fix (~0.5k, paid by every page, intraday trips first as the heaviest).
+     301B over. Neither is fat to trim. Actual ~127.3k, headroom ~0.7k. */
+  'energy/intraday/index.html': 128_000,
 };
 
 test('per-page load stays under budget', () => {
