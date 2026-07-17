@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
-<style>  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+<style>  .wrap{max-width:720px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
   h1{
     font-family:Charter,Georgia,"Times New Roman",serif;
     font-size:32px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance;
@@ -202,6 +202,16 @@
     .tab,.savedchip button,.pagemode button,.cfseg button,.viewseg button{min-height:44px;display:inline-flex;align-items:center}
     .vrow select,#tin,#cftin{min-height:44px}
     .adopt{min-height:44px;padding:8px 16px}
+  }
+
+  /* Phone edge system — "16px prose / 10px surface" (the Camp A block in
+     assets/workspace.css, applied to this page's card bands). The 16px reading
+     gutter lives on the base .wrap — unconditional, because prose sat flush
+     from 640px right up to the tool's own max-width (the tablet band), not
+     just on phones. ≤640 the cards break out to the viewport edge as native
+     sheets — side borders + radius dropped, top/bottom hairlines kept. */
+  @media (max-width:640px){
+    .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
   }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">

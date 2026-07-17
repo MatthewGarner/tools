@@ -57,3 +57,11 @@ input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2
   color:var(--ink);margin:14px 0 0;max-width:70ch}
 .deltas{color:var(--muted);font-size:13px;margin-top:6px;max-width:70ch}
 
+
+/* Phone edge system — "16px prose / 10px surface": the 16px prose gutter comes
+   from workspace.css's Camp A block (--page-gutter, this page links it); the
+   cards full-bleed back to the viewport edge as native sheets (side borders +
+   radius dropped, top/bottom hairlines kept). */
+@media (max-width:640px){
+  .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+}

@@ -1,6 +1,6 @@
 /* Page scaffold (per-tool by design — the fermi/flow centred column) + the
    alarm-specific surface. Shared bits come from tokens/about/controls/mobile.css. */
-.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.wrap{max-width:900px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
 main{display:flex;flex-direction:column;gap:20px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:22px}
@@ -85,4 +85,12 @@ input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--acc
 @media (pointer:coarse){
   .btn,.chip{min-height:44px;display:inline-flex;align-items:center}
   .claim-row input{min-height:44px}
+}
+
+/* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+   the reading gutter lives on the base .wrap (unconditional — prose sat flush
+   through the 640→max-width tablet band too); ≤640 cards full-bleed as native
+   sheets (side borders + radius dropped, top/bottom hairlines kept). */
+@media (max-width:640px){
+  .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
 }

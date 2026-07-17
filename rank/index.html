@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/motion.css">
-<style>  .wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+<style>  .wrap{max-width:860px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
     box-shadow:var(--shadow);padding:22px}
   .lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
@@ -45,10 +45,13 @@
   th .cname{width:100%;min-width:86px;font-size:12.5px;font-weight:600;padding:5px 7px;
     border:none;background:none;color:var(--ink)}
   th .cname:hover,th .cname:focus{background:var(--bg)}
-  th .wrow{display:flex;align-items:center;gap:5px;margin-top:2px}
+  th .wrow{display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap}
   th .wrow span{font-size:10.5px;color:var(--muted);letter-spacing:.05em}
   th .weight{width:52px;font-size:13px;padding:4px 6px;text-align:center;
     font-variant-numeric:tabular-nums}
+  /* the drag-to-re-rank slider gets its own full-width track BELOW the number,
+     not a stub crammed beside it (desktop) */
+  th .wrow .wslider{flex:0 0 100%;margin:8px 0 2px;height:22px}
   td{padding:3px 8px;border-top:1px solid var(--border)}
   td .iname{width:100%;min-width:230px;font-size:14.5px;padding:7px 9px;border:none;text-overflow:ellipsis;
     background:none;font-weight:500}
@@ -183,6 +186,14 @@
   /* fingers get full-size controls */
   @media (pointer: coarse){
     td .del{min-width:40px;min-height:40px}
+  }
+
+  /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+     the reading gutter lives on the base .wrap (unconditional — prose sat flush
+     through the 640→max-width tablet band too); ≤640 cards full-bleed as native
+     sheets (side borders + radius dropped, top/bottom hairlines kept). */
+  @media (max-width:640px){
+    .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
   }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">
