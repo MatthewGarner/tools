@@ -203,6 +203,16 @@
     .vrow select,#tin,#cftin{min-height:44px}
     .adopt{min-height:44px;padding:8px 16px}
   }
+
+  /* Phone edge system — "16px prose / 10px surface" (the Camp A block in
+     assets/workspace.css, applied to this page's card bands). page.css's body
+     pads 40px 0, so .wrap needs its own reading gutter (prose sat FLUSH at
+     0px); the cards then break back out to the viewport edge as native
+     sheets — side borders + radius dropped, top/bottom hairlines kept. */
+  @media (max-width:640px){
+    .wrap{padding-inline:16px}
+    .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+  }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">
 
