@@ -166,6 +166,39 @@ for(const [name, url] of AUTOLOAD){
   await page.close();
 }
 
+// Tablet-band gutter gate (2026-07-17): the phone reclamation fixed <=640, but
+// the 8 pre-module tools' own .wrap had NO horizontal padding, so prose sat
+// FLUSH at 0px from 640px right up to each tool's max-width (720-1040). The
+// gutter now lives unconditionally on each base .wrap; assert it at 700px —
+// inside every tool's flush zone — so the bug can't silently return.
+const PREMODULE = [
+  ['fermi', T + '/fermi/'], ['duel', T + '/duel/'],
+  ['signal-vs-noise', T + '/signal-vs-noise/'], ['rank', T + '/rank/'],
+  ['alarm', T + '/alarm/'], ['flow', T + '/flow/'],
+  ['intraday', E + '/intraday/'], ['premortem', T + '/premortem/'],
+];
+for(const [n] of PREMODULE) ok(ALL_NAMES.has(n), `PREMODULE metadata "${n}" is a known tool`);
+{
+  const tctx = await browser.newContext({viewport: {width: 700, height: 900}, reducedMotion: 'reduce'});
+  for(const [name, url] of PREMODULE){
+    const page = await tctx.newPage();
+    const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+    if(!loaded){ ok(false, name + ': tablet-band page loads'); await page.close(); continue; }
+    await page.waitForTimeout(600);
+    const m = await page.evaluate(() => {
+      const de = document.documentElement;
+      const h1 = document.querySelector('h1');
+      return {vw: de.clientWidth, sw: de.scrollWidth,
+        h1Left: h1 ? h1.getBoundingClientRect().left : -1};
+    });
+    ok(m.h1Left >= 15,
+      `${name}: prose keeps a reading gutter at tablet width (h1 left ${m.h1Left.toFixed(1)}px >= 15 @700)`);
+    ok(m.sw <= m.vw + 1, `${name}: no page h-scroll at tablet width (${m.sw} <= ${m.vw})`);
+    await page.close();
+  }
+  await tctx.close();
+}
+
 // Narrow no-overflow gate: the four tools whose charts/tables were just
 // re-laid-out must not let their INNER render container overflow sideways —
 // that's the "no sideways pan" guarantee this effort delivers. Page-level

@@ -19,7 +19,7 @@
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
-<style>  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+<style>  .wrap{max-width:720px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
   h1{
     font-family:Charter,Georgia,"Times New Roman",serif;
     font-size:32px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance;
@@ -205,12 +205,12 @@
   }
 
   /* Phone edge system — "16px prose / 10px surface" (the Camp A block in
-     assets/workspace.css, applied to this page's card bands). page.css's body
-     pads 40px 0, so .wrap needs its own reading gutter (prose sat FLUSH at
-     0px); the cards then break back out to the viewport edge as native
+     assets/workspace.css, applied to this page's card bands). The 16px reading
+     gutter lives on the base .wrap — unconditional, because prose sat flush
+     from 640px right up to the tool's own max-width (the tablet band), not
+     just on phones. ≤640 the cards break out to the viewport edge as native
      sheets — side borders + radius dropped, top/bottom hairlines kept. */
   @media (max-width:640px){
-    .wrap{padding-inline:16px}
     .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
   }
 </style>
