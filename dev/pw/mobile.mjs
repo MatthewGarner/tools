@@ -134,6 +134,38 @@ for(const [name, url] of AUTOLOAD){
   await page.close();
 }
 
+// Camp B analogue of the gate above, on the pre-module card-band tools: their
+// .wrap had NO horizontal padding (page.css's body pads 40px 0), so h1/tagline
+// prose sat FLUSH at 0px, and the surfaces stopped short of the edge. The
+// per-tool "16px prose / full-bleed card" blocks must give prose a >=15px
+// reading gutter AND land the histogram surface at >=90% of the viewport.
+// fermi is the sentinel (worst offender; its canvas is the hero surface).
+{
+  const page = await ctx.newPage();
+  const loaded = await page.goto(T + '/fermi/', {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+  if(!loaded){ ok(false, 'fermi: width-reclaim page loads'); }
+  else {
+    await page.waitForTimeout(900);
+    const m = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const h1 = document.querySelector('h1');
+      const card = document.querySelector('.card');
+      const hist = document.querySelector('#hist');
+      return {vw,
+        h1Left: h1 ? h1.getBoundingClientRect().left : -1,
+        card: card ? card.getBoundingClientRect().width : 0,
+        hist: hist ? hist.getBoundingClientRect().width : 0};
+    });
+    ok(m.h1Left >= 15,
+      `fermi: prose keeps a reading gutter, not flush at the glass (h1 left ${m.h1Left.toFixed(1)}px >= 15)`);
+    ok(m.card / m.vw >= 0.98,
+      `fermi: card band full-bleeds to the viewport edge (${Math.round(m.card)}/${m.vw} = ${(m.card / m.vw * 100).toFixed(1)}%)`);
+    ok(m.hist / m.vw >= 0.90,
+      `fermi: histogram surface reclaims >=90% of phone width (${Math.round(m.hist)}/${m.vw} = ${(m.hist / m.vw * 100).toFixed(1)}%)`);
+  }
+  await page.close();
+}
+
 // Narrow no-overflow gate: the four tools whose charts/tables were just
 // re-laid-out must not let their INNER render container overflow sideways —
 // that's the "no sideways pan" guarantee this effort delivers. Page-level
