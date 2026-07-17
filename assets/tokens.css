@@ -2,6 +2,17 @@
    Superset of all tools' custom properties; unused tokens cost nothing.
    Theme resolution: OS preference via media query; the viewer's explicit
    data-theme wins in both directions. */
+
+/* House width tiers — max-width caps by ROLE (pick a name, not a number):
+   form=forms · focus=reading column · instrument=playable artefact ·
+   board=multi-column board · band=full-bleed band.
+   Theme-independent (not in theme blocks); NOT usable in @media (custom props
+   don't resolve there — breakpoints stay raw px). alarm stays raw 900px (parked;
+   do NOT adopt --w-instrument — that ships a deliberately-parked widen). */
+:root{
+  --w-form:720px; --w-focus:820px; --w-instrument:1160px; --w-board:1240px; --w-band:1760px;
+}
+
 :root{
   /* Tell the UA the page supports both schemes, so it paints the OS-correct canvas
      (and native controls/scrollbars) from the FIRST frame — without this the browser

@@ -4,7 +4,7 @@
    Page spatial system: every band (header, workspace, about, footer) shares
    one gutter and one max width, so edges align down the whole page. */
 :root{
-  --page-max: 1760px;
+  --page-max: var(--w-band);
   --page-gutter: 24px;
 }
 .wrap{
