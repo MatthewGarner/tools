@@ -32,6 +32,14 @@ test('renderDay: cursor draws the scrub line at the given hour', () => {
   assert.doesNotMatch(renderDay(r, DAY_DEFAULTS, ctx), /data-cursor/);
 });
 
+test('intraday export SVG stays pinned at width 900', () => {
+  const ctx = {width: 900, height: 420, palette: MERIT_PALETTE.light,
+    colors: {ink: '#1b2733', muted: '#66727e', accent: '#C05621', grid: '#e3e7ea', card: '#ffffff'},
+    measure: (s, f) => s.length * 7};
+  const svg = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ctx, {forExport: true});
+  assert.match(svg, /width=['"]900['"]/, 'export must render at 900');
+});
+
 test('buildDayVerdict: names the price-setting fuel at peak and trough (changeover readout)', () => {
   const p = {...DAY_DEFAULTS, fleetGW: 0};
   const v = buildDayVerdict(runDay(p), p);

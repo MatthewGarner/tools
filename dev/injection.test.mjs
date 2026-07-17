@@ -424,7 +424,7 @@ test('alarm renderers stay well-formed under extreme numeric params (no user str
   assertClean(renderBox({tp: 10, fp: 990, tn: 0, fn: 0}, ctx.colors), 'alarm-box');
 });
 
-test('signal-vs-noise renderers stay well-formed — names come from a fixed constant, but prove esc() covers a hostile names array (grid + narrow + collapse verdict)', async () => {
+test('signal-vs-noise renderers stay well-formed — names come from a fixed constant, but prove esc() covers a hostile names array (grid + narrow + wide collapse verdict)', async () => {
   const {makeScenario, AUTHORED_SEED} = await import('../signal-vs-noise/engine.js');
   const {renderGrid, renderCollapse} = await import('../signal-vs-noise/render.js');
   const s = {...makeScenario(AUTHORED_SEED), names: EVIL.slice()};   // hostile names into every txt()/verdict/aria-label path
@@ -432,7 +432,8 @@ test('signal-vs-noise renderers stay well-formed — names come from a fixed con
   assertClean(renderGrid(s, ctx.colors, {turn: 4, calls}), 'signal-noise-grid');
   assertClean(renderGrid(s, ctx.colors, {turn: 4, calls, cols: 1}), 'signal-noise-grid-narrow');
   assertClean(renderCollapse(s, ctx.colors, calls), 'signal-noise-collapse');
-  assertClean(renderCollapse(s, ctx.colors, calls, {narrow: true}), 'signal-noise-collapse-narrow');
+  assertClean(renderCollapse(s, ctx.colors, calls, {width: 1088}), 'signal-noise-collapse-wide');
+  assertClean(renderCollapse(s, ctx.colors, calls, {width: 356}), 'signal-noise-collapse-narrow');
 });
 
 test('duel renderers escape hostile item labels + framing question (HTML surface, no SVG)', async () => {
