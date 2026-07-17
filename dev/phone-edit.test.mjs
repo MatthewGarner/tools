@@ -81,8 +81,11 @@ const FLOORS = {
      DOC below is the all-keys example (no ghost band), so the addkey capsule kind
      only shows when an optional band is absent — the floor is num + cardmenu = 2. */
   'energy/cycles': {kinds: 2, menu: true},
-  /* risk: still the num-only surface until its tail lands next */
-  'energy/risk':   {kinds: 1, menu: false},
+  /* risk (mobile-input tail, 2026-07-17): num pills + a per-structure ⋯ card menu
+     (data-menu cardmenu: Rename / insure limit add-remove / Remove) + the title
+     Rename `label` target + the ＋ Add structure `addleg` picker = 4 distinct
+     kinds (addleg, cardmenu, label, num). Merchant stays a plain baseline row. */
+  'energy/risk':   {kinds: 4, menu: true},
   /* THE PILOT, LANDED: timeline's narrow relayout is now fully phone-editable —
      every milestone row is a data-menu cardmenu whose ＋ Add capsules + field/
      routing targets emit 7 distinct kinds (additem, cardmenu, dates, label, note,

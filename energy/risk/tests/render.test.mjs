@@ -42,9 +42,29 @@ test('no diagram without merchant; markdown export carries the table + verdicts'
   assert.match(md, /The floor binds/);
 });
 
+test('narrow + edit: per-structure ⋯ menus, title Rename targets, ＋ Add structure; wide/non-edit stay clean', () => {
+  const m = parse(DOC);
+  const narrow = render(m, simulate(m), {...ctx, width: 360}, {edit: true, focus: null});
+  // three structures get a ⋯ card menu carrying their kind; merchant does NOT
+  assert.equal((narrow.match(/data-edit="cardmenu"/g) || []).length, 3, 'three structure ⋯ menus (not merchant)');
+  for(const k of ['floor', 'toll', 'insure']) assert.ok(narrow.includes('data-kind="' + k + '"'), 'menu for ' + k);
+  assert.ok(narrow.includes('data-menu=""'), 'card menu entry point');
+  // rename targets on the structure titles (3, one per structure)
+  assert.equal((narrow.match(/data-edit='label'/g) || []).length, 3, 'three Rename targets');
+  // one ＋ Add structure picker capsule
+  assert.equal((narrow.match(/data-edit="addleg"/g) || []).length, 1, 'one Add-structure capsule');
+  // the golden paths carry NONE of this
+  assert.ok(!render(m, simulate(m), {...ctx, width: 360}).includes('data-edit'), 'narrow non-edit stays clean');
+  const wideEdit = render(m, simulate(m), ctx, {edit: true, focus: 2});
+  assert.ok(!wideEdit.includes('data-menu') && !wideEdit.includes('data-edit="addleg"') && !wideEdit.includes("data-edit='label'"),
+    'wide edit (the golden path) has no card menu / capsule / rename');
+});
+
 test('every tag is well-formed XML (single-root, quoted attributes)', () => {
   const out = svg({edit: true});
+  const outN = render(parse(DOC), simulate(parse(DOC)), {...ctx, width: 360}, {edit: true, focus: null});
   const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
-  for(const tag of out.match(/<[^!/][^>]*>/g) || [])
-    assert.match(tag, TAG, 'malformed tag ' + tag.slice(0, 120));
+  for(const src of [out, outN])
+    for(const tag of src.match(/<[^!/][^>]*>/g) || [])
+      assert.match(tag, TAG, 'malformed tag ' + tag.slice(0, 120));
 });

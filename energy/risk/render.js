@@ -1,7 +1,7 @@
 /* Pure renderer: model + simulate() → SVG string. XML discipline throughout —
    txt()/esc() only for content; hand-built tags use single-quoted attributes
    (numbers and escaped strings only inside them). */
-import {esc, txt, tint, wrapText} from '../../assets/svg.js';
+import {esc, txt, tint, wrapText, editTarget, btnAttrs} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict} from './engine.js';
 
@@ -72,7 +72,10 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
   const vText = verdict(rows[fi], model.unit);
   const vLines = (bare || !vText) ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
   const AXIS = 34;
-  const H = TOP + rowsTotal + AXIS + (vLines.length ? 40 + vLines.length * 24 + 24 : 24);
+  /* phone-only ＋ Add structure capsule sits between the rows and the axis
+     (edit && narrow — desktop/export goldens never reach this) */
+  const ADDLEG = (edit && isNarrow) ? 52 : 0;
+  const H = TOP + rowsTotal + ADDLEG + AXIS + (vLines.length ? 40 + vLines.length * 24 + 24 : 24);
 
   parts.push('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'' + W + '\' height=\'' + H +
     '\' viewBox=\'0 0 ' + W + ' ' + H + '\' font-family=\'' + FONT + '\'>');
@@ -92,7 +95,22 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
       (i === fi && !isM ? accent : C.border) + '\'' +
       (edit ? ' data-focus=\'' + i + '\' style=\'cursor:pointer\' tabindex=\'0\' role=\'button\'' +
         ' aria-label=\'Focus the trade verdict on ' + esc(r.label) + '\'' : '') + '/>');
-    parts.push(txt(44, y + 30, r.label, 17, C.ink, {weight: 700}));
+    /* PHONE STRUCTURE EDITS (edit && narrow only — goldens untouched): the title
+       is a Rename target, and a top-right ⋯ opens this structure's card menu
+       (rename / insure limit add-remove / remove). Merchant is the baseline — no
+       menu, no rename. */
+    if(edit && isNarrow && !isM){
+      parts.push('<g data-edit=\'label\' data-line=\'' + r.srcLine + '\' data-raw=\'' + esc(r.label) + '\'' +
+        btnAttrs('Rename ' + r.label) + '>' + txt(44, y + 30, r.label, 17, C.ink, {weight: 700}) + '</g>');
+      const cx = W - 46, ccy = y + 24;
+      parts.push(editTarget(
+        '<circle cx=\'' + cx + '\' cy=\'' + ccy + '\' r=\'13\' fill=\'' + tint(accent) + '\'/>' +
+        txt(cx, ccy + 5, '⋯', 17, accent, {anchor: 'middle', weight: 700}),
+        {x: W - 68, y: y + 2, w: 44, h: 44, bg: C.bg},
+        {kind: 'cardmenu', line: r.srcLine, extra: 'data-menu="" data-kind="' + r.kind + '"', label: 'Edit ' + r.label, hit: true}));
+    } else {
+      parts.push(txt(44, y + 30, r.label, 17, C.ink, {weight: 700}));
+    }
 
     const ry = y + (isNarrow ? 52 : 40), rh = 30;
     const wy = ry + rh;
@@ -170,8 +188,21 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
     }
   });
 
+  /* phone: ＋ Add structure — a full-width dashed capsule whose tap opens a
+     Floor / Toll / Insure picker (the kind choice IS the commit step, so a bare
+     tap never adds silently). Sits just below the last row. */
+  if(edit && isNarrow){
+    const cx = 48, cw = W - 96, top = TOP + rowsTotal, cap = 36;
+    parts.push(editTarget(
+      '<rect x=\'' + cx + '\' y=\'' + (top + 6) + '\' width=\'' + cw + '\' height=\'' + cap +
+        '\' rx=\'10\' fill=\'none\' stroke=\'' + C.border + '\' stroke-dasharray=\'3 4\'/>' +
+      txt(cx + cw / 2, top + 6 + cap / 2 + 4, '＋ Add structure', 13, C.muted, {anchor: 'middle', weight: 600}),
+      {x: cx, y: top + 2, w: cw, h: 44, bg: C.bg},
+      {kind: 'addleg', line: -1, raw: '', label: 'Add a route structure'}));
+  }
+
   /* shared axis */
-  const ay = TOP + rowsTotal + 4;
+  const ay = TOP + rowsTotal + ADDLEG + 4;
   parts.push('<line x1=\'' + x0 + '\' y1=\'' + ay + '\' x2=\'' + x1 + '\' y2=\'' + ay +
     '\' stroke=\'' + C.border + '\' stroke-width=\'1.5\'/>');
   for(const t of niceTicks(sim.min, sim.max))

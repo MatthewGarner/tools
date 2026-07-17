@@ -2241,6 +2241,139 @@ check('no console/page errors', errors.length === 0);
   await mctx.close();
 }
 
+/* ---- mobile-input TAIL (energy/risk): each structure row's ⋯ opens the edits
+   it owns — Rename, insure limit add/remove, Remove structure — while the num
+   pills stay directly editable and the whole card still toggles the focus verdict
+   by an empty-area tap. Merchant is the baseline (no menu). A ＋ Add structure
+   capsule opens a Floor/Toll/Insure picker (the kind choice IS the commit step).
+   Also proves the editField append fix (editing a share/fee a floor omitted was a
+   silent no-op). Tap via scroll-to-centre + mouse.click (see the cycles block).
+   Same commit/assert/ONE-Undo/revert contract. Served at /energy/risk/. ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  const BASEU = (process.env.BASE || 'http://localhost:8087');
+  const rkEnc = t => Buffer.from(JSON.stringify({t}), 'utf8').toString('base64');
+  const RKDOC = `title: Route to market — Wexcombe 100MW/2h
+merchant: 60..180
+
+floor: 70 share 60% fee 5
+toll: 95
+insure: premium 6 attach 65 limit 30`;
+  const rkSrc = () => mpage.evaluate(() => localStorage.getItem('risk-src'));
+  const rkTap = async sel => {
+    const pt = await mpage.evaluate(s => { const g = document.querySelector(s); if(!g) return null;
+      g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect();
+      return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, sel);
+    if(!pt) return false;
+    await mpage.waitForTimeout(150); await mpage.mouse.click(pt.x, pt.y); await mpage.waitForTimeout(300); return true;
+  };
+  const rkBtn = async txt => { await mpage.locator('.eip-pop button', {hasText: txt}).click(); await mpage.waitForTimeout(400); };
+  const rkUndo = async () => { await rkTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); };
+
+  await mpage.goto(BASEU + '/energy/risk/#' + rkEnc(RKDOC), {waitUntil: 'networkidle'});
+  await mpage.waitForTimeout(900);
+  const rkBase = await rkSrc();
+
+  const rkInfo = await mpage.evaluate(() => ({
+    narrow: (document.querySelector('#preview svg')?.getAttribute('width') | 0) < 520,
+    menus: document.querySelectorAll('#preview svg [data-edit="cardmenu"][data-menu]').length,
+    merchantMenu: document.querySelectorAll('#preview svg [data-edit="cardmenu"][data-kind="merchant"]').length,
+    hits: [...document.querySelectorAll('#preview svg [data-edit="cardmenu"] [data-hit]')]
+      .map(r => { const b = r.getBoundingClientRect(); return Math.round(b.width) >= 44 && Math.round(b.height) >= 44; }),
+  }));
+  check('risk narrow: the phone preview is the narrow relayout', rkInfo.narrow);
+  check('risk narrow: three structure ⋯ menus, merchant has none', rkInfo.menus === 3 && rkInfo.merchantMenu === 0);
+  check('risk narrow: every ⋯ hit rect is ≥44px', rkInfo.hits.length === 3 && rkInfo.hits.every(Boolean));
+
+  // insure ⋯: Rename / Remove limit / Remove structure; no silent commit
+  await rkTap('[data-edit="cardmenu"][data-kind="insure"] [data-hit]');
+  check('risk narrow: insure ⋯ shows Rename / Remove limit / Remove structure',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Remove limit|Remove structure');
+  check('risk narrow: opening the ⋯ menu commits nothing', (await rkSrc()) === rkBase);
+  await rkBtn('Remove limit');
+  check('risk narrow: Remove limit strips the limit clause', /^insure: premium 6 attach 65$/m.test(await rkSrc()));
+  // re-open → now offers ＋ Add limit → appends the default (0.25·span = 30)
+  await rkTap('[data-edit="cardmenu"][data-kind="insure"] [data-hit]');
+  check('risk narrow: with limit gone the menu offers ＋ Add limit',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).some(t => /Add limit/.test(t)));
+  await rkBtn('Add limit');
+  check('risk narrow: ＋ Add limit appends limit 30', /^insure: premium 6 attach 65 limit 30$/m.test(await rkSrc()));
+  await rkUndo(); await rkUndo();
+  check('risk narrow: two Undos restore the insure baseline', (await rkSrc()) === rkBase);
+
+  // Rename the toll via the ⋯ menu → Rename…
+  await rkTap('[data-edit="cardmenu"][data-kind="toll"] [data-hit]');
+  await rkBtn('Rename…');
+  await mpage.locator('.eip-input').fill('Fixed PPA');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(400);
+  check('risk narrow: Rename writes the quoted label', /^toll: 95 "Fixed PPA"$/m.test(await rkSrc()));
+  await rkUndo();
+  check('risk narrow: one Undo reverts the rename', (await rkSrc()) === rkBase);
+
+  // Remove structure (toll)
+  await rkTap('[data-edit="cardmenu"][data-kind="toll"] [data-hit]');
+  await rkBtn('Remove structure');
+  check('risk narrow: Remove structure drops the toll line', !/^toll:/m.test(await rkSrc()));
+  await rkUndo();
+  check('risk narrow: one Undo restores the toll', (await rkSrc()) === rkBase);
+
+  // ＋ Add structure → picker (Floor/Toll/Insure); pick Insure → a merchant-derived leg
+  await rkTap('[data-edit="addleg"]');
+  check('risk narrow: ＋ Add structure opens a Floor/Toll/Insure picker (no silent add)',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Floor|Toll|Insure' &&
+    (await rkSrc()) === rkBase);
+  await rkBtn('Insure');
+  check('risk narrow: picking Insure appends a merchant-derived leg', /^insure: premium 6 attach 66$/m.test(await rkSrc()));
+  check('risk narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+    !document.activeElement || !document.activeElement.closest('.cm-editor')));
+  await rkUndo();
+  check('risk narrow: one Undo removes the added leg', (await rkSrc()) === rkBase);
+
+  // the whole card still toggles the focus verdict via an empty-area tap (data-focus)
+  const vBefore = await mpage.evaluate(() => document.getElementById('verdict').textContent);
+  await rkTap('#preview svg [data-focus="2"]');
+  check('risk narrow: an empty-card tap still toggles the focus verdict',
+    (await mpage.evaluate(() => document.getElementById('verdict').textContent)) !== vBefore);
+
+  check('risk narrow: no h-scroll with the ⋯ menus + capsule', await mpage.evaluate(() => {
+    const pv = document.getElementById('preview');
+    return pv.scrollWidth <= pv.clientWidth + 1;
+  }));
+  check('risk narrow: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
+/* ---- risk APPEND FIX (own fresh context): a floor written WITHOUT share/fee
+   renders a share pill (100%) whose edit used to be a silent no-op. editField
+   now appends the clause. Isolated context so no prior focus/scroll state can
+   deflect the pill tap. ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  const enc = t => Buffer.from(JSON.stringify({t}), 'utf8').toString('base64');
+  await mpage.goto((process.env.BASE || 'http://localhost:8087') +
+    '/energy/risk/#' + enc('title: Bare floor\nmerchant: 60..180\n\nfloor: 70'), {waitUntil: 'networkidle'});
+  await mpage.waitForTimeout(800);
+  const pt = await mpage.evaluate(() => { const g = document.querySelector('[data-edit="num"][data-field="share"]');
+    g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; });
+  await mpage.waitForTimeout(150);
+  await mpage.mouse.click(pt.x, pt.y);
+  await mpage.waitForTimeout(300);
+  check('risk append-fix: the absent-share pill opens an input (prefilled 100)',
+    await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === '100');
+  await mpage.locator('.eip-input').fill('75');
+  await mpage.keyboard.press('Enter');
+  await mpage.waitForTimeout(400);
+  check('risk append-fix: editing an absent share now WRITES it (was a silent no-op)',
+    /^floor: 70 share 75%$/m.test(await mpage.evaluate(() => localStorage.getItem('risk-src'))));
+  check('risk append-fix: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
 /* ---- timeline desktop: per-lane add zone opens empty, typed value replaces
    the dated placeholder (not "New milestone" — that would test nothing) ---- */
 {
@@ -2652,4 +2785,4 @@ check('no console/page errors', errors.length === 0);
 
 console.log(results.join('\n'));
 await browser.close();
-report('check-eip', {...tally(results), min: 85});
+report('check-eip', {...tally(results), min: 100});

@@ -3,7 +3,8 @@ import {parse} from './parse.js';
 import {simulate, fmtUnit} from './engine.js';
 import {render, toMarkdown, riskVerdict, focusedIndex} from './render.js';
 import {createEditor} from './editor.js';
-import {validators, editField} from './edit-targets.js';
+import {validators, editField, editLabel, removeParam, addLegLine, removeLegLine} from './edit-targets.js';
+import {insertAndSelect} from '../../assets/editor-common.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
@@ -122,14 +123,59 @@ $('preview').addEventListener('keydown', e => {
   doRefresh();
 });
 
-/* edit-in-place: one numeric kind; the field rides on the element */
+/* The phone card menu ("the card is the control"): each structure's ⋯ opens the
+   edits it owns — Rename, insure limit add/remove, Remove — while the num pills
+   stay directly editable. Merchant is the baseline: no menu. Resolved fresh from
+   the model each open, keyed on the tapped row's kind + srcLine. */
+function limitDefault(){
+  return model.merchant ? String(Math.round(0.25 * (model.merchant.hi - model.merchant.lo))) : '30';
+}
+function structureMenu(m, kind, srcLine){
+  const st = m.structures.find(s => s.srcLine === srcLine);
+  const rows = [{label: 'Rename…', opens: 'label'}];
+  if(kind === 'insure'){
+    const hasLimit = st && st.params.limit !== Infinity;
+    rows.push(hasLimit
+      ? {label: 'Remove limit', commit: {kind: 'removelimit', line: srcLine, oldRaw: '', value: ''}}
+      : {label: '＋ Add limit', commit: {kind: 'addlimit', line: srcLine, oldRaw: '', value: limitDefault()}});
+  }
+  rows.push({label: 'Remove structure', danger: true, commit: {kind: 'removeleg', line: srcLine, oldRaw: '', value: ''}});
+  return rows;
+}
+
+/* edit-in-place: numeric field pills, per-structure ⋯ card menu, title Rename,
+   and a ＋ Add structure picker. Structure edits route through the pure
+   add/removeLegLine + editLabel + editField/removeParam rewrites → one undoable
+   CodeMirror dispatch each. */
 attachEditInPlace($('preview'), {
-  kinds: {num: {validate: validators.num}},
+  kinds: {
+    num: {validate: validators.num},
+    label: {validate: validators.label},
+    cardmenu: {menu: el => structureMenu(model, el.dataset.kind, +el.dataset.line)},
+    /* the kind CHOICE is the commit step, so a bare capsule tap adds nothing */
+    addleg: {menu: [
+      {label: 'Floor', commit: {kind: 'addleg', line: -1, oldRaw: '', value: 'floor'}},
+      {label: 'Toll', commit: {kind: 'addleg', line: -1, oldRaw: '', value: 'toll'}},
+      {label: 'Insure', commit: {kind: 'addleg', line: -1, oldRaw: '', value: 'insure'}},
+    ]},
+  },
   onCommit(kind, line, raw, value, el){
+    if(kind === 'addleg'){
+      const r = addLegLine(editor.getText(), value);
+      if(!r) return;
+      insertAndSelect(editor, r.afterLine, r.newLine, undefined, {focus: matchMedia('(pointer: fine)').matches});
+      return;
+    }
+    if(kind === 'removeleg'){
+      if(removeLegLine(editor.getText(), line)) editor.removeLine(line);
+      return;
+    }
     const cur = editor.getLine(line);
-    const next = editField(cur, el.dataset.field, value);
-    if(next === cur) return;
-    editor.replaceLine(line, next);   // dispatches through CodeMirror — undoable
+    const next = kind === 'label' ? editLabel(cur, value)
+      : kind === 'addlimit' ? editField(cur, 'limit', value)
+      : kind === 'removelimit' ? removeParam(cur, 'limit')
+      : editField(cur, el.dataset.field, value);
+    if(next !== cur) editor.replaceLine(line, next);   // dispatches through CodeMirror — undoable
   },
 });
 
