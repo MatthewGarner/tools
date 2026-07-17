@@ -75,10 +75,17 @@ const FLOORS = {
      targets, so the floor honestly stays at 4 (additem, anchor, componentmenu,
      name/stage mix per width); the behaviour is gated in dev/pw/check-eip.mjs. */
   wardley:   {kinds: 4, menu: false},
-  /* cycles/risk: the num capsules survive the narrow relayout — 1 kind is the
-     whole (real) surface */
-  'energy/cycles': {kinds: 1, menu: false},
-  'energy/risk':   {kinds: 1, menu: false},
+  /* cycles (mobile-input tail, 2026-07-17): the num pills stay directly editable
+     AND each band gains a top-right ⋯ card menu (data-menu cardmenu) exposing the
+     optional-key structure — add/remove charge/second/drift/discount/augment. The
+     DOC below is the all-keys example (no ghost band), so the addkey capsule kind
+     only shows when an optional band is absent — the floor is num + cardmenu = 2. */
+  'energy/cycles': {kinds: 2, menu: true},
+  /* risk (mobile-input tail, 2026-07-17): num pills + a per-structure ⋯ card menu
+     (data-menu cardmenu: Rename / insure limit add-remove / Remove) + the title
+     Rename `label` target + the ＋ Add structure `addleg` picker = 4 distinct
+     kinds (addleg, cardmenu, label, num). Merchant stays a plain baseline row. */
+  'energy/risk':   {kinds: 4, menu: true},
   /* THE PILOT, LANDED: timeline's narrow relayout is now fully phone-editable —
      every milestone row is a data-menu cardmenu whose ＋ Add capsules + field/
      routing targets emit 7 distinct kinds (additem, cardmenu, dates, label, note,
