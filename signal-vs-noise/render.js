@@ -18,8 +18,14 @@ function bandRect(x, w, top, h, c, lo, hi, band){
 }
 
 /* ---------- the play grid ---------- */
-export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3} = {}){
-  const PAD = 22, gap = 12, cardW = 230;               // cardW fixed → cols drives width (narrow relayout, not a shrink)
+export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, width} = {}){
+  const PAD = 22, gap = 12;
+  // cardW: pinned 230 for phone (cols=1, whose ~274 SVG is CSS-scaled ×1.27 to clear
+  // the 44px tap bar) and for the width-less default (keeps the 758/274 goldens + the
+  // injection corpus byte-identical); derived to fill `width` at cols>=2, clamped so
+  // cards neither shrink below 230 nor bloat past 360 (grid then centers under the wrap).
+  const cardW = (cols === 1 || width == null) ? 230
+    : Math.round(Math.max(230, Math.min(360, (width - PAD * 2 - gap * (cols - 1)) / cols)));
   // one-column phones scale this ~274-wide SVG up to the container (iPhone 13
   // stage ≈348 ⇒ ×1.27; Pixel 7 ≈372 ⇒ ×1.36), so a 38px button clears the 44px
   // coarse-pointer target on both gate devices (38×1.27 ≈ 48px). (Landscape phones

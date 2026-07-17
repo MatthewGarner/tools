@@ -5,6 +5,7 @@ import {renderGrid, renderCollapse} from '../render.js';
 
 const C = {ink: '#222', muted: '#667', border: '#ddd', card: '#fff', bg: '#f7f8f6', accent: '#3b6ea5', err: '#b3403a'};
 const s = makeScenario(AUTHORED_SEED);
+const rootW = svg => Number(/<svg[^>]*\bwidth="(\d+)"/.exec(svg)[1]);
 
 test('grid renders a card per person + act/hold targets; valid SVG; no NaN', () => {
   const svg = renderGrid(s, C, {turn: 3, calls: []});
@@ -28,6 +29,22 @@ test('grid leaks NOTHING it does not render: byte-identical under future quarter
 test('grid never uses control-chart / xMR vocabulary in the copy (I2)', () => {
   const svg = renderGrid(s, C, {turn: 5});
   assert.doesNotMatch(svg, /xMR|control chart|control limit|UCL|LCL/i);
+});
+
+test('renderGrid: no-width default is unchanged (3 cols → 758)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(rootW(renderGrid(s, C, {turn: 4, calls: []})), 758);
+});
+
+test('renderGrid: wide width fills to ~1088 (cards grow, not zoom)', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  const w = rootW(renderGrid(s, C, {turn: 4, calls: [], width: 1088}));
+  assert.ok(w >= 1080 && w <= 1096, 'expected ~1088, got ' + w);
+});
+
+test('renderGrid: cols=1 (phone) ignores width — stays 274 for the tap-target scale-up', () => {
+  const s = makeScenario(AUTHORED_SEED);
+  assert.equal(rootW(renderGrid(s, C, {turn: 4, calls: [], cols: 1, width: 1088})), 274);
 });
 
 test('collapse is the verdict artefact: verdict line, the real-signal name, the oracle caption; valid; no NaN', () => {
