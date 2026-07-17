@@ -134,7 +134,16 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 490_000, 'tree/index.html': 470_000,
+  'why/index.html': 490_000,
+  /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
+     treatment): tree/style.css gained the coarse-pointer sticky-bottom
+     explore bar (spec I6 — position:fixed + safe-area padding + the 44px
+     track/close sizing) and the touch-action:manipulation rule (spec C3).
+     Genuinely new CSS, not creep — tree's own budget was already the
+     tightest of the DSL pages (no headroom left after Stage 0's shared
+     editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
+     in line with the other DSL pages. */
+  'tree/index.html': 478_000,
   'map/index.html': 480_000,
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
