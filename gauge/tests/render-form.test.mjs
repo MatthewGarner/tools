@@ -75,3 +75,62 @@ test('collectValues: full allocation collected, blank skipped, bad sum errors', 
   feq(bad.values[0], null);
   fok(bad.errors.some(e => e.q === 0 && e.msg.includes('100')));
 });
+
+/* ---- editable (compose) authoring chrome ---- */
+const kindsOf = html => new Set([...html.matchAll(/data-edit="([^"]+)"/g)].map(m => m[1]));
+
+test('editable form has NO edit chrome unless opts.editable', () => {
+  const html = renderForm(parse('Ship :: prob\nWeeks :: range weeks\nPick :: chips A | B | C'));
+  assert.equal(kindsOf(html).size, 0);
+  assert.ok(!html.includes('data-edit'));
+});
+
+test('editable prob/range/chips emit their authoring targets', () => {
+  const m = parse('Ship :: prob\nWeeks :: range weeks\nPick :: chips A | B | C');
+  const kinds = kindsOf(renderForm(m, {editable: true}));
+  for(const k of ['qtext', 'qtype', 'removeq', 'unit', 'opt', 'rmopt', 'addopt', 'addq'])
+    assert.ok(kinds.has(k), 'missing ' + k);
+});
+
+test('every data-edit target carries data-line (except doc-level addq) and prefilled data-raw', () => {
+  const html = renderForm(parse('Weeks :: range weeks'), {editable: true});
+  // qtext prefilled with the text, qtype with the type, unit with the unit
+  assert.match(html, /data-edit="qtext" data-line="0" data-raw="Weeks"/);
+  assert.match(html, /data-edit="qtype" data-line="0" data-raw="range"/);
+  assert.match(html, /data-edit="unit" data-line="0" data-raw="weeks"/);
+});
+
+test('addq is a menu target with no data-line so the coarse redirect skips it', () => {
+  const html = renderForm(parse('Ship :: prob'), {editable: true});
+  assert.match(html, /class="addq" data-edit="addq"/);
+  assert.ok(!/data-edit="addq" data-line/.test(html));
+});
+
+test('rmopt appears only above 2 options; addopt disappears at 8', () => {
+  const two = renderForm(parse('Pick :: chips A | B'), {editable: true});
+  assert.ok(!two.includes('data-edit="rmopt"'), 'no remove at the 2-floor');
+  assert.ok(two.includes('data-edit="addopt"'));
+  const three = renderForm(parse('Pick :: chips A | B | C'), {editable: true});
+  assert.equal((three.match(/data-edit="rmopt"/g) || []).length, 3);
+  const eight = renderForm(parse('Pick :: chips A|B|C|D|E|F|G|H'), {editable: true});
+  assert.ok(!eight.includes('data-edit="addopt"'), 'no add at the 8-ceiling');
+  assert.equal((eight.match(/data-edit="rmopt"/g) || []).length, 8);
+});
+
+test('missing range unit renders a ghost unit pill (empty raw)', () => {
+  const html = renderForm(parse('Weeks :: range'), {editable: true});
+  assert.match(html, /class="unit unitpill ghost"[^>]*data-edit="unit"[^>]*data-raw=""/);
+  assert.ok(html.includes('>unit</span>'));   // placeholder label
+});
+
+test('editable targets are spans (role=button), never native buttons', () => {
+  const html = renderForm(parse('Pick :: chips A | B | C'), {editable: true});
+  for(const m of html.matchAll(/<(\w+)[^>]*data-edit=/g)) assert.equal(m[1], 'span');
+});
+
+test('editable question text/options stay escaped', () => {
+  const html = renderForm(parse('a <b> "c" :: chips X & Y | B'), {editable: true});
+  assert.ok(html.includes('data-raw="a &lt;b&gt; &quot;c&quot;"'));
+  assert.ok(html.includes('data-raw="X &amp; Y"'));
+  assert.ok(!html.includes('<b>'));
+});

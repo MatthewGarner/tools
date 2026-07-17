@@ -2,7 +2,9 @@
 import {parse} from './parse.js';
 import {sessionStats, markdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
-import {addQuestionLine, removeQuestionLine} from './edit-targets.js';
+import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,
+  renameOption, addOption, removeOption} from './edit-targets.js';
+import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
@@ -101,18 +103,50 @@ async function initCompose(hash){
     onChange: debounced(() => refresh(), 120),
   });
   mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
-  /* add/remove questions from the form preview — text edits through the editor, undoable */
-  $('preview').addEventListener('click', e => {
-    const del = e.target.closest && e.target.closest('.qdel');
-    if(del){
-      const line = +del.dataset.line;
-      if(removeQuestionLine(editor.getText(), line)) editor.removeLine(line);
-      return;
-    }
-    if(e.target.closest && e.target.closest('.addq')){
-      const {afterLine, newLine} = addQuestionLine(editor.getText());
-      insertAndSelect(editor, afterLine, newLine, 'New question');
-    }
+
+  /* Phone-first question authoring: every edit affordance on the compose form
+     preview is an undoable TEXT rewrite (gauge/edit-targets.js) dispatched
+     through CodeMirror. Text stays the single source of truth; config keys stay
+     editor-only. The shared handler is surface-agnostic — these targets are HTML
+     spans, not SVG. A line rewrite that returns null (guard fail / no-op) is not
+     dispatched. removeq/rmopt are ['×'] cycles (coarse → danger confirm); addopt
+     is a one-tap ['add'] capsule; addq/qtype are pickers (nothing on a bare tap).
+     ＋ Add question's picker chooses the new question's type. */
+  const addQuestion = type => {
+    const {afterLine, newLine} = addQuestionLine(editor.getText(), type);
+    insertAndSelect(editor, afterLine, newLine, 'New question');
+  };
+  const addqMenu = ['prob', 'range', 'chips'].map(t => ({
+    label: t === 'prob' ? 'Probability' : t === 'range' ? 'Range' : 'Chips',
+    commit: {kind: 'addq', line: -1, oldRaw: '', value: t},
+  }));
+  attachEditInPlace($('preview'), {
+    kinds: {
+      qtext:   {validate: v => renameQuestion('X :: prob', v) != null},
+      qtype:   {options: ['prob', 'range', 'chips']},
+      unit:    {validate: v => v.trim() !== '' && !v.includes('::')},
+      opt:     {validate: v => v.trim() !== '' && !v.includes('|') && !v.includes('::')},
+      removeq: {cycle: ['×']},
+      rmopt:   {cycle: ['×']},
+      addopt:  {cycle: ['add']},   // one-tap add (coarse tap does NOT open a picker)
+      addq:    {menu: addqMenu},
+    },
+    onCommit(kind, line, raw, value, el){
+      if(kind === 'addq'){ addQuestion(value); return; }
+      if(kind === 'removeq'){
+        if(removeQuestionLine(editor.getText(), line)) editor.removeLine(line);
+        return;
+      }
+      const cur = editor.getLine(line);
+      let next = null;
+      if(kind === 'qtext')  next = renameQuestion(cur, value);
+      else if(kind === 'qtype') next = setType(cur, value);
+      else if(kind === 'unit')  next = setUnit(cur, value);
+      else if(kind === 'opt')   next = renameOption(cur, +el.dataset.opt, value);
+      else if(kind === 'rmopt') next = removeOption(cur, +el.dataset.opt);
+      else if(kind === 'addopt') next = addOption(cur);
+      if(next != null && next !== cur) editor.replaceLine(line, next);   // one undoable dispatch
+    },
   });
 
   const ws = initWorkspace({

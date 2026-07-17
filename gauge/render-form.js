@@ -1,13 +1,37 @@
-/* Session model → participant form HTML string, and DOM-free value collection. */
+/* Session model → participant form HTML string, and DOM-free value collection.
+
+   In compose mode the app passes {editable:true}: the form gains phone-first
+   AUTHORING chrome — every question's text, type, unit and chip options become
+   edit-in-place targets (assets/edit-in-place.js), each an undoable text rewrite
+   (gauge/edit-targets.js). Participants never get editable:true, so their markup
+   is unchanged. Targets are <span role="button">, not <button>, so a keyboard
+   Enter fires the shared keydown handler once (a native button would also
+   synthesize a click → double-open). */
 import {esc} from '../assets/svg.js';
+
+/* one edit-in-place target: data-edit kind + source line + prefilled raw. */
+function de(kind, line, raw, extra = ''){
+  return ' data-edit="' + kind + '" data-line="' + line + '" data-raw="' + esc(raw) + '"' +
+    extra + ' role="button" tabindex="0"';
+}
 
 export function renderForm(model, opts = {}){
   const editable = !!opts.editable;   // compose preview only — participants never see these
   const qs = model.questions.map((q, i) => {
-    const del = editable
-      ? '<button class="qdel" data-line="' + q.srcLine + '" aria-label="Remove question ' + (i + 1) + '">×</button>'
-      : '';
-    const head = '<p class="qtext"><span class="qnum">' + (i + 1) + '</span>' + esc(q.text) + del + '</p>';
+    const L = q.srcLine;
+    let head;
+    if(editable){
+      const title = '<span class="qtitle"' + de('qtext', L, q.text) +
+        ' aria-label="Edit question ' + (i + 1) + ' text">' + esc(q.text) + '</span>';
+      const typepill = '<span class="qtypepill"' + de('qtype', L, q.type) +
+        ' aria-label="Change question ' + (i + 1) + ' type">' + q.type + '</span>';
+      const del = '<span class="qdel"' + de('removeq', L, '') +
+        ' aria-label="Remove question ' + (i + 1) + '">×</span>';
+      head = '<p class="qtext qhead"><span class="qnum">' + (i + 1) + '</span>' +
+        title + typepill + del + '</p>';
+    } else {
+      head = '<p class="qtext"><span class="qnum">' + (i + 1) + '</span>' + esc(q.text) + '</p>';
+    }
     if(q.type === 'prob'){
       return '<div class="q" data-q="' + i + '" data-type="prob">' + head +
         '<div class="probrow">' +
@@ -18,18 +42,33 @@ export function renderForm(model, opts = {}){
         '<span>50% — toss-up</span><span>95% — very likely</span></div></div>';
     }
     if(q.type === 'chips'){
-      const rowsH = q.options.map((opt, j) =>
-        '<div class="chiprow"><span class="chipopt">' + esc(opt) + '</span>' +
-        '<button class="chipstep" data-dir="-1" type="button" aria-label="Fewer chips for ' + esc(opt) + '">−</button>' +
-        '<input type="number" inputmode="numeric" min="0" max="100" step="1" value=""' +
-        ' data-part="chip" data-opt="' + j + '" aria-label="Chips for: ' + esc(opt) + '">' +
-        '<button class="chipstep" data-dir="1" type="button" aria-label="More chips for ' + esc(opt) + '">+</button></div>'
-      ).join('');
-      return '<div class="q" data-q="' + i + '" data-type="chips">' + head + rowsH +
+      const rowsH = q.options.map((opt, j) => {
+        const label = editable
+          ? '<span class="chipopt"' + de('opt', L, opt, ' data-opt="' + j + '"') +
+            ' aria-label="Rename option ' + esc(opt) + '">' + esc(opt) + '</span>'
+          : '<span class="chipopt">' + esc(opt) + '</span>';
+        const rmv = (editable && q.options.length > 2)
+          ? '<span class="rmopt"' + de('rmopt', L, '', ' data-opt="' + j + '"') +
+            ' aria-label="Remove option ' + esc(opt) + '">×</span>'
+          : '';
+        return '<div class="chiprow">' + label +
+          '<button class="chipstep" data-dir="-1" type="button" aria-label="Fewer chips for ' + esc(opt) + '">−</button>' +
+          '<input type="number" inputmode="numeric" min="0" max="100" step="1" value=""' +
+          ' data-part="chip" data-opt="' + j + '" aria-label="Chips for: ' + esc(opt) + '">' +
+          '<button class="chipstep" data-dir="1" type="button" aria-label="More chips for ' + esc(opt) + '">+</button>' +
+          rmv + '</div>';
+      }).join('');
+      const addopt = (editable && q.options.length < 8)
+        ? '<span class="addopt"' + de('addopt', L, '') + '>＋ Add option</span>'
+        : '';
+      return '<div class="q" data-q="' + i + '" data-type="chips">' + head + rowsH + addopt +
         '<p class="hint">Split 100 chips by conviction — <output class="chipsleft">100</output> left.</p>' +
         '<p class="qerr" role="alert" hidden></p></div>';
     }
-    const unit = q.unit ? '<span class="unit">' + esc(q.unit) + '</span>' : '';
+    const unit = editable
+      ? '<span class="unit unitpill' + (q.unit ? '' : ' ghost') + '"' +
+        de('unit', L, q.unit || '') + ' aria-label="Edit unit">' + esc(q.unit || 'unit') + '</span>'
+      : (q.unit ? '<span class="unit">' + esc(q.unit) + '</span>' : '');
     return '<div class="q" data-q="' + i + '" data-type="range">' + head +
       '<div class="rangerow">' +
       '<input type="number" inputmode="decimal" data-part="low" aria-label="Low end for: ' + esc(q.text) + '">' +
@@ -43,8 +82,10 @@ export function renderForm(model, opts = {}){
     ? '<div class="q namefield"><label>Your name ' +
       '<input type="text" maxlength="40" data-name placeholder="shown next to your answers"></label></div>'
     : '';
+  /* ＋ Add question is a menu kind (data-edit="addq", no data-line): its three
+     rows commit addq with value = the chosen type. */
   const add = editable
-    ? '<button class="addq">＋ Add question</button>'
+    ? '<span class="addq" data-edit="addq" role="button" tabindex="0">＋ Add question</span>'
     : '';
   return '<div class="gform">' + qs.join('') + name + add + '</div>';
 }
