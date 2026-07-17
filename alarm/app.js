@@ -13,7 +13,8 @@ import {debounced, rafBatched} from '../assets/schedule.js';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const DIST_W = 900, DIST_H = 220;
+const DIST_W = 900, DIST_H = 220;   // DIST_W: pinned export width + on-screen floor
+let lastDistW = DIST_W;             // live measured distribution width (drag reads this)
 const POP = population();                              // built once; classify re-derives
 const driver = makeDriver($('gate'));
 const distPaint = mountMotion($('distwrap'));          // reveal: the curves draw on first load
@@ -54,7 +55,8 @@ function doRefresh(){
   const {dots, counts} = classify(POP, p);
   lastCounts = counts;
 
-  const distSvg = renderDistributions(p, C, {w: DIST_W, h: DIST_H});
+  lastDistW = Math.max(DIST_W, distwrap.clientWidth || DIST_W);   // floor at 900; 0 pre-layout → DIST_W
+  const distSvg = renderDistributions(p, C, {w: lastDistW, h: DIST_H});
   distPaint(distSvg, REVEAL); lastDistSvg = distSvg;   // curves draw on first load; later renders just swap
 
   const boxHtml = renderBox(counts, C);
@@ -67,7 +69,7 @@ function doRefresh(){
 
   // build layout + draw the settled frame immediately (numbers never wait on animation)
   const g = $('gate'), dpr = devicePixelRatio || 1, w = g.clientWidth || 640, h = 360;
-  const dotR = w < 480 ? 2 : 3;                  // shrink dots on narrow so they don't collide
+  const dotR = w < 480 ? 2 : w >= 1000 ? 3.5 : 3;   // r=3.5 keeps ink density at the wide (~1084) canvas
   if(g.width !== Math.round(w * dpr)){ g.width = Math.round(w * dpr); g.height = h * dpr; }
   lastLayout = layoutFlow(dots, [{split: d => d.alarm, fail: 'Quiet'}], {w, h, dotR}, {passLabel: 'ALARM'});
   lastLayout.dotR = dotR;
@@ -160,7 +162,7 @@ function tAtClientX(clientX){
   const svg = distwrap.querySelector('svg');
   if(!svg) return null;
   const r = svg.getBoundingClientRect();
-  return tFromSvgX((clientX - r.left) / r.width * DIST_W, DIST_W);
+  return tFromSvgX((clientX - r.left) / r.width * lastDistW, lastDistW);
 }
 distwrap.addEventListener('pointerdown', e => {
   if(!e.target.closest('[data-drag]')) return;
@@ -190,7 +192,7 @@ distwrap.addEventListener('keydown', e => {
 /* ---------- exports ---------- */
 const slug = () => 'alarm-b' + (lastParams ? Math.round(lastParams.baseRate * 1000) : 'x');
 wireExports({buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => lastDistSvg || null, slug});
+  getSvg: () => lastParams ? renderDistributions(lastParams, themeColors(), {w: DIST_W, h: DIST_H}) : null, slug});
 $('copydoc').addEventListener('click', async () => {
   if(!lastCounts) return;
   const md = markdown(lastParams, derived(lastParams), lastCounts, verdicts(lastCounts, lastParams), location.href);

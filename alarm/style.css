@@ -1,8 +1,8 @@
 /* Page scaffold (per-tool by design — the fermi/flow centred column) + the
    alarm-specific surface. Shared bits come from tokens/about/controls/mobile.css. */
-/* off the width-token system deliberately: parked at 900 until the dot-grid renderer is
-   width-aware (a bare widen only CSS-scales the dots). Then adopt var(--w-instrument). */
-.wrap{max-width:900px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
+/* instrument tier: the dot canvas re-flows to the wrap (more dots/row); the distribution
+   SVG measures on screen but exports pinned at DIST_W (alarm/app.js). */
+.wrap{max-width:var(--w-instrument);margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
 main{display:flex;flex-direction:column;gap:20px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:22px}
