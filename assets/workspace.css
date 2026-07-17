@@ -192,3 +192,23 @@ footer{margin: 48px 0 8px}
 .eip-pop button.danger{color: var(--err)}
 .eip-pop button.danger:hover{background: color-mix(in srgb, var(--err) 10%, transparent); color: var(--err)}
 [data-edit]:not(text):hover{opacity: .8}
+
+/* Phone edge system — "16px prose / 10px surface" (Camp A). On a 390px phone the
+   24px gutter + workspace padding + card borders left the tool surface at ~304px
+   (78% of the screen). Below 640px (mobile.css's fold breakpoint — this is its
+   horizontal sibling): prose keeps a 16px reading gutter via --page-gutter (.wrap
+   follows the token), but the tool SURFACES full-bleed to the viewport edge —
+   side borders and radius dropped, top/bottom hairlines KEPT so the bands read
+   as native sheets, not broken cards. Surface lands at ~370px (95%).
+   !important + end-of-file: the 900px block above sets .rail padding/border-color
+   with !important, so these must match specificity AND come later to win.
+   Asserted in dev/pw/mobile.mjs (workspace surface >= 90% of viewport width). */
+@media (max-width: 640px){
+  :root{ --page-gutter: 16px }
+  .workspace{ padding: 0 }
+  .stage, .rail{
+    border-inline: none !important;
+    border-radius: 0;
+    padding: 14px 10px !important;
+  }
+}

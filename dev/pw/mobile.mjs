@@ -105,6 +105,35 @@ for(const [name, url] of AUTOLOAD){
   await page.close();
 }
 
+// Phone width-reclamation gate (Camp A): workspace.css's "16px prose / 10px
+// surface" block must land the tool surface at >=90% of the viewport width on a
+// phone — under the desktop framing chain it sat at ~78% (24px gutters + card
+// padding + side borders). Measured on a workspace AUTOLOAD tool: the rendered
+// .stage SVG and the open rail's .cm-editor, both against the layout viewport.
+// Nothing else asserts the reclaim; a regression of the shared block (a
+// re-added gutter, side border or fat padding) fails here.
+{
+  const page = await ctx.newPage();
+  const loaded = await page.goto(T + '/wardley/', {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+  if(!loaded){ ok(false, 'wardley: width-reclaim page loads'); }
+  else {
+    await page.waitForTimeout(900);
+    const m = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const svg = document.querySelector('.stage .preview svg');
+      const ed = document.querySelector('.rail .cm-editor');
+      return {vw,
+        svg: svg ? svg.getBoundingClientRect().width : 0,
+        ed: ed ? ed.getBoundingClientRect().width : 0};
+    });
+    ok(m.svg / m.vw >= 0.90,
+      `wardley: stage surface reclaims >=90% of phone width (${Math.round(m.svg)}/${m.vw} = ${(m.svg / m.vw * 100).toFixed(1)}%)`);
+    ok(m.ed / m.vw >= 0.90,
+      `wardley: editor rail reclaims >=90% of phone width (${Math.round(m.ed)}/${m.vw} = ${(m.ed / m.vw * 100).toFixed(1)}%)`);
+  }
+  await page.close();
+}
+
 // Narrow no-overflow gate: the four tools whose charts/tables were just
 // re-laid-out must not let their INNER render container overflow sideways —
 // that's the "no sideways pan" guarantee this effort delivers. Page-level

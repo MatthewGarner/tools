@@ -135,7 +135,13 @@ const PAGES = {
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
   'why/index.html': 490_000, 'tree/index.html': 470_000,
-  'map/index.html': 480_000, 'gauge/index.html': 470_000, 'timeline/index.html': 470_000,
+  'map/index.html': 480_000,
+  /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
+     workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
+     every workspace page pays it; gauge was simply the page nearest its ceiling
+     and tipped 682B over. Actual now ~470.7k, ~5.3k headroom — in line with the
+     other DSL pages. */
+  'gauge/index.html': 476_000, 'timeline/index.html': 470_000,
   'wardley/index.html': 480_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
