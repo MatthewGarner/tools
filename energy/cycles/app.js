@@ -3,7 +3,8 @@ import {parse} from './parse.js';
 import {simulate, verdict, simKey, fmtUnit} from './engine.js';
 import {render as renderSvg, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
-import {validators, editField} from './edit-targets.js';
+import {validators, editField, addKeyLine, removeKeyLine} from './edit-targets.js';
+import {insertAndSelect} from '../../assets/editor-common.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
@@ -245,10 +246,50 @@ const ws = initWorkspace({
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 
-/* edit-in-place: one numeric kind; the field rides on the element */
+/* The phone card menu ("the card is the control"): each band's ⋯ opens a menu
+   of the structural edits that band owns — add/remove an OPTIONAL key. Required
+   keys stay directly editable through their num pills. Rows commit an explicit
+   {kind,value=key} (no data-line coupling — the rewrite finds the line itself),
+   so a coarse tap never blind-commits. Resolved fresh from the model each open. */
+function bandMenu(m, band){
+  const addRow = (key, label) => ({label: '＋ Add ' + label, commit: {kind: 'addkey', line: -1, oldRaw: '', value: key}});
+  const rmRow  = (key, label) => ({label: 'Remove ' + label, danger: true, commit: {kind: 'removekey', line: -1, oldRaw: '', value: key}});
+  const has = k => m.srcLines[k] != null;
+  if(band === 'price')
+    return [m.chargeDefaulted ? addRow('charge', 'charge cost') : rmRow('charge', 'charge (use 45% default)')];
+  if(band === 'second')
+    return [rmRow('second', 'second cycle')];
+  if(band === 'life')
+    return [
+      has('drift') ? rmRow('drift', 'drift') : addRow('drift', 'drift'),
+      has('discount') ? rmRow('discount', 'discount') : addRow('discount', 'discount'),
+      rmRow('augment', 'augmentation'),
+    ];
+  return [];
+}
+
+/* edit-in-place: numeric field pills, per-band card menu (⋯), and a one-tap
+   ＋ capsule on the ghost bands. All structure edits route through the pure
+   add/removeKeyLine rewrites → one undoable CodeMirror dispatch each. */
 attachEditInPlace($('preview'), {
-  kinds: {num: {validate: validators.num}},
+  kinds: {
+    num: {validate: validators.num},
+    cardmenu: {menu: el => bandMenu(model, el.dataset.band)},
+    addkey: {cycle: ['add']},   // ghost-capsule one-tap (visible, undoable); coarse tap does NOT open a picker
+  },
   onCommit(kind, line, raw, value, el){
+    if(kind === 'addkey'){
+      const key = (el && el.dataset && el.dataset.key) || value;   // capsule carries data-key; menu row passes key as value
+      const r = addKeyLine(editor.getText(), key);
+      if(!r) return;
+      insertAndSelect(editor, r.afterLine, r.newLine, undefined, {focus: matchMedia('(pointer: fine)').matches});
+      return;
+    }
+    if(kind === 'removekey'){
+      const ln = removeKeyLine(editor.getText(), value);
+      if(ln >= 0) editor.removeLine(ln);
+      return;
+    }
     const cur = editor.getLine(line);
     const next = editField(cur, el.dataset.field, value);
     if(next === cur) return;

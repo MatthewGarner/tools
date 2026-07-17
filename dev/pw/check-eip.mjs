@@ -2142,6 +2142,105 @@ check('no console/page errors', errors.length === 0);
   await mctx.close();
 }
 
+/* ---- mobile-input TAIL (energy/cycles): each band's ⋯ (a 44px top-right card
+   menu) exposes the OPTIONAL-key structure — add/remove charge/second/drift/
+   discount/augment — while the num pills stay directly editable. A ghost band
+   shows a one-tap dashed ＋ capsule instead (add is non-destructive, visible,
+   undoable → no confirm). Coarse taps: the SVG pans, so tap by scrolling the
+   target to centre then clicking fresh coords (Playwright touch clicks get eaten
+   by the pan handler; scrollIntoViewIfNeeded hangs on an SVG <g>). Same
+   round-trip contract as the timeline pilot: commit, assert, ONE touch-Undo,
+   assert full revert before the next action. Served on the tools origin at
+   /energy/cycles/ (files sit physically there). ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const mpage = await mctx.newPage();
+  const merrors = trackErrors(mpage);
+  const BASEU = (process.env.BASE || 'http://localhost:8087');
+  await mpage.goto(BASEU + '/energy/cycles/', {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await mpage.waitForTimeout(900);
+  const cySrc = () => mpage.evaluate(() => localStorage.getItem('cycles-src'));
+  // scroll the target to centre, then click fresh viewport coords (see block note)
+  const cyTap = async sel => {
+    const pt = await mpage.evaluate(s => { const g = document.querySelector(s); if(!g) return null;
+      g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect();
+      return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, sel);
+    if(!pt) return false;
+    await mpage.waitForTimeout(150);
+    await mpage.mouse.click(pt.x, pt.y);
+    await mpage.waitForTimeout(300);
+    return true;
+  };
+  const cyUndo = async () => { await cyTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); };
+  const cyBase = await cySrc();
+
+  const cyInfo = await mpage.evaluate(() => ({
+    narrow: (document.querySelector('#preview svg')?.getAttribute('width') | 0) < 520,
+    menus: document.querySelectorAll('#preview svg [data-edit="cardmenu"][data-menu]').length,
+    hits: [...document.querySelectorAll('#preview svg [data-edit="cardmenu"] [data-hit]')]
+      .map(r => { const b = r.getBoundingClientRect(); return Math.round(b.width) >= 44 && Math.round(b.height) >= 44; }),
+  }));
+  check('cycles narrow: the phone preview is the narrow relayout', cyInfo.narrow);
+  check('cycles narrow: three band ⋯ card menus (data-menu)', cyInfo.menus === 3);
+  check('cycles narrow: every ⋯ hit rect is ≥44px', cyInfo.hits.length === 3 && cyInfo.hits.every(Boolean));
+
+  // band 2 (second): the ⋯ opens a one-row menu; a coarse tap commits NOTHING
+  await cyTap('[data-edit="cardmenu"][data-band="second"] [data-hit]');
+  check('cycles narrow: second ⋯ opens exactly Remove second cycle (one popover)',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove second cycle' &&
+    await mpage.locator('.eip-pop').count() === 1);
+  check('cycles narrow: opening the ⋯ menu commits nothing (menu-first)', (await cySrc()) === cyBase);
+  await mpage.locator('.eip-pop button.danger', {hasText: 'Remove second cycle'}).click();
+  await mpage.waitForTimeout(500);
+  check('cycles narrow: Remove second cycle drops the second: line', !/^second:/m.test(await cySrc()));
+  await cyUndo();
+  check('cycles narrow: one Undo restores the second cycle', (await cySrc()) === cyBase);
+
+  // band 1 (price): charge is explicit in the example → a Remove row
+  await cyTap('[data-edit="cardmenu"][data-band="price"] [data-hit]');
+  check('cycles narrow: price ⋯ offers Remove charge (charge explicit in the example)',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove charge (use 45% default)');
+  await mpage.keyboard.press('Escape');
+  await mpage.waitForTimeout(150);
+
+  // band 3 (life): drift + discount present → removes; plus Remove augmentation
+  await cyTap('[data-edit="cardmenu"][data-band="life"] [data-hit]');
+  check('cycles narrow: life ⋯ offers Remove drift/discount/augmentation',
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Remove drift|Remove discount|Remove augmentation');
+  await mpage.locator('.eip-pop button.danger', {hasText: 'Remove augmentation'}).click();
+  await mpage.waitForTimeout(500);
+  check('cycles narrow: Remove augmentation drops the augment: line', !/^augment:/m.test(await cySrc()));
+  await cyUndo();
+  check('cycles narrow: one Undo restores augmentation', (await cySrc()) === cyBase);
+
+  // ADD via the ghost capsule: remove second → band 2 becomes a ＋ capsule → one-tap re-adds
+  await cyTap('[data-edit="cardmenu"][data-band="second"] [data-hit]');
+  await mpage.locator('.eip-pop button.danger', {hasText: 'Remove second cycle'}).click();
+  await mpage.waitForTimeout(500);
+  const cyGhost = await cySrc();
+  const addedCapsule = await cyTap('[data-edit="addkey"][data-key="second"]');
+  check('cycles narrow: the emptied band shows a ＋ Add second cycle capsule', addedCapsule);
+  check('cycles narrow: tapping the ＋ capsule one-taps second back (no popover)',
+    /^second:\s*35\.\.60%$/m.test(await cySrc()) && await mpage.locator('.eip-pop').count() === 0);
+  check('cycles narrow: the added key lands canonically (after spread/charge)',
+    (await cySrc()).split('\n').findIndex(l => /^second:/.test(l)) >= 3);
+  check('cycles narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
+    !document.activeElement || !document.activeElement.closest('.cm-editor')));
+  await cyUndo();  // undo the add
+  check('cycles narrow: one Undo removes the re-added second', (await cySrc()) === cyGhost);
+  await cyUndo();  // undo the earlier remove → back to baseline
+  check('cycles narrow: a second Undo restores the original remove', (await cySrc()) === cyBase);
+
+  check('cycles narrow: no h-scroll with the ⋯ menus + capsules', await mpage.evaluate(() => {
+    const pv = document.getElementById('preview');
+    return pv.scrollWidth <= pv.clientWidth + 1;
+  }));
+  check('cycles narrow: no console/page errors', merrors.length === 0);
+  await mctx.close();
+}
+
 /* ---- timeline desktop: per-lane add zone opens empty, typed value replaces
    the dated placeholder (not "New milestone" — that would test nothing) ---- */
 {

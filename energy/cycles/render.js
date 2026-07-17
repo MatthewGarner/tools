@@ -5,7 +5,7 @@
    on-canvas — a deck screenshot must not depend on a legend.
    XML discipline: txt()/esc() for content; hand-built tags use single-quoted
    attributes (numbers and escaped strings only inside them). */
-import {esc, txt, tint, wrapText} from '../../assets/svg.js';
+import {esc, txt, tint, wrapText, editTarget} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict, makeBase, above, N_BASE, DAYS} from './engine.js';
 
@@ -102,6 +102,29 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
     return w + 8;
   };
   const caption = (y, label) => parts.push(txt(44, y, label, 11.5, C.muted, {weight: 700, tracking: '.08em'}));
+  /* PHONE STRUCTURE EDITS (edit && narrow only — desktop/export goldens untouched):
+     a top-right ⋯ per band opens that band's add/remove-key menu; an absent
+     optional band shows a dashed ＋ capsule instead of the plain prompt. Both are
+     ≥44px tap targets; the ⋯ sits in the corner well clear of the bottom-anchored
+     pill rows. */
+  const cornerMenu = (y, band, line, label) => {
+    if(!(edit && isNarrow)) return;
+    const cx = W - 46, cy = y + 24;
+    parts.push(editTarget(
+      '<circle cx=\'' + cx + '\' cy=\'' + cy + '\' r=\'13\' fill=\'' + tint(accent) + '\'/>' +
+      txt(cx, cy + 5, '⋯', 17, accent, {anchor: 'middle', weight: 700}),
+      {x: W - 68, y: y + 2, w: 44, h: 44, bg: C.bg},
+      {kind: 'cardmenu', line, extra: 'data-menu="" data-band="' + band + '"', label: 'Edit ' + label, hit: true}));
+  };
+  const addCapsule = (y, key, label) => {
+    const cx = 48, cw = W - 96, cap = 36;
+    parts.push(editTarget(
+      '<rect x=\'' + cx + '\' y=\'' + (y + 44) + '\' width=\'' + cw + '\' height=\'' + cap +
+        '\' rx=\'10\' fill=\'none\' stroke=\'' + C.border + '\' stroke-dasharray=\'3 4\'/>' +
+      txt(cx + cw / 2, y + 44 + cap / 2 + 4, '＋ Add ' + label, 13, C.muted, {anchor: 'middle', weight: 600}),
+      {x: cx, y: y + 40, w: cw, h: 44, bg: C.bg},
+      {kind: 'addkey', line: -1, raw: '', extra: 'data-key="' + key + '"', label: 'Add ' + label}));
+  };
   const card = (y, h, ghost = false) => parts.push('<rect x=\'24\' y=\'' + y + '\' width=\'' + (W - 48) +
     '\' height=\'' + h + '\' rx=\'8\' fill=\'' + (ghost ? 'none' : C.card) + '\' stroke=\'' + C.border +
     '\'' + (ghost ? ' stroke-dasharray=\'6 4\'' : '') + '/>');
@@ -209,6 +232,7 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
       parts.push('<rect x=\'48\' y=\'' + (y + B1H - wrapN(vT) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vT) * 22) + '\' fill=\'' + accent + '\'/>');
       verdictLines(y + B1H - wrapN(vT) * 22 + 10, vT, vw);
     }
+    cornerMenu(y, 'price', model.srcLines.charge ?? ln('spread'), 'the cycle price');
   }
 
   /* ================= band 2: the second cycle ================= */
@@ -236,10 +260,12 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
     pill(px, y + B2H - wrapN(vS) * 22 - 36, fmtUnit(out.second.dNet, '£/yr') + ' net', {col: C.muted});
     parts.push('<rect x=\'48\' y=\'' + (y + B2H - wrapN(vS) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vS) * 22) + '\' fill=\'' + accent + '\'/>');
     verdictLines(y + B2H - wrapN(vS) * 22 + 10, vS, vw);
+    cornerMenu(y, 'second', ln('second'), 'the second cycle');
   } else {
     card(y, B2H, true);
     caption(y + 26, 'THE SECOND CYCLE');
-    parts.push(txt(44, y + 56, 'add second: 40..60% to price the second cycle', 13.5, C.muted));
+    if(edit && isNarrow) addCapsule(y, 'second', 'second cycle');
+    else parts.push(txt(44, y + 56, 'add second: 40..60% to price the second cycle', 13.5, C.muted));
   }
 
   /* ================= shared axis for bands 1–2 ================= */
@@ -306,10 +332,12 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
       'never pays ' + Math.round(out.augment.pNever * 10) + '/10', {col: C.muted});
     parts.push('<rect x=\'48\' y=\'' + (y + b3h - wrapN(vA) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vA) * 22) + '\' fill=\'' + accent + '\'/>');
     verdictLines(y + b3h - wrapN(vA) * 22 + 10, vA, vw);
+    cornerMenu(y, 'life', ln('augment'), 'the asset life');
   } else {
     card(y, b3h, true);
     caption(y + 26, 'THE ASSET LIFE');
-    parts.push(txt(44, y + 56, 'add augment: 120..180 £/kWh to price the augmentation window', 13.5, C.muted));
+    if(edit && isNarrow) addCapsule(y, 'augment', 'augmentation');
+    else parts.push(txt(44, y + 56, 'add augment: 120..180 £/kWh to price the augmentation window', 13.5, C.muted));
   }
 
   parts.push('</svg>');
