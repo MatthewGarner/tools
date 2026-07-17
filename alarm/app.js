@@ -55,7 +55,7 @@ function doRefresh(){
   const {dots, counts} = classify(POP, p);
   lastCounts = counts;
 
-  lastDistW = Math.max(DIST_W, distwrap.clientWidth || DIST_W);   // floor at 900; 0 pre-layout → DIST_W
+  lastDistW = distwrap.clientWidth || DIST_W;   // native at the container width (legible on phones, not a shrunk 900); export stays pinned at DIST_W
   const distSvg = renderDistributions(p, C, {w: lastDistW, h: DIST_H});
   distPaint(distSvg, REVEAL); lastDistSvg = distSvg;   // curves draw on first load; later renders just swap
 
