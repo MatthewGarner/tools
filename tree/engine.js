@@ -213,3 +213,153 @@ export function evalDet(model, pOver = new Map(), vOver = new Map()){
   model.root.children.forEach((c, i) => { if(values[i] > bestV){ bestV = values[i]; best = c; } });
   return {rec: best, values};
 }
+
+/* ---------- priced-insistence walk (B1): where the decision actually hinges ----------
+   An inputRef names one number in the DSL by kind + source line:
+     {kind:'prob'|'value', line}  — a chance-child probability, or a node's payoff.
+   These ride evalDet's midpoint rollback with a single override, so they never invent
+   RNG and never run the 10k-sim MC per frame — the live layer is the honest midpoint story. */
+
+export function findByLine(model, line){
+  let found = null;
+  (function w(n){ if(!n || found) return; if(n.srcLine === line) found = n; n.children.forEach(w); })(model.root);
+  return found;
+}
+
+/* the ref's current midpoint (what evalDet uses by default) */
+export function refMid(model, ref){
+  const n = findByLine(model, ref.line);
+  if(!n) return null;
+  if(ref.kind === 'prob') return (n.p && n.p !== 'rest') ? (n.p.lo + n.p.hi) / 2 : null;
+  return n.value ? (n.value.lo + n.value.hi) / 2 : null;
+}
+
+/* the recommended root option with the ref pinned to x (node identity is stable across calls) */
+function recAt(model, node, ref, x){
+  return ref.kind === 'prob'
+    ? evalDet(model, new Map([[node, x]])).rec
+    : evalDet(model, new Map(), new Map([[node, x]])).rec;
+}
+
+/* TWO-SIDED scan-then-bisect (I1): the affected option's value is piecewise-affine under a
+   downstream inner max, so the base's holding region need not be one interval and a flip can
+   hide from pure bisection. COARSE scan the extent, bisect each rec sign-change, report the
+   nearest boundary below and above the current midpoint plus the extreme winners. */
+export function flipAlong(model, ref, extent){
+  const node = findByLine(model, ref.line);
+  const cur = refMid(model, ref);
+  const {lo, hi} = extent;
+  if(!node || cur === null || !(hi > lo)) return {below: null, above: null, winnerAtLo: null, winnerAtHi: null, boundaries: []};
+  const at = x => recAt(model, node, ref, x);
+  const winnerAtLo = at(lo), winnerAtHi = at(hi);
+  const boundaries = [];
+  let prevX = lo, prevRec = winnerAtLo;
+  for(let i = 1; i <= COARSE; i++){
+    const x = lo + (hi - lo) * (i / COARSE);
+    const rec = at(x);
+    if(rec !== prevRec){
+      let a = prevX, b = x;                       // bisect the sign-change [prevX, x]
+      for(let k = 0; k < 40; k++){ const m = (a + b) / 2; if(at(m) === prevRec) a = m; else b = m; }
+      boundaries.push((a + b) / 2);
+    }
+    prevX = x; prevRec = rec;
+  }
+  let below = null, above = null;
+  for(const b of boundaries){
+    if(b <= cur){ if(below === null || b > below) below = b; }
+    else if(above === null || b < above) above = b;
+  }
+  return {below, above, winnerAtLo, winnerAtHi, boundaries};
+}
+
+const nearestBoundary = (fl, cur) => {
+  const cands = [fl.below, fl.above].filter(b => b !== null);
+  if(!cands.length) return null;
+  return cands.reduce((best, b) => Math.abs(b - cur) < Math.abs(best - cur) ? b : best);
+};
+
+/* the slider's min/max for a ref (I3): a probability is [0,1]; a ranged value is its stated
+   90% interval EXTENDED to reveal the flip, clamped to stated ± 2×span; a point value is a
+   window around the flip (flip ± 25%·|flip−cur|), else ±50%·|value|. Always returns the flips
+   found inside the final track, so the caller can notch them. */
+export function sliderExtent(ref, model){
+  const node = findByLine(model, ref.line);
+  const cur = refMid(model, ref);
+  if(ref.kind === 'prob'){
+    return {lo: 0, hi: 1, flips: flipAlong(model, ref, {lo: 0, hi: 1})};
+  }
+  const v = node.value;
+  if(v.lo !== v.hi){                                   // ranged value
+    const span = v.hi - v.lo;
+    const clampLo = v.lo - 2 * span, clampHi = v.hi + 2 * span;
+    const near = nearestBoundary(flipAlong(model, ref, {lo: clampLo, hi: clampHi}), cur);
+    let lo = v.lo, hi = v.hi;                          // start at the stated range, never shrink below it
+    if(near !== null){ lo = Math.min(lo, near); hi = Math.max(hi, near); }
+    lo = Math.max(lo, clampLo); hi = Math.min(hi, clampHi);
+    return {lo, hi, flips: flipAlong(model, ref, {lo, hi})};
+  }
+  // point value: search a generous window for the flip, then tighten around it
+  const reach = 4 * Math.max(Math.abs(cur), 1);
+  const near = nearestBoundary(flipAlong(model, ref, {lo: cur - reach, hi: cur + reach}), cur);
+  let lo, hi;
+  if(near !== null){
+    const d = Math.abs(near - cur);
+    lo = Math.min(cur, near) - 0.25 * d;
+    hi = Math.max(cur, near) + 0.25 * d;
+  } else {
+    const pad = Math.abs(cur) * 0.5 || 1;
+    lo = cur - pad; hi = cur + pad;
+  }
+  return {lo, hi, flips: flipAlong(model, ref, {lo, hi})};
+}
+
+/* which numbers are load-bearing (I3): an input is marked iff a flip lies within its slider
+   track, ranked by how near that flip sits to the current value. Degenerate (a runaway winner,
+   nothing load-bearing) → the single widest-margin input via evalDet.values, never zero marks
+   with no explanation. Returns [{ref, nearestFlip, distance, degenerate?}] . */
+export function loadBearing(model){
+  if(!model.root || model.root.kind !== 'decision' || model.root.children.length < 2) return [];
+  const refs = [];
+  (function w(n){
+    if(!n) return;
+    if(n.p && n.p !== 'rest') refs.push({kind: 'prob', line: n.srcLine});
+    if(n.value) refs.push({kind: 'value', line: n.srcLine});
+    n.children.forEach(w);
+  })(model.root);
+
+  const marked = [];
+  for(const ref of refs){
+    const ext = sliderExtent(ref, model);
+    const cur = refMid(model, ref);
+    const nf = nearestBoundary(ext.flips, cur);
+    if(nf !== null){
+      const width = ext.hi - ext.lo;
+      // normalise distance by the track width so prob (0–1) and money (millions) rank comparably:
+      // a flip right at your current belief ⇒ ~0 (most load-bearing), one at the track edge ⇒ ~0.5–1
+      marked.push({ref, extent: {lo: ext.lo, hi: ext.hi}, nearestFlip: nf,
+        distance: Math.abs(nf - cur), proximity: width > 0 ? Math.abs(nf - cur) / width : Infinity});
+    }
+  }
+  if(marked.length){
+    marked.sort((a, b) => a.proximity - b.proximity);
+    return marked;
+  }
+
+  // degenerate: no input flips the call — surface the one that moves the winning margin most
+  const marginOf = vs => { const s = [...vs].sort((a, b) => b - a); return s.length > 1 ? s[0] - s[1] : Infinity; };
+  const baseMargin = marginOf(evalDet(model).values);
+  let widest = null, widestSwing = -Infinity;
+  for(const ref of refs){
+    const ext = sliderExtent(ref, model);
+    const node = findByLine(model, ref.line);
+    let swing = 0;
+    for(const x of [ext.lo, ext.hi]){
+      const vs = ref.kind === 'prob'
+        ? evalDet(model, new Map([[node, x]])).values
+        : evalDet(model, new Map(), new Map([[node, x]])).values;
+      swing = Math.max(swing, Math.abs(marginOf(vs) - baseMargin));
+    }
+    if(swing > widestSwing){ widestSwing = swing; widest = ref; }
+  }
+  return widest ? [{ref: widest, extent: sliderExtent(widest, model), nearestFlip: null, distance: Infinity, proximity: Infinity, degenerate: true}] : [];
+}
