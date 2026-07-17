@@ -689,7 +689,7 @@ for(const [k, src] of Object.entries(docs)){
   variants['signal-noise-grid'] = renderGrid(s, ctxBase.colors, {turn: 4, calls});
   variants['signal-noise-grid-narrow'] = renderGrid(s, ctxBase.colors, {turn: 4, calls, cols: 1});
   variants['signal-noise-collapse'] = renderCollapse(s, ctxBase.colors, calls);
-  variants['signal-noise-collapse-narrow'] = renderCollapse(s, ctxBase.colors, calls, {narrow: true});
+  variants['signal-noise-collapse-narrow'] = renderCollapse(s, ctxBase.colors, calls, {width: 356});
 }
 
 /* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),
