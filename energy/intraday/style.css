@@ -54,3 +54,11 @@
 .verdict{font-family:Charter,Georgia,serif;font-size:16.5px;margin:10px 0 0}
 /* reduced-motion: keep Play operable (do NOT hide it — a11y); app.js drops the
    draw-as-you-play reveal so the cursor steps over the full curve instead. */
+
+/* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+   .wrap steps up from its 4px desktop inset to the 16px reading gutter; cards
+   full-bleed as native sheets (side borders + radius dropped, hairlines kept). */
+@media (max-width:640px){
+  .wrap{padding-inline:16px}
+  .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+}

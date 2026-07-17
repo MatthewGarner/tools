@@ -163,7 +163,11 @@ const PAGES = {
      tools shipping blank), and the shared component-CSS/exampleChips extraction. Both
      bought correctness or de-duplication, neither is fat to trim. Headroom now ~5.4k;
      next tightest page is flow at 3.4k, so this is intraday-specific, not suite bloat. */
-  'energy/intraday/index.html': 126_000,
+  /* Raised 126k → 127k (2026-07-17, phone width reclamation), consciously: the
+     ~330B "16px prose / full-bleed card" phone edge block in style.css tipped it
+     285B over. Every card-band page pays the same ~330B; intraday trips first
+     because it was already the heaviest. Actual ~126.3k, headroom ~0.7k. */
+  'energy/intraday/index.html': 127_000,
 };
 
 test('per-page load stays under budget', () => {
