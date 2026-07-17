@@ -63,6 +63,14 @@
   @media (pointer: coarse){
     .seg button{min-height:44px;display:inline-flex;align-items:center}
   }
+
+  /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
+     .wrap gains the reading gutter page.css's body doesn't give; cards full-bleed
+     as native sheets (side borders + radius dropped, top/bottom hairlines kept). */
+  @media (max-width:640px){
+    .wrap{padding-inline:16px}
+    .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+  }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">
 
