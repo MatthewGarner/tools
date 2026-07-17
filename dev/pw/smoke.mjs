@@ -681,10 +681,20 @@ for(const theme of ['light', 'dark']){
   await page.locator('#viewform').click();
   await page.waitForTimeout(600);
   check('gauge(' + theme + '): form preview renders 3 questions', await page.locator('#preview .gform .q').count() === 3);
-  check('gauge(' + theme + '): add question writes through the editor (insertAndSelect)', await (async () => {
-    await page.locator('.addq').first().click();
+  check('gauge(' + theme + '): ＋ Add question opens a type picker that writes through the editor', await (async () => {
+    // scroll ＋ Add to viewport centre THEN open via raw coords: a later scroll-into-view
+    // would trip edit-in-place's scroll-closes-the-popover guard before the row click lands
+    // (the same reason check-eip's gauge block scrolls-to-centre first).
+    const pt = await page.evaluate(() => { const g = document.querySelector('.addq');
+      g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect();
+      return {x: r.left + r.width / 2, y: r.top + r.height / 2}; });
+    await page.waitForTimeout(150);
+    await page.mouse.click(pt.x, pt.y);                                            // opens the type picker
+    await page.waitForTimeout(200);
+    const rows = (await page.locator('.eip-pop button').allInnerTexts()).join('|');
+    await page.locator('.eip-pop button', {hasText: 'Probability'}).click();       // pick a type → inserts
     await page.waitForTimeout(400);
-    return await page.locator('#preview .gform .q').count() === 4;
+    return rows === 'Probability|Range|Chips' && await page.locator('#preview .gform .q').count() === 4;
   })());
   await page.locator('#viewreveal').click();
   await page.waitForTimeout(500);
