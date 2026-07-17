@@ -1,4 +1,4 @@
-.wrap.narrow{max-width:720px;margin:0 auto;padding:0 20px}
+.wrap.narrow{max-width:var(--w-form);margin:0 auto;padding:0 20px}
 .stitle{font-family:Charter,Georgia,serif;font-size:24px;margin:18px 0 4px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:18px}
@@ -30,7 +30,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .viewtoggle button:not(.on):hover{color:var(--accent-ink)}
 
 /* ---- the form (participant + compose preview) ---- */
-.formpreview{max-width:720px}
+.formpreview{max-width:var(--w-form)}
 .gform .q{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:16px 18px;margin:0 0 14px}
 .qtext{margin:0 0 12px;font-size:15.5px;font-weight:600}
