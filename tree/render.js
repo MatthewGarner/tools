@@ -46,7 +46,7 @@ export function treeVerdict(model, results){
 }
 
 export function render(model, results, ctx){
-  const {measure, slide = false, dark = false, edit = false, bare = false} = ctx;
+  const {measure, slide = false, dark = false, edit = false, bare = false, hot} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -121,6 +121,9 @@ export function render(model, results, ctx){
     const rec = results.policy.get(model.root);
     const st = results.stats.get(model.root);
     const vy = headerH + 14*S;
+    /* edit-gated (B2): a group handle so B3 can crossfade this band with the
+       rest of the readout during the priced-insistence walk. */
+    if(edit) s.push('<g data-verdict="">');
     const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent, C.accentInk);
     s.push(p.svg);
     s.push('<text x="' + (T.pad*S + p.w + 10*S) + '" y="' + vy + '" font-size="' + 15*S +
@@ -128,6 +131,7 @@ export function render(model, results, ctx){
     const evidence = evidenceFor(rec, st, results, money);
     s.push('<text x="' + T.pad*S + '" y="' + (vy + 19*S) + '" font-size="' + 11.5*S +
       '" fill="' + C.muted + '">' + esc(evidence) + '</text>');
+    if(edit) s.push('</g>');
   }
 
   /* edges + nodes, policy-aware opacity applied per subtree */
@@ -143,20 +147,47 @@ export function render(model, results, ctx){
       '" font-weight="600" fill="' + C.ink + '"><tspan data-edit="label" data-line="' + b.srcLine +
       '" data-raw="' + esc(b.label) + '"' + btnAttrs('Edit label: ' + b.label) +
       '>' + esc(b.label) + '</tspan></text>');
+    /* ctx.hot (B2): edit-gated load-bearing marks. hot is a Set of "prob:<line>"/
+       "value:<line>" naming the numbers loadBearing() flagged (tree/app.js builds
+       it from tree/engine.js's loadBearing — render only consumes it). A marked
+       run gets a bare data-hot="" (XML-safe empty attr, never a bare data-hot)
+       plus a dotted accent underline drawn under just that run: parts carry
+       their own text so the anchor-end math can walk backwards from x2 through
+       measure(), sized independently of any other run on the line. Both are
+       fully edit-gated — falsy under goldens/exports, so this never touches the
+       default render. */
     const parts = [];
+    const hotProb = edit && hot && b.p !== null && b.p !== undefined && a.kind === 'chance' && hot.has('prob:' + b.srcLine);
+    const hotValue = edit && hot && !!b.value && hot.has('value:' + b.srcLine);
     if(b.p !== null && b.p !== undefined && a.kind === 'chance'){
-      parts.push('<tspan data-edit="prob" data-line="' + b.srcLine + '" data-raw="' +
+      const text = pStr(b.p);
+      parts.push({hot: hotProb, text, svg: '<tspan data-edit="prob" data-line="' + b.srcLine + '" data-raw="' +
         esc(b.pRaw || (b.p === 'rest' ? 'rest' : '')) + '"' + btnAttrs('Edit probability: ' + b.label) +
-        '>' + esc(pStr(b.p)) + '</tspan>');
+        (hotProb ? ' data-hot=""' : '') + '>' + esc(text) + '</tspan>'});
     }
     if(b.value && !(b.value.lo === 0 && b.value.hi === 0 && b.kind !== 'leaf')){
-      parts.push('<tspan data-edit="value" data-line="' + b.srcLine + '" data-raw="' +
+      const text = rangeStr(b.value);
+      parts.push({hot: hotValue, text, svg: '<tspan data-edit="value" data-line="' + b.srcLine + '" data-raw="' +
         esc(b.valueRaw || '') + '"' + btnAttrs('Edit payoff: ' + b.label) +
-        '>' + esc(rangeStr(b.value)) + '</tspan>');
+        (hotValue ? ' data-hot=""' : '') + '>' + esc(text) + '</tspan>'});
     }
     if(parts.length){
       s.push('<text x="' + (x2 - 4) + '" y="' + (y2 - 6*S) + '" text-anchor="end" font-size="' + T.subSize*S +
-        '" fill="' + C.muted + '">' + parts.join('<tspan> · </tspan>') + '</text>');
+        '" fill="' + C.muted + '">' + parts.map(pt => pt.svg).join('<tspan> · </tspan>') + '</text>');
+      if(edit && hot && parts.some(pt => pt.hot)){
+        const font = T.subSize*S + 'px ' + F.body;
+        const sepW = measure(' · ', font);
+        const uy = y2 - 6*S + 2*S;
+        let right = x2 - 4;
+        for(let i = parts.length - 1; i >= 0; i--){
+          const w = measure(parts[i].text, font);
+          if(parts[i].hot){
+            s.push('<line x1="' + (right - w) + '" y1="' + uy + '" x2="' + right + '" y2="' + uy +
+              '" stroke="' + C.accent + '" stroke-width="1" stroke-dasharray="1.5,2" stroke-linecap="round"/>');
+          }
+          right -= w + sepW;
+        }
+      }
     }
   }
   function drawNode(node, onPolicy){
@@ -181,12 +212,15 @@ export function render(model, results, ctx){
     if(st){
       const tx = node.kind === 'leaf' ? x + 10*S : x;
       const anchor = node.kind === 'leaf' ? 'start' : 'middle';
+      /* data-mc (B2, edit-gated): stamps the MC-derived readouts so B3 can
+         certainty-fade them independently of the label/prob/value tspans. */
+      const mcAttr = edit ? ' data-mc=""' : '';
       s.push('<text x="' + tx + '" y="' + (y + (node.kind === 'leaf' ? 4 : 22)*S) + '" text-anchor="' + anchor +
-        '" font-size="' + T.evSize*S + '" font-weight="600" fill="' + (onPolicy ? C.ink : C.muted) + '">' +
+        '" font-size="' + T.evSize*S + '" font-weight="600" fill="' + (onPolicy ? C.ink : C.muted) + '"' + mcAttr + '>' +
         esc(money(st.mean)) + '</text>');
       if(st.p10 !== st.p90){
         s.push('<text x="' + tx + '" y="' + (y + (node.kind === 'leaf' ? 16 : 34)*S) + '" text-anchor="' + anchor +
-          '" font-size="' + T.statSize*S + '" fill="' + C.muted + '">' +
+          '" font-size="' + T.statSize*S + '" fill="' + C.muted + '"' + mcAttr + '>' +
           esc(money(st.p10) + ' … ' + money(st.p90)) + '</text>');
       }
     }
@@ -222,11 +256,22 @@ export function render(model, results, ctx){
     for(const c of node.children){
       const childOnPolicy = onPolicy &&
         (node.kind !== 'decision' || results.policy.get(node) === c);
-      if(!childOnPolicy) s.push('<g opacity="' + T.fadeOp + '">');
+      /* data-opt (B2, edit-gated): every ROOT-CHILD subtree — the options being
+         compared — gets an addressable wrapper so B3 can crossfade the route.
+         The existing fadeOp presentation attribute rides the SAME <g> for
+         off-policy options (a later CSS class overrides it); on-policy root
+         children get the wrapper with no opacity. Non-root subtrees keep the
+         old anonymous-<g>-only-when-faded behaviour, unchanged. */
+      const isRootChild = edit && node === model.root;
+      if(isRootChild){
+        s.push('<g data-opt="' + c.srcLine + '"' + (!childOnPolicy ? ' opacity="' + T.fadeOp + '"' : '') + '>');
+      } else if(!childOnPolicy){
+        s.push('<g opacity="' + T.fadeOp + '">');
+      }
       drawEdge(node, c, childOnPolicy);
       walk(c, childOnPolicy);
       drawNode(c, childOnPolicy);
-      if(!childOnPolicy) s.push('</g>');
+      if(isRootChild || !childOnPolicy) s.push('</g>');
     }
   }
   walk(model.root, true);
