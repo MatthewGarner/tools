@@ -255,6 +255,28 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// alarm's distribution SVG renders at the container width, so its labels must stay
+// legible on a phone. It once floored the render at 900 and let CSS width:100% shrink
+// the 900 viewBox to phone width — 10px labels displayed at ~4px — and NO suite caught
+// it, because getComputedStyle reports the AUTHORED px, not the scaled display. Measure
+// the DISPLAYED size = authored fontSize × (rendered width ÷ viewBox width). Fix 2026-07-17.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/alarm/', {waitUntil: 'networkidle'}).catch(() => {});
+  await page.waitForTimeout(700);
+  const minPx = await page.evaluate(() => {
+    const svg = document.querySelector('#distwrap svg');
+    if(!svg) return null;
+    const vbw = svg.viewBox.baseVal.width || svg.getBoundingClientRect().width;
+    const scale = svg.getBoundingClientRect().width / vbw;
+    let minAuthored = Infinity;
+    for(const t of svg.querySelectorAll('text')) minAuthored = Math.min(minAuthored, parseFloat(getComputedStyle(t).fontSize));
+    return minAuthored === Infinity ? null : +(minAuthored * scale).toFixed(1);
+  });
+  ok(minPx != null && minPx >= 8, `alarm: #distwrap SVG labels stay legible on phone (${minPx}px displayed >= 8)`);
+  await page.close();
+}
+
 // bets Quadrant view (view 2): toggling to it on a phone must land the same
 // narrow relayout guarantee the board already gets above — no page-level
 // h-scroll, and the #preview container itself doesn't overflow sideways.
