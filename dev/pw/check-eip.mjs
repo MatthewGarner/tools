@@ -27,17 +27,22 @@ await page.waitForTimeout(500);
 const before = await page.evaluate(() => localStorage.getItem('tree-src'));
 const rec0 = (await page.locator('#preview svg').innerHTML()).includes('Submit bid');
 
-// click the probability, replace with a value that flips the recommendation
-await page.locator('[data-edit="prob"]').first().click();
+/* B3 (I-7): Win's own probability is now a HOT (load-bearing) number — the priced-insistence
+   walk supersedes this popover on it (a tap binds the slider instead, checked below). So the
+   plain edit-in-place popover flows below now target Lose's probability ("p=rest"), which
+   loadBearing() never marks hot (a "rest" share is never a real, draggable range) — a stable,
+   always-non-hot target regardless of which numbers happen to be load-bearing in this fixture. */
+await page.locator('[data-edit="prob"][data-raw="rest"]').first().click();
 await page.waitForTimeout(200);
-check('overlay opens prefilled', await page.locator('.eip-input').inputValue() === '0.3-0.45');
-await page.locator('.eip-input').fill('0.02');
+check('overlay opens prefilled', await page.locator('.eip-input').inputValue() === 'rest');
+await page.locator('.eip-input').fill('0.5');
 await page.keyboard.press('Enter');
 await page.waitForTimeout(600);
 const after = await page.evaluate(() => localStorage.getItem('tree-src'));
-check('editor text updated', after.includes('(p=0.02)') && !after.includes('0.3-0.45'));
+check('editor text updated', after.includes('(p=0.5)') && !after.includes('(p=rest)'));
 const svg = await page.locator('#preview svg').innerHTML();
-check('recommendation flipped to No bid', svg.includes('RECOMMENDED') && /RECOMMENDED[\s\S]{0,200}No bid/.test(svg));
+check('recommendation recomputes (Submit bid still leads on these numbers)',
+  svg.includes('RECOMMENDED') && /RECOMMENDED[\s\S]{0,200}Submit bid/.test(svg));
 check('one undo reverts the edit', await (async () => {
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+z');
@@ -46,7 +51,7 @@ check('one undo reverts the edit', await (async () => {
 })());
 
 // invalid input shakes and stays open
-await page.locator('[data-edit="prob"]').first().click();
+await page.locator('[data-edit="prob"][data-raw="rest"]').first().click();
 await page.waitForTimeout(200);
 await page.locator('.eip-input').fill('7');
 await page.keyboard.press('Enter');
@@ -55,6 +60,14 @@ check('invalid input stays open with .invalid', await page.locator('.eip-input.i
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 check('escape closes', await page.locator('.eip-input').count() === 0);
+
+// B3 (I-2): a HOT number's tap supersedes the popover entirely — it binds the persistent
+// slider instead, never a second overlay.
+await page.locator('[data-edit="prob"][data-hot]').first().click();
+await page.waitForTimeout(200);
+check('tree: a hot number does not open the text popover',
+  await page.locator('.eip-input').count() === 0 && await page.locator('.eip-pop').count() === 0);
+check('tree: a hot number binds the persistent slider instead', await page.locator('#explorebar').isVisible());
 
 // label edit
 await page.locator('[data-edit="label"]', {hasText: 'No bid'}).click();
@@ -98,8 +111,10 @@ check('label rename lands in text and diagram',
   // decision node ("Submit bid", srcLine 4): Rename, Edit value, Add option, Remove branch
   await tapMarker(4);
   await page.waitForTimeout(200);
+  // (B3) "Submit bid" has its own payoff but no probability of its own — exploreRowsFor (I-3)
+  // appends "Explore payoff…" only; no "Edit probability…"/"Explore success odds…" rows.
   check('tree: decision marker tap opens the menu with the expected rows',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add option|Remove branch');
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|Explore payoff…|＋ Add option|Remove branch');
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await page.waitForTimeout(200);
@@ -176,8 +191,12 @@ check('label rename lands in text and diagram',
   // leaf node ("Win", srcLine 6): Rename, Edit value, Add outcome, Remove — every row live
   await tapMarker(6);
   await page.waitForTimeout(200);
+  // (B3) "Win" carries both its own probability and payoff — exploreRowsFor (I-3) fills the
+  // leaf-p hole ("Edit probability…", since this menu's field slot is already "Edit value…")
+  // and appends both Explore rows.
   check('tree: leaf marker tap opens the menu with the expected rows',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add outcome|Remove');
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') ===
+      'Rename…|Edit value…|Edit probability…|Explore success odds…|Explore payoff…|＋ Add outcome|Remove');
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await page.waitForTimeout(200);
@@ -276,7 +295,7 @@ check('label rename lands in text and diagram',
   await tapMarker(4);
   await page.waitForTimeout(200);
   check('tree: a non-root (decision) marker still opens its full unchanged menu',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|＋ Add option|Remove branch');
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|Explore payoff…|＋ Add option|Remove branch');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {formatMoney, formatP, formatRange, shiftRange} from '../format.js';
+import {formatMoney, formatP, formatRange, shiftRange, pricedCopy, seamCopy} from '../format.js';
 import {parseMoney} from '../parse.js';
 
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
@@ -51,4 +51,44 @@ test('shiftRange preserves width and re-parses to the intended interval (C2)', (
   // probability clamps (shrinks) against a bound rather than exceeding it
   const c = shiftRange({lo: 0.5, hi: 0.7}, 0.95, true);   // half-width .1 → would be [.85,1.05]
   assert.ok(c.hi <= 1 && c.lo >= 0 && near(c.hi, 1, 1e-9), JSON.stringify(c));
+});
+
+/* ---------- pricedCopy / seamCopy (B3): the priced-insistence readout ---------- */
+
+test('pricedCopy: feasible case, probability — prices the nearest boundary in points', () => {
+  const line = pricedCopy({winnerLabel: 'Submit bid', kind: 'prob', label: 'Win',
+    x: 0.375, boundary: 0.08, trackLo: 0, trackHi: 1});
+  assert.match(line, /^Submit bid holds until Win's odds would fall below 8% — 29\.5 points from where you've set it\.$/);
+});
+
+test('pricedCopy: feasible case, value — prices the nearest boundary in money, direction-aware', () => {
+  const above = pricedCopy({winnerLabel: 'No bid', kind: 'value', label: 'Win', currency: '£',
+    x: 2000000, boundary: 2500000, trackLo: 0, trackHi: 5000000});
+  assert.equal(above, "No bid holds until Win's payoff would rise above £2.5M — £500k from where you've set it.");
+  const below = pricedCopy({winnerLabel: 'Submit bid', kind: 'value', label: 'Win', currency: '£',
+    x: 2000000, boundary: 250000, trackLo: 0, trackHi: 5000000});
+  assert.match(below, /would fall below £250k/);
+});
+
+test('pricedCopy: no flip in the track at all (I4 case 1) — "no longer hinges"', () => {
+  const line = pricedCopy({winnerLabel: 'Bid', kind: 'prob', label: 'Lose', x: 0.5, boundary: null});
+  assert.equal(line, "On these numbers the call no longer hinges on Lose's odds.");
+});
+
+test('pricedCopy: a flip exists only beyond the clamped track (I4 case 2) — cites the track edge, never claims no-hinge', () => {
+  const above = pricedCopy({winnerLabel: 'Bid', kind: 'value', label: 'Slack', currency: '£',
+    x: 100, boundary: null, hingesBeyond: 9000000, trackLo: -200, trackHi: 400});
+  assert.equal(above, "You'd need Slack's payoff past £400 — beyond any plausible value here.");
+  const below = pricedCopy({winnerLabel: 'Bid', kind: 'value', label: 'Slack', currency: '£',
+    x: 100, boundary: null, hingesBeyond: -9000000, trackLo: -200, trackHi: 400});
+  assert.equal(below, "You'd need Slack's payoff past −£200 — beyond any plausible value here.");
+  assert.ok(!/no longer hinges/.test(above), 'never claims a hinging input doesn\'t hinge');
+});
+
+test('seamCopy: the at-rest honesty seam (I-6) — only when midpoint and MC winners disagree, never claims a flip', () => {
+  const seam = seamCopy('Risky', 'Safe');
+  assert.equal(seam, 'On midpoints, Risky edges ahead; across your full ranges, Safe still wins.');
+  assert.ok(!/flip/i.test(seam), 'copy never uses the word flip — it never claims the MC verdict flipped');
+  assert.equal(seamCopy('Safe', 'Safe'), '', 'agreement ⇒ nothing to show');
+  assert.equal(seamCopy(null, 'Safe'), '');
 });

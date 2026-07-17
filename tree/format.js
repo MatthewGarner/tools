@@ -37,3 +37,52 @@ export function shiftRange(range, newMid, isProb = false){
   if(isProb){ lo = Math.max(0, Math.min(1, lo)); hi = Math.max(0, Math.min(1, hi)); }
   return {lo, hi};
 }
+
+/* ---------- priced-insistence copy (B3) ----------
+   Pure text builders — no DOM, no engine calls. tree/app.js supplies the numbers (the nearest
+   flip boundary inside the slider's track, and — only when there is none — whether one exists
+   further out via engine.js's hingesBeyondTrack) computed from flipAlong/sliderExtent; these
+   functions only turn numbers into the house copy pattern, so they're unit-testable with plain
+   numbers and no tree fixture at all. */
+
+const pct = v => {
+  const r = Math.round(v * 1000) / 10;   // one decimal, e.g. "62.5%"; whole numbers drop the .0
+  return (Number.isInteger(r) ? r.toFixed(0) : r.toFixed(1)) + '%';
+};
+const points = (a, b) => {
+  const d = Math.round(Math.abs(a - b) * 1000) / 10;
+  return (Number.isInteger(d) ? d.toFixed(0) : d.toFixed(1)) + (d === 1 ? ' point' : ' points');
+};
+const priceMoney = (v, currency) => (v < 0 ? '−' : '') + currency + formatMoney(Math.abs(v));
+
+/* {winnerLabel, kind, label, currency, x, boundary, hingesBeyond, trackLo, trackHi} →
+   the two-sided priced-insistence line (I1/I4). `boundary` is the nearest flip inside the
+   input's track (null when none was found there); `hingesBeyond` — consulted only when
+   boundary is null — is the far boundary hingesBeyondTrack found (or null), distinguishing
+   "never hinges" from "hinges, but only past a plausible value" (a probability's track IS
+   [0,1] already, so that case can only arise for a money value). */
+export function pricedCopy({winnerLabel, kind, label, currency = '£', x, boundary, hingesBeyond, trackLo, trackHi}){
+  const isProb = kind === 'prob';
+  const noun = isProb ? 'odds' : 'payoff';
+  if(boundary === null || boundary === undefined){
+    if(hingesBeyond !== null && hingesBeyond !== undefined){
+      const bound = hingesBeyond > x ? trackHi : trackLo;
+      const boundStr = isProb ? pct(bound) : priceMoney(bound, currency);
+      return `You'd need ${label}'s ${noun} past ${boundStr} — beyond any plausible value here.`;
+    }
+    return `On these numbers the call no longer hinges on ${label}'s ${noun}.`;
+  }
+  const cross = boundary > x ? 'rise above' : 'fall below';
+  const xStr = isProb ? pct(boundary) : priceMoney(boundary, currency);
+  const dist = isProb ? points(boundary, x) : priceMoney(Math.abs(boundary - x), currency);
+  return `${winnerLabel} holds until ${label}'s ${noun} would ${cross} ${xStr} — ${dist} from where you've set it.`;
+}
+
+/* The at-rest honesty seam (I-6): whenever the midpoint story's recommendation differs from the
+   settled MC policy's, a PERSISTENT line says so — never claims the MC verdict flipped, only that
+   the two stories currently disagree. Empty string ⇒ nothing to show (they agree, or there's no
+   decision to compare). */
+export function seamCopy(detLabel, mcLabel){
+  if(!detLabel || !mcLabel || detLabel === mcLabel) return '';
+  return `On midpoints, ${detLabel} edges ahead; across your full ranges, ${mcLabel} still wins.`;
+}

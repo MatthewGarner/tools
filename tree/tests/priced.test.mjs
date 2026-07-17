@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {evaluate, evalDet, flipAlong, sliderExtent, loadBearing, refMid, findByLine} from '../engine.js';
+import {evaluate, evalDet, flipAlong, sliderExtent, loadBearing, refMid, findByLine, hingesBeyondTrack} from '../engine.js';
 
 // canonical bid tree (srcLines: Root0 Bid1 Outcome2 Win3 Lose4 NoBid5)
 const bid = parse(`Root
@@ -94,6 +94,42 @@ No bid: 0`);
   assert.doesNotThrow(() => { lb = loadBearing(m); });
   assert.ok(lb.length >= 1, 'still finds the load-bearing inputs (Win prob/payoff)');
   assert.doesNotThrow(() => sliderExtent({kind: 'value', line: 0}, m), 'resolution never throws');
+});
+
+/* ---------- hingesBeyondTrack (B3, I4): distinguishing the two no-flip copy cases ---------- */
+
+test('hingesBeyondTrack: a probability never reports "beyond" — its track already IS [0,1]', () => {
+  assert.equal(hingesBeyondTrack(bid, winProb, {lo: 0, hi: 1}), null);
+});
+
+test('hingesBeyondTrack: finds a flip that sits beyond the plausible (clamped) track (I4 case 2)', () => {
+  // Lose (a point value, currently 0) — its own sliderExtent track ([-500k,500k]) shows NO flip
+  // (this is exactly why loadBearing never marks it), but pushing it to about -2.625M WOULD flip
+  // Bid vs No bid: -150k + 0.6·2M + 0.4·Lose = 0. The widened probe must still find it.
+  const loseVal = {kind: 'value', line: 4};
+  const ext = sliderExtent(loseVal, bid);
+  assert.equal(ext.flips.boundaries.length, 0, 'the plausible track itself shows no flip');
+  const beyond = hingesBeyondTrack(bid, loseVal, ext);
+  assert.ok(beyond !== null, 'a flip does exist, just beyond the plausible track');
+  assert.ok(near(beyond, -2625000, 1000), `beyond ${beyond}`);
+});
+
+test('hingesBeyondTrack: null when a value truly never hinges (I4 case 1) — a dead branch (p pinned at 0)', () => {
+  // Win's own probability is a fixed point at 0 (not a range), so Win's VALUE is multiplied by 0
+  // in every rollback regardless of what it's set to — it can never move the recommendation, at
+  // any distance. loadBearing correctly never marks it; hingesBeyondTrack must agree.
+  const dead = parse(`Root
+  Bid: -150k
+    Outcome
+      Win (p=0): 2M to 5M
+      Lose (p=rest): 0
+  No bid: 0`);
+  const win = dead.root.children[0].children[0].children[0];
+  const ref = {kind: 'value', line: win.srcLine};
+  const ext = sliderExtent(ref, dead);
+  assert.equal(ext.flips.boundaries.length, 0);
+  assert.equal(hingesBeyondTrack(dead, ref, ext), null, 'never hinges at any distance — not merely beyond this track');
+  assert.equal(loadBearing(dead).some(m => m.ref.kind === 'value' && m.ref.line === win.srcLine), false);
 });
 
 test('honesty seam (C4): evalDet midpoint rec can differ from the MC max-mean policy', () => {

@@ -288,7 +288,7 @@ const nearestBoundary = (fl, cur) => {
 const NO_EXTENT = {lo: 0, hi: 0, flips: {below: null, above: null, winnerAtLo: null, winnerAtHi: null, boundaries: []}};
 /* the largest payoff magnitude in the tree — the scale for a point value sitting at ≈0,
    where an absolute reach would be blind (a £4 window on a £M tree; M-1) */
-function treeScale(model){
+export function treeScale(model){
   let m = 0;
   (function w(n){ if(!n) return; if(n.value) m = Math.max(m, Math.abs(n.value.lo), Math.abs(n.value.hi)); n.children.forEach(w); })(model.root);
   return m;
@@ -378,4 +378,26 @@ export function loadBearing(model){
     if(swing > widestSwing){ widestSwing = swing; widest = ref; }
   }
   return widest ? [{ref: widest, extent: sliderExtent(widest, model), nearestFlip: null, distance: Infinity, proximity: Infinity, degenerate: true}] : [];
+}
+
+/* B3 — the priced-insistence readout's two no-flip cases (I4). loadBearing already only marks
+   inputs whose flip lies WITHIN their sliderExtent track, so this only matters for a number
+   explored via the card-menu (I-3) that ISN'T load-bearing: sliderExtent's own track (`ext`,
+   already computed by the caller) found no flip, but does one exist further out? For a
+   probability the track already IS the whole domain ([0,1]), so it never hinges further out
+   (returns null unconditionally). For a money value, probe a further ±10×track-span beyond the
+   track — generous enough to separate "never hinges" from "hinges, but only past a plausible
+   value", while staying close enough to the track's own scale that the COARSE scan can still
+   resolve the crossing (a probe scaled to the whole tree, independent of the track, can outrun
+   the scan's resolution and silently miss a boundary that's only modestly out of range). Beyond
+   that reach, "never" and "only at an implausible extreme" are equally honest — this is a
+   deliberately bounded, not exhaustive, search. Returns the nearest such far boundary, or null. */
+export function hingesBeyondTrack(model, ref, ext){
+  if(ref.kind === 'prob') return null;   // [0,1] IS the full domain already; sliderExtent covers it
+  const node = findByLine(model, ref.line);
+  const cur = refMid(model, ref);
+  if(!node || !node.value || cur === null) return null;
+  const span = Math.max(ext.hi - ext.lo, 1);
+  const wide = flipAlong(model, ref, {lo: ext.lo - 10 * span, hi: ext.hi + 10 * span});
+  return nearestBoundary(wide, cur);
 }
