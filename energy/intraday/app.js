@@ -54,7 +54,9 @@ function boot(){
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');   // merit-order render.js's own formatter
 
-  /* ---- narrow-render width: measure each panel, mirroring cycles/risk/merit-order.
+  /* ---- narrow-render width: measure each panel. Unlike cycles/risk/merit-order,
+     which bucket at 520 and fall back to a fixed width, intraday renders at the
+     true measured width continuously (Route B, below — no bucket flip).
      Both renderers require an explicit width (no built-in default that matches
      this page's 900 canonical), so — unlike merit-order's `undefined ⇒ 1200` —
      this always returns a concrete number. ---- */

@@ -91,8 +91,8 @@ function btn(x, y, w, h, act, person, quarter, on, c){
 // width-aware: narrow (<520) is the phone RELAYOUT (re-wrapped for 356px, not a
 // shrink or a pan), wide (>=900) opens the chart to the full container so the six
 // noise-walks separate, and everything in between (incl. no width) reproduces the
-// original 760 layout byte-for-byte. Exports always pass the wide artefact
-// (app.js getSvg omits width).
+// original 760 layout byte-for-byte. Exports always pass the wide artefact —
+// app.js's getSvg pins {width: 1088}.
 export function renderCollapse(s, c, calls = [], {width} = {}){
   const w = width ?? 760;
   const narrow = w < 520;          // phone: pinned 356 layout, byte-identical to before
