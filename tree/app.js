@@ -11,7 +11,7 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify,
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
-import {debounced, rafBatched} from '../assets/schedule.js';
+import {rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -85,10 +85,23 @@ function doRefresh(){
   hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
+/* onChange's debounce is inlined here (rather than assets/schedule.js's shared
+   debounced()) so commitFocus (M-2, below) can cancel a just-scheduled echo by
+   its own timer id — a slider release already replaces the line AND calls
+   doRefresh() directly/synchronously (the settled MC must land without the
+   120ms lag), so the debounced refresh that same replaceLine's onChange just
+   queued is pure waste (a second full 10k-sim pass) unless cancelled. CodeMirror's
+   dispatch runs onChange synchronously before replaceLine returns, so the timer
+   is always set by the time commitFocus resumes to cancel it. */
+let changeTimer = null;
+function scheduleRefresh(){
+  clearTimeout(changeTimer);
+  changeTimer = setTimeout(refresh, 120);
+}
 const editor = createEditor({
   parent: $('cmhost'),
   doc: '',
-  onChange: debounced(refresh, 120),
+  onChange: scheduleRefresh,
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
@@ -338,7 +351,11 @@ function commitFocus(x){
   const line = editor.getLine(focus.line);
   const newLine = applyExplore(line, node, x, focus.kind === 'prob');
   committingFocus = true;
-  if(newLine !== line) editor.replaceLine(focus.line, newLine);
+  if(newLine !== line){
+    editor.replaceLine(focus.line, newLine);
+    clearTimeout(changeTimer);   // M-2: cancel the echo scheduleRefresh() (onChange) just queued —
+                                  // the direct doRefresh() below already lands the settled MC now
+  }
   doRefresh();
   committingFocus = false;
 }
@@ -360,21 +377,57 @@ exploreRange.addEventListener('change', () => {
   if(!focus) return;
   commitFocus(parseFloat(exploreRange.value));
 });
-/* M-2: Escape reverts the uncommitted drag (never a text edit — nothing was committed), strips
+/* strips the crossfade + un-fades the MC readouts + resets the priced readout to the settled
+   (focusValue) text — the "nothing left mid-drag" reconcile shared by Escape, a release-with-
+   no-net-change (I-2, below), and (about to be superseded by a real re-render) a commit. */
+function settleUI(){
+  if(!focus) return;
+  clearLiveClasses();
+  updatePriced(focus.ext, focus.focusValue, {settle: true});
+  exploreRange.setAttribute('aria-valuetext', formatValueText(focus.kind, focus.focusValue));
+}
+function focusedTarget(){
+  if(!focus) return null;
+  const svgEl = preview.querySelector('svg');
+  return svgEl && svgEl.querySelector('[data-hot][data-line="' + focus.line + '"][data-edit="' + focus.kind + '"]');
+}
+/* Escape reverts the uncommitted drag (never a text edit — nothing was committed), strips
    the crossfade + un-fades the MC readouts, and returns DOM focus to the number. Tab is never
    trapped — the slider is an ordinary tab stop, not inside a popover. */
 exploreRange.addEventListener('keydown', e => {
   if(e.key !== 'Escape' || !focus) return;
   e.preventDefault();
   exploreRange.value = focus.focusValue;
-  clearLiveClasses();
-  updatePriced(focus.ext, focus.focusValue, {settle: true});
-  exploreRange.setAttribute('aria-valuetext', formatValueText(focus.kind, focus.focusValue));
-  const svgEl = preview.querySelector('svg');
-  const t = svgEl && svgEl.querySelector('[data-hot][data-line="' + focus.line + '"][data-edit="' + focus.kind + '"]');
+  settleUI();
+  const t = focusedTarget();
   if(t) t.focus({preventScroll: true});
 });
-exploreClose.addEventListener('click', () => dismissFocus());
+/* I-2: a drag that releases back at the value it was bound at nets no value change, so the
+   native 'change' event never fires (mirrors rank/app.js's own pointerup-release note) — nothing
+   would otherwise reconcile the .pending/.live-on/.live-off classes the 'input' stream left
+   behind, and they'd sit faded at rest indefinitely. Only settle (never commit/re-render) when
+   there's truly no net change; a real change is left entirely to 'change' → commitFocus, so this
+   is a harmless no-op whenever a real commit follows. */
+// 'change' fires iff the release value differs from the value the control had when the drag
+// STARTED (pointerdown), so compare against that — NOT focus.focusValue, which is the unsnapped
+// midpoint the range input rounds to its step (they never match, so the reconcile never fired).
+// Both are the slider's own snapped string values ⇒ an exact, snap-consistent comparison.
+let dragStartVal = null;
+exploreRange.addEventListener('pointerdown', () => { dragStartVal = exploreRange.value; });
+function reconcileIfUnchanged(){
+  if(focus && dragStartVal !== null && exploreRange.value === dragStartVal) settleUI();
+  dragStartVal = null;
+}
+exploreRange.addEventListener('pointerup', reconcileIfUnchanged);
+exploreRange.addEventListener('pointercancel', reconcileIfUnchanged);
+/* M-3: the close button ends the explore session the same way Escape's revert does — return DOM
+   focus to the bound number's own tspan (captured before dismissFocus() nulls `focus`), rather
+   than dropping it to <body>. */
+exploreClose.addEventListener('click', () => {
+  const t = focusedTarget();
+  dismissFocus();
+  if(t) t.focus({preventScroll: true});
+});
 
 attachEditInPlace(preview, {
   kinds: {

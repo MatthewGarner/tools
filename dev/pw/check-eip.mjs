@@ -262,10 +262,20 @@ check('label rename lands in text and diagram',
     const box = await page.locator('#preview svg [data-edit="value"][data-line="8"]').boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await page.waitForTimeout(200);
-    check('tree: tapping the bare "0" value opens the value editor, not the card menu',
-      await page.locator('.eip-pop').count() === 0 && await page.locator('.eip-input').count() === 1);
-    await page.keyboard.press('Escape');
+    /* "No bid: 0" is itself load-bearing on this fixture (its scale-aware point-value track
+       reaches the flip against "Submit bid" well inside its extent) — so the tap correctly
+       BINDS THE SLIDER, same as any other hot number (mirrors the hot-prob assertions above),
+       never the text popover or the card menu. */
+    check('tree: tapping the bare "0" value binds the persistent slider (it is load-bearing), not the value editor',
+      await page.locator('.eip-pop').count() === 0 && await page.locator('.eip-input').count() === 0 &&
+      await page.locator('#explorebar').isVisible());
+    check('tree: the bound slider carries a real min/max track for this value', await page.evaluate(() => {
+      const r = document.getElementById('exploreRange');
+      return isFinite(parseFloat(r.min)) && isFinite(parseFloat(r.max)) && parseFloat(r.max) > parseFloat(r.min);
+    }));
+    await page.locator('#exploreClose').click();
     await page.waitForTimeout(150);
+    check('tree: closing the slider hides the explore bar', !(await page.locator('#explorebar').isVisible()));
   }
 
   /* root node ("Bid decision", srcLine 3 — a DECISION root here): the explicit

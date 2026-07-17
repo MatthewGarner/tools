@@ -53,6 +53,17 @@ test('shiftRange preserves width and re-parses to the intended interval (C2)', (
   assert.ok(c.hi <= 1 && c.lo >= 0 && near(c.hi, 1, 1e-9), JSON.stringify(c));
 });
 
+test('shiftRange (prob) PRESERVES the midpoint against a bound — never un-flips the drag (Fable C-1)', () => {
+  // the slider's variable IS the midpoint; committing near a bound must keep it there (shrinking
+  // width), not clamp lo/hi independently (which moved the midpoint 0.02 → 0.0475 and could commit
+  // BACK across a flip the drag had just crossed).
+  for(const [range, mid] of [[{lo: 0.3, hi: 0.45}, 0.02], [{lo: 0.3, hi: 0.45}, 0.95], [{lo: 0.5, hi: 0.7}, 0.6]]){
+    const r = shiftRange(range, mid, true);
+    assert.ok(near((r.lo + r.hi) / 2, mid, 1e-9), `committed midpoint = released ${mid}, got ${(r.lo + r.hi) / 2}`);
+    assert.ok(r.lo >= 0 && r.hi <= 1, `within [0,1]: ${JSON.stringify(r)}`);
+  }
+});
+
 /* ---------- pricedCopy / seamCopy (B3): the priced-insistence readout ---------- */
 
 test('pricedCopy: feasible case, probability — prices the nearest boundary in points', () => {

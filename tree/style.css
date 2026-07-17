@@ -59,6 +59,11 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .explore-close{border:none;background:none;color:var(--muted);font-size:14px;line-height:1;
   cursor:pointer;padding:6px;border-radius:6px;min-width:32px;min-height:32px}
 .explore-close:hover{color:var(--ink);background:var(--track)}
+/* coarse-pointer minimum tap target (44px, the house rule) — the card menu's
+   "Explore…" row reaches this bar on phones already, ahead of B4's own pass. */
+@media (pointer:coarse){
+  .explore-close{min-width:44px;min-height:44px}
+}
 .explore-track{position:relative;height:30px;display:flex;align-items:center}
 .explore-range{width:100%;margin:0;height:30px;accent-color:var(--accent);cursor:pointer;
   position:relative;z-index:2;background:transparent}

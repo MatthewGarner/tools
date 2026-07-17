@@ -33,9 +33,16 @@ export function formatRange(range, isProb = false){
    interval hard against 0 or 1). Money is unbounded (negatives fine). A point (lo===hi) stays a point. */
 export function shiftRange(range, newMid, isProb = false){
   const half = (range.hi - range.lo) / 2;
-  let lo = newMid - half, hi = newMid + half;
-  if(isProb){ lo = Math.max(0, Math.min(1, lo)); hi = Math.max(0, Math.min(1, hi)); }
-  return {lo, hi};
+  if(isProb){
+    // PRESERVE the midpoint (that IS the slider's variable and the whole live/priced story is a
+    // midpoint story), SHRINKING the half-width symmetrically against the [0,1] bound — never clamp
+    // lo/hi independently, which silently moves the midpoint and can un-flip what the drag showed
+    // at the very knife-edge the tool exists to price (Fable C-1).
+    const m = Math.max(0, Math.min(1, newMid));
+    const h = Math.min(half, m, 1 - m);
+    return {lo: m - h, hi: m + h};
+  }
+  return {lo: newMid - half, hi: newMid + half};
 }
 
 /* ---------- priced-insistence copy (B3) ----------
@@ -72,10 +79,17 @@ export function pricedCopy({winnerLabel, kind, label, currency = '£', x, bounda
     }
     return `On these numbers the call no longer hinges on ${label}'s ${noun}.`;
   }
+  // "its" when the winner is exploring its OWN field (avoids "Submit bid holds until Submit bid's…")
+  const poss = winnerLabel === label ? 'its' : label + "'s";
+  const gap = Math.abs(boundary - x);
+  const eps = isProb ? 5e-4 : Math.max(Math.abs((trackHi ?? 0) - (trackLo ?? 0)) * 1e-3, 1);
+  if(gap <= eps){   // the current value sits ON the flip — no honest distance to quote
+    return `${winnerLabel} is right on the edge — ${poss} ${noun} is at the flip, so a hair either way changes the call.`;
+  }
   const cross = boundary > x ? 'rise above' : 'fall below';
   const xStr = isProb ? pct(boundary) : priceMoney(boundary, currency);
-  const dist = isProb ? points(boundary, x) : priceMoney(Math.abs(boundary - x), currency);
-  return `${winnerLabel} holds until ${label}'s ${noun} would ${cross} ${xStr} — ${dist} from where you've set it.`;
+  const dist = isProb ? points(boundary, x) : priceMoney(gap, currency);
+  return `${winnerLabel} holds until ${poss} ${noun} would ${cross} ${xStr} — ${dist} from where you've set it.`;
 }
 
 /* The at-rest honesty seam (I-6): whenever the midpoint story's recommendation differs from the
