@@ -293,7 +293,13 @@ function resyncFocusUI(){
   const ref = {kind: focus.kind, line: focus.line};
   const cur = refMid(model, ref);
   if(cur === null){ dismissFocus(); return; }
-  const ext = sliderExtent(ref, model);
+  // Keep the BIND-TIME extent stable while this number stays focused. Recomputing sliderExtent on
+  // every commit rescaled the whole track (min/max), so the band, notch and thumb lurched under
+  // the finger — "it doesn't stay where I place it, it jumps around". A single input's flip point
+  // doesn't move as you change THAT input (it's a property of the OTHER inputs), so the track
+  // mustn't either; only a fresh tap (engageSlider) sizes a new track. cur is always inside the
+  // held extent (you can't drag the thumb past the track), so the thumb lands exactly where you left it.
+  const ext = focus.ext || sliderExtent(ref, model);
   focus.ext = ext; focus.focusValue = cur;
   clearLiveClasses();
   paintSlider(ext, cur);
