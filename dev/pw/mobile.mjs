@@ -461,6 +461,91 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
+// tree B4 — coarse-pointer priced-insistence entry (Fable I-4 replaced the
+// per-number 44px hit-rect assertion with these). On a coarse pointer a hot
+// number's own tspan doesn't open the slider directly — edit-in-place.js
+// redirects the tap to the node's own card-menu marker ([data-menu]), whose
+// menu (B3's exploreRowsFor) carries an "Explore…" row that binds the ONE
+// persistent slider. This walks that whole path on a deliberately TALL tree
+// (6 near-identical options ⇒ every branch sits on a knife-edge, so several
+// numbers are load-bearing and the topmost one sits many rows above the
+// fold) — proving B4's sticky bottom bar, not the old in-flow placement,
+// is what keeps the slider on screen: "below the tree" would otherwise land
+// the bar hundreds of px past the bottom of an 844px-tall phone viewport.
+{
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const doc = 'title: Six-way pick\n\nRoot decision\n' + letters.map(x =>
+    `  Option ${x}: -10k\n    Chance ${x}\n      Win ${x} (p=0.4-0.6): 100k to 200k\n      Lose ${x} (p=rest): 0\n`
+  ).join('');
+  const hash = Buffer.from(JSON.stringify({t: doc})).toString('base64');
+  const page = await ctx.newPage();
+  await page.goto(T + '/tree/#' + hash, {waitUntil: 'networkidle'}).catch(() => {});
+  await page.waitForTimeout(1000);
+
+  const top = await page.evaluate(() => {
+    const hots = [...document.querySelectorAll('#preview svg [data-hot]')];
+    if(!hots.length) return null;
+    let best = null, bestTop = Infinity;
+    for(const el of hots){
+      const r = el.getBoundingClientRect();
+      if(r.top < bestTop){ bestTop = r.top; best = {line: el.dataset.line, kind: el.dataset.edit}; }
+    }
+    return best;
+  });
+  ok(top !== null, 'tree: the tall 6-option fixture renders at least one load-bearing (hot) number');
+
+  if(top){
+    const marker = page.locator(`#preview svg [data-menu][data-line="${top.line}"]`);
+    ok(await marker.count() === 1,
+      `tree: the topmost hot number's own node carries exactly one card-menu marker (line ${top.line})`);
+    await marker.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    const box = await marker.locator('[data-hit]').boundingBox();
+    if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+
+    const rowTexts = await page.locator('.eip-pop button').allInnerTexts();
+    const exploreRows = rowTexts.filter(t => t.startsWith('Explore'));
+    ok(exploreRows.length >= 1,
+      `tree: the marker's card menu carries an "Explore…" row (${JSON.stringify(rowTexts)})`);
+
+    if(exploreRows.length){
+      await page.locator('.eip-pop button', {hasText: exploreRows[0]}).click();
+      await page.waitForTimeout(300);
+
+      ok(await page.locator('#explorebar').isVisible(),
+        'tree: #explorebar un-hides after the coarse-pointer card-menu Explore… row');
+
+      const geom = await page.evaluate(() => {
+        const bar = document.getElementById('explorebar');
+        const range = document.getElementById('exploreRange');
+        const close = document.getElementById('exploreClose');
+        const b = bar.getBoundingClientRect(), rr = range.getBoundingClientRect(), cr = close.getBoundingClientRect();
+        return {
+          top: b.top, bottom: b.bottom, left: b.left, right: b.right,
+          vw: document.documentElement.clientWidth, vh: window.innerHeight,
+          min: range.min, max: range.max,
+          rangeH: rr.height, rangeW: rr.width, closeH: cr.height, closeW: cr.width,
+        };
+      });
+      ok(geom.top >= -1 && geom.bottom <= geom.vh + 1 && geom.left >= -1 && geom.right <= geom.vw + 1,
+        `tree: #explorebar sits fully inside the layout viewport after tapping the TOPMOST hot number on a tall ` +
+        `tree (bar top ${geom.top.toFixed(0)}, bottom ${geom.bottom.toFixed(0)} vs viewport height ${geom.vh}) — ` +
+        `the sticky bottom bar, not the old off-screen in-flow placement`);
+      ok(geom.min !== '' && geom.max !== '' && geom.min !== geom.max,
+        `tree: #exploreRange was bound with a real min/max track (${geom.min}..${geom.max})`);
+      ok(geom.rangeH >= 44, `tree: the slider thumb/track is >=44px tall on a coarse pointer (${geom.rangeH.toFixed(1)}px)`);
+      ok(geom.closeH >= 44 && geom.closeW >= 44,
+        `tree: .explore-close stays >=44px inside the sticky bar (${geom.closeW.toFixed(0)}x${geom.closeH.toFixed(0)})`);
+
+      const vw = await page.evaluate(() => document.documentElement.clientWidth);
+      const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+      ok(docSW <= vw + 1, `tree: no page-level horizontal scroll on the tall fixture with the explore bar shown (${docSW} <= ${vw})`);
+    }
+  }
+  await page.close();
+}
+
 // roadmap coarse-pointer gate (Task 3): the drag affordance is a fine-pointer
 // (mouse) feature only — on a phone it must NOT arm (it would fight the
 // narrow stack's vertical swipe-to-scroll) and its CSS touch-action:none must

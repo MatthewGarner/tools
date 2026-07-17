@@ -22,6 +22,15 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .preview svg [data-edit^="cardmenu"]{cursor:pointer}
 .preview svg [data-edit^="cardmenu"]:hover rect[data-hit]{fill:var(--accent);fill-opacity:.12}
 
+/* C3: taps register immediately (no 300ms delay) without blocking the pan
+   the workspace already provides — `.stage .preview{overflow:auto}` (see
+   assets/workspace.css) is the native scroll container, and `manipulation`
+   permits pan-x/pan-y (only double-tap-zoom is dropped); `pan-y` — forbidden
+   by spec C3 — would block the horizontal strip pan coarse pointers rely on
+   to see a board-width tree. Unconditional: touch-action only affects touch
+   input, so it's a no-op for mouse/trackpad. */
+.stage .preview svg{touch-action:manipulation}
+
 /* ---------- B3: the priced-insistence walk ---------- */
 
 /* hot numbers (B2's in-string data-hot mark, already carrying a dotted accent
@@ -75,6 +84,31 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .explore-notch{position:absolute;top:50%;width:2px;height:16px;
   transform:translate(-50%,-50%);background:var(--accent2);pointer-events:none;z-index:1}
 .explore-priced{margin:8px 0 0;font-size:13px;color:var(--muted)}
+
+/* B4 (spec I6): on a coarse pointer the one persistent slider becomes a
+   safe-area sticky BOTTOM bar, pinned to the VIEWPORT rather than sitting
+   in-flow below the diagram — "below the tree" fails on a tall tree, since a
+   tap on a top node would otherwise leave the bar (and the live re-routing
+   route) many screens down, off-screen, while the user is still looking at
+   the node they just tapped. position:fixed removes it from the stage's
+   normal flow the same way its default `hidden` state already does, so the
+   verdict/seam/actions rows below it are never displaced by its presence —
+   it only floats above whatever sits at the viewport bottom while a number
+   is actively engaged (never permanently; it's hidden otherwise, unchanged).
+   Fine pointers are untouched — this whole block is gated to coarse, so
+   desktop keeps today's plain inline placement exactly as shipped in B3. */
+@media (pointer:coarse){
+  .explore-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    margin:0; border-radius:0; border-width:1px 0 0;
+    box-shadow:0 -2px 10px rgba(0,0,0,.15);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  /* the native range's own box IS its tap target — 30px (desktop) misses the
+     44px floor; the thumb/track and the ✕ (already 44px, see the coarse rule
+     above) both clear it inside the sticky bar. */
+  .explore-track, .explore-range{height:44px}
+}
 
 /* the at-rest honesty seam (I-6): persistent, not just mid-drag — shown
    whenever the midpoint story's winner disagrees with the settled MC policy. */
