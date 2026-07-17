@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {evaluate, evalDet, flipAlong, sliderExtent, loadBearing, refMid} from '../engine.js';
+import {evaluate, evalDet, flipAlong, sliderExtent, loadBearing, refMid, findByLine} from '../engine.js';
 
 // canonical bid tree (srcLines: Root0 Bid1 Outcome2 Win3 Lose4 NoBid5)
 const bid = parse(`Root
@@ -62,17 +62,38 @@ test('loadBearing marks the flip-carrying inputs, ranked by proximity, not degen
   for(let i = 1; i < lb.length; i++) assert.ok(lb[i - 1].proximity <= lb[i].proximity, 'proximity-sorted');
 });
 
-test('loadBearing degenerate: nothing flips within any track → the single widest-margin input, flagged', () => {
-  // Risky (EV ~11, range [8,10] under p) dominates Safe:-1; no single input flips it inside its track
+test('loadBearing never returns empty for a valid tree; a far-off swing input is still caught (M-1)', () => {
+  // Safe:-1 sits far below Risky (EV ~11), but raising it into contention is WITHIN its
+  // scale-aware track (tree scale ~12) — an absolute ±1 reach would have missed it and wrongly
+  // fallen through to the degenerate path. So it is correctly marked, not degenerate.
   const runaway = parse(`Root
   Risky
     Win (p=0.99): 10 to 12
     Lose (p=rest): 8 to 9
   Safe: -1`);
   const lb = loadBearing(runaway);
-  assert.equal(lb.length, 1, 'exactly one, explained');
-  assert.equal(lb[0].degenerate, true);
-  assert.equal(lb[0].nearestFlip, null);
+  assert.ok(lb.length >= 1, 'a valid ≥2-option tree always has a load-bearing input');
+  assert.ok(lb.some(m => m.ref.kind === 'value' && m.ref.line === 4 && !m.degenerate),
+    'Safe (line 4) — the swing input — is marked via the scale-aware reach, not the degenerate net');
+});
+
+test('implicit-root tree (two top-level options) does not crash loadBearing (C-1)', () => {
+  // No single wrapping root → parse synthesises an implicit "Decision" root that SHARES
+  // srcLine 0 with the first option ("Bid"). findByLine(0) must resolve to the real option,
+  // not the value-less wrapper, or sliderExtent hits null.lo and the whole preview dies.
+  const m = parse(`Bid: -150k
+  Outcome
+    Win (p=0.6): 2M
+    Lose (p=rest): 0
+No bid: 0`);
+  assert.equal(m.root.implicit, true);
+  const first = findByLine(m, 0);
+  assert.equal(first.label, 'Bid');
+  assert.ok(first.value, 'resolves to the real first option, not the implicit wrapper');
+  let lb;
+  assert.doesNotThrow(() => { lb = loadBearing(m); });
+  assert.ok(lb.length >= 1, 'still finds the load-bearing inputs (Win prob/payoff)');
+  assert.doesNotThrow(() => sliderExtent({kind: 'value', line: 0}, m), 'resolution never throws');
 });
 
 test('honesty seam (C4): evalDet midpoint rec can differ from the MC max-mean policy', () => {

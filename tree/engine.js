@@ -222,7 +222,10 @@ export function evalDet(model, pOver = new Map(), vOver = new Map()){
 
 export function findByLine(model, line){
   let found = null;
-  (function w(n){ if(!n || found) return; if(n.srcLine === line) found = n; n.children.forEach(w); })(model.root);
+  // The synthetic implicit root (parse.js) SHARES its srcLine with the first top-level option,
+  // and preorder visits it first — so skip it, or refs to that line resolve to a value-less
+  // wrapper (C-1: crashed sliderExtent, and silently dropped the first option from the marks).
+  (function w(n){ if(!n || found) return; if(n.srcLine === line && !n.implicit) found = n; n.children.forEach(w); })(model.root);
   return found;
 }
 
@@ -282,13 +285,23 @@ const nearestBoundary = (fl, cur) => {
    90% interval EXTENDED to reveal the flip, clamped to stated ± 2×span; a point value is a
    window around the flip (flip ± 25%·|flip−cur|), else ±50%·|value|. Always returns the flips
    found inside the final track, so the caller can notch them. */
+const NO_EXTENT = {lo: 0, hi: 0, flips: {below: null, above: null, winnerAtLo: null, winnerAtHi: null, boundaries: []}};
+/* the largest payoff magnitude in the tree — the scale for a point value sitting at ≈0,
+   where an absolute reach would be blind (a £4 window on a £M tree; M-1) */
+function treeScale(model){
+  let m = 0;
+  (function w(n){ if(!n) return; if(n.value) m = Math.max(m, Math.abs(n.value.lo), Math.abs(n.value.hi)); n.children.forEach(w); })(model.root);
+  return m;
+}
 export function sliderExtent(ref, model){
   const node = findByLine(model, ref.line);
   const cur = refMid(model, ref);
+  if(node === null || cur === null) return {...NO_EXTENT};   // resolution failure must never throw (C-1)
   if(ref.kind === 'prob'){
     return {lo: 0, hi: 1, flips: flipAlong(model, ref, {lo: 0, hi: 1})};
   }
   const v = node.value;
+  if(!v) return {...NO_EXTENT};
   if(v.lo !== v.hi){                                   // ranged value
     const span = v.hi - v.lo;
     const clampLo = v.lo - 2 * span, clampHi = v.hi + 2 * span;
@@ -298,8 +311,11 @@ export function sliderExtent(ref, model){
     lo = Math.max(lo, clampLo); hi = Math.min(hi, clampHi);
     return {lo, hi, flips: flipAlong(model, ref, {lo, hi})};
   }
-  // point value: search a generous window for the flip, then tighten around it
-  const reach = 4 * Math.max(Math.abs(cur), 1);
+  // point value: search a generous window for the flip, then tighten around it. When cur≈0 the
+  // window must be sized by the TREE's scale, not an absolute unit (M-1: a "0" payoff still has a
+  // flip somewhere in £M territory; a £4 reach or a ±£1 fallback would never see it).
+  const scale = treeScale(model);
+  const reach = 4 * Math.max(Math.abs(cur), scale * 0.25, 1);
   const near = nearestBoundary(flipAlong(model, ref, {lo: cur - reach, hi: cur + reach}), cur);
   let lo, hi;
   if(near !== null){
@@ -307,7 +323,7 @@ export function sliderExtent(ref, model){
     lo = Math.min(cur, near) - 0.25 * d;
     hi = Math.max(cur, near) + 0.25 * d;
   } else {
-    const pad = Math.abs(cur) * 0.5 || 1;
+    const pad = Math.abs(cur) * 0.5 || scale * 0.25 || 1;
     lo = cur - pad; hi = cur + pad;
   }
   return {lo, hi, flips: flipAlong(model, ref, {lo, hi})};
