@@ -132,6 +132,10 @@
   /* while a weight is being dragged the deterministic re-rank is live; the MC-derived readouts are stale → fade */
   #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
   #results.pending .verdict, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
+  @media (prefers-reduced-motion: reduce){
+    #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
+    #results.pending .verdict, #results.pending .subverdict{transition:none}   /* dim instantly, no animated fade */
+  }
   .rankbar{display:grid;gap:2px;height:20px}
   .rankbar .cell{background:var(--track);border-radius:3px;position:relative}
   .rankbar .cell.in{background:var(--accent);opacity:.35}
