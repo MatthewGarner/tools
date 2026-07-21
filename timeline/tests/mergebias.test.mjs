@@ -69,3 +69,36 @@ test('σ=0 (same-day range) excluded + counted, even when it would set X (I2)', 
   assert.equal(mb.excludedSingle, 1);
   assert.equal(mb.byDate, 120);                                        // C did NOT set X (would NaN)
 });
+
+test('a [fixed] item is not a workstream: the lane keeps its real whisker', () => {
+  // Build holds BOTH a ranged workstream and an external fixed event. Picking the
+  // fixed one as the lane finish would drop the Build whisker out of the joint.
+  const mb = mergeBias({items: [
+    R('Grid', 100, 130),
+    R('Build', 120, 160),
+    {lane: 'Build', label: 'Ofgem decision', p50: 300, p90: 300, single: true, status: 'fixed'},
+  ]}, 0);
+  assert.equal(mb.rangedLanes, 2, 'both lanes still fitted');
+  assert.equal(mb.byDate, 120, 'nominal end is the Build whisker, not the fixed date');
+  assert.equal(mb.excludedSingle, 0, 'a fixed item is not an "uncounted single-date lane"');
+});
+
+test('a lane holding ONLY a fixed item vanishes rather than counting as excluded', () => {
+  const mb = mergeBias({items: [
+    R('A', 100, 130), R('B', 120, 160),
+    {lane: 'Ext', label: 'Expiry', p50: 400, p90: 400, single: true, status: 'fixed'},
+  ]}, 0);
+  assert.equal(mb.rangedLanes, 2);
+  assert.equal(mb.excludedSingle, 0);
+});
+
+test('d80 is a property of the PLAN: bracketed and tight regardless of byDate', () => {
+  const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160)]}, 0);
+  const ls = [fit(100, 130), fit(120, 160)];
+  assert.ok(jointAt(ls, mb.d80) >= 0.80 - 1e-9, 'd80 achieves 80%');
+  assert.ok(jointAt(ls, mb.d80 - 1) < 0.80, 'and is the FIRST whole day that does');
+});
+
+test('freshness guard: every lane median already past ⇒ null', () => {
+  assert.equal(mergeBias({items: [R('A', 100, 130), R('B', 120, 160)]}, 200), null);
+});
