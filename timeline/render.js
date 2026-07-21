@@ -5,7 +5,7 @@
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, txt, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 import {fmtDay, STATUSES, isPointDate} from './parse.js';
-import {mergeBias} from './mergebias.js';
+import {mergeBias, laneVsDeadline} from './mergebias.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -110,11 +110,18 @@ function restBits(model, today){
   const ranged = items.filter(i => !i.single);
   const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
   const bits = [];
+  /* one ranged lane + a deadline: mergeBias stays silent (there is no MERGE), but
+     the question is well posed and the answer is already computed. */
+  const lvd = laneVsDeadline(model, today);
+  if(lvd) bits.push(lvd.name + ' clears the fixed ' + lvd.deadline.label +
+    ' (' + fmtDay(lvd.deadline.day) + ') ' + approx(pc(lvd.p)) + ' — one lane, a planning estimate.');
   if(upcoming){
     const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
     const g = {month: !sameMonth};
-    bits.push('Next up: ' + upcoming.label + ' — P50 ' + fmtDay(upcoming.p50, g) +
-      (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g)) + '.');
+    bits.push('Next up: ' + upcoming.label + ' — ' + (upcoming.status === 'fixed'
+      ? 'fixed ' + fmtDay(upcoming.p50, g)              // no distribution: "P50" would be a lie
+      : 'P50 ' + fmtDay(upcoming.p50, g) +
+        (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g))) + '.');
   }
   if(widest && (widest.p90 - widest.p50) >= 7)
     bits.push('Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) + ' between P50 and P90.');
@@ -177,10 +184,14 @@ function mergeCopy(mb){
     return {full, short};
   }
 
+  /* the external commitment died with work still open — nothing else in the
+     readout would say so (the ink diamond just sits left of the TODAY rule) */
+  const passedTail = mb.passed
+    ? ' \u00b7 fixed ' + mb.passed.label + ' passed ' + span(mb.passed.agoDays) + ' ago' : '';
   const laterStr = span(mb.d80 - mb.byDate);
   const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtDay(mb.byDate) +
     ' — even the last is a coin flip, so together ' + pAll + '. For 80% joint confidence, promise ' +
-    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail;
+    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail + passedTail;
   // short is the in-chart form: "all N ranged lanes" (the chart may show more, single-date
   // ones aren't in the joint); drop the ≈ when the value is already an inequality.
   const short = 'Merge risk: all ' + mb.rangedLanes + ' ranged lanes by ' + fmtDay(mb.byDate) + ' ' +
@@ -688,7 +699,8 @@ export function toMarkdown(model, diff, url){
   lines.push('|---|---|---|---|---|');
   for(const it of model.items){
     lines.push('| ' + it.label + ' | ' + (it.lane || '—') + ' | ' + fmtDay(it.p50) + ' | ' +
-      (it.single ? (it.status === 'done' ? 'done' : 'no range') : fmtDay(it.p90)) + ' | ' +
+      (it.single ? (it.status === 'done' ? 'done' : it.status === 'fixed' ? 'fixed' : 'no range')
+        : fmtDay(it.p90)) + ' | ' +
       (it.status || '') + ' |');
   }
   if(diff && diff.slips.length){

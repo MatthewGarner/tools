@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks, timelineReadout, posterVerdict} from '../render.js';
+import {render, ticks, timelineReadout, posterVerdict, toMarkdown} from '../render.js';
 import {mergeBias} from '../mergebias.js';
 
 const ctx = {
@@ -275,4 +275,35 @@ test('the non-deadline merge sentence is untouched', () => {
   const t = rd(MERGE);
   assert.match(t, /^Merge risk: 3 ranged lanes must all land by /);
   assert.match(t, /even the last is a coin flip/);
+});
+
+test('a blown deadline is named, not silently dropped', () => {
+  const t = rd(MERGE + '\nOfgem decision 2026-06-01 [fixed]');
+  assert.match(t, /^Merge risk:/, 'falls back to the internal nominal end');
+  assert.match(t, /fixed Ofgem decision passed 5 weeks ago/);
+});
+
+test('multiple future fixed dates disclose which one was used', () => {
+  const t = rd(MERGE + '\nGate 2027-04-01 [fixed]\nLong stop 2028-01-01 [fixed]');
+  assert.match(t, /^Fixed date: Long stop, 1 Jan 2028\./);
+  assert.match(t, /measured against the latest of 2 fixed dates/);
+});
+
+test('one ranged lane + a deadline gets a sentence, not silence', () => {
+  const t = rd('today: 2026-07-06\nGrid: Energisation 2027-02 .. 2027-06\n' +
+    'Ofgem decision 2027-04-01 [fixed]');
+  assert.match(t, /Grid clears the fixed Ofgem decision \(1 Apr 2027\)/);
+  assert.match(t, /one lane, a planning estimate\./);
+});
+
+test('"Next up" on a fixed item says fixed, not P50', () => {
+  const t = rd('today: 2026-07-06\nOfgem decision 2026-09-01 [fixed]');
+  assert.match(t, /Next up: Ofgem decision — fixed 1 Sep 2026\./);
+  assert.doesNotMatch(t, /P50/);
+});
+
+test('toMarkdown distinguishes fixed from an un-ranged guess', () => {
+  const md = toMarkdown(parse('A 2026-09-01 [fixed]\nB 2026-10-01'), null, 'http://x');
+  assert.match(md, /\| A \|[^|]*\|[^|]*\| fixed \|/);
+  assert.match(md, /\| B \|[^|]*\|[^|]*\| no range \|/);
 });
