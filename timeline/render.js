@@ -121,26 +121,70 @@ function restBits(model, today){
   return bits.join('  ');
 }
 
+/* A probability model never prints a bare 0% or 100%. Both bounds are REACHABLE
+   here, not theoretical: normCdf uses A&S 7.1.26, whose correction term underflows
+   below double epsilon around 8.5σ — for a lane with σ ≈ 23 days that is a deadline
+   about seven months clear of the plan. So saturate unconditionally; a `p < 1`
+   style guard is false exactly when it is needed. */
+const pc = p => {
+  const r = Math.round(p * 100);
+  if(r >= 100) return '>99%';
+  if(r <= 0) return '<1%';
+  return r + '%';
+};
+const approx = s => /^[<>]/.test(s) ? s : '\u2248 ' + s;     // never "≈ <1%"
+/* signed, and never "0 weeks" */
+const span = d => {
+  const a = Math.abs(d), r = Math.round(a);
+  return a < 7 ? r + (r === 1 ? ' day' : ' days') : wk(a);
+};
+
 /* the merge-bias verdict copy — full (DOM / poster hero, wraps) + short (in-chart). */
 function mergeCopy(mb){
-  // a probability model must never print a bare "0%": round-to-zero becomes "<1%"
-  // (the false-certainty class of the 2026-07-16 honesty batch). pAll ≤ 0.5 always.
-  const pc = p => { const r = Math.round(p * 100); return r === 0 && p > 0 ? '<1%' : r + '%'; };
   const pAll = pc(mb.pAll);
-  const later = mb.d80 - mb.byDate;
-  const laterStr = later < 7 ? Math.round(later) + (Math.round(later) === 1 ? ' day' : ' days') : wk(later);
-  const tail = mb.excludedSingle ? ' · ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
+  const tail = mb.excludedSingle ? ' \u00b7 ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
   // a fitted lane already past its P90 poisons pAll toward optimism — name it in the
   // prose forms (in the chart the stale whisker sits visibly left of the TODAY rule).
-  const staleTail = mb.stale ? ' · ' + mb.stale + (mb.stale > 1
+  const staleTail = mb.stale ? ' \u00b7 ' + mb.stale + (mb.stale > 1
     ? ' lanes past their P90 — re-estimate them' : ' lane past its P90 — re-estimate it') : '';
+
+  /* measured against an EXTERNAL fixed date. The internal form's "even the last is
+     a coin flip" reasoning is gone here (it held only because byDate was a lane's
+     own P50), so this is new copy, not a date substitution. */
+  if(mb.deadline){
+    const d = mb.deadline, gap = mb.d80 - mb.byDate;
+    /* "≈ 80% … but 80% needs three more weeks" invites the argument this tool
+       exists to end. Say which side of 80% we are on when rounding hides it. */
+    const near80 = Math.round(mb.pAll * 100) === 80;
+    const pStr = near80 && gap > 0 ? 'just under 80%'
+      : near80 && gap < 0 ? 'just over 80%' : approx(pAll);
+    const conf = gap > 0 ? '80% joint confidence needs ' + fmtDay(mb.d80) + ', ' + span(gap) + ' past it'
+      : gap < 0 ? '80% joint confidence lands ' + fmtDay(mb.d80) + ', ' + span(gap) + ' inside it'
+      : '80% joint confidence lands on the deadline day';
+    // disclose the editorial choice: [fixed] certifies the DATE, not that it binds
+    const multi = d.count > 1 ? ' \u00b7 measured against the latest of ' + d.count + ' fixed dates' : '';
+    const full = 'Fixed date: ' + d.label + ', ' + fmtDay(d.day) + '. All ' + mb.rangedLanes +
+      ' ranged lanes clear it together ' + pStr + ' — ' + conf +
+      '. A planning estimate: correlated lanes beat it, fat late tails undercut it.' +
+      tail + staleTail + multi;
+    // short is the in-chart form: ONE non-wrapping <text>, so a long label is clipped
+    const clip = d.label.length > 30 ? d.label.slice(0, 30).trimEnd() + '\u2026' : d.label;
+    const shortConf = gap > 0 ? '80% needs ' + fmtDay(mb.d80) + ' (' + span(gap) + ' past it)'
+      : gap < 0 ? '80% lands ' + fmtDay(mb.d80) + ' (' + span(gap) + ' inside it)'
+      : '80% lands on the deadline day';
+    const short = 'Fixed: ' + clip + ' ' + fmtDay(d.day) + ' — ' + mb.rangedLanes +
+      ' ranged lanes clear it ' + pStr + '; ' + shortConf + '.';
+    return {full, short};
+  }
+
+  const laterStr = span(mb.d80 - mb.byDate);
   const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtDay(mb.byDate) +
     ' — even the last is a coin flip, so together ' + pAll + '. For 80% joint confidence, promise ' +
     fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail;
   // short is the in-chart form: "all N ranged lanes" (the chart may show more, single-date
   // ones aren't in the joint); drop the ≈ when the value is already an inequality.
   const short = 'Merge risk: all ' + mb.rangedLanes + ' ranged lanes by ' + fmtDay(mb.byDate) + ' ' +
-    (pAll.startsWith('<') ? pAll : '≈ ' + pAll) + ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
+    approx(pAll) + ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
   return {full, short};
 }
 

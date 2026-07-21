@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
 import {render, ticks, timelineReadout, posterVerdict} from '../render.js';
+import {mergeBias} from '../mergebias.js';
 
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
@@ -209,4 +210,69 @@ test('[fixed] renders clean: no ±?, ink diamond, no whisker', () => {
 test('a BARE single date still gets ±? — the nag survives', () => {
   const svg = render(parse('Vendor selection 2026-11\nBuild 2026-09 .. 2026-11'), ctx);
   assert.match(svg, /±\?/);
+});
+
+const MERGE = 'today: 2026-07-06\n' +
+  'Grid: Energisation 2027-02 .. 2027-06\nBuild: Commissioning 2027-03 .. 2027-08\n' +
+  'Consents: DCO 2027-01 .. 2027-05';
+const rd = src => timelineReadout(parse(src), parseDate('2026-07-06'));
+
+test('deadline verdict: names the fixed date and reports the joint against it', () => {
+  const t = rd(MERGE + '\nOfgem decision 2027-04-01 [fixed]');
+  assert.match(t, /^Fixed date: Ofgem decision, 1 Apr 2027\./);
+  assert.match(t, /ranged lanes clear it together/);
+  assert.match(t, /past it\./, 'a tight deadline reports d80 past it');
+});
+
+test('deadline verdict: a comfortable deadline says INSIDE it', () => {
+  const t = rd(MERGE + '\nLong stop 2029-01-01 [fixed]');
+  assert.match(t, /inside it\./);
+  assert.doesNotMatch(t, /past it/);
+});
+
+test('deadline verdict: d80 landing on the deadline reads without contradiction', () => {
+  // two-step: learn the plan's own d80, then pin the fixed date to it
+  const d80 = mergeBias(parse(MERGE), parseDate('2026-07-06')).d80;
+  const iso = new Date(d80 * 86400000).toISOString().slice(0, 10);
+  const t = rd(MERGE + '\nGate ' + iso + ' [fixed]');
+  assert.match(t, /80% joint confidence lands on the deadline day\./);
+  assert.doesNotMatch(t, /0 (days|weeks)/);
+});
+
+test('HONESTY: a far-off deadline never prints a bare 100%', () => {
+  const t = rd(MERGE + '\nLong stop 2035-01-01 [fixed]');   // ≫ 8.5σ ⇒ normCdf returns exactly 1
+  assert.match(t, />99%/);
+  assert.doesNotMatch(t, /(?<![\d.>])100%/);
+});
+
+test('HONESTY: an impossible deadline never prints a bare 0%', () => {
+  const t = rd(MERGE + '\nGate 2026-07-20 [fixed]');
+  assert.match(t, /<1%/);
+  assert.doesNotMatch(t, /(?<![\d.<])0%/);
+  assert.doesNotMatch(t, /≈ <1%/, 'never approximates an inequality');
+});
+
+test('near 80%: the verdict says which side of the line it is on', () => {
+  // pin the gate one day either side of the plan's own d80. jointAt moves ~0.3
+  // points/day here, so both round to 80% — exactly the case where a bare "≈ 80%"
+  // next to "80% needs three more weeks" reads as a contradiction.
+  const d80 = mergeBias(parse(MERGE), parseDate('2026-07-06')).d80;
+  const iso = d => new Date(d * 86400000).toISOString().slice(0, 10);
+  assert.match(rd(MERGE + '\nGate ' + iso(d80 - 1) + ' [fixed]'), /clear it together just under 80%/);
+  assert.match(rd(MERGE + '\nGate ' + iso(d80 + 1) + ' [fixed]'), /clear it together just over 80%/);
+});
+
+test('the in-chart row clips a long fixed label; the full readout keeps it', () => {
+  const long = 'Ofgem determination on capacity market rules';   // 43 chars
+  const src = MERGE + '\n' + long + ' 2027-04-01 [fixed]';
+  const clip = long.slice(0, 30).trimEnd() + '…';
+  assert.ok(render(parse(src), ctx).includes('Fixed: ' + clip + ' 1 Apr 2027'),
+    'the single non-wrapping <text> row would otherwise clip off the plot');
+  assert.ok(rd(src).startsWith('Fixed date: ' + long + ','), 'the prose form keeps the whole label');
+});
+
+test('the non-deadline merge sentence is untouched', () => {
+  const t = rd(MERGE);
+  assert.match(t, /^Merge risk: 3 ranged lanes must all land by /);
+  assert.match(t, /even the last is a coin flip/);
 });
