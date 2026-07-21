@@ -18,36 +18,106 @@ export function jointAt(lanes, D){
   return p;
 }
 
-export function mergeBias(model, today = 0){
-  // latest non-done milestone per lane (tie: max p50, then max p90) = the workstream finish
+/* Each lane's completion milestone = its latest OPEN item (tie: max p50, then max
+   p90), fitted Normal(p50,p90). [done] is landed (P=1). [fixed] is an external
+   event, not a workstream: a lane holding BOTH a real whisker and a fixed gate
+   must fit the whisker, or the lane silently drops out of the joint and the plan
+   looks safer than it is. */
+export function laneFits(model, today = 0){
   const byLane = new Map();
   for(const it of model.items){
-    if(it.status === 'done') continue;                   // done = landed (P=1), not a workstream at risk
+    if(it.status === 'done' || it.status === 'fixed') continue;
     const cur = byLane.get(it.lane);
     if(!cur || it.p50 > cur.p50 || (it.p50 === cur.p50 && it.p90 > cur.p90)) byLane.set(it.lane, it);
   }
   const lanes = []; let excludedSingle = 0, stale = 0;
-  for(const it of byLane.values()){
+  for(const [lane, it] of byLane){
     if(!it.single && it.p90 - it.p50 > 0){
-      lanes.push({p50: it.p50, p90: it.p90, sigma: (it.p90 - it.p50) / Z_P90});
+      lanes.push({name: lane || it.label, p50: it.p50, p90: it.p90, sigma: (it.p90 - it.p50) / Z_P90});
       // stale = a fitted lane already PAST its own P90 finish and still open: the joint
       // treats it as ~98% safe, so the pAll it feeds is falsified-optimistic. FLAG it (a
       // prose caveat), never exclude it — dropping the riskiest lane would only RAISE pAll.
-      // Strict: p90 === today is "due today", not past. (All-stale ⇒ byDate ≤ today ⇒ already null.)
+      // Strict: p90 === today is "due today", not past.
       if(it.p90 < today) stale++;
     }
     else excludedSingle++;                               // single-date or same-day range: no distribution to fit
   }
+  return {lanes, excludedSingle, stale};
+}
+
+/* The date the plan answers to: the LATEST fixed milestone still ahead of today.
+   Latest, not earliest — an interim external event (a conference, a decision
+   point) isn't something every lane must precede, so measuring against it would
+   manufacture alarm. [fixed] certifies certainty of the DATE, not bindingness on
+   the plan, so no rule is right in general: we name the target in the copy and
+   disclose `count` when there was a choice. Ties resolve to document order. */
+export function fixedDeadline(model, today = 0){
+  let best = null, count = 0;
+  for(const it of model.items){
+    if(it.status !== 'fixed' || it.p50 <= today) continue;
+    count++;
+    if(!best || it.p50 > best.day) best = {day: it.p50, label: it.label};
+  }
+  return best ? {...best, count} : null;
+}
+
+/* The latest fixed date already GONE. When ranged work is still open past it, the
+   plan's external commitment died and nothing else in the readout would say so —
+   the ink diamond just sits quietly left of the TODAY rule. */
+export function passedDeadline(model, today = 0){
+  let best = null;
+  for(const it of model.items){
+    if(it.status !== 'fixed' || it.p50 > today) continue;
+    if(!best || it.p50 > best.day) best = {day: it.p50, label: it.label};
+  }
+  return best;
+}
+
+/* One ranged lane + a deadline: there is no MERGE to compute, but the question is
+   well posed and the engine already knows the answer. Without this a one-lane plan
+   says nothing at all while a two-lane plan gets a full verdict. */
+export function laneVsDeadline(model, today = 0){
+  const deadline = fixedDeadline(model, today);
+  if(!deadline) return null;
+  const {lanes} = laneFits(model, today);
+  if(lanes.length !== 1) return null;
+  const l = lanes[0];
+  if(l.p50 <= today) return null;                        // stale: same honesty guard as mergeBias
+  return {name: l.name, deadline, p: normCdf((deadline.day - l.p50) / l.sigma)};
+}
+
+export function mergeBias(model, today = 0){
+  const {lanes, excludedSingle, stale} = laneFits(model, today);
   if(lanes.length < 2) return null;
-  const byDate = Math.max(...lanes.map(l => l.p50));      // nominal end; this lane sits at Φ(0)=0.5, so pAll ≤ 0.5
-  if(byDate <= today) return null;                        // stale/overdue plan → nonsense
+
+  /* The plan's OWN nominal end. This lane sits at Φ(0)=0.5, so jointAt(nominal) ≤ 0.5
+     — the invariant the d80 bracket below depends on. d80 stays anchored HERE even
+     when byDate moves to an external deadline: d80 is a property of the plan, not
+     of any date we measure it against. */
+  const nominal = Math.max(...lanes.map(l => l.p50));
+  // every lane's median finish already past ⇒ the fit is fiction; say nothing. (This
+  // used to ride on `byDate <= today`, which stops protecting us once byDate can be
+  // a future deadline — an all-overdue plan would headline ">99% clear it".)
+  if(nominal <= today) return null;
+
+  /* An external fixed date is the honest D for "will all lanes land by ...".
+     deadline.day > today by construction, so the freshness guard above is the
+     only date guard needed. */
+  const deadline = fixedDeadline(model, today);
+  const passed = deadline ? null : passedDeadline(model, today);
+  const byDate = deadline ? deadline.day : nominal;
+
   const pAll = jointAt(lanes, byDate);
   const laneP = lanes.map(l => normCdf((byDate - l.p50) / l.sigma));
-  // d80: the date for 80% joint confidence. Root is above byDate (pAll(byDate) ≤ 0.5 < 0.8),
-  // unique (product strictly monotone, σ>0 guaranteed). Expansion only bites at ~166+ lanes.
-  let lo = byDate, hi = Math.max(...lanes.map(l => l.p50 + 3 * l.sigma));
-  for(let g = 0; g < 40 && jointAt(lanes, hi) < 0.80; g++) hi = byDate + (hi - byDate) * 2;
+  // d80: the first whole day reaching 80% joint. Root is above `nominal`
+  // (jointAt(nominal) ≤ 0.5 < 0.8), unique (product strictly monotone, σ>0
+  // guaranteed). Expansion only bites at ~166+ lanes.
+  let lo = nominal, hi = Math.max(...lanes.map(l => l.p50 + 3 * l.sigma));
+  for(let g = 0; g < 40 && jointAt(lanes, hi) < 0.80; g++) hi = nominal + (hi - nominal) * 2;
   for(let i = 0; i < 60; i++){ const m = (lo + hi) / 2; if(jointAt(lanes, m) < 0.80) lo = m; else hi = m; }
   const d80 = Math.ceil(hi);                              // whole day, so the quoted date actually clears 0.80
-  return {rangedLanes: lanes.length, byDate, pAll, d80, weeksLater: (d80 - byDate) / 7, laneP, excludedSingle, stale};
+  // NB weeksLater may be NEGATIVE when a deadline exists (the plan lands inside it)
+  return {rangedLanes: lanes.length, byDate, pAll, d80, weeksLater: (d80 - byDate) / 7,
+    laneP, excludedSingle, stale, deadline,
+    passed: passed ? {...passed, agoDays: today - passed.day} : null};
 }

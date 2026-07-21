@@ -43,7 +43,8 @@
           <tr><td><code>Grid: Energisation 2027-02 .. 2027-06</code></td><td>lane, label, then the honest range: P50 date <code>..</code> P90 date (ISO days or months; a bare month means its middle)</td></tr>
           <tr><td><code>Kickoff 2026-08 .. 2026-09</code></td><td>no lane prefix → the unnamed lane</td></tr>
           <tr><td><code>FID 2026-09-30 [done]</code></td><td>it happened — single date, solid marker. <code>[risk]</code> flags a milestone in trouble</td></tr>
-          <tr><td><code>Vendor selection 2026-11</code></td><td>a single undone date renders, but gets flagged <code>±?</code> — false precision is visible, not forbidden</td></tr>
+          <tr><td><code>Vendor selection 2026-11</code></td><td>a single undone date renders, but gets flagged <code>±?</code> — false precision is visible, not forbidden. If the date really is fixed, say so</td></tr>
+          <tr><td><code>Ofgem decision 2026-12-01 [fixed]</code></td><td>a date you don’t control — an external event. Renders clean, and becomes the deadline the merge-risk line measures the plan against</td></tr>
           <tr><td><code>// after the dates</code></td><td>a note, shown under the label</td></tr>
           <tr><td><code>title:</code> <code>palette:</code> <code>accent:</code> <code>today:</code></td><td>config; <code>today:</code> pins the today line (defaults to now)</td></tr>
         </table>

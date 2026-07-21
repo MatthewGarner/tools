@@ -464,6 +464,15 @@ for(const [k, src] of Object.entries(docs)){
   const tmm = tparse(tMerge);
   variants['timeline-mergebias'] = trender(tmm, tctx);
 
+  // [fixed]: ink diamonds + the deadline verdict (3 ranged lanes racing an external gate)
+  const tFix = 'title: Consent programme\ntoday: 2026-07-06\n' +
+    'Ofgem decision 2026-12-01 [fixed]\n' +
+    'Grid: Energisation 2026-09 .. 2026-11\nBuild: Commissioning 2026-10 .. 2027-01\n' +
+    'Consents: DCO 2026-08 .. 2026-10';
+  const tfm = tparse(tFix);
+  variants['timeline-fixed'] = trender(tfm, tctx);
+  variants['timeline-fixed-narrow'] = trender(tfm, {...tctx, width: 360});
+
   const {posterSvg} = await import('../assets/poster.js');
   const {posterVerdict} = await import('../timeline/render.js');
   const tPosterCtx = {...tctx, slide: true, bare: true, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}};

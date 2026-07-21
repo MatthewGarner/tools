@@ -2018,7 +2018,7 @@ check('no console/page errors', errors.length === 0);
   await mpage.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await mpage.waitForTimeout(250);
   check('timeline narrow: Status… opens a marked picker (none current), not a blind step',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk' &&
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
     (await mpage.locator('.eip-pop button.on').innerText()) === 'none');
   await mpage.locator('.eip-pop button', {hasText: 'risk'}).click();
   await mpage.waitForTimeout(600);
@@ -2775,7 +2775,7 @@ insure: premium 6 attach 65 limit 30`;
   await p.waitForTimeout(400);
   check('tablet timeline: a coarse status tap opens the marked picker — NO silent step',
     await p.locator('.eip-pop').count() === 1 &&
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk' &&
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
     (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
   await p.waitForTimeout(600);

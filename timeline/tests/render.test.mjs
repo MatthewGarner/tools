@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks, timelineReadout, posterVerdict} from '../render.js';
+import {render, ticks, timelineReadout, posterVerdict, toMarkdown} from '../render.js';
+import {mergeBias} from '../mergebias.js';
 
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
@@ -193,4 +194,116 @@ test('<1% rounding: a probability model never prints a bare 0% (b)', () => {
 test('non-merge doc: no Merge risk, unchanged single-row readout', () => {
   assert.doesNotMatch(timelineReadout(parse(DOC), ctx.today), /Merge risk/);
   assert.doesNotMatch(render(parse(DOC), ctx), /Merge risk/);
+});
+
+test('[fixed] renders clean: no ±?, ink diamond, no whisker', () => {
+  const svg = render(parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'), ctx);
+  assert.doesNotMatch(svg, /±\?/, 'a fixed date claims no spread');
+  /* anchor on the fixed item's OWN diamond. `svg.includes(ctx.colors.ink)` would
+     pass on ANY render — every label <text> is already ink — so it pins nothing. */
+  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*fill="#222222"/);
+  assert.doesNotMatch(svg, /data-ms="p50" data-mskey="\|build"[^>]*fill="#222222"/,
+    'an ordinary milestone stays on the accent');
+  assert.equal((svg.match(/data-ms="whisker"/g) || []).length, 1, 'only the ranged item gets a whisker');
+});
+
+test('a BARE single date still gets ±? — the nag survives', () => {
+  const svg = render(parse('Vendor selection 2026-11\nBuild 2026-09 .. 2026-11'), ctx);
+  assert.match(svg, /±\?/);
+});
+
+const MERGE = 'today: 2026-07-06\n' +
+  'Grid: Energisation 2027-02 .. 2027-06\nBuild: Commissioning 2027-03 .. 2027-08\n' +
+  'Consents: DCO 2027-01 .. 2027-05';
+const rd = src => timelineReadout(parse(src), parseDate('2026-07-06'));
+
+test('deadline verdict: names the fixed date and reports the joint against it', () => {
+  const t = rd(MERGE + '\nOfgem decision 2027-04-01 [fixed]');
+  assert.match(t, /^Fixed date: Ofgem decision, 1 Apr 2027\./);
+  assert.match(t, /ranged lanes clear it together/);
+  assert.match(t, /past it\./, 'a tight deadline reports d80 past it');
+});
+
+test('deadline verdict: a comfortable deadline says INSIDE it', () => {
+  const t = rd(MERGE + '\nLong stop 2029-01-01 [fixed]');
+  assert.match(t, /inside it\./);
+  assert.doesNotMatch(t, /past it/);
+});
+
+test('deadline verdict: d80 landing on the deadline reads without contradiction', () => {
+  // two-step: learn the plan's own d80, then pin the fixed date to it
+  const d80 = mergeBias(parse(MERGE), parseDate('2026-07-06')).d80;
+  const iso = new Date(d80 * 86400000).toISOString().slice(0, 10);
+  const t = rd(MERGE + '\nGate ' + iso + ' [fixed]');
+  assert.match(t, /80% joint confidence lands on the deadline day\./);
+  assert.doesNotMatch(t, /0 (days|weeks)/);
+});
+
+test('HONESTY: a far-off deadline never prints a bare 100%', () => {
+  const t = rd(MERGE + '\nLong stop 2035-01-01 [fixed]');   // ≫ 8.5σ ⇒ normCdf returns exactly 1
+  assert.match(t, />99%/);
+  assert.doesNotMatch(t, /(?<![\d.>])100%/);
+});
+
+test('HONESTY: an impossible deadline never prints a bare 0%', () => {
+  const t = rd(MERGE + '\nGate 2026-07-20 [fixed]');
+  assert.match(t, /<1%/);
+  assert.doesNotMatch(t, /(?<![\d.<])0%/);
+  assert.doesNotMatch(t, /≈ <1%/, 'never approximates an inequality');
+});
+
+test('near 80%: the verdict says which side of the line it is on', () => {
+  // pin the gate one day either side of the plan's own d80. jointAt moves ~0.3
+  // points/day here, so both round to 80% — exactly the case where a bare "≈ 80%"
+  // next to "80% needs three more weeks" reads as a contradiction.
+  const d80 = mergeBias(parse(MERGE), parseDate('2026-07-06')).d80;
+  const iso = d => new Date(d * 86400000).toISOString().slice(0, 10);
+  assert.match(rd(MERGE + '\nGate ' + iso(d80 - 1) + ' [fixed]'), /clear it together just under 80%/);
+  assert.match(rd(MERGE + '\nGate ' + iso(d80 + 1) + ' [fixed]'), /clear it together just over 80%/);
+});
+
+test('the in-chart row clips a long fixed label; the full readout keeps it', () => {
+  const long = 'Ofgem determination on capacity market rules';   // 43 chars
+  const src = MERGE + '\n' + long + ' 2027-04-01 [fixed]';
+  const clip = long.slice(0, 30).trimEnd() + '…';
+  assert.ok(render(parse(src), ctx).includes('Fixed: ' + clip + ' 1 Apr 2027'),
+    'the single non-wrapping <text> row would otherwise clip off the plot');
+  assert.ok(rd(src).startsWith('Fixed date: ' + long + ','), 'the prose form keeps the whole label');
+});
+
+test('the non-deadline merge sentence is untouched', () => {
+  const t = rd(MERGE);
+  assert.match(t, /^Merge risk: 3 ranged lanes must all land by /);
+  assert.match(t, /even the last is a coin flip/);
+});
+
+test('a blown deadline is named, not silently dropped', () => {
+  const t = rd(MERGE + '\nOfgem decision 2026-06-01 [fixed]');
+  assert.match(t, /^Merge risk:/, 'falls back to the internal nominal end');
+  assert.match(t, /fixed Ofgem decision passed 5 weeks ago/);
+});
+
+test('multiple future fixed dates disclose which one was used', () => {
+  const t = rd(MERGE + '\nGate 2027-04-01 [fixed]\nLong stop 2028-01-01 [fixed]');
+  assert.match(t, /^Fixed date: Long stop, 1 Jan 2028\./);
+  assert.match(t, /measured against the latest of 2 fixed dates/);
+});
+
+test('one ranged lane + a deadline gets a sentence, not silence', () => {
+  const t = rd('today: 2026-07-06\nGrid: Energisation 2027-02 .. 2027-06\n' +
+    'Ofgem decision 2027-04-01 [fixed]');
+  assert.match(t, /Grid clears the fixed Ofgem decision \(1 Apr 2027\)/);
+  assert.match(t, /one lane, a planning estimate\./);
+});
+
+test('"Next up" on a fixed item says fixed, not P50', () => {
+  const t = rd('today: 2026-07-06\nOfgem decision 2026-09-01 [fixed]');
+  assert.match(t, /Next up: Ofgem decision — fixed 1 Sep 2026\./);
+  assert.doesNotMatch(t, /P50/);
+});
+
+test('toMarkdown distinguishes fixed from an un-ranged guess', () => {
+  const md = toMarkdown(parse('A 2026-09-01 [fixed]\nB 2026-10-01'), null, 'http://x');
+  assert.match(md, /\| A \|[^|]*\|[^|]*\| fixed \|/);
+  assert.match(md, /\| B \|[^|]*\|[^|]*\| no range \|/);
 });

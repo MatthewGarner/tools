@@ -4,8 +4,8 @@
    at P90 — no bar edges pretending to be commitments. */
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, txt, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
-import {fmtDay, STATUSES} from './parse.js';
-import {mergeBias} from './mergebias.js';
+import {fmtDay, STATUSES, isPointDate} from './parse.js';
+import {mergeBias, laneVsDeadline} from './mergebias.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -50,6 +50,11 @@ const wk = days => {
   return w + (w === 1 ? ' week' : ' weeks');
 };
 
+/* Does this milestone wear the "±?" nag? MEASURED at two sites and DRAWN at a
+   third — they must agree, or msLabelAnchor reserves width for a mark that never
+   appears (and renderNarrow wraps a title it never writes). One predicate. */
+const showsPm = it => it.single && !isPointDate(it);
+
 /* the whisker band fill. Light: the shared 12% capsule tint (unchanged). Dark:
    a stronger tint of the milestone colour over the lane card — 12% vanishes on
    #1B242C (band-vs-card contrast 1.17); 0x47 (~28%) lifts it to ~1.47 while the
@@ -81,7 +86,7 @@ const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' '
    (never double-scale it); `hasGhost` is passed in (the compare pull-in trail
    lives left of x50, exactly where a flip would land). */
 export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFont, noteFont, hasGhost){
-  const titleW = measure(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''), labelFont);
+  const titleW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont);
   const subW = measure(subOf(it), noteFont);
   const widest = Math.max(titleW, subW);
   const rightOfP50 = x50 + (r + 5 * S);
@@ -92,6 +97,18 @@ export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFo
     const flipX = x50 - r - 6 * S;                                    // right-anchored block ends here
     if(!hasGhost && flipX - widest >= plotX + 4 * S) return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
     return {labelX: afterP90, anchorEnd: false, widest, titleW, subW};    // both tight / compare → keep right, clip
+  }
+  /* A POINT milestone hard against the right edge. A fixed DEADLINE is usually the
+     rightmost thing on a plan — that is what a deadline IS — so its label ran off
+     the board. Flip left of the diamond, right-anchored: the same idiom the whisker
+     case above uses. Only reachable for point dates (a ranged item that got here
+     has its label fitting before x90, which is itself inside the plot), and it
+     stands down when the flip would overflow the LEFT or collide with a compare
+     ghost — a clipped label still beats an invisible one. */
+  if(rightOfP50 + widest > plotX + plotW - 4 * S){
+    const flipX = x50 - r - 6 * S;
+    if(!hasGhost && flipX - widest >= plotX + 4 * S)
+      return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
   }
   return {labelX: rightOfP50, anchorEnd: false, widest, titleW, subW};
 }
@@ -105,37 +122,92 @@ function restBits(model, today){
   const ranged = items.filter(i => !i.single);
   const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
   const bits = [];
+  /* one ranged lane + a deadline: mergeBias stays silent (there is no MERGE), but
+     the question is well posed and the answer is already computed. */
+  const lvd = laneVsDeadline(model, today);
+  if(lvd) bits.push(lvd.name + ' clears the fixed ' + lvd.deadline.label +
+    ' (' + fmtDay(lvd.deadline.day) + ') ' + approx(pc(lvd.p)) + ' — one lane, a planning estimate.');
   if(upcoming){
     const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
     const g = {month: !sameMonth};
-    bits.push('Next up: ' + upcoming.label + ' — P50 ' + fmtDay(upcoming.p50, g) +
-      (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g)) + '.');
+    bits.push('Next up: ' + upcoming.label + ' — ' + (upcoming.status === 'fixed'
+      ? 'fixed ' + fmtDay(upcoming.p50, g)              // no distribution: "P50" would be a lie
+      : 'P50 ' + fmtDay(upcoming.p50, g) +
+        (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g))) + '.');
   }
   if(widest && (widest.p90 - widest.p50) >= 7)
     bits.push('Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) + ' between P50 and P90.');
   return bits.join('  ');
 }
 
+/* A probability model never prints a bare 0% or 100%. Both bounds are REACHABLE
+   here, not theoretical: normCdf uses A&S 7.1.26, whose correction term underflows
+   below double epsilon around 8.5σ — for a lane with σ ≈ 23 days that is a deadline
+   about seven months clear of the plan. So saturate unconditionally; a `p < 1`
+   style guard is false exactly when it is needed. */
+const pc = p => {
+  const r = Math.round(p * 100);
+  if(r >= 100) return '>99%';
+  if(r <= 0) return '<1%';
+  return r + '%';
+};
+const approx = s => /^[<>]/.test(s) ? s : '\u2248 ' + s;     // never "≈ <1%"
+/* signed, and never "0 weeks" */
+const span = d => {
+  const a = Math.abs(d), r = Math.round(a);
+  return a < 7 ? r + (r === 1 ? ' day' : ' days') : wk(a);
+};
+
 /* the merge-bias verdict copy — full (DOM / poster hero, wraps) + short (in-chart). */
 function mergeCopy(mb){
-  // a probability model must never print a bare "0%": round-to-zero becomes "<1%"
-  // (the false-certainty class of the 2026-07-16 honesty batch). pAll ≤ 0.5 always.
-  const pc = p => { const r = Math.round(p * 100); return r === 0 && p > 0 ? '<1%' : r + '%'; };
   const pAll = pc(mb.pAll);
-  const later = mb.d80 - mb.byDate;
-  const laterStr = later < 7 ? Math.round(later) + (Math.round(later) === 1 ? ' day' : ' days') : wk(later);
-  const tail = mb.excludedSingle ? ' · ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
+  const tail = mb.excludedSingle ? ' \u00b7 ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
   // a fitted lane already past its P90 poisons pAll toward optimism — name it in the
   // prose forms (in the chart the stale whisker sits visibly left of the TODAY rule).
-  const staleTail = mb.stale ? ' · ' + mb.stale + (mb.stale > 1
+  const staleTail = mb.stale ? ' \u00b7 ' + mb.stale + (mb.stale > 1
     ? ' lanes past their P90 — re-estimate them' : ' lane past its P90 — re-estimate it') : '';
+
+  /* measured against an EXTERNAL fixed date. The internal form's "even the last is
+     a coin flip" reasoning is gone here (it held only because byDate was a lane's
+     own P50), so this is new copy, not a date substitution. */
+  if(mb.deadline){
+    const d = mb.deadline, gap = mb.d80 - mb.byDate;
+    /* "≈ 80% … but 80% needs three more weeks" invites the argument this tool
+       exists to end. Say which side of 80% we are on when rounding hides it. */
+    const near80 = Math.round(mb.pAll * 100) === 80;
+    const pStr = near80 && gap > 0 ? 'just under 80%'
+      : near80 && gap < 0 ? 'just over 80%' : approx(pAll);
+    const conf = gap > 0 ? '80% joint confidence needs ' + fmtDay(mb.d80) + ', ' + span(gap) + ' past it'
+      : gap < 0 ? '80% joint confidence lands ' + fmtDay(mb.d80) + ', ' + span(gap) + ' inside it'
+      : '80% joint confidence lands on the deadline day';
+    // disclose the editorial choice: [fixed] certifies the DATE, not that it binds
+    const multi = d.count > 1 ? ' \u00b7 measured against the latest of ' + d.count + ' fixed dates' : '';
+    const full = 'Fixed date: ' + d.label + ', ' + fmtDay(d.day) + '. All ' + mb.rangedLanes +
+      ' ranged lanes clear it together ' + pStr + ' — ' + conf +
+      '. A planning estimate: correlated lanes beat it, fat late tails undercut it.' +
+      tail + staleTail + multi;
+    // short is the in-chart form: ONE non-wrapping <text>, so a long label is clipped
+    const clip = d.label.length > 30 ? d.label.slice(0, 30).trimEnd() + '\u2026' : d.label;
+    const shortConf = gap > 0 ? '80% needs ' + fmtDay(mb.d80) + ' (' + span(gap) + ' past it)'
+      : gap < 0 ? '80% lands ' + fmtDay(mb.d80) + ' (' + span(gap) + ' inside it)'
+      : '80% lands on the deadline day';
+    const short = 'Fixed: ' + clip + ' ' + fmtDay(d.day) + ' — ' + mb.rangedLanes +
+      ' ranged lanes clear it ' + pStr + '; ' + shortConf + '.';
+    return {full, short};
+  }
+
+  /* the external commitment died with work still open — nothing else in the
+     readout would say so (the ink diamond just sits left of the TODAY rule) */
+  const passedTail = mb.passed
+    ? ' \u00b7 fixed ' + mb.passed.label + ' passed ' + span(mb.passed.agoDays) + ' ago' : '';
+  const laterStr = span(mb.d80 - mb.byDate);
   const full = 'Merge risk: ' + mb.rangedLanes + ' ranged lanes must all land by ' + fmtDay(mb.byDate) +
     ' — even the last is a coin flip, so together ' + pAll + '. For 80% joint confidence, promise ' +
-    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail;
+    fmtDay(mb.d80) + ' (+' + laterStr + '). A planning estimate: correlated lanes beat it, fat late tails undercut it.' + tail + staleTail + passedTail;
   // short is the in-chart form: "all N ranged lanes" (the chart may show more, single-date
   // ones aren't in the joint); drop the ≈ when the value is already an inequality.
   const short = 'Merge risk: all ' + mb.rangedLanes + ' ranged lanes by ' + fmtDay(mb.byDate) + ' ' +
-    (pAll.startsWith('<') ? pAll : '≈ ' + pAll) + ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
+    approx(pAll) + ' — 80% needs ' + fmtDay(mb.d80) + ' (+' + laterStr + ').';
   return {full, short};
 }
 
@@ -181,7 +253,10 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   const TITLE_LH = 17, DATES_LH = 15, TRACK = 22, ROWGAP = 14, TOPPAD = 8, BOTPAD = 14;
   const ADDH = 44;                                   // ≥44px dashed "＋ Add" capsule (edit only)
   const titleFont = '600 12.5px ' + F.body, noteFont = '10.5px ' + F.body;
-  const colorOf = it => it.status === 'done' ? C.status.done : it.status === 'risk' ? C.err : C.accent;
+  const colorOf = it => it.status === 'done' ? C.status.done
+    : it.status === 'risk' ? C.err
+    : it.status === 'fixed' ? C.ink                    // an immovable fact — the TODAY flag's colour
+    : C.accent;
 
   /* shared time axis — the exact wide-path domain */
   const lo0 = Math.min(...items.map(i => i.p50), today);
@@ -201,7 +276,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   for(const lane of model.lanes){
     if(lane){ y += LANEGAP; laid.push({header: lane, top: y}); y += LANEHDR; }
     for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
-      const titleLines = wrapText(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''),
+      const titleLines = wrapText(it.label + (showsPm(it) ? ' ±?' : ''),
         titleFont, plotW, measure);
       laid.push({it, titleLines, top: y});
       y += titleLines.length * TITLE_LH + DATES_LH + TRACK + ROWGAP;
@@ -416,7 +491,9 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const X = day => plotX + (day - lo) / (hi - lo) * plotW;
 
   const colorOf = it => it.status === 'done' ? C.status.done
-    : it.status === 'risk' ? C.err : C.accent;
+    : it.status === 'risk' ? C.err
+    : it.status === 'fixed' ? C.ink                    // an immovable fact — the TODAY flag's colour
+    : C.accent;
 
   /* the label font + the (module-level) subOf sub-line the extent pass and the
      milestone loop both measure through msLabelAnchor */
@@ -573,7 +650,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" tabindex="0" role="button" aria-label="Edit dates: ' + esc(it.label) + '"' : '';
     s.push('<text' + eipL + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y - 2 * S).toFixed(1) +
       '" font-size="' + T.labelSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(it.label) +
-      (it.single && it.status !== 'done'
+      (showsPm(it)
         ? ' <tspan font-weight="400" fill="' + C.muted + '">±?</tspan>' : '') + '</text>');
     const sub = subOf(it);
     s.push('<text' + eipD + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +
@@ -634,7 +711,8 @@ export function toMarkdown(model, diff, url){
   lines.push('|---|---|---|---|---|');
   for(const it of model.items){
     lines.push('| ' + it.label + ' | ' + (it.lane || '—') + ' | ' + fmtDay(it.p50) + ' | ' +
-      (it.single ? (it.status === 'done' ? 'done' : 'no range') : fmtDay(it.p90)) + ' | ' +
+      (it.single ? (it.status === 'done' ? 'done' : it.status === 'fixed' ? 'fixed' : 'no range')
+        : fmtDay(it.p90)) + ' | ' +
       (it.status || '') + ' |');
   }
   if(diff && diff.slips.length){
