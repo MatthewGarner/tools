@@ -34,6 +34,7 @@ Launch day 2026-11 .. 2027-01`},
   {name: 'Office move', src:
 `title: Office move
 Lease signed 2026-06-20 [done]
+Old lease expires 2027-02-28 [fixed]
 Fit-out: Design approved 2026-07 .. 2026-08
 Fit-out: Construction done 2026-09 .. 2026-12 // contractor's range, not ours
 IT: Network installed 2026-11 .. 2027-01

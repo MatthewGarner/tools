@@ -177,14 +177,17 @@ Growth bets
 **Node syntax:** each milestone is `[Lane:] Label DATE [.. DATE] [status] [// note]`.
 - Dates are `YYYY-MM` (treated as mid-month) or `YYYY-MM-DD`.
 - A **range** uses `..` (or an en/em-dash) between two dates — this is the P50..P90 spread.
-- `[status]` is `[done]` or `[risk]`. `// note` is a trailing annotation. `Lane:` prefixes a
-  swimlane.
-- A single **undone** date with no range warns ("claims certainty nobody has") — give it a
-  `..` range, or mark it `[done]`.
+- `[status]` is `[done]`, `[risk]` or `[fixed]`. `// note` is a trailing annotation. `Lane:`
+  prefixes a swimlane.
+- `[fixed]` marks a date you don't control — an external event (a regulatory decision, a
+  contract expiry, a conference). It renders clean with no `±?`, and the latest fixed date
+  still ahead of today becomes the deadline the merge-risk verdict measures the plan against.
+- A single **undone, un-fixed** date with no range warns ("claims certainty nobody has") —
+  give it a `..` range, mark it `[done]`, or mark it `[fixed]`.
 
 **What it warns about:** bad palette / accent / `today`; a line with no date; an unknown
-`[status]`; unreadable or too many dates; a reversed range (swapped); a `[done]` item with a
-range; a bare single future date.
+`[status]`; unreadable or too many dates; a reversed range (swapped); a `[done]` or `[fixed]`
+item with a range; a bare single future date.
 
 ```dsl tool=timeline
 title: Launch plan
@@ -192,6 +195,7 @@ today: 2026-08-01
 Beta cut 2026-09 .. 2026-10
 Build: FID 2026-09-30 [done]
 Build: GA 2026-11 .. 2027-01 [risk]
+Ofgem decision 2026-12-01 [fixed]
 ```
 
 ## map
