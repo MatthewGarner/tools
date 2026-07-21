@@ -4,7 +4,7 @@
    at P90 — no bar edges pretending to be commitments. */
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, txt, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
-import {fmtDay, STATUSES} from './parse.js';
+import {fmtDay, STATUSES, isPointDate} from './parse.js';
 import {mergeBias} from './mergebias.js';
 
 const F = {
@@ -50,6 +50,11 @@ const wk = days => {
   return w + (w === 1 ? ' week' : ' weeks');
 };
 
+/* Does this milestone wear the "±?" nag? MEASURED at two sites and DRAWN at a
+   third — they must agree, or msLabelAnchor reserves width for a mark that never
+   appears (and renderNarrow wraps a title it never writes). One predicate. */
+const showsPm = it => it.single && !isPointDate(it);
+
 /* the whisker band fill. Light: the shared 12% capsule tint (unchanged). Dark:
    a stronger tint of the milestone colour over the lane card — 12% vanishes on
    #1B242C (band-vs-card contrast 1.17); 0x47 (~28%) lifts it to ~1.47 while the
@@ -81,7 +86,7 @@ const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' '
    (never double-scale it); `hasGhost` is passed in (the compare pull-in trail
    lives left of x50, exactly where a flip would land). */
 export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFont, noteFont, hasGhost){
-  const titleW = measure(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''), labelFont);
+  const titleW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont);
   const subW = measure(subOf(it), noteFont);
   const widest = Math.max(titleW, subW);
   const rightOfP50 = x50 + (r + 5 * S);
@@ -181,7 +186,10 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   const TITLE_LH = 17, DATES_LH = 15, TRACK = 22, ROWGAP = 14, TOPPAD = 8, BOTPAD = 14;
   const ADDH = 44;                                   // ≥44px dashed "＋ Add" capsule (edit only)
   const titleFont = '600 12.5px ' + F.body, noteFont = '10.5px ' + F.body;
-  const colorOf = it => it.status === 'done' ? C.status.done : it.status === 'risk' ? C.err : C.accent;
+  const colorOf = it => it.status === 'done' ? C.status.done
+    : it.status === 'risk' ? C.err
+    : it.status === 'fixed' ? C.ink                    // an immovable fact — the TODAY flag's colour
+    : C.accent;
 
   /* shared time axis — the exact wide-path domain */
   const lo0 = Math.min(...items.map(i => i.p50), today);
@@ -201,7 +209,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   for(const lane of model.lanes){
     if(lane){ y += LANEGAP; laid.push({header: lane, top: y}); y += LANEHDR; }
     for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
-      const titleLines = wrapText(it.label + (it.single && it.status !== 'done' ? ' ±?' : ''),
+      const titleLines = wrapText(it.label + (showsPm(it) ? ' ±?' : ''),
         titleFont, plotW, measure);
       laid.push({it, titleLines, top: y});
       y += titleLines.length * TITLE_LH + DATES_LH + TRACK + ROWGAP;
@@ -416,7 +424,9 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const X = day => plotX + (day - lo) / (hi - lo) * plotW;
 
   const colorOf = it => it.status === 'done' ? C.status.done
-    : it.status === 'risk' ? C.err : C.accent;
+    : it.status === 'risk' ? C.err
+    : it.status === 'fixed' ? C.ink                    // an immovable fact — the TODAY flag's colour
+    : C.accent;
 
   /* the label font + the (module-level) subOf sub-line the extent pass and the
      milestone loop both measure through msLabelAnchor */
@@ -573,7 +583,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" tabindex="0" role="button" aria-label="Edit dates: ' + esc(it.label) + '"' : '';
     s.push('<text' + eipL + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y - 2 * S).toFixed(1) +
       '" font-size="' + T.labelSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(it.label) +
-      (it.single && it.status !== 'done'
+      (showsPm(it)
         ? ' <tspan font-weight="400" fill="' + C.muted + '">±?</tspan>' : '') + '</text>');
     const sub = subOf(it);
     s.push('<text' + eipD + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +

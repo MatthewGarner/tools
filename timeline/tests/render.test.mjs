@@ -194,3 +194,19 @@ test('non-merge doc: no Merge risk, unchanged single-row readout', () => {
   assert.doesNotMatch(timelineReadout(parse(DOC), ctx.today), /Merge risk/);
   assert.doesNotMatch(render(parse(DOC), ctx), /Merge risk/);
 });
+
+test('[fixed] renders clean: no ±?, ink diamond, no whisker', () => {
+  const svg = render(parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'), ctx);
+  assert.doesNotMatch(svg, /±\?/, 'a fixed date claims no spread');
+  /* anchor on the fixed item's OWN diamond. `svg.includes(ctx.colors.ink)` would
+     pass on ANY render — every label <text> is already ink — so it pins nothing. */
+  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*fill="#222222"/);
+  assert.doesNotMatch(svg, /data-ms="p50" data-mskey="\|build"[^>]*fill="#222222"/,
+    'an ordinary milestone stays on the accent');
+  assert.equal((svg.match(/data-ms="whisker"/g) || []).length, 1, 'only the ranged item gets a whisker');
+});
+
+test('a BARE single date still gets ±? — the nag survives', () => {
+  const svg = render(parse('Vendor selection 2026-11\nBuild 2026-09 .. 2026-11'), ctx);
+  assert.match(svg, /±\?/);
+});

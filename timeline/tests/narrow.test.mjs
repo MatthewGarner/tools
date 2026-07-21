@@ -129,3 +129,25 @@ test('the verdict (timelineReadout) still names the widest whisker regardless of
   const line = timelineReadout(parse(doc), parseDate('2026-07-06'));
   assert.match(line, /Widest whisker: Privacy audit signed/);
 });
+
+test('narrow: [fixed] renders clean and in ink', () => {
+  const svg = render(parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'),
+    {...ctx, width: W});
+  assert.match(svg, /data-narrow=""/);
+  assert.doesNotMatch(svg, /±\?/);
+  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*fill="#222222"/);
+});
+
+test('narrow: [fixed] and [done] lay out identically — the ±? predicate agrees', () => {
+  /* This is where measure/draw drift is actually OBSERVABLE. renderNarrow feeds the
+     same string to wrapText that it later draws, so a predicate that measured a ±?
+     it never draws would change the wrap — and the whole SVG. (In the WIDE renderer
+     msLabelAnchor short-circuits to rightOfP50 for every `single` item, so its
+     titleW is unused there and no x/y can move; the wide draw site is pinned by the
+     "no ±?" test.) One item, so `nextUp` resolves to it either way — for [done] via
+     the `|| items[0]` fallback, for [fixed] via the filter. */
+  const label = 'Ofgem determination on capacity market rules';
+  const svg = st => render(parse(label + ' 2026-09-01 [' + st + ']'), {...ctx, width: W});
+  const norm = s => s.split(ctx.colors.status.done).join('§').split(ctx.colors.ink).join('§');
+  assert.equal(norm(svg('fixed')), norm(svg('done')));
+});
