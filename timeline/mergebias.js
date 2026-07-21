@@ -45,6 +45,47 @@ export function laneFits(model, today = 0){
   return {lanes, excludedSingle, stale};
 }
 
+/* The date the plan answers to: the LATEST fixed milestone still ahead of today.
+   Latest, not earliest — an interim external event (a conference, a decision
+   point) isn't something every lane must precede, so measuring against it would
+   manufacture alarm. [fixed] certifies certainty of the DATE, not bindingness on
+   the plan, so no rule is right in general: we name the target in the copy and
+   disclose `count` when there was a choice. Ties resolve to document order. */
+export function fixedDeadline(model, today = 0){
+  let best = null, count = 0;
+  for(const it of model.items){
+    if(it.status !== 'fixed' || it.p50 <= today) continue;
+    count++;
+    if(!best || it.p50 > best.day) best = {day: it.p50, label: it.label};
+  }
+  return best ? {...best, count} : null;
+}
+
+/* The latest fixed date already GONE. When ranged work is still open past it, the
+   plan's external commitment died and nothing else in the readout would say so —
+   the ink diamond just sits quietly left of the TODAY rule. */
+export function passedDeadline(model, today = 0){
+  let best = null;
+  for(const it of model.items){
+    if(it.status !== 'fixed' || it.p50 > today) continue;
+    if(!best || it.p50 > best.day) best = {day: it.p50, label: it.label};
+  }
+  return best;
+}
+
+/* One ranged lane + a deadline: there is no MERGE to compute, but the question is
+   well posed and the engine already knows the answer. Without this a one-lane plan
+   says nothing at all while a two-lane plan gets a full verdict. */
+export function laneVsDeadline(model, today = 0){
+  const deadline = fixedDeadline(model, today);
+  if(!deadline) return null;
+  const {lanes} = laneFits(model, today);
+  if(lanes.length !== 1) return null;
+  const l = lanes[0];
+  if(l.p50 <= today) return null;                        // stale: same honesty guard as mergeBias
+  return {name: l.name, deadline, p: normCdf((deadline.day - l.p50) / l.sigma)};
+}
+
 export function mergeBias(model, today = 0){
   const {lanes, excludedSingle, stale} = laneFits(model, today);
   if(lanes.length < 2) return null;
@@ -58,7 +99,13 @@ export function mergeBias(model, today = 0){
   // used to ride on `byDate <= today`, which stops protecting us once byDate can be
   // a future deadline — an all-overdue plan would headline ">99% clear it".)
   if(nominal <= today) return null;
-  const byDate = nominal;
+
+  /* An external fixed date is the honest D for "will all lanes land by ...".
+     deadline.day > today by construction, so the freshness guard above is the
+     only date guard needed. */
+  const deadline = fixedDeadline(model, today);
+  const passed = deadline ? null : passedDeadline(model, today);
+  const byDate = deadline ? deadline.day : nominal;
 
   const pAll = jointAt(lanes, byDate);
   const laneP = lanes.map(l => normCdf((byDate - l.p50) / l.sigma));
@@ -69,6 +116,8 @@ export function mergeBias(model, today = 0){
   for(let g = 0; g < 40 && jointAt(lanes, hi) < 0.80; g++) hi = nominal + (hi - nominal) * 2;
   for(let i = 0; i < 60; i++){ const m = (lo + hi) / 2; if(jointAt(lanes, m) < 0.80) lo = m; else hi = m; }
   const d80 = Math.ceil(hi);                              // whole day, so the quoted date actually clears 0.80
+  // NB weeksLater may be NEGATIVE when a deadline exists (the plan lands inside it)
   return {rangedLanes: lanes.length, byDate, pAll, d80, weeksLater: (d80 - byDate) / 7,
-    laneP, excludedSingle, stale};
+    laneP, excludedSingle, stale, deadline,
+    passed: passed ? {...passed, agoDays: today - passed.day} : null};
 }

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {normCdf, jointAt, mergeBias} from '../mergebias.js';
+import {normCdf, jointAt, mergeBias, laneFits, fixedDeadline, passedDeadline, laneVsDeadline} from '../mergebias.js';
 
 const near = (a, b, e = 1e-3) => assert.ok(Math.abs(a - b) <= e, `${a} vs ${b} (eps ${e})`);
 const Z90p = 1.2815515655;
@@ -72,15 +72,18 @@ test('σ=0 (same-day range) excluded + counted, even when it would set X (I2)', 
 
 test('a [fixed] item is not a workstream: the lane keeps its real whisker', () => {
   // Build holds BOTH a ranged workstream and an external fixed event. Picking the
-  // fixed one as the lane finish would drop the Build whisker out of the joint.
-  const mb = mergeBias({items: [
+  // fixed one as the lane finish would drop the Build whisker out of the joint —
+  // and because that leaves one fitted lane, mergeBias would go silent entirely.
+  const items = [
     R('Grid', 100, 130),
     R('Build', 120, 160),
     {lane: 'Build', label: 'Ofgem decision', p50: 300, p90: 300, single: true, status: 'fixed'},
-  ]}, 0);
-  assert.equal(mb.rangedLanes, 2, 'both lanes still fitted');
-  assert.equal(mb.byDate, 120, 'nominal end is the Build whisker, not the fixed date');
-  assert.equal(mb.excludedSingle, 0, 'a fixed item is not an "uncounted single-date lane"');
+  ];
+  const {lanes, excludedSingle} = laneFits({items}, 0);
+  assert.deepEqual(lanes.map(l => l.name), ['Grid', 'Build'], 'both lanes fitted');
+  assert.equal(lanes[1].p90, 160, 'Build fitted from its whisker, not the fixed gate');
+  assert.equal(excludedSingle, 0, 'a fixed item is not an "uncounted single-date lane"');
+  assert.equal(mergeBias({items}, 0).rangedLanes, 2);
 });
 
 test('a lane holding ONLY a fixed item vanishes rather than counting as excluded', () => {
@@ -101,4 +104,81 @@ test('d80 is a property of the PLAN: bracketed and tight regardless of byDate', 
 
 test('freshness guard: every lane median already past ⇒ null', () => {
   assert.equal(mergeBias({items: [R('A', 100, 130), R('B', 120, 160)]}, 200), null);
+});
+
+const FX = (label, p50) => ({lane: '', label, p50, p90: p50, single: true, status: 'fixed'});
+
+test('fixedDeadline: latest FUTURE fixed date, with a count of the candidates', () => {
+  const model = {items: [FX('Gate', 300), FX('Expiry', 500), FX('Past', 50)]};
+  const d = fixedDeadline(model, 100);
+  assert.equal(d.day, 500);
+  assert.equal(d.label, 'Expiry');
+  assert.equal(d.count, 2, 'only future ones count');
+  assert.equal(fixedDeadline({items: [FX('Past', 50)]}, 100), null);
+  assert.equal(fixedDeadline({items: []}, 100), null);
+});
+
+test('fixedDeadline: a tie resolves to document order (deterministic)', () => {
+  const d = fixedDeadline({items: [FX('First', 300), FX('Second', 300)]}, 0);
+  assert.equal(d.label, 'First');
+});
+
+test('passedDeadline: the latest fixed date already gone', () => {
+  assert.equal(passedDeadline({items: [FX('Gate', 300)]}, 100), null);
+  assert.equal(passedDeadline({items: [FX('A', 50), FX('B', 80)]}, 100).label, 'B');
+});
+
+test('with a deadline: byDate IS the deadline and pAll is measured there', () => {
+  const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), FX('Ofgem', 300)]}, 0);
+  assert.equal(mb.byDate, 300);
+  assert.equal(mb.deadline.label, 'Ofgem');
+  near(mb.pAll, jointAt([fit(100, 130), fit(120, 160)], 300), 1e-12);
+});
+
+test('d80 stays bracketed with the deadline on EITHER side of the plan', () => {
+  const ls = [fit(100, 130), fit(120, 160)];
+  for(const dl of [140, 300, 5000]){                       // inside, past, far past
+    const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), FX('D', dl)]}, 0);
+    assert.ok(jointAt(ls, mb.d80) >= 0.80 - 1e-9, `d80 achieves 80% (deadline ${dl})`);
+    assert.ok(jointAt(ls, mb.d80 - 1) < 0.80, `d80 is the first such day (deadline ${dl})`);
+  }
+});
+
+test('a comfortable deadline yields a NEGATIVE gap — the "inside it" case is reachable', () => {
+  const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), FX('D', 5000)]}, 0);
+  assert.ok(mb.d80 < mb.byDate, 'd80 lands well inside a far-off deadline');
+  assert.ok(mb.weeksLater < 0);
+});
+
+test('HONESTY: an all-stale plan is not resurrected by a future fixed date', () => {
+  // both lanes blew their P90 long ago and are still open; jointAt(deadline) ≈ 1
+  const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), FX('Statutory', 400)]}, 300);
+  assert.equal(mb, null, 'no rosy headline on a plan that is entirely overdue');
+});
+
+test('mergeBias reports a passed deadline only when no future one exists', () => {
+  const gone = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), FX('Ofgem', 20)]}, 60);
+  assert.equal(gone.deadline, null);
+  assert.equal(gone.passed.label, 'Ofgem');
+  assert.equal(gone.passed.agoDays, 40);
+  const live = mergeBias({items: [R('A', 100, 130), R('B', 120, 160), FX('Ofgem', 20), FX('Next', 400)]}, 60);
+  assert.equal(live.passed, null, 'a live deadline supersedes the dead one');
+});
+
+test('laneVsDeadline: exactly one ranged lane plus a deadline', () => {
+  const one = laneVsDeadline({items: [R('Grid', 100, 130), FX('Ofgem', 200)]}, 0);
+  assert.equal(one.name, 'Grid');
+  assert.equal(one.deadline.day, 200);
+  near(one.p, normCdf((200 - 100) / ((130 - 100) / Z90p)), 1e-12);
+  assert.equal(laneVsDeadline({items: [R('Grid', 100, 130)]}, 0), null, 'no deadline');
+  assert.equal(laneVsDeadline({items: [R('A', 100, 130), R('B', 120, 160), FX('D', 300)]}, 0), null, 'two lanes');
+  assert.equal(laneVsDeadline({items: [R('Grid', 100, 130), FX('D', 300)]}, 200), null, 'stale lane');
+});
+
+test('no fixed date ⇒ deadline/passed are null and everything else is unchanged', () => {
+  const mb = mergeBias({items: [R('A', 100, 130), R('B', 120, 160)]}, 0);
+  assert.equal(mb.deadline, null);
+  assert.equal(mb.passed, null);
+  assert.equal(mb.byDate, 120);
+  assert.ok(mb.weeksLater >= 0);
 });
