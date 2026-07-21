@@ -255,6 +255,28 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.close();
 }
 
+// alarm's distribution SVG renders at the container width, so its labels must stay
+// legible on a phone. It once floored the render at 900 and let CSS width:100% shrink
+// the 900 viewBox to phone width — 10px labels displayed at ~4px — and NO suite caught
+// it, because getComputedStyle reports the AUTHORED px, not the scaled display. Measure
+// the DISPLAYED size = authored fontSize × (rendered width ÷ viewBox width). Fix 2026-07-17.
+{
+  const page = await ctx.newPage();
+  await page.goto(T + '/alarm/', {waitUntil: 'networkidle'}).catch(() => {});
+  await page.waitForTimeout(700);
+  const minPx = await page.evaluate(() => {
+    const svg = document.querySelector('#distwrap svg');
+    if(!svg) return null;
+    const vbw = svg.viewBox.baseVal.width || svg.getBoundingClientRect().width;
+    const scale = svg.getBoundingClientRect().width / vbw;
+    let minAuthored = Infinity;
+    for(const t of svg.querySelectorAll('text')) minAuthored = Math.min(minAuthored, parseFloat(getComputedStyle(t).fontSize));
+    return minAuthored === Infinity ? null : +(minAuthored * scale).toFixed(1);
+  });
+  ok(minPx != null && minPx >= 8, `alarm: #distwrap SVG labels stay legible on phone (${minPx}px displayed >= 8)`);
+  await page.close();
+}
+
 // bets Quadrant view (view 2): toggling to it on a phone must land the same
 // narrow relayout guarantee the board already gets above — no page-level
 // h-scroll, and the #preview container itself doesn't overflow sideways.
@@ -290,15 +312,18 @@ for(const [name, url, selectors] of CONTAINERS){
 {
   const page = await ctx.newPage();
   await page.goto(T + '/rank/', {waitUntil: 'networkidle'}).catch(()=>{});
-  await page.waitForTimeout(500);
-  const chip = await page.$('.chip');
-  if(chip){ await chip.click(); await page.waitForTimeout(500); }
+  await page.waitForTimeout(700);
+  // Test the FIRST-LOAD default (no chip click): it must open on a real contested example
+  // whose ranking re-sorts under a weight drag — the old identical-rows default never did.
   const strip = await page.$$eval('#wstrip .wslider', els => els.map(e => Math.round(e.getBoundingClientRect().height)));
-  ok(strip.length >= 2, `rank: phone weight strip present (${strip.length} sliders)`);
+  ok(strip.length >= 2, `rank: phone weight strip present on first load (${strip.length} sliders)`);
   ok(strip.every(h => h >= 44), `rank: phone weight sliders ≥44px (${strip.join(',')})`);
+  const knifeOnLoad = await page.$$eval('#rrows .rrow.knife', els => els.length);
+  ok(knifeOnLoad >= 1, `rank: a knife-edge pill shows on first load (${knifeOnLoad})`);
   const before = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
   const sliders = await page.$$('#wstrip .wslider');
-  if(sliders.length){ await sliders[sliders.length - 1].evaluate(el => { el.value = el.max; el.dispatchEvent(new Event('input', {bubbles:true})); }); }
+  // zero the FIRST weight (Value) — removing the dominant criterion re-sorts a benefit/effort ranking
+  if(sliders.length){ await sliders[0].evaluate(el => { el.value = el.min; el.dispatchEvent(new Event('input', {bubbles:true})); }); }
   await page.waitForTimeout(200);
   const after = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
   ok(before !== after, `rank: dragging a phone weight re-ranks the rows`);
@@ -455,6 +480,91 @@ for(const [name, url, chip] of WIDENED){
   const overlap = hits.some((a, i) => hits.some((b2, j) => j > i &&
     a.x < b2.x + b2.w && b2.x < a.x + a.w && a.y < b2.y + b2.h && b2.y < a.y + a.h));
   ok(!overlap, `${name}: no two card tap rects intersect`);
+  await page.close();
+}
+
+// tree B4 — coarse-pointer priced-insistence entry (Fable I-4 replaced the
+// per-number 44px hit-rect assertion with these). On a coarse pointer a hot
+// number's own tspan doesn't open the slider directly — edit-in-place.js
+// redirects the tap to the node's own card-menu marker ([data-menu]), whose
+// menu (B3's exploreRowsFor) carries an "Explore…" row that binds the ONE
+// persistent slider. This walks that whole path on a deliberately TALL tree
+// (6 near-identical options ⇒ every branch sits on a knife-edge, so several
+// numbers are load-bearing and the topmost one sits many rows above the
+// fold) — proving B4's sticky bottom bar, not the old in-flow placement,
+// is what keeps the slider on screen: "below the tree" would otherwise land
+// the bar hundreds of px past the bottom of an 844px-tall phone viewport.
+{
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const doc = 'title: Six-way pick\n\nRoot decision\n' + letters.map(x =>
+    `  Option ${x}: -10k\n    Chance ${x}\n      Win ${x} (p=0.4-0.6): 100k to 200k\n      Lose ${x} (p=rest): 0\n`
+  ).join('');
+  const hash = Buffer.from(JSON.stringify({t: doc})).toString('base64');
+  const page = await ctx.newPage();
+  await page.goto(T + '/tree/#' + hash, {waitUntil: 'networkidle'}).catch(() => {});
+  await page.waitForTimeout(1000);
+
+  const top = await page.evaluate(() => {
+    const hots = [...document.querySelectorAll('#preview svg [data-hot]')];
+    if(!hots.length) return null;
+    let best = null, bestTop = Infinity;
+    for(const el of hots){
+      const r = el.getBoundingClientRect();
+      if(r.top < bestTop){ bestTop = r.top; best = {line: el.dataset.line, kind: el.dataset.edit}; }
+    }
+    return best;
+  });
+  ok(top !== null, 'tree: the tall 6-option fixture renders at least one load-bearing (hot) number');
+
+  if(top){
+    const marker = page.locator(`#preview svg [data-menu][data-line="${top.line}"]`);
+    ok(await marker.count() === 1,
+      `tree: the topmost hot number's own node carries exactly one card-menu marker (line ${top.line})`);
+    await marker.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    const box = await marker.locator('[data-hit]').boundingBox();
+    if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+
+    const rowTexts = await page.locator('.eip-pop button').allInnerTexts();
+    const exploreRows = rowTexts.filter(t => t.startsWith('Explore'));
+    ok(exploreRows.length >= 1,
+      `tree: the marker's card menu carries an "Explore…" row (${JSON.stringify(rowTexts)})`);
+
+    if(exploreRows.length){
+      await page.locator('.eip-pop button', {hasText: exploreRows[0]}).click();
+      await page.waitForTimeout(300);
+
+      ok(await page.locator('#explorebar').isVisible(),
+        'tree: #explorebar un-hides after the coarse-pointer card-menu Explore… row');
+
+      const geom = await page.evaluate(() => {
+        const bar = document.getElementById('explorebar');
+        const range = document.getElementById('exploreRange');
+        const close = document.getElementById('exploreClose');
+        const b = bar.getBoundingClientRect(), rr = range.getBoundingClientRect(), cr = close.getBoundingClientRect();
+        return {
+          top: b.top, bottom: b.bottom, left: b.left, right: b.right,
+          vw: document.documentElement.clientWidth, vh: window.innerHeight,
+          min: range.min, max: range.max,
+          rangeH: rr.height, rangeW: rr.width, closeH: cr.height, closeW: cr.width,
+        };
+      });
+      ok(geom.top >= -1 && geom.bottom <= geom.vh + 1 && geom.left >= -1 && geom.right <= geom.vw + 1,
+        `tree: #explorebar sits fully inside the layout viewport after tapping the TOPMOST hot number on a tall ` +
+        `tree (bar top ${geom.top.toFixed(0)}, bottom ${geom.bottom.toFixed(0)} vs viewport height ${geom.vh}) — ` +
+        `the sticky bottom bar, not the old off-screen in-flow placement`);
+      ok(geom.min !== '' && geom.max !== '' && geom.min !== geom.max,
+        `tree: #exploreRange was bound with a real min/max track (${geom.min}..${geom.max})`);
+      ok(geom.rangeH >= 44, `tree: the slider thumb/track is >=44px tall on a coarse pointer (${geom.rangeH.toFixed(1)}px)`);
+      ok(geom.closeH >= 44 && geom.closeW >= 44,
+        `tree: .explore-close stays >=44px inside the sticky bar (${geom.closeW.toFixed(0)}x${geom.closeH.toFixed(0)})`);
+
+      const vw = await page.evaluate(() => document.documentElement.clientWidth);
+      const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
+      ok(docSW <= vw + 1, `tree: no page-level horizontal scroll on the tall fixture with the explore bar shown (${docSW} <= ${vw})`);
+    }
+  }
   await page.close();
 }
 

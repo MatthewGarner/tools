@@ -54,7 +54,25 @@
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <!-- B3: the priced-insistence walk. ONE persistent slider, created once, living
+           OUTSIDE #preview (the refresh loop innerHTMLs that container) — hidden until a
+           load-bearing number is engaged; tap/Enter on a different one re-binds the same
+           element (tree/app.js), it is never recreated. -->
+      <div class="explore-bar" id="explorebar" hidden>
+        <div class="explore-head">
+          <span class="explore-label" id="exploreLabel"></span>
+          <button type="button" class="explore-close" id="exploreClose" aria-label="Stop exploring this number">✕</button>
+        </div>
+        <div class="explore-track" id="exploreTrack">
+          <input type="range" id="exploreRange" class="explore-range" aria-describedby="explorePriced">
+          <div class="explore-band" id="exploreBand" hidden></div>
+          <div class="explore-notch" id="exploreNotchBelow" hidden></div>
+          <div class="explore-notch" id="exploreNotchAbove" hidden></div>
+        </div>
+        <p class="explore-priced" id="explorePriced" aria-live="off"></p>
+      </div>
       <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
+      <p class="seam" id="seam" hidden></p>
       <div class="actions">
         <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>

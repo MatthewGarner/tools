@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, applies} from '../edit-targets.js';
+import {validators, applies, applyExplore} from '../edit-targets.js';
+import {parse} from '../parse.js';
 
 test('prob rewrite preserves everything else on the line', () => {
   assert.equal(applies.prob('      Win (p=0.3-0.45): 2M to 5M', '0.3-0.45', '0.5'),
@@ -23,6 +24,47 @@ test('label rewrite keeps indent, p and value', () => {
                '      Major win (p=0.6): 2M');
   assert.equal(applies.label('  Plan B: the sequel', 'Plan B: the sequel', 'Plan C'),
                '  Plan C');
+});
+
+/* ---- applyExplore (B3, C2): the priced-insistence slider's release-commit ---- */
+
+test('applyExplore: ranged value — commits a width-preserving shift that re-parses to the intended interval', () => {
+  const doc = '      Win (p=0.3-0.45): 2M to 5M';
+  const m = parse('Root\n  Bid: -150k\n    Outcome\n' + doc + '\n      Lose (p=rest): 0\n  No bid: 0');
+  const win = m.root.children[0].children[0].children[0];   // Win
+  const newLine = applyExplore(doc, win, 4000000, false);   // mid 2M..5M (width 3M) → new mid 4M
+  const reparsed = parse('Root\n  Bid: -150k\n    Outcome\n' + newLine + '\n      Lose (p=rest): 0\n  No bid: 0');
+  const win2 = reparsed.root.children[0].children[0].children[0];
+  assert.ok(Math.abs(win2.value.hi - win2.value.lo - 3000000) < 1, 'width preserved');
+  assert.ok(Math.abs((win2.value.lo + win2.value.hi) / 2 - 4000000) < 1, 'new midpoint lands at 4M');
+  assert.equal(win2.pRaw, '0.3-0.45', 'the probability component is untouched');
+});
+
+test('applyExplore: probability — width-preserving shift, clamped into [0,1]', () => {
+  const doc = '      Win (p=0.3-0.45): 2M to 5M';
+  const m = parse('Root\n  Bid: -150k\n    Outcome\n' + doc + '\n      Lose (p=rest): 0\n  No bid: 0');
+  const win = m.root.children[0].children[0].children[0];
+  const newLine = applyExplore(doc, win, 0.95, true);   // width 0.15 around 0.95 would breach 1
+  const reparsed = parse('Root\n  Bid: -150k\n    Outcome\n' + newLine + '\n      Lose (p=rest): 0\n  No bid: 0');
+  const win2 = reparsed.root.children[0].children[0].children[0];
+  assert.ok(win2.p.hi <= 1 && win2.p.lo >= 0, 'clamped into [0,1]');
+  assert.ok(Math.abs(win2.p.hi - 1) < 1e-6, 'held against the upper bound rather than exceeding it');
+  assert.equal(win2.valueRaw, '2M to 5M', 'the value component is untouched');
+});
+
+test('applyExplore: a point value stays a point after the shift', () => {
+  const doc = '  Submit bid: -150k';
+  const m = parse('Root\n' + doc + '\n    Outcome\n      Win (p=0.5): 10\n      Lose (p=rest): 0\n  No bid: 0');
+  const bid = m.root.children[0];
+  const newLine = applyExplore(doc, bid, -200000, false);
+  assert.equal(newLine, '  Submit bid: -200k');
+});
+
+test('applyExplore: a no-op for a field the node does not carry ("rest" probability, or no value at all)', () => {
+  const doc = '      Lose (p=rest): 0';
+  const m = parse('Root\n  Bid: -150k\n    Outcome\n      Win (p=0.5): 10\n' + doc + '\n  No bid: 0');
+  const lose = m.root.children[0].children[0].children[1];
+  assert.equal(applyExplore(doc, lose, 0.2, true), doc, 'rest is never a real range — no-op, never a throw');
 });
 
 test('validators: prob bounds, value parses, label sanity', () => {

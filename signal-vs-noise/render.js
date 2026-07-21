@@ -18,8 +18,14 @@ function bandRect(x, w, top, h, c, lo, hi, band){
 }
 
 /* ---------- the play grid ---------- */
-export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3} = {}){
-  const PAD = 22, gap = 12, cardW = 230;               // cardW fixed → cols drives width (narrow relayout, not a shrink)
+export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, width} = {}){
+  const PAD = 22, gap = 12;
+  // cardW: pinned 230 for phone (cols=1, whose ~274 SVG is CSS-scaled ×1.27 to clear
+  // the 44px tap bar) and for the width-less default (keeps the 758/274 goldens + the
+  // injection corpus byte-identical); derived to fill `width` at cols>=2, clamped so
+  // cards neither shrink below 230 nor bloat past 360 (grid then centers under the wrap).
+  const cardW = (cols === 1 || width == null) ? 230
+    : Math.round(Math.max(230, Math.min(360, (width - PAD * 2 - gap * (cols - 1)) / cols)));
   // one-column phones scale this ~274-wide SVG up to the container (iPhone 13
   // stage ≈348 ⇒ ×1.27; Pixel 7 ≈372 ⇒ ×1.36), so a 38px button clears the 44px
   // coarse-pointer target on both gate devices (38×1.27 ≈ 48px). (Landscape phones
@@ -82,11 +88,25 @@ function btn(x, y, w, h, act, person, quarter, on, c){
 }
 
 /* ---------- the collapse / verdict artefact ---------- */
-// narrow=true is the phone RELAYOUT (re-wrapped for ~356px, not a shrink or a pan);
-// exports always pass the wide artefact (app.js getSvg omits narrow).
-export function renderCollapse(s, c, calls = [], {narrow = false} = {}){
-  const W = narrow ? 356 : 760, PAD = narrow ? 16 : 24;
-  const vFont = narrow ? 16 : 18, vWrap = narrow ? 30 : 74, vLine = narrow ? 21 : 24;
+// width-aware: narrow (<520) is the phone RELAYOUT (re-wrapped for 356px, not a
+// shrink or a pan), wide (>=900) opens the chart to the full container so the six
+// noise-walks separate, and everything in between (incl. no width) reproduces the
+// original 760 layout byte-for-byte. Exports always pass the wide artefact —
+// app.js's getSvg pins {width: 1088}.
+export function renderCollapse(s, c, calls = [], {width} = {}){
+  const w = width ?? 760;
+  const narrow = w < 520;          // phone: pinned 356 layout, byte-identical to before
+  const wide = w >= 900;           // desktop-wide: chart opens; prose stays capped
+  const W = narrow ? 356 : Math.min(1090, Math.max(760, Math.round(w))), PAD = narrow ? 16 : 24;
+  const vFont = narrow ? 16 : wide ? 20 : 18, vLine = narrow ? 21 : wide ? 26 : 24;
+  // headline (display type) is exempt from the body-prose measure — at wide it runs to
+  // ~100ch so a ~90-char verdict sits on one line; narrow/non-wide keep today's widths.
+  const vWrap = narrow ? 30 : wide ? 100 : 74;
+  // body prose caps by CHARACTERS (~95ch), NOT the chart width; today's 760 values kept.
+  const descWrap = narrow ? 44 : wide ? 95 : 130;
+  const statWrap = narrow ? 42 : wide ? 95 : 96;
+  const closeWrap = narrow ? 40 : wide ? 95 : 90;
+  const descFont = wide ? 13 : 12, statFont = wide ? 13 : 11.5, closeFont = wide ? 14 : 12.5;
   const v = verdict(s, calls);
   const parts = [];
   let y = 34;
@@ -95,11 +115,11 @@ export function renderCollapse(s, c, calls = [], {narrow = false} = {}){
   for(const line of wrap(v.line, vWrap)){ parts.push(txt(PAD, y, line, vFont, c.ink, {weight: 600})); y += vLine; }
   y += 4;
   for(const line of wrap('Every call you made, on one shared band. Rings = you opened a conversation. Only the sustained walk out of the band was real.',
-    narrow ? 44 : 130)){ parts.push(txt(PAD, y, line, 12, c.muted)); y += 17; }
+    descWrap)){ parts.push(txt(PAD, y, line, descFont, c.muted)); y += 17; }
   y += 6;
 
   // the shared collapse chart
-  const chTop = y, chH = narrow ? 140 : 180, chL = PAD, chW = W - PAD * 2;
+  const chTop = y, chH = narrow ? 140 : (width != null && w > 760) ? Math.max(180, Math.min(260, Math.round(W * 0.24))) : 180, chL = PAD, chW = W - PAD * 2;
   const lo = Math.max(0, Math.min(s.band.lo, ...s.shown.flat()) - 2);
   const hi = Math.max(s.band.hi, ...s.shown.flat()) + 2;
   parts.push(bandRect(chL, chW, chTop, chH, c, lo, hi, s.band));
@@ -126,12 +146,12 @@ export function renderCollapse(s, c, calls = [], {narrow = false} = {}){
   y = chTop + chH + 26;
 
   for(const line of wrap(v.coinFlip + ' of your calls were single-point coin flips · ' + v.correctHolds +
-    ' noise readings left alone · re-aiming the target to each quarter’s number would review a gap with about twice the variance (Deming’s funnel).', narrow ? 42 : 96)){
-    parts.push(txt(PAD, y, line, 11.5, c.muted)); y += 16;
+    ' noise readings left alone · re-aiming the target to each quarter’s number would open a gap with about twice the variance (Deming’s funnel).', statWrap)){
+    parts.push(txt(PAD, y, line, statFont, c.muted)); y += 16;
   }
   y += 6;
-  for(const line of wrap('You only get this band in a simulation — your real team doesn’t come with one. What transfers isn’t the band, it’s the question: spike, or shift?', narrow ? 40 : 90)){
-    parts.push(txt(PAD, y, line, 12.5, c.ink, {weight: 600})); y += 17;
+  for(const line of wrap('You only get this band in a simulation — your real team doesn’t come with one. What transfers isn’t the band, it’s the question: spike, or shift?', closeWrap)){
+    parts.push(txt(PAD, y, line, closeFont, c.ink, {weight: 600})); y += 17;
   }
   return svg(W, y + PAD - 6, c, parts.join(''), esc(v.line));
 }

@@ -1,6 +1,6 @@
 /* /signal-vs-noise — centred column scaffold + the play/reveal surface.
    Shared bits come from tokens/page/about/controls/mobile.css. */
-.wrap{max-width:840px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
+.wrap{max-width:var(--w-instrument);margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
 header{display:flex;flex-direction:column;gap:2px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow);padding:20px}

@@ -182,10 +182,31 @@ test('tree renderer escapes hostile option labels', async () => {
   const {parse} = await import('../tree/parse.js');
   const {evaluate} = await import('../tree/engine.js');
   const {render} = await import('../tree/render.js');
+  /* a real chance node (p=… / p=rest) with hostile labels on every node, so
+     the ctx.hot mark path (B2) has real prob/value lines to address — a bare
+     edit:true with no hot set would never exercise data-hot="" at all. */
   const doc = 'decision: ' + EVIL[0] + '\n' +
-    '  ' + EVIL[1] + '\n    100\n  ' + EVIL[4] + '\n    50 .. 90';
+    '  ' + EVIL[1] + ': -150k\n' +
+    '    Outcome\n' +
+    '      ' + EVIL[2] + ' (p=0.3-0.45): 2M to 5M\n' +
+    '      ' + EVIL[3] + ' (p=rest): 100\n' +
+    '  ' + EVIL[4] + ': 50 to 90';
   const m = parse(doc);
-  assertClean(render(m, evaluate(m), {...ctx, edit: true}), 'tree');
+  /* every prob/value line in the tree — the ctx.hot contract names load-bearing
+     numbers this way; here we mark ALL of them so the mark path is exercised
+     against every hostile label (aria-label/data-raw must stay escaped there
+     too), not just a cherry-picked one. */
+  const hot = new Set();
+  (function collect(n){
+    if(!n) return;
+    if(n.p !== null && n.p !== undefined) hot.add('prob:' + n.srcLine);
+    if(n.value) hot.add('value:' + n.srcLine);
+    n.children.forEach(collect);
+  })(m.root);
+  const out = render(m, evaluate(m), {...ctx, edit: true, hot});
+  assertClean(out, 'tree');
+  assert.ok(out.includes('data-hot=""'),
+    'tree: ctx.hot produced no data-hot="" mark — the injection coverage of the mark path would be vacuous');
 });
 
 test('map renderer + readout escape hostile labels, fields, zone names', async () => {
@@ -406,7 +427,7 @@ test('alarm renderers stay well-formed under extreme numeric params (no user str
   assertClean(renderBox({tp: 10, fp: 990, tn: 0, fn: 0}, ctx.colors), 'alarm-box');
 });
 
-test('signal-vs-noise renderers stay well-formed — names come from a fixed constant, but prove esc() covers a hostile names array (grid + narrow + collapse verdict)', async () => {
+test('signal-vs-noise renderers stay well-formed — names come from a fixed constant, but prove esc() covers a hostile names array (grid + narrow + wide collapse verdict)', async () => {
   const {makeScenario, AUTHORED_SEED} = await import('../signal-vs-noise/engine.js');
   const {renderGrid, renderCollapse} = await import('../signal-vs-noise/render.js');
   const s = {...makeScenario(AUTHORED_SEED), names: EVIL.slice()};   // hostile names into every txt()/verdict/aria-label path
@@ -414,7 +435,8 @@ test('signal-vs-noise renderers stay well-formed — names come from a fixed con
   assertClean(renderGrid(s, ctx.colors, {turn: 4, calls}), 'signal-noise-grid');
   assertClean(renderGrid(s, ctx.colors, {turn: 4, calls, cols: 1}), 'signal-noise-grid-narrow');
   assertClean(renderCollapse(s, ctx.colors, calls), 'signal-noise-collapse');
-  assertClean(renderCollapse(s, ctx.colors, calls, {narrow: true}), 'signal-noise-collapse-narrow');
+  assertClean(renderCollapse(s, ctx.colors, calls, {width: 1088}), 'signal-noise-collapse-wide');
+  assertClean(renderCollapse(s, ctx.colors, calls, {width: 356}), 'signal-noise-collapse-narrow');
 });
 
 test('duel renderers escape hostile item labels + framing question (HTML surface, no SVG)', async () => {

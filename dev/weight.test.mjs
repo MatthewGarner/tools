@@ -134,7 +134,16 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 490_000, 'tree/index.html': 470_000,
+  'why/index.html': 490_000,
+  /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
+     treatment): tree/style.css gained the coarse-pointer sticky-bottom
+     explore bar (spec I6 — position:fixed + safe-area padding + the 44px
+     track/close sizing) and the touch-action:manipulation rule (spec C3).
+     Genuinely new CSS, not creep — tree's own budget was already the
+     tightest of the DSL pages (no headroom left after Stage 0's shared
+     editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
+     in line with the other DSL pages. */
+  'tree/index.html': 478_000,
   'map/index.html': 480_000,
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
@@ -167,7 +176,12 @@ const PAGES = {
      ~330B "16px prose / full-bleed card" phone edge block in style.css tipped it
      285B over. Every card-band page pays the same ~330B; intraday trips first
      because it was already the heaviest. Actual ~126.3k, headroom ~0.7k. */
-  'energy/intraday/index.html': 127_000,
+  /* Raised 127k → 128k (2026-07-17, desktop width pass), consciously: two honest
+     growths landed together — the Route B true-measured-width render (app.js resize
+     plumbing + comments, ~0.5k) and the merged tokens.css color-scheme Safari
+     dark-flash fix (~0.5k, paid by every page, intraday trips first as the heaviest).
+     301B over. Neither is fat to trim. Actual ~127.3k, headroom ~0.7k. */
+  'energy/intraday/index.html': 128_000,
 };
 
 test('per-page load stays under budget', () => {

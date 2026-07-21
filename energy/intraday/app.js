@@ -9,11 +9,10 @@
    - renderStack (and renderDay) call ctx.measure unconditionally while sizing the
      export-verdict wrap band, even on-screen — passing app-common's `measure` is
      required, not optional; omitting it throws "ctx.measure is not a function".
-   - Width-aware narrow rendering (renderWidth()/ResizeObserver bucket-flip) added
-     to both panels, matching merit-order/cycles/risk's established pattern — the
-     brief hardcoded width:900 with a CSS-only pan fallback, but render-day.js's
-     own narrow branch (isNarrow < 520, exercised by its tests at width 360) is
-     otherwise never reached in production. */
+   - Route B (2026-07-17): renderWidth() now returns the panel's TRUE clientWidth
+     (900 only as pre-layout/export fallback) instead of the old 520px bucket-flip
+     pinned-900 pattern, so the band fills its real width; a debounced ResizeObserver
+     re-renders on any >8px change, not just the <520 flip. */
 import {runDay, hourStack, DAY_DEFAULTS} from './day.js';
 import {renderDay, buildDayVerdict} from './render-day.js';
 import {renderStack, MERIT_PALETTE} from '../merit-order/render.js';
@@ -21,7 +20,7 @@ import {encodeDayState, decodeDayState} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
-import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
+import {debounced} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
 import {mountMotion} from '../../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
@@ -55,14 +54,20 @@ function boot(){
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');   // merit-order render.js's own formatter
 
-  /* ---- narrow-render width: measure each panel, mirroring cycles/risk/merit-order.
+  /* ---- narrow-render width: measure each panel. Unlike cycles/risk/merit-order,
+     which bucket at 520 and fall back to a fixed width, intraday renders at the
+     true measured width continuously (Route B, below — no bucket flip).
      Both renderers require an explicit width (no built-in default that matches
      this page's 900 canonical), so — unlike merit-order's `undefined ⇒ 1200` —
      this always returns a concrete number. ---- */
   const NARROW = 520;   // also used below for the "bring into view" pointer-coarse check
   const priceEl = $('pricewrap'), stackEl = $('stackwrap');
   const pricePaint = mountMotion(priceEl), stackPaint = mountMotion(stackEl);
-  const renderWidth = el => narrowWidth(el, {fallback: 900});
+  // Route B: render at the panel's TRUE width (not the 900 fallback narrowWidth
+  // returned above 520). 900 remains only as the pre-layout fallback (clientWidth 0)
+  // and the pinned export width. Below 520 this still yields the real width, so the
+  // renderers' isNarrow (<520) branch is reached exactly as before.
+  const renderWidth = el => el.clientWidth || 900;
 
   function refresh(){
     result = runDay(p);
@@ -253,8 +258,15 @@ function boot(){
   });
   onThemeChange(refresh);
 
-  /* ---- narrow-bucket resize: re-render only when either panel's bucket flips ---- */
-  watchNarrowBucket(priceEl, refresh);
+  /* ---- width-aware resize (Route B): re-render whenever the panel width moves
+     more than 8px (debounced) — desktop resizes now change the rendered width,
+     not only the <520 narrow flip. Renders are cheap pure strings. ---- */
+  let lastW = priceEl.clientWidth;
+  const onResize = debounced(() => {
+    const w = priceEl.clientWidth;
+    if(Math.abs(w - lastW) > 8){ lastW = w; refresh(); }
+  }, 100);
+  new ResizeObserver(onResize).observe(priceEl);
 
   refresh();
 }

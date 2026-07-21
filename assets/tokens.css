@@ -2,7 +2,22 @@
    Superset of all tools' custom properties; unused tokens cost nothing.
    Theme resolution: OS preference via media query; the viewer's explicit
    data-theme wins in both directions. */
+
+/* House width tiers — max-width caps by ROLE (pick a name, not a number):
+   form=forms · focus=reading column · instrument=playable artefact ·
+   board=multi-column board · band=full-bleed band.
+   Theme-independent (not in theme blocks); NOT usable in @media (custom props
+   don't resolve there — breakpoints stay raw px). */
 :root{
+  --w-form:720px; --w-focus:820px; --w-instrument:1160px; --w-board:1240px; --w-band:1760px;
+}
+
+:root{
+  /* Tell the UA the page supports both schemes, so it paints the OS-correct canvas
+     (and native controls/scrollbars) from the FIRST frame — without this the browser
+     defaults to a light canvas and flashes white before the dark --bg paints on load
+     (esp. Safari). data-theme forces the exact scheme below so the toggle still wins. */
+  color-scheme: light dark;
   --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
   --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
   --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
@@ -23,6 +38,7 @@
   }
 }
 :root[data-theme="dark"]{
+  color-scheme: dark;
   --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
   --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
   --accent2:#C97A35; --hl:rgba(255,196,0,.32); --err:#E07A72; --track:#232E37;
@@ -32,6 +48,7 @@
   --thumb:#151C23;
 }
 :root[data-theme="light"]{
+  color-scheme: light;
   --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
   --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
   --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;

@@ -29,13 +29,21 @@ let errUid = 0;
    tools. `add` is the noun after "＋ Add "; `remove` defaults to "Remove branch"
    (leaf/terminal nodes pass "Remove"). The onCommit guards match the resulting
    '✖'-prefixed sentinels: startsWith('✖＋ Add') and the exact Remove strings. */
-export function cardMenu({field, add, remove = 'Remove branch'}){
-  return {menu: [
-    {label: 'Rename…', opens: 'label'},
-    field,
-    {label: '＋ Add ' + add, action: true},
-    {label: remove, action: true, danger: true},
-  ]};
+export function cardMenu({field, add, remove = 'Remove branch', extra}){
+  /* `extra` (optional): (el) => extra rows spliced in after the field row —
+     e.g. tree's priced-insistence walk (B3) adds "Explore success odds…"/
+     "Explore payoff…" commit rows, and fills the leaf-p hole ("Edit
+     probability…") for kinds whose `field` slot is already taken by value.
+     Wrapping the menu in a function only when `extra` is supplied keeps every
+     existing call site (no `extra`) byte-identical — same static array as before. */
+  const build = el => {
+    const rows = [{label: 'Rename…', opens: 'label'}, field];
+    if(extra) rows.push(...extra(el));
+    rows.push({label: '＋ Add ' + add, action: true});
+    rows.push({label: remove, action: true, danger: true});
+    return rows;
+  };
+  return {menu: extra ? build : build()};
 }
 
 export function attachEditInPlace(preview, {kinds, onCommit}){
@@ -88,7 +96,11 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
         } else if(row.opens){
           const t = activeEl.closest('svg').querySelector('[data-line="' + activeEl.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
           close();
-          if(t) open(t);
+          /* forceInput: true — the menu's own "opens" row is the precise-entry
+             path (C5), so it must always land in the real text popover even
+             when the target also carries a spec.custom (e.g. tree's hot-number
+             slider intercept) that would otherwise redirect a plain open(). */
+          if(t) open(t, {forceInput: true});
         } else if(row.submenu){
           const r = b.getBoundingClientRect();        // capture BEFORE close() disposes the button
           close();
@@ -139,11 +151,21 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     document.addEventListener('pointerdown', away, true);
     trapPopoverFocus(pop, close);
   }
-  function open(el){
+  function open(el, opts = {}){
     close();
     const kind = el.dataset.edit;
     const spec = kinds[kind];
     if(!spec) return;
+    /* A custom hook, checked before cycle/menu/input, lets a tool fully own the
+       open gesture for specific instances of a kind — e.g. tree's hot numbers,
+       which supersede the popover with a persistent slider (mobile-input C5).
+       Returning truthy means "handled, don't open anything else here". Both
+       click and Enter/Space call this same open(), so there is never a second,
+       bespoke overlay for the intercepted case. opts.forceInput (set only by
+       the menu's own "opens" row above) skips the hook, so precise numeric
+       entry always has a path even once a tap supersedes it. A no-op for every
+       kind that never sets spec.custom — every tool but tree, today. */
+    if(spec.custom && !opts.forceInput && spec.custom(el)) return;
     const rect = el.getBoundingClientRect();
     const raw = el.dataset.raw || '';
     /* cycle kinds step to the next value on click. On a COARSE pointer a bare tap
