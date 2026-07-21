@@ -147,3 +147,42 @@ test('a wide sub-line does not let two same-lane milestones overlap on one row',
   assert.ok(labelsOf(svg).length >= 2, 'fewer than two labels parsed — the overlap check would be vacuous');
   assert.ok(noSameLaneLabelOverlap(svg), 'sub-line width ignored — labels overlap on one row');
 });
+
+/* A point date hard against the right edge. A fixed DEADLINE is usually the
+   rightmost thing on a plan, so this is the common case, not an edge case —
+   before this it ran its label off the board. */
+const point = extra => ({label: 'A', single: true, status: 'fixed',
+  p50: parseDate('2026-08-14'), p90: parseDate('2026-08-14'), note: null, ...extra});
+
+test('msLabelAnchor: a point date whose label would overflow the plot flips LEFT', () => {
+  const it = point({label: 'Old lease expires'});
+  // plot is 0..1000; the diamond sits at 960, so a right-anchored label is the only fit
+  const {labelX, anchorEnd} = msLabelAnchor(it, 960, 960, 6, 1, 0, 1000, measure, LF, NF, false);
+  assert.equal(anchorEnd, true, 'right-anchored, left of the diamond');
+  assert.equal(labelX, 960 - 6 - 6);              // x50 - r - 6S
+});
+
+test('msLabelAnchor: a point date with room to its right does NOT flip', () => {
+  const it = point({label: 'A'});
+  const {labelX, anchorEnd} = msLabelAnchor(it, 100, 100, 6, 1, 0, 1000, measure, LF, NF, false);
+  assert.equal(anchorEnd, false);
+  assert.equal(labelX, 100 + 6 + 5);
+});
+
+test('msLabelAnchor: a point date that fits NEITHER side keeps the right anchor', () => {
+  // narrow plot, diamond mid-board: flipping would run off the LEFT, so accept the clip
+  const it = point({label: 'A milestone with a very long name indeed'});
+  const {anchorEnd} = msLabelAnchor(it, 150, 150, 6, 1, 0, 300, measure, LF, NF, false);
+  assert.equal(anchorEnd, false);
+});
+
+test('a rightmost fixed deadline keeps its whole label on the board', () => {
+  const svg = render(parse('title: Office move\nFit-out: Construction done 2026-09 .. 2026-12\n' +
+    'IT: Network installed 2026-11 .. 2027-01\nOld lease expires 2027-02-28 [fixed]'), ctx);
+  const W = +svg.match(/width="(\d+)"/)[1];
+  for(const m of svg.matchAll(/<text[^>]*x="([\d.]+)"[^>]*font-size="12\.5"[^>]*>([^<]*)/g)){
+    const isEnd = /text-anchor="end"/.test(m[0]);
+    const right = isEnd ? +m[1] : +m[1] + m[2].length * 7;
+    assert.ok(right <= W, `"${m[2]}" runs ${(right - W).toFixed(0)}px past the board`);
+  }
+});

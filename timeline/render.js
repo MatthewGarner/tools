@@ -98,6 +98,18 @@ export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFo
     if(!hasGhost && flipX - widest >= plotX + 4 * S) return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
     return {labelX: afterP90, anchorEnd: false, widest, titleW, subW};    // both tight / compare → keep right, clip
   }
+  /* A POINT milestone hard against the right edge. A fixed DEADLINE is usually the
+     rightmost thing on a plan — that is what a deadline IS — so its label ran off
+     the board. Flip left of the diamond, right-anchored: the same idiom the whisker
+     case above uses. Only reachable for point dates (a ranged item that got here
+     has its label fitting before x90, which is itself inside the plot), and it
+     stands down when the flip would overflow the LEFT or collide with a compare
+     ghost — a clipped label still beats an invisible one. */
+  if(rightOfP50 + widest > plotX + plotW - 4 * S){
+    const flipX = x50 - r - 6 * S;
+    if(!hasGhost && flipX - widest >= plotX + 4 * S)
+      return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
+  }
   return {labelX: rightOfP50, anchorEnd: false, widest, titleW, subW};
 }
 
