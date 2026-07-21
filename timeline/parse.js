@@ -5,7 +5,14 @@ import {PALETTE_NAMES} from '../assets/series.js';
 
 const DAY = 86400000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-export const STATUSES = ['done', 'risk'];
+export const STATUSES = ['done', 'risk', 'fixed'];
+
+/* an item whose single date is a legitimate point, not false precision:
+   [done] happened, [fixed] is an external fact nobody here controls. A BARE
+   single date is neither — it keeps the ±? nag. One predicate, because render.js
+   MEASURES this string in two places and DRAWS it in a third; disagreement
+   reserves width for a mark that never appears. */
+export const isPointDate = it => it.status === 'done' || it.status === 'fixed';
 
 export function parseDate(s){
   const m = String(s).trim().match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
@@ -101,12 +108,17 @@ export function parse(text){
       warn('range reversed — swapped so P50 comes first');
       const t = p50; p50 = p90; p90 = t;
     }
-    if(status === 'done'){
-      if(!single) warn('[done] with a range — it happened on a date; using the first');
+    if(status === 'done' || status === 'fixed'){
+      /* "earlier", not "first": the reversed-range swap above already ran, so a
+         "2026-12 .. 2026-10" input genuinely keeps the earlier of the two. */
+      if(!single) warn('[' + status + '] with a range — ' + (status === 'done'
+        ? 'it happened on a date; using the earlier'
+        : 'a fixed date has no spread; using the earlier'));
       p90 = p50;
       single = true;
     } else if(single){
-      warn('"' + head.slice(0, 30) + '" has no range — a single date claims certainty nobody has (add ".. P90")');
+      warn('"' + head.slice(0, 30) + '" has no range — a single date claims certainty ' +
+        'nobody has (add ".. P90", or mark it [fixed])');
     }
 
     if(!laneSet.has(lane)){ laneSet.add(lane); model.lanes.push(lane); }

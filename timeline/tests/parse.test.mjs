@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse, parseDate, fmtDay, dayToISO} from '../parse.js';
+import {parse, parseDate, fmtDay, dayToISO, isPointDate} from '../parse.js';
 
 test('parseDate: ISO day, ISO month (→ its 15th), garbage', () => {
   assert.equal(dayToISO(parseDate('2026-08-03')), '2026-08-03');
@@ -89,4 +89,40 @@ test('today: keeps its date even though the value looks like an item', () => {
   assert.equal(dayToISO(m.today), '2026-08-01');
   assert.equal(m.title, 'Launch plan');
   assert.equal(m.items.length, 0);
+});
+
+test('[fixed]: a point date with no ±? nag and no warning', () => {
+  const m = parse('Ofgem decision 2026-12-01 [fixed]');
+  const it = m.items[0];
+  assert.equal(it.status, 'fixed');
+  assert.equal(it.single, true);
+  assert.equal(it.p90, it.p50);
+  assert.deepEqual(m.warnings, []);
+});
+
+test('[fixed] with a range warns and collapses to the earlier date', () => {
+  const m = parse('Gate 2026-10-01 .. 2026-12-01 [fixed]');
+  assert.equal(dayToISO(m.items[0].p50), '2026-10-01');
+  assert.equal(m.items[0].p90, m.items[0].p50);
+  assert.equal(m.items[0].single, true);
+  assert.equal(m.warnings.length, 1);
+  assert.match(m.warnings[0], /fixed date has no spread; using the earlier/);
+});
+
+test('[fixed] with a REVERSED range keeps the earlier date (swap runs first)', () => {
+  const m = parse('Gate 2026-12-01 .. 2026-10-01 [fixed]');
+  assert.equal(dayToISO(m.items[0].p50), '2026-10-01');
+  assert.equal(m.warnings.length, 2);            // reversed + collapsed
+});
+
+test('a bare single date still warns, and names [fixed] as the escape hatch', () => {
+  const m = parse('Vendor selection 2026-11');
+  assert.equal(m.warnings.length, 1);
+  assert.match(m.warnings[0], /claims certainty nobody has/);
+  assert.match(m.warnings[0], /\[fixed\]/);
+});
+
+test('isPointDate: done and fixed are legitimate points, bare singles are not', () => {
+  const m = parse('A 2026-08-01 [done]\nB 2026-09-01 [fixed]\nC 2026-10-01\nD 2026-11 .. 2026-12');
+  assert.deepEqual(m.items.map(isPointDate), [true, true, false, false]);
 });
