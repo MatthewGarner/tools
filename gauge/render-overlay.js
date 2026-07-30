@@ -1,12 +1,18 @@
 /* model + per-question stats → overlay SVG string. Pure; colours from ctx only. */
 import {esc, tint, wrapText} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
-import {verdict, delphiVerdict} from './engine.js';
+import {verdictOf, delphiVerdictOf} from './engine.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 
 /* single-quoted family names: these stacks land inside double-quoted SVG
    attributes, where an embedded double quote is invalid XML (breaks PNG export) */
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const SERIF = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss 3c
+/* the mirror image, for assets/verdict.js: svgVerdict emits SINGLE-quoted
+   attribute values, so the stack it receives must quote family names with
+   DOUBLE quotes or the font-family attribute closes early. Same stack, opposite
+   convention — quoting is per file, and this file now spans both. */
+const SANS_DQ = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 const WIDE_W = 960, NARROW = 520, MIN_W = 300;   // 300 floor matches bets' narrow clamp
 const ROW_H = 24, DOT_STEP = 11, DOT_R = 4.5;
 
@@ -275,15 +281,19 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   });
   if(delphi && !narrow) head.push(pill(W - PAD, PAD + 6, 'delphi round 2', c.accent, measure));
   y += 24;
-  const v = delphi ? delphiVerdict(delphi) : verdict(stats);
-  if(v){
-    const vLines = narrow ? wrapText(v, '600 14px ' + SANS, panelW, measure) : [v];
-    vLines.forEach((t, i) => {
-      if(i) y += 18;
-      head.push('<text x="' + PAD + '" y="' + y + '" font-size="14" font-weight="600" fill="' +
-        c.accent + '">' + esc(t) + '</text>');
-    });
-    y += 20;
+  /* The Swiss 6b verdict, drawn INTO the artefact: this is gauge's one display
+     verdict (the HTML console keeps only a plain supporting headline), so the
+     export carries the finding wherever it's pasted. Red discipline: the line is
+     ink and exactly ONE run — the key figure — is brandText. It is NOT accent;
+     the old wholly-accent 14px line put data blue on a verdict. Narrow re-wraps
+     at 17px; exports never pass a width, so they stay pinned to the 24px block. */
+  const vv = delphi ? delphiVerdictOf(delphi) : verdictOf(stats);
+  if(vv.line){
+    const block = svgVerdict({x: PAD, y, width: panelW, line: vv.line, fig: vv.fig,
+      ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
+      font: SANS_DQ, measure, size: narrow ? 17 : 24});
+    head.push(block.svg);
+    y += block.height + 4;   // height already clears the last baseline by one advance
   }
   const countText = count + ' response' + (count === 1 ? '' : 's') + ' · ' + stats.length + ' question' + (stats.length === 1 ? '' : 's') +
     (delphi ? ' · final answers (round 2, round 1 carried forward)' : '');
@@ -342,7 +352,7 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   /* pure display — no data-edit targets here, so a role="img" summary is
      safe (it never hides interactive descendants); the same headline is
      also mirrored as HTML next to this overlay (session.js/app.js) */
-  const svgLabel = (model.title || 'Gauge the room') + (v ? ' — ' + v : '');
+  const svgLabel = (model.title || 'Gauge the room') + (vv.line ? ' — ' + vv.line : '');
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +
     esc(svgLabel) + '">' +

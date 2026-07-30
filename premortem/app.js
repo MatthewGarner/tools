@@ -7,6 +7,7 @@ import {PHASES, canAdvance, advance, back, castVote} from './wizard.js';
 import {renderPhase} from './render-wizard.js';
 import {renderBoard} from './render-board.js';
 import {debounced} from '../assets/schedule.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const store = makeStore();
@@ -33,7 +34,8 @@ function render(){
   $('home').hidden = !home;
   $('workspace').hidden = home;
   if(timer){ clearInterval(timer); timer = 0; }
-  if(home){ renderHome(); return; }
+  if(home){ paintMetrics($('metrics'), '', []); renderHome(); return; }
+  paintMetrics($('metrics'), doc.title || 'Untitled premortem', metricCounts(doc));
   $('workspace').dataset.view = view;   // per-view widths key off #workspace[data-view]
   renderToggle();
   $('boardview').hidden = view !== 'board';
@@ -57,6 +59,18 @@ function render(){
   $('back').disabled = doc.phase === 'FRAME';
   if(doc.phase === 'WRITE') startTimer();
   if(doc.phase === 'FRAME') $('phasepanel').querySelector('[data-field="title"]')?.focus();
+}
+/* The metrics row over the workspace: the register's real shape, counted off the
+   doc on every render. Deliberately cheap — no Monte Carlo — so it rides the
+   existing render without adding a second exposure() pass. */
+function metricCounts(d){
+  const entries = d.entries || [];
+  const risks = entries.filter(isRisk);
+  const scored = risks.filter(e => Array.isArray(e.p) && Array.isArray(e.impact)).length;
+  const board = entries.length - risks.length;
+  return [risks.length + ' risk' + (risks.length === 1 ? '' : 's'),
+    scored + ' EV-ranked',
+    board ? board + ' on the board' : ''];
 }
 /* The three faces onto one doc (a button group, aria-pressed). None mutate
    doc.phase — the register view just shows the register; the wizard keeps its
@@ -237,6 +251,7 @@ function toast(msg){
 
 /* ---------- boot ---------- */
 (function boot(){
+  paintKicker($('kicker'), '10', 'Failure named in advance');
   if(location.hash.length > 1){
     const imported = fromLink(location.hash);
     history.replaceState(null, '', location.pathname);

@@ -46,7 +46,9 @@ main{display:flex;flex-direction:column;gap:20px}
 .promoteform{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:8px}
 .pfhint{font-size:12px;color:var(--muted);margin:0}
 .pfbtns{display:flex;gap:8px;flex-wrap:wrap}
-.boardverdict{font-size:14px;margin:18px 0 0;max-width:70ch}
+/* the board's verdict is the shared 6b block (assets/page.css owns its type);
+   it closes the board, so it keeps the top margin and drops the bottom one */
+.board + .verdict-block{margin-bottom:0}
 
 /* generic inputs */
 .fl{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 0}

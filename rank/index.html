@@ -98,9 +98,9 @@
   .toolbar .note{font-size:12.5px;color:var(--muted)}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
   #results{display:none}
-  .verdict{font-size:16.5px;line-height:1.5;margin:0 0 4px;max-width:62ch}
-  .verdict .smear{background:var(--hl);padding:0 .14em;border-radius:0;
-    box-decoration-break:clone}
+  /* the verdict block itself is shared (assets/page.css .verdict-block); .odline is
+     the order-diff card's own readout line, a separate surface with no key figure */
+  .odline{font-size:16.5px;line-height:1.5;margin:0 0 4px;max-width:62ch}
   .subverdict{color:var(--muted);font-size:13.5px;margin:0 0 6px}
   .flipline{font-size:13.5px;margin:0 0 18px;color:var(--muted)}
   .flipline.fragile{color:var(--err);font-weight:600}
@@ -134,10 +134,10 @@
   }
   /* while a weight is being dragged the deterministic re-rank is live; the MC-derived readouts are stale → fade */
   #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
-  #results.pending .verdict, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
+  #results.pending .verdict-block, #results.pending .subverdict{opacity:.4;transition:opacity .18s}
   @media (prefers-reduced-motion: reduce){
     #results.pending .rankbar, #results.pending .ptop, #results.pending .flipline,
-    #results.pending .verdict, #results.pending .subverdict{transition:none}   /* dim instantly, no animated fade */
+    #results.pending .verdict-block, #results.pending .subverdict{transition:none}   /* dim instantly, no animated fade */
   }
   .rankbar{display:grid;gap:2px;height:20px}
   .rankbar .cell{background:var(--track);border-radius:0;position:relative}
@@ -201,6 +201,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Rank stability</h1>
     <p class="tagline">Weighted prioritisation scores are guesses wearing a suit. This runs your scoring thousands of times with the weights and scores wobbled, and tells you which ranks survive — and which are noise you shouldn't argue about.</p>
   </header>
@@ -232,11 +233,12 @@
   <section class="card">
     <p class="placeholder" id="ph">Add initiatives and scores above. The result isn't a ranking — it's how much of the ranking you can trust.</p>
     <div id="results">
+      <div class="metrics" id="metrics" hidden></div>
       <div class="khead">
         <h2>What survives the wobble</h2>
         <label class="kpick">Capacity: top <input id="kin" type="number" min="1" step="1" value="3" aria-label="Top-k capacity"> make the cut</label>
       </div>
-      <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <p class="subverdict" id="subverdict" aria-live="polite" aria-atomic="true"></p>
       <p class="flipline" id="flipline"></p>
       <div class="wstrip" id="wstrip" role="group" aria-label="Criterion weights — drag to re-rank the list below"></div>
@@ -248,7 +250,7 @@
         <span class="key"><span class="knifepill" style="display:inline-block">knife-edge</span> = this rank flips under a ±10% nudge of one weight — a stricter probe than the ±N% wobble above</span>
       </div>
       <div class="actions">
-        <button class="btn" id="copydoc">Copy for a doc</button>
+        <button class="btn primary" id="copydoc">Copy for a doc</button>
         <span class="method">Wobble: weights ±<input id="ww" type="number" min="0" max="200" step="10" value="50" aria-label="Weight wobble percent">% · scores ±<input id="sw" type="number" min="0" max="5" step="0.5" value="1" aria-label="Score wobble points"> pts · 4,000 simulations · deterministic</span>
       </div>
     </div>
@@ -261,7 +263,7 @@
       <textarea id="oda" spellcheck="false" placeholder="Order A — one initiative per line" aria-label="Order A"></textarea>
       <textarea id="odb" spellcheck="false" placeholder="Order B" aria-label="Order B"></textarea>
     </div>
-    <p class="verdict" id="odverdict" style="margin-top:14px" hidden></p>
+    <p class="odline" id="odverdict" style="margin-top:14px" hidden></p>
     <div id="odrows"></div>
   </section>
 

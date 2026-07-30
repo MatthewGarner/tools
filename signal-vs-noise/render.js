@@ -3,9 +3,14 @@
    byte-invariance). The COLLAPSE is the verdict artefact: all six on one shared
    band, acts ringed, the real signal walking out of the band, true-mean ticks. */
 import {esc, txt} from '../assets/svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 import {verdict} from './engine.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+/* the same stack with DOUBLE-quoted family names: assets/verdict.js emits
+   single-quoted attribute values, and a single quote inside one is not
+   well-formed XML (dev/svg-wellformed.test.mjs would catch it). */
+const SANS_ATTR = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 const f1 = n => (Math.round(n * 10) / 10).toString();
 
 /* map a value to y within a plot of height h (domain 0..hiDomain) */
@@ -98,7 +103,7 @@ export function renderCollapse(s, c, calls = [], {width} = {}){
   const narrow = w < 520;          // phone: pinned 356 layout, byte-identical to before
   const wide = w >= 900;           // desktop-wide: chart opens; prose stays capped
   const W = narrow ? 356 : Math.min(1090, Math.max(760, Math.round(w))), PAD = narrow ? 16 : 24;
-  const vFont = narrow ? 16 : wide ? 20 : 18, vLine = narrow ? 21 : wide ? 26 : 24;
+  const vFont = narrow ? 16 : wide ? 20 : 18;
   // headline (display type) is exempt from the body-prose measure — at wide it runs to
   // ~100ch so a ~90-char verdict sits on one line; narrow/non-wide keep today's widths.
   const vWrap = narrow ? 30 : wide ? 100 : 74;
@@ -110,10 +115,17 @@ export function renderCollapse(s, c, calls = [], {width} = {}){
   const v = verdict(s, calls);
   const parts = [];
   let y = 34;
-  parts.push(txt(PAD, y, 'THE VERDICT', 10, c.muted, {weight: 600, tracking: 1})); y += 26;
-  // wrap the verdict line
-  for(const line of wrap(v.line, vWrap)){ parts.push(txt(PAD, y, line, vFont, c.ink, {weight: 600})); y += vLine; }
-  y += 4;
+  /* Swiss 6b anatomy: VERDICT kicker + the display line with exactly one
+     brand-coloured figure (the conversations you opened). This artefact wraps by
+     CHARACTERS — its width comes from the container, never a text measurer, and
+     the goldens must stay deterministic — so the shared block is given the same
+     char-count metric the body prose below uses (measure = length, width =
+     vWrap chars). Height is returned, so the chart follows the wrap. */
+  const V = svgVerdict({x: PAD, y, width: vWrap, line: v.line, fig: v.fig,
+    ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink, font: SANS_ATTR,
+    measure: t => t.length, size: vFont});
+  parts.push(V.svg);
+  y += V.height + 4;
   for(const line of wrap('Every call you made, on one shared band. Rings = you opened a conversation. Only the sustained walk out of the band was real.',
     descWrap)){ parts.push(txt(PAD, y, line, descFont, c.muted)); y += 17; }
   y += 6;

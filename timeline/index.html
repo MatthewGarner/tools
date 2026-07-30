@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Timeline</h1>
     <p class="tagline">Every Gantt tool prints dates it can't defend. This one refuses to: milestones carry a P50–P90 range and render with uncertainty whiskers — and the snapshot compare turns "what moved since the last board pack" into one slide.</p>
   </header>
@@ -53,7 +54,6 @@
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-      <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
       <div class="actions">
         <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
@@ -61,7 +61,7 @@
         <button class="btn" id="dlposter">Poster</button>
         <button class="btn" id="copypng">Copy PNG</button>
         <button class="btn" id="copymd">Copy for doc</button>
-        <button class="btn" id="snap">Snapshot</button>
+        <button class="btn primary" id="snap">Snapshot</button>
         <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
         <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
         <span class="method">Snapshot before each board pack — compare renders the slip slide · the URL carries your timeline</span>

@@ -14,6 +14,7 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -422,6 +423,19 @@ function writeHashSafe(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeH
 
 /* ---------- render results ---------- */
 let resultsSig = '';   // output-unchanged gate: skip the DOM rebuild when nothing shown would differ (batch 7)
+/* the metrics row over the answer: the formula it came from, and the three
+   honest facts behind the distribution — how many variables carry a range, how
+   many seeded draws were run, and where the middle landed. */
+function formulaLabel(){
+  const f = ($('formula').value || '').trim();
+  return f || 'Untitled estimate';
+}
+function metricCounts(r, p50Text){
+  const v = r.varNames.length;
+  return [v + ' variable' + (v === 1 ? '' : 's'),
+    N.toLocaleString('en-GB') + ' runs', 'P50 ' + p50Text];
+}
+
 function renderResults(){
   const r = last;
   $('ph').style.display = 'none';
@@ -429,6 +443,9 @@ function renderResults(){
   $('results').classList.remove('is-stale');
 
   const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
+  /* outside the resultsSig gate: the formula label can change without moving a
+     percentile (a rename, a whitespace edit), and the row must not go stale */
+  paintMetrics($('metrics'), formulaLabel(), metricCounts(r, p50Text));
   const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +
     p10Text + ' to ' + p90Text + '.”';
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
@@ -468,7 +485,7 @@ function renderResults(){
   $('p10').textContent = p10Text;
   $('p50').textContent = p50Text;
   $('p90').textContent = p90Text;
-  $('say').textContent = sayText;
+  paintVerdict($('verdict'), sayText, p50Text);
   $('spread').textContent = spreadText;
   const w = $('warn');
   w.textContent = warnText;
@@ -1274,3 +1291,5 @@ if(boot && boot.m === 'cf'){
   }
   setMode('cf');
 }
+
+paintKicker($('kicker'), '11', 'A number built from its parts');

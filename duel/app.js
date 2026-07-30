@@ -1,9 +1,10 @@
 /* DOM shell: setup → duel loop → live readout. Engine + renderers are pure;
    this file owns the DOM, the duel log, hash state, tag/re-duel edits, keyboard. */
-import {nextPair, minDuels, budget, active, impliedOrder, settledness, loops, verdictCopy} from './engine.js';
+import {nextPair, minDuels, budget, active, impliedOrder, settledness, loops, verdictParts} from './engine.js';
 import {renderDuel, renderOrder, renderLoops, markdown} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {debounced} from '../assets/schedule.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const EXAMPLE = {q: 'Which should we build first?',
@@ -20,7 +21,7 @@ function render(){
   $('setupcard').hidden = started;
   $('duelcard').hidden = !started;
   $('readoutcard').hidden = !started;
-  if(!started){ curPair = null; return; }
+  if(!started){ curPair = null; paintVerdict($('verdict'), '', ''); paintMetrics($('metrics'), '', []); return; }
 
   curPair = state.finished ? null : nextPair(n(), state.duels);
   if(curPair){
@@ -40,7 +41,14 @@ function render(){
   const ls = loops(n(), state.duels);
   const settled = settledness(n(), state.duels);
   const remaining = Math.max(0, minDuels(n()) - active(state.duels).length);
-  $('verdict').textContent = verdictCopy(order, settled, ls, remaining);
+  const v = verdictParts(order, settled, ls, remaining);
+  paintVerdict($('verdict'), v.line, v.fig);
+  const done = active(state.duels).length;
+  paintMetrics($('metrics'), state.q, [
+    n() + ' contenders',
+    done + (done === 1 ? ' duel' : ' duels'),
+    remaining ? remaining + ' still owed' : 'nothing owed',
+  ]);
   $('orderwrap').innerHTML = renderOrder(state);
   $('loopcol').hidden = ls.length === 0;
   $('loopwrap').innerHTML = renderLoops(state);
@@ -162,6 +170,7 @@ ex.addEventListener('click', () => { $('question').value = EXAMPLE.q; $('items')
 $('examples').appendChild(ex);
 
 /* ---------- boot ---------- */
+paintKicker($('kicker'), '05', 'Order without scores');
 (function boot(){
   const h = readHashState();
   if(h && Array.isArray(h.items) && h.items.length >= 3 && Array.isArray(h.duels)){

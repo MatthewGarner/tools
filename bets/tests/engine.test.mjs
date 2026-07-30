@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {simulate, verdictCopy, markdown} from '../engine.js';
+import {simulate, verdictCopy, verdictParts, markdown} from '../engine.js';
 
 /* Fixture engineered so each audit arm is isolated (Fable review):
    - Near cert  odds 90-100 → certainty via lo≥90 (near-certain WIN)
@@ -78,6 +78,15 @@ test('verdict copy quotes P(loses money) as a percentage', () => {
   const v = verdictCopy(s.portfolio, {kill: 4, certainty: 2, loses: 1});
   assert.match(v, /\d+%/);
   assert.match(v, /los/i);
+});
+
+test('verdictParts names P(loses money) as the key figure, verbatim in the line', () => {
+  const s = simulate(model);
+  const {line, fig} = verdictParts(s.portfolio, {kill: 4, certainty: 2, loses: 1});
+  assert.match(fig, /^\d+%$/);
+  assert.ok(line.includes(fig), 'the figure must appear verbatim in the line');
+  assert.equal(line, verdictCopy(s.portfolio, {kill: 4, certainty: 2, loses: 1}),
+    'verdictCopy stays the plain line the markdown/poster exports consume');
 });
 
 test('markdown carries the honest table + audit counts', () => {

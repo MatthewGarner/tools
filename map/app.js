@@ -5,6 +5,7 @@ import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {paintKicker} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -135,12 +136,10 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No map yet — add an item, or a preset: line.'
       : 'Start typing — or load an example.') + '</p>';
-    $('verdict').textContent = '';
   } else {
     ro = readout(model, resolved);
     const svg = activeRender(false, true);
     paint(svg, REVEAL); lastSvg = svg;
-    $('verdict').textContent = ro.verdict;
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
@@ -261,6 +260,9 @@ function renderSaved(){
   });
   row.appendChild(save);
 }
+
+/* the instrument kicker — static, painted once (never in the refresh loop) */
+paintKicker($('kicker'), '06', 'Two axes, named zones');
 
 /* ---------- exports ---------- */
 function svgString(slide, bare = false){

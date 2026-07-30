@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {copeland, impliedOrder, loops, settledness, verdictCopy} from '../engine.js';
+import {copeland, impliedOrder, loops, settledness, verdictCopy, verdictParts} from '../engine.js';
 const d = (a, b, w) => ({a, b, w});
 
 test('copeland: wins minus losses', () => {
@@ -54,6 +54,25 @@ test('verdict copy names the loop', () => {
     impliedOrder(3, [d(0,1,0), d(1,2,1), d(2,0,2)]),
     null, loops(3, [d(0,1,0), d(1,2,1), d(2,0,2)]), 0);
   assert.match(v, /loop|criteria/i);
+});
+
+test('verdictParts: the key figure is the loop count, or the duels still owed', () => {
+  const ls = loops(3, [d(0,1,0), d(1,2,1), d(2,0,2)]);
+  const looped = verdictParts(impliedOrder(3, [d(0,1,0), d(1,2,1), d(2,0,2)]), null, ls, 0);
+  assert.equal(looped.fig, '1 loop');
+  assert.ok(looped.line.includes(looped.fig));
+
+  const prov = verdictParts(impliedOrder(4, [d(0,1,0)]), settledness(4, [d(0,1,0)]), [], 5);
+  assert.equal(prov.fig, '5 more duels');
+  assert.ok(prov.line.includes(prov.fig));
+
+  // no number to quote: an empty line-up, and a fully settled order
+  assert.equal(verdictParts([], null, [], 0).fig, '');
+  assert.equal(verdictParts(impliedOrder(3, [d(0,1,0), d(1,2,1), d(0,2,0)]),
+    ['settled', 'settled', 'settled'], [], 0).fig, '');
+
+  // verdictCopy stays the plain line
+  assert.equal(verdictCopy(impliedOrder(4, [d(0,1,0)]), settledness(4, [d(0,1,0)]), [], 5), prov.line);
 });
 
 /* ---- scheduler ---- */

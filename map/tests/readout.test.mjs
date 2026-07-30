@@ -75,3 +75,33 @@ test('markdown export: title, verdict, per-zone lists, unplaced, flags', () => {
   assert.ok(md.includes('**Unplaced** (1)'));
   assert.ok(md.includes('**Flags**'));
 });
+
+/* ---------- Swiss 6b: the verdict figure + the metrics counts ---------- */
+
+test('verdictFig is the load-bearing ratio, verbatim inside the verdict', () => {
+  const {ro} = run('preset: assumptions\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
+  assert.equal(ro.verdict, '2 of 3 assumptions sit in test first; 2 have no test designed.');
+  assert.equal(ro.verdictFig, '2 of 3');
+  assert.ok(ro.verdict.includes(ro.verdictFig));
+});
+
+test('an empty map names no figure (nothing to mark)', () => {
+  const {ro} = run('preset: assumptions\nOnly unplaced');
+  assert.equal(ro.verdictFig, '');
+});
+
+test('counts are the metrics row: placed of total, zones occupied, flagged', () => {
+  const {ro} = run('preset: assumptions\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
+  assert.deepEqual(ro.counts, ['3 of 4 placed', '2 zones occupied', '2 flagged']);
+});
+
+test('counts drop the flagged segment when nothing is flagged, and stay singular at one', () => {
+  const {ro} = run('preset: assumptions\nA @ 80,20 :: test: data pull');
+  assert.deepEqual(ro.counts, ['1 of 1 placed', '1 zone occupied', '']);
+});
+
+test('a custom (presetless) map still gets a figure', () => {
+  const {ro} = run('x: Value\ny: Effort\nzones: grid 2x2\nzone 2,2: Big bets\nA @ 80,80\nB @ 70,90');
+  assert.equal(ro.verdictFig, '2 of 2');
+  assert.ok(ro.verdict.includes('2 of 2'));
+});

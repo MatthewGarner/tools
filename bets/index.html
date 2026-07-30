@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Bet portfolio</h1>
     <p class="tagline">An initiative list hides its claims: everything on it reads as certain, nothing has a price for being wrong, and nothing ever dies. Write yours as explicit bets instead — stake, odds, payoff, and the line that kills it — and get a deck-ready board with the portfolio's real odds of losing money, plus the audits that shame the lines that can't say it straight.</p>
   </header>
@@ -57,8 +58,9 @@
         <button class="vtseg on" data-view="board" aria-pressed="true">Board</button>
         <button class="vtseg" data-view="quadrant" aria-pressed="false">Quadrant</button>
       </div>
+      <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-      <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
@@ -66,7 +68,7 @@
         <button class="btn" id="dlposter">Poster</button>
         <button class="btn" id="copypng">Copy PNG</button>
         <button class="btn" id="copymd">Copy for doc</button>
-        <button class="btn" id="snap">Snapshot</button>
+        <button class="btn primary" id="snap">Snapshot</button>
         <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
         <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
         <span class="method">4,000 seeded simulations · deterministic · snapshot, then compare to see what changed · the URL carries your portfolio</span>

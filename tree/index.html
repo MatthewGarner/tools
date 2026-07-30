@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Decision tree sketcher</h1>
     <p class="tagline">Write a decision as an indented tree — options, chances, payoffs, all as honest 90% ranges. Get the expected value, the recommended path, how often it actually wins, and exactly what would flip the decision.</p>
   </header>
@@ -53,6 +54,7 @@
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
+      <div class="metrics" id="metrics"></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <!-- B3: the priced-insistence walk. ONE persistent slider, created once, living
            OUTSIDE #preview (the refresh loop innerHTMLs that container) — hidden until a
@@ -71,12 +73,11 @@
         </div>
         <p class="explore-priced" id="explorePriced" aria-live="off"></p>
       </div>
-      <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
       <p class="seam" id="seam" hidden></p>
       <div class="actions">
         <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
-        <button class="btn" id="dlpng">Download PNG</button>
+        <button class="btn primary" id="dlpng">Download PNG</button>
         <button class="btn" id="dlslide">PNG (slide size)</button>
         <button class="btn" id="dlposter">Poster</button>
         <button class="btn" id="copypng">Copy PNG</button>

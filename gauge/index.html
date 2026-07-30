@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Gauge</h1>
     <p class="tagline">Once the pitch is on screen, every spoken estimate is anchored and dissent is a social act. Write the questions, share a link, everyone answers privately — probabilities and 90% ranges — then reveal the whole room's spread at once.</p>
   </header>
@@ -54,6 +55,7 @@
         <button id="viewform" role="tab" aria-selected="false">Form</button>
         <button id="viewreveal" class="on" role="tab" aria-selected="true">Sample reveal</button>
       </div>
+      <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <p class="headline" id="revealhead" aria-live="polite" aria-atomic="true"></p>
       <div class="actions">
@@ -101,6 +103,7 @@
     <span class="method" id="cstate"></span>
   </div>
   <p class="headline" id="chead" aria-live="polite" aria-atomic="true"></p>
+  <div class="metrics" id="cmetrics" hidden></div>
   <div id="coverlay"></div>
   <div class="actions" id="cround2wrap" hidden>
     <button class="btn primary" id="cround2">Open a second round (Delphi)</button>

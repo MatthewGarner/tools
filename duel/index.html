@@ -25,6 +25,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Pairwise showdown</h1>
     <p class="tagline">Stop scoring things you don't believe to one decimal place. Pick a winner between two at a time; the order falls out — and where it can't, the loop tells you two people are ranking on different criteria.</p>
   </header>
@@ -51,7 +52,8 @@
   </div>
 
   <div class="card" id="readoutcard" hidden>
-    <p class="verdict" id="verdict" aria-live="polite" aria-atomic="true"></p>
+    <div class="metrics" id="metrics" hidden></div>
+    <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
     <div class="readcols">
       <div class="readcol"><h2>The order</h2><div id="orderwrap"></div></div>
       <div class="readcol" id="loopcol" hidden><h2>No clean order</h2><div id="loopwrap"></div></div>

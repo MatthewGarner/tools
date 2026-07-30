@@ -5,6 +5,7 @@
    cost?" — the promoted entry lands kind:'risk' in the register. Every user
    string through esc(); risks are NOT shown here (they live in the register). */
 import {esc} from '../assets/svg.js';
+import {markFigure} from '../assets/verdict.js';
 
 const COLS = [
   ['fact', 'Facts', 'What we actually know — verified, not hoped'],
@@ -27,8 +28,19 @@ export function renderBoard(doc, now = new Date(), promotingId = null){
         'placeholder="Add ' + article(kind) + ' ' + kind + ' — press Enter" aria-label="Add ' + article(kind) + ' ' + kind + '">' +
       '</section>';
   }).join('');
-  return '<div class="board">' + cols + '</div>' +
-    '<p class="boardverdict">' + verdict(entries) + '</p>';
+  return '<div class="board">' + cols + '</div>' + verdictBlock(boardVerdict(entries));
+}
+
+/* The Swiss 6b verdict anatomy, emitted by the string builder rather than painted
+   by the app: the board is one innerHTML swap, so keeping the verdict inside it
+   keeps the surface a single write. Same markup shape assets/verdict.js's
+   paintVerdict produces, and the same markFigure split, so the two can't drift. */
+function verdictBlock({line, fig}){
+  if(!line) return '';
+  const runs = markFigure(line, fig).map(r =>
+    r.fig ? '<span class="fig">' + esc(r.t) + '</span>' : esc(r.t)).join('');
+  return '<div class="verdict-block"><div class="vkick">Verdict</div>' +
+    '<p class="vline">' + runs + '</p></div>';
 }
 
 function card(e, kind, promoting){
@@ -64,11 +76,21 @@ function card(e, kind, promoting){
     '</div>';
 }
 
-function verdict(entries){
-  const shaky = entries.filter(e => e.kind === 'assumption' || e.kind === 'belief').length;
-  const facts = entries.filter(e => e.kind === 'fact').length;
-  if(!shaky && !facts) return 'Empty board. Capture what you know, what you\'re assuming, and what you merely believe — then promote the shaky ones that would hurt if wrong.';
-  if(!shaky) return facts + ' fact' + (facts === 1 ? '' : 's') + ' and nothing taken on faith — either this plan is unusually certain, or the assumptions are still hiding.';
-  return shaky + ' assumption' + (shaky === 1 ? '' : 's') + ' &amp; belief' + (shaky === 1 ? '' : 's') +
-    ' on the board — the ones that would hurt if wrong belong in the register. Promote them.';
+/* The board's one quotable line + the load-bearing run inside it (which always
+   appears verbatim in `line`). Plain text — the caller escapes. */
+export function boardVerdict(entries){
+  const list = entries || [];
+  const shaky = list.filter(e => e.kind === 'assumption' || e.kind === 'belief').length;
+  const facts = list.filter(e => e.kind === 'fact').length;
+  if(!shaky && !facts) return {
+    line: 'Empty board. Capture what you know, what you\'re assuming, and what you merely believe — then promote the shaky ones that would hurt if wrong.',
+    fig: 'Empty board'};
+  if(!shaky) return {
+    line: facts + ' fact' + (facts === 1 ? '' : 's') +
+      ' and nothing taken on faith — either this plan is unusually certain, or the assumptions are still hiding.',
+    fig: String(facts)};
+  return {
+    line: shaky + ' assumption' + (shaky === 1 ? '' : 's') + ' & belief' + (shaky === 1 ? '' : 's') +
+      ' on the board — the ones that would hurt if wrong belong in the register. Promote them.',
+    fig: String(shaky)};
 }

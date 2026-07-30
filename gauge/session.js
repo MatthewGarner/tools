@@ -1,28 +1,46 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
-import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdict, delphiVerdict} from './engine.js';
+import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdictOf, delphiVerdictOf} from './engine.js';
 import {fermiHandoff} from './handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {onThemeChange} from '../assets/app-common.js';
+import {paintMetrics} from '../assets/verdict.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
+
 /* headEl carries the quotable headline as real HTML text, mirrored from the
    same string the SVG draws — a screen reader gets it via aria-live, sighted
-   users get it too (never SVG-only). */
-const showOverlay = (el, headEl, model, responses, ctx) => {
+   users get it too (never SVG-only). It stays a plain supporting line on BOTH
+   session surfaces: gauge's verdict is drawn inside the exported artefact
+   (render-overlay's svgVerdict block), and the contract is ONE display verdict
+   per page — an HTML .verdict-block here would be the same finding twice. */
+const setHead = (el, v) => { if(el) el.textContent = v.line; };
+/* Honest console counts: the responses actually in (the same max the overlay
+   header prints), the questions asked, and which round is on screen. */
+const consoleCounts = (model, stats, delphi) => {
+  const n = Math.max(0, ...stats.map(s => s.n));
+  const q = model.questions.length;
+  return [n + ' estimate' + (n === 1 ? '' : 's') + ' in',
+    q + ' question' + (q === 1 ? '' : 's'),
+    delphi ? 'Delphi round 2' : ''];
+};
+const showOverlay = (el, headEl, model, responses, ctx, metEl) => {
   const stats = sessionStats(model, responses);
   el.innerHTML = renderOverlay(model, stats, ctx(), {width: narrowWidth(el)});
-  if(headEl) headEl.textContent = verdict(stats);
+  setHead(headEl, verdictOf(stats));
+  if(metEl) paintMetrics(metEl, model.title || 'Gauge session', consoleCounts(model, stats, false));
 };
 /* width only on screen (narrowWidth of the host element) — export paths omit it */
 const delphiSvg = (model, r1, r2, ctx, width) =>
   renderOverlay(model, sessionStats(model, mergeFinal(r1, r2)), ctx(),
     {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1), width});
-const setDelphiHead = (headEl, model, r1, r2) => {
-  if(headEl) headEl.textContent = delphiVerdict(delphiStats(model, r1, r2));
+const setDelphiHead = (headEl, model, r1, r2, metEl) => {
+  setHead(headEl, delphiVerdictOf(delphiStats(model, r1, r2)));
+  if(metEl) paintMetrics(metEl, model.title || 'Gauge session',
+    consoleCounts(model, sessionStats(model, mergeFinal(r1, r2)), true));
 };
 const delphiMd = (model, r1, r2) =>
   markdownSummary(model, sessionStats(model, mergeFinal(r1, r2)), delphiStats(model, r1, r2));
@@ -64,7 +82,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('creveal').textContent = 'Revealed — responses locked';
     $('cstate').textContent = '';
     $('cquestions').hidden = true;
-    showOverlay($('coverlay'), $('chead'), model, responses, ctx);
+    showOverlay($('coverlay'), $('chead'), model, responses, ctx, $('cmetrics'));
     $('cexports').hidden = false;
     $('cround2wrap').hidden = false;
     refreshHandoff();
@@ -78,7 +96,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     $('cstate').textContent = '';
     $('cquestions').hidden = true;
     $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay')));
-    setDelphiHead($('chead'), model, responses, responses2);
+    setDelphiHead($('chead'), model, responses, responses2, $('cmetrics'));
     refreshHandoff();
   }
 
@@ -99,7 +117,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
         /* console reloaded mid-round-2: restore state from the relay */
         round = 2;
         responses = r.data.responses || responses;
-        if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx);
+        if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx, $('cmetrics'));
         $('cexports').hidden = false;
         $('cround2wrap').hidden = true;
         $('cquestions').hidden = false;
@@ -225,7 +243,7 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
 
   const repaint = () => {
     if(responses2) $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay')));
-    else if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx);
+    else if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx, $('cmetrics'));
   };
   onThemeChange(repaint);
   watchNarrowBucket($('coverlay'), repaint);   // phone rotation / resize re-lays-out

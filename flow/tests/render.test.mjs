@@ -1,11 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {simulate, wipSweep, kneeWip} from '../engine.js';
-import {renderReadout, markdownSummary, readoutVerdict} from '../render.js';
+import {renderReadout, markdownSummary, readoutVerdict, readoutVerdictParts} from '../render.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
-    bg: '#f7f8f6', err: '#b33', track: '#edf0ee'},
+    bg: '#f7f8f6', err: '#b33', track: '#edf0ee', brandText: '#D62015'},
   measure: t => t.length * 7,
 };
 const healthy = {demandPerWeek: 3, itemDays: 4, team: 4, wipLimit: 4, cov: 0.5};
@@ -79,4 +79,41 @@ test('svg is a single self-contained element', () => {
   const svg = renderReadout(result, sweep, knee, healthy, ctx);
   assert.ok(svg.startsWith('<svg'));
   assert.ok(svg.endsWith('</svg>'));
+});
+
+/* ---- Swiss 6b: the display verdict + its one key figure ---- */
+
+test('readoutVerdictParts: the figure is the average calendar time, and it opens the plain mirror', () => {
+  const {result} = rig(healthy);
+  const {line, fig} = readoutVerdictParts(result);
+  assert.match(fig, /^[\d.]+ days?$/, 'figure is the lead-time mean, got ' + fig);
+  assert.ok(line.startsWith('The average item takes ' + fig + ' —'));
+  assert.equal(line.indexOf(fig), line.lastIndexOf(fig), 'the figure appears exactly once in the line');
+  assert.ok(readoutVerdict(result).startsWith(line), 'the plain mirror opens with the same sentence');
+});
+
+test('6b: the readout draws a VERDICT kicker and exactly one brand-coloured run', () => {
+  const {result, sweep, knee} = rig(healthy);
+  const svg = renderReadout(result, sweep, knee, healthy, ctx);
+  assert.ok(svg.includes('VERDICT'), 'literal uppercase kicker (no CSS transform in an export)');
+  assert.equal((svg.match(/fill="#D62015"/g) || []).length, 1);
+  assert.ok(svg.includes('>' + readoutVerdictParts(result).fig + '</tspan>'), 'the brand run IS the figure');
+});
+
+test('6b: red discipline — "waiting" is inked, not status-red (err stays for the overload warning)', () => {
+  const h = rig(healthy), o = rig(overloaded);
+  // the verdict region = everything above the histogram label
+  const head = svg => svg.slice(0, svg.indexOf('LEAD TIME'));
+  assert.ok(!head(renderReadout(h.result, h.sweep, h.knee, healthy, ctx)).includes('#b33'),
+    'the healthy verdict block carries no status red — the display line is uniform ink');
+  assert.ok(head(renderReadout(o.result, o.sweep, o.knee, overloaded, ctx)).includes('#b33'),
+    'the overload warning still speaks in err');
+});
+
+test('6b: the verdict block is content-driven — a wrapped headline pushes the artefact taller', () => {
+  const {result, sweep, knee} = rig(healthy);
+  const narrowMeasure = {...ctx, measure: t => t.length * 26};   // force the headline to wrap
+  const tall = renderReadout(result, sweep, knee, healthy, narrowMeasure);
+  const hOf = svg => Number(/<svg[^>]*\bheight="(\d+)"/.exec(svg)[1]);
+  assert.ok(hOf(tall) > hOf(renderReadout(result, sweep, knee, healthy, ctx)));
 });

@@ -1,18 +1,20 @@
 /* DOM shell: sliders → sim → readout + canvas strip. Engine and readout are pure. */
 import {simulate, wipSweep, kneeWip, leverTriage, WEEK} from './engine.js';
 import {batchEconomics} from './economics.js';
-import {renderReadout, renderBatch, renderTriage, readoutVerdict, markdownSummary} from './render.js';
+import {renderReadout, renderBatch, renderTriage, markdownSummary} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../assets/schedule.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const NO_LIMIT = 40;                       // the slider's top position (21) means "no limit"
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const readoutPaint = mountMotion($('verdictwrap'));   // reveal: the wait-time curve draws on first load
+paintKicker($('kicker'), '14', 'Queues, not effort');
 
 const PRESETS = {
   overloaded: {demand: 6, size: 4, team: 4, wip: 12, v: 'high'},
@@ -75,7 +77,14 @@ function doRefresh(){
   const ctx = {colors: themeColors(), measure};
   const svg = renderReadout(result, lastSweep, lastKnee, p, ctx);
   readoutPaint(svg, REVEAL); lastSvg = svg;   // curve draws on first load; later renders just swap
-  $('verdict').textContent = readoutVerdict(result);
+  /* Swiss 6b: the VERDICT lives inside the readout SVG (one per page); the page
+     carries the kicker + this metrics row, painted from the same params/result
+     the artefact renders from, on the existing debounced/rAF refresh. */
+  paintMetrics($('metrics'), 'Flow check', [
+    'Demand ' + p.demandPerWeek + '/week',
+    p.wipLimit >= NO_LIMIT ? 'No WIP limit' : 'WIP limit ' + p.wipLimit,
+    'Team busy ' + Math.round(result.utilisation * 100) + '%',
+  ]);
 
   lastEcon = batchEconomics(econParams());
   const batchSvg = renderBatch(lastEcon, econParams(), ctx);

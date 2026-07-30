@@ -3,6 +3,7 @@ import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy,
 import {readHashState, writeHashState} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -15,6 +16,9 @@ const state = {
   sw: 1,               // score wobble: ± points
 };
 let lastResult = null;
+/* the verdict as PLAIN prose — the doc export quotes it, and must never inherit
+   the display block's kicker or its marked-up figure */
+let verdictText = '';
 // True while a weight SLIDER is being dragged (pointer down). The live path (liveReweight,
 // deterministic FLIP) runs on every input; the full MC resim — which rewrites the verdict
 // lines that now sit ABOVE the phone strip — is deferred to release so the control and rows
@@ -196,6 +200,9 @@ function renderResults(){
   if(!R){
     $('ph').style.display = 'block';
     $('results').style.display = 'none';
+    verdictText = '';
+    paintVerdict($('verdict'), '', '');
+    paintMetrics($('metrics'), '', []);
     return;
   }
   $('ph').style.display = 'none';
@@ -203,16 +210,19 @@ function renderResults(){
   $('results').classList.remove('pending');   // fresh MC — the readouts are current again
   const {stats, baseOrder, n, k} = R;
 
-  const {headline, body, contested} = verdictCopy(stats, k);
-  const v = $('verdict');
-  v.textContent = '';
-  const strong = document.createElement('span');
-  strong.className = 'smear';
-  strong.textContent = headline;
-  v.append(strong, document.createTextNode(body));
-  $('subverdict').textContent = contested.length
-    ? 'Contested for the cut: ' + contested.map(s => s.name + ' (' + pctStr(s.ptop) + ')').join(' · ')
-    : '';
+  const {headline, body, contested, fig} = verdictCopy(stats, k);
+  verdictText = headline + body;
+  paintVerdict($('verdict'), headline, fig);
+  /* the display line is the headline alone; the reasoning and the tie list are
+     supporting text, muted, below the block */
+  $('subverdict').textContent = body.trim() + (contested.length
+    ? ' Contested for the cut: ' + contested.map(s => s.name + ' (' + pctStr(s.ptop) + ')').join(' · ')
+    : '');
+  paintMetrics($('metrics'), '', [
+    stats.length + (stats.length === 1 ? ' initiative' : ' initiatives'),
+    state.criteria.length + (state.criteria.length === 1 ? ' benefit criterion' : ' benefit criteria'),
+    'top ' + k + ' capacity',
+  ]);
 
   const fc = flipCopy(flipAnalysis(state), state.ww);
   const fl = $('flipline');
@@ -274,7 +284,7 @@ $('copydoc').addEventListener('click', async () => {
       (s.p10+1) + '–' + (s.p90+1) + ' | ' + pctStr(s.ptop) + ' |');
   });
   lines.push('');
-  lines.push($('verdict').textContent);
+  lines.push(verdictText);
   const flipText = $('flipline').textContent;
   if(flipText){ lines.push(''); lines.push(flipText); }
   lines.push('');
@@ -475,6 +485,7 @@ else {
   state.k = ex.k;
   $('kin').value = ex.k;
 }
+paintKicker($('kicker'), '04', 'Ranking that survives its own uncertainty');
 renderHead();
 renderRows();
 compute();

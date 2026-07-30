@@ -5,12 +5,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, timelineReadout} from '../render.js';
+import {render, timelineReadout, timelineVerdict} from '../render.js';
 
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
     accent: '#0088cc', bg: '#f7f8f6', err: '#b3403a',
-    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'}},
+    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'},
+    brand: '#E2231A', brandText: '#D62015'},
   measure: t => t.length * 7,
   today: parseDate('2026-07-06'),
 };
@@ -149,7 +150,28 @@ test('narrow: [fixed] and [done] lay out identically — the ±? predicate agree
   const label = 'Ofgem determination on capacity market rules';
   const svg = st => render(parse(label + ' 2026-09-01 [' + st + ']'), {...ctx, width: W});
   const norm = s => s.split(ctx.colors.status.done).join('§').split(ctx.colors.ink).join('§');
-  assert.equal(norm(svg('fixed')), norm(svg('done')));
+  /* the VERDICT block legitimately differs — a [done] milestone is landed, so it is
+     never "next up" — and its advance rides the root <svg> height. This test is about
+     the BOARD, so compare the board markup only: everything between the root tag and
+     the verdict block (the sole font-family-bearing text in the narrow board). */
+  const board = s => norm(s)
+    .replace(/^<svg[^>]*><rect width="\d+" height="\d+" fill="[^"]*"\/>/, '')   // both carry the height
+    .split(' font-family="')[0].replace(/<text x="[\d.]+" y="[\d.]+"$/, '').replace(/<\/svg>$/, '');
+  assert.equal(board(svg('fixed')), board(svg('done')));
+});
+
+/* Swiss 6b: the page carries no HTML verdict, so the narrow artefact carries the
+   one — same anatomy, re-wrapped at 17px. Exports never take this path. */
+test('narrow: the verdict re-wraps at 17px and keeps its single brand figure', () => {
+  const svg = render(parse(DOC), {...ctx, width: W});
+  assert.match(svg, /data-narrow=""/);
+  assert.match(svg, />VERDICT</);
+  assert.match(svg, /font-size="17" font-weight="700"/);
+  assert.equal((svg.match(/#D62015/g) || []).length, 1);
+  const v = timelineVerdict(parse(DOC), ctx.today);
+  assert.ok(v.fig && v.line.includes(v.fig));
+  // the wide export is pinned to the 24px artefact, whatever the preview did
+  assert.match(render(parse(DOC), ctx), /font-size="24" font-weight="700"/);
 });
 
 test('narrow: [risk] carries the RISK pill too', () => {

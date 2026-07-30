@@ -6,15 +6,22 @@ import {PALETTES, scheme} from '../assets/series.js';
 import {esc, txt, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 import {fmtDay, STATUSES, isPointDate} from './parse.js';
 import {mergeBias, laneVsDeadline} from './mergebias.js';
+import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   serif: "'Helvetica Neue', Helvetica, 'Segoe UI', Roboto, sans-serif",   // Swiss 3d: display role
+  /* the same two stacks with DOUBLE quotes, for assets/verdict.js: svgMetrics and
+     svgVerdict emit SINGLE-quoted attribute values, so a single-quoted font stack
+     would close the attribute mid-way. Same fonts, other quoting; XML-legal both ways. */
+  bodyDq: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  serifDq: '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif',
 };
 const T = {
   pad: 26, laneW: 150, plotW: 1240, rowH: 32, laneGap: 11, lanePadY: 8,
   titleSize: 22, titleY: 36, headerH: 56, headerHNoTitle: 20, dateSize: 11,
-  tickH: 26, msR: 6, labelSize: 12.5, noteSize: 11.5, readoutSize: 15,
+  tickH: 26, msR: 6, labelSize: 12.5, noteSize: 11.5,
+  verdictSize: 24, verdictSizeNarrow: 17,   // Swiss 6b display line; narrow re-wraps, exports never do
   slideScale: 1.35, sinceSize: 12, droppedSize: 11,
   addZoneW: 34, addZoneH: 44,   // per-lane ghost "＋" zone + its invisible hit rect (≥44px tap target)
 };
@@ -135,29 +142,37 @@ export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFo
 
 /* plain-text mirror of the SVG's "one quotable line" readout — the HTML text
    app.js shows next to the diagram. Pure; same inputs render() itself uses. */
-/* the "Next up / Widest whisker" operational bits (the pre-merge readout) */
-function restBits(model, today){
+/* the "Next up / Widest whisker" operational bits (the pre-merge readout).
+   Each part carries its OWN load-bearing figure, so whichever part ends up
+   leading the verdict can name it without the renderer re-deriving it. */
+function restParts(model, today){
   const items = model.items;
   const upcoming = items.filter(i => i.status !== 'done' && i.p50 >= today).sort((a, b) => a.p50 - b.p50)[0];
   const ranged = items.filter(i => !i.single);
   const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
-  const bits = [];
+  const parts = [];
   /* one ranged lane + a deadline: mergeBias stays silent (there is no MERGE), but
      the question is well posed and the answer is already computed. */
   const lvd = laneVsDeadline(model, today);
-  if(lvd) bits.push(lvd.name + ' clears the fixed ' + lvd.deadline.label +
-    ' (' + fmtDay(lvd.deadline.day) + ') ' + approx(pc(lvd.p)) + ' — one lane, a planning estimate.');
+  if(lvd) parts.push({text: lvd.name + ' clears the fixed ' + lvd.deadline.label +
+    ' (' + fmtDay(lvd.deadline.day) + ') ' + approx(pc(lvd.p)) + ' — one lane, a planning estimate.',
+    fig: pc(lvd.p)});
   if(upcoming){
     const sameMonth = fmtDay(upcoming.p50, {month: true}) === fmtDay(upcoming.p90, {month: true});
     const g = {month: !sameMonth};
-    bits.push('Next up: ' + upcoming.label + ' — ' + (upcoming.status === 'fixed'
+    parts.push({text: 'Next up: ' + upcoming.label + ' — ' + (upcoming.status === 'fixed'
       ? 'fixed ' + fmtDay(upcoming.p50, g)              // no distribution: "P50" would be a lie
       : 'P50 ' + fmtDay(upcoming.p50, g) +
-        (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g))) + '.');
+        (upcoming.single ? '' : ', could slip to ' + fmtDay(upcoming.p90, g))) + '.',
+      fig: fmtDay(upcoming.p50, g)});
   }
   if(widest && (widest.p90 - widest.p50) >= 7)
-    bits.push('Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) + ' between P50 and P90.');
-  return bits.join('  ');
+    parts.push({text: 'Widest whisker: ' + widest.label + ' — ' + wk(widest.p90 - widest.p50) +
+      ' between P50 and P90.', fig: wk(widest.p90 - widest.p50)});
+  return parts;
+}
+function restBits(model, today){
+  return restParts(model, today).map(p => p.text).join('  ');
 }
 
 /* A probability model never prints a bare 0% or 100%. Both bounds are REACHABLE
@@ -206,12 +221,13 @@ function mergeCopy(mb){
       ' ranged lanes clear it together ' + pStr + ' — ' + conf +
       '. A planning estimate: correlated lanes beat it, fat late tails undercut it.' +
       tail + staleTail + multi;
-    // short is the in-chart form: ONE non-wrapping <text>, so a long label is clipped
-    const clip = d.label.length > 30 ? d.label.slice(0, 30).trimEnd() + '\u2026' : d.label;
+    /* short is the in-chart form. It used to clip the label at 30 chars because the
+       row was ONE non-wrapping <text>; the Swiss 6b verdict block wraps, so the whole
+       label survives \u2014 "Ofgem determination on capacit\u2026" at 24px was the worse bug. */
     const shortConf = gap > 0 ? '80% needs ' + fmtDay(mb.d80) + ' (' + span(gap) + ' past it)'
       : gap < 0 ? '80% lands ' + fmtDay(mb.d80) + ' (' + span(gap) + ' inside it)'
       : '80% lands on the deadline day';
-    const short = 'Fixed: ' + clip + ' ' + fmtDay(d.day) + ' — ' + mb.rangedLanes +
+    const short = 'Fixed: ' + d.label + ' ' + fmtDay(d.day) + ' — ' + mb.rangedLanes +
       ' ranged lanes clear it ' + pStr + '; ' + shortConf + '.';
     return {full, short};
   }
@@ -235,6 +251,20 @@ function mergeCopy(mb){
 export function timelineReadout(model, today){
   const mb = mergeBias(model, today);
   return [mb ? mergeCopy(mb).full : null, restBits(model, today)].filter(Boolean).join('  ');
+}
+
+/* The Swiss 6b verdict contract: the ONE display line the artefact leads with,
+   the single load-bearing figure inside it (verbatim, so markFigure can split on
+   it), and the operational remainder as a muted supporting line. Merge risk leads
+   when there is a merge to compute; otherwise the first operational bit does.
+   Pure — both the wide board and the narrow relayout render from this. */
+export function timelineVerdict(model, today){
+  const mb = mergeBias(model, today);
+  const parts = restParts(model, today);
+  const rest = parts.map(p => p.text).join('  ');
+  if(mb) return {line: mergeCopy(mb).short, fig: pc(mb.pAll), rest};
+  if(!parts.length) return {line: '', fig: '', rest: ''};
+  return {line: parts[0].text, fig: parts[0].fig, rest: parts.slice(1).map(p => p.text).join('  ')};
 }
 
 /* the poster hero: the merge sentence alone when present (else the operational readout) */
@@ -469,8 +499,26 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
     if(edit) s.push('</g>');
   }
 
-  /* dropped list (compare) at the foot */
+  /* the verdict rides the phone artefact too — the page carries no HTML verdict,
+     so this IS the one. Same anatomy, re-wrapped at 17px; exports never take this
+     path (they never set ctx.width), so they stay pinned to the 24px board. */
   let dy = contentBottom;
+  const vd = timelineVerdict(model, today);
+  if(vd.line){
+    const vb = svgVerdict({x: PAD, y: dy + 22, width: W - PAD * 2, line: vd.line, fig: vd.fig,
+      ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: F.serifDq,
+      measure, size: T.verdictSizeNarrow, scale: 1});
+    s.push(vb.svg);
+    dy += 22 + vb.height;
+    if(vd.rest){
+      for(const ln of wrapText(vd.rest, noteFont, W - PAD * 2, measure)){
+        s.push(txt(PAD, dy, ln, 10.5, C.muted));
+        dy += 14;
+      }
+    }
+  }
+
+  /* dropped list (compare) at the foot */
   if(diff && diff.dropped.length){
     dy += 14;
     s.push(txt(PAD, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), 10, C.muted, {weight: 600, tracking: 1}));
@@ -497,16 +545,9 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const NARROW = 520;
   if(ctx.width && ctx.width < NARROW && items.length) return renderNarrow(model, ctx, C, today, diff, edit);
 
-  /* readout rows computed up front (H depends on the count): the merge-bias
-     short line leads when applicable, then the operational bits. Non-merge
-     models keep exactly one row ⇒ byte-identical to before. */
-  const mb = mergeBias(model, today);
-  const rowH = 22 * S;
-  const readoutRows = [];
-  { const rest = restBits(model, today);
-    if(mb) readoutRows.push(mergeCopy(mb).short);
-    if(rest) readoutRows.push(rest); }
-  const readoutExtra = Math.max(0, readoutRows.length - 1) * rowH;
+  /* the verdict block (Swiss 6b): one display line carrying one brand figure,
+     with the operational bits as a muted line beneath. Its advance drives H. */
+  const vd = timelineVerdict(model, today);
 
   /* time domain: everything visible, today included */
   const lo0 = items.length ? Math.min(...items.map(i => i.p50), today) : today - 30;
@@ -567,9 +608,17 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   }
   const plotBottom = model.lanes.length ? laneY - T.laneGap * S : laneY + T.rowH * S;
   const readoutY = plotBottom + 26 * S;
+  /* the verdict is measured BEFORE H so the artefact's height follows its real
+     advance — a wrapped merge sentence must not leave dead space or clip. */
+  const vBlock = bare ? {svg: '', height: 0} : svgVerdict({
+    x: T.pad * S, y: readoutY, width: (T.laneW + T.plotW) * S,
+    line: vd.line, fig: vd.fig, ink: C.ink, muted: C.muted,
+    brandText: C.brandText || C.ink, font: F.serifDq, measure,
+    size: T.verdictSize, scale: S});
+  const readoutH = vBlock.height + (vd.rest && vBlock.height ? 8 * S : 0);
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15) * S : 0;
   const W = Math.round(plotX + plotW + T.pad * S);
-  const H = Math.round((bare ? plotBottom : readoutY + 24 * S + readoutExtra) + droppedH + T.pad * S);
+  const H = Math.round((bare ? plotBottom : readoutY + readoutH) + droppedH + T.pad * S);
 
   const s = [];
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
@@ -586,10 +635,11 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     const named = model.lanes.filter(l => l).length;
     const wLo = fmtDay(Math.min(...items.map(i => i.p50)), {month: true});
     const wHi = fmtDay(Math.max(...items.map(i => i.p90)), {month: true});
-    const metrics = items.length + ' milestone' + (items.length === 1 ? '' : 's') +
-      (named ? ' · ' + named + ' lane' + (named === 1 ? '' : 's') : '') +
-      ' · ' + (wLo === wHi ? wLo : wLo + ' – ' + wHi);
-    s.push(txt(T.pad * S, (T.titleY + 17) * S, metrics, 11 * S, C.muted));
+    s.push(svgMetrics({x: T.pad * S, y: (T.titleY + 17) * S, model: '',   /* the title line above owns the name */
+      counts: [items.length + ' milestone' + (items.length === 1 ? '' : 's'),
+        named ? named + ' lane' + (named === 1 ? '' : 's') : '',
+        wLo === wHi ? wLo : wLo + ' – ' + wHi],
+      ink: C.ink, muted: C.muted, font: F.bodyDq, scale: S}));
   }
   if(diff){
     s.push(txt(T.pad * S, (hasTitle ? T.titleY + 36 : 14) * S, diff.sinceLine, T.sinceSize * S,
@@ -735,22 +785,20 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     }
   }
 
-  /* readout: the merge line (when applicable) then the operational bits, one
-     <text> per row so the long merge sentence never clips the SVG width */
+  /* readout: the VERDICT block (kicker + wrapped display line, one brand figure)
+     then the operational bits as one muted supporting line */
   if(edit){
     s.push('<text data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add milestone"' +
       ' x="' + (W - T.pad * S) + '" y="' + readoutY + '" text-anchor="end" font-size="' +
       (T.labelSize * S) + '" fill="' + C.muted + '">＋ Add milestone</text>');
   }
   if(!bare){
-    readoutRows.forEach((row, i) => {
-      s.push('<text x="' + T.pad * S + '" y="' + (readoutY + i * rowH) + '" font-family="' + F.serif +
-        '" font-size="' + T.readoutSize * S + '" font-weight="600" fill="' + C.ink + '">' +
-        esc(row) + '</text>');
-    });
+    s.push(vBlock.svg);
+    if(vd.rest && vBlock.height)
+      s.push(txt(T.pad * S, readoutY + vBlock.height, vd.rest, T.noteSize * S, C.muted));
   }
   if(diff && diff.dropped.length){
-    let dy = readoutY + 22 * S + readoutExtra;
+    let dy = readoutY + readoutH + 12 * S;
     s.push(txt(T.pad * S, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), T.droppedSize * S - 1, C.muted,
       {weight: 600, tracking: 1}));
     for(const label of diff.dropped){

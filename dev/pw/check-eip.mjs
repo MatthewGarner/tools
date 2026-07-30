@@ -42,7 +42,7 @@ const after = await page.evaluate(() => localStorage.getItem('tree-src'));
 check('editor text updated', after.includes('(p=0.5)') && !after.includes('(p=rest)'));
 const svg = await page.locator('#preview svg').innerHTML();
 check('recommendation recomputes (Submit bid still leads on these numbers)',
-  svg.includes('RECOMMENDED') && /RECOMMENDED[\s\S]{0,200}Submit bid/.test(svg));
+  svg.includes('VERDICT') && /VERDICT[\s\S]{0,400}Choose Submit bid/.test(svg));
 check('one undo reverts the edit', await (async () => {
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+z');

@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Why</h1>
     <p class="tagline">Your roadmap and your opportunity solution tree disagree because they're maintained separately. Write one tree — outcomes, opportunities, solutions, assumptions — and project it two ways: the OST for discovery, the roadmap for delivery. Same file, so they can't drift.</p>
   </header>
@@ -56,14 +57,16 @@
         <button id="viewost" class="on" role="tab" aria-selected="true">OST</button>
         <button id="viewmap" role="tab" aria-selected="false">Roadmap</button>
       </div>
+      <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
         <button class="btn" id="dlpng">Download PNG</button>
         <button class="btn" id="dlslide">PNG (slide size)</button>
         <button class="btn" id="copypng">Copy PNG</button>
-        <button class="btn" id="snap">Snapshot</button>
+        <button class="btn primary" id="snap">Snapshot</button>
         <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
         <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
         <span class="method">Snapshot before each discovery review — compare renders the "what changed" narrative on the OST · the URL carries your tree and view</span>

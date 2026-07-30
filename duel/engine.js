@@ -140,17 +140,28 @@ export function nextPair(n, duels, {force = false} = {}){
   return best;
 }
 
-/* one quotable verdict line. `settled` is the settledness() array (or null). */
-export function verdictCopy(order, settled, loopsFound, remainingBudget){
-  if(loopsFound && loopsFound.length)
-    return 'No clean order — ' + loopsFound.length + ' loop' + (loopsFound.length === 1 ? '' : 's') +
-      ': different criteria are in play.';
-  if(!order.length) return 'Add some items to line up.';
+/* One quotable verdict line, plus the ONE load-bearing figure inside it — the
+   loop count when the order won't close, otherwise the duels still owed. Some
+   states (a settled order, an empty line-up) turn on no number at all: `fig` is
+   '' there, and the surface simply renders the line unmarked. `fig` always
+   appears verbatim in `line`. */
+export function verdictParts(order, settled, loopsFound, remainingBudget){
+  if(loopsFound && loopsFound.length){
+    const fig = loopsFound.length + ' loop' + (loopsFound.length === 1 ? '' : 's');
+    return {line: 'No clean order — ' + fig + ': different criteria are in play.', fig};
+  }
+  if(!order.length) return {line: 'Add some items to line up.', fig: ''};
   if(settled && settled.length && settled.every(x => x === 'settled'))
-    return 'The order is settled — every adjacent pair was duelled.';
-  const firm = remainingBudget > 0
-    ? ' — ' + remainingBudget + ' more duel' + (remainingBudget === 1 ? '' : 's') + ' would firm it up.'
-    : ' — a few more duels would firm it up.';
+    return {line: 'The order is settled — every adjacent pair was duelled.', fig: ''};
+  const fig = remainingBudget > 0
+    ? remainingBudget + ' more duel' + (remainingBudget === 1 ? '' : 's') : '';
+  const firm = fig ? ' — ' + fig + ' would firm it up.' : ' — a few more duels would firm it up.';
   const topSettled = settled && settled[0] === 'settled';
-  return (topSettled ? 'The top is settled, but the middle is mushy' : 'The order is still provisional') + firm;
+  return {line: (topSettled ? 'The top is settled, but the middle is mushy'
+    : 'The order is still provisional') + firm, fig};
+}
+
+/* The plain line, unmarked — what a doc or a caller that only wants prose gets. */
+export function verdictCopy(order, settled, loopsFound, remainingBudget){
+  return verdictParts(order, settled, loopsFound, remainingBudget).line;
 }

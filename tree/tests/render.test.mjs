@@ -2,11 +2,11 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {evaluate} from '../engine.js';
-import {render} from '../render.js';
+import {render, treeVerdictParts} from '../render.js';
 
 const ctx = (extra = {}) => ({
   colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667', accent:'#08c',
-    bg:'#f7f8f6', err:'#b33'},
+    bg:'#f7f8f6', err:'#b33', brandText:'#D62015'},
   measure: t => t.length * 7,
   ...extra,
 });
@@ -17,8 +17,48 @@ test('well-formed svg, no NaN, verdict present', () => {
   const svg = render(m, evaluate(m), ctx());
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
-  assert.ok(svg.includes('RECOMMENDED'));
+  assert.ok(svg.includes('VERDICT'));                 // 6b kicker, literal uppercase
+  assert.ok(svg.includes('Choose Bid'));              // the recommended option leads the display line
   assert.ok(svg.includes('% of simulations'));
+});
+
+/* ---- Swiss 6b: the display verdict + its one key figure ---- */
+
+test('treeVerdictParts: the line names the recommended option and ends with its EV figure', () => {
+  const m = parse(BID);
+  const {line, fig} = treeVerdictParts(m, evaluate(m));
+  assert.match(fig, /^£[\d.]+[kM]?$/, 'figure is the EV money string, got ' + fig);
+  assert.equal(line, 'Choose Bid — expected value ' + fig);
+  assert.ok(line.endsWith(fig), 'the figure is the last token — a wrap can never split it');
+  assert.equal(line.indexOf(fig), line.lastIndexOf(fig), 'the figure appears exactly once');
+});
+
+test('treeVerdictParts: no verdict without a decision root', () => {
+  const chanceOnly = parse('Weather\n  Sunny (p=0.7): 10\n  Rain (p=rest): -5');
+  assert.deepEqual(treeVerdictParts(chanceOnly, evaluate(chanceOnly)), {line: '', fig: ''});
+});
+
+test('6b: exactly one brand tspan (the key figure), and the EV is not printed twice', () => {
+  const m = parse(BID);
+  const r = evaluate(m);
+  const svg = render(m, r, ctx());
+  const {fig} = treeVerdictParts(m, r);
+  assert.equal((svg.match(/fill="#D62015"/g) || []).length, 1, 'one brand-coloured run in the whole artefact');
+  assert.ok(svg.includes(">" + fig + "</tspan>"), 'the brand run IS the figure');
+  assert.ok(!svg.includes('EV ' + fig), 'the evidence line drops EV — the display line carries it');
+  assert.ok(svg.includes('P10 ') && svg.includes('P90 '), 'evidence line still supports the verdict');
+});
+
+test('6b: the verdict band height is content-driven — a long option pushes the tree down', () => {
+  const short = parse(BID);
+  const longLabel = parse(BID.replace('Bid: -150k',
+    'Bid for the Acme framework contract with the incumbent supplier alongside us and a partner ' +
+    'consortium covering the northern region: -150k'));
+  const hOf = svg => +svg.match(/height="(\d+)"/)[1];
+  const yOfFirstNode = svg => +svg.match(/<rect x="[\d.]+" y="([\d.]+)" width="14"/)[1];
+  const a = render(short, evaluate(short), ctx()), b = render(longLabel, evaluate(longLabel), ctx());
+  assert.ok(hOf(b) > hOf(a), 'a wrapped verdict makes the artefact taller');
+  assert.ok(yOfFirstNode(b) > yOfFirstNode(a), 'and pushes the tree below it — never a collision');
 });
 
 test('policy path uses scheme accent; rejected branch fades', () => {
@@ -55,7 +95,7 @@ test('slide mode scales wider; chance-only tree has no verdict', () => {
   assert.ok(wOf(render(m, r, ctx({slide: true}))) > wOf(render(m, r, ctx())));
   const chanceOnly = parse('Weather\n  Sunny (p=0.7): 10\n  Rain (p=rest): -5');
   const svg2 = render(chanceOnly, evaluate(chanceOnly), ctx());
-  assert.ok(!svg2.includes('RECOMMENDED'));
+  assert.ok(!svg2.includes('VERDICT'));
 });
 
 test('edit-in-place targets: tspans carry kind, line and raw source', () => {

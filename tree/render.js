@@ -1,6 +1,7 @@
 /* (model, results, ctx) → SVG string. ctx = {colors, measure, slide?, dark?}. No DOM. */
 import {PALETTES, scheme, fmt} from '../assets/series.js';
-import {esc, tint, wrapText, editTarget, btnAttrs} from '../assets/svg.js';
+import {esc, editTarget, btnAttrs} from '../assets/svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -9,10 +10,10 @@ const F = {
 
 export const TOKENS = {
   pad: 26, rowPitch: 68, colW: 214, headerH: 56, headerHNoTitle: 20,
-  verdictH: 64, nodeR: 7, squareHalf: 7, tickH: 12,
+  verdictSize: 24, verdictTop: 16, verdictGap: 2, verdictBottom: 14,
+  nodeR: 7, squareHalf: 7, tickH: 12,
   labelSize: 12, subSize: 10, evSize: 11.5, statSize: 10,
   edgeW: 1.25, policyW: 2.5, fadeOp: 0.42,
-  pillSize: 8.5, pillH: 15, pillPadX: 6, pillTracking: 0.6,
   flipSize: 11, flipRowH: 16, flipHeadSize: 10, flipHeadTracking: 1.2,
   titleSize: 22, titleY: 36, dateSize: 11,
   slideScale: 1.35, bottomPad: 16, annotW: 150,
@@ -20,9 +21,13 @@ export const TOKENS = {
 
 
 
-/* shared with treeVerdict below: the muted evidence line under the recommended option */
-function evidenceFor(rec, st, results, money){
-  let evidence = 'EV ' + money(st.mean) + ' · P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
+/* shared with treeVerdict below: the muted evidence line under the recommended
+   option. `withEv` is false in the SVG band, where the display verdict already
+   carries the expected value as its key figure — the evidence line is support,
+   not a second printing of the same number. */
+function evidenceFor(rec, st, results, money, withEv = true){
+  let evidence = (withEv ? 'EV ' + money(st.mean) + ' · ' : '') +
+    'P10 ' + money(st.p10) + ' · P90 ' + money(st.p90);
   const h = (results.headToHead || []).find(x => x.a === rec.label || x.b === rec.label);
   if(h){
     const share = h.a === rec.label ? h.aShare : 1 - h.aShare;
@@ -43,6 +48,23 @@ export function treeVerdict(model, results){
   const cur = model.currency || '£';
   const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
   return 'Recommended: ' + rec.label + ' — ' + evidenceFor(rec, st, results, money);
+}
+
+/* the DISPLAY verdict (Swiss 6b): the quotable line the artefact leads with, and
+   the ONE load-bearing figure inside it — the recommended option's expected
+   value. Pure and pinned by tests; render() is the only consumer, so the plain
+   treeVerdict() mirror above (poster / copy-for-doc) stays byte-unchanged. The
+   figure is the last token of the line, so a wrap can never split it. */
+export function treeVerdictParts(model, results){
+  const none = {line: '', fig: ''};
+  if(!model.root || model.root.kind !== 'decision') return none;
+  const rec = results.policy.get(model.root);
+  const st = results.stats.get(model.root);
+  if(!rec || !st) return none;
+  const cur = model.currency || '£';
+  const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
+  const fig = money(st.mean);
+  return {line: 'Choose ' + rec.label + ' — expected value ' + fig, fig};
 }
 
 export function render(model, results, ctx){
@@ -75,11 +97,37 @@ export function render(model, results, ctx){
      drop them and let the tree grow up to fill the space, never invented. */
   const showTitle = !!model.title && !bare;
   const headerH = (showTitle ? T.headerH : T.headerHNoTitle)*S;
-  const verdictH = (!bare && model.root.kind === 'decision' ? T.verdictH : 0)*S;
-  const treeTop = headerH + verdictH;
   const flips = results.flips || [];
   const flipsH = flips.length ? (14 + flips.length * T.flipRowH)*S : 0;
   const W = Math.round(T.pad*2*S + (maxDepth + 1) * T.colW*S + T.annotW*S);
+
+  /* verdict band (Swiss 6b): VERDICT kicker + the display line with its one
+     brand figure, muted evidence beneath. Built BEFORE the tree because its
+     height is content-driven — a verdict that wraps to two lines pushes the
+     tree down instead of colliding with it. Dropped when bare (the poster
+     frame is the hero there, reusing treeVerdict verbatim). */
+  const V = (() => {
+    if(bare || model.root.kind !== 'decision') return {svg: '', h: 0};
+    const rec = results.policy.get(model.root);
+    const st = results.stats.get(model.root);
+    const {line, fig} = treeVerdictParts(model, results);
+    if(!line) return {svg: '', h: 0};
+    const vy = headerH + T.verdictTop*S;
+    const block = svgVerdict({x: T.pad*S, y: vy, width: W - T.pad*2*S, line, fig,
+      ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: F.body,
+      measure, size: T.verdictSize, scale: S});
+    const evY = vy + block.height + T.verdictGap*S;
+    return {
+      /* edit-gated (B2): a group handle so B3 can crossfade this band with the
+         rest of the readout during the priced-insistence walk. */
+      svg: (edit ? '<g data-verdict="">' : '') + block.svg +
+        '<text x="' + T.pad*S + '" y="' + evY + '" font-size="' + 11.5*S +
+        '" fill="' + C.muted + '">' + esc(evidenceFor(rec, st, results, money, false)) + '</text>' +
+        (edit ? '</g>' : ''),
+      h: evY + T.verdictBottom*S - headerH,
+    };
+  })();
+  const treeTop = headerH + V.h;
   const H = Math.round(treeTop + (nextRow - 1 || 1) * T.rowPitch*S + 40*S + flipsH + T.bottomPad*S);
   const nx = node => T.pad*S + node._depth * T.colW*S + 40*S;
   const ny = node => treeTop + 20*S + node._row * T.rowPitch*S;
@@ -100,39 +148,8 @@ export function render(model, results, ctx){
       new Date().toISOString().slice(0, 10) + '</text>');
   }
 
-  /* capsule pill, shared visual language with the roadmap tool */
-  const capsule = (px, py, label, col, inkCol = col) => {   // inkCol: contrast-boosted TEXT colour; fill still uses col
-    const font = '600 ' + T.pillSize*S + 'px ' + F.body;
-    const tw = measure(label, font) + label.length * T.pillTracking;
-    const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
-    return {
-      svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
-        '" rx="0" fill="' + tint(col) + '"' +
-        (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
-        '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 4.5*S) + '" font-size="' + T.pillSize*S +
-        '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
-      w: pw,
-    };
-  };
-
-  /* verdict block: hero recommendation, muted evidence line — dropped when
-     bare (treeVerdict is the poster frame's hero, reused verbatim, not redrawn) */
-  if(!bare && model.root.kind === 'decision'){
-    const rec = results.policy.get(model.root);
-    const st = results.stats.get(model.root);
-    const vy = headerH + 14*S;
-    /* edit-gated (B2): a group handle so B3 can crossfade this band with the
-       rest of the readout during the priced-insistence walk. */
-    if(edit) s.push('<g data-verdict="">');
-    const p = capsule(T.pad*S, vy - T.pillH*S + 3*S, 'RECOMMENDED', C.accent, C.accentInk);
-    s.push(p.svg);
-    s.push('<text x="' + (T.pad*S + p.w + 10*S) + '" y="' + vy + '" font-size="' + 15*S +
-      '" font-weight="700" fill="' + C.ink + '">' + esc(rec.label) + '</text>');
-    const evidence = evidenceFor(rec, st, results, money);
-    s.push('<text x="' + T.pad*S + '" y="' + (vy + 19*S) + '" font-size="' + 11.5*S +
-      '" fill="' + C.muted + '">' + esc(evidence) + '</text>');
-    if(edit) s.push('</g>');
-  }
+  /* verdict band — composed above (content-driven height) */
+  if(V.svg) s.push(V.svg);
 
   /* edges + nodes, policy-aware opacity applied per subtree */
   function drawEdge(a, b, onPolicy){

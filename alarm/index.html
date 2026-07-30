@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Base-rate playground</h1>
     <p class="tagline">"99% accurate" means nothing until the base rate has had its say. A thousand cases flow through a detector; drag the threshold and watch the alarm bin fill up with the wrong ones.</p>
   </header>
@@ -41,6 +42,7 @@
       <span class="chip claimed" id="claimChip" hidden></span>
     </div>
 
+    <div class="metrics" id="metrics" hidden></div>
     <div id="distwrap" aria-label="Score distributions with a draggable alarm threshold"></div>
 
     <div class="controls">
@@ -61,13 +63,13 @@
     <p class="cardintro">Filled dots are real issues, rings are benign. They stream through the gate: over the threshold rings the <b>alarm</b>, under it stays <b>quiet</b>. Watch the alarm bin — at a low base rate it fills with rings.</p>
     <div id="gatewrap"><canvas id="gate" aria-label="1,000 cases flowing through the detector into alarm and quiet bins"></canvas></div>
     <div class="actions">
-      <button class="btn" id="replay">Replay</button>
+      <button class="btn primary" id="replay">Replay</button>
       <span class="method" id="animnote"></span>
     </div>
   </div>
 
   <div class="card readout">
-    <p class="verdict-alarm" id="verdictAlarm" aria-live="polite" aria-atomic="true"></p>
+    <div class="verdict-block" id="verdictAlarm" aria-live="polite" aria-atomic="true" hidden></div>
     <p class="verdict-miss" id="verdictMiss"></p>
     <p class="verdict-fine" id="verdictFine"></p>
     <div id="boxwrap"></div>

@@ -4,12 +4,17 @@
    labels · curved edge-to-edge dependency links · capsule pills · axis strip ·
    verdict-led readout band. Height follows content. */
 import {esc, tint, wrapText} from '../assets/svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 import {diffItems} from '../assets/snapshots.js';
 import {STAGES, stageOf} from './parse.js';
 import {layoutMap} from './layout.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const SERIF = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss 3b (double-quoted attr context: single-quoted names)
+/* Same stack as SANS, quoted the other way round: svgVerdict emits SINGLE-quoted
+   attribute values, so the font name inside one must not itself be single-quoted.
+   Identical typeface resolution; only the XML quoting differs. */
+const SANS_SQATTR = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 export const GEOM = {w: 1200, pad: 56};
 const PILL_H = 28;
 const EPSILON = 0.02;
@@ -115,10 +120,11 @@ export function mapReadout(model, layout, opts = {}){
     const needed = layout.needs.get(n.name.toLowerCase()) || 0;
     if(needed >= 2 && (!bet || needed > bet.needed)) bet = {n, needed};
   }
-  let verdict;
+  let verdict, fig = '';
   if(bet){
     const stage = stageOf(bet.n.x).name;
-    verdict = bet.n.name + ' is load-bearing (' + bet.needed + ' things need it) and still ' +
+    fig = bet.needed + ' things need it';
+    verdict = bet.n.name + ' is load-bearing (' + fig + ') and still ' +
       (stage === 'genesis' ? 'in genesis' : 'custom-built') + ' — the map’s biggest bet.';
   } else {
     const left = placed.filter(n => n.x < 0.5).length;
@@ -133,7 +139,10 @@ export function mapReadout(model, layout, opts = {}){
     : ghosts.length + ' unplaced — drag ' + (ghosts.length === 1 ? 'it' : 'them') + ' onto the map.');
   for(const d of layout.droppedEdges)
     flags.push('⚠ dependency loop — the edge ' + d.from + ' → ' + d.to + ' was dropped from the layout.');
-  return {verdict, flags};
+  /* `fig` is the ONE load-bearing figure inside the verdict, verbatim, for the
+     surface to mark. The composition verdict ("a discovery map") turns on no
+     single number, so it carries no figure. */
+  return {verdict, fig, flags};
 }
 
 function compareParts(model, layout, compare, c){
@@ -339,17 +348,19 @@ function renderNarrow(model, layout, ctx, opts){
     y += addH + 8;
   }
 
-  /* readout */
+  /* readout: the same VERDICT anatomy as the wide artefact, re-wrapped at 17px
+     (the narrow display size — it never degrades to body copy). Exports always
+     render the wide 1200px map, so this size is preview-only. */
   const r = mapReadout(model, layout, {narrow: true});
   y += 12;
   parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (W - pad) + '" y2="' + y +
     '" stroke="' + c.border + '"/>');
-  y += 8;
-  for(const lnText of wrapText(r.verdict, '600 13px ' + SANS, inner, measure)){
-    y += 18;
-    parts.push('<text x="' + pad + '" y="' + y + '" font-size="13" font-weight="600" fill="' +
-      c.ink + '">' + esc(lnText) + '</text>');
-  }
+  const vTop = y + 22;                       // baseline of the 10px VERDICT kicker
+  const V = svgVerdict({x: pad, y: vTop, width: inner, line: r.verdict, fig: r.fig,
+    ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
+    font: SANS_SQATTR, measure, size: 17});
+  parts.push(V.svg);
+  y = vTop + V.height - 23 + 4;              // last verdict baseline, plus a gap
   for(const f of r.flags){
     for(const lnText of wrapText(f, '11.5px ' + SANS, inner, measure)){
       y += 17;
@@ -465,21 +476,30 @@ export function renderMap(model, layout, ctx, opts = {}){
   }
 
   /* ---- readout band ---- */
+  /* The map's verdict lives HERE, in the exported artefact — there is no second
+     copy on the page. VERDICT kicker + one 24px display line with the single
+     load-bearing figure in brand ink; the band's height follows the block, so a
+     verdict that wraps pushes the flags down instead of colliding with them. */
   const r = mapReadout(model, layout);
   const read = [];
   const readTop = headerH + planeH + 10;
   read.push('<line x1="' + pad + '" y1="' + readTop + '" x2="' + (w - pad) + '" y2="' + readTop +
     '" stroke="' + c.border + '"/>');
-  /* bare: the verdict line is dropped (the poster frame's hero already carries
+  /* bare: the verdict block is dropped (the poster frame's hero already carries
      it) — the flags stack up into the space it would have taken */
-  if(!bare) read.push('<text x="' + pad + '" y="' + (readTop + 26) + '" font-size="14" font-weight="600" fill="' +
-    c.ink + '">' + esc(r.verdict) + '</text>');
-  const flagsY0 = readTop + (bare ? 26 : 48);
+  const vTop = readTop + 24;                 // baseline of the 10px VERDICT kicker
+  const V = bare ? {svg: '', height: 0} : svgVerdict({x: pad, y: vTop, width: w - 2 * pad,
+    line: r.verdict, fig: r.fig, ink: c.ink, muted: c.muted,
+    brandText: c.brandText || c.ink, font: SANS_SQATTR, measure});
+  if(!bare) read.push(V.svg);
+  const flagsY0 = bare ? readTop + 26 : vTop + V.height - 6;
   r.flags.forEach((f, i) => {
     read.push('<text x="' + pad + '" y="' + (flagsY0 + i * 19) + '" font-size="12.5" fill="' +
       c.muted + '">' + esc(f) + '</text>');
   });
-  const H = Math.round(readTop + (bare ? 18 : 40) + r.flags.length * 19 + 14);
+  const H = Math.round(bare
+    ? readTop + 18 + r.flags.length * 19 + 14      // unchanged: the poster frame owns the verdict
+    : vTop + V.height + r.flags.length * 19);
 
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + H +
     '" viewBox="0 0 ' + w + ' ' + H + '" font-family="' + SANS + '">' +

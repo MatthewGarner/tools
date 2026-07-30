@@ -5,13 +5,14 @@ import {pricedCopy, seamCopy} from './format.js';
 import {render, treeVerdict} from './render.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
-import {readHashState, writeHashState} from '../assets/series.js';
+import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {posterSvg} from '../assets/poster.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {rafBatched} from '../assets/schedule.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
@@ -65,7 +66,7 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No tree yet — add an indented option or two.'
       : 'Start typing — or load an example.') + '</p>';
-    $('verdict').textContent = '';
+    paintMetrics($('metrics'), '', []);
     dismissFocus();
   } else {
     results = evaluate(model);
@@ -74,7 +75,7 @@ function doRefresh(){
     if(focus) hot.add(focus.kind + ':' + focus.line);   // I-8: keep the focused mark whatever loadBearing now says
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot});
     paint(svg, REVEAL, {onSwap: reapplyActiveMark}); lastSvg = svg;
-    $('verdict').textContent = treeVerdict(model, results);
+    paintMetrics($('metrics'), model.title || 'Untitled tree', metricCounts());
     if(focus) resyncFocusUI();   // repaint the slider's own extent/value + clear any mid-drag classes
   }
   updateSeam();
@@ -515,6 +516,24 @@ function renderSaved(){
     renderSaved();
   });
   row.appendChild(save);
+}
+
+/* ---------- header anatomy (Swiss 6b) ---------- */
+/* The VERDICT lives INSIDE the artefact (tree/render.js draws it), so the page
+   carries only the kicker and the metrics row — one verdict per page. Counts
+   come from the parsed model + the same MC results the tree renders from. */
+paintKicker($('kicker'), '07', 'Choices priced before you make them');
+function metricCounts(){
+  if(!model || !model.root || !results) return [];
+  const n = model.root.kind === 'decision' ? model.root.children.length : null;
+  const leaves = countLeaves(model.root);
+  const st = results.stats.get(model.root);
+  const cur = model.currency || '£';
+  return [
+    ...(n !== null ? [n + (n === 1 ? ' option' : ' options')] : []),
+    leaves + (leaves === 1 ? ' outcome' : ' outcomes'),
+    ...(st ? ['EV ' + (st.mean < 0 ? '−' : '') + cur + fmt(Math.abs(st.mean))] : []),
+  ];
 }
 
 /* ---------- exports ---------- */

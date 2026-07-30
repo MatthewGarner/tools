@@ -1,7 +1,7 @@
 /* DOM shell: sliders + threshold drag → classify the 1,000-dot population → the
    distribution SVG, the gate canvas, the natural-frequency verdict. Engine, layout
    and renderers are pure; this file owns the DOM, pointer drag, presets, hash. */
-import {population, classify, derived, verdicts, fromClaim, markdown} from './engine.js';
+import {population, classify, derived, verdicts, fromClaim, markdown, N} from './engine.js';
 import {renderDistributions, renderBox, tFromSvgX} from './render.js';
 import {layoutFlow, makeDriver} from './gate-canvas.js';
 import {readHashState, writeHashState} from '../assets/series.js';
@@ -10,6 +10,7 @@ import {wireExports} from '../assets/exports.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -63,9 +64,10 @@ function doRefresh(){
   if(boxHtml !== lastBoxHtml){ $('boxwrap').innerHTML = boxHtml; lastBoxHtml = boxHtml; }
 
   const v = verdicts(counts, p);
-  $('verdictAlarm').textContent = v.alarm;
+  paintVerdict($('verdictAlarm'), v.alarm, v.alarmFig);
   $('verdictMiss').textContent = v.miss;
   $('verdictFine').textContent = v.fine;
+  paintMetrics($('metrics'), settingLabel(), metricCounts(p));
 
   // build layout + draw the settled frame immediately (numbers never wait on animation)
   const g = $('gate'), dpr = devicePixelRatio || 1, w = g.clientWidth || 640, h = 360;
@@ -81,6 +83,21 @@ function doRefresh(){
 const refresh = rafBatched(doRefresh);
 
 function dotColors(C){ return {real: C.accent, benign: C.muted, binLabel: C.muted}; }
+
+/* The metrics row above the distribution: what's being detected, and the three
+   numbers the picture is built from. Every value is read back off the live
+   settings — the preset chip that's lit (sliders clear it), the base rate the
+   1,000 dots were classified at, and the detector's analytic sensitivity. */
+function settingLabel(){
+  const on = $('presets').querySelector('.chip[data-preset].on');
+  if(on) return on.textContent;
+  return claimed ? 'Pinned vendor claim' : 'Custom settings';
+}
+function metricCounts(p){
+  return ['1 in ' + Math.round(1 / p.baseRate).toLocaleString('en-GB') + ' real',
+    'Sensitivity ' + Math.round(derived(p).sensitivity * 100) + '%',
+    N.toLocaleString('en-GB') + ' cases'];
+}
 
 /* the flight: dots animate start → bins once, then settle. Reduced motion = the
    settled frame only. Debounced off slider input so a drag doesn't re-fly each tick. */
@@ -208,6 +225,7 @@ function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = m
 
 /* ---------- boot ---------- */
 (function boot(){
+  paintKicker($('kicker'), '13', 'The base rate has its say');
   const h = readHashState();
   if(h && isFinite(+h.b)){
     $('baseRate').value = Math.max(-3, Math.min(-0.30103, +h.b));

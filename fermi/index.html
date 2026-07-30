@@ -94,9 +94,10 @@
   .tile.mid .tv{font-size:36px}
   .tile.mid .tv .smear{background:var(--hl);padding:0 .14em;border-radius:0;
     box-decoration-break:clone}
-  .say{margin:16px 0 0;font-size:15px;color:var(--ink)}
-  .say .q{font-style:italic}
-  .spread{color:var(--muted);font-size:13px;margin-top:4px}
+  /* the say-it-out-loud sentence IS the page verdict (Swiss 6b) — the shared
+     .verdict-block owns its type; only its rhythm against the tiles is local */
+  .verdict-block{margin:24px 0 0}
+  .spread{color:var(--muted);font-size:13px;margin-top:8px}
   .viewseg{display:inline-flex;border:1px solid var(--border);border-radius:0;
     overflow:hidden;margin-top:18px}
   .pagemode{margin:0 0 0 auto}
@@ -219,6 +220,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Fermi estimator</h1>
     <p class="tagline">Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a range; the answer is a distribution, not a number.</p>
   </header>
@@ -293,18 +295,19 @@
     <p class="placeholder" id="ph">Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you'd be surprised, but not shocked, to see a value outside them.</p>
     <div id="results">
       <div id="cmp" class="cmp" style="display:none"></div>
+      <div class="metrics" id="metrics" hidden></div>
       <div class="tiles" aria-live="polite" aria-atomic="true">
         <div class="tile"><div class="tl">P10 · low</div><div class="tv" id="p10"></div></div>
         <div class="tile mid"><div class="tl">P50 · best guess</div><div class="tv"><span class="smear" id="p50"></span></div></div>
         <div class="tile"><div class="tl">P90 · high</div><div class="tv" id="p90"></div></div>
       </div>
-      <p class="say" aria-live="polite" aria-atomic="true">Say it out loud: <span class="q" id="say"></span></p>
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <p class="spread" id="spread" aria-live="polite" aria-atomic="true"></p>
       <div class="viewseg" role="tablist" aria-label="Result view">
         <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>
         <button id="viewtree" role="tab" aria-selected="false">Driver tree</button>
       </div>
-      <button id="replay" class="btn replaybtn" title="Watch the answer's uncertainty being built — pour the draws through the drivers">↻ Replay the maths</button>
+      <button id="replay" class="btn primary replaybtn" title="Watch the answer's uncertainty being built — pour the draws through the drivers">↻ Replay the maths</button>
       <div id="driverwrap" hidden></div>
       <div class="histwrap">
         <canvas id="hist" aria-label="Histogram of 20,000 simulated outcomes"></canvas>

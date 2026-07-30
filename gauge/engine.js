@@ -129,17 +129,24 @@ export function sessionStats(model, responses){
   });
 }
 
-export function verdict(stats){
+/* The session verdict as {line, fig}: `fig` is the ONE load-bearing run the Swiss
+   6b block inks in brand red, and always appears verbatim in `line`. Two branches
+   have no number to quote, so the claim itself is the figure. `verdict()` stays
+   the plain string — markdown, the exported SVG and every existing caller read it. */
+export function verdictOf(stats){
   const scored = stats.map((s, i) => ({s, i})).filter(x => x.s.kind !== 'empty' && x.s.kind !== 'single');
-  if(scored.length < 2) return '';
+  if(scored.length < 2) return {line: '', fig: ''};
   const discuss = scored.filter(x => x.s.discuss);
-  if(!discuss.length) return 'Broad agreement across all ' + scored.length + ' items.';
-  if(discuss.length === scored.length) return 'No consensus anywhere — every item is worth discussion.';
+  if(!discuss.length) return {line: 'Broad agreement across all ' + scored.length + ' items.',
+    fig: 'all ' + scored.length + ' items'};
+  if(discuss.length === scored.length) return {
+    line: 'No consensus anywhere — every item is worth discussion.', fig: 'No consensus'};
   const refs = discuss.map(x => '#' + (x.i + 1));
   const list = refs.length === 1 ? refs[0] : refs.slice(0, -1).join(', ') + ' and ' + refs[refs.length - 1];
-  return 'Broad agreement on ' + (scored.length - discuss.length) + ' of ' + scored.length +
-    ' items; discuss ' + list + '.';
+  const fig = (scored.length - discuss.length) + ' of ' + scored.length;
+  return {line: 'Broad agreement on ' + fig + ' items; discuss ' + list + '.', fig};
 }
+export function verdict(stats){ return verdictOf(stats).line; }
 
 /* Facilitator response-counter copy. Pure so it can be unit-tested; the console
    just prints the string. In round 2 the denominator is the whole final room
@@ -231,14 +238,20 @@ export function delphiStats(model, r1, r2){
 
 const fmtN = v => Math.round(v * 10) / 10;
 
-export function delphiVerdict(dstats){
+export function delphiVerdictOf(dstats){
   const active = dstats.filter(d => d.n > 0 && d.spread1 > 0 && !d.excluded);
-  if(!active.length) return '';
+  if(!active.length) return {line: '', fig: ''};
   const meanConv = active.reduce((a, d) => a + d.convergencePct, 0) / active.length;
-  if(meanConv >= NARROWED) return 'Round 2 converged — spreads narrowed ' + Math.round(meanConv) + '% on average.';
-  if(meanConv <= WIDENED) return 'Round 2 widened the spreads — the discussion surfaced real doubt.';
-  return 'Round 2 barely moved the room — the remaining disagreement is genuine.';
+  if(meanConv >= NARROWED){
+    const fig = Math.round(meanConv) + '%';
+    return {line: 'Round 2 converged — spreads narrowed ' + fig + ' on average.', fig};
+  }
+  if(meanConv <= WIDENED) return {
+    line: 'Round 2 widened the spreads — the discussion surfaced real doubt.', fig: 'widened'};
+  return {line: 'Round 2 barely moved the room — the remaining disagreement is genuine.',
+    fig: 'barely moved'};
 }
+export function delphiVerdict(dstats){ return delphiVerdictOf(dstats).line; }
 
 export function markdownSummary(model, stats, delphi){
   const out = ['# ' + (model.title || 'Gauge session'), ''];
