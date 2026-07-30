@@ -8,7 +8,8 @@ import {renderFocusLive, focusHeroIndex} from './render-focus.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {parse, STATUS_LABEL, wipBreaches} from './parse.js';
+import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics} from './parse.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -23,6 +24,7 @@ import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STA
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
+paintKicker($('kicker'), '01', 'The plan as an artefact');
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -175,6 +177,12 @@ function doRefresh(){
       flipNext = false;
     }
   }
+  /* the header/verdict anatomy rides this same loop — both painters bail out
+     when their strings are unchanged, so a keystroke that doesn't move a count
+     costs nothing */
+  paintMetrics($('metrics'), model.items.length ? (model.title || 'Untitled') : '', roadmapMetrics(model));
+  const vd = roadmapVerdict(model);
+  paintVerdict($('verdict'), vd ? vd.line : '', vd ? vd.fig : '');
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);

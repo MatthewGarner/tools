@@ -13,6 +13,24 @@ test('six presets exist with axes, fields, advice, verdict', () => {
   }
 });
 
+/* Swiss 6b: every preset verdict returns {line, fig}, and the figure must appear
+   VERBATIM in the line — markFigure splits on it, so a paraphrase silently drops
+   the brand mark. The empty map has no figure to name. */
+test('every preset verdict returns {line, fig} with the figure verbatim in the line', () => {
+  const st = {placed: 4, total: 4,
+    byZone: new Map([['test first', [1, 2]], ['manage closely', [1, 2]], ['severe', [{label: 'X'}, {}]],
+      ['bus factor', [1, 2]], ['watermelon watch', [1, 2]], ['Scenario A', [1]], ['Scenario B', [1]]]),
+    flagged: [1]};
+  for(const [name, p] of Object.entries(PRESETS)){
+    const v = p.verdict(st);
+    assert.equal(typeof v.line, 'string', name);
+    assert.ok(v.line.length > 10, name);
+    assert.ok(v.fig && v.line.includes(v.fig), name + ': ' + v.fig + ' not in ' + v.line);
+    const empty = p.verdict({placed: 0, total: 0, byZone: new Map(), flagged: []});
+    assert.equal(empty.fig, '', name + ': an empty map names no figure');
+  }
+});
+
 test('skills preset (#69): bus-factor corner, backup flag, verdict', () => {
   const m = {preset: 'skills', grid: null, cellNames: [], ruleZones: [], axes: {}, warnings: []};
   const r = resolve({...m});
@@ -22,8 +40,9 @@ test('skills preset (#69): bus-factor corner, backup flag, verdict', () => {
   const def = PRESETS.skills;
   assert.ok(def.flag({fields: []}, 'bus factor'));
   assert.equal(def.flag({fields: [{key: 'backup', val: 'Jo'}]}, 'bus factor'), null);
-  assert.match(def.verdict({placed: 3, byZone: new Map([['bus factor', [1, 2]]]), flagged: [1]}),
-    /2 of 3 skills are a bus-factor risk; 1 with no backup named/);
+  const v = def.verdict({placed: 3, byZone: new Map([['bus factor', [1, 2]]]), flagged: [1]});
+  assert.match(v.line, /^2 of 3 skills are a bus-factor risk; 1 with no backup named\.$/);
+  assert.equal(v.fig, '2 of 3');
 });
 
 test('rag preset (#70): watermelon corner, green flag, verdict', () => {
@@ -35,8 +54,9 @@ test('rag preset (#70): watermelon corner, green flag, verdict', () => {
   const def = PRESETS.rag;
   assert.ok(def.flag({fields: [{key: 'reported', val: 'Green'}]}, 'watermelon watch'));
   assert.equal(def.flag({fields: [{key: 'reported', val: 'red'}]}, 'watermelon watch'), null);
-  assert.match(def.verdict({placed: 6, byZone: new Map([['watermelon watch', [1]]]), flagged: [1]}),
-    /1 of 6 workstreams in watermelon watch; 1 reported green/);
+  const v = def.verdict({placed: 6, byZone: new Map([['watermelon watch', [1]]]), flagged: [1]});
+  assert.match(v.line, /^1 of 6 workstreams in watermelon watch; 1 reported green\.$/);
+  assert.equal(v.fig, '1 of 6');
 });
 
 test('rule evaluation: strict inequalities over x/y/x+y/x-y', () => {

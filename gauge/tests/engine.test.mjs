@@ -99,7 +99,7 @@ test('prob tiny-n', () => {
 });
 
 /* ---- session-level ---- */
-import {sessionStats, verdict, markdownSummary} from '../engine.js';
+import {sessionStats, verdict, verdictOf, markdownSummary} from '../engine.js';
 import {parse} from '../parse.js';
 
 const MODEL = parse('title: T\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
@@ -143,6 +143,21 @@ test('verdict edge wordings', () => {
   const stNone = sessionStats(model, [0, 1, 2, 3].map(i => ({values: [split(i), split(i)]})));
   assert.equal(verdict(stNone), 'No consensus anywhere — every item is worth discussion.');
   assert.equal(verdict(sessionStats(parse('A :: prob'), [{values: [50]}])), '');
+});
+
+test('verdictOf names one figure, verbatim in the line, on every branch', () => {
+  const model = parse('A :: prob\nB :: prob\nC :: prob');
+  const agree = i => [50, 55, 52, 58][i], split = i => [10, 15, 85, 90][i];
+  const mixed = sessionStats(model, [0, 1, 2, 3].map(i => ({values: [agree(i), split(i), agree(i)]})));
+  const two = parse('A :: prob\nB :: prob');
+  const all = sessionStats(two, [0, 1, 2, 3].map(i => ({values: [agree(i), agree(i)]})));
+  const none = sessionStats(two, [0, 1, 2, 3].map(i => ({values: [split(i), split(i)]})));
+  assert.deepEqual(verdictOf(mixed), {line: verdict(mixed), fig: '2 of 3'});
+  assert.deepEqual(verdictOf(all), {line: verdict(all), fig: 'all 2 items'});
+  assert.deepEqual(verdictOf(none), {line: verdict(none), fig: 'No consensus'});
+  assert.deepEqual(verdictOf(sessionStats(parse('A :: prob'), [{values: [50]}])), {line: '', fig: ''});
+  for(const st of [mixed, all, none])
+    assert.ok(verdictOf(st).line.includes(verdictOf(st).fig), 'figure verbatim in the line');
 });
 
 test('markdownSummary carries title, verdict, headlines, numbers', () => {

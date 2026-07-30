@@ -17,3 +17,20 @@ test('all golden SVGs are strictly well-formed at the tag level', () => {
     }
   }
 });
+
+/* The tag scan above cannot see this one, and it shipped broken too: the export
+   path reads the LIVE SVG's outerHTML — HTML serialisation — so any character
+   the HTML serialiser writes as a NAMED entity comes back out as an entity that
+   XML does not define, and the image decoder rejects the whole file. In practice
+   that is U+00A0: a non-breaking space in a renderer becomes `&nbsp;` in the
+   export, and the PNG silently fails to decode. Use an ordinary space held by
+   xml:space="preserve" instead (assets/verdict-svg.js does). */
+test('no golden carries a character that HTML-serialises to an XML-undefined entity', () => {
+  for(const file of readdirSync(dir).filter(f => f.endsWith('.svg'))){
+    const svg = readFileSync(new URL(file, dir), 'utf8');
+    const at = svg.indexOf(' ');
+    assert.equal(at, -1, file + ': non-breaking space at ' + at +
+      ' — HTML-serialises to &nbsp;, which XML does not define (…' +
+      svg.slice(Math.max(0, at - 40), at + 20) + '…)');
+  }
+});

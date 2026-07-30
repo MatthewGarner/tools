@@ -73,8 +73,38 @@ const PAGES = {
      its CSS. Genuinely new first-load code (the whole feature), not creep; actual load
      ~169.5k, ~6.5k real headroom on purpose (see the "previous six raises" note for why
      thin headroom is a trap). */
-  'fermi/index.html': 176_000, 'rank/index.html': 90_000, 'flow/index.html': 91_000,   /* 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
-  'alarm/index.html': 90_000,
+  /* fermi 176k -> 183k (2026-07-30, Swiss 6b — the shared verdict anatomy).
+     Every tool page now carries the 6b header/verdict treatment: assets/verdict.js
+     (the DOM rendition + the pure figure-splitting, ~4k) plus the page.css /
+     tokens.css / controls.css growth the pattern needs (~1.9k). fermi is a
+     DOM-verdict tool, so it takes verdict.js only — the SVG emitter was split into
+     assets/verdict-svg.js precisely so a page carries one rendition, not both.
+     ~1.1k of the raise is fermi's own (the say-it-out-loud line becoming the verdict
+     block, the metrics row). Genuinely new shipped code, not creep. fermi's headroom
+     was ~900B before this; actual now ~180.2k, set with ~2.8k. */
+  /* --- Swiss 6b (2026-07-30), the shared verdict/header anatomy: EVERY page's
+     budget below moved, so the reason is written once here rather than eight times.
+     Three costs, all genuinely new shipped code:
+       - assets/verdict.js (~4k) — the DOM rendition (kicker/metrics/verdict painters)
+         plus the pure figure-splitting both renditions share;
+       - assets/verdict-svg.js (~3.7k) — the in-SVG rendition, on the seven tools whose
+         verdict is part of the exported artefact ONLY. The module was deliberately
+         SPLIT from verdict.js so no page carries a rendition it never uses (before the
+         split, DOM-only pages like rank paid for the SVG emitter AND pulled svg.js in
+         behind it);
+       - ~1.9k of page.css/tokens.css/controls.css that every page has always loaded.
+     On top of that each tool carries its own verdict projection and metrics derivation
+     (~1-5k, largest on roadmap and why, which had NO verdict before this phase and
+     gained a whole tested projection each — and why pays roadmap's too, via the
+     render-map.js delegation documented below).
+     Every raise is set with ~5k real headroom, on purpose: the fermi/roadmap history
+     below records what happens when a raise leaves 300B and the next author learns to
+     bump the gate reflexively. --- */
+  'fermi/index.html': 183_000, 'rank/index.html': 94_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+     anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
+     verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
+     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 107_000,   /* 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+  'alarm/index.html': 96_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
   'signal-vs-noise/index.html': 100_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
@@ -120,7 +150,7 @@ const PAGES = {
      (Rule 2, phones have no ⌘Z). The chip-bypass merge had already eaten the old
      headroom (actual was ~565.6k before this change); actual now ~568.2k, set with
      ~5.8k real headroom. */
-  'roadmap/index.html': 576_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  'roadmap/index.html': 591_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -134,7 +164,7 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 492_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  'why/index.html': 511_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -143,14 +173,14 @@ const PAGES = {
      tightest of the DSL pages (no headroom left after Stage 0's shared
      editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
      in line with the other DSL pages. */
-  'tree/index.html': 478_000,
+  'tree/index.html': 491_000,
   'map/index.html': 480_000,
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
      and tipped 682B over. Actual now ~470.7k, ~5.3k headroom — in line with the
      other DSL pages. */
-  'gauge/index.html': 476_000, 'timeline/index.html': 470_000,
+  'gauge/index.html': 494_000, 'timeline/index.html': 486_000,
   'wardley/index.html': 480_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
@@ -158,7 +188,7 @@ const PAGES = {
      render.js the edit-gated rename targets + ＋ capsules (~1.6k), app.js the
      betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
      headroom — in line with the other DSL pages. */
-  'bets/index.html': 489_000,   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
+  'bets/index.html': 499_000,   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
   'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module

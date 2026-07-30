@@ -93,14 +93,23 @@ function histogram(sorted, nsim){
   return bins;
 }
 
-export function verdictCopy(portfolio, counts){
+/* The verdict, split into the line and the ONE load-bearing figure it turns on
+   — P(loses money), the number the whole simulation exists to produce. `fig`
+   appears verbatim in `line`, so the surface can mark it without re-deriving it. */
+export function verdictParts(portfolio, counts){
   const pct = Math.round(portfolio.pLoss * 100);
+  const fig = pct + '%';
   const nk = counts.kill || 0;
   const lead = portfolio.p50 >= 0
-    ? 'The portfolio nets a positive P50, but loses money ' + pct + '% of the time'
-    : 'The portfolio loses money at P50 — and ' + pct + '% of the time overall';
+    ? 'The portfolio nets a positive P50, but loses money ' + fig + ' of the time'
+    : 'The portfolio loses money at P50 — and ' + fig + ' of the time overall';
   const tail = nk ? '; ' + nk + ' bet' + (nk === 1 ? '' : 's') + ' can\'t say when to fold.' : '.';
-  return lead + tail;
+  return {line: lead + tail, fig};
+}
+
+/* The plain line — what the markdown and poster exports consume. */
+export function verdictCopy(portfolio, counts){
+  return verdictParts(portfolio, counts).line;
 }
 
 export function markdown(model, sim, href){

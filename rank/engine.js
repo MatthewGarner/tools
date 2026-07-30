@@ -72,14 +72,19 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
   return {stats, baseOrder, baseScore, n, k};
 }
 
+/* {headline, body, contested, fig} — `headline` is the display line, `fig` the
+   ONE load-bearing count inside it (verbatim, so the surface can mark it without
+   re-deriving it) and `body` the supporting sentence that sits below. */
 export function verdictCopy(stats, k){
   const secure = stats.filter(s => s.ptop >= 0.85);
   const contested = stats.filter(s => s.ptop > 0.15 && s.ptop < 0.85);
-  let headline, body;
+  let headline, body, fig;
   if(secure.length >= k){
+    fig = String(k);
     headline = 'The top ' + k + ' is settled.';
     body = ' Every initiative that makes the cut does so in at least 85% of simulations — reasonable people with different weights get the same answer. Stop tuning the spreadsheet and start the work.';
   } else if(secure.length > 0){
+    fig = String(secure.length);
     headline = secure.length + ' of the top ' + k + (secure.length === 1 ? ' is' : ' are') + ' settled.';
     body = ' ' + secure.map(s => s.name).join(', ') +
       (secure.length === 1 ? ' makes' : ' make') +
@@ -90,11 +95,12 @@ export function verdictCopy(stats, k){
           ' — the framework can’t decide it, so decide it on strategy or sequencing.'
         : ' up for grabs across the rest of the field — no single challenger stands out, so decide on strategy or sequencing.');
   } else {
+    fig = '';                        // nothing survived: the line turns on no count
     headline = 'Nothing is settled.';
     body = ' No initiative makes the top ' + k +
       ' in more than 85% of simulations — this ranking is mostly noise. Either the options are genuinely close (pick by strategy) or the scores need real evidence behind them.';
   }
-  return {headline, body, contested};
+  return {headline, body, contested, fig};
 }
 
 /* What flips #1: for each criterion and rival, the exact weight delta at which the

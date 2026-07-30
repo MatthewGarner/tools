@@ -26,7 +26,7 @@ export function readout(model, resolved){
     if(items) byZone.set(z.name, items);
   }
   const stats = {placed: placed.length, total: model.items.length, byZone, flagged};
-  const verdict = def ? def.verdict(stats) : genericVerdict(stats);
+  const v = def ? def.verdict(stats) : genericVerdict(stats);
 
   const zones = resolved.zones
     .map(z => ({zone: z, items: byId.get(z.id) || [],
@@ -34,16 +34,31 @@ export function readout(model, resolved){
     .filter(e => e.zone.kind === 'rule' ? true
       : e.zone.kind === 'cell' ? (!e.zone.anonymous || e.items.length > 0)
       : e.items.length > 0);
-  return {zones, unplaced, flagged, verdict};
+
+  /* the artefact's metrics row (Swiss 6b) — only counts this function actually
+     computed. Occupied = zones holding at least one item; empties are dropped by
+     countsLine, so a flawless map simply says nothing about flags. */
+  const occupied = zones.filter(e => e.items.length).length;
+  const counts = [
+    placed.length + ' of ' + model.items.length + ' placed',
+    occupied + ' zone' + (occupied === 1 ? '' : 's') + ' occupied',
+    flagged.length ? flagged.length + ' flagged' : '',
+  ];
+
+  /* `verdict` stays a plain string: copy-for-doc, the poster hero and the handoff
+     all consume it unchanged. `verdictFig` is the figure to mark, never re-derived. */
+  return {zones, unplaced, flagged, verdict: v.line, verdictFig: v.fig, counts};
 }
 
 function genericVerdict(st){
-  if(!st.placed) return 'Nothing placed yet — drag items onto the map.';
+  if(!st.placed) return {line: 'Nothing placed yet — drag items onto the map.', fig: ''};
   let top = null, n = 0;
   for(const [name, items] of st.byZone)
     if(name !== 'unzoned' && items.length > n){ top = name; n = items.length; }
-  if(!top) return st.placed + ' item' + (st.placed === 1 ? '' : 's') + ' mapped — no named zones yet.';
-  return n + ' of ' + st.placed + ' item' + (st.placed === 1 ? '' : 's') + ' sit in ' + top + '.';
+  if(!top) return {line: st.placed + ' item' + (st.placed === 1 ? '' : 's') + ' mapped — no named zones yet.',
+    fig: String(st.placed)};
+  const fig = n + ' of ' + st.placed;
+  return {line: fig + ' item' + (st.placed === 1 ? '' : 's') + ' sit in ' + top + '.', fig};
 }
 
 export function toMarkdown(ro, model){

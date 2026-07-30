@@ -2,8 +2,13 @@
    Layout: verdict block, cycle-time histogram, two small WIP-sweep charts
    (never dual-axis). This SVG is what exports — the canvas strip never does. */
 import {esc, txt} from '../assets/svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 
 const W = 860, PAD = 26;
+/* the stack the SVG root sets — reused verbatim for the verdict block's own
+   text nodes so the measured wrap matches what the browser paints. It carries
+   no quote characters, so it splices into either attribute convention. */
+const FONT = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
 
 const day = n => {
   const v = n < 10 ? Math.round(n * 10) / 10 : Math.round(n);
@@ -13,12 +18,20 @@ const f1 = n => (Math.round(n * 10) / 10).toString();
 
 /* plain-text mirror of the SVG readout's headline — the HTML text app.js
    shows next to the diagram. Pure; same inputs renderReadout itself uses. */
+/* the DISPLAY verdict (Swiss 6b): the headline sentence and the ONE load-bearing
+   figure inside it — the average item's calendar time. Pure; readoutVerdict()
+   below opens with this exact line, so the plain mirror (markdown, copy-for-doc,
+   the SVG's aria-label) and the drawn block can never drift. */
+export function readoutVerdictParts(result){
+  const fig = day(result.lead.mean);
+  return {fig, line: 'The average item takes ' + fig + ' — ' + day(result.workDays) +
+    ' working, ' + day(result.waitDays) + ' waiting.'};
+}
+
 export function readoutVerdict(result){
-  const lead = result.lead;
   // means, not the median: working + waiting = total is EXACT only for means
   // (median of a sum ≠ sum of medians), so lead.p50 here contradicted the parts.
-  const bits = ['The average item takes ' + day(lead.mean) + ' — ' + day(result.workDays) +
-    ' working, ' + day(result.waitDays) + ' waiting.'];
+  const bits = [readoutVerdictParts(result).line];
   if(result.backlogSlopePerWeek > 0.5){
     bits.push('Backlog growing ~' + f1(result.backlogSlopePerWeek) +
       '/week — demand exceeds capacity; no WIP limit fixes that.');
@@ -31,17 +44,17 @@ export function renderReadout(result, sweep, knee, params, ctx){
   const s = [];
   let y = PAD + 6;
 
-  /* ---- verdict ---- */
+  /* ---- verdict (Swiss 6b anatomy: VERDICT kicker + one display line whose
+     single brand-coloured figure is the average item's calendar time). The
+     block's height is content-driven, so a wrapped headline pushes the
+     histogram down rather than overlapping it. ---- */
   const overloaded = result.backlogSlopePerWeek > 0.5;
-  s.push(txt(PAD, y + 14, 'THE HEADLINE', 10, C.muted, {weight: 600, tracking: 1}));
-  y += 38;
   const lead = result.lead;
-  s.push('<text x="' + PAD + '" y="' + y + '" font-size="19" fill="' + C.ink + '">' +
-    'The average item takes <tspan font-weight="700">' + esc(day(lead.mean)) + '</tspan>' +
-    ' — <tspan font-weight="600">' + esc(day(result.workDays)) + ' working</tspan>, ' +
-    '<tspan font-weight="600" fill="' + C.err + '">' + esc(day(result.waitDays)) + ' waiting</tspan>.' +
-    '</text>');
-  y += 24;
+  const {line, fig} = readoutVerdictParts(result);
+  const V = svgVerdict({x: PAD, y: y + 14, width: W - PAD * 2, line, fig,
+    ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: FONT, measure: ctx.measure});
+  s.push(V.svg);
+  y = y + 14 + V.height + 4;
   s.push(txt(PAD, y, 'P85 ' + day(lead.p85) + ' · P95 ' + day(lead.p95) +
     ' · throughput ' + f1(result.throughputPerWeek) + '/week vs demand ' + f1(params.demandPerWeek) + '/week' +
     ' · team busy ' + Math.round(result.utilisation * 100) + '%', 12.5, C.muted));

@@ -17,7 +17,9 @@
   padding:9px 16px;border:1px solid var(--ink);border-radius:0;
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
 .btn:hover{background:var(--ink);color:var(--bg)}
-.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+/* The ONE brand-filled action per surface (Swiss 6b). White fails on the dark
+   brand red, so the label rides --brand-on (#fff light / #121212 dark). */
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-on)}
 .btn.primary:hover{background:var(--ink);border-color:var(--ink)}
 
 /* Author display rules (flex/grid) must never defeat the hidden attribute —

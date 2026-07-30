@@ -47,6 +47,20 @@ test('verdict copy: normal and zero-alarm branches', () => {
   assert.match(z.alarm, /No alarms/);
 });
 
+test('alarmFig names the one load-bearing run, verbatim inside the line', () => {
+  const params = {baseRate: 0.1, dprime: 2, t: 1};
+  const both = [
+    verdicts({tp: 10, fp: 90, tn: 880, fn: 20}, params),      // 9 in 10 false
+    verdicts({tp: 0, fp: 0, tn: 950, fn: 50}, params),        // no alarms at all
+    verdicts({tp: 40, fp: 0, tn: 900, fn: 60}, params),       // every alarm real
+  ];
+  assert.equal(both[0].alarmFig, '9 in 10');
+  assert.equal(both[1].alarmFig, '50');
+  assert.equal(both[2].alarmFig, 'Every alarm');
+  for(const v of both)
+    assert.ok(v.alarm.includes(v.alarmFig), 'figure appears verbatim in: ' + v.alarm);
+});
+
 test('the "Expected:" fine line is analytic, not sample noise (Fable I3)', () => {
   const params = {baseRate: 0.001, dprime: 2, t: 1};
   const d = derived(params);

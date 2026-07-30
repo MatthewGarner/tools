@@ -17,6 +17,7 @@ import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -98,12 +99,14 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No components yet — write one like “Streak engine @ custom”.'
       : 'Start typing — or load an example.') + '</p>';
-    $('verdict').textContent = '';
+    paintMetrics($('metrics'), '', []);
   } else {
     layout = layoutMap(model);
     const svg = activeRender();
     paint(svg, REVEAL); lastSvg = svg;
-    $('verdict').textContent = mapReadout(model, layout).verdict;
+    /* the verdict itself is drawn INSIDE the artefact (render.js's readout band) —
+       one verdict per page, and it travels with every export */
+    paintMetrics($('metrics'), model.title || 'Wardley map', mapCounts());
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
@@ -315,15 +318,20 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 function svgString(bare = false){
   return (model && model.components.size) ? activeRender(true, bare) : null;
 }
-function posterData(){
+/* The counted facts the map already knows — shared by the page's metrics row
+   and the poster footer, so the two can never disagree. */
+function mapCounts(){
   const comps = layout.nodes.filter(n => !n.anchor);
   const ghostN = comps.filter(n => n.ghost).length;
+  return [comps.length + (comps.length === 1 ? ' component' : ' components'),
+          model.edges.length + (model.edges.length === 1 ? ' dependency' : ' dependencies'),
+          ...(ghostN ? [ghostN + ' unplaced'] : [])];
+}
+function posterData(){
   return {
     verdict: mapReadout(model, layout).verdict,
     name: model.title || 'Wardley map',
-    metrics: [comps.length + (comps.length === 1 ? ' component' : ' components'),
-              model.edges.length + (model.edges.length === 1 ? ' dependency' : ' dependencies'),
-              ...(ghostN ? [ghostN + ' unplaced'] : [])],
+    metrics: mapCounts(),
   };
 }
 function posterString(){
@@ -361,6 +369,7 @@ function flash(id, msg, ms){
 onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot ---------- */
+paintKicker($('kicker'), '09', 'The landscape as text');
 (function(){
   const hash = readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';

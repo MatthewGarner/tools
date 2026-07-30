@@ -1,10 +1,11 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, fmtDay, STATUSES} from './parse.js';
-import {render, toMarkdown, timelineReadout, posterVerdict} from './render.js';
+import {render, toMarkdown, posterVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {paintKicker} from '../assets/verdict.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {wireExports} from '../assets/exports.js';
@@ -68,14 +69,12 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No milestones yet — write one like “Grid: Energisation 2027-02 .. 2027-06”.'
       : 'Start typing — or load an example.') + '</p>';
-    $('verdict').textContent = '';
   } else {
     // the PREVIEW carries the narrow width (<520 ⇒ renderNarrow); exports never do
     const svg = render(model, {...ctx(false), width: narrowWidth(pv)}, currentDiff(), {edit: true});
     paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
     lastSvg = svg;
     motionOverride = undefined;
-    $('verdict').textContent = timelineReadout(model, model.today ?? todayDay());
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
@@ -252,6 +251,9 @@ function panToToday(){
   }
 }
 new MutationObserver(panToToday).observe($('preview'), {childList: true});
+
+/* the instrument kicker — static, painted once (never in the refresh loop) */
+paintKicker($('kicker'), '02', 'Milestones under uncertainty');
 
 /* ---------- theme ---------- */
 function rerender(){ motionOverride = 'none'; paint.reset(); lastSvg = ''; refresh(); }

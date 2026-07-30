@@ -25,16 +25,14 @@ const draw = (src = SRC, opts = {}, c = ctx) => {
   return renderMap(m, layoutMap(m), c, opts);
 };
 
-/* minimal wellformedness: every tag's attributes are cleanly double-quoted,
-   no bare attributes, quotes balance inside each tag */
+/* minimal wellformedness: every attribute is quoted and balanced, no bare
+   attributes. Same tag grammar as dev/svg-wellformed.test.mjs — EITHER quote
+   character is XML-legal, and the shared verdict block (assets/verdict.js)
+   emits single-quoted values so it can splice into any renderer's convention. */
+const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
 function wellFormed(svg){
-  for(const m of svg.matchAll(/<[a-zA-Z][^>]*>/g)){
-    const tag = m[0];
-    assert.equal((tag.match(/"/g) || []).length % 2, 0, 'unbalanced quotes in ' + tag);
-    const stripped = tag.replace(/^<[a-zA-Z][-\w]*/, '').replace(/\s*\/?>$/, '')
-      .replace(/\s+[-\w:]+="[^"<>]*"/g, '');
-    assert.equal(stripped.trim(), '', 'bare or malformed attribute in ' + tag);
-  }
+  for(const m of svg.matchAll(/<[a-zA-Z][^>]*>/g))
+    assert.match(m[0], TAG, 'bare or malformed attribute in ' + m[0]);
 }
 
 test('board: terrain washes, stage labels, header metrics, readout, evolution caption', () => {
@@ -125,12 +123,15 @@ Need -> App B -> Core engine`);
   const r = mapReadout(m, layoutMap(m));
   assert.match(r.verdict, /Core engine/);
   assert.match(r.verdict, /load-bearing/);
+  assert.equal(r.fig, '2 things need it');       // the ONE key figure, verbatim in the line
+  assert.ok(r.verdict.includes(r.fig));
 });
 
 test('readout: composition verdict when nothing is load-bearing left of product', async () => {
   const {mapReadout} = await import('../render.js');
   const exec = parse('anchor: N\nA @ product\nB @ commodity\nN -> A -> B');
   assert.match(mapReadout(exec, layoutMap(exec)).verdict, /execution map/);
+  assert.equal(mapReadout(exec, layoutMap(exec)).fig, '');   // no single number to quote
   const disco = parse('anchor: N\nA @ genesis\nB @ custom\nN -> A\nN -> B');
   assert.match(mapReadout(disco, layoutMap(disco)).verdict, /discovery/);
 });
@@ -141,6 +142,55 @@ test('readout: flags ghosts and dropped loops by name', async () => {
   const r = mapReadout(m, layoutMap(m));
   assert.ok(r.flags.some(f => f.includes('unplaced')));
   assert.ok(r.flags.some(f => f.includes('loop') && f.includes('B') && f.includes('A')));
+});
+
+/* ---- the in-SVG verdict block (assets/verdict.js anatomy) ---- */
+const brandCtx = {...ctx, colors: {...ctx.colors, brandText: '#D62015'}};
+/* a load-bearing bet — the verdict shape that carries a key figure */
+const BET_SRC = `anchor: Need
+Core engine @ custom
+App A @ product
+App B @ product
+Need -> App A -> Core engine
+Need -> App B -> Core engine`;
+
+test('readout band: VERDICT kicker + one 24px display line, key figure in brand ink', () => {
+  const s = draw(BET_SRC, {}, brandCtx);
+  assert.ok(s.includes('>VERDICT<'), 'literal uppercase micro label (no CSS transform in an export)');
+  assert.ok(s.includes("letter-spacing=\"1.8\""), 'absolute tracking on the 10px micro');
+  assert.ok(s.includes("font-size=\"24\" font-weight=\"700\" letter-spacing=\"-0.36\""), '24px display line');
+  const tspans = s.match(/<tspan fill="#D62015">/g) || [];
+  assert.equal(tspans.length, 1, 'exactly ONE brand-inked figure');
+  assert.ok(s.includes(">2 things need it</tspan>"), 'and it is the load-bearing count');
+});
+
+test('readout band: brandText is optional — a ctx without it falls back to ink', () => {
+  const s = draw();                       // the shared ctx carries no brandText
+  assert.ok(!s.includes('undefined'), 'no undefined colour leaks into the export');
+  assert.ok(s.includes('>VERDICT<'));
+});
+
+test('readout band: a wrapped verdict grows the artefact instead of colliding', () => {
+  const long = `anchor: A very long user need that will not fit on one display line at all
+Core engine with a deliberately long component name @ custom
+App A @ product
+App B @ product
+A very long user need that will not fit on one display line at all -> App A -> Core engine with a deliberately long component name
+A very long user need that will not fit on one display line at all -> App B -> Core engine with a deliberately long component name`;
+  const h = src => +draw(src, {}, brandCtx).match(/height="(\d+)"/)[1];
+  const short = `anchor: N
+Core @ custom
+App A @ product
+App B @ product
+N -> App A -> Core
+N -> App B -> Core`;
+  assert.ok(h(long) > h(short), 'the taller verdict block pushes the band height out');
+});
+
+test('readout band: bare (poster embed) drops the verdict entirely', () => {
+  const s = draw(BET_SRC, {bare: true}, brandCtx);
+  assert.ok(!s.includes('>VERDICT<'), 'the poster frame owns the hero verdict');
+  assert.ok(!s.includes("<tspan fill=\"#D62015\">"));
 });
 
 /* ---- narrow relayout (width-aware, ctx.width < 520) ---- */

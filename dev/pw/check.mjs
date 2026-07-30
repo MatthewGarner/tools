@@ -3,6 +3,21 @@ import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 const browser = await chromium.launch();
+/* A drag whose endpoints are not both inside the viewport is a SILENT no-op:
+   the app resolves its drop target with document.elementsFromPoint, which is
+   viewport-relative and simply returns nothing off-screen. That is how a real
+   regression and a page that merely grew taller look identical — Swiss 6b's
+   metrics row pushed roadmap's lower cells past the default 720px page and four
+   drag checks started failing with the app working perfectly. Assert the
+   endpoints instead of trusting them, and give the drag pages a viewport tall
+   enough to hold a board. */
+function dragBoxesVisible(page, ...boxes){
+  const vp = page.viewportSize();
+  return boxes.every(b => b && b.y >= 0 && b.y + b.height <= vp.height &&
+                          b.x >= 0 && b.x + b.width <= vp.width);
+}
+const DRAG_VIEWPORT = {width: 1280, height: 1000};
+
 const page = await browser.newPage();
 const errors = trackErrors(page);
 
@@ -100,7 +115,7 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
 // the lane×horizon cell gesture (data-cell) — distinct from the horizon-band
 // drag register/board share below.
 {
-  const dragPage = await browser.newPage();
+  const dragPage = await browser.newPage({viewport: DRAG_VIEWPORT});
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
   await dragPage.getByRole('button', {name: 'Habit app roadmap'}).click();
   await dragPage.waitForTimeout(400);
@@ -109,6 +124,8 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   const cell = dragPage.locator('#preview svg rect[data-cell="2|Platform"]');
   const from = await card.boundingBox();
   const to = await cell.boundingBox();
+  check('drag endpoints are both on screen (an off-screen drop is a silent no-op)',
+    dragBoxesVisible(dragPage, from, to));
   await dragPage.mouse.move(from.x + from.width/2, from.y + 10);
   await dragPage.mouse.down();
   await dragPage.mouse.move(to.x + to.width/2, to.y + to.height/2, {steps: 12});
@@ -135,7 +152,7 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
 // lane. Rows resolved BY TITLE, never data-line (a line number is a property
 // of the example doc, not a stable identity).
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit app roadmap'}).click();
   await p.waitForTimeout(400);
@@ -144,9 +161,15 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  /* switching to the register scrolls the page (the taller view + the chip's own
+     focus), which puts the drag endpoints above the fold — and an off-screen drop
+     is a silent no-op, not a failure. Start the gesture from the top. */
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await p.waitForTimeout(150);
   // "Smart reminders" starts under NEXT — drag it onto NOW's band (data-hdrop="0")
   const hit = await rowOf('Smart reminders').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();
+  check('register drag endpoints are both on screen', dragBoxesVisible(p, hit, band));
   await p.mouse.move(hit.x + 8, hit.y + 4);
   await p.mouse.down();
   await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
@@ -405,7 +428,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
     Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Item number ' + i + ' with a name').join('\n') +
     '\nNEXT\n' + Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Next item ' + i).join('\n') +
     '\nLATER\n' + Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Later item ' + i).join('\n');
-  const p = await browser.newPage();
+  const p = await browser.newPage({viewport: DRAG_VIEWPORT});
   await p.goto(BASE + '#' + Buffer.from(doc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
   await p.waitForTimeout(600);
   const ms = await p.evaluate(() => new Promise(res => {

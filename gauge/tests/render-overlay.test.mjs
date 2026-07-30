@@ -1,13 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {renderOverlay} from '../render-overlay.js';
-import {sessionStats} from '../engine.js';
+import {sessionStats, verdictOf} from '../engine.js';
 import {parse} from '../parse.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
     bg: '#f7f8f6', err: '#b33',
-    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'}},
+    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'},
+    brand: '#E2231A', brandText: '#D62015'},
   measure: t => t.length * 7,
 };
 const M = parse('title: Q3 review\nnames: on\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
@@ -114,10 +115,36 @@ test('narrow: svg takes the given width; floor-clamped; opts without width stays
   assert.equal(renderOverlay(M, sessionStats(M, RESP), ctx, {}), svg());
 });
 
+/* the verdict block is the only text at 24px wide / 17px narrow in this overlay —
+   every other label here is 15px or smaller, so the size alone identifies it */
+const countVerdictLines = (s, size) => (s.match(new RegExp('font-size="' + size + '"', 'g')) || []).length;
 test('narrow: the verdict wraps to multiple lines instead of truncating', () => {
-  const count14 = s => (s.match(/font-size="14"/g) || []).length;   // verdict is the only 14px text
-  assert.equal(count14(svg()), 1);
-  ook(count14(narrowSvg()) >= 2, 'verdict wraps at 360');
+  assert.equal(countVerdictLines(svg(), 24), 1);
+  ook(countVerdictLines(narrowSvg(), 17) >= 2, 'verdict wraps at 360');
+  assert.equal(countVerdictLines(narrowSvg(), 24), 0, 'narrow drops to the 17px size');
+});
+
+test('the in-SVG verdict is the Swiss 6b block: micro kicker, ink line, ONE brand figure', () => {
+  const s = svg();
+  ook(s.includes('>VERDICT</text>'), 'literal uppercase micro kicker (no CSS transform in an export)');
+  ook(s.includes("letter-spacing=\"1.8\""), 'absolute 1.8px tracking on the 10px micro');
+  ook(s.includes("letter-spacing=\"-0.36\""), 'absolute -0.36px tracking on the 24px line');
+  // exactly one run in brandText, and it is the key figure — never the whole line
+  const figs = s.match(/<tspan fill=\"#D62015\">([^<]*)<\/tspan>/g) || [];
+  assert.equal(figs.length, 1);
+  assert.equal(figs[0], "<tspan fill=\"#D62015\">" + verdictOf(sessionStats(M, RESP)).fig + '</tspan>');
+  ook(s.includes("font-size=\"24\" font-weight=\"700\" letter-spacing=\"-0.36\" fill=\"#222\""),
+    'the verdict line itself is INK, not accent — red discipline');
+  ook(!s.includes("font-size=\"24\" font-weight=\"700\" letter-spacing=\"-0.36\" fill=\"#08c\""),
+    'the old wholly-accent verdict is gone');
+});
+
+test('verdict brandText falls back to ink when a ctx predates the token', () => {
+  const bare = {colors: {...ctx.colors}, measure: ctx.measure};
+  delete bare.colors.brandText;   // a ctx from before the token existed
+  const s = renderOverlay(M, sessionStats(M, RESP), bare);
+  ook(!s.includes('undefined'), 'no undefined fill leaks into the export');
+  ook(s.includes("<tspan fill=\"#222\">"), 'the figure falls back to ink');
 });
 
 test('narrow: panel headlines wrap to multiple 13px lines', () => {

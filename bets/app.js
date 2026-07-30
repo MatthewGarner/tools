@@ -2,7 +2,7 @@
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
    with edit-in-place + the coarse-pointer card menu. */
 import {parse} from './parse.js';
-import {simulate, verdictCopy, markdown} from './engine.js';
+import {simulate, verdictCopy, verdictParts, markdown} from './engine.js';
 import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
 import {betsDiff, betsDiffView} from './diff.js';
@@ -23,6 +23,7 @@ import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -61,6 +62,7 @@ let snaps = null;   // wired below, after the editor exists
 let view = 'board';   // transient app state (not persisted): 'board' | 'quadrant'
 let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-flip re-render
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
+const nBets = m => m.groups.reduce((t, g) => t + g.bets.length, 0);
 /* the snapshot's own 4,000-run simulate() is memoised per parsed snapshot
    model (wireSnapshots already caches the PARSE, keyed by idx|length|label,
    and returns the same model object while that snapshot stays selected) — a
@@ -81,11 +83,12 @@ function findBet(m, srcLine){
   return null;
 }
 function auditCounts(s){
-  const counts = {kill: 0, certainty: 0, loses: 0};
+  const counts = {kill: 0, certainty: 0, loses: 0, flagged: 0};
   for(const rec of s.bets.values()){
     if(rec.audits.includes('NO KILL CRITERION')) counts.kill++;
     if(rec.audits.includes('ODDS IMPLY CERTAINTY')) counts.certainty++;
     if(rec.audits.includes('LOSES AT P50')) counts.loses++;
+    if(rec.audits.length) counts.flagged++;
   }
   return counts;
 }
@@ -118,7 +121,8 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'No bets yet — add one under a group heading, e.g. “Search revamp: stake 120, odds 30-50%, payoff 400-900”.'
       : 'Start typing — or load an example.') + '</p>';
-    $('verdict').textContent = '';
+    paintVerdict($('verdict'), '', '');
+    paintMetrics($('metrics'), '', []);
   } else {
     sim = simulate(model);
     const svg = activeRender(false);
@@ -126,7 +130,15 @@ function doRefresh(){
     // board view has no data-key marks so FLIP is a no-op there.
     paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
     lastSvg = svg; flipMode = undefined;
-    $('verdict').textContent = verdictCopy(sim.portfolio, auditCounts(sim));
+    const counts = auditCounts(sim);
+    const v = verdictParts(sim.portfolio, counts);
+    paintVerdict($('verdict'), v.line, v.fig);
+    /* the same four facts the board's own strap prints, above the artefact */
+    paintMetrics($('metrics'), model.title || 'Bets board', [
+      nBets(model) + (nBets(model) === 1 ? ' bet' : ' bets'),
+      model.groups.length + (model.groups.length === 1 ? ' book' : ' books'),
+      counts.flagged + ' flagged',
+    ]);
   }
   renderWarningList($('warns'), model.warnings);
   setActionsEnabled(!!lastSvg);
@@ -330,6 +342,7 @@ wireExports({
 onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot: hash > localStorage > example ---------- */
+paintKicker($('kicker'), '03', 'Initiatives priced as wagers');
 (function(){
   const hash = readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';

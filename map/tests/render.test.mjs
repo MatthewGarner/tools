@@ -7,7 +7,8 @@ import {render, nudge} from '../render.js';
 
 const ctx = {
   colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667', accent:'#08c', bg:'#f7f8f6',
-    err:'#b33', status:{done:'#1D7A3E', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'}},
+    err:'#b33', status:{done:'#1D7A3E', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'},
+    brand:'#E2231A', brandText:'#D62015'},
   measure: t => t.length * 7,
 };
 const run = (src, extra = {}) => {
@@ -226,4 +227,43 @@ test('crowded stack: hit-rect heights cap to the neighbour gap, no overlap; floo
   /* at least one card is capped below the full 44, and none below the 20px card height */
   assert.ok(rects.some(r => r.h < 44 - 0.01), 'expected at least one capped (<44) hit rect in a crowded stack');
   assert.ok(rects.every(r => r.h >= 20 - 0.01), 'hit rect never shrinks below the visible card height');
+});
+
+
+/* ---------- Swiss 6b: metrics row + verdict block ---------- */
+
+test('metrics row: model title then readout.js counts, uppercase and letterspaced', () => {
+  const svg = run('preset: assumptions\ntitle: Habitat bets\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
+  assert.match(svg, /font-weight="500" letter-spacing="1\.8" fill="#667">3 OF 4 PLACED · 2 ZONES OCCUPIED · 2 FLAGGED</);
+  assert.match(svg, /letter-spacing="1\.8"/);
+});
+
+test('metrics row is gone without a title (the minimal header keeps its own shape)', () => {
+  assert.doesNotMatch(run('preset: assumptions\nA @ 20,80'), /PLACED/);
+});
+
+test('verdict block: VERDICT kicker, 24px display line, exactly one brand figure', () => {
+  const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
+  assert.match(svg, />VERDICT</);
+  assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0\.36"/);
+  assert.match(svg, /<tspan fill="#D62015">2 of 3<\/tspan>/);
+  assert.equal((svg.match(/#D62015/g) || []).length, 1, 'brand red appears once and only on the figure');
+  assert.match(svg, /assumptions sit in test first/);
+});
+
+test('bare (poster embed) drops the verdict block but keeps the zone columns', () => {
+  const bare = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 80,20', {bare: true});
+  assert.doesNotMatch(bare, />VERDICT</);
+  assert.doesNotMatch(bare, /#D62015/);
+  assert.match(bare, /TEST FIRST/);
+});
+
+test('the verdict advance drives the readout flow — a long verdict never overlaps a zone column', () => {
+  const long = 'preset: risk\ntitle: T\n' +
+    'A catastrophically long risk label that will certainly wrap the display line @ 90,90\nB @ 10,10';
+  const svg = run(long);
+  const ys = [...svg.matchAll(/y="([\d.]+)" font-family="'Helvetica Neue'[^>]*font-size="24"/g)].map(m => +m[1]);
+  assert.ok(ys.length >= 2, 'the long verdict really did wrap');
+  const zoneY = +svg.match(/y="([\d.]+)" font-size="10\.5" font-weight="600" letter-spacing="0\.8"/)[1];
+  assert.ok(zoneY > ys[ys.length - 1], 'the zone columns start below the last verdict line');
 });

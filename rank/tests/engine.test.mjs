@@ -86,6 +86,21 @@ test('verdict: all k slots secure counts as settled even with a flickering chall
   assert.doesNotMatch(body, /remaining 0/);
 });
 
+test('verdict: the key figure is the settled count, verbatim in the headline', () => {
+  const all = verdictCopy([{name: 'A', ptop: 0.99}, {name: 'B', ptop: 0.05}], 1);
+  assert.equal(all.fig, '1');                       // "The top 1 is settled." — k
+  assert.ok(all.headline.includes(all.fig));
+
+  const some = verdictCopy([
+    {name: 'A', ptop: 0.97}, {name: 'B', ptop: 0.5}, {name: 'C', ptop: 0.4},
+  ], 2);
+  assert.equal(some.fig, '1');                      // "1 of the top 2 is settled."
+  assert.equal(some.headline.indexOf(some.fig), 0);
+
+  const none = verdictCopy([{name: 'A', ptop: 0.5}, {name: 'B', ptop: 0.5}], 1);
+  assert.equal(none.fig, '');                       // "Nothing is settled." — no count
+});
+
 test('perRowKnife flags rows that flip rank under a ±10% single-weight nudge', () => {
   const st = {
     criteria: [{name: 'X', w: 10}, {name: 'Y', w: 16}],

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {renderPhase} from '../render-wizard.js';
 import {renderRegister} from '../render-register.js';
-import {renderBoard} from '../render-board.js';
+import {renderBoard, boardVerdict} from '../render-board.js';
 import {newEntry, exposure, promote} from '../register.js';
 
 const EVIL = '<img src=x onerror=alert(1)>';
@@ -77,6 +77,26 @@ test('board escapes hostile text and carries a column add-input per kind', () =>
   assert.match(h, /data-add-kind="fact"/);
   assert.match(h, /data-add-kind="assumption"/);
   assert.match(h, /data-add-kind="belief"/);
+});
+test('boardVerdict names one figure, verbatim in the line, on every branch', () => {
+  const cases = [
+    boardVerdict([]),
+    boardVerdict([kinded('a', 'fact'), kinded('b', 'fact')]),
+    boardVerdict([kinded('a', 'fact'), kinded('b', 'assumption'), kinded('c', 'belief')]),
+  ];
+  assert.equal(cases[0].fig, 'Empty board');
+  assert.equal(cases[1].fig, '2');
+  assert.match(cases[1].line, /^2 facts and nothing taken on faith/);
+  assert.equal(cases[2].fig, '2');
+  assert.match(cases[2].line, /^2 assumptions & beliefs on the board/);
+  for(const v of cases) assert.ok(v.line.includes(v.fig), 'figure verbatim in: ' + v.line);
+});
+test('board renders the verdict as the 6b block with exactly one .fig', () => {
+  const h = renderBoard({entries: [kinded('a', 'assumption'), kinded('b', 'belief')]}, new Date());
+  assert.match(h, /<div class="verdict-block"><div class="vkick">Verdict<\/div>/);
+  assert.equal((h.match(/class="fig"/g) || []).length, 1);
+  assert.match(h, /<span class="fig">2<\/span> assumptions &amp; beliefs/);
+  assert.ok(!h.includes('boardverdict'), 'the old paragraph is gone');
 });
 test('promote turns an assumption into a scored risk', () => {
   const r = promote(kinded('assume', 'assumption'), [20, 40], [50, 100]);

@@ -1,13 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks, timelineReadout, posterVerdict, toMarkdown} from '../render.js';
+import {render, ticks, timelineReadout, timelineVerdict, posterVerdict, toMarkdown} from '../render.js';
 import {mergeBias} from '../mergebias.js';
 
 const ctx = {
   colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
     accent: '#0088cc', bg: '#f7f8f6', err: '#b3403a',
-    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'}},
+    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'},
+    brand: '#E2231A', brandText: '#D62015'},
   measure: t => t.length * 7,
   today: parseDate('2026-07-06'),
 };
@@ -48,15 +49,30 @@ test('today line present and labelled; lanes render as bands', () => {
   assert.match(svg, />BUILD</);
 });
 
-test('readout: next milestone up + widest whisker named in weeks', () => {
+/* Swiss 6b: the artefact leads with ONE verdict line carrying ONE key figure,
+   with the remaining operational bits as the muted supporting line. */
+test('verdict: next milestone up leads, widest whisker supports, P50 date is the figure', () => {
+  const v = timelineVerdict(parse(DOC), ctx.today);
+  assert.equal(v.line, 'Next up: Connection offer — P50 Aug 2026, could slip to Oct 2026.');
+  assert.equal(v.fig, 'Aug 2026');
+  assert.ok(v.line.includes(v.fig), 'the figure must appear verbatim in the line');
+  assert.match(v.rest, /^Widest whisker: Energisation — 15 weeks between P50 and P90\.$/);
+});
+
+test('verdict SVG: VERDICT kicker, one brand tspan on the figure, muted supporting line', () => {
   const svg = render(parse(DOC), ctx);
-  assert.match(svg, /Next up: Connection offer — P50 Aug 2026, could slip to Oct 2026/);
-  assert.match(svg, /Widest whisker: Energisation — 15 weeks/);
+  assert.match(svg, />VERDICT</);
+  /* the space before the figure becomes an NBSP so a wrap can't orphan it */
+  assert.match(svg, /Next up: Connection offer — P50\s<tspan fill="#D62015">Aug 2026<\/tspan>, could slip to Oct 2026\./);
+  assert.equal((svg.match(/#D62015/g) || []).length, 1, 'exactly one brand mark in the artefact');
+  assert.match(svg, /Widest whisker: Energisation — 15 weeks between P50 and P90\./);
+  assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0\.36"/);
 });
 
 test('readout: a same-month range switches to day grain instead of repeating the month', () => {
-  const svg = render(parse('X 2026-08-14 .. 2026-08-28'), ctx);
-  assert.match(svg, /Next up: X — P50 14 Aug 2026, could slip to 28 Aug 2026/);
+  const v = timelineVerdict(parse('X 2026-08-14 .. 2026-08-28'), ctx.today);
+  assert.equal(v.line, 'Next up: X — P50 14 Aug 2026, could slip to 28 Aug 2026.');
+  assert.equal(v.fig, '14 Aug 2026');
 });
 
 test('edit hooks: label, dates, status, add and remove affordances', () => {
@@ -162,10 +178,16 @@ test('posterVerdict is the merge sentence only (no operational bits)', () => {
   assert.doesNotMatch(v, /Next up|Widest whisker/);
 });
 
-test('merge SVG carries TWO readout rows (short merge + operational)', () => {
+test('merge SVG: the merge sentence IS the verdict, joint probability the figure', () => {
+  const v = timelineVerdict(parse(MERGE_DOC), ctx.today);
+  assert.match(v.line, /^Merge risk: all 3 ranged lanes/);   // short in-chart form (c): "ranged", matches the joint
+  assert.match(v.fig, /^\d+%$/);
+  assert.ok(v.line.includes(v.fig));
+  assert.match(v.rest, /Next up:/);                          // the operational bits still present
   const svg = render(parse(MERGE_DOC), ctx);
-  assert.match(svg, /Merge risk: all 3 ranged lanes/);   // short in-chart form (c): "ranged", matches the joint
-  assert.match(svg, /Next up:/);                          // the operational row still present
+  assert.match(svg, /Merge risk: all 3 ranged lanes/);
+  assert.match(svg, /Next up:/);
+  assert.equal((svg.match(/#D62015/g) || []).length, 1);
   assert.doesNotMatch(svg, /NaN|undefined/);
 });
 
@@ -262,12 +284,12 @@ test('near 80%: the verdict says which side of the line it is on', () => {
   assert.match(rd(MERGE + '\nGate ' + iso(d80 + 1) + ' [fixed]'), /clear it together just over 80%/);
 });
 
-test('the in-chart row clips a long fixed label; the full readout keeps it', () => {
+test('a long fixed label survives whole — the 6b verdict wraps, so nothing is clipped', () => {
   const long = 'Ofgem determination on capacity market rules';   // 43 chars
   const src = MERGE + '\n' + long + ' 2027-04-01 [fixed]';
-  const clip = long.slice(0, 30).trimEnd() + '…';
-  assert.ok(render(parse(src), ctx).includes('Fixed: ' + clip + ' 1 Apr 2027'),
-    'the single non-wrapping <text> row would otherwise clip off the plot');
+  const v = timelineVerdict(parse(src), parseDate('2026-07-06'));
+  assert.ok(v.line.startsWith('Fixed: ' + long + ' 1 Apr 2027'), 'the in-chart line keeps the label');
+  assert.doesNotMatch(render(parse(src), ctx), /capacit…/, 'the pre-wrap 30-char clip is gone');
   assert.ok(rd(src).startsWith('Fixed date: ' + long + ','), 'the prose form keeps the whole label');
 });
 
@@ -310,16 +332,20 @@ test('toMarkdown distinguishes fixed from an un-ranged guess', () => {
 
 /* 2026-07-30 polish batch: metrics line, RISK pill, TODAY-flag tick dodge, note size */
 
-test('metrics line: count · lanes · window under the title', () => {
+/* the metrics row is the shared 6b anatomy (assets/verdict.js): model title in ink,
+   honestly-derived counts muted after it, all uppercase and letterspaced in-plane. */
+test('metrics line: model title then count · lanes · window under the title', () => {
   const svg = render(parse(DOC), ctx);
-  assert.match(svg, />4 milestones · 2 lanes · Jun 2026 – Jun 2027</);
+  assert.match(svg, /font-weight="500" letter-spacing="1\.8" fill="#66777a">4 MILESTONES · 2 LANES · JUN 2026 – JUN 2027</);
+  assert.match(svg, /letter-spacing="1\.8"/);
 });
 
 test('metrics line: singular forms, no lane bit without named lanes, gone without a title', () => {
   const one = render(parse('title: T\nA 2026-08 .. 2026-09'), ctx);
-  assert.match(one, />1 milestone · Aug 2026 – Sep 2026</);
+  assert.match(one, />1 MILESTONE · AUG 2026 – SEP 2026</);
+  assert.doesNotMatch(one, /LANE/);
   const untitled = render(parse('A 2026-08 .. 2026-09'), ctx);
-  assert.doesNotMatch(untitled, /1 milestone/);
+  assert.doesNotMatch(untitled, /MILESTONE/);
 });
 
 test('[risk] carries a RISK pill, not colour alone', () => {

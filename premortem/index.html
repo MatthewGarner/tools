@@ -25,6 +25,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Premortem</h1>
     <p class="tagline">Imagine it's already failed and work backwards — the failure you can name in advance is the one you can still prevent. The workshop is the front door; a living, EV-ranked risk register is what you keep.</p>
   </header>
@@ -43,6 +44,7 @@
       <div class="viewtoggle" id="viewtoggle" role="group" aria-label="View"></div>
       <button class="btn" id="undo" title="Undo (⌘Z)" aria-label="Undo">↶<span class="ulabel"> Undo</span></button>
     </div>
+    <div class="metrics" id="metrics" hidden></div>
     <div id="wizardview">
       <ol class="phaserail" id="phaserail" aria-label="Workshop steps"></ol>
       <div class="card">

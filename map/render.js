@@ -2,6 +2,7 @@
 import {PALETTES, scheme, mix} from '../assets/series.js';
 import {esc, wrapText, editTarget, btnAttrs} from '../assets/svg.js';
 import {paintOrder, labelAnchors} from './zones.js';
+import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -9,12 +10,12 @@ const F = {
 };
 
 export const TOKENS = {
-  pad: 26, titleSize: 22, titleY: 36, dateSize: 11, headerH: 54, headerHNoTitle: 18,
+  pad: 26, titleSize: 22, titleY: 36, dateSize: 11, headerH: 70, headerHNoTitle: 18,
   planeW: 620, planeH: 470, axisW: 46, axisH: 42, axisSize: 11.5, endSize: 9.5,
   zoneSize: 10, zoneTracking: 0.8, zoneTint: 0.07, zoneTintDark: 0.13,
   dotR: 3.5, cardH: 20, cardPadX: 8, cardSize: 11, cardGapX: 7, cardMaxW: 190,
   trayW: 200, trayGap: 18, trayCardH: 26, trayHeadSize: 9.5,
-  roGap: 24, roColW: 300, roColGap: 26, verdictSize: 15, verdictLh: 21,
+  roGap: 24, roColW: 300, roColGap: 26, verdictSize: 24,
   roZoneSize: 10.5, roItemSize: 11, roItemLh: 16, roMetaSize: 9.5,
   roAdviceSize: 10, roAdviceLh: 13, roCap: 6, blockGap: 16,
   slideScale: 1.35, bottomPad: 18,
@@ -302,11 +303,16 @@ export function render(model, resolved, ro, ctx, diff = null){
   /* ---- readout panel ---- */
   const roX = T.pad * S, roW = W - T.pad * 2 * S;
   let roY = Math.max(planeY + planeH + T.axisH * S, trayBottom) + T.roGap * S;
-  const verdictLines = bare ? [] : wrapText(ro.verdict, '600 ' + T.verdictSize * S + 'px ' + F.serif, roW, measure);
-  for(const line of verdictLines){
-    body.push('<text x="' + roX + '" y="' + (roY + T.verdictSize * S) + '" font-family=\'' + F.serif +
-      '\' font-size="' + T.verdictSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(line) + '</text>');
-    roY += T.verdictLh * S;
+  /* the VERDICT block (Swiss 6b): kicker + wrapped display line carrying exactly
+     one brand-marked figure. Its returned advance drives the readout's flow, so
+     a long verdict pushes the zone columns down instead of colliding with them. */
+  if(!bare){
+    const vb = svgVerdict({x: roX, y: roY + 8 * S, width: roW,
+      line: ro.verdict, fig: ro.verdictFig, ink: C.ink, muted: C.muted,
+      brandText: C.brandText || C.ink, font: F.serif, measure,
+      size: T.verdictSize, scale: S});
+    body.push(vb.svg);
+    roY += 8 * S + vb.height;
   }
   roY += 6 * S;
   if(diff){
@@ -389,6 +395,11 @@ export function render(model, resolved, ro, ctx, diff = null){
     s.push('<text x="' + T.pad * S + '" y="' + T.titleY * S + '" font-family=\'' + F.serif +
       '\' font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' +
       esc(model.title) + '</text>');
+  /* the metrics row opening the artefact — counts only (the 22px title line above
+     already names the model; repeating it in caps one line down reads as a stutter) */
+  if(showTitle && model.items.length)
+    s.push(svgMetrics({x: T.pad * S, y: (T.titleY + 17) * S, model: '',   /* the title line above owns the name */
+      counts: ro.counts || [], ink: C.ink, muted: C.muted, font: F.body, scale: S}));
   if(!bare)
     s.push('<text x="' + (W - T.pad * S) + '" y="' + (showTitle ? T.titleY : 14) * S +
       '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +

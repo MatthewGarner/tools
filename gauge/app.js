@@ -16,6 +16,7 @@ import {initWorkspace, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -90,6 +91,17 @@ export function wireFormEvents(root){
       el.parentElement.querySelector('.probout').textContent = el.value + '%';
     }
   });
+}
+
+/* Compose-stage metrics, read straight off the parsed model so they move with the
+   editor: how many questions, of which kinds, and whether answers carry names. */
+const TYPE_WORD = {prob: 'probability', range: 'quantity', chips: 'confidence auction'};
+function composeCounts(model){
+  const qs = model.questions, by = new Map();
+  for(const q of qs) by.set(q.type, (by.get(q.type) || 0) + 1);
+  return [qs.length + ' question' + (qs.length === 1 ? '' : 's'),
+    [...by].map(([t, n]) => n + ' ' + (TYPE_WORD[t] || t)).join(' · '),
+    model.names ? 'Named answers' : 'Anonymous'];
 }
 
 async function initCompose(hash){
@@ -183,6 +195,8 @@ async function initCompose(hash){
     }
     paint(out, REVEAL); lastOut = out;
     $('revealhead').textContent = head;
+    paintMetrics($('metrics'), model.questions.length ? (model.title || 'Gauge session') : '',
+      model.questions.length ? composeCounts(model) : []);
     renderWarnings();
     $('startbtn').disabled = !model.questions.length;
     if(shouldPersist()){ try{ localStorage.setItem('gauge-src', text); }catch(e){} }
@@ -257,6 +271,7 @@ async function initCompose(hash){
 
 /* ---------- mode routing ---------- */
 (async function boot(){
+  paintKicker($('kicker'), '12', "The room's honest odds");
   const hash = readHashState();
   const mode = hash && hash.id ? (hash.key ? 'console' : 'participant') : 'compose';
   document.body.dataset.mode = mode;

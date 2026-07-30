@@ -1,6 +1,7 @@
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
-import {project} from './project.js';
+import {project, whyVerdict, whyMetrics} from './project.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
 import {renderOst} from './render-ost.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {whyDiff, whyDiffView} from './diff.js';
@@ -23,6 +24,7 @@ import {solutionMenu} from './app-menu.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
+paintKicker($('kicker'), '08', 'One tree, two projections');
 
 
 const EXAMPLES = [
@@ -98,6 +100,13 @@ function doRefresh(){
     paint(svg, REVEAL); lastSvg = svg;
   }
   renderWarnings();
+  /* the header/verdict anatomy rides this same loop — both painters bail out
+     when their strings are unchanged, so a keystroke that doesn't move a count
+     costs nothing. The verdict is a projection of the SAME audits the OST
+     draws, so the two views can't disagree either. */
+  paintMetrics($('metrics'), model.outcomes.length ? (model.title || 'Untitled') : '', whyMetrics(model));
+  const vd = whyVerdict(model, projection);
+  paintVerdict($('verdict'), vd ? vd.line : '', vd ? vd.fig : '');
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('why-src', text); }catch(e){}
   clearTimeout(hashTimer);

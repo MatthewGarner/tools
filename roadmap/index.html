@@ -26,6 +26,7 @@
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
     <h1>Roadmap as code</h1>
     <p class="tagline">A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
   </header>
@@ -68,7 +69,9 @@
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
+      <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <span class="method" id="stylelbl">View and export style:</span>
         <div class="stylepick" id="stylepicker" role="group" aria-labelledby="stylelbl">
@@ -88,7 +91,7 @@
         <button class="btn" id="copymd">Copy as markdown</button>
       </div>
       <div class="actions">
-        <button class="btn" id="snap">Snapshot</button>
+        <button class="btn primary" id="snap">Snapshot</button>
         <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
         <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
         <span class="method">View + export style · Download SVG/PNG give this style; Deck PNG / Copy PNG give it as a 16:9 slide · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>

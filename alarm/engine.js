@@ -103,15 +103,25 @@ export function inN(frac){
 }
 
 /* The quotable lines. alarm = share of alarms that are false (the headline);
-   miss = share of real issues that sail through; fine = the expected-value fine print. */
+   miss = share of real issues that sail through; fine = the expected-value fine print.
+   `alarmFig` is the ONE load-bearing run inside `alarm` — the Swiss 6b verdict block
+   inks exactly that substring in brand red, so the engine names it rather than the
+   app re-deriving it with a regex. It always appears verbatim in `alarm`. */
 export function verdicts(counts, params){
   const {tp, fp, tn, fn} = counts;
   const alarms = tp + fp, reals = tp + fn;
-  let alarm;
-  if(alarms === 0) alarm = 'No alarms at this threshold — and ' + reals +
-    (reals === 1 ? ' real issue sails' : ' real issues sail') + ' through.';
-  else if(fp === 0) alarm = 'Every alarm here is real — no false positives at this threshold.';
-  else alarm = inN(fp / alarms).text + ' alarms at this threshold are false.';
+  let alarm, alarmFig;
+  if(alarms === 0){
+    alarm = 'No alarms at this threshold — and ' + reals +
+      (reals === 1 ? ' real issue sails' : ' real issues sail') + ' through.';
+    alarmFig = String(reals);
+  } else if(fp === 0){
+    alarm = 'Every alarm here is real — no false positives at this threshold.';
+    alarmFig = 'Every alarm';              // no number to quote: the claim itself is the figure
+  } else {
+    alarmFig = inN(fp / alarms).text;
+    alarm = alarmFig + ' alarms at this threshold are false.';
+  }
 
   let miss;
   if(reals === 0) miss = 'No real issues in the room at this base rate.';
@@ -129,7 +139,7 @@ export function verdicts(counts, params){
   const precision = den ? (br * sensitivity) / den : 0;
   const fine = 'Expected: precision ' + pct(precision) + '%, sensitivity ' + pct(sensitivity) +
     '%, specificity ' + pct(specificity) + '%.';
-  return {alarm, miss, fine};
+  return {alarm, alarmFig, miss, fine};
 }
 
 /* Copy-for-doc markdown: the picture as a paste-able paragraph. */

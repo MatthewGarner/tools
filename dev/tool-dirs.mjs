@@ -8,6 +8,19 @@
    'energy' here — the tools origin redirects /energy/* away). */
 export const TOOL_DIRS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley', 'alarm', 'duel', 'premortem', 'bets', 'signal-vs-noise'];
 
+/* Canonical instrument numbering — the "INSTRUMENT NN — EPITHET" kicker above
+   every tool's h1 (Swiss 6b, 2026-07-30). The numbers are WAYFINDING LABELS
+   only: they never appear in a URL, a filename or a route, so renumbering is a
+   copy change, not a migration. Kept here rather than in prose because the set
+   has to stay contiguous and collision-free across 15 pages —
+   dev/scaffold.test.mjs asserts every tool paints exactly its own number.
+   Energy tools take the E-series and are out of 6b's scope (Phase 6c). */
+export const INSTRUMENTS = {
+  roadmap: '01', timeline: '02', bets: '03', rank: '04', duel: '05',
+  map: '06', tree: '07', why: '08', wardley: '09', premortem: '10',
+  fermi: '11', gauge: '12', alarm: '13', flow: '14', 'signal-vs-noise': '15',
+};
+
 /* Single source of truth for the energy-origin tool directories (energy/<dir>/).
    Before this existed the count/list was hand-copied per suite (smoke.mjs's
    "five tool cards" check, pwa.mjs's cache.match chain) — add a new energy tool

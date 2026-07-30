@@ -107,6 +107,80 @@ export function wipBreaches(model){
   return out;
 }
 
+/* ---------- the verdict (Swiss 6b) ----------
+   One quotable line + the ONE figure it turns on. /roadmap has no dates, so
+   nothing here may claim one: the material is counts per horizon, the declared
+   wip limit (spans included, via activeCount) and the [risk]/[blocked] flags.
+   The first horizon IS the commitment — everything past it is shaped, not
+   promised — and that is the mechanism every tier names.
+   It never writes the deck's `headline:`: a headline is a claim the author
+   makes to a room (about copy), this is the tool arguing on the page. */
+
+const FLAGGED = new Set(['risk', 'blocked']);
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'));
+/* "n of t items": noun follows t, verb follows n; a one-item board is singular
+   throughout, so "0 of 1 item SITS". */
+const nOfT = (n, t, one, many) => n + ' of ' + t + ' ' + (t === 1 ? one : (many || one + 's'));
+const vb = (n, t, sing, plur) => (n === 1 || t === 1) ? sing : plur;
+
+export function roadmapMetrics(model){
+  if(!model || !model.items || !model.items.length) return [];
+  const lanes = model.lanes.filter(Boolean).length;
+  return [
+    plural(model.items.length, 'item'),
+    plural(model.horizons.length, 'horizon'),
+    lanes ? plural(lanes, 'lane') : null,
+    model.wip > 0 ? 'Wip limit ' + model.wip : null,
+  ].filter(Boolean);
+}
+
+export function roadmapVerdict(model){
+  if(!model || !model.items || !model.items.length) return null;
+  const first = model.horizons[0];
+  const total = model.items.length;
+
+  /* 1 — a column over its declared wip limit: the limit is a plan the author
+     already made, so breaking it outranks everything else. The worst column
+     speaks; the warning list still names them all. */
+  if(model.wip > 0){
+    let worst = -1, worstN = 0;
+    for(let h = 0; h < model.horizons.length; h++){
+      const n = activeCount(model, h);
+      if(n > model.wip && n > worstN){ worst = h; worstN = n; }
+    }
+    if(worst >= 0){
+      const fig = worstN + ' of ' + model.wip;
+      return {fig, line: model.horizons[worst] + ' is running ' + fig +
+        ' — the WIP limit is the first thing this plan breaks.'};
+    }
+  }
+
+  /* 2 — flags: inside the commitment they ARE the story, beyond it a warning. */
+  const inFirst = model.items.filter(i => i.h === 0);
+  const flaggedFirst = inFirst.filter(i => FLAGGED.has(i.status)).length;
+  if(flaggedFirst){
+    const fig = flaggedFirst + ' of ' + inFirst.length;
+    return {fig, line: nOfT(flaggedFirst, inFirst.length, 'item') + ' in ' + first + ' ' +
+      vb(flaggedFirst, inFirst.length, 'is', 'are') +
+      " flagged — the risk sits inside what you've already committed."};
+  }
+  const flagged = model.items.filter(i => FLAGGED.has(i.status)).length;
+  if(flagged){
+    const fig = flagged + ' of ' + total;
+    return {fig, line: nOfT(flagged, total, 'item') + ' ' + vb(flagged, total, 'is', 'are') +
+      ' flagged, none in ' + first + ' — the trouble sits beyond the commitment.'};
+  }
+
+  /* 3 — otherwise the shape: how much is committed vs only shaped. */
+  const n = inFirst.length;
+  const fig = n + ' of ' + total;
+  const head = nOfT(n, total, 'item') + ' ' + vb(n, total, 'sits', 'sit') + ' in ' + first;
+  const tail = n === total ? ' — everything is committed and nothing is shaped.'
+    : n === 0 ? ' — the whole plan is shaped, none of it committed.'
+    : ' — the rest is shaped, not committed.';
+  return {fig, line: head + tail};
+}
+
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,

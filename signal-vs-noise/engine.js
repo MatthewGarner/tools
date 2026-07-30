@@ -85,7 +85,11 @@ export function scoreCalls(s, calls){
 }
 
 /* the verdict — leads with ACTS (not the flattering 48-cell grid), and is
-   detectability-aware (never shames a miss nobody could have caught). */
+   detectability-aware (never shames a miss nobody could have caught).
+   Returns the ONE load-bearing figure alongside the line (Swiss 6b): the number
+   of special-cause conversations you opened, which always OPENS the line — so
+   the renderer marks it by position, never by a regex that could match a digit
+   inside a later count. */
 export function verdict(s, calls){
   const sc = scoreCalls(s, calls);
   const detectable = s.firstCatchable !== null;
@@ -105,7 +109,7 @@ export function verdict(s, calls){
   } else {
     line = conv + '. ' + noise + '. The one real decline — ' + name + '’s — you missed.';
   }
-  return {line, detectable, firstCatchable: s.firstCatchable, ...sc};
+  return {line, fig: String(nAct), detectable, firstCatchable: s.firstCatchable, ...sc};
 }
 
 /* the between-turn reveal DATA (copy lives here; render/app style it). Fires on

@@ -2,6 +2,9 @@
 
 const ALWAYS = [{expr:'x', op:'>', val:-1}];   // internal catch-all
 
+/* Every preset's verdict() returns {line, fig}: the one quotable sentence and the
+   ONE load-bearing figure inside it, verbatim, so the renderer can mark it in brand
+   without re-deriving (or regexing) the number. Swiss 6b. */
 export const PRESETS = {
   assumptions: {
     axes: {x:{label:'Evidence', low:'none', high:'strong'}, y:{label:'Importance', low:'low', high:'high'}},
@@ -20,11 +23,13 @@ export const PRESETS = {
     flag: (item, zone) => zone === 'test first' && !item.fields.some(f => f.key === 'test')
       ? 'no test designed — pick a method: interview, prototype, or data pull' : null,
     verdict(st){
-      if(!st.placed) return 'Nothing placed yet — drag assumptions onto the map.';
+      if(!st.placed) return {line: 'Nothing placed yet — drag assumptions onto the map.', fig: ''};
       const tf = (st.byZone.get('test first') || []).length;
       const nt = st.flagged.length;
-      return tf + ' of ' + st.placed + ' assumption' + (st.placed === 1 ? '' : 's') +
-        ' sit in test first' + (nt ? '; ' + nt + (nt === 1 ? ' has' : ' have') + ' no test designed.' : '.');
+      const fig = tf + ' of ' + st.placed;
+      return {line: fig + ' assumption' + (st.placed === 1 ? '' : 's') +
+        ' sit in test first' + (nt ? '; ' + nt + (nt === 1 ? ' has' : ' have') + ' no test designed.' : '.'),
+        fig};
     },
   },
   stakeholders: {
@@ -44,10 +49,12 @@ export const PRESETS = {
     flag: item => item.y != null && item.y > 50 && !item.fields.some(f => f.key === 'attitude')
       ? 'high power with no attitude: read' : null,
     verdict(st){
-      if(!st.placed) return 'Nothing placed yet — drag stakeholders onto the grid.';
+      if(!st.placed) return {line: 'Nothing placed yet — drag stakeholders onto the grid.', fig: ''};
       const mc = (st.byZone.get('manage closely') || []).length;
-      return mc + ' stakeholder' + (mc === 1 ? '' : 's') + ' to manage closely' +
-        (st.flagged.length ? '; ' + st.flagged.length + ' high-power without an attitude read.' : '.');
+      const fig = mc + ' stakeholder' + (mc === 1 ? '' : 's');
+      return {line: fig + ' to manage closely' +
+        (st.flagged.length ? '; ' + st.flagged.length + ' high-power without an attitude read.' : '.'),
+        fig};
     },
   },
   futures: {
@@ -63,9 +70,10 @@ export const PRESETS = {
     axisHint: 'the futures preset wants your two critical uncertainties as x:/y: labels',
     flag: () => null,
     verdict(st){
-      if(!st.placed) return 'Nothing placed yet — drag signals into the worlds.';
+      if(!st.placed) return {line: 'Nothing placed yet — drag signals into the worlds.', fig: ''};
       const occupied = [...st.byZone.values()].filter(v => v.length).length;
-      return st.placed + ' signal' + (st.placed === 1 ? '' : 's') + ' across ' + occupied + ' of 4 worlds.';
+      const fig = occupied + ' of 4 worlds';
+      return {line: st.placed + ' signal' + (st.placed === 1 ? '' : 's') + ' across ' + fig + '.', fig};
     },
   },
   risk: {
@@ -86,10 +94,11 @@ export const PRESETS = {
       ? 'severe with no owner:' : null,
     sortItems: (a, b) => (b.x + b.y) - (a.x + a.y),
     verdict(st){
-      if(!st.placed) return 'Nothing placed yet — drag risks onto the grid.';
+      if(!st.placed) return {line: 'Nothing placed yet — drag risks onto the grid.', fig: ''};
       const sev = st.byZone.get('severe') || [];
-      return sev.length + ' of ' + st.placed + ' risk' + (st.placed === 1 ? '' : 's') +
-        ' sit in severe' + (sev.length ? '; worst: “' + sev[0].label + '”.' : '.');
+      const fig = sev.length + ' of ' + st.placed;
+      return {line: fig + ' risk' + (st.placed === 1 ? '' : 's') +
+        ' sit in severe' + (sev.length ? '; worst: “' + sev[0].label + '”.' : '.'), fig};
     },
   },
   skills: {
@@ -110,10 +119,12 @@ export const PRESETS = {
     flag: (item, zone) => zone === 'bus factor' && !item.fields.some(f => f.key === 'backup')
       ? 'no backup named — pick who learns this next' : null,
     verdict(st){
-      if(!st.placed) return 'Nothing placed yet — drag skills onto the map.';
+      if(!st.placed) return {line: 'Nothing placed yet — drag skills onto the map.', fig: ''};
       const bf = (st.byZone.get('bus factor') || []).length;
-      return bf + ' of ' + st.placed + ' skill' + (st.placed === 1 ? ' is' : 's are') +
-        ' a bus-factor risk' + (st.flagged.length ? '; ' + st.flagged.length + ' with no backup named.' : '.');
+      const fig = bf + ' of ' + st.placed;
+      return {line: fig + ' skill' + (st.placed === 1 ? ' is' : 's are') +
+        ' a bus-factor risk' + (st.flagged.length ? '; ' + st.flagged.length + ' with no backup named.' : '.'),
+        fig};
     },
   },
   rag: {
@@ -135,10 +146,12 @@ export const PRESETS = {
       item.fields.some(f => f.key === 'reported' && /green/i.test(f.val))
       ? 'reported green — challenge it this week' : null,
     verdict(st){
-      if(!st.placed) return 'Nothing placed yet — drag workstreams onto the map.';
+      if(!st.placed) return {line: 'Nothing placed yet — drag workstreams onto the map.', fig: ''};
       const wm = (st.byZone.get('watermelon watch') || []).length;
-      return wm + ' of ' + st.placed + ' workstream' + (st.placed === 1 ? '' : 's') +
-        ' in watermelon watch' + (st.flagged.length ? '; ' + st.flagged.length + ' reported green.' : '.');
+      const fig = wm + ' of ' + st.placed;
+      return {line: fig + ' workstream' + (st.placed === 1 ? '' : 's') +
+        ' in watermelon watch' + (st.flagged.length ? '; ' + st.flagged.length + ' reported green.' : '.'),
+        fig};
     },
   },
 };

@@ -8,6 +8,7 @@ import {themeColors, onThemeChange, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {debounced} from '../assets/schedule.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const stage = $('stage'), reveal = $('reveal'), nextBtn = $('next'), hint = $('hint'),
@@ -135,6 +136,13 @@ function markdown(){
 /* ---------- render ---------- */
 function render(){
   const s = scenario(), C = themeColors();
+  /* Swiss 6b: the VERDICT is drawn inside the collapse artefact (one per page),
+     so the page carries the kicker + this metrics row. Every count is the run's
+     own — the scenario's shape and the calls you have actually made. */
+  paintMetrics($('metrics'), 'Signal vs noise', [
+    s.quarters + ' quarters', s.people + ' people',
+    calls.length + (calls.length === 1 ? ' call made' : ' calls made'),
+  ]);
   if(phase === 'done'){
     stage.innerHTML = renderCollapse(s, C, calls, {width: stage.clientWidth || 760});   // narrow/wide derived from width
 
@@ -172,6 +180,7 @@ const onResize = debounced(() => {
 }, 100);
 new ResizeObserver(onResize).observe(stage);
 
+paintKicker($('kicker'), '15', 'The luck you mistook for management');
 loadHash();
 if(params.noiseSd) $('noise').value = params.noiseSd;
 cols = colsFor(stage.clientWidth || 760);
