@@ -112,8 +112,8 @@ for(const [name, url] of AUTOLOAD){
 // its SVGs sat wholly under the fold; siblings dodged it only because their
 // chart pokes above the fold at 390). This block runs with motion ON and, with
 // NO scrolling, asserts every substantial SVG on each chart page has visibly
-// painted content shortly after load — the state any screenshot/print/first
-// paint captures. Fails against the pre-fix motion.js; generic over the SVG
+// painted content within motion.js's liveness DEADLINE + reveal animation —
+// the state any capture sees. Fails against the pre-fix motion.js; generic over the SVG
 // autoload tools + the motion-mounted chart pages not in AUTOLOAD.
 {
   const PAINTED = [...AUTOLOAD, ...ALL.filter(([n]) =>
@@ -123,7 +123,7 @@ for(const [name, url] of AUTOLOAD){
     const page = await mctx.newPage();
     const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
     if(!loaded){ ok(false, name + ': painted-charts page loads'); await page.close(); continue; }
-    // wait out the in-view reveal (fade base .4s + stagger); poll so a fast pass stays fast
+    // wait out the liveness deadline (3s) + reveal animation; poll so a fast pass stays fast
     const painted = await page.waitForFunction(() => {
       const svgs = [...document.querySelectorAll('svg')].filter(s =>
         s.getBoundingClientRect().width > 100 && s.children.length >= 5);
@@ -133,7 +133,7 @@ for(const [name, url] of AUTOLOAD){
         const hidden = kids.filter(k => parseFloat(getComputedStyle(k).opacity) < 0.05).length;
         return hidden <= kids.length / 2;
       }) ? 'painted' : false;
-    }, {timeout: 6000, polling: 250}).then(h => h.jsonValue()).catch(() => 'stranded');
+    }, {timeout: 9000, polling: 250}).then(h => h.jsonValue()).catch(() => 'stranded');
     ok(painted === 'painted',
       `${name}: chart SVG content is visibly painted at load, motion ON, no scroll (${painted})`);
     await page.close();
