@@ -73,7 +73,7 @@ const PAGES = {
      its CSS. Genuinely new first-load code (the whole feature), not creep; actual load
      ~169.5k, ~6.5k real headroom on purpose (see the "previous six raises" note for why
      thin headroom is a trap). */
-  'fermi/index.html': 176_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
+  'fermi/index.html': 176_000, 'rank/index.html': 90_000, 'flow/index.html': 91_000,   /* 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
@@ -120,7 +120,7 @@ const PAGES = {
      (Rule 2, phones have no ⌘Z). The chip-bypass merge had already eaten the old
      headroom (actual was ~565.6k before this change); actual now ~568.2k, set with
      ~5.8k real headroom. */
-  'roadmap/index.html': 574_000,
+  'roadmap/index.html': 576_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -134,7 +134,7 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 490_000,
+  'why/index.html': 492_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -158,7 +158,7 @@ const PAGES = {
      render.js the edit-gated rename targets + ＋ capsules (~1.6k), app.js the
      betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
      headroom — in line with the other DSL pages. */
-  'bets/index.html': 486_000,
+  'bets/index.html': 489_000,   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
   'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
@@ -185,7 +185,7 @@ const PAGES = {
      re-skin (controls.css Swiss buttons/chips + page.css micro utilities + tokens
      --brand/--brand-text/--data, ~0.5k paid by every page) — intraday trips first
      as ever. 528B over. Actual ~128.5k, headroom ~1.5k. */
-  'energy/intraday/index.html': 130_000,
+  'energy/intraday/index.html': 133_000,   /* 130k->133k 2026-07-30 Swiss 6a: motion DEADLINE + slider accent; ~2.7k headroom */
 };
 
 test('per-page load stays under budget', () => {

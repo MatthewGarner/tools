@@ -99,7 +99,7 @@ test('palette resolves per theme; accent overrides; names consistent with parse'
   assert.ok(emberSvg.includes('#f7f2ef') && emberSvg.includes('#f3f1ed'),
     'palette washes background and tints cards');
   assert.ok(!emberSvg.includes('#f7f8f6'), 'ctx bg fully replaced');
-  assert.ok(render(m, ctx({dark: true})).includes('#C97A35'), 'ember dark variant');
+  assert.ok(render(m, ctx({dark: true})).includes('#E06A2E'), 'ember dark variant');
   const m2 = parse('accent: #123ABC\npalette: plum\nNOW\nA: x\nNEXT\nB: y');
   const svg2 = render(m2, ctx());
   assert.ok(svg2.includes('#123ABC') && !svg2.includes('#9D3E78'), 'accent beats palette');

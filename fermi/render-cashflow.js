@@ -161,7 +161,7 @@ export function renderCashflow(r, spec, ctx){
       const bx = PAD + 82;
       if(nn(qd.p10) && nn(qd.p90)){
         const x0 = Math.max(bx, XI(qd.p10)), x1 = XI(qd.p90);
-        s.push('<rect x="' + f1(x0) + '" y="' + f1(ry + 4) + '" width="' + f1(Math.max(2, x1 - x0)) + '" height="16" rx="4" fill="' + tint(col) + '" stroke="' + col + '"/>');
+        s.push('<rect x="' + f1(x0) + '" y="' + f1(ry + 4) + '" width="' + f1(Math.max(2, x1 - x0)) + '" height="16" rx="0" fill="' + tint(col) + '" stroke="' + col + '"/>');
         if(nn(qd.p50)){
           const xm = XI(qd.p50);
           s.push('<line x1="' + f1(xm) + '" y1="' + f1(ry + 1) + '" x2="' + f1(xm) + '" y2="' + f1(ry + 23) + '" stroke="' + col + '" stroke-width="2.5"/>');

@@ -21,7 +21,7 @@
   --bg:#FBFBFA; --grid:transparent; --card:#F4F4F1; --border:#D9D9D5;
   --ink:#111111; --muted:#6B6B68; --accent:#1F4FD8; --accent-ink:#1A44C2;
   --brand:#E2231A; --brand-text:#D62015; --data:#1F4FD8;
-  --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
+  --accent2:#B04E1E; --hl:rgba(31,79,216,.16); --err:#B3403A; --track:#EDF0EE;
   --st-done:#1D7A3E; --st-doing:#1F4FD8; --st-risk:#9A6A00; --st-blocked:#B3403A;
   --st-done-ink:#1C753C; --st-doing-ink:#1A44C2; --st-risk-ink:#8E6200; --st-blocked-ink:#B3403A;
   --shadow:none;
@@ -32,7 +32,7 @@
     --bg:#121212; --grid:transparent; --card:#1A1A19; --border:#2E2E2C;
     --ink:#F1F1EE; --muted:#8F8F8A; --accent:#7C97FF; --accent-ink:#93A8FF;
     --brand:#FF4B3E; --brand-text:#FF4B3E; --data:#7C97FF;
-    --accent2:#C97A35; --hl:rgba(255,196,0,.32); --err:#E07A72; --track:#232E37;
+    --accent2:#E06A2E; --hl:rgba(124,151,255,.28); --err:#E07A72; --track:#232E37;
     --st-done:#3FA163; --st-doing:#7C97FF; --st-risk:#B9880F; --st-blocked:#D96A61;
     --st-done-ink:#55AC75; --st-doing-ink:#93A8FF; --st-risk-ink:#BE9122; --st-blocked-ink:#DD7B73;
     --shadow:none;
@@ -44,7 +44,7 @@
   --bg:#121212; --grid:transparent; --card:#1A1A19; --border:#2E2E2C;
   --ink:#F1F1EE; --muted:#8F8F8A; --accent:#7C97FF; --accent-ink:#93A8FF;
     --brand:#FF4B3E; --brand-text:#FF4B3E; --data:#7C97FF;
-  --accent2:#C97A35; --hl:rgba(255,196,0,.32); --err:#E07A72; --track:#232E37;
+  --accent2:#E06A2E; --hl:rgba(124,151,255,.28); --err:#E07A72; --track:#232E37;
   --st-done:#3FA163; --st-doing:#7C97FF; --st-risk:#B9880F; --st-blocked:#D96A61;
   --st-done-ink:#55AC75; --st-doing-ink:#93A8FF; --st-risk-ink:#BE9122; --st-blocked-ink:#DD7B73;
   --shadow:none;
@@ -55,7 +55,7 @@
   --bg:#FBFBFA; --grid:transparent; --card:#F4F4F1; --border:#D9D9D5;
   --ink:#111111; --muted:#6B6B68; --accent:#1F4FD8; --accent-ink:#1A44C2;
   --brand:#E2231A; --brand-text:#D62015; --data:#1F4FD8;
-  --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
+  --accent2:#B04E1E; --hl:rgba(31,79,216,.16); --err:#B3403A; --track:#EDF0EE;
   --st-done:#1D7A3E; --st-doing:#1F4FD8; --st-risk:#9A6A00; --st-blocked:#B3403A;
   --st-done-ink:#1C753C; --st-doing-ink:#1A44C2; --st-risk-ink:#8E6200; --st-blocked-ink:#B3403A;
   --shadow:none;

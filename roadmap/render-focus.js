@@ -307,8 +307,8 @@ export function renderFocusLive(model, ctx){
   const W = M * 2 + HERO_W + HGAP + RAIL_W;
   const heroX = M, railX = M + HERO_W + HGAP;
   const inH = h => model.items.filter(i => i.h === h).sort((a, b) => a.srcLine - b.srcLine);
-  const addRow = (x, w, h, cy) => edit ? ('<g opacity="0.75"><rect x="' + x + '" y="' + cy + '" width="' + w + '" height="26" rx="6" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
-    '<text data-edit="additem" data-lane="" data-col="' + esc(hs[h]) + '" data-line="-1" data-raw="" x="' + (x + 12) + '" y="' + (cy + 17) + '" font-size="11" font-weight="600" fill="' + C.muted + '"' + btnAttrs('Add item to ' + hs[h]) + '>＋ add to ' + esc(hs[h]) + '</text></g>') : '';
+  const addRow = (x, w, h, cy) => edit ? ('<g opacity="0.75"><rect x="' + x + '" y="' + cy + '" width="' + w + '" height="26" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+    '<text data-edit="additem" data-lane="" data-col="' + esc(hs[h]) + '" data-line="-1" data-raw="" x="' + (x + 12) + '" y="' + (cy + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' + btnAttrs('Add item to ' + hs[h]) + '>＋ ADD TO ' + esc(hs[h].toUpperCase()) + '</text></g>') : '';
   const band = (h, x, w, top, bot) => edit ? ('<rect data-hdrop="' + h + '" x="' + x + '" y="' + top + '" width="' + w + '" height="' + Math.max(28, bot - top) + '" fill="transparent"/>') : '';
 
   const s = [];

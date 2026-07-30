@@ -44,10 +44,10 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, w
   const acted = new Set(calls.map(x => x.person + ':' + x.quarter));
   const parts = [];
   parts.push(txt(PAD, 30, 'SIGNAL vs NOISE', 15, c.ink, {weight: 700, tracking: 0.5}));
-  const sub = cols === 1 ? 'Q' + (turn + 1) + '/' + s.quarters + ' · judge each number'
-    : 'Quarter ' + (turn + 1) + ' of ' + s.quarters + ' · features shipped · judge each new number';
-  parts.push(txt(PAD, 50, sub, 11.5, c.muted));
-  parts.push(txt(W - PAD, 30, 'your calls: ' + calls.length, 11.5, c.muted, {anchor: 'end'}));
+  const sub = cols === 1 ? 'Q' + (turn + 1) + '/' + s.quarters + ' · JUDGE EACH NUMBER'
+    : 'QUARTER ' + (turn + 1) + ' OF ' + s.quarters + ' · FEATURES SHIPPED · JUDGE EACH NEW NUMBER';
+  parts.push(txt(PAD, 50, sub, 10, c.muted, {weight: 600, tracking: 0.8}));
+  parts.push(txt(W - PAD, 30, 'YOUR CALLS: ' + calls.length, 10, c.muted, {weight: 600, tracking: 0.8, anchor: 'end'}));
 
   for(let p = 0; p < s.people; p++){
     const col = p % cols, row = Math.floor(p / cols);
@@ -79,12 +79,12 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, w
 }
 
 function btn(x, y, w, h, act, person, quarter, on, c){
-  const label = act === 'talk' ? 'talk to them' : 'leave it';
+  const label = act === 'talk' ? 'TALK TO THEM' : 'LEAVE IT';
   const fill = on ? c.err : c.card, stroke = on ? c.err : c.border, ink = on ? c.card : c.muted;
-  const fs = h >= 28 ? 11 : 9.5;
+  const fs = h >= 28 ? 10 : 9;
   return '<g data-act="' + act + '" data-person="' + person + '" data-quarter="' + quarter + '" role="button" tabindex="0">' +
-    '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + h + '" rx="5" fill="' + fill +
-    '" stroke="' + stroke + '"/>' + txt(x + w / 2, y + h / 2 + 3.4, label, fs, ink, {weight: 600, anchor: 'middle'}) + '</g>';
+    '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + h + '" rx="0" fill="' + fill +
+    '" stroke="' + stroke + '"/>' + txt(x + w / 2, y + h / 2 + 3.4, label, fs, ink, {weight: 600, tracking: 0.8, anchor: 'middle'}) + '</g>';
 }
 
 /* ---------- the collapse / verdict artefact ---------- */

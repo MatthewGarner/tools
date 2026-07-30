@@ -105,6 +105,42 @@ for(const [name, url] of AUTOLOAD){
   await page.close();
 }
 
+// Painted-charts gate (2026-07-30, the intraday-blank lesson): every other check
+// in this suite runs with reducedMotion:'reduce', which skips the reveal path
+// entirely — so the suite never saw motion.js hold a below-the-fold chart at
+// opacity 0 forever, and /intraday/ shipped BLANK charts at phone width (both
+// its SVGs sat wholly under the fold; siblings dodged it only because their
+// chart pokes above the fold at 390). This block runs with motion ON and, with
+// NO scrolling, asserts every substantial SVG on each chart page has visibly
+// painted content within motion.js's liveness DEADLINE + reveal animation —
+// the state any capture sees. Fails against the pre-fix motion.js; generic over the SVG
+// autoload tools + the motion-mounted chart pages not in AUTOLOAD.
+{
+  const PAINTED = [...AUTOLOAD, ...ALL.filter(([n]) =>
+    ['intraday', 'merit-order', 'alarm', 'flow'].includes(n))];
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'no-preference'});
+  for(const [name, url] of PAINTED){
+    const page = await mctx.newPage();
+    const loaded = await page.goto(url, {waitUntil: 'networkidle'}).then(() => true).catch(() => false);
+    if(!loaded){ ok(false, name + ': painted-charts page loads'); await page.close(); continue; }
+    // wait out the liveness deadline (3s) + reveal animation; poll so a fast pass stays fast
+    const painted = await page.waitForFunction(() => {
+      const svgs = [...document.querySelectorAll('svg')].filter(s =>
+        s.getBoundingClientRect().width > 100 && s.children.length >= 5);
+      if(!svgs.length) return null;
+      return svgs.every(s => {
+        const kids = [...s.children];
+        const hidden = kids.filter(k => parseFloat(getComputedStyle(k).opacity) < 0.05).length;
+        return hidden <= kids.length / 2;
+      }) ? 'painted' : false;
+    }, {timeout: 9000, polling: 250}).then(h => h.jsonValue()).catch(() => 'stranded');
+    ok(painted === 'painted',
+      `${name}: chart SVG content is visibly painted at load, motion ON, no scroll (${painted})`);
+    await page.close();
+  }
+  await mctx.close();
+}
+
 // Phone width-reclamation gate (Camp A): workspace.css's "16px prose / 10px
 // surface" block must land the tool surface at >=90% of the viewport width on a
 // phone — under the desktop framing chain it sat at ~78% (24px gutters + card
@@ -218,7 +254,9 @@ const CONTAINERS = [
   ['gauge', T + '/gauge/', ['#preview']],   // reveal overlay narrow relayout: was a fixed-960 pan that truncated its verdict
   ['why', T + '/why/', ['#preview']],
   ['signal-vs-noise', T + '/signal-vs-noise/', ['#stage']],   // grid relayouts 3→2→1 cols; #stage svg is width:100%
-  ['alarm', T + '/alarm/', ['#gate', '#distwrap']],   // canvas re-flows to width, SVG is responsive
+  ['alarm', T + '/alarm/', ['#gate']],   // canvas re-flows to width; #distwrap now PANS by design
+  // (min-width 520 floor, 2026-07-30 — labels stop compressing below legibility;
+  // the displayed-font gate below still asserts the ≥8px floor)
   // (duel not listed: its readout is hidden until Start, so a load-time container
   // check is a trivial pass; the ALL loop covers the visible setup's page h-scroll,
   // and the two-up duel cards stack via a pure CSS grid under 640px — can't pan)

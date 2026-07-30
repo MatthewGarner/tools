@@ -4,8 +4,8 @@
    accent-ink on white/dark-card = 6.19:1 / 6.65:1 (raw --accent would be a
    tight 4.57:1 / 4.73:1 at this weight, so the button uses --accent-ink). */
 :root{--accent:#B04E1E;--accent-ink:#A34413}
-@media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
-:root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
+@media (prefers-color-scheme: dark){:root{--accent:#E06A2E;--accent-ink:#E8834A}}
+:root[data-theme="dark"]{--accent:#E06A2E;--accent-ink:#E8834A}
 :root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
 
 /* controls (left) + hero (right); stacks on narrow screens */

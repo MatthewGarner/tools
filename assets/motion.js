@@ -73,11 +73,19 @@ export function revealIn(container, spec = {}, onPlay){
        /bets/ on a 1100×520 window (49% of itself, 32% of the screen — under both).
        There is no "safe" high threshold, only the size of the hole. A reveal the
        user half-notices is a non-event; a blank board is a bug.
-   A genuinely off-screen element still never plays — that is the promise. */
-const ENOUGH = 0.15, DWELL = 420;
+   A genuinely off-screen element never plays WITHIN THE FIRST SECONDS — after
+   DEADLINE it plays regardless (mostly unseen). Holding below-fold content at
+   opacity 0 indefinitely shipped intraday's phone charts BLANK in every first
+   paint/screenshot/print (2026-07-30: both its SVGs sit wholly under the fold
+   at 390px; siblings dodged it only because their chart pokes above the fold).
+   A reveal that plays unseen is a non-event; a board that is blank whenever a
+   capture looks at it is a bug. The deadline arms only once the element HAS a
+   box, so a view behind a tab (bets Quadrant, premortem's phases) still keeps
+   its reveal for the moment it's first shown. */
+const ENOUGH = 0.15, DWELL = 420, DEADLINE = 3000;
 function observeFullyInView(el, cb){
   let io = null, ro = null;                             // declared before stop() can name them
-  let done = false, timer = 0, queued = false;
+  let done = false, timer = 0, queued = false, dl = 0;
   /* null until IO first reports. It is a VETO, never a precondition: only an explicit
      "zero intersection" holds the reveal back. Requiring a positive IO report before
      playing would re-create the stranding bug on any browser or moment where the
@@ -88,6 +96,7 @@ function observeFullyInView(el, cb){
   const stop = () => {
     done = true;                                        // also neutralises a check() already queued on rAF
     clearTimeout(timer); timer = 0;
+    clearTimeout(dl); dl = 0;
     io && io.disconnect(); ro && ro.disconnect();
     removeEventListener('scroll', schedule, true); removeEventListener('resize', schedule);
   };
@@ -108,6 +117,9 @@ function observeFullyInView(el, cb){
   const check = () => {
     queued = false;
     if(done) return;
+    /* liveness deadline: from the first frame the element HAS a box, it may sit
+       hidden for at most DEADLINE ms — then it plays even off-screen (see above) */
+    if(!dl && el.getBoundingClientRect().width > 0) dl = setTimeout(fire, DEADLINE);
     if(clipped === true) { clearTimeout(timer); timer = 0; return; }   // IO says an ancestor hides it
     const ratio = seen();
     if(ratio >= 1 - 0.002) return fire();               // as fully in view as it can be → now

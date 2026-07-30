@@ -91,7 +91,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
     const isM = r.kind === 'merchant';
     const col = isM ? C.muted : accent;
     parts.push('<rect x=\'24\' y=\'' + y + '\' width=\'' + (W - 48) + '\' height=\'' + (RH - 10) +
-      '\' rx=\'8\' fill=\'' + (i === fi && !isM ? tint(accent) : C.card) + '\' stroke=\'' +
+      '\' rx=\'0\' fill=\'' + (i === fi && !isM ? tint(accent) : C.card) + '\' stroke=\'' +
       (i === fi && !isM ? accent : C.border) + '\'' +
       (edit ? ' data-focus=\'' + i + '\' style=\'cursor:pointer\' tabindex=\'0\' role=\'button\'' +
         ' aria-label=\'Focus the trade verdict on ' + esc(r.label) + '\'' : '') + '/>');
@@ -138,7 +138,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
     /* P10–P90 as a range band under the day-ribbon (a bar reads the spread better than a
        hairline); ends capped so P10/P90 stay legible; solid P50 diamond on top */
     parts.push('<rect x=\'' + vX(r.p10).toFixed(1) + '\' y=\'' + (wy - 5.5) + '\' width=\'' +
-      (vX(r.p90) - vX(r.p10)).toFixed(1) + '\' height=\'11\' rx=\'5.5\' fill=\'' + tint(col) + '\'/>');
+      (vX(r.p90) - vX(r.p10)).toFixed(1) + '\' height=\'11\' rx=\'0\' fill=\'' + tint(col) + '\'/>');
     for(const p of [r.p10, r.p90])
       parts.push('<line x1=\'' + vX(p).toFixed(1) + '\' y1=\'' + (wy - 6) + '\' x2=\'' + vX(p).toFixed(1) +
         '\' y2=\'' + (wy + 6) + '\' stroke=\'' + col + '\' stroke-width=\'2\'/>');
@@ -159,7 +159,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
         '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'' +
         ' tabindex=\'0\' role=\'button\' aria-label=\'Edit ' + esc(label) + '\'';
       parts.push('<g' + attrs + '><rect x=\'' + bx.toFixed(1) + '\' y=\'' + by + '\' width=\'' + w.toFixed(1) +
-        '\' height=\'22\' rx=\'11\' fill=\'' + fill + '\'/>' +
+        '\' height=\'22\' rx=\'0\' fill=\'' + fill + '\'/>' +
         txt(bx + 10, by + 15, label, 12, ink, {weight: 600}) + '</g>');
       px += w + 8;
     };
@@ -195,7 +195,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
     const cx = 48, cw = W - 96, top = TOP + rowsTotal, cap = 36;
     parts.push(editTarget(
       '<rect x=\'' + cx + '\' y=\'' + (top + 6) + '\' width=\'' + cw + '\' height=\'' + cap +
-        '\' rx=\'10\' fill=\'none\' stroke=\'' + C.border + '\' stroke-dasharray=\'3 4\'/>' +
+        '\' rx=\'0\' fill=\'none\' stroke=\'' + C.border + '\' stroke-dasharray=\'3 4\'/>' +
       txt(cx + cw / 2, top + 6 + cap / 2 + 4, '＋ Add structure', 13, C.muted, {anchor: 'middle', weight: 600}),
       {x: cx, y: top + 2, w: cw, h: 44, bg: C.bg},
       {kind: 'addleg', line: -1, raw: '', label: 'Add a route structure'}));

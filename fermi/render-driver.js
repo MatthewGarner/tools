@@ -110,13 +110,13 @@ export function renderDriverTree(model, ctx){
       if(nd.n.t === 'var'){
         const isTop = top && nd.n.name === top.name;
         s.push('<rect data-node="var" data-name="' + esc(nd.n.name) + '" x="' + PAD + '" y="' + f1(y0) +
-          '" width="' + f1(capW) + '" height="' + CAP_H + '" rx="' + (CAP_H / 2) + '" fill="' +
+          '" width="' + f1(capW) + '" height="' + CAP_H + '" rx="0" fill="' +
           (isTop ? tint(c.accent) : c.card) + '" stroke="' + (isTop ? c.accent : c.border) + '"/>');
         s.push(txt(PAD + 13, nd.y - 3, nd.n.name, 12, c.ink, {weight: 600, mono: true}));
         s.push(txt(PAD + 13, nd.y + 12, rangeText(ranges[nd.n.name]), 11, c.muted));
       } else {
         s.push('<rect data-node="num" x="' + PAD + '" y="' + f1(nd.y - 12) + '" width="' + f1(capW) +
-          '" height="24" rx="6" fill="none" stroke="' + c.border + '" stroke-dasharray="3 3"/>');
+          '" height="24" rx="0" fill="none" stroke="' + c.border + '" stroke-dasharray="3 3"/>');
         s.push(txt(PAD + 13, nd.y + 4, fmt(nd.n.v), 12, c.muted, {mono: true}));
       }
     } else {
@@ -132,7 +132,7 @@ export function renderDriverTree(model, ctx){
   const oy = Math.max(HEAD_H + OUT_H / 2, Math.min(root.y, H - PAD - OUT_H / 2));
   const ox = rootCx + 30;
   s.push('<rect data-node="out" x="' + f1(ox) + '" y="' + f1(oy - OUT_H / 2) + '" width="' + OUT_W +
-    '" height="' + OUT_H + '" rx="10" fill="' + tint(c.accent) + '" stroke="' + c.accent + '"/>');
+    '" height="' + OUT_H + '" rx="0" fill="' + tint(c.accent) + '" stroke="' + c.accent + '"/>');
   s.push(txt(ox + 16, oy - OUT_H / 2 + 22, 'THE ANSWER', 9.5, c.muted, {weight: 600, tracking: 1}));
   s.push(txt(ox + 16, oy - OUT_H / 2 + 46, fmt(p50), 21, c.ink, {weight: 700}));
   s.push(txt(ox + 16, oy - OUT_H / 2 + 64, 'P10 ' + fmt(p10) + '  ·  P90 ' + fmt(p90), 11.5, c.ink));

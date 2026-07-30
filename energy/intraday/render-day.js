@@ -173,7 +173,7 @@ export function renderDay(result, p, ctx, opts = {}){
   if(opts.forExport){
     parts.push(`<rect x='0' y='0' width='${width}' height='${H}' fill='${colors.bg || colors.card}'/>`);
     const cardTop = M.t - 12, cardBottom = plotBottom + 8;
-    parts.push(`<rect x='${r1(M.l - 16)}' y='${cardTop}' width='${r1(plotW + 32)}' height='${cardBottom - cardTop}' rx='8' fill='${colors.card}' stroke='${colors.border || colors.grid || colors.card}'/>`);
+    parts.push(`<rect x='${r1(M.l - 16)}' y='${cardTop}' width='${r1(plotW + 32)}' height='${cardBottom - cardTop}' rx='0' fill='${colors.card}' stroke='${colors.border || colors.grid || colors.card}'/>`);
   }
 
   // house anatomy: in-plane letterspaced title (both screen + export)

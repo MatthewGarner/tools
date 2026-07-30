@@ -18,7 +18,7 @@ export const TOKENS = {
   wipSize: 10.5,
   laneSize: 11, laneTracking: 1.2, laneTextY: 20, laneLh: 15,
   laneSepInset: 4, laneMinH: 34, laneBottomPad: 18,
-  cardPadX: 12, cardPadY: 11, cardGap: 8, cardRadius: 8, stackTop: 6,
+  cardPadX: 12, cardPadY: 11, cardGap: 8, cardRadius: 0, stackTop: 6,
   cardTitleSize: 13, cardTitleLh: 17, titleBaseline: 12,
   noteSize: 11.5, noteLh: 15, noteRaise: 2,
   pillSize: 9, pillH: 17, pillPadX: 7, pillTracking: 0.6, pillTopGap: 5,
@@ -250,10 +250,10 @@ function renderNarrow(model, ctx, C, T){
       if(edit){
         s.push(editTarget(
           '<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="' + addH +
-            '" rx="10" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
+            '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
             '<text x="' + (PAD + colW/2) + '" y="' + (y + addH/2 + 4) +
-            '" text-anchor="middle" font-size="12" font-weight="600" fill="' + C.muted + '">＋ Add' +
-            (lane ? ' to ' + esc(lane) : '') + '</text>',
+            '" text-anchor="middle" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '">＋ ADD' +
+            (lane ? ' TO ' + esc(lane.toUpperCase()) : '') + '</text>',
           {x: PAD, y, w: colW, h: addH, bg: C.bg},
           {kind: 'additem', line: -1, raw: '', extra: 'data-lane="' + esc(lane) + '" data-col="' + esc(hName) + '"',
             label: 'Add item to ' + (lane || 'roadmap') + ' ' + hName}));
@@ -652,12 +652,12 @@ export function render(model, ctx){
         const gw = 44*S, gh = 15*S;
         s.push('<g data-add="1" opacity="0.75">' +
           '<rect x="' + colX(h) + '" y="' + cy + '" width="' + gw + '" height="' + gh +
-          '" rx="' + gh/2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+          '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
           '<text data-edit="additem" data-lane="' + esc(lane) + '" data-col="' + esc(model.horizons[h]) +
           '" data-line="-1" data-raw="" x="' + (colX(h) + 8*S) + '" y="' + (cy + gh - 4*S) +
-          '" font-size="' + 9*S + '" font-weight="600" fill="' + C.muted +
+          '" font-size="' + 9*S + '" font-weight="700" letter-spacing=".08em" fill="' + C.muted +
           '"' + btnAttrs('Add item to ' + (lane || 'roadmap') + ' ' + model.horizons[h]) +
-          '>＋ add</text></g>');
+          '>＋ ADD</text></g>');
       }
     }
   });

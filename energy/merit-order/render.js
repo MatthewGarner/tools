@@ -191,7 +191,7 @@ export function renderStack(state, ctx, opts = {}){
   P.push(txt(x0, 34, isNarrow ? 'MERIT ORDER — £/MWh' : 'MERIT ORDER — £/MWh vs cumulative GW offered', 11.5, C.muted, {weight: 700, tracking: '.08em'}));
 
   // chart card
-  P.push(`<rect x='${x0 - 16}' y='${y0 - 16}' width='${x1 - x0 + 32}' height='${chartH + 32}' rx='8' fill='${C.card}' stroke='${C.border}'/>`);
+  P.push(`<rect x='${x0 - 16}' y='${y0 - 16}' width='${x1 - x0 + 32}' height='${chartH + 32}' rx='0' fill='${C.card}' stroke='${C.border}'/>`);
 
   // negative-price warning band: backdrop, before the bars
   if(cp < 0){
