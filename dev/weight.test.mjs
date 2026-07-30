@@ -181,7 +181,11 @@ const PAGES = {
      plumbing + comments, ~0.5k) and the merged tokens.css color-scheme Safari
      dark-flash fix (~0.5k, paid by every page, intraday trips first as the heaviest).
      301B over. Neither is fat to trim. Actual ~127.3k, headroom ~0.7k. */
-  'energy/intraday/index.html': 128_000,
+  /* Raised 128k → 130k (2026-07-30, Swiss Phase 1), consciously: the shared control
+     re-skin (controls.css Swiss buttons/chips + page.css micro utilities + tokens
+     --brand/--brand-text/--data, ~0.5k paid by every page) — intraday trips first
+     as ever. 528B over. Actual ~128.5k, headroom ~1.5k. */
+  'energy/intraday/index.html': 130_000,
 };
 
 test('per-page load stays under budget', () => {

@@ -15,12 +15,15 @@ body{
   background-size:26px 26px;
   padding:40px 0 40px;
 }
-h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:32px;font-weight:700;
-  letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:34px;
+  font-weight:700;letter-spacing:-.03em;margin:0;text-wrap:balance}
+/* Swiss micro-labels — the uppercase wayfinding voice (Phase 1, 2026-07-30) */
+.micro{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.micro-ink{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);font-weight:700}
 .tagline{color:var(--muted);margin:6px 0 0;font-size:15.5px;max-width:62ch}
 .actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible{outline:2px solid var(--data);outline-offset:2px}
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)}
-footer a:hover{color:var(--accent-ink)}
+footer a:hover{color:var(--brand-text)}

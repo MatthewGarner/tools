@@ -50,8 +50,10 @@ for(const theme of ['light', 'dark']){
         return {sw: de.scrollWidth, cw: de.clientWidth,
           bg: getComputedStyle(document.body).backgroundColor,
           // the stylesheet applying at all: the header h1 must resolve to the
-          // Charter/serif display stack from tokens.css, not the UA default
-          serif: /charter|georgia|serif/i.test(
+          // Swiss display stack from page.css, not the UA default and not the old
+          // Charter (a positive AND a negative — /serif/i alone would pass
+          // vacuously against "sans-serif", killing the canary)
+          serif: (fam => /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
             getComputedStyle(document.querySelector('h1') || document.body).fontFamily)};
       });
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');

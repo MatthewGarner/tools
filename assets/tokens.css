@@ -18,42 +18,46 @@
      defaults to a light canvas and flashes white before the dark --bg paints on load
      (esp. Safari). data-theme forces the exact scheme below so the toggle still wins. */
   color-scheme: light dark;
-  --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
-  --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+  --bg:#FBFBFA; --grid:transparent; --card:#F4F4F1; --border:#D9D9D5;
+  --ink:#111111; --muted:#6B6B68; --accent:#0C7FAE; --accent-ink:#0A6C94;
+  --brand:#E2231A; --brand-text:#D62015; --data:#1F4FD8;
   --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
   --st-done:#1D7A3E; --st-doing:#0C7FAE; --st-risk:#9A6A00; --st-blocked:#B3403A;
   --st-done-ink:#1C753C; --st-doing-ink:#0B709A; --st-risk-ink:#8E6200; --st-blocked-ink:#B3403A;
-  --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+  --shadow:none;
   --thumb:#F1F5F3;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
-    --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+    --bg:#121212; --grid:transparent; --card:#1A1A19; --border:#2E2E2C;
+    --ink:#F1F1EE; --muted:#8F8F8A; --accent:#2E93C4; --accent-ink:#5FB2D6;
+    --brand:#FF4B3E; --brand-text:#FF4B3E; --data:#7C97FF;
     --accent2:#C97A35; --hl:rgba(255,196,0,.32); --err:#E07A72; --track:#232E37;
     --st-done:#3FA163; --st-doing:#2E93C4; --st-risk:#B9880F; --st-blocked:#D96A61;
     --st-done-ink:#55AC75; --st-doing-ink:#4DA3CD; --st-risk-ink:#BE9122; --st-blocked-ink:#DD7B73;
-    --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+    --shadow:none;
     --thumb:#151C23;
   }
 }
 :root[data-theme="dark"]{
   color-scheme: dark;
-  --bg:#141B21; --grid:rgba(140,180,210,.07); --card:#1B242C; --border:#2A3743;
-  --ink:#D7E0E6; --muted:#8CA0AC; --accent:#2E93C4; --accent-ink:#5FB2D6;
+  --bg:#121212; --grid:transparent; --card:#1A1A19; --border:#2E2E2C;
+  --ink:#F1F1EE; --muted:#8F8F8A; --accent:#2E93C4; --accent-ink:#5FB2D6;
+    --brand:#FF4B3E; --brand-text:#FF4B3E; --data:#7C97FF;
   --accent2:#C97A35; --hl:rgba(255,196,0,.32); --err:#E07A72; --track:#232E37;
   --st-done:#3FA163; --st-doing:#2E93C4; --st-risk:#B9880F; --st-blocked:#D96A61;
   --st-done-ink:#55AC75; --st-doing-ink:#4DA3CD; --st-risk-ink:#BE9122; --st-blocked-ink:#DD7B73;
-  --shadow:0 1px 2px rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.2);
+  --shadow:none;
   --thumb:#151C23;
 }
 :root[data-theme="light"]{
   color-scheme: light;
-  --bg:#F7F8F6; --grid:rgba(70,110,140,.10); --card:#FFFFFF; --border:#DEE4E1;
-  --ink:#22323C; --muted:#5C6E79; --accent:#0C7FAE; --accent-ink:#0A6C94;
+  --bg:#FBFBFA; --grid:transparent; --card:#F4F4F1; --border:#D9D9D5;
+  --ink:#111111; --muted:#6B6B68; --accent:#0C7FAE; --accent-ink:#0A6C94;
+  --brand:#E2231A; --brand-text:#D62015; --data:#1F4FD8;
   --accent2:#C05621; --hl:#FFE58A; --err:#B3403A; --track:#EDF0EE;
   --st-done:#1D7A3E; --st-doing:#0C7FAE; --st-risk:#9A6A00; --st-blocked:#B3403A;
   --st-done-ink:#1C753C; --st-doing-ink:#0B709A; --st-risk-ink:#8E6200; --st-blocked-ink:#B3403A;
-  --shadow:0 1px 2px rgba(30,50,60,.06),0 4px 14px rgba(30,50,60,.05);
+  --shadow:none;
   --thumb:#F1F5F3;
 }

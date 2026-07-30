@@ -66,12 +66,12 @@ for(const [name, url] of ALL){
     return {
       font: cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: h1 ? getComputedStyle(h1).fontFamily.includes('Charter') : false,   // no h1 is a FAIL, not a vacuous pass
+      h1: h1 ? getComputedStyle(h1).fontFamily.includes('Helvetica Neue') : false,   // no h1 is a FAIL, not a vacuous pass (Swiss Phase 1: Charter → Helvetica)
     };
   });
   ok(parity.font, `${name}: body wears the system font stack`);
   ok(parity.bg, `${name}: body background is the token --bg`);
-  ok(parity.h1, `${name}: h1 wears Charter`);
+  ok(parity.h1, `${name}: h1 wears the Swiss display stack`);
   /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
      must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
      have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the

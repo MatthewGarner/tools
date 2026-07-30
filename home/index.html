@@ -7,8 +7,8 @@
 <meta name="description" content="Small, sharp tools for product work under uncertainty — estimation, prioritisation, and the conversations around them.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F8F6">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141B21">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -16,366 +16,166 @@
 </head>
 <body>
 <link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/controls.css">
 <style>
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{
-    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    color:var(--ink);
-    background-color:var(--bg);
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
-                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:26px 26px;
-    padding:56px 20px 60px;
-  }
-  .wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
-  header,.soon,footer{max-width:680px}
-  h1{font-family:Charter,Georgia,"Times New Roman",serif;font-size:36px;font-weight:700;
-    letter-spacing:-.01em;margin:0;text-wrap:balance}
-  .tagline{color:var(--muted);margin:8px 0 0;font-size:16px;max-width:56ch}
-  .tools{display:grid;grid-template-columns:1fr;gap:16px}
-  @media (min-width:1000px){.tools{grid-template-columns:1fr 1fr}}
-  a.tool{
-    display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);
-    border-radius:10px;box-shadow:var(--shadow);overflow:hidden;
-    text-decoration:none;color:var(--ink);
-  }
-  a.tool:hover{border-color:var(--accent)}
+  /* Home-only layer over the shared scaffold: the numbered index (Swiss Phase 1). */
+  body{padding:40px 20px 48px}
+  .wrap{max-width:1240px;margin:0 auto}
+  .mast{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .rule{border-top:2px solid var(--ink);margin-top:12px}
+  .hero{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;
+    flex-wrap:wrap;padding:52px 0 40px}
+  h1{font-size:64px;line-height:.95;letter-spacing:-.04em}
+  .lede{max-width:46ch}
+  .lede .tagline{font-size:17px;color:var(--ink)}
+  .stats{display:flex;gap:40px;margin-top:24px}
+  .statnum{font-size:30px;font-weight:700;letter-spacing:-.03em}
+  .idxhead{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;gap:12px;flex-wrap:wrap}
+  a.tool{display:grid;grid-template-columns:52px 200px 1fr 230px 20px;align-items:baseline;
+    gap:0 12px;padding:14px 0;border-top:1px solid var(--border);
+    text-decoration:none;color:var(--ink)}
+  a.tool:first-of-type{border-top:2px solid var(--ink)}
+  .tools{border-bottom:2px solid var(--ink)}
+  .num{font-size:11px;font-weight:700;color:var(--brand-text)}
+  .tool h2{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0;
+    font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif}
+  .tool p{margin:0;color:var(--muted);font-size:13px;line-height:1.5;padding-right:28px}
+  .q{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  .go{font-size:14px;font-weight:700;color:var(--brand-text)}
+  a.tool:hover{background:color-mix(in srgb, var(--brand) 3%, transparent)}
+  a.tool:hover h2{color:var(--brand-text)}
+  a.tool:focus-visible{outline:2px solid var(--data);outline-offset:2px}
   @media (prefers-reduced-motion: no-preference){
-    a.tool{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
-    a.tool:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(30,50,60,.08),0 10px 26px rgba(30,50,60,.10)}
+    a.tool{transition:background-color .15s ease}
   }
-  a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  /* preview thumbnail — a small on-canvas glimpse of what the tool actually produces */
-  .thumb{display:block;width:100%;height:130px;background:var(--thumb);border-bottom:1px solid var(--border)}
-  .thumb svg{display:block;width:100%;height:100%}
-  .tbody{padding:15px 20px 18px}
-  .tool h2{font-family:Charter,Georgia,serif;font-size:19px;margin:0 0 4px;
-    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
-  .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    font-size:11.5px;font-weight:600;color:var(--accent-ink);
-    background:color-mix(in srgb, var(--accent) 12%, transparent);
-    border-radius:999px;padding:2px 9px}
-  .tool p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:60ch}
-  .tool .go{color:var(--accent-ink);font-size:13.5px;font-weight:600;margin-top:10px;display:inline-block}
-  .tool:hover .go{text-decoration:underline}
-  .soon{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:62ch}
-  .soon b{color:var(--ink);font-weight:600}
-  footer{color:var(--muted);font-size:12.5px;line-height:1.6}
-  footer a{color:var(--muted)}
-  footer a:hover{color:var(--accent-ink)}
-  /* Phone edge system: 16px page gutter, consistent with the tool pages
-     ("16px prose / 10px surface", Camp A in assets/workspace.css). */
+  footer{text-align:left;padding-top:14px}
+  .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    border-top:1px solid var(--border);margin-top:16px;padding-top:12px}
+  @media (max-width:900px){
+    a.tool{grid-template-columns:40px 1fr 20px;grid-template-rows:auto auto auto}
+    .tool h2{grid-column:2}
+    .tool p{grid-column:2;grid-row:2;padding:2px 0 0}
+    .q{grid-column:2;grid-row:3;padding-top:4px}
+    .go{grid-column:3;grid-row:1}
+    h1{font-size:38px}
+  }
   @media (max-width:640px){
     body{padding-left:16px;padding-right:16px}
+    .stats{gap:28px}
   }
 </style>
 <link rel="stylesheet" href="/assets/mobile.css">
 
 <div class="wrap">
-  <header>
-    <h1>Little Product Tools</h1>
-    <p class="tagline">Single-job utilities for product work under uncertainty — estimation, prioritisation, and the conversations around them. No accounts, no tracking; your data stays in the URL.</p>
+  <div class="mast">
+    <span class="micro-ink">matthewgarner.me</span>
+    <span class="micro">No accounts · No tracking · State lives in the URL</span>
+  </div>
+  <div class="rule"></div>
+
+  <header class="hero">
+    <h1>Instruments<br>for judgement</h1>
+    <div class="lede">
+      <p class="tagline">Small, sharp tools for product work under uncertainty. Each does one job exceptionally well — and every one of them prints a verdict it can defend.</p>
+      <div class="stats">
+        <div><div class="statnum">15</div><div class="micro">Instruments</div></div>
+        <div><div class="statnum">0</div><div class="micro">Sign-ups</div></div>
+        <div><div class="statnum">1</div><div class="micro">URL = the file</div></div>
+      </div>
+    </div>
   </header>
 
   <main>
-  <div class="tools">
-
-    <a class="tool" href="/fermi/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <line x1="24" y1="104" x2="316" y2="104" stroke="var(--border)"/>
-        <path d="M40 104 C120 104 120 34 168 34 C210 34 224 96 316 100 L316 104 Z" fill="var(--accent)" fill-opacity="0.15"/>
-        <path d="M40 104 C120 104 120 34 168 34 C210 34 224 96 316 100" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-        <line x1="168" y1="30" x2="168" y2="112" stroke="var(--accent)" stroke-width="2.5"/>
-        <line x1="96" y1="100" x2="96" y2="110" stroke="var(--muted)" stroke-width="2"/>
-        <line x1="256" y1="100" x2="256" y2="110" stroke="var(--muted)" stroke-width="2"/>
-        <rect x="148" y="44" width="50" height="22" rx="5" fill="var(--accent)" fill-opacity="0.16"/>
-        <text x="173" y="60" text-anchor="middle" font-family="Charter,Georgia,serif" font-size="15" font-weight="700" fill="var(--accent-ink)">185</text>
-        <text x="96" y="124" text-anchor="middle" font-size="9.5" fill="var(--muted)">P10</text>
-        <text x="256" y="124" text-anchor="middle" font-size="9.5" fill="var(--muted)">P90</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Fermi estimator <span class="path">/fermi</span></h2>
-        <p>Back-of-envelope maths as an honest P10–P90 distribution — not a fake single number.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/rank/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <rect x="24" y="18" width="150" height="16" rx="3" fill="var(--accent)"/><rect x="174" y="18" width="34" height="16" rx="3" fill="var(--accent)" fill-opacity="0.28"/>
-        <rect x="24" y="44" width="128" height="16" rx="3" fill="var(--accent)"/><rect x="152" y="44" width="40" height="16" rx="3" fill="var(--accent)" fill-opacity="0.28"/>
-        <rect x="24" y="70" width="86" height="16" rx="3" fill="var(--muted)" fill-opacity="0.55"/><rect x="110" y="70" width="52" height="16" rx="3" fill="var(--muted)" fill-opacity="0.22"/>
-        <rect x="24" y="96" width="74" height="16" rx="3" fill="var(--muted)" fill-opacity="0.55"/><rect x="98" y="96" width="60" height="16" rx="3" fill="var(--muted)" fill-opacity="0.22"/>
-        <line x1="228" y1="10" x2="228" y2="120" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="232" y="18" font-size="9.5" fill="var(--accent2)" font-weight="600">top 2</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Rank stability <span class="path">/rank</span></h2>
-        <p>Wobble your weights over thousands of runs — see which ranks survive and which are ties.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/roadmap/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <g font-size="9" font-weight="700" letter-spacing="0.06em" fill="var(--muted)">
-          <text x="30" y="22">NOW</text><line x1="30" y1="27" x2="58" y2="27" stroke="var(--accent)" stroke-width="2"/>
-          <text x="140" y="22">NEXT</text><line x1="140" y1="27" x2="170" y2="27" stroke="var(--accent)" stroke-width="2"/>
-          <text x="250" y="22">LATER</text><line x1="250" y1="27" x2="284" y2="27" stroke="var(--accent)" stroke-width="2"/>
-        </g>
-        <rect x="30" y="36" width="86" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/><circle cx="40" cy="51" r="3.5" fill="var(--st-doing)"/>
-        <rect x="30" y="72" width="86" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/><circle cx="40" cy="87" r="3.5" fill="var(--st-risk)"/>
-        <rect x="140" y="36" width="86" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
-        <rect x="250" y="36" width="60" height="30" rx="4" fill="var(--card)" stroke="var(--border)"/>
-      </svg></span>
-      <span class="tbody">
-        <h2>Roadmap as code <span class="path">/roadmap</span></h2>
-        <p>Write the roadmap as text; get a deck-ready now/next/later board that stays in sync.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/tree/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <path d="M70 66 L150 34 M70 66 L150 98" fill="none" stroke="var(--muted)" stroke-opacity="0.5" stroke-width="1.5"/>
-        <path d="M150 34 L246 22 M150 34 L246 52" fill="none" stroke="var(--accent)" stroke-width="2"/>
-        <path d="M150 98 L246 84 M150 98 L246 112" fill="none" stroke="var(--muted)" stroke-opacity="0.5" stroke-width="1.5"/>
-        <rect x="40" y="56" width="30" height="20" rx="3" fill="var(--accent)"/>
-        <circle cx="150" cy="34" r="9" fill="var(--card)" stroke="var(--accent)" stroke-width="2"/>
-        <circle cx="150" cy="98" r="9" fill="var(--card)" stroke="var(--muted)" stroke-opacity="0.6" stroke-width="1.5"/>
-        <g fill="var(--accent)"><rect x="246" y="15" width="26" height="14" rx="2"/><rect x="246" y="45" width="26" height="14" rx="2"/></g>
-        <g fill="var(--muted)" fill-opacity="0.4"><rect x="246" y="77" width="26" height="14" rx="2"/><rect x="246" y="105" width="26" height="14" rx="2"/></g>
-      </svg></span>
-      <span class="tbody">
-        <h2>Decision tree sketcher <span class="path">/tree</span></h2>
-        <p>Decisions as expected-value trees — options, chances, payoffs as ranges, and the path that wins.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/why/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <path d="M96 66 C140 66 140 34 184 34 M96 66 C140 66 140 66 184 66 M96 66 C140 66 140 98 184 98" fill="none" stroke="var(--muted)" stroke-opacity="0.45" stroke-width="1.5"/>
-        <rect x="26" y="52" width="70" height="28" rx="6" fill="var(--accent)" fill-opacity="0.16" stroke="var(--accent)"/>
-        <rect x="184" y="21" width="86" height="26" rx="6" fill="var(--card)" stroke="var(--border)"/>
-        <rect x="184" y="53" width="86" height="26" rx="6" fill="var(--card)" stroke="var(--border)"/>
-        <rect x="184" y="85" width="86" height="26" rx="6" fill="var(--card)" stroke="var(--border)" stroke-dasharray="4 3" opacity="0.42"/>
-        <circle cx="196" cy="34" r="3" fill="var(--st-doing)"/><circle cx="196" cy="66" r="3" fill="var(--st-done)"/>
-      </svg></span>
-      <span class="tbody">
-        <h2>Why <span class="path">/why</span></h2>
-        <p>One text file, two views: an opportunity-solution tree for discovery, a roadmap for delivery.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/map/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <rect x="70" y="16" width="240" height="100" fill="none" stroke="var(--border)"/>
-        <rect x="70" y="16" width="120" height="50" fill="var(--err)" fill-opacity="0.10"/>
-        <rect x="190" y="66" width="120" height="50" fill="var(--st-done)" fill-opacity="0.12"/>
-        <line x1="190" y1="16" x2="190" y2="116" stroke="var(--border)"/>
-        <line x1="70" y1="66" x2="310" y2="66" stroke="var(--border)"/>
-        <text x="80" y="30" font-size="8.5" font-weight="700" fill="var(--err)">TEST FIRST</text>
-        <text x="252" y="108" font-size="8.5" font-weight="700" fill="var(--st-done)">SAFE</text>
-        <g fill="var(--accent)"><circle cx="120" cy="40" r="5"/><circle cx="160" cy="34" r="5"/><circle cx="228" cy="52" r="5"/><circle cx="256" cy="92" r="5"/><circle cx="150" cy="88" r="5"/></g>
-        <text x="60" y="70" font-size="8.5" fill="var(--muted)" transform="rotate(-90 60 70)" text-anchor="middle">importance</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Map <span class="path">/map</span></h2>
-        <p>Assumptions, stakeholders, risks — place them on two axes and read off what to do next.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/gauge/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <rect x="150" y="12" width="70" height="98" fill="var(--accent)" fill-opacity="0.12"/>
-        <text x="185" y="126" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)">consensus</text>
-        <g stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round">
-          <line x1="60" y1="28" x2="150" y2="28"/><line x1="130" y1="52" x2="240" y2="52"/><line x1="170" y1="76" x2="300" y2="76"/><line x1="96" y1="100" x2="196" y2="100"/>
-        </g>
-        <g fill="var(--accent)"><circle cx="108" cy="28" r="4.5"/><circle cx="188" cy="52" r="4.5"/><circle cx="232" cy="76" r="4.5"/><circle cx="150" cy="100" r="4.5"/></g>
-      </svg></span>
-      <span class="tbody">
-        <h2>Gauge <span class="path">/gauge</span></h2>
-        <p>Everyone estimates privately, then the whole room’s spread reveals at once.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/timeline/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
-        <line x1="120" y1="12" x2="120" y2="112" stroke="var(--ink)" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="3 3"/>
-        <text x="124" y="22" font-size="8.5" fill="var(--muted)">today</text>
-        <rect x="150" y="30" width="70" height="14" rx="7" fill="var(--accent)" fill-opacity="0.22"/><path d="M170 37 l6 -6 l6 6 l-6 6 Z" fill="var(--accent)"/>
-        <rect x="120" y="58" width="120" height="14" rx="7" fill="var(--st-risk)" fill-opacity="0.22"/><path d="M156 65 l6 -6 l6 6 l-6 6 Z" fill="var(--st-risk)"/>
-        <rect x="196" y="86" width="90" height="14" rx="7" fill="var(--accent)" fill-opacity="0.22"/><path d="M226 93 l6 -6 l6 6 l-6 6 Z" fill="var(--accent)"/>
-      </svg></span>
-      <span class="tbody">
-        <h2>Timeline <span class="path">/timeline</span></h2>
-        <p>A Gantt that admits dates are forecasts — milestones carry P50–P90 whiskers.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/wardley/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
-        <line x1="97" y1="16" x2="97" y2="112" stroke="var(--border)" stroke-dasharray="2 4"/>
-        <line x1="170" y1="16" x2="170" y2="112" stroke="var(--border)" stroke-dasharray="2 4"/>
-        <line x1="243" y1="16" x2="243" y2="112" stroke="var(--border)" stroke-dasharray="2 4"/>
-        <line x1="150" y1="26" x2="120" y2="58" stroke="var(--border)"/>
-        <line x1="150" y1="26" x2="216" y2="58" stroke="var(--border)"/>
-        <line x1="216" y1="58" x2="282" y2="90" stroke="var(--border)"/>
-        <line x1="120" y1="58" x2="60" y2="90" stroke="var(--border)"/>
-        <rect x="122" y="18" width="56" height="16" rx="8" fill="var(--card)" stroke="var(--ink)"/>
-        <rect x="92" y="50" width="56" height="16" rx="8" fill="var(--accent)" fill-opacity="0.22"/>
-        <rect x="188" y="50" width="56" height="16" rx="8" fill="var(--accent)" fill-opacity="0.22"/>
-        <rect x="254" y="82" width="56" height="16" rx="8" fill="var(--muted)" fill-opacity="0.22"/>
-        <rect x="32" y="82" width="56" height="16" rx="8" fill="none" stroke="var(--muted)" stroke-dasharray="4 3"/>
-        <text x="46" y="124" font-size="8.5" fill="var(--muted)">genesis</text>
-        <text x="278" y="124" font-size="8.5" fill="var(--muted)">commodity</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Wardley map <span class="path">/wardley</span></h2>
-        <p>Value chain × evolution as text — drag writes the map; snapshots draw the drift.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/flow/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <line x1="30" y1="110" x2="316" y2="110" stroke="var(--border)"/>
-        <line x1="30" y1="16" x2="30" y2="110" stroke="var(--border)"/>
-        <path d="M262 16 L316 16 L316 110 L262 110 Z" fill="var(--err)" fill-opacity="0.10"/>
-        <path d="M30 100 C140 96 210 88 258 60 C280 46 292 26 300 16" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-        <line x1="288" y1="16" x2="288" y2="110" stroke="var(--err)" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="284" y="106" text-anchor="end" font-size="8.5" fill="var(--muted)">utilisation →</text>
-        <text x="284" y="26" text-anchor="end" font-size="8.5" fill="var(--err)">~100%</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Flow playground <span class="path">/flow</span></h2>
-        <p>Little’s Law, live — watch waiting time explode as utilisation nears 100%.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/alarm/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <line x1="20" y1="110" x2="320" y2="110" stroke="var(--border)"/>
-        <path d="M170 20 L170 110 L320 110 L320 20 Z" fill="var(--accent)" fill-opacity="0.06"/>
-        <path d="M30 108 C80 108 95 40 120 40 C145 40 160 108 210 108" fill="var(--muted)" fill-opacity="0.10" stroke="var(--muted)" stroke-width="1.5"/>
-        <path d="M120 108 C170 108 195 28 220 28 C245 28 270 108 315 108" fill="var(--accent)" fill-opacity="0.12" stroke="var(--accent)" stroke-width="2"/>
-        <line x1="170" y1="20" x2="170" y2="110" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="118" y="24" text-anchor="middle" font-size="8.5" fill="var(--muted)">benign</text>
-        <text x="222" y="22" text-anchor="middle" font-size="8.5" fill="var(--accent)">real</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Base-rate playground <span class="path">/alarm</span></h2>
-        <p>“99% accurate” means nothing until the base rate has had its say — drag the threshold, watch the false alarms pile up.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/duel/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <path d="M84 90 Q120 42 156 40" fill="none" stroke="var(--accent)" stroke-width="2"/>
-        <path d="M184 40 Q220 42 256 90" fill="none" stroke="var(--accent)" stroke-width="2"/>
-        <path d="M256 106 Q170 130 84 106" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 3"/>
-        <circle cx="72" cy="98" r="16" fill="var(--card)" stroke="var(--accent)" stroke-width="1.5"/>
-        <circle cx="170" cy="34" r="16" fill="var(--card)" stroke="var(--accent)" stroke-width="1.5"/>
-        <circle cx="268" cy="98" r="16" fill="var(--card)" stroke="var(--accent)" stroke-width="1.5"/>
-        <text x="72" y="103" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent-ink)">A</text>
-        <text x="170" y="39" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent-ink)">B</text>
-        <text x="268" y="103" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent-ink)">C</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Pairwise showdown <span class="path">/duel</span></h2>
-        <p>Prioritise by rapid two-tap duels, not scores — and see the A&gt;B&gt;C&gt;A loops that expose unshared criteria.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/premortem/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <rect x="30" y="30" width="160" height="12" rx="6" fill="var(--accent)" fill-opacity="0.14"/>
-        <rect x="70" y="30" width="80" height="12" rx="6" fill="var(--accent)"/>
-        <rect x="30" y="60" width="120" height="12" rx="6" fill="var(--accent)" fill-opacity="0.14"/>
-        <rect x="60" y="60" width="55" height="12" rx="6" fill="var(--accent)"/>
-        <rect x="30" y="90" width="86" height="12" rx="6" fill="var(--muted)" fill-opacity="0.18"/>
-        <rect x="52" y="90" width="38" height="12" rx="6" fill="var(--muted)"/>
-        <text x="310" y="40" text-anchor="end" font-size="9" fill="var(--muted)">exposure</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Premortem <span class="path">/premortem</span></h2>
-        <p>Imagine it already failed and work backwards — into a living, EV-ranked risk register with honest ranges, not a red/amber/green grid.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/bets/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <rect x="20" y="14" width="300" height="100" rx="8" fill="var(--card)" stroke="var(--border)"/>
-        <text x="298" y="30" text-anchor="end" font-size="9.5" font-weight="700" fill="var(--err)">P(LOSES) 32%</text>
-        <line x1="32" y1="36" x2="298" y2="36" stroke="var(--ink)" stroke-opacity="0.5" stroke-width="1"/>
-        <rect x="32" y="42" width="60" height="9" rx="2" fill="var(--muted)" fill-opacity="0.4"/>
-        <rect x="160" y="44" width="110" height="6" rx="3" fill="var(--track)"/>
-        <rect x="176" y="44" width="58" height="6" rx="3" fill="var(--accent)" fill-opacity="0.65"/>
-        <line x1="216" y1="42" x2="216" y2="52" stroke="var(--ink)" stroke-width="1.5"/>
-        <rect x="24" y="60" width="288" height="20" fill="var(--err)" fill-opacity="0.07"/>
-        <rect x="32" y="66" width="60" height="9" rx="2" fill="var(--muted)" fill-opacity="0.4"/>
-        <rect x="160" y="68" width="110" height="6" rx="3" fill="var(--track)"/>
-        <rect x="160" y="68" width="66" height="6" rx="3" fill="var(--err)" fill-opacity="0.6"/>
-        <line x1="200" y1="66" x2="200" y2="76" stroke="var(--ink)" stroke-width="1.5"/>
-        <g transform="rotate(-9 282 70)">
-          <rect x="262" y="61" width="42" height="17" rx="3" fill="var(--err)" fill-opacity="0.08" stroke="var(--err)" stroke-width="1.4"/>
-          <text x="283" y="73" text-anchor="middle" font-size="8" font-weight="700" letter-spacing="0.04em" fill="var(--err)">KILL</text>
-        </g>
-        <rect x="32" y="90" width="60" height="9" rx="2" fill="var(--muted)" fill-opacity="0.4"/>
-        <rect x="160" y="92" width="110" height="6" rx="3" fill="var(--track)"/>
-        <rect x="168" y="92" width="58" height="6" rx="3" fill="var(--accent)" fill-opacity="0.65"/>
-        <line x1="208" y1="90" x2="208" y2="100" stroke="var(--ink)" stroke-width="1.5"/>
-        <line x1="32" y1="104" x2="298" y2="104" stroke="var(--ink)" stroke-opacity="0.6" stroke-width="1.3"/>
-        <text x="32" y="112" font-size="8.5" font-weight="700" fill="var(--ink)">PORTFOLIO</text>
-        <text x="298" y="112" text-anchor="end" font-size="8.5" font-weight="700" fill="var(--accent-ink)">+340</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Bets board <span class="path">/bets</span></h2>
-        <p>Write the portfolio as bets — stake, odds, payoff, kill criterion — and get the deck-ready odds it loses money, plus the audits that shame the lines that can't say it straight.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="/signal-vs-noise/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <rect x="20" y="40" width="300" height="46" rx="4" fill="var(--muted)" fill-opacity="0.14"/>
-        <polyline points="28,64 76,58 124,68 172,54 220,66 268,60 312,56" fill="none" stroke="var(--muted)" stroke-width="1.4" opacity="0.55"/>
-        <polyline points="28,72 76,66 124,60 172,70 220,58 268,68 312,62" fill="none" stroke="var(--muted)" stroke-width="1.4" opacity="0.4"/>
-        <polyline points="28,58 76,70 124,62 172,64 220,72 268,58 312,68" fill="none" stroke="var(--muted)" stroke-width="1.4" opacity="0.4"/>
-        <polyline points="28,62 76,60 124,72 172,96 220,110 268,108 312,112" fill="none" stroke="var(--err)" stroke-width="2.2"/>
-        <circle cx="28" cy="62" r="4.5" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
-        <circle cx="124" cy="62" r="4.5" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
-        <circle cx="220" cy="110" r="3" fill="var(--err)"/>
-        <text x="312" y="126" text-anchor="end" font-size="9" font-weight="700" fill="var(--err)">the one real shift</text>
-      </svg></span>
-      <span class="tbody">
-        <h2>Signal vs noise <span class="path">/signal-vs-noise</span></h2>
-        <p>Manage a team through eight noisy quarters and get personally trained to chase noise — then shown how little of it was ever a signal. Deming's tampering and regression to the mean, made felt.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
+  <div class="idxhead">
+    <span class="micro-ink">Index</span>
+    <span class="micro">Number · Instrument · Job · The question it answers</span>
   </div>
-
-  <p class="soon"><b>In the workshop:</b> a throughput forecaster ("when will it be done", honestly), a dependency-aware sequencer that prices your delivery order in cost of delay, and a calibration trainer. Same rules for all of them: one job, opinionated, no accounts.</p>
+  <div class="tools">
+    <a class="tool" href="/roadmap/">
+      <span class="num">01</span><h2>Roadmap</h2>
+      <p>Now / next / later columns, WIP limits, deck export — the plan as an artefact, not a promise.</p>
+      <span class="q">What are we doing, in what order?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/timeline/">
+      <span class="num">02</span><h2>Timeline</h2>
+      <p>Milestones with P50–P90 whiskers and a merge-risk verdict; the snapshot compare draws the slip slide.</p>
+      <span class="q">When, honestly?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/fermi/">
+      <span class="num">03</span><h2>Fermi</h2>
+      <p>Driver-tree estimation with ranges that confess what must be true for the answer to hold.</p>
+      <span class="q">How big is it, roughly?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/bets/">
+      <span class="num">04</span><h2>Bets</h2>
+      <p>The quarter as a blotter of stakes, odds and payoffs — concentration risk included.</p>
+      <span class="q">Where is our stake, really?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/rank/">
+      <span class="num">05</span><h2>Rank</h2>
+      <p>Weighted-criteria ranking with a robustness shuffle — does #1 survive your own uncertainty?</p>
+      <span class="q">Which one, and is it stable?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/duel/">
+      <span class="num">06</span><h2>Duel</h2>
+      <p>Pairwise showdowns when a list is too long to rank honestly in one pass.</p>
+      <span class="q">This or that?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/map/">
+      <span class="num">07</span><h2>Map</h2>
+      <p>Two axes, labelled zones, presets — position the portfolio and argue about placement, not vibes.</p>
+      <span class="q">Where does everything sit?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/tree/">
+      <span class="num">08</span><h2>Tree</h2>
+      <p>Probability-weighted decision trees with expected value carried up the branches.</p>
+      <span class="q">What is this path worth?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/why/">
+      <span class="num">09</span><h2>Why</h2>
+      <p>Outcome → assumptions → solutions; the argument drawn so the weak link is visible.</p>
+      <span class="q">Why do we believe this?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/wardley/">
+      <span class="num">10</span><h2>Wardley</h2>
+      <p>Value-chain evolution maps — what to build, buy, or let commoditise.</p>
+      <span class="q">What moves next?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/premortem/">
+      <span class="num">11</span><h2>Premortem</h2>
+      <p>Write the failure story first, price it into an EV register, promote the real risks.</p>
+      <span class="q">How does this die?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/gauge/">
+      <span class="num">12</span><h2>Gauge</h2>
+      <p>Collect a room's estimates before anyone anchors it — Delphi rounds, chips, calibrated ranges.</p>
+      <span class="q">What does the room think?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/alarm/">
+      <span class="num">13</span><h2>Alarm</h2>
+      <p>Base-rate playground — how often a monitor that's “99% right” cries wolf.</p>
+      <span class="q">Should this page me?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/flow/">
+      <span class="num">14</span><h2>Flow</h2>
+      <p>Little's-law throughput sketches — where the queue actually is.</p>
+      <span class="q">Why is it slow?</span><span class="go">→</span>
+    </a>
+    <a class="tool" href="/signal-vs-noise/">
+      <span class="num">15</span><h2>Signal vs noise</h2>
+      <p>Eight noisy quarters, one real shift — Deming's tampering and regression to the mean, made felt.</p>
+      <span class="q">Did anything actually change?</span><span class="go">→</span>
+    </a>
+  </div>
   </main>
 
   <footer>
-    Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a><br>
-    Sibling site: <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a> — the same rules pointed at energy work.
+    <span class="micro">Energy series — cycles · risk · frequency · merit-order · intraday — lives at <a href="https://energy.matthewgarner.me">energy.matthewgarner.me</a></span>
+    <div class="foot">
+      <span>Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a></span>
+      <span>No accounts. No tracking. Bookmark the URL — that's the save button.</span>
+    </div>
   </footer>
 </div>
 </body>
