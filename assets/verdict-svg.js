@@ -10,7 +10,14 @@
 import {esc, wrapText} from './svg.js';
 import {markFigure, countsLine} from './verdict.js';
 
-const NB = ' ';
+/* A plain space, held by xml:space. NOT a non-breaking space: the export path
+   reads the live SVG's outerHTML — HTML serialisation — and an NBSP comes back
+   out as &nbsp;, an entity XML does not define, so the PNG decoder rejects the
+   whole file. (Shipped broken once here; smoke's "svg decodes as an image"
+   caught it.) Ordinary spaces adjacent to a tspan are collapsible under the
+   default whitespace rules, hence xml:space="preserve" on the text elements
+   this module emits. */
+const NB = ' ';
 const r2 = n => (Math.round(n * 100) / 100).toString();
 
 /* SVG strings are XML, and a font stack quotes its family names — so whichever
@@ -22,7 +29,7 @@ const r2 = n => (Math.round(n * 100) / 100).toString();
    Both conventions in the repo therefore emit the same bytes. */
 const normFont = f => String(f).replace(/"/g, "'");
 function textOpen(x, y, font, size, weight, tracking, fill){
-  return '<text x="' + r2(x) + '" y="' + r2(y) + '" font-family="' + normFont(font) +
+  return '<text xml:space="preserve" x="' + r2(x) + '" y="' + r2(y) + '" font-family="' + normFont(font) +
     '" font-size="' + r2(size) + '" font-weight="' + weight + '"' +
     (tracking ? ' letter-spacing="' + r2(tracking) + '"' : '') +
     ' fill="' + fill + '">';

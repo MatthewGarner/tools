@@ -156,7 +156,7 @@ test('narrow: [fixed] and [done] lay out identically — the ±? predicate agree
      the verdict block (the sole font-family-bearing text in the narrow board). */
   const board = s => norm(s)
     .replace(/^<svg[^>]*><rect width="\d+" height="\d+" fill="[^"]*"\/>/, '')   // both carry the height
-    .split(' font-family="')[0].replace(/<text x="[\d.]+" y="[\d.]+"$/, '').replace(/<\/svg>$/, '');
+    .split(' font-family="')[0].replace(/<text xml:space="preserve" x="[\d.]+" y="[\d.]+"$/, '').replace(/<\/svg>$/, '');
   assert.equal(board(svg('fixed')), board(svg('done')));
 });
 

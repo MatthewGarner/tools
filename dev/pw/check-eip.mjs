@@ -21,6 +21,30 @@ async function settledTap(page, loc){
   return box;
 }
 
+/* Tap a point inside `box` that really belongs to the card-menu target.
+   Was a fixed +8/+4 "top-left padding sliver", which is a CLIENT-pixel offset —
+   so it silently changed meaning the moment the artefact's fit-scale changed
+   (Swiss 6b's metrics row shortened the stage, the SVG fitted smaller, and 8
+   client px reached past the padding onto the nested rename target). Scan a few
+   candidate points instead and take the first whose top element still resolves
+   to the cardmenu — scale-independent, and it fails loudly if none does. */
+async function tapCardMenu(p, box, line = null){
+  const pts = [[4, 3], [8, 4], [3, 2], [box.width - 6, 4], [box.width / 2, 3]];
+  for(const [dx, dy] of pts){
+    const x = box.x + dx, y = box.y + dy;
+    const onMenu = await p.evaluate(([x, y, line]) => {
+      const el = document.elementFromPoint(x, y);
+      const g = el && el.closest('[data-edit^="cardmenu"]');
+      const own = el && el.closest('[data-edit]');
+      if(!g || own !== g) return false;
+      return line == null || g.getAttribute('data-line') === String(line);
+    }, [x, y, line]);
+    if(onMenu){ await p.mouse.click(x, y); return; }
+  }
+  throw new Error('tapCardMenu: no point inside the card resolved to the cardmenu target (line ' + line + ')');
+}
+
+
 await page.goto(BASE, {waitUntil: 'networkidle'});
 await page.getByRole('button', {name: 'Bid or no bid'}).click();
 await page.waitForTimeout(500);
@@ -405,8 +429,7 @@ check('no console/page errors', errors.length === 0);
      assumption text painted on top of the rect — tap the top-left padding
      sliver instead, above every card kind's first text baseline. */
   const tapCard = async line => {
-    const box = await cardBody(line).boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
   const undo = async () => {
@@ -584,8 +607,7 @@ check('no console/page errors', errors.length === 0);
      over the invisible-fill data-hit rect. */
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   const tapCard = async line => {
-    const box = await cardBody(line).boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
   const undo = async () => {
@@ -696,8 +718,8 @@ check('no console/page errors', errors.length === 0);
      targets the centre — on Linux (subtly different font metrics) that lands on
      the text element and the menu never opens. Same fix the why suite uses. */
   const tapCard = async title => {
-    const box = await cardBody(await lineOfCard(title)).boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    const line = await lineOfCard(title);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const undo = async () => {
@@ -911,7 +933,7 @@ check('no console/page errors', errors.length === 0);
      land on that text instead (same fix the chart block above uses). */
   const tapCard = async title => {
     const box = await rowOf(title).locator('rect[data-hit]').boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    await tapCardMenu(p, box);
   };
   const undo = async () => {
     await p.locator('.cm-content').click();
@@ -1216,7 +1238,7 @@ check('no console/page errors', errors.length === 0);
   const cardOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
   const tapCard = async title => {
     const box = await cardOf(title).locator('rect[data-hit]').boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    await tapCardMenu(p, box);
   };
   const undo = async () => {
     await p.locator('.cm-content').click();
@@ -1379,7 +1401,7 @@ check('no console/page errors', errors.length === 0);
   const line = await p.locator('#preview svg g[data-edit="cardmenu"]')
     .filter({hasText: 'Ship it'}).first().getAttribute('data-line');
   const box = await p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]').boundingBox();
-  await p.mouse.click(box.x + 8, box.y + 4);
+  await tapCardMenu(p, box, line);
   await p.waitForTimeout(200);
   check('roadmap: the Lane… row does not appear on a chart (now/next/later) doc',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
@@ -2474,8 +2496,7 @@ insure: premium 6 attach 65 limit 30`;
   // dodge-the-text-element trick roadmap's suite uses
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   const tapCard = async line => {
-    const box = await cardBody(line).boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   await tapCard(7);
   await p.waitForTimeout(200);
@@ -2545,7 +2566,7 @@ insure: premium 6 attach 65 limit 30`;
     await loc.scrollIntoViewIfNeeded();
     await p.waitForTimeout(300);
     const box = await loc.boundingBox();
-    await p.mouse.click(box.x + 8, box.y + 4);
+    await tapCardMenu(p, box);
   };
 
   /* why: the astatus multi-value cycle (the original trap) */

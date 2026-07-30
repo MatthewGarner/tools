@@ -43,12 +43,12 @@ test('countsLine joins with the middot and drops empties', () => {
   assert.equal(countsLine('4 lanes'), '4 lanes');
 });
 
-test('svgMetrics: 700 ink title, 500 muted counts after a 3-NBSP gap, uppercased', () => {
+test('svgMetrics: 700 ink title, 500 muted counts after a held 3-space gap, uppercased', () => {
   const s = svgMetrics({x: 36, y: 38, model: 'Habitat — launch plan',
     counts: ['7 milestones', '3 lanes'], ink: C.ink, muted: C.muted, font: FONT});
   assert.match(s, /font-size="10" font-weight="700" letter-spacing="1.8" fill="#111111"/);
   assert.match(s, /HABITAT — LAUNCH PLAN/);
-  assert.match(s, /<tspan fill="#6B6B68" font-weight="500">   7 MILESTONES · 3 LANES<\/tspan>/);
+  assert.match(s, /<tspan fill="#6B6B68" font-weight="500">   7 MILESTONES · 3 LANES<\/tspan>/);
   assert.equal(svgMetrics({x: 0, y: 0, model: '', counts: [], ...C, font: FONT}), '');
 });
 
@@ -88,7 +88,7 @@ test('svgVerdict wraps at min(width, 820) and advances 32px a line at 24px', () 
   const long = 'Referral flow holds first place in seventy one of one hundred random weight shuffles across the whole board today.';
   const {svg, height} = svgVerdict({x: 0, y: 0, width: 300, line: long, fig: '', ...C,
     font: FONT, measure});
-  const ys = [...svg.matchAll(/<text x="0" y="(-?[\d.]+)"/g)].map(m => +m[1]);
+  const ys = [...svg.matchAll(/<text xml:space="preserve" x="0" y="(-?[\d.]+)"/g)].map(m => +m[1]);
   assert.ok(ys.length >= 4, 'wraps into several lines');
   assert.equal(ys[0], 0, 'kicker sits on the given baseline');
   assert.equal(ys[1], 30, 'first verdict line is 30px below the kicker');
@@ -96,10 +96,10 @@ test('svgVerdict wraps at min(width, 820) and advances 32px a line at 24px', () 
   assert.equal(height, ys[ys.length - 1] + 32);
 });
 
-test('svgVerdict escapes the model text and keeps the figure spacing non-breaking', () => {
+test('svgVerdict escapes the model text and holds the spaces around the figure', () => {
   const {svg} = svgVerdict({x: 0, y: 0, width: 4000,
     line: 'A & B <s> hold 5 of 9 slots', fig: '5 of 9', ...C, font: FONT, measure});
-  assert.match(svg, /A &amp; B &lt;s&gt; hold <tspan fill="#D62015">5 of 9<\/tspan> slots/);
+  assert.match(svg, /A &amp; B &lt;s&gt; hold <tspan fill="#D62015">5 of 9<\/tspan> slots/);
 });
 
 test('svgVerdict is empty for an empty line', () => {
