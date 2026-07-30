@@ -100,7 +100,7 @@ test('edit: per-lane add zone clamps to the plot right edge when content runs lo
   const longLabel = 'A'.repeat(300);
   const doc = 'Grid: ' + longLabel + ' 2026-08 .. 2026-08';
   const svg = render(parse(doc), ctx, null, {edit: true});
-  const band = svg.match(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*rx="8"/);
+  const band = svg.match(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*rx="0"/);   // Swiss 3d: lane bands squared
   assert.ok(band, 'lane band rect not found');
   const rightEdge = parseFloat(band[1]) + parseFloat(band[2]);
   const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="44"/);

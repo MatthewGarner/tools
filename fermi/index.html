@@ -25,7 +25,7 @@
     font-size:34px;font-weight:700;letter-spacing:-.03em;margin:0;text-wrap:balance;
   }
   .card{
-    background:var(--card);border:1px solid var(--border);border-radius:8px;
+    background:var(--card);border:1px solid var(--border);border-radius:0;
     box-shadow:var(--shadow);padding:22px;
   }
   label.field{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;
@@ -35,7 +35,7 @@
   .scentabs{display:flex;gap:6px;align-items:center}
   .tab{
     display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
-    padding:3px 12px;border:1px solid var(--border);border-radius:999px;
+    padding:3px 12px;border:1px solid var(--border);border-radius:0;
     background:none;color:var(--muted);cursor:pointer;font-family:inherit;
   }
   .tab .dot{width:8px;height:8px;border-radius:50%}
@@ -44,10 +44,10 @@
   .tab.on{border-color:var(--ink);color:var(--ink)}
   .cmp{
     display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;font-size:14px;
-    padding:10px 14px;border:1px solid var(--border);border-radius:6px;
+    padding:10px 14px;border:1px solid var(--border);border-radius:0;
     margin-bottom:18px;background:var(--bg);
   }
-  .cmp .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+  .cmp .sw{display:inline-block;width:10px;height:10px;border-radius:0;margin-right:6px}
   .cmp .swA{background:var(--accent)}
   .cmp .swB{background:var(--accent2)}
   .cmp b{font-variant-numeric:tabular-nums}
@@ -55,7 +55,7 @@
   .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   #formula{
     width:100%;font-size:16.5px;padding:11px 13px;border:1px solid var(--border);
-    border-radius:6px;background:var(--bg);color:var(--ink);
+    border-radius:0;background:var(--bg);color:var(--ink);
   }
   #formula:focus-visible, input:focus-visible, button:focus-visible{
     outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);
@@ -71,12 +71,12 @@
   .vname{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .vrow input{
     width:100%;font-size:14.5px;padding:7px 9px;border:1px solid var(--border);
-    border-radius:6px;background:var(--bg);color:var(--ink);
+    border-radius:0;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
   .vrow select{
     width:100%;font-size:12.5px;padding:7px 4px;border:1px solid var(--border);
-    border-radius:6px;background:var(--bg);color:var(--muted);font-family:inherit;
+    border-radius:0;background:var(--bg);color:var(--muted);font-family:inherit;
   }
   .spark{display:block;width:56px;height:26px}
   .dash{color:var(--muted);text-align:center}
@@ -92,30 +92,30 @@
     font-variant-numeric:tabular-nums;font-weight:600;font-size:26px;line-height:1.15;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tile.mid .tv{font-size:36px}
-  .tile.mid .tv .smear{background:var(--hl);padding:0 .14em;border-radius:2px;
+  .tile.mid .tv .smear{background:var(--hl);padding:0 .14em;border-radius:0;
     box-decoration-break:clone}
   .say{margin:16px 0 0;font-size:15px;color:var(--ink)}
   .say .q{font-style:italic}
   .spread{color:var(--muted);font-size:13px;margin-top:4px}
-  .viewseg{display:inline-flex;border:1px solid var(--border);border-radius:6px;
+  .viewseg{display:inline-flex;border:1px solid var(--border);border-radius:0;
     overflow:hidden;margin-top:18px}
   .pagemode{margin:0 0 0 auto}
   .pagemode button, .cfseg button{border:none;background:none;color:var(--muted);cursor:pointer;
     font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
   .pagemode button.on, .cfseg button.on{color:var(--card);background:var(--accent)}
-  .pagemode, .cfseg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .pagemode, .cfseg{display:inline-flex;border:1px solid var(--border);border-radius:0;overflow:hidden}
   .cfmeta{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
   .cfmeta label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted);display:flex;gap:8px;align-items:center}
   .cfmeta input{width:64px;font-size:14px;padding:6px 8px;border:1px solid var(--border);
-    border-radius:6px;background:var(--bg);color:var(--ink);
+    border-radius:0;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   .cfrow{display:grid;grid-template-columns:44px minmax(0,1fr) 12px minmax(0,1fr) 28px;
     max-width:460px;gap:8px;align-items:center;padding:3px 0}
   .cfrow input{width:100%;min-width:0}
   .cfrow .cft{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px;
     color:var(--muted)}
-  .cfrow input{font-size:14px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;
+  .cfrow input{font-size:14px;padding:6px 9px;border:1px solid var(--border);border-radius:0;
     background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   .cfrow .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:15px}
@@ -127,7 +127,7 @@
   .cfdebttoggle input{width:18px;height:18px;flex:none}
   .cfdebttoggle .note{color:var(--muted);font-weight:500}
   #cfdebtfields{margin-top:12px}
-  #cfcase{font-size:14px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;
+  #cfcase{font-size:14px;padding:6px 8px;border:1px solid var(--border);border-radius:0;
     background:var(--bg);color:var(--ink);font-family:inherit}
   #cfwrap svg{display:block;width:100%;height:auto;margin-top:6px}
   .viewseg button{border:none;background:none;color:var(--muted);cursor:pointer;
@@ -141,7 +141,7 @@
   #hist{display:block;width:100%;height:180px;cursor:crosshair;touch-action:pan-y}
   #tip{
     position:absolute;pointer-events:none;display:none;background:var(--ink);color:var(--bg);
-    font-size:12.5px;padding:4px 9px;border-radius:5px;white-space:nowrap;
+    font-size:12.5px;padding:4px 9px;border-radius:0;white-space:nowrap;
     font-variant-numeric:tabular-nums;transform:translate(-50%,-130%);z-index:8;
   }
   .replaybtn{margin-top:10px;user-select:none;-webkit-user-select:none}
@@ -155,7 +155,7 @@
   .cspark{width:56px;height:26px;flex:none;opacity:.9}
   .ctxt{flex:1;min-width:0;font-variant-numeric:tabular-nums}
   .cghost.over .ctxt{color:var(--err)}
-  .adopt{font:inherit;font-size:12px;padding:3px 11px;border:1px solid var(--border);border-radius:999px;
+  .adopt{font:inherit;font-size:12px;padding:3px 11px;border:1px solid var(--border);border-radius:0;
     background:var(--card);color:var(--ink);cursor:pointer;flex:none}
   .adopt:hover{border-color:var(--ink)}
   .adopt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -163,18 +163,18 @@
   .thresh{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:14.5px}
   .thresh input{
     width:112px;font-size:14px;padding:6px 9px;border:1px solid var(--border);
-    border-radius:6px;background:var(--bg);color:var(--ink);
+    border-radius:0;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
   .thresh b{font-variant-numeric:tabular-nums;font-size:15.5px}
   .thresh .hint{color:var(--muted);font-size:12.5px}
-  h2{font-family:Charter,Georgia,serif;font-size:18px;margin:26px 0 4px}
+  h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:18px;margin:26px 0 4px}
   .senshint{color:var(--muted);font-size:13.5px;margin:0 0 12px}
   .srow{display:grid;grid-template-columns:minmax(0,160px) 1fr 92px;gap:12px;
     align-items:center;padding:4px 0}
   .srow .sn{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .srow .track{height:10px;background:var(--track);border-radius:4px;overflow:hidden}
-  .srow .bar{height:100%;background:var(--accent);border-radius:4px;min-width:2px}
+  .srow .track{height:10px;background:var(--track);border-radius:0;overflow:hidden}
+  .srow .bar{height:100%;background:var(--accent);border-radius:0;min-width:2px}
   .srow .sp{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;
     color:var(--muted)}
   .method{color:var(--muted);font-size:12.5px}

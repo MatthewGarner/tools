@@ -9,7 +9,7 @@ import {mergeBias, laneVsDeadline} from './mergebias.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  serif: "Charter, Georgia, 'Times New Roman', serif",
+  serif: "'Helvetica Neue', Helvetica, 'Segoe UI', Roboto, sans-serif",   // Swiss 3d: display role
 };
 const T = {
   pad: 26, laneW: 150, plotW: 1240, rowH: 32, laneGap: 11, lanePadY: 8,
@@ -78,7 +78,7 @@ export function riskPill(px, pyTop, S, C, measure){
   const pw = riskPillW(S, measure), ph = PILL.h * S;
   return {w: pw, svg:
     '<rect x="' + px.toFixed(1) + '" y="' + pyTop.toFixed(1) + '" width="' + pw.toFixed(1) +
-    '" height="' + ph.toFixed(1) + '" rx="' + (ph / 2).toFixed(1) + '" fill="' + tint(C.err) + '"' +
+    '" height="' + ph.toFixed(1) + '" rx="0" fill="' + tint(C.err) + '"' +
     (tint(C.err) === 'none' ? ' stroke="' + C.err + '" stroke-width="1"' : '') + '/>' +
     txt(px + PILL.padX * S, pyTop + ph - 4 * S, 'RISK', PILL.size * S, C.err,
       {weight: 600, tracking: PILL.tracking})};
@@ -344,7 +344,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   /* the TODAY flag caps the scale header; the dashed rule is drawn per-track below */
   if(todayVisible){
     s.push('<rect x="' + flagL.toFixed(1) + '" y="' + (sinceH + 1) + '" width="' + (flagR - flagL).toFixed(1) +
-      '" height="14" rx="3" fill="' + C.ink + '"/>');
+      '" height="14" rx="0" fill="' + C.ink + '"/>');
     s.push(txt((flagL + flagR) / 2, sinceH + 11, 'TODAY', 8, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
   }
 
@@ -366,7 +366,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
     const cw = W - PAD * 2, cap = ADDH - 8;
     return editTarget(
       '<rect x="' + PAD + '" y="' + (top + 4).toFixed(1) + '" width="' + cw + '" height="' + cap +
-        '" rx="10" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
+        '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
       txt(PAD + cw / 2, top + 4 + cap / 2 + 4, (lane ? '＋ Add to ' + lane : '＋ Add milestone'), 12.5,
         C.muted, {anchor: 'middle', weight: 600}),
       {x: PAD, y: top, w: cw, h: ADDH, bg: C.bg},
@@ -435,7 +435,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
     if(edit) s.push('</g>');
 
     s.push('<rect x="' + plotX + '" y="' + tTop.toFixed(1) + '" width="' + plotW + '" height="' + TRACK +
-      '" rx="6" fill="' + C.card + '" stroke="' + C.border + '"/>');
+      '" rx="0" fill="' + C.card + '" stroke="' + C.border + '"/>');
     for(const tk of tickX){
       if(tk.x < plotX || tk.x > plotX + plotW) continue;
       s.push('<line x1="' + tk.x.toFixed(1) + '" y1="' + tTop.toFixed(1) + '" x2="' + tk.x.toFixed(1) +
@@ -623,7 +623,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     const y0 = laneTop.get(lane);
     const h = (T.lanePadY * 2 + laneRows.get(lane) * T.rowH) * S;
     s.push('<rect x="' + T.pad * S + '" y="' + y0 + '" width="' + (T.laneW + T.plotW) * S +
-      '" height="' + h + '" rx="8" fill="' + C.card + '" stroke="' + C.border + '"/>');
+      '" height="' + h + '" rx="0" fill="' + C.card + '" stroke="' + C.border + '"/>');
     if(lane) s.push(txt((T.pad + 14) * S, y0 + 20 * S, lane.toUpperCase(), 10.5 * S, C.muted,
       {weight: 600, tracking: 1}));
     /* per-lane ghost add zone — content-anchored just right of the lane's
@@ -651,7 +651,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     s.push('<line data-today="" x1="' + x.toFixed(1) + '" y1="' + flagY.toFixed(1) + '" x2="' + x.toFixed(1) +
       '" y2="' + plotBottom.toFixed(1) + '" stroke="' + C.ink + '" stroke-width="1.5" stroke-dasharray="5 3"/>');
     s.push('<rect x="' + flagL.toFixed(1) + '" y="' + flagY.toFixed(1) + '" width="' + (flagR - flagL).toFixed(1) +
-      '" height="' + ph.toFixed(1) + '" rx="3" fill="' + C.ink + '"/>');
+      '" height="' + ph.toFixed(1) + '" rx="0" fill="' + C.ink + '"/>');
     s.push(txt((flagL + flagR) / 2, flagY + ph / 2 + 3 * S, 'TODAY', 8.5 * S, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
   }
 
