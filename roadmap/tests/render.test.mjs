@@ -95,8 +95,8 @@ test('palette resolves per theme; accent overrides; names consistent with parse'
   assert.deepEqual(Object.keys(PALETTES).sort(), [...PALETTE_NAMES].sort());
   const m = parse('palette: ember\nNOW\nA: x\nNEXT\nB: y');
   const emberSvg = render(m, ctx());
-  assert.ok(emberSvg.includes('#C05621'), 'ember light in header bar');
-  assert.ok(emberSvg.includes('#f3ede8') && emberSvg.includes('#fefcfb'),
+  assert.ok(emberSvg.includes('#B04E1E'), 'ember light in header bar');   // Swiss Phase 2: ember-light retuned for 4.5:1 text on the new paper
+  assert.ok(emberSvg.includes('#f7f2ef') && emberSvg.includes('#f3f1ed'),
     'palette washes background and tints cards');
   assert.ok(!emberSvg.includes('#f7f8f6'), 'ctx bg fully replaced');
   assert.ok(render(m, ctx({dark: true})).includes('#C97A35'), 'ember dark variant');

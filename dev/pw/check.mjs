@@ -84,8 +84,8 @@ check('URL round-trips into second tab', (await page2.locator('#preview svg').co
 await page2.emulateMedia({colorScheme: 'dark'});
 await page2.waitForTimeout(400);
 /* ocean scheme dark surfaces (derived in render.scheme) */
-check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#1c2b35') ||
-  (await page2.locator('#preview svg').innerHTML()).includes('#16222b'));
+check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#181a20') ||
+  (await page2.locator('#preview svg').innerHTML()).includes('#202227'));   /* Swiss Phase 2 scheme bases */
 
 // markdown import round trip
 await page2.getByRole('button', {name: 'Import markdown'}).click();

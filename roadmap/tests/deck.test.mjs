@@ -494,7 +494,7 @@ test('focus containment: an over-WIP 8-item hero (2-column, row-pair equalised) 
     'Core: Item number ' + i + (i % 3 === 0 ? ' -- a short note' : '')).join('\n');
   const model = parse('title: T\ndate: 2026-07-14\nwip: 6\nNOW\n' + items + '\nNEXT\nCore: x\nLATER\nCore: y');
   const body = assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus 8-item hero');
-  assert.match(body, /fill="#0[89a-fA-F][0-9a-fA-F]*0D"/, 'the accent wash should be present');
+  assert.match(body, /fill="#[0-9a-fA-F]{6}0D"/, 'the accent wash should be present');   // palette-agnostic since the Swiss data-blue move
 });
 
 test('focus containment: 30 items in the hero (forces the overflow chip) never overruns the body', () => {
