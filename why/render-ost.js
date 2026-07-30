@@ -4,7 +4,7 @@ import {esc, tint, wrapText, btnAttrs} from '../assets/svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  serif: 'Charter, Georgia, "Times New Roman", serif',
+  serif: '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif',
 };
 
 export const TOKENS = {
@@ -119,7 +119,7 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
     const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-menu="" data-raw=""' +
       btnAttrs('More options: ' + node.label) : '';
     s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + ny + '" width="' + cardW +
-      '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
+      '" height="' + node._h + '" rx="0" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
     const dBadge = diff && diff.badge(node);
@@ -130,7 +130,7 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
       const bx = x + cardW - bw - 4, by = ny - T.pillH/2;
       const solid = isOutcome;
       s.push('<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + T.pillH +
-        '" rx="' + T.pillH/2 + '" fill="' + (solid ? bcol : tint(bcol)) +
+        '" rx="0" fill="' + (solid ? bcol : tint(bcol)) +
         '" stroke="' + (solid ? C.card : bcol) + '" stroke-width="' + (solid ? 1.25 : 0.75) + '"/>');
       s.push('<text x="' + (bx + T.pillPadX) + '" y="' + (by + T.pillH - 4.5) +
         '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
@@ -152,7 +152,7 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
         '"' + btnAttrs('Cycle status: ' + node.label);
       const tw = measure(label, '600 ' + T.pillSize + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX) + '" y="' + (ty - T.labelSize + 3) + '" width="' + (tw + T.pillPadX*2) +
-        '" height="' + T.pillH + '" rx="' + T.pillH/2 + '" fill="' + tint(col) + '"/>');
+        '" height="' + T.pillH + '" rx="0" fill="' + tint(col) + '"/>');
       s.push('<text' + eip + ' x="' + (x + T.cardPadX + T.pillPadX) + '" y="' + (ty - T.labelSize + 3 + T.pillH - 4.5) +
         '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
         '" fill="' + col + '">' + esc(label) + '</text>');
@@ -292,7 +292,7 @@ export function renderOst(model, projection, ctx, diff = null){
     const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-menu="" data-raw=""' +
       btnAttrs('More options: ' + node.label) : '';
     s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
-      '" height="' + node._h + '" rx="8" fill="' + (isOutcome ? tint(C.accent) : C.card) +
+      '" height="' + node._h + '" rx="0" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
     const dBadge = diff && diff.badge(node);
@@ -305,7 +305,7 @@ export function renderOst(model, projection, ctx, diff = null){
          so the badge inverts to solid-on-card (Matt's 2026-07-06 review note) */
       const solid = isOutcome;
       s.push('<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + T.pillH*S +
-        '" rx="' + T.pillH*S/2 + '" fill="' + (solid ? bcol : tint(bcol)) +
+        '" rx="0" fill="' + (solid ? bcol : tint(bcol)) +
         '" stroke="' + (solid ? C.card : bcol) + '" stroke-width="' + (solid ? 1.25 : 0.75) + '"/>');
       s.push('<text x="' + (bx + T.pillPadX*S) + '" y="' + (by + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
@@ -327,7 +327,7 @@ export function renderOst(model, projection, ctx, diff = null){
         '"' + btnAttrs('Cycle status: ' + node.label);
       const tw = measure(label, '600 ' + T.pillSize*S + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S) + '" width="' + (tw + T.pillPadX*2*S) +
-        '" height="' + T.pillH*S + '" rx="' + T.pillH*S/2 + '" fill="' + tint(col) + '"/>');
+        '" height="' + T.pillH*S + '" rx="0" fill="' + tint(col) + '"/>');
       s.push('<text' + eip + ' x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
         '" fill="' + col + '">' + esc(label) + '</text>');

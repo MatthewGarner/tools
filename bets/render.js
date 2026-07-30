@@ -69,7 +69,7 @@ function killedByGroup(compare){
 function stamp(label, cx, cy, c, rot){
   const w = label.length * 6.0 + 20;
   return '<g transform="rotate(' + rot + ' ' + r2(cx) + ' ' + r2(cy) + ')">' +
-    '<rect x="' + r2(cx - w / 2) + '" y="' + r2(cy - 9) + '" width="' + r2(w) + '" height="18" rx="3" fill="' + c.err +
+    '<rect x="' + r2(cx - w / 2) + '" y="' + r2(cy - 9) + '" width="' + r2(w) + '" height="18" rx="0" fill="' + c.err +
     '" fill-opacity="0.07" stroke="' + c.err + '" stroke-width="1.5"/>' +
     txt(cx, cy + 3.5, label, 9, c.err, {weight: 700, anchor: 'middle', tracking: '0.06em'}) + '</g>';
 }
@@ -92,7 +92,7 @@ function stampRow(parts, audits, xRight, cy, c){
 function pill(x, y, label, color, anchor = 'start'){
   const w = label.length * 6.0 + 16;
   const left = anchor === 'end' ? x - w : x;
-  return '<rect x="' + r2(left) + '" y="' + r2(y - 10) + '" width="' + r2(w) + '" height="15" rx="3" fill="' +
+  return '<rect x="' + r2(left) + '" y="' + r2(y - 10) + '" width="' + r2(w) + '" height="15" rx="0" fill="' +
     color + '" fill-opacity="0.1" stroke="' + color + '" stroke-width="1"/>' +
     txt(left + w / 2, y + 3.5, label, 8.5, color, {weight: 700, anchor: 'middle', tracking: '0.05em'});
 }
@@ -116,7 +116,7 @@ function renderWide(model, sim, ctx){
   /* emit order is load-bearing: the goldens are byte-compared, so the non-bare
      path must push exactly what it always did, in the order it always did */
   if(!bare)
-    parts.push('<text x="30" y="52" font-family="Charter, Georgia, serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
+    parts.push('<text x="30" y="52" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
   parts.push(txt(30, bare ? 20 : 74, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
   if(!bare){
     parts.push(txt(C.right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
@@ -192,8 +192,8 @@ function renderWide(model, sim, ctx){
       body.push(txt(C.p90, y + 19, sgn(e.p90), 12, e.p90 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'}));
       // inline range bar, shared scale
       const neg = e.p50 < 0;
-      body.push('<rect x="' + C.bar0 + '" y="' + (y + 11) + '" width="' + (C.bar1 - C.bar0) + '" height="7" rx="3.5" fill="' + c.track + '"/>');
-      body.push('<rect x="' + r2(ex(e.p10)) + '" y="' + (y + 11) + '" width="' + r2(Math.max(1.5, ex(e.p90) - ex(e.p10))) + '" height="7" rx="3.5" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.6"/>');
+      body.push('<rect x="' + C.bar0 + '" y="' + (y + 11) + '" width="' + (C.bar1 - C.bar0) + '" height="7" rx="0" fill="' + c.track + '"/>');
+      body.push('<rect x="' + r2(ex(e.p10)) + '" y="' + (y + 11) + '" width="' + r2(Math.max(1.5, ex(e.p90) - ex(e.p10))) + '" height="7" rx="0" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.6"/>');
       body.push('<line x1="' + r2(ex(0)) + '" y1="' + (y + 8) + '" x2="' + r2(ex(0)) + '" y2="' + (y + 21) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
       body.push('<line x1="' + r2(ex(e.p50)) + '" y1="' + (y + 9) + '" x2="' + r2(ex(e.p50)) + '" y2="' + (y + 20) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
       // sub-line: kill "fold if" on the left (editable), moved "was …" + stamps on the right
@@ -251,7 +251,7 @@ function renderWide(model, sim, ctx){
   // outcome rail
   y = outcomeRail(body, pf, pl, 30, C.right, y, c, false, compare);
   const panelBot = y + 8;
-  parts.push('<rect x="16" y="' + panelTop + '" width="' + (WIDE - 32) + '" height="' + (panelBot - panelTop) + '" rx="10" fill="' + c.card + '" stroke="' + c.border + '" stroke-width="1"/>');
+  parts.push('<rect x="16" y="' + panelTop + '" width="' + (WIDE - 32) + '" height="' + (panelBot - panelTop) + '" rx="0" fill="' + c.card + '" stroke="' + c.border + '" stroke-width="1"/>');
   parts.push(...body);
   parts.push(txt(30, panelBot + 22, 'RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS · STAMPS MARK FAILED AUDITS · BETS ASSUMED INDEPENDENT', 9, c.muted, {tracking: '0.04em'}));
   parts.push(txt(C.right, panelBot + 22, 'ALL FIGURES ' + (model.unit || '').toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
@@ -286,9 +286,9 @@ function outcomeRail(body, pf, pl, x0, x1, y, c, narrow, compare){
     body.push(txt(x1, y + 10, pl + '% OF RUNS END BELOW ZERO', 9, pl >= 50 ? c.err : c.accentInk, {weight: 700, tracking: '0.05em', anchor: 'end'}));
   }
   const ry = y + 18;
-  body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + (x1 - x0) + '" height="8" rx="4" fill="' + c.track + '"/>');
-  if(hlo < 0) body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + r2(rx(0) - x0) + '" height="8" rx="4" fill="' + c.err + '" fill-opacity="0.14"/>');
-  body.push('<rect x="' + r2(rx(pf.p10)) + '" y="' + ry + '" width="' + r2(Math.max(1, rx(pf.p90) - rx(pf.p10))) + '" height="8" rx="4" fill="' + c.accent + '" fill-opacity="0.5"/>');
+  body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + (x1 - x0) + '" height="8" rx="0" fill="' + c.track + '"/>');
+  if(hlo < 0) body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + r2(rx(0) - x0) + '" height="8" rx="0" fill="' + c.err + '" fill-opacity="0.14"/>');
+  body.push('<rect x="' + r2(rx(pf.p10)) + '" y="' + ry + '" width="' + r2(Math.max(1, rx(pf.p90) - rx(pf.p10))) + '" height="8" rx="0" fill="' + c.accent + '" fill-opacity="0.5"/>');
   if(hlo < 0) body.push('<line x1="' + r2(rx(0)) + '" y1="' + (ry - 3) + '" x2="' + r2(rx(0)) + '" y2="' + (ry + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
   body.push('<line x1="' + r2(rx(pf.p50)) + '" y1="' + (ry - 4) + '" x2="' + r2(rx(pf.p50)) + '" y2="' + (ry + 12) + '" stroke="' + c.ink + '" stroke-width="2"/>');
   body.push(txt(rx(pf.p10), ry + 26, 'P10 ' + sgn(pf.p10), 9.5, c.muted, {anchor: 'middle', mono: true}));
@@ -304,7 +304,7 @@ function outcomeRail(body, pf, pl, x0, x1, y, c, narrow, compare){
     body.push(txt(x0, gy + 6, 'SNAPSHOT P10–P90', 8, c.muted, {weight: 600, tracking: '0.05em'}));
     const g0 = rx(prevPf.p10), g1 = rx(prevPf.p90);
     body.push('<rect x="' + r2(Math.min(g0, g1)) + '" y="' + (gy + 11) + '" width="' +
-      r2(Math.max(1, Math.abs(g1 - g0))) + '" height="6" rx="3" fill="' + c.muted +
+      r2(Math.max(1, Math.abs(g1 - g0))) + '" height="6" rx="0" fill="' + c.muted +
       '" fill-opacity="0.16" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
     body.push('<line x1="' + r2(rx(prevPf.p50)) + '" y1="' + (gy + 8) + '" x2="' + r2(rx(prevPf.p50)) +
       '" y2="' + (gy + 20) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="1 2"/>');
@@ -322,7 +322,7 @@ function renderNarrow(model, sim, ctx){
      idiom: the whole 44px band is the hit rect (coarse-pointer floor), the
      visible dashed capsule sits inset within it. */
   const addCapsule = (label, aria, kind, line, top) => editTarget(
-    '<rect x="' + pad + '" y="' + r2(top + 4) + '" width="' + inner + '" height="36" rx="10" fill="none" stroke="' +
+    '<rect x="' + pad + '" y="' + r2(top + 4) + '" width="' + inner + '" height="36" rx="0" fill="none" stroke="' +
       c.border + '" stroke-dasharray="3 4"/>' +
     txt(pad + inner / 2, top + 26, label, 12.5, c.muted, {anchor: 'middle', weight: 600}),
     {x: pad, y: r2(top), w: inner, h: 44, bg: c.bg},
@@ -333,7 +333,7 @@ function renderNarrow(model, sim, ctx){
   const ex = (v, x0, w) => x0 + (v - elo) / (ehi - elo || 1) * w;
   const parts = [];
   let y = 30;
-  parts.push('<text x="' + pad + '" y="' + y + '" font-family="Charter, Georgia, serif" font-size="21" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
+  parts.push('<text x="' + pad + '" y="' + y + '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
   y += 22;
   parts.push(txt(pad, y, 'P(LOSES MONEY) ' + pl + '%', 15, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true})); y += 18;
   parts.push(txt(pad, y, 'NET EV ' + sgn(pf.p50) + ' [' + sgn(pf.p10) + ' – ' + sgn(pf.p90) + '] ' + (model.unit || ''), 11.5, c.muted, {mono: true})); y += 16;
@@ -364,14 +364,14 @@ function renderNarrow(model, sim, ctx){
     y += 18;
     const cardH = y - top + 8;
     parts.push('<rect x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) +
-      '" rx="10" fill="' + c.muted + '" fill-opacity="0.03" stroke="' + c.border + '" stroke-width="1" stroke-dasharray="4 3"/>');
+      '" rx="0" fill="' + c.muted + '" fill-opacity="0.03" stroke="' + c.border + '" stroke-width="1" stroke-dasharray="4 3"/>');
     parts.push(...card);
     parts.push(pill(pad + inner - 8, top + 16, 'KILLED', c.muted, 'end'));
     y = top + cardH + 10;
   }
 
   for(const g of model.groups){
-    parts.push('<rect x="' + pad + '" y="' + y + '" width="4" height="16" rx="2" fill="' + c.accent + '"/>');
+    parts.push('<rect x="' + pad + '" y="' + y + '" width="4" height="16" rx="0" fill="' + c.accent + '"/>');
     parts.push(txt(pad + 12, y + 13, g.name.toUpperCase(), 11, c.accentInk, {weight: 700, tracking: '0.1em'}));
     y += 24;
     for(const b of g.bets){
@@ -413,9 +413,9 @@ function renderNarrow(model, sim, ctx){
       }
       // EV bar + P10/P50/P90
       const bx = pad + 12, bw = inner - 24, neg = e.p50 < 0;
-      card.push('<rect x="' + bx + '" y="' + y + '" width="' + bw + '" height="8" rx="4" fill="' + c.track + '"/>');
+      card.push('<rect x="' + bx + '" y="' + y + '" width="' + bw + '" height="8" rx="0" fill="' + c.track + '"/>');
       if(elo < 0) card.push('<line x1="' + r2(ex(0, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(0, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
-      card.push('<rect x="' + r2(ex(e.p10, bx, bw)) + '" y="' + y + '" width="' + r2(Math.max(1.5, ex(e.p90, bx, bw) - ex(e.p10, bx, bw))) + '" height="8" rx="4" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.55"/>');
+      card.push('<rect x="' + r2(ex(e.p10, bx, bw)) + '" y="' + y + '" width="' + r2(Math.max(1.5, ex(e.p90, bx, bw) - ex(e.p10, bx, bw))) + '" height="8" rx="0" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.55"/>');
       card.push('<line x1="' + r2(ex(e.p50, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(e.p50, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
       y += 20;
       card.push(txt(pad + 12, y, 'EV ' + sgn(e.p50) + ' [' + sgn(e.p10) + ' – ' + sgn(e.p90) + ']', 11, neg ? c.err : c.muted, {mono: true, weight: neg ? 700 : 400}));
@@ -432,7 +432,7 @@ function renderNarrow(model, sim, ctx){
       const cardH = y - top;
       parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>');
       parts.push('<rect data-hit="" x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" fill="transparent"/>');
-      parts.push('<rect x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" rx="10" fill="' + c.card + '" fill-opacity="0.5" stroke="' + (rec.audits.length ? c.err : c.border) + '" stroke-width="1.2" stroke-opacity="' + (rec.audits.length ? '0.5' : '1') + '"/>');
+      parts.push('<rect x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" rx="0" fill="' + c.card + '" fill-opacity="0.5" stroke="' + (rec.audits.length ? c.err : c.border) + '" stroke-width="1.2" stroke-opacity="' + (rec.audits.length ? '0.5' : '1') + '"/>');
       parts.push(...card);
       parts.push('</g>');
       y += 10;
@@ -449,7 +449,7 @@ function renderNarrow(model, sim, ctx){
   }
   for(const [gk, glane] of killedMap){
     if(usedKilledKeys.has(gk)) continue;
-    parts.push('<rect x="' + pad + '" y="' + y + '" width="4" height="16" rx="2" fill="' + c.muted + '"/>');
+    parts.push('<rect x="' + pad + '" y="' + y + '" width="4" height="16" rx="0" fill="' + c.muted + '"/>');
     parts.push(txt(pad + 12, y + 13, (glane.name || 'REMOVED').toUpperCase() + ' · GONE', 11, c.muted, {weight: 700, tracking: '0.1em'}));
     y += 24;
     for(const kb of glane.bets) pushGhostCard(kb);

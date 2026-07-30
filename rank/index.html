@@ -21,13 +21,13 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/motion.css">
 <style>  .wrap{max-width:860px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  .card{background:var(--card);border:1px solid var(--border);border-radius:0;
     box-shadow:var(--shadow);padding:22px}
   .lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted)}
   .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   input,select{font-family:inherit;color:var(--ink);background:var(--bg);
-    border:1px solid var(--border);border-radius:6px}
+    border:1px solid var(--border);border-radius:0}
   input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   /* numeric cells type like text — no native steppers crowding the table */
   input[type=number]{-moz-appearance:textfield;appearance:textfield}
@@ -61,7 +61,7 @@
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   td.effcol,th.effcol{border-left:2px solid var(--border)}
   .del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;
-    padding:4px 8px;border-radius:5px}
+    padding:4px 8px;border-radius:0}
   .del:hover{color:var(--err)}
 
   /* phones: the input table can't hold ~5 fixed-width columns without scrolling
@@ -74,7 +74,7 @@
     #tbl thead{display:none}
     #tbl, #tbl tbody{display:block;width:100%}
     #tbl tr{
-      display:block;border:1px solid var(--border);border-radius:8px;
+      display:block;border:1px solid var(--border);border-radius:0;
       padding:4px 12px 8px;margin-bottom:12px;background:var(--bg);
     }
     #tbl td{
@@ -99,7 +99,7 @@
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
   #results{display:none}
   .verdict{font-size:16.5px;line-height:1.5;margin:0 0 4px;max-width:62ch}
-  .verdict .smear{background:var(--hl);padding:0 .14em;border-radius:2px;
+  .verdict .smear{background:var(--hl);padding:0 .14em;border-radius:0;
     box-decoration-break:clone}
   .subverdict{color:var(--muted);font-size:13.5px;margin:0 0 6px}
   .flipline{font-size:13.5px;margin:0 0 18px;color:var(--muted)}
@@ -113,7 +113,7 @@
   .rrow .nm{font-size:14.5px;font-weight:500;display:flex;align-items:center;gap:7px;min-width:0}
   .rrow .nmtext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .knifepill{flex:none;display:none;font-size:10.5px;font-weight:600;letter-spacing:.02em;
-    padding:1px 7px;border-radius:999px;white-space:nowrap;
+    padding:1px 7px;border-radius:0;white-space:nowrap;
     background:color-mix(in srgb, var(--err) 13%, transparent);color:var(--err)}
   .rrow.knife .knifepill{display:inline-block}
   .wslider{display:block;width:100%;margin:5px 0 0;height:18px;accent-color:var(--accent);cursor:pointer}
@@ -122,7 +122,7 @@
   .wstrip{display:none}
   @media (max-width:640px){
     .wstrip{display:block;margin:2px 0 12px;padding:10px 12px;border:1px solid var(--border);
-      border-radius:8px;background:color-mix(in srgb, var(--accent) 5%, var(--card))}
+      border-radius:0;background:color-mix(in srgb, var(--accent) 5%, var(--card))}
     .wstrip::before{content:"Weights — drag to re-rank the list below";display:block;font-size:11px;
       font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
     .wsrow{display:grid;grid-template-columns:minmax(64px,32%) 1fr 42px;gap:10px;align-items:center;
@@ -140,22 +140,22 @@
     #results.pending .verdict, #results.pending .subverdict{transition:none}   /* dim instantly, no animated fade */
   }
   .rankbar{display:grid;gap:2px;height:20px}
-  .rankbar .cell{background:var(--track);border-radius:3px;position:relative}
+  .rankbar .cell{background:var(--track);border-radius:0;position:relative}
   .rankbar .cell.in{background:var(--accent);opacity:.35}
   .rankbar .cell.med{opacity:1;background:var(--accent)}
-  .rankbar .cell.med::after{content:"";position:absolute;inset:0;border-radius:3px;
+  .rankbar .cell.med::after{content:"";position:absolute;inset:0;border-radius:0;
     box-shadow:inset 0 0 0 1.5px var(--card)}
   .ptop{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
   .ptop b{color:var(--ink);font-weight:600}
   .khead{display:flex;gap:10px;align-items:baseline;justify-content:space-between;
     flex-wrap:wrap;margin-bottom:14px}
-  .khead h2{font-family:Charter,Georgia,serif;font-size:18px;margin:0}
+  .khead h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:18px;margin:0}
   .kpick{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
   .kpick input{width:52px;padding:4px 6px;font-size:13.5px;text-align:center}
   .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;
     color:var(--muted)}
   .legend .key{display:inline-flex;align-items:center;gap:6px}
-  .legend .swatch{width:12px;height:12px;border-radius:3px;background:var(--accent)}
+  .legend .swatch{width:12px;height:12px;border-radius:0;background:var(--accent)}
   .legend .swatch.dim{opacity:.35}
   .method{color:var(--muted);font-size:12.5px;display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
   .method input{width:52px;font-size:12.5px;padding:3px 5px;text-align:center;
@@ -165,7 +165,7 @@
   .odgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
   @media (max-width:640px){.odgrid{grid-template-columns:1fr}}
   .odgrid textarea{width:100%;min-height:130px;font-size:13px;padding:10px;
-    border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--ink);
+    border:1px solid var(--border);border-radius:0;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;resize:vertical}
   .odrow{display:flex;gap:12px;font-size:13.5px;padding:3px 0;align-items:baseline}
   .odrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -173,7 +173,7 @@
   .odrow .dl{font-weight:600;color:var(--err);min-width:36px;text-align:right}
   .odrow .dl.up{color:var(--accent-ink)}
   .pastebox textarea{width:100%;min-height:110px;font-size:13px;padding:10px;
-    border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--ink);
+    border:1px solid var(--border);border-radius:0;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;resize:vertical}
   .pastebox .hint{font-size:12.5px;color:var(--muted);margin:6px 0 8px}
   .pastebox .perr{font-size:13px;color:var(--err);margin-left:10px}
@@ -242,7 +242,7 @@
       <div class="wstrip" id="wstrip" role="group" aria-label="Criterion weights — drag to re-rank the list below"></div>
       <div id="rrows"></div>
       <div class="legend">
-        <span class="key"><span class="swatch med" style="border-radius:3px"></span> median rank</span>
+        <span class="key"><span class="swatch med" style="border-radius:0"></span> median rank</span>
         <span class="key"><span class="swatch dim"></span> 90% rank range</span>
         <span class="key">P(top-k) = share of simulations where the initiative makes the cut</span>
         <span class="key"><span class="knifepill" style="display:inline-block">knife-edge</span> = this rank flips under a ±10% nudge of one weight — a stricter probe than the ±N% wobble above</span>

@@ -4,7 +4,7 @@ import {packLane} from './pack.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  serif: 'Charter, Georgia, "Times New Roman", serif',
+  serif: '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif',   // Swiss Phase 3a: display role went sans; name kept to avoid a rename sweep
 };
 
 /* Every dimension in one place. All values are pre-scale; render multiplies by S. */
@@ -166,7 +166,7 @@ function renderNarrow(model, ctx, C, T){
     const pw = tw + T.pillPadX*2, ph = T.pillH;
     return {
       svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
-        '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
+        '" rx="0" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX) + '" y="' + (py + ph - 5.5) + '" font-size="' + T.pillSize +
         '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
@@ -516,7 +516,7 @@ export function render(model, ctx){
     const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
     return {
       svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
-        '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
+        '" rx="0" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 5.5*S) + '" font-size="' + T.pillSize*S +
         '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',
@@ -686,7 +686,7 @@ export function render(model, ctx){
       lx += p.w + T.legendKeyGap*S;
     }
     if(diff && diff.any){
-      const p = capsule(lx, capTop, 'NEW', C.accent, C.accentInk);
+      const p = capsule(lx, capTop, 'NEW', C.brand || '#E2231A', C.brandText || '#D62015');   // Swiss 3a: NEW is chrome-red, never confusable with the doing/data blue
       s.push(p.svg);
       lx += p.w + 6*S;
       s.push('<text x="' + lx + '" y="' + (y + T.legendY*S) + '" font-size="' + T.legendSize*S + '" fill="' + C.muted + '">' +

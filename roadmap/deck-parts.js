@@ -11,7 +11,7 @@ import {STATUS_LABEL} from './parse.js';
    override there): serif's double-quoted "Times New Roman" rides in a
    single-quoted <g font-family='…'>, mirroring render.js's own pattern. */
 export const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-export const SERIF = 'Charter, Georgia, "Times New Roman", serif';
+export const SERIF = '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif';   // Swiss Phase 3a (deck sweeps with roadmap — same artefact family)
 export const r2 = n => Math.round(n * 100) / 100;
 
 /* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/
@@ -74,7 +74,7 @@ export function capsule(x, y, label, col, inkCol, measure){
   const w = measure(label, font) + label.length * 0.6 + 18, h = 22;
   const fill = tint(col);
   return {
-    svg: rect(x, y, w, h, fill, {rx: 11, stroke: fill === 'none' ? col : null, sw: 1}) +
+    svg: rect(x, y, w, h, fill, {rx: 0, stroke: fill === 'none' ? col : null, sw: 1}) +
       txt(x + 9, y + 15.5, label, 12, inkCol || col, {weight: 600, tracking: 0.6}),
     w,
   };
@@ -82,7 +82,7 @@ export function capsule(x, y, label, col, inkCol, measure){
 export const statusCapsule = (x, y, st, C, measure) =>
   capsule(x, y, STATUS_LABEL[st].toUpperCase(), C.status[st], C.statusInk[st], measure);
 export const badgeCapsule = (x, y, b, C, measure) => b.kind === 'new'
-  ? capsule(x, y, b.label.toUpperCase(), C.accent, C.accentInk, measure)
+  ? capsule(x, y, b.label.toUpperCase(), C.brand || '#E2231A', C.brandText || '#D62015', measure)
   : capsule(x, y, b.label.toUpperCase(), C.muted, C.muted, measure);
 
 /* REGISTER: the roadmap as a formal table. Columns are FRACTIONS of the
