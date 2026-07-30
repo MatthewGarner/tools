@@ -9,7 +9,7 @@ import {STAGES, stageOf} from './parse.js';
 import {layoutMap} from './layout.js';
 
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-const SERIF = 'Charter,Georgia,serif';
+const SERIF = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss 3b (double-quoted attr context: single-quoted names)
 export const GEOM = {w: 1200, pad: 56};
 const PILL_H = 28;
 const EPSILON = 0.02;
@@ -32,7 +32,7 @@ function pill(n, c, measure, opts = {}){
   parts.push('<g' + (opts.cls ? ' class="' + opts.cls + '"' : '') +
     (opts.drag ? ' data-drag="evo" data-name="' + esc(n.name) + '" data-line="' + n.srcLine + '"' : '') + '>');
   parts.push('<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + PILL_H +
-    '" rx="' + PILL_H / 2 + '" fill="' + fill + '" stroke="' + stroke +
+    '" rx="0" fill="' + fill + '" stroke="' + stroke +
     '" stroke-width="' + (opts.strokeW || 1.4) + '"' + dash +
     (opts.stageEdit ? ' data-edit="stage" data-line="' + n.srcLine + '" data-raw="' + esc(opts.stageRaw) +
       '" tabindex="0" role="button" aria-label="Cycle evolution stage: ' + esc(n.name) + '"' : '') +
@@ -45,7 +45,7 @@ function pill(n, c, measure, opts = {}){
     '>' + esc(n.name) + '</text>');
   if(opts.newRing){
     parts.push('<rect x="' + (x - 4) + '" y="' + (y - 4) + '" width="' + (w + 8) + '" height="' + (PILL_H + 8) +
-      '" rx="' + (PILL_H / 2 + 4) + '" fill="none" stroke="' + c.accent + '" stroke-width="1.5"/>');
+      '" rx="0" fill="none" stroke="' + c.accent + '" stroke-width="1.5"/>');
     parts.push('<text x="' + (x - 4) + '" y="' + (y - 9) + '" font-size="9" font-weight="600"' +
       ' letter-spacing=".08em" fill="' + c.accent + '">NEW</text>');
   }
@@ -60,7 +60,7 @@ function pill(n, c, measure, opts = {}){
 function menuMarker(mx, my, n, c){
   return '<g data-edit="componentmenu" data-line="' + n.srcLine + '" data-raw="' + esc(n.name) +
     '" tabindex="0" role="button" aria-label="More options: ' + esc(n.name) + '">' +
-    '<rect x="' + (mx - 12) + '" y="' + (my - 12) + '" width="24" height="24" rx="6" fill="none"' +
+    '<rect x="' + (mx - 12) + '" y="' + (my - 12) + '" width="24" height="24" rx="0" fill="none"' +
     ' stroke="' + c.muted + '" stroke-dasharray="3 3" stroke-opacity=".7"/>' +
     '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="13" font-weight="700"' +
     ' fill="' + c.muted + '">⋯</text>' +
@@ -250,7 +250,7 @@ function renderNarrow(model, layout, ctx, opts){
     y += 14;
     for(const n of rows.get(r).sort((a, b) => a.px - b.px)){
       if(n.anchor){
-        parts.push('<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="34" rx="17"' +
+        parts.push('<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="34" rx="0"' +
           ' fill="' + c.card + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
         parts.push('<text x="' + (W / 2) + '" y="' + (y + 21.5) + '" text-anchor="middle" font-size="13.5"' +
           ' font-weight="600" fill="' + c.ink + '"' +
@@ -274,7 +274,7 @@ function renderNarrow(model, layout, ctx, opts){
         ? wrapText('needs ' + needs.join(' · '), '11px ' + SANS, inner - 28, measure) : [];
       const cardH = 58 + needsLines.length * 16 + (n.ghost ? 16 : 0);
       parts.push('<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="' + cardH +
-        '" rx="12" fill="' + (n.ghost ? 'none' : tint(col)) + '" stroke="' + (n.ghost ? c.muted : col) +
+        '" rx="0" fill="' + (n.ghost ? 'none' : tint(col)) + '" stroke="' + (n.ghost ? c.muted : col) +
         '" stroke-width="1.4"' + (n.ghost ? ' stroke-dasharray="5 4"' : '') + '/>');
       parts.push('<text x="' + (pad + 14) + '" y="' + (y + 23) + '" font-size="14" font-weight="600"' +
         ' fill="' + (n.ghost ? c.muted : col) + '" data-edit="name" data-line="' + n.srcLine +
@@ -295,7 +295,7 @@ function renderNarrow(model, layout, ctx, opts){
           '" height="8" fill="' + ramp[i % ramp.length] + '2E"/>');
       });
       parts.push('<rect data-track="" data-x0="' + trackX0 + '" data-w="' + trackW + '" x="' + trackX0 +
-        '" y="' + sy + '" width="' + trackW + '" height="8" rx="4" fill="' + c.bg + '" fill-opacity="0"/>');
+        '" y="' + sy + '" width="' + trackW + '" height="8" rx="0" fill="' + c.bg + '" fill-opacity="0"/>');
       if(oldX.has(n.name.toLowerCase())){
         parts.push('<circle cx="' + (trackX0 + oldX.get(n.name.toLowerCase()) * trackW) + '" cy="' + (sy + 4) +
           '" r="5" fill="none" stroke="' + c.muted + '" stroke-width="1.5" stroke-dasharray="2 2"/>');
@@ -333,7 +333,7 @@ function renderNarrow(model, layout, ctx, opts){
     parts.push('<g data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button"' +
       ' aria-label="Add component">' +
       '<rect x="' + pad + '" y="' + y + '" width="' + inner + '" height="' + addH +
-      '" rx="12" fill="none" stroke="' + c.muted + '" stroke-width="1.4" stroke-dasharray="5 4"/>' +
+      '" rx="0" fill="none" stroke="' + c.muted + '" stroke-width="1.4" stroke-dasharray="5 4"/>' +
       '<text x="' + (W / 2) + '" y="' + (y + addH / 2 + 5) + '" text-anchor="middle" font-size="13.5"' +
       ' fill="' + c.muted + '">＋ Add component</text></g>');
     y += addH + 8;

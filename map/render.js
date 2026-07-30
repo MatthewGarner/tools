@@ -5,7 +5,7 @@ import {paintOrder, labelAnchors} from './zones.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  serif: 'Charter, Georgia, "Times New Roman", serif',
+  serif: '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif',
 };
 
 export const TOKENS = {
@@ -183,7 +183,7 @@ export function render(model, resolved, ro, ctx, diff = null){
      the (visible dashed box + label), same editTarget treatment as axis/zonename */
   const additemGhost = (x, y, w, h, fill) => {
     const inner = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
-      '" rx="' + h / 2 + '" fill="' + fill + '" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+      '" rx="0" fill="' + fill + '" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
       '<text x="' + (x + T.cardPadX * S) + '" y="' + (y + h - 6 * S) + '" font-size="' + T.cardSize * S +
       '" fill="' + C.muted + '">＋ Add item</text>';
     const cx = x + w / 2, cy = y + h / 2;
@@ -241,7 +241,7 @@ export function render(model, resolved, ro, ctx, diff = null){
         '" font-size="' + 8.5 * S + '" font-weight="600" letter-spacing="0.6" fill="' + C.accent + '">NEW</text>');
     }
     body.push('<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="' + c.h +
-      '" rx="' + c.h / 2 + '" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
+      '" rx="0" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
       '" x="' + (c.x + T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" font-size="' + T.cardSize * S +
       '" font-weight="600" fill="' + C.ink + '"' + btnAttrs('Rename: ' + c.it.label) +
@@ -274,7 +274,7 @@ export function render(model, resolved, ro, ctx, diff = null){
           '" width="' + w + '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
       }
       body.push('<rect x="' + trayX + '" y="' + ty + '" width="' + w + '" height="' + T.cardH * S +
-        '" rx="' + T.cardH * S / 2 + '" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
+        '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
       body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
         '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) +
         '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Rename: ' + it.label) +

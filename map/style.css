@@ -1,4 +1,4 @@
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
@@ -6,7 +6,7 @@
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
-  background:var(--bg);padding:1px 5px;border-radius:4px}
+  background:var(--bg);padding:1px 5px;border-radius:0}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}
@@ -23,7 +23,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
    Accent 12% tint + accent-ink label is the house pill pairing (duel, alarm). */
 .placehint{
   display:flex;align-items:center;gap:12px;justify-content:space-between;
-  margin:0 0 10px;padding:6px 6px 6px 14px;border-radius:10px;
+  margin:0 0 10px;padding:6px 6px 6px 14px;border-radius:0;
   background:color-mix(in srgb,var(--accent) 12%,var(--card));
   border:1px solid var(--accent);color:var(--accent-ink);
   font-size:14px;font-weight:600;
@@ -35,7 +35,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
-  padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;
+  padding:8px 14px;border-radius:0;font-size:13px;font-weight:600;
   background:var(--card);color:var(--ink);border:1px solid var(--accent);
   box-shadow:0 6px 22px rgba(10,30,45,.22),0 2px 6px rgba(10,30,45,.14);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
