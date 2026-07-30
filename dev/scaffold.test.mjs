@@ -10,7 +10,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
-import {TOOL_DIRS, ENERGY_TOOL_DIRS, INSTRUMENTS} from './tool-dirs.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS, INSTRUMENTS, ENERGY_INSTRUMENTS} from './tool-dirs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
@@ -75,5 +75,66 @@ test('every tools-origin page carries a metrics row and exactly one primary butt
     const primaries = (html.match(/class="btn[^"]*\bprimary\b/g) || []).length;
     assert.ok(primaries >= 1, dir + ': no .btn.primary — every page needs one forward action');
     assert.ok(primaries <= 4, dir + ': ' + primaries + ' primary buttons is past any surface count');
+  }
+});
+
+/* Swiss 6c — the same anatomy on the energy origin, in the ember ink, plus the
+   two things that origin adds and the tools origin doesn't have: a masthead and
+   a nav that prints the whole series on every page. A nav row is exactly the
+   sort of markup that gets hand-copied and quietly drifts (one page missing an
+   instrument, or two pages disagreeing about the order), so it is a gate. */
+const energyPage = dir => read('energy/' + dir + '/index.html');
+const ALL_ENERGY = [...ENERGY_TOOL_DIRS, null];   // null = the energy landing
+const anyEnergyPage = dir => dir ? energyPage(dir) : read('energy/index.html');
+
+test('the E-series numbering is contiguous, collision-free and covers the origin', () => {
+  assert.deepEqual(Object.keys(ENERGY_INSTRUMENTS).sort(), [...ENERGY_TOOL_DIRS].sort(),
+    'ENERGY_INSTRUMENTS must name every energy tool, and only those');
+  assert.deepEqual(Object.values(ENERGY_INSTRUMENTS),
+    ENERGY_TOOL_DIRS.map((_, i) => 'E' + (i + 1)),
+    'the E-numbers must run E1..EN in the order ENERGY_TOOL_DIRS lists them');
+});
+
+test('every energy page carries the masthead and the whole series nav, in one order', () => {
+  for(const dir of ALL_ENERGY){
+    const html = anyEnergyPage(dir);
+    const who = 'energy/' + (dir || 'index.html');
+    assert.match(html, /<div class="masthead">/, who + ': no masthead bar');
+    assert.match(html, /energy\.matthewgarner\.me/, who + ': the masthead never names the origin');
+    /* every page lists every instrument, numbered, in the canonical order */
+    const nav = (html.match(/<nav class="series"[\s\S]*?<\/nav>/) || [''])[0];
+    assert.ok(nav, who + ': no series nav');
+    const rows = [...nav.matchAll(/href="[^"]*?([a-z-]+)\/"([^>]*)><span class="enum">(E\d+)<\/span>/g)];
+    assert.deepEqual(rows.map(r => r[1]), ENERGY_TOOL_DIRS, who + ': nav order/contents drifted');
+    assert.deepEqual(rows.map(r => r[3]), ENERGY_TOOL_DIRS.map(d => ENERGY_INSTRUMENTS[d]),
+      who + ': nav numbers drifted from ENERGY_INSTRUMENTS');
+    const current = rows.filter(r => r[2].includes('aria-current="page"')).map(r => r[1]);
+    assert.deepEqual(current, dir ? [dir] : [],
+      who + ': exactly its own row is aria-current (the landing marks none)');
+  }
+});
+
+test('every energy tool page carries the 6c kicker, metrics row and one verdict', () => {
+  for(const dir of ENERGY_TOOL_DIRS){
+    const html = energyPage(dir), who = 'energy/' + dir;
+    assert.match(html, /<p class="kicker" id="kicker"><\/p>/, who + ': missing the .kicker slot above its h1');
+    assert.match(html, /<div class="metrics" id="metrics"/, who + ': missing the metrics row');
+    assert.match(html, /<div class="verdict-block" id="verdict"/, who + ': missing the verdict block');
+    assert.equal((html.match(/class="verdict-block"/g) || []).length, 1, who + ': more than one verdict block');
+    assert.match(html, /<section class="family"/, who + ': missing the ember-series family strip');
+    assert.match(html, /<footer class="efoot">/, who + ': footer is not the 6c hairline band');
+    const js = read('energy/' + dir + '/app.js');
+    const m = /paintKicker\(\$?\(?['"]?kicker['"]?\)?,\s*'(E\d+)'/.exec(js);
+    assert.ok(m, who + ": app.js never calls paintKicker with an E-number");
+    assert.equal(m[1], ENERGY_INSTRUMENTS[dir],
+      who + ': paints instrument ' + m[1] + ', canonically ' + ENERGY_INSTRUMENTS[dir]);
+  }
+});
+
+test('every energy page links the shared origin chrome', () => {
+  for(const dir of ALL_ENERGY){
+    const html = anyEnergyPage(dir);
+    assert.match(html, /<link rel="stylesheet" href="\.\.\/(\.\.\/)?assets\/energy\.css">/,
+      'energy/' + (dir || 'index.html') + ': does not link assets/energy.css');
   }
 });

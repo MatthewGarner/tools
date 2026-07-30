@@ -1,6 +1,6 @@
 /* State, refresh loop, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
-import {simulate, verdict, simKey, fmtUnit} from './engine.js';
+import {simulate, verdict, thresholdFigure, simKey, fmtUnit} from './engine.js';
 import {render as renderSvg, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField, addKeyLine, removeKeyLine} from './edit-targets.js';
@@ -15,6 +15,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/wor
 import {mountMotion} from "../../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -172,20 +173,25 @@ function activeRender(slide, edit = false, forExport = false, bare = false){
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
 }
-/* HTML mirror of the three verdict bands the SVG draws (threshold/second/
-   augment) — one <p> per band that has one, so screen readers (via the
-   container's aria-live) and sighted users both get the same quotable text. */
+/* The page's ONE verdict (Swiss 6c): the threshold band — the tool's headline,
+   and the line the poster already quotes as its hero. The second-cycle and
+   augmentation sentences are not repeated here; they are drawn inside the
+   artefact itself, band by band, where they belong to the picture they explain. */
 function renderVerdict(){
-  const el = $('verdict');
-  el.textContent = '';
-  if(!out) return;
-  for(const band of ['threshold', 'second', 'augment']){
-    const v = verdict(band, out);
-    if(!v) continue;
-    const p = document.createElement('p');
-    p.textContent = v;
-    el.appendChild(p);
-  }
+  if(!out){ paintVerdict($('verdict'), '', ''); return; }
+  paintVerdict($('verdict'), verdict('threshold', out), thresholdFigure(out));
+}
+
+/* Metrics: the battery, the warranty budget and the spread belief — every one a
+   number the model states, re-read on each refresh so the row moves with the text. */
+function renderMetrics(){
+  const m = model;
+  if(!m || !out){ paintMetrics($('metrics'), '', []); return; }
+  paintMetrics($('metrics'), m.title, [
+    m.battery ? `${m.battery.mw} MW / ${m.battery.mwh} MWh` : '',
+    m.cycles ? `${m.cycles.budget} cycles over ${m.cycles.years} yr` : '',
+    m.spread ? `spread £${Math.round(m.spread.lo)}–£${Math.round(m.spread.hi)}/MWh` : '',
+  ]);
 }
 /* Draws from current `model`/`out` — never re-parses or re-simulates. Called
    both after a real refresh and after a memoised (sim-skipped) one, so
@@ -206,6 +212,7 @@ function render(){
     paint(svg, REVEAL); lastSvg = svg;
   }
   renderVerdict();
+  renderMetrics();
   renderWarnings();
   setActionsEnabled(!!out);
 }
@@ -351,6 +358,14 @@ onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
 watchNarrowBucket(stageEl, rerender);
+
+/* ---------- masthead + kicker: painted once ---------- */
+(function(){
+  const mh = $('mhdate');
+  if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+  paintKicker($('kicker'), 'E1', 'What each cycle is really worth');
+  $('kicker').append(' · Ember series');
+})();
 
 /* ---------- boot ---------- */
 (function(){

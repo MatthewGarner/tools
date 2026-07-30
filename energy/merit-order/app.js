@@ -4,7 +4,7 @@
    State is {condition, params, adv}: params drive buildStack; adv is per-block
    hand-edits ({name:[cap,cost]}); condition names the active Conditions preset. */
 import {dispatch} from './engine.js';
-import {renderStack, toMarkdown, buildVerdict, MERIT_PALETTE} from './render.js';
+import {renderStack, toMarkdown, buildVerdict, buildVerdictParts, MERIT_PALETTE} from './render.js';
 import {buildStack, applyAdv} from './stack.js';
 import {DEFAULT_PARAMS, CONDITIONS, paramsFor, WORLDS} from './scenarios.js';
 import {encodeStateV2, decodeStateV2} from './state.js';
@@ -17,6 +17,7 @@ import {mountMotion} from '../../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -377,7 +378,16 @@ function boot(){
 
     syncOutputs();
     syncChips();
-    $('verdict').textContent = buildVerdict(result, cs);
+    const v = buildVerdictParts(result, cs);
+    paintVerdict($('verdict'), v.line, v.fig);
+    /* metrics: the world being stacked, then the three inputs that decide who is
+       marginal — how many plants are in the stack, the demand crossing it, and
+       the fuel/carbon prices that set the staircase. All from the dispatch. */
+    paintMetrics($('metrics'), (WORLDS[state.world] || WORLDS.gbToday).label, [
+      `${result.sorted.length} plants`,
+      `${Math.round(cs.demand * 10) / 10} GW demand`,
+      `${state.params.gas} p/th gas · £${state.params.carbon}/t carbon`,
+    ]);
 
     if(settle && !reducedMotion.matches && lastMarginalName !== undefined && result.marginalName !== lastMarginalName){
       flashEl(chartwrap.querySelector('g[data-plant="' + result.marginalName + '"]'));
@@ -434,6 +444,12 @@ function boot(){
              params: {...WORLDS[world].params, ...restored.params},
              adv: restored.adv || {}};
   }
+  /* masthead + kicker: static page furniture, painted once (Swiss 6c) */
+  const mh = $('mhdate');
+  if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+  paintKicker($('kicker'), 'E4', 'Who sets the price');
+  $('kicker').append(' · Ember series');
+
   syncControls();
   render(true);
 }

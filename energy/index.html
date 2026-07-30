@@ -16,11 +16,10 @@
 </head>
 <body>
 <link rel="stylesheet" href="../assets/tokens.css">
+<link rel="stylesheet" href="../assets/page.css">
+<link rel="stylesheet" href="../assets/energy.css">
 <style>
-  :root{--accent:#B04E1E;--accent-ink:#A34413}
-  @media (prefers-color-scheme: dark){:root{--accent:#E06A2E;--accent-ink:#E8834A}}
-  :root[data-theme="dark"]{--accent:#E06A2E;--accent-ink:#E8834A}
-  :root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
+  /* the ember token block now lives once, in assets/energy.css */
   *{box-sizing:border-box}
   html,body{margin:0}
   body{
@@ -54,6 +53,7 @@
   .tbody{padding:15px 20px 18px}
   .tool h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:19px;margin:0 0 4px;
     display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .tool h2 .enum{color:var(--brand-text);font-size:10px;font-weight:700;letter-spacing:.18em}
   .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     font-size:11.5px;font-weight:600;color:var(--accent-ink);
     background:color-mix(in srgb, var(--accent) 12%, transparent);
@@ -75,6 +75,18 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
+  <div class="masthead">
+    <span class="micro-ink">energy.matthewgarner.me</span>
+    <span class="micro">Instruments for energy under uncertainty</span>
+    <span class="micro mh-date">The ember series</span>
+  </div>
+  <nav class="series" aria-label="The ember series">
+    <a href="cycles/"><span class="enum">E1</span>Cycles</a>
+    <a href="risk/"><span class="enum">E2</span>Risk</a>
+    <a href="frequency/"><span class="enum">E3</span>Frequency</a>
+    <a href="merit-order/"><span class="enum">E4</span>Merit order</a>
+    <a href="intraday/"><span class="enum">E5</span>Intraday</a>
+  </nav>
   <header>
     <h1>Little Energy tools</h1>
     <p class="tagline">Single-job utilities for energy work under uncertainty. No accounts, no tracking.</p>
@@ -82,6 +94,22 @@
 
   <main>
   <div class="tools">
+
+    <a class="tool" href="cycles/">
+      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
+        <path d="M40 44 C130 40 210 58 306 74 L306 96 C210 84 130 70 40 68 Z" fill="var(--accent)" fill-opacity="0.16"/>
+        <path d="M40 56 C130 54 210 64 306 85" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <rect x="96" y="24" width="34" height="88" fill="var(--accent)" fill-opacity="0.10"/>
+        <text x="113" y="20" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)">augment</text>
+        <g font-size="9" fill="var(--muted)"><text x="40" y="126">y1</text><text x="292" y="126">y15</text></g>
+      </svg></span>
+      <span class="tbody">
+        <h2><span class="enum">E1</span>Cycle budget <span class="path">/cycles</span></h2>
+        <p>A battery’s warranty is a budget — see what each cycle is really worth across three horizons.</p>
+        <span class="go">Open →</span>
+      </span>
+    </a>
 
     <a class="tool" href="risk/">
       <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -94,24 +122,8 @@
         <g font-size="9" fill="var(--muted)"><text x="26" y="34">merchant</text><text x="26" y="69">floor</text><text x="26" y="99">insure</text></g>
       </svg></span>
       <span class="tbody">
-        <h2>Risk transfer <span class="path">/risk</span></h2>
+        <h2><span class="enum">E2</span>Risk transfer <span class="path">/risk</span></h2>
         <p>Merchant, floor, toll or insure — every route-to-market drawn as a payoff on the same uncertain year.</p>
-        <span class="go">Open →</span>
-      </span>
-    </a>
-
-    <a class="tool" href="cycles/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
-        <path d="M40 44 C130 40 210 58 306 74 L306 96 C210 84 130 70 40 68 Z" fill="var(--accent)" fill-opacity="0.16"/>
-        <path d="M40 56 C130 54 210 64 306 85" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
-        <rect x="96" y="24" width="34" height="88" fill="var(--accent)" fill-opacity="0.10"/>
-        <text x="113" y="20" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)">augment</text>
-        <g font-size="9" fill="var(--muted)"><text x="40" y="126">y1</text><text x="292" y="126">y15</text></g>
-      </svg></span>
-      <span class="tbody">
-        <h2>Cycle budget <span class="path">/cycles</span></h2>
-        <p>A battery’s warranty is a budget — see what each cycle is really worth across three horizons.</p>
         <span class="go">Open →</span>
       </span>
     </a>
@@ -127,7 +139,7 @@
         <text x="314" y="104" text-anchor="end" font-size="8.5" fill="var(--err)">load shed</text>
       </svg></span>
       <span class="tbody">
-        <h2>Frequency &amp; inertia <span class="path">/frequency</span></h2>
+        <h2><span class="enum">E3</span>Frequency &amp; inertia <span class="path">/frequency</span></h2>
         <p>Trip a generator and watch the grid catch itself — inertia, RoCoF, and the battery’s save.</p>
         <span class="go">Open →</span>
       </span>
@@ -152,7 +164,7 @@
         <text x="184" y="22" font-size="8.5" fill="var(--muted)">demand</text>
       </svg></span>
       <span class="tbody">
-        <h2>Merit order <span class="path">/merit-order</span></h2>
+        <h2><span class="enum">E4</span>Merit order <span class="path">/merit-order</span></h2>
         <p>Stack the fleet cheapest-first, drag demand, and watch one plant set the price for all.</p>
         <span class="go">Open →</span>
       </span>
@@ -173,20 +185,25 @@
         <text x="97" y="66" font-size="8.5" fill="var(--accent-ink)" font-weight="600">flattens</text>
       </svg></span>
       <span class="tbody">
-        <h2>A day through the stack <span class="path">/intraday</span></h2>
+        <h2><span class="enum">E5</span>A day through the stack <span class="path">/intraday</span></h2>
         <p>Play 24 hours through the merit order — the price shape draws itself, then storage flattens it.</p>
         <span class="go">Open →</span>
       </span>
     </a>
+
 
   </div>
 
   <p class="soon"><b>Coming next:</b> a delay-exposure pricer (what a slip really costs net of liquidated damages).</p>
   </main>
 
-  <footer>
-    Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a><br>
-    Sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> — the same rules pointed at product work.
+  <footer class="efoot">
+    <div class="efoot-row">
+      <span class="micro">No accounts. No tracking. State lives in the URL.</span>
+      <span class="micro efoot-tag">The ember series · energy.matthewgarner.me</span>
+    </div>
+    <p class="efoot-links">Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a><br>
+    Sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> — the same rules pointed at product work.</p>
   </footer>
 </div>
 </body>

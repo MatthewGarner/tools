@@ -1,7 +1,7 @@
 /* State, refresh loop, focus, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
 import {simulate, fmtUnit} from './engine.js';
-import {render, toMarkdown, riskVerdict, focusedIndex} from './render.js';
+import {render, toMarkdown, riskVerdict, riskVerdictParts, focusedIndex} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField, editLabel, removeParam, addLegLine, removeLegLine} from './edit-targets.js';
 import {insertAndSelect} from '../../assets/editor-common.js';
@@ -15,6 +15,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/wor
 import {mountMotion} from "../../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -67,12 +68,21 @@ function doRefresh(){
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
       ? 'Add a merchant line — like “merchant: 60..180” — to have something to compare against.'
       : 'Start typing — or load an example.') + '</p>';
-    $('verdict').textContent = '';
+    paintVerdict($('verdict'), '', '');
+    paintMetrics($('metrics'), '', []);
   } else {
     if(focusIdx !== null && focusIdx >= sim.rows.length) focusIdx = null;
     const svg = activeRender(false, true);
     paint(svg, REVEAL); lastSvg = svg;
-    $('verdict').textContent = riskVerdict(sim, model, focusIdx);
+    const v = riskVerdictParts(sim, model, focusIdx);
+    paintVerdict($('verdict'), v.line, v.fig);
+    /* metrics: the routes on the board, the merchant belief they all share, and
+       the sample the payoffs are read off — all straight from model/sim. */
+    paintMetrics($('metrics'), model.title, [
+      `${sim.rows.length} route${sim.rows.length === 1 ? '' : 's'}`,
+      `merchant ${Math.round(model.merchant.lo)}–${Math.round(model.merchant.hi)} ${model.unit}`,
+      `${sim.n.toLocaleString('en-GB')} draws`,
+    ]);
   }
   renderWarnings();
   setActionsEnabled(!!sim);
@@ -235,6 +245,14 @@ onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
 watchNarrowBucket(stageEl, rerender);
+
+/* ---------- masthead + kicker: painted once ---------- */
+(function(){
+  const mh = $('mhdate');
+  if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+  paintKicker($('kicker'), 'E2', 'Every route to market, one uncertain year');
+  $('kicker').append(' · Ember series');
+})();
 
 /* ---------- boot ---------- */
 (function(){

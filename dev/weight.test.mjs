@@ -189,7 +189,15 @@ const PAGES = {
      betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
      headroom — in line with the other DSL pages. */
   'bets/index.html': 499_000,   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
-  'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 470_000,
+  /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
+     plus its own chrome, so every page here grew the same real bytes: the shared
+     assets/energy.css (the ember token block, hoisted out of five per-tool
+     copies, + the masthead/series-nav/family-strip/footer, ~3.4k), the shared
+     assets/verdict.js (~4k, new to this origin's module graph) and the masthead/
+     nav/family/footer markup (~2k a page). Only two budgets actually tripped;
+     the rest had headroom and stay put. cycles 470k -> 472k (actual ~466.8k,
+     ~5.2k headroom) — it was the tightest energy page before this. */
+  'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 472_000,
   'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
@@ -215,7 +223,19 @@ const PAGES = {
      re-skin (controls.css Swiss buttons/chips + page.css micro utilities + tokens
      --brand/--brand-text/--data, ~0.5k paid by every page) — intraday trips first
      as ever. 528B over. Actual ~128.5k, headroom ~1.5k. */
-  'energy/intraday/index.html': 133_000,   /* 130k->133k 2026-07-30 Swiss 6a: motion DEADLINE + slider accent; ~2.7k headroom */
+  /* Raised 133k → 135k (2026-07-30, Swiss 6c), consciously: the shared
+     .segmented control landed in controls.css (~1.3k, paid by every page) and
+     REPLACED eight local copies, so the suite net-shrank — intraday just has no
+     local copy to give back, and as ever it's the page that trips first.
+     1,026B over. Actual ~134.0k, headroom ~1.0k. */
+  /* Raised 135k -> 152k (2026-07-30, Swiss 6c), consciously: the energy origin's
+     share of the 6c growth described above (energy.css + verdict.js + the chrome
+     markup) is ~12k on every page here, and intraday had ~1.0k headroom, so it
+     tripped by 11.3k. None of it is intraday-specific and none is fat to trim —
+     energy.css replaced five per-tool token blocks and verdict.js replaced this
+     page's hand-rolled verdict paragraph. Actual ~146.3k, ~5.7k headroom, which
+     puts it back in line with the other pages instead of on the edge. */
+  'energy/intraday/index.html': 152_000,
 };
 
 test('per-page load stays under budget', () => {
