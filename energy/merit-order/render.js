@@ -15,7 +15,7 @@
 import {esc, txt, tint, wrapText} from '../../assets/svg.js';
 import {dispatch} from './engine.js';
 
-const FONT = 'Charter,Georgia,serif';
+const FONT = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss Phase 4
 const r2 = n => Math.round(n * 100) / 100;
 const fmtGW = v => (Math.round(v * 10) / 10).toString().replace(/\.0$/, '');
 const fmtPrice = v => Math.round(v).toString();

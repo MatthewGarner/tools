@@ -1,9 +1,9 @@
 /* /risk page styles — tokens only; layout comes from the shared sheets.
    Ember accent (WCAG-checked on real surfaces, both themes — see landing). */
-:root{--accent:#C05621;--accent-ink:#A34413}
+:root{--accent:#B04E1E;--accent-ink:#A34413}
 @media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
 :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
-:root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
+:root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
 
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
@@ -11,7 +11,7 @@
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
-  background:var(--bg);padding:1px 5px;border-radius:4px}
+  background:var(--bg);padding:1px 5px;border-radius:0}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}

@@ -6,7 +6,7 @@
 import {txt, esc} from '../../assets/svg.js';
 import {F0, verdict, simulate} from './engine.js';
 
-const FONT = 'Charter,Georgia,serif';
+const FONT = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss Phase 4
 const r2 = n => Math.round(n * 100) / 100;
 
 export function renderTrace(result, p, ctx){

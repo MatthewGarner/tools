@@ -40,7 +40,7 @@
 import {txt, wrapText, esc} from '../../assets/svg.js';
 import {THERMAL_ORDER} from '../merit-order/render.js';   // shared fuel-family colour order (was a local copy)
 
-const FONT = 'Charter,Georgia,serif';
+const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const r1 = n => Math.round(n * 10) / 10;
 const fallbackMeasure = (t, font) => parseFloat(font) * 0.55 * t.length;
 

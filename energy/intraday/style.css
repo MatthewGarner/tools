@@ -2,13 +2,13 @@
    Ember accent (WCAG-checked on real surfaces, both themes — see cycles/risk/frequency/merit-order).
    No DSL editor: a single stacked column, but (Route B, 2026-07-17) at the
    panel's true measured width — full 1760px band, not the old 1020px pin. */
-:root{--accent:#C05621;--accent-ink:#A34413}
+:root{--accent:#B04E1E;--accent-ink:#A34413}
 @media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
 :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
-:root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
+:root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
 
 .wrap{max-width:var(--w-band);margin:0 auto;display:flex;flex-direction:column;gap:20px;padding:0 24px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow);padding:20px}
 .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px;margin-top:12px}
 /* min-width:0 overrides the flex/grid automatic-minimum-size default (content
    intrinsic width) — without it a longer label ("Storage fleet") + wider output
@@ -46,11 +46,11 @@
    stylesheet is page-scoped, not importable as a module); tokens only. Read-only
    here (name · capacity · bid), so no stepper/btn rows. */
 .mo-callout{position:fixed;z-index:20;background:var(--card);border:1px solid var(--border);
-  border-radius:8px;box-shadow:var(--shadow);padding:14px 16px;min-width:200px;max-width:280px;
+  border-radius:0;box-shadow:var(--shadow);padding:14px 16px;min-width:200px;max-width:280px;
   font-size:13.5px}
 .mo-callout-name{font-weight:700;margin-bottom:6px}
 .mo-callout-math{color:var(--muted);font-size:12.5px;line-height:1.45}
-.verdict{font-family:Charter,Georgia,serif;font-size:16.5px;margin:10px 0 0}
+.verdict{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16.5px;margin:10px 0 0}
 /* reduced-motion: keep Play operable (do NOT hide it — a11y); app.js drops the
    draw-as-you-play reveal so the cursor steps over the full curve instead. */
 
