@@ -61,7 +61,14 @@ function segColour(name, palette){
   return (fam && palette[fam]) || '#888888';
 }
 
-export function buildDayVerdict(result, p){
+/* The line AND its one key figure, together, so the two can never drift (Swiss
+   6c). `fig` must appear verbatim in `line` — assets/verdict.js splits on the
+   FIRST occurrence, which is why the storage branch quotes the compound
+   "£3 of the £117" rather than a bare "£3": a small per-MW number is a prefix
+   of an earlier £ figure in the same sentence often enough to matter (perMW 1
+   would have inked the "£1" inside "£117"). Claude Design file 43 inks exactly
+   this pair — "£5,900 of £8,140" — so the compound is the mockup's own shape. */
+export function buildDayVerdictParts(result, p){
   const {raw, flat, sched, achievedMargin, plannedMargin, dischargedGWh, droppedGWh} = result;
   const at = h => String(h).padStart(2, '0') + ':00';
   const req = (a, b) => Math.round(a) === Math.round(b);
@@ -78,14 +85,16 @@ export function buildDayVerdict(result, p){
   const setter = name => /^(CCGT|OCGT)/.test(name) ? 'gas' : name;
   if(p.fleetGW <= 0){
     const {prices, hours, troughHour, peakHour} = raw;
-    return `The day's spread is £${Math.round(raw.spread)}: ${setter(hours[peakHour].marginal)} sets the ` +
+    return {fig: `£${Math.round(raw.spread)}`,
+      line: `The day's spread is £${Math.round(raw.spread)}: ${setter(hours[peakHour].marginal)} sets the ` +
       `£${Math.round(prices[peakHour])} peak ${extremeAt(prices, peakHour)}, ${setter(hours[troughHour].marginal)} the ` +
-      `£${Math.round(prices[troughHour])} floor ${extremeAt(prices, troughHour)}.`;
+      `£${Math.round(prices[troughHour])} floor ${extremeAt(prices, troughHour)}.`};
   }
   // empty book: a fleet that finds nothing worth trading (spread too thin to
   // cover the round-trip loss) — distinct from a fleet that trades and flattens
   if(dischargedGWh <= 0.05){
-    return `${r1(p.fleetGW)} GW of storage finds nothing worth trading: the day's spread (£${Math.round(raw.spread)}) is thinner than the round-trip loss.`;
+    return {fig: `£${Math.round(raw.spread)}`,
+      line: `${r1(p.fleetGW)} GW of storage finds nothing worth trading: the day's spread (£${Math.round(raw.spread)}) is thinner than the round-trip loss.`};
   }
   const perMW = Math.round(achievedMargin / p.fleetGW);
   const perMWPlanned = Math.round(plannedMargin / p.fleetGW);
@@ -111,7 +120,14 @@ export function buildDayVerdict(result, p){
      day and STILL keeps £3 of £117 — and stamps the scope on a line built to travel:
      the kept figure is a ceiling (no degradation, no forecast error) and the poster
      quotes it without the about copy attached. */
-  return `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. Even with perfect foresight it keeps £${perMW} of the £${perMWPlanned} per MW per day it planned on the raw shape${tank}.`;
+  return {fig: `£${perMW} of the £${perMWPlanned}`,
+    line: `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. Even with perfect foresight it keeps £${perMW} of the £${perMWPlanned} per MW per day it planned on the raw shape${tank}.`};
+}
+
+/* The plain line — every existing consumer (the export SVG, the markdown, the
+   aria-label) wants only this. */
+export function buildDayVerdict(result, p){
+  return buildDayVerdictParts(result, p).line;
 }
 
 export function renderDay(result, p, ctx, opts = {}){

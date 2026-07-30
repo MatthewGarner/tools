@@ -98,13 +98,10 @@
      .verdict-block owns its type; only its rhythm against the tiles is local */
   .verdict-block{margin:24px 0 0}
   .spread{color:var(--muted);font-size:13px;margin-top:8px}
-  .viewseg{display:inline-flex;border:1px solid var(--border);border-radius:0;
-    overflow:hidden;margin-top:18px}
+  /* the shared .segmented control owns the three toggles here; only their
+     placement in the surrounding rows is fermi's business (Swiss 6c) */
+  .viewseg{margin-top:18px}
   .pagemode{margin:0 0 0 auto}
-  .pagemode button, .cfseg button{border:none;background:none;color:var(--muted);cursor:pointer;
-    font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
-  .pagemode button.on, .cfseg button.on{color:var(--card);background:var(--accent)}
-  .pagemode, .cfseg{display:inline-flex;border:1px solid var(--border);border-radius:0;overflow:hidden}
   .cfmeta{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
   .cfmeta label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted);display:flex;gap:8px;align-items:center}
@@ -131,9 +128,6 @@
   #cfcase{font-size:14px;padding:6px 8px;border:1px solid var(--border);border-radius:0;
     background:var(--bg);color:var(--ink);font-family:inherit}
   #cfwrap svg{display:block;width:100%;height:auto;margin-top:6px}
-  .viewseg button{border:none;background:none;color:var(--muted);cursor:pointer;
-    font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
-  .viewseg button.on{color:var(--card);background:var(--accent)}
   #driverwrap{margin-top:14px;overflow-x:auto}
   #driverwrap svg{display:block;max-width:100%;height:auto;min-width:640px}
   #cfwrap{overflow-x:auto}
@@ -200,7 +194,7 @@
   /* fingers get full-size controls */
   @media (pointer: coarse){
     /* fingers need 44px: the segmented toggles and fit-selects predated this and were 29–33px */
-    .tab,.savedchip button,.pagemode button,.cfseg button,.viewseg button{min-height:44px;display:inline-flex;align-items:center}
+    .tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
     .vrow select,#tin,#cftin{min-height:44px}
     .adopt{min-height:44px;padding:8px 16px}
   }
@@ -230,7 +224,7 @@
     <div class="fieldrow">
       <label class="field" for="formula" id="cardlabel">Formula</label>
       <div class="scentabs" id="scentabs"></div>
-      <div class="pagemode" role="tablist" aria-label="Tool mode">
+      <div class="pagemode segmented" role="tablist" aria-label="Tool mode">
         <button id="modeest" class="on" role="tab" aria-selected="true">Estimate</button>
         <button id="modecf" role="tab" aria-selected="false">Cashflow</button>
       </div>
@@ -249,7 +243,7 @@
     <div id="cfinputs" hidden>
       <div class="chips" id="cfchips"><span class="lead">Try:</span></div>
       <div class="cfmeta">
-        <div class="cfseg" id="cfgrain" role="radiogroup" aria-label="Period grain">
+        <div class="cfseg segmented" id="cfgrain" role="radiogroup" aria-label="Period grain">
           <button data-g="year" class="on">Years</button><button data-g="month">Months</button>
         </div>
         <label>Discount %/yr
@@ -303,7 +297,7 @@
       </div>
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <p class="spread" id="spread" aria-live="polite" aria-atomic="true"></p>
-      <div class="viewseg" role="tablist" aria-label="Result view">
+      <div class="viewseg segmented" role="tablist" aria-label="Result view">
         <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>
         <button id="viewtree" role="tab" aria-selected="false">Driver tree</button>
       </div>

@@ -22,6 +22,36 @@
 .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-on)}
 .btn.primary:hover{background:var(--ink);border-color:var(--ink)}
 
+/* --- The segmented control (Swiss 6c, 2026-07-30) ---
+   ONE pattern for every mode/view switch on the suite. Before 6c there were
+   eight near-identical local copies (fermi .pagemode/.cfseg/.viewseg, gauge +
+   why .viewtoggle, flow + merit-order .seg, bets + premortem .vtseg, the
+   workspace .zoomctl) and every one of them filled its ACTIVE segment with
+   --accent — the data hue leaking into page chrome, which the completeness
+   audit called the loudest single "old design" signal. The active segment is
+   now INK, the same inversion .btn:hover already performs.
+   Put .segmented on the CONTAINER; the buttons keep whatever class their tool's
+   JS and the browser suites select on. Active state is read from .on,
+   aria-pressed="true" OR aria-selected="true", so radiogroup, tablist and
+   pressed-button markup all light up from this one rule. */
+.segmented{display:inline-flex;border:1px solid var(--ink);border-radius:0;overflow:hidden}
+.segmented button{font:inherit;font-size:10.5px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;padding:8px 14px;border:none;border-radius:0;
+  background:none;color:var(--muted);cursor:pointer}
+.segmented button + button{border-left:1px solid var(--ink)}
+.segmented button:hover{color:var(--ink)}
+.segmented button.on,
+.segmented button[aria-pressed="true"],
+.segmented button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+/* overflow:hidden on the group clips an outset ring — inset it instead */
+.segmented button:focus-visible{outline:2px solid var(--data);outline-offset:-3px}
+@media (pointer: coarse){
+  .segmented button{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+}
+@media (prefers-reduced-motion: no-preference){
+  .segmented button{transition:color .15s,background-color .15s}
+}
+
 /* Author display rules (flex/grid) must never defeat the hidden attribute —
    the trap that made gauge's export row visible pre-reveal (2026-07-05). */
 [hidden]{display:none!important}

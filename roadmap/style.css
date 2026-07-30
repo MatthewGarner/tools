@@ -1,11 +1,10 @@
 .card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-/* export-style picker (S4): a plain .chip row (no .chips — its margin-bottom
-   would misalign it inside the .actions flex row), one active via .chip.on
-   (same convention as alarm's preset chips) */
-.stylepick{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}
-.chip.on{border-color:var(--accent);color:var(--accent-ink)}
+/* export-style picker (S4): four mutually-exclusive views — the shared
+   .segmented control (Swiss 6c; it was a .chip row with an --accent-inked
+   active chip). Wrap so four uppercase segments still fit a phone row. */
+.stylepick{flex-wrap:wrap}
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

@@ -28,3 +28,16 @@ export const INSTRUMENTS = {
    the origin root (energy.matthewgarner.me/<dir>/) via dev/origins.mjs's route
    table — keep that table's ENERGY_ROUTES in sync too. */
 export const ENERGY_TOOL_DIRS = ['cycles', 'risk', 'frequency', 'merit-order', 'intraday'];
+
+/* The energy origin's E-series numbering — same job as INSTRUMENTS above (the
+   "INSTRUMENT E5 — EPITHET" kicker), and the same promise: WAYFINDING LABELS
+   only, never a URL, filename or route. The order is the reading order the
+   masthead nav prints, and it runs from the asset outwards: the battery's own
+   life budget (E1), the contract wrapped around it (E2), the grid it answers
+   to in seconds (E3), the market that prices it (E4), and one whole trading
+   day where all four meet (E5). dev/scaffold.test.mjs asserts every energy page
+   paints its own number in the kicker AND lists the full series, in this order,
+   in its masthead nav — so the row can't drift page to page. */
+export const ENERGY_INSTRUMENTS = {
+  cycles: 'E1', risk: 'E2', frequency: 'E3', 'merit-order': 'E4', intraday: 'E5',
+};

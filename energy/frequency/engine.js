@@ -143,6 +143,13 @@ export function leverDeltas(p){
 
 /* One quotable line. All figures come from the result, which obeys the
    swing identity — never hand-write a RoCoF here. */
+/* The verdict's ONE key figure (Swiss 6c): the nadir — the number the whole
+   trace exists to produce. It is the first "NN.NN Hz" the sentence quotes
+   (the RoCoF ahead of it is Hz/s), so the first-occurrence split lands on it. */
+export function verdictFigure(r){
+  return r ? hz(r.nadir.f) + ' Hz' : '';
+}
+
 export function verdict(r, p){
   const shed = r.shedOccurred
     ? ` Load shedding catches it — ~${Math.round(r.shedTotal * 100)}% of demand disconnected to save the rest.`

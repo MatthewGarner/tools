@@ -14,7 +14,7 @@
      pinned-900 pattern, so the band fills its real width; a debounced ResizeObserver
      re-renders on any >8px change, not just the <520 flip. */
 import {runDay, hourStack, DAY_DEFAULTS} from './day.js';
-import {renderDay, buildDayVerdict} from './render-day.js';
+import {renderDay, buildDayVerdictParts} from './render-day.js';
 import {renderStack, MERIT_PALETTE} from '../merit-order/render.js';
 import {encodeDayState, decodeDayState} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
@@ -23,6 +23,7 @@ import {wireExports} from '../../assets/exports.js';
 import {debounced} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
 import {mountMotion} from '../../assets/motion.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
 import {REVEAL} from './motion-spec.js';
 
 export const PRESETS = {
@@ -102,7 +103,15 @@ function boot(){
     stackPaint(stackSvg, REVEAL); lastStackSvg = stackSvg;
 
     closeCallout();   // the band under a callout may have moved/resized — never let it go stale
-    $('verdict').textContent = buildDayVerdict(result, p);
+    /* metrics: the day's shape in three honest counts — the hours the engine
+       runs, the fleet the sliders describe, and the raw spread it trades. */
+    paintMetrics($('metrics'), preset ? PRESETS[preset].label : 'Custom day', [
+      '24 hours',
+      p.fleetGW > 0 ? `${fmtGW(p.fleetGW)} GW × ${fmtGW(p.fleetH)} h fleet` : 'no storage fleet',
+      `raw spread £${Math.round(result.raw.spread)}`,
+    ]);
+    const v = buildDayVerdictParts(result, p);
+    paintVerdict($('verdict'), v.line, v.fig);
     syncWarns();
     $('clock').textContent = String(hour).padStart(2, '0') + ':00';
     for(const id of SLIDERS){
@@ -267,6 +276,12 @@ function boot(){
     if(Math.abs(w - lastW) > 8){ lastW = w; refresh(); }
   }, 100);
   new ResizeObserver(onResize).observe(priceEl);
+
+  /* masthead + kicker: static page furniture, painted once (Swiss 6c). */
+  const mh = $('mhdate');
+  if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+  paintKicker($('kicker'), 'E5', 'A battery’s trading day');
+  $('kicker').append(' · Ember series');
 
   refresh();
 }

@@ -1,0 +1,93 @@
+/* Energy-origin chrome — the masthead, E-series nav, family strip and footer
+   band that Claude Design file 43 gives every page on energy.matthewgarner.me
+   (Swiss 6c, 2026-07-30). Linked by the six energy pages only; no tools-origin
+   page links it.
+
+   It also re-inks the BRAND slot to ember, which is the whole trick of the two
+   origins: the shared 6b anatomy in page.css (.kicker .num, .verdict-block
+   .fig) and controls.css (.btn.primary) then paint ember here without a single
+   per-tool override. Structure identical, accent slot re-inked — one design,
+   two domains.
+
+   It lives in assets/ rather than energy/ for a routing reason worth writing
+   down: energy pages are served at the ORIGIN ROOT via host-conditioned
+   rewrites, and only the routes in dev/origins.mjs exist — a file at
+   energy/<x>.css would be requested as /<x>.css, which matches no rewrite and
+   404s (gen-sw drops it silently, so nothing would fail until production).
+   /assets/* resolves unrewritten on both origins, so a shared sheet can only
+   live here.
+
+   The ember pair is the already-validated one (light #B04E1E / #A34413 —
+   tokens.css's --accent2; dark #E06A2E / #E8834A) that the five energy tools
+   each declared locally before this file existed. No new colour is introduced.
+   Tools' own style.css still loads after this, so a tool can override anything. */
+
+:root{
+  --accent:#B04E1E; --accent-ink:#A34413;
+  --brand:#B04E1E; --brand-text:#A34413; --brand-on:#FFFFFF;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --accent:#E06A2E; --accent-ink:#E8834A;
+    --brand:#E06A2E; --brand-text:#E8834A; --brand-on:#121212;
+  }
+}
+:root[data-theme="dark"]{
+  --accent:#E06A2E; --accent-ink:#E8834A;
+  --brand:#E06A2E; --brand-text:#E8834A; --brand-on:#121212;
+}
+:root[data-theme="light"]{
+  --accent:#B04E1E; --accent-ink:#A34413;
+  --brand:#B04E1E; --brand-text:#A34413; --brand-on:#FFFFFF;
+}
+
+/* --- masthead: origin, strapline, edition date, closed by the 2px ink rule --- */
+.masthead{display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;
+  padding:0 0 12px;border-bottom:2px solid var(--ink)}
+.masthead .mh-date{margin-left:auto}
+
+/* --- the E-series nav: one row, current page underlined in ember --- */
+.series{display:flex;flex-wrap:wrap;gap:0 24px;
+  border-bottom:1px solid var(--border);margin:0 0 26px}
+.series a{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:10px 0;
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;
+  color:var(--ink);text-decoration:none}
+.series a:hover{color:var(--brand-text)}
+.series a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.series .enum{font-size:10px;font-weight:700;color:var(--brand-text)}
+.series a[aria-current="page"]{font-weight:700;box-shadow:inset 0 -2px 0 var(--brand-text)}
+
+/* --- the family strip: the five instruments and their roles, above the footer --- */
+.family{border-top:2px solid var(--ink);margin-top:48px}
+.family .fam-kick{margin:0;padding:16px 0 10px}
+.famgrid{display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:32px}
+.famcell{display:block;border-left:1px solid var(--border);padding:14px 16px;
+  color:var(--ink);text-decoration:none}
+.famcell:first-child{border-left:none;padding-left:0}
+.famcell:hover .famname{color:var(--brand-text)}
+.famcell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.famname,.famrole{display:block}
+.famname{font-size:13px;font-weight:700}
+/* the current cell underlines its NAME, not the whole column width */
+.famcell[aria-current="page"] .famname{text-decoration:underline;
+  text-decoration-color:var(--brand-text);text-decoration-thickness:2px;text-underline-offset:4px}
+.famrole{font-size:10px;color:var(--muted);margin-top:3px;
+  letter-spacing:.06em;text-transform:uppercase}
+/* five cells never fit a tablet, let alone a phone: two up, then one up. The
+   left hairline follows the column, so the first cell of each row loses it. */
+@media (max-width:900px){
+  .famgrid{grid-template-columns:repeat(2,1fr)}
+  .famcell:first-child{border-left:1px solid var(--border);padding-left:16px}
+  .famcell:nth-child(odd){border-left:none;padding-left:0}
+}
+@media (max-width:520px){
+  .famgrid{grid-template-columns:1fr;padding-bottom:24px}
+  .famcell{border-left:none;padding:12px 0;border-top:1px solid var(--border)}
+  .famcell:first-child{border-top:none;padding-left:0}
+}
+
+/* --- footer: hairline, the promise left, the series tag right in ember --- */
+footer.efoot{border-top:1px solid var(--border);text-align:left;padding-top:14px}
+.efoot-row{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:baseline}
+.efoot-tag{margin-left:auto;color:var(--brand-text)}
+.efoot-links{margin:10px 0 0;font-size:12.5px;line-height:1.6}

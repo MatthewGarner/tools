@@ -265,6 +265,14 @@ export function fmtUnit(v, unit){
 }
 const inTen = p => { const t = Math.round(p * 10); return t + ' run' + (t === 1 ? '' : 's') + ' in 10'; };
 
+/* The threshold verdict's ONE key figure (Swiss 6c): the P50 cycle price, which
+   is the first figure that sentence quotes — so assets/verdict.js's
+   first-occurrence split can only land on it. Lives here, beside the sentence,
+   so figure and line cannot drift; cycles-verdict.test.mjs pins both. */
+export function thresholdFigure(out){
+  return out && out.threshold ? fmtUnit(out.threshold.p50, '£/MWh') : '';
+}
+
 export function verdict(band, out){
   if(band === 'threshold'){
     const t = out.threshold;

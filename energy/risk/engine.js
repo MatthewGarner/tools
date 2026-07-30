@@ -93,6 +93,16 @@ function bindClause(bind){
   return t === 0 ? 'almost never' : t + ' year' + (t === 1 ? '' : 's') + ' in 10';
 }
 
+/* The trade sentence's ONE key figure (Swiss 6c): the FIRST money figure it
+   quotes — the average upside you sold (floor/toll) or the premium you paid
+   (insure). First by construction, so assets/verdict.js's first-occurrence
+   split can never land on a later figure that happens to format the same. */
+export function tradeFigure(row, unit){
+  if(!row || !row.trade) return '';
+  const {upsideSold, fees} = row.trade;
+  return fmtUnit(row.kind === 'floor' || row.kind === 'toll' ? upsideSold : fees, unit);
+}
+
 export function verdict(row, unit){
   if(!row.trade) return null;
   const u = v => fmtUnit(v, unit);

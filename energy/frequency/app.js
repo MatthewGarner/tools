@@ -1,13 +1,14 @@
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
-import {simulate, verdict, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS, F0} from './engine.js';
+import {simulate, verdict, verdictFigure, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS, F0} from './engine.js';
 import {renderTrace, toMarkdown} from './render.js';
 import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
 import {rafBatched} from '../../assets/schedule.js';
+import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -56,7 +57,16 @@ function boot(){
     $('t-tnadir').textContent = result.nadir.t.toFixed(1) + ' s';
     $('t-settle').textContent = result.settle.toFixed(2) + ' Hz';
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
-    $('verdict').textContent = verdict(result, p);
+    paintVerdict($('verdict'), verdict(result, p), verdictFigure(result));
+    /* metrics: the three numbers that decide the fall — what was lost, what
+       inertia is left to resist it, and how much fast response is contracted.
+       Counts only (no model title): the grid here is the sliders, not a document. */
+    const gfmCapM = GFM_GVAS_PER_GW * Math.max(1, v.dr + v.dm + v.dc);
+    paintMetrics($('metrics'), '', [
+      `${v.trip.toFixed(1)} GW trip`,
+      `${v.inertia + Math.min(v.gfm, gfmCapM)} GVA·s effective inertia`,
+      `${(v.dr + v.dm + v.dc).toFixed(1)} GW dynamic response`,
+    ]);
     const hasBattery = p.drMw > 0 || p.dmMw > 0 || p.dcMw > 0 || p.eGfm > 0;
     if(hasBattery){
       const d = leverDeltas(p);
@@ -237,5 +247,11 @@ function boot(){
     $('dr').value = s.dr ?? 0; $('dm').value = s.dm ?? 0;
     $('dc').value = s.dc; $('gfm').value = s.g;
   }
+  /* masthead + kicker: static page furniture, painted once (Swiss 6c) */
+  const mh = $('mhdate');
+  if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+  paintKicker($('kicker'), 'E3', 'The grid catching itself');
+  $('kicker').append(' · Ember series');
+
   refresh();
 }

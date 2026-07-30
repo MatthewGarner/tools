@@ -418,7 +418,10 @@ for(const theme of ['light', 'dark']){
   await card.locator('[data-promoteimpact="lo"]').fill('100');
   await card.locator('[data-promoteimpact="hi"]').fill('300');
   await card.locator('[data-promoteok]').click(); await page.waitForTimeout(250);
-  check('premortem board(' + theme + '): promote lands on the register', (await page.locator('.vtseg.on').innerText()).trim() === 'Register');
+  check('premortem board(' + theme + '): promote lands on the register', /* innerText is the RENDERED text, and the shared .segmented control
+       uppercases its labels (Swiss 6c) — compare case-insensitively so a
+       future casing decision is a design change, not a suite break. */
+    (await page.locator('.vtseg.on').innerText()).trim().toLowerCase() === 'register');
   check('premortem board(' + theme + '): promoted risk is a register row', (await page.locator('.register').innerText()).includes('Onboarding completes on 3G'));
   check('premortem board(' + theme + '): no console errors', errors.length === 0);
   await page.close();

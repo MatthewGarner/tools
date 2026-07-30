@@ -1,9 +1,6 @@
 /* /cycles page styles — tokens only; layout comes from the shared sheets.
-   Ember accent (WCAG-checked on real surfaces, both themes — see landing). */
-:root{--accent:#B04E1E;--accent-ink:#A34413}
-@media (prefers-color-scheme: dark){:root{--accent:#E06A2E;--accent-ink:#E8834A}}
-:root[data-theme="dark"]{--accent:#E06A2E;--accent-ink:#E8834A}
-:root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
+   The ember token block (and the origin chrome) live in assets/energy.css. */
+/* the ember token block lives once, in assets/energy.css (linked before this) */
 
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}

@@ -35,14 +35,27 @@ function wellFormed(svg){
     assert.match(m[0], TAG, 'bare or malformed attribute in ' + m[0]);
 }
 
-test('board: terrain washes, stage labels, header metrics, readout, evolution caption', () => {
+/* Swiss 6c: the plane is FLAT — hairline stage boundaries, stage names under
+   the axis as its tick labels, and the value chain named in-plane by
+   VISIBLE ↑ / INVISIBLE. The four tinted terrain washes are gone. */
+test('board: flat plane, stage labels under the axis, axis micros, metrics, readout', () => {
   const s = draw();
   assert.match(s, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="1200"/);
-  for(const w of ['GENESIS', 'CUSTOM', 'PRODUCT', 'COMMODITY']) assert.ok(s.includes(w), w);
   assert.ok(s.includes('Habitat platform'));
   assert.ok(s.includes('3 components'));                  // header metrics line
-  assert.ok(s.includes('evolution'));
-  assert.equal((s.match(/fill="[^"]{7}14"/g) || []).length, 4);   // four terrain washes
+  assert.equal((s.match(/fill="[^"]{7}14"/g) || []).length, 0, 'no terrain washes left');
+  /* every stage name is a centred uppercase micro with ABSOLUTE tracking */
+  for(const w of ['GENESIS', 'CUSTOM', 'PRODUCT', 'COMMODITY'])
+    assert.match(s, new RegExp('text-anchor="middle" font-weight="700" letter-spacing="1.8"[^>]*>' + w + '<'), w);
+  /* …and they all share one baseline, below the axis line */
+  const ys = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)" font-size="10" text-anchor="middle"/g)].map(m => +m[1]);
+  assert.equal(ys.length, 4);
+  assert.equal(new Set(ys).size, 1, 'stage labels sit on one baseline');
+  const axis = +s.match(/<line x1="\d+" y1="([\d.]+)" x2="\d+" y2="[\d.]+" stroke="[^"]*"\/>/)[1];
+  assert.ok(ys[0] > axis, 'stage labels sit BELOW the axis, not in a top strip');
+  assert.match(s, /letter-spacing="1\.8"[^>]*>VISIBLE ↑</);
+  assert.match(s, /letter-spacing="1\.8"[^>]*>INVISIBLE</);
+  assert.ok(!s.includes('closer to the user need'), 'the sentence-case axis caption is retired');
   assert.match(s, /map|discovery|execution/);             // readout verdict present
   wellFormed(s);
   assert.ok(!s.includes('NaN'));

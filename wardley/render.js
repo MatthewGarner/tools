@@ -435,22 +435,29 @@ export function renderMap(model, layout, ctx, opts = {}){
   }
   const plane = [];
   const axisY = planeH - 16;
-  /* stage terrain: progressively calmer washes, labels worn like zone names */
+  /* The plane (Swiss 6c, Claude Design 37). The per-stage tinted washes are
+     gone: four bands of colour behind coloured pills was the loudest treated
+     surface left in the suite, and the mockup's plane is flat with hairline
+     stage boundaries only. The stage names move from a top strip to BELOW the
+     axis, centred under their own band, where they read as the evolution axis's
+     own tick labels rather than as four zone headings. The value-chain axis is
+     then named in-plane by VISIBLE ↑ / INVISIBLE at its two ends, which is what
+     the old "↑ closer to the user need" caption was doing in sentence case.
+     Letterspacing is ABSOLUTE px — an exported SVG has no CSS to resolve em. */
+  const MICRO = 10, MICRO_TRACK = 1.8;
+  const micro = (x, y, str, anchor) => '<text x="' + x + '" y="' + y + '" font-size="' + MICRO +
+    '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + ' font-weight="700" letter-spacing="' +
+    MICRO_TRACK + '" fill="' + c.muted + '">' + str + '</text>';
   STAGES.forEach((s, i) => {
     const x0 = px(s.lo), x1 = px(s.hi);
-    plane.push('<rect x="' + x0 + '" y="0" width="' + (x1 - x0) + '" height="' + axisY +
-      '" fill="' + ramp[i % ramp.length] + '14"/>');
-    plane.push('<text x="' + (x0 + 14) + '" y="18" font-size="11" font-weight="600"' +
-      ' letter-spacing=".08em" fill="' + ramp[i % ramp.length] + '">' + s.name.toUpperCase() + '</text>');
     if(i) plane.push('<line x1="' + x0 + '" y1="0" x2="' + x0 + '" y2="' + axisY +
       '" stroke="' + c.border + '" stroke-opacity=".6"/>');
+    plane.push(micro((x0 + x1) / 2, axisY + 18, s.name.toUpperCase(), 'middle'));
   });
   plane.push('<line x1="' + pad + '" y1="' + axisY + '" x2="' + (w - pad) + '" y2="' + axisY +
     '" stroke="' + c.border + '"/>');
-  plane.push('<text x="' + (w - pad) + '" y="' + (axisY + 18) + '" text-anchor="end" font-size="11" fill="' +
-    c.muted + '">evolution →</text>');
-  plane.push('<text x="' + pad + '" y="' + (axisY + 18) + '" font-size="11" fill="' + c.muted +
-    '">↑ closer to the user need</text>');
+  plane.push(micro(pad, 14, 'VISIBLE ↑'));
+  plane.push(micro(pad, axisY - 8, 'INVISIBLE'));
 
   /* edit chrome: one ghost add-zone per stage, in the row below every pill */
   if(opts.edit) STAGES.forEach(s => plane.push(addZonePill(s, c, measure, zoneY)));

@@ -24,12 +24,9 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .statusline.err{color:var(--err)}
 .headline{color:var(--accent-ink);font-size:14.5px;font-weight:600;margin:10px 0 0}
 .headline:empty{display:none}
-.viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:0;
-  overflow:hidden;margin-bottom:12px}
-.viewtoggle button{border:none;background:none;color:var(--muted);cursor:pointer;
-  font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 16px}
-.viewtoggle button.on{background:var(--accent);color:var(--card)}
-.viewtoggle button:not(.on):hover{color:var(--accent-ink)}
+/* Form / Sample reveal — the shared .segmented control (Swiss 6c); only the
+   gap to the artefact below is gauge's own. */
+.viewtoggle{margin-bottom:12px}
 
 /* ---- the form (participant + compose preview) ---- */
 .formpreview{max-width:var(--w-form)}

@@ -10,22 +10,25 @@ main{display:flex;flex-direction:column;gap:20px}
 .phint b{color:var(--ink);font-weight:600}
 .method{color:var(--muted);font-size:12.5px}
 
-/* phase rail — text labels + current/done state (never colour-alone) */
+/* phase rail — text labels + current/done state (never colour-alone).
+   Swiss 6c: the house uppercase-micro chrome voice (.btn/.chip/.segmented), and
+   the active step is INK, not the data hue — it sits beside the shared
+   .segmented view toggle, which inverts to ink the same way. "Done" keeps its
+   ✓ glyph so the three states never rest on colour alone. */
 .phaserail{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
-.phaserail li{font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);
-  padding:6px 10px;border:1px solid var(--border);border-radius:0;background:var(--card);cursor:pointer;
+.phaserail li{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);
+  padding:7px 11px;border:1px solid var(--border);border-radius:0;background:none;cursor:pointer;
   min-height:34px;display:inline-flex;align-items:center;gap:5px}
-.phaserail li.done{color:var(--accent-ink)}
-.phaserail li.done::before{content:"✓";color:var(--accent)}
-.phaserail li.current{border-color:var(--accent);color:var(--card);background:var(--accent)}
+.phaserail li.done{color:var(--ink);border-color:var(--ink)}
+.phaserail li.done::before{content:"✓";letter-spacing:0}
+.phaserail li.current{border-color:var(--ink);color:var(--bg);background:var(--ink)}
 .phaserail li[aria-disabled="true"]{cursor:default;opacity:.6}
 
 /* toolbar: view toggle (Wizard / Board / Register) + always-visible undo */
 .toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .toolbar .viewtoggle{margin-right:auto}
-.viewtoggle{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:0}
-.vtseg{font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:6px 16px;border:0;border-radius:0;background:transparent;color:var(--muted);cursor:pointer}
-.vtseg.on{background:var(--accent);color:var(--card)}
+/* the shared .segmented control owns Wizard / Board / Register (Swiss 6c) */
 
 /* FAB board — Facts / Assumptions / Beliefs, three columns onto the same doc */
 .board{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
@@ -120,9 +123,18 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .rrow.ageing{opacity:.82}
 .rrow.stale{opacity:.55}
 .rstale{white-space:nowrap;color:var(--muted);font-size:12px}
-.statuspill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:0;background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--ink)}
-.statuspill.mitigating{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent-ink)}
-.statuspill.closed{background:color-mix(in srgb,var(--st-done,#1D7A3E) 15%,transparent);color:var(--st-done-ink,#1C753C)}
+/* status tag — the house square: tinted fill AND a coloured label AND a 1px
+   border, uppercase micro. Never colour alone. Swiss 6c moved "mitigating" off
+   --accent onto the semantic --st-doing (identical hex in both themes, so no
+   new colour) and gave every state a border. */
+.statuspill{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;padding:2px 8px;border-radius:0;
+  border:1px solid color-mix(in srgb,var(--muted) 45%,transparent);
+  background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--ink)}
+.statuspill.mitigating{border-color:color-mix(in srgb,var(--st-doing) 45%,transparent);
+  background:color-mix(in srgb,var(--st-doing) 15%,transparent);color:var(--st-doing-ink)}
+.statuspill.closed{border-color:color-mix(in srgb,var(--st-done) 45%,transparent);
+  background:color-mix(in srgb,var(--st-done) 15%,transparent);color:var(--st-done-ink)}
 .tagchip{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:0;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
 .tagchip.tiger{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--st-blocked-ink,#B3403A)}
 .tagchip.paper-tiger{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
@@ -162,7 +174,7 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
   .register{min-width:520px}
   /* toolbar stays one row: segments fill the width, Undo shrinks to its glyph */
   .toolbar .viewtoggle{flex:1;display:flex;margin-right:0}
-  .viewtoggle .vtseg{flex:1;padding:6px 8px;text-align:center}
+  .viewtoggle .vtseg{flex:1;padding:6px 8px;justify-content:center}
   .ulabel{display:none}
   #undo{min-width:44px;display:inline-flex;align-items:center;justify-content:center}
   /* action row stacks: the mitigation gets its own full-width row, owner + × below */
@@ -171,6 +183,7 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 }
 @media (pointer:coarse){
   .btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}
+  .phaserail li{min-height:44px}
   .bcdel{width:44px;height:44px;font-size:20px}
 }
 

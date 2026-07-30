@@ -53,6 +53,15 @@ function famColour(g, palette){
 
 /* One quotable line (+ clauses) built from a dispatch() result. Shared by the
    SVG verdict and toMarkdown so the two never drift. */
+/* The verdict AND its one key figure (Swiss 6c): the clearing price — the whole
+   point of the stack. It is the first £ figure the headline clause quotes, so
+   assets/verdict.js's first-occurrence split can only land on it; a stack with
+   no marginal plant sets no price, and quotes no figure. */
+export function buildVerdictParts(result, state){
+  return {line: buildVerdict(result, state),
+    fig: result.marginalName ? `£${fmtPrice(result.clearingPrice)}/MWh` : ''};
+}
+
 export function buildVerdict(result, state){
   const cp = result.clearingPrice;
   const parts = [];

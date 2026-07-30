@@ -11,7 +11,9 @@ const F = {
 
 export const TOKENS = {
   pad: 26, titleSize: 22, titleY: 36, dateSize: 11, headerH: 70, headerHNoTitle: 18,
-  planeW: 620, planeH: 470, axisW: 46, axisH: 42, axisSize: 11.5, endSize: 9.5,
+  /* axisTracking is ABSOLUTE px (10px × .18em = 1.8): SVG letter-spacing takes
+     a length, and an exported file has no CSS to apply em tracking for it. */
+  planeW: 620, planeH: 470, axisW: 46, axisH: 42, axisSize: 10, axisTracking: 1.8, endSize: 9.5,
   zoneSize: 10, zoneTracking: 0.8, zoneTint: 0.07, zoneTintDark: 0.13,
   dotR: 3.5, cardH: 20, cardPadX: 8, cardSize: 11, cardGapX: 7, cardMaxW: 190,
   trayW: 200, trayGap: 18, trayCardH: 26, trayHeadSize: 9.5,
@@ -133,18 +135,24 @@ export function render(model, resolved, ro, ctx, diff = null){
   const ax = resolved.x, ay = resolved.y;
   /* plane-level widens: >=44px hit box centred on each label; the y-axis label
      sits close to the left edge so its box is clamped from running past x=0 */
+  /* Swiss 6c: the axis names are uppercase micro, LITERALLY uppercased and with
+     absolute letterspacing — a CSS text-transform would vanish the moment the
+     SVG left the page. `data-raw` still carries the author's own casing, so the
+     edit-in-place rewrite never re-cases their text. */
+  const axFont = ' font-size="' + T.axisSize * S + '" letter-spacing="' + (T.axisTracking * S).toFixed(2) +
+    '" font-weight="500" fill="' + C.muted + '"';
   const axCx = planeX + planeW / 2, axCy = planeY + planeH + 26 * S;
   body.push(editTarget(
-    '<text x="' + axCx + '" y="' + axCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
-      '" font-weight="600" fill="' + C.ink + '">' + esc(ax.label) + '</text>',
+    '<text x="' + axCx + '" y="' + axCy + '" text-anchor="middle"' + axFont + '>' +
+      esc(ax.label.toUpperCase()) + '</text>',
     {x: Math.max(0, axCx - 22 * S), y: axCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
     {kind: 'axis', line: ax.srcLine ?? -1, raw: ax.label, extra: 'data-axis="x"',
       label: 'Edit x-axis label: ' + ax.label}));
   const ayCx = planeX - 26 * S, ayCy = planeY + planeH / 2;
   body.push(editTarget(
-    '<text x="' + ayCx + '" y="' + ayCy + '" text-anchor="middle" font-size="' + T.axisSize * S +
-      '" font-weight="600" fill="' + C.ink + '" transform="rotate(-90 ' + ayCx + ' ' + ayCy + ')">' +
-      esc(ay.label) + '</text>',
+    '<text x="' + ayCx + '" y="' + ayCy + '" text-anchor="middle"' + axFont +
+      ' transform="rotate(-90 ' + ayCx + ' ' + ayCy + ')">' +
+      esc(ay.label.toUpperCase()) + '</text>',
     {x: Math.max(0, ayCx - 22 * S), y: ayCy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
     {kind: 'axis', line: ay.srcLine ?? -1, raw: ay.label, extra: 'data-axis="y"',
       label: 'Edit y-axis label: ' + ay.label}));
@@ -173,8 +181,21 @@ export function render(model, resolved, ro, ctx, diff = null){
     }
   }
 
-  /* ---- cards: dot at the authored position, nudged capsule beside it ---- */
-  const font = '600 ' + T.cardSize * S + 'px ' + F.body;
+  /* ---- items: diamond marker at the authored position, bare label beside it ----
+     Swiss 6c (Claude Design 34): the label lost its white boxed chip — a box
+     inside the artefact read as UI chrome, and the export carried it. The
+     nudge/hit-box geometry is unchanged (the label still sits one card-padding
+     in from the box's left edge, which is what the 44px hit rect and the suites
+     tap), so only the paint changed. A flagged item can't rely on a missing
+     border any more, so it carries an ink-weight rule under the label AND the
+     err hue — shape first, colour second. */
+  const marker = (cx, cy, fill) => {
+    const r = T.dotR * S * 1.15;
+    return '<rect x="' + (cx - r).toFixed(2) + '" y="' + (cy - r).toFixed(2) +
+      '" width="' + (r * 2).toFixed(2) + '" height="' + (r * 2).toFixed(2) +
+      '" fill="' + fill + '" transform="rotate(45 ' + cx.toFixed(2) + ' ' + cy.toFixed(2) + ')"/>';
+  };
+  const font = '700 ' + T.cardSize * S + 'px ' + F.body;
   const truncate = (label, maxW = T.cardMaxW) => {
     let t = label;
     while(t.length > 4 && measure(t + '…', font) > maxW * S) t = t.slice(0, -1);
@@ -234,19 +255,22 @@ export function render(model, resolved, ro, ctx, diff = null){
     if(Math.hypot(capX - c.cx, capY - c.cy) > 26 * S)
       body.push('<line x1="' + c.cx + '" y1="' + c.cy + '" x2="' + capX + '" y2="' + capY +
         '" stroke="' + C.border + '" stroke-width="1"/>');
-    body.push('<circle cx="' + c.cx + '" cy="' + c.cy + '" r="' + T.dotR * S + '" fill="' + C.accent + '"/>');
+    body.push(marker(c.cx, c.cy, flagged ? C.err : C.accent));
     if(diff && diff.newLabels.has(String(c.it.label).toLowerCase().replace(/\s+/g, ' ').trim())){
       body.push('<circle cx="' + c.cx + '" cy="' + c.cy + '" r="' + (T.dotR + 3.5) * S +
         '" fill="none" stroke="' + C.accent + '" stroke-width="1.25"/>');
       body.push('<text x="' + (c.cx + (T.dotR + 6) * S) + '" y="' + (c.cy - (T.dotR + 3) * S) +
         '" font-size="' + 8.5 * S + '" font-weight="600" letter-spacing="0.6" fill="' + C.accent + '">NEW</text>');
     }
-    body.push('<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="' + c.h +
-      '" rx="0" fill="' + C.card + '" stroke="' + (flagged ? C.err : C.border) + '"/>');
+    const labX = c.x + T.cardPadX * S, labBase = c.y + c.h - 6 * S;
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
-      '" x="' + (c.x + T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" font-size="' + T.cardSize * S +
-      '" font-weight="600" fill="' + C.ink + '"' + btnAttrs('Rename: ' + c.it.label) +
+      '" x="' + labX + '" y="' + labBase + '" font-size="' + T.cardSize * S +
+      '" font-weight="700" fill="' + (flagged ? C.err : C.ink) + '"' + btnAttrs('Rename: ' + c.it.label) +
       '>' + esc(c.label) + '</text>');
+    if(flagged)
+      body.push('<rect x="' + labX + '" y="' + (labBase + 3 * S).toFixed(2) + '" width="' +
+        (measure(c.label, font)).toFixed(2) + '" height="' + (2 * S).toFixed(2) +
+        '" fill="' + C.err + '"/>');
     if(edit) body.push('<text data-edit="removeitem" data-line="' + c.it.srcLine + '" data-raw=""' +
       ' x="' + (c.x + c.w - T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" text-anchor="end"' +
       ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Remove ' + c.it.label) +

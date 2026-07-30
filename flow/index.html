@@ -42,10 +42,6 @@
   input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     background:var(--accent);border:2px solid var(--card)}
   input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .seg{display:inline-flex;border:1px solid var(--border);border-radius:0;overflow:hidden}
-  .seg button{border:none;background:none;color:var(--muted);cursor:pointer;
-    font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
-  .seg button.on{color:var(--card);background:var(--accent)}
   .card h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16px;margin:0 0 10px}
   .cardintro{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:70ch}
   /* real HTML mirror of the readout SVG's headline sentence — screen readers
@@ -60,9 +56,6 @@
   #verdictwrap, #batchwrap, #triagewrap{overflow-x:auto}
   #verdictwrap svg, #batchwrap svg, #triagewrap svg{display:block;width:100%;height:auto;min-width:640px}
   .method{color:var(--muted);font-size:12.5px}
-  @media (pointer: coarse){
-    .seg button{min-height:44px;display:inline-flex;align-items:center}
-  }
 
   /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
      the reading gutter lives on the base .wrap (unconditional — prose sat flush
@@ -99,7 +92,7 @@
       <div class="ctl"><label>WIP limit <output id="wipout"></output></label>
         <input type="range" id="wip" min="1" max="21" step="1" value="4" aria-label="WIP limit; far right means no limit"></div>
       <div class="ctl"><label>Variability <output id="varout"></output></label>
-        <div class="seg" id="variability" role="radiogroup" aria-label="Item size variability">
+        <div class="seg segmented" id="variability" role="radiogroup" aria-label="Item size variability">
           <button data-v="low">Low</button><button data-v="med">Medium</button><button data-v="high" class="on">High</button>
         </div></div>
     </div>

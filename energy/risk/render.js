@@ -3,7 +3,7 @@
    (numbers and escaped strings only inside them). */
 import {esc, txt, tint, wrapText, editTarget, btnAttrs} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
-import {fmtUnit, verdict} from './engine.js';
+import {fmtUnit, verdict, tradeFigure} from './engine.js';
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString();
@@ -18,12 +18,18 @@ export function focusedIndex(rows, focus){
 
 /* plain-text mirror of the SVG's verdict band — the HTML readout app.js
    shows next to the diagram. Pure; same inputs render() itself uses. */
-export function riskVerdict(sim, model, focus = null){
-  if(!sim) return '';
+export function riskVerdictParts(sim, model, focus = null){
+  if(!sim) return {line: '', fig: ''};
   const rows = sim.rows;
   const fi = focusedIndex(rows, focus);
   const v = verdict(rows[fi], model.unit);
-  return v ? 'The trade — ' + rows[fi].label + ': ' + v : '';
+  if(!v) return {line: '', fig: ''};
+  return {line: 'The trade — ' + rows[fi].label + ': ' + v, fig: tradeFigure(rows[fi], model.unit)};
+}
+
+/* the plain line — the markdown/poster consumers want only this */
+export function riskVerdict(sim, model, focus = null){
+  return riskVerdictParts(sim, model, focus).line;
 }
 
 export function render(model, sim, ctx, {edit = false, focus = null, bare = false} = {}){

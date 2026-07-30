@@ -12,14 +12,6 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 
-/* view toggle */
-.viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:0;
-  overflow:hidden;margin-bottom:12px}
-.viewtoggle button{border:none;background:none;color:var(--muted);cursor:pointer;
-  font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 16px}
-.viewtoggle button.on{background:var(--accent);color:var(--card)}
-.viewtoggle button:not(.on):hover{color:var(--accent-ink)}
-
 /* card bodies are popover targets (add child / remove branch) in edit mode */
 .preview svg [data-edit^="card-"]{cursor:pointer}
 .preview svg [data-edit="removeassump"]{cursor:pointer}
