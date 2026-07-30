@@ -46,7 +46,7 @@ input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--acc
 #gate{display:block;width:100%;height:360px}
 
 /* verdict — the quotable readout */
-.readout .verdict-alarm{font-family:Charter,Georgia,serif;font-size:24px;line-height:1.25;
+.readout .verdict-alarm{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:24px;line-height:1.25;
   font-weight:700;color:var(--ink);margin:0;text-wrap:balance}
 .readout .verdict-alarm:empty{display:none}
 .verdict-miss{font-size:15.5px;color:var(--ink);margin:8px 0 0;max-width:66ch}

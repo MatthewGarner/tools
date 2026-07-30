@@ -11,7 +11,7 @@ details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
   background:var(--bg);padding:1px 5px;border-radius:4px}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:600;min-height:44px;padding:10px 22px}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;min-height:44px;padding:10px 22px}
 .btn.primary:hover{color:var(--card);opacity:.92}
 .btn:disabled{opacity:.45;cursor:default}
 .btn.danger:hover{border-color:var(--err);color:var(--err)}

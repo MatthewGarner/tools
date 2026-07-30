@@ -24,7 +24,7 @@ test('well-formed svg, no NaN, verdict present', () => {
 test('policy path uses scheme accent; rejected branch fades', () => {
   const m = parse(BID);
   const svg = render(m, evaluate(m), ctx());
-  assert.ok(svg.includes('#0C7FAE'), 'ocean scheme accent on policy path (light)');
+  assert.ok(svg.includes('#1F4FD8'), 'ocean scheme accent on policy path (light)');
   assert.ok(svg.includes('opacity="0.42"'), 'rejected option faded');
 });
 

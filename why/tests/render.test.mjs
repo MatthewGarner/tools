@@ -84,6 +84,6 @@ test('ost view: shipped dimmed; escaping works in both views', () => {
 
 test('palette scheme applies in both views', () => {
   const doc = 'palette: ember\noutcome: O\n  Need\n    Fix [delivering]';
-  assert.ok(run(renderOst, doc).includes('#C05621'));
-  assert.ok(run(renderMap, doc).includes('#C05621'));
+  assert.ok(run(renderOst, doc).includes('#B04E1E'));
+  assert.ok(run(renderMap, doc).includes('#B04E1E'));
 });

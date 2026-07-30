@@ -28,7 +28,7 @@
 .workspace.collapsed{grid-template-columns: 0px 26px minmax(0, 1fr)}
 .rail{
   min-width: 0; overflow: hidden;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border); border-radius:0;
   box-shadow: var(--shadow); padding: 18px;
   max-height: calc(100vh - 48px); overflow-y: auto;
 }
@@ -48,20 +48,20 @@
   .cm-indentbar{display: flex; gap: 8px; margin: 0 0 8px}
   .cm-indentbar button{min-height: 44px; flex: 1 1 auto; font-family: inherit;
     font-size: 13px; color: var(--ink); background: none;
-    border: 1px solid var(--border); border-radius: 6px}
+    border: 1px solid var(--border); border-radius:0}
   .cm-indentbar button:active{border-color: var(--accent); color: var(--accent-ink)}
 }
 
 .railtab{
   justify-self: center; align-self: stretch; width: 26px; margin: 8px 0;
-  border: none; border-radius: 9px; background: none;
+  border: none; border-radius:0; background: none;
   color: var(--muted); cursor: pointer; font-size: 11px; padding: 0;
 }
 .railtab:hover{background: var(--card); color: var(--accent-ink); box-shadow: var(--shadow)}
 .railtab:focus-visible{outline: 2px solid var(--accent); outline-offset: 2px}
 .stage{
   min-width: 0;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border); border-radius:0;
   box-shadow: var(--shadow); padding: 18px;
 }
 .stage .preview{overflow: auto}
@@ -90,14 +90,14 @@
    get it via aria-live (set on the element in each tool's markup); sighted
    users get it too, so the answer is never SVG-text-only. Empty until a
    render computes one. */
-.verdict{font-family: Charter, Georgia, serif; font-size: 15px; line-height: 1.5;
+.verdict{font-family: "Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif; font-weight:700; font-size: 15px; line-height: 1.5;
   color: var(--ink); margin: 10px 2px 0; max-width: 74ch}
 .verdict:empty{display: none}
 .verdict p{margin: 0 0 8px}
 .verdict p:last-child{margin-bottom: 0}
 /* min-width/height = the settled size of the four injected buttons (Fit/100%/−/+),
    so the actions row doesn't reflow when workspace.js mounts them (load-grace) */
-.zoomctl{display: inline-flex; gap: 2px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+.zoomctl{display: inline-flex; gap: 2px; border: 1px solid var(--border); border-radius:0; overflow: hidden;
   min-width: 153px; min-height: 29px}
 .zoomctl button{
   border: none; background: none; color: var(--muted); cursor: pointer;
@@ -126,7 +126,7 @@ footer{margin: 48px 0 8px}
   .cm-indentbar{display: flex; gap: 8px; margin: 0 0 8px}
   .cm-indentbar button{min-height: 44px; flex: 1 1 auto; font-family: inherit;
     font-size: 13px; color: var(--ink); background: none;
-    border: 1px solid var(--border); border-radius: 6px}
+    border: 1px solid var(--border); border-radius:0}
   .cm-indentbar button:active{border-color: var(--accent); color: var(--accent-ink)}
 }
 
@@ -158,7 +158,7 @@ footer{margin: 48px 0 8px}
   position: fixed; z-index: 60;
   font: 600 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color: var(--ink); background: var(--card);
-  border: 1.5px solid var(--accent); border-radius: 6px;
+  border: 1.5px solid var(--accent); border-radius:0;
   padding: 4px 8px; box-shadow: var(--shadow);
 }
 .eip-input:focus{outline: none}
@@ -177,14 +177,14 @@ footer{margin: 48px 0 8px}
 
 .eip-pop{
   position: fixed; z-index: 60; display: flex; flex-direction: column;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border); border-radius:0;
   box-shadow: var(--shadow); padding: 4px; min-width: 130px;
   max-height: calc(100vh - 24px); overflow-y: auto;
 }
 .eip-pop button{
   border: none; background: none; text-align: left; cursor: pointer;
   font-family: inherit; font-size: 12.5px; color: var(--ink);
-  padding: 6px 10px; border-radius: 5px;
+  padding: 6px 10px; border-radius:0;
 }
 .eip-pop button:hover{background: var(--bg); color: var(--accent-ink)}
 .eip-pop button.on{color: var(--accent-ink); font-weight: 600}

@@ -79,9 +79,9 @@ export function writeHashState(obj, maxLen = 6000){
 /* Named palettes — every accent hex validated (dataviz validate_palette.js) against
    its derived background surface in both themes: lightness band, chroma floor, ≥3:1. */
 export const PALETTES = {
-  ocean: {light:'#0C7FAE', dark:'#2E93C4'},
+  ocean: {light:'#1F4FD8', dark:'#7C97FF'},
   slate: {light:'#5B5E9E', dark:'#8489D6'},
-  ember: {light:'#C05621', dark:'#C97A35'},
+  ember: {light:'#B04E1E', dark:'#C97A35'},
   plum:  {light:'#9D3E78', dark:'#C06BA0'},
 };
 export const PALETTE_NAMES = Object.keys(PALETTES);
@@ -97,14 +97,14 @@ export function mix(hexA, hexB, t){
 export function scheme(accentHex, dark){
   return dark ? {
     accent: accentHex,
-    bg:     mix('#141B21', accentHex, 0.06),
-    card:   mix('#1B242C', accentHex, 0.06),
-    border: mix('#2A3743', accentHex, 0.14),
+    bg:     mix('#121212', accentHex, 0.06),
+    card:   mix('#1A1A19', accentHex, 0.06),
+    border: mix('#2E2E2C', accentHex, 0.14),
   } : {
     accent: accentHex,
-    bg:     mix('#F6F5F2', accentHex, 0.05),
-    card:   mix('#FFFFFF', accentHex, 0.02),
-    border: mix('#DEE2E1', accentHex, 0.16),
+    bg:     mix('#FBFBFA', accentHex, 0.05),
+    card:   mix('#F4F4F1', accentHex, 0.02),
+    border: mix('#D9D9D5', accentHex, 0.16),
   };
 }
 

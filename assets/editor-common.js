@@ -64,15 +64,15 @@ export const BASE_HIGHLIGHTS = [
 
 const cmTheme = EditorView.theme({
   '&': {backgroundColor: 'var(--bg)', color: 'var(--ink)', fontSize: '13px',
-    border: '1px solid var(--border)', borderRadius: '6px', minHeight: '440px'},
+    border: '1px solid var(--border)', borderRadius: '0', minHeight: '440px'},
   '.cm-content': {fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
     padding: '12px 0', lineHeight: '1.6', caretColor: 'var(--ink)'},
   '.cm-line': {padding: '0 12px'},
   '&.cm-focused': {outline: '2px solid var(--accent)', outlineOffset: '2px'},
-  '.cm-activeLine': {backgroundColor: 'rgba(120,150,175,0.07)'},
+  '.cm-activeLine': {backgroundColor: 'rgba(17,17,17,0.045)'},
   '.cm-cursor': {borderLeftColor: 'var(--ink)'},
   '&.cm-focused .cm-selectionBackground, ::selection':
-    {backgroundColor: 'rgba(60,140,190,0.28)'},
+    {backgroundColor: 'rgba(31,79,216,0.22)'},
 });
 
 export function createEditorCore({parent, doc, langExtension, onChange, extraHighlights = [],
