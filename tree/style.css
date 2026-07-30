@@ -1,4 +1,4 @@
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
@@ -6,7 +6,7 @@
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
-  background:var(--bg);padding:1px 5px;border-radius:4px}
+  background:var(--bg);padding:1px 5px;border-radius:0}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}
@@ -62,11 +62,11 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
    below the diagram on desktop. (Sticky-bottom-bar-on-coarse-pointer is B4;
    this markup/CSS is deliberately clean for that to hook into.) */
 .explore-bar{margin:10px 0 2px;padding:12px 14px;background:var(--card);
-  border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow)}
+  border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow)}
 .explore-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .explore-label{font-size:13px;font-weight:600;color:var(--ink)}
 .explore-close{border:none;background:none;color:var(--muted);font-size:14px;line-height:1;
-  cursor:pointer;padding:6px;border-radius:6px;min-width:32px;min-height:32px}
+  cursor:pointer;padding:6px;border-radius:0;min-width:32px;min-height:32px}
 .explore-close:hover{color:var(--ink);background:var(--track)}
 /* coarse-pointer minimum tap target (44px, the house rule) — the card menu's
    "Explore…" row reaches this bar on phones already, ahead of B4's own pass. */
@@ -80,7 +80,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
    UNDER the native track, positioned by percentage — an approximation (native
    range tracks inset slightly for the thumb at each end) accepted for v1. */
 .explore-band{position:absolute;top:50%;height:6px;transform:translateY(-50%);
-  background:var(--accent);opacity:.22;border-radius:3px;pointer-events:none;z-index:1}
+  background:var(--accent);opacity:.22;border-radius:0;pointer-events:none;z-index:1}
 .explore-notch{position:absolute;top:50%;width:2px;height:16px;
   transform:translate(-50%,-50%);background:var(--accent2);pointer-events:none;z-index:1}
 .explore-priced{margin:8px 0 0;font-size:13px;color:var(--muted)}

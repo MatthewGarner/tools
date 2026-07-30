@@ -4,7 +4,7 @@ import {esc, tint, wrapText, editTarget, btnAttrs} from '../assets/svg.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  serif: 'Charter, Georgia, "Times New Roman", serif',
+  serif: '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif',
 };
 
 export const TOKENS = {
@@ -107,7 +107,7 @@ export function render(model, results, ctx){
     const pw = tw + T.pillPadX*2*S, ph = T.pillH*S;
     return {
       svg: '<rect x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
-        '" rx="' + ph/2 + '" fill="' + tint(col) + '"' +
+        '" rx="0" fill="' + tint(col) + '"' +
         (tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '') + '/>' +
         '<text x="' + (px + T.pillPadX*S) + '" y="' + (py + ph - 4.5*S) + '" font-size="' + T.pillSize*S +
         '" font-weight="600" letter-spacing="' + T.pillTracking + '" fill="' + inkCol + '">' + esc(label) + '</text>',

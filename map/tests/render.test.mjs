@@ -146,7 +146,7 @@ test('edit mode: tray items become cardmenu triggers (Place on map… is the coa
 test('cardmenu hit rect is centred on the capsule, not the authored dot', () => {
   /* futures preset nudges cards off zone labels, so capsule != dot for this item */
   const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
-  const capsule = svg.match(/<g data-edit="cardmenu"[\s\S]*?<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="20" rx="10"/);
+  const capsule = svg.match(/<g data-edit="cardmenu"[\s\S]*?<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="20" rx="0"/);   // Swiss 3b: squared
   const hit = svg.match(/<rect data-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
   assert.ok(capsule && hit);
   const capCentreY = +capsule[2] + 10;             // capsule height is 20
