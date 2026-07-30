@@ -16,6 +16,37 @@ export const TOKENS = {
   slideScale: 1.35, bottomPad: 16,
 };
 
+/* Status hues, as [fill, ink] pairs (Swiss 6c).
+   Claude Design 36 draws this tool in a two-state blue/ink vocabulary. /why
+   genuinely carries FIVE solution states and FOUR assumption states, and
+   collapsing them would throw information away, so the SEMANTICS stay and only
+   the VOICE moves to the house square tag: a tinted square fill plus a label in
+   the contrast-boosted `-ink` variant of the same hue. assets/app-common.js
+   exposes those `--st-*-ink` tokens for exactly this reason — the fill hue read
+   as label text over its own 12% tint sits under WCAG 4.5:1. Every state keeps
+   a tinted FILL and a LABEL (and, on assumptions, a leading glyph), so nothing
+   here ever rests on colour alone. No new colour is introduced. */
+const done = C => C.status ? C.status.done : C.accent;
+const doneInk = C => (C.statusInk && C.statusInk.done) || done(C);
+const STATUS_HUES = C => ({
+  candidate: [C.muted, C.muted],
+  testing: [C.accent, C.accentInk || C.accent],
+  delivering: [done(C), doneInk(C)],
+  shipped: [C.muted, C.muted],
+  parked: [C.muted, C.muted],
+});
+const ASSUMP_HUES = C => ({
+  untested: [C.muted, C.muted],
+  testing: [C.accent, C.accentInk || C.accent],
+  holds: [done(C), doneInk(C)],
+  broken: [C.err, C.err],
+});
+
+/* tint() returns 'none' for anything that isn't a 6-digit hex. A tagless fill
+   would leave the label carrying the state on colour alone, so fall back to a
+   1px outline in the same hue — the guard roadmap's capsule already ships. */
+const tagStroke = col => tint(col) === 'none' ? ' stroke="' + col + '" stroke-width="1"' : '';
+
 const ASSUMP_GLYPH = {untested: '?', testing: '~', holds: '✓', broken: '✗'};
 const STATUS_LABEL = {candidate: 'Candidate', testing: 'Testing', delivering: 'Delivering',
   shipped: 'Shipped', parked: 'Parked'};
@@ -42,13 +73,10 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
   const PAD = T.pad;
   const labelFont = '600 ' + T.labelSize + 'px ' + F.body;
   const assumpFont = T.assumpSize + 'px ' + F.body;
-  const statusColor = st => ({
-    candidate: C.muted, testing: C.accent, delivering: C.status ? C.status.done : C.accent,
-    shipped: C.muted, parked: C.muted,
-  })[st] || C.muted;
-  const assumpColor = st => ({
-    untested: C.muted, testing: C.accent, holds: (C.status ? C.status.done : C.accent), broken: C.err,
-  })[st] || C.muted;
+  const SH = STATUS_HUES(C), AH = ASSUMP_HUES(C);
+  const statusColor = st => (SH[st] || [C.muted])[0];
+  const statusInkFor = st => (SH[st] || [C.muted, C.muted])[1];
+  const assumpColor = st => (AH[st] || [C.muted, C.muted])[1];
   const aLines = new Map();
   const cardWFor = depth => Math.max(MIN_CARD, W - 2*PAD - Math.min(depth, MAX_INDENT_DEPTH) * INDENT);
 
@@ -152,10 +180,10 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
         '"' + btnAttrs('Cycle status: ' + node.label);
       const tw = measure(label, '600 ' + T.pillSize + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX) + '" y="' + (ty - T.labelSize + 3) + '" width="' + (tw + T.pillPadX*2) +
-        '" height="' + T.pillH + '" rx="0" fill="' + tint(col) + '"/>');
+        '" height="' + T.pillH + '" rx="0" fill="' + tint(col) + '"' + tagStroke(col) + '/>');
       s.push('<text' + eip + ' x="' + (x + T.cardPadX + T.pillPadX) + '" y="' + (ty - T.labelSize + 3 + T.pillH - 4.5) +
         '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + col + '">' + esc(label) + '</text>');
+        '" fill="' + statusInkFor(node.status) + '">' + esc(label) + '</text>');
       ty += T.pillH + T.pillGap;
     }
     for(const a of node._assumps){
@@ -210,19 +238,19 @@ export function renderOst(model, projection, ctx, diff = null){
   const {measure, slide = false, dark = false, edit = false} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
-  const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
+  /* A model-authored accent has no matching `-ink` token, so its tag label stays
+     the accent itself (today's behaviour). Only the THEME accent gets the
+     contrast-boosted variant, which is the one that was measured against it. */
+  const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark), accentInk: paletteHex} : ctx.colors;
   const T = TOKENS;
   const NARROW = 520;
   const isNarrow = !!(ctx.width && ctx.width < NARROW);
   if(isNarrow) return renderOstNarrow(model, projection, ctx, diff, C, T);
   const S = slide ? T.slideScale : 1;
-  const statusColor = st => ({
-    candidate: C.muted, testing: C.accent, delivering: C.status ? C.status.done : C.accent,
-    shipped: C.muted, parked: C.muted,
-  })[st] || C.muted;
-  const assumpColor = st => ({
-    untested: C.muted, testing: C.accent, holds: (C.status ? C.status.done : C.accent), broken: C.err,
-  })[st] || C.muted;
+  const SH = STATUS_HUES(C), AH = ASSUMP_HUES(C);
+  const statusColor = st => (SH[st] || [C.muted])[0];
+  const statusInkFor = st => (SH[st] || [C.muted, C.muted])[1];
+  const assumpColor = st => (AH[st] || [C.muted, C.muted])[1];
   const labelFont = '600 ' + T.labelSize*S + 'px ' + F.body;
   const assumpFont = T.assumpSize*S + 'px ' + F.body;
   const innerW = (T.cardW - T.cardPadX*2)*S;
@@ -327,10 +355,10 @@ export function renderOst(model, projection, ctx, diff = null){
         '"' + btnAttrs('Cycle status: ' + node.label);
       const tw = measure(label, '600 ' + T.pillSize*S + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S) + '" width="' + (tw + T.pillPadX*2*S) +
-        '" height="' + T.pillH*S + '" rx="0" fill="' + tint(col) + '"/>');
+        '" height="' + T.pillH*S + '" rx="0" fill="' + tint(col) + '"' + tagStroke(col) + '/>');
       s.push('<text' + eip + ' x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + col + '">' + esc(label) + '</text>');
+        '" fill="' + statusInkFor(node.status) + '">' + esc(label) + '</text>');
       ty += T.pillH*S + T.pillGap*S;
     }
     for(const a of node._assumps){

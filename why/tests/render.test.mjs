@@ -74,6 +74,48 @@ test('ost view: cards, status pills, assumption glyphs, dashed unaddressed', () 
   assert.ok(svg.includes('stroke-dasharray'), 'unaddressed opportunity dashed');
 });
 
+/* Swiss 6c: the status tag is the house square — a tinted FILL in the status
+   hue with the LABEL in that hue's contrast-boosted `-ink` variant. Both states
+   keep a fill AND a label, so nothing rests on colour alone, and the tool's five
+   solution states survive (the mockup's two-state blue/ink would lose three). */
+test('ost status tags: tinted fill in the status hue, label in its -ink variant', () => {
+  const INK = {colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667',
+    accent:'#0088CC', accentInk:'#0A6C94', bg:'#f7f8f6', err:'#b33',
+    status:{done:'#1D7A3E', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'},
+    statusInk:{done:'#1C753C', doing:'#1A44C2', risk:'#8E6200', blocked:'#B3403A'}},
+    measure: t => t.length * 7};
+  const m = parse(DOC);
+  for(const [name, extra] of [['wide', {}], ['narrow', {width: 380}]]){
+    const svg = renderOst(m, project(m), {...INK, ...extra});
+    assert.match(svg, /rx="0" fill="#1D7A3E1F"/, name + ': delivering fill is the 12% status tint');
+    assert.match(svg, /fill="#1C753C">DELIVERING</, name + ': delivering label is the -ink variant');
+    assert.ok(!/fill="#1D7A3E">DELIVERING</.test(svg), name + ': the un-boosted hue is not used as label text');
+    /* the holding assumption reads in the same boosted ink, and keeps its glyph */
+    assert.match(svg, /fill="#1C753C"[^>]*>✓ freezes reduce churn</, name + ': ✓ glyph + boosted ink');
+    /* the model's palette accent has no -ink token of its own, so the TESTING
+       tag stays a single hue — fill tint plus label, as it always was */
+    assert.match(svg, /rx="0" fill="#1F4FD81F"/, name + ': testing fill is the palette accent tint');
+    assert.match(svg, /fill="#1F4FD8">TESTING</, name + ': testing label stays the palette accent');
+  }
+});
+
+/* A ctx without the -ink tokens (older callers, the test harnesses) must still
+   render — it falls back to the fill hue rather than emitting undefined. */
+test('ost status tags fall back to the fill hue when no -ink tokens are supplied', () => {
+  const svg = run(renderOst);
+  assert.ok(!svg.includes('undefined'));
+  assert.match(svg, /fill="#1D7A3E">DELIVERING</);
+});
+
+/* A hue tint() can't build (anything but a 6-digit hex) must not leave the tag
+   as bare coloured text — it outlines instead, so the state is still a SHAPE. */
+test('ost status tags outline when the hue admits no tint (never colour alone)', () => {
+  const svg = run(renderOst, DOC, {colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667',
+    accent:'#08c', bg:'#f7f8f6', err:'#b33',
+    status:{done:'#3a3', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'}}});
+  assert.match(svg, /rx="0" fill="none" stroke="#3a3" stroke-width="1"\/>/);
+});
+
 test('ost view: shipped dimmed; escaping works in both views', () => {
   const doc = 'outcome: O\n  Need & <more>\n    Old thing [shipped]\n    Live [delivering]';
   const ost = run(renderOst, doc);

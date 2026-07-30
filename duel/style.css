@@ -4,7 +4,11 @@
 main{display:flex;flex-direction:column;gap:20px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:22px}
-.card h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16px;margin:0 0 10px}
+/* Section wayfinding is an uppercase micro-label closing on a 2px ink rule
+   (Claude Design 33), not display type — display scale belongs to the verdict. */
+.card h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;
+  font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink);margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink)}
 
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
 
@@ -19,16 +23,37 @@ main{display:flex;flex-direction:column;gap:20px}
 /* duel: two-up cards that STACK under 640px (a relayout, not a pan) */
 .framing{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:20px;font-weight:700;margin:2px 0 16px;text-wrap:balance}
 .duelcards{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch}
-.duelcards .vs{align-self:center;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+/* VS is ink, not brand red: red is spent on the kicker number, the verdict
+   figure and the one primary button (6b rule 6). Mockup 33 reds it; prod is
+   deliberately stricter. */
+.duelcards .vs{align-self:center;color:var(--ink);font-size:24px;font-weight:700;
+  text-transform:uppercase;letter-spacing:-.02em}
 .pickcard{font:inherit;font-size:17px;font-weight:600;color:var(--ink);text-align:left;
   background:var(--bg);border:1.5px solid var(--border);border-radius:0;padding:20px 18px;
-  min-height:88px;cursor:pointer;transition:border-color .1s,background .1s;overflow-wrap:anywhere}
+  min-height:88px;cursor:pointer;transition:border-color .1s,background .1s;overflow-wrap:anywhere;
+  display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 .pickcard:hover,.pickcard:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--bg));outline:none}
+.pickcard .ckick{font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  font-weight:500;color:var(--muted)}
+.pickcard .cname{font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.2;
+  overflow-wrap:anywhere}
+.pickcard .cpick{margin-top:auto;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  font-weight:700;color:var(--ink);border:1px solid var(--ink);padding:7px 15px}
+.pickcard:hover .cpick,.pickcard:focus-visible .cpick{background:var(--ink);color:var(--bg)}
 @media (max-width:640px){
   .duelcards{grid-template-columns:1fr}
-  .duelcards .vs{padding:2px 0}
+  .duelcards .vs{padding:2px 0;text-align:center}
 }
-.progress{color:var(--muted);font-size:12.5px;margin:16px 0 0;font-variant-numeric:tabular-nums}
+/* progress: uppercase micro over a plain ink hairline meter — no rounding, no gradient */
+.progress{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  margin:22px 0 8px;padding-top:13px;border-top:1px solid var(--border)}
+.progress .pnote,.progress .ppct{font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.ptrack{position:relative;height:2px;background:var(--border);border-radius:0}
+.pfill{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:0}
+@media (prefers-reduced-motion: no-preference){
+  .pfill{transition:width .2s}
+}
 
 /* readout — the verdict block itself is shared (assets/page.css .verdict-block) */
 .readcols{display:grid;grid-template-columns:1fr 1fr;gap:24px}

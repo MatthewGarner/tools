@@ -112,8 +112,10 @@
     font-weight:600;font-size:15px;color:var(--muted);text-align:right}
   .rrow .nm{font-size:14.5px;font-weight:500;display:flex;align-items:center;gap:7px;min-width:0}
   .rrow .nmtext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .knifepill{flex:none;display:none;font-size:10.5px;font-weight:600;letter-spacing:.02em;
-    padding:1px 7px;border-radius:0;white-space:nowrap;
+  /* house square status tag: tinted fill + coloured label + border, uppercase micro */
+  .knifepill{flex:none;display:none;font-size:10px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;padding:1px 7px;border-radius:0;white-space:nowrap;
+    border:1px solid color-mix(in srgb, var(--err) 45%, transparent);
     background:color-mix(in srgb, var(--err) 13%, transparent);color:var(--err)}
   .rrow.knife .knifepill{display:inline-block}
   .wslider{display:block;width:100%;margin:5px 0 0;height:18px;accent-color:var(--accent);cursor:pointer}
@@ -147,9 +149,16 @@
     box-shadow:inset 0 0 0 1.5px var(--card)}
   .ptop{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
   .ptop b{color:var(--ink);font-weight:600}
+  /* Section wayfinding is an uppercase micro-label over a 2px ink rule (mockup
+     32), not display type — the display scale on this page belongs to the
+     verdict alone. Where the metrics row sits directly above, it already closes
+     on that rule, so the heading drops its own rather than doubling it. */
   .khead{display:flex;gap:10px;align-items:baseline;justify-content:space-between;
-    flex-wrap:wrap;margin-bottom:14px}
-  .khead h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:18px;margin:0}
+    flex-wrap:wrap;margin-bottom:14px;border-top:2px solid var(--ink);padding-top:10px}
+  .metrics:not([hidden]) + .khead{border-top:none;padding-top:2px}
+  .khead h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;
+    font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);margin:0}
   .kpick{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
   .kpick input{width:52px;padding:4px 6px;font-size:13.5px;text-align:center}
   .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;

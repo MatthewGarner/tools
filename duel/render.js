@@ -6,13 +6,29 @@ import {active, impliedOrder, settledness, loops, budget} from './engine.js';
 const loserOf = x => x.w === x.a ? x.b : x.a;
 const NUM = {2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight'};
 
+/* The running state's anatomy (Swiss 6c, Claude Design file 33): each card is a
+   CONTENDER kicker over the name over a PICK affordance; the progress line is an
+   uppercase micro on a plain ink hairline meter. DOM text stays sentence case —
+   the CSS does the uppercasing, so copy-for-a-doc and AT read normal words.
+   `budget(n)` is exact for n ≤ 7 (a full round robin) and an estimate above it,
+   so the "~" and the note only claim what is true. */
 export function renderDuel(state, pair){
   const n = state.items.length;
   const activeCount = active(state.duels).length;
-  const card = i => '<button class="pickcard" data-pick="' + i + '">' + esc(state.items[i]) + '</button>';
+  const total = budget(n);
+  const exact = n <= 7;
+  const pct = Math.max(0, Math.min(100, Math.round(activeCount / total * 100)));
+  const card = i => '<button class="pickcard" data-pick="' + i + '">' +
+    '<span class="ckick">Contender</span>' +
+    '<span class="cname">' + esc(state.items[i]) + '</span>' +
+    '<span class="cpick">Pick</span></button>';
   return '<p class="framing">' + esc(state.q || 'Which comes first?') + '</p>' +
-    '<div class="duelcards">' + card(pair[0]) + '<span class="vs">or</span>' + card(pair[1]) + '</div>' +
-    '<p class="progress">duel ' + (activeCount + 1) + ' of ~' + budget(n) + '</p>';
+    '<div class="duelcards">' + card(pair[0]) + '<span class="vs">vs</span>' + card(pair[1]) + '</div>' +
+    '<div class="progress"><span class="pnote">Duel ' + (activeCount + 1) + ' of ' +
+      (exact ? '' : '~') + total + ' · ' +
+      (exact ? 'every pair meets once' : 'the most informative pairs first') + '</span>' +
+      '<span class="ppct">' + pct + '% complete</span></div>' +
+    '<div class="ptrack"><div class="pfill" style="width:' + pct + '%"></div></div>';
 }
 
 export function renderOrder(state){

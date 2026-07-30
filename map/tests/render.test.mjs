@@ -22,7 +22,11 @@ test('assumptions map renders zones, cards, axes, verdict', () => {
   assert.ok(svg.startsWith('<svg'));
   assert.ok(svg.includes('data-plane'));
   assert.ok(svg.includes('TEST FIRST'));
-  assert.ok(svg.includes('Evidence'));
+  /* axis names print LITERALLY uppercase with absolute tracking (Swiss 6c) —
+     a CSS text-transform would not survive the export */
+  assert.match(svg, /letter-spacing="1\.80"[^>]*>EVIDENCE</);
+  assert.ok(!/>Evidence</.test(svg), 'no sentence-case axis label left in the plane');
+  assert.ok(svg.includes('data-raw="Evidence"'), 'the rewrite still carries the author’s own casing');
   assert.ok(svg.includes('data-edit="label"'));
   assert.ok(svg.includes('sit in test first'));
   assert.ok(!svg.includes('NaN'));
@@ -94,28 +98,48 @@ test('nudge: fixed obstacles never move; free boxes move off them', () => {
   assert.ok(!overlap);
 });
 
+/* Swiss 6c dropped the visible capsule rect (Claude Design 34: bare marker +
+   label). The capsule GEOMETRY is unchanged and still drives nudge and the hit
+   box, so these tests reconstruct it from the label baseline it prints on:
+   the label sits cardPadX (8) in from the box's left edge and 6px up from its
+   bottom, and the box is cardH (20) tall. */
+const CAP_H = 20, CAP_PAD_X = 8, CAP_BASE_UP = 6;
+const capsuleFromLabel = (x, base) => ({x: x - CAP_PAD_X, y: base + CAP_BASE_UP - CAP_H, h: CAP_H});
+
 test('zone labels are nudge obstacles: a card authored on a zone label moves off it', () => {
   /* futures: cell label sits at the cell centre; author a card exactly there */
   const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
   const label = svg.match(/<g data-edit="zonename"[^>]*data-zone="c:1,1"[^>]*><text x="([\d.]+)" y="([\d.]+)"/);
-  const cap = svg.match(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx=/);
-  assert.ok(label && cap);
-  /* capsule vertical span must not contain the label baseline */
-  const [ly] = [+label[2]];
-  const capY = +cap[2], capH = +cap[4];
-  assert.ok(ly < capY - 2 || ly > capY + capH + 2, 'label baseline inside capsule');
+  const item = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"/);
+  assert.ok(label && item);
+  const cap = capsuleFromLabel(+item[1], +item[2]);
+  /* the item's box must not contain the zone label's baseline */
+  const ly = +label[2];
+  assert.ok(ly < cap.y - 2 || ly > cap.y + cap.h + 2, 'zone label baseline inside the item box');
 });
 
-test('authored positions unchanged by nudge: dots stay at exact coordinates', () => {
-  /* two items at the same spot: capsules separate, both dots at the same cx/cy */
+test('authored positions unchanged by nudge: markers stay at exact coordinates', () => {
+  /* two items at the same spot: labels separate, both diamonds at the same centre */
   const svg = run('x: A\ny: B\nOne @ 50,50\nTwo @ 50,50');
-  const dots = [...svg.matchAll(/<circle[^>]*cx="([\d.]+)" cy="([\d.]+)"/g)].map(m => m[1] + ',' + m[2]);
-  assert.equal(new Set(dots).size, 1);
+  const marks = [...svg.matchAll(/transform="rotate\(45 ([\d.]+) ([\d.]+)\)"/g)].map(m => m[1] + ',' + m[2]);
+  assert.equal(marks.length, 2, 'one diamond marker per placed item');
+  assert.equal(new Set(marks).size, 1);
 });
 
-test('flagged items get the err stroke on the capsule', () => {
+test('flagged items are marked by shape AND colour, never colour alone', () => {
   const svg = run('preset: assumptions\nUntested bet @ 20,80');
-  assert.ok(/<rect[^>]*stroke="#b33"/.test(svg));
+  /* the err-inked label … */
+  const lab = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"[^>]*fill="#b33"/);
+  assert.ok(lab, 'flagged label carries the err hue');
+  /* … plus a rule under it, which is what survives greyscale and colour-blindness */
+  const rule = new RegExp('<rect x="' + lab[1] + '" y="' + (+lab[2] + 3).toFixed(2) +
+    '" width="[\\d.]+" height="2\\.00" fill="#b33"/>');
+  assert.match(svg, rule);
+  /* and the marker itself is err-inked */
+  assert.match(svg, /<rect [^>]*fill="#b33" transform="rotate\(45 /);
+  /* an unflagged item gets neither */
+  const clean = run('preset: assumptions\nSettled bet @ 20,80 :: test: five interviews');
+  assert.ok(!/height="2\.00" fill="#b33"/.test(clean));
 });
 
 test('placed cards carry data-edit="cardmenu" with a >=44px data-hit rect as the first child; tray items do not', () => {
@@ -144,16 +168,18 @@ test('edit mode: tray items become cardmenu triggers (Place on map… is the coa
   assert.equal(h, 26);
 });
 
-test('cardmenu hit rect is centred on the capsule, not the authored dot', () => {
-  /* futures preset nudges cards off zone labels, so capsule != dot for this item */
+test('cardmenu hit rect is centred on the label box, not the authored marker', () => {
+  /* futures preset nudges cards off zone labels, so the box != the marker here */
   const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
-  const capsule = svg.match(/<g data-edit="cardmenu"[\s\S]*?<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="20" rx="0"/);   // Swiss 3b: squared
+  const item = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"/);
   const hit = svg.match(/<rect data-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
-  assert.ok(capsule && hit);
-  const capCentreY = +capsule[2] + 10;             // capsule height is 20
+  assert.ok(item && hit);
+  const cap = capsuleFromLabel(+item[1], +item[2]);
   const hitCentreY = +hit[2] + (+hit[4]) / 2;
-  assert.ok(Math.abs(capCentreY - hitCentreY) < 0.5, 'hit rect must centre on the capsule centre');
-  assert.equal(+hit[3], +capsule[3], 'hit rect spans the full capsule width');
+  assert.ok(Math.abs(cap.y + cap.h / 2 - hitCentreY) < 0.5, 'hit rect must centre on the label box centre');
+  /* left edge: the padding strip the suites tap to open the menu without
+     landing on a glyph must still exist */
+  assert.ok(Math.abs(+hit[1] - cap.x) < 0.5, 'hit rect starts one card-padding left of the label');
 });
 
 test('plane-level widens: axis, zonename and additem targets get a >=44px invisible box, no data-hit', () => {
