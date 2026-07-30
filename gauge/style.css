@@ -1,6 +1,6 @@
 .wrap.narrow{max-width:var(--w-form);margin:0 auto;padding:0 20px}
-.stitle{font-family:Charter,Georgia,serif;font-size:24px;margin:18px 0 4px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+.stitle{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:24px;margin:18px 0 4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:18px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
@@ -8,7 +8,7 @@
 details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
 details.syntax summary{cursor:pointer;font-size:12.5px}
 details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
-  background:var(--bg);padding:1px 5px;border-radius:4px}
+  background:var(--bg);padding:1px 5px;border-radius:0}
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;min-height:44px;padding:10px 22px}
@@ -22,7 +22,7 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .statusline.err{color:var(--err)}
 .headline{color:var(--accent-ink);font-size:14.5px;font-weight:600;margin:10px 0 0}
 .headline:empty{display:none}
-.viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:999px;
+.viewtoggle{display:inline-flex;border:1px solid var(--border);border-radius:0;
   overflow:hidden;margin-bottom:12px}
 .viewtoggle button{border:none;background:none;color:var(--muted);cursor:pointer;
   font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 16px}
@@ -31,15 +31,15 @@ details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 
 /* ---- the form (participant + compose preview) ---- */
 .formpreview{max-width:var(--w-form)}
-.gform .q{background:var(--card);border:1px solid var(--border);border-radius:8px;
+.gform .q{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:16px 18px;margin:0 0 14px}
 .qtext{margin:0 0 12px;font-size:15.5px;font-weight:600}
-.qnum{display:inline-block;min-width:22px;height:22px;border-radius:999px;background:var(--track);
+.qnum{display:inline-block;min-width:22px;height:22px;border-radius:0;background:var(--track);
   color:var(--muted);font-size:12px;font-weight:600;text-align:center;line-height:22px;
   margin-right:10px}
 .probrow{display:flex;align-items:center;gap:14px}
 .probrow input[type=range]{flex:1;accent-color:var(--accent);--fill:50%;
-  -webkit-appearance:none;appearance:none;height:6px;border-radius:3px;
+  -webkit-appearance:none;appearance:none;height:6px;border-radius:0;
   background:linear-gradient(90deg,var(--accent) var(--fill),var(--track) var(--fill))}
 .probrow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
   width:24px;height:24px;border-radius:50%;background:var(--accent);
@@ -54,16 +54,16 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .anchors{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:4px}
 .rangerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rangerow input[type=number]{width:110px;flex:1 1 90px;min-width:0;max-width:150px;font:inherit;font-size:14px;color:var(--ink);
-  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 10px}
+  background:var(--bg);border:1px solid var(--border);border-radius:0;padding:7px 10px}
 .rangerow .to{color:var(--muted);font-size:13px}
 .rangerow .unit{color:var(--muted);font-size:13px}
 /* chips allocation rows: 44px steppers, 16px input (no iOS zoom) */
 .chiprow{display:flex;align-items:center;gap:10px;margin:8px 0}
 .chiprow .chipopt{flex:1;min-width:0;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
-.chipstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;
+.chipstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:0;
   background:var(--card);color:var(--ink);font-size:20px;line-height:1;cursor:pointer;flex:none}
 .chiprow input[type=number]{width:4.5rem;text-align:center;font:inherit;font-size:16px;color:var(--ink);
-  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;min-height:44px}
+  background:var(--bg);border:1px solid var(--border);border-radius:0;padding:8px;min-height:44px}
 .chipsleft{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
 .chipsleft.over{color:var(--err)}
 .hint{color:var(--muted);font-size:12px;margin:8px 0 0}
@@ -71,7 +71,7 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .q.haserr{border-color:var(--err)}
 .namefield label{font-size:13.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
 .namefield input{flex:1;font:inherit;font-size:14px;color:var(--ink);background:var(--bg);
-  border:1px solid var(--border);border-radius:6px;padding:7px 10px}
+  border:1px solid var(--border);border-radius:0;padding:7px 10px}
 .pintro{color:var(--muted);font-size:14px;margin:4px 0 18px;max-width:60ch}
 
 /* ---- console ---- */
@@ -79,7 +79,7 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .sharelabel{margin:0 0 8px;font-size:13.5px;font-weight:600}
 .linkrow{display:flex;gap:8px}
 .linkrow input{flex:1;font:12.5px ui-monospace,Menlo,monospace;color:var(--muted);
-  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+  background:var(--bg);border:1px solid var(--border);border-radius:0;padding:8px 10px}
 .qcounts{margin:6px 0 0;padding:0;list-style:none;font-size:13.5px;color:var(--muted)}
 .qcounts li{padding:3px 0}
 .qcounts b{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -108,22 +108,22 @@ body[data-mode="console"] header h1{font-size:22px}
 .qhead .qnum{align-self:center}
 .qtitle{flex:1 1 auto;min-width:8ch;overflow-wrap:anywhere}
 .qtypepill{flex:none;font-size:11px;font-weight:600;letter-spacing:.02em;
-  padding:3px 10px;border-radius:999px;line-height:1.5;cursor:pointer;
+  padding:3px 10px;border-radius:0;line-height:1.5;cursor:pointer;
   color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 13%,transparent)}
 .qtypepill:hover{text-decoration:none;background:color-mix(in srgb,var(--accent) 22%,transparent)}
 .qhead .qdel{margin-left:auto;flex:none;color:var(--muted);cursor:pointer;
-  font-size:17px;line-height:1;padding:2px 8px;border-radius:6px;font-weight:400}
+  font-size:17px;line-height:1;padding:2px 8px;border-radius:0;font-weight:400}
 .qhead .qdel:hover{color:var(--err);text-decoration:none;
   background:color-mix(in srgb,var(--err) 10%,transparent)}
 /* editable unit — a pill in the rangerow; ghost when the unit is missing */
-.unitpill{cursor:pointer;font-size:12.5px;padding:3px 10px;border-radius:999px;line-height:1.5;
+.unitpill{cursor:pointer;font-size:12.5px;padding:3px 10px;border-radius:0;line-height:1.5;
   color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 13%,transparent)}
 .unitpill:hover{text-decoration:none;background:color-mix(in srgb,var(--accent) 22%,transparent)}
 .unitpill.ghost{color:var(--muted);background:none;border:1.5px dashed var(--border);font-style:italic}
 .unitpill.ghost:hover{color:var(--accent-ink);border-color:var(--accent);background:none}
 /* per-option remove (× shown only above the 2-option floor) */
 .chiprow .rmopt{flex:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;
-  padding:2px 6px;border-radius:6px}
+  padding:2px 6px;border-radius:0}
 .chiprow .rmopt:hover{color:var(--err);text-decoration:none;
   background:color-mix(in srgb,var(--err) 10%,transparent)}
 /* the editable label shares its row with 4 controls (−/input/+/×) — wrap at
@@ -131,11 +131,11 @@ body[data-mode="console"] header h1{font-size:22px}
 .chipopt[data-edit]{cursor:pointer;overflow-wrap:break-word}
 /* ghost capsules: ＋ Add option (per chips question) and ＋ Add question (form) */
 .addopt{display:inline-block;margin:2px 0 2px 32px;padding:6px 12px;font-size:12.5px;font-weight:600;
-  color:var(--muted);cursor:pointer;border:1.5px dashed var(--border);border-radius:8px}
+  color:var(--muted);cursor:pointer;border:1.5px dashed var(--border);border-radius:0}
 .addopt:hover{color:var(--accent-ink);border-color:var(--accent);text-decoration:none}
 .gform .addq{display:block;width:100%;margin-top:4px;padding:11px;font-family:inherit;text-align:center;
   font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
-  border:1.5px dashed var(--border);border-radius:8px}
+  border:1.5px dashed var(--border);border-radius:0}
 .gform .addq:hover{color:var(--accent-ink);border-color:var(--accent);text-decoration:none}
 /* Fingers: every authoring control clears the 44px tap floor. The text/option
    targets grow their hit box; the eip input's own 16px floor lives in

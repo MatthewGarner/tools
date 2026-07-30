@@ -4,8 +4,8 @@
    though the frame is wide; board + register (which shares #wizardview) use the space */
 #workspace[data-view="wizard"] #wizardview{max-width:var(--w-focus);margin-inline:auto}
 main{display:flex;flex-direction:column;gap:20px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:22px}
-.card h2,.phase h2{font-family:Charter,Georgia,serif;font-size:18px;margin:0 0 4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;box-shadow:var(--shadow);padding:22px}
+.card h2,.phase h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:18px;margin:0 0 4px}
 .phint{color:var(--muted);font-size:13.5px;margin:8px 0 16px;max-width:70ch}
 .phint b{color:var(--ink);font-weight:600}
 .method{color:var(--muted);font-size:12.5px}
@@ -13,7 +13,7 @@ main{display:flex;flex-direction:column;gap:20px}
 /* phase rail — text labels + current/done state (never colour-alone) */
 .phaserail{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
 .phaserail li{font-size:11.5px;font-weight:600;letter-spacing:.03em;color:var(--muted);
-  padding:6px 10px;border:1px solid var(--border);border-radius:20px;background:var(--card);cursor:pointer;
+  padding:6px 10px;border:1px solid var(--border);border-radius:0;background:var(--card);cursor:pointer;
   min-height:34px;display:inline-flex;align-items:center;gap:5px}
 .phaserail li.done{color:var(--accent-ink)}
 .phaserail li.done::before{content:"✓";color:var(--accent)}
@@ -23,26 +23,26 @@ main{display:flex;flex-direction:column;gap:20px}
 /* toolbar: view toggle (Wizard / Board / Register) + always-visible undo */
 .toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .toolbar .viewtoggle{margin-right:auto}
-.viewtoggle{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:10px}
-.vtseg{font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:6px 16px;border:0;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+.viewtoggle{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:0}
+.vtseg{font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:6px 16px;border:0;border-radius:0;background:transparent;color:var(--muted);cursor:pointer}
 .vtseg.on{background:var(--accent);color:var(--card)}
 
 /* FAB board — Facts / Assumptions / Beliefs, three columns onto the same doc */
 .board{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
-.bcolh{font-family:Charter,Georgia,serif;font-size:15px;margin:0}
+.bcolh{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:15px;margin:0}
 .bcolhint{color:var(--muted);font-size:12px;margin:0;min-height:2.6em}
 .bcards{display:flex;flex-direction:column;gap:8px}
-.bcard{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.bcard{background:var(--bg);border:1px solid var(--border);border-radius:0;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .bcard.fact{border-style:dashed}                          /* facts are settled — quieter mark */
 .bchead{display:flex;align-items:flex-start;gap:8px}
 .bctext{flex:1;overflow-wrap:anywhere;font-size:14px}
-.bcdel{flex:0 0 auto;width:32px;height:32px;border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px}
+.bcdel{flex:0 0 auto;width:32px;height:32px;border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;border-radius:0}
 .bconf,.promoteform .scin{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .bconf label,.promoteform label{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
 .bconf input[type=number],.promoteform input[type=number]{width:3.6rem}
 .bcpromote{align-self:flex-start;font-size:12.5px;padding:6px 10px}
-.badd{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:9px 11px}
+.badd{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px dashed var(--border);border-radius:0;padding:9px 11px}
 .promoteform{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:8px}
 .pfhint{font-size:12px;color:var(--muted);margin:0}
 .pfbtns{display:flex;gap:8px;flex-wrap:wrap}
@@ -51,23 +51,23 @@ main{display:flex;flex-direction:column;gap:20px}
 /* generic inputs */
 .fl{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 0}
 .fl input{display:block;width:100%;margin-top:6px;font:inherit;font-size:16px;color:var(--ink);
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-transform:none;letter-spacing:0}
+  background:var(--bg);border:1px solid var(--border);border-radius:0;padding:10px 12px;text-transform:none;letter-spacing:0}
 .inlinelabel{display:inline-flex;align-items:center;gap:8px;text-transform:uppercase}
 .inlinelabel input{display:inline-block;width:auto;margin:0;font-size:16px}
 [data-add="entry"]{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);
-  border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+  border:1px solid var(--border);border-radius:0;padding:10px 12px;margin-bottom:12px}
 input[type=number]{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--border);
-  border-radius:6px;padding:7px 8px;width:4.5rem;text-align:center}
-select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+  border-radius:0;padding:7px 8px;width:4.5rem;text-align:center}
+select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:0;padding:6px 8px}
 
 /* COLLECT */
 .clist,.cllist{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .centry{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
 .ctext{flex:1;min-width:140px;overflow-wrap:anywhere}
 .lexicon{display:flex;gap:6px}
-.lexbtn{font:inherit;font-size:11.5px;min-height:34px;padding:4px 10px;border:1px dashed var(--border);border-radius:16px;background:var(--card);color:var(--muted);cursor:pointer}
+.lexbtn{font:inherit;font-size:11.5px;min-height:34px;padding:4px 10px;border:1px dashed var(--border);border-radius:0;background:var(--card);color:var(--muted);cursor:pointer}
 .lexbtn.on{border-style:solid;border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-.cdel,.acdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--muted);font-size:18px;cursor:pointer}
+.cdel,.acdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:0;background:var(--card);color:var(--muted);font-size:18px;cursor:pointer}
 
 /* CLUSTER */
 .clrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
@@ -81,21 +81,21 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .acrow{padding:12px 0;border-bottom:1px solid var(--border)}
 .acrisk{font-weight:600;margin:0 0 8px}
 .acitem{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.acitem input{flex:1;min-width:120px;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.acitem input{flex:1;min-width:120px;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:0;padding:8px 10px}
 .acitem input[data-action="owner"]{flex:0 0 8rem}
 
 /* VOTE */
 .vrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
 .vtext{flex:1;overflow-wrap:anywhere}
 .vrow.topvote .vtext{color:var(--accent-ink);font-weight:600}
-.vstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--ink);font-size:20px;cursor:pointer}
+.vstep{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:0;background:var(--card);color:var(--ink);font-size:20px;cursor:pointer}
 .vcount{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:700;min-width:1.5em;text-align:center}
 
 /* REGISTER — the kept artefact: a light header zone, then a data table that
    sizes to its content and centres (leftover width is margin, not sparse columns) */
 .reghead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:2px 0 12px}
 .regplane{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
-.regsubject{font-family:Charter,Georgia,"Times New Roman",serif;font-size:16px;color:var(--ink)}
+.regsubject{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16px;color:var(--ink)}
 .registerwrap{overflow-x:auto;margin-top:4px}
 /* columns stay tight (scannable): the metric columns minimise to content and
    group tight-right, RISK caps at a reading measure. The table sizes to content
@@ -112,16 +112,16 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .rtext{max-width:58ch;overflow-wrap:anywhere}
 .rp{font-variant-numeric:tabular-nums;white-space:nowrap}
 .rexp b{font-variant-numeric:tabular-nums}
-.band{display:block;position:relative;height:5px;background:var(--track);border-radius:3px;margin:4px 0 2px}
-.bandfill{position:absolute;top:0;height:5px;background:var(--accent);border-radius:3px}
+.band{display:block;position:relative;height:5px;background:var(--track);border-radius:0;margin:4px 0 2px}
+.bandfill{position:absolute;top:0;height:5px;background:var(--accent);border-radius:0}
 .bandtext{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rrow.ageing{opacity:.82}
 .rrow.stale{opacity:.55}
 .rstale{white-space:nowrap;color:var(--muted);font-size:12px}
-.statuspill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:12px;background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--ink)}
+.statuspill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:0;background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--ink)}
 .statuspill.mitigating{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent-ink)}
 .statuspill.closed{background:color-mix(in srgb,var(--st-done,#1D7A3E) 15%,transparent);color:var(--st-done-ink,#1C753C)}
-.tagchip{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:10px;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
+.tagchip{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:0;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
 .tagchip.tiger{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--st-blocked-ink,#B3403A)}
 .tagchip.paper-tiger{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
 .tagchip.elephant{background:color-mix(in srgb,var(--st-risk,#9A6A00) 15%,transparent);color:var(--st-risk-ink,#8E6200)}
@@ -141,7 +141,7 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .savedrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
 .savedrow .stitle{flex:1;font-weight:600;cursor:pointer;overflow-wrap:anywhere}
 .savedrow .smeta{color:var(--muted);font-size:12.5px}
-.savedrow .sdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer}
+.savedrow .sdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:0;background:var(--card);color:var(--muted);cursor:pointer}
 .savedempty{color:var(--muted);font-size:14px}
 
 footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}

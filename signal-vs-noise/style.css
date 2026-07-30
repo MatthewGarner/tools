@@ -2,7 +2,7 @@
    Shared bits come from tokens/page/about/controls/mobile.css. */
 .wrap{max-width:var(--w-instrument);margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
 header{display:flex;flex-direction:column;gap:2px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:20px}
 
 /* the play grid / collapse SVG: fill the card, scale to width, never sideways-scroll
@@ -21,10 +21,10 @@ header{display:flex;flex-direction:column;gap:2px}
 
 /* between-turn reveal — how your conversations "landed" (no truth yet) */
 #reveal{margin-top:18px;border-top:1px solid var(--border);padding-top:16px}
-#reveal h3{font-family:Charter,Georgia,serif;font-size:16px;margin:0 0 12px}
+#reveal h3{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16px;margin:0 0 12px}
 .rvl-none{color:var(--muted);font-size:13.5px;margin:0}
 .rvl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.rvl-card{border:1px solid var(--border);border-radius:7px;padding:12px 14px;background:var(--bg)}
+.rvl-card{border:1px solid var(--border);border-radius:0;padding:12px 14px;background:var(--bg)}
 .rvl-card.lesson{border-color:color-mix(in srgb,var(--err) 45%,var(--border))}
 .rvl-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .rvl-name{font-weight:650;font-size:13.5px}
@@ -37,7 +37,7 @@ header{display:flex;flex-direction:column;gap:2px}
 .rvl-led-h{font-weight:600}
 .rvl-ledger .chip{background:color-mix(in srgb,var(--err) 10%,transparent);
   border:1px solid color-mix(in srgb,var(--err) 35%,var(--border));
-  color:var(--err);border-radius:20px;padding:3px 11px;font-size:12px;font-weight:600}
+  color:var(--err);border-radius:0;padding:3px 11px;font-size:12px;font-weight:600}
 
 /* collapse — the wrong-lessons "flip" line above the replay controls */
 .lessons{font-size:14px;line-height:1.55;color:var(--ink);margin:0 0 16px;max-width:70ch}

@@ -72,7 +72,7 @@ export function renderDistributions({baseRate, dprime, t}, c, {w, h}){
     ' aria-valuemin="-3" aria-valuemax="6" aria-valuenow="' + r1(t) + '">');
   parts.push('<line x1="' + r1(tx) + '" y1="' + mt + '" x2="' + r1(tx) + '" y2="' + base +
     '" stroke="' + c.ink + '" stroke-width="1.5" stroke-dasharray="4 3"/>');
-  parts.push('<rect x="' + r1(tx - 6) + '" y="' + (mt - 4) + '" width="12" height="14" rx="3" fill="' + c.ink + '"/>');
+  parts.push('<rect x="' + r1(tx - 6) + '" y="' + (mt - 4) + '" width="12" height="14" rx="0" fill="' + c.ink + '"/>');
   parts.push(txt(tx, mt - 8, 'threshold ' + r1(t), 10, c.ink, {anchor: 'middle', weight: 600, halo: c.card}));
   parts.push('<rect data-hit="" x="' + r1(tx - 22) + '" y="' + mt + '" width="44" height="' + py +
     '" fill="' + c.bg + '" fill-opacity="0"/>');

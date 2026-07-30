@@ -6,7 +6,7 @@ import {verdict, delphiVerdict} from './engine.js';
 /* single-quoted family names: these stacks land inside double-quoted SVG
    attributes, where an embedded double quote is invalid XML (breaks PNG export) */
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-const SERIF = 'Charter,Georgia,serif';
+const SERIF = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";   // Swiss 3c
 const WIDE_W = 960, NARROW = 520, MIN_W = 300;   // 300 floor matches bets' narrow clamp
 const ROW_H = 24, DOT_STEP = 11, DOT_R = 4.5;
 
@@ -27,7 +27,7 @@ function niceTicks(lo, hi, target = 4){
 function pill(xRight, y, label, color, measure){
   const up = label.toUpperCase();
   const w = measure(up, '600 10px ' + SANS) + 16;
-  return '<rect x="' + (xRight - w) + '" y="' + y + '" width="' + w + '" height="18" rx="9" fill="' + tint(color) + '"/>' +
+  return '<rect x="' + (xRight - w) + '" y="' + y + '" width="' + w + '" height="18" rx="0" fill="' + tint(color) + '"/>' +
     '<text x="' + (xRight - w / 2) + '" y="' + (y + 12.5) + '" text-anchor="middle" font-size="10"' +
     ' font-weight="600" letter-spacing=".06em" fill="' + color + '">' + esc(up) + '</text>';
 }
@@ -194,7 +194,7 @@ function chipsPanel(q, s, cw, c, measure, narrow){
       yy = dy + (showNames ? 16 : 8);
       if(isStated){
         const sohW = measure('SHOW OF HANDS', '600 10px ' + SANS) + 16;
-        parts.push('<rect x="0" y="' + yy + '" width="' + sohW.toFixed(1) + '" height="18" rx="9" fill="none" stroke="' + c.ink + '"/>' +
+        parts.push('<rect x="0" y="' + yy + '" width="' + sohW.toFixed(1) + '" height="18" rx="0" fill="none" stroke="' + c.ink + '"/>' +
           '<text x="' + (sohW / 2).toFixed(1) + '" y="' + (yy + 12.5) + '" text-anchor="middle" font-size="10"' +
           ' font-weight="600" letter-spacing=".06em" fill="' + c.ink + '">SHOW OF HANDS</text>');
         yy += 24;
@@ -229,7 +229,7 @@ function chipsPanel(q, s, cw, c, measure, narrow){
     if(isStated){
       const vw = measure(votesLabel, '11px ' + SANS), sohW = measure('SHOW OF HANDS', '600 10px ' + SANS) + 16;
       const xR = cw - vw - 12;
-      parts.push('<rect x="' + (xR - sohW).toFixed(1) + '" y="' + (barY - 2) + '" width="' + sohW.toFixed(1) + '" height="18" rx="9" fill="none" stroke="' + c.ink + '"/>' +
+      parts.push('<rect x="' + (xR - sohW).toFixed(1) + '" y="' + (barY - 2) + '" width="' + sohW.toFixed(1) + '" height="18" rx="0" fill="none" stroke="' + c.ink + '"/>' +
         '<text x="' + (xR - sohW / 2).toFixed(1) + '" y="' + (barY + 10.5) + '" text-anchor="middle" font-size="10" font-weight="600" letter-spacing=".06em" fill="' + c.ink + '">SHOW OF HANDS</text>');
     }
     const dy = barY + barH + 11;
@@ -316,7 +316,7 @@ export function renderOverlay(model, stats, ctx, opts = {}){
       : probPanel(s, cw, c, dl, narrow, measure);
     const panelH = PP + headH + inner.h + PP;
     parts.push('<rect x="' + PAD + '" y="' + y + '" width="' + panelW + '" height="' + panelH +
-      '" rx="10" fill="' + c.card + '" stroke="' + c.border + '"/>');
+      '" rx="0" fill="' + c.card + '" stroke="' + c.border + '"/>');
     let ty = y + PP + 15 + pillRow;
     for(const lnText of qLines){
       parts.push('<text x="' + (PAD + PP) + '" y="' + ty + '" font-size="15" font-weight="600" fill="' +

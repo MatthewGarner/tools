@@ -4,9 +4,9 @@
    SVG measures on screen but exports pinned at DIST_W (alarm/app.js). */
 .wrap{max-width:var(--w-instrument);margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
 main{display:flex;flex-direction:column;gap:20px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+.card{background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:22px}
-.card h2{font-family:Charter,Georgia,serif;font-size:16px;margin:0 0 10px}
+.card h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16px;margin:0 0 10px}
 .cardintro{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:70ch}
 .cardintro b{color:var(--ink);font-weight:600}
 
@@ -31,7 +31,7 @@ main{display:flex;flex-direction:column;gap:20px}
   font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--ink);
   text-transform:none;letter-spacing:0}
 input[type=range]{width:100%;accent-color:var(--accent);--fill:50%;
-  -webkit-appearance:none;appearance:none;height:6px;border-radius:3px;
+  -webkit-appearance:none;appearance:none;height:6px;border-radius:0;
   background:linear-gradient(90deg,var(--accent) var(--fill),var(--track) var(--fill))}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
   width:22px;height:22px;border-radius:50%;background:var(--accent);
@@ -56,7 +56,7 @@ input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--acc
 /* natural-frequency 2x2 box + capsule chips */
 .fqbox{margin-top:18px}
 .fq-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.fq-cell{border:1px solid var(--border);border-radius:7px;padding:12px 14px;
+.fq-cell{border:1px solid var(--border);border-radius:0;padding:12px 14px;
   display:flex;flex-direction:column;gap:2px;background:var(--bg)}
 .fq-cell b{font-family:ui-monospace,Menlo,monospace;font-size:22px;font-weight:700;
   font-variant-numeric:tabular-nums;line-height:1}
@@ -64,7 +64,7 @@ input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--acc
 .fq-tp b{color:var(--accent-ink)} .fq-fp b{color:var(--st-risk-ink,#8E6200)}
 .fq-fn b{color:var(--st-blocked-ink,#B3403A)} .fq-tn b{color:var(--muted)}
 .fq-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.cap{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:20px;
+.cap{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:0;
   background:color-mix(in srgb,var(--accent) 12%,transparent);
   font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .cap i{font-style:normal;color:var(--accent-ink);font-weight:600;
@@ -74,13 +74,13 @@ input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--acc
 
 /* claim popover */
 .claim-pop{position:fixed;left:50%;top:20%;transform:translateX(-50%);z-index:20;
-  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  background:var(--card);border:1px solid var(--border);border-radius:0;
   box-shadow:var(--shadow);padding:18px 20px;max-width:340px;width:calc(100% - 40px)}
 .claim-pop p{margin:0 0 12px;font-size:13.5px;color:var(--muted)}
 .claim-row{display:flex;gap:14px;flex-wrap:wrap}
 .claim-row label{font-size:12.5px;color:var(--ink);display:flex;align-items:center;gap:6px}
 .claim-row input{width:64px;font-size:16px;padding:6px 8px;border:1px solid var(--border);
-  border-radius:6px;background:var(--bg);color:var(--ink);
+  border-radius:0;background:var(--bg);color:var(--ink);
   font-family:ui-monospace,Menlo,monospace}
 .claim-actions{display:flex;gap:10px;margin-top:16px}
 
