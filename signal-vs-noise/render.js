@@ -54,7 +54,7 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, w
     const cx = PAD + col * (cardW + gap), cy = gridTop + row * (cardH + gap);
     const now = s.shown[p][turn];
     parts.push('<rect x="' + f1(cx) + '" y="' + f1(cy) + '" width="' + f1(cardW) + '" height="' + cardH +
-      '" rx="8" fill="' + c.card + '" stroke="' + c.border + '"/>');
+      '" rx="0" fill="' + c.card + '" stroke="' + c.border + '"/>');
     parts.push(txt(cx + 11, cy + 20, s.names[p], 13, c.ink, {weight: 650}));
     parts.push(txt(cx + cardW - 11, cy + 20, String(now), 15, c.ink, {weight: 700, anchor: 'end'}));
     // mini run-chart quarters 0..turn

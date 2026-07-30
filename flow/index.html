@@ -21,7 +21,7 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/motion.css">
 <style>  .wrap{max-width:900px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  .card{background:var(--card);border:1px solid var(--border);border-radius:0;
     box-shadow:var(--shadow);padding:22px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
   .chip.on{border-color:var(--accent);color:var(--accent-ink)}
@@ -34,7 +34,7 @@
     font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--ink);
     text-transform:none;letter-spacing:0}
   input[type=range]{width:100%;accent-color:var(--accent);--fill:50%;
-    -webkit-appearance:none;appearance:none;height:6px;border-radius:3px;
+    -webkit-appearance:none;appearance:none;height:6px;border-radius:0;
     background:linear-gradient(90deg,var(--accent) var(--fill),var(--track) var(--fill))}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
     width:22px;height:22px;border-radius:50%;background:var(--accent);
@@ -42,11 +42,11 @@
   input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     background:var(--accent);border:2px solid var(--card)}
   input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:0;overflow:hidden}
   .seg button{border:none;background:none;color:var(--muted);cursor:pointer;
     font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px}
   .seg button.on{color:var(--card);background:var(--accent)}
-  .card h2{font-family:Charter,Georgia,serif;font-size:16px;margin:0 0 10px}
+  .card h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:16px;margin:0 0 10px}
   .cardintro{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:70ch}
   /* real HTML mirror of the readout SVG's headline sentence — screen readers
      get it via aria-live; sighted users get it too (never SVG-text-only) */
