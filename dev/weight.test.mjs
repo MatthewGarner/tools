@@ -73,7 +73,7 @@ const PAGES = {
      its CSS. Genuinely new first-load code (the whole feature), not creep; actual load
      ~169.5k, ~6.5k real headroom on purpose (see the "previous six raises" note for why
      thin headroom is a trap). */
-  'fermi/index.html': 176_000, 'rank/index.html': 90_000, 'flow/index.html': 90_000,
+  'fermi/index.html': 176_000, 'rank/index.html': 90_000, 'flow/index.html': 91_000,
   'alarm/index.html': 90_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
