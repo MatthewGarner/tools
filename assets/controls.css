@@ -6,12 +6,19 @@
    validation error text that doesn't need its own visible banner) */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.chip{font-size:12.5px;padding:4px 12px;border:1px solid var(--border);border-radius:999px;
+/* Swiss control language (Phase 1, 2026-07-30): square, 1px ink border, uppercase
+   micro labels; hover inverts to ink. Per-tool variants (.chip.on, .btn.primary,
+   .btn.danger) still win by source order until their Phase-3 sweeps. */
+.chip{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  padding:7px 13px;border:1px solid var(--ink);border-radius:0;
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
-.chip:hover{border-color:var(--accent);color:var(--accent-ink)}
-.btn{font-size:13.5px;padding:7px 16px;border:1px solid var(--border);border-radius:6px;
+.chip:hover{background:var(--ink);color:var(--bg)}
+.btn{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  padding:9px 16px;border:1px solid var(--ink);border-radius:0;
   background:none;color:var(--ink);cursor:pointer;font-family:inherit}
-.btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.btn:hover{background:var(--ink);color:var(--bg)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--ink);border-color:var(--ink)}
 
 /* Author display rules (flex/grid) must never defeat the hidden attribute —
    the trap that made gauge's export row visible pre-reveal (2026-07-05). */
@@ -28,14 +35,14 @@
   input[type="text"],input[type="number"],input:not([type]),textarea,.cm-content{font-size:16px!important}
 }
 @media (prefers-reduced-motion: no-preference){
-  .chip,.btn{transition:border-color .15s,color .15s}
+  .chip,.btn{transition:border-color .15s,color .15s,background-color .15s}
 }
 
 /* Home crumb: every tool page links back to the suite, top-left above the h1.
    Big enough for thumbs on coarse pointers. */
 .crumb{display:inline-block;font-size:12.5px;color:var(--muted);text-decoration:none;
-  margin-bottom:10px;border-radius:6px}
-.crumb:hover{color:var(--accent-ink)}
+  margin-bottom:10px;border-radius:0}
+.crumb:hover{color:var(--ink)}
 @media (pointer: coarse){
   .crumb{padding:10px 12px;margin:-10px 0 2px -12px}
 }
@@ -47,7 +54,7 @@
 .chips .lead{font-size:12.5px;color:var(--muted)}
 #warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
 .savedchip{display:inline-flex;align-items:stretch;border:1px solid var(--border);
-  border-radius:999px;overflow:hidden}
+  border-radius:0;overflow:hidden}
 .savedchip button{border:none;background:none;color:var(--ink);cursor:pointer;
   font-family:inherit;font-size:12.5px;padding:4px 6px 4px 12px}
 .savedchip button:hover{color:var(--accent-ink)}
