@@ -17,10 +17,10 @@
 <body>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
-  :root{--accent:#C05621;--accent-ink:#A34413}
+  :root{--accent:#B04E1E;--accent-ink:#A34413}
   @media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
   :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
-  :root[data-theme="light"]{--accent:#C05621;--accent-ink:#A34413}
+  :root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
   *{box-sizing:border-box}
   html,body{margin:0}
   body{
@@ -41,7 +41,7 @@
   @media (min-width:1000px){.tools{grid-template-columns:1fr 1fr}}
   a.tool{
     display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);
-    border-radius:10px;box-shadow:var(--shadow);overflow:hidden;
+    border-radius:0;box-shadow:var(--shadow);overflow:hidden;
     text-decoration:none;color:var(--ink);
   }
   a.tool:hover{border-color:var(--accent)}
@@ -53,12 +53,12 @@
   .thumb{display:block;width:100%;height:130px;background:var(--thumb);border-bottom:1px solid var(--border)}
   .thumb svg{display:block;width:100%;height:100%}
   .tbody{padding:15px 20px 18px}
-  .tool h2{font-family:Charter,Georgia,serif;font-size:19px;margin:0 0 4px;
+  .tool h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:19px;margin:0 0 4px;
     display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
   .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     font-size:11.5px;font-weight:600;color:var(--accent-ink);
     background:color-mix(in srgb, var(--accent) 12%, transparent);
-    border-radius:999px;padding:2px 9px}
+    border-radius:0;padding:2px 9px}
   .tool p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:60ch}
   .tool .go{color:var(--accent-ink);font-size:13.5px;font-weight:600;margin-top:10px;display:inline-block}
   .tool:hover .go{text-decoration:underline}

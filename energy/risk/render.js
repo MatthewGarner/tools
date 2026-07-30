@@ -5,7 +5,7 @@ import {esc, txt, tint, wrapText, editTarget, btnAttrs} from '../../assets/svg.j
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict} from './engine.js';
 
-const FONT = 'Charter,Georgia,serif';
+const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString();
 
 /* nice axis ticks: ≤6 steps of 1/2/5×10^k */
