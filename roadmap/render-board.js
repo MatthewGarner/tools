@@ -308,16 +308,16 @@ export function renderBoardLive(model, ctx){
       cy += card.h + 12;
     }
     if(!list.length){
-      groupSvg.push(rect(x, colTop, COLW, 70, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
+      groupSvg.push(rect(x, colTop, COLW, 70, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));
       groupSvg.push(txt(x + COLW / 2, colTop + 40, 'Nothing scheduled', 13, C.muted, {anchor: 'middle'}));
       cy = colTop + 70 + 12;
     }
     if(edit){
-      groupSvg.push('<g opacity="0.75"><rect x="' + x + '" y="' + cy + '" width="' + COLW + '" height="26" rx="6" fill="none" stroke="' +
+      groupSvg.push('<g opacity="0.75"><rect x="' + x + '" y="' + cy + '" width="' + COLW + '" height="26" rx="0" fill="none" stroke="' +
         C.border + '" stroke-dasharray="2 3"/>' +
         '<text data-edit="additem" data-lane="" data-col="' + esc(hs[h]) + '" data-line="-1" data-raw="" x="' + (x + 12) +
-        '" y="' + (cy + 17) + '" font-size="11" font-weight="600" fill="' + C.muted + '"' +
-        btnAttrs('Add item to ' + hs[h]) + '>＋ add to ' + esc(hs[h]) + '</text></g>');
+        '" y="' + (cy + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' +
+        btnAttrs('Add item to ' + hs[h]) + '>＋ ADD TO ' + esc(hs[h].toUpperCase()) + '</text></g>');
       cy += 26;
     }
     // band UNDER the cards (A2): emitted before groupSvg in the top-level parts

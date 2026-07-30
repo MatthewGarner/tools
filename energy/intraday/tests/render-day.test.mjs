@@ -373,7 +373,7 @@ test('renderDay: forExport adds the page bg + chart card, a date (only with ctx.
   const r = runDay(p);
   const svg = renderDay(r, p, {...ctxAt(900), today: '10 Jul 2026'}, {forExport: true});
   assert.match(svg, /<rect x='0' y='0' width='900'[^>]*fill='#[0-9a-fA-F]{6}'\/>/, 'page bg rect');
-  assert.match(svg, /<rect x='100'[^>]*rx='8' fill='#[0-9a-fA-F]{6}' stroke='#[0-9a-fA-F]{6}'\/>/, 'chart-card rect (plot-left − 16 = 100)');
+  assert.match(svg, /<rect x='100'[^>]*rx='0' fill='#[0-9a-fA-F]{6}' stroke='#[0-9a-fA-F]{6}'\/>/, 'chart-card rect (plot-left − 16 = 100)');
   assert.match(svg, /text-anchor="end"[^>]*>10 Jul 2026<\/text>/, 'date top-right when ctx.today is a string');
   assert.match(svg, /spread £\d+ · trough \d\d:00 · peak \d\d:00 · fleet 6 GW/, 'metrics line (fleet term present)');
   const noDate = renderDay(r, p, ctxAt(900), {forExport: true});

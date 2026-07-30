@@ -55,7 +55,7 @@ function doRefresh(){
   const {dots, counts} = classify(POP, p);
   lastCounts = counts;
 
-  lastDistW = distwrap.clientWidth || DIST_W;   // native at the container width (legible on phones, not a shrunk 900); export stays pinned at DIST_W
+  lastDistW = Math.max(distwrap.clientWidth || DIST_W, 520);   // native at the container width, floored at 520 (style.css min-width: the phone PANS instead of compressing labels); export stays pinned at DIST_W
   const distSvg = renderDistributions(p, C, {w: lastDistW, h: DIST_H});
   distPaint(distSvg, REVEAL); lastDistSvg = distSvg;   // curves draw on first load; later renders just swap
 

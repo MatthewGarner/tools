@@ -14,6 +14,15 @@ function clean(el, cls){ el.classList.remove(cls); el.style.removeProperty('--mo
 export function revealIn(container, spec = {}, onPlay){
   if(reducedMotion.matches){ if(onPlay) onPlay(); return; }   // instant, no animation, count as revealed
   const svg = container.querySelector('svg'); if(!svg){ if(onPlay) onPlay(); return; }
+  /* An element ENTIRELY outside the viewport at arm time paints plain (counted
+     revealed): arming it paused held below-fold boards at opacity 0 — intraday's
+     phone charts shipped BLANK in every first paint/screenshot (2026-07-30).
+     Zero-box elements (views behind a tab) keep the armed path. */
+  const box = container.getBoundingClientRect();
+  const vh = innerHeight || document.documentElement.clientHeight;
+  if(box.width > 0 && box.height > 0 && (box.top >= vh || box.bottom <= 0)){
+    if(onPlay) onPlay(); return;
+  }
   const drawn = (spec.draw ? [...svg.querySelectorAll(spec.draw)] : [])
     .filter(el => el.getTotalLength && !el.getAttribute('stroke-dasharray'))
     .slice(0, 12);

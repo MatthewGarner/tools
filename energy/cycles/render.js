@@ -73,7 +73,7 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
       '\' data-raw=\'' + esc(opts.raw) + '\' data-field=\'' + opts.field + '\' style=\'cursor:text\'' +
       ' tabindex=\'0\' role=\'button\' aria-label=\'Edit ' + esc(label) + '\'';
     parts.push('<g' + attrs + '><rect x=\'' + x.toFixed(1) + '\' y=\'' + y + '\' width=\'' + w.toFixed(1) +
-      '\' height=\'22\' rx=\'11\' fill=\'' + tint(opts.col || accent) + '\'/>' +
+      '\' height=\'22\' rx=\'0\' fill=\'' + tint(opts.col || accent) + '\'/>' +
       txt(x + 10, y + 15, label, 12, opts.col || C.ink, {weight: 600}) + '</g>');
     return w + 8;
   };
@@ -87,7 +87,7 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
     const w = 20 + wKey + wLo + (single ? 0 : wDots + wHi);
     const at = place(w); if(at){ x = at[0]; y = at[1]; }
     parts.push('<rect x=\'' + x.toFixed(1) + '\' y=\'' + y + '\' width=\'' + w.toFixed(1) +
-      '\' height=\'22\' rx=\'11\' fill=\'' + tint(accent) + '\'/>');
+      '\' height=\'22\' rx=\'0\' fill=\'' + tint(accent) + '\'/>');
     parts.push(txt(x + 10, y + 15, key, 12, C.muted, {weight: 600}));
     const gAttr = f => edit ? ' data-edit=\'num\' data-line=\'' + line + '\' data-raw=\'' + esc(f.raw) +
       '\' data-field=\'' + f.field + '\' style=\'cursor:text\' tabindex=\'0\' role=\'button\'' +
@@ -120,13 +120,13 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
     const cx = 48, cw = W - 96, cap = 36;
     parts.push(editTarget(
       '<rect x=\'' + cx + '\' y=\'' + (y + 44) + '\' width=\'' + cw + '\' height=\'' + cap +
-        '\' rx=\'10\' fill=\'none\' stroke=\'' + C.border + '\' stroke-dasharray=\'3 4\'/>' +
+        '\' rx=\'0\' fill=\'none\' stroke=\'' + C.border + '\' stroke-dasharray=\'3 4\'/>' +
       txt(cx + cw / 2, y + 44 + cap / 2 + 4, '＋ Add ' + label, 13, C.muted, {anchor: 'middle', weight: 600}),
       {x: cx, y: y + 40, w: cw, h: 44, bg: C.bg},
       {kind: 'addkey', line: -1, raw: '', extra: 'data-key="' + key + '"', label: 'Add ' + label}));
   };
   const card = (y, h, ghost = false) => parts.push('<rect x=\'24\' y=\'' + y + '\' width=\'' + (W - 48) +
-    '\' height=\'' + h + '\' rx=\'8\' fill=\'' + (ghost ? 'none' : C.card) + '\' stroke=\'' + C.border +
+    '\' height=\'' + h + '\' rx=\'0\' fill=\'' + (ghost ? 'none' : C.card) + '\' stroke=\'' + C.border +
     '\'' + (ghost ? ' stroke-dasharray=\'6 4\'' : '') + '/>');
   const verdictLines = (y, text, width) =>
     wrapText(text, '15px ' + FONT, width, ctx.measure).map((l, i) => {
@@ -201,7 +201,7 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
     parts.push('<line x1=\'' + tauX.toFixed(1) + '\' y1=\'' + (ry - 6) + '\' x2=\'' + tauX.toFixed(1) +
       '\' y2=\'' + (wy + 10) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');
     parts.push('<rect x=\'' + vX(out.threshold.p10).toFixed(1) + '\' y=\'' + (wy + 10 - 4) + '\' width=\'' +
-      (vX(out.threshold.p90) - vX(out.threshold.p10)).toFixed(1) + '\' height=\'8\' rx=\'4\' fill=\'' + tint(accent) + '\'/>');
+      (vX(out.threshold.p90) - vX(out.threshold.p10)).toFixed(1) + '\' height=\'8\' rx=\'0\' fill=\'' + tint(accent) + '\'/>');
     for(const p of [out.threshold.p10, out.threshold.p90])
       parts.push('<line x1=\'' + vX(p).toFixed(1) + '\' y1=\'' + (wy + 5) + '\' x2=\'' + vX(p).toFixed(1) +
         '\' y2=\'' + (wy + 15) + '\' stroke=\'' + accent + '\' stroke-width=\'2.5\'/>');

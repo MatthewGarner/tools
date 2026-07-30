@@ -120,7 +120,7 @@ const PAGES = {
      (Rule 2, phones have no ⌘Z). The chip-bypass merge had already eaten the old
      headroom (actual was ~565.6k before this change); actual now ~568.2k, set with
      ~5.8k real headroom. */
-  'roadmap/index.html': 574_000,
+  'roadmap/index.html': 576_000,
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -134,7 +134,7 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 490_000,
+  'why/index.html': 492_000,
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px

@@ -189,11 +189,11 @@ export function renderRegisterLive(model, ctx){
     const groupSvg = [];
     for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model});
     if(edit){
-      groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="6" fill="none" stroke="' +
+      groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="none" stroke="' +
         C.border + '" stroke-dasharray="2 3"/>' +
         '<text data-edit="additem" data-lane="" data-col="' + esc(model.horizons[h]) + '" data-line="-1" data-raw="" x="' +
-        (M + 12) + '" y="' + (y + 17) + '" font-size="11" font-weight="600" fill="' + C.muted + '"' +
-        btnAttrs('Add item to ' + model.horizons[h]) + '>＋ add to ' + esc(model.horizons[h]) + '</text></g>');
+        (M + 12) + '" y="' + (y + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' +
+        btnAttrs('Add item to ' + model.horizons[h]) + '>＋ ADD TO ' + esc(model.horizons[h].toUpperCase()) + '</text></g>');
       y += 26;
     }
     if(edit) s.push('<rect data-hdrop="' + h + '" x="' + M + '" y="' + groupTop + '" width="' + INNER +

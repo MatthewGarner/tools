@@ -81,7 +81,7 @@ export function writeHashState(obj, maxLen = 6000){
 export const PALETTES = {
   ocean: {light:'#1F4FD8', dark:'#7C97FF'},
   slate: {light:'#5B5E9E', dark:'#8489D6'},
-  ember: {light:'#B04E1E', dark:'#C97A35'},
+  ember: {light:'#B04E1E', dark:'#E06A2E'},
   plum:  {light:'#9D3E78', dark:'#C06BA0'},
 };
 export const PALETTE_NAMES = Object.keys(PALETTES);

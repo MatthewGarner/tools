@@ -18,8 +18,8 @@
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
   :root{--accent:#B04E1E;--accent-ink:#A34413}
-  @media (prefers-color-scheme: dark){:root{--accent:#C97A35;--accent-ink:#DE9A5C}}
-  :root[data-theme="dark"]{--accent:#C97A35;--accent-ink:#DE9A5C}
+  @media (prefers-color-scheme: dark){:root{--accent:#E06A2E;--accent-ink:#E8834A}}
+  :root[data-theme="dark"]{--accent:#E06A2E;--accent-ink:#E8834A}
   :root[data-theme="light"]{--accent:#B04E1E;--accent-ink:#A34413}
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -46,8 +46,7 @@
   }
   a.tool:hover{border-color:var(--accent)}
   @media (prefers-reduced-motion: no-preference){
-    a.tool{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
-    a.tool:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(30,50,60,.08),0 10px 26px rgba(30,50,60,.10)}
+    a.tool{transition:border-color .15s ease}
   }
   a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .thumb{display:block;width:100%;height:130px;background:var(--thumb);border-bottom:1px solid var(--border)}
