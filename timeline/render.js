@@ -14,7 +14,7 @@ const F = {
 const T = {
   pad: 26, laneW: 150, plotW: 1240, rowH: 32, laneGap: 11, lanePadY: 8,
   titleSize: 22, titleY: 36, headerH: 56, headerHNoTitle: 20, dateSize: 11,
-  tickH: 26, msR: 6, labelSize: 12.5, noteSize: 10.5, readoutSize: 15,
+  tickH: 26, msR: 6, labelSize: 12.5, noteSize: 11.5, readoutSize: 15,
   slideScale: 1.35, sinceSize: 12, droppedSize: 11,
   addZoneW: 34, addZoneH: 44,   // per-lane ghost "＋" zone + its invisible hit rect (≥44px tap target)
 };
@@ -65,6 +65,25 @@ export function whiskerFill(col, dark){
   return /^#[0-9a-fA-F]{6}$/.test(col) ? col + '47' : tint(col);
 }
 
+/* the [risk] capsule pill — the house "never colour-alone" mark (roadmap's
+   capsule idiom: tinted fill + coloured label, so it survives greyscale export).
+   Width is a separate pure helper because msLabelAnchor must RESERVE it before
+   the draw site exists — the two must agree or packing splices the pill. */
+const PILL = {size: 8, h: 14, padX: 6, tracking: 0.6, gap: 6};
+export function riskPillW(S, measure){
+  return measure('RISK', '600 ' + PILL.size * S + 'px ' + F.body) +
+    4 * PILL.tracking * S + PILL.padX * 2 * S;
+}
+export function riskPill(px, pyTop, S, C, measure){
+  const pw = riskPillW(S, measure), ph = PILL.h * S;
+  return {w: pw, svg:
+    '<rect x="' + px.toFixed(1) + '" y="' + pyTop.toFixed(1) + '" width="' + pw.toFixed(1) +
+    '" height="' + ph.toFixed(1) + '" rx="' + (ph / 2).toFixed(1) + '" fill="' + tint(C.err) + '"' +
+    (tint(C.err) === 'none' ? ' stroke="' + C.err + '" stroke-width="1"' : '') + '/>' +
+    txt(px + PILL.padX * S, pyTop + ph - 4 * S, 'RISK', PILL.size * S, C.err,
+      {weight: 600, tracking: PILL.tracking})};
+}
+
 /* the dates/note sub-line under each label — the extent pass and the milestone
    loop measure this exact string (module-level so msLabelAnchor stays pure) */
 export function subOf(it){
@@ -86,7 +105,8 @@ const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' '
    (never double-scale it); `hasGhost` is passed in (the compare pull-in trail
    lives left of x50, exactly where a flip would land). */
 export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFont, noteFont, hasGhost){
-  const titleW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont);
+  const titleW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont) +
+    (it.status === 'risk' ? PILL.gap * S + riskPillW(S, measure) : 0);
   const subW = measure(subOf(it), noteFont);
   const widest = Math.max(titleW, subW);
   const rightOfP50 = x50 + (r + 5 * S);
@@ -398,8 +418,16 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
       s.push(txt(PAD, ty + i * TITLE_LH, ln, 12.5, C.ink, {weight: 600}));
     });
     if(edit) s.push('</g>');
+    /* the RISK pill after the last title line — clamped so it never clips off-canvas */
+    let pillAfter = 0;
+    if(it.status === 'risk'){
+      const pw = riskPillW(1, measure);
+      const px = Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 6, W - PAD - pw);
+      s.push(riskPill(px, titleBottom - 11, 1, C, measure).svg);
+      pillAfter = 6 + pw;
+    }
     if(diff && diff.newKeys.has(k))
-      s.push(txt(Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8, W - PAD - 24),
+      s.push(txt(Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8 + pillAfter, W - PAD - 24),
         titleBottom, 'NEW', 8.5, C.accent, {weight: 600, tracking: 0.6}));   // clamp so it never clips off-canvas
     if(edit) s.push('<g data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) + '"' +
       btnAttrs('Edit dates: ' + it.label) + '>');
@@ -552,17 +580,42 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   }
   if(!bare) s.push(txt(W - T.pad * S, (hasTitle ? T.titleY : 14) * S, fmtDay(today), T.dateSize * S,
     C.muted, {anchor: 'end'}));
+  /* the house metrics line under the title: scale at a glance for the board pack.
+     Title-only (bare drops chrome; an untitled board keeps its minimal header). */
+  if(hasTitle && items.length){
+    const named = model.lanes.filter(l => l).length;
+    const wLo = fmtDay(Math.min(...items.map(i => i.p50)), {month: true});
+    const wHi = fmtDay(Math.max(...items.map(i => i.p90)), {month: true});
+    const metrics = items.length + ' milestone' + (items.length === 1 ? '' : 's') +
+      (named ? ' · ' + named + ' lane' + (named === 1 ? '' : 's') : '') +
+      ' · ' + (wLo === wHi ? wLo : wLo + ' – ' + wHi);
+    s.push(txt(T.pad * S, (T.titleY + 17) * S, metrics, 11 * S, C.muted));
+  }
   if(diff){
-    s.push(txt(T.pad * S, (hasTitle ? T.titleY + 19 : 14) * S, diff.sinceLine, T.sinceSize * S,
+    s.push(txt(T.pad * S, (hasTitle ? T.titleY + 36 : 14) * S, diff.sinceLine, T.sinceSize * S,
       C.accent, {weight: 600}));
   }
 
-  /* ticks */
+  /* TODAY flag rect computed before the ticks so month labels can dodge it — the
+     narrow path's dodge (Fable M6), now on the wide path too (a flag painted over
+     "Aug 2026" left just "Au" on the shipped board) */
+  const todayVis = today >= lo && today <= hi;
+  let flagL = Infinity, flagR = -Infinity;
+  if(todayVis){
+    const x = X(today);
+    const pw = measure('TODAY', '700 ' + (8.5 * S) + 'px ' + F.body) + 14 * S;
+    const flip = x + pw > plotX + plotW; // flag flips left of the line near the right edge so it never clips
+    flagL = flip ? x - pw : x; flagR = flagL + pw;
+  }
+
+  /* ticks — a label under the flag is dropped (its gridline stays) */
   for(const tk of ticks(lo, hi)){
     const x = X(tk.day);
     s.push('<line x1="' + x.toFixed(1) + '" y1="' + (headerH + T.tickH * S) + '" x2="' + x.toFixed(1) +
       '" y2="' + plotBottom + '" stroke="' + C.border + '" stroke-width="1" opacity="0.55"/>');
-    s.push(txt(x, headerH + T.tickH * S - 8 * S, tk.label, 10 * S, C.muted, {anchor: 'middle'}));
+    const lw = measure(tk.label, 10 * S + 'px ' + F.body);
+    if(!(todayVis && x + lw / 2 >= flagL - 3 * S && x - lw / 2 <= flagR + 3 * S))
+      s.push(txt(x, headerH + T.tickH * S - 8 * S, tk.label, 10 * S, C.muted, {anchor: 'middle'}));
   }
 
   /* lane bands + labels */
@@ -592,17 +645,14 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
 
   /* today line + flag over the bands — the key reference axis, so it reads at a glance:
      a filled ink flag (neutral, distinct from the ocean milestones) tops a bolder dashed line */
-  if(today >= lo && today <= hi){
+  if(todayVis){
     const x = X(today);
     const flagY = headerH + 5 * S, ph = 16 * S;
     s.push('<line data-today="" x1="' + x.toFixed(1) + '" y1="' + flagY.toFixed(1) + '" x2="' + x.toFixed(1) +
       '" y2="' + plotBottom.toFixed(1) + '" stroke="' + C.ink + '" stroke-width="1.5" stroke-dasharray="5 3"/>');
-    const pw = measure('TODAY', '700 ' + (8.5 * S) + 'px ' + F.body) + 14 * S;
-    const flip = x + pw > plotX + plotW; // flag flips left of the line near the right edge so it never clips
-    const rx0 = flip ? x - pw : x;
-    s.push('<rect x="' + rx0.toFixed(1) + '" y="' + flagY.toFixed(1) + '" width="' + pw.toFixed(1) +
+    s.push('<rect x="' + flagL.toFixed(1) + '" y="' + flagY.toFixed(1) + '" width="' + (flagR - flagL).toFixed(1) +
       '" height="' + ph.toFixed(1) + '" rx="3" fill="' + C.ink + '"/>');
-    s.push(txt(rx0 + pw / 2, flagY + ph / 2 + 3 * S, 'TODAY', 8.5 * S, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
+    s.push(txt((flagL + flagR) / 2, flagY + ph / 2 + 3 * S, 'TODAY', 8.5 * S, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
   }
 
   /* milestones */
@@ -652,6 +702,15 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" font-size="' + T.labelSize * S + '" font-weight="600" fill="' + C.ink + '">' + esc(it.label) +
       (showsPm(it)
         ? ' <tspan font-weight="400" fill="' + C.muted + '">±?</tspan>' : '') + '</text>');
+    /* the RISK pill rides the title line; msLabelAnchor reserved its width */
+    let pillAfter = 0;                                 // extra x the NEW badge must clear
+    if(it.status === 'risk'){
+      const tW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont);
+      const pw = riskPillW(S, measure);
+      const px = it._anchorEnd ? labelX - tW - PILL.gap * S - pw : labelX + tW + PILL.gap * S;
+      s.push(riskPill(px, y - 13.5 * S, S, C, measure).svg);
+      pillAfter = PILL.gap * S + pw;
+    }
     const sub = subOf(it);
     s.push('<text' + eipD + ae + ' x="' + labelX.toFixed(1) + '" y="' + (y + 10.5 * S).toFixed(1) +
       '" font-size="' + T.noteSize * S + '" fill="' + C.muted + '">' + esc(sub) + '</text>');
@@ -669,7 +728,8 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
         ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, anchor: 'end'}));
     }
     if(diff && diff.newKeys.has(k)){
-      const newX = it._anchorEnd ? labelX - measure(it.label, labelFont) - 8 * S : labelX + measure(it.label, labelFont) + 8 * S;
+      const newX = it._anchorEnd ? labelX - measure(it.label, labelFont) - 8 * S - pillAfter
+        : labelX + measure(it.label, labelFont) + 8 * S + pillAfter;
       s.push(txt(newX, y - 2 * S, 'NEW', 8.5 * S, C.accent,
         {weight: 600, tracking: 0.6, anchor: it._anchorEnd ? 'end' : undefined}));
     }

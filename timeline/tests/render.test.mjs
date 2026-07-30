@@ -307,3 +307,36 @@ test('toMarkdown distinguishes fixed from an un-ranged guess', () => {
   assert.match(md, /\| A \|[^|]*\|[^|]*\| fixed \|/);
   assert.match(md, /\| B \|[^|]*\|[^|]*\| no range \|/);
 });
+
+/* 2026-07-30 polish batch: metrics line, RISK pill, TODAY-flag tick dodge, note size */
+
+test('metrics line: count · lanes · window under the title', () => {
+  const svg = render(parse(DOC), ctx);
+  assert.match(svg, />4 milestones · 2 lanes · Jun 2026 – Jun 2027</);
+});
+
+test('metrics line: singular forms, no lane bit without named lanes, gone without a title', () => {
+  const one = render(parse('title: T\nA 2026-08 .. 2026-09'), ctx);
+  assert.match(one, />1 milestone · Aug 2026 – Sep 2026</);
+  const untitled = render(parse('A 2026-08 .. 2026-09'), ctx);
+  assert.doesNotMatch(untitled, /1 milestone/);
+});
+
+test('[risk] carries a RISK pill, not colour alone', () => {
+  const svg = render(parse(DOC), ctx);
+  assert.equal((svg.match(/>RISK</g) || []).length, 1);
+  const calm = render(parse('title: T\nA 2026-08 .. 2026-09'), ctx);
+  assert.doesNotMatch(calm, />RISK</);
+});
+
+test('a month label under the TODAY flag is dodged; its neighbours stay', () => {
+  const doc = 'title: T\ntoday: 2026-08-01\nA 2026-09-10 .. 2026-09-20\nB 2026-10-05 .. 2026-11-02';
+  const svg = render(parse(doc), ctx);
+  assert.doesNotMatch(svg, />Aug 2026</);
+  assert.match(svg, />Sep 2026</);
+});
+
+test('milestone sub lines render at 11.5px (the projector bump)', () => {
+  const svg = render(parse(DOC), ctx);
+  assert.ok((svg.match(/font-size="11.5"/g) || []).length >= 4);
+});
