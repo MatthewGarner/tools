@@ -336,7 +336,7 @@ function renderWide(model, sim, ctx){
      goldens are a byte compare. */
   const bare = !!ctx.bare;
   if(!bare)
-    parts.push('<text x="30" y="52" font-family="Charter, Georgia, serif" font-size="24" fill="' + c.ink + '">' +
+    parts.push('<text x="30" y="52" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" fill="' + c.ink + '">' +
       esc(model.title || 'Bets board') + '</text>');
   parts.push(txt(30, bare ? 20 : 74, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
     10, c.muted, {mono: true, tracking: '0.05em'}));
@@ -353,7 +353,7 @@ function renderWide(model, sim, ctx){
 
   const panelBot = bottomY + 14;
   parts.push('<rect x="16" y="' + panelTop + '" width="' + (WIDE - 32) + '" height="' + (panelBot - panelTop) +
-    '" rx="10" fill="' + c.card + '" stroke="' + c.border + '" stroke-width="1"/>');
+    '" rx="0" fill="' + c.card + '" stroke="' + c.border + '" stroke-width="1"/>');
   parts.push(...body);
   parts.push(txt(30, panelBot + 22, 'RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS · BUBBLE AREA ∝ STAKE · BETS ASSUMED INDEPENDENT', 9, c.muted, {tracking: '0.04em'}));
   parts.push(txt(right, panelBot + 22, 'ALL FIGURES ' + (model.unit || '').toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
@@ -371,7 +371,7 @@ function renderNarrow(model, sim, ctx){
   const pl = Math.round((P.pf.pLoss || 0) * 100);
   const parts = [];
   let y = 30;
-  parts.push('<text x="' + pad + '" y="' + y + '" font-family="Charter, Georgia, serif" font-size="21" fill="' + c.ink + '">' +
+  parts.push('<text x="' + pad + '" y="' + y + '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" fill="' + c.ink + '">' +
     esc(model.title || 'Bets board') + '</text>');
   y += 22;
   parts.push(txt(pad, y, 'P(LOSES MONEY) ' + pl + '%', 15, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true})); y += 18;

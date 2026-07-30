@@ -18,7 +18,8 @@ export function themeColors(){
     accent: g('--accent'), accentInk: g('--accent-ink'), bg: g('--bg'), err: g('--err'), track: g('--track'),
     status: {done: g('--st-done'), doing: g('--st-doing'), risk: g('--st-risk'), blocked: g('--st-blocked')},
     // contrast-boosted variants for pill TEXT over the 12% tint (WCAG 4.5:1) — the fill still uses `status`
-    statusInk: {done: g('--st-done-ink'), doing: g('--st-doing-ink'), risk: g('--st-risk-ink'), blocked: g('--st-blocked-ink')}};
+    statusInk: {done: g('--st-done-ink'), doing: g('--st-doing-ink'), risk: g('--st-risk-ink'), blocked: g('--st-blocked-ink')},
+    brand: g('--brand'), brandText: g('--brand-text')};
 }
 
 /* Filename-safe slug: lowercase, non-alnum runs collapsed to '-', trimmed.
