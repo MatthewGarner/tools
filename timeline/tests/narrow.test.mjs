@@ -151,3 +151,9 @@ test('narrow: [fixed] and [done] lay out identically — the ±? predicate agree
   const norm = s => s.split(ctx.colors.status.done).join('§').split(ctx.colors.ink).join('§');
   assert.equal(norm(svg('fixed')), norm(svg('done')));
 });
+
+test('narrow: [risk] carries the RISK pill too', () => {
+  const svg = render(parse(DOC), {...ctx, width: W});
+  assert.match(svg, /data-narrow=""/);
+  assert.equal((svg.match(/>RISK</g) || []).length, 1);
+});
