@@ -8,7 +8,7 @@
    so app-common's svgToCanvas can size the PNG. */
 import {txt, wrapText} from './svg.js';
 
-const SERIF = "Charter, Georgia, 'Times New Roman', serif";
+const SERIF = "'Helvetica Neue', Helvetica, 'Segoe UI', Roboto, sans-serif";   // Swiss Phase 5: the poster hero joins the display voice (name kept)
 const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 const M = 56;                    // outer margin — the grid-paper frame
 const GAP = 24;

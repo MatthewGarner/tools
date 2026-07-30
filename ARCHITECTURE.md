@@ -94,7 +94,8 @@ colour is contrast-validated against the real surface, in both themes, before it
 committed.
 
 The visual language is consistent enough that the tools read as one family: a
-display face for headings over a system body; capsule pills that carry a tinted
+neo-grotesque display face over a system body (the Swiss Instrument system,
+adopted 2026-07-30); square status tags that carry a tinted
 fill *and* a coloured label (never colour alone, so they survive colour-blindness
 and greyscale export); short accent bars; a certainty fade for less-committed
 content and a dashed ghost for placeholders; and one spatial system shared across
