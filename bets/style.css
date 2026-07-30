@@ -10,15 +10,9 @@ details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
 details.syntax table{border-collapse:collapse;margin-top:8px}
 details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 
-/* Board / Quadrant view toggle — workspace.css upsizes .viewtoggle button to
-   44px under pointer:coarse; this just supplies the visual language (mirrors
-   premortem's .viewtoggle/.vtseg). */
-.viewtoggle{display:inline-flex;gap:4px;padding:4px;margin-bottom:12px;
-  background:var(--card);border:1px solid var(--border);border-radius:0}
-.vtseg{font:inherit;font-size:13px;font-weight:600;min-height:38px;padding:6px 16px;
-  border:0;border-radius:0;background:transparent;color:var(--muted);cursor:pointer}
-.vtseg.on{background:var(--accent);color:var(--card)}
-.vtseg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Board / Quadrant — the shared .segmented control (Swiss 6c) supplies the
+   whole visual language; .vtseg survives only as the suites' handle. */
+.viewtoggle{margin-bottom:12px}
 .method{color:var(--muted);font-size:12.5px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 

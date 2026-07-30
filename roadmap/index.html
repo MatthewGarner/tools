@@ -74,16 +74,16 @@
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <span class="method" id="stylelbl">View and export style:</span>
-        <div class="stylepick" id="stylepicker" role="group" aria-labelledby="stylelbl">
-          <button class="chip" data-style="board" aria-pressed="false">Board</button>
-          <button class="chip" data-style="focus" aria-pressed="false">Focus</button>
-          <button class="chip" data-style="register" aria-pressed="false">Register</button>
-          <button class="chip" data-style="grid" aria-pressed="false">Grid</button>
+        <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">
+          <button data-style="board" aria-pressed="false">Board</button>
+          <button data-style="focus" aria-pressed="false">Focus</button>
+          <button data-style="register" aria-pressed="false">Register</button>
+          <button data-style="grid" aria-pressed="false">Grid</button>
         </div>
         <input class="ctl hdl" id="headline" type="text" autocomplete="off" spellcheck="true"
                placeholder="Deck headline — your call, not the tool's"
                aria-label="Deck headline (writes the headline: line)">
-        <div class="zoomctl" id="zoomctl" role="group" aria-label="Zoom"></div>
+        <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="dlsvg">Download SVG</button>
         <button class="btn" id="dlpng">Download PNG</button>
         <button class="btn" id="dlslide">Deck PNG</button>
