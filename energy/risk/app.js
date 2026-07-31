@@ -9,7 +9,6 @@ import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
-import {posterSvg} from '../../assets/poster.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/workspace.js';
 import {mountMotion} from "../../assets/motion.js";
@@ -197,31 +196,13 @@ const isoToday = () => new Date().toISOString().slice(0, 10);
 function svgString(slide, bare = false){
   return sim ? activeRender(slide, false, true, bare) : null;   // forExport: width undefined => canonical 1200/1280
 }
-function posterData(){
-  const fi = focusedIndex(sim.rows, focusIdx);
-  const r = sim.rows[fi];
-  return {
-    verdict: riskVerdict(sim, model, focusIdx),
-    name: model.title || 'Risk transfer',
-    /* rows = the structures PLUS the merchant baseline, so counting rows would
-       claim one structure more than the model actually has */
-    metrics: [model.structures.length + (model.structures.length === 1 ? ' structure' : ' structures'),
-              r.label + ' P50 ' + fmtUnit(r.p50, model.unit)],
-  };
-}
-function posterString(){
-  if(!sim) return null;
-  return posterSvg({chart: svgString(true, true), ...posterData(),
-    date: isoToday(), accent: model.accent || themeColors().accent, colors: themeColors(), measure});
-}
 function slug(){
   return slugify(model && model.title, 'risk');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString(false),
-  getSvgSlide: () => svgString(true),
-  getPoster: posterString,
+  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

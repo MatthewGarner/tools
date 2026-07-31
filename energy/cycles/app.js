@@ -9,7 +9,6 @@ import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
-import {posterSvg} from '../../assets/poster.js';
 import {narrowWidth, watchNarrowBucket} from '../../assets/narrow-width.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/workspace.js';
 import {mountMotion} from "../../assets/motion.js";
@@ -312,29 +311,13 @@ const isoToday = () => new Date().toISOString().slice(0, 10);
 function svgString(slide, bare = false){
   return out ? activeRender(slide, false, true, bare) : null;   // forExport: width undefined => canonical 1200/1280
 }
-function posterData(){
-  const b = model.battery;
-  return {
-    verdict: verdict('threshold', out),
-    name: model.title || 'Cycle budget',
-    metrics: [b.mw + 'MW / ' + b.mwh + 'MWh',
-              fmtUnit(out.threshold.p50, '£/MWh') + ' τ',
-              Math.round(out.threshold.clearingDays) + ' days/yr clear'],
-  };
-}
-function posterString(){
-  if(!out) return null;
-  return posterSvg({chart: svgString(true, true), ...posterData(),
-    date: isoToday(), accent: model.accent || themeColors().accent, colors: themeColors(), measure});
-}
 function slug(){
   return slugify(model && model.title, 'cycles');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString(false),
-  getSvgSlide: () => svgString(true),
-  getPoster: posterString,
+  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

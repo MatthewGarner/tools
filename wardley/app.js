@@ -1,7 +1,7 @@
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
 import {parse} from './parse.js';
 import {layoutMap} from './layout.js';
-import {renderMap, toMarkdown, mapReadout, GEOM, NARROW} from './render.js';
+import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, removeComponent, addEdge, removeEdge} from './edit-targets.js';
@@ -9,7 +9,6 @@ import {readHashState, writeHashState, mix} from '../assets/series.js';
 import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -318,8 +317,7 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 function svgString(bare = false){
   return (model && model.components.size) ? activeRender(true, bare) : null;
 }
-/* The counted facts the map already knows — shared by the page's metrics row
-   and the poster footer, so the two can never disagree. */
+/* The counted facts the map already knows, feeding the page's metrics row. */
 function mapCounts(){
   const comps = layout.nodes.filter(n => !n.anchor);
   const ghostN = comps.filter(n => n.ghost).length;
@@ -327,27 +325,12 @@ function mapCounts(){
           model.edges.length + (model.edges.length === 1 ? ' dependency' : ' dependencies'),
           ...(ghostN ? [ghostN + ' unplaced'] : [])];
 }
-function posterData(){
-  return {
-    verdict: mapReadout(model, layout).verdict,
-    name: model.title || 'Wardley map',
-    metrics: mapCounts(),
-  };
-}
-function posterString(){
-  const chart = svgString(true);
-  if(!chart) return null;
-  return posterSvg({chart, ...posterData(), date: todayISO(),
-    accent: themeColors().accent, colors: themeColors(), measure});
-}
 function slug(){
   return slugify(model.title, 'wardley');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString(),
-  getSvgSlide: () => svgString(),
-  getPoster: posterString,
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

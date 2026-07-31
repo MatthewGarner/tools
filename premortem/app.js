@@ -237,7 +237,7 @@ $('phasepanel').addEventListener('click', e => {
 async function copyLink(){
   const link = toLink(doc);
   const url = location.origin + location.pathname + (link || '');
-  if(!link){ alert('This register is too large for a link — use "Copy for a doc" instead.'); return; }
+  if(!link){ alert('This register is too large for a link — use "Copy as markdown" instead.'); return; }
   try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch(e){ prompt('Copy this link:', url); }
 }
 async function copyDoc(){

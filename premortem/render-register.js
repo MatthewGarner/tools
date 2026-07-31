@@ -49,7 +49,7 @@ export function renderRegister(doc, exp, now = new Date()){
       ' not reviewed in 90 days — a stale register lies. Review them or close them.</p>' : '') +
     '<div class="actions">' +
     '<button class="btn" data-act="copylink">Copy link</button>' +
-    '<button class="btn" data-act="copydoc">Copy for a doc</button>' +
+    '<button class="btn" data-act="copydoc">Copy as markdown</button>' +
     '<button class="btn" data-act="reviewall">Mark all reviewed today</button>' +
     '<span class="method">Seeded Monte Carlo · the register lives in this browser; a link imports a copy</span></div>';
 }

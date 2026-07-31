@@ -963,7 +963,7 @@ $('copydoc').addEventListener('click', async () => {
   try{
     await navigator.clipboard.writeText(txt);
     $('copydoc').textContent = 'Copied';
-    setTimeout(() => { $('copydoc').textContent = 'Copy for a doc'; }, 1500);
+    setTimeout(() => { $('copydoc').textContent = 'Copy as markdown'; }, 1500);
   }catch(e){
     prompt('Copy this:', txt);
   }
@@ -1258,7 +1258,7 @@ $('cfcopydoc').addEventListener('click', async () => {
   try{
     await navigator.clipboard.writeText(md);
     $('cfcopydoc').textContent = 'Copied';
-    setTimeout(() => { $('cfcopydoc').textContent = 'Copy for a doc'; }, 1500);
+    setTimeout(() => { $('cfcopydoc').textContent = 'Copy as markdown'; }, 1500);
   }catch(e){ prompt('Copy this:', md); }
 });
 

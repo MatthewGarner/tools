@@ -1,8 +1,14 @@
-/* Shared SVG / PNG / Copy PNG / Copy-markdown export wiring (moved from gauge
-   2026-07-06). Every button is optional — pass the ones the surface has. */
+/* Shared export wiring (moved from gauge 2026-07-06). Four actions, in one
+   fixed order everywhere: Copy PNG · Copy as markdown · PNG · SVG. Every
+   button is optional — pass the ones the surface has.
+
+   Simplified 2026-07-31: the Poster and slide-size downloads are gone. The
+   deck-shaped render didn't need a button of its own — where a tool has one,
+   it passes it as getCopy and Copy PNG (the one-click, paste-into-a-deck
+   action) hands it over. Downloads always give you what's on screen. */
 import {download, svgToCanvas} from './app-common.js';
 
-export function wireExports({buttons, getSvg, getSvgSlide, getCopy, getPoster, getMarkdown, slug}){
+export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug}){
   const flash = (btn, msg, revert) => {
     btn.textContent = msg;
     setTimeout(() => { btn.textContent = revert; }, 2000);
@@ -15,16 +21,8 @@ export function wireExports({buttons, getSvg, getSvgSlide, getCopy, getPoster, g
     const svg = getSvg();
     if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
   });
-  if(buttons.dlslide) buttons.dlslide.addEventListener('click', () => {
-    const svg = getSvgSlide();
-    if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-slide.png', b), 'image/png'));
-  });
-  if(buttons.dlposter) buttons.dlposter.addEventListener('click', () => {
-    const svg = getPoster();
-    if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '-poster.png', b), 'image/png'));
-  });
   if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
-    const svg = (getCopy || getSvg)();   // getCopy: copy something other than the plain chart (roadmap copies the deck)
+    const svg = (getCopy || getSvg)();   // getCopy: the deck-shaped render, where the tool has one
     if(!svg) return;
     if(!navigator.clipboard || !window.ClipboardItem)
       return flash(buttons.copypng, 'Clipboard unavailable — use Download', 'Copy PNG');
@@ -38,9 +36,9 @@ export function wireExports({buttons, getSvg, getSvgSlide, getCopy, getPoster, g
   if(buttons.copymd) buttons.copymd.addEventListener('click', () => {
     const md = getMarkdown();
     if(!md || !navigator.clipboard)
-      return flash(buttons.copymd, 'Clipboard unavailable', 'Copy for doc');
+      return flash(buttons.copymd, 'Clipboard unavailable', 'Copy as markdown');
     navigator.clipboard.writeText(md)
-      .then(() => flash(buttons.copymd, 'Copied — paste into your doc', 'Copy for doc'))
-      .catch(() => flash(buttons.copymd, 'Copy blocked', 'Copy for doc'));
+      .then(() => flash(buttons.copymd, 'Copied — paste into your doc', 'Copy as markdown'))
+      .catch(() => flash(buttons.copymd, 'Copy blocked', 'Copy as markdown'));
   });
 }

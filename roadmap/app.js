@@ -119,7 +119,7 @@ function renderWarnings(m){
    none. DELIBERATE SEAM (2026-07-15, Matt's call): on a plain now/next/later doc
    effectiveStyle resolves to 'board', so the Board chip lights even though the
    live PREVIEW is the chart (live compositions render only on an EXPLICIT
-   model.style — see doRefresh). The chip is honest about what Deck PNG exports;
+   model.style — see doRefresh). The chip is honest about what Copy PNG hands over;
    clicking it writes style:board and opts the preview into the live board. */
 function syncStylePicker(m){
   const active = effectiveStyle(m);
@@ -350,7 +350,7 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 /* ---------- exports ---------- */
 /* Download SVG/PNG = the current STYLE's plain, content-sized artefact (WYSIWYG),
    independent of the preview: on a phone the preview falls back to the chart stack
-   but a register doc still exports the register table. Deck PNG / Copy PNG stay the
+   but a register doc still exports the register table. Copy PNG stays the
    16:9 deck (renderDeck already picks by style). */
 function plainStyleSvg(){
   if(!model || !model.items.length) return null;
@@ -372,10 +372,9 @@ function slug(){
   return slugify(model.title, 'roadmap');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => plainStyleSvg(),
-  getSvgSlide: () => deckSvgString(),
-  getCopy: () => deckSvgString(),
+  getCopy: () => deckSvgString(),      // Copy PNG hands over the deck-shaped render
   slug,
 });
 /* clicking a chip COMMITS style: as a text edit (one transaction, one undo
@@ -406,7 +405,7 @@ $('headline').addEventListener('input', commitHeadline);
 $('headline').addEventListener('blur', commitHeadlineNow);
 $('headline').addEventListener('keydown', e => { if(e.key === 'Enter') commitHeadlineNow(); });
 /* copymd keeps its inline handler: label is 'Copy as markdown' / 'Copied', not
-   wireExports' literal 'Copy for doc' revert — migrating would change the label. */
+   wireExports' literal 'Copy as markdown' revert — kept for the different flash copy. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
   const lines = [];

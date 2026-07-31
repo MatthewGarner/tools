@@ -2,7 +2,7 @@
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
    with edit-in-place + the coarse-pointer card menu. */
 import {parse} from './parse.js';
-import {simulate, verdictCopy, verdictParts, markdown} from './engine.js';
+import {simulate, verdictParts, markdown} from './engine.js';
 import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
 import {betsDiff, betsDiffView} from './diff.js';
@@ -12,7 +12,6 @@ import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {posterSvg} from '../assets/poster.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -305,35 +304,14 @@ function renderSaved(){
 function svgString(){
   return (hasBets(model) && sim) ? activeRender(true) : null;
 }
-const isoToday = () => new Date().toISOString().slice(0, 10);
-function posterData(){
-  const counts = auditCounts(sim);
-  const p = sim.portfolio;
-  const kills = counts.kill || 0;
-  return {
-    verdict: verdictCopy(p, counts),
-    name: model.title || 'Bets board',
-    metrics: [
-      'net EV ' + (p.p50 >= 0 ? '+' : '') + Math.round(p.p50),
-      'P(loses) ' + Math.round(p.pLoss * 100) + '%',
-      kills ? kills + (kills === 1 ? ' bet unfoldable' : ' bets unfoldable') : null,
-    ].filter(Boolean),
-  };
-}
-function posterString(){
-  if(!(hasBets(model) && sim)) return null;
-  return posterSvg({chart: activeRender(true, true), ...posterData(), date: isoToday(),
-    accent: themeColors().accent, colors: themeColors(), measure});
-}
 function slug(){
   return slugify(model && model.title, 'bets');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlposter: $('dlposter'), copypng: $('copypng'), copymd: $('copymd')},
-  /* SVG / PNG / Copy PNG = the clean wide board (deck-ready as-is); the Poster
-     button wraps it in the shared poster frame (hero verdict + footer). */
+  /* the wide board is deck-ready as it stands, so Copy PNG hands over the same
+     artefact the downloads do — no separate deck-shaped render here */
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
   getSvg: svgString,
-  getPoster: posterString,
   getMarkdown: () => (hasBets(model) && sim) ? markdown(model, sim, location.href) : null,
   slug,
 });
