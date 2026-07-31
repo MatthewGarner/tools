@@ -5,12 +5,6 @@
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 1200 / 912}   /* load-grace: default example's viewBox — see workspace.css */
-details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
-details.syntax summary{cursor:pointer;font-size:12.5px}
-details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
-  background:var(--bg);padding:1px 5px;border-radius:0}
-details.syntax table{border-collapse:collapse;margin-top:8px}
-details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 .method{color:var(--muted);font-size:12.5px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 /* Load-grace, phone: the Monte-Carlo lands ~0.5s AFTER first paint (worker-gated),

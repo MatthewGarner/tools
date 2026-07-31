@@ -168,7 +168,15 @@ const PAGES = {
      ~591.9k. Then 593k -> 596k for `story:` — the diff narrative: storyLine()
      plus a call site in each of the same four renderers, and the markdown path.
      Actual ~595.1k, ~900B headroom. */
-  'roadmap/index.html': 596_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  /* --- 2026-07-31, assets/syntax.css. The DSL syntax reference's CSS lived in ten
+     BYTE-IDENTICAL copies (verified before the move, at Matt's explicit condition).
+     It is now one sheet — but a DEDICATED one, not page.css: page.css is loaded by
+     every page, and the nine tools with no syntax block would have paid ~1.6k for
+     markup they don't have (fermi tripped by 43B proving exactly that). Only the ten
+     grammar tools link syntax.css, so the cost lands where the feature is. Each of
+     those pages nets ~+1.15k (the shared sheet, less the ~450B copy it deleted).
+     roadmap also gained `story:` and a corrected `headline:` gloss. --- */
+  'roadmap/index.html': 598_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -194,7 +202,7 @@ const PAGES = {
      render.js needs. Raised again to 517k the same day when `story:` added
      storyLine() to the same module — /why inherits that too, and cannot use it
      either (no snapshot compare, no `story:` key). Actual ~515.6k, ~1.4k. */
-  'why/index.html': 517_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  'why/index.html': 519_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -216,7 +224,7 @@ const PAGES = {
      — and review caught two of them bypassing the key, so app.js and engine.js
      both had to route through resolveVerdict. ~400B of imports and call sites on
      a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
-  'gauge/index.html': 496_000, 'timeline/index.html': 486_000,
+  'gauge/index.html': 498_000, 'timeline/index.html': 486_000,
   'wardley/index.html': 480_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —

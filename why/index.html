@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
 <link rel="stylesheet" href="/assets/motion.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
@@ -41,14 +42,24 @@
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
-        <table>
-          <tr><td><code>outcome: Improve retention</code></td><td>a root outcome (several allowed)</td></tr>
-          <tr><td>indented, untagged</td><td>an opportunity — customer needs and pains, nesting freely</td></tr>
-          <tr><td><code>Smart reminders [testing]</code></td><td>a solution — the status tag makes it one: <code>[candidate]</code> <code>[testing]</code> <code>[delivering]</code> <code>[shipped]</code> <code>[parked]</code></td></tr>
-          <tr><td><code>? users want this [holds]</code></td><td>an assumption under a solution: <code>[untested]</code> (default) <code>[testing]</code> <code>[holds]</code> <code>[broken]</code></td></tr>
-          <tr><td>roadmap columns</td><td>derived, never declared: NOW = delivering · NEXT = testing · LATER = opportunities without committed solutions</td></tr>
-          <tr><td><code>title:</code> <code>palette:</code> <code>accent:</code> <code>//</code></td><td>as in the other tools</td></tr>
-        </table>
+        <h4>Config</h4>
+        <dl>
+          <dt><code>title:</code> <code>palette:</code> <code>accent:</code> <code>//</code></dt>
+          <dd>as in the other tools</dd>
+        </dl>
+        <h4>Nodes</h4>
+        <dl>
+          <dt><code>outcome: Improve retention</code></dt>
+          <dd>a root outcome (several allowed)</dd>
+          <dt>indented, untagged</dt>
+          <dd>an opportunity — customer needs and pains, nesting freely</dd>
+          <dt><code>Smart reminders [testing]</code></dt>
+          <dd>a solution — the status tag makes it one: <code>[candidate]</code> <code>[testing]</code> <code>[delivering]</code> <code>[shipped]</code> <code>[parked]</code></dd>
+          <dt><code>? users want this [holds]</code></dt>
+          <dd>an assumption under a solution: <code>[untested]</code> (default) <code>[testing]</code> <code>[holds]</code> <code>[broken]</code></dd>
+          <dt>roadmap columns</dt>
+          <dd>derived, never declared: NOW = delivering · NEXT = testing · LATER = opportunities without committed solutions</dd>
+        </dl>
       </details>
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>

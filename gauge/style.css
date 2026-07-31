@@ -5,12 +5,6 @@
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 960 / 1004}   /* load-grace: default example's viewBox — see workspace.css */
-details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
-details.syntax summary{cursor:pointer;font-size:12.5px}
-details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
-  background:var(--bg);padding:1px 5px;border-radius:0}
-details.syntax table{border-collapse:collapse;margin-top:8px}
-details.syntax td{padding:3px 12px 3px 0;vertical-align:top}
 /* size/weight only — the label colour rides --brand-on (#fff light, #121212 dark),
    never a hardcoded #fff: the dark brand is a light coral and white on it fails. */
 .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-on);font-weight:600;min-height:44px;padding:10px 22px}

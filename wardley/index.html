@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
 <link rel="stylesheet" href="/assets/motion.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
@@ -40,14 +41,26 @@
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
-        <table>
-          <tr><td><code>anchor: Habit tracking</code></td><td>the user need at the top of the chain (one or more)</td></tr>
-          <tr><td><code>Streak engine @ custom</code></td><td>a component and its evolution stage: <code>genesis</code>, <code>custom</code>, <code>product</code> or <code>commodity</code></td></tr>
-          <tr><td><code>User DB @ 0.83</code></td><td>or a precise position, 0–1 — dragging a pill writes this</td></tr>
-          <tr><td><code>A -> B -> C</code></td><td>"A needs B, B needs C" — chains welcome; depth on the map is derived from these</td></tr>
-          <tr><td><code>Push gateway</code></td><td>no position yet — renders as a ghost until you place or drag it</td></tr>
-          <tr><td><code>title:</code> <code>palette:</code> <code>accent:</code></td><td>config · <code>// comment</code> anywhere</td></tr>
-        </table>
+        <h4>Config</h4>
+        <dl>
+          <dt><code>title:</code> <code>palette:</code> <code>accent:</code></dt>
+          <dd>config · <code>// comment</code> anywhere</dd>
+          <dt><code>verdict: off</code></dt>
+          <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
+        </dl>
+        <h4>Components & edges</h4>
+        <dl>
+          <dt><code>anchor: Habit tracking</code></dt>
+          <dd>the user need at the top of the chain (one or more)</dd>
+          <dt><code>Streak engine @ custom</code></dt>
+          <dd>a component and its evolution stage: <code>genesis</code>, <code>custom</code>, <code>product</code> or <code>commodity</code></dd>
+          <dt><code>User DB @ 0.83</code></dt>
+          <dd>or a precise position, 0–1 — dragging a pill writes this</dd>
+          <dt><code>A -> B -> C</code></dt>
+          <dd>"A needs B, B needs C" — chains welcome; depth on the map is derived from these</dd>
+          <dt><code>Push gateway</code></dt>
+          <dd>no position yet — renders as a ghost until you place or drag it</dd>
+        </dl>
       </details>
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
