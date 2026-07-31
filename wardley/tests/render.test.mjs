@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {layoutMap} from '../layout.js';
-import {renderMap} from '../render.js';
+import {renderMap, toMarkdown} from '../render.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
@@ -299,4 +299,12 @@ test('verdict: off drops the band; authored text replaces it', () => {
   const authored = renderMap(parse(src2), layoutMap(parse(src2)), ctx);
   assert.ok(authored.includes('VERDICT'));
   assert.ok(authored.includes('Buy the gateway, build the engine'));
+});
+
+test('verdict: off must not leave a bare **** in the markdown export', () => {
+  const off = parse('verdict: off\n' + SRC);
+  const md = toMarkdown(off, layoutMap(off), 'https://x');
+  assert.ok(!md.includes('****'), md.split('\n').slice(0, 4).join(' | '));
+  const auth = parse('verdict: Buy the gateway\n' + SRC);
+  assert.ok(toMarkdown(auth, layoutMap(auth), 'https://x').includes('**Buy the gateway**'));
 });

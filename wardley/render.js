@@ -192,7 +192,9 @@ function compareParts(model, layout, compare, c){
 export function toMarkdown(model, layout, href){
   const out = ['# ' + (model.title || 'Wardley map'), ''];
   const r = mapReadout(model, layout);
-  out.push('**' + r.verdict + '**', '');
+  /* guarded since `verdict: off` can empty this — an unguarded push emitted a
+     bare '****' into the doc (found in review, 2026-07-31) */
+  if(r.verdict) out.push('**' + r.verdict + '**', '');
   for(const s of STAGES){
     const names = layout.nodes
       .filter(n => !n.anchor && !n.ghost && n.x !== null && stageOf(n.x).name === s.name)

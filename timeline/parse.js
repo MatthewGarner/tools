@@ -44,9 +44,16 @@ export function parse(text){
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
     /* a dated value means a milestone whose lane shares a config key's name —
-       except today:, whose value IS a date */
+       except today:, whose value IS a date, and verdict:, whose value is free
+       prose. Both are exempt for the same reason: the guard exists to rescue a
+       LANE that happens to be named like a key, and neither of these keys can be
+       a lane. Without the verdict exemption a perfectly ordinary sentence in a
+       DATE tool — "verdict: We ship by 2027-03" — was silently reparsed as a
+       phantom milestone in a lane called "verdict", losing the verdict entirely
+       (found in review, 2026-07-31). */
+    const DATE_EXEMPT = /^(today|verdict)$/i;
     const config = line.match(/^(title|palette|accent|today|verdict)\s*:\s*(.*)$/i);
-    if(config && !(DATE_RE.test(config[2]) && config[1].toLowerCase() !== 'today')){
+    if(config && !(DATE_RE.test(config[2]) && !DATE_EXEMPT.test(config[1]))){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean

@@ -190,7 +190,13 @@ const PAGES = {
      every workspace page pays it; gauge was simply the page nearest its ceiling
      and tipped 682B over. Actual now ~470.7k, ~5.3k headroom — in line with the
      other DSL pages. */
-  'gauge/index.html': 494_000, 'timeline/index.html': 486_000,
+  /* gauge 494k -> 496k (2026-07-31, `verdict:`). gauge carries FOUR verdict
+     mirrors — the SVG band, the facilitator console headline, the composer's
+     on-screen headline, and markdownSummary (itself wired to three copy buttons)
+     — and review caught two of them bypassing the key, so app.js and engine.js
+     both had to route through resolveVerdict. ~400B of imports and call sites on
+     a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
+  'gauge/index.html': 496_000, 'timeline/index.html': 486_000,
   'wardley/index.html': 480_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —

@@ -334,6 +334,12 @@ for(const [k, src] of Object.entries(docs)){
     {values: [15, [30, 50]], name: 'Di'},
   ];
   variants['gauge-overlay'] = grender(m, gstats(m, resp), {...ctxBase});
+  /* `verdict:` (2026-07-31): gauge was the one tool with no golden for the key,
+     and the one where review found two live bypasses. */
+  const gOff = gparse('verdict: off\n' + doc);
+  variants['gauge-verdict-off'] = grender(gOff, gstats(gOff, resp), {...ctxBase});
+  const gAuth = gparse('verdict: The room is split on shipping\n' + doc);
+  variants['gauge-verdict-authored'] = grender(gAuth, gstats(gAuth, resp), {...ctxBase});
   const agree = [{values: [[4, 8]]}, {values: [[5, 9]]}, {values: [[3, 7]]}];
   const m2 = gparse('Weeks :: range weeks');
   variants['gauge-overlay-agree'] = grender(m2, gstats(m2, agree), {...ctxBase});
@@ -508,6 +514,8 @@ for(const [k, src] of Object.entries(docs)){
   variants['cycles-full-narrow'] = crender(cm, co, {...ctxBase, width: 360});
   const cmOff = cparse('verdict: off\n' + cdoc);
   variants['cycles-verdict-off'] = crender(cmOff, csim(cmOff, {seed: 1, n: 2000}), {...ctxBase});
+  const cmAuth = cparse('verdict: Cycle harder, the spread pays\n' + cdoc);
+  variants['cycles-verdict-authored'] = crender(cmAuth, csim(cmAuth, {seed: 1, n: 2000}), {...ctxBase});
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 
@@ -574,6 +582,8 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
   const wmOff = wparse('verdict: off\n' + wdoc);
   variants['wardley-verdict-off'] = wrender(wmOff, layoutMap(wmOff), wctx);
+  const wmAuth = wparse('verdict: Buy the gateway, build the engine\n' + wdoc);
+  variants['wardley-verdict-authored'] = wrender(wmAuth, layoutMap(wmAuth), wctx);
   variants['wardley-compare'] = wrender(wm, layoutMap(wm), wctx,
     {compare: {prev: wparse(wPrev), label: 'March'}});
   variants['wardley-narrow'] = wrender(wm, layoutMap(wm), {...wctx, width: 390});

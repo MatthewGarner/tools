@@ -1,5 +1,6 @@
 /* Divergence stats, headlines, verdict, markdown summary. Pure. */
 import {quantile} from '../assets/series.js';
+import {resolveVerdict} from '../assets/verdict.js';
 
 export const RATIO_DIVERGENT = 3;   // pooled spread ÷ median individual width
 export const SPLIT_GAP = 25;        // percentage points
@@ -255,7 +256,10 @@ export function delphiVerdict(dstats){ return delphiVerdictOf(dstats).line; }
 
 export function markdownSummary(model, stats, delphi){
   const out = ['# ' + (model.title || 'Gauge session'), ''];
-  const v = verdict(stats);
+  /* `verdict:` reaches the markdown too — this one summary feeds THREE separate
+     copy-as-markdown buttons (composer, participant, facilitator Delphi), so a
+     bypass here leaks the tool's line into every doc the room pastes it into. */
+  const v = resolveVerdict(model.verdict, {line: verdict(stats), fig: ''}).line;
   if(v) out.push('**' + v + '**', '');
   stats.forEach((s, i) => {
     const q = s.question;

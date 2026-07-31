@@ -363,8 +363,12 @@ export function toMarkdown(model, out){
   if(out.augment) lines.push('| Augment window | ' + (out.augment.window ? 'years ' + out.augment.window[0] + '–' + out.augment.window[1] : 'never') +
     ' (never in ' + Math.round(out.augment.pNever * 100) + '%) |');
   lines.push('');
+  /* `verdict:` governs the threshold line here exactly as it does in the artefact
+     (render's vT above) — the two exports must not disagree. */
   for(const b of ['threshold', 'second', 'augment']){
-    const v = verdict(b, out);
+    const v = b === 'threshold'
+      ? resolveVerdict(model.verdict, {line: verdict(b, out), fig: ''}).line
+      : verdict(b, out);
     if(v) lines.push('- ' + v);
   }
   return (model.title ? '## ' + model.title + '\n\n' : '') + lines.join('\n');

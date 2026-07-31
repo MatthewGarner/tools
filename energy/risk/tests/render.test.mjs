@@ -76,3 +76,10 @@ test('verdict: off drops the trade band; authored text replaces it', () => {
   const auth = parse('verdict: We take the floor and live with the cap\n' + DOC);
   assert.ok(render(auth, simulate(auth), ctx).includes('We take the floor and live with the cap'));
 });
+
+test('verdict: reaches the MARKDOWN export too, not just the artefact', () => {
+  const off = parse('verdict: off\n' + DOC);
+  assert.ok(!/floor binds/.test(toMarkdown(off, simulate(off))));
+  const auth = parse('verdict: We take the floor\n' + DOC);
+  assert.ok(toMarkdown(auth, simulate(auth)).includes('We take the floor'));
+});

@@ -90,7 +90,11 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
   /* `verdict:` (2026-07-31): the SVG band reads the RESOLVED line, not the engine
      directly, or the artefact would keep printing a verdict the author turned off
      while the HTML mirror obeyed. */
-  const vAuthored = model.verdict != null && String(model.verdict).trim() !== '';
+  /* AUTHORED means the author supplied their own LINE — `off` is not authored text,
+     it is suppression. The whole band is gated on vLines below either way, but the
+     name has to mean what it says or the next refactor inherits a lie. */
+  const vRaw = model.verdict == null ? '' : String(model.verdict).trim();
+  const vAuthored = vRaw !== '' && vRaw.toLowerCase() !== 'off';
   const vText = riskVerdictLine(rows[fi], model);
   const vLines = (bare || !vText) ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
   const AXIS = 34;
@@ -253,6 +257,9 @@ export function toMarkdown(model, sim){
     lines.push('| ' + r.label + ' | ' + u(r.p10) + ' | ' + u(r.p50) + ' | ' + u(r.p90) + ' | ' +
       (r.trade ? u(r.trade.upsideSold) + ' | ' + u(r.trade.downsideBought) + ' | ' + u(r.trade.fees) : '— | — | —') + ' |');
   lines.push('');
-  for(const r of sim.rows){ const v = verdict(r, model.unit); if(v) lines.push('- **' + r.label + ':** ' + v); }
+  /* `verdict:` reaches the markdown export too — a copy-for-doc that still carried
+     the tool's line after the author turned it off would be the same bug the
+     artefact had, one export further out. */
+  for(const r of sim.rows){ const v = riskVerdictLine(r, model); if(v) lines.push('- **' + r.label + ':** ' + v); }
   return (model.title ? '## ' + model.title + '\n\n' : '') + lines.join('\n');
 }

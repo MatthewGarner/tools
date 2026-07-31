@@ -76,3 +76,11 @@ test('verdict: governs the THRESHOLD line — off drops it, text replaces it', (
   const auth = parse('verdict: Cycle harder, the spread pays\n' + FULL);
   assert.ok(render(auth, simulate(auth), ctx).includes('Cycle harder, the spread pays'));
 });
+
+test('verdict: reaches the MARKDOWN export too, and governs the same (threshold) line', () => {
+  const off = parse('verdict: off\n' + FULL);
+  const mdOff = toMarkdown(off, simulate(off));
+  assert.ok(!/Cycles are worth/.test(mdOff));
+  const auth = parse('verdict: Cycle harder\n' + FULL);
+  assert.ok(toMarkdown(auth, simulate(auth)).includes('Cycle harder'));
+});

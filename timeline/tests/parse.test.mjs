@@ -154,3 +154,21 @@ test('verdict: a line merely STARTING with off is authored text, not suppression
 Beta cut 2026-09 .. 2026-10`).verdict,
     'Off the back of Q3 we hold the date');
 });
+
+/* The DATE_RE guard rescues a LANE that happens to share a config key's name, by
+   re-reading the line as a milestone. `verdict:` is exempt from it, exactly as
+   `today:` already is, because neither can be a lane and both take values that
+   legitimately contain dates. The trade is explicit: a lane literally named
+   "Verdict" is now unavailable, as one named "Today" already was. */
+test('verdict: a date in the authored text does NOT turn the line into a phantom milestone', () => {
+  const m = parse('verdict: We ship by 2027-03\nApp: Energisation 2027-02 .. 2027-06');
+  assert.equal(m.verdict, 'We ship by 2027-03');
+  assert.equal(m.items.length, 1);
+  assert.equal(m.items[0].lane, 'App');
+});
+
+test('verdict: the exemption costs a lane named "Verdict" — the same trade today: makes', () => {
+  assert.equal(parse('Verdict: Energisation 2027-02 .. 2027-06').items.length, 0);
+  // a lane sharing a NON-exempt key's name still works, which is what the guard is for
+  assert.equal(parse('Title: Energisation 2027-02 .. 2027-06').items.length, 1);
+});
