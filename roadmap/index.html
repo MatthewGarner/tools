@@ -80,20 +80,23 @@
           <button data-style="register" aria-pressed="false">Register</button>
           <button data-style="grid" aria-pressed="false">Grid</button>
         </div>
+      </div>
+      <div class="actions">
+        <label class="method" for="headline" id="hdllbl">Headline:</label>
         <input class="ctl hdl" id="headline" type="text" autocomplete="off" spellcheck="true"
-               placeholder="Deck headline — your call, not the tool's"
-               aria-label="Deck headline (writes the headline: line)">
+               placeholder="Your call, not the tool's — appears on every export"
+               aria-label="Headline (writes the headline: line, and appears on every export)">
+      </div>
+      <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="copypng">Copy PNG</button>
         <button class="btn" id="copymd">Copy as markdown</button>
         <button class="btn" id="dlpng">PNG</button>
         <button class="btn" id="dlsvg">SVG</button>
-      </div>
-      <div class="actions">
         <button class="btn primary" id="snap">Snapshot</button>
         <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
         <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
-        <span class="method">View + export style · Download SVG/PNG give this style; Deck PNG / Copy PNG give it as a 16:9 slide · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>
+        <span class="method">The style picker sets both the view and what every export gives you · Copy PNG hands over the 16:9 deck; PNG/SVG give the style at its own size · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>
       </div>
     </section>
 </div>

@@ -133,3 +133,74 @@ test('setStyle and setHeadline are the same rewrite, and do not tread on each ot
   assert.equal((src.match(/^style:/gm) || []).length, 1, 'no duplicate style: line');
   assert.equal((src.match(/^headline:/gm) || []).length, 1, 'no duplicate headline: line');
 });
+
+/* ---------------- the standfirst reaches EVERY export (2026-07-31) ----------------
+   Matt's report: "the headline field doesn't appear to impact the outputs". It was
+   true — `headline` lived only in render-deck.js, so it reached Copy PNG and none of
+   the other three exports. The author writing a claim and watching two of their four
+   exports ignore it is the same defect class as `verdict:`: the artefact not carrying
+   the author's words. */
+import {render} from '../render.js';
+import {renderBoardLive} from '../render-board.js';
+import {renderRegisterLive} from '../render-register.js';
+import {renderFocusLive} from '../render-focus.js';
+import {standfirst} from '../deck-parts.js';
+
+const hctx = {
+  colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
+    accentInk: '#067', bg: '#f7f8f6', err: '#b33', brand: '#E2231A', brandText: '#D62015',
+    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'},
+    statusInk: {done: '#1C753C', doing: '#0B709A', risk: '#8E6200', blocked: '#B3403A'}},
+  measure: t => t.length * 7, today: '2026-07-31',
+};
+const HL = 'Retention first — everything in Now defends the streak';
+const DOC = style => (style ? 'style: ' + style + '\n' : '') +
+  'title: T\nheadline: ' + HL + '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+
+test('standfirst: the shared block is empty for an absent headline, and reserves no space', () => {
+  const none = standfirst({headline: ''}, 32, 34, 900, hctx.measure, hctx.colors);
+  assert.equal(none.svg, '');
+  assert.equal(none.height, 0);
+});
+
+test('standfirst: a headline produces a block that advances the layout', () => {
+  const some = standfirst({headline: HL}, 32, 34, 900, hctx.measure, hctx.colors);
+  assert.ok(some.svg.includes('Retention first'));
+  assert.ok(some.height > 0);
+});
+
+test('the chart export carries the authored standfirst', () => {
+  assert.ok(render(parse(DOC()), hctx).includes('Retention first'));
+});
+
+test('the board export carries the authored standfirst', () => {
+  assert.ok(renderBoardLive(parse(DOC('board')), hctx).includes('Retention first'));
+});
+
+test('the register export carries the authored standfirst', () => {
+  assert.ok(renderRegisterLive(parse(DOC('register')), hctx).includes('Retention first'));
+});
+
+test('the focus export carries the authored standfirst', () => {
+  assert.ok(renderFocusLive(parse(DOC('focus')), hctx).includes('Retention first'));
+});
+
+test('no headline means no standfirst and no reserved gap in any renderer', () => {
+  const bare = 'title: T\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+  for(const [name, fn, style] of [['chart', render, ''], ['board', renderBoardLive, 'board'],
+                                  ['register', renderRegisterLive, 'register'], ['focus', renderFocusLive, 'focus']]){
+    const withHl = fn(parse(DOC(style)), hctx);
+    const without = fn(parse((style ? 'style: ' + style + '\n' : '') + bare), hctx);
+    assert.ok(!without.includes('Retention first'), name + ': leaked a headline that was not written');
+    const h = s => +(s.match(/height="(\d+)"/) || [])[1];
+    assert.ok(h(withHl) > h(without), name + ': the standfirst must GROW the artefact, not overlap it');
+  }
+});
+
+test('the standfirst appears exactly once per export', () => {
+  for(const [name, fn, style] of [['chart', render, ''], ['board', renderBoardLive, 'board'],
+                                  ['register', renderRegisterLive, 'register'], ['focus', renderFocusLive, 'focus']]){
+    const out = fn(parse(DOC(style)), hctx);
+    assert.equal((out.match(/Retention first/g) || []).length, 1, name);
+  }
+});

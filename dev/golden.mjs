@@ -37,6 +37,11 @@ for(const [k, src] of Object.entries(docs)){
   /* narrow (phone) relayout, edit:true — the only real-world path (exports
      never set ctx.width): plain no-lanes stack, lane sub-labels + certainty
      fade + status pills, and the diff strip's single-column dropped list. */
+  /* the chart artefact's authored standfirst — WIDE (it grows headerH, pushing
+     every column down) and NARROW (it advances the running y cursor). */
+  const hlDoc = 'headline: We are consolidating — three bets, no more\n' + docs.lanes;
+  variants['roadmap-headline'] = render(parse(hlDoc), {...ctxBase});
+  variants['roadmap-headline-narrow'] = render(parse(hlDoc), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-diff'] = render(m, {...ctxBase, edit: true, width: 360, diff: {
@@ -188,6 +193,10 @@ for(const [k, src] of Object.entries(docs)){
   const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
     'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
   variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
+  /* the AUTHORED standfirst on the live artefacts (2026-07-31). `headline:` used
+     to reach the deck alone, so two of four exports ignored what the author wrote.
+     One golden per artefact pins the block AND the layout it pushes down. */
+  variants['register-live-headline'] = renderRegisterLive(parse('headline: We are consolidating — three bets, no more\n' + regLiveDoc), {...ctxBase});
 
   /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
@@ -198,6 +207,7 @@ for(const [k, src] of Object.entries(docs)){
   const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
     'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
   variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
+  variants['board-live-headline'] = renderBoardLive(parse('headline: We are consolidating — three bets, no more\n' + boardLiveDoc), {...ctxBase});
 
   /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
@@ -207,6 +217,7 @@ for(const [k, src] of Object.entries(docs)){
   const {renderFocusLive} = await import('../roadmap/render-focus.js');
   const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
   variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
+  variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

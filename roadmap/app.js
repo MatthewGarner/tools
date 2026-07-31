@@ -410,6 +410,9 @@ $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
   const lines = [];
   if(model.title) lines.push('## ' + model.title, '');
+  /* the authored standfirst travels into the doc too (2026-07-31) — it reaches
+     all four picture exports, so the text one must not be the odd exception */
+  if(model.headline) lines.push('_' + model.headline + '_', '');
   model.horizons.forEach((hName, h) => {
     const inH = model.items.filter(i => i.h === h);
     if(!inH.length) return;

@@ -160,7 +160,13 @@ const PAGES = {
      (Rule 2, phones have no ⌘Z). The chip-bypass merge had already eaten the old
      headroom (actual was ~565.6k before this change); actual now ~568.2k, set with
      ~5.8k real headroom. */
-  'roadmap/index.html': 591_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  /* roadmap 591k -> 593k (2026-07-31, the standfirst on every export): the shared
+     standfirst() block in deck-parts.js plus its call site in each of the four
+     renderers. `headline:` previously reached only the deck, so the author's claim
+     was absent from two of their four exports — this is the fix for that, and the
+     four call sites are the irreducible cost of four separate artefacts. Actual
+     ~591.9k, ~1.1k headroom. */
+  'roadmap/index.html': 593_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -174,7 +180,17 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 511_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  /* why 511k -> 515k (2026-07-31, the standfirst): /why renders its map view
+     THROUGH roadmap/render.js, so it inherits roadmap/text-parts.js (~2.4k of
+     font stacks, clip1/wrapN and standfirst). Stated plainly: /why has no
+     `headline:` key, so the block is inert there — it pays for a delegated
+     renderer's feature it cannot use. The alternative was worse in both
+     directions: leaving standfirst in deck-parts.js dragged that whole 9.2k deck
+     toolkit into /why instead (measured: 520.7k, +9.7k), and duplicating
+     clip1/wrapN into a why-local copy breaks the no-duplication rule for a
+     helper three renderers already share. text-parts.js is the minimum subset
+     render.js needs. Actual ~514.0k, ~1.0k headroom. */
+  'why/index.html': 515_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px

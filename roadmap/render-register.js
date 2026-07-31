@@ -4,7 +4,7 @@
    renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
-  registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit} from './deck-parts.js';
+  registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
 
 function registerBodyFn(model, ctx, C){
@@ -172,6 +172,8 @@ export function renderRegisterLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || ctx.today || '');
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 24;
+  const sfR = standfirst(model, M, y, W - M * 2, measure, C);   // the authored standfirst
+  if(sfR.height){ s.push(sfR.svg); y += sfR.height; }
 
   /* --- column header row --- */
   const headY = y;
