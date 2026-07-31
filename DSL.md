@@ -35,21 +35,30 @@ The ten grammars differ, but they're a family and obey the same rules:
 - **`palette:`** is one of `ocean`, `slate`, `ember`, `plum`. **`accent:`** is a 6-digit hex
   like `#C05621` (it tints one accent role; the palette drives the rest).
 - **`title:`** is free text on every tool.
+- **`verdict:`** decides whose words lead the artefact, on the seven tools whose verdict
+  is part of the exported picture (`map`, `wardley`, `timeline`, `tree`, `gauge`,
+  `energy/cycles`, `energy/risk`). Leave it out and the tool writes the line, as it
+  always has. `verdict: off` removes it entirely — from the artefact, the export and the
+  page. Anything else is *your* line, in the tool's slot: the first number in it is
+  marked as the key figure, and a line with no number carries no colour. The rule is that
+  a claim on your artefact should be a claim you made — where a tool props its line up
+  with a supporting sentence (`tree`'s evidence, `timeline`'s operational bits), that
+  goes too, because it was explaining a line you replaced.
 
 ## What each tool supports
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
-| [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` | `Name @ stage` and `A -> B -> C` edges |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
+| [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
-| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` | `Lane: Label DATE [.. DATE] [status] // note` |
-| [map](#map) | ✓ | ✓ | ✓ | `preset` `x` `y` `zones` | `Label @ x,y :: field: value`, plus `zone …:` directives |
-| [tree](#tree) | ✓ | ✓ | ✓ | `currency` | indented tree; `Label (p=…) : value` |
+| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
+| [map](#map) | ✓ | ✓ | ✓ | `preset` `x` `y` `zones` `verdict` | `Label @ x,y :: field: value`, plus `zone …:` directives |
+| [tree](#tree) | ✓ | ✓ | ✓ | `currency` `verdict` | indented tree; `Label (p=…) : value` |
 | [why](#why) | ✓ | ✓ | ✓ | — | indented tree; `outcome:` / `? assumption` / `Solution [status]` |
-| [gauge](#gauge) | ✓ | ✓ | ✓ | `names` | `Question :: prob` / `:: range unit` / `:: chips A \| B` |
-| [energy/cycles](#energycycles) | ✓ | ✓\* | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` | numeric `key: value` sheet only |
-| [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
+| [gauge](#gauge) | ✓ | ✓ | ✓ | `names` `verdict` | `Question :: prob` / `:: range unit` / `:: chips A \| B` |
+| [energy/cycles](#energycycles) | ✓ | ✓\* | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` `verdict` | numeric `key: value` sheet only |
+| [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` `verdict` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
 
 \* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet;
 `energy/cycles` accepts a `palette` name without checking it against the list.
@@ -64,7 +73,12 @@ swimlanes, WIP limits, and a deck export.
 **Config keys** (put them above the first horizon header):
 - `title:` free text.
 - `date:` deck date, free text; `date: off` hides it.
-- `headline:` deck subtitle, free text. It is never generated — if you want one, write one.
+- `headline:` the standfirst under the title, free text. Never generated — if you want one,
+  write one. It appears on **every** export (chart, board, register, focus, and the markdown).
+- `story:` one authored line about what changed, printed under the standfirst and shown
+  **only while a snapshot comparison is active** — it is a claim about a diff, so with no
+  diff there is nothing for it to be about. The tool detects *what* moved; this is where you
+  say *why*.
 - `horizons:` either a comma list of 2–8 names (default `Now, Next, Later`), or a generator:
   `horizons: quarterly from Q3 2026 x4` or `horizons: monthly from Aug 2026 x6`. A generated
   (time) axis is what enables `xN` spans.
@@ -110,6 +124,7 @@ vertical position *derived* from the dependency edges (anchors at the top).
 
 **Config keys** (`title` / `palette` / `accent` must come before any content):
 - `title:` / `palette:` / `accent:` — as above.
+- `verdict:` — `off` to carry no verdict at all, or your own line to replace the tool's. Omit it and the tool writes it, as before.
 - `anchor:` a user-need name at the top of the chain. This behaves like content (you can
   have several), and **a map needs at least one** — omit it and the parser adds "User need"
   and warns.
@@ -173,6 +188,7 @@ Growth bets
 
 **Config keys** (order-free): `title:`, `palette:`, `accent:`, and `today:` a date
 (`YYYY-MM` or `YYYY-MM-DD`) for the today line.
+- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line in the tool's verdict slot. Omit it and the tool writes one, as it always has.
 
 **Node syntax:** each milestone is `[Lane:] Label DATE [.. DATE] [status] [// note]`.
 - Dates are `YYYY-MM` (treated as mid-month) or `YYYY-MM-DD`.
@@ -208,6 +224,7 @@ RAG): items placed at x,y on a plane, with method presets, custom axes and named
   axes and zones for that method.
 - `x:` / `y:` custom axis label, optionally with end labels: `x: Effort (low → high)`.
 - `zones: grid NxM` — an N×M grid of cells (1×1 to 6×6).
+- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line.
 - A **`zone` directive** (distinct from `zones:`): `zone 2,1: Quick wins` names a cell, or
   `zone Watch: x>50 & y>50` defines a rule-bounded zone (`x`/`y`/`x+y`/`x-y` compared with a
   number, joined by `&`).
@@ -236,6 +253,7 @@ probabilities, run through a 10,000-sample EV / distribution.
 
 **Config keys** (before any node): `title:`, `currency:` (one of `£`, `$`, `€`), `palette:`,
 `accent:`.
+- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line in the tool's verdict slot. Omit it and the tool writes one, as it always has.
 
 **Node syntax** (2-space indentation = one level deeper):
 - Every line is `Label [(p=…)] [: value]`.
@@ -295,6 +313,7 @@ revealed together. Not a diagram — the DSL is a questionnaire (up to 20 questi
 
 **Config keys** (before the first question): `title:`, `names:` (`on` or `off` — `off` is
 anonymous, the default), `palette:`, `accent:`.
+- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line in the tool's verdict slot. Omit it and the tool writes one, as it always has.
 
 **Node syntax:** each question is `Question text :: type`, where type is:
 - `prob` — a probability (0–100%).
@@ -325,6 +344,8 @@ parameters fed to a Monte-Carlo engine. There is no node structure — every lin
   %/yr; `cycles: 6000 over 15yr` (throughput warranty).
 - Recommended (each auto-warns if omitted): `charge:` charging cost, and `drift:` the
   year-on-year spread drift %.
+- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line
+  (it governs the threshold band, cycles' one display verdict).
 - Optional: `second:` second-cycle capture %, `augment:` augmentation cost (£/kWh),
   `discount:` discount rate % (default 8), plus `title:`, `palette:`, `accent:`.
 - Values are a number or a `lo..hi` range; `%` fields are read as percentages.
@@ -352,6 +373,7 @@ floor / toll / insurance structures, each scored as a payoff transform.
 
 **Config keys** (order-free): `title:`, `unit:` (display label, default `£k/MW/yr`),
 `palette:`, `accent:`.
+- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line in the tool's verdict slot. Omit it and the tool writes one, as it always has.
 
 **Node syntax** — a required merchant range, then any of three structures (each takes an
 optional trailing `"label"`):

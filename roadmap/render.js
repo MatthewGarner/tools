@@ -1,6 +1,7 @@
 /* (model, ctx) → SVG string. ctx = {colors, measure, diff?, slide?}. No DOM. */
 import {STATUS_LABEL, activeCount} from './parse.js';
 import {packLane} from './pack.js';
+import {standfirst, storyLine} from './text-parts.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -193,6 +194,17 @@ function renderNarrow(model, ctx, C, T){
     s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + T.dateSize + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
     y += 20;
   } else y += 6;
+  /* the AUTHORED standfirst (2026-07-31) — every artefact carries it, not just
+     the deck. Zero height when the author wrote none, so a headline-free doc is
+     byte-identical to before. */
+  {
+    const sf = standfirst(model, PAD, y, W - PAD * 2, measure, C);
+    if(sf.height){ s.push(sf.svg); y += sf.height; }
+    /* the diff narrative sits under the standfirst: headline = the plan, story =
+       the change. Only with an active comparison. */
+    const st = storyLine(model, diff, PAD, y, W - PAD * 2, measure, C);
+    if(st.height){ s.push(st.svg); y += st.height; }
+  }
   y += 10;
 
   const firstColCount = model.items.filter(i => i.h === 0).length;
@@ -405,7 +417,13 @@ export function render(model, ctx){
 
   const edit = !!ctx.edit;               // preview-only affordances; exports/goldens render without
   const addH = edit ? 20*S : 0;          // per-cell '+' ghost budget
-  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S;
+  /* the AUTHORED standfirst (2026-07-31) grows the header rather than overlapping
+     the columns — measured here because headerH drives every y below it. Zero for
+     a doc with no headline, so those stay byte-identical. */
+  const sfWide = standfirst(model, PAD, (model.title ? T.titleY + 12 : 16) * S, W - PAD * 2, measure, C);
+  const stWide = storyLine(model, diff, PAD,
+    (model.title ? T.titleY + 12 : 16) * S + sfWide.height, W - PAD * 2, measure, C);
+  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S + sfWide.height + stWide.height;
   const colHeadH = T.colHeadH*S;
   /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */
   const bandH = 30*S;
@@ -477,6 +495,9 @@ export function render(model, ctx){
     s.push('<text x="' + (W - PAD) + '" y="' + (model.title ? T.titleY : 16)*S +
       '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
   }
+
+  if(sfWide.height) s.push(sfWide.svg);
+  if(stWide.height) s.push(stWide.svg);
 
   /* column headers, with a WIP flag on the first column */
   const colX = h => PAD + LANE_W + h*(colW + GAP);

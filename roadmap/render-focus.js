@@ -3,7 +3,7 @@
    export (byte-identical) and the LIVE editable view (Task 4). Named render-*.js
    so renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, esc, btnAttrs} from '../assets/svg.js';
-import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS} from './deck-parts.js';
+import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
 import {STATUS_LABEL} from './parse.js';
 /* Fixed deck geometry as LITERALS — RAIL_W must NOT be `INNER - HERO_W - HGAP`
@@ -317,6 +317,10 @@ export function renderFocusLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 22;
+  const sfF = standfirst(model, M, y, W - M * 2, measure, C);   // the authored standfirst
+  if(sfF.height){ s.push(sfF.svg); y += sfF.height; }
+  const sfFStory = storyLine(model, diff, M, y, W - M * 2, measure, C);   // the diff narrative
+  if(sfFStory.height){ s.push(sfFStory.svg); y += sfFStory.height; }
   const zoneTop = y;
 
   // ---- HERO zone (the focused horizon — cards, or "Nothing scheduled" when EMPTY) ----

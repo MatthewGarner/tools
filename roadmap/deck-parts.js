@@ -6,12 +6,12 @@
    byte-for-byte by the deck export paint and the live editable view. */
 import {txt, wrapText, tint, esc} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
+import {SANS, SERIF, serifGroup, clip1, wrapN} from './text-parts.js';
 
-/* local font stacks — not threaded through svg.js's txt() (no font-family
-   override there): serif's double-quoted "Times New Roman" rides in a
-   single-quoted <g font-family='…'>, mirroring render.js's own pattern. */
-export const SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-export const SERIF = '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-serif';   // Swiss Phase 3a (deck sweeps with roadmap — same artefact family)
+/* the text primitives live in text-parts.js (split 2026-07-31 so roadmap/render.js
+   — and through it /why — need not carry the whole deck toolkit). Re-exported here
+   so every existing importer of deck-parts is untouched. */
+export {SANS, SERIF, serifGroup, clip1, wrapN, standfirst, storyLine} from './text-parts.js';
 export const r2 = n => Math.round(n * 100) / 100;
 
 /* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/
@@ -29,24 +29,8 @@ export function line(x1, y1, x2, y2, stroke, w = 1, opacity = 1){
   return '<line x1="' + r2(x1) + '" y1="' + r2(y1) + '" x2="' + r2(x2) + '" y2="' + r2(y2) +
     '" stroke="' + stroke + '" stroke-width="' + w + '" opacity="' + opacity + '"/>';
 }
-export const serifGroup = inner => '<g font-family=\'' + SERIF + '\'>' + inner + '</g>';
 
-/* ellipsis-clip to one line; wrap-to-N-lines with an ellipsis on overflow.
-   measure passed explicitly (pure helpers take it as an arg, never close
-   over a DOM-side singleton). */
-export function clip1(text, font, maxW, measure){
-  let s = String(text);
-  if(measure(s, font) <= maxW) return s;
-  while(s.length > 1 && measure(s + '…', font) > maxW) s = s.slice(0, -1);
-  return s + '…';
-}
-export function wrapN(text, font, maxW, maxLines, measure){
-  const lines = wrapText(text, font, maxW, measure);
-  if(lines.length <= maxLines) return lines;
-  const kept = lines.slice(0, maxLines);
-  kept[maxLines - 1] = clip1(kept[maxLines - 1] + ' ' + lines.slice(maxLines).join(' '), font, maxW, measure);
-  return kept;
-}
+
 
 /* Greedy "how many rows/cards fit" with a reserved chip budget — the terminal
    rung of the overflow ladder, shared by card and list columns. Invariant

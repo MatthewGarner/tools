@@ -126,3 +126,49 @@ test('isPointDate: done and fixed are legitimate points, bare singles are not', 
   const m = parse('A 2026-08-01 [done]\nB 2026-09-01 [fixed]\nC 2026-10-01\nD 2026-11 .. 2026-12');
   assert.deepEqual(m.items.map(isPointDate), [true, true, false, false]);
 });
+
+/* ---------- `verdict:` (2026-07-31) ----------
+   The parser's whole job is to hand the RAW value on: what "off" means, and the
+   difference between an absent key and a cleared one, lives once in
+   assets/verdict.js (resolveVerdict) so seven parsers cannot drift on it. */
+test('verdict: is stored raw, and an absent key stays null', () => {
+  assert.equal(parse(`Beta cut 2026-09 .. 2026-10`).verdict, null);
+  assert.equal(parse(`verdict: We ship in March
+Beta cut 2026-09 .. 2026-10`).verdict, 'We ship in March');
+});
+
+test('verdict: off is stored verbatim — suppression is the resolver\'s call, not the parser\'s', () => {
+  assert.equal(parse(`verdict: off
+Beta cut 2026-09 .. 2026-10`).verdict, 'off');
+  assert.equal(parse(`verdict: OFF
+Beta cut 2026-09 .. 2026-10`).verdict, 'OFF');
+});
+
+test('verdict: an emptied value is NOT the same as an absent key', () => {
+  assert.equal(parse(`verdict:
+Beta cut 2026-09 .. 2026-10`).verdict, '');
+});
+
+test('verdict: a line merely STARTING with off is authored text, not suppression', () => {
+  assert.equal(parse(`verdict: Off the back of Q3 we hold the date
+Beta cut 2026-09 .. 2026-10`).verdict,
+    'Off the back of Q3 we hold the date');
+});
+
+/* The DATE_RE guard rescues a LANE that happens to share a config key's name, by
+   re-reading the line as a milestone. `verdict:` is exempt from it, exactly as
+   `today:` already is, because neither can be a lane and both take values that
+   legitimately contain dates. The trade is explicit: a lane literally named
+   "Verdict" is now unavailable, as one named "Today" already was. */
+test('verdict: a date in the authored text does NOT turn the line into a phantom milestone', () => {
+  const m = parse('verdict: We ship by 2027-03\nApp: Energisation 2027-02 .. 2027-06');
+  assert.equal(m.verdict, 'We ship by 2027-03');
+  assert.equal(m.items.length, 1);
+  assert.equal(m.items[0].lane, 'App');
+});
+
+test('verdict: the exemption costs a lane named "Verdict" — the same trade today: makes', () => {
+  assert.equal(parse('Verdict: Energisation 2027-02 .. 2027-06').items.length, 0);
+  // a lane sharing a NON-exempt key's name still works, which is what the guard is for
+  assert.equal(parse('Title: Energisation 2027-02 .. 2027-06').items.length, 1);
+});

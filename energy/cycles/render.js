@@ -8,6 +8,7 @@
 import {esc, txt, tint, wrapText, editTarget} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict, makeBase, above, N_BASE, DAYS} from './engine.js';
+import {resolveVerdict} from '../../assets/verdict.js';
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const numStr = v => String(Number(Number(v).toPrecision(4)));
@@ -136,7 +137,11 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
 
   /* ---- measure heights first (verdicts wrap) ---- */
   const vw = W - 96 - 40;
-  const vT = bare ? '' : verdict('threshold', out);
+  /* `verdict:` (2026-07-31) governs the THRESHOLD line — cycles' one display
+     verdict, the claim the page exists to make. The second-cycle and augment
+     band lines below are descriptive analysis of their own bands, not claims
+     about the asset, so they stay. */
+  const vT = bare ? '' : resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: ''}).line;
   const vS = verdict('second', out);
   const vA = verdict('augment', out);
   const wrapN = t => t ? wrapText(t, '15px ' + FONT, vw, ctx.measure).length : 0;
@@ -358,8 +363,12 @@ export function toMarkdown(model, out){
   if(out.augment) lines.push('| Augment window | ' + (out.augment.window ? 'years ' + out.augment.window[0] + '–' + out.augment.window[1] : 'never') +
     ' (never in ' + Math.round(out.augment.pNever * 100) + '%) |');
   lines.push('');
+  /* `verdict:` governs the threshold line here exactly as it does in the artefact
+     (render's vT above) — the two exports must not disagree. */
   for(const b of ['threshold', 'second', 'augment']){
-    const v = verdict(b, out);
+    const v = b === 'threshold'
+      ? resolveVerdict(model.verdict, {line: verdict(b, out), fig: ''}).line
+      : verdict(b, out);
     if(v) lines.push('- ' + v);
   }
   return (model.title ? '## ' + model.title + '\n\n' : '') + lines.join('\n');

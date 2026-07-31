@@ -293,3 +293,16 @@ test('the verdict advance drives the readout flow — a long verdict never overl
   const zoneY = +svg.match(/y="([\d.]+)" font-size="10\.5" font-weight="600" letter-spacing="0\.8"/)[1];
   assert.ok(zoneY > ys[ys.length - 1], 'the zone columns start below the last verdict line');
 });
+
+/* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
+test('verdict: off drops the band from the readout', () => {
+  const svg = run('verdict: off\npreset: assumptions\ntitle: T\nA @ 20,80\nB @ 70,60');
+  assert.ok(!svg.includes('VERDICT'));
+  assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
+});
+
+test('verdict: <text> replaces the tool line, keeping the anatomy', () => {
+  const svg = run('verdict: We test A before anything else\npreset: assumptions\ntitle: T\nA @ 20,80\nB @ 70,60');
+  assert.ok(svg.includes('VERDICT'));
+  assert.ok(svg.includes('We test A before anything else'));
+});

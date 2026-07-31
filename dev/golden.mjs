@@ -37,6 +37,21 @@ for(const [k, src] of Object.entries(docs)){
   /* narrow (phone) relayout, edit:true — the only real-world path (exports
      never set ctx.width): plain no-lanes stack, lane sub-labels + certainty
      fade + status pills, and the diff strip's single-column dropped list. */
+  /* the chart artefact's authored standfirst — WIDE (it grows headerH, pushing
+     every column down) and NARROW (it advances the running y cursor). */
+  const hlDoc = 'headline: We are consolidating — three bets, no more\n' + docs.lanes;
+  variants['roadmap-headline'] = render(parse(hlDoc), {...ctxBase});
+  /* `story:` (2026-07-31) — the authored diff narrative, which renders ONLY with
+     an active comparison. Both states pinned: with a diff it appears under the
+     standfirst and pushes the board down; without one it must be absent. */
+  const storyDoc = 'story: We chose depth over breadth this cycle\n' + hlDoc;
+  const storyDiff = {
+    badge: it => it.title === 'Smart reminders' ? {kind: 'new', label: 'New'} : null,
+    dropped: ['old thing one'], since: '2026-06-01', any: true,
+  };
+  variants['roadmap-story'] = render(parse(storyDoc), {...ctxBase, diff: storyDiff});
+  variants['roadmap-story-nodiff'] = render(parse(storyDoc), {...ctxBase});
+  variants['roadmap-headline-narrow'] = render(parse(hlDoc), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-diff'] = render(m, {...ctxBase, edit: true, width: 360, diff: {
@@ -188,6 +203,10 @@ for(const [k, src] of Object.entries(docs)){
   const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
     'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
   variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
+  /* the AUTHORED standfirst on the live artefacts (2026-07-31). `headline:` used
+     to reach the deck alone, so two of four exports ignored what the author wrote.
+     One golden per artefact pins the block AND the layout it pushes down. */
+  variants['register-live-headline'] = renderRegisterLive(parse('headline: We are consolidating — three bets, no more\n' + regLiveDoc), {...ctxBase});
 
   /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
@@ -198,6 +217,10 @@ for(const [k, src] of Object.entries(docs)){
   const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
     'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
   variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
+  variants['board-live-headline'] = renderBoardLive(parse('headline: We are consolidating — three bets, no more\n' + boardLiveDoc), {...ctxBase});
+  variants['board-live-story'] = renderBoardLive(
+    parse('story: We chose depth over breadth this cycle\n' + boardLiveDoc),
+    {...ctxBase, diff: {badge: () => null, dropped: ['old thing'], since: 'JUNE', any: true}});
 
   /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
@@ -207,6 +230,7 @@ for(const [k, src] of Object.entries(docs)){
   const {renderFocusLive} = await import('../roadmap/render-focus.js');
   const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
   variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
+  variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
 }
 
 /* tree fixtures (dates normalised so captures are stable) */
@@ -219,6 +243,13 @@ for(const [k, src] of Object.entries(docs)){
   const r = evaluate(m);
   variants['tree-bid'] = trender(m, r, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
   variants['tree-bid-slide'] = trender(m, r, {...ctxBase, slide: true}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  /* `verdict:` (2026-07-31) — the two states that move layout: off collapses the
+     band (the tree must rise to meet the header), authored replaces the line and
+     drops the tool's evidence sentence with it. */
+  const mOff = tparse('verdict: off\n' + bid);
+  variants['tree-verdict-off'] = trender(mOff, evaluate(mOff), {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  const mAuth = tparse('verdict: We bid, and we bid high\n' + bid);
+  variants['tree-verdict-authored'] = trender(mAuth, evaluate(mAuth), {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
 
 }
 
@@ -305,6 +336,8 @@ for(const [k, src] of Object.entries(docs)){
   const rr = mresolve(curMap);
   variants['map-diff'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxBase}, md));
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
+  variants['map-verdict-off'] = mk('verdict: off\n' + mdocs['map-assumptions']);
+  variants['map-verdict-authored'] = mk('verdict: We test A before anything else\n' + mdocs['map-assumptions']);
 
   const pm = mparse(mdocs['map-assumptions']);
   const pr = mresolve(pm);
@@ -325,6 +358,12 @@ for(const [k, src] of Object.entries(docs)){
     {values: [15, [30, 50]], name: 'Di'},
   ];
   variants['gauge-overlay'] = grender(m, gstats(m, resp), {...ctxBase});
+  /* `verdict:` (2026-07-31): gauge was the one tool with no golden for the key,
+     and the one where review found two live bypasses. */
+  const gOff = gparse('verdict: off\n' + doc);
+  variants['gauge-verdict-off'] = grender(gOff, gstats(gOff, resp), {...ctxBase});
+  const gAuth = gparse('verdict: The room is split on shipping\n' + doc);
+  variants['gauge-verdict-authored'] = grender(gAuth, gstats(gAuth, resp), {...ctxBase});
   const agree = [{values: [[4, 8]]}, {values: [[5, 9]]}, {values: [[3, 7]]}];
   const m2 = gparse('Weeks :: range weeks');
   variants['gauge-overlay-agree'] = grender(m2, gstats(m2, agree), {...ctxBase});
@@ -428,6 +467,10 @@ for(const [k, src] of Object.entries(docs)){
   const tlShort = 'title: Q3 launch\nApp: Feature freeze 2026-08-14 .. 2026-08-28\n' +
     'App: Store review passed 2026-10-15 .. 2026-11-15 // review times vary wildly';
   variants['timeline-shortwhisker'] = trender(tparse(tlShort), {...tctx});
+  /* `verdict:` (2026-07-31): off collapses the readout band; authored replaces the
+     line AND drops the tool's operational "rest" bits that followed it. */
+  variants['timeline-verdict-off'] = trender(tparse('verdict: off\n' + tdoc), tctx);
+  variants['timeline-verdict-authored'] = trender(tparse('verdict: We hold the energisation date\n' + tdoc), tctx);
   // pins the M4 packing push: item 1's dates+note sub-line is wider than its label.
   const tlNote = 'title: Notes\nApp: Ship it 2026-08-01 .. 2026-08-05 // a deliberately long trailing note that runs wide\n' +
     'App: Next thing 2026-08-20';
@@ -471,6 +514,12 @@ for(const [k, src] of Object.entries(docs)){
   variants['risk-routes-slide'] = rrender(rm, rs, {...ctxBase, slide: true});
   variants['risk-routes-narrow'] = rrender(rm, rs, {...ctxBase, width: 360});
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
+  /* `verdict:` (2026-07-31): off collapses the trade band (the svg height follows),
+     authored replaces the line and drops the row name from the kicker. */
+  const rmOff = rparse('verdict: off\n' + rdoc);
+  variants['risk-verdict-off'] = rrender(rmOff, simulate(rmOff), {...ctxBase});
+  const rmAuth = rparse('verdict: We take the floor and live with the cap\n' + rdoc);
+  variants['risk-verdict-authored'] = rrender(rmAuth, simulate(rmAuth), {...ctxBase});
 
   const rFi = focusedIndex(rs.rows, null);
   const rRow = rs.rows[rFi];
@@ -487,6 +536,10 @@ for(const [k, src] of Object.entries(docs)){
   variants['cycles-full'] = crender(cm, co, {...ctxBase});
   variants['cycles-full-slide'] = crender(cm, co, {...ctxBase, slide: true});
   variants['cycles-full-narrow'] = crender(cm, co, {...ctxBase, width: 360});
+  const cmOff = cparse('verdict: off\n' + cdoc);
+  variants['cycles-verdict-off'] = crender(cmOff, csim(cmOff, {seed: 1, n: 2000}), {...ctxBase});
+  const cmAuth = cparse('verdict: Cycle harder, the spread pays\n' + cdoc);
+  variants['cycles-verdict-authored'] = crender(cmAuth, csim(cmAuth, {seed: 1, n: 2000}), {...ctxBase});
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 
@@ -551,6 +604,10 @@ for(const [k, src] of Object.entries(docs)){
   const wctx = {...ctxBase, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
   const wm = wparse(wdoc);
   variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
+  const wmOff = wparse('verdict: off\n' + wdoc);
+  variants['wardley-verdict-off'] = wrender(wmOff, layoutMap(wmOff), wctx);
+  const wmAuth = wparse('verdict: Buy the gateway, build the engine\n' + wdoc);
+  variants['wardley-verdict-authored'] = wrender(wmAuth, layoutMap(wmAuth), wctx);
   variants['wardley-compare'] = wrender(wm, layoutMap(wm), wctx,
     {compare: {prev: wparse(wPrev), label: 'March'}});
   variants['wardley-narrow'] = wrender(wm, layoutMap(wm), {...wctx, width: 390});

@@ -1,5 +1,6 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
 import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdictOf, delphiVerdictOf} from './engine.js';
+import {resolveVerdict} from '../assets/verdict.js';   // `verdict:` — the console headline must agree with the artefact band
 import {fermiHandoff} from './handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
@@ -30,7 +31,7 @@ const consoleCounts = (model, stats, delphi) => {
 const showOverlay = (el, headEl, model, responses, ctx, metEl) => {
   const stats = sessionStats(model, responses);
   el.innerHTML = renderOverlay(model, stats, ctx(), {width: narrowWidth(el)});
-  setHead(headEl, verdictOf(stats));
+  setHead(headEl, resolveVerdict(model.verdict, verdictOf(stats)));
   if(metEl) paintMetrics(metEl, model.title || 'Gauge session', consoleCounts(model, stats, false));
 };
 /* width only on screen (narrowWidth of the host element) — export paths omit it */
@@ -38,7 +39,7 @@ const delphiSvg = (model, r1, r2, ctx, width) =>
   renderOverlay(model, sessionStats(model, mergeFinal(r1, r2)), ctx(),
     {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1), width});
 const setDelphiHead = (headEl, model, r1, r2, metEl) => {
-  setHead(headEl, delphiVerdictOf(delphiStats(model, r1, r2)));
+  setHead(headEl, resolveVerdict(model.verdict, delphiVerdictOf(delphiStats(model, r1, r2))));
   if(metEl) paintMetrics(metEl, model.title || 'Gauge session',
     consoleCounts(model, sessionStats(model, mergeFinal(r1, r2)), true));
 };

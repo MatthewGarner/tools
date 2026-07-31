@@ -2,6 +2,7 @@
 import {PALETTES, scheme, fmt} from '../assets/series.js';
 import {esc, editTarget, btnAttrs} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
+import {resolveVerdict} from '../assets/verdict.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -56,15 +57,18 @@ export function treeVerdict(model, results){
    treeVerdict() mirror above (poster / copy-for-doc) stays byte-unchanged. The
    figure is the last token of the line, so a wrap can never split it. */
 export function treeVerdictParts(model, results){
+  /* resolveVerdict runs on EVERY branch, including the ones where the tool has
+     nothing to say: an authored `verdict:` is the author's line about their own
+     tree, and a tree with no decision root is exactly when they might want one. */
   const none = {line: '', fig: ''};
-  if(!model.root || model.root.kind !== 'decision') return none;
+  if(!model.root || model.root.kind !== 'decision') return resolveVerdict(model.verdict, none);
   const rec = results.policy.get(model.root);
   const st = results.stats.get(model.root);
-  if(!rec || !st) return none;
+  if(!rec || !st) return resolveVerdict(model.verdict, none);
   const cur = model.currency || '£';
   const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
   const fig = money(st.mean);
-  return {line: 'Choose ' + rec.label + ' — expected value ' + fig, fig};
+  return resolveVerdict(model.verdict, {line: 'Choose ' + rec.label + ' — expected value ' + fig, fig});
 }
 
 export function render(model, results, ctx){
@@ -107,11 +111,18 @@ export function render(model, results, ctx){
      tree down instead of colliding with it. Dropped when bare (the poster
      frame is the hero there, reusing treeVerdict verbatim). */
   const V = (() => {
-    if(bare || model.root.kind !== 'decision') return {svg: '', h: 0};
-    const rec = results.policy.get(model.root);
-    const st = results.stats.get(model.root);
+    if(bare) return {svg: '', h: 0};
     const {line, fig} = treeVerdictParts(model, results);
     if(!line) return {svg: '', h: 0};
+    const rec = results.policy.get(model.root);
+    const st = results.stats.get(model.root);
+    /* The muted evidence sentence is the TOOL's words. When the author has
+       written their own verdict the whole band is theirs, so the evidence goes
+       with the line it was explaining — a claim of yours propped up by a
+       sentence of ours is exactly what `verdict:` exists to stop. It also can't
+       be built without a decision root. */
+    const authored = model.verdict != null && String(model.verdict).trim() !== '';
+    const showEvidence = !authored && rec && st && model.root.kind === 'decision';
     const vy = headerH + T.verdictTop*S;
     const block = svgVerdict({x: T.pad*S, y: vy, width: W - T.pad*2*S, line, fig,
       ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: F.body,
@@ -121,10 +132,12 @@ export function render(model, results, ctx){
       /* edit-gated (B2): a group handle so B3 can crossfade this band with the
          rest of the readout during the priced-insistence walk. */
       svg: (edit ? '<g data-verdict="">' : '') + block.svg +
-        '<text x="' + T.pad*S + '" y="' + evY + '" font-size="' + 11.5*S +
-        '" fill="' + C.muted + '">' + esc(evidenceFor(rec, st, results, money, false)) + '</text>' +
+        (showEvidence
+          ? '<text x="' + T.pad*S + '" y="' + evY + '" font-size="' + 11.5*S +
+            '" fill="' + C.muted + '">' + esc(evidenceFor(rec, st, results, money, false)) + '</text>'
+          : '') +
         (edit ? '</g>' : ''),
-      h: evY + T.verdictBottom*S - headerH,
+      h: (showEvidence ? evY : vy + block.height) + T.verdictBottom*S - headerH,
     };
   })();
   const treeTop = headerH + V.h;

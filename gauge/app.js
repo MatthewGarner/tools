@@ -1,5 +1,6 @@
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
+import {resolveVerdict} from '../assets/verdict.js';   // the composer headline is a verdict mirror too
 import {sessionStats, markdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,
@@ -191,7 +192,7 @@ async function initCompose(hash){
       const stats = sessionStats(model, sampleResponses(model));
       // the PREVIEW carries the narrow width (<520 ⇒ phone relayout); exports never do
       out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv)});
-      head = verdict(stats);
+      head = resolveVerdict(model.verdict, {line: verdict(stats), fig: ''}).line;
     }
     paint(out, REVEAL); lastOut = out;
     $('revealhead').textContent = head;

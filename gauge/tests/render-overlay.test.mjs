@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {renderOverlay} from '../render-overlay.js';
-import {sessionStats, verdictOf} from '../engine.js';
+import {sessionStats, verdictOf, markdownSummary} from '../engine.js';
 import {parse} from '../parse.js';
 
 const ctx = {
@@ -195,4 +195,29 @@ test('narrow delphi: pill gets its own header row, count line wraps, well-formed
 
 test('narrow: deterministic', () => {
   assert.equal(narrowSvg(), narrowSvg());
+});
+
+/* ---------- `verdict:` (2026-07-31) ----------
+   gauge carries FOUR verdict mirrors — the SVG band, the facilitator console
+   headline, the composer's on-screen headline, and markdownSummary (itself wired
+   to three separate copy buttons). Review found two of them bypassing the key, so
+   all of them are pinned here. */
+test('verdict: off drops the band from the exported overlay', () => {
+  const off = parse('verdict: off\n' + 'title: Q3 review\nnames: on\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
+  assert.ok(!renderOverlay(off, sessionStats(off, RESP), ctx).includes('VERDICT'));
+});
+
+test('verdict: <text> replaces the band line, keeping the anatomy', () => {
+  const auth = parse('verdict: The room is split on shipping\n' + 'title: Q3 review\nnames: on\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
+  const svg = renderOverlay(auth, sessionStats(auth, RESP), ctx);
+  assert.ok(svg.includes('VERDICT'));
+  assert.ok(svg.includes('The room is split on shipping'));
+});
+
+test('verdict: reaches markdownSummary — one summary feeds THREE copy buttons', () => {
+  const off = parse('verdict: off\n' + 'title: Q3 review\nnames: on\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
+  const mdOff = markdownSummary(off, sessionStats(off, RESP));
+  assert.ok(!/\*\*(Broad|No consensus|Divergent)/.test(mdOff), mdOff.split('\n').slice(0, 3).join(' | '));
+  const auth = parse('verdict: The room is split\n' + 'title: Q3 review\nnames: on\nShip by Q3 :: prob\nWeeks to migrate :: range weeks');
+  assert.ok(markdownSummary(auth, sessionStats(auth, RESP)).includes('**The room is split**'));
 });

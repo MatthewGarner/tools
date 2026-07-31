@@ -101,3 +101,31 @@ test('chips warnings: <2 options, >8 options, duplicate, empty label', () => {
   aok(parse('Q :: chips A | a').warnings.some(w => w.includes('duplicate')));   // case-insensitive dupe
   aok(parse('Q :: chips A || B').warnings.some(w => w.includes('empty')));
 });
+
+/* ---------- `verdict:` (2026-07-31) ----------
+   The parser's whole job is to hand the RAW value on: what "off" means, and the
+   difference between an absent key and a cleared one, lives once in
+   assets/verdict.js (resolveVerdict) so seven parsers cannot drift on it. */
+test('verdict: is stored raw, and an absent key stays null', () => {
+  assert.equal(parse(`Will it ship? :: prob`).verdict, null);
+  assert.equal(parse(`verdict: We ship in March
+Will it ship? :: prob`).verdict, 'We ship in March');
+});
+
+test('verdict: off is stored verbatim — suppression is the resolver\'s call, not the parser\'s', () => {
+  assert.equal(parse(`verdict: off
+Will it ship? :: prob`).verdict, 'off');
+  assert.equal(parse(`verdict: OFF
+Will it ship? :: prob`).verdict, 'OFF');
+});
+
+test('verdict: an emptied value is NOT the same as an absent key', () => {
+  assert.equal(parse(`verdict:
+Will it ship? :: prob`).verdict, '');
+});
+
+test('verdict: a line merely STARTING with off is authored text, not suppression', () => {
+  assert.equal(parse(`verdict: Off the back of Q3 we hold the date
+Will it ship? :: prob`).verdict,
+    'Off the back of Q3 we hold the date');
+});

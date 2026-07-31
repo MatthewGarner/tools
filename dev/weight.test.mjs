@@ -100,7 +100,17 @@ const PAGES = {
      Every raise is set with ~5k real headroom, on purpose: the fermi/roadmap history
      below records what happens when a raise leaves 300B and the next author learns to
      bump the gate reflexively. --- */
-  'fermi/index.html': 183_000, 'rank/index.html': 94_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* fermi 183k -> 185k, rank 94k -> 95k (2026-07-31, the `verdict:` key):
+     assets/verdict.js gains firstFigure + resolveVerdict (~400B) — the shared
+     three-state semantics that stop seven parsers each inventing their own idea
+     of what "off" means. Both pages import verdict.js for its DOM rendition, so
+     both pay. Neither is a verdict: tool itself; they carry the helper because
+     the module is shared, which is the trade that keeps the semantics single.
+     Both were on hair-thin headroom before this (fermi ~900B, rank ~240B) and
+     tripped on 400B, so the raise buys back real room rather than the next
+     400B of anything: fermi actual ~183.4k (~1.6k headroom), rank ~94.2k
+     (~840B). See the "previous six raises" note above on why thin is a trap. */
+  'fermi/index.html': 185_000, 'rank/index.html': 95_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 107_000,   /* 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
@@ -150,7 +160,15 @@ const PAGES = {
      (Rule 2, phones have no ⌘Z). The chip-bypass merge had already eaten the old
      headroom (actual was ~565.6k before this change); actual now ~568.2k, set with
      ~5.8k real headroom. */
-  'roadmap/index.html': 591_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  /* roadmap 591k -> 593k (2026-07-31, the standfirst on every export): the shared
+     standfirst() block in deck-parts.js plus its call site in each of the four
+     renderers. `headline:` previously reached only the deck, so the author's claim
+     was absent from two of their four exports — this is the fix for that, and the
+     four call sites are the irreducible cost of four separate artefacts. Actual
+     ~591.9k. Then 593k -> 596k for `story:` — the diff narrative: storyLine()
+     plus a call site in each of the same four renderers, and the markdown path.
+     Actual ~595.1k, ~900B headroom. */
+  'roadmap/index.html': 596_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -164,7 +182,19 @@ const PAGES = {
      thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
      4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
      other DSL page had >8k headroom and stays put. */
-  'why/index.html': 511_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  /* why 511k -> 515k (2026-07-31, the standfirst): /why renders its map view
+     THROUGH roadmap/render.js, so it inherits roadmap/text-parts.js (~2.4k of
+     font stacks, clip1/wrapN and standfirst). Stated plainly: /why has no
+     `headline:` key, so the block is inert there — it pays for a delegated
+     renderer's feature it cannot use. The alternative was worse in both
+     directions: leaving standfirst in deck-parts.js dragged that whole 9.2k deck
+     toolkit into /why instead (measured: 520.7k, +9.7k), and duplicating
+     clip1/wrapN into a why-local copy breaks the no-duplication rule for a
+     helper three renderers already share. text-parts.js is the minimum subset
+     render.js needs. Raised again to 517k the same day when `story:` added
+     storyLine() to the same module — /why inherits that too, and cannot use it
+     either (no snapshot compare, no `story:` key). Actual ~515.6k, ~1.4k. */
+  'why/index.html': 517_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -180,7 +210,13 @@ const PAGES = {
      every workspace page pays it; gauge was simply the page nearest its ceiling
      and tipped 682B over. Actual now ~470.7k, ~5.3k headroom — in line with the
      other DSL pages. */
-  'gauge/index.html': 494_000, 'timeline/index.html': 486_000,
+  /* gauge 494k -> 496k (2026-07-31, `verdict:`). gauge carries FOUR verdict
+     mirrors — the SVG band, the facilitator console headline, the composer's
+     on-screen headline, and markdownSummary (itself wired to three copy buttons)
+     — and review caught two of them bypassing the key, so app.js and engine.js
+     both had to route through resolveVerdict. ~400B of imports and call sites on
+     a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
+  'gauge/index.html': 496_000, 'timeline/index.html': 486_000,
   'wardley/index.html': 480_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —

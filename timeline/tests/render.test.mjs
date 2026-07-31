@@ -366,3 +366,18 @@ test('milestone sub lines render at 11.5px (the projector bump)', () => {
   const svg = render(parse(DOC), ctx);
   assert.ok((svg.match(/font-size="11.5"/g) || []).length >= 4);
 });
+
+/* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
+test('verdict: off drops the band, and the tool\'s supporting "rest" bits with it', () => {
+  const svg = render(parse('verdict: off\n' + DOC), ctx);
+  assert.ok(!svg.includes('VERDICT'));
+  assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
+});
+
+test('verdict: <text> stands alone — the tool\'s operational rest is not appended to the author\'s claim', () => {
+  const m = parse('verdict: We hold the energisation date\n' + DOC);
+  const vd = timelineVerdict(m, ctx.today);
+  assert.equal(vd.line, 'We hold the energisation date');
+  assert.equal(vd.rest, '');
+  assert.ok(render(m, ctx).includes('We hold the energisation date'));
+});

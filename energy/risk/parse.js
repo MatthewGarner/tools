@@ -12,7 +12,7 @@ export function defaultLabel(kind, p){
 }
 
 export function parse(text){
-  const model = {title: '', palette: 'ember', accent: null, unit: '£k/MW/yr',
+  const model = {title: '', palette: 'ember', accent: null, unit: '£k/MW/yr', verdict: null,
     merchant: null, structures: [], warnings: []};
   const lines = String(text).split(/\r?\n/);
 
@@ -24,10 +24,11 @@ export function parse(text){
     if(cm >= 0) line = line.slice(0, cm).trim();
     if(!line) continue;
 
-    const config = line.match(/^(title|palette|accent|unit)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|palette|accent|unit|verdict)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'unit') model.unit = val || model.unit;
       else if(key === 'palette'){
         if(PALETTE_NAMES.includes(val.toLowerCase())) model.palette = val.toLowerCase();

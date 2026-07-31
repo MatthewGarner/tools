@@ -68,3 +68,19 @@ test('markdown carries all three verdicts', () => {
   assert.match(md, /second cycle earns/);
   assert.match(md, /Augment in years|never pays|coin flip/);
 });
+
+/* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
+test('verdict: governs the THRESHOLD line — off drops it, text replaces it', () => {
+  const off = parse('verdict: off\n' + FULL);
+  assert.ok(!render(off, simulate(off), ctx).includes('Cycles are worth'));
+  const auth = parse('verdict: Cycle harder, the spread pays\n' + FULL);
+  assert.ok(render(auth, simulate(auth), ctx).includes('Cycle harder, the spread pays'));
+});
+
+test('verdict: reaches the MARKDOWN export too, and governs the same (threshold) line', () => {
+  const off = parse('verdict: off\n' + FULL);
+  const mdOff = toMarkdown(off, simulate(off));
+  assert.ok(!/Cycles are worth/.test(mdOff));
+  const auth = parse('verdict: Cycle harder\n' + FULL);
+  assert.ok(toMarkdown(auth, simulate(auth)).includes('Cycle harder'));
+});

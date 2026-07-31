@@ -464,3 +464,77 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
   assertClean(renderBoard(doc, new Date()), 'premortem-board');
   assertClean(renderBoard(doc, new Date(), board[1].id), 'premortem-board-promoting');
 });
+
+/* ---------- authored verdicts (2026-07-31) ----------
+   `verdict: <text>` is a NEW path for author-supplied text straight into an SVG
+   text node, on seven tools at once. It is exactly the shape of string that has
+   broken exports twice before, so every tool that accepts the key gets the
+   corpus run through it. One test, seven renderers, no per-tool memory needed. */
+test('every tool accepting verdict: escapes a hostile authored line', async () => {
+  const evil = EVIL.join(' ');   // one line carrying every hostile shape at once
+  const v = 'verdict: ' + evil.replace(/\n/g, ' ') + '\n';
+
+  const {parse: mparse} = await import('../map/parse.js');
+  const {resolve: mresolve} = await import('../map/zones.js');
+  const {readout: mreadout} = await import('../map/readout.js');
+  const {render: mrender} = await import('../map/render.js');
+  const mm = mparse(v + 'preset: assumptions\nA @ 20,80\nB @ 70,60');
+  const mr = mresolve(mm);
+  assertClean(mrender(mm, mr, mreadout(mm, mr), ctx), 'map verdict:');
+
+  const {parse: wparse} = await import('../wardley/parse.js');
+  const {layoutMap} = await import('../wardley/layout.js');
+  const {renderMap} = await import('../wardley/render.js');
+  const wm = wparse(v + 'anchor: Customer\nStorefront @ product\nCustomer -> Storefront');
+  assertClean(renderMap(wm, layoutMap(wm), {...ctx, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']}), 'wardley verdict:');
+
+  const {parse: tlparse} = await import('../timeline/parse.js');
+  const {render: tlrender} = await import('../timeline/render.js');
+  assertClean(tlrender(tlparse(v + 'Grid: Energisation 2027-02 .. 2027-06'), ctx), 'timeline verdict:');
+
+  const {parse: trparse} = await import('../tree/parse.js');
+  const {evaluate: trevaluate} = await import('../tree/engine.js');
+  const {render: trrender} = await import('../tree/render.js');
+  const trm = trparse(v + 'Root\n  Go: 100\n  Stop: 0');
+  assertClean(trrender(trm, trevaluate(trm), ctx), 'tree verdict:');
+
+  const {parse: gparse} = await import('../gauge/parse.js');
+  const {sessionStats} = await import('../gauge/engine.js');
+  const {renderOverlay} = await import('../gauge/render-overlay.js');
+  const gm = gparse(v + 'Will it ship? :: prob');
+  const gresp = [{values: gm.questions.map(() => 40)}, {values: gm.questions.map(() => 70)}];
+  assertClean(renderOverlay(gm, sessionStats(gm, gresp), ctx), 'gauge verdict:');
+
+  const {parse: cparse} = await import('../energy/cycles/parse.js');
+  const {simulate: csimulate} = await import('../energy/cycles/engine.js');
+  const {render: crender} = await import('../energy/cycles/render.js');
+  const cm = cparse(v + 'battery: 100MW / 200MWh\nspread: 40..90\ncycles: 5000 over 15yr\nfade: 2..3\nrte: 85..88');
+  assertClean(crender(cm, csimulate(cm), ctx), 'cycles verdict:');
+
+  const {parse: rparse} = await import('../energy/risk/parse.js');
+  const {simulate: rsimulate} = await import('../energy/risk/engine.js');
+  const {render: rrender} = await import('../energy/risk/render.js');
+  const rm = rparse(v + 'merchant: 40..90\nfloor: 55');
+  assertClean(rrender(rm, rsimulate(rm), ctx), 'risk verdict:');
+});
+
+/* `headline:` reached only the deck until 2026-07-31 and `story:` is new — two
+   author-supplied strings now landing in SVG text nodes on FOUR artefacts each.
+   Same class as the authored verdict above, so same corpus treatment. */
+test('roadmap escapes a hostile headline and story on every artefact', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {render} = await import('../roadmap/render.js');
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const {renderFocusLive} = await import('../roadmap/render-focus.js');
+  const evil = EVIL.join(' ').replace(/\n/g, ' ');
+  const diff = {any: true, since: EVIL[1], badge: () => null, dropped: [EVIL[2]]};
+  const doc = style => (style ? 'style: ' + style + '\n' : '') +
+    'title: T\nheadline: ' + evil + '\nstory: ' + evil +
+    '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+  assertClean(render(parse(doc()), {...ctx, diff}), 'roadmap headline+story');
+  assertClean(render(parse(doc()), {...ctx, diff, width: 360}), 'roadmap headline+story narrow');
+  assertClean(renderBoardLive(parse(doc('board')), {...ctx, diff}), 'board headline+story');
+  assertClean(renderRegisterLive(parse(doc('register')), {...ctx, diff}), 'register headline+story');
+  assertClean(renderFocusLive(parse(doc('focus')), {...ctx, diff}), 'focus headline+story');
+});

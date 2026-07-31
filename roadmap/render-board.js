@@ -5,7 +5,7 @@
    injection corpus. */
 import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
-import {rect, line, clip1, wrapN, capFit, badgeCapsule, statusCapsule, serifGroup, SANS} from './deck-parts.js';
+import {rect, line, clip1, wrapN, capFit, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
@@ -289,6 +289,10 @@ export function renderBoardLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 22;
+  const sf = standfirst(model, M, y, W - M * 2, measure, C);   // the authored standfirst
+  if(sf.height){ s.push(sf.svg); y += sf.height; }
+  const sfStory = storyLine(model, diff, M, y, W - M * 2, measure, C);   // the diff narrative
+  if(sfStory.height){ s.push(sfStory.svg); y += sfStory.height; }
   const colTop = y + HEADH;
 
   let maxBottom = colTop;

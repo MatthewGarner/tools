@@ -4,13 +4,13 @@
 const NUM = '-?\\d+(?:\\.\\d+)?';
 const RANGE = new RegExp('^(' + NUM + ')(?:\\s*\\.\\.\\s*(' + NUM + '))?');
 export const REQUIRED = ['battery', 'spread', 'rte', 'fade', 'calendar', 'cycles'];
-const KEYS = ['title', 'accent', 'palette', 'battery', 'spread', 'charge', 'second',
+const KEYS = ['title', 'verdict', 'accent', 'palette', 'battery', 'spread', 'charge', 'second',
   'drift', 'rte', 'fade', 'calendar', 'cycles', 'augment', 'discount'];
 
 export const complete = m => m.missing.length === 0;
 
 export function parse(text){
-  const m = {title: '', accent: null, palette: 'ember', battery: null, spread: null,
+  const m = {title: '', verdict: null, accent: null, palette: 'ember', battery: null, spread: null,
     charge: null, chargeDefaulted: false, second: null, drift: null, rte: null,
     fade: null, calendar: null, cycles: null, augment: null,
     discount: {lo: 0.08, hi: 0.08}, srcLines: {}, missing: [], warnings: []};
@@ -33,12 +33,13 @@ export function parse(text){
     const warn = msg => m.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
     const head = line.match(/^([a-z]+)\s*:\s*(.*)$/i);
-    if(!head){ warn('don’t know what this is — lines are key: value (' + KEYS.slice(3).join('/') + ')'); continue; }
+    if(!head){ warn('don’t know what this is — lines are key: value (' + KEYS.slice(4).join('/') + ')'); continue; }
     const key = head[1].toLowerCase(), body = head[2].trim();
-    if(!KEYS.includes(key)){ warn('don’t know "' + key + '" — lines are ' + KEYS.slice(3).join('/')); continue; }
+    if(!KEYS.includes(key)){ warn('don’t know "' + key + '" — lines are ' + KEYS.slice(4).join('/')); continue; }
     m.srcLines[key] = ln;
 
     if(key === 'title'){ m.title = body; continue; }
+    if(key === 'verdict'){ m.verdict = body; continue; }   // raw; assets/verdict.js owns what off/empty mean
     if(key === 'accent'){
       if(/^#[0-9a-fA-F]{6}$/.test(body)) m.accent = body;
       else warn('accent wants a 6-digit hex');

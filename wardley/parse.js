@@ -13,7 +13,7 @@ export function stageOf(x){
 }
 
 export function parse(text){
-  const model = {title: '', palette: 'ocean', accent: null,
+  const model = {title: '', palette: 'ocean', accent: null, verdict: null,
     anchors: [], components: new Map(), edges: [], warnings: []};
   const lines = text.split(/\r?\n/);
   const key = s => s.toLowerCase();
@@ -33,7 +33,7 @@ export function parse(text){
     if(!line) continue;
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
-    const config = line.match(/^(title|palette|accent|anchor)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|palette|accent|anchor|verdict)\s*:\s*(.*)$/i);
     if(config){
       const k = config[1].toLowerCase(), val = config[2].trim();
       if(k === 'anchor'){
@@ -44,6 +44,7 @@ export function parse(text){
       }
       if(sawContent){ warn('config keys go before the map — ignored'); continue; }
       if(k === 'title') model.title = val;
+      else if(k === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(k === 'palette'){
         const p = val.toLowerCase();
         if(PALETTE_NAMES.includes(p)) model.palette = p;

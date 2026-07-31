@@ -7,6 +7,7 @@ import {esc, txt, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 import {fmtDay, STATUSES, isPointDate} from './parse.js';
 import {mergeBias, laneVsDeadline} from './mergebias.js';
 import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
+import {resolveVerdict} from '../assets/verdict.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -262,9 +263,16 @@ export function timelineVerdict(model, today){
   const mb = mergeBias(model, today);
   const parts = restParts(model, today);
   const rest = parts.map(p => p.text).join('  ');
-  if(mb) return {line: mergeCopy(mb).short, fig: pc(mb.pAll), rest};
-  if(!parts.length) return {line: '', fig: '', rest: ''};
-  return {line: parts[0].text, fig: parts[0].fig, rest: parts.slice(1).map(p => p.text).join('  ')};
+  /* `verdict:` (2026-07-31). `rest` is the TOOL's supporting operational bits, so
+     it goes wherever the tool's line goes: an authored verdict stands alone, and
+     `off` takes the whole band with it. */
+  const auth = a => {
+    const r = resolveVerdict(model.verdict, a);
+    return model.verdict == null ? {...r, rest: a.rest} : {...r, rest: ''};
+  };
+  if(mb) return auth({line: mergeCopy(mb).short, fig: pc(mb.pAll), rest});
+  if(!parts.length) return auth({line: '', fig: '', rest: ''});
+  return auth({line: parts[0].text, fig: parts[0].fig, rest: parts.slice(1).map(p => p.text).join('  ')});
 }
 
 /* the poster hero: the merge sentence alone when present (else the operational readout) */
