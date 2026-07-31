@@ -413,6 +413,9 @@ $('copymd').addEventListener('click', async () => {
   /* the authored standfirst travels into the doc too (2026-07-31) — it reaches
      all four picture exports, so the text one must not be the odd exception */
   if(model.headline) lines.push('_' + model.headline + '_', '');
+  /* the diff narrative, only when a comparison is active — same rule the artefacts
+     follow, so the doc and the picture never disagree about what is on show */
+  if(model.story && makeDiff(model)) lines.push('> ' + model.story, '');
   model.horizons.forEach((hName, h) => {
     const inH = model.items.filter(i => i.h === h);
     if(!inH.length) return;

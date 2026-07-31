@@ -165,8 +165,10 @@ const PAGES = {
      renderers. `headline:` previously reached only the deck, so the author's claim
      was absent from two of their four exports — this is the fix for that, and the
      four call sites are the irreducible cost of four separate artefacts. Actual
-     ~591.9k, ~1.1k headroom. */
-  'roadmap/index.html': 593_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+     ~591.9k. Then 593k -> 596k for `story:` — the diff narrative: storyLine()
+     plus a call site in each of the same four renderers, and the markdown path.
+     Actual ~595.1k, ~900B headroom. */
+  'roadmap/index.html': 596_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -189,8 +191,10 @@ const PAGES = {
      toolkit into /why instead (measured: 520.7k, +9.7k), and duplicating
      clip1/wrapN into a why-local copy breaks the no-duplication rule for a
      helper three renderers already share. text-parts.js is the minimum subset
-     render.js needs. Actual ~514.0k, ~1.0k headroom. */
-  'why/index.html': 515_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+     render.js needs. Raised again to 517k the same day when `story:` added
+     storyLine() to the same module — /why inherits that too, and cannot use it
+     either (no snapshot compare, no `story:` key). Actual ~515.6k, ~1.4k. */
+  'why/index.html': 517_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px

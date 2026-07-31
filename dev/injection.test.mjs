@@ -517,3 +517,24 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
   const rm = rparse(v + 'merchant: 40..90\nfloor: 55');
   assertClean(rrender(rm, rsimulate(rm), ctx), 'risk verdict:');
 });
+
+/* `headline:` reached only the deck until 2026-07-31 and `story:` is new — two
+   author-supplied strings now landing in SVG text nodes on FOUR artefacts each.
+   Same class as the authored verdict above, so same corpus treatment. */
+test('roadmap escapes a hostile headline and story on every artefact', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {render} = await import('../roadmap/render.js');
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const {renderFocusLive} = await import('../roadmap/render-focus.js');
+  const evil = EVIL.join(' ').replace(/\n/g, ' ');
+  const diff = {any: true, since: EVIL[1], badge: () => null, dropped: [EVIL[2]]};
+  const doc = style => (style ? 'style: ' + style + '\n' : '') +
+    'title: T\nheadline: ' + evil + '\nstory: ' + evil +
+    '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+  assertClean(render(parse(doc()), {...ctx, diff}), 'roadmap headline+story');
+  assertClean(render(parse(doc()), {...ctx, diff, width: 360}), 'roadmap headline+story narrow');
+  assertClean(renderBoardLive(parse(doc('board')), {...ctx, diff}), 'board headline+story');
+  assertClean(renderRegisterLive(parse(doc('register')), {...ctx, diff}), 'register headline+story');
+  assertClean(renderFocusLive(parse(doc('focus')), {...ctx, diff}), 'focus headline+story');
+});

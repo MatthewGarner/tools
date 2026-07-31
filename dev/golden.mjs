@@ -41,6 +41,16 @@ for(const [k, src] of Object.entries(docs)){
      every column down) and NARROW (it advances the running y cursor). */
   const hlDoc = 'headline: We are consolidating — three bets, no more\n' + docs.lanes;
   variants['roadmap-headline'] = render(parse(hlDoc), {...ctxBase});
+  /* `story:` (2026-07-31) — the authored diff narrative, which renders ONLY with
+     an active comparison. Both states pinned: with a diff it appears under the
+     standfirst and pushes the board down; without one it must be absent. */
+  const storyDoc = 'story: We chose depth over breadth this cycle\n' + hlDoc;
+  const storyDiff = {
+    badge: it => it.title === 'Smart reminders' ? {kind: 'new', label: 'New'} : null,
+    dropped: ['old thing one'], since: '2026-06-01', any: true,
+  };
+  variants['roadmap-story'] = render(parse(storyDoc), {...ctxBase, diff: storyDiff});
+  variants['roadmap-story-nodiff'] = render(parse(storyDoc), {...ctxBase});
   variants['roadmap-headline-narrow'] = render(parse(hlDoc), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
@@ -208,6 +218,9 @@ for(const [k, src] of Object.entries(docs)){
     'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
   variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
   variants['board-live-headline'] = renderBoardLive(parse('headline: We are consolidating — three bets, no more\n' + boardLiveDoc), {...ctxBase});
+  variants['board-live-story'] = renderBoardLive(
+    parse('story: We chose depth over breadth this cycle\n' + boardLiveDoc),
+    {...ctxBase, diff: {badge: () => null, dropped: ['old thing'], since: 'JUNE', any: true}});
 
   /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden

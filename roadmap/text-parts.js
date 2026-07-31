@@ -46,3 +46,22 @@ export function standfirst(model, x, y, innerW, measure, colors){
     height: lines.length * LH + 6,
   };
 }
+
+/* The diff narrative (2026-07-31). The snapshot compare detects WHAT changed; it
+   cannot say WHY, which is the whole content of a review. `story:` is one
+   authored line about the comparison, printed with the diff legend.
+
+   Shown ONLY when a comparison is active — it is a claim about a diff, so with no
+   diff there is nothing for it to be about. Set in the serif at ink weight so it
+   reads as a sentence a person wrote, against the uppercase mechanical labels
+   around it. Height 0 when absent, like standfirst. */
+export function storyLine(model, diff, x, y, innerW, measure, colors){
+  const text = String((model && model.story) || '').trim();
+  if(!text || !diff || !diff.any) return {svg: '', height: 0};
+  const SIZE = 13, LH = 18;
+  const lines = wrapN(text, SIZE + 'px ' + SERIF, innerW, 3, measure);
+  return {
+    svg: serifGroup(lines.map((ln, i) => txt(x, y + SIZE + i * LH, ln, SIZE, colors.ink)).join('')),
+    height: lines.length * LH + 4,
+  };
+}

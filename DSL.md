@@ -49,7 +49,7 @@ The ten grammars differ, but they're a family and obey the same rules:
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -73,7 +73,12 @@ swimlanes, WIP limits, and a deck export.
 **Config keys** (put them above the first horizon header):
 - `title:` free text.
 - `date:` deck date, free text; `date: off` hides it.
-- `headline:` deck subtitle, free text. It is never generated — if you want one, write one.
+- `headline:` the standfirst under the title, free text. Never generated — if you want one,
+  write one. It appears on **every** export (chart, board, register, focus, and the markdown).
+- `story:` one authored line about what changed, printed under the standfirst and shown
+  **only while a snapshot comparison is active** — it is a claim about a diff, so with no
+  diff there is nothing for it to be about. The tool detects *what* moved; this is where you
+  say *why*.
 - `horizons:` either a comma list of 2–8 names (default `Now, Next, Later`), or a generator:
   `horizons: quarterly from Q3 2026 x4` or `horizons: monthly from Aug 2026 x6`. A generated
   (time) axis is what enables `xN` spans.

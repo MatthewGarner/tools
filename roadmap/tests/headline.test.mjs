@@ -204,3 +204,63 @@ test('the standfirst appears exactly once per export', () => {
     assert.equal((out.match(/Retention first/g) || []).length, 1, name);
   }
 });
+
+/* ---------------- `story:` — the diff narrative (2026-07-31) ----------------
+   The snapshot compare detects WHAT changed (New / was Next badges, a dropped
+   strip). It cannot say WHY, which is the entire content of a roadmap review.
+   `story:` is one authored line about the comparison as a whole.
+
+   Deliberately NOT the headline: the headline is a claim about the plan and shows
+   always; the story is a claim about the change and shows only when a comparison
+   is active — with no diff there is nothing for it to be about.
+
+   Per-item reasons were designed and then cut (Matt, 2026-07-31): a single
+   narrative covers a review, and a `~~ reason` per item would rot in the text the
+   moment the item stopped moving — drift being the exact thing this suite exists
+   to catch. */
+const DIFF = {
+  any: true, since: 'JUNE PACK',
+  badge: it => it.title === 'Smart reminders' ? {kind: 'new', label: 'New'} : null,
+  dropped: ['Old thing'],
+};
+const STORY = 'We chose depth over breadth this cycle';
+const sdoc = (extra = '') => 'title: T\n' + extra + 'NOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+
+test('story: is a config key, kept verbatim', () => {
+  assert.equal(parse(sdoc('story: ' + STORY + '\n')).story, STORY);
+});
+
+test('story: absent is an empty string, never generated', () => {
+  assert.equal(parse(sdoc()).story, '');
+});
+
+test('story: shows ONLY when a comparison is active — it is a claim about a diff', () => {
+  const m = parse(sdoc('story: ' + STORY + '\n'));
+  assert.ok(!render(m, hctx).includes('depth over breadth'), 'no comparison: nothing to be about');
+  assert.ok(render(m, {...hctx, diff: DIFF}).includes('depth over breadth'), 'comparison active: the story lands');
+});
+
+test('story: reaches every artefact that carries a diff', () => {
+  const m = s => parse('style: ' + s + '\n' + 'story: ' + STORY + '\n' +
+    'NOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders');
+  for(const [name, fn, style] of [['board', renderBoardLive, 'board'],
+                                  ['register', renderRegisterLive, 'register'],
+                                  ['focus', renderFocusLive, 'focus']]){
+    const out = fn(m(style), {...hctx, diff: DIFF});
+    assert.ok(out.includes('depth over breadth'), name + ': the story is missing from the diff read');
+    assert.equal((out.match(/depth over breadth/g) || []).length, 1, name + ': printed twice');
+  }
+});
+
+test('story: and headline: are different claims and can coexist', () => {
+  const m = parse('title: T\nheadline: ' + HL + '\nstory: ' + STORY +
+    '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders');
+  const out = render(m, {...hctx, diff: DIFF});
+  assert.ok(out.includes('Retention first'), 'the headline is about the plan');
+  assert.ok(out.includes('depth over breadth'), 'the story is about the change');
+});
+
+test('story: an item literally named "Story: something" is still an item', () => {
+  const m = parse('NOW\nCore: Story: the one we tell ourselves');
+  assert.equal(m.items.length, 1);
+});
