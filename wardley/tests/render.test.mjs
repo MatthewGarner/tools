@@ -290,3 +290,13 @@ test('add-zones sit as one row below the lowest pill in a crowded column', () =>
   // text y is the pill CENTRE; a clear pill-height gap below the lowest pill
   assert.ok(plusY[0] - Math.max(...pillY) >= 30, 'zone row clears the lowest pill');
 });
+
+/* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
+test('verdict: off drops the band; authored text replaces it', () => {
+  const off = renderMap(parse('verdict: off\n' + SRC), layoutMap(parse('verdict: off\n' + SRC)), ctx);
+  assert.ok(!off.includes('VERDICT'));
+  const src2 = 'verdict: Buy the gateway, build the engine\n' + SRC;
+  const authored = renderMap(parse(src2), layoutMap(parse(src2)), ctx);
+  assert.ok(authored.includes('VERDICT'));
+  assert.ok(authored.includes('Buy the gateway, build the engine'));
+});

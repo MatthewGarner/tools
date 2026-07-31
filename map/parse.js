@@ -25,7 +25,7 @@ export function parseRules(src){
 }
 
 export function parse(text){
-  const model = {title: '', palette: 'ocean', accent: null, preset: null,
+  const model = {title: '', palette: 'ocean', accent: null, preset: null, verdict: null,
     axes: {x: null, y: null}, grid: null, cellNames: [], ruleZones: [],
     items: [], warnings: []};
   const lines = text.split(/\r?\n/);
@@ -50,10 +50,11 @@ export function parse(text){
       continue;
     }
 
-    const config = line.match(/^(preset|title|palette|accent|x|y|zones)\s*:\s*(.*)$/i);
+    const config = line.match(/^(preset|title|palette|accent|x|y|zones|verdict)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].replace(/\s\/\/.*$/, '').trim();
       if(key === 'title') model.title = val;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'palette'){
         const p = val.toLowerCase();
         if(PALETTE_NAMES.includes(p)) model.palette = p;

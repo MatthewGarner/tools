@@ -4,6 +4,7 @@
 import {esc, txt, tint, wrapText, editTarget, btnAttrs} from '../../assets/svg.js';
 import {niceTicks} from '../../assets/series.js';
 import {fmtUnit, verdict, tradeFigure} from './engine.js';
+import {resolveVerdict} from '../../assets/verdict.js';
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const num = v => v === Infinity ? '∞' : (Math.round(v * 100) / 100).toString();
@@ -18,13 +19,24 @@ export function focusedIndex(rows, focus){
 
 /* plain-text mirror of the SVG's verdict band — the HTML readout app.js
    shows next to the diagram. Pure; same inputs render() itself uses. */
+/* the resolved verdict text for ONE row — shared by the SVG band and the parts
+   mirror so the artefact and the page can never disagree about `verdict:`. */
+function riskVerdictLine(row, model){
+  const auto = verdict(row, model.unit);
+  return resolveVerdict(model && model.verdict, {line: auto || '', fig: ''}).line;
+}
+
 export function riskVerdictParts(sim, model, focus = null){
-  if(!sim) return {line: '', fig: ''};
+  /* `verdict:` (2026-07-31) resolves on every branch, including the ones where the
+     tool has nothing to say — the author's line is about their own model. */
+  const none = {line: '', fig: ''};
+  const auth = a => resolveVerdict(model && model.verdict, a);
+  if(!sim) return auth(none);
   const rows = sim.rows;
   const fi = focusedIndex(rows, focus);
   const v = verdict(rows[fi], model.unit);
-  if(!v) return {line: '', fig: ''};
-  return {line: 'The trade — ' + rows[fi].label + ': ' + v, fig: tradeFigure(rows[fi], model.unit)};
+  if(!v) return auth(none);
+  return auth({line: 'The trade — ' + rows[fi].label + ': ' + v, fig: tradeFigure(rows[fi], model.unit)});
 }
 
 /* the plain line — the markdown/poster consumers want only this */
@@ -75,7 +87,11 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
 
   /* verdict block height computed up front so the svg height is exact —
      dropped when bare (the poster frame's hero already carries it) */
-  const vText = verdict(rows[fi], model.unit);
+  /* `verdict:` (2026-07-31): the SVG band reads the RESOLVED line, not the engine
+     directly, or the artefact would keep printing a verdict the author turned off
+     while the HTML mirror obeyed. */
+  const vAuthored = model.verdict != null && String(model.verdict).trim() !== '';
+  const vText = riskVerdictLine(rows[fi], model);
   const vLines = (bare || !vText) ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
   const AXIS = 34;
   /* phone-only ＋ Add structure capsule sits between the rows and the axis
@@ -220,8 +236,8 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
     const vy = ay + AXIS + 8;
     parts.push('<rect x=\'48\' y=\'' + (vy + 12) + '\' width=\'4\' height=\'' + (vLines.length * 24 + 8) +
       '\' fill=\'' + accent + '\'/>');
-    parts.push(txt(66, vy + 4, 'THE TRADE — ' + rows[fi].label.toUpperCase(), 11.5, C.muted,
-      {weight: 700, tracking: '.08em'}));
+    parts.push(txt(66, vy + 4, vAuthored ? 'THE TRADE' : 'THE TRADE — ' + rows[fi].label.toUpperCase(),
+      11.5, C.muted, {weight: 700, tracking: '.08em'}));
     vLines.forEach((l, k) => parts.push(txt(66, vy + 32 + k * 24, l, 16, C.ink)));
   }
   parts.push('</svg>');

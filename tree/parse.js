@@ -40,7 +40,7 @@ function parseP(str, warn){
 }
 
 export function parse(text){
-  const model = {title: '', currency: '£', palette: 'ocean', accent: null,
+  const model = {title: '', currency: '£', palette: 'ocean', accent: null, verdict: null,
     root: null, warnings: []};
   const lines = text.split(/\r?\n/);
   const stack = [];   // {node, level}
@@ -51,10 +51,11 @@ export function parse(text){
     const line = raw.trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|currency|palette|accent)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|currency|palette|accent|verdict)\s*:\s*(.*)$/i);
     if(config && stack.length === 0 && tops.length === 0){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'currency'){
         if(/^[£$€]$/.test(val)) model.currency = val;
         else model.warnings.push('line ' + (ln+1) + ': currency wants £, $ or € — kept ' + model.currency);

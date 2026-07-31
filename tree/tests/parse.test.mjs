@@ -102,3 +102,43 @@ test('config: palette validated, accent hex, comments ignored', () => {
   assert.equal(bad.palette, 'ocean');
   assert.ok(bad.warnings.some(w => w.includes('neon')));
 });
+
+/* ---------- `verdict:` (2026-07-31) ----------
+   The parser's whole job is to hand the RAW value on: what "off" means, and the
+   difference between an absent key and a cleared one, lives once in
+   assets/verdict.js (resolveVerdict) so seven parsers cannot drift on it. */
+test('verdict: is stored raw, and an absent key stays null', () => {
+  assert.equal(parse(`Decision
+  Go: 100
+  Stop: 0`).verdict, null);
+  assert.equal(parse(`verdict: We ship in March
+Decision
+  Go: 100
+  Stop: 0`).verdict, 'We ship in March');
+});
+
+test('verdict: off is stored verbatim — suppression is the resolver\'s call, not the parser\'s', () => {
+  assert.equal(parse(`verdict: off
+Decision
+  Go: 100
+  Stop: 0`).verdict, 'off');
+  assert.equal(parse(`verdict: OFF
+Decision
+  Go: 100
+  Stop: 0`).verdict, 'OFF');
+});
+
+test('verdict: an emptied value is NOT the same as an absent key', () => {
+  assert.equal(parse(`verdict:
+Decision
+  Go: 100
+  Stop: 0`).verdict, '');
+});
+
+test('verdict: a line merely STARTING with off is authored text, not suppression', () => {
+  assert.equal(parse(`verdict: Off the back of Q3 we hold the date
+Decision
+  Go: 100
+  Stop: 0`).verdict,
+    'Off the back of Q3 we hold the date');
+});

@@ -14,7 +14,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/wor
 import {mountMotion} from "../../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, resolveVerdict} from '../../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -178,7 +178,9 @@ function renderWarnings(){
    artefact itself, band by band, where they belong to the picture they explain. */
 function renderVerdict(){
   if(!out){ paintVerdict($('verdict'), '', ''); return; }
-  paintVerdict($('verdict'), verdict('threshold', out), thresholdFigure(out));
+  /* the HTML mirror honours `verdict:` too, so the page and the artefact agree */
+  const vv = resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: thresholdFigure(out)});
+  paintVerdict($('verdict'), vv.line, vv.fig);
 }
 
 /* Metrics: the battery, the warranty budget and the spread belief — every one a

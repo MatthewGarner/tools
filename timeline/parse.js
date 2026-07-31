@@ -33,7 +33,7 @@ export function fmtDay(day, {month = false} = {}){
 const DATE_RE = /\d{4}-\d{2}(?:-\d{2})?/;
 
 export function parse(text){
-  const model = {title: '', palette: 'ocean', accent: null, today: null,
+  const model = {title: '', palette: 'ocean', accent: null, today: null, verdict: null,
     lanes: [], items: [], warnings: []};
   const lines = String(text).split(/\r?\n/);
   const laneSet = new Set();
@@ -45,10 +45,11 @@ export function parse(text){
 
     /* a dated value means a milestone whose lane shares a config key's name —
        except today:, whose value IS a date */
-    const config = line.match(/^(title|palette|accent|today)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|palette|accent|today|verdict)\s*:\s*(.*)$/i);
     if(config && !(DATE_RE.test(config[2]) && config[1].toLowerCase() !== 'today')){
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'palette'){
         const p = val.toLowerCase();
         if(PALETTE_NAMES.includes(p)) model.palette = p;

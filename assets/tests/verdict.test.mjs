@@ -106,3 +106,54 @@ test('svgVerdict is empty for an empty line', () => {
   assert.deepEqual(svgVerdict({x: 0, y: 0, width: 100, line: '', fig: '', ...C,
     font: FONT, measure}), {svg: '', height: 0});
 });
+
+/* ---------- authored verdicts (2026-07-31) ----------
+   `verdict:` lets the author suppress or replace the tool's line. The semantics
+   live HERE, once, so seven parsers can stay dumb (store the raw string) and
+   cannot drift on what "off" means. */
+import {firstFigure, resolveVerdict} from '../verdict.js';
+
+test('firstFigure: the first numeric token, so an authored line keeps the anatomy', () => {
+  assert.equal(firstFigure('3 of 5 bets are unfunded'), '3');
+  assert.equal(firstFigure('We are carrying £3.2M of exposure'), '£3.2M');
+  assert.equal(firstFigure('Churn moved 12% against us'), '12%');
+  assert.equal(firstFigure('1,200 users churned'), '1,200');
+});
+
+test('firstFigure: a bare year IS the figure (Matt 2026-07-31 — no unpredictable range rule)', () => {
+  assert.equal(firstFigure('We ship in March 2027'), '2027');
+});
+
+test('firstFigure: no number means no brand colour — red is reserved for figures', () => {
+  assert.equal(firstFigure('We ship, or we do not ship'), '');
+  assert.equal(firstFigure(''), '');
+  assert.equal(firstFigure(null), '');
+});
+
+test('resolveVerdict: an absent key leaves the tool auto verdict untouched', () => {
+  const auto = {line: 'Now is overloaded.', fig: 'Now'};
+  assert.deepEqual(resolveVerdict(null, auto), auto);
+  assert.deepEqual(resolveVerdict(undefined, auto), auto);
+});
+
+test('resolveVerdict: off suppresses, whatever the case or padding', () => {
+  const auto = {line: 'Now is overloaded.', fig: 'Now'};
+  for(const v of ['off', 'OFF', 'Off', '  off  '])
+    assert.deepEqual(resolveVerdict(v, auto), {line: '', fig: ''}, v);
+});
+
+test('resolveVerdict: an empty value suppresses too — deleting the text must not resurrect the auto line', () => {
+  assert.deepEqual(resolveVerdict('', {line: 'x', fig: ''}), {line: '', fig: ''});
+  assert.deepEqual(resolveVerdict('   ', {line: 'x', fig: ''}), {line: '', fig: ''});
+});
+
+test('resolveVerdict: "off" only suppresses as the WHOLE value, never as a first word', () => {
+  const got = resolveVerdict('Off the back of Q3 we hold the date', {line: 'auto', fig: ''});
+  assert.equal(got.line, 'Off the back of Q3 we hold the date');
+  assert.equal(got.fig, '3');   // Q3 — the first numeric token
+});
+
+test('resolveVerdict: authored text replaces the line and derives its own figure', () => {
+  const got = resolveVerdict('  3 of 5 bets are unfunded  ', {line: 'auto', fig: 'auto'});
+  assert.deepEqual(got, {line: '3 of 5 bets are unfunded', fig: '3'});
+});

@@ -5,6 +5,7 @@
    verdict-led readout band. Height follows content. */
 import {esc, tint, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
+import {resolveVerdict} from '../assets/verdict.js';
 import {diffItems} from '../assets/snapshots.js';
 import {STAGES, stageOf} from './parse.js';
 import {layoutMap} from './layout.js';
@@ -142,7 +143,9 @@ export function mapReadout(model, layout, opts = {}){
   /* `fig` is the ONE load-bearing figure inside the verdict, verbatim, for the
      surface to mark. The composition verdict ("a discovery map") turns on no
      single number, so it carries no figure. */
-  return {verdict, fig, flags};
+  /* `verdict:` (2026-07-31): the author's override wins over the derived line. */
+  const av = resolveVerdict(model.verdict, {line: verdict, fig});
+  return {verdict: av.line, fig: av.fig, flags};
 }
 
 function compareParts(model, layout, compare, c){

@@ -3,6 +3,7 @@ import {esc, tint, wrapText} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
 import {verdictOf, delphiVerdictOf} from './engine.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
+import {resolveVerdict} from '../assets/verdict.js';
 
 /* single-quoted family names: these stacks land inside double-quoted SVG
    attributes, where an embedded double quote is invalid XML (breaks PNG export) */
@@ -287,7 +288,8 @@ export function renderOverlay(model, stats, ctx, opts = {}){
      ink and exactly ONE run — the key figure — is brandText. It is NOT accent;
      the old wholly-accent 14px line put data blue on a verdict. Narrow re-wraps
      at 17px; exports never pass a width, so they stay pinned to the 24px block. */
-  const vv = delphi ? delphiVerdictOf(delphi) : verdictOf(stats);
+  /* `verdict:` (2026-07-31): the author's override, resolved before the band. */
+  const vv = resolveVerdict(model.verdict, delphi ? delphiVerdictOf(delphi) : verdictOf(stats));
   if(vv.line){
     const block = svgVerdict({x: PAD, y, width: panelW, line: vv.line, fig: vv.fig,
       ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,

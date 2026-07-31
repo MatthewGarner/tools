@@ -100,7 +100,17 @@ const PAGES = {
      Every raise is set with ~5k real headroom, on purpose: the fermi/roadmap history
      below records what happens when a raise leaves 300B and the next author learns to
      bump the gate reflexively. --- */
-  'fermi/index.html': 183_000, 'rank/index.html': 94_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* fermi 183k -> 185k, rank 94k -> 95k (2026-07-31, the `verdict:` key):
+     assets/verdict.js gains firstFigure + resolveVerdict (~400B) — the shared
+     three-state semantics that stop seven parsers each inventing their own idea
+     of what "off" means. Both pages import verdict.js for its DOM rendition, so
+     both pay. Neither is a verdict: tool itself; they carry the helper because
+     the module is shared, which is the trade that keeps the semantics single.
+     Both were on hair-thin headroom before this (fermi ~900B, rank ~240B) and
+     tripped on 400B, so the raise buys back real room rather than the next
+     400B of anything: fermi actual ~183.4k (~1.6k headroom), rank ~94.2k
+     (~840B). See the "previous six raises" note above on why thin is a trap. */
+  'fermi/index.html': 185_000, 'rank/index.html': 95_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 107_000,   /* 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */

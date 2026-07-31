@@ -1,4 +1,5 @@
 /* Zone membership → advice + verdict sentences + copy-for-doc markdown. Pure. */
+import {resolveVerdict} from '../assets/verdict.js';
 import {zoneFor} from './zones.js';
 
 export function readout(model, resolved){
@@ -47,7 +48,10 @@ export function readout(model, resolved){
 
   /* `verdict` stays a plain string: copy-for-doc, the poster hero and the handoff
      all consume it unchanged. `verdictFig` is the figure to mark, never re-derived. */
-  return {zones, unplaced, flagged, verdict: v.line, verdictFig: v.fig, counts};
+  /* `verdict:` (2026-07-31) is the author's override — off suppresses, text replaces.
+     Resolved HERE so every consumer (band, markdown, handoff) sees one answer. */
+  const av = resolveVerdict(model.verdict, {line: v.line, fig: v.fig});
+  return {zones, unplaced, flagged, verdict: av.line, verdictFig: av.fig, counts};
 }
 
 function genericVerdict(st){

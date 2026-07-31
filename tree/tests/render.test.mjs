@@ -142,3 +142,35 @@ test('B2: golden-safety — none of the edit-only marks appear when edit is fals
   assert.ok(!svg.includes('data-mc'));
   assert.ok(!svg.includes('data-verdict'));
 });
+
+/* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
+test('verdict: off drops the whole band — kicker, line and the tool\'s evidence sentence', () => {
+  const m = parse('verdict: off\n' + BID);
+  const svg = render(m, evaluate(m), ctx());
+  assert.ok(!svg.includes('VERDICT'));
+  assert.ok(!svg.includes('Choose Bid'));
+  assert.ok(!svg.includes('% of simulations'));       // the muted evidence goes with its line
+  assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
+  assert.ok(!svg.includes('NaN'));
+});
+
+test('verdict: <text> replaces the line AND the tool\'s evidence — a claim of yours is not propped up by a sentence of ours', () => {
+  const m = parse('verdict: We bid, and we bid high\n' + BID);
+  const svg = render(m, evaluate(m), ctx());
+  assert.ok(svg.includes('VERDICT'));                 // the anatomy stays
+  assert.ok(svg.includes('We bid, and we bid high'));
+  assert.ok(!svg.includes('Choose Bid'));
+  assert.ok(!svg.includes('% of simulations'));
+});
+
+test('verdict: an authored line still carries ONE brand figure, derived from its own text', () => {
+  const m = parse('verdict: 3 of 5 outcomes lose money\n' + BID);
+  const parts = treeVerdictParts(m, evaluate(m));
+  assert.equal(parts.line, '3 of 5 outcomes lose money');
+  assert.equal(parts.fig, '3');
+});
+
+test('verdict: an authored line survives a tree with no decision root, where the tool has nothing to say', () => {
+  const m = parse('verdict: Nothing to choose here yet\nOutcome\n  Win (p=0.5): 10\n  Lose (p=rest): 0');
+  assert.equal(treeVerdictParts(m, evaluate(m)).line, 'Nothing to choose here yet');
+});

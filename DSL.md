@@ -35,21 +35,30 @@ The ten grammars differ, but they're a family and obey the same rules:
 - **`palette:`** is one of `ocean`, `slate`, `ember`, `plum`. **`accent:`** is a 6-digit hex
   like `#C05621` (it tints one accent role; the palette drives the rest).
 - **`title:`** is free text on every tool.
+- **`verdict:`** decides whose words lead the artefact, on the seven tools whose verdict
+  is part of the exported picture (`map`, `wardley`, `timeline`, `tree`, `gauge`,
+  `energy/cycles`, `energy/risk`). Leave it out and the tool writes the line, as it
+  always has. `verdict: off` removes it entirely — from the artefact, the export and the
+  page. Anything else is *your* line, in the tool's slot: the first number in it is
+  marked as the key figure, and a line with no number carries no colour. The rule is that
+  a claim on your artefact should be a claim you made — where a tool props its line up
+  with a supporting sentence (`tree`'s evidence, `timeline`'s operational bits), that
+  goes too, because it was explaining a line you replaced.
 
 ## What each tool supports
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
 | [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
-| [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` | `Name @ stage` and `A -> B -> C` edges |
+| [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
-| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` | `Lane: Label DATE [.. DATE] [status] // note` |
-| [map](#map) | ✓ | ✓ | ✓ | `preset` `x` `y` `zones` | `Label @ x,y :: field: value`, plus `zone …:` directives |
-| [tree](#tree) | ✓ | ✓ | ✓ | `currency` | indented tree; `Label (p=…) : value` |
+| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
+| [map](#map) | ✓ | ✓ | ✓ | `preset` `x` `y` `zones` `verdict` | `Label @ x,y :: field: value`, plus `zone …:` directives |
+| [tree](#tree) | ✓ | ✓ | ✓ | `currency` `verdict` | indented tree; `Label (p=…) : value` |
 | [why](#why) | ✓ | ✓ | ✓ | — | indented tree; `outcome:` / `? assumption` / `Solution [status]` |
-| [gauge](#gauge) | ✓ | ✓ | ✓ | `names` | `Question :: prob` / `:: range unit` / `:: chips A \| B` |
-| [energy/cycles](#energycycles) | ✓ | ✓\* | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` | numeric `key: value` sheet only |
-| [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
+| [gauge](#gauge) | ✓ | ✓ | ✓ | `names` `verdict` | `Question :: prob` / `:: range unit` / `:: chips A \| B` |
+| [energy/cycles](#energycycles) | ✓ | ✓\* | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` `verdict` | numeric `key: value` sheet only |
+| [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` `verdict` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
 
 \* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet;
 `energy/cycles` accepts a `palette` name without checking it against the list.

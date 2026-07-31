@@ -4,18 +4,19 @@ import {PALETTE_NAMES} from '../assets/series.js';
 export const MAX_QUESTIONS = 20;
 
 export function parse(text){
-  const model = {title: '', names: false, palette: 'ocean', accent: null, questions: [], warnings: []};
+  const model = {title: '', names: false, palette: 'ocean', accent: null, questions: [], warnings: [], verdict: null};
   const lines = text.split(/\r?\n/);
   for(let ln = 0; ln < lines.length; ln++){
     const line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
-    const config = line.match(/^(title|names|palette|accent)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|names|palette|accent|verdict)\s*:\s*(.*)$/i);
     if(config){
       if(model.questions.length){ warn('config keys go before the first question — ignored'); continue; }
       const key = config[1].toLowerCase(), val = config[2].trim();
       if(key === 'title') model.title = val;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'names'){
         const v = val.toLowerCase();
         if(v === 'on' || v === 'off') model.names = v === 'on';

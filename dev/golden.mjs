@@ -219,6 +219,13 @@ for(const [k, src] of Object.entries(docs)){
   const r = evaluate(m);
   variants['tree-bid'] = trender(m, r, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
   variants['tree-bid-slide'] = trender(m, r, {...ctxBase, slide: true}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  /* `verdict:` (2026-07-31) — the two states that move layout: off collapses the
+     band (the tree must rise to meet the header), authored replaces the line and
+     drops the tool's evidence sentence with it. */
+  const mOff = tparse('verdict: off\n' + bid);
+  variants['tree-verdict-off'] = trender(mOff, evaluate(mOff), {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  const mAuth = tparse('verdict: We bid, and we bid high\n' + bid);
+  variants['tree-verdict-authored'] = trender(mAuth, evaluate(mAuth), {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
 
 }
 
@@ -305,6 +312,8 @@ for(const [k, src] of Object.entries(docs)){
   const rr = mresolve(curMap);
   variants['map-diff'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxBase}, md));
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
+  variants['map-verdict-off'] = mk('verdict: off\n' + mdocs['map-assumptions']);
+  variants['map-verdict-authored'] = mk('verdict: We test A before anything else\n' + mdocs['map-assumptions']);
 
   const pm = mparse(mdocs['map-assumptions']);
   const pr = mresolve(pm);
@@ -428,6 +437,10 @@ for(const [k, src] of Object.entries(docs)){
   const tlShort = 'title: Q3 launch\nApp: Feature freeze 2026-08-14 .. 2026-08-28\n' +
     'App: Store review passed 2026-10-15 .. 2026-11-15 // review times vary wildly';
   variants['timeline-shortwhisker'] = trender(tparse(tlShort), {...tctx});
+  /* `verdict:` (2026-07-31): off collapses the readout band; authored replaces the
+     line AND drops the tool's operational "rest" bits that followed it. */
+  variants['timeline-verdict-off'] = trender(tparse('verdict: off\n' + tdoc), tctx);
+  variants['timeline-verdict-authored'] = trender(tparse('verdict: We hold the energisation date\n' + tdoc), tctx);
   // pins the M4 packing push: item 1's dates+note sub-line is wider than its label.
   const tlNote = 'title: Notes\nApp: Ship it 2026-08-01 .. 2026-08-05 // a deliberately long trailing note that runs wide\n' +
     'App: Next thing 2026-08-20';
@@ -471,6 +484,12 @@ for(const [k, src] of Object.entries(docs)){
   variants['risk-routes-slide'] = rrender(rm, rs, {...ctxBase, slide: true});
   variants['risk-routes-narrow'] = rrender(rm, rs, {...ctxBase, width: 360});
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
+  /* `verdict:` (2026-07-31): off collapses the trade band (the svg height follows),
+     authored replaces the line and drops the row name from the kicker. */
+  const rmOff = rparse('verdict: off\n' + rdoc);
+  variants['risk-verdict-off'] = rrender(rmOff, simulate(rmOff), {...ctxBase});
+  const rmAuth = rparse('verdict: We take the floor and live with the cap\n' + rdoc);
+  variants['risk-verdict-authored'] = rrender(rmAuth, simulate(rmAuth), {...ctxBase});
 
   const rFi = focusedIndex(rs.rows, null);
   const rRow = rs.rows[rFi];
@@ -487,6 +506,8 @@ for(const [k, src] of Object.entries(docs)){
   variants['cycles-full'] = crender(cm, co, {...ctxBase});
   variants['cycles-full-slide'] = crender(cm, co, {...ctxBase, slide: true});
   variants['cycles-full-narrow'] = crender(cm, co, {...ctxBase, width: 360});
+  const cmOff = cparse('verdict: off\n' + cdoc);
+  variants['cycles-verdict-off'] = crender(cmOff, csim(cmOff, {seed: 1, n: 2000}), {...ctxBase});
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 
@@ -551,6 +572,8 @@ for(const [k, src] of Object.entries(docs)){
   const wctx = {...ctxBase, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
   const wm = wparse(wdoc);
   variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
+  const wmOff = wparse('verdict: off\n' + wdoc);
+  variants['wardley-verdict-off'] = wrender(wmOff, layoutMap(wmOff), wctx);
   variants['wardley-compare'] = wrender(wm, layoutMap(wm), wctx,
     {compare: {prev: wparse(wPrev), label: 'March'}});
   variants['wardley-narrow'] = wrender(wm, layoutMap(wm), {...wctx, width: 390});

@@ -68,3 +68,11 @@ test('every tag is well-formed XML (single-root, quoted attributes)', () => {
     for(const tag of src.match(/<[^!/][^>]*>/g) || [])
       assert.match(tag, TAG, 'malformed tag ' + tag.slice(0, 120));
 });
+
+/* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
+test('verdict: off drops the trade band; authored text replaces it', () => {
+  const off = parse('verdict: off\n' + DOC);
+  assert.ok(!render(off, simulate(off), ctx).includes('THE TRADE'));
+  const auth = parse('verdict: We take the floor and live with the cap\n' + DOC);
+  assert.ok(render(auth, simulate(auth), ctx).includes('We take the floor and live with the cap'));
+});
