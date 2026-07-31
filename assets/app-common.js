@@ -36,9 +36,17 @@ export function download(name, blob){
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+/* The quote char is a WILDCARD (fixed 2026-07-31). Most renderers emit a
+   double-quoted root, but a font-family containing double quotes forces the
+   whole root onto single quotes — which is exactly what cycles' and risk' slide
+   renders do. A double-quote-only pattern matched null there and threw on
+   dims[1], so those renders could never rasterize; the poster frame hid it by
+   re-wrapping them in a root of its own, and nothing else rasterized them until
+   Copy PNG inherited the deck-shaped render. Bail loudly rather than throw. */
 export function svgToCanvas(svg, cb){
   const img = new Image();
-  const dims = svg.match(/width="(\d+)" height="(\d+)"/);
+  const dims = svg.match(/width=['"](\d+)['"] height=['"](\d+)['"]/);
+  if(!dims) return console.error('svgToCanvas: no integer width/height on the root <svg> — cannot size the PNG');
   const w = +dims[1], h = +dims[2], scale = 2;
   img.onerror = () => console.error('svgToCanvas: SVG failed to decode — invalid XML in the export string?');
   img.onload = () => {

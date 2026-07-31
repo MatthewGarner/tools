@@ -522,6 +522,9 @@ function renderSaved(){
    carries only the kicker and the metrics row — one verdict per page. Counts
    come from the parsed model + the same MC results the tree renders from. */
 paintKicker($('kicker'), '07', 'Choices priced before you make them');
+function countLeaves(node){
+  return node.children.length === 0 ? 1 : node.children.reduce((a, c) => a + countLeaves(c), 0);
+}
 function metricCounts(){
   if(!model || !model.root || !results) return [];
   const n = model.root.kind === 'decision' ? model.root.children.length : null;

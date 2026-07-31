@@ -34,3 +34,21 @@ test('no golden carries a character that HTML-serialises to an XML-undefined ent
       svg.slice(Math.max(0, at - 40), at + 20) + '…)');
   }
 });
+
+/* Third gap, same family, found 2026-07-31 when Copy PNG inherited the
+   deck-shaped render: app-common's svgToCanvas sizes the PNG by reading integer
+   width/height off the ROOT <svg>. Its pattern was double-quote-only, so the
+   single-quoted roots that cycles and risk emit for their slide renders matched
+   null and threw — those renders could not rasterize at all, and only the
+   poster frame (which re-wrapped them in a root of its own) hid it. The pattern
+   is now quote-agnostic; this pins the other half of the contract, that every
+   golden actually carries dimensions it can find. */
+const ROOT_DIMS = /width=['"](\d+)['"] height=['"](\d+)['"]/;
+test('every golden root <svg> exposes integer dimensions svgToCanvas can read', () => {
+  for(const file of readdirSync(dir).filter(f => f.endsWith('.svg'))){
+    const svg = readFileSync(new URL(file, dir), 'utf8');
+    const m = svg.match(ROOT_DIMS);
+    assert.ok(m, file + ': no integer width/height pair on the root — svgToCanvas cannot size the PNG');
+    assert.ok(+m[1] > 0 && +m[2] > 0, file + ': zero-sized root (' + m[1] + '×' + m[2] + ')');
+  }
+});
