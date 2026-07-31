@@ -1,6 +1,6 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
-import {parse, fmtDay, STATUSES} from './parse.js';
-import {render, toMarkdown, posterVerdict} from './render.js';
+import {parse, STATUSES} from './parse.js';
+import {render, toMarkdown} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
@@ -9,7 +9,6 @@ import {paintKicker} from '../assets/verdict.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {wireExports} from '../assets/exports.js';
-import {posterSvg} from '../assets/poster.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -189,30 +188,12 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 function svgString(slide, bare = false){
   return (model && model.items.length) ? activeRender(slide, false, bare) : null;
 }
-function posterData(){
-  const today = model.today ?? todayDay();
-  const items = model.items;
-  const lastP90 = items.length ? Math.max(...items.map(i => i.p90)) : today;
-  return {
-    verdict: posterVerdict(model, today),
-    name: model.title || 'Milestone timeline',
-    metrics: [items.length + (items.length === 1 ? ' milestone' : ' milestones'),
-              'last by ' + fmtDay(lastP90, {month: true})],
-  };
-}
-function posterString(){
-  if(!(model && model.items.length)) return null;
-  return posterSvg({chart: svgString(true, true), ...posterData(),
-    date: todayISO(), accent: model.accent || themeColors().accent,
-    colors: themeColors(), measure});
-}
 function slug(){
   return slugify(model.title, 'timeline');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlposter: $('dlposter'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString(true),
-  getPoster: posterString,
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

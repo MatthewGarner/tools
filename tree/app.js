@@ -2,14 +2,13 @@
 import {parse} from './parse.js';
 import {evaluate, evalDet, findByLine, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
 import {pricedCopy, seamCopy} from './format.js';
-import {render, treeVerdict} from './render.js';
+import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {posterSvg} from '../assets/poster.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {rafBatched} from '../assets/schedule.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
@@ -523,6 +522,9 @@ function renderSaved(){
    carries only the kicker and the metrics row — one verdict per page. Counts
    come from the parsed model + the same MC results the tree renders from. */
 paintKicker($('kicker'), '07', 'Choices priced before you make them');
+function countLeaves(node){
+  return node.children.length === 0 ? 1 : node.children.reduce((a, c) => a + countLeaves(c), 0);
+}
 function metricCounts(){
   if(!model || !model.root || !results) return [];
   const n = model.root.kind === 'decision' ? model.root.children.length : null;
@@ -537,41 +539,17 @@ function metricCounts(){
 }
 
 /* ---------- exports ---------- */
-const isoToday = () => new Date().toISOString().slice(0, 10);
 function svgString(slide, bare = false){
   if(!model || !model.root || !results) return null;
   return render(model, results, {colors: themeColors(), measure, slide, dark: isDark(), bare});
-}
-function countLeaves(node){
-  return node.children.length === 0 ? 1 : node.children.reduce((a, c) => a + countLeaves(c), 0);
-}
-function posterData(){
-  const n = model.root.kind === 'decision' ? model.root.children.length : null;
-  const leaves = countLeaves(model.root);
-  const flips = (results.flips || []).length;
-  return {
-    verdict: treeVerdict(model, results),
-    name: model.title || 'Decision tree',
-    metrics: [
-      ...(n !== null ? [n + (n === 1 ? ' option' : ' options')] : []),
-      leaves + (leaves === 1 ? ' outcome' : ' outcomes'),
-      ...(flips ? [flips + (flips === 1 ? ' flip condition' : ' flip conditions')] : []),
-    ],
-  };
-}
-function posterString(){
-  if(!model || !model.root || !results) return null;
-  return posterSvg({chart: svgString(true, true), ...posterData(),
-    date: isoToday(), accent: model.accent || themeColors().accent, colors: themeColors(), measure});
 }
 function slug(){
   return slugify(model.title, 'decision-tree');
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), dlposter: $('dlposter'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString(),
-  getSvgSlide: () => svgString(true),
-  getPoster: posterString,
+  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
   slug,
 });
 

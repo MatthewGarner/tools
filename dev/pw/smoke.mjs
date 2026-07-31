@@ -36,19 +36,24 @@ async function svgDecodes(page, selector){
   }, selector);
 }
 
-/* The Poster export (#dlposter) runs the full production path: getPoster()
-   composes the poster SVG, svgToCanvas decodes it as an <img> (nested <svg> +
-   <pattern>) and toBlob rasterizes it. A captured PNG download with real bytes
-   proves the whole chain — the decode gap that silently killed exports twice. */
-async function posterDownloads(page){
+/* Copy PNG runs the full production path, and since 2026-07-31 it is the action
+   that carries the deck-shaped render (the separate slide/poster downloads are
+   gone): getCopy() renders, svgToCanvas decodes it as an <img> and toBlob
+   rasterizes it, then clipboard.write takes the blob. The "Copied" flash only
+   fires once that promise resolves, so the label IS the proof — a decode failure
+   lands on 'Copy blocked' instead. This is the decode gap that silently killed
+   exports twice, now watched on the button that inherited it. */
+async function copyPngWorks(page){
   try{
-    const [dl] = await Promise.all([
-      page.waitForEvent('download', {timeout: 6000}),
-      page.locator('#dlposter').click(),
-    ]);
-    if(!/-poster\.png$/.test(dl.suggestedFilename())) return false;
-    const buf = readFileSync(await dl.path());
-    return buf.length > 4000 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    // blank the label first, so a leftover "Copied" from an earlier call in the
+    // same page (roadmap checks every deck style) can't pass this vacuously
+    await page.evaluate(() => { document.getElementById('copypng').textContent = ''; });
+    await page.locator('#copypng').click();
+    await page.waitForFunction(
+      () => (document.getElementById('copypng').textContent || '').startsWith('Copied'),
+      null, {timeout: 6000});
+    return true;
   }catch(e){ return false; }
 }
 
@@ -81,7 +86,7 @@ for(const theme of ['light', 'dark']){
   check('risk(' + theme + '): diagram renders', await page.locator('#preview svg').count() === 1);
   check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
   check('risk(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
-  check('risk(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('risk(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('risk(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('risk(' + theme + '): no console errors', errors.length === 0);
@@ -95,7 +100,7 @@ for(const theme of ['light', 'dark']){
   check('cycles(' + theme + '): three bands render', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
   check('cycles(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('Cycles are worth'));
   check('cycles(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
-  check('cycles(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('cycles(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('cycles(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -300,7 +305,7 @@ for(const theme of ['light', 'dark']){
   check('merit-order(' + theme + '): storage rendered below gas (data-storage marker)',
     await page.locator('svg g[data-storage]').count() >= 1);
   check('merit-order(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#chartwrap svg'));
-  check('merit-order(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('merit-order(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   // slider drag: nudge carbon; the SVG must re-render without error
   await page.locator('#carbon').evaluate(el => {
     el.value = '90'; el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true}));
@@ -563,7 +568,7 @@ for(const theme of ['light', 'dark']){
     svg.includes('VERDICT') && /Choose /.test(svg) && /<tspan fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
   check('tree(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
-  check('tree(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('tree(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('tree(' + theme + '): Tab indents, Shift-Tab restores', await (async () => {
     const before = await page.evaluate(() => localStorage.getItem('tree-src'));
     await page.locator('.cm-content').click();
@@ -641,7 +646,7 @@ for(const theme of ['light', 'dark']){
     return svg.includes('WATERMELON WATCH') && /reported green/.test(svg);
   })());
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
-  check('map(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('map(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('map(' + theme + '): flagged assumptions hand off to gauge (#93)', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(500);
@@ -755,7 +760,7 @@ for(const theme of ['light', 'dark']){
   const svg = await page.locator('#preview svg').innerHTML();
   check('wardley(' + theme + '): anchors + stage columns render', svg.includes('Habit tracking') && svg.includes('commodity'));
   check('wardley(' + theme + '): ghost renders dashed', /Analytics pipeline/.test(svg) && /stroke-dasharray/.test(svg));
-  check('wardley(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('wardley(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('wardley(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('wardley(' + theme + '): no console errors', errors.length === 0);
   await page.close();
@@ -787,7 +792,7 @@ for(const theme of ['light', 'dark']){
   const backSvg = await page.locator('#preview svg').innerHTML();
   check('bets(' + theme + '): toggling back to Board restores the ledger',
     backSvg.includes('Referral flow v2') && backSvg.includes('PORTFOLIO'));
-  check('bets(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('bets(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('bets(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
@@ -804,7 +809,7 @@ for(const theme of ['light', 'dark']){
   check('timeline(' + theme + '): whiskers + today line', /data-ms="whisker"/.test(svg) && /data-today/.test(svg));
   check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
-  check('timeline(' + theme + '): Poster exports a PNG', await posterDownloads(page));
+  check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
@@ -949,16 +954,10 @@ for(const theme of ['light', 'dark']){
     check('roadmap: ' + style + ' chip is the only one with aria-pressed=true',
       pressed.length === 1 && pressed[0] === style);
 
-    const [dl] = await Promise.all([
-      page.waitForEvent('download', {timeout: 8000}),
-      page.locator('#dlslide').click(),
-    ]);
-    const chunks = [];
-    for await (const chunk of await dl.createReadStream()) chunks.push(chunk);
-    const bytes = Buffer.concat(chunks);
-    const isPng = bytes.length > 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
-    check('roadmap: ' + style + ' deck exports a real PNG (' + bytes.length + ' bytes)',
-      isPng && bytes.length > 2000);
+    /* the deck is no longer its own download button (2026-07-31) — Copy PNG is
+       the action that hands it over, so that's where each style's deck render
+       has to survive the decode-and-rasterize round trip */
+    check('roadmap: ' + style + ' deck copies as a real PNG', await copyPngWorks(page));
   }
 
   /* the deck HEADLINE: authored, never generated. The field and the DSL key are

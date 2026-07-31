@@ -243,9 +243,9 @@ function slug(){
   return slugify((model.title || 'why') + '-' + view);
 }
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), dlslide: $('dlslide'), copypng: $('copypng')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString(false),
-  getSvgSlide: () => svgString(true),
+  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
   slug,
 });
 

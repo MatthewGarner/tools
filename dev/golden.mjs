@@ -220,16 +220,6 @@ for(const [k, src] of Object.entries(docs)){
   variants['tree-bid'] = trender(m, r, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
   variants['tree-bid-slide'] = trender(m, r, {...ctxBase, slide: true}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
 
-  const {posterSvg: treePoster} = await import('../assets/poster.js');
-  const leaves = (function countLeaves(n){ return n.children.length === 0 ? 1 : n.children.reduce((a, c) => a + countLeaves(c), 0); })(m.root);
-  variants['tree-poster'] = treePoster({
-    chart: trender(m, r, {...ctxBase, slide: true, bare: true}),
-    verdict: treeVerdict(m, r), name: m.title || 'Decision tree', date: '2026-07-14',
-    metrics: [
-      ...(m.root.kind === 'decision' ? [m.root.children.length + ' options'] : []),
-      leaves + ' outcomes'],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
-    measure: ctxBase.measure});
 }
 
 /* /why fixtures (dates normalised) */
@@ -316,17 +306,9 @@ for(const [k, src] of Object.entries(docs)){
   variants['map-diff'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxBase}, md));
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
 
-  const {posterSvg: mapPoster} = await import('../assets/poster.js');
   const pm = mparse(mdocs['map-assumptions']);
   const pr = mresolve(pm);
   const pro = mreadout(pm, pr);
-  variants['map-poster'] = mapPoster({
-    chart: norm(mrender(pm, pr, pro, {...ctxBase, slide: true, bare: true})),
-    verdict: pro.verdict, name: pm.title || 'Map', date: '2026-07-14',
-    metrics: [pm.items.length + ' items', ...(pro.flagged.length ? [pro.flagged.length + ' flagged'] : []),
-              ...(pro.unplaced.length ? [pro.unplaced.length + ' unplaced'] : [])],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
-    measure: ctxBase.measure});
 }
 
 /* /gauge overlay fixtures (fully deterministic) */
@@ -459,7 +441,7 @@ for(const [k, src] of Object.entries(docs)){
   variants['timeline-narrow-diff'] = trender(tm, {...tctx, width: 360},
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
 
-  // merge-bias: ≥2 ranged lane-completions ⇒ the 2nd readout row + merge poster hero
+  // merge-bias: ≥2 ranged lane-completions ⇒ the 2nd readout row + the merge-risk verdict
   const tMerge = 'title: Programme — merge risk\ntoday: 2026-07-06\n' +
     'Grid: Energisation 2027-02 .. 2027-06 [risk]\nBuild: Commissioning 2027-03 .. 2027-08\nConsents: DCO 2027-01 .. 2027-05';
   const tmm = tparse(tMerge);
@@ -474,17 +456,6 @@ for(const [k, src] of Object.entries(docs)){
   variants['timeline-fixed'] = trender(tfm, tctx);
   variants['timeline-fixed-narrow'] = trender(tfm, {...tctx, width: 360});
 
-  const {posterSvg} = await import('../assets/poster.js');
-  const {posterVerdict} = await import('../timeline/render.js');
-  const tPosterCtx = {...tctx, slide: true, bare: true, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}};
-  variants['timeline-poster'] = posterSvg({chart: trender(tm, tPosterCtx),
-    verdict: posterVerdict(tm, 20640), name: 'T — programme', date: '2026-07-13',
-    metrics: ['4 milestones', 'last by Jun 2027'],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
-  variants['timeline-mergebias-poster'] = posterSvg({chart: trender(tmm, tPosterCtx),
-    verdict: posterVerdict(tmm, 20640), name: 'Programme — merge risk', date: '2026-07-13',
-    metrics: ['3 milestones', 'last by Aug 2027'],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 
 /* /risk fixtures (seeded engine → deterministic) */
@@ -501,15 +472,8 @@ for(const [k, src] of Object.entries(docs)){
   variants['risk-routes-narrow'] = rrender(rm, rs, {...ctxBase, width: 360});
   variants['risk-routes-focus'] = rrender(rm, rs, {...ctxBase}, {edit: true, focus: 2});
 
-  const {posterSvg: rPoster} = await import('../assets/poster.js');
   const rFi = focusedIndex(rs.rows, null);
   const rRow = rs.rows[rFi];
-  variants['risk-poster'] = rPoster({
-    chart: rrender(rm, rs, {...ctxBase, slide: true}, {bare: true}),
-    verdict: riskVerdict(rs, rm, null), name: rm.title || 'Risk transfer', date: '2026-07-14',
-    metrics: [rs.rows.length + ' structures', rRow.label + ' P50 ' + rFmtUnit(rRow.p50, rm.unit)],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
-    measure: ctxBase.measure});
 }
 
 /* /cycles fixtures (seeded engine → deterministic; n reduced for capture speed) */
@@ -526,15 +490,6 @@ for(const [k, src] of Object.entries(docs)){
   const cg = cparse(cdoc.replace('second: 35..60%\n', '').replace('augment: 120..180 £/kWh\n', ''));
   variants['cycles-ghosts'] = crender(cg, csim(cg, {seed: 1, n: 2000}), {...ctxBase}, {edit: true});
 
-  const {posterSvg: cPoster} = await import('../assets/poster.js');
-  variants['cycles-poster'] = cPoster({
-    chart: crender(cm, co, {...ctxBase, slide: true}, {bare: true}),
-    verdict: cVerdict('threshold', co), name: cm.title || 'Cycle budget', date: '2026-07-14',
-    metrics: [cm.battery.mw + 'MW / ' + cm.battery.mwh + 'MWh',
-              cFmtUnit(co.threshold.p50, '£/MWh') + ' τ',
-              Math.round(co.threshold.clearingDays) + ' days/yr clear'],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
-    measure: ctxBase.measure});
 }
 
 /* /frequency fixtures (pure ODE, no seed needed — deterministic by construction) */
@@ -563,17 +518,10 @@ for(const [k, src] of Object.entries(docs)){
   variants['merit-order-fes-ht'] = renderStack(mkw('ht', paramsFor('ht', null)), mctx, mopts);
   variants['merit-order-fes-he-coldpeak'] = renderStack(mkw('he', paramsFor('he', 'coldPeak')), mctx, mopts);
 
-  const {posterSvg: moPoster} = await import('../assets/poster.js');
   const {buildVerdict: moVerdict} = await import('../energy/merit-order/render.js');
   const {dispatch: moDispatch} = await import('../energy/merit-order/engine.js');
   const moState = mk(DEFAULT_PARAMS);
   const moResult = moDispatch(moState.generators, moState.demand);
-  const moBare = renderStack(moState, mctx, {forExport: true, labelCollide: 'drop', bare: true});
-  const moFull = moVerdict(moResult, moState);
-  variants['merit-order-poster'] = moPoster({chart: moBare, verdict: (moFull.match(/^.*?\.(?=\s|$)/) || [moFull])[0],
-    name: 'Merit order', date: '2026-07-13',
-    metrics: ['clears £' + Math.round(moResult.clearingPrice) + '/MWh', 'demand ' + moState.demand + ' GW'],
-    accent: '#C05621', colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 }
 
 /* /intraday fixtures (deterministic by construction) */
@@ -609,16 +557,8 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-edit'] = wrender(wm, layoutMap(wm), wctx, {edit: true});
   variants['wardley-narrow-edit'] = wrender(wm, layoutMap(wm), {...wctx, width: 390}, {edit: true});
 
-  const {posterSvg: wPoster} = await import('../assets/poster.js');
   const wComps = layoutMap(wm).nodes.filter(n => !n.anchor);
   const wGhosts = wComps.filter(n => n.ghost).length;
-  variants['wardley-poster'] = wPoster({
-    chart: wrender(wm, layoutMap(wm), wctx, {bare: true}),
-    verdict: mapReadout(wm, layoutMap(wm)).verdict, name: wm.title || 'Wardley map', date: '2026-07-14',
-    metrics: [wComps.length + ' components', wm.edges.length + ' dependencies',
-              ...(wGhosts ? [wGhosts + ' unplaced'] : [])],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'},
-    measure: ctxBase.measure});
 }
 
 /* /bets fixtures (DSL → seeded MC → board; deterministic) */
@@ -634,13 +574,8 @@ for(const [k, src] of Object.entries(docs)){
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
 
-  const {posterSvg: betsPoster} = await import('../assets/poster.js');
   const {verdictCopy: betsVerdict} = await import('../bets/engine.js');
   const bCounts = {kill: 1};
-  variants['bets-poster'] = betsPoster({chart: renderBoard(bm, bsim, {...ctxBase, bare: true}),
-    verdict: betsVerdict(bsim.portfolio, bCounts), name: 'Q3 product portfolio', date: '2026-07-13',
-    metrics: ['net EV ' + Math.round(bsim.portfolio.p50), 'P(loses) ' + Math.round(bsim.portfolio.pLoss * 100) + '%'],
-    accent: ctxBase.colors.accent, colors: {...ctxBase.colors, grid: 'rgba(70,110,140,.10)'}, measure: ctxBase.measure});
 
   /* view 2: risk-return quadrant (read-only; no compare wiring) */
   const {renderQuadrant} = await import('../bets/render-quadrant.js');
