@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
 <link rel="stylesheet" href="/assets/motion.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
@@ -41,15 +42,26 @@
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
-        <table>
-          <tr><td><code>title: Q3 portfolio</code></td><td>title (optional)</td></tr>
-          <tr><td><code>unit: £k</code></td><td>the money unit shown on every figure</td></tr>
-          <tr><td><code>palette:</code> / <code>accent:</code></td><td>reserved config, accepted but not yet used — the board colour is fixed to the site accent</td></tr>
-          <tr><td><code>Growth bets</code></td><td>a group heading (board lane), indent 0</td></tr>
-          <tr><td><code>Search revamp: stake 120, odds 30-50%, payoff 400-900</code></td><td>a bet, indent 2 — stake/payoff are point or range, odds a % range (<code>-</code> or <code>–</code>)</td></tr>
-          <tr><td><code>kill: CTR flat after 2 sprints by 2026-09-01</code></td><td>the fold criterion, indent 4 — free text, optional <code>by YYYY-MM-DD</code></td></tr>
-          <tr><td><code>// comment</code></td><td>ignored</td></tr>
-        </table>
+        <h4>Config</h4>
+        <dl>
+          <dt><code>palette:</code> / <code>accent:</code></dt>
+          <dd>reserved config, accepted but not yet used — the board colour is fixed to the site accent</dd>
+          <dt><code>title: Q3 portfolio</code></dt>
+          <dd>title (optional)</dd>
+          <dt><code>unit: £k</code></dt>
+          <dd>the money unit shown on every figure</dd>
+        </dl>
+        <h4>Bets</h4>
+        <dl>
+          <dt><code>Growth bets</code></dt>
+          <dd>a group heading (board lane), indent 0</dd>
+          <dt><code>Search revamp: stake 120, odds 30-50%, payoff 400-900</code></dt>
+          <dd>a bet, indent 2 — stake/payoff are point or range, odds a % range (<code>-</code> or <code>–</code>)</dd>
+          <dt><code>kill: CTR flat after 2 sprints by 2026-09-01</code></dt>
+          <dd>the fold criterion, indent 4 — free text, optional <code>by YYYY-MM-DD</code></dd>
+          <dt><code>// comment</code></dt>
+          <dd>ignored</dd>
+        </dl>
       </details>
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>

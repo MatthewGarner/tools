@@ -1,0 +1,26 @@
+/* The DSL syntax reference, shared by all ten grammar tools (extracted here
+   2026-07-31 from ten byte-identical copies — verified identical before the
+   move, the same rule that brought the page scaffold in).
+
+   STACKED, not a two-column table. It lives in the ~380px editor rail, where a
+   code column was narrow enough to wrap inside tokens (`Win (p=0.3-0.45)` broke
+   after the hyphen) — unreadable, and the main reason the block looked messy.
+   Code now gets the full width on its own line with the gloss beneath it, so
+   entries read as a scannable list of shapes. Grouped under the same headings
+   DSL.md uses, so the page and the reference doc describe the grammar the same
+   way. */
+details.syntax{margin-top:12px;font-size:13px;color:var(--muted)}
+details.syntax summary{cursor:pointer;font-size:12.5px}
+details.syntax h4{margin:16px 0 2px;font-size:10px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+details.syntax h4:first-of-type{margin-top:12px}
+details.syntax dl{margin:0}
+details.syntax dt{margin-top:9px;line-height:1.5}
+/* the gloss is indented under its specimen, so the code lines form a
+   scannable left column instead of running together with the prose */
+details.syntax dd{margin:1px 0 0;padding-left:11px;line-height:1.45}
+details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
+  background:var(--bg);padding:1px 5px;border-radius:0}
+/* the gloss's inline code is a reference, not a specimen — no chip, so the
+   description reads as a sentence instead of a row of grey boxes */
+details.syntax dd code{background:none;padding:0;color:var(--ink)}

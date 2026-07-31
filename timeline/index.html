@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗓️</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="/assets/about.css">
@@ -40,15 +41,28 @@
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
-        <table>
-          <tr><td><code>Grid: Energisation 2027-02 .. 2027-06</code></td><td>lane, label, then the honest range: P50 date <code>..</code> P90 date (ISO days or months; a bare month means its middle)</td></tr>
-          <tr><td><code>Kickoff 2026-08 .. 2026-09</code></td><td>no lane prefix → the unnamed lane</td></tr>
-          <tr><td><code>FID 2026-09-30 [done]</code></td><td>it happened — single date, solid marker. <code>[risk]</code> flags a milestone in trouble</td></tr>
-          <tr><td><code>Vendor selection 2026-11</code></td><td>a single undone date renders, but gets flagged <code>±?</code> — false precision is visible, not forbidden. If the date really is fixed, say so</td></tr>
-          <tr><td><code>Ofgem decision 2026-12-01 [fixed]</code></td><td>a date you don’t control — an external event. Renders clean, and becomes the deadline the merge-risk line measures the plan against</td></tr>
-          <tr><td><code>// after the dates</code></td><td>a note, shown under the label</td></tr>
-          <tr><td><code>title:</code> <code>palette:</code> <code>accent:</code> <code>today:</code></td><td>config; <code>today:</code> pins the today line (defaults to now)</td></tr>
-        </table>
+        <h4>Config</h4>
+        <dl>
+          <dt><code>title:</code> <code>palette:</code> <code>accent:</code> <code>today:</code></dt>
+          <dd>config; <code>today:</code> pins the today line (defaults to now)</dd>
+          <dt><code>verdict: off</code></dt>
+          <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
+        </dl>
+        <h4>Milestones</h4>
+        <dl>
+          <dt><code>Grid: Energisation 2027-02 .. 2027-06</code></dt>
+          <dd>lane, label, then the honest range: P50 date <code>..</code> P90 date (ISO days or months; a bare month means its middle)</dd>
+          <dt><code>Kickoff 2026-08 .. 2026-09</code></dt>
+          <dd>no lane prefix → the unnamed lane</dd>
+          <dt><code>FID 2026-09-30 [done]</code></dt>
+          <dd>it happened — single date, solid marker. <code>[risk]</code> flags a milestone in trouble</dd>
+          <dt><code>Vendor selection 2026-11</code></dt>
+          <dd>a single undone date renders, but gets flagged <code>±?</code> — false precision is visible, not forbidden. If the date really is fixed, say so</dd>
+          <dt><code>Ofgem decision 2026-12-01 [fixed]</code></dt>
+          <dd>a date you don’t control — an external event. Renders clean, and becomes the deadline the merge-risk line measures the plan against</dd>
+          <dt><code>// after the dates</code></dt>
+          <dd>a note, shown under the label</dd>
+        </dl>
       </details>
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
