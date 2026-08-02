@@ -110,7 +110,7 @@ const PAGES = {
      tripped on 400B, so the raise buys back real room rather than the next
      400B of anything: fermi actual ~183.4k (~1.6k headroom), rank ~94.2k
      (~840B). See the "previous six raises" note above on why thin is a trap. */
-  'fermi/index.html': 185_000, 'rank/index.html': 95_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  'fermi/index.html': 186_000, 'rank/index.html': 96_000,   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 108_000,   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
@@ -176,7 +176,7 @@ const PAGES = {
      grammar tools link syntax.css, so the cost lands where the feature is. Each of
      those pages nets ~+1.15k (the shared sheet, less the ~450B copy it deleted).
      roadmap also gained `story:` and a corrected `headline:` gloss. --- */
-  'roadmap/index.html': 599_000,   /* 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  'roadmap/index.html': 601_000,   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -202,7 +202,7 @@ const PAGES = {
      render.js needs. Raised again to 517k the same day when `story:` added
      storyLine() to the same module — /why inherits that too, and cannot use it
      either (no snapshot compare, no `story:` key). Actual ~515.6k, ~1.4k. */
-  'why/index.html': 519_000,   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  'why/index.html': 521_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -212,7 +212,7 @@ const PAGES = {
      editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
      in line with the other DSL pages. */
   'tree/index.html': 491_000,
-  'map/index.html': 481_000,  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
+  'map/index.html': 483_000,   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -224,15 +224,15 @@ const PAGES = {
      — and review caught two of them bypassing the key, so app.js and engine.js
      both had to route through resolveVerdict. ~400B of imports and call sites on
      a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
-  'gauge/index.html': 498_000, 'timeline/index.html': 486_000,
-  'wardley/index.html': 480_000,
+  'gauge/index.html': 501_000, 'timeline/index.html': 488_000,   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
+  'wardley/index.html': 468_000,   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
      render.js the edit-gated rename targets + ＋ capsules (~1.6k), app.js the
      betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
      headroom — in line with the other DSL pages. */
-  'bets/index.html': 499_000,   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
+  'bets/index.html': 497_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool
@@ -241,8 +241,8 @@ const PAGES = {
      nav/family/footer markup (~2k a page). Only two budgets actually tripped;
      the rest had headroom and stay put. cycles 470k -> 472k (actual ~466.8k,
      ~5.2k headroom) — it was the tightest energy page before this. */
-  'energy/index.html': 40_000, 'energy/risk/index.html': 470_000, 'energy/cycles/index.html': 472_000,
-  'energy/frequency/index.html': 470_000, 'energy/merit-order/index.html': 470_000,
+  'energy/index.html': 40_000, 'energy/risk/index.html': 449_000, 'energy/cycles/index.html': 472_000,   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
+  'energy/frequency/index.html': 97_000, 'energy/merit-order/index.html': 145_000,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4% */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
      block) and app.js gained a small popover focus-trap import + keydown
@@ -282,6 +282,12 @@ const PAGES = {
   'energy/intraday/index.html': 152_000,
 };
 
+if(process.env.WEIGHT_DEBUG){
+  for(const [page, budget] of Object.entries(PAGES)){
+    const bytes = [...pageLoad(page)].reduce((a, f) => a + size(f), 0);
+    console.error(page.padEnd(34), String(bytes).padStart(7), '/', budget, ' slack', budget - bytes);
+  }
+}
 test('per-page load stays under budget', () => {
   for(const [page, budget] of Object.entries(PAGES)){
     const bytes = [...pageLoad(page)].reduce((a, f) => a + size(f), 0);

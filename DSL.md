@@ -57,11 +57,10 @@ The ten grammars differ, but they're a family and obey the same rules:
 | [tree](#tree) | ✓ | ✓ | ✓ | `currency` `verdict` | indented tree; `Label (p=…) : value` |
 | [why](#why) | ✓ | ✓ | ✓ | — | indented tree; `outcome:` / `? assumption` / `Solution [status]` |
 | [gauge](#gauge) | ✓ | ✓ | ✓ | `names` `verdict` | `Question :: prob` / `:: range unit` / `:: chips A \| B` |
-| [energy/cycles](#energycycles) | ✓ | ✓\* | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` `verdict` | numeric `key: value` sheet only |
+| [energy/cycles](#energycycles) | ✓ | ✓ | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` `verdict` | numeric `key: value` sheet only |
 | [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` `verdict` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
 
-\* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet;
-`energy/cycles` accepts a `palette` name without checking it against the list.
+\* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet.
 
 ---
 
@@ -104,6 +103,8 @@ header (skipped); an unknown `[status]`; a span used without a time axis.
 
 ```dsl tool=roadmap
 title: Team roadmap
+headline: We are betting the quarter on retention
+story: We chose depth over breadth after the pilot
 palette: ocean
 horizons: Now, Next, Later
 wip: 6
@@ -143,6 +144,7 @@ unpositioned (ghost) node; an undeclared edge endpoint (auto-ghosted); no `ancho
 
 ```dsl tool=wardley
 title: Checkout
+verdict: Buy the payments layer
 palette: ocean
 anchor: User need
 Storefront @ product
@@ -194,7 +196,8 @@ Growth bets
 - Dates are `YYYY-MM` (treated as mid-month) or `YYYY-MM-DD`.
 - A **range** uses `..` (or an en/em-dash) between two dates — this is the P50..P90 spread.
 - `[status]` is `[done]`, `[risk]` or `[fixed]`. `// note` is a trailing annotation. `Lane:`
-  prefixes a swimlane.
+  prefixes a swimlane. Any lane name works except `Today` and `Verdict` — those read as
+  config keys, so a milestone in a lane by either name would vanish into config.
 - `[fixed]` marks a date you don't control — an external event (a regulatory decision, a
   contract expiry, a conference). It renders clean with no `±?`, and the latest fixed date
   still ahead of today becomes the deadline the merge-risk verdict measures the plan against.
@@ -207,6 +210,7 @@ item with a range; a bare single future date.
 
 ```dsl tool=timeline
 title: Launch plan
+verdict: We hold the GA date
 today: 2026-08-01
 Beta cut 2026-09 .. 2026-10
 Build: FID 2026-09-30 [done]
@@ -241,6 +245,7 @@ isn't `key: value`; more than ~40 items (crowding).
 
 ```dsl tool=map
 title: Assumptions
+verdict: Test the streak claim first
 preset: assumptions
 Users log daily @ 30,90
 Streak drives retention @ 75,80 :: note: from interviews
@@ -271,6 +276,7 @@ probabilistic siblings.
 
 ```dsl tool=tree
 title: Bid or no bid
+verdict: We bid, and we bid high
 currency: £
 Bid decision
   Submit bid
@@ -326,6 +332,7 @@ chips, or fewer than 2 / more than 8; an unknown type; more than 20 questions.
 
 ```dsl tool=gauge
 title: Q3 review
+verdict: The room is split on shipping
 names: off
 We ship by Q3 :: prob
 Weeks to migrate :: range weeks
@@ -356,6 +363,7 @@ a range that wants a number (or an inverted one, swapped); a horizon over 30 yea
 
 ```dsl tool=energy/cycles
 title: Wexcombe cycle budget
+verdict: The warranty binds before the wear does
 battery: 100MW / 200MWh
 spread: 35..85
 charge: 15..45
@@ -389,6 +397,7 @@ insurance attach at the median).
 
 ```dsl tool=energy/risk
 title: Route to market
+verdict: Take the floor and sleep
 unit: £k/MW/yr
 merchant: 60..180
 floor: 90 share 60% fee 5

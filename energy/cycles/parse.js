@@ -1,6 +1,8 @@
 /* /cycles DSL → model. No DOM. Soft line-numbered warnings, never hard errors;
    srcLines per key. Units normalised here and only here: % → fraction,
    augment £/kWh → £/MWh, spreads stay £/MWh. */
+import {PALETTE_NAMES} from '../../assets/series.js';
+
 const NUM = '-?\\d+(?:\\.\\d+)?';
 const RANGE = new RegExp('^(' + NUM + ')(?:\\s*\\.\\.\\s*(' + NUM + '))?');
 export const REQUIRED = ['battery', 'spread', 'rte', 'fade', 'calendar', 'cycles'];
@@ -44,7 +46,13 @@ export function parse(text){
       else warn('accent wants a 6-digit hex');
       continue;
     }
-    if(key === 'palette'){ m.palette = body.toLowerCase(); continue; }
+    if(key === 'palette'){
+      /* validated like every other palette parser — cycles was the one that
+         silently accepted any name (the artefact just fell back to accent) */
+      if(PALETTE_NAMES.includes(body.toLowerCase())) m.palette = body.toLowerCase();
+      else warn('unknown palette "' + body + '" — options: ' + PALETTE_NAMES.join(', '));
+      continue;
+    }
     if(key === 'battery'){
       const b = body.match(new RegExp('^(' + NUM + ')\\s*MW\\s*/\\s*(' + NUM + ')\\s*MWh$', 'i'));
       if(!b){ warn('battery wants "100MW / 200MWh"'); continue; }
