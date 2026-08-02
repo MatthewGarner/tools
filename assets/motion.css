@@ -15,6 +15,9 @@
 @keyframes mo-fade{from{opacity:0;transform:translateY(6px)}}  /* one-sided: settles to the element's OWN opacity (no snap on certainty-dimmed content) */
 .mo-go .mo-draw,.mo-go .mo-fade{animation-play-state:running}
 .mo-flip{transition:transform 240ms cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion:no-preference){
+  svg .vfig{transition:fill .45s ease-out}   /* the figure's ink→brand arrival */
+}
 @media (prefers-reduced-motion:reduce){
   .mo-draw,.mo-fade,.mo-flip{animation:none!important;transition:none!important;
     stroke-dasharray:none!important;stroke-dashoffset:0!important;opacity:1!important;transform:none!important}

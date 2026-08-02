@@ -186,6 +186,24 @@ for(const [label, viewport] of [
    nothing. Pin that the checks actually ran. */
 check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} times)`, onLoadChecks >= 12);
 
+/* --- the verdict figure ARRIVES (2026-08-02): on first reveal the .vfig tspan
+   starts at ink (inline style override) and settles to its brand fill attribute;
+   an edit re-render is brand IMMEDIATELY (no replay). Timeline is the probe. */
+{
+  const {page, errors} = await open('/timeline/', {viewport: {width: 1440, height: 900}});
+  await page.waitForSelector('#preview .vfig', {timeout: 8000});
+  const overridden = await page.$eval('#preview .vfig', t => t.style.fill !== '');
+  check('fig-arrival: the figure starts overridden to ink before the reveal plays', overridden);
+  await page.waitForFunction(() => {
+    const t = document.querySelector('#preview .vfig');
+    return t && t.style.fill === '';
+  }, {timeout: 4000}).catch(() => {});
+  const cleared = await page.$eval('#preview .vfig', t => t.style.fill === '');
+  check('fig-arrival: the override clears after the reveal (fill settles to brand)', cleared);
+  check('fig-arrival: no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const r of results) console.log(r);
 await browser.close();
 report('motion', {...tally(results), min: 60});

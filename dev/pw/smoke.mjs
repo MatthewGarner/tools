@@ -565,7 +565,7 @@ for(const theme of ['light', 'dark']){
   check('tree(' + theme + '): example renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').innerHTML();
   check('tree(' + theme + '): verdict present (6b anatomy: kicker + one brand key figure)',
-    svg.includes('VERDICT') && /Choose /.test(svg) && /<tspan fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
+    svg.includes('VERDICT') && /Choose /.test(svg) && /<tspan class="vfig" fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
   check('tree(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('tree(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
@@ -626,7 +626,7 @@ for(const theme of ['light', 'dark']){
   const svg = await page.locator('#preview svg').innerHTML();
   check('map(' + theme + '): zones labelled', svg.includes('TEST FIRST'));
   check('map(' + theme + '): verdict present (6b anatomy: kicker + one brand key figure)',
-    svg.includes('VERDICT') && /<tspan fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
+    svg.includes('VERDICT') && /<tspan class="vfig" fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
   check('map(' + theme + '): unplaced tray', svg.includes('UNPLACED') && svg.includes('Legal sign-off'));
   check('map(' + theme + '): no-test flag', svg.includes('no test designed'));
   await page.getByRole('button', {name: 'Risk grid'}).click();

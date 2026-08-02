@@ -130,9 +130,9 @@ test('the in-SVG verdict is the Swiss 6b block: micro kicker, ink line, ONE bran
   ook(s.includes("letter-spacing=\"1.8\""), 'absolute 1.8px tracking on the 10px micro');
   ook(s.includes("letter-spacing=\"-0.36\""), 'absolute -0.36px tracking on the 24px line');
   // exactly one run in brandText, and it is the key figure — never the whole line
-  const figs = s.match(/<tspan fill=\"#D62015\">([^<]*)<\/tspan>/g) || [];
+  const figs = s.match(/<tspan class="vfig" fill=\"#D62015\">([^<]*)<\/tspan>/g) || [];
   assert.equal(figs.length, 1);
-  assert.equal(figs[0], "<tspan fill=\"#D62015\">" + verdictOf(sessionStats(M, RESP)).fig + '</tspan>');
+  assert.equal(figs[0], "<tspan class=\"vfig\" fill=\"#D62015\">" + verdictOf(sessionStats(M, RESP)).fig + '</tspan>');
   ook(s.includes("font-size=\"24\" font-weight=\"700\" letter-spacing=\"-0.36\" fill=\"#222\""),
     'the verdict line itself is INK, not accent — red discipline');
   ook(!s.includes("font-size=\"24\" font-weight=\"700\" letter-spacing=\"-0.36\" fill=\"#08c\""),
@@ -144,7 +144,7 @@ test('verdict brandText falls back to ink when a ctx predates the token', () => 
   delete bare.colors.brandText;   // a ctx from before the token existed
   const s = renderOverlay(M, sessionStats(M, RESP), bare);
   ook(!s.includes('undefined'), 'no undefined fill leaks into the export');
-  ook(s.includes("<tspan fill=\"#222\">"), 'the figure falls back to ink');
+  ook(s.includes("<tspan class=\"vfig\" fill=\"#222\">"), 'the figure falls back to ink');
 });
 
 test('narrow: panel headlines wrap to multiple 13px lines', () => {

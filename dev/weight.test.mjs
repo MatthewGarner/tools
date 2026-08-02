@@ -229,7 +229,7 @@ const PAGES = {
      both had to route through resolveVerdict. ~400B of imports and call sites on
      a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
   'gauge/index.html': 510_000, 'timeline/index.html': 497_000,   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
-  'wardley/index.html': 474_000,   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
+  'wardley/index.html': 477_000,   /* 474k->477k 2026-08-02 fig-arrival + settle bytes */   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),

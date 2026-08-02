@@ -73,8 +73,8 @@ test('svgVerdict emits the kicker, the display line and exactly one brand tspan'
     ...C, font: FONT, measure});
   assert.match(svg, /letter-spacing="1.8" fill="#6B6B68">VERDICT<\/text>/);
   assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0.36"/);
-  assert.equal((svg.match(/<tspan fill="#D62015">/g) || []).length, 1);
-  assert.match(svg, /<tspan fill="#D62015">≈ 33%<\/tspan>/);
+  assert.equal((svg.match(/<tspan class="vfig" fill="#D62015">/g) || []).length, 1);
+  assert.match(svg, /<tspan class="vfig" fill="#D62015">≈ 33%<\/tspan>/);
   assert.ok(height > 30, 'block advances past the kicker');
 });
 
@@ -102,7 +102,7 @@ test('svgVerdict keeps the red when the figure wraps across lines', () => {
   const line = 'Average is 18 days now', fig = '18 days';
   for(let w = 80; w <= 260; w += 10){
     const {svg} = svgVerdict({x: 0, y: 0, width: w, line, fig, ...C, font: FONT, measure});
-    const marked = [...svg.matchAll(/<tspan fill="#D62015">([^<]*)<\/tspan>/g)].map(m => m[1]);
+    const marked = [...svg.matchAll(/<tspan class="vfig" fill="#D62015">([^<]*)<\/tspan>/g)].map(m => m[1]);
     assert.ok(marked.length >= 1, `width ${w}: figure lost its red entirely`);
     assert.equal(marked.join(' '), fig, `width ${w}: red runs re-join to the figure`);
   }
@@ -111,7 +111,7 @@ test('svgVerdict keeps the red when the figure wraps across lines', () => {
 test('svgVerdict escapes the model text and holds the spaces around the figure', () => {
   const {svg} = svgVerdict({x: 0, y: 0, width: 4000,
     line: 'A & B <s> hold 5 of 9 slots', fig: '5 of 9', ...C, font: FONT, measure});
-  assert.match(svg, /A &amp; B &lt;s&gt; hold <tspan fill="#D62015">5 of 9<\/tspan> slots/);
+  assert.match(svg, /A &amp; B &lt;s&gt; hold <tspan class="vfig" fill="#D62015">5 of 9<\/tspan> slots/);
 });
 
 test('svgVerdict is empty for an empty line', () => {

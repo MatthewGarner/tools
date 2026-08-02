@@ -89,7 +89,7 @@ export function svgVerdict({x, y, width, line, fig, ink, muted, brandText, font,
     else {
       const pre = ln.slice(0, a - cursor), mid = ln.slice(a - cursor, b - cursor), post = ln.slice(b - cursor);
       body = esc(pre) +
-        '<tspan fill="' + brandText + '">' + esc(mid) + '</tspan>' +
+        '<tspan class="vfig" fill="' + brandText + '">' + esc(mid) + '</tspan>' +
         esc(post);
     }
     out.push(textOpen(x, by, font, vSize, 700, -0.015 * vSize, ink) + body + '</text>');

@@ -63,7 +63,7 @@ test('verdict SVG: VERDICT kicker, one brand tspan on the figure, muted supporti
   const svg = render(parse(DOC), ctx);
   assert.match(svg, />VERDICT</);
   /* the space before the figure becomes an NBSP so a wrap can't orphan it */
-  assert.match(svg, /Next up: Connection offer — P50\s<tspan fill="#D62015">Aug 2026<\/tspan>, could slip to Oct 2026\./);
+  assert.match(svg, /Next up: Connection offer — P50\s<tspan class="vfig" fill="#D62015">Aug 2026<\/tspan>, could slip to Oct 2026\./);
   assert.equal((svg.match(/#D62015/g) || []).length, 1, 'exactly one brand mark in the artefact');
   assert.match(svg, /Widest whisker: Energisation — 15 weeks between P50 and P90\./);
   assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0\.36"/);

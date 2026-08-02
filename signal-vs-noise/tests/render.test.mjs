@@ -120,7 +120,7 @@ test('6b: a colour-less ctx falls back to ink (no undefined fill escapes)', () =
   const {brandText, ...noBrand} = C;
   const svg = renderCollapse(s, noBrand, [{person: 1, quarter: 2}]);
   assert.doesNotMatch(svg, /undefined/);
-  assert.ok(svg.includes("<tspan fill=\"#222\">"));
+  assert.ok(svg.includes("<tspan class=\"vfig\" fill=\"#222\">"));
 });
 
 test('6b: the verdict block is content-driven — narrow re-wraps to more lines and the chart follows', () => {
