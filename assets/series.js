@@ -62,16 +62,52 @@ export function fmt(v){
   return v.toExponential(1);
 }
 
-/* URL-hash state: any JSON-able object, unicode-safe. */
-export function readHashState(){
+/* URL-hash state: any JSON-able object, unicode-safe. New hashes are
+   compressed — `z:` + base64url(deflate-raw(JSON)) via the native
+   CompressionStream — which halves real doc URLs. Legacy plain-btoa hashes
+   (no `:` can appear in btoa output, so the sniff is unambiguous) parse
+   forever; only newly WRITTEN urls use z:. Both directions are async. */
+const b64u = bytes => {
+  let s = '';
+  for(let i = 0; i < bytes.length; i += 0x8000)   // chunked: one spread blows call-arg limits
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+const unb64u = str => {
+  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  const out = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+async function pipe(bytes, Stream){
+  const st = new Stream('deflate-raw');
+  const w = st.writable.getWriter();
+  w.write(bytes).catch(() => {});
+  w.close().catch(() => {});
+  return new Uint8Array(await new Response(st.readable).arrayBuffer());
+}
+export async function encodeHash(obj){
+  return 'z:' + b64u(await pipe(new TextEncoder().encode(JSON.stringify(obj)), CompressionStream));
+}
+export async function decodeHash(str){
   try{
-    if(!location.hash || location.hash.length < 2) return null;
-    return JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(1)))));
+    if(str.startsWith('z:'))
+      return JSON.parse(new TextDecoder().decode(await pipe(unb64u(str.slice(2)), DecompressionStream)));
+    return JSON.parse(decodeURIComponent(escape(atob(str))));   // the legacy wire format, byte-for-byte
   }catch(e){ return null; }
 }
-export function writeHashState(obj, maxLen = 6000){
-  const enc = btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-  history.replaceState(null, '', enc.length < maxLen ? '#' + enc : location.pathname);
+export async function readHashState(){
+  if(!location.hash || location.hash.length < 2) return null;
+  return decodeHash(location.hash.slice(1));
+}
+let writeToken = 0;
+export async function writeHashState(obj, maxLen = 6000){
+  const token = ++writeToken;
+  const enc = await encodeHash(obj);
+  if(token !== writeToken) return false;   // a later write is in flight — it wins
+  const fits = enc.length < maxLen;
+  history.replaceState(null, '', fits ? '#' + enc : location.pathname);
+  return fits;
 }
 
 /* ---- shared palette schemes (moved from roadmap/render.js) ---- */
