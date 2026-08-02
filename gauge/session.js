@@ -54,7 +54,8 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
   let joinUrl = '';   // filled when the encode lands (~1ms) — the copy button reads the variable, never a stale capture
   encodeHash({t: text, id}).then(s => { joinUrl = location.origin + location.pathname + '#' + s; $('joinlink').value = joinUrl; });
   $('copylink').addEventListener('click', () => {
-    if(navigator.clipboard && joinUrl) navigator.clipboard.writeText(joinUrl).catch(() => {});
+    if(!joinUrl) return;   // the encode hasn't landed yet — never claim Copied with nothing on the clipboard
+    if(navigator.clipboard) navigator.clipboard.writeText(joinUrl).catch(() => {});
     $('copylink').textContent = 'Copied';
     setTimeout(() => { $('copylink').textContent = 'Copy'; }, 1800);
   });

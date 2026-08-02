@@ -91,8 +91,11 @@ export async function encodeHash(obj){
 }
 export async function decodeHash(str){
   try{
-    if(str.startsWith('z:'))
-      return JSON.parse(new TextDecoder().decode(await pipe(unb64u(str.slice(2)), DecompressionStream)));
+    if(str.startsWith('z:')){
+      const bytes = await pipe(unb64u(str.slice(2)), DecompressionStream);
+      if(bytes.length > 4_000_000) return null;   // a crafted link can deflate 1000:1 — cap before the string+parse amplification
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
     return JSON.parse(decodeURIComponent(escape(atob(str))));   // the legacy wire format, byte-for-byte
   }catch(e){ return null; }
 }

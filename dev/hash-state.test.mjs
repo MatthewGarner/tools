@@ -77,6 +77,13 @@ test('write race: the later call always wins', async () => {
   assert.deepEqual(await readHashState(), {n: 2});
 });
 
+test('a decompression bomb is refused, not parsed', async () => {
+  const {deflateRawSync} = await import('node:zlib');
+  const bomb = 'z:' + Buffer.from(deflateRawSync(Buffer.from(JSON.stringify('a'.repeat(8_000_000))))).toString('base64url');
+  assert.ok(bomb.length < 20000, 'the hostile link itself is small');
+  assert.equal(await decodeHash(bomb), null);
+});
+
 test('base64url chunking survives >32KB payloads byte-for-byte', async () => {
   const rnd = mulberry32(7);
   const noise = Array.from({length: 120000}, () => (rnd() * 16 | 0).toString(16)).join('');
