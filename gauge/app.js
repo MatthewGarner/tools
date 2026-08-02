@@ -117,6 +117,8 @@ async function initCompose(hash){
     onChange: debounced(() => refresh(), 120),
   });
   mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+  /* try-it specimens: wired here because gauge's editor is composer-lazy */
+  wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'names', 'palette', 'accent', 'verdict']);
 
   /* Phone-first question authoring: every edit affordance on the compose form
      preview is an undoable TEXT rewrite (gauge/edit-targets.js) dispatched
@@ -297,6 +299,4 @@ async function initCompose(hash){
   else initParticipant({...deps, id: hash.id});
 })();
 
-/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'names', 'palette', 'accent', 'verdict']);
