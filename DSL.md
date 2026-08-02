@@ -409,3 +409,24 @@ insure: premium 8 attach 40 limit 120
 *This reference is verified against the real parsers: a test parses every example above
 through the tool's own `parse.js` and fails if any of them produce a warning
 (`dev/dsl-doc.test.mjs`). The concepts behind the tools are in `ARCHITECTURE.md`.*
+
+## case — the case file (binder)
+
+One URL that holds a decision's whole kit. Config: `title:`, `question:` (the
+standfirst), `status:` (`open` | `decided` | `parked`), `verdict:` (authored
+only — a case never computes one; `off` carries none), `palette:`/`accent:`.
+An exhibit is roadmap's link grammar: `[Lane:] Label -> url [// note]` — the
+URL must be one of this suite's tools (relative `/tool/#…` or the two full
+https origins); anything else stays visible as a dead (ghost) exhibit. Lanes
+are free text and exist once an exhibit carries one.
+
+```dsl tool=case
+title: Wexcombe augmentation
+question: Augment in 2029, or run the fleet down?
+status: decided
+verdict: We augment — the warranty binds 3 years before the wear does
+Money: Augment NPV model -> /fermi/#abc // the £ case either way
+Money: Board options -> /tree/#def
+Delivery: Plan of record -> /timeline/#ghi // P50–P90 dates
+Risk: Premortem register -> /premortem/#jkl
+```

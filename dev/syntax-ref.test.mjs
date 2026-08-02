@@ -36,6 +36,11 @@ const TOOLS = {
       'x: Low, High', 'y: Weak, Strong', 'zones: grid 2x2', 'verdict: Test A first',
       'A @ 20,80'].join('\n'),
   },
+  case: {
+    keys: ['title', 'question', 'status', 'verdict', 'palette', 'accent'],
+    doc: ['title: T', 'question: Ship it?', 'status: decided', 'verdict: We ship',
+      'palette: ocean', 'accent: #C05621', 'Money: NPV model -> /fermi/#x // why it matters'].join('\n'),
+  },
   wardley: {
     keys: ['title', 'palette', 'accent', 'verdict', 'anchor'],
     doc: ['title: T', 'palette: ocean', 'accent: #C05621', 'verdict: Buy it',

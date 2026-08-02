@@ -194,9 +194,13 @@ export function renderNarrow(model, ctx, opts = {}){
     n + ' exhibit' + (n === 1 ? '' : 's') + '</text>');
   y += 24;
   if(model.question){
+    let first = true;
     for(const t of wrapText(model.question, '15px ' + SANS, inner, measure)){
-      parts.push('<text x="' + pad + '" y="' + y + '" font-size="15" fill="' + c.ink + '">' + esc(t) + '</text>');
-      y += 22;
+      parts.push('<text x="' + pad + '" y="' + y + '" font-size="15" fill="' + c.ink + '"' +
+        (opts.edit && first ? ' data-edit="question" data-line="' + (model.srcLines.question ?? -1) +
+          '" data-raw="' + esc(model.question) + '" tabindex="0" role="button" aria-label="Edit the question"' : '') +
+        '>' + esc(t) + '</text>');
+      y += 22; first = false;
     }
   }
   y += 4;
@@ -217,11 +221,19 @@ export function renderNarrow(model, ctx, opts = {}){
     y += 30;
     const body = [];
     body.push('<text x="' + pad + '" y="' + y + '" font-size="15" font-weight="600" fill="' +
-      (ex.live ? c.ink : c.muted) + '">' + esc(ex.label) + '</text>');
+      (ex.live ? c.ink : c.muted) + '"' +
+      (opts.edit ? ' data-edit="label" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.label) +
+        '" tabindex="0" role="button" aria-label="Rename exhibit: ' + esc(ex.label) + '"' : '') +
+      '>' + esc(ex.label) + '</text>');
     if(ex.note){
+      let firstN = true;
       for(const t of wrapText(ex.note, '12.5px ' + SANS, inner, measure)){
         y += 18;
-        body.push('<text x="' + pad + '" y="' + y + '" font-size="12.5" fill="' + c.muted + '">' + esc(t) + '</text>');
+        body.push('<text x="' + pad + '" y="' + y + '" font-size="12.5" fill="' + c.muted + '"' +
+          (opts.edit && firstN ? ' data-edit="note" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.note) +
+            '" tabindex="0" role="button" aria-label="Edit note: ' + esc(ex.note) + '"' : '') +
+          '>' + esc(t) + '</text>');
+        firstN = false;
       }
     }
     parts.push((opts.live && ex.live) ? '<a href="' + esc(ex.url) + '">' + body.join('') + '</a>' : body.join(''));
@@ -232,7 +244,8 @@ export function renderNarrow(model, ctx, opts = {}){
   const av = caseReadout(model);
   const V = svgVerdict({x: pad, y: y + 22, width: inner, line: av.line, fig: av.fig,
     ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
-    font: SANS_SQATTR, measure, size: 16, scale: 0.94});
+    font: SANS_SQATTR, measure, size: 16, scale: 0.94,
+    edit: opts.edit ? {raw: model.verdict ?? ''} : undefined});
   parts.push(V.svg);
   y = y + 22 + Math.max(V.height - 23, 0) + 18;
   const H = Math.round(y);
