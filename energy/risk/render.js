@@ -259,7 +259,14 @@ export function toMarkdown(model, sim){
   lines.push('');
   /* `verdict:` reaches the markdown export too — a copy-for-doc that still carried
      the tool's line after the author turned it off would be the same bug the
-     artefact had, one export further out. */
-  for(const r of sim.rows){ const v = riskVerdictLine(r, model); if(v) lines.push('- **' + r.label + ':** ' + v); }
+     artefact had, one export further out. An AUTHORED line is not about any
+     computed row (the SVG band drops the row name for the same reason), so it
+     appears once, unattributed — not once per structure. */
+  const vRaw = model.verdict == null ? '' : String(model.verdict).trim();
+  if(vRaw !== '' && vRaw.toLowerCase() !== 'off'){
+    lines.push('- **' + vRaw + '**');
+  } else {
+    for(const r of sim.rows){ const v = riskVerdictLine(r, model); if(v) lines.push('- **' + r.label + ':** ' + v); }
+  }
   return (model.title ? '## ' + model.title + '\n\n' : '') + lines.join('\n');
 }

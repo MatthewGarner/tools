@@ -286,7 +286,11 @@ export function markdownSummary(model, stats, delphi){
   });
   if(delphi){
     out.push('## Round 2 (Delphi)', '');
-    const dv = delphiVerdict(delphi);
+    /* the tool's Delphi line only when the author hasn't spoken: an authored
+       verdict: already leads this doc (doubling it re-attributes the author's
+       words), and off means off everywhere — the same resolveVerdict contract
+       as the session line above */
+    const dv = model.verdict == null ? delphiVerdict(delphi) : '';
     if(dv) out.push('**' + dv + '**', '');
     delphi.forEach((d, i) => {
       out.push('- **' + (i + 1) + '. ' + d.question.text + '** — ' + d.headline +

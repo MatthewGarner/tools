@@ -170,6 +170,21 @@ test('markdownSummary carries title, verdict, headlines, numbers', () => {
   assert.ok(md.includes('weeks'));
 });
 
+test('markdownSummary: the Delphi round obeys verdict: too (off silences, authored is not doubled)', () => {
+  const mkDelphi = m => delphiStats(m,
+    [{who: 'x', values: [80, [4, 8]]}, {who: 'y', values: [20, [5, 9]]}],
+    [{who: 'x', values: [55, [5, 8]]}, {who: 'y', values: [50, [5, 8]]}]);
+  const base = 'Ship by Q3 :: prob\nWeeks to migrate :: range weeks';
+  const off = parse('verdict: off\n' + base);
+  const mdOff = markdownSummary(off, sessionStats(off, RESP), mkDelphi(off));
+  assert.ok(mdOff.includes('## Round 2 (Delphi)'), 'the round itself still exports');
+  assert.ok(!/\n\*\*[^*]+\*\*\n/.test(mdOff), 'off means no bolded verdict line anywhere');
+  const auth = parse('verdict: The room already decided\n' + base);
+  const mdAuth = markdownSummary(auth, sessionStats(auth, RESP), mkDelphi(auth));
+  assert.equal(mdAuth.split('The room already decided').length - 1, 1, 'authored line appears once');
+  assert.equal((mdAuth.match(/\n\*\*[^*\n]+\*\*\n/g) || []).length, 1, 'exactly one bolded verdict in the doc');
+});
+
 /* ---- chips (confidence auction) ---- */
 const {equal: ceq, ok: cok} = assert;
 const OPTS = ['A', 'B', 'C'];

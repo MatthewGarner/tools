@@ -820,8 +820,12 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + F.body + '">' + s.join('') + '</svg>';
 }
 
-export function toMarkdown(model, diff, url){
+export function toMarkdown(model, diff, url, today){
   const lines = ['**' + (model.title || 'Milestone timeline') + '**', ''];
+  /* the resolved verdict travels with the doc — timeline was the one verdict
+     tool whose copy-for-doc carried no verdict at all, authored or computed */
+  const v = timelineVerdict(model, today).line;
+  if(v) lines.push('**' + v + '**', '');
   if(diff) lines.push(diff.sinceLine, '');
   lines.push('| Milestone | Lane | P50 | P90 | |');
   lines.push('|---|---|---|---|---|');

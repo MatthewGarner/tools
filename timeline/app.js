@@ -201,7 +201,7 @@ wireExports({
    equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
-  const md = toMarkdown(model, currentDiff(), location.href);
+  const md = toMarkdown(model, currentDiff(), location.href, todayDay());
   try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }
 });
