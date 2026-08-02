@@ -265,7 +265,7 @@ async function initCompose(hash){
       $('starterr').hidden = false;
       return;
     }
-    writeHashState({t: editor.getText(), id, key});
+    await writeHashState({t: editor.getText(), id, key});   // the reload must not beat the async write
     location.reload();   // boot re-routes into console mode
   });
 
