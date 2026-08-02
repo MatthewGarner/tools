@@ -61,6 +61,7 @@ async function copyPngWorks(page){
 {
   const {page, errors} = await freshPage('/');
   check('landing: one card per tool', await page.locator('a.tool').count() === TOOL_DIRS.length);
+  check('landing: every card carries its instrument sketch', await page.locator('a.tool svg.thumb').count() === TOOL_DIRS.length);
   const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
