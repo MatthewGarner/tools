@@ -113,7 +113,7 @@ const PAGES = {
   'fermi/index.html': 185_000, 'rank/index.html': 95_000,   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
-     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 107_000,   /* 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 108_000,   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   'alarm/index.html': 96_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
@@ -212,7 +212,7 @@ const PAGES = {
      editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
      in line with the other DSL pages. */
   'tree/index.html': 491_000,
-  'map/index.html': 480_000,
+  'map/index.html': 481_000,  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling

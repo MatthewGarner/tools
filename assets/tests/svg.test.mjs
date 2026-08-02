@@ -1,6 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {editTarget, btnAttrs} from '../svg.js';
+import {editTarget, btnAttrs, esc} from '../svg.js';
+
+test('esc covers both quote characters — single-quoted attributes exist in the repo', () => {
+  assert.equal(esc(`O'Brien's "plant" <&>`),
+    'O&#39;Brien&#39;s &quot;plant&quot; &lt;&amp;&gt;');
+});
 
 test('btnAttrs emits the keyboard/AT triplet with the label escaped', () => {
   assert.equal(btnAttrs('Rename: A & B'),

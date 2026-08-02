@@ -1,8 +1,13 @@
 /* Shared SVG-string helpers for the tools' renderers. */
 
+/* Escapes BOTH quote characters: some renderers emit single-quoted attributes
+   (merit-order's data-plant, cycles/risk's escaped-quote style), and an
+   apostrophe in user text would end such an attribute early — the same class
+   of export-killing XML bug as the double-quote case. &#39; not &apos; — the
+   numeric form survives HTML serialisation too (outerHTML re-reads). */
 export function esc(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          .replace(/"/g,'&quot;');
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 /* 12% tint for capsules; non-hex colors fall back to 'none' (stroke-only) */
