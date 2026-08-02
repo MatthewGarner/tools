@@ -34,6 +34,16 @@ test('dead exhibit renders as ghost (dashed), never a live link', () => {
   assert.ok(!svg.includes('href="https://example.com/x"'), 'a dead exhibit must never navigate');
 });
 
+test('open and edit affordances never overlap (the mobile tap bug)', () => {
+  for(const svg of [draw(SRC, {live: true, edit: true}),
+    render(parse(SRC), {...ctx, width: 390}, {live: true, edit: true})]){
+    for(const m of svg.matchAll(/<a [^>]*>([\s\S]*?)<\/a>/g))
+      assert.ok(!m[1].includes('data-edit'), 'an edit target inside a link eats the tap: ' + m[1].slice(0, 80));
+    assert.ok(svg.includes('\u2197'), 'the trailing open-arrow affordance exists');
+    assert.ok(svg.includes('fill="transparent"'), 'links carry a real 44px hit rect');
+  }
+});
+
 test('exports carry no links even for live exhibits', () => {
   assert.ok(!draw(SRC, {}).includes('<a '), 'URLs live in the doc, not the picture');
 });
