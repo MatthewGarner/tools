@@ -120,7 +120,8 @@ const PAGES = {
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 116_000,   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
-  'alarm/index.html': 102_000,   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+  'alarm/index.html': 102_000,
+  'case/index.html': 444_000,   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 103_000,   /* register core + store + wizard + 2 renderers + app */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */

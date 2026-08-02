@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Case file — one link holds the decision</title>
+<meta name="description" content="A decision spans tools: the model, the tree, the timeline, the premortem. The case file binds them — paste each tool's URL as an exhibit, and one link carries the whole kit behind a cover page.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂️</text></svg>">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
+<link rel="stylesheet" href="/assets/motion.css">
+<link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/about.css">
+<link rel="stylesheet" href="../assets/mobile.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
+    <h1>Case file</h1>
+    <p class="tagline">A real decision scatters across tools — the model in one URL, the timeline in another, the premortem in a third. Paste those URLs here as exhibits and one link holds the whole case behind a cover page: the question, the kit, and the verdict when you reach it.</p>
+  </header>
+</div>
+
+<main>
+<div class="workspace" id="workspace">
+    <aside class="rail">
+      <div class="chips" id="chips"><span class="lead">Try:</span></div>
+      <div id="cmhost" aria-label="Case file source editor"></div>
+      <ul id="warns"></ul>
+      <details class="syntax">
+        <summary>Syntax reference</summary>
+        <h4>Exhibits — the case is made of these</h4>
+        <dl>
+          <dt><code data-try="">Augment NPV model -> /fermi/#abc</code></dt>
+          <dd>an exhibit: a label, then <code>-></code>, then a tool URL pasted from the address bar</dd>
+          <dt><code data-try="">Money: Board options -> /tree/#def</code></dt>
+          <dd>a lane prefix groups exhibits — Money, Delivery, Risk, anything</dd>
+          <dt><code data-try="">Plan of record -> /timeline/#ghi // P50–P90 dates</code></dt>
+          <dd>a <code>// note</code> says why the exhibit matters</dd>
+        </dl>
+        <h4>The cover</h4>
+        <dl>
+          <dt><code>title:</code> <code>palette:</code> <code>accent:</code></dt>
+          <dd>config · <code>// comment</code> anywhere</dd>
+          <dt><code data-try="">question: Augment in 2029, or run down?</code></dt>
+          <dd>the decision, as asked — the cover's standfirst</dd>
+          <dt><code data-try="">status: open</code></dt>
+          <dd><code>open</code>, <code>decided</code> or <code>parked</code></dd>
+          <dt><code data-try="">verdict: We augment — the warranty binds first</code></dt>
+          <dd>the decision in one line, yours alone — a case never computes one. <code>verdict: off</code> carries none</dd>
+        </dl>
+      </details>
+    </aside>
+    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <section class="stage">
+      <div class="metrics" id="metrics" hidden></div>
+      <div class="preview" id="preview"><p class="placeholder">Paste a tool's URL as “Label -&gt; url” — or load the example.</p></div>
+      <div class="actions">
+        <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
+        <button class="btn" id="copypng">Copy PNG</button>
+        <button class="btn" id="copymd">Copy as markdown</button>
+        <button class="btn" id="dlpng">PNG</button>
+        <button class="btn primary" id="dlsvg">SVG</button>
+        <span class="method">Work in the tools, paste each URL here as an exhibit · exhibit rows open their tool live · the URL carries the whole case</span>
+      </div>
+    </section>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>Why a binder, and why one URL?</h2>
+    <div class="prose">
+    <p>Every tool on this site keeps its whole state in its URL — a fermi model, a decision tree, a delivery timeline, each one a bookmarkable claim. That's the superpower, and its cost: a real decision uses four of them, and they scatter across chat threads and documents until nobody can find the version that mattered. The case file composes what the URLs already carry.</p>
+    <p>Assembly is deliberately manual: do the work in the member tools, then paste each URL here as an exhibit line with a label, a lane and a note saying why it matters. The cover renders as you type — the question as the standfirst, the exhibits as a register grouped by lane, and the verdict once you commit to one. A case never computes its verdict; the exhibits argue, you decide, and the cover states it.</p>
+    <p>The case's own URL then carries the whole kit — one link for the board pack, the handover, the retro six months later. Exhibit rows are live links, so the reader lands on the actual model, not a screenshot of it. Exports keep the register but leave the URLs in the document, where links belong.</p>
+    </div>
+  </section>
+</div>
+</main>
+
+<div class="wrap">
+  <footer>
+    No accounts, no tracking. The URL carries your case — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, August 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

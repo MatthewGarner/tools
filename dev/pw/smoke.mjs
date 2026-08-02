@@ -3,7 +3,7 @@
    (The roadmap tool has its own deeper suite in check.mjs.) */
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
-import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS} from '../tool-dirs.mjs';
 import {trackErrors, report, tally} from './_harness.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
@@ -60,9 +60,11 @@ async function copyPngWorks(page){
 /* ---- landing ---- */
 {
   const {page, errors} = await freshPage('/');
-  check('landing: one card per tool', await page.locator('a.tool').count() === TOOL_DIRS.length);
-  check('landing: every card carries its instrument sketch', await page.locator('a.tool svg.thumb').count() === TOOL_DIRS.length);
-  const hrefs = await page.locator('a.tool').evaluateAll(as => as.map(a => a.getAttribute('href')));
+  const instruments = TOOL_DIRS.filter(d => !BINDERS.includes(d));
+  check('landing: one card per instrument', await page.locator('a.tool').count() === instruments.length);
+  check('landing: every card carries its instrument sketch', await page.locator('a.tool svg.thumb').count() === instruments.length);
+  check('landing: one binder band per binder', await page.locator('a.binder').count() === BINDERS.length);
+  const hrefs = await page.locator('a.tool, a.binder').evaluateAll(as => as.map(a => a.getAttribute('href')));
   for(const href of hrefs){
     const resp = await page.request.get(BASE + href);
     check('landing: ' + href + ' resolves', resp.status() === 200);

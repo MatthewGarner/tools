@@ -68,6 +68,10 @@ const FLOORS = {
      landed — name (rename) + addbet/addgroup capsules join the unconditional
      stake/odds/payoff/kill cells and the per-card data-menu: 8 distinct kinds. */
   bets:      {kinds: 8, menu: true},
+  /* case (binder, 2026-08-02): label + note + question inputs, plus the shared
+     verdict menu/verdictedit pair — 5 kinds. No per-card ⋯ data-menu (the gauge
+     precedent): every edit has a direct visible affordance on the row itself. */
+  case:      {kinds: 5, menu: false},
   /* wardley's tap menu is its own componentmenu KIND (a card menu: Needs…
      edge-toggle submenu + Remove), not the data-menu redirect attribute —
      menu:false is accurate, not a gap. The Needs… rows (mobile-input stage,
@@ -111,6 +115,7 @@ const DOCS = {
   tree: 'title: Bid for the Acme contract\ncurrency: £\n\nBid decision\n  Submit bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0',
   map: 'preset: assumptions\ntitle: Habitat — launch assumptions\n\nUsers will log habits daily @ 30,90 :: test: watch 5 onboarding sessions\nStreak anxiety drives churn @ 75,80 :: note: held in Q2 interviews\nLegal sign-off on health claims',
   bets: 'title: Habitat — Q3 bet portfolio\nunit: £k\n\nGrowth bets\n  Referral flow v2: stake 80, odds 40-60%, payoff 300-500\n    kill: Signups per referral stay under 0.3 by 2026-09-15\n  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300',
+  case: 'title: Wexcombe augmentation\nquestion: Augment in 2029, or run the fleet down?\nstatus: open\n\nMoney: Augment NPV model -> /fermi/#x // the £ case\nDelivery: Plan of record -> /timeline/#y',
   gauge: 'title: Q3 commitment review\nnames: off\n\nWe ship the referral loop :: prob\nWeeks to migrate billing :: range weeks\nPick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish',
   wardley: 'title: Habitat platform\nanchor: Habit tracking\n\nHabit builder @ product\nStreak engine @ custom\nUser DB @ commodity\n\nHabit tracking -> Habit builder -> Streak engine -> User DB',
   'energy/cycles': 'title: Cycle budget — Wexcombe 100MW/2h\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%',
@@ -119,6 +124,11 @@ const DOCS = {
 
 /* ---- drivers: each mirrors ITS app's live-preview render call at phone width ---- */
 const DRIVERS = {
+  async case(doc){
+    const {parse} = await import('../case/parse.js');
+    const {render} = await import('../case/render.js');
+    return render(parse(doc), {...ctx, width: W}, {edit: true});
+  },
   async roadmap(doc){
     const {parse} = await import('../roadmap/parse.js');
     const {render} = await import('../roadmap/render.js');

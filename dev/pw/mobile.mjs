@@ -22,7 +22,7 @@ const ALL_NAMES = new Set(ALL.map(([n]) => n));
 // autoload check). NB canvas-output tools (fermi, frequency) also autoload but
 // draw to <canvas> — the SVG-presence check below can't see them, so they're out.
 const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk',
-  'gauge', 'timeline', 'signal-vs-noise']);
+  'gauge', 'timeline', 'signal-vs-noise', 'case']);
 const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;
@@ -248,6 +248,7 @@ const CONTAINERS = [
   ['rank', T + '/rank/', ['.tblwrap']],
   ['intraday', E + '/intraday/', ['#stackwrap', '#pricewrap']],
   ['wardley', T + '/wardley/', ['#preview']],
+  ['case', T + '/case/', ['#preview']],   // binder cover: <520 stacks pill-above-label
   ['bets', T + '/bets/', ['#preview']],
   ['roadmap', T + '/roadmap/', ['#preview']],
   ['timeline', T + '/timeline/', ['#preview']],   // Ship 2 narrow relayout: #preview must not overflow sideways

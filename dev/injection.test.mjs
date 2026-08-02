@@ -362,6 +362,17 @@ test('intraday renderer stays clean (hostile catalogue labels reach changeovers 
   assertClean(svg, 'intraday');
 });
 
+test('case renderer escapes hostile titles/labels/notes/lanes', async () => {
+  const {parse} = await import('../case/parse.js');
+  const {render} = await import('../case/render.js');
+  const doc = 'title: ' + EVIL[0] + '\nquestion: ' + EVIL[1] + '\nverdict: ' + EVIL[2] + '\n' +
+    EVIL.map((e, i) => label(i) + ': ' + label(i + 1) + ' -> /fermi/#x // ' + label(i + 2)).join('\n') + '\n' +
+    label(3) + ' -> https://evil.example/' + encodeURIComponent(EVIL[3]);
+  const m = parse(doc);
+  assertClean(render(m, ctx, {edit: true, live: true}), 'case');
+  assertClean(render(m, {...ctx, width: 390}), 'case-narrow');
+});
+
 test('wardley renderer escapes hostile component/anchor names, incl. in compare', async () => {
   const {parse} = await import('../wardley/parse.js');
   const {layoutMap} = await import('../wardley/layout.js');

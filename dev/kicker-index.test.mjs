@@ -7,7 +7,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {INSTRUMENTS, ENERGY_INSTRUMENTS} from './tool-dirs.mjs';
+import {INSTRUMENTS, ENERGY_INSTRUMENTS, BINDERS} from './tool-dirs.mjs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -40,5 +40,15 @@ test('energy index E-numbers carry the canonical series', () => {
     assert.ok(mentions.length >= 2, name + ' should be numbered in nav AND card, found ' + mentions.length);
     for(const n of mentions)
       assert.equal(n, kick, `energy index says "${n} ${name}" but ENERGY_INSTRUMENTS says ${kick}`);
+  }
+});
+
+test('home carries each binder as a distinct band, never a numbered card', () => {
+  const home = read('home/index.html');
+  for(const b of BINDERS){
+    assert.match(home, new RegExp('<a class="binder" href="/' + b + '/">'),
+      b + ': home must show the binder band');
+    assert.ok(!new RegExp('<a class="tool" href="/' + b + '/">').test(home),
+      b + ': a binder must never be a numbered instrument card');
   }
 });

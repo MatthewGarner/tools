@@ -10,7 +10,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
-import {TOOL_DIRS, ENERGY_TOOL_DIRS, INSTRUMENTS, ENERGY_INSTRUMENTS} from './tool-dirs.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS, INSTRUMENTS, ENERGY_INSTRUMENTS} from './tool-dirs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
@@ -40,11 +40,21 @@ test('every energy-origin page carries the PWA head block', () => {
    prose — so it is a gate. The numbering assertion is the sharp one: two tools
    silently sharing an instrument number is invisible on any single page. */
 test('every tools-origin page carries the 6b kicker slot and its canonical number', () => {
-  assert.deepEqual(Object.keys(INSTRUMENTS).sort(), [...TOOL_DIRS].sort(),
-    'INSTRUMENTS must name every tools-origin tool, and only those');
-  assert.equal(new Set(Object.values(INSTRUMENTS)).size, TOOL_DIRS.length,
+  const numbered = TOOL_DIRS.filter(d => !BINDERS.includes(d));
+  assert.deepEqual(Object.keys(INSTRUMENTS).sort(), numbered.sort(),
+    'INSTRUMENTS must name every tools-origin tool except the binders');
+  assert.equal(new Set(Object.values(INSTRUMENTS)).size, numbered.length,
     'instrument numbers must be collision-free');
-  for(const dir of TOOL_DIRS){
+  /* binders carry their own kicker, never an instrument number */
+  for(const dir of BINDERS){
+    assert.match(read(dir + '/index.html'), /<p class="kicker" id="kicker"><\/p>/,
+      dir + ': missing the .kicker slot above its h1');
+    assert.match(read(dir + '/app.js'), /CASE FILE — /,
+      dir + ': a binder kicker must read CASE FILE — {status}');
+    assert.ok(!/paintKicker\(/.test(read(dir + '/app.js')),
+      dir + ': a binder must not paint an instrument number');
+  }
+  for(const dir of numbered){
     const html = read(dir + '/index.html');
     assert.match(html, /<p class="kicker" id="kicker"><\/p>/,
       dir + ': missing the .kicker slot above its h1');
