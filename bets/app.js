@@ -99,8 +99,8 @@ function auditCounts(s){
    the plain view (board or quadrant) whatever snapshot is selected, so a
    shared/exported slide never carries stray "was …" annotations from the
    author's own review session. */
-function activeRender(forExport, bare = false){
-  const c = {colors: themeColors(), measure, bare};
+function activeRender(forExport){
+  const c = {colors: themeColors(), measure};
   /* live preview is editable (rename target + narrow ＋ capsules); exports and
      goldens render without ctx.edit, so the artefact never carries edit chrome */
   if(!forExport){ c.width = narrowWidth($('preview')); c.edit = true; }

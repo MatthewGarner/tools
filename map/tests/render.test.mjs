@@ -277,13 +277,6 @@ test('verdict block: VERDICT kicker, 24px display line, exactly one brand figure
   assert.match(svg, /assumptions sit in test first/);
 });
 
-test('bare (poster embed) drops the verdict block but keeps the zone columns', () => {
-  const bare = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 80,20', {bare: true});
-  assert.doesNotMatch(bare, />VERDICT</);
-  assert.doesNotMatch(bare, /#D62015/);
-  assert.match(bare, /TEST FIRST/);
-});
-
 test('the verdict advance drives the readout flow — a long verdict never overlaps a zone column', () => {
   const long = 'preset: risk\ntitle: T\n' +
     'A catastrophically long risk label that will certainly wrap the display line @ 90,90\nB @ 10,10';

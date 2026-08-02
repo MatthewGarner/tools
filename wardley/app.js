@@ -75,14 +75,13 @@ function currentCompare(){
 }
 /* width-aware: the preview re-lays-out below NARROW; exports stay pinned wide */
 let sizeBucket = 'wide';
-function activeRender(forExport = false, bare = false){
+function activeRender(forExport = false){
   const compare = currentCompare();
   const c = ctx();
   if(!forExport && sizeBucket === 'narrow') c.width = $('preview').clientWidth;
   const opts = {};
   if(compare) opts.compare = compare;
   if(!forExport) opts.edit = true;   // chrome only for the live preview, never exports
-  if(bare) opts.bare = true;
   return renderMap(model, layout, c, opts);
 }
 function renderWarnings(){
@@ -314,8 +313,8 @@ $('preview').addEventListener('click', e => {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
-function svgString(bare = false){
-  return (model && model.components.size) ? activeRender(true, bare) : null;
+function svgString(){
+  return (model && model.components.size) ? activeRender(true) : null;
 }
 /* The counted facts the map already knows, feeding the page's metrics row. */
 function mapCounts(){

@@ -386,37 +386,28 @@ export function renderMap(model, layout, ctx, opts = {}){
   const c = ctx.colors, measure = ctx.measure;
   const {w, pad} = GEOM;
   const ramp = ctx.palette || [c.accent, c.accent, c.accent, c.accent];
-  /* poster-embed: drop the chrome the poster frame owns — its own title, date
-     and hero verdict — but keep the metrics line and flags, which are content. */
-  const bare = !!opts.bare;
-
   /* ---- header ---- */
   const head = [];
-  let headerH = bare ? 0 : 58;
+  let headerH = 58;
   const comps = layout.nodes.filter(n => !n.anchor);
   const ghostN = comps.filter(n => n.ghost).length;
-  /* bare: the poster frame owns the title, the date AND the metrics line — its
-     footer prints "N components · M dependencies · X unplaced" verbatim, so
-     keeping it here would print it twice on the same artifact. */
-  if(!bare){
-    head.push('<text x="' + pad + '" y="38" font-family="' + SERIF + '" font-size="24" font-weight="700" fill="' +
-      c.ink + '">' + esc(model.title || 'Wardley map') + '</text>');
-    /* date label wants an ISO string; other tools' ctx carries today as a day
-       number — accept strings only, so a shared ctx can never crash the header */
-    if(typeof ctx.today === 'string') head.push('<text x="' + (w - pad) +
-      '" y="26" text-anchor="end" font-size="12" fill="' + c.muted + '">' + esc(ctx.today) + '</text>');
-    head.push('<text x="' + pad + '" y="56" font-size="12.5" fill="' + c.muted + '">' +
-      comps.length + ' component' + (comps.length === 1 ? '' : 's') + ' · ' +
-      model.edges.length + ' dependenc' + (model.edges.length === 1 ? 'y' : 'ies') +
-      (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
-  }
+  head.push('<text x="' + pad + '" y="38" font-family="' + SERIF + '" font-size="24" font-weight="700" fill="' +
+    c.ink + '">' + esc(model.title || 'Wardley map') + '</text>');
+  /* date label wants an ISO string; other tools' ctx carries today as a day
+     number — accept strings only, so a shared ctx can never crash the header */
+  if(typeof ctx.today === 'string') head.push('<text x="' + (w - pad) +
+    '" y="26" text-anchor="end" font-size="12" fill="' + c.muted + '">' + esc(ctx.today) + '</text>');
+  head.push('<text x="' + pad + '" y="56" font-size="12.5" fill="' + c.muted + '">' +
+    comps.length + ' component' + (comps.length === 1 ? '' : 's') + ' · ' +
+    model.edges.length + ' dependenc' + (model.edges.length === 1 ? 'y' : 'ies') +
+    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
 
   let compareInfo = null;
   if(opts.compare){
     compareInfo = compareParts(model, layout, {...opts.compare, measure}, c);
-    head.push('<text x="' + pad + '" y="' + (bare ? 16 : 76) + '" font-size="13" font-weight="600" fill="' + c.accent + '">' +
+    head.push('<text x="' + pad + '" y="76" font-size="13" font-weight="600" fill="' + c.accent + '">' +
       esc(compareInfo.headline) + '</text>');
-    headerH = bare ? 26 : 84;   /* the drift headline IS content — it survives bare */
+    headerH = 84;
   }
 
   /* ---- plane (translated below the header; layout coords are plane-local) ---- */
@@ -497,21 +488,17 @@ export function renderMap(model, layout, ctx, opts = {}){
   const readTop = headerH + planeH + 10;
   read.push('<line x1="' + pad + '" y1="' + readTop + '" x2="' + (w - pad) + '" y2="' + readTop +
     '" stroke="' + c.border + '"/>');
-  /* bare: the verdict block is dropped (the poster frame's hero already carries
-     it) — the flags stack up into the space it would have taken */
   const vTop = readTop + 24;                 // baseline of the 10px VERDICT kicker
-  const V = bare ? {svg: '', height: 0} : svgVerdict({x: pad, y: vTop, width: w - 2 * pad,
+  const V = svgVerdict({x: pad, y: vTop, width: w - 2 * pad,
     line: r.verdict, fig: r.fig, ink: c.ink, muted: c.muted,
     brandText: c.brandText || c.ink, font: SANS_SQATTR, measure});
-  if(!bare) read.push(V.svg);
-  const flagsY0 = bare ? readTop + 26 : vTop + V.height - 6;
+  read.push(V.svg);
+  const flagsY0 = vTop + V.height - 6;
   r.flags.forEach((f, i) => {
     read.push('<text x="' + pad + '" y="' + (flagsY0 + i * 19) + '" font-size="12.5" fill="' +
       c.muted + '">' + esc(f) + '</text>');
   });
-  const H = Math.round(bare
-    ? readTop + 18 + r.flags.length * 19 + 14      // unchanged: the poster frame owns the verdict
-    : vTop + V.height + r.flags.length * 19);
+  const H = Math.round(vTop + V.height + r.flags.length * 19);
 
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + H +
     '" viewBox="0 0 ' + w + ' ' + H + '" font-family="' + SANS + '">' +

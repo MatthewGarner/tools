@@ -51,8 +51,8 @@ function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
 }
-function activeRender(slide, edit = false, forExport = false, bare = false){
-  return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx, bare});
+function activeRender(slide, edit = false, forExport = false){
+  return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -193,8 +193,8 @@ exampleChips($('chips'), EXAMPLES, ex => { focusIdx = null; editor.setText(ex.sr
 
 /* ---------- exports ---------- */
 const isoToday = () => new Date().toISOString().slice(0, 10);
-function svgString(slide, bare = false){
-  return sim ? activeRender(slide, false, true, bare) : null;   // forExport: width undefined => canonical 1200/1280
+function svgString(slide){
+  return sim ? activeRender(slide, false, true) : null;   // forExport: width undefined => canonical 1200/1280
 }
 function slug(){
   return slugify(model && model.title, 'risk');

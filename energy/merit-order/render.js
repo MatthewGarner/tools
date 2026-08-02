@@ -181,7 +181,7 @@ export function renderStack(state, ctx, opts = {}){
   const showLegend = result.totalRent > 0;
   const legendY = tickY + 26;
   const verdictTopBase = (showLegend ? legendY : tickY) + 34;
-  const showVerdict = opts.forExport && !opts.bare;   // bare: the poster frame owns the verdict
+  const showVerdict = !!opts.forExport;
   const verdictText = buildVerdict(result, state);
   const vLines = wrapText(verdictText, '15px ' + FONT, x1 - x0, ctx.measure);
   const vBlockH = 28 + vLines.length * 22 + 16;
@@ -290,8 +290,7 @@ export function renderStack(state, ctx, opts = {}){
     P.push(txt(x0, (showLegend ? legendY : tickY) + 22, 'tap a band to name it', 11, C.muted));
   }
 
-  // verdict — export-only (HTML #verdict carries it on screen); suppressed in
-  // bare mode (the poster frame renders the verdict as its hero line)
+  // verdict — export-only (HTML #verdict carries it on screen)
   if(showVerdict){
     const vy = (showLegend ? legendY : tickY) + 30;
     P.push(`<rect x='${x0 - 16}' y='${r2(vy)}' width='4' height='${vLines.length * 22 + 8}' fill='${C.accent}'/>`);

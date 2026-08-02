@@ -107,7 +107,7 @@ export function verdictParts(portfolio, counts){
   return {line: lead + tail, fig};
 }
 
-/* The plain line — what the markdown and poster exports consume. */
+/* The plain line — what the markdown export consumes. */
 export function verdictCopy(portfolio, counts){
   return verdictParts(portfolio, counts).line;
 }

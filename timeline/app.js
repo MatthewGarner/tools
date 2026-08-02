@@ -50,11 +50,11 @@ function currentDiff(){
   if(!cur || !model || !model.items.length) return null;
   return timelineDiffView(timelineDiff(cur.model, model), cur.label);
 }
-function ctx(slide, bare = false){
-  return {colors: themeColors(), measure, slide, bare, dark: isDark(), today: todayDay()};
+function ctx(slide){
+  return {colors: themeColors(), measure, slide, dark: isDark(), today: todayDay()};
 }
-function activeRender(slide, edit = false, bare = false){
-  return render(model, ctx(slide, bare), currentDiff(), {edit});
+function activeRender(slide, edit = false){
+  return render(model, ctx(slide), currentDiff(), {edit});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -185,8 +185,8 @@ attachEditInPlace($('preview'), {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports ---------- */
-function svgString(slide, bare = false){
-  return (model && model.items.length) ? activeRender(slide, false, bare) : null;
+function svgString(slide){
+  return (model && model.items.length) ? activeRender(slide, false) : null;
 }
 function slug(){
   return slugify(model.title, 'timeline');

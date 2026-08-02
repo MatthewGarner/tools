@@ -362,8 +362,8 @@ function plainStyleSvg(){
   if(model.style === 'focus') return renderFocusLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
   return render(model, base);                                                                        // plain / grid → the chart
 }
-/* dlslide and Copy PNG both go to the deck (render-deck.js) — a designed,
-   16:9 export, not the raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
+/* Copy PNG goes to the deck (render-deck.js) — a designed 16:9 export, not the
+   raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
 function deckSvgString(){
   if(!model || !model.items.length) return null;
   return renderDeck(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});

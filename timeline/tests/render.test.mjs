@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks, timelineReadout, timelineVerdict, posterVerdict, toMarkdown} from '../render.js';
+import {render, ticks, timelineReadout, timelineVerdict, toMarkdown} from '../render.js';
 import {mergeBias} from '../mergebias.js';
 
 const ctx = {
@@ -185,11 +185,6 @@ test('merge readout: ≥2 ranged lanes → verdict leads with Merge risk', () =>
   assert.match(timelineReadout(m, ctx.today), /^Merge risk: 3 ranged lanes/);
 });
 
-test('posterVerdict is the merge sentence only (no operational bits)', () => {
-  const v = posterVerdict(parse(MERGE_DOC), ctx.today);
-  assert.match(v, /Merge risk/);
-  assert.doesNotMatch(v, /Next up|Widest whisker/);
-});
 
 test('merge SVG: the merge sentence IS the verdict, joint probability the figure', () => {
   const v = timelineVerdict(parse(MERGE_DOC), ctx.today);

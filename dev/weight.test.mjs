@@ -176,7 +176,7 @@ const PAGES = {
      grammar tools link syntax.css, so the cost lands where the feature is. Each of
      those pages nets ~+1.15k (the shared sheet, less the ~450B copy it deleted).
      roadmap also gained `story:` and a corrected `headline:` gloss. --- */
-  'roadmap/index.html': 598_000,   /* 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  'roadmap/index.html': 599_000,   /* 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —

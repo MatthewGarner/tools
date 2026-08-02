@@ -39,12 +39,12 @@ export function riskVerdictParts(sim, model, focus = null){
   return auth({line: 'The trade — ' + rows[fi].label + ': ' + v, fig: tradeFigure(rows[fi], model.unit)});
 }
 
-/* the plain line — the markdown/poster consumers want only this */
+/* the plain line — the markdown export wants only this */
 export function riskVerdict(sim, model, focus = null){
   return riskVerdictParts(sim, model, focus).line;
 }
 
-export function render(model, sim, ctx, {edit = false, focus = null, bare = false} = {}){
+export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   if(!sim) return '';
   const C = ctx.colors;
   const accent = model.accent || C.accent;
@@ -52,9 +52,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
   const isNarrow = !!(ctx.width && ctx.width < NARROW);
   const W = ctx.width ?? (ctx.slide ? 1280 : 1200);
   const LBL = 250, x0 = isNarrow ? 48 : LBL + 20, x1 = W - 48;
-  /* poster-embed: the frame owns the title and the hero verdict band —
-     everything else (rows, pills, axis) is content and stays. */
-  const showTitle = model.title && !bare;
+  const showTitle = !!model.title;
   const titleLines = showTitle ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
   const TOP = showTitle ? (isNarrow ? 30 + titleLines.length * 24 : 92) : 56;
   const rows = sim.rows;
@@ -85,8 +83,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
   const rowTop = []; { let acc = TOP; for(const r of rows){ rowTop.push(acc); acc += rowH(r); } }
   const rowsTotal = rows.reduce((s, r) => s + rowH(r), 0);
 
-  /* verdict block height computed up front so the svg height is exact —
-     dropped when bare (the poster frame's hero already carries it) */
+  /* verdict block height computed up front so the svg height is exact */
   /* `verdict:` (2026-07-31): the SVG band reads the RESOLVED line, not the engine
      directly, or the artefact would keep printing a verdict the author turned off
      while the HTML mirror obeyed. */
@@ -96,7 +93,7 @@ export function render(model, sim, ctx, {edit = false, focus = null, bare = fals
   const vRaw = model.verdict == null ? '' : String(model.verdict).trim();
   const vAuthored = vRaw !== '' && vRaw.toLowerCase() !== 'off';
   const vText = riskVerdictLine(rows[fi], model);
-  const vLines = (bare || !vText) ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
+  const vLines = !vText ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
   const AXIS = 34;
   /* phone-only ＋ Add structure capsule sits between the rows and the axis
      (edit && narrow — desktop/export goldens never reach this) */

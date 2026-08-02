@@ -69,8 +69,7 @@ export function render(model, resolved, ro, ctx, diff = null){
   const edit = !!ctx.edit;   // preview-only affordances; exports and goldens render without
   /* poster-embed: drop the chrome the poster frame owns — its own title, date and
      hero verdict — but keep the zone columns, which are content, not chrome. */
-  const bare = !!ctx.bare;
-  const showTitle = !!model.title && !bare;
+  const showTitle = !!model.title;
   const flaggedLines = new Set(ro.flagged.map(f => f.item.srcLine));
   const placed = model.items.filter(i => i.x != null);
   const hasTray = ro.unplaced.length > 0;
@@ -330,7 +329,7 @@ export function render(model, resolved, ro, ctx, diff = null){
   /* the VERDICT block (Swiss 6b): kicker + wrapped display line carrying exactly
      one brand-marked figure. Its returned advance drives the readout's flow, so
      a long verdict pushes the zone columns down instead of colliding with them. */
-  if(!bare){
+  {
     const vb = svgVerdict({x: roX, y: roY + 8 * S, width: roW,
       line: ro.verdict, fig: ro.verdictFig, ink: C.ink, muted: C.muted,
       brandText: C.brandText || C.ink, font: F.serif, measure,
@@ -424,10 +423,9 @@ export function render(model, resolved, ro, ctx, diff = null){
   if(showTitle && model.items.length)
     s.push(svgMetrics({x: T.pad * S, y: (T.titleY + 17) * S, model: '',   /* the title line above owns the name */
       counts: ro.counts || [], ink: C.ink, muted: C.muted, font: F.body, scale: S}));
-  if(!bare)
-    s.push('<text x="' + (W - T.pad * S) + '" y="' + (showTitle ? T.titleY : 14) * S +
-      '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +
-      new Date().toISOString().slice(0, 10) + '</text>');
+  s.push('<text x="' + (W - T.pad * S) + '" y="' + (showTitle ? T.titleY : 14) * S +
+    '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +
+    new Date().toISOString().slice(0, 10) + '</text>');
   s.push(...body, '</svg>');
   return s.join('');
 }
