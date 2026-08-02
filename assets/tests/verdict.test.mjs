@@ -124,6 +124,13 @@ test('firstFigure: a bare year IS the figure (Matt 2026-07-31 — no unpredictab
   assert.equal(firstFigure('We ship in March 2027'), '2027');
 });
 
+test('firstFigure: digits inside tokens are spelling, not figures', () => {
+  assert.equal(firstFigure('Ship v2 by March'), '');          // not the 2 of "v2"
+  assert.equal(firstFigure('Ship v2 in 14 days'), '14');      // skips to the real figure
+  assert.equal(firstFigure('top-3 priorities'), '3');         // the hyphen is the word's, not a minus
+  assert.equal(firstFigure('slipped by -3 weeks'), '-3');     // a real minus after a boundary survives
+});
+
 test('firstFigure: no number means no brand colour — red is reserved for figures', () => {
   assert.equal(firstFigure('We ship, or we do not ship'), '');
   assert.equal(firstFigure(''), '');
@@ -150,7 +157,7 @@ test('resolveVerdict: an empty value suppresses too — deleting the text must n
 test('resolveVerdict: "off" only suppresses as the WHOLE value, never as a first word', () => {
   const got = resolveVerdict('Off the back of Q3 we hold the date', {line: 'auto', fig: ''});
   assert.equal(got.line, 'Off the back of Q3 we hold the date');
-  assert.equal(got.fig, '3');   // Q3 — the first numeric token
+  assert.equal(got.fig, '');    // the 3 of "Q3" is spelling, not a figure
 });
 
 test('resolveVerdict: authored text replaces the line and derives its own figure', () => {
