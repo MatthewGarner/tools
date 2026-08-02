@@ -96,7 +96,7 @@ test('every accepted config key appears in the page syntax reference', () => {
   for(const [tool, {keys}] of Object.entries(TOOLS)){
     const block = syntaxBlock(read(join(tool, 'index.html')), tool);
     for(const k of keys){
-      const re = new RegExp('<code>[^<]*\\b' + k + '\\s*:');
+      const re = new RegExp('<code[^>]*>[^<]*\\b' + k + '\\s*:');
       assert.ok(re.test(block), tool + ': `' + k + ':` missing from the syntax reference');
     }
   }
@@ -116,5 +116,15 @@ test('coverage: every page with a syntax block has a map entry here', () => {
   for(const d of dirs){
     if(!read(join(d, 'index.html')).includes('<details class="syntax">')) continue;
     assert.ok(TOOLS[d], d + ' has a syntax reference but no entry in this meta-test — add its keys');
+  }
+});
+
+test('every syntax block offers try-it specimens (data-try present)', () => {
+  for(const tool of Object.keys(TOOLS)){
+    const html = read(join(tool, 'index.html'));
+    if(!html.includes('<details class="syntax">')) continue;
+    const block = syntaxBlock(html, tool);
+    const n = (block.match(/<code data-try=""/g) || []).length;
+    assert.ok(n >= 3, tool + ': expected try-able specimens, found ' + n);
   }
 });

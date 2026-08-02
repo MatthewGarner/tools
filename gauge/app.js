@@ -296,3 +296,7 @@ async function initCompose(hash){
   if(mode === 'console') initConsole({...deps, id: hash.id, key: hash.key});
   else initParticipant({...deps, id: hash.id});
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'names', 'palette', 'accent', 'verdict']);

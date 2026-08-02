@@ -46,22 +46,22 @@
         <dl>
           <dt><code>title:</code> / <code>currency: £ $ €</code></dt>
           <dd>optional; also <code>palette:</code> and <code>accent: #hex</code> as in the roadmap tool</dd>
-          <dt><code>verdict: off</code></dt>
+          <dt><code data-try="">verdict: off</code></dt>
           <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
         </dl>
         <h4>Nodes</h4>
         <dl>
           <dt>indent 2 spaces</dt>
           <dd>children of the line above</dd>
-          <dt><code>Submit bid: -150k</code></dt>
+          <dt><code data-try="">Submit bid: -150k</code></dt>
           <dd>a value on any line is cash flow at that point on the path</dd>
-          <dt><code>Win (p=0.3-0.45): 2M to 5M</code></dt>
+          <dt><code data-try="">Win (p=0.3-0.45): 2M to 5M</code></dt>
           <dd>probabilities and payoffs take points or 90% ranges (<code>to</code> when negatives are involved)</dd>
-          <dt><code>Lose (p=rest): 0</code></dt>
+          <dt><code data-try="">Lose (p=rest): 0</code></dt>
           <dd>one sibling may take the remaining probability</dd>
           <dt>node types</dt>
           <dd>inferred: children with <code>p=</code> ⇒ chance ◯; without ⇒ decision ▢ (the tool picks); none ⇒ outcome</dd>
-          <dt><code>// comment</code></dt>
+          <dt><code data-try="">// comment</code></dt>
           <dd>ignored</dd>
         </dl>
       </details>

@@ -333,3 +333,7 @@ wireCopyVerdict($('verdict'));
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'unit']);
