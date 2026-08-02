@@ -2,10 +2,9 @@
    (pass any {getItem,setItem,removeItem} backend). A link is a one-way IMPORT — it
    mints a fresh id so a shared register never binds two browsers together. */
 
+import {encodeHash, decodeHash} from '../assets/series.js';
+
 const KEY = id => 'premortem:' + id, IDX = 'premortem:index', MAX = 8000;
-/* same unicode-safe base64 as assets/series.js writeHashState (its helpers aren't exported) */
-const enc = obj => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-const dec = str => JSON.parse(decodeURIComponent(escape(atob(str))));
 const freshId = () => (globalThis.crypto?.randomUUID?.() ?? 'imp' + Date.now() + Math.random().toString(36).slice(2, 6));
 
 export function makeStore(backend = localStorage){
@@ -26,16 +25,16 @@ export function makeStore(backend = localStorage){
   };
 }
 
-export function toLink(doc){
-  const s = enc(doc);
+export async function toLink(doc){
+  const s = await encodeHash(doc);
   return s.length > MAX ? null : '#' + s;
 }
 
-export function fromLink(hash){
+export async function fromLink(hash){
   try{
     const s = String(hash).replace(/^#/, '');
     if(!s) return null;
-    const doc = dec(s);
+    const doc = await decodeHash(s);
     if(!doc || typeof doc !== 'object' || Array.isArray(doc)) return null;
     if(Array.isArray(doc.entries)) doc.entries.forEach(e => { if(e && e.kind == null) e.kind = 'risk'; });   // legacy/foreign docs: no kind ⇒ risk (else invisible on every face)
     return {...doc, id: freshId()};

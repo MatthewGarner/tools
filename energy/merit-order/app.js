@@ -20,7 +20,7 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../as
 
 if (typeof document !== 'undefined') boot();
 
-function boot(){
+async function boot(){
   const $ = id => document.getElementById(id);
   const chartwrap = $('chartwrap');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -416,7 +416,7 @@ function boot(){
   watchNarrowBucket(chartwrap, () => render(true, 'none'));   // relayout: no reveal/FLIP (positions changed for viewport reasons)
 
   /* ---- boot: URL state (v2), else GB-today defaults ---- */
-  const restored = decodeStateV2(readHashState());
+  const restored = decodeStateV2(await readHashState());
   if(restored){
     const world = WORLDS[restored.world] ? restored.world : 'gbToday';   // guard an unknown/corrupt world key
     state = {world, condition: restored.condition,

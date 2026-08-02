@@ -373,8 +373,8 @@ watchNarrowBucket(stageEl, rerender);
 })();
 
 /* ---------- boot ---------- */
-(function(){
-  const hash = readHashState();
+(async function(){
+  const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){

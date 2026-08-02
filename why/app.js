@@ -258,8 +258,8 @@ onThemeChange(rerender);
 watchNarrowBucket(previewEl, rerender);
 
 /* ---------- boot ---------- */
-(function(){
-  const hash = readHashState();
+(async function(){
+  const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && (hash.v === 'map' || hash.v === 'ost')) view = hash.v;
   if(hash && hash.e === 0) ws.setCollapsed(true);

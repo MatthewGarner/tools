@@ -4,7 +4,7 @@ import {resolve} from './zones.js';
 import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
-import {readHashState, writeHashState} from '../assets/series.js';
+import {readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {paintKicker} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
@@ -419,11 +419,11 @@ document.addEventListener('pointerdown', e => {
 }, true);
 
 /* ---------- #93: flagged items → gauge session ---------- */
-$('togauge').addEventListener('click', () => {
+$('togauge').addEventListener('click', async () => {
   if(!model || !ro) return;
   const doc = gaugeHandoff(model, ro);
   if(!doc) return;
-  location.href = '/gauge/#' + btoa(unescape(encodeURIComponent(JSON.stringify({t: doc}))));
+  location.href = '/gauge/#' + await encodeHash({t: doc});
 });
 
 /* ---------- theme ---------- */
@@ -431,8 +431,8 @@ function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
 /* ---------- boot ---------- */
-(function(){
-  const hash = readHashState();
+(async function(){
+  const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){

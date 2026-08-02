@@ -35,7 +35,7 @@ export const PRESETS = {
 
 if(typeof document !== 'undefined') boot();
 
-function boot(){
+async function boot(){
   const $ = id => document.getElementById(id);
   const SLIDERS = ['trough', 'peak', 'solarPeak', 'gas', 'carbon', 'fleetGW', 'fleetH'];
   const DECIMAL = new Set(['fleetGW', 'fleetH']);   // half-GW/half-hour steps read as one decimal
@@ -44,7 +44,7 @@ function boot(){
   let p = {...DAY_DEFAULTS}, preset = null, hour = 0, result = null;
   let hashTimer = null, lastPriceSvg = '', lastStackSvg = '';
 
-  const restored = decodeDayState(readHashState());
+  const restored = decodeDayState(await readHashState());
   if(restored){
     p = restored.p;
     // guard a stale/hostile preset key surviving from an older PRESETS shape

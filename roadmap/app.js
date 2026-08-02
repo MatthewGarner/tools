@@ -786,9 +786,9 @@ onThemeChange(rerender);
 watchNarrowBucket(previewEl, rerender);
 
 /* ---------- boot: hash > localStorage > empty ---------- */
-(function(){
+(async function(){
   let text = '';
-  const state = readHashState();
+  const state = await readHashState();
   if(state && typeof state.t === 'string'){
     text = state.t;
     if(state.e === 0) ws.setCollapsed(true);

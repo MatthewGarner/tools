@@ -224,11 +224,11 @@ $('replay').addEventListener('click', animateGate);
 function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = msg; setTimeout(() => { b.textContent = was; }, 1500); }
 
 /* ---------- boot ---------- */
-(function boot(){
+(async function boot(){
   paintKicker($('kicker'), '13', 'The base rate has its say');
 wireCopyVerdict($('verdict'));
 wireCopyVerdict($('verdictAlarm'));
-  const h = readHashState();
+  const h = await readHashState();
   if(h && isFinite(+h.b)){
     $('baseRate').value = Math.max(-3, Math.min(-0.30103, +h.b));
     if(isFinite(+h.d)) $('dprime').value = Math.max(0, Math.min(4, +h.d));

@@ -212,10 +212,10 @@ wireExports({
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
    prompt() with the markdown so it's still copyable — wireExports has no
    equivalent fallback, so migrating would lose that behaviour. */
-$('topremortem').addEventListener('click', () => {
+$('topremortem').addEventListener('click', async () => {
   const doc = premortemHandoff(model, todayDay());
   if(!doc) return;
-  const link = premortemLink(doc);
+  const link = await premortemLink(doc);   // ignore re-clicks while encoding: same doc, same link
   if(link) location.href = '/premortem/' + link;
 });
 $('copymd').addEventListener('click', async () => {
@@ -263,8 +263,8 @@ onThemeChange(rerender);
 watchNarrowBucket($('preview'), rerender);
 
 /* ---------- boot ---------- */
-(function(){
-  const hash = readHashState();
+(async function(){
+  const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){

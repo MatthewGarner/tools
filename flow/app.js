@@ -265,8 +265,8 @@ function flash(id, msg){
 }
 
 /* ---------- boot ---------- */
-(function boot(){
-  const h = readHashState();
+(async function boot(){
+  const h = await readHashState();
   if(h && isFinite(+h.d)){
     $('demand').value = +h.d; $('size').value = +h.s || 4; $('team').value = +h.t || 4;
     $('wip').value = +h.w || 4;

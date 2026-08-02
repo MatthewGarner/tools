@@ -8,6 +8,7 @@ import {startPoll, randomHex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
 import {onThemeChange} from '../assets/app-common.js';
 import {paintMetrics} from '../assets/verdict.js';
+import {encodeHash} from '../assets/series.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
@@ -48,12 +49,12 @@ const delphiMd = (model, r1, r2) =>
 const slugOf = model => ((model.title || 'gauge')).toLowerCase()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
+export function initConsole({model, text, relay, ctx, $, id, key}){
   $('ctitle').textContent = model.title || 'Gauge session';
-  const joinUrl = location.origin + location.pathname + '#' + encodeState({t: text, id});
-  $('joinlink').value = joinUrl;
+  let joinUrl = '';   // filled when the encode lands (~1ms) — the copy button reads the variable, never a stale capture
+  encodeHash({t: text, id}).then(s => { joinUrl = location.origin + location.pathname + '#' + s; $('joinlink').value = joinUrl; });
   $('copylink').addEventListener('click', () => {
-    if(navigator.clipboard) navigator.clipboard.writeText(joinUrl).catch(() => {});
+    if(navigator.clipboard && joinUrl) navigator.clipboard.writeText(joinUrl).catch(() => {});
     $('copylink').textContent = 'Copied';
     setTimeout(() => { $('copylink').textContent = 'Copy'; }, 1800);
   });
@@ -203,9 +204,9 @@ export function initConsole({model, text, relay, ctx, $, encodeState, id, key}){
     return responses ? fermiHandoff(model, sessionStats(model, responses)) : null;
   }
   function refreshHandoff(){ $('tofermi').hidden = !currentHandoff(); }
-  $('tofermi').addEventListener('click', () => {
+  $('tofermi').addEventListener('click', async () => {
     const h = currentHandoff();
-    if(h) location.href = '/fermi/#' + btoa(unescape(encodeURIComponent(JSON.stringify(h))));
+    if(h) location.href = '/fermi/#' + await encodeHash(h);
   });
 
   wireExports({
