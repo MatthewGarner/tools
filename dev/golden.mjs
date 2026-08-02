@@ -590,6 +590,24 @@ for(const [k, src] of Object.entries(docs)){
   variants['intraday-fleet-narrow'] = renderDay(runDay(pFleet), pFleet, {...ictx, width: 360}, {forExport: true});
 }
 
+/* /case fixtures (typographic cover → deterministic) */
+{
+  const {parse: cparse} = await import('../case/parse.js');
+  const {render: crender} = await import('../case/render.js');
+  const cdoc = 'title: Wexcombe augmentation\nquestion: Augment in 2029, or run the fleet down?\n' +
+    'status: decided\nverdict: We augment — the warranty binds 3 years before the wear does\n' +
+    'Money: Augment NPV model -> /fermi/#abc // the £ case\nMoney: Board options -> /tree/#def\n' +
+    'Delivery: Plan of record -> /timeline/#ghi\nRisk: Premortem register -> /premortem/#jkl';
+  const cctx = {...ctxBase, today: '2026-08-02'};
+  const cm = cparse(cdoc);
+  variants['case-cover'] = crender(cm, cctx);
+  const cOpen = cparse(cdoc.replace('status: decided', 'status: open').replace(/verdict: [^\n]*\n/, ''));
+  variants['case-open'] = crender(cOpen, cctx);
+  const cGhost = cparse(cdoc + '\nUnlinked thing -> https://example.com/x');
+  variants['case-ghost'] = crender(cGhost, cctx);
+  variants['case-narrow'] = crender(cm, {...cctx, width: 390});
+}
+
 /* /wardley fixtures (pure layout → deterministic) */
 {
   const {parse: wparse} = await import('../wardley/parse.js');
