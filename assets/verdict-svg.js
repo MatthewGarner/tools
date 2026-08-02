@@ -69,24 +69,32 @@ export function svgVerdict({x, y, width, line, fig, ink, muted, brandText, font,
   const kick = textOpen(x, y, font, kickSize, 500, 0.18 * kickSize, muted) + 'VERDICT</text>';
 
   const lines = wrapText(s, '700 ' + vSize + 'px ' + font, maxW, measure);
-  const runs = markFigure(s, fig);
-  const figText = runs.find(r => r.fig)?.t ?? '';
-  let figLeft = figText ? 1 : 0;                       // mark the FIRST occurrence only
+  /* Colour by character range, not per-line search: a multi-word fig that
+     wraps ("18 days") is invisible to an indexOf on any single line, and the
+     one brand figure silently rendered plain. Lines re-joined with single
+     spaces reproduce wrapText's normalised input, so a cursor into that
+     string maps the fig's range onto each line — a straddling fig keeps its
+     red on both sides of the break. */
+  const sN = lines.join(' ');
+  const figText = markFigure(sN, fig).find(r => r.fig)?.t ?? '';
+  const fs = figText ? sN.indexOf(figText) : -1;       // mark the FIRST occurrence only
+  const fe = fs + figText.length;
   const out = [kick];
   let by = y + 30 * scale;
+  let cursor = 0;
   for(const ln of lines){
+    const a = Math.max(fs, cursor), b = Math.min(fe, cursor + ln.length);
     let body;
-    const at = figLeft ? ln.indexOf(figText) : -1;
-    if(at < 0) body = esc(ln);
+    if(fs < 0 || a >= b) body = esc(ln);
     else {
-      figLeft = 0;
-      const pre = ln.slice(0, at), post = ln.slice(at + figText.length);
-      body = esc(pre.replace(/ $/, NB)) +
-        '<tspan fill="' + brandText + '">' + esc(figText) + '</tspan>' +
-        esc(post.replace(/^ /, NB));
+      const pre = ln.slice(0, a - cursor), mid = ln.slice(a - cursor, b - cursor), post = ln.slice(b - cursor);
+      body = esc(pre) +
+        '<tspan fill="' + brandText + '">' + esc(mid) + '</tspan>' +
+        esc(post);
     }
     out.push(textOpen(x, by, font, vSize, 700, -0.015 * vSize, ink) + body + '</text>');
     by += advance;
+    cursor += ln.length + 1;                            // +1: the space the wrap consumed
   }
   return {svg: out.join(''), height: by - y};
 }

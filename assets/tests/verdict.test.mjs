@@ -96,6 +96,18 @@ test('svgVerdict wraps at min(width, 820) and advances 32px a line at 24px', () 
   assert.equal(height, ys[ys.length - 1] + 32);
 });
 
+test('svgVerdict keeps the red when the figure wraps across lines', () => {
+  /* width tuned so the wrap point falls INSIDE "18 days" — the one brand
+     figure used to render plain whenever this happened */
+  const line = 'Average is 18 days now', fig = '18 days';
+  for(let w = 80; w <= 260; w += 10){
+    const {svg} = svgVerdict({x: 0, y: 0, width: w, line, fig, ...C, font: FONT, measure});
+    const marked = [...svg.matchAll(/<tspan fill="#D62015">([^<]*)<\/tspan>/g)].map(m => m[1]);
+    assert.ok(marked.length >= 1, `width ${w}: figure lost its red entirely`);
+    assert.equal(marked.join(' '), fig, `width ${w}: red runs re-join to the figure`);
+  }
+});
+
 test('svgVerdict escapes the model text and holds the spaces around the figure', () => {
   const {svg} = svgVerdict({x: 0, y: 0, width: 4000,
     line: 'A & B <s> hold 5 of 9 slots', fig: '5 of 9', ...C, font: FONT, measure});
