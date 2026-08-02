@@ -66,7 +66,18 @@ function row(ex, i, c, measure, geom, opts){
   const num = String(i + 1).padStart(2, '0');
   parts.push('<text x="' + x + '" y="' + (yMid + 4) + '" font-size="12" fill="' + c.muted + '">' + num + '</text>');
   const p = toolPill(ex, c, measure, x + 30, yMid);
-  parts.push(p.svg);
+  const live = opts.live && ex.live;
+  /* the OPEN affordances: the pill and a trailing ↗, each its own <a> with an
+     invisible ≥44px hit rect (fill transparent — fill:none catches no pointers).
+     The label/note stay edit targets and must NEVER sit inside the link, or a
+     phone tap lands on the edit handler and the link never fires. */
+  if(live){
+    parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
+      '<rect x="' + (x + 26) + '" y="' + (yMid - 22) + '" width="' + (p.w + 8) + '" height="44" fill="transparent"/>' + p.svg + '</a>');
+    parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
+      '<rect x="' + (x + width - 44) + '" y="' + (yMid - 22) + '" width="44" height="44" fill="transparent"/>' +
+      '<text x="' + (x + width - 6) + '" y="' + (yMid + 5) + '" text-anchor="end" font-size="14" fill="' + c.accent + '">\u2197</text></a>');
+  } else parts.push(p.svg);
   const lx = labelX;   // one shared column: the index reads as a register, not a ragged list
   const labelFill = ex.live ? c.ink : c.muted;
   parts.push('<text x="' + lx + '" y="' + (yMid + 5) + '" font-size="15" font-weight="600" fill="' + labelFill + '"' +
@@ -86,11 +97,7 @@ function row(ex, i, c, measure, geom, opts){
     }
     h = ny + 13;
   }
-  /* live rows navigate — a real link, the case URL stays in the history */
-  const body = (opts.live && ex.live)
-    ? '<a href="' + esc(ex.url) + '">' + parts.join('') + '</a>'
-    : parts.join('');
-  return {svg: body, h};
+  return {svg: parts.join(''), h};
 }
 
 export function render(model, ctx, opts = {}){
@@ -217,7 +224,13 @@ export function renderNarrow(model, ctx, opts = {}){
     const p = toolPill(ex, c, measure, pad, y + 6);
     parts.push('<text x="' + (pad + p.w + 10) + '" y="' + (y + 9) + '" font-size="12" fill="' + c.muted + '">' +
       String(++idx).padStart(2, '0') + '</text>');
-    parts.push(p.svg);
+    const live = opts.live && ex.live;
+    if(live){
+      parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
+        '<rect x="' + (pad - 4) + '" y="' + (y - 16) + '" width="' + (p.w + 12) + '" height="44" fill="transparent"/>' + p.svg +
+        '<text x="' + (w - pad - 4) + '" y="' + (y + 10) + '" text-anchor="end" font-size="15" fill="' + c.accent + '">\u2197</text>' +
+        '<rect x="' + (w - pad - 44) + '" y="' + (y - 16) + '" width="44" height="44" fill="transparent"/></a>');
+    } else parts.push(p.svg);
     y += 30;
     const body = [];
     body.push('<text x="' + pad + '" y="' + y + '" font-size="15" font-weight="600" fill="' +
@@ -236,7 +249,7 @@ export function renderNarrow(model, ctx, opts = {}){
         firstN = false;
       }
     }
-    parts.push((opts.live && ex.live) ? '<a href="' + esc(ex.url) + '">' + body.join('') + '</a>' : body.join(''));
+    parts.push(body.join(''));   // label/note: edit targets, never inside the link
     y += 8;
   }
   y += 16;
