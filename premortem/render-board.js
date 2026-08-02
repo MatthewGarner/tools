@@ -84,7 +84,7 @@ export function boardVerdict(entries){
   const facts = list.filter(e => e.kind === 'fact').length;
   if(!shaky && !facts) return {
     line: 'Empty board. Capture what you know, what you\'re assuming, and what you merely believe — then promote the shaky ones that would hurt if wrong.',
-    fig: 'Empty board'};
+    fig: ''};   // no number, no red — a phrase is never the brand figure
   if(!shaky) return {
     line: facts + ' fact' + (facts === 1 ? '' : 's') +
       ' and nothing taken on faith — either this plan is unusually certain, or the assumptions are still hiding.',

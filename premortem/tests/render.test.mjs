@@ -84,7 +84,7 @@ test('boardVerdict names one figure, verbatim in the line, on every branch', () 
     boardVerdict([kinded('a', 'fact'), kinded('b', 'fact')]),
     boardVerdict([kinded('a', 'fact'), kinded('b', 'assumption'), kinded('c', 'belief')]),
   ];
-  assert.equal(cases[0].fig, 'Empty board');
+  assert.equal(cases[0].fig, '', 'no number on the empty board — a phrase never takes the red');
   assert.equal(cases[1].fig, '2');
   assert.match(cases[1].line, /^2 facts and nothing taken on faith/);
   assert.equal(cases[2].fig, '2');
