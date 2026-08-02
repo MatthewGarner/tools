@@ -160,7 +160,7 @@ function render(){
 
 /* ---------- exports + replay + theme ---------- */
 wireExports({
-  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copymd: $('copymd')},
+  buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
   getSvg: () => phase === 'done' ? renderCollapse(scenario(), themeColors(), calls, {width: 1088}) : null,
   getMarkdown: markdown,
   slug: () => slugify('signal-vs-noise-' + seed, 'signal-vs-noise')
