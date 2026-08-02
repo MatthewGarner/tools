@@ -94,7 +94,10 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
           close();
           onCommit(row.commit.kind, row.commit.line, row.commit.oldRaw || '', row.commit.value, activeEl);
         } else if(row.opens){
-          const t = activeEl.closest('svg').querySelector('[data-line="' + activeEl.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
+          /* HTML-hosted targets (cycles/risk verdict blocks) have no svg ancestor —
+             fall back to the attach container so opens works on both renditions */
+          const root = activeEl.closest('svg') || preview;
+          const t = root.querySelector('[data-line="' + activeEl.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
           close();
           /* forceInput: true — the menu's own "opens" row is the precise-entry
              path (C5), so it must always land in the real text popover even
@@ -242,6 +245,12 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     input.value = el.dataset.raw || '';
     input.setAttribute('aria-label', 'Edit ' + kind);
     if(spec.inputmode) input.inputMode = spec.inputmode;   // numeric keypad on phones (Rule 3); dates stay text for `..`
+    /* placeholder (documented in the header, now real): static string or (el)=>string —
+       the verdict input shows the TOOL's line when nothing is authored yet */
+    if(spec.placeholder){
+      const p = typeof spec.placeholder === 'function' ? spec.placeholder(el) : spec.placeholder;
+      if(p) input.placeholder = p;
+    }
     input.style.left = rect.left + 'px';
     input.style.top = (rect.top - 6) + 'px';
     input.style.minWidth = Math.max(rect.width + 34, 96) + 'px';

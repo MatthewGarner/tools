@@ -363,7 +363,8 @@ function renderNarrow(model, layout, ctx, opts){
   const vTop = y + 22;                       // baseline of the 10px VERDICT kicker
   const V = svgVerdict({x: pad, y: vTop, width: inner, line: r.verdict, fig: r.fig,
     ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
-    font: SANS_SQATTR, measure, size: 17});
+    font: SANS_SQATTR, measure, size: 17,
+    edit: opts.edit ? {raw: model.verdict ?? ''} : undefined});
   parts.push(V.svg);
   y = vTop + V.height - 23 + 4;              // last verdict baseline, plus a gap
   for(const f of r.flags){
@@ -491,7 +492,8 @@ export function renderMap(model, layout, ctx, opts = {}){
   const vTop = readTop + 24;                 // baseline of the 10px VERDICT kicker
   const V = svgVerdict({x: pad, y: vTop, width: w - 2 * pad,
     line: r.verdict, fig: r.fig, ink: c.ink, muted: c.muted,
-    brandText: c.brandText || c.ink, font: SANS_SQATTR, measure});
+    brandText: c.brandText || c.ink, font: SANS_SQATTR, measure,
+    edit: opts.edit ? {raw: model.verdict ?? ''} : undefined});
   read.push(V.svg);
   const flagsY0 = vTop + V.height - 6;
   r.flags.forEach((f, i) => {

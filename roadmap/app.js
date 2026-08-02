@@ -20,7 +20,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -275,8 +275,14 @@ attachEditInPlace($('preview'), {
     lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
     cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
+    /* the authored words edit where they read (2026-08-02) — same rewrites the
+       page's headline field and config lines use, one undo step each */
+    headline: {validate: v => !v.trim().startsWith('//')},
+    story: {validate: v => !v.trim().startsWith('//')},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(kind === 'headline'){ editor.setText(setHeadline(editor.getText(), newValue)); return; }
+    if(kind === 'story'){ editor.setText(setStory(editor.getText(), newValue)); return; }
     if(kind === 'additem'){
       let text = editor.getText();
       /* register + board + focus only: their horizon groups are synthesised even

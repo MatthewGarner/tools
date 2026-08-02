@@ -15,6 +15,7 @@ import {mountMotion} from "../../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 import {paintKicker, paintMetrics, paintVerdict, resolveVerdict} from '../../assets/verdict.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../../assets/verdict-edit.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -181,7 +182,26 @@ function renderVerdict(){
   /* the HTML mirror honours `verdict:` too, so the page and the artefact agree */
   const vv = resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: thresholdFigure(out)});
   paintVerdict($('verdict'), vv.line, vv.fig);
+  /* the block is the menu-first edit target; its wrapper anchors the input */
+  const raw = model.verdict == null ? '' : String(model.verdict);
+  $('verdict').parentElement.dataset.raw = raw;
 }
+function cyclesVerdictLine(){
+  return out ? resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: ''}).line : '';
+}
+attachEditInPlace($('verdict').parentElement.parentElement, {
+  kinds: {
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput, placeholder: cyclesVerdictLine},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|verdict|accent|palette|battery|spread|charge|second|drift|rte|fade|calendar|cycles|augment|discount)\s*:/i,
+      getLine: cyclesVerdictLine,
+    });
+  },
+});
 
 /* Metrics: the battery, the warranty budget and the spread belief — every one a
    number the model states, re-read on each refresh so the row moves with the text. */

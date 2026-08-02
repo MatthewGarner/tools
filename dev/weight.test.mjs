@@ -113,7 +113,7 @@ const PAGES = {
   'fermi/index.html': 186_000, 'rank/index.html': 96_000,   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
-     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 108_000,   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 110_000,   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   'alarm/index.html': 96_000,
   'duel/index.html': 90_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 100_000,   /* register core + store + wizard + 2 renderers + app */
@@ -211,8 +211,8 @@ const PAGES = {
      tightest of the DSL pages (no headroom left after Stage 0's shared
      editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
      in line with the other DSL pages. */
-  'tree/index.html': 491_000,
-  'map/index.html': 483_000,   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
+  'tree/index.html': 497_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */
+  'map/index.html': 488_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -224,8 +224,8 @@ const PAGES = {
      — and review caught two of them bypassing the key, so app.js and engine.js
      both had to route through resolveVerdict. ~400B of imports and call sites on
      a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
-  'gauge/index.html': 501_000, 'timeline/index.html': 488_000,   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
-  'wardley/index.html': 468_000,   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
+  'gauge/index.html': 506_000, 'timeline/index.html': 493_000,   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
+  'wardley/index.html': 474_000,   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
@@ -241,7 +241,7 @@ const PAGES = {
      nav/family/footer markup (~2k a page). Only two budgets actually tripped;
      the rest had headroom and stay put. cycles 470k -> 472k (actual ~466.8k,
      ~5.2k headroom) — it was the tightest energy page before this. */
-  'energy/index.html': 40_000, 'energy/risk/index.html': 449_000, 'energy/cycles/index.html': 472_000,   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
+  'energy/index.html': 40_000, 'energy/risk/index.html': 453_000,   /* 449k->453k 2026-08-02 verdict-eip bytes */ 'energy/cycles/index.html': 477_000,   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
   'energy/frequency/index.html': 97_000, 'energy/merit-order/index.html': 145_000,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4% */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant

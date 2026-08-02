@@ -176,9 +176,9 @@ export function renderRegisterLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 24;
-  const sfR = standfirst(model, M, y, W - M * 2, measure, C);   // the authored standfirst
+  const sfR = standfirst(model, M, y, W - M * 2, measure, C, !!ctx.edit);   // the authored standfirst
   if(sfR.height){ s.push(sfR.svg); y += sfR.height; }
-  const sfRStory = storyLine(model, diff, M, y, W - M * 2, measure, C);   // the diff narrative
+  const sfRStory = storyLine(model, diff, M, y, W - M * 2, measure, C, !!ctx.edit);   // the diff narrative
   if(sfRStory.height){ s.push(sfRStory.svg); y += sfRStory.height; }
 
   /* --- column header row --- */

@@ -1,11 +1,12 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
-import {render, toMarkdown} from './render.js';
+import {render, toMarkdown, timelineVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {paintKicker} from '../assets/verdict.js';
+import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {wireExports} from '../assets/exports.js';
@@ -157,8 +158,16 @@ attachEditInPlace($('preview'), {
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
     cardmenu: {menu: (el) => milestoneMenu(model, +el.dataset.line)},
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => model ? timelineVerdict(model, todayDay()).line : ''},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|palette|accent|today|verdict)\s*:/i,
+      getLine: () => model ? timelineVerdict(model, todayDay()).line : '',
+    })) return;
     if(kind === 'additem'){
       const r = addItemLine(editor.getText(), todayISO(), el.dataset.lane || undefined);
       const label = newValue.replace(/^✖/, '').trim();
