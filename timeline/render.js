@@ -194,7 +194,7 @@ const span = d => {
   return a < 7 ? r + (r === 1 ? ' day' : ' days') : wk(a);
 };
 
-/* the merge-bias verdict copy — full (DOM / poster hero, wraps) + short (in-chart). */
+/* the merge-bias verdict copy — full (plain-text readout, wraps) + short (in-chart). */
 function mergeCopy(mb){
   const pAll = pc(mb.pAll);
   const tail = mb.excludedSingle ? ' \u00b7 ' + mb.excludedSingle + ' single-date lane' + (mb.excludedSingle > 1 ? 's' : '') + ' not counted' : '';
@@ -248,7 +248,8 @@ function mergeCopy(mb){
   return {full, short};
 }
 
-/* plain-text mirror of the SVG readout (the DOM #verdict) — merge leads when present */
+/* plain-text merge/operational readout — no app consumer since the poster
+   retired; kept as the tests' pure probe of mergeCopy/restBits copy */
 export function timelineReadout(model, today){
   const mb = mergeBias(model, today);
   return [mb ? mergeCopy(mb).full : null, restBits(model, today)].filter(Boolean).join('  ');
@@ -273,12 +274,6 @@ export function timelineVerdict(model, today){
   if(mb) return auth({line: mergeCopy(mb).short, fig: pc(mb.pAll), rest});
   if(!parts.length) return auth({line: '', fig: '', rest: ''});
   return auth({line: parts[0].text, fig: parts[0].fig, rest: parts.slice(1).map(p => p.text).join('  ')});
-}
-
-/* the poster hero: the merge sentence alone when present (else the operational readout) */
-export function posterVerdict(model, today){
-  const mb = mergeBias(model, today);
-  return mb ? mergeCopy(mb).full : restBits(model, today);
 }
 
 /* Narrow (phone) relayout: lane sections stack top-to-bottom; each milestone is a
@@ -540,8 +535,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
 
 export function render(model, ctx, diff = null, {edit = false} = {}){
   const {measure, slide = false, dark = false} = ctx;
-  const bare = !!ctx.bare;            // poster-embed: drop chrome the frame owns
-  const hasTitle = !!model.title && !bare;
+  const hasTitle = !!model.title;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -618,7 +612,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const readoutY = plotBottom + 26 * S;
   /* the verdict is measured BEFORE H so the artefact's height follows its real
      advance — a wrapped merge sentence must not leave dead space or clip. */
-  const vBlock = bare ? {svg: '', height: 0} : svgVerdict({
+  const vBlock = svgVerdict({
     x: T.pad * S, y: readoutY, width: (T.laneW + T.plotW) * S,
     line: vd.line, fig: vd.fig, ink: C.ink, muted: C.muted,
     brandText: C.brandText || C.ink, font: F.serifDq, measure,
@@ -626,7 +620,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   const readoutH = vBlock.height + (vd.rest && vBlock.height ? 8 * S : 0);
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15) * S : 0;
   const W = Math.round(plotX + plotW + T.pad * S);
-  const H = Math.round((bare ? plotBottom : readoutY + readoutH) + droppedH + T.pad * S);
+  const H = Math.round(readoutY + readoutH + droppedH + T.pad * S);
 
   const s = [];
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
@@ -635,10 +629,10 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' +
       esc(model.title) + '</text>');
   }
-  if(!bare) s.push(txt(W - T.pad * S, (hasTitle ? T.titleY : 14) * S, fmtDay(today), T.dateSize * S,
+  s.push(txt(W - T.pad * S, (hasTitle ? T.titleY : 14) * S, fmtDay(today), T.dateSize * S,
     C.muted, {anchor: 'end'}));
   /* the house metrics line under the title: scale at a glance for the board pack.
-     Title-only (bare drops chrome; an untitled board keeps its minimal header). */
+     Title-only (an untitled board keeps its minimal header). */
   if(hasTitle && items.length){
     const named = model.lanes.filter(l => l).length;
     const wLo = fmtDay(Math.min(...items.map(i => i.p50)), {month: true});
@@ -800,11 +794,9 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       ' x="' + (W - T.pad * S) + '" y="' + readoutY + '" text-anchor="end" font-size="' +
       (T.labelSize * S) + '" fill="' + C.muted + '">＋ Add milestone</text>');
   }
-  if(!bare){
-    s.push(vBlock.svg);
-    if(vd.rest && vBlock.height)
-      s.push(txt(T.pad * S, readoutY + vBlock.height, vd.rest, T.noteSize * S, C.muted));
-  }
+  s.push(vBlock.svg);
+  if(vd.rest && vBlock.height)
+    s.push(txt(T.pad * S, readoutY + vBlock.height, vd.rest, T.noteSize * S, C.muted));
   if(diff && diff.dropped.length){
     let dy = readoutY + readoutH + 12 * S;
     s.push(txt(T.pad * S, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), T.droppedSize * S - 1, C.muted,
@@ -820,8 +812,12 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + F.body + '">' + s.join('') + '</svg>';
 }
 
-export function toMarkdown(model, diff, url){
+export function toMarkdown(model, diff, url, today){
   const lines = ['**' + (model.title || 'Milestone timeline') + '**', ''];
+  /* the resolved verdict travels with the doc — timeline was the one verdict
+     tool whose copy-for-doc carried no verdict at all, authored or computed */
+  const v = timelineVerdict(model, today).line;
+  if(v) lines.push('**' + v + '**', '');
   if(diff) lines.push(diff.sinceLine, '');
   lines.push('| Milestone | Lane | P50 | P90 | |');
   lines.push('|---|---|---|---|---|');

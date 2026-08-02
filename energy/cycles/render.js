@@ -23,7 +23,7 @@ function bins(S, min, max, n = 64){
   return out.map(b => b / peak);
 }
 
-export function render(model, out, ctx, {edit = false, bare = false} = {}){
+export function render(model, out, ctx, {edit = false} = {}){
   if(!out) return '';
   const C = ctx.colors;
   const accent = model.accent || C.accent;
@@ -34,7 +34,7 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
   /* poster-embed: the frame owns the title and the threshold band's headline
      verdict (reused as its hero) — the second/augment bands' own verdicts stay,
      they're distinct content the frame doesn't repeat. */
-  const showTitle = model.title && !bare;
+  const showTitle = !!model.title;
   const titleLines = showTitle ? (isNarrow ? wrapText(model.title, '18px ' + FONT, W - 72, ctx.measure) : [model.title]) : [];
   const TOP = showTitle ? (isNarrow ? 34 + titleLines.length * 24 : 92) : 56, GAP = 18;
   const parts = [];
@@ -141,7 +141,7 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
      verdict, the claim the page exists to make. The second-cycle and augment
      band lines below are descriptive analysis of their own bands, not claims
      about the asset, so they stay. */
-  const vT = bare ? '' : resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: ''}).line;
+  const vT = resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: ''}).line;
   const vS = verdict('second', out);
   const vA = verdict('augment', out);
   const wrapN = t => t ? wrapText(t, '15px ' + FONT, vw, ctx.measure).length : 0;
@@ -232,7 +232,6 @@ export function render(model, out, ctx, {edit = false, bare = false} = {}){
     pill(px, row2,
       'binds: warranty ' + Math.round(out.threshold.bindingShare * 10) + '/10 · wear ' +
       Math.round((1 - out.threshold.bindingShare) * 10) + '/10', {col: C.muted});
-    /* verdict — dropped when bare (the poster frame's hero already carries it) */
     if(vT){
       parts.push('<rect x=\'48\' y=\'' + (y + B1H - wrapN(vT) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vT) * 22) + '\' fill=\'' + accent + '\'/>');
       verdictLines(y + B1H - wrapN(vT) * 22 + 10, vT, vw);

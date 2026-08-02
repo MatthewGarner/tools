@@ -1,7 +1,7 @@
 /* Pure text rewrites for /timeline edit-in-place. No DOM; the text is the model. */
 import {parse, parseDate, STATUSES} from './parse.js';
 
-const CONFIG_LINE = /^(title|palette|accent|today)\s*:/i;
+const CONFIG_LINE = /^(title|palette|accent|today|verdict)\s*:/i;
 const DATE_RE = /\d{4}-\d{2}(?:-\d{2})?/;
 
 export const validators = {

@@ -6,7 +6,7 @@ const lang = StreamLanguage.define({
   token(stream){
     if(stream.sol()){
       if(stream.string.trim().startsWith('//')){ stream.skipToEnd(); return 'comment'; }
-      if(stream.match(/^\s*(title|palette|accent|unit|merchant|floor|toll|insure)\s*:/i)) return 'keyword';
+      if(stream.match(/^\s*(title|palette|accent|unit|verdict|merchant|floor|toll|insure)\s*:/i)) return 'keyword';
     }
     if(stream.match(/^\/\/.*$/)) return 'comment';
     if(stream.match(/^"[^"]*"/)) return 'string';

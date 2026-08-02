@@ -116,7 +116,9 @@ test('renderDay: forExport wraps the verdict into its own band and grows the can
   const svg = renderDay(r, p, ctxAt(900), {forExport: true});
   const g = svg.match(/<g data-verdict=''>(.*?)<\/g>/);
   assert.ok(g, 'verdict rides in its own marked group');
-  const lines = [...g[1].matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m => m[1]);
+  const lines = [...g[1].matchAll(/<text[^>]*>([^<]*)<\/text>/g)]
+    .map(m => m[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
   assert.ok(lines.length >= 2, `verdict wraps to multiple lines (got ${lines.length})`);
   assert.equal(lines.join(' '), buildDayVerdict(r, p), 'wrapped lines rejoin to the exact verdict');
   const h = svg.match(/^<svg width="900" height="(\d+)"/);

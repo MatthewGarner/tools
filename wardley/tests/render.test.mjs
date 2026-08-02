@@ -200,12 +200,6 @@ N -> App B -> Core`;
   assert.ok(h(long) > h(short), 'the taller verdict block pushes the band height out');
 });
 
-test('readout band: bare (poster embed) drops the verdict entirely', () => {
-  const s = draw(BET_SRC, {bare: true}, brandCtx);
-  assert.ok(!s.includes('>VERDICT<'), 'the poster frame owns the hero verdict');
-  assert.ok(!s.includes("<tspan fill=\"#D62015\">"));
-});
-
 /* ---- narrow relayout (width-aware, ctx.width < 520) ---- */
 const narrowCtx = {...ctx, width: 390};
 

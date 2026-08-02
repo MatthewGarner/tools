@@ -55,6 +55,10 @@ test('renameQuestion preserves leading indent', () => {
   assert.equal(renameQuestion('  Old :: prob', 'New'), '  New :: prob');
 });
 
+test('renameQuestion refuses a config-shaped text — verdict: would swallow the question', () => {
+  assert.equal(renameQuestion('We ship :: prob', 'verdict: should we ship'), null);
+});
+
 test('renameQuestion rejects text that would break the line', () => {
   assert.equal(renameQuestion('Old :: prob', ''), null);            // empty
   assert.equal(renameQuestion('Old :: prob', '   '), null);        // blank

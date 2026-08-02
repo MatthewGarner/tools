@@ -29,7 +29,9 @@ export function parse(text){
   };
 
   for(let ln = 0; ln < lines.length; ln++){
-    const line = lines[ln].split('//')[0].trim();   // trailing comments are comments too
+    /* a comment needs a boundary: bare split('//') truncated any URL in a
+       value ("verdict: See https://x" -> "See https:") — map's rule, everywhere */
+    const line = lines[ln].replace(/(^|\s)\/\/.*$/, '').trim();
     if(!line) continue;
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 

@@ -539,9 +539,9 @@ function metricCounts(){
 }
 
 /* ---------- exports ---------- */
-function svgString(slide, bare = false){
+function svgString(slide){
   if(!model || !model.root || !results) return null;
-  return render(model, results, {colors: themeColors(), measure, slide, dark: isDark(), bare});
+  return render(model, results, {colors: themeColors(), measure, slide, dark: isDark()});
 }
 function slug(){
   return slugify(model.title, 'decision-tree');

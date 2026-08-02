@@ -198,6 +198,32 @@ test('capFit: terminates (returns a finite count) even when nothing fits', () =>
   assert.equal(capFit([], 500, 10, 40), 0);
 });
 
+/* ---------------- the authored words appear ONCE on every deck style ---------------- */
+
+test('headline and story appear exactly once on all four deck styles', () => {
+  const diff = {any: true, since: '12 Jun', badge: () => null, dropped: []};
+  const count = (s, n) => s.split(n).length - 1;
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const doc = 'style: ' + style + '\ntitle: T\nheadline: The plan tightened this month\n' +
+      'story: We dropped the SSO bet after the pilot\n' +
+      (style === 'grid' ? '2026 Q3 Q4\nCore: A x2 [doing]\nCore: B' : 'NOW\nCore: A [doing]\nNEXT\nCore: B');
+    const svg = renderDeck(parse(doc), {...ctx, diff, today: '1 Aug 2026'});
+    /* grid used to print the standfirst TWICE (frame + the embedded chart);
+       board/focus/register used to drop the story entirely */
+    assert.equal(count(svg, 'plan tightened'), 1, style + ': headline once');
+    assert.equal(count(svg, 'SSO bet'), 1, style + ': story once');
+  }
+});
+
+test('the story stays off every deck style when no comparison is active', () => {
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const doc = 'style: ' + style + '\ntitle: T\nstory: Not yet a change story\n' +
+      (style === 'grid' ? '2026 Q3 Q4\nCore: A x2' : 'NOW\nCore: A');
+    const svg = renderDeck(parse(doc), {...ctx, today: '1 Aug 2026'});
+    assert.ok(!svg.includes('Not yet a change story'), style + ': story needs a diff');
+  }
+});
+
 /* ---------------- board renders diff badges + the dropped footer strip ---------------- */
 
 test('board renders NEW/MOVED badges on cards and a struck dropped strip in the footer', () => {

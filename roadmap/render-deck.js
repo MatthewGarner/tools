@@ -12,7 +12,7 @@ import {txt} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
 import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule,
-  SANS, SERIF, r2, capFit} from './deck-parts.js';
+  SANS, SERIF, r2, capFit, storyLine} from './deck-parts.js';
 import {renderRegisterDeck} from './render-register.js';
 import {renderBoardDeck} from './render-board.js';
 import {renderFocusDeck} from './render-focus.js';
@@ -56,11 +56,17 @@ export function deckFrame(model, ctx, C, bodyFn){
 
   const headline = (model.headline || '').trim();
   let bodyTop = 176;
+  let storyY = 150;
   if(headline){
     const vLines = wrapN(headline, '600 22px ' + SERIF, INNER, 2, measure);
     s.push(serifGroup(vLines.map((ln, i) => txt(M, 170 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
     bodyTop = 214 + (vLines.length - 1) * 30;
+    storyY = 182 + (vLines.length - 1) * 30;
   }
+  /* the diff narrative rides the FRAME, so every deck style carries it — the
+     export that shows the change must carry the author's line about the change */
+  const st = storyLine(model, ctx.diff || null, M, storyY, INNER, measure, C);
+  if(st.svg){ s.push(st.svg); bodyTop = storyY + st.height + 14; }
 
   s.push(bodyFn(bodyTop, 968));
   s.push(line(M, 1002, W - M, 1002, C.border));
@@ -104,7 +110,9 @@ function innerOfSvg(svg){
 function gridBodyFn(model, ctx, C){
   return (y0, y1) => {
     const {measure, diff = null, dark = false} = ctx;
-    const inner = renderChart({...model, title: '', dateStr: 'off'},
+    /* headline+story cleared with title/date: the frame prints each ONCE —
+       leaving them on the clone doubled the standfirst inside the scaled body */
+    const inner = renderChart({...model, title: '', dateStr: 'off', headline: '', story: ''},
       {colors: ctx.colors, measure, diff, dark, slide: true});
     const {w, h} = svgDims(inner);
     const bodyH = Math.max(0, y1 - y0);

@@ -2,7 +2,7 @@
    Text stays the source of truth: a drop or an edit is exactly one text change. */
 import {parse} from './parse.js';
 
-const CONFIG_LINE = /^(preset|title|palette|accent|x|y|zones)\s*:|^zone\s+[^:]+:/i;
+const CONFIG_LINE = /^(preset|title|palette|accent|x|y|zones|verdict)\s*:|^zone\s+[^:]+:/i;
 
 export const validators = {
   label(v){

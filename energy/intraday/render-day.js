@@ -118,8 +118,8 @@ export function buildDayVerdictParts(result, p){
     : '';
   /* "Even with perfect foresight" amplifies rather than hedges — it knows the whole
      day and STILL keeps £3 of £117 — and stamps the scope on a line built to travel:
-     the kept figure is a ceiling (no degradation, no forecast error) and the poster
-     quotes it without the about copy attached. */
+     the kept figure is a ceiling (no degradation, no forecast error) and exports
+     quote it without the about copy attached. */
   return {fig: `£${perMW} of the £${perMWPlanned}`,
     line: `${r1(p.fleetGW)} GW × ${r1(p.fleetH)} h of storage ${verb}. Even with perfect foresight it keeps £${perMW} of the £${perMWPlanned} per MW per day it planned on the raw shape${tank}.`};
 }

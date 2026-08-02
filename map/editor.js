@@ -7,7 +7,7 @@ const lang = StreamLanguage.define({
       const line = stream.string.trim();
       if(line.startsWith('//')){ stream.skipToEnd(); return 'comment'; }
       if(/^zone\s+[^:]+:/i.test(line)){ stream.match(/^\s*zone\s+[^:]+:/i); return 'heading'; }
-      if(/^(preset|title|palette|accent|x|y|zones)\s*:/i.test(line)){
+      if(/^(preset|title|palette|accent|x|y|zones|verdict)\s*:/i.test(line)){
         stream.match(/^\s*[a-z]+\s*:/i); return 'keyword';
       }
     }

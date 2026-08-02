@@ -8,7 +8,7 @@ const lang = StreamLanguage.define({
     if(stream.sol()){
       const line = stream.string.trim();
       if(line.startsWith('//')){ stream.skipToEnd(); return 'comment'; }
-      if(/^(title|palette|accent|today)\s*:/i.test(line)){
+      if(/^(title|palette|accent|today|verdict)\s*:/i.test(line)){
         stream.match(/^\s*[a-z]+\s*:/i); return 'keyword';
       }
       const lane = stream.match(/^\s*[^:\[\d][^:\[]*?:\s/, true);

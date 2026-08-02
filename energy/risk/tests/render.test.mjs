@@ -81,5 +81,10 @@ test('verdict: reaches the MARKDOWN export too, not just the artefact', () => {
   const off = parse('verdict: off\n' + DOC);
   assert.ok(!/floor binds/.test(toMarkdown(off, simulate(off))));
   const auth = parse('verdict: We take the floor\n' + DOC);
-  assert.ok(toMarkdown(auth, simulate(auth)).includes('We take the floor'));
+  const md = toMarkdown(auth, simulate(auth));
+  assert.ok(md.includes('We take the floor'));
+  /* the authored line is about the author's model, not any computed row — it
+     appears ONCE, unattributed, never repeated per structure */
+  assert.equal(md.split('We take the floor').length - 1, 1, 'authored verdict appears exactly once');
+  assert.ok(!/\*\*[^*]+:\*\* We take the floor/.test(md), 'authored verdict is never row-attributed');
 });

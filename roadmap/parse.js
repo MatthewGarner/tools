@@ -194,7 +194,7 @@ export function parse(text){
 
     const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus)\s*:\s*(.*)$/i);
     if(config){
-      const key = config[1].toLowerCase(), val = config[2].trim();
+      const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
          genuinely called "Headline" (or "Date", or "Style") is eaten as config —
          its items vanish from the board and, worse, its text would surface on the
@@ -279,7 +279,13 @@ export function parse(text){
 
     let url = null;
     const linkMatch = line.match(/\s->\s+(\S+)\s*$/);
-    if(linkMatch){ url = linkMatch[1]; line = line.slice(0, linkMatch.index).trim(); }
+    if(linkMatch){
+      /* http(s) only: the rendered SVG is downloadable, and a file opened
+         outside the site has no CSP to stop a javascript: href */
+      if(/^https?:\/\//i.test(linkMatch[1])) url = linkMatch[1];
+      else model.warnings.push('line ' + (ln+1) + ': link dropped — only http(s) URLs travel with the artefact');
+      line = line.slice(0, linkMatch.index).trim();
+    }
 
     let note = '';
     const noteMatch = line.match(/\s--\s+(.*)$/);

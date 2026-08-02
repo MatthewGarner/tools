@@ -166,8 +166,8 @@ function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
 }
-function activeRender(slide, edit = false, forExport = false, bare = false){
-  return renderSvg(model, out, ctx(slide, forExport), {edit, bare});
+function activeRender(slide, edit = false, forExport = false){
+  return renderSvg(model, out, ctx(slide, forExport), {edit});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -310,8 +310,8 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports ---------- */
 const isoToday = () => new Date().toISOString().slice(0, 10);
-function svgString(slide, bare = false){
-  return out ? activeRender(slide, false, true, bare) : null;   // forExport: width undefined => canonical 1200/1280
+function svgString(slide){
+  return out ? activeRender(slide, false, true) : null;   // forExport: width undefined => canonical 1200/1280
 }
 function slug(){
   return slugify(model && model.title, 'cycles');

@@ -116,8 +116,8 @@ function currentDiff(){
   if(!cur || !model || !ro) return null;
   return mapDiffView(mapDiff(cur.model, model), cur.label);
 }
-function activeRender(slide, edit = false, bare = false){
-  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit, bare}, currentDiff());
+function activeRender(slide, edit = false){
+  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit}, currentDiff());
 }
 function doRefresh(){
   /* any re-parse invalidates an armed Move…/Place placement: its line number
@@ -264,9 +264,9 @@ function renderSaved(){
 paintKicker($('kicker'), '06', 'Two axes, named zones');
 
 /* ---------- exports ---------- */
-function svgString(slide, bare = false){
+function svgString(slide){
   if(!hasContent() || !ro) return null;
-  return activeRender(slide, false, bare);
+  return activeRender(slide);
 }
 function slug(){
   return slugify(model.title || model.preset, 'map');

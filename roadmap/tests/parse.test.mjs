@@ -88,6 +88,14 @@ test('link extraction: -> url with note and status combos', () => {
   assert.equal(m.items[2].url, null);
 });
 
+test('link extraction: non-http(s) schemes are dropped with a warning, never rendered', () => {
+  const m = parse('NOW\nCore: Item -> javascript:alert(1)\nOther -> ftp://x.io/f');
+  assert.equal(m.items[0].url, null);
+  assert.equal(m.items[0].title, 'Item');
+  assert.equal(m.items[1].url, null);
+  assert.equal(m.warnings.filter(w => w.includes('link dropped')).length, 2);
+});
+
 test('several pre-header lines collapse into one warning', () => {
   const m = parse('one\ntwo\nthree\nNOW\nItem');
   const pre = m.warnings.filter(w => w.includes('before any horizon header'));

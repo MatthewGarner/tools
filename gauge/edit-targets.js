@@ -60,7 +60,7 @@ function validText(text){
   if(!t) return false;
   if(t.includes('::')) return false;
   if(t.startsWith('//')) return false;
-  if(/^(title|names|palette|accent)\s*:/i.test(t)) return false;
+  if(/^(title|names|palette|accent|verdict)\s*:/i.test(t)) return false;
   return true;
 }
 

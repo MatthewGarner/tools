@@ -108,11 +108,23 @@ function schedule(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120)
 /* ---------- controls ---------- */
 for(const id of ['demand', 'size', 'team', 'wip', 'tcost', 'hcost', 'batch', 'backlog'])
   $(id).addEventListener('input', schedule);
+/* the radiogroup's buttons carry real radio state — class alone is invisible
+   to a screen reader (merit-order's pattern) */
+const varButtons = [...$('variability').children];
+varButtons.forEach(b => b.setAttribute('role', 'radio'));
+function syncVariability(){
+  for(const b of varButtons){
+    const active = b.dataset.v === variability;
+    b.classList.toggle('on', active);
+    b.setAttribute('aria-checked', String(active));
+  }
+}
+syncVariability();
 $('variability').addEventListener('click', e => {
   const b = e.target.closest('button');
   if(!b) return;
   variability = b.dataset.v;
-  for(const x of $('variability').children) x.classList.toggle('on', x === b);
+  syncVariability();
   schedule();
 });
 $('presets').addEventListener('click', e => {
@@ -121,7 +133,7 @@ $('presets').addEventListener('click', e => {
   const p = PRESETS[b.dataset.preset];
   $('demand').value = p.demand; $('size').value = p.size; $('team').value = p.team; $('wip').value = p.wip;
   variability = p.v;
-  for(const x of $('variability').children) x.classList.toggle('on', x.dataset.v === p.v);
+  syncVariability();
   for(const x of $('presets').querySelectorAll('.chip')) x.classList.toggle('on', x === b);
   schedule();
 });
@@ -255,7 +267,7 @@ function flash(id, msg){
     $('demand').value = +h.d; $('size').value = +h.s || 4; $('team').value = +h.t || 4;
     $('wip').value = +h.w || 4;
     if(['low', 'med', 'high'].includes(h.v)) variability = h.v;
-    for(const x of $('variability').children) x.classList.toggle('on', x.dataset.v === variability);
+    syncVariability();
     if(isFinite(+h.tc) && +h.tc) $('tcost').value = +h.tc;
     if(isFinite(+h.hc) && +h.hc) $('hcost').value = +h.hc;
     if(isFinite(+h.b) && +h.b) $('batch').value = +h.b;

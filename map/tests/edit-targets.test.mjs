@@ -133,6 +133,9 @@ test('validators: labels reject config collisions, ::, @, emptiness; zone names 
   assert.ok(validators.label('A perfectly good label'));
   assert.ok(!validators.label(''));
   assert.ok(!validators.label('zones: grid 2x2'));
+  /* a label rewritten to "verdict: …" would parse as config and silently
+     delete the item, its position riding along into the authored verdict */
+  assert.ok(!validators.label('verdict: x'));
   assert.ok(!validators.label('a :: b'));
   assert.ok(!validators.label('at @ 5,5'));
   assert.ok(validators.zonename('Walled gardens'));

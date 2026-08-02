@@ -237,7 +237,7 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {parse: tparse} = await import('../tree/parse.js');
   const {evaluate} = await import('../tree/engine.js');
-  const {render: trender, treeVerdict} = await import('../tree/render.js');
+  const {render: trender} = await import('../tree/render.js');
   const bid = 'title: T\nRoot\n  Bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0';
   const m = tparse(bid);
   const r = evaluate(m);

@@ -22,7 +22,7 @@ export const TOKENS = {
 
 
 
-/* shared with treeVerdict below: the muted evidence line under the recommended
+/* the muted evidence line under the recommended
    option. `withEv` is false in the SVG band, where the display verdict already
    carries the expected value as its key figure — the evidence line is support,
    not a second printing of the same number. */
@@ -38,24 +38,10 @@ function evidenceFor(rec, st, results, money, withEv = true){
   return evidence;
 }
 
-/* plain-text mirror of the SVG's verdict block — the HTML readout app.js
-   shows next to the diagram (sub-task: readable-result fix). Pure; same
-   inputs render() itself uses for the verdict band. */
-export function treeVerdict(model, results){
-  if(!model.root || model.root.kind !== 'decision') return '';
-  const rec = results.policy.get(model.root);
-  const st = results.stats.get(model.root);
-  if(!rec || !st) return '';
-  const cur = model.currency || '£';
-  const money = v => (v < 0 ? '−' : '') + cur + fmt(Math.abs(v));
-  return 'Recommended: ' + rec.label + ' — ' + evidenceFor(rec, st, results, money);
-}
-
 /* the DISPLAY verdict (Swiss 6b): the quotable line the artefact leads with, and
    the ONE load-bearing figure inside it — the recommended option's expected
-   value. Pure and pinned by tests; render() is the only consumer, so the plain
-   treeVerdict() mirror above (poster / copy-for-doc) stays byte-unchanged. The
-   figure is the last token of the line, so a wrap can never split it. */
+   value. Pure and pinned by tests; render() is the only consumer. The figure
+   is the last token of the line, so a wrap can never split it. */
 export function treeVerdictParts(model, results){
   /* resolveVerdict runs on EVERY branch, including the ones where the tool has
      nothing to say: an authored `verdict:` is the author's line about their own
@@ -72,7 +58,7 @@ export function treeVerdictParts(model, results){
 }
 
 export function render(model, results, ctx){
-  const {measure, slide = false, dark = false, edit = false, bare = false, hot} = ctx;
+  const {measure, slide = false, dark = false, edit = false, hot} = ctx;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -97,9 +83,7 @@ export function render(model, results, ctx){
     node._depth = depth;
   })(model.root, 0);
 
-  /* poster-embed: the frame owns the title, date and hero recommendation —
-     drop them and let the tree grow up to fill the space, never invented. */
-  const showTitle = !!model.title && !bare;
+  const showTitle = !!model.title;
   const headerH = (showTitle ? T.headerH : T.headerHNoTitle)*S;
   const flips = results.flips || [];
   const flipsH = flips.length ? (14 + flips.length * T.flipRowH)*S : 0;
@@ -108,10 +92,8 @@ export function render(model, results, ctx){
   /* verdict band (Swiss 6b): VERDICT kicker + the display line with its one
      brand figure, muted evidence beneath. Built BEFORE the tree because its
      height is content-driven — a verdict that wraps to two lines pushes the
-     tree down instead of colliding with it. Dropped when bare (the poster
-     frame is the hero there, reusing treeVerdict verbatim). */
+     tree down instead of colliding with it. */
   const V = (() => {
-    if(bare) return {svg: '', h: 0};
     const {line, fig} = treeVerdictParts(model, results);
     if(!line) return {svg: '', h: 0};
     const rec = results.policy.get(model.root);
@@ -155,11 +137,9 @@ export function render(model, results, ctx){
     s.push('<text x="' + T.pad*S + '" y="' + T.titleY*S + '" font-family=\'' + F.serif +
       '\' font-size="' + T.titleSize*S + '" font-weight="700" fill="' + C.ink + '">' + esc(model.title) + '</text>');
   }
-  if(!bare){
-    s.push('<text x="' + (W - T.pad*S) + '" y="' + (showTitle ? T.titleY : 14)*S +
-      '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
-      new Date().toISOString().slice(0, 10) + '</text>');
-  }
+  s.push('<text x="' + (W - T.pad*S) + '" y="' + (showTitle ? T.titleY : 14)*S +
+    '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
+    new Date().toISOString().slice(0, 10) + '</text>');
 
   /* verdict band — composed above (content-driven height) */
   if(V.svg) s.push(V.svg);
