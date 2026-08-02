@@ -7,6 +7,7 @@ test('validators: labels reject dates/config/brackets; dates accept 1–2 parsea
   assert.ok(validators.label('Energisation works'));
   assert.ok(!validators.label('2026-08 thing'));
   assert.ok(!validators.label('title: x'));
+  assert.ok(!validators.label('verdict: shipped'));
   assert.ok(!validators.label('with [tag]'));
   assert.ok(validators.dates('2026-08 .. 2026-10'));
   assert.ok(validators.dates('2026-08-03'));
@@ -64,6 +65,10 @@ test('validators.lane rejects brackets/dates/config/nested-colon; accepts a bare
   assert.ok(!validators.lane('2026-08'));
   assert.ok(!validators.lane('title'));
   assert.ok(!validators.lane('A: B'));
+  /* a lane named Verdict would parse as the verdict: config key and silently
+     DELETE the milestone (its dates becoming the artefact's verdict) */
+  assert.ok(!validators.lane('Verdict'));
+  assert.ok(!validators.lane('verdict'));
   assert.ok(!validators.lane(''));
 });
 

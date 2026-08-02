@@ -74,7 +74,7 @@ export function dragRewrite(text, srcLine, newX){
   return setPosition(text, srcLine, String(r));
 }
 
-const CONFIG_LINE = /^(title|palette|accent)\s*:/i;   // anchor: is a declaration, not config
+const CONFIG_LINE = /^(title|palette|accent|verdict)\s*:/i;   // anchor: is a declaration, not config
 
 /* new components land after the last declaration BEFORE the edge block —
    edge-auto-created ghosts carry the EDGE's srcLine and never count */
