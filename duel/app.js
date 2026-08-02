@@ -172,8 +172,8 @@ $('examples').appendChild(ex);
 /* ---------- boot ---------- */
 paintKicker($('kicker'), '05', 'Order without scores');
 wireCopyVerdict($('verdict'));
-(function boot(){
-  const h = readHashState();
+(async function boot(){
+  const h = await readHashState();
   if(h && Array.isArray(h.items) && h.items.length >= 3 && Array.isArray(h.duels)){
     state = {q: h.q || '', items: h.items.map(String), duels: h.duels, finished: !!h.finished};
     render();

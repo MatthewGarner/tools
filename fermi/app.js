@@ -192,9 +192,9 @@ function threshPctText(){
 }
 function renderThresh(){ $('tout').textContent = threshPctText(); }
 
-function readHash(){
+async function readHash(){
   try{
-    const s = readHashState();
+    const s = await readHashState();
     if(!s) return null;
     if(s.a && s.b && typeof s.a.f === 'string' && typeof s.b.f === 'string') return s;
     if(s.m === 'cf' && Array.isArray(s.p)) return s;
@@ -1046,7 +1046,7 @@ function unpackScen(o){
   }
   return {f: o.f, vars, thresh: typeof o.t === 'string' ? o.t : ''};
 }
-const boot = readHash();
+const boot = await readHash();
 if(boot && boot.a && boot.b){
   compareOn = true;
   scenStore.A = unpackScen(boot.a);

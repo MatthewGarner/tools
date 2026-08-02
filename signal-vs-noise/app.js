@@ -26,8 +26,8 @@ const lessonLabel = r => r.illusion && r.illusion.startsWith('“')
   ? (r.kind === 'praise' ? 'Praise breeds complacency' : 'Tough love works') : null;
 
 /* ---------- URL state ---------- */
-function loadHash(){
-  const st = readHashState();
+async function loadHash(){
+  const st = await readHashState();
   if(!st || typeof st.seed !== 'number') return;
   seed = st.seed;
   // Number.isFinite (not typeof) rejects NaN; clamp keeps a hand-crafted noiseSd
@@ -182,7 +182,7 @@ new ResizeObserver(onResize).observe(stage);
 
 paintKicker($('kicker'), '15', 'The luck you mistook for management');
 wireCopyTap(stage, () => phase === 'done' ? verdict(scenario(), calls).line : '');
-loadHash();
+await loadHash();
 if(params.noiseSd) $('noise').value = params.noiseSd;
 cols = colsFor(stage.clientWidth || 760);
 render();

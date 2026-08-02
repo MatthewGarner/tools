@@ -322,8 +322,8 @@ onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 /* ---------- boot: hash > localStorage > example ---------- */
 paintKicker($('kicker'), '03', 'Initiatives priced as wagers');
 wireCopyVerdict($('verdict'));
-(function(){
-  const hash = readHashState();
+(async function(){
+  const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){

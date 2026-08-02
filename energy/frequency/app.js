@@ -12,7 +12,7 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../as
 
 if (typeof document !== 'undefined') boot();
 
-function boot(){
+async function boot(){
   const $ = id => document.getElementById(id);
   const IDS = ['inertia', 'trip', 'dr', 'dm', 'dc', 'gfm'];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -241,7 +241,7 @@ function boot(){
 
   // restore state from the URL, else default (guard s.dr/s.dm for older links
   // saved before those levers existed)
-  const s = readHashState();
+  const s = await readHashState();
   if(s){
     $('inertia').value = s.i; $('trip').value = s.tr;
     $('dr').value = s.dr ?? 0; $('dm').value = s.dm ?? 0;

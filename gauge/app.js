@@ -23,7 +23,6 @@ import {paintKicker, paintMetrics} from '../assets/verdict.js';
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 const ctx = () => ({colors: themeColors(), measure});
-const encodeState = obj => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 const relay = createRelay();
 
 const EXAMPLES = [
@@ -266,7 +265,7 @@ async function initCompose(hash){
       $('starterr').hidden = false;
       return;
     }
-    writeHashState({t: editor.getText(), id, key});
+    await writeHashState({t: editor.getText(), id, key});   // the reload must not beat the async write
     location.reload();   // boot re-routes into console mode
   });
 
@@ -286,7 +285,7 @@ async function initCompose(hash){
 /* ---------- mode routing ---------- */
 (async function boot(){
   paintKicker($('kicker'), '12', "The room's honest odds");
-  const hash = readHashState();
+  const hash = await readHashState();
   const mode = hash && hash.id ? (hash.key ? 'console' : 'participant') : 'compose';
   document.body.dataset.mode = mode;
   $('compose').hidden = mode !== 'compose';
@@ -294,7 +293,7 @@ async function initCompose(hash){
   $('console').hidden = mode !== 'console';
   if(mode === 'compose') return initCompose(hash);
   const {initConsole, initParticipant} = await import('./session.js');
-  const deps = {model: parse(hash.t || ''), text: hash.t || '', relay, ctx, $, encodeState, wireFormEvents};
+  const deps = {model: parse(hash.t || ''), text: hash.t || '', relay, ctx, $, wireFormEvents};
   if(mode === 'console') initConsole({...deps, id: hash.id, key: hash.key});
   else initParticipant({...deps, id: hash.id});
 })();

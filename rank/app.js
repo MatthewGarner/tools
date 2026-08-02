@@ -308,9 +308,9 @@ function writeHash(){
   if($('oda').value.trim() || $('odb').value.trim()) s.o = [$('oda').value, $('odb').value];
   writeHashState(s);
 }
-function readHash(){
+async function readHash(){
   try{
-    const s = readHashState();
+    const s = await readHashState();
     if(!s || !Array.isArray(s.c) || !Array.isArray(s.i)) return false;
     state.criteria = s.c.map(p => ({name:String(p[0]), w:+p[1] || 0}));
     if(Array.isArray(s.e)) state.effort = {name:String(s.e[0]), w:+s.e[1] || 1};
@@ -475,7 +475,7 @@ for(const ex of EXAMPLES){
   $('chips').appendChild(b);
 }
 
-if(readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
+if(await readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
 else {
   // Open on a real, contested backlog (not 3 identical rows that never re-sort) so the
   // drag-weights mechanism is live and a knife-edge shows the moment you land. Matches

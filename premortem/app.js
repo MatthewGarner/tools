@@ -239,7 +239,7 @@ $('phasepanel').addEventListener('click', e => {
     const now = new Date().toISOString(); doc.entries.forEach(en => { en.lastReviewed = now; }); }); }
 });
 async function copyLink(){
-  const link = toLink(doc);
+  const link = await toLink(doc);
   const url = location.origin + location.pathname + (link || '');
   if(!link){ alert('This register is too large for a link — use "Copy as markdown" instead.'); return; }
   try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch(e){ prompt('Copy this link:', url); }
@@ -254,7 +254,7 @@ function toast(msg){
 }
 
 /* ---------- boot ---------- */
-(function boot(){
+(async function boot(){
   paintKicker($('kicker'), '10', 'Failure named in advance');
 /* board re-renders wholesale, so the chip is delegated, not wired per paint */
 $('boardpanel').addEventListener('click', e => {
@@ -269,7 +269,7 @@ $('boardpanel').addEventListener('click', e => {
   else prompt('Copy this:', line);
 });
   if(location.hash.length > 1){
-    const imported = fromLink(location.hash);
+    const imported = await fromLink(location.hash);
     history.replaceState(null, '', location.pathname);
     if(imported){ doc = imported; reached = new Set([doc.phase || 'REGISTER']); if(!doc.phase) doc.phase = 'REGISTER'; saveNow(); render(); return; }
   }

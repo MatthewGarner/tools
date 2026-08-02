@@ -147,6 +147,32 @@ for(const theme of ['light', 'dark']){
   await page.close();
   await ctx.close();
 }
+/* Compressed-hash round-trip on the REAL engine: CompressionStream('deflate-raw')
+   support is a distinct question from the API existing (Safari added the API before
+   every format string), and Blink emulation proves nothing here. */
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  try{
+    await page.goto(T + '/flow/', {waitUntil: 'networkidle', timeout: 20000});
+    const rt = await page.evaluate(async () => {
+      const {encodeHash, decodeHash} = await import('/assets/series.js');
+      const obj = {v: 1, doc: 'em—dash −3 £4 🚀 webkit'};
+      const enc = await encodeHash(obj);
+      const back = await decodeHash(enc);
+      const legacy = await decodeHash(btoa(unescape(encodeURIComponent(JSON.stringify(obj)))));
+      return {z: enc.startsWith('z:'), same: JSON.stringify(back) === JSON.stringify(obj),
+        legacySame: JSON.stringify(legacy) === JSON.stringify(obj)};
+    });
+    ok(rt.z, 'series (webkit): encodeHash emits the z: format');
+    ok(rt.same, 'series (webkit): deflate-raw round-trips on the real engine');
+    ok(rt.legacySame, 'series (webkit): legacy btoa hashes still decode');
+  }catch(e){
+    ok(false, 'series (webkit): compressed-hash round-trip — ' + String(e).split('\n')[0]);
+  }
+  await page.close();
+  await ctx.close();
+}
 await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
 report('webkit', {pass, fail, min: TOOLS.length * 2});   // ≥1 check/tool/theme; catches a crash or empty derived list

@@ -22,11 +22,11 @@ test('builder: a merge-risk plan yields a framed premortem doc', () => {
   assert.deepEqual(doc.entries, []);
 });
 
-test('round-trip: the doc survives premortem\'s own toLink/fromLink', () => {
+test('round-trip: the doc survives premortem\'s own toLink/fromLink', async () => {
   const doc = premortemHandoff(parse(MERGE_DOC), today);
-  const link = toLink(doc);
+  const link = await toLink(doc);
   assert.ok(link && link.startsWith('#'), 'links under the size cap');
-  const back = fromLink(link);
+  const back = await fromLink(link);
   assert.equal(back.title, doc.title);
   assert.equal(back.question, doc.question);
   assert.equal(back.phase, 'FRAME');
