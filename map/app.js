@@ -15,6 +15,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {mapDiff, mapDiffView} from './diff.js';
@@ -184,6 +185,8 @@ attachEditInPlace($('preview'), {
     axis: {validate: validators.axis},
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput, placeholder: () => ro ? ro.verdict : ''},
     cardmenu: {menu: el => {
       const it = model && model.items.find(i => i.srcLine === +el.dataset.line);
       return [
@@ -197,6 +200,11 @@ attachEditInPlace($('preview'), {
     }},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(preset|title|palette|accent|x|y|zones|verdict)\s*:|^zone\s+[^:]+:/i,
+      getLine: () => ro ? ro.verdict : '',
+    })) return;
     if(newValue === '✖Move…' || newValue === '✖Place on map…'){
       armPlace(lineNo);
       return;
@@ -434,3 +442,7 @@ onThemeChange(rerender);
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['preset', 'title', 'palette', 'accent', 'x', 'y', 'zones', 'verdict']);

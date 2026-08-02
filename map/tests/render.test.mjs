@@ -272,7 +272,7 @@ test('verdict block: VERDICT kicker, 24px display line, exactly one brand figure
   const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
   assert.match(svg, />VERDICT</);
   assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0\.36"/);
-  assert.match(svg, /<tspan fill="#D62015">2 of 3<\/tspan>/);
+  assert.match(svg, /<tspan class="vfig" fill="#D62015">2 of 3<\/tspan>/);
   assert.equal((svg.match(/#D62015/g) || []).length, 1, 'brand red appears once and only on the figure');
   assert.match(svg, /assumptions sit in test first/);
 });

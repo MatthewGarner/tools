@@ -9,7 +9,7 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics} from './parse.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -20,11 +20,12 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 paintKicker($('kicker'), '01', 'The plan as an artefact');
+wireCopyVerdict($('verdict'));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -275,8 +276,14 @@ attachEditInPlace($('preview'), {
     lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
     cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
+    /* the authored words edit where they read (2026-08-02) — same rewrites the
+       page's headline field and config lines use, one undo step each */
+    headline: {validate: v => !v.trim().startsWith('//')},
+    story: {validate: v => !v.trim().startsWith('//')},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(kind === 'headline'){ editor.setText(setHeadline(editor.getText(), newValue)); return; }
+    if(kind === 'story'){ editor.setText(setStory(editor.getText(), newValue)); return; }
     if(kind === 'additem'){
       let text = editor.getText();
       /* register + board + focus only: their horizon groups are synthesised even
@@ -797,3 +804,7 @@ watchNarrowBucket(previewEl, rerender);
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus']);

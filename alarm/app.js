@@ -10,7 +10,7 @@ import {wireExports} from '../assets/exports.js';
 import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -226,6 +226,8 @@ function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = m
 /* ---------- boot ---------- */
 (function boot(){
   paintKicker($('kicker'), '13', 'The base rate has its say');
+wireCopyVerdict($('verdict'));
+wireCopyVerdict($('verdictAlarm'));
   const h = readHashState();
   if(h && isFinite(+h.b)){
     $('baseRate').value = Math.max(-3, Math.min(-0.30103, +h.b));

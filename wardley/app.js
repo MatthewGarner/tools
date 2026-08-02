@@ -14,6 +14,8 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
+import {mapReadout} from './render.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
@@ -180,8 +182,16 @@ function componentMenuRows(el){
 attachEditInPlace($('preview'), {
   kinds: {...kinds,
     additem: {validate: kinds.name.validate},
-    componentmenu: {menu: componentMenuRows}},
+    componentmenu: {menu: componentMenuRows},
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => (model && layout) ? mapReadout(model, layout).verdict : ''}},
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|palette|accent|anchor|verdict)\s*:/i,
+      getLine: () => (model && layout) ? mapReadout(model, layout).verdict : '',
+    })) return;
     if(kind === 'additem'){
       const r = addComponent(editor.getText(), newValue, el.dataset.stage || null);
       insertAndSelect(editor, r.afterLine, r.newLine, r.select,
@@ -362,3 +372,7 @@ paintKicker($('kicker'), '09', 'The landscape as text');
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent', 'verdict']);

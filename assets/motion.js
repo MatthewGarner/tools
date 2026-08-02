@@ -183,6 +183,25 @@ export function applyFlip(container, attr, old, {scale = 1} = {}){
    forces the next paint even if the string repeats. onSwap runs synchronously
    after the swap, before motion (timeline applies zoom so applyFlip reads
    final-scale rects). */
+/* The verdict figure ARRIVES (2026-08-02): on first reveal only, every .vfig
+   tspan starts at its parent text's ink (an inline STYLE override — style beats
+   the brand fill ATTRIBUTE) and settles to brand as the reveal finishes.
+   Liveness by construction: the source string is ALWAYS brand; if motion never
+   fires the un-overridden fig is already correct with zero JS. The 700ms clear
+   is derived from the shared fade envelope (.4s hold + stagger + .38s), so the
+   450ms fill transition lands with the drawing's last beat. */
+function armFigSettle(container){
+  if(reducedMotion.matches) return [];
+  const figs = [...container.querySelectorAll('.vfig')];
+  for(const t of figs){
+    const p = t.closest('text');
+    const ink = p && p.getAttribute('fill');
+    if(ink) t.style.fill = ink;
+  }
+  return figs;
+}
+const settleFigs = figs => { if(figs.length) setTimeout(() => figs.forEach(t => t.style.removeProperty('fill')), 700); };
+
 export function mountMotion(container){
   let lastSvg = '', revealed = false;
   function paint(svg, spec = {}, {flipAttr, scale, onSwap, mode: force} = {}){
@@ -190,7 +209,8 @@ export function mountMotion(container){
     if(!revealed){                                       // arm/re-arm until the reveal plays
       container.innerHTML = svg; lastSvg = svg;
       if(onSwap) onSwap();
-      revealIn(container, spec, () => { revealed = true; });   // reduced-motion → plays instantly
+      const figs = armFigSettle(container);
+      revealIn(container, spec, () => { revealed = true; settleFigs(figs); });   // reduced-motion → plays instantly
       return container;
     }
     const m = force || 'flip';                           // revealed: flip on settle, else plain swap

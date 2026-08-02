@@ -56,29 +56,29 @@
         <summary>Syntax reference</summary>
         <h4>Config</h4>
         <dl>
-          <dt><code>battery: 100MW / 200MWh</code></dt>
+          <dt><code data-try="">battery: 100MW / 200MWh</code></dt>
           <dd>nameplate power / energy (required)</dd>
-          <dt><code>spread: 35..85</code></dt>
+          <dt><code data-try="">spread: 35..85</code></dt>
           <dd>£/MWh: the day's best <em>achieved</em> spread, 90% range across days (required)</dd>
-          <dt><code>charge: 15..45</code></dt>
+          <dt><code data-try="">charge: 15..45</code></dt>
           <dd>£/MWh buy price for the efficiency penalty; assumed 45% of spread if omitted</dd>
-          <dt><code>second: 35..60%</code></dt>
+          <dt><code data-try="">second: 35..60%</code></dt>
           <dd>second cycle's spread as % of the day's best — a good second happens on a good day</dd>
-          <dt><code>drift: -4..0 %/yr</code></dt>
+          <dt><code data-try="">drift: -4..0 %/yr</code></dt>
           <dd>annual spread trend; flat (and flattering) if omitted</dd>
-          <dt><code>rte: 86..90%</code></dt>
+          <dt><code data-try="">rte: 86..90%</code></dt>
           <dd>round-trip efficiency (required)</dd>
-          <dt><code>fade: 0.006..0.012 %/cycle</code></dt>
+          <dt><code data-try="">fade: 0.006..0.012 %/cycle</code></dt>
           <dd>cycle ageing, % of nameplate per full cycle (required)</dd>
-          <dt><code>calendar: 1.0..1.8 %/yr</code></dt>
+          <dt><code data-try="">calendar: 1.0..1.8 %/yr</code></dt>
           <dd>calendar ageing — happens anyway (required)</dd>
-          <dt><code>cycles: 6000 over 15yr</code></dt>
+          <dt><code data-try="">cycles: 6000 over 15yr</code></dt>
           <dd>warranty budget; <code>over</code> also sets the horizon (required)</dd>
-          <dt><code>augment: 120..180 £/kWh</code></dt>
+          <dt><code data-try="">augment: 120..180 £/kWh</code></dt>
           <dd>enables the augment-when band</dd>
-          <dt><code>discount: 7..10%</code></dt>
+          <dt><code data-try="">discount: 7..10%</code></dt>
           <dd>default 8%</dd>
-          <dt><code>verdict: off</code></dt>
+          <dt><code data-try="">verdict: off</code></dt>
           <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
           <dt><code>title:</code> <code>palette:</code> <code>accent:</code></dt>
           <dd>shared config — palette names a series, accent a hex</dd>
@@ -90,7 +90,9 @@
     <section class="stage">
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
+      <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
+      </div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="copypng">Copy PNG</button>

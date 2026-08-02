@@ -510,7 +510,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   if(vd.line){
     const vb = svgVerdict({x: PAD, y: dy + 22, width: W - PAD * 2, line: vd.line, fig: vd.fig,
       ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: F.serifDq,
-      measure, size: T.verdictSizeNarrow, scale: 1});
+      measure, size: T.verdictSizeNarrow, scale: 1, edit: edit ? {raw: model.verdict ?? ''} : undefined});
     s.push(vb.svg);
     dy += 22 + vb.height;
     if(vd.rest){
@@ -616,7 +616,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     x: T.pad * S, y: readoutY, width: (T.laneW + T.plotW) * S,
     line: vd.line, fig: vd.fig, ink: C.ink, muted: C.muted,
     brandText: C.brandText || C.ink, font: F.serifDq, measure,
-    size: T.verdictSize, scale: S});
+    size: T.verdictSize, scale: S, edit: edit ? {raw: model.verdict ?? ''} : undefined});
   const readoutH = vBlock.height + (vd.rest && vBlock.height ? 8 * S : 0);
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15) * S : 0;
   const W = Math.round(plotX + plotW + T.pad * S);

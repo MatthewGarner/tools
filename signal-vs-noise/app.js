@@ -8,7 +8,7 @@ import {themeColors, onThemeChange, slugify} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {debounced} from '../assets/schedule.js';
-import {paintKicker, paintMetrics} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, wireCopyTap} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const stage = $('stage'), reveal = $('reveal'), nextBtn = $('next'), hint = $('hint'),
@@ -181,6 +181,7 @@ const onResize = debounced(() => {
 new ResizeObserver(onResize).observe(stage);
 
 paintKicker($('kicker'), '15', 'The luck you mistook for management');
+wireCopyTap(stage, () => phase === 'done' ? verdict(scenario(), calls).line : '');
 loadHash();
 if(params.noiseSd) $('noise').value = params.noiseSd;
 cols = colsFor(stage.clientWidth || 760);

@@ -14,6 +14,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../../assets/wor
 import {mountMotion} from "../../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../../assets/verdict-edit.js';
 import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
@@ -75,6 +76,7 @@ function doRefresh(){
     paint(svg, REVEAL); lastSvg = svg;
     const v = riskVerdictParts(sim, model, focusIdx);
     paintVerdict($('verdict'), v.line, v.fig);
+    $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
     /* metrics: the routes on the board, the merchant belief they all share, and
        the sample the payoffs are read off — all straight from model/sim. */
     paintMetrics($('metrics'), model.title, [
@@ -156,6 +158,23 @@ function structureMenu(m, kind, srcLine){
    and a ＋ Add structure picker. Structure edits route through the pure
    add/removeLegLine + editLabel + editField/removeParam rewrites → one undoable
    CodeMirror dispatch each. */
+function riskVerdictLine(){
+  return sim ? riskVerdictParts(sim, model, focusIdx).line : '';
+}
+attachEditInPlace($('verdict').parentElement.parentElement, {
+  kinds: {
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput, placeholder: riskVerdictLine},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|palette|accent|unit|verdict)\s*:/i,
+      getLine: riskVerdictLine,
+    });
+  },
+});
+
 attachEditInPlace($('preview'), {
   kinds: {
     num: {validate: validators.num},
@@ -247,3 +266,7 @@ watchNarrowBucket(stageEl, rerender);
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent', 'unit', 'verdict', 'merchant']);

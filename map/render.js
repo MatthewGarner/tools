@@ -333,7 +333,7 @@ export function render(model, resolved, ro, ctx, diff = null){
     const vb = svgVerdict({x: roX, y: roY + 8 * S, width: roW,
       line: ro.verdict, fig: ro.verdictFig, ink: C.ink, muted: C.muted,
       brandText: C.brandText || C.ink, font: F.serif, measure,
-      size: T.verdictSize, scale: S});
+      size: T.verdictSize, scale: S, edit: edit ? {raw: model.verdict ?? ''} : undefined});
     body.push(vb.svg);
     roY += 8 * S + vb.height;
   }

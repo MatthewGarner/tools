@@ -24,3 +24,9 @@ details.syntax code{font-family:ui-monospace,Menlo,monospace;font-size:12px;
 /* the gloss's inline code is a reference, not a specimen — no chip, so the
    description reads as a sentence instead of a row of grey boxes */
 details.syntax dd code{background:none;padding:0;color:var(--ink)}
+
+/* try-it specimens (2026-08-02): a specimen is a button now */
+details.syntax code[data-try]{cursor: pointer; border: 1px solid transparent; margin: -1px}
+details.syntax code[data-try]:hover, details.syntax code[data-try]:focus-visible{
+  border-color: var(--border); color: var(--ink)}
+@media (pointer: coarse){ details.syntax dt code[data-try]{display: inline-block; padding: 8px 10px} }

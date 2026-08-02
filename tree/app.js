@@ -2,7 +2,7 @@
 import {parse} from './parse.js';
 import {evaluate, evalDet, findByLine, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
 import {pricedCopy, seamCopy} from './format.js';
-import {render} from './render.js';
+import {render, treeVerdictParts} from './render.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState, fmt} from '../assets/series.js';
@@ -16,6 +16,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
+import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, applies, subtreeRange, childLineFor, applyExplore} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
@@ -450,6 +451,9 @@ attachEditInPlace(preview, {
       engageSlider({kind: 'value', line: +el.dataset.line}); return true;
     }},
     label: {validate: validators.label},
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => (model && results) ? treeVerdictParts(model, results).line : ''},
     /* card menu supersedes the old node-<kind> add/remove-only popover with
        Rename/Edit value or probability/Add/Remove; opens:'value'/'prob' is a
        dead no-op on the (rare) node instance that doesn't carry that field —
@@ -471,6 +475,11 @@ attachEditInPlace(preview, {
     'cardmenu-root-leaf': {menu: [{label: '＋ Add outcome', action: true}]},
   },
   onCommit(kind, lineNo, oldRaw, newValue){
+    if(handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|currency|palette|accent|verdict)\s*:/i,
+      getLine: () => (model && results) ? treeVerdictParts(model, results).line : '',
+    })) return;
     if(kind === 'explore'){ engageSlider({kind: newValue, line: lineNo}); return; }
     if(kind.startsWith('cardmenu-')){
       if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
@@ -569,3 +578,7 @@ onThemeChange(rerender);
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'currency', 'palette', 'accent', 'verdict']);

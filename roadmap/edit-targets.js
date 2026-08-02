@@ -124,6 +124,8 @@ export const setFocus = (text, name) => setConfigKey(text, 'focus', name);
    lines by itself, so a headline is always exactly one source line. */
 export const setHeadline = (text, headline) =>
   setConfigKey(text, 'headline', String(headline || '').replace(/[\r\n]+/g, ' '));
+export const setStory = (text, story) =>
+  setConfigKey(text, 'story', String(story || '').replace(/[\r\n]+/g, ' '));
 
 /* ---- span edits (the three drag gestures) ---- */
 

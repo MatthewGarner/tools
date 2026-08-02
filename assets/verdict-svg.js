@@ -7,7 +7,7 @@
    24px × -.015em = -0.36px. Uppercase is literal — there is no text-transform
    in an exported file. */
 
-import {esc, wrapText} from './svg.js';
+import {esc, wrapText, btnAttrs} from './svg.js';
 import {markFigure, countsLine} from './verdict.js';
 
 /* A plain space, held by xml:space. NOT a non-breaking space: the export path
@@ -59,7 +59,7 @@ export function svgMetrics({x, y, model, counts, ink, muted, font, scale = 1}){
    Returns {svg, height} — height is the block's full advance from `y` (the
    kicker baseline) so callers can lay out beneath it. */
 export function svgVerdict({x, y, width, line, fig, ink, muted, brandText, font,
-                            measure, size = 24, scale = 1}){
+                            measure, size = 24, scale = 1, edit, copyTap}){
   const s = String(line ?? '').trim();
   if(!s) return {svg: '', height: 0};
   const kickSize = 10 * scale;
@@ -89,12 +89,32 @@ export function svgVerdict({x, y, width, line, fig, ink, muted, brandText, font,
     else {
       const pre = ln.slice(0, a - cursor), mid = ln.slice(a - cursor, b - cursor), post = ln.slice(b - cursor);
       body = esc(pre) +
-        '<tspan fill="' + brandText + '">' + esc(mid) + '</tspan>' +
+        '<tspan class="vfig" fill="' + brandText + '">' + esc(mid) + '</tspan>' +
         esc(post);
     }
     out.push(textOpen(x, by, font, vSize, 700, -0.015 * vSize, ink) + body + '</text>');
     by += advance;
     cursor += ln.length + 1;                            // +1: the space the wrap consumed
+  }
+  /* live-preview affordances only — exports and goldens never pass these.
+     `edit` ({raw}) lays an invisible hit rect over the block (menu-first target,
+     Matt 2026-08-02); `copyTap` is the no-DSL tools' tap-to-copy mark. Painted
+     LAST so it captures pointers over the text. */
+  if(edit || copyTap){
+    const box = ' x="' + r2(x - 4) + '" y="' + r2(y - 12) + '" width="' + r2(maxW + 8) +
+      '" height="' + r2(by - y - advance + vSize * 0.5 + 16) + '" fill="transparent"';
+    if(edit){
+      /* two stacked rects: the UNDER one anchors the menu's "Edit the line…"
+         opens-row (data-edit="verdictedit" is what it queries for); the TOP one
+         is the click/keyboard target that opens the menu. */
+      out.push('<rect' + box + ' data-edit="verdictedit" data-line="-1" data-raw="' +
+        esc(edit.raw || '') + '"/>');
+      out.push('<rect' + box + ' style="cursor:pointer" data-edit="verdict" data-line="-1" data-raw=""' +
+        btnAttrs('Verdict — edit, copy, or switch it off') + '/>');
+    } else {
+      out.push('<rect' + box + ' style="cursor:pointer" data-copy="verdict"' +
+        btnAttrs('Copy the verdict') + '/>');
+    }
   }
   return {svg: out.join(''), height: by - y};
 }

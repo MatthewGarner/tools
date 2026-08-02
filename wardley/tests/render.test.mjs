@@ -172,7 +172,7 @@ test('readout band: VERDICT kicker + one 24px display line, key figure in brand 
   assert.ok(s.includes('>VERDICT<'), 'literal uppercase micro label (no CSS transform in an export)');
   assert.ok(s.includes("letter-spacing=\"1.8\""), 'absolute tracking on the 10px micro');
   assert.ok(s.includes("font-size=\"24\" font-weight=\"700\" letter-spacing=\"-0.36\""), '24px display line');
-  const tspans = s.match(/<tspan fill="#D62015">/g) || [];
+  const tspans = s.match(/<tspan class="vfig" fill="#D62015">/g) || [];
   assert.equal(tspans.length, 1, 'exactly ONE brand-inked figure');
   assert.ok(s.includes(">2 things need it</tspan>"), 'and it is the load-bearing count');
 });

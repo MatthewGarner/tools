@@ -51,7 +51,7 @@ export function renderReadout(result, sweep, knee, params, ctx){
   const overloaded = result.backlogSlopePerWeek > 0.5;
   const lead = result.lead;
   const {line, fig} = readoutVerdictParts(result);
-  const V = svgVerdict({x: PAD, y: y + 14, width: W - PAD * 2, line, fig,
+  const V = svgVerdict({x: PAD, y: y + 14, width: W - PAD * 2, line, fig, copyTap: !!ctx.copyTap,
     ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: FONT, measure: ctx.measure});
   s.push(V.svg);
   y = y + 14 + V.height + 4;

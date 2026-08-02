@@ -108,7 +108,7 @@ export function render(model, results, ctx){
     const vy = headerH + T.verdictTop*S;
     const block = svgVerdict({x: T.pad*S, y: vy, width: W - T.pad*2*S, line, fig,
       ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: F.body,
-      measure, size: T.verdictSize, scale: S});
+      measure, size: T.verdictSize, scale: S, edit: edit ? {raw: model.verdict ?? ''} : undefined});
     const evY = vy + block.height + T.verdictGap*S;
     return {
       /* edit-gated (B2): a group handle so B3 can crossfade this band with the

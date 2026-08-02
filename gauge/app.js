@@ -6,6 +6,7 @@ import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,
   renameOption, addOption, removeOption} from './edit-targets.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {renderOverlay} from './render-overlay.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
@@ -116,6 +117,8 @@ async function initCompose(hash){
     onChange: debounced(() => refresh(), 120),
   });
   mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+  /* try-it specimens: wired here because gauge's editor is composer-lazy */
+  wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'names', 'palette', 'accent', 'verdict']);
 
   /* Phone-first question authoring: every edit affordance on the compose form
      preview is an undoable TEXT rewrite (gauge/edit-targets.js) dispatched
@@ -143,8 +146,18 @@ async function initCompose(hash){
       rmopt:   {cycle: ['×']},
       addopt:  {cycle: ['add']},   // one-tap add (coarse tap does NOT open a picker)
       addq:    {menu: addqMenu},
+      verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+      verdictedit: {validate: validVerdictInput,
+        placeholder: () => model ? resolveVerdict(model.verdict,
+          {line: verdict(sessionStats(model, sampleResponses(model))), fig: ''}).line : ''},
     },
     onCommit(kind, line, raw, value, el){
+      if(handleVerdictCommit(kind, value, {
+        getText: () => editor.getText(), setText: t => editor.setText(t),
+        configRe: /^(title|names|palette|accent|verdict)\s*:/i,
+        getLine: () => model ? resolveVerdict(model.verdict,
+          {line: verdict(sessionStats(model, sampleResponses(model))), fig: ''}).line : '',
+      })) return;
       if(kind === 'addq'){ addQuestion(value); return; }
       if(kind === 'removeq'){
         if(removeQuestionLine(editor.getText(), line)) editor.removeLine(line);
@@ -191,7 +204,7 @@ async function initCompose(hash){
     } else {
       const stats = sessionStats(model, sampleResponses(model));
       // the PREVIEW carries the narrow width (<520 ⇒ phone relayout); exports never do
-      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv)});
+      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv), edit: true});
       head = resolveVerdict(model.verdict, {line: verdict(stats), fig: ''}).line;
     }
     paint(out, REVEAL); lastOut = out;
@@ -285,3 +298,5 @@ async function initCompose(hash){
   if(mode === 'console') initConsole({...deps, id: hash.id, key: hash.key});
   else initParticipant({...deps, id: hash.id});
 })();
+
+import {wireSyntaxTry} from '../assets/syntax-try.js';

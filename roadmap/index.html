@@ -49,46 +49,46 @@
         <summary>Syntax reference</summary>
         <h4>Config</h4>
         <dl>
-          <dt><code>title: Trading roadmap</code></dt>
+          <dt><code data-try="">title: Trading roadmap</code></dt>
           <dd>title (optional; <code>date:</code> overrides today's date, <code>date: off</code> hides it)</dd>
-          <dt><code>horizons: Q3, Q4, 2027</code></dt>
+          <dt><code data-try="">horizons: Q3, Q4, 2027</code></dt>
           <dd>rename the columns (2–8; default Now, Next, Later)</dd>
-          <dt><code>horizons: quarterly from Q3 2026 x4</code></dt>
+          <dt><code data-try="">horizons: quarterly from Q3 2026 x4</code></dt>
           <dd>generate quarter columns (also <code>monthly from Aug 2026 x6</code>)</dd>
           <dt><code>wip: 8</code> / <code>wip: off</code></dt>
           <dd>first-column overload warning threshold (default 6)</dd>
-          <dt><code>fade: off</code></dt>
+          <dt><code data-try="">fade: off</code></dt>
           <dd>disable the certainty fade on later columns</dd>
-          <dt><code>palette: ember</code></dt>
+          <dt><code data-try="">palette: ember</code></dt>
           <dd>diagram scheme — accent, background wash, card tint: <code>ocean</code> (default) · <code>slate</code> · <code>ember</code> · <code>plum</code></dd>
-          <dt><code>accent: #C05621</code></dt>
+          <dt><code data-try="">accent: #C05621</code></dt>
           <dd>any hex; derives a matching scheme (overrides palette)</dd>
-          <dt><code>style: focus</code></dt>
+          <dt><code data-try="">style: focus</code></dt>
           <dd>the view and the export shape — <code>board</code> (columns) · <code>focus</code> (hero + rail) · <code>register</code> (table) · <code>grid</code> (chart). The first three are live editable views too</dd>
-          <dt><code>headline: We are betting on retention</code></dt>
+          <dt><code data-try="">headline: We are betting on retention</code></dt>
           <dd>the standfirst under the title — yours to write, never generated (also the field above the preview). It appears on <strong>every</strong> export</dd>
-          <dt><code>story: We chose depth over breadth</code></dt>
+          <dt><code data-try="">story: We chose depth over breadth</code></dt>
           <dd>one line on <em>why</em> the plan changed — shown on every view and export while a snapshot comparison is active</dd>
-          <dt><code>focus: NEXT</code></dt>
+          <dt><code data-try="">focus: NEXT</code></dt>
           <dd>which horizon the <code>focus</code> view heroes (defaults to the first with items)</dd>
         </dl>
         <h4>Items</h4>
         <dl>
-          <dt><code>Core: Sync engine rewrite x3</code></dt>
+          <dt><code data-try="">Core: Sync engine rewrite x3</code></dt>
           <dd>a duration — the item runs 3 columns from its section (time axis only). Drag its edges to change start or end, its middle to move it whole</dd>
           <dt><code>NOW</code> / <code>NEXT</code> / <code>LATER</code></dt>
           <dd>start a column section (a horizon name on its own line)</dd>
-          <dt><code>Trading: Auto-bidder v2</code></dt>
+          <dt><code data-try="">Trading: Auto-bidder v2</code></dt>
           <dd>item in the <em>Trading</em> swimlane</dd>
-          <dt><code>Auto-bidder v2</code></dt>
+          <dt><code data-try="">Auto-bidder v2</code></dt>
           <dd>item with no lane</dd>
-          <dt><code>[done] [doing] [risk] [blocked]</code></dt>
+          <dt><code data-try="">[done] [doing] [risk] [blocked]</code></dt>
           <dd>status tag, anywhere in the item</dd>
-          <dt><code>… -- note text</code></dt>
+          <dt><code data-try="">… -- note text</code></dt>
           <dd>smaller second line on the card</dd>
-          <dt><code>… -&gt; https://jira/PROJ-42</code></dt>
+          <dt><code data-try="">… -&gt; https://jira/PROJ-42</code></dt>
           <dd>makes the card title a link (marked ↗)</dd>
-          <dt><code>// comment</code></dt>
+          <dt><code data-try="">// comment</code></dt>
           <dd>ignored</dd>
         </dl>
       </details>

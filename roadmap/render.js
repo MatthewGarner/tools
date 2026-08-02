@@ -198,11 +198,11 @@ function renderNarrow(model, ctx, C, T){
      the deck. Zero height when the author wrote none, so a headline-free doc is
      byte-identical to before. */
   {
-    const sf = standfirst(model, PAD, y, W - PAD * 2, measure, C);
+    const sf = standfirst(model, PAD, y, W - PAD * 2, measure, C, !!ctx.edit);
     if(sf.height){ s.push(sf.svg); y += sf.height; }
     /* the diff narrative sits under the standfirst: headline = the plan, story =
        the change. Only with an active comparison. */
-    const st = storyLine(model, diff, PAD, y, W - PAD * 2, measure, C);
+    const st = storyLine(model, diff, PAD, y, W - PAD * 2, measure, C, !!ctx.edit);
     if(st.height){ s.push(st.svg); y += st.height; }
   }
   y += 10;
@@ -420,9 +420,9 @@ export function render(model, ctx){
   /* the AUTHORED standfirst (2026-07-31) grows the header rather than overlapping
      the columns — measured here because headerH drives every y below it. Zero for
      a doc with no headline, so those stay byte-identical. */
-  const sfWide = standfirst(model, PAD, (model.title ? T.titleY + 12 : 16) * S, W - PAD * 2, measure, C);
+  const sfWide = standfirst(model, PAD, (model.title ? T.titleY + 12 : 16) * S, W - PAD * 2, measure, C, edit);
   const stWide = storyLine(model, diff, PAD,
-    (model.title ? T.titleY + 12 : 16) * S + sfWide.height, W - PAD * 2, measure, C);
+    (model.title ? T.titleY + 12 : 16) * S + sfWide.height, W - PAD * 2, measure, C, edit);
   const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S + sfWide.height + stWide.height;
   const colHeadH = T.colHeadH*S;
   /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */

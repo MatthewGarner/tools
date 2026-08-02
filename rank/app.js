@@ -3,7 +3,7 @@ import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy,
 import {readHashState, writeHashState} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
@@ -486,6 +486,7 @@ else {
   $('kin').value = ex.k;
 }
 paintKicker($('kicker'), '04', 'Ranking that survives its own uncertainty');
+wireCopyVerdict($('verdict'));
 renderHead();
 renderRows();
 compute();

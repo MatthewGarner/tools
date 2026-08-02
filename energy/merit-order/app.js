@@ -16,7 +16,7 @@ import {mountMotion} from '../../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../assets/verdict.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -427,6 +427,7 @@ function boot(){
   const mh = $('mhdate');
   if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
   paintKicker($('kicker'), 'E4', 'Who sets the price');
+wireCopyVerdict($('verdict'));
   $('kicker').append(' · Ember series');
 
   syncControls();

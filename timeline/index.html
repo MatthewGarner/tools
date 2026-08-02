@@ -45,22 +45,22 @@
         <dl>
           <dt><code>title:</code> <code>palette:</code> <code>accent:</code> <code>today:</code></dt>
           <dd>config; <code>today:</code> pins the today line (defaults to now)</dd>
-          <dt><code>verdict: off</code></dt>
+          <dt><code data-try="">verdict: off</code></dt>
           <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
         </dl>
         <h4>Milestones</h4>
         <dl>
-          <dt><code>Grid: Energisation 2027-02 .. 2027-06</code></dt>
+          <dt><code data-try="">Grid: Energisation 2027-02 .. 2027-06</code></dt>
           <dd>lane, label, then the honest range: P50 date <code>..</code> P90 date (ISO days or months; a bare month means its middle). Any lane name works except <code>Today</code> and <code>Verdict</code> — those read as config keys</dd>
-          <dt><code>Kickoff 2026-08 .. 2026-09</code></dt>
+          <dt><code data-try="">Kickoff 2026-08 .. 2026-09</code></dt>
           <dd>no lane prefix → the unnamed lane</dd>
-          <dt><code>FID 2026-09-30 [done]</code></dt>
+          <dt><code data-try="">FID 2026-09-30 [done]</code></dt>
           <dd>it happened — single date, solid marker. <code>[risk]</code> flags a milestone in trouble</dd>
-          <dt><code>Vendor selection 2026-11</code></dt>
+          <dt><code data-try="">Vendor selection 2026-11</code></dt>
           <dd>a single undone date renders, but gets flagged <code>±?</code> — false precision is visible, not forbidden. If the date really is fixed, say so</dd>
-          <dt><code>Ofgem decision 2026-12-01 [fixed]</code></dt>
+          <dt><code data-try="">Ofgem decision 2026-12-01 [fixed]</code></dt>
           <dd>a date you don’t control — an external event. Renders clean, and becomes the deadline the merge-risk line measures the plan against</dd>
-          <dt><code>// after the dates</code></dt>
+          <dt><code data-try="">// after the dates</code></dt>
           <dd>a note, shown under the label</dd>
         </dl>
       </details>
@@ -71,7 +71,8 @@
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn" id="copypng">Copy PNG</button>
-        <button class="btn" id="copymd">Copy as markdown</button>
+        <button class="btn" id="topremortem" hidden>Premortem this date</button>
+      <button class="btn" id="copymd">Copy as markdown</button>
         <button class="btn" id="dlpng">PNG</button>
         <button class="btn" id="dlsvg">SVG</button>
         <button class="btn primary" id="snap">Snapshot</button>

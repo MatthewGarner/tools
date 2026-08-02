@@ -1,7 +1,7 @@
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
 import {project, whyVerdict, whyMetrics} from './project.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {renderOst} from './render-ost.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {whyDiff, whyDiffView} from './diff.js';
@@ -25,6 +25,7 @@ import {solutionMenu} from './app-menu.js';
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 paintKicker($('kicker'), '08', 'One tree, two projections');
+wireCopyVerdict($('verdict'));
 
 
 const EXAMPLES = [
@@ -271,3 +272,7 @@ watchNarrowBucket(previewEl, rerender);
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent']);

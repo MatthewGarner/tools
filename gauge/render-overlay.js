@@ -293,7 +293,8 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   if(vv.line){
     const block = svgVerdict({x: PAD, y, width: panelW, line: vv.line, fig: vv.fig,
       ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
-      font: SANS_DQ, measure, size: narrow ? 17 : 24});
+      font: SANS_DQ, measure, size: narrow ? 17 : 24,
+      edit: opts.edit ? {raw: model.verdict ?? ''} : undefined});
     head.push(block.svg);
     y += block.height + 4;   // height already clears the last baseline by one advance
   }

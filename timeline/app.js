@@ -1,11 +1,14 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
-import {render, toMarkdown} from './render.js';
+import {render, toMarkdown, timelineVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
+import {premortemHandoff} from './handoff.js';
+import {toLink as premortemLink} from '../premortem/store.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {paintKicker} from '../assets/verdict.js';
+import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {wireExports} from '../assets/exports.js';
@@ -77,6 +80,8 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
+  /* #93: the hop appears only when there is a merge to premortem (never a dead link) */
+  $('topremortem').hidden = !(model && model.items.length && premortemHandoff(model, todayDay()));
   if(shouldPersist()){ try{ localStorage.setItem('timeline-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
@@ -157,8 +162,16 @@ attachEditInPlace($('preview'), {
     additem: {validate: validators.label},
     removeitem: {cycle: ['×']},
     cardmenu: {menu: (el) => milestoneMenu(model, +el.dataset.line)},
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => model ? timelineVerdict(model, todayDay()).line : ''},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|palette|accent|today|verdict)\s*:/i,
+      getLine: () => model ? timelineVerdict(model, todayDay()).line : '',
+    })) return;
     if(kind === 'additem'){
       const r = addItemLine(editor.getText(), todayISO(), el.dataset.lane || undefined);
       const label = newValue.replace(/^✖/, '').trim();
@@ -199,6 +212,12 @@ wireExports({
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
    prompt() with the markdown so it's still copyable — wireExports has no
    equivalent fallback, so migrating would lose that behaviour. */
+$('topremortem').addEventListener('click', () => {
+  const doc = premortemHandoff(model, todayDay());
+  if(!doc) return;
+  const link = premortemLink(doc);
+  if(link) location.href = '/premortem/' + link;
+});
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
   const md = toMarkdown(model, currentDiff(), location.href, todayDay());
@@ -254,3 +273,7 @@ watchNarrowBucket($('preview'), rerender);
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
+
+/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
+import {wireSyntaxTry} from '../assets/syntax-try.js';
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent', 'today', 'verdict']);

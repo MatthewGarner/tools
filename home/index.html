@@ -32,12 +32,13 @@
   .stats{display:flex;gap:40px;margin-top:24px}
   .statnum{font-size:30px;font-weight:700;letter-spacing:-.03em}
   .idxhead{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;gap:12px;flex-wrap:wrap}
-  a.tool{display:grid;grid-template-columns:52px 200px 1fr 230px 20px;align-items:baseline;
+  a.tool{display:grid;grid-template-columns:52px 112px 200px 1fr 230px 20px;align-items:baseline;
     gap:0 12px;padding:14px 0;border-top:1px solid var(--border);
     text-decoration:none;color:var(--ink)}
   a.tool:first-of-type{border-top:2px solid var(--ink)}
   .tools{border-bottom:2px solid var(--ink)}
   .num{font-size:11px;font-weight:700;color:var(--brand-text)}
+  .thumb{width:96px;height:36px;align-self:center;display:block}
   .tool h2{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0;
     font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif}
   .tool p{margin:0;color:var(--muted);font-size:13px;line-height:1.5;padding-right:28px}
@@ -53,11 +54,12 @@
   .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
     border-top:1px solid var(--border);margin-top:16px;padding-top:12px}
   @media (max-width:900px){
-    a.tool{grid-template-columns:40px 1fr 20px;grid-template-rows:auto auto auto}
-    .tool h2{grid-column:2}
-    .tool p{grid-column:2;grid-row:2;padding:2px 0 0}
-    .q{grid-column:2;grid-row:3;padding-top:4px}
-    .go{grid-column:3;grid-row:1}
+    a.tool{grid-template-columns:40px 88px 1fr 20px;grid-template-rows:auto auto auto}
+    .thumb{grid-column:2;grid-row:1 / 4;width:80px;height:30px;align-self:start;margin-top:2px}
+    .tool h2{grid-column:3}
+    .tool p{grid-column:3;grid-row:2;padding:2px 0 0}
+    .q{grid-column:3;grid-row:3;padding-top:4px}
+    .go{grid-column:4;grid-row:1}
     h1{font-size:38px}
   }
   @media (max-width:640px){
@@ -93,77 +95,77 @@
   </div>
   <div class="tools">
     <a class="tool" href="/roadmap/">
-      <span class="num">01</span><h2>Roadmap</h2>
+      <span class="num">01</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="8" width="28" height="9" fill="var(--data)" fill-opacity=".85"/><rect x="8" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="8" y="34" width="28" height="8" fill="none" stroke="var(--border)"/><rect x="46" y="8" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="46" y="21" width="28" height="9" fill="none" stroke="var(--border)"/><rect x="84" y="8" width="28" height="9" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg><h2>Roadmap</h2>
       <p>Now / next / later columns, WIP limits, deck export — the plan as an artefact, not a promise.</p>
       <span class="q">What are we doing, in what order?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/timeline/">
-      <span class="num">02</span><h2>Timeline</h2>
+      <span class="num">02</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="10" y1="14" x2="66" y2="14" stroke="var(--border)" stroke-width="2"/><path d="M40 10l4 4-4 4-4-4z" fill="var(--muted)"/><path d="M66 10l4 4-4 4-4-4z" fill="none" stroke="var(--border)"/><line x1="26" y1="30" x2="96" y2="30" stroke="var(--border)" stroke-width="2"/><path d="M58 26l4 4-4 4-4-4z" fill="var(--muted)"/><path d="M96 26l4 4-4 4-4-4z" fill="none" stroke="var(--border)"/><line x1="52" y1="4" x2="52" y2="40" stroke="var(--data)" stroke-width="2"/></svg><h2>Timeline</h2>
       <p>Milestones with P50–P90 whiskers and a merge-risk verdict; the snapshot compare draws the slip slide.</p>
       <span class="q">When, honestly?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/bets/">
-      <span class="num">03</span><h2>Bets</h2>
+      <span class="num">03</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="34" x2="112" y2="34" stroke="var(--border)" stroke-width="2"/><circle cx="24" cy="34" r="4" fill="var(--muted)"/><circle cx="46" cy="34" r="7" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="72" cy="34" r="10" fill="var(--data)" fill-opacity=".85"/><circle cx="98" cy="34" r="5" fill="none" stroke="var(--border)" stroke-width="2"/></svg><h2>Bets</h2>
       <p>The quarter as a blotter of stakes, odds and payoffs — concentration risk included.</p>
       <span class="q">Where is our stake, really?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/rank/">
-      <span class="num">04</span><h2>Rank</h2>
+      <span class="num">04</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><polyline points="10,10 60,10 110,32" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,22 60,32 110,22" fill="none" stroke="var(--border)" stroke-width="2"/><polyline points="10,34 60,20 110,10" fill="none" stroke="var(--data)" stroke-width="2.5"/></svg><h2>Rank</h2>
       <p>Weighted-criteria ranking with a robustness shuffle — does #1 survive your own uncertainty?</p>
       <span class="q">Which one, and is it stable?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/duel/">
-      <span class="num">05</span><h2>Duel</h2>
+      <span class="num">05</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><rect x="12" y="8" width="42" height="28" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="8" width="42" height="28" fill="none" stroke="var(--data)" stroke-width="2.5"/><line x1="58" y1="16" x2="62" y2="28" stroke="var(--muted)" stroke-width="2"/></svg><h2>Duel</h2>
       <p>Pairwise showdowns when a list is too long to rank honestly in one pass.</p>
       <span class="q">This or that?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/map/">
-      <span class="num">06</span><h2>Map</h2>
+      <span class="num">06</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="60" y1="4" x2="60" y2="40" stroke="var(--border)"/><line x1="10" y1="22" x2="110" y2="22" stroke="var(--border)"/><circle cx="36" cy="13" r="4" fill="var(--muted)"/><circle cx="84" cy="30" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="88" cy="11" r="5" fill="var(--data)"/></svg><h2>Map</h2>
       <p>Two axes, labelled zones, presets — position the portfolio and argue about placement, not vibes.</p>
       <span class="q">Where does everything sit?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/tree/">
-      <span class="num">07</span><h2>Tree</h2>
+      <span class="num">07</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><circle cx="16" cy="22" r="4" fill="var(--muted)"/><path d="M20 22 C44 22 44 10 66 10" fill="none" stroke="var(--data)" stroke-width="2.5"/><path d="M20 22 C44 22 44 34 66 34" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="72" cy="10" r="4" fill="var(--data)"/><circle cx="72" cy="34" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="80" y1="10" x2="106" y2="10" stroke="var(--border)" stroke-dasharray="3 3"/></svg><h2>Tree</h2>
       <p>Probability-weighted decision trees with expected value carried up the branches.</p>
       <span class="q">What is this path worth?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/why/">
-      <span class="num">08</span><h2>Why</h2>
+      <span class="num">08</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><rect x="8" y="6" width="40" height="10" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="28" y1="16" x2="28" y2="24" stroke="var(--border)"/><line x1="28" y1="20" x2="66" y2="20" stroke="var(--border)"/><rect x="46" y="17" width="40" height="10" fill="var(--data)" fill-opacity=".85"/><line x1="66" y1="27" x2="66" y2="34" stroke="var(--border)"/><rect x="72" y="30" width="40" height="10" fill="none" stroke="var(--border)" stroke-dasharray="3 3"/></svg><h2>Why</h2>
       <p>Outcome → assumptions → solutions; the argument drawn so the weak link is visible.</p>
       <span class="q">Why do we believe this?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/wardley/">
-      <span class="num">09</span><h2>Wardley</h2>
+      <span class="num">09</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><path d="M10 36 C40 34 70 20 110 10" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="34" cy="33" r="4" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="78" cy="18" r="4" fill="var(--data)"/><line x1="37" y1="31" x2="75" y2="20" stroke="var(--muted)" stroke-dasharray="3 3"/></svg><h2>Wardley</h2>
       <p>Value-chain evolution maps — what to build, buy, or let commoditise.</p>
       <span class="q">What moves next?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/premortem/">
-      <span class="num">10</span><h2>Premortem</h2>
+      <span class="num">10</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="10" x2="60" y2="10" stroke="var(--border)" stroke-width="2"/><rect x="70" y="6" width="42" height="8" fill="var(--data)" fill-opacity=".85"/><line x1="8" y1="24" x2="60" y2="24" stroke="var(--border)" stroke-width="2"/><rect x="70" y="20" width="26" height="8" fill="none" stroke="var(--border)"/><line x1="8" y1="38" x2="60" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="70" y="34" width="14" height="8" fill="none" stroke="var(--border)"/></svg><h2>Premortem</h2>
       <p>Write the failure story first, price it into an EV register, promote the real risks.</p>
       <span class="q">How does this die?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/fermi/">
-      <span class="num">11</span><h2>Fermi</h2>
+      <span class="num">11</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="8" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="22" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><line x1="14" y1="36" x2="40" y2="22" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="8" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="22" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><circle cx="12" cy="36" r="3" fill="none" stroke="var(--border)" stroke-width="2"/><line x1="40" y1="22" x2="70" y2="22" stroke="var(--muted)" stroke-width="2"/><rect x="72" y="14" width="38" height="16" fill="var(--data)" fill-opacity=".85"/></svg><h2>Fermi</h2>
       <p>Driver-tree estimation with ranges that confess what must be true for the answer to hold.</p>
       <span class="q">How big is it, roughly?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/gauge/">
-      <span class="num">12</span><h2>Gauge</h2>
+      <span class="num">12</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="14" y1="10" x2="74" y2="10" stroke="var(--border)" stroke-width="4"/><line x1="38" y1="22" x2="106" y2="22" stroke="var(--border)" stroke-width="4"/><line x1="26" y1="34" x2="88" y2="34" stroke="var(--border)" stroke-width="4"/><rect x="38" y="5" width="36" height="34" fill="var(--data)" fill-opacity=".25"/></svg><h2>Gauge</h2>
       <p>Collect a room's estimates before anyone anchors it — Delphi rounds, chips, calibrated ranges.</p>
       <span class="q">What does the room think?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/alarm/">
-      <span class="num">13</span><h2>Alarm</h2>
+      <span class="num">13</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="38" x2="112" y2="38" stroke="var(--border)" stroke-width="2"/><rect x="28" y="8" width="22" height="30" fill="none" stroke="var(--border)" stroke-width="2"/><rect x="66" y="26" width="22" height="12" fill="var(--data)" fill-opacity=".85"/></svg><h2>Alarm</h2>
       <p>Base-rate playground — how often a monitor that's “99% right” cries wolf.</p>
       <span class="q">Should this page me?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/flow/">
-      <span class="num">14</span><h2>Flow</h2>
+      <span class="num">14</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><circle cx="14" cy="22" r="4" fill="var(--muted)"/><circle cx="28" cy="22" r="4" fill="var(--muted)"/><circle cx="42" cy="22" r="4" fill="var(--muted)"/><line x1="58" y1="6" x2="58" y2="16" stroke="var(--border)" stroke-width="2"/><line x1="58" y1="28" x2="58" y2="38" stroke="var(--border)" stroke-width="2"/><circle cx="70" cy="22" r="4" fill="var(--data)"/><circle cx="96" cy="22" r="4" fill="none" stroke="var(--border)" stroke-width="2"/></svg><h2>Flow</h2>
       <p>Little's-law throughput sketches — where the queue actually is.</p>
       <span class="q">Why is it slow?</span><span class="go">→</span>
     </a>
     <a class="tool" href="/signal-vs-noise/">
-      <span class="num">15</span><h2>Signal vs noise</h2>
+      <span class="num">15</span><svg class="thumb" viewBox="0 0 120 44" aria-hidden="true"><line x1="8" y1="12" x2="112" y2="12" stroke="var(--border)" stroke-dasharray="4 3"/><line x1="8" y1="32" x2="112" y2="32" stroke="var(--border)" stroke-dasharray="4 3"/><polyline points="8,24 24,18 40,27 56,16 72,26 88,20 104,24" fill="none" stroke="var(--muted)" stroke-width="2"/><circle cx="88" cy="8" r="4" fill="var(--data)"/></svg><h2>Signal vs noise</h2>
       <p>Eight noisy quarters, one real shift — Deming's tampering and regression to the mean, made felt.</p>
       <span class="q">Did anything actually change?</span><span class="go">→</span>
     </a>

@@ -98,7 +98,7 @@ function btn(x, y, w, h, act, person, quarter, on, c){
 // noise-walks separate, and everything in between (incl. no width) reproduces the
 // original 760 layout byte-for-byte. Exports always pass the wide artefact —
 // app.js's getSvg pins {width: 1088}.
-export function renderCollapse(s, c, calls = [], {width} = {}){
+export function renderCollapse(s, c, calls = [], {width, copyTap} = {}){
   const w = width ?? 760;
   const narrow = w < 520;          // phone: pinned 356 layout, byte-identical to before
   const wide = w >= 900;           // desktop-wide: chart opens; prose stays capped
@@ -121,7 +121,7 @@ export function renderCollapse(s, c, calls = [], {width} = {}){
      the goldens must stay deterministic — so the shared block is given the same
      char-count metric the body prose below uses (measure = length, width =
      vWrap chars). Height is returned, so the chart follows the wrap. */
-  const V = svgVerdict({x: PAD, y, width: vWrap, line: v.line, fig: v.fig,
+  const V = svgVerdict({x: PAD, y, width: vWrap, line: v.line, fig: v.fig, copyTap: !!copyTap,
     ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink, font: SANS_ATTR,
     measure: t => t.length, size: vFont});
   parts.push(V.svg);
