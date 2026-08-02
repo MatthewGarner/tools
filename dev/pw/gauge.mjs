@@ -1,6 +1,7 @@
 /* Gauge relay flow: facilitator + two participants against dev/gauge-dev.mjs.
    Run from dev/pw:  node gauge.mjs */
 import {chromium, devices} from 'playwright';
+import {inflateRawSync} from 'node:zlib';
 import {report, tally} from './_harness.mjs';
 import {spawn} from 'node:child_process';
 
@@ -39,7 +40,11 @@ try{
   check('facilitator: console mode after start', true);
 
   const joinUrl = await pageF.locator('#joinlink').inputValue();
-  const decoded = JSON.parse(Buffer.from(joinUrl.split('#')[1], 'base64').toString('utf8'));
+  /* z: = deflate-raw + base64url (2026-08-02); the legacy branch keeps the check honest if the format reverts */
+  const rawHash = joinUrl.split('#')[1];
+  const decoded = rawHash.startsWith('z:')
+    ? JSON.parse(inflateRawSync(Buffer.from(rawHash.slice(2), 'base64url')).toString('utf8'))
+    : JSON.parse(Buffer.from(rawHash, 'base64').toString('utf8'));
   check('join link: session id but no facilitator key', /^[0-9a-f]{32}$/.test(decoded.id) && !('key' in decoded));
 
   /* two participants in isolated contexts (B runs the dark theme) */
