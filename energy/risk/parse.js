@@ -20,8 +20,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
     const warn = msg => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
-    const cm = line.indexOf('//');
-    if(cm >= 0) line = line.slice(0, cm).trim();
+    line = line.replace(/(^|\s)\/\/.*$/, '').trim();   // boundary-only: never split a URL's //
     if(!line) continue;
 
     const config = line.match(/^(title|palette|accent|unit|verdict)\s*:\s*(.*)$/i);

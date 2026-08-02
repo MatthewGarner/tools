@@ -53,7 +53,7 @@ export function parse(text){
 
     const config = line.match(/^(title|currency|palette|accent|verdict)\s*:\s*(.*)$/i);
     if(config && stack.length === 0 && tops.length === 0){
-      const key = config[1].toLowerCase(), val = config[2].trim();
+      const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       if(key === 'title') model.title = val;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'currency'){

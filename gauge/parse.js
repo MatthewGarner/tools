@@ -14,7 +14,7 @@ export function parse(text){
     const config = line.match(/^(title|names|palette|accent|verdict)\s*:\s*(.*)$/i);
     if(config){
       if(model.questions.length){ warn('config keys go before the first question — ignored'); continue; }
-      const key = config[1].toLowerCase(), val = config[2].trim();
+      const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       if(key === 'title') model.title = val;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'names'){

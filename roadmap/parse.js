@@ -194,7 +194,7 @@ export function parse(text){
 
     const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus)\s*:\s*(.*)$/i);
     if(config){
-      const key = config[1].toLowerCase(), val = config[2].trim();
+      const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
          genuinely called "Headline" (or "Date", or "Style") is eaten as config —
          its items vanish from the board and, worse, its text would surface on the

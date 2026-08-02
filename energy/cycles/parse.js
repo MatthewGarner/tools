@@ -27,8 +27,7 @@ export function parse(text){
   for(let ln = 0; ln < lines.length; ln++){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
-    const cm = line.indexOf('//');
-    if(cm >= 0) line = line.slice(0, cm).trim();
+    line = line.replace(/(^|\s)\/\/.*$/, '').trim();   // boundary-only: never split a URL's //
     if(!line) continue;
     const warn = msg => m.warnings.push('line ' + (ln + 1) + ': ' + msg);
 

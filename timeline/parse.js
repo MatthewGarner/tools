@@ -54,7 +54,7 @@ export function parse(text){
     const DATE_EXEMPT = /^(today|verdict)$/i;
     const config = line.match(/^(title|palette|accent|today|verdict)\s*:\s*(.*)$/i);
     if(config && !(DATE_RE.test(config[2]) && !DATE_EXEMPT.test(config[1]))){
-      const key = config[1].toLowerCase(), val = config[2].trim();
+      const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       if(key === 'title') model.title = val;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else if(key === 'palette'){
