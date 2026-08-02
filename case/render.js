@@ -240,3 +240,25 @@ export function renderNarrow(model, ctx, opts = {}){
     '" viewBox="0 0 ' + w + ' ' + H + '" font-family="' + SANS + '">' +
     '<rect width="' + w + '" height="' + H + '" fill="' + c.bg + '"/>' + parts.join('') + '</svg>';
 }
+
+/* the markdown rung of the export ladder: the doc travels with its links */
+export function toMarkdown(model, href){
+  const av = caseReadout(model);
+  const out = ['# ' + (model.title || 'Case file'), ''];
+  if(model.question) out.push(model.question, '');
+  out.push('Status: ' + model.status + (av.line ? ' — ' + av.line : ''), '');
+  const groups = model.lanes.length
+    ? model.lanes.map(l => [l, model.exhibits.filter(e => e.lane === l)])
+      .concat(model.exhibits.some(e => !e.lane) ? [['', model.exhibits.filter(e => !e.lane)]] : [])
+    : [['', model.exhibits]];
+  for(const [lane, list] of groups){
+    if(!list.length) continue;
+    if(lane) out.push('## ' + lane, '');
+    for(const ex of list)
+      out.push('- [' + ex.label + '](' + ex.url + ')' + (ex.note ? ' — ' + ex.note : '') +
+        (ex.live ? '' : ' *(not a suite link)*'));
+    out.push('');
+  }
+  if(href) out.push('[Open the case](' + href + ')');
+  return out.join('\n');
+}
