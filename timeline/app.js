@@ -2,6 +2,8 @@
 import {parse, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
+import {premortemHandoff} from './handoff.js';
+import {toLink as premortemLink} from '../premortem/store.js';
 import {createEditor, insertAndSelect} from './editor.js';
 import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
@@ -78,6 +80,8 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
+  /* #93: the hop appears only when there is a merge to premortem (never a dead link) */
+  $('topremortem').hidden = !(model && model.items.length && premortemHandoff(model, todayDay()));
   if(shouldPersist()){ try{ localStorage.setItem('timeline-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
@@ -208,6 +212,12 @@ wireExports({
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
    prompt() with the markdown so it's still copyable — wireExports has no
    equivalent fallback, so migrating would lose that behaviour. */
+$('topremortem').addEventListener('click', () => {
+  const doc = premortemHandoff(model, todayDay());
+  if(!doc) return;
+  const link = premortemLink(doc);
+  if(link) location.href = '/premortem/' + link;
+});
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
   const md = toMarkdown(model, currentDiff(), location.href, todayDay());
