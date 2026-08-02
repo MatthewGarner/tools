@@ -136,21 +136,21 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .statuspill.closed{border-color:color-mix(in srgb,var(--st-done) 45%,transparent);
   background:color-mix(in srgb,var(--st-done) 15%,transparent);color:var(--st-done-ink)}
 .tagchip{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:0;margin-left:6px;text-transform:uppercase;letter-spacing:.03em}
-.tagchip.tiger{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--st-blocked-ink,#B3403A)}
+.tagchip.tiger{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--st-blocked-ink)}
 .tagchip.paper-tiger{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
-.tagchip.elephant{background:color-mix(in srgb,var(--st-risk,#9A6A00) 15%,transparent);color:var(--st-risk-ink,#8E6200)}
+.tagchip.elephant{background:color-mix(in srgb,var(--st-risk) 15%,transparent);color:var(--st-risk-ink)}
 .clusterchip{font-size:10.5px;color:var(--muted);margin-left:6px}
 .actcount{font-size:10.5px;color:var(--muted);margin-left:6px}
 .unscored{color:var(--muted);font-style:italic}
 .portfolio{font-size:15px;margin:18px 0 0;max-width:70ch;padding-top:14px;border-top:1px solid var(--border)}
 .portfolio b{font-size:1.15em;font-variant-numeric:tabular-nums}
-.stalenag{font-size:13px;color:var(--st-risk-ink,#8E6200);margin:8px 0 0}
+.stalenag{font-size:13px;color:var(--st-risk-ink);margin:8px 0 0}
 
 /* countdown + nav + home */
 .countdown{font-family:ui-monospace,Menlo,monospace;font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;margin:8px 0}
 .navbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .navbar .primary{margin-left:auto}
-.gatewhy{color:var(--st-risk-ink,#8E6200);font-size:13px}
+.gatewhy{color:var(--st-risk-ink);font-size:13px}
 #savedlist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .savedrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
 .savedrow .stitle{flex:1;font-weight:600;cursor:pointer;overflow-wrap:anywhere}

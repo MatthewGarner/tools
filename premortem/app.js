@@ -41,6 +41,10 @@ function render(){
   $('boardview').hidden = view !== 'board';
   $('wizardview').hidden = view === 'board';
   $('undo').disabled = undoStack.length === 0;
+  /* ONE red primary per surface (6b): while the wizard's Next → is on screen it
+     is the primary; ＋ New premortem takes the red back on board/register views
+     and once the wizard reaches the register. */
+  $('newbtn').classList.toggle('primary', view !== 'wizard' || doc.phase === 'REGISTER');
   if(view === 'board'){ $('boardpanel').innerHTML = renderBoard(doc, new Date(), promotingId); return; }
   // "register" view reuses the wizard's phasepanel (and its action listeners) with
   // the rail + nav hidden — it renders the register WITHOUT touching doc.phase, so

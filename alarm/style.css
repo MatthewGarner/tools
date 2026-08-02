@@ -65,8 +65,8 @@ input[type=range]:focus-visible,button:focus-visible{outline:2px solid var(--acc
 .fq-cell b{font-family:ui-monospace,Menlo,monospace;font-size:22px;font-weight:700;
   font-variant-numeric:tabular-nums;line-height:1}
 .fq-cell span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.fq-tp b{color:var(--accent-ink)} .fq-fp b{color:var(--st-risk-ink,#8E6200)}
-.fq-fn b{color:var(--st-blocked-ink,#B3403A)} .fq-tn b{color:var(--muted)}
+.fq-tp b{color:var(--accent-ink)} .fq-fp b{color:var(--st-risk-ink)}
+.fq-fn b{color:var(--st-blocked-ink)} .fq-tn b{color:var(--muted)}
 .fq-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .cap{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:0;
   background:color-mix(in srgb,var(--accent) 12%,transparent);
