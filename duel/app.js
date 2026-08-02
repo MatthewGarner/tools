@@ -4,7 +4,7 @@ import {nextPair, minDuels, budget, active, impliedOrder, settledness, loops, ve
 import {renderDuel, renderOrder, renderLoops, markdown} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {debounced} from '../assets/schedule.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const EXAMPLE = {q: 'Which should we build first?',
@@ -171,6 +171,7 @@ $('examples').appendChild(ex);
 
 /* ---------- boot ---------- */
 paintKicker($('kicker'), '05', 'Order without scores');
+wireCopyVerdict($('verdict'));
 (function boot(){
   const h = readHashState();
   if(h && Array.isArray(h.items) && h.items.length >= 3 && Array.isArray(h.duels)){

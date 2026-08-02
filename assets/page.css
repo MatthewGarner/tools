@@ -56,3 +56,17 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
 footer a{color:var(--muted)}
 footer a:hover{color:var(--brand-text)}
 
+
+/* Copy-the-verdict chip (2026-08-02): muted ghost, sibling of the block; red
+   stays the figure's. Hidden with its block; always-visible ≥44px on coarse. */
+.vcopy{font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  background: none; border: 1px solid transparent; border-radius: 0;
+  padding: 4px 8px; margin: 2px 0 0; cursor: pointer; min-height: 28px}
+.vcopy:hover, .vcopy:focus-visible{border-color: var(--border); color: var(--ink); outline: none}
+.verdict-block[hidden] + .vcopy{display: none}
+@media (pointer: coarse){ .vcopy{min-height: 44px; padding: 10px 12px} }
+@media (pointer: fine){
+  .vcopy{opacity: 0}
+  .vcopy:focus-visible, .verdict-block:hover + .vcopy, .vcopy:hover{opacity: 1}
+}

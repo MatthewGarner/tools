@@ -23,7 +23,7 @@ import {wireExports} from '../../assets/exports.js';
 import {debounced} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
 import {mountMotion} from '../../assets/motion.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../assets/verdict.js';
 import {REVEAL} from './motion-spec.js';
 
 export const PRESETS = {
@@ -281,6 +281,7 @@ function boot(){
   const mh = $('mhdate');
   if(mh) mh.textContent = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
   paintKicker($('kicker'), 'E5', 'A battery’s trading day');
+wireCopyVerdict($('verdict'));
   $('kicker').append(' · Ember series');
 
   refresh();

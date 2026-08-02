@@ -28,7 +28,11 @@ export function renderBoard(doc, now = new Date(), promotingId = null){
         'placeholder="Add ' + article(kind) + ' ' + kind + ' — press Enter" aria-label="Add ' + article(kind) + ' ' + kind + '">' +
       '</section>';
   }).join('');
-  return '<div class="board">' + cols + '</div>' + verdictBlock(boardVerdict(entries));
+  const bv = boardVerdict(entries);
+  /* the Copy chip is a SIBLING of the block (same rule as wireCopyVerdict:
+     never inside the aria-live region); delegated listener in app.js */
+  return '<div class="board">' + cols + '</div>' + verdictBlock(bv) +
+    (bv.line ? '<button class="vcopy" type="button" aria-label="Copy the verdict">Copy</button>' : '');
 }
 
 /* The Swiss 6b verdict anatomy, emitted by the string builder rather than painted

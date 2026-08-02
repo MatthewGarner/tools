@@ -22,7 +22,7 @@ import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -321,6 +321,7 @@ onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- boot: hash > localStorage > example ---------- */
 paintKicker($('kicker'), '03', 'Initiatives priced as wagers');
+wireCopyVerdict($('verdict'));
 (function(){
   const hash = readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';

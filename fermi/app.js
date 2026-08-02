@@ -14,7 +14,7 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -1293,3 +1293,4 @@ if(boot && boot.m === 'cf'){
 }
 
 paintKicker($('kicker'), '11', 'A number built from its parts');
+wireCopyVerdict($('verdict'));

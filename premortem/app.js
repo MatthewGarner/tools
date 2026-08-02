@@ -256,6 +256,18 @@ function toast(msg){
 /* ---------- boot ---------- */
 (function boot(){
   paintKicker($('kicker'), '10', 'Failure named in advance');
+/* board re-renders wholesale, so the chip is delegated, not wired per paint */
+$('boardpanel').addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.vcopy');
+  if(!b) return;
+  const blk = b.previousElementSibling;
+  const line = ((blk && blk.querySelector('.vline')) ? blk.querySelector('.vline').textContent : '').trim();
+  if(!line) return;
+  const done = () => { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(line).then(done, () => prompt('Copy this:', line));
+  else prompt('Copy this:', line);
+});
   if(location.hash.length > 1){
     const imported = fromLink(location.hash);
     history.replaceState(null, '', location.pathname);

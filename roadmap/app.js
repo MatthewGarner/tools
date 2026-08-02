@@ -9,7 +9,7 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics} from './parse.js';
-import {paintKicker, paintMetrics, paintVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -25,6 +25,7 @@ import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STA
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 paintKicker($('kicker'), '01', 'The plan as an artefact');
+wireCopyVerdict($('verdict'));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
