@@ -1023,7 +1023,7 @@ for(const theme of ['light', 'dark']){
    URL shared before the z: format) and a freshly-encoded z: link. */
 {
   const legacy = Buffer.from(JSON.stringify({d: 9, s: 5, t: 6, w: 4})).toString('base64');
-  const page = await freshPage('/flow/#' + legacy);
+  const {page, errors} = await freshPage('/flow/#' + legacy);
   check('flow: a LEGACY plain-base64 link still restores its state',
     await page.locator('#demand').inputValue() === '9');
   const zUrl = await page.evaluate(async () => {
@@ -1031,10 +1031,12 @@ for(const theme of ['light', 'dark']){
     return '/flow/#' + await encodeHash({d: 7, s: 5, t: 6, w: 4});
   });
   check('flow: encodeHash emits the z: format', zUrl.startsWith('/flow/#z:'));
+  check('flow: no console errors on the legacy boot', errors.length === 0);
   await page.close();
-  const page2 = await freshPage(zUrl);
+  const {page: page2, errors: errors2} = await freshPage(zUrl);
   check('flow: a compressed z: link restores its state',
     await page2.locator('#demand').inputValue() === '7');
+  check('flow: no console errors on the z: boot', errors2.length === 0);
   await page2.close();
 }
 
