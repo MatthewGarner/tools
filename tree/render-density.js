@@ -55,7 +55,7 @@ function menu(node, x, y, C, root){
   return '<g data-edit="' + kind + '" data-line="' + (node.implicit ? -1 : node.srcLine) + '" data-raw="" data-menu=""' +
     btnAttrs('More options: ' + (node.label || 'node')) + '><text x="' + x + '" y="' + (y + 4) +
     '" text-anchor="middle" font-size="13" font-weight="700" fill="' + C.muted + '">⋯</text>' +
-    '<rect data-hit="" x="' + (x - 22) + '" y="' + (y - 22) + '" width="44" height="44" fill="' + C.bg + '" fill-opacity="0"/></g>';
+    '<rect data-hit="" x="' + (x - 22) + '" y="' + (y - 22) + '" width="44" height="44" fill="' + C.bg + '" fill-opacity="0" pointer-events="all"/></g>';
 }
 function marker(node, x, y, C, active){
   const c = active ? C.accent : C.muted;

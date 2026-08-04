@@ -106,6 +106,12 @@ test('edit-in-place targets: tspans carry kind, line and raw source', () => {
   assert.ok(svg.includes('data-edit="label"'));
 });
 
+test('card menus expose a dependable 44px SVG hit target', () => {
+  const m = parse(BID);
+  const svg = render(m, evaluate(m), ctx({edit: true}));
+  assert.match(svg, /data-menu=""[\s\S]*data-hit=""[^>]*width="44"[^>]*height="44"[^>]*pointer-events="all"/);
+});
+
 /* B2: the priced-insistence walk's crossfade/hot-mark hooks. Doc has no
    title: line so srcLine matches the plan's canonical numbers directly —
    line 0 Root, line 1 Bid (root option), line 3 Win (the hot prob+value). */

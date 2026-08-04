@@ -404,7 +404,10 @@ check('no console/page errors', errors.length === 0);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit retention'}).click();
   await p.waitForTimeout(500);
-  await p.locator('text[data-edit="status"][data-raw="testing"]').first().click();
+  /* Status owns one canonical hit target. The visible label is no longer also
+     an edit target, so exercise the actual SVG affordance rather than relying
+     on a particular element type. */
+  await p.locator('[data-edit="status"][data-raw="testing"]').first().click();
   await p.waitForTimeout(200);
   check('why: status popover opens', await p.locator('.eip-pop').count() === 1);
   await p.locator('.eip-pop button', {hasText: 'delivering'}).click();
@@ -2430,11 +2433,21 @@ insure: premium 6 attach 65 limit 30`;
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
-  const seed = {t: 'title: Pen test doc\nGrid: Existing item 2026-08 .. 2026-10\n'};
+  /* Three milestones exercise the live board composition. Sparse timelines use
+     their single global add affordance; this block specifically covers the
+     per-lane ghost zone. */
+  const seed = {t: 'title: Pen test doc\nGrid: Existing item 2026-08 .. 2026-10\nGrid: Existing item two 2026-11 .. 2026-12\nGrid: Existing item three 2027-01 .. 2027-02\n'};
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + hash, {waitUntil: 'networkidle'});
   await p.waitForTimeout(500);
-  await p.locator('[data-edit="additem"][data-lane="Grid"]').first().click();
+  /* The live-wide artefact holds its physical type floor and can pan. Settle
+     that programmatic pan before tapping; otherwise the scroll-close handler
+     correctly dismisses the input that Playwright opened during auto-scroll. */
+  const gridAdd = p.locator('[data-edit="additem"][data-lane="Grid"]').first();
+  await gridAdd.scrollIntoViewIfNeeded();
+  await p.waitForTimeout(300);
+  const gridAddBox = await gridAdd.boundingBox();
+  await p.mouse.click(gridAddBox.x + gridAddBox.width / 2, gridAddBox.y + gridAddBox.height / 2);
   await p.waitForTimeout(200);
   check('timeline: lane zone opens the eip-input empty', await p.locator('.eip-input').inputValue() === '');
   await p.locator('.eip-input').fill('Pen test');

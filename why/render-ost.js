@@ -188,7 +188,7 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
         '" height="' + T.pillH + '" rx="0" fill="' + tint(col) + '"' + tagStroke(col) + '/>');
       s.push('<text x="' + (x + T.cardPadX + T.pillPadX) + '" y="' + (ty - T.labelSize + 3 + T.pillH - 4.5) +
         '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + statusInkFor(node.status) + '">' + esc(label) + '</text>');
+        '" fill="' + statusInkFor(node.status) + '" pointer-events="none">' + esc(label) + '</text>');
       ty += T.pillH + T.pillGap;
     }
     for(const a of node._assumps){
@@ -372,7 +372,7 @@ export function renderOst(model, projection, ctx, diff = null){
         '" height="' + T.pillH*S + '" rx="0" fill="' + tint(col) + '"' + tagStroke(col) + '/>');
       s.push('<text x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + statusInkFor(node.status) + '">' + esc(label) + '</text>');
+        '" fill="' + statusInkFor(node.status) + '" pointer-events="none">' + esc(label) + '</text>');
       ty += T.pillH*S + T.pillGap*S;
     }
     for(const a of node._assumps){

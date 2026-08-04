@@ -88,15 +88,21 @@ test('ost status tags: tinted fill in the status hue, label in its -ink variant'
   for(const [name, extra] of [['wide', {}], ['narrow', {width: 380}]]){
     const svg = renderOst(m, project(m), {...INK, ...extra});
     assert.match(svg, /rx="0" fill="#1D7A3E1F"/, name + ': delivering fill is the 12% status tint');
-    assert.match(svg, /fill="#1C753C">DELIVERING</, name + ': delivering label is the -ink variant');
-    assert.ok(!/fill="#1D7A3E">DELIVERING</.test(svg), name + ': the un-boosted hue is not used as label text');
+    assert.match(svg, /fill="#1C753C"[^>]*>DELIVERING</, name + ': delivering label is the -ink variant');
+    assert.ok(!/fill="#1D7A3E"[^>]*>DELIVERING</.test(svg), name + ': the un-boosted hue is not used as label text');
     /* the holding assumption reads in the same boosted ink, and keeps its glyph */
     assert.match(svg, /fill="#1C753C"[^>]*>✓ freezes reduce churn</, name + ': ✓ glyph + boosted ink');
     /* the model's palette accent has no -ink token of its own, so the TESTING
        tag stays a single hue — fill tint plus label, as it always was */
     assert.match(svg, /rx="0" fill="#1F4FD81F"/, name + ': testing fill is the palette accent tint');
-    assert.match(svg, /fill="#1F4FD8">TESTING</, name + ': testing label stays the palette accent');
+    assert.match(svg, /fill="#1F4FD8"[^>]*>TESTING</, name + ': testing label stays the palette accent');
   }
+});
+
+test('ost status labels defer pointer input to their canonical pill target', () => {
+  const m = parse(DOC);
+  const svg = renderOst(m, project(m), ctx({edit: true}));
+  assert.match(svg, /data-edit="status"[\s\S]*<text[^>]*pointer-events="none">TESTING<\/text>/);
 });
 
 /* A ctx without the -ink tokens (older callers, the test harnesses) must still
@@ -104,7 +110,7 @@ test('ost status tags: tinted fill in the status hue, label in its -ink variant'
 test('ost status tags fall back to the fill hue when no -ink tokens are supplied', () => {
   const svg = run(renderOst);
   assert.ok(!svg.includes('undefined'));
-  assert.match(svg, /fill="#1D7A3E">DELIVERING</);
+  assert.match(svg, /fill="#1D7A3E"[^>]*>DELIVERING</);
 });
 
 /* A hue tint() can't build (anything but a 6-digit hex) must not leave the tag
