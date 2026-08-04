@@ -125,7 +125,13 @@ for(const theme of ['light', 'dark']){
     });
     if(line !== null){
       const marker = page.locator(`#preview svg [data-menu][data-line="${line}"]`);
-      const box = await marker.locator('[data-hit]').boundingBox();
+      const hit = marker.locator('[data-hit]');
+      /* This control may live below the phone fold. Playwright's raw mouse
+         coordinate cannot hit an off-viewport box in real WebKit, so settle
+         the scroll first — the same gesture a reader makes before tapping. */
+      await hit.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      const box = await hit.boundingBox();
       if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       await page.waitForTimeout(300);
       const row = page.locator('.eip-pop button', {hasText: 'Explore'}).first();
