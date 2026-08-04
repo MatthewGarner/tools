@@ -92,6 +92,7 @@ try{
   /* actually click the exports — the quoted-font-stack bug (fixed 2026-07-06) made
      PNG export silently dead while 'exports offered' still passed */
   {
+    await pageF.locator('#cexports').getByText('Export', {exact: true}).click();
     const [svgDl] = await Promise.all([pageF.waitForEvent('download', {timeout: 5000}),
       pageF.locator('#dlsvg2').click()]);
     check('facilitator: Download SVG produces a file', /\.svg$/.test(svgDl.suggestedFilename()));

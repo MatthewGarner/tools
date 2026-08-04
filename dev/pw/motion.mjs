@@ -1,7 +1,7 @@
 /* Signature-motion behavioral suite — motion ON (the screenshot/edit suites force
-   reduced-motion). Proves: the reveal draws, plays ONLY when the whole element is
-   in view (never off-screen), doesn't re-fire on theme, the FLIP glides + settles,
-   and reduced-motion yields the final frame. Run from dev/pw with a server up
+   reduced-motion). Proves: meaningful content is readable immediately, the brief
+   trace plays when seen, doesn't re-fire on theme, FLIP glides + settles, and
+   reduced-motion yields the final frame. Run from dev/pw with a server up
    (BASE knob; energy tools via /energy/<tool>/ on the same base, like smoke). */
 import {chromium} from 'playwright';
 import {trackErrors, report, tally} from './_harness.mjs';
@@ -16,6 +16,20 @@ const hasGo = (page, sel) => page.$eval(sel, el => el.classList.contains('mo-go'
 async function open(path, opts = {}){
   const page = await browser.newPage(opts);
   const errors = trackErrors(page);
+  await page.addInitScript(() => {
+    window.__motionProbe = {traceStarts: 0, maxTraceEnvelope: 0, figOverridden: false};
+    addEventListener('animationstart', e => {
+      if(e.animationName !== 'mo-draw') return;
+      const css = getComputedStyle(e.target);
+      window.__motionProbe.traceStarts++;
+      window.__motionProbe.maxTraceEnvelope = Math.max(window.__motionProbe.maxTraceEnvelope,
+        (parseFloat(css.animationDuration) + parseFloat(css.animationDelay)) * 1000);
+    }, true);
+    new MutationObserver(() => {
+      if([...document.querySelectorAll('.vfig')].some(t => t.style.fill !== ''))
+        window.__motionProbe.figOverridden = true;
+    }).observe(document, {subtree: true, childList: true, attributes: true, attributeFilter: ['style']});
+  });
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   return {page, errors};
 }
@@ -30,24 +44,38 @@ async function reveal(page, sel){
 for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow', '/flow/', '#verdictwrap']]){
   const {page, errors} = await open(path, {viewport: {width: 1100, height: 700}});
   await reveal(page, container);
-  check(name + ': hero strokes DRAW when in view (.mo-draw >= 1)', await $count(page, container + ' .mo-draw') >= 1);
+  const probe = await page.evaluate(() => window.__motionProbe);
+  check(name + ': hero strokes DRAW when in view (animationstart >= 1)', probe.traceStarts >= 1);
   check(name + ': container is playing (.mo-go)', await hasGo(page, container));
+  const envelope = probe.maxTraceEnvelope;
+  check(name + ': trace envelope is at most 300ms (' + envelope + 'ms)', envelope <= 300);
   await page.waitForTimeout(1300);
-  check(name + ': reveal cleans up (no .mo-* after settle)', await $count(page, container + ' .mo-draw, ' + container + ' .mo-fade') === 0);
+  check(name + ': reveal cleans up (no .mo-draw after settle)', await $count(page, container + ' .mo-draw') === 0);
   check(name + ': no console errors', errors.length === 0);
   await page.close();
 }
 
-/* ---- THE guarantee: a below-the-fold element does NOT animate on load; it stays
-   pre-hidden until scrolled fully into view, THEN draws ---- */
+/* ---- A below-the-fold trace waits to animate, while the authored labels and
+   verdict remain readable immediately. ---- */
 {
   const {page, errors} = await open('/flow/', {viewport: {width: 900, height: 480}});   // small → readout below fold
   await page.waitForTimeout(200);
   check('only-when-seen: flow readout is below the fold at load',
     await page.$eval('#verdictwrap', el => el.getBoundingClientRect().top > innerHeight));
   check('only-when-seen: NOT playing at load (no .mo-go)', !(await hasGo(page, '#verdictwrap')));
-  check('only-when-seen: the curve is pre-hidden (dashoffset > 0) at load',
-    await page.$eval('#verdictwrap polyline[stroke-width]', el => parseFloat(getComputedStyle(el).strokeDashoffset) > 0.5).catch(() => false));
+  const readable = await page.$eval('#verdictwrap', el => [...el.querySelectorAll('text')]
+    .filter(t => t.textContent.trim()).every(t => +getComputedStyle(t).opacity > 0));
+  check('first-frame: below-fold labels and verdict are immediately readable', readable);
+  const traces = await page.$eval('#verdictwrap', el => {
+    const source = el.querySelector('polyline[stroke-width]:not(.mo-draw)');
+    const accent = el.querySelector('polyline.mo-draw');
+    return {
+      sourceVisible: source && parseFloat(getComputedStyle(source).strokeDashoffset || '0') < 0.5,
+      accentWaiting: accent && parseFloat(getComputedStyle(accent).strokeDashoffset) > 0.5,
+    };
+  });
+  check('first-frame: the authored trace is immediately visible', traces.sourceVisible);
+  check('only-when-seen: only the transient ink accent waits below fold', traces.accentWaiting);
   await reveal(page, '#verdictwrap');
   check('only-when-seen: plays once scrolled fully into view (.mo-go + .mo-draw)',
     (await hasGo(page, '#verdictwrap')) && (await $count(page, '#verdictwrap .mo-draw') >= 1));
@@ -55,11 +83,11 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
   await page.close();
 }
 
-/* ---- merit-order: fade reveal in view + FLIP glide on a stack change ---- */
+/* ---- merit-order: immediate first paint + FLIP glide on a stack change ---- */
 {
   const {page, errors} = await open('/energy/merit-order/', {viewport: {width: 1100, height: 820}});
   await reveal(page, '#chartwrap');
-  check('merit-order: fade reveal plays in view (.mo-go)', await hasGo(page, '#chartwrap'));
+  check('merit-order: first paint settles immediately (.mo-go)', await hasGo(page, '#chartwrap'));
   await page.waitForTimeout(1300);
   const chip = await page.$('#conditions .chip:not(.on)') || await page.$('#worlds .chip:not(.on)') || await page.$('#presets .chip:not(.on)');
   await chip.click();
@@ -73,14 +101,14 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
   await page.close();
 }
 
-/* ---- timeline: fade reveal in view + NO re-reveal on theme toggle ---- */
+/* ---- timeline: immediate first paint + NO re-reveal on theme toggle ---- */
 {
   const {page, errors} = await open('/timeline/', {viewport: {width: 1200, height: 820}});
   await reveal(page, '#preview');
   await page.waitForTimeout(1300);
   await page.evaluate(() => { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; });
   await page.waitForTimeout(120);
-  check('timeline: theme toggle does NOT re-reveal (.mo-* stays 0)', await $count(page, '#preview .mo-fade, #preview .mo-draw') === 0);
+  check('timeline: theme toggle does NOT re-reveal (.mo-draw stays 0)', await $count(page, '#preview .mo-draw') === 0);
   check('timeline: no console errors', errors.length === 0);
   await page.close();
 }
@@ -89,7 +117,7 @@ for(const [name, path, container] of [['alarm', '/alarm/', '#distwrap'], ['flow'
 {
   const {page, errors} = await open('/alarm/', {reducedMotion: 'reduce'});
   await page.waitForTimeout(120);
-  check('reduced-motion: no reveal classes ever', await $count(page, '#distwrap .mo-draw, #distwrap .mo-fade') === 0);
+  check('reduced-motion: no reveal classes ever', await $count(page, '#distwrap .mo-draw') === 0);
   const opaque = await page.evaluate(() => [...document.querySelectorAll('#distwrap path[fill="none"][stroke]')]
     .every(p => getComputedStyle(p).opacity === '1' && (getComputedStyle(p).strokeDasharray === 'none' || !getComputedStyle(p).strokeDasharray)));
   check('reduced-motion: curves render at full opacity, undashed (final frame)', opaque);
@@ -105,14 +133,15 @@ const ROLLOUT = [
   ['cycles', '/energy/cycles/', '#preview', false], ['intraday', '/energy/intraday/', '#pricewrap', false],
 ];
 
-/* ---- rollout: every tool reveals in view + settles to its authored state ----
-   draw tools (tree/why) draw; fade tools reveal; none stuck hidden; no errors.
+/* ---- rollout: every tool settles to its authored state ----
+   draw tools (tree/why) trace briefly; all other content is immediate; no errors.
    (energy tools reached via /energy/<tool>/ on the same base, like smoke.) */
 for(const [tool, path, container, draws] of ROLLOUT){
   const {page, errors} = await open(path, {viewport: {width: 1200, height: 800}});
   await page.$eval(container, el => el.scrollIntoView({block: 'center'})).catch(() => {});
   await page.waitForFunction(s => document.querySelector(s)?.classList.contains('mo-go'), container, {timeout: 3000}).catch(() => {});
-  if(draws) check(tool + ': draws hero strokes in view (.mo-draw >= 1)', await $count(page, container + ' .mo-draw') >= 1);
+  if(draws) check(tool + ': draws hero strokes in view (animationstart >= 1)',
+    await page.evaluate(() => window.__motionProbe.traceStarts >= 1));
   check(tool + ': reveal plays in view (.mo-go)', await hasGo(page, container));
   await page.waitForTimeout(1100);
   // no top-level SVG child is stuck at opacity 0 (a reveal that never completed)
@@ -134,26 +163,25 @@ for(const [tool, path, container, draws] of ROLLOUT){
          one geometry the old gate accepted) always reveals it.
    A container fully BELOW the fold at load must still stay pre-hidden: that's
    the "only-when-seen" promise, asserted for flow above. */
-/* Everything still un-revealed: children held at opacity 0 (.mo-fade), AND anything
-   still wearing a reveal class — a stranded .mo-draw hides via stroke-dashoffset at
-   opacity 1, so opacity alone can't see it. No <svg> at all counts as a failure, not
-   a pass: an empty preview must never be the thing that makes this suite green. */
+/* Anything still wearing a trace class is unfinished. Opacity is retained here as
+   a regression guard against meaningful groups ever becoming hidden again. No SVG
+   at all counts as a failure, not a pass. */
 const hiddenKids = (page, sel) => page.evaluate(s => {
   const svg = document.querySelector(s + ' svg');
   if(!svg) return -1;
   const dark = [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length;
-  return dark + svg.querySelectorAll('.mo-fade, .mo-draw').length;
+  return dark + svg.querySelectorAll('.mo-draw').length;
 }, sel);
 const onScreen = (page, sel) => page.$eval(sel, el => {
   const r = el.getBoundingClientRect();
   return r.top < innerHeight && r.bottom > 0 && r.height > 0;
 }).catch(() => false);
-/* Wait for the reveal to SETTLE, never a fixed sleep: motion.js strips .mo-fade/
-   .mo-draw on animationend, so "no classes left" is the one true done signal — and
+/* Wait for the trace to SETTLE, never a fixed sleep: motion.js strips .mo-draw on
+   animationend, so "no classes left" is the one true done signal — and
    a stranded reveal keeps its classes (paused) forever, so this times out and the
    opacity assertion below catches it. A fixed wait races the stagger under load. */
 const settle = (page, sel) => page.waitForFunction(
-  s => !document.querySelector(`${s} .mo-fade, ${s} .mo-draw`), sel, {timeout: 4000}).catch(() => {});
+  s => !document.querySelector(`${s} .mo-draw`), sel, {timeout: 4000}).catch(() => {});
 /* the off-thread tools (cycles) paint from a worker, so the pane can still be a
    placeholder when we look — wait for a diagram to exist before judging it */
 const drawn = (page, sel) => page.waitForSelector(`${sel} svg`, {timeout: 8000}).catch(() => {});
@@ -192,8 +220,8 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
 {
   const {page, errors} = await open('/timeline/', {viewport: {width: 1440, height: 900}});
   await page.waitForSelector('#preview .vfig', {timeout: 8000});
-  const overridden = await page.$eval('#preview .vfig', t => t.style.fill !== '');
-  check('fig-arrival: the figure starts overridden to ink before the reveal plays', overridden);
+  const overridden = await page.evaluate(() => window.__motionProbe.figOverridden);
+  check('fig-arrival: the figure briefly overrides to ink', overridden);
   await page.waitForFunction(() => {
     const t = document.querySelector('#preview .vfig');
     return t && t.style.fill === '';

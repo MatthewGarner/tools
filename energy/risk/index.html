@@ -85,10 +85,15 @@
       </div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn" id="copypng">Copy PNG</button>
-        <button class="btn" id="copymd">Copy as markdown</button>
-        <button class="btn" id="dlpng">PNG</button>
-        <button class="btn" id="dlsvg">SVG</button>
+        <button class="btn primary" id="copypng">Copy PNG</button>
+        <details class="action-disclosure">
+          <summary class="btn">Export</summary>
+          <div class="action-menu">
+            <button class="btn" id="copymd">Copy as markdown</button>
+            <button class="btn" id="dlpng">PNG</button>
+            <button class="btn" id="dlsvg">SVG</button>
+          </div>
+        </details>
         <span class="method">Click a row to focus its verdict · click any number on the diagram to edit it · the URL carries your model</span>
       </div>
     </section>

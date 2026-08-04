@@ -67,6 +67,7 @@ const undone = await page.evaluate(() => localStorage.getItem('roadmap-src'));
 check('Cmd+Z undoes', undone === before);
 
 // snapshot + compare shows badges
+await page.getByText('History', {exact: true}).click();
 await page.getByRole('button', {name: 'Snapshot'}).click();
 await page.locator('.cm-content').click();
 await page.keyboard.press('Meta+ArrowDown');

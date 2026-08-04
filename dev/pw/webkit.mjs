@@ -97,10 +97,15 @@ for(const theme of ['light', 'dark']){
   const errs = [];
   page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
   try{
+    await page.addInitScript(() => {
+      window.__webkitTraceStarts = 0;
+      addEventListener('animationstart', e => {
+        if(e.animationName === 'mo-draw') window.__webkitTraceStarts++;
+      }, true);
+    });
     await page.goto(T + '/alarm/', {waitUntil: 'networkidle', timeout: 20000});
-    await page.waitForTimeout(150);
-    const drew = await page.evaluate(() => document.querySelectorAll('#distwrap .mo-draw').length);
-    ok(drew >= 1, 'motion(webkit): alarm curves stroke-draw on real Safari (.mo-draw ' + drew + ')');
+    const drew = await page.evaluate(() => window.__webkitTraceStarts);
+    ok(drew >= 1, 'motion(webkit): alarm ink accents stroke-draw on real Safari (starts ' + drew + ')');
     ok(errs.length === 0, 'motion(webkit): no page errors' + (errs.length ? ' — ' + errs[0] : ''));
   }catch(e){ ok(false, 'motion(webkit): alarm loads — ' + String(e).split('\n')[0]); }
   await ctx.close();
