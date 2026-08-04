@@ -115,9 +115,14 @@
     <div id="verdictwrap"></div>
     <div class="actions">
       <button class="btn primary" id="copypng">Copy PNG</button>
-      <button class="btn" id="copydoc">Copy as markdown</button>
-      <button class="btn" id="dlpng">PNG</button>
-      <button class="btn" id="dlsvg">SVG</button>
+      <details class="action-disclosure">
+        <summary class="btn">Export</summary>
+        <div class="action-menu">
+          <button class="btn" id="copydoc">Copy as markdown</button>
+          <button class="btn" id="dlpng">PNG</button>
+          <button class="btn" id="dlsvg">SVG</button>
+        </div>
+      </details>
       <span class="method">Seeded simulation · ~2,000 simulated days · deterministic · the URL carries your settings</span>
     </div>
   </div>
@@ -135,9 +140,14 @@
     </div>
     <div id="batchwrap"></div>
     <div class="actions">
-      <button class="btn" id="copybatchpng">Copy PNG</button>
-      <button class="btn" id="dlbatchpng">PNG</button>
-      <button class="btn" id="dlbatchsvg">SVG</button>
+      <button class="btn primary" id="copybatchpng">Copy PNG</button>
+      <details class="action-disclosure">
+        <summary class="btn">Export</summary>
+        <div class="action-menu">
+          <button class="btn" id="dlbatchpng">PNG</button>
+          <button class="btn" id="dlbatchsvg">SVG</button>
+        </div>
+      </details>
       <span class="method">Reinertsen's U-curve · transaction cost vs cost of delay</span>
     </div>
   </div>
@@ -151,9 +161,14 @@
     </div>
     <div id="triagewrap"></div>
     <div class="actions">
-      <button class="btn" id="copytriagepng">Copy PNG</button>
-      <button class="btn" id="dltriagepng">PNG</button>
-      <button class="btn" id="dltriagesvg">SVG</button>
+      <button class="btn primary" id="copytriagepng">Copy PNG</button>
+      <details class="action-disclosure">
+        <summary class="btn">Export</summary>
+        <div class="action-menu">
+          <button class="btn" id="dltriagepng">PNG</button>
+          <button class="btn" id="dltriagesvg">SVG</button>
+        </div>
+      </details>
       <span class="method">Same seeded simulation, one lever changed at a time</span>
     </div>
   </div>

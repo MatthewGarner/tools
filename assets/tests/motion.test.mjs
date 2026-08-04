@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 globalThis.matchMedia = () => ({matches: false, addEventListener() {}});
 globalThis.document = {hidden: false};
 
-const {captureFlip, applyFlip, motionStill, mountMotion} = await import('../motion.js');
+const {captureFlip, applyFlip, motionStill, mountMotion, revealIn} = await import('../motion.js');
 
 test('captureFlip keys by the attribute', () => {
   const el = a => ({getAttribute: () => a, getBoundingClientRect: () => ({left: 0, top: 0})});
@@ -29,4 +29,17 @@ test('mountMotion returns a paint fn with reveal/reset arming', () => {
   assert.equal(typeof paint, 'function');
   assert.equal(typeof paint.reveal, 'function');
   assert.equal(typeof paint.reset, 'function');
+});
+
+test('revealIn disconnects a prior observer before an early return', () => {
+  let disconnected = 0, played = 0;
+  const container = {
+    _moIO: {disconnect(){ disconnected++; }},
+    querySelectorAll(){ return []; },
+    querySelector(){ return null; },
+  };
+  revealIn(container, {}, () => played++);
+  assert.equal(disconnected, 1);
+  assert.equal(container._moIO, null);
+  assert.equal(played, 1);
 });

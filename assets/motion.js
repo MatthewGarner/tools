@@ -1,51 +1,53 @@
 /* Signature motion (2026-07-13): a shared, golden-safe DOM/CSS layer applied
    AFTER the renderer's SVG string is inserted — never baked into the string.
-   Reveal (draw-then-fill) + FLIP (glide on edit) + one reduced-motion gate.
+   Brief ink/trace accents + FLIP (glide on edit) + one reduced-motion gate.
    Spec: docs/superpowers/specs/2026-07-13-signature-motion-design.md */
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 export const motionStill = () => reducedMotion.matches || document.hidden;
 
 function onceEnd(el, fn){ el.addEventListener('animationend', fn, {once: true}); }
-function clean(el, cls){ el.classList.remove(cls); el.style.removeProperty('--mo-len'); el.style.removeProperty('--mo-i'); }
 
-/* Reveal: hero strokes (spec.draw) draw on; the SVG's other top-level children
-   fade+settle group-staggered behind them. getTotalLength is a geometry read
-   (not a layout reflow). Never dash-draws an already-dashed element. */
+function inkClone(el, len, index){
+  const accent = el.cloneNode(true);
+  for(const node of [accent, ...accent.querySelectorAll('*')]){
+    node.removeAttribute('id');
+    for(const attr of [...node.attributes]) if(attr.name.startsWith('data-')) node.removeAttribute(attr.name);
+  }
+  accent.setAttribute('aria-hidden', 'true');
+  accent.style.setProperty('--mo-len', (len + 2).toFixed(1));
+  accent.style.setProperty('--mo-i', index);
+  accent.style.setProperty('--mo-width', getComputedStyle(el).strokeWidth || el.getAttribute('stroke-width') || '1px');
+  accent.classList.add('mo-draw');
+  el.after(accent);
+  onceEnd(accent, () => accent.remove());
+  return accent;
+}
+
+/* Reveal: only authored hero strokes (spec.draw) draw on. All other SVG content
+   remains in its authored, readable state from the first frame. getTotalLength is
+   a geometry read (not a layout reflow). Never dash-draws an already-dashed element. */
 export function revealIn(container, spec = {}, onPlay){
+  if(container._moIO){ container._moIO.disconnect(); container._moIO = null; }
+  for(const accent of container.querySelectorAll('.mo-draw')) accent.remove();
   if(reducedMotion.matches){ if(onPlay) onPlay(); return; }   // instant, no animation, count as revealed
   const svg = container.querySelector('svg'); if(!svg){ if(onPlay) onPlay(); return; }
-  const drawn = (spec.draw ? [...svg.querySelectorAll(spec.draw)] : [])
+  const sources = (spec.draw ? [...svg.querySelectorAll(spec.draw)] : [])
     .filter(el => el.getTotalLength && !el.getAttribute('stroke-dasharray'))
     .slice(0, 12);
-  drawn.forEach((el, i) => {
+  const drawn = [];
+  sources.forEach((el, i) => {
     const L = el.getTotalLength(); if(!L) return;
-    el.style.setProperty('--mo-len', (L + 2).toFixed(1));
-    el.style.setProperty('--mo-i', i);
-    el.classList.add('mo-draw');
-    onceEnd(el, () => clean(el, 'mo-draw'));
+    drawn.push(inkClone(el, L, i));
   });
-  const drawnSet = new Set(drawn);
-  // when hero strokes draw, hold the fades back ~0.4s so the draw leads; when
-  // there's nothing to draw, start the fades immediately (no blank pause).
-  container.style.setProperty('--mo-fade-base', drawn.length ? '.4s' : '0s');
-  const hold = spec.hold ? new Set(svg.querySelectorAll(spec.hold)) : new Set();
-  const kids = [...svg.children].filter(el => el.nodeName !== 'defs' && el.nodeName !== 'style');
-  // the first full-bleed <rect fill> (no rx) is the backdrop — it appears
-  // instantly; fading/rising it would slide the whole plate and show the page
-  // through. spec.hold opts extra surfaces (cards/lanes) out of the rise too.
-  const backdrop = kids.find(el => el.nodeName === 'rect' && el.getAttribute('fill') && !el.getAttribute('rx'));
-  kids.filter(el => el !== backdrop && !drawnSet.has(el) && !hold.has(el))
-    .forEach((el, i) => {
-      el.style.setProperty('--mo-i', i % 8);
-      el.classList.add('mo-fade');
-      onceEnd(el, () => clean(el, 'mo-fade'));
-    });
-  // The animation is applied PAUSED (css: .mo-draw/.mo-fade animation-play-state:
-  // paused); adding .mo-go to the container unpauses it. It plays once the element
-  // is in view (see observeFullyInView) and never while it's off-screen — but it
-  // MUST always end up playing, because paused means opacity 0.
-  // Re-arm disconnects the prior observer.
-  if(container._moIO) container._moIO.disconnect();
+  // With no trace to animate, settle the ink accent immediately and let subsequent
+  // paints use FLIP. There is no reason to visibility-gate already-readable content.
+  if(!drawn.length){
+    container.classList.add('mo-go');
+    if(onPlay) onPlay();
+    return;
+  }
+  // The trace is applied paused; adding .mo-go unpauses it once the artefact is in
+  // view. The rest of the SVG remains readable while a below-fold trace is waiting.
   container.classList.remove('mo-go');
   let played = false;
   const play = () => { if(played) return; played = true; container.classList.add('mo-go'); if(onPlay) onPlay(); };
@@ -57,10 +59,8 @@ export function revealIn(container, spec = {}, onPlay){
    soon as a meaningful part of it has been on screen for a beat. Horizontal panning
    is ignored (a wide diagram is "seen" even when it pans).
 
-   Liveness is the hard part here, and getting it wrong ships blank boards: the
-   reveal is applied PAUSED at opacity 0, so an element that never unpauses is
-   invisible forever (2026-07-13: map/gauge/cycles on a laptop, five more on a
-   phone). Two rules keep content from being stranded:
+   Liveness still matters for a trace accent: an element that never unpauses leaves
+   its transient clone unfinished. Two rules keep those accents from being stranded:
      - Geometry is measured on every scroll/resize frame, never inferred from IO
        threshold crossings. A crossing list only samples the ratios it happens to
        cross, so a normal scroll can skip clean over the fully-in-view band and the
@@ -71,16 +71,10 @@ export function revealIn(container, spec = {}, onPlay){
        anyway. ENOUGH is deliberately LOW: any higher threshold just leaves a band
        where a board the user is looking at stays blank, and 0.6 still stranded
        /bets/ on a 1100×520 window (49% of itself, 32% of the screen — under both).
-       There is no "safe" high threshold, only the size of the hole. A reveal the
-       user half-notices is a non-event; a blank board is a bug.
+       There is no "safe" high threshold, only the size of the hole.
    A genuinely off-screen element never plays WITHIN THE FIRST SECONDS — after
-   DEADLINE it plays regardless (mostly unseen). Holding below-fold content at
-   opacity 0 indefinitely shipped intraday's phone charts BLANK in every first
-   paint/screenshot/print (2026-07-30: both its SVGs sit wholly under the fold
-   at 390px; siblings dodged it only because their chart pokes above the fold).
-   A reveal that plays unseen is a non-event; a board that is blank whenever a
-   capture looks at it is a bug. The deadline arms only once the element HAS a
-   box, so a view behind a tab (bets Quadrant, premortem's phases) still keeps
+   DEADLINE it plays regardless (mostly unseen). The deadline arms only once the
+   element HAS a box, so a view behind a tab (bets Quadrant, premortem's phases) keeps
    its reveal for the moment it's first shown. */
 const ENOUGH = 0.15, DWELL = 420, DEADLINE = 3000;
 function observeFullyInView(el, cb){
@@ -183,13 +177,14 @@ export function applyFlip(container, attr, old, {scale = 1} = {}){
    forces the next paint even if the string repeats. onSwap runs synchronously
    after the swap, before motion (timeline applies zoom so applyFlip reads
    final-scale rects). */
-/* The verdict figure ARRIVES (2026-08-02): on first reveal only, every .vfig
+/* The verdict figure gets one brief ink accent: on first reveal only, every .vfig
    tspan starts at its parent text's ink (an inline STYLE override — style beats
    the brand fill ATTRIBUTE) and settles to brand as the reveal finishes.
    Liveness by construction: the source string is ALWAYS brand; if motion never
-   fires the un-overridden fig is already correct with zero JS. The 700ms clear
-   is derived from the shared fade envelope (.4s hold + stagger + .38s), so the
-   450ms fill transition lands with the drawing's last beat. */
+   fires the un-overridden fig is already correct with zero JS. The short clear
+   starts the transition alongside the trace, so the
+   240ms fill transition runs alongside the trace and stays within the shared
+   300ms first-render envelope. */
 function armFigSettle(container){
   if(reducedMotion.matches) return [];
   const figs = [...container.querySelectorAll('.vfig')];
@@ -200,7 +195,7 @@ function armFigSettle(container){
   }
   return figs;
 }
-const settleFigs = figs => { if(figs.length) setTimeout(() => figs.forEach(t => t.style.removeProperty('fill')), 700); };
+const settleFigs = figs => { if(figs.length) setTimeout(() => figs.forEach(t => t.style.removeProperty('fill')), 20); };
 
 export function mountMotion(container){
   let lastSvg = '', revealed = false;

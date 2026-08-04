@@ -74,10 +74,15 @@
     <p class="verdict-fine" id="verdictFine"></p>
     <div id="boxwrap"></div>
     <div class="actions">
-      <button class="btn" id="copypng">Copy PNG</button>
-      <button class="btn" id="copydoc">Copy as markdown</button>
-      <button class="btn" id="dlpng">PNG</button>
-      <button class="btn" id="dlsvg">SVG</button>
+      <button class="btn primary" id="copypng">Copy PNG</button>
+      <details class="action-disclosure">
+        <summary class="btn">Export</summary>
+        <div class="action-menu">
+          <button class="btn" id="copydoc">Copy as markdown</button>
+          <button class="btn" id="dlpng">PNG</button>
+          <button class="btn" id="dlsvg">SVG</button>
+        </div>
+      </details>
       <button class="btn" id="copylink">Copy link</button>
       <span class="method">Seeded 1,000-case population · counts read off the dots · the URL carries your settings</span>
     </div>

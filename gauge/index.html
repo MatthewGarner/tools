@@ -76,9 +76,14 @@
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="startbtn" disabled>Start session</button>
         <button class="btn" id="copypng">Copy PNG</button>
-        <button class="btn" id="copymd">Copy as markdown</button>
-        <button class="btn" id="dlpng">PNG</button>
-        <button class="btn" id="dlsvg">SVG</button>
+        <details class="action-disclosure">
+          <summary class="btn">Export</summary>
+          <div class="action-menu">
+            <button class="btn" id="copymd">Copy as markdown</button>
+            <button class="btn" id="dlpng">PNG</button>
+            <button class="btn" id="dlsvg">SVG</button>
+          </div>
+        </details>
         <span class="method">Sample reveal uses seeded fake responses · the URL carries your questions</span>
       </div>
       <p class="errline" id="starterr" hidden></p>
@@ -125,9 +130,14 @@
   </div>
   <div class="actions" id="cexports" hidden>
     <button class="btn" id="copypng2">Copy PNG</button>
-    <button class="btn" id="copymd2">Copy as markdown</button>
-    <button class="btn" id="dlpng2">PNG</button>
-    <button class="btn" id="dlsvg2">SVG</button>
+    <details class="action-disclosure">
+      <summary class="btn">Export</summary>
+      <div class="action-menu">
+        <button class="btn" id="copymd2">Copy as markdown</button>
+        <button class="btn" id="dlpng2">PNG</button>
+        <button class="btn" id="dlsvg2">SVG</button>
+      </div>
+    </details>
     <button class="btn" id="tofermi" hidden title="Open the room's ranges as prefilled fermi variables">→ Fermi</button>
     <button class="btn danger" id="cend">End session now</button>
     <span class="method">Ending deletes all responses from the relay immediately — exports keep working</span>

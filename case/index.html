@@ -68,11 +68,16 @@
       <div class="preview" id="preview"><p class="placeholder">Paste a tool's URL as “Label -&gt; url” — or load the example.</p></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn" id="copypng">Copy PNG</button>
-        <button class="btn" id="copymd">Copy as markdown</button>
-        <button class="btn" id="dlpng">PNG</button>
-        <button class="btn primary" id="dlsvg">SVG</button>
-        <span class="method">Add exhibits in the source panel by pasting each tool URL · exhibit rows open their tool live · the URL carries the whole case</span>
+        <button class="btn primary" id="copypng">Copy PNG</button>
+        <details class="action-disclosure">
+          <summary class="btn">Export</summary>
+          <div class="action-menu">
+            <button class="btn" id="copymd">Copy as markdown</button>
+            <button class="btn" id="dlpng">PNG</button>
+            <button class="btn" id="dlsvg">SVG</button>
+          </div>
+        </details>
+        <span class="method">Work in the tools, paste each URL here as an exhibit · exhibit rows open their tool live · the URL carries the whole case</span>
       </div>
     </section>
 </div>

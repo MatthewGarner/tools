@@ -722,6 +722,7 @@ for(const theme of ['light', 'dark']){
   check('why(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('why(' + theme + '): snapshot compare renders the narrative + NEW badge', await (async () => {
     await page.locator('#viewost').click();
+    await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
     await page.keyboard.press('Meta+ArrowDown');
@@ -786,6 +787,7 @@ for(const theme of ['light', 'dark']){
   check('map(' + theme + '): snapshot compare shows drift', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(400);
+    await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
     await page.keyboard.press('Meta+ArrowDown');
@@ -932,6 +934,7 @@ for(const theme of ['light', 'dark']){
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
+    await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
     await page.keyboard.press('Meta+ArrowDown');
@@ -982,6 +985,7 @@ for(const theme of ['light', 'dark']){
   check('roadmap: Register rows expose editable cells',
     (await page.locator('#preview svg [data-edit="title"]').count()) >= 1);
   // WYSIWYG export: Download SVG from Register view yields the register table, not the chart
+  await page.getByText('Export', {exact: true}).click();
   const [reg] = await Promise.all([
     page.waitForEvent('download', {timeout: 8000}),
     page.locator('#dlsvg').click(),

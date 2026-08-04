@@ -50,6 +50,25 @@ h1{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size
   .verdict-block .vline{font-size:17px;letter-spacing:-.01em;line-height:1.35;max-width:none}
 }
 .actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+/* Secondary actions stay close to the artefact without making the toolbar read
+   like an undifferentiated button bank. Native details/summary supplies the
+   disclosure state and keyboard semantics; the panel is only presentation. */
+.action-disclosure{position:relative}
+.action-disclosure > summary{list-style:none;display:inline-flex;align-items:center;gap:8px}
+.action-disclosure > summary::-webkit-details-marker{display:none}
+.action-disclosure > summary::after{content:"+";font-size:13px;line-height:1;letter-spacing:0}
+.action-disclosure[open] > summary::after{content:"\2212"}
+.action-disclosure > summary:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+.action-menu{position:absolute;z-index:40;left:0;top:calc(100% + 6px);min-width:220px;
+  padding:5px;background:var(--card);border:1px solid var(--ink);box-shadow:var(--shadow)}
+.action-disclosure.history .action-menu{left:auto;right:0;min-width:250px}
+.action-menu .btn{display:flex;width:100%;justify-content:flex-start;text-align:left;
+  border-color:transparent;padding:9px 11px}
+.action-menu .btn:hover{border-color:var(--ink)}
+.action-menu .ctl{width:100%;min-height:36px;margin:2px 0;padding:7px 9px;
+  border:1px solid var(--border);border-radius:0;background:var(--card);color:var(--ink);
+  font:inherit;font-size:12px}
+.action-menu .ctl:focus-visible{outline:2px solid var(--data);outline-offset:1px}
 .placeholder{color:var(--muted);font-size:14.5px;margin:0;padding:30px 10px;text-align:center}
 button:focus-visible{outline:2px solid var(--data);outline-offset:2px}
 footer{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.6}
@@ -66,6 +85,10 @@ footer a:hover{color:var(--brand-text)}
 .vcopy:hover, .vcopy:focus-visible{border-color: var(--border); color: var(--ink); outline: none}
 .verdict-block[hidden] + .vcopy{display: none}
 @media (pointer: coarse){ .vcopy{min-height: 44px; padding: 10px 12px} }
+@media (pointer: coarse){
+  .action-disclosure > summary{min-height:44px}
+  .action-menu .btn,.action-menu .ctl{min-height:44px}
+}
 @media (pointer: fine){
   .vcopy{opacity: 0}
   .vcopy:focus-visible, .verdict-block:hover + .vcopy, .vcopy:hover{opacity: 1}

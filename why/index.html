@@ -73,12 +73,22 @@
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn" id="copypng">Copy PNG</button>
-        <button class="btn" id="dlpng">PNG</button>
-        <button class="btn" id="dlsvg">SVG</button>
-        <button class="btn primary" id="snap">Snapshot</button>
-        <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
-        <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
+        <button class="btn primary" id="copypng">Copy PNG</button>
+        <details class="action-disclosure">
+          <summary class="btn">Export</summary>
+          <div class="action-menu">
+            <button class="btn" id="dlpng">PNG</button>
+            <button class="btn" id="dlsvg">SVG</button>
+          </div>
+        </details>
+        <details class="action-disclosure history">
+          <summary class="btn">History</summary>
+          <div class="action-menu">
+            <button class="btn" id="snap">Snapshot</button>
+            <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+            <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
+          </div>
+        </details>
         <span class="method">Snapshot before each discovery review — compare renders the "what changed" narrative on the OST · the URL carries your tree and view</span>
       </div>
     </section>

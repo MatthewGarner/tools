@@ -70,14 +70,24 @@
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn" id="copypng">Copy PNG</button>
+        <button class="btn primary" id="copypng">Copy PNG</button>
         <button class="btn" id="topremortem" hidden>Premortem this date</button>
-      <button class="btn" id="copymd">Copy as markdown</button>
-        <button class="btn" id="dlpng">PNG</button>
-        <button class="btn" id="dlsvg">SVG</button>
-        <button class="btn primary" id="snap">Snapshot</button>
-        <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
-        <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
+        <details class="action-disclosure">
+          <summary class="btn">Export</summary>
+          <div class="action-menu">
+            <button class="btn" id="copymd">Copy as markdown</button>
+            <button class="btn" id="dlpng">PNG</button>
+            <button class="btn" id="dlsvg">SVG</button>
+          </div>
+        </details>
+        <details class="action-disclosure history">
+          <summary class="btn">History</summary>
+          <div class="action-menu">
+            <button class="btn" id="snap">Snapshot</button>
+            <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+            <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
+          </div>
+        </details>
         <span class="method">Snapshot before each board pack — compare renders the slip slide · the URL carries your timeline</span>
       </div>
     </section>
