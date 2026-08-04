@@ -16,7 +16,7 @@ async function boot(){
   const $ = id => document.getElementById(id);
   const IDS = ['inertia', 'trip', 'dr', 'dm', 'dc', 'gfm'];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  let lastSvg = '', rafId = 0, inputRaf = 0, hashTimer = null;
+  let lastSvg = '', rafId = 0, inputRaf = 0, hashTimer = null, resizeRaf = 0;
   let lastResult = null, lastParams = null;
 
   // hot-path DOM queries: both node lists are static (fixed markup, no
@@ -249,8 +249,20 @@ async function boot(){
     slug: () => 'frequency-inertia',
   });
   onThemeChange(() => refresh(false));
-  addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true); });
-  reducedMotion.addEventListener('change', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true); });
+  // resize fires many times per frame during a drag-resize — coalesce to one
+  // settled repaint per frame (cancel any pending, schedule one), same idiom
+  // as the slider's inputRaf single-flight above. reducedMotion's own 'change'
+  // is rarer and must win immediately over any resize still in flight: cancel
+  // whatever's pending and paint the final frame synchronously right there.
+  addEventListener('resize', () => {
+    if(!lastResult) return;
+    if(resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => { resizeRaf = 0; drawCanvas(lastResult, lastParams, Infinity, true); });
+  });
+  reducedMotion.addEventListener('change', () => {
+    if(resizeRaf){ cancelAnimationFrame(resizeRaf); resizeRaf = 0; }
+    if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true);
+  });
   document.addEventListener('visibilitychange', () => {
     if(document.hidden) cancelAnimationFrame(rafId);
     else if(inputRaf){ cancelAnimationFrame(inputRaf); inputRaf = 0; refresh(false); }

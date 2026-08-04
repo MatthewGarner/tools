@@ -92,13 +92,14 @@ function row(ex, i, c, measure, geom, opts){
   let h = 30;
   if(ex.note){
     const noteLines = wrapText(ex.note, '12.5px ' + SANS, width - (lx - x), measure);
-    let ny = yMid + 5;
+    let ny = yMid + 5, firstN = true;
     for(const t of noteLines){
       ny += 18;
       parts.push('<text x="' + lx + '" y="' + ny + '" font-size="12.5" fill="' + c.muted + '"' +
-        (opts.edit && t === noteLines[0] ? ' data-edit="note" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.note) +
+        (opts.edit && firstN ? ' data-edit="note" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.note) +
           '" tabindex="0" role="button" aria-label="Edit note: ' + esc(ex.note) + '"' : '') +
         '>' + esc(t) + '</text>');
+      firstN = false;
     }
     h = ny + 13;
   } else if(opts.edit){

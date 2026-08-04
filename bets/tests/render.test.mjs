@@ -197,6 +197,38 @@ test('compare: NEW marker on the added bet', () => {
   assert.match(svg, /Fresh angle/);
 });
 
+// The NEW pill's x must track the first name line's measured width, clamped to
+// C.nameEnd - 40 (322 - 40 = 282) so it never collides with a wrapped long name —
+// and hugs a short name's end rather than sitting at a fixed offset that overlaps it.
+const NEW_PILL_RE = /<rect x="([\d.]+)"[^>]*fill-opacity="0.1"[^>]*\/><text[^>]*>NEW<\/text>/;
+
+test('compare: NEW pill hugs the end of a short, unwrapped first name line', () => {
+  const svg = renderBoard(curModel, curSim, compareCtx);
+  const m = NEW_PILL_RE.exec(svg);
+  assert.ok(m, 'NEW pill rect found');
+  // "Fresh angle" (11 chars) under the test measure (13px * 0.55/char = 7.15/char):
+  // C.name(84) + 11*7.15(78.65) + 8 = 170.65 — nowhere near the 282 clamp.
+  assert.equal(m[1], '170.65');
+});
+
+test('compare: NEW pill clamps clear of a long wrapping first name line', () => {
+  const wrapSrc = `title: Q3 portfolio
+unit: £k
+Growth
+  Overinvesting in legacy billing integration rework: stake 50, odds 20-40%, payoff 80-150
+Platform
+  Billing rewrite: stake 200, odds 90-100%, payoff 250-350`;
+  const wrapModel = parse(wrapSrc);
+  const wrapSim = simulate(wrapModel);
+  const wrapCompare = betsDiffView(betsDiff(model, wrapModel), '2026-06-01');
+  const svg = renderBoard(wrapModel, wrapSim, {...CTX, compare: {...wrapCompare, prevSim: sim}});
+  const m = NEW_PILL_RE.exec(svg);
+  assert.ok(m, 'NEW pill rect found');
+  // first line wraps to "Overinvesting in legacy billing" (31 chars * 7.15 = 221.65);
+  // C.name(84) + 221.65 + 8 = 313.65, clamped down to C.nameEnd - 40 (282).
+  assert.equal(m[1], '282');
+});
+
 test('compare: KILLED ghost row for the dropped bet, in its lane', () => {
   const svg = renderBoard(curModel, curSim, compareCtx);
   assert.match(svg, />KILLED</);

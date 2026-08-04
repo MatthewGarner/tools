@@ -71,6 +71,21 @@ test('edit mode exposes one honest target for every editable case field', () => 
   assert.ok(!p.includes('data-edit='), 'goldens/exports stay chrome-free');
 });
 
+test('a note that wraps to 2+ IDENTICAL lines still gets exactly one keyboard target', () => {
+  // a genuinely-wrapping fixture, unlike the question case above: the row()
+  // boolean-vs-string-equality bug only shows up when two wrapped lines are
+  // byte-identical, so a single repeated word is the adversarial case.
+  const note = Array(100).fill('lorem').join(' ');
+  const src = 'title: T\nA: Only item -> /map/#x // ' + note;
+  const svg = draw(src, {edit: true});
+  const noteLines = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)]
+    .map(m => m[1]).filter(t => /^lorem( lorem)*$/.test(t));
+  assert.ok(noteLines.length >= 2, 'fixture must actually wrap the note to 2+ lines');
+  assert.equal(noteLines[0], noteLines[1], 'the first two wrapped lines must be identical — the adversarial case');
+  assert.equal((svg.match(/data-edit="note"/g) || []).length, 1,
+    'a wrapped note is one keyboard target, not one per identical line');
+});
+
 test('missing question and notes get real edit targets; exhibit creation stays explicitly source-led', () => {
   const src = 'title: New case\nstatus: open\nBoard options -> /tree/#def';
   for(const svg of [draw(src, {edit: true}),

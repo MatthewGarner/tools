@@ -370,9 +370,13 @@ window.addEventListener('pointercancel', e => {
   postDragClick.clear();
   endDrag();
 });
-window.addEventListener('lostpointercapture', e => {
-  if(!drag.armed) return;   // a normal post-pointerup release must not clear the click guard
-  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+/* No element ever calls setPointerCapture here (move/up live on window, not
+   the dragged element), so a lostpointercapture listener never fires — it's
+   dead. A release outside the browser window during a drag delivers no
+   pointerup to this page at all; window losing focus is the only signal we
+   get in that case — clear the ghost/armed state instead of stranding it. */
+window.addEventListener('blur', () => {
+  if(!drag.armed) return;
   postDragClick.clear();
   endDrag();
 });

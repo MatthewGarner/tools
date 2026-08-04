@@ -472,6 +472,46 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+/* ---- duel: copy-link race regression (the un-awaited writeHashState bug) ----
+   #copylink is clicked with NO settle wait right after a pick, to stress the
+   exact race an un-awaited writeHashState would lose: navigator.clipboard.write
+   Text is stubbed to capture the argument directly (deterministic — no real
+   clipboard permission dance needed), then a second page loads that captured
+   URL and its own duel count must reflect the pick just made, not the state
+   from before it. */
+{
+  const {page, errors} = await freshPage('/duel/', 'light');
+  await page.waitForTimeout(400);
+  await page.locator('#start').click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    window.__copied = null;
+    navigator.clipboard.writeText = t => { window.__copied = t; return Promise.resolve(); };
+  });
+  // the duel count lives in #metrics .counts ("N duels · ...") — .progress
+  // only exists once EVERY pair has been duelled, which isn't true yet here
+  const readDuelCount = async pg => {
+    const text = await pg.locator('#metrics .counts').innerText();
+    const m = /(\d+)\s+duels?\b/i.exec(text);   // .innerText() reflects the CSS text-transform: uppercase
+    return m ? parseInt(m[1], 10) : NaN;
+  };
+  const beforeN = await readDuelCount(page);
+  await page.locator('#duelwrap [data-pick]').first().click();   // the just-made pick
+  await page.locator('#copylink').click();                       // no settle wait — this is the race
+  await page.waitForTimeout(150);
+  const copied = await page.evaluate(() => window.__copied);
+  check('duel: copylink captures a real URL with a hash', typeof copied === 'string' && copied.includes('#'));
+  const page2 = await browser.newPage();
+  await page2.goto(copied);
+  await page2.waitForTimeout(400);
+  const afterN = await readDuelCount(page2);
+  check('duel: copied link decodes the just-made pick (count +1), not the stale pre-pick state',
+    afterN === beforeN + 1);
+  await page2.close();
+  check('duel: no console errors', errors.length === 0);
+  await page.close();
+}
+
 /* ---- alarm (base-rate playground) ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/alarm/', theme);
@@ -492,6 +532,25 @@ for(const theme of ['light', 'dark']){
   check('alarm(' + theme + '): repeated handle keys retain focus and change the threshold',
     await page.evaluate(() => document.activeElement?.dataset?.drag === 'threshold') &&
     Number(await page.locator('#threshold').inputValue()) > thresholdBeforeKeys);
+  /* ledger 15's literal criterion: ten presses, not two — one semantic slider
+     must retain focus throughout (not drift to a different handle/element),
+     and the value + URL must stay coherent the whole way, not just after a
+     couple of taps. */
+  for(let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');   // 2 already pressed above = 10 total
+  check('alarm(' + theme + '): ten ArrowRight presses retain focus on the ONE semantic threshold slider',
+    await page.evaluate(() => document.activeElement?.dataset?.drag === 'threshold'));
+  const thresholdAfterTen = Number(await page.locator('#threshold').inputValue());
+  check('alarm(' + theme + '): ten ArrowRight presses monotonically raise the threshold',
+    thresholdAfterTen > thresholdBeforeKeys);
+  await page.waitForTimeout(500);   // let the 400ms hash-write debounce settle
+  const hrefAfterTen = await page.evaluate(() => location.href);
+  const tenPage = await browser.newPage();
+  await tenPage.goto(hrefAfterTen);
+  await tenPage.waitForTimeout(400);
+  const reloadedThreshold = Number(await tenPage.locator('#threshold').inputValue());
+  check('alarm(' + theme + '): URL after ten presses round-trips the exact threshold value',
+    Math.abs(reloadedThreshold - thresholdAfterTen) < 1e-6);
+  await tenPage.close();
   await page.getByRole('button', {name: 'Vendor claim'}).click();
   await page.locator('#threshold').evaluate(e => { e.value = '0.3'; e.dispatchEvent(new Event('input', {bubbles: true})); });
   check('alarm(' + theme + '): manual input clears the stale preset state',

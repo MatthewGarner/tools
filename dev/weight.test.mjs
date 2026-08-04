@@ -133,13 +133,13 @@ const PAGES = {
      policy, pointer lifecycle cleanup, selected-preset state and dialog focus
      restoration are first-load interaction correctness. Actual 103.1k; leave
      real room for the next small safety fix. */
-  'alarm/index.html': 111_000,
+  'alarm/index.html': 116_000,   /* 2026-08-04 fold wave 2: trapPopoverFocus replaces the hand-rolled claim-dialog Tab trap; actual 111.1k, ~5k headroom */
   /* 444k -> 454k (2026-08-04 interaction reliability): the Case parity pass
      adds status editing and honest absent-field affordances to the rendered
      artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
   'case/index.html': 462_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
-  'premortem/index.html': 103_000,   /* register core + store + wizard + 2 renderers + app */
+  'premortem/index.html': 113_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -231,7 +231,7 @@ const PAGES = {
   /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
      exact post-render add locator, which prevents the reported DSL-focus jump
      and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
-  'why/index.html': 630_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  'why/index.html': 636_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 630.5k, ~5.5k headroom */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -243,11 +243,11 @@ const PAGES = {
   /* 506k -> 515k (2026-08-04 interaction reliability): Tree consumes the
      exact post-render add locator for inline default creation (the other
      reported DSL-focus path). Actual 508.8k; retain ~6k headroom. */
-  'tree/index.html': 530_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */
+  'tree/index.html': 536_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
-  'map/index.html': 523_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
+  'map/index.html': 531_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */   /* 2026-08-04 fold wave 2: dead lostpointercapture listener replaced with window-blur drag cleanup, popover-focus.js roving-focus; actual 525.5k, ~5.5k headroom */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -264,7 +264,7 @@ const PAGES = {
      Actual 526.6k; retain ~6k headroom. */
   /* Timeline also carries the shared exact post-render add locator: 505k ->
      516k (2026-08-04), actual 509.2k with ~6k remaining. */
-  'gauge/index.html': 540_000, 'timeline/index.html': 536_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
+  'gauge/index.html': 540_000, 'timeline/index.html': 545_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
@@ -278,7 +278,7 @@ const PAGES = {
   /* 506k -> 516k (2026-08-04 interaction reliability): Bets' shareable view
      state and exact pre-entry/default add targeting are first-load behavior.
      Actual 509.8k; retain ~6k headroom. */
-  'bets/index.html': 534_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
+  'bets/index.html': 541_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool

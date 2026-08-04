@@ -273,6 +273,14 @@ window.addEventListener('pointermove', e => {
     drag.active = true;
     drag.el.classList.add('dragging');
     document.body.style.cursor = 'grabbing';
+    /* wide-pill (non-track) drags deliberately don't capture at pointerdown —
+       mirroring the strip path immediately would retarget the compatibility
+       click and blind edit-in-place's [data-edit] lookup on a plain TAP (see
+       the pointerdown comment). Once this 4px threshold confirms a REAL drag
+       is underway, it's safe: capturing now closes the same release-outside-
+       the-window gap the strip path already covers via its early capture,
+       without touching plain-click routing (a click never reaches here). */
+    if(!drag.armed.track) try{ drag.el.setPointerCapture(drag.armed.pointerId); }catch(err){}
   }
   if(drag.armed.track){
     const r = drag.armed.track.getBoundingClientRect();

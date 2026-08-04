@@ -21,7 +21,7 @@ test('save/load/list round-trip through the index', () => {
   assert.equal(store.load('a'), null);
 });
 
-test('trash is a persistent, one-level tombstone that can restore the register', () => {
+test('trash is a persistent tombstone that can restore the register', () => {
   const backend = shim(), store = makeStore(backend);
   store.save({id: 'a', title: 'Recover me', entries: []});
   const tomb = store.trash('a');
@@ -42,6 +42,56 @@ test('purging trash makes a tombstone irrecoverable', () => {
   store.trash('a'); store.purgeTrash();
   assert.equal(store.trashed(), null);
   assert.equal(store.restoreTrash(), null);
+});
+
+test('a second delete never clobbers a still-pending first tombstone (the single-slot bug)', () => {
+  const store = makeStore(shim());
+  store.save({id: 'a', title: 'First', entries: []});
+  store.save({id: 'b', title: 'Second', entries: []});
+  store.trash('a');
+  store.trash('b');
+  assert.equal(store.trashedAll().length, 2, 'both tombstones survive');
+  assert.deepEqual(store.trashedAll().map(t => t.doc.id).sort(), ['a', 'b']);
+  assert.equal(store.trashed('a').doc.title, 'First', 'fetchable by doc id');
+  assert.equal(store.trashed('b').doc.title, 'Second');
+});
+
+test('restoreTrash() with no id pops the newest; restoreTrash(id) restores a specific one', () => {
+  const store = makeStore(shim());
+  store.save({id: 'a', title: 'First', entries: []});
+  store.save({id: 'b', title: 'Second', entries: []});
+  store.trash('a');
+  store.trash('b');
+  const restoredSpecific = store.restoreTrash('a');
+  assert.equal(restoredSpecific.id, 'a');
+  assert.equal(store.trashedAll().length, 1, 'only a was removed from trash');
+  assert.equal(store.trashed('b').doc.title, 'Second', 'b is still pending');
+  const restoredNewest = store.restoreTrash();
+  assert.equal(restoredNewest.id, 'b');
+  assert.equal(store.trashedAll().length, 0);
+});
+
+test('purgeTrash(id) removes only that tomb; a sibling tomb survives', () => {
+  const store = makeStore(shim());
+  store.save({id: 'a', title: 'First', entries: []});
+  store.save({id: 'b', title: 'Second', entries: []});
+  store.trash('a');
+  store.trash('b');
+  store.purgeTrash('a');
+  assert.equal(store.trashed('a'), null);
+  assert.equal(store.trashed('b').doc.title, 'Second', 'sibling tomb untouched');
+  assert.equal(store.restoreTrash('a'), null, 'a is genuinely gone');
+});
+
+test('a legacy single-object TRASH value migrates transparently to array reads', () => {
+  const backend = shim();
+  // pre-migration shape: a bare {doc, deleted} object, not an array
+  backend.setItem('premortem:trash', JSON.stringify({doc: {id: 'legacy', title: 'Old shape', entries: []}, deleted: Date.now()}));
+  const store = makeStore(backend);
+  assert.equal(store.trashedAll().length, 1);
+  assert.equal(store.trashed().doc.id, 'legacy');
+  const restored = store.restoreTrash();
+  assert.equal(restored.id, 'legacy');
 });
 
 test('toLink small doc → hash; oversized doc → null', async () => {

@@ -7,9 +7,12 @@
 
    The returned openAt() is for an add action that has just re-rendered the
    artefact. It finds ONE fresh target by its exact, caller-owned identity
-   ({kind, line, data}), never parses or normalises a source line, and opens the
-   same inline input as a direct click. It deliberately waits for the normal
-   CodeMirror → debounced render pipeline rather than poking the editor. */
+   ({kind, line, data}), never parses or normalises a source line, and opens
+   the same interaction a direct click on that target would — a plain input
+   for most kinds, but a popover/menu/cycle picker for any kind whose spec
+   carries one (spec.menu/spec.cycle/spec.options), same as open() always has.
+   It deliberately waits for the normal CodeMirror → debounced render pipeline
+   rather than poking the editor. */
 import {trapPopoverFocus} from './popover-focus.js';
 export {trapPopoverFocus};
 
@@ -100,10 +103,12 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   function renderPopoverRows(rows, rect, activeEl){
     const pop = document.createElement('div');
     pop.className = 'eip-pop';
+    pop.setAttribute('role', 'menu');
     pop.style.left = rect.left + 'px';
     pop.style.top = (rect.bottom + 4) + 'px';
     for(const row of rows){
       const b = document.createElement('button');
+      b.setAttribute('role', 'menuitem');
       b.textContent = row.label;
       if(row.danger) b.classList.add('danger');
       if(row.on) b.classList.add('on');

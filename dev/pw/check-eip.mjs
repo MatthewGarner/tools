@@ -367,6 +367,27 @@ check('label rename lands in text and diagram',
   await undo();
   check('tree: one undo restores the pre-add baseline (leaf root)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === tLeafRoot);
 
+  /* two-undo add+rename sequence (mirrors why's own coverage): rename the
+     fresh label after Add outcome, then two undos restore the exact pre-add
+     baseline — proves the insert lands as its own isolated undo group even
+     when a rename follows it immediately (wave 2A: insertAndSelect now tags
+     its dispatch so it can never merge into a preceding edit). */
+  await tapMarker(0);
+  await page.waitForTimeout(200);
+  await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
+  await page.waitForTimeout(500);
+  check('tree: Add outcome opens the fresh inline label field, prefilled',
+    (await page.locator('.eip-input').inputValue()).includes('New outcome'));
+  await page.locator('.eip-input').fill('Renamed outcome');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  check('tree: Enter commits the renamed outcome label',
+    (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Renamed outcome'));
+  await undo();
+  await undo();
+  check('tree: two undo steps restore the pre-add baseline (leaf root, rename then creation)',
+    (await page.evaluate(() => localStorage.getItem('tree-src'))) === tLeafRoot);
+
   /* IMPLICIT root: two top-level lines that carry (p=…) parse (zero warnings)
      to a synthetic wrapper of kind='chance' at line -1. It DISPLAYS as chance,
      but childLineFor(-1) is kind-blind and always inserts a top-level
@@ -488,6 +509,32 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('why: one undo restores the pre-add baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
+  /* ---- action-menu keyboard semantics (ledger 34): role=menu/menuitem, plus
+     ArrowUp/ArrowDown roving focus (wrapping) and Home/End to first/last, on
+     top of the existing Tab trap + Escape-to-close. Read-only — commits
+     nothing, closes via Escape. ---- */
+  await tapCard(5);
+  await p.waitForTimeout(200);
+  check('why: card menu popover carries role=menu with menuitem rows',
+    (await p.locator('.eip-pop').getAttribute('role')) === 'menu' &&
+    (await p.locator('.eip-pop button').first().getAttribute('role')) === 'menuitem');
+  const menuLabels = await p.locator('.eip-pop button').allInnerTexts();
+  const focusedLabel = () => p.evaluate(() => document.activeElement && document.activeElement.textContent);
+  check('why: menu opens with focus on the first row', (await focusedLabel()) === menuLabels[0]);
+  await p.keyboard.press('ArrowDown');
+  check('why: ArrowDown moves roving focus to the second row', (await focusedLabel()) === menuLabels[1]);
+  await p.keyboard.press('End');
+  check('why: End jumps roving focus to the last row', (await focusedLabel()) === menuLabels[menuLabels.length - 1]);
+  await p.keyboard.press('ArrowDown');
+  check('why: ArrowDown wraps from the last row back to the first', (await focusedLabel()) === menuLabels[0]);
+  await p.keyboard.press('Home');
+  check('why: Home jumps roving focus back to the first row (no-op here, already first)', (await focusedLabel()) === menuLabels[0]);
+  await p.keyboard.press('ArrowUp');
+  check('why: ArrowUp wraps from the first row to the last', (await focusedLabel()) === menuLabels[menuLabels.length - 1]);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  check('why: Escape closes the popover without committing', await p.locator('.eip-pop').count() === 0);
+
   /* ---- assumption sub-menu: tap an assumption row → a nested popover with
      the four ASSUMPTION_CYCLE states (current one carries .on) plus a danger
      "Remove assumption", targeting the ASSUMPTION's own srcLine — the
@@ -568,8 +615,22 @@ check('no console/page errors', errors.length === 0);
   await p.keyboard.press('Enter'); await p.waitForTimeout(600);
   check('why: Enter commits the in-place opportunity name',
     (await p.evaluate(() => localStorage.getItem('why-src'))).includes('Retention value is unclear'));
-  await undo();
-  await undo();
+  await undo();   // ONE undo: reverts the rename, the add itself remains
+  /* hash coherence: after add → rename → undo, location.hash (400ms debounce)
+     must decode to a model that round-trips this exact source — a fresh page
+     loading that same URL should land on the identical document, not the
+     stale pre-undo (or pre-add) state. */
+  await p.waitForTimeout(500);
+  const afterAddUndo = await p.evaluate(() => localStorage.getItem('why-src'));
+  const hrefAfterAddUndo = await p.evaluate(() => location.href);
+  const hashPage = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  await hashPage.goto(hrefAfterAddUndo);
+  await hashPage.waitForTimeout(500);
+  const hashDoc = await hashPage.evaluate(() => localStorage.getItem('why-src'));
+  check('why: location.hash after add→rename→undo decodes a model that round-trips the source',
+    hashDoc === afterAddUndo && afterAddUndo !== baseline);
+  await hashPage.close();
+  await undo();   // the second undo: removes the add itself, back to baseline
   check('why: two undo steps restore the named add (rename, then creation)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(16);   // opportunity leaf "Progress feels invisible" — no children, safe to remove alone
@@ -2170,6 +2231,11 @@ check('no console/page errors', errors.length === 0);
     (await btSrc()).split(/\r?\n/)[8] === '  Pen test: stake 50, odds 40-60%, payoff 100-200');
   check('bets narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
+  check('bets narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
+    await mpage.evaluate(() => {
+      const el = document.activeElement;
+      return !!el && el.dataset && el.dataset.edit === 'name' && el.dataset.raw === 'Pen test';
+    }));
   await tlUndo();
   check('bets narrow: one Undo removes the added bet', (await btSrc()) === btBase);
 
@@ -2582,8 +2648,61 @@ insure: premium 6 attach 65 limit 30`;
   await undo();
   check('bets: one undo removes the inserted kill placeholder', (await p.evaluate(() => localStorage.getItem('bets-src'))) === baseline);
 
+  /* ---- Escape on the kill default-insert: the wave-2A contract. Escape must
+     leave the doc EXACTLY at baseline (a clean undo() pop, not a forward
+     removeLine dispatch), and — the regression this actually guards against —
+     a SUBSEQUENT undo must never resurrect the cancelled placeholder (which a
+     forward removeLine would have left sitting on the undo stack for Ctrl+Z
+     to reverse). ---- */
+  await tapCard(11);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Add kill criterion…'}).click();
+  await p.waitForTimeout(400);
+  const midInsert = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: kill default-insert lands the placeholder before Escape',
+    midInsert.split(/\r?\n/).includes('    kill: reason'));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(400);
+  const afterEscape = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: Escape on the kill default-insert restores the exact baseline', afterEscape === baseline);
+  await undo();
+  const afterSubsequentUndo = await p.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets: a subsequent undo after Escape-cancel does not resurrect the placeholder',
+    !afterSubsequentUndo.split(/\r?\n/).includes('    kill: reason'));
+
   check('bets: no console/page errors', errs.length === 0);
   await p.close();
+}
+
+/* ---- bets: desktop (fine-pointer) addbet variant — the same ＋ Add bet flow
+   at a narrow (<520px) width but via a REAL mouse click with no touch
+   emulation, proving the narrow relayout's add affordance works without a
+   touch device attached. Also the positive focus assertion: after add,
+   document.activeElement IS the fresh bet's own rendered name field, not
+   merely "something outside CodeMirror". ---- */
+{
+  const dp = await browser.newPage({viewport: {width: 420, height: 900}});
+  const derrs = trackErrors(dp);
+  await dp.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
+  await dp.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await dp.waitForTimeout(600);
+  check('bets desktop-narrow: a fine-pointer narrow viewport still relayouts (data-narrow)',
+    await dp.evaluate(() => !!document.querySelector('#preview svg [data-narrow]')));
+  await dp.locator('#preview svg g[data-edit="addbet"][data-line="4"]').click();
+  await dp.waitForTimeout(200);
+  await dp.locator('.eip-input').fill('Fine pointer add');
+  await dp.keyboard.press('Enter');
+  await dp.waitForTimeout(600);
+  const dAfter = await dp.evaluate(() => localStorage.getItem('bets-src'));
+  check('bets desktop-narrow: ＋ Add bet (mouse click, no touch) inserts a parseable placeholder',
+    dAfter.split(/\r?\n/).some(l => l.trim() === 'Fine pointer add: stake 50, odds 40-60%, payoff 100-200'));
+  check('bets desktop-narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
+    await dp.evaluate(() => {
+      const el = document.activeElement;
+      return !!el && el.dataset && el.dataset.edit === 'name' && el.dataset.raw === 'Fine pointer add';
+    }));
+  check('bets desktop-narrow: no console/page errors', derrs.length === 0);
+  await dp.close();
 }
 
 /* ---- PHONE gate (coarse pointer, mobile-input Stage 0). Rule 1: a bare tap

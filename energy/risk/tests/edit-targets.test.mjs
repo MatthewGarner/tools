@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {validators, editField, editLabel, removeParam, addLegLine, removeLegLine, legTemplate,
-  addedLegTarget, isUntouchedLegAdd} from '../edit-targets.js';
+  addedLegTarget} from '../edit-targets.js';
 
 const DOC =
 `title: Route to market
@@ -125,15 +125,10 @@ test('the added leg parses cleanly as a new structure', () => {
   assert.ok(!m.warnings.some(w => /don’t know/.test(w)));
 });
 
-test('a fresh structure exposes its exact label target and guarded cancel identity', () => {
+test('a fresh structure exposes its exact label target', () => {
   const add = addLegLine(DOC, 'floor');
   const line = add.afterLine + 1;
-  const lines = DOC.split('\n');
-  lines.splice(line, 0, add.newLine);
-  const inserted = lines.join('\n');
   assert.deepEqual(addedLegTarget(add), {kind: 'label', line});
-  assert.equal(isUntouchedLegAdd(inserted, line, add.newLine), true);
-  assert.equal(isUntouchedLegAdd(inserted.replace(add.newLine, add.newLine + ' "Named"'), line, add.newLine), false);
 });
 
 test('addLegLine rejects an unknown kind', () => {

@@ -1230,7 +1230,7 @@ function cfParse(){
   }
   const rlo = parseFloat(cf.rlo), rhi = parseFloat(cf.rhi);
   if(!isFinite(rlo) || !isFinite(rhi)) return null;
-  const spec = {periods, horizon: Math.max(cf.horizon, periods.length - 1), grain: cf.grain,
+  const spec = {periods, horizon: effectiveHorizon(cf.horizon, periods.length), grain: cf.grain,
     rate: {lo: Math.min(rlo, rhi), hi: Math.max(rlo, rhi)}};
   if(cf.debtOn){
     // pass raw values through; sizeDebt gates invalid dscr / cost-of-debt cleanly

@@ -768,9 +768,15 @@ window.addEventListener('pointercancel', e => {
   postDragClick.clear();
   endDrag();
 });
-window.addEventListener('lostpointercapture', e => {
-  if(!drag.armed && !drag.edge) return;   // a normal post-pointerup release must not clear the click guard
-  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+/* No element ever calls setPointerCapture here (move/up live on window, not
+   the dragged element), so a lostpointercapture listener never fires — it's
+   dead. A release outside the browser window during a drag delivers no
+   pointerup to this page at all; the pointerdown-time endDrag() above is a
+   lazy fallback (clears on the NEXT gesture) but can leave a ghost/dropline
+   stuck on screen indefinitely until then. window losing focus is the signal
+   we actually get in that case — clear proactively instead of waiting. */
+window.addEventListener('blur', () => {
+  if(!drag.armed && !drag.edge) return;
   postDragClick.clear();
   endDrag();
 });

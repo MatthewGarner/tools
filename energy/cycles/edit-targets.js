@@ -90,10 +90,6 @@ export function addKeyReturnIdentity(key){
   return {kind: 'cardmenu', data: {band: key === 'charge' ? 'price' : 'life'}};
 }
 
-export function isUntouchedKeyAdd(text, line, newLine){
-  return text.split(/\r?\n/)[line] === newLine;
-}
-
 export function removeKeyLine(text, key){
   if(!ADDABLE.has(key)) return -1;
   const src = parse(text).srcLines[key];

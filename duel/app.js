@@ -153,13 +153,13 @@ function reduelLoop(li){
 
 /* ---------- exports ---------- */
 $('copydoc').addEventListener('click', async () => {
-  writeHashState(state);                 // exports must never race the debounced persistence path
+  await writeHashState(state);           // exports must never race the debounced persistence path
   const md = markdown(state, location.href);
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
 $('copylink').addEventListener('click', async () => {
-  writeHashState(state);                 // share the choice that was just made, not its previous hash
+  await writeHashState(state);           // share the choice that was just made, not its previous hash
   try{ await navigator.clipboard.writeText(location.href); flash('copylink', 'Copied'); }
   catch(e){ prompt('Copy this link:', location.href); }
 });

@@ -63,7 +63,7 @@ function card(e, kind, promoting){
     const pf = completeConf ? [100 - conf[1], 100 - conf[0]].sort((a, b) => a - b) : [null, null];
     return '<div class="bcard promoting" data-id="' + e.id + '">' + head +
       '<div class="promoteform">' +
-      '<p class="pfhint">If this is wrong: how likely, and what does it cost?</p>' +
+      '<p class="pfhint" aria-live="polite">If this is wrong: how likely, and what does it cost?</p>' +
       '<span class="scin"><label>likelihood wrong</label>' +
       '<input type="number" min="0" max="100" data-promotep="lo" data-id="' + e.id + '" value="' + (pf[0] ?? '') + '" aria-label="Likelihood wrong low for ' + esc(e.text) + '">–' +
       '<input type="number" min="0" max="100" data-promotep="hi" data-id="' + e.id + '" value="' + (pf[1] ?? '') + '" aria-label="Likelihood wrong high for ' + esc(e.text) + '">%</span>' +

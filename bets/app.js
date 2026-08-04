@@ -228,12 +228,11 @@ function openOrAddKill(lineNo, origin){
   const indent = (betLine.match(/^ */) || [''])[0].length;
   const killIndent = ' '.repeat(indent + 2);
   editor.insertLinesAfter(idx, [killIndent + 'kill: reason']);
+  const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
   const target = addedKillTarget(lineNo);
-  const cancel = () => {
-    const lineIdx = target.line - 1;              // target is Bets' 1-based srcLine
-    const linesNow = editor.getText().split(/\r?\n/);
-    if(lineIdx < linesNow.length && linesNow[lineIdx].trim() === 'kill: reason') editor.removeLine(lineIdx);
-  };
+  // undo() (not a forward removeLine) pops the insert's own isolated group —
+  // Escape leaves no extra "remove" entry for a stray Ctrl+Z to resurrect.
+  const cancel = () => { if(editor.getText() === addedText) editor.undo(); };
   /* Default-insert is deliberately different from bet/group pre-entry: the
      fresh kill line must exist before it has a rendered field. Escape removes
      that exact untouched default; a missed target rolls it back and returns

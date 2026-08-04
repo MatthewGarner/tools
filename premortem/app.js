@@ -19,7 +19,8 @@ const DELETE_UNDO_MS = 10000;
 
 let doc = null, undoStack = [], reached = new Set(), timer = 0;
 let view = 'wizard', promotingId = null;   // transient UI state (not persisted): 'wizard' | 'board'; id of the card mid-promote
-let pendingDeletion = null, deletionTimer = 0;
+let pendingDeletion = null;
+const deletionTimers = new Map();   // doc id -> timer handle; one purge timer per tomb, so a second delete's arm can never cancel a first tomb's own expiry
 const saveNow = () => { if(doc) store.save(doc); };
 const save = debounced(saveNow, 300);
 
@@ -128,15 +129,27 @@ function renderDeletionFeedback(){
   $('homefeedback').hidden = !pendingDeletion;
   $('homefeedbacktext').textContent = pendingDeletion ? '“' + pendingDeletion.title + '” deleted.' : '';
 }
+/* Arms (or re-arms, e.g. on boot) ONE tomb's own purge timer, keyed by its doc
+   id — independent of every other pending tomb, so a second delete's arm can
+   never cancel a first tomb's expiry (the single-slot bug this batch fixes).
+   The visible "X deleted" banner still shows only the most-recently-armed
+   tomb (pendingDeletion stays a single slot); every tomb purges correctly on
+   its own schedule regardless of which one is currently shown. */
 function armDeletion(tomb){
-  if(deletionTimer) clearTimeout(deletionTimer);
+  const id = tomb.doc.id;
+  const existing = deletionTimers.get(id);
+  if(existing) clearTimeout(existing);
   const left = DELETE_UNDO_MS - (Date.now() - tomb.deleted);
-  if(left <= 0){ store.purgeTrash(); pendingDeletion = null; renderDeletionFeedback(); return; }
+  const expire = () => {
+    store.purgeTrash(id);
+    deletionTimers.delete(id);
+    if(pendingDeletion && pendingDeletion.doc.id === id){ pendingDeletion = null; renderDeletionFeedback(); }
+  };
+  if(left <= 0){ expire(); return; }
   pendingDeletion = {...tomb, title: tomb.doc.title || 'Untitled premortem'};
-  deletionTimer = setTimeout(() => {
-    store.purgeTrash(); pendingDeletion = null; deletionTimer = 0; renderDeletionFeedback();
-  }, left);
+  deletionTimers.set(id, setTimeout(expire, left));
 }
+function armAllPendingTombstones(){ for(const tomb of store.trashedAll()) armDeletion(tomb); }
 const escHtml = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 
 /* ---------- WRITE timer ---------- */
@@ -157,7 +170,11 @@ function startTimer(){
 $('next').addEventListener('click', () => { if(canAdvance(doc).ok) mutate(() => { doc = advance(doc); }, {phaseFocus: true}); });
 $('back').addEventListener('click', () => mutate(() => { doc = back(doc); }, {phaseFocus: true}));
 $('undo').addEventListener('click', undo);
-function undo(){ if(!undoStack.length) return; doc = undoStack.pop(); saveNow(); render(); }
+function undo(){
+  if(!undoStack.length) return;
+  doc = undoStack.pop(); saveNow();
+  render({focus: '#undo', announce: 'Undo.'});
+}
 document.addEventListener('keydown', e => {
   const editing = e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]');
   if(!e.defaultPrevented && !editing && !e.shiftKey && !e.altKey &&
@@ -201,9 +218,9 @@ boardPanel.addEventListener('keydown', e => {
 boardPanel.addEventListener('click', e => {
   const d = e.target.dataset;
   if(d.boarddel){
-    const kind = entry(d.boarddel)?.kind;
+    const en = entry(d.boarddel), kind = en?.kind, label = en?.text || 'Item';
     mutate(() => { doc.entries = doc.entries.filter(x => x.id !== d.boarddel); },
-      {focus: kind ? '[data-add-kind="' + kind + '"]' : ''});
+      {focus: kind ? '[data-add-kind="' + kind + '"]' : '', announce: label + ' deleted. Undo available.'});
   }
   else if(d.promote){ promotingId = d.promote; render();
     requestAnimationFrame(() => boardPanel.querySelector('[data-promoteimpact="lo"]')?.focus()); }
@@ -248,10 +265,14 @@ $('savedlist').addEventListener('click', e => {
 });
 $('restoredeleted').addEventListener('click', () => {
   if(!pendingDeletion) return;
-  const title = pendingDeletion.title;
-  store.restoreTrash(); pendingDeletion = null;
-  if(deletionTimer) clearTimeout(deletionTimer); deletionTimer = 0;
-  renderHome(); finishPaint({focus: '[data-open]', announce: title + ' restored'});
+  const title = pendingDeletion.title, tid = pendingDeletion.doc.id;
+  const restored = store.restoreTrash(tid);   // by id — precise even if another tomb is also pending
+  const t = deletionTimers.get(tid);
+  if(t) clearTimeout(t);
+  deletionTimers.delete(tid);
+  pendingDeletion = null;
+  renderHome();
+  finishPaint({focus: restored ? '[data-open="' + restored.id + '"]' : '[data-open]', announce: title + ' restored'});
 });
 
 /* ---------- phase interactions ---------- */
@@ -295,23 +316,55 @@ $('phasepanel').addEventListener('change', e => {
   if(d.cluster !== undefined){
     let val = e.target.value;
     if(val === '__new'){ val = (prompt('New cluster name') || '').trim(); if(!val){ render(); return; } }
-    mutate(() => { const en = entry(d.cluster); if(en) en.cluster = val || null; });
+    mutate(() => { const en = entry(d.cluster); if(en) en.cluster = val || null; },
+      {focus: '[data-cluster="' + d.cluster + '"]'});
   } else if(d.merge !== undefined && e.target.value){
-    mutate(() => { doc.entries = mergeEntries(doc.entries, d.merge, e.target.value); });
+    const dst = e.target.value;   // the src row (d.merge) is gone after the merge — land on the survivor
+    mutate(() => { doc.entries = mergeEntries(doc.entries, d.merge, dst); },
+      {focus: '[data-cluster="' + dst + '"]'});
   }
 });
 $('phasepanel').addEventListener('click', e => {
   const t = e.target, d = t.dataset;
-  if(t.dataset.tag){ mutate(() => { const en = entry(d.id); if(en) en.tag = en.tag === d.tag ? null : d.tag; }); }
-  else if(d.del){ mutate(() => { doc.entries = doc.entries.filter(x => x.id !== d.del); }); }
-  else if(d.actadd){ mutate(() => { entry(d.actadd)?.actions.push({text: '', owner: '', done: false, votes: 0}); }); }
-  else if(d.actdel){ mutate(() => { const en = entry(d.actdel); if(en) en.actions.splice(+d.ai, 1); }); }
-  else if(d.vote){ mutate(() => { doc = castVote(doc, d.id, +d.ai, +d.vote); }); }
-  else if(d.act === 'skiptimer'){ if(timer){ clearInterval(timer); timer = 0; } mutate(() => { doc = advance(doc); }); }
+  if(t.dataset.tag){
+    mutate(() => { const en = entry(d.id); if(en) en.tag = en.tag === d.tag ? null : d.tag; },
+      {focus: '[data-tag="' + d.tag + '"][data-id="' + d.id + '"]'});
+  }
+  else if(d.del){
+    const label = entry(d.del)?.text || 'Risk';
+    mutate(() => { doc.entries = doc.entries.filter(x => x.id !== d.del); },
+      {focus: '[data-add="entry"]', announce: label + ' deleted.'});
+  }
+  else if(d.actadd){
+    const idx = entry(d.actadd)?.actions.length ?? 0;   // where the pushed action will land
+    mutate(() => { entry(d.actadd)?.actions.push({text: '', owner: '', done: false, votes: 0}); },
+      {focus: '[data-action="text"][data-id="' + d.actadd + '"][data-ai="' + idx + '"]'});
+  }
+  else if(d.actdel){
+    const label = entry(d.actdel)?.actions[+d.ai]?.text || 'Action';
+    mutate(() => { const en = entry(d.actdel); if(en) en.actions.splice(+d.ai, 1); },
+      {focus: '[data-actadd="' + d.actdel + '"]', announce: label + ' removed.'});
+  }
+  else if(d.vote){
+    // needs the post-vote count for a truthful announce (castVote clamps at the pool),
+    // which the mutate() paint-options shorthand can't see — so its steps are inlined here.
+    const dir = +d.vote;
+    snapshot();
+    doc = castVote(doc, d.id, +d.ai, dir);
+    saveNow();
+    const votes = entry(d.id)?.actions[+d.ai]?.votes ?? 0;
+    render({focus: '[data-vote="' + d.vote + '"][data-id="' + d.id + '"][data-ai="' + d.ai + '"]',
+      announce: votes + (votes === 1 ? ' vote.' : ' votes.')});
+  }
+  else if(d.act === 'skiptimer'){
+    if(timer){ clearInterval(timer); timer = 0; }
+    mutate(() => { doc = advance(doc); }, {phaseFocus: true});
+  }
   else if(d.act === 'copylink'){ copyLink(); }
   else if(d.act === 'copydoc'){ copyDoc(); }
   else if(d.act === 'reviewall'){ if(confirm('Mark every risk reviewed today?')) mutate(() => {
-    const now = new Date().toISOString(); doc.entries.forEach(en => { en.lastReviewed = now; }); }); }
+    const now = new Date().toISOString(); doc.entries.forEach(en => { en.lastReviewed = now; }); },
+    {focus: '[data-act="reviewall"]', announce: 'All risks marked reviewed.'}); }
 });
 async function copyLink(){
   const link = await toLink(doc);
@@ -343,13 +396,16 @@ $('boardpanel').addEventListener('click', e => {
     navigator.clipboard.writeText(line).then(done, () => prompt('Copy this:', line));
   else prompt('Copy this:', line);
 });
+  // re-arm every pending tomb's own purge timer FIRST, unconditionally — the
+  // imported-via-link path below returns early (it lands straight on the
+  // imported doc, not the home screen), and used to skip this entirely,
+  // leaving any pending tomb's timer never (re-)started for this page load.
+  armAllPendingTombstones();
   if(location.hash.length > 1){
     const imported = await fromLink(location.hash);
     history.replaceState(null, '', location.pathname);
     if(imported){ doc = imported; reached = new Set([doc.phase || 'REGISTER']); if(!doc.phase) doc.phase = 'REGISTER'; saveNow(); render(); return; }
   }
-  const tomb = store.trashed();
-  if(tomb?.doc) armDeletion(tomb);
   const list = store.list();
   if(list.length || pendingDeletion){ doc = null; render(); }
   else { doc = exampleDoc(); saveNow(); render(); }   // greet with a populated register, not a blank form

@@ -4,7 +4,7 @@ import {resolveVerdict} from '../assets/verdict.js';   // the composer headline 
 import {sessionStats, markdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,
-  renameOption, addOption, removeOption, addedQuestionTarget, isUntouchedQuestionAdd} from './edit-targets.js';
+  renameOption, addOption, removeOption, addedQuestionTarget} from './edit-targets.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {renderOverlay} from './render-overlay.js';
@@ -173,16 +173,28 @@ async function initCompose(hash){
           {line: verdict(sessionStats(model, sampleResponses(model))), fig: ''}).line : '',
       })) return;
       if(kind === 'addq'){
+        // a second add activation while the first's popover hasn't resolved yet
+        // would silently close that first input (attachEditInPlace allows only
+        // one open target) and orphan its pendingQuestionAdd tracking — no-op instead.
+        if(pendingQuestionAdd){ announceEdit('Still adding the last question — finish or cancel it first.'); return; }
         const add = addQuestionLine(editor.getText(), value);
+        if(!add) return;
         const freshLine = add.afterLine + 1;
         insertQuestion(add);
+        const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
         pendingQuestionAdd = {line: freshLine, newLine: add.newLine};
         void composeEip.openAt(addedQuestionTarget(add), {
           origin: el,
           onCancel(){
-            if(isUntouchedQuestionAdd(editor.getText(), freshLine, add.newLine)) editor.removeLine(freshLine);
+            // only safe to roll back if the doc is EXACTLY as the add left it — anything else
+            // (an edit elsewhere) and we leave the document alone. Rolling back via undo()
+            // (not a forward removeLine dispatch) keeps history clean too: Escape leaves no
+            // extra "remove" entry for a stray Ctrl+Z to un-remove — undo() pops the add's
+            // own isolated group (insertLinesAfter/'input.complete' tag it as such).
+            const removed = editor.getText() === addedText;
+            if(removed) editor.undo();
             pendingQuestionAdd = null;
-            announceEdit('Question creation cancelled.');
+            announceEdit(removed ? 'Question creation cancelled.' : 'Question kept — document changed.');
             setTimeout(focusFreshAdd, 140);
           },
           onMiss(){ pendingQuestionAdd = null; announceEdit('Question added. Its in-place editor could not be opened.'); focusFreshAdd(); },

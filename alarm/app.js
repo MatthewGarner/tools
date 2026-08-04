@@ -11,6 +11,7 @@ import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {trapPopoverFocus} from '../assets/popover-focus.js';
 import {adjustThreshold, dragEndsForPointer} from './interaction.js';
 
 const $ = id => document.getElementById(id);
@@ -181,11 +182,17 @@ $('claimApply').addEventListener('click', () => {
   closeClaim(); refreshThenAnimate();
 });
 function clampPct(v){ return Math.max(0.01, Math.min(0.999, (isFinite(v) ? v : 99) / 100)); }
-let claimReturnFocus = null;
+let claimReturnFocus = null, claimTrapWired = false;
 function openClaim(){
   claimReturnFocus = document.activeElement;
   $('claimPop').hidden = false;
   $('claimBtn').setAttribute('aria-expanded', 'true');
+  /* claimPop is a static, always-present element (toggled via hidden, never
+     recreated) unlike edit-in-place's ad-hoc popovers — so the trap wires
+     once, not on every open (each call would stack another keydown listener).
+     trapPopoverFocus's own auto-focus lands on the first BUTTON (Cancel); the
+     explicit .focus() below always runs after and wins, on every open. */
+  if(!claimTrapWired){ trapPopoverFocus($('claimPop'), () => closeClaim()); claimTrapWired = true; }
   $('claimSens').focus();
 }
 function closeClaim({restoreFocus = true} = {}){
@@ -200,15 +207,6 @@ document.addEventListener('pointerdown', e => {
   if(!$('claimPop').hidden && !$('claimPop').contains(e.target) && e.target !== $('claimBtn'))
     closeClaim({restoreFocus: false});
 }, true);
-document.addEventListener('keydown', e => {
-  if($('claimPop').hidden) return;
-  if(e.key === 'Escape'){ e.preventDefault(); closeClaim(); return; }
-  if(e.key !== 'Tab') return;
-  const focusable = [...$('claimPop').querySelectorAll('input, button:not([disabled])')];
-  const first = focusable[0], last = focusable[focusable.length - 1];
-  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
-  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
-});
 
 /* ---------- threshold drag on the plot ---------- */
 const distwrap = $('distwrap');

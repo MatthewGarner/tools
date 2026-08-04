@@ -146,7 +146,10 @@ function renderRows(){
       s.value = it.s[ci];
       s.setAttribute('aria-label', it.name + ' ' + c.name + ' score');
       s.addEventListener('input', () => { if(s.value !== ''){ it.s[ci] = clampScore(parseFloat(s.value)); schedule(200); } });
-      s.addEventListener('change', () => { it.s[ci] = clampScore(parseFloat(s.value)); s.value = it.s[ci]; schedule(0); });
+      s.addEventListener('change', () => {
+        it.s[ci] = s.value === '' ? it.s[ci] : clampScore(parseFloat(s.value));
+        s.value = it.s[ci]; schedule(0);
+      });
       td.appendChild(s);
       tr.appendChild(td);
     });
@@ -158,7 +161,10 @@ function renderRows(){
     e.value = it.e;
     e.setAttribute('aria-label', it.name + ' effort score');
     e.addEventListener('input', () => { if(e.value !== ''){ it.e = clampScore(parseFloat(e.value)); schedule(200); } });
-    e.addEventListener('change', () => { it.e = clampScore(parseFloat(e.value)); e.value = it.e; schedule(0); });
+    e.addEventListener('change', () => {
+      it.e = e.value === '' ? it.e : clampScore(parseFloat(e.value));
+      e.value = it.e; schedule(0);
+    });
     tde.appendChild(e);
     tr.appendChild(tde);
     const tdd = document.createElement('td');
@@ -181,8 +187,10 @@ function compute(){ lastResult = simulate(state); }
 function liveReweight(){
   const holder = $('rrows');
   if(!lastResult || !holder.children.length) return;
-  const valid = it => it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0;
-  const score = it => state.criteria.reduce((a, c, ci) => a + c.w * it.s[ci], 0) / it.e;
+  // mirrors engine.js's simulate(): finite-only membership (no >0 requirement), clamped
+  // weight/score in the score itself — so live drag order can never disagree with the commit.
+  const valid = it => it.s.every(v => isFinite(v)) && isFinite(it.e);
+  const score = it => state.criteria.reduce((a, c, ci) => a + clampWeight(c.w || 0) * clampScore(it.s[ci]), 0) / clampScore(it.e);
   // stable sort over index-ascending, NO name tie-break — matches simulate()'s baseOrder exactly
   // (which has none), so genuinely-tied rows don't fake a flip on-screen then snap back on commit (I1)
   const order = state.items.map((_, i) => i).filter(i => valid(state.items[i]))

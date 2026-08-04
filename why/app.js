@@ -200,9 +200,12 @@ const whyEip = attachEditInPlace($('preview'), {
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
         const inserted = insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
         whyEip.openAt({kind: 'label', line: inserted.srcLine}, {
           origin: el,
-          onCancel(){ editor.removeLine(inserted.srcLine); },
+          // undo() (not a forward removeLine) pops the insert's own isolated group —
+          // Escape leaves no extra "remove" entry for a stray Ctrl+Z to resurrect.
+          onCancel(){ if(editor.getText() === addedText) editor.undo(); },
         });
       } else if(newValue === '✖Remove branch'){
         const rr = subtreeRange(editor.getText(), lineNo);

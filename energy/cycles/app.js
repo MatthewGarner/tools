@@ -4,7 +4,7 @@ import {simulate, verdict, thresholdFigure, simKey, fmtUnit} from './engine.js';
 import {render as renderSvg, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField, addKeyLine, removeKeyLine, addedKeyTarget,
-  addKeyReturnIdentity, isUntouchedKeyAdd} from './edit-targets.js';
+  addKeyReturnIdentity} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
@@ -104,11 +104,7 @@ const previewRevision = createPreviewRevisionGuard({
   onBlockedChange(blocked, revision){
     stageEl.toggleAttribute('inert', blocked);
     stageEl.setAttribute('aria-busy', String(blocked));
-    if(blocked) stageEl.dataset.pendingRevision = String(revision);
-    else {
-      delete stageEl.dataset.pendingRevision;
-      stageEl.dataset.renderRevision = String(revision);
-    }
+    if(!blocked) stageEl.dataset.renderRevision = String(revision);
   },
 });
 
@@ -350,11 +346,16 @@ previewEip = attachEditInPlace($('preview'), {
   },
   onCommit(kind, line, raw, value, el){
     if(kind === 'addkey'){
+      // a second add activation while the first's popover hasn't resolved yet
+      // would silently close that first input (attachEditInPlace allows only
+      // one open target) and orphan its pendingKeyAdd tracking — no-op instead.
+      if(pendingKeyAdd){ $('editstatus').textContent = 'Still adding the last assumption — finish or cancel it first.'; return; }
       const key = (el && el.dataset && el.dataset.key) || value;   // capsule carries data-key; menu row passes key as value
       const r = addKeyLine(editor.getText(), key);
       if(!r) return;
       const freshLine = r.afterLine + 1;
       insertKey(r);
+      const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
       pendingKeyAdd = {line: freshLine, key};
       const returnIdentity = addKeyReturnIdentity(key);
       const focusFreshAdd = () => {
@@ -374,9 +375,15 @@ previewEip = attachEditInPlace($('preview'), {
       void previewEip.openAt(addedKeyTarget(r, key), {
         origin: el,
         onCancel(){
-          if(isUntouchedKeyAdd(editor.getText(), freshLine, r.newLine)) editor.removeLine(freshLine);
+          // only safe to roll back if the doc is EXACTLY as the add left it — anything else
+          // (an edit elsewhere) and we leave the document alone. Rolling back via undo()
+          // (not a forward removeLine dispatch) keeps history clean too: Escape leaves no
+          // extra "remove" entry for a stray Ctrl+Z to un-remove — undo() pops the add's
+          // own isolated group (insertLinesAfter/'input.complete' tag it as such).
+          const removed = editor.getText() === addedText;
+          if(removed) editor.undo();
           pendingKeyAdd = null;
-          $('editstatus').textContent = 'Assumption creation cancelled.';
+          $('editstatus').textContent = removed ? 'Assumption creation cancelled.' : 'Assumption kept — document changed.';
           focusFreshAdd();
         },
         onMiss(){

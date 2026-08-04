@@ -140,7 +140,15 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
     },
     insertLinesAfter(n, texts){
       const line = view.state.doc.line(n + 1);
-      view.dispatch({changes: {from: line.to, to: line.to, insert: '\n' + texts.join('\n')}});
+      // userEvent outside the input.type/delete family is never merge-eligible on
+      // the "before" side (CM6's history only composes into the previous done-stack
+      // entry when the incoming userEvent is empty or matches input.type*/delete*) —
+      // so every add-gesture insert lands as its own isolated undo group without
+      // needing the vendored bundle's unexported isolateHistory annotation. That in
+      // turn makes a bare editor.undo() on Escape-cancel provably clean: it pops
+      // exactly this insert, never a distinct edit made just before the add.
+      view.dispatch({changes: {from: line.to, to: line.to, insert: '\n' + texts.join('\n')},
+        userEvent: 'input.complete'});
     },
     removeLine(n){
       const line = view.state.doc.line(n + 1);

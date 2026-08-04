@@ -21,19 +21,48 @@ export function makeStore(backend = localStorage){
       risks: es.filter(e => e.kind === 'risk').length, saved: Date.now()});
     writeIdx(idx);
   };
-  const trashed = () => { try{ return JSON.parse(backend.getItem(TRASH)); }catch(e){ return null; } };
+  /* Trash is an array of {doc, deleted} tombstones — one per deleted register,
+     each purging on its own caller-armed timer, so a second delete can never
+     clobber a still-pending first one (the bug: a single-slot TRASH value).
+     The storage key is unchanged; a legacy single-object value (written before
+     this migration) reads back transparently as a one-element array. */
+  const readTrash = () => {
+    try{
+      const raw = JSON.parse(backend.getItem(TRASH));
+      if(!raw) return [];
+      return Array.isArray(raw) ? raw : [raw];
+    }catch(e){ return []; }
+  };
+  const writeTrash = arr => arr.length ? backend.setItem(TRASH, JSON.stringify(arr)) : backend.removeItem(TRASH);
   return {
-    save, load, list, remove, trashed,
+    save, load, list, remove,
+    trashed(id){   // a specific tomb by doc id, or (default) the most recently deleted
+      const arr = readTrash();
+      if(!arr.length) return null;
+      return id != null ? (arr.find(t => t.doc?.id === id) || null) : arr[arr.length - 1];
+    },
+    trashedAll: () => readTrash(),   // every pending tomb — boot re-arms all of them, not just the newest
     trash(id){
       const doc = load(id); if(!doc) return null;
       const tomb = {doc, deleted: Date.now()};
-      backend.setItem(TRASH, JSON.stringify(tomb)); remove(id); return tomb;
+      writeTrash([...readTrash().filter(t => t.doc?.id !== id), tomb]);   // one pending tomb per doc id
+      remove(id);
+      return tomb;
     },
-    restoreTrash(){
-      const tomb = trashed(); if(!tomb?.doc) return null;
-      save(tomb.doc); backend.removeItem(TRASH); return tomb.doc;
+    restoreTrash(id){   // a specific tomb by doc id, or (default) the newest
+      const arr = readTrash();
+      if(!arr.length) return null;
+      const idx = id != null ? arr.findIndex(t => t.doc?.id === id) : arr.length - 1;
+      if(idx < 0) return null;
+      const [tomb] = arr.splice(idx, 1);
+      save(tomb.doc);
+      writeTrash(arr);
+      return tomb.doc;
     },
-    purgeTrash(){ backend.removeItem(TRASH); },
+    purgeTrash(id){   // a specific tomb's own 10s timer calls this with its doc id; omit to clear every tomb
+      if(id == null){ backend.removeItem(TRASH); return; }
+      writeTrash(readTrash().filter(t => t.doc?.id !== id));
+    },
   };
 }
 

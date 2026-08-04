@@ -202,7 +202,10 @@ function renderWide(model, sim, ctx){
         {kind: 'name', line: b.srcLine, raw: b.name, label: 'Rename: ' + b.name}));
       else body.push(nameTxt);
       if(isNew){
-        body.push(pill(C.nameEnd - 42, y + 14, 'NEW', c.accentInk));
+        // hug the first name line's end (mirrors the narrow card), clamped so a short
+        // name doesn't strand the pill and a wrapped long name doesn't collide with it
+        const nameW = measure(row.nameLines[0], '600 13px ' + SANS);
+        body.push(pill(Math.min(C.name + nameW + 8, C.nameEnd - 40), y + 14, 'NEW', c.accentInk));
       }
       cell(body, C.stake, y + 4, rng(b.stake), e, c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null);
       cell(body, C.odds, y + 4, pct(b.odds), e, c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null);

@@ -1,7 +1,7 @@
 /* Per-phase HTML for the premortem wizard. Every user string through esc().
    The interactive hooks (data-* attributes) are the contract app.js binds to. */
 import {esc} from '../assets/svg.js';
-import {exposure, isRisk, isScoreable} from './register.js';
+import {exposure, isRisk, isScoreable, isCompleteRange} from './register.js';
 import {votePool} from './wizard.js';
 import {renderRegister} from './render-register.js';
 
@@ -59,16 +59,25 @@ function cluster(doc){
   return '<div class="phase" data-phase="CLUSTER"><h2>Cluster the duplicates</h2><ul class="cllist">' + rows + '</ul>' +
     '<p class="phint">Group the same fear said different ways; merge exact duplicates so you don\'t double-count.</p></div>';
 }
+/* a range is "touched but incomplete" (reversed or half-filled) when it's a
+   real array (the user has entered something) that still fails the complete-
+   range test — untouched (null) ranges get no hint, they're just unstarted. */
+const partial = (range, min, max) => Array.isArray(range) && !isCompleteRange(range, min, max);
 function score(doc){
   const val = (range, i) => range?.[i] ?? '';
-  const rows = risksOf(doc).map(e =>
-    '<div class="scrow" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
+  const rows = risksOf(doc).map(e => {
+    const bad = partial(e.p, 0, 100) || partial(e.impact, 0);
+    return '<div class="scrow" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
     '<span class="scin"><label>likelihood</label>' +
     '<input type="number" min="0" max="100" data-p="lo" data-id="' + e.id + '" value="' + val(e.p, 0) + '" aria-label="Likelihood low for ' + esc(e.text) + '">–' +
     '<input type="number" min="0" max="100" data-p="hi" data-id="' + e.id + '" value="' + val(e.p, 1) + '" aria-label="Likelihood high for ' + esc(e.text) + '">%</span>' +
     '<span class="scin"><label>impact</label>' +
     '<input type="number" min="0" data-impact="lo" data-id="' + e.id + '" value="' + val(e.impact, 0) + '" aria-label="Impact low for ' + esc(e.text) + '">–' +
-    '<input type="number" min="0" data-impact="hi" data-id="' + e.id + '" value="' + val(e.impact, 1) + '" aria-label="Impact high for ' + esc(e.text) + '"></span></div>').join('');
+    '<input type="number" min="0" data-impact="hi" data-id="' + e.id + '" value="' + val(e.impact, 1) + '" aria-label="Impact high for ' + esc(e.text) + '"></span>' +
+    // same wording/idiom as the board's promote-form pfhint (render-board.js)
+    (bad ? '<p class="pfhint" aria-live="polite">Give complete low–high ranges: likelihood from 0–100%, impact at least 0, with low no higher than high.</p>' : '') +
+    '</div>';
+  }).join('');
   return '<div class="phase" data-phase="SCORE"><h2>Score the ranges</h2>' +
     '<label class="fl inlinelabel">Impact unit <input type="text" data-field="unit" value="' + esc(doc.unit || '£k') + '"></label>' +
     '<p class="phint">Give a 90% range, not a point — agree the range, then argue the actions. Likelihood and impact both as low–high.</p>' +

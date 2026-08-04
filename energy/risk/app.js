@@ -4,7 +4,7 @@ import {simulate, fmtUnit} from './engine.js';
 import {render, toMarkdown, riskVerdict, riskVerdictParts, focusedIndex} from './render.js';
 import {createEditor} from './editor.js';
 import {validators, editField, editLabel, removeParam, addLegLine, removeLegLine,
-  addedLegTarget, isUntouchedLegAdd} from './edit-targets.js';
+  addedLegTarget} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
@@ -211,17 +211,28 @@ const riskEip = attachEditInPlace($('preview'), {
   },
   onCommit(kind, line, raw, value, el){
     if(kind === 'addleg'){
+      // a second add activation while the first's popover hasn't resolved yet
+      // would silently close that first input (attachEditInPlace allows only
+      // one open target) and orphan its pendingLegAdd tracking — no-op instead.
+      if(pendingLegAdd){ announceEdit('Still adding the last structure — finish or cancel it first.'); return; }
       const r = addLegLine(editor.getText(), value);
       if(!r) return;
       const freshLine = r.afterLine + 1;
       insertLeg(r);
+      const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
       pendingLegAdd = {line: freshLine, newLine: r.newLine};
       void riskEip.openAt(addedLegTarget(r), {
         origin: el,
         onCancel(){
-          if(isUntouchedLegAdd(editor.getText(), freshLine, r.newLine)) editor.removeLine(freshLine);
+          // only safe to roll back if the doc is EXACTLY as the add left it — anything else
+          // (an edit elsewhere) and we leave the document alone. Rolling back via undo()
+          // (not a forward removeLine dispatch) keeps history clean too: Escape leaves no
+          // extra "remove" entry for a stray Ctrl+Z to un-remove — undo() pops the add's
+          // own isolated group (insertLinesAfter/'input.complete' tag it as such).
+          const removed = editor.getText() === addedText;
+          if(removed) editor.undo();
           pendingLegAdd = null;
-          announceEdit('Structure creation cancelled.');
+          announceEdit(removed ? 'Structure creation cancelled.' : 'Structure kept — document changed.');
           setTimeout(focusRiskAdd, 140);
         },
         onMiss(){ pendingLegAdd = null; announceEdit('Structure added. Its in-place editor could not be opened.'); focusRiskAdd(); },
