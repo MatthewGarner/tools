@@ -436,7 +436,7 @@ exploreClose.addEventListener('click', () => {
   if(t) t.focus({preventScroll: true});
 });
 
-attachEditInPlace(preview, {
+const treeEip = attachEditInPlace(preview, {
   kinds: {
     /* custom (I-2): a hot (load-bearing) number's tap/Enter binds the slider instead of opening
        the text popover; a plain number keeps the popover untouched (checked via data-hot, which
@@ -474,7 +474,7 @@ attachEditInPlace(preview, {
     'cardmenu-root-chance': {menu: [{label: '＋ Add outcome', action: true}]},
     'cardmenu-root-leaf': {menu: [{label: '＋ Add outcome', action: true}]},
   },
-  onCommit(kind, lineNo, oldRaw, newValue){
+  onCommit(kind, lineNo, oldRaw, newValue, el){
     if(handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
       configRe: /^(title|currency|palette|accent|verdict)\s*:/i,
@@ -485,7 +485,11 @@ attachEditInPlace(preview, {
       if(newValue === '✖＋ Add option' || newValue === '✖＋ Add outcome'){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
-        insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        const inserted = insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        treeEip.openAt({kind: 'label', line: inserted.srcLine}, {
+          origin: el,
+          onCancel(){ editor.removeLine(inserted.srcLine); },
+        });
       } else if(newValue === '✖Remove branch' || newValue === '✖Remove'){
         if(lineNo < 0) return;   // implicit root has no line of its own
         const rr = subtreeRange(editor.getText(), lineNo);

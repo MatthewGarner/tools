@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newEntry, exposure, ranked, staleness, mergeEntries, promote, markdown,
-        serialise, deserialise, exampleDoc, isRisk} from '../register.js';
+        serialise, deserialise, exampleDoc, isRisk, isScoreable} from '../register.js';
 import {canAdvance} from '../wizard.js';
 
 const risk = (text, p, impact) => ({...newEntry(text), p, impact});
@@ -31,6 +31,16 @@ test('ranked: scored first by median, unscored trail', () => {
   const rs = [newEntry('unscored'), risk('a', [40, 60], [100, 200]), risk('b', [5, 10], [10, 20])];
   const order = ranked(rs, exposure(rs, {seed: 1})).map(e => e.text);
   assert.deepEqual(order, ['a', 'b', 'unscored']);
+});
+test('scoreability rejects partial and non-finite ranges before Monte Carlo', () => {
+  assert.equal(isScoreable({p: [10, 20], impact: [1, 2]}), true);
+  assert.equal(isScoreable({p: [10, null], impact: [1, 2]}), false);
+  assert.equal(isScoreable({p: [10, 20], impact: [1, Infinity]}), false);
+  assert.equal(isScoreable({p: [20, 10], impact: [1, 2]}), false);
+  const bad = {...newEntry('partial'), p: [10, null], impact: [1, 2]};
+  const exp = exposure([bad], {seed: 1, nsim: 20});
+  assert.equal(exp.has(bad.id), false);
+  assert.deepEqual(exp.portfolio, {p50: 0, p10: 0, p90: 0});
 });
 test('staleness thresholds', () => {
   const now = new Date('2026-07-10');

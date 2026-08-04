@@ -45,3 +45,21 @@ export function setQuestion(text, value){
   lines.splice(titleAt >= 0 ? titleAt + 1 : 0, 0, 'question: ' + v);
   return lines.join('\n');
 }
+
+/* status is a config line, like question. Keep the artefact picker complete
+   even when the source omitted the key (the parser's default is `open`). */
+export function setStatus(text, value){
+  const v = String(value).trim().toLowerCase();
+  if(!['open', 'decided', 'parked'].includes(v)) return text;
+  const lines = String(text).split('\n');
+  const at = lines.findIndex(l => /^status\s*:/i.test(l.trim()));
+  if(at >= 0){
+    lines[at] = 'status: ' + v;
+    return lines.join('\n');
+  }
+  const questionAt = lines.findIndex(l => /^question\s*:/i.test(l.trim()));
+  const titleAt = lines.findIndex(l => /^title\s*:/i.test(l.trim()));
+  const after = questionAt >= 0 ? questionAt : titleAt;
+  lines.splice(after >= 0 ? after + 1 : 0, 0, 'status: ' + v);
+  return lines.join('\n');
+}

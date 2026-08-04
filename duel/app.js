@@ -103,6 +103,7 @@ $('keep').addEventListener('click', () => { state.finished = false; render(); })
 
 /* keyboard: ← / → pick the left / right card while a duel is showing */
 document.addEventListener('keydown', e => {
+  if(e.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
   if(!curPair || $('duelcard').hidden) return;
   if(e.key === 'ArrowLeft'){ e.preventDefault(); pick(curPair[0]); }
   else if(e.key === 'ArrowRight'){ e.preventDefault(); pick(curPair[1]); }
@@ -152,11 +153,13 @@ function reduelLoop(li){
 
 /* ---------- exports ---------- */
 $('copydoc').addEventListener('click', async () => {
+  writeHashState(state);                 // exports must never race the debounced persistence path
   const md = markdown(state, location.href);
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
 $('copylink').addEventListener('click', async () => {
+  writeHashState(state);                 // share the choice that was just made, not its previous hash
   try{ await navigator.clipboard.writeText(location.href); flash('copylink', 'Copied'); }
   catch(e){ prompt('Copy this link:', location.href); }
 });

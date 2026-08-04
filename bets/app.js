@@ -8,7 +8,8 @@ import {renderQuadrant} from './render-quadrant.js';
 import {betsDiff, betsDiffView} from './diff.js';
 import {createEditor} from './editor.js';
 import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
-  renameBet, removeBet, addBetLine, addGroupLine} from './edit-targets.js';
+  renameBet, removeBet, addBetLine, addGroupLine,
+  addedBetTarget, addedGroupTarget, addedKillTarget} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -17,7 +18,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
+import {applyLineOps} from '../assets/editor-common.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
@@ -58,7 +59,7 @@ Bets
 /* ---------- refresh loop ---------- */
 let model = null, sim = null, lastSvg = '', hashTimer = null;
 let snaps = null;   // wired below, after the editor exists
-let view = 'board';   // transient app state (not persisted): 'board' | 'quadrant'
+let view = 'board';   // 'board' | 'quadrant'; persisted with the source URL state
 let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-flip re-render
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 const nBets = m => m.groups.reduce((t, g) => t + g.bets.length, 0);
@@ -154,6 +155,7 @@ const editor = createEditor({
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   const state = {t: editor.getText()};
+  if(view !== 'board') state.v = view;
   if(ws.collapsed()) state.e = 0;
   if(shouldPersist()) writeHashState(state);
 }
@@ -212,12 +214,12 @@ $('viewtoggle').addEventListener('click', e => {
    an empty input; the typed name replaces the placeholder in the inserted
    line — and a COARSE add never focuses the editor (the soft keyboard would
    bury the artefact; mobile-input focus rule). */
-function openOrAddKill(lineNo){
+function openOrAddKill(lineNo, origin){
   const bet = findBet(model, lineNo);
   if(!bet) return;
   if(bet.kill){
-    const t = $('preview').querySelector('[data-line="' + bet.kill.srcLine + '"][data-edit="kill"]');
-    if(t) t.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+    const raw = bet.kill.text + (bet.kill.by ? ' by ' + bet.kill.by : '');
+    eip.openAt({kind: 'kill', line: bet.kill.srcLine, data: {raw}}, {origin});
     return;
   }
   const idx = lineNo - 1;   // 0-based index of the bet's own line
@@ -225,8 +227,25 @@ function openOrAddKill(lineNo){
   const betLine = lines[idx] || '';
   const indent = (betLine.match(/^ */) || [''])[0].length;
   const killIndent = ' '.repeat(indent + 2);
-  insertAndSelect(editor, idx, killIndent + 'kill: reason', 'reason',
-    {focus: matchMedia('(pointer: fine)').matches});
+  editor.insertLinesAfter(idx, [killIndent + 'kill: reason']);
+  const target = addedKillTarget(lineNo);
+  const cancel = () => {
+    const lineIdx = target.line - 1;              // target is Bets' 1-based srcLine
+    const linesNow = editor.getText().split(/\r?\n/);
+    if(lineIdx < linesNow.length && linesNow[lineIdx].trim() === 'kill: reason') editor.removeLine(lineIdx);
+  };
+  /* Default-insert is deliberately different from bet/group pre-entry: the
+     fresh kill line must exist before it has a rendered field. Escape removes
+     that exact untouched default; a missed target rolls it back and returns
+     focus to the still-existing bet card instead of ever falling into CM. */
+  eip.openAt(target, {
+    origin,
+    onCancel: cancel,
+    onMiss(){
+      cancel();
+      eip.focusAt({kind: 'cardmenu', line: lineNo});
+    },
+  });
 }
 /* the per-bet card menu, built fresh from the current model (same idiom as
    timeline's milestoneMenu): Rename + the three value rows route to sibling
@@ -243,14 +262,14 @@ function betMenu(m, srcLine){
   ];
 }
 const REWRITE = {stake: rewriteStake, odds: rewriteOdds, payoff: rewritePayoff, kill: rewriteKill, name: renameBet};
-attachEditInPlace($('preview'), {
+const eip = attachEditInPlace($('preview'), {
   kinds: {
     ...kinds,
     cardmenu: {menu: el => betMenu(model, +el.dataset.line)},
   },
-  onCommit(kind, lineNo, oldRaw, newValue){
+  onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind === 'cardmenu'){
-      if(newValue === '✖Edit kill criterion…' || newValue === '✖Add kill criterion…') openOrAddKill(lineNo);
+      if(newValue === '✖Edit kill criterion…' || newValue === '✖Add kill criterion…') openOrAddKill(lineNo, el);
       else if(newValue === '✖Remove bet'){
         const ops = removeBet(editor.getText(), lineNo);
         if(ops) applyLineOps(editor, ops);
@@ -262,8 +281,10 @@ attachEditInPlace($('preview'), {
       if(!r) return;
       const typed = newValue.replace(/^✖/, '').trim();
       const placeholder = kind === 'addbet' ? 'New bet' : 'New group';
-      insertAndSelect(editor, r.afterLine, typed ? r.newLine.replace(placeholder, typed) : r.newLine,
-        typed || placeholder, {focus: matchMedia('(pointer: fine)').matches});
+      const name = typed || placeholder;
+      editor.insertLinesAfter(r.afterLine, [typed ? r.newLine.replace(placeholder, typed) : r.newLine]);
+      const target = kind === 'addbet' ? addedBetTarget(r, name) : addedGroupTarget(r);
+      eip.focusAt(target, {origin: el});
       return;
     }
     const rewrite = REWRITE[kind];
@@ -325,11 +346,13 @@ wireCopyVerdict($('verdict'));
 (async function(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
+  if(hash && (hash.v === 'board' || hash.v === 'quadrant')) view = hash.v;
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){
     try{ text = localStorage.getItem('bets-src') || ''; }catch(e){}
   }
   renderSaved();
+  syncViewToggle();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

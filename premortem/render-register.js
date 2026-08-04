@@ -3,9 +3,7 @@
    the portfolio line with its independence caveat, and a stale-count nag. */
 import {esc} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
-import {ranked, staleness, staleCount, isRisk} from './register.js';
-
-const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
+import {ranked, staleness, staleCount, isRisk, isScoreable} from './register.js';
 
 export function renderRegister(doc, exp, now = new Date()){
   const risks = (doc.entries || []).filter(isRisk);   // the register is risks only; board items live on the board
@@ -13,10 +11,10 @@ export function renderRegister(doc, exp, now = new Date()){
   const u = doc.unit ? ' ' + esc(doc.unit) : '';
   const port = exp.portfolio || {p50: 0, p10: 0, p90: 0};
   const stale = staleCount(risks, now);
-  const maxP90 = Math.max(1, ...rows.filter(scoreable).map(e => (exp.get(e.id) || {}).p90 || 0));
+  const maxP90 = Math.max(1, ...rows.filter(isScoreable).map(e => (exp.get(e.id) || {}).p90 || 0));
 
   const body = rows.map((e, i) => {
-    const sc = scoreable(e);
+    const sc = isScoreable(e);
     const x = sc ? (exp.get(e.id) || {p50: 0, p10: 0, p90: 0}) : null;
     const st = staleness(e, now);
     const bandX = sc ? (x.p10 / maxP90 * 100).toFixed(1) : 0;
@@ -32,13 +30,13 @@ export function renderRegister(doc, exp, now = new Date()){
         ? '<b>' + fmt(x.p50) + '</b><span class="band" title="P10–P90"><span class="bandfill" style="left:' +
           bandX + '%;width:' + bandW + '%"></span></span><span class="bandtext">' + fmt(x.p10) + '–' + fmt(x.p90) + '</span>'
         : '<span class="unscored">unscored</span>') + '</td>' +
-      '<td class="rp">' + (e.p ? e.p[0] + '–' + e.p[1] + '%' : '—') + '</td>' +
+      '<td class="rp">' + (sc ? e.p[0] + '–' + e.p[1] + '%' : '—') + '</td>' +
       '<td><span class="statuspill ' + e.status + '">' + esc(e.status) + '</span></td>' +
       '<td class="rstale">' + st + (st !== 'fresh' ? ' <span class="stalemark">·</span>' : '') + '</td>' +
     '</tr>';
   }).join('');
 
-  return '<div class="reghead"><span class="regplane">Risk register</span>' +
+  return '<div class="reghead" role="heading" aria-level="2" tabindex="-1"><span class="regplane">Risk register</span>' +
     (doc.title ? '<span class="regsubject">' + esc(doc.title) + '</span>' : '') + '</div>' +
     '<div class="registerwrap"><table class="register"><thead><tr>' +
     '<th></th><th>Risk</th><th>Exposure' + u + '</th><th>Likely</th><th>Status</th><th>Age</th></tr></thead>' +

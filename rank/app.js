@@ -24,6 +24,8 @@ let verdictText = '';
 // lines that now sit ABOVE the phone strip — is deferred to release so the control and rows
 // don't reflow under the thumb on a drag-and-hold. Typed/keyboard edits keep the safety commit.
 let sliderDown = false;
+const clampScore = value => Math.max(1, Math.min(10, value));
+const clampWeight = value => Math.max(0, value);
 
 /* examples + default weights live in ./examples.js (pure, invariant-tested) */
 
@@ -60,18 +62,22 @@ function renderHead(){
     srow.append(slab, ssl, sval); wstrip.appendChild(srow);
     // name edit updates BOTH labels; no resim (names don't affect the numeric result — batch 7)
     nm.addEventListener('input', () => { c.name = nm.value; slab.textContent = nm.value || 'Criterion';
-      w.setAttribute('aria-label', nm.value + ' weight'); scheduleHashOnly(400); });
+      w.setAttribute('aria-label', nm.value + ' weight'); renderRows(); scheduleHashOnly(400); });
     // drag/type ANY control = live deterministic re-rank (FLIP); MC re-runs on commit (change).
     // NEVER write back to the control the user is typing in (C1: Chrome returns '' for '1.', so a
     // write-back stomps the keystroke). A debounced safety commit (I2) covers drag-back-to-start /
     // typed edits, where `change` may never fire.
     const setW = (val, src) => {
       if(!isFinite(val)) return;
-      c.w = val;
-      if(src !== w) w.value = val;
-      if(src !== sl) sl.value = val;
-      if(src !== ssl) ssl.value = val;
-      sval.textContent = Math.round(val * 10) / 10;
+      c.w = clampWeight(val);
+      const nextMax = Math.max(2, 2 * Math.max(...state.criteria.map(x => x.w || 0)));
+      [sl, ssl].forEach(control => { control.max = String(nextMax); });
+      const nextStep = String(Math.max(0.1, nextMax / 100));
+      [sl, ssl].forEach(control => { control.step = nextStep; });
+      if(src !== w) w.value = c.w;
+      if(src !== sl) sl.value = c.w;
+      if(src !== ssl) ssl.value = c.w;
+      sval.textContent = Math.round(c.w * 10) / 10;
       liveReweight();
       if(!sliderDown) schedule(600);   // pointer-drag defers the MC resim to release (no reflow under the thumb); typed/keyboard edits keep the safety
     };
@@ -89,7 +95,8 @@ function renderHead(){
     });
     const commit = () => {
       sliderDown = false;
-      if(w.value === ''){ c.w = 0; w.value = 0; sl.value = 0; ssl.value = 0; sval.textContent = 0; }   // coerce empty→0 only on blur
+      c.w = w.value === '' ? 0 : clampWeight(parseFloat(w.value));
+      w.value = c.w; sl.value = c.w; ssl.value = c.w; sval.textContent = c.w;
       schedule(0);
     };
     [w, sl, ssl].forEach(el => el.addEventListener('change', commit));
@@ -102,7 +109,7 @@ function renderHead(){
   const enm = document.createElement('input');
   enm.className = 'cname'; enm.value = state.effort.name;
   enm.setAttribute('aria-label', 'Effort criterion name');
-  enm.addEventListener('input', () => { state.effort.name = enm.value; scheduleHashOnly(400); });   // name-only: no resim (see above)
+  enm.addEventListener('input', () => { state.effort.name = enm.value; renderRows(); scheduleHashOnly(400); });   // name-only: no resim (see above)
   const ed = document.createElement('div');
   ed.className = 'wrow'; ed.innerHTML = '<span>÷ divisor</span>';
   the.append(enm, ed);
@@ -138,7 +145,8 @@ function renderRows(){
       s.className = 'score'; s.type = 'number'; s.min = '1'; s.max = '10'; s.step = '1';
       s.value = it.s[ci];
       s.setAttribute('aria-label', it.name + ' ' + c.name + ' score');
-      s.addEventListener('input', () => { it.s[ci] = parseFloat(s.value); schedule(200); });
+      s.addEventListener('input', () => { if(s.value !== ''){ it.s[ci] = clampScore(parseFloat(s.value)); schedule(200); } });
+      s.addEventListener('change', () => { it.s[ci] = clampScore(parseFloat(s.value)); s.value = it.s[ci]; schedule(0); });
       td.appendChild(s);
       tr.appendChild(td);
     });
@@ -149,14 +157,15 @@ function renderRows(){
     e.className = 'score'; e.type = 'number'; e.min = '1'; e.max = '10'; e.step = '1';
     e.value = it.e;
     e.setAttribute('aria-label', it.name + ' effort score');
-    e.addEventListener('input', () => { it.e = parseFloat(e.value); schedule(200); });
+    e.addEventListener('input', () => { if(e.value !== ''){ it.e = clampScore(parseFloat(e.value)); schedule(200); } });
+    e.addEventListener('change', () => { it.e = clampScore(parseFloat(e.value)); e.value = it.e; schedule(0); });
     tde.appendChild(e);
     tr.appendChild(tde);
     const tdd = document.createElement('td');
     const del = document.createElement('button');
     del.className = 'del'; del.textContent = '×';
     del.setAttribute('aria-label', 'Remove ' + (it.name || 'initiative'));
-    del.addEventListener('click', () => { state.items.splice(i, 1); renderRows(); schedule(50); });
+    del.addEventListener('click', () => { state.items.splice(i, 1); syncCapacity(); renderRows(); schedule(50); });
     tdd.appendChild(del);
     tr.appendChild(tdd);
     tb.appendChild(tr);
@@ -402,22 +411,30 @@ function patchInitiativeName(i, name){
 }
 $('addrow').addEventListener('click', () => {
   state.items.push({name:'', s: state.criteria.map(() => 5), e: 5});
+  syncCapacity();
   renderRows();
   $('rows').lastElementChild.querySelector('.iname').focus();
   schedule(50);
 });
+function syncCapacity(raw = state.k){
+  const max = Math.max(1, state.items.length);
+  state.k = Math.max(1, Math.min(max, parseInt(raw, 10) || 1));
+  $('kin').max = String(max);
+  $('kin').value = state.k;
+}
 $('kin').addEventListener('input', () => {
-  state.k = parseInt($('kin').value, 10) || 3;
+  syncCapacity($('kin').value);
   schedule(150);
 });
 $('ww').addEventListener('input', () => {
-  state.ww = Math.max(0, parseFloat($('ww').value) || 0);
+  state.ww = Math.max(0, Math.min(200, parseFloat($('ww').value) || 0));
   schedule(200);
 });
 $('sw').addEventListener('input', () => {
-  state.sw = Math.max(0, parseFloat($('sw').value) || 0);
+  state.sw = Math.max(0, Math.min(5, parseFloat($('sw').value) || 0));
   schedule(200);
 });
+for(const id of ['ww', 'sw']) $(id).addEventListener('change', () => { $(id).value = state[id]; });
 
 /* ---------- paste import ---------- */
 $('pastebtn').addEventListener('click', () => {
@@ -454,6 +471,7 @@ $('pastego').addEventListener('click', () => {
   }
   err.textContent = bad.length ? items.length + ' imported; ' + bad.length + ' line(s) skipped (couldn’t read 4 numbers).' : '';
   state.items = items;
+  syncCapacity();
   renderRows();
   if(!bad.length){
     $('pastebox').classList.remove('open');
@@ -467,23 +485,21 @@ for(const ex of EXAMPLES){
   b.textContent = ex.name;
   b.addEventListener('click', () => {
     state.items = ex.items.map(r => ({name:r[0], s:r.slice(1, 4), e:r[4]}));
-    state.k = ex.k;
-    $('kin').value = ex.k;
+    syncCapacity(ex.k);
     renderRows();
     schedule(50);
   });
   $('chips').appendChild(b);
 }
 
-if(await readHash()){ $('kin').value = state.k; $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
+if(await readHash()){ syncCapacity(); $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
 else {
   // Open on a real, contested backlog (not 3 identical rows that never re-sort) so the
   // drag-weights mechanism is live and a knife-edge shows the moment you land. Matches
   // the first chip, and never writes the hash (readHash's absence is the trigger).
   const ex = EXAMPLES[0];
   state.items = ex.items.map(r => ({name: r[0], s: r.slice(1, 4), e: r[4]}));
-  state.k = ex.k;
-  $('kin').value = ex.k;
+  syncCapacity(ex.k);
 }
 paintKicker($('kicker'), '04', 'Ranking that survives its own uncertainty');
 wireCopyVerdict($('verdict'));

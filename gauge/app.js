@@ -4,7 +4,7 @@ import {resolveVerdict} from '../assets/verdict.js';   // the composer headline 
 import {sessionStats, markdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,
-  renameOption, addOption, removeOption} from './edit-targets.js';
+  renameOption, addOption, removeOption, addedQuestionTarget, isUntouchedQuestionAdd} from './edit-targets.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {renderOverlay} from './render-overlay.js';
@@ -109,7 +109,7 @@ async function initCompose(hash){
   let model = null, view = 'reveal', lastOut = '', hashTimer = null;
 
   /* participants never see the editor — only compose mode pays for CodeMirror */
-  const {createEditor, insertAndSelect} = await import('./editor.js');
+  const {createEditor} = await import('./editor.js');
   const editor = createEditor({
     parent: $('cmhost'),
     doc: '',
@@ -127,15 +127,30 @@ async function initCompose(hash){
      dispatched. removeq/rmopt are ['×'] cycles (coarse → danger confirm); addopt
      is a one-tap ['add'] capsule; addq/qtype are pickers (nothing on a bare tap).
      ＋ Add question's picker chooses the new question's type. */
-  const addQuestion = type => {
-    const {afterLine, newLine} = addQuestionLine(editor.getText(), type);
-    insertAndSelect(editor, afterLine, newLine, 'New question');
+  const announceEdit = text => { $('editstatus').textContent = text; };
+  const focusFreshAdd = () => {
+    requestAnimationFrame(() => {
+      const add = $('preview').querySelector('[data-edit="addq"]');
+      if(add?.isConnected) add.focus({preventScroll: true});
+      else $('viewform').focus({preventScroll: true});
+    });
   };
   const addqMenu = ['prob', 'range', 'chips'].map(t => ({
     label: t === 'prob' ? 'Probability' : t === 'range' ? 'Range' : 'Chips',
     commit: {kind: 'addq', line: -1, oldRaw: '', value: t},
   }));
-  attachEditInPlace($('preview'), {
+  let pendingQuestionAdd = null;
+  const insertQuestion = add => {
+    const source = editor.view.state.doc.line(add.afterLine + 1);
+    editor.view.dispatch({changes: {from: source.to, to: source.to, insert: '\n' + add.newLine},
+      userEvent: 'input.complete'});
+  };
+  const replaceFreshQuestion = (line, text) => {
+    const source = editor.view.state.doc.line(line + 1);
+    editor.view.dispatch({changes: {from: source.from, to: source.to, insert: text},
+      userEvent: 'input.complete'});
+  };
+  const composeEip = attachEditInPlace($('preview'), {
     kinds: {
       qtext:   {validate: v => renameQuestion('X :: prob', v) != null},
       qtype:   {options: ['prob', 'range', 'chips']},
@@ -157,7 +172,24 @@ async function initCompose(hash){
         getLine: () => model ? resolveVerdict(model.verdict,
           {line: verdict(sessionStats(model, sampleResponses(model))), fig: ''}).line : '',
       })) return;
-      if(kind === 'addq'){ addQuestion(value); return; }
+      if(kind === 'addq'){
+        const add = addQuestionLine(editor.getText(), value);
+        const freshLine = add.afterLine + 1;
+        insertQuestion(add);
+        pendingQuestionAdd = {line: freshLine, newLine: add.newLine};
+        void composeEip.openAt(addedQuestionTarget(add), {
+          origin: el,
+          onCancel(){
+            if(isUntouchedQuestionAdd(editor.getText(), freshLine, add.newLine)) editor.removeLine(freshLine);
+            pendingQuestionAdd = null;
+            announceEdit('Question creation cancelled.');
+            setTimeout(focusFreshAdd, 140);
+          },
+          onMiss(){ pendingQuestionAdd = null; announceEdit('Question added. Its in-place editor could not be opened.'); focusFreshAdd(); },
+          timeout: 1200,
+        });
+        return;
+      }
       if(kind === 'removeq'){
         if(removeQuestionLine(editor.getText(), line)) editor.removeLine(line);
         return;
@@ -170,7 +202,12 @@ async function initCompose(hash){
       else if(kind === 'opt')   next = renameOption(cur, +el.dataset.opt, value);
       else if(kind === 'rmopt') next = removeOption(cur, +el.dataset.opt);
       else if(kind === 'addopt') next = addOption(cur);
-      if(next != null && next !== cur) editor.replaceLine(line, next);   // one undoable dispatch
+      if(next != null && next !== cur){
+        if(kind === 'qtext' && pendingQuestionAdd?.line === line){
+          replaceFreshQuestion(line, next);     // don't merge the naming edit into the add history event
+          pendingQuestionAdd = null;
+        } else editor.replaceLine(line, next);
+      }
     },
   });
 

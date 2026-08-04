@@ -21,8 +21,8 @@ main{display:flex;flex-direction:column;gap:20px}
 /* board-width rule: the distribution PANS on a phone (min-width floor), never
    shrinks below legibility — app.js floors the render width to match, so the
    authored px == displayed px (scale 1) and the ≥8px label gate holds honestly */
-#distwrap svg{display:block;width:100%;min-width:520px;height:auto}
-#distwrap [data-drag]{cursor:ew-resize;touch-action:pan-y}
+#distwrap svg{display:block;width:100%;min-width:520px;height:auto;touch-action:pan-y}
+#distwrap [data-drag]{cursor:ew-resize}
 #distwrap [data-drag]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px 28px}

@@ -320,6 +320,15 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(150);
   const calloutTxt = await page.locator('.mo-callout').count() ? await page.locator('.mo-callout').innerText() : '';
   check('merit-order(' + theme + '): BESS callout reframes charging cost', /charging cost/i.test(calloutTxt));
+  await page.locator('#demand').evaluate(el => {
+    el.value = String(+el.value + 1); el.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  await page.waitForTimeout(150);
+  check('merit-order(' + theme + '): callout stays attached through a chart repaint',
+    await page.locator('.mo-callout').count() === 1);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(50);
+  check('merit-order(' + theme + '): closing a repainted callout returns focus to its fresh plant',
+    await page.evaluate(() => document.activeElement?.dataset?.plant === 'BESS'));
   // Phase 2: an FES world + cold peak → hydrogen (not cheap gas) sets the price
   await page.getByRole('button', {name: 'Hydrogen Evolution'}).click();
   await page.getByRole('button', {name: 'Still cold peak'}).click();
@@ -398,12 +407,16 @@ for(const theme of ['light', 'dark']){
   await page.click('#next'); await page.waitForTimeout(120);   // CLUSTER
   await page.click('#next'); await page.waitForTimeout(120);   // SCORE
   await page.locator('.scrow').first().locator('[data-p="lo"]').fill('30');
+  check('premortem(' + theme + '): a partial uncertainty range cannot advance the workshop',
+    await page.locator('#next').isDisabled());
   await page.locator('.scrow').first().locator('[data-p="hi"]').fill('55');
   await page.locator('.scrow').first().locator('[data-impact="lo"]').fill('100');
   await page.locator('.scrow').first().locator('[data-impact="hi"]').fill('300');
   await page.waitForTimeout(150);
   // advance the remaining ungated phases to the register: SCORE→ACTIONS→VOTE→REGISTER
   await page.click('#next'); await page.waitForTimeout(100);   // ACTIONS
+  check('premortem(' + theme + '): phase navigation moves focus to the new phase heading',
+    await page.evaluate(() => document.activeElement === document.querySelector('#phasepanel h2')));
   await page.click('#next'); await page.waitForTimeout(100);   // VOTE
   await page.click('#next'); await page.waitForTimeout(200);   // REGISTER
   check('premortem(' + theme + '): register renders ranked rows', await page.locator('.register .rrow').count() === 3);
@@ -442,6 +455,12 @@ for(const theme of ['light', 'dark']){
   await page.locator('#start').click();          // starts on the prefilled example
   await page.waitForTimeout(300);
   check('duel(' + theme + '): duel cards appear after start', await page.locator('#duelwrap [data-pick]').count() === 2);
+  const pairBeforeInputArrow = await page.locator('#duelwrap').innerText();
+  await page.locator('#question').evaluate(el => el.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'ArrowLeft', bubbles: true,
+  }))); await page.waitForTimeout(80);
+  check('duel(' + theme + '): arrows typed in an input never choose a duel',
+    pairBeforeInputArrow === await page.locator('#duelwrap').innerText());
   for(let i = 0; i < 4; i++){
     if(await page.locator('#duelwrap [data-pick]').count() < 2) break;
     await page.locator('#duelwrap [data-pick]').first().click();
@@ -467,7 +486,39 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(300);
   const after = (await page.locator('#verdictAlarm').innerText()).trim();
   check('alarm(' + theme + '): moving the threshold changes the verdict', before !== after);
+  await page.locator('#distwrap [data-drag="threshold"]').focus();
+  const thresholdBeforeKeys = Number(await page.locator('#threshold').inputValue());
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
+  check('alarm(' + theme + '): repeated handle keys retain focus and change the threshold',
+    await page.evaluate(() => document.activeElement?.dataset?.drag === 'threshold') &&
+    Number(await page.locator('#threshold').inputValue()) > thresholdBeforeKeys);
+  await page.getByRole('button', {name: 'Vendor claim'}).click();
+  await page.locator('#threshold').evaluate(e => { e.value = '0.3'; e.dispatchEvent(new Event('input', {bubbles: true})); });
+  check('alarm(' + theme + '): manual input clears the stale preset state',
+    await page.locator('[data-preset="vendor-claim"]').getAttribute('aria-pressed') === 'false');
+  await page.locator('#claimBtn').click();
+  await page.keyboard.press('Escape');
+  check('alarm(' + theme + '): claim dialog Escape restores its trigger focus',
+    await page.evaluate(() => document.activeElement?.id === 'claimBtn'));
   check('alarm(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* ---- signal vs noise: state changes must tell users where they landed ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/signal-vs-noise/', theme);
+  await page.waitForTimeout(250);
+  await page.locator('#next').click();
+  await page.waitForTimeout(80);
+  check('signal-vs-noise(' + theme + '): reveal transition moves focus to its new heading',
+    await page.evaluate(() => document.activeElement === document.querySelector('#reveal h3')));
+  check('signal-vs-noise(' + theme + '): reveal transition announces the state change',
+    /results are ready/i.test(await page.locator('#phaseStatus').innerText()));
+  await page.locator('#next').click();
+  await page.waitForTimeout(80);
+  check('signal-vs-noise(' + theme + '): next quarter moves focus to the playable stage',
+    await page.evaluate(() => document.activeElement?.id === 'stage'));
+  check('signal-vs-noise(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
 
@@ -556,6 +607,14 @@ for(const theme of ['light', 'dark']){
     const v = await page.locator('#odverdict').innerText();
     return /Kendall/.test(v) && await page.locator('.odrow').count() >= 2;
   })());
+  await page.locator('th .cname').first().fill('Value renamed');
+  await page.waitForTimeout(80);
+  check('rank(' + theme + '): score labels follow renamed criteria',
+    (await page.locator('#rows .score').nth(0).getAttribute('aria-label')).includes('Value renamed'));
+  const firstScore = page.locator('#rows .score').nth(0);
+  await firstScore.fill('100'); await firstScore.blur();
+  check('rank(' + theme + '): typed scores normalise to the supported range on commit',
+    await firstScore.inputValue() === '10');
   check('rank(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }

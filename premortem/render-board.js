@@ -6,6 +6,7 @@
    string through esc(); risks are NOT shown here (they live in the register). */
 import {esc} from '../assets/svg.js';
 import {markFigure} from '../assets/verdict.js';
+import {isCompleteRange} from './register.js';
 
 const COLS = [
   ['fact', 'Facts', 'What we actually know — verified, not hoped'],
@@ -50,32 +51,33 @@ function verdictBlock({line, fig}){
 function card(e, kind, promoting){
   const promotable = kind !== 'fact';
   const conf = Array.isArray(e.p) ? e.p : null;
+  const completeConf = isCompleteRange(conf, 0, 100);
   const head = '<div class="bchead"><span class="bctext" data-id="' + e.id + '">' + esc(e.text) + '</span>' +
     '<button class="bcdel" data-boarddel="' + e.id + '" aria-label="Delete">×</button></div>';
   if(!promotable)
     return '<div class="bcard fact" data-id="' + e.id + '">' + head + '</div>';
   if(promoting){
     // p flips meaning: likelihood it BREAKS. Pre-fill from the inverse of the
-    // confidence-it-holds range when we have one (sorted, so a one-sided
-    // confidence like [40,0] can't pre-fill an inverted 100–60).
-    const pf = conf ? [100 - conf[1], 100 - conf[0]].sort((a, b) => a - b) : [null, null];
+    // confidence-it-holds range when it is complete and valid. Legacy partial
+    // values are left blank rather than turned into invented likelihood bounds.
+    const pf = completeConf ? [100 - conf[1], 100 - conf[0]].sort((a, b) => a - b) : [null, null];
     return '<div class="bcard promoting" data-id="' + e.id + '">' + head +
       '<div class="promoteform">' +
       '<p class="pfhint">If this is wrong: how likely, and what does it cost?</p>' +
       '<span class="scin"><label>likelihood wrong</label>' +
-      '<input type="number" min="0" max="100" data-promotep="lo" data-id="' + e.id + '" value="' + (pf[0] ?? '') + '">–' +
-      '<input type="number" min="0" max="100" data-promotep="hi" data-id="' + e.id + '" value="' + (pf[1] ?? '') + '">%</span>' +
+      '<input type="number" min="0" max="100" data-promotep="lo" data-id="' + e.id + '" value="' + (pf[0] ?? '') + '" aria-label="Likelihood wrong low for ' + esc(e.text) + '">–' +
+      '<input type="number" min="0" max="100" data-promotep="hi" data-id="' + e.id + '" value="' + (pf[1] ?? '') + '" aria-label="Likelihood wrong high for ' + esc(e.text) + '">%</span>' +
       '<span class="scin"><label>impact</label>' +
-      '<input type="number" min="0" data-promoteimpact="lo" data-id="' + e.id + '" value="">–' +
-      '<input type="number" min="0" data-promoteimpact="hi" data-id="' + e.id + '" value=""></span>' +
+      '<input type="number" min="0" data-promoteimpact="lo" data-id="' + e.id + '" value="" aria-label="Impact low for ' + esc(e.text) + '">–' +
+      '<input type="number" min="0" data-promoteimpact="hi" data-id="' + e.id + '" value="" aria-label="Impact high for ' + esc(e.text) + '"></span>' +
       '<div class="pfbtns"><button class="btn primary" data-promoteok="' + e.id + '">Add to register</button>' +
       '<button class="btn" data-promotecancel="' + e.id + '">Cancel</button></div>' +
       '</div></div>';
   }
   return '<div class="bcard" data-id="' + e.id + '">' + head +
     '<span class="bconf"><label>confidence it holds</label>' +
-    '<input type="number" min="0" max="100" data-conf="lo" data-id="' + e.id + '" value="' + (conf ? conf[0] : '') + '">–' +
-    '<input type="number" min="0" max="100" data-conf="hi" data-id="' + e.id + '" value="' + (conf ? conf[1] : '') + '">%</span>' +
+    '<input type="number" min="0" max="100" data-conf="lo" data-id="' + e.id + '" value="' + (conf?.[0] ?? '') + '" aria-label="Confidence low for ' + esc(e.text) + '">–' +
+    '<input type="number" min="0" max="100" data-conf="hi" data-id="' + e.id + '" value="' + (conf?.[1] ?? '') + '" aria-label="Confidence high for ' + esc(e.text) + '">%</span>' +
     '<button class="btn bcpromote" data-promote="' + e.id + '">Promote to risk →</button>' +
     '</div>';
 }

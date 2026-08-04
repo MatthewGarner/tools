@@ -27,6 +27,21 @@ test('gating: FRAME needs title+question; COLLECT an entry; SCORE a scored entry
   assert.equal(canAdvance({phase: 'SCORE', entries: [scored('r')]}).ok, true);
 });
 
+test('SCORE gate requires complete, finite, ordered ranges inside their domains', () => {
+  const base = newEntry('r');
+  const gate = over => canAdvance({phase: 'SCORE', entries: [{...base, ...over}]}).ok;
+  assert.equal(gate({p: [10, null], impact: [1, 2]}), false, 'one-sided likelihood');
+  assert.equal(gate({p: [10, 20], impact: [1, null]}), false, 'one-sided impact');
+  assert.equal(gate({p: [10, NaN], impact: [1, 2]}), false, 'NaN');
+  assert.equal(gate({p: [10, Infinity], impact: [1, 2]}), false, 'Infinity');
+  assert.equal(gate({p: [-1, 20], impact: [1, 2]}), false, 'likelihood below zero');
+  assert.equal(gate({p: [10, 101], impact: [1, 2]}), false, 'likelihood above 100');
+  assert.equal(gate({p: [20, 10], impact: [1, 2]}), false, 'reversed likelihood');
+  assert.equal(gate({p: [10, 20], impact: [-1, 2]}), false, 'negative impact');
+  assert.equal(gate({p: [10, 20], impact: [2, 1]}), false, 'reversed impact');
+  assert.equal(gate({p: [0, 100], impact: [0, 0]}), true, 'closed domain endpoints');
+});
+
 test('advance respects gating (blocked → same phase)', () => {
   assert.equal(advance({phase: 'FRAME', title: '', question: ''}).phase, 'FRAME');
 });

@@ -25,6 +25,7 @@ import {trapPopoverFocus} from '../../assets/popover-focus.js';
 import {mountMotion} from '../../assets/motion.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../assets/verdict.js';
 import {REVEAL} from './motion-spec.js';
+import {calloutOwnsFocus, findPlantTarget, calloutPosition} from './interaction.js';
 
 export const PRESETS = {
   winter:    {label: 'Winter weekday',      mutate: {trough: 30, peak: 47, solarPeak: 2, sunrise: 8, sunset: 16}},
@@ -71,6 +72,9 @@ async function boot(){
   const renderWidth = el => el.clientWidth || 900;
 
   function refresh(){
+    // If a timed frame replaces the SVG while its callout owns focus, restore
+    // that focus to the same named band in the fresh SVG after the swap.
+    const calloutFocus = closeCallout({restore: false});
     result = runDay(p);
     const colors = themeColors();
 
@@ -101,8 +105,12 @@ async function boot(){
        ...(fleetActs ? {demandLabel: `net demand ${fmtGW(net)} GW`} : {})});
     stackEl.classList.toggle('narrow', stackW < NARROW);
     stackPaint(stackSvg, REVEAL); lastStackSvg = stackSvg;
-
-    closeCallout();   // the band under a callout may have moved/resized — never let it go stale
+    if(calloutFocus && calloutFocus.restore){
+      const fresh = findPlantTarget(stackEl, calloutFocus.name);
+      if(fresh) setTimeout(() => {
+        if(!activeCallout && document.activeElement === document.body) fresh.focus();
+      }, 0);
+    }
     /* metrics: the day's shape in three honest counts — the hours the engine
        runs, the fleet the sliders describe, and the raw spread it trades. */
     paintMetrics($('metrics'), preset ? PRESETS[preset].label : 'Custom day', [
@@ -124,8 +132,11 @@ async function boot(){
   }
 
   function syncChips(){
-    for(const b of document.querySelectorAll('#presets [data-preset]'))
-      b.classList.toggle('on', b.dataset.preset === preset);
+    for(const b of document.querySelectorAll('#presets [data-preset]')){
+      const selected = b.dataset.preset === preset;
+      b.classList.toggle('on', selected);
+      b.setAttribute('aria-pressed', String(selected));
+    }
   }
 
   /* ---- inverted-range flag (P4): trough > peak flips the day upside down.
@@ -148,9 +159,10 @@ async function boot(){
      the tap targets (full chart height ≫ 44px). Dismissed by tapping anywhere
      else; refresh() closes it too so it can never quote a stale hour. ---- */
   let activeCallout = null;
-  function closeCallout(){
+  function closeCallout({restore = true} = {}){
     if(!activeCallout) return;
-    const {pop, away, el} = activeCallout;
+    const {pop, away, name} = activeCallout;
+    const owned = calloutOwnsFocus(pop, document.activeElement);
     activeCallout = null;
     document.removeEventListener('pointerdown', away, true);
     pop.remove();
@@ -161,9 +173,13 @@ async function boot(){
        (or, here, fight the scrub slider while the user is actively dragging
        it — refresh() calls closeCallout() on every tick). Only restore when
        nothing else claimed focus in the meantime. */
-    if(el && typeof el.focus === 'function') setTimeout(() => {
-      if(!activeCallout && document.activeElement === document.body) el.focus();
-    }, 0);
+    if(restore && owned){
+      const fresh = findPlantTarget(stackEl, name);
+      if(fresh) setTimeout(() => {
+        if(!activeCallout && document.activeElement === document.body) fresh.focus();
+      }, 0);
+    }
+    return {name, restore: owned};
   }
   function openCallout(name, el){
     closeCallout();
@@ -172,8 +188,6 @@ async function boot(){
     const rect = el.getBoundingClientRect();
     const pop = document.createElement('div');
     pop.className = 'mo-callout';
-    pop.style.left = Math.round(Math.max(8, Math.min(rect.left, innerWidth - 240))) + 'px';
-    pop.style.top = Math.round(rect.bottom + 6) + 'px';
     const title = document.createElement('div');
     title.className = 'mo-callout-name';
     title.textContent = name;
@@ -181,15 +195,18 @@ async function boot(){
     math.className = 'mo-callout-math';
     math.textContent = `${fmtGW(gen.capacity)} GW offered · bids £${Math.round(gen.cost)}/MWh`;
     pop.append(title, math);
-    /* read-only popover (no button) — trapPopoverFocus focuses the container
-       itself, so it needs its own accessible name to announce anything */
+    /* Read-only callout: focus the named container for AT, but leave Tab free
+       to continue through the page because this is not a modal dialog. */
     pop.setAttribute('role', 'group');
     pop.setAttribute('aria-label', title.textContent + ' — ' + math.textContent);
     document.body.appendChild(pop);
+    const pos = calloutPosition(rect, pop.getBoundingClientRect(), {width: innerWidth, height: innerHeight});
+    pop.style.left = pos.x + 'px';
+    pop.style.top = pos.y + 'px';
     const away = e => { if(!pop.contains(e.target)) closeCallout(); };
     document.addEventListener('pointerdown', away, true);
-    activeCallout = {pop, away, el};
-    trapPopoverFocus(pop, closeCallout);
+    activeCallout = {pop, away, name};
+    trapPopoverFocus(pop, closeCallout, {trap: false});
   }
   stackEl.addEventListener('click', e => {
     const g = e.target.closest && e.target.closest('g[data-plant]');
@@ -220,7 +237,7 @@ async function boot(){
      time-since-navigation, so comparing against 0 made the very first frame after
      pressing Play almost always already >450ms "late" and fire an instant extra
      advance before any real animation time had passed). */
-  let playing = false, lastTick = null, pausedMidRun = false;
+  let playing = false, lastTick = null, pausedMidRun = false, playRaf = 0;
   function setPlayLabel(){
     $('play').textContent = playing ? '⏸ Pause' : '▶ Play the day';
     $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play the day');
@@ -230,9 +247,9 @@ async function boot(){
     if(lastTick === null) lastTick = ts;
     if(ts - lastTick >= 450){
       lastTick = ts; hour = (hour + 1) % 24; $('scrub').value = hour; refresh();
-      if(hour === 23){ playing = false; pausedMidRun = false; setPlayLabel(); return; }
+      if(hour === 23){ playing = false; pausedMidRun = false; playRaf = 0; setPlayLabel(); return; }
     }
-    requestAnimationFrame(tick);
+    playRaf = requestAnimationFrame(tick);
   }
   $('play').addEventListener('click', () => {
     playing = !playing;
@@ -251,9 +268,20 @@ async function boot(){
       if(matchMedia('(pointer: coarse)').matches || priceEl.clientWidth < NARROW){
         priceEl.scrollIntoView({behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest'});
       }
-      requestAnimationFrame(tick);
+      if(playRaf) cancelAnimationFrame(playRaf);
+      playRaf = requestAnimationFrame(tick);
     } else {
+      if(playRaf) cancelAnimationFrame(playRaf);
+      playRaf = 0;
       pausedMidRun = true;   // an explicit pause — the run didn't complete
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      if(playRaf) cancelAnimationFrame(playRaf);
+      playRaf = 0; lastTick = null;
+    } else if(playing && !playRaf){
+      playRaf = requestAnimationFrame(tick);
     }
   });
 
@@ -266,6 +294,7 @@ async function boot(){
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   });
   onThemeChange(refresh);
+  reducedMotion.addEventListener('change', refresh);
 
   /* ---- width-aware resize (Route B): re-render whenever the panel width moves
      more than 8px (debounced) — desktop resizes now change the rendered width,

@@ -9,10 +9,12 @@ import {wireExports} from '../assets/exports.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, wireCopyTap} from '../assets/verdict.js';
+import {transitionCue} from './interaction.js';
 
 const $ = id => document.getElementById(id);
 const stage = $('stage'), reveal = $('reveal'), nextBtn = $('next'), hint = $('hint'),
-      controls = $('controls'), endcard = $('endcard'), lessonsEl = $('lessons');
+      controls = $('controls'), endcard = $('endcard'), lessonsEl = $('lessons'),
+      phaseStatus = $('phaseStatus');
 
 let seed = AUTHORED_SEED, params = {}, calls = [], turn = 0, phase = 'play', lessons = [];
 let cols = 3;   // grid columns; a ResizeObserver flips 3→2→1 on a container bucket (narrow relayout)
@@ -56,7 +58,7 @@ function startPlay(newSeed){
   if(newSeed != null) seed = newSeed;
   calls = []; turn = 0; phase = 'play'; lessons = [];
   writeHashState({seed, ...(params.noiseSd ? {params: {noiseSd: params.noiseSd}} : {})});
-  render();
+  renderTransition();
 }
 
 function toggleCall(p, q, act){
@@ -81,9 +83,9 @@ stage.addEventListener('keydown', e => {
 
 nextBtn.addEventListener('click', () => {
   const s = scenario();
-  if(phase === 'reveal'){ turn++; phase = 'play'; render(); return; }
-  if(turn < s.quarters - 1){ buildReveal(s, turn); phase = 'reveal'; render(); }
-  else { calls = dedupe(calls); phase = 'done'; saveRun(); render(); }
+  if(phase === 'reveal'){ turn++; phase = 'play'; renderTransition(); return; }
+  if(turn < s.quarters - 1){ buildReveal(s, turn); phase = 'reveal'; renderTransition(); }
+  else { calls = dedupe(calls); phase = 'done'; saveRun(); renderTransition(); }
 });
 
 /* the between-turn reveal — how the people you talked to moved next quarter, in
@@ -136,6 +138,13 @@ function markdown(){
 /* ---------- render ---------- */
 function render(){
   const s = scenario(), C = themeColors();
+  const activeAction = stage.contains(document.activeElement)
+    ? document.activeElement.closest?.('[data-act]') : null;
+  const restoreAction = activeAction ? {
+    person: activeAction.dataset.person,
+    quarter: activeAction.dataset.quarter,
+    act: activeAction.dataset.act,
+  } : null;
   /* Swiss 6b: the VERDICT is drawn inside the collapse artefact (one per page),
      so the page carries the kicker + this metrics row. Every count is the run's
      own — the scenario's shape and the calls you have actually made. */
@@ -156,6 +165,22 @@ function render(){
   hint.hidden = phase === 'reveal';
   nextBtn.textContent = phase === 'reveal' ? 'Go to quarter ' + (turn + 2) + ' →'
     : turn >= s.quarters - 1 ? 'See the verdict →' : 'Next quarter →';
+  if(restoreAction){
+    stage.querySelector('[data-person="' + restoreAction.person + '"][data-quarter="' + restoreAction.quarter +
+      '"][data-act="' + restoreAction.act + '"]')?.focus({preventScroll: true});
+  }
+}
+
+function renderTransition(){
+  render();
+  const cue = transitionCue(phase, turn, scenario().quarters, calls.length);
+  if(!cue) return;
+  phaseStatus.textContent = cue.announcement;
+  let target = cue.target === 'stage' ? stage : cue.target === 'again' ? $('again')
+    : reveal.querySelector('h3');
+  if(target === stage) stage.setAttribute('aria-label', cue.announcement);
+  if(cue.target === 'reveal' && target) target.tabIndex = -1;
+  target?.focus({preventScroll: true});
 }
 
 /* ---------- exports + replay + theme ---------- */

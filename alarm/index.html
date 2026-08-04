@@ -34,10 +34,10 @@
   <main>
   <div class="card">
     <div class="chips" id="presets"><span class="lead">Try:</span>
-      <button class="chip" data-preset="alert-fatigue">Alert fatigue</button>
-      <button class="chip" data-preset="vendor-claim">Vendor claim</button>
-      <button class="chip" data-preset="screening">Screening classic</button>
-      <button class="chip" data-preset="capacity-test">Capacity test</button>
+      <button class="chip" data-preset="alert-fatigue" aria-pressed="false">Alert fatigue</button>
+      <button class="chip" data-preset="vendor-claim" aria-pressed="false">Vendor claim</button>
+      <button class="chip" data-preset="screening" aria-pressed="false">Screening classic</button>
+      <button class="chip" data-preset="capacity-test" aria-pressed="false">Capacity test</button>
       <span class="claim-slot"><button class="chip ghost" id="claimBtn" aria-haspopup="dialog" aria-expanded="false">Pin a claim…</button></span>
       <span class="chip claimed" id="claimChip" hidden></span>
     </div>
@@ -99,7 +99,7 @@
   </footer>
 </div>
 
-<div class="claim-pop" id="claimPop" role="dialog" aria-label="Pin a vendor claim" hidden>
+<div class="claim-pop" id="claimPop" role="dialog" aria-modal="true" aria-label="Pin a vendor claim" hidden>
   <p>The vendor's numbers — then drag the base rate to yours.</p>
   <div class="claim-row">
     <label>Sensitivity <input type="number" id="claimSens" min="1" max="99.9" step="0.1" value="99"> %</label>

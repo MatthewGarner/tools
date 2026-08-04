@@ -181,6 +181,19 @@ export function addGroupLine(text){
   return {afterLine: after, newLine: 'New group', select: 'New group'};
 }
 
+/* Bets is the exception in this repo: parsed srcLine values are 1-based while
+   insert positions are 0-based. These helpers are the single conversion point
+   for post-render focus, so app code never performs an implicit +1/+2 guess. */
+export function addedBetTarget(add, name){
+  return {kind: 'name', line: add.afterLine + 2, data: {raw: String(name).trim()}};
+}
+export function addedGroupTarget(add){
+  return {kind: 'addbet', line: add.afterLine + 2};
+}
+export function addedKillTarget(betSrcLine){
+  return {kind: 'kill', line: betSrcLine + 1, data: {raw: 'reason'}};
+}
+
 export const kinds = {
   stake:  {validate: v => parseRange(v) !== null},
   odds:   {validate: v => parseRange(v) !== null},

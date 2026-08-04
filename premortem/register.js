@@ -9,8 +9,12 @@ const nextId = () => (globalThis.crypto?.randomUUID?.() ?? 'e' + (++seq));
 let seq = 0;
 const iso = d => (d instanceof Date ? d : new Date()).toISOString();
 const effDist = lo => lo > 0 ? 'logn' : 'norm';           // matches fermi's effDist for auto
-const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
 export const isRisk = e => !!e && e.kind === 'risk';   // board items (fact/assumption/belief) share doc.entries but stay off the wizard + register
+export function isCompleteRange(range, min = 0, max = Infinity){
+  return Array.isArray(range) && range.length === 2 &&
+    range.every(v => Number.isFinite(v) && v >= min && v <= max) && range[0] <= range[1];
+}
+export const isScoreable = e => !!e && isCompleteRange(e.p, 0, 100) && isCompleteRange(e.impact, 0);
 
 export function newEntry(text, over = {}){
   const now = iso(new Date());
@@ -41,7 +45,7 @@ export function exampleDoc(){
 /* Map<id, {p50,p10,p90}> for scoreable entries, plus a .portfolio (per-sim sum). */
 export function exposure(entries, {seed = SEED, nsim = NSIM} = {}){
   const rand = mulberry32(seed), gauss = gaussian(rand);
-  const scored = entries.filter(scoreable);
+  const scored = entries.filter(isScoreable);
   const sm = scored.map(e => ({
     pS: rangeSampler(e.p[0], e.p[1], effDist(e.p[0]), rand, gauss),
     iS: rangeSampler(e.impact[0], e.impact[1], effDist(e.impact[0]), rand, gauss),
@@ -68,9 +72,9 @@ export function exposure(entries, {seed = SEED, nsim = NSIM} = {}){
 
 /* scoreable entries by median exposure desc, then the rest in original order */
 export function ranked(entries, exp){
-  const scored = entries.filter(scoreable).slice()
+  const scored = entries.filter(isScoreable).slice()
     .sort((a, b) => (exp.get(b.id)?.p50 || 0) - (exp.get(a.id)?.p50 || 0));
-  const rest = entries.filter(e => !scoreable(e));
+  const rest = entries.filter(e => !isScoreable(e));
   return [...scored, ...rest];
 }
 
@@ -96,7 +100,7 @@ const pctRange = p => p ? p[0] + '–' + p[1] + '%' : '—';
 export function markdown(doc, exp, now = new Date()){
   const u = doc.unit ? ' ' + doc.unit : '';
   const risks = (doc.entries || []).filter(isRisk);   // export the register (risks), never board items
-  const rows = ranked(risks, exp).filter(scoreable);
+  const rows = ranked(risks, exp).filter(isScoreable);
   const out = ['# ' + (doc.title || 'Risk register'),
     doc.question ? '\n_' + doc.question + '_' : '', '',
     '| # | Risk | Likelihood | Impact' + u + ' | Exposure' + u + ' (P50 [P10–P90]) | Status | Age |',

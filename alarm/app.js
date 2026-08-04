@@ -11,6 +11,7 @@ import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {adjustThreshold, dragEndsForPointer} from './interaction.js';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -49,6 +50,7 @@ function syncOutputs(p){
 }
 
 function doRefresh(){
+  const restoreThresholdFocus = document.activeElement?.closest?.('[data-drag="threshold"]') != null;
   const p = readParams();
   lastParams = p;
   syncOutputs(p);
@@ -59,6 +61,7 @@ function doRefresh(){
   lastDistW = Math.max(distwrap.clientWidth || DIST_W, 520);   // native at the container width, floored at 520 (style.css min-width: the phone PANS instead of compressing labels); export stays pinned at DIST_W
   const distSvg = renderDistributions(p, C, {w: lastDistW, h: DIST_H});
   distPaint(distSvg, REVEAL); lastDistSvg = distSvg;   // curves draw on first load; later renders just swap
+  if(restoreThresholdFocus) distwrap.querySelector('[data-drag="threshold"]')?.focus({preventScroll: true});
 
   const boxHtml = renderBox(counts, C);
   if(boxHtml !== lastBoxHtml){ $('boxwrap').innerHTML = boxHtml; lastBoxHtml = boxHtml; }
@@ -80,7 +83,12 @@ function doRefresh(){
   clearTimeout(hashTimer);
   hashTimer = setTimeout(() => { if(claimed) return writeState({c: [claimed.sens, claimed.spec]}); writeState({}); }, 400);
 }
-const refresh = rafBatched(doRefresh);
+let animateAfterRefresh = false;
+const refresh = rafBatched(() => {
+  doRefresh();
+  if(animateAfterRefresh){ animateAfterRefresh = false; animateGate(); }
+});
+function refreshThenAnimate(){ animateAfterRefresh = true; refresh(); }
 
 function dotColors(C){ return {real: C.accent, benign: C.muted, binLabel: C.muted}; }
 
@@ -126,15 +134,26 @@ function writeState(extra){
 
 /* ---------- controls ---------- */
 for(const id of ['baseRate', 'dprime', 'threshold'])
-  $(id).addEventListener('input', () => { clearClaim(); refresh(); scheduleAnim(); });
+  $(id).addEventListener('input', () => {
+    if(id !== 'baseRate') clearClaim();
+    setPresetSelection(null); refresh(); scheduleAnim();
+  });
 
 $('presets').addEventListener('click', e => {
   const b = e.target.closest('.chip[data-preset]');
   if(!b) return;
   applyPreset(PRESETS[b.dataset.preset]);
-  for(const x of $('presets').querySelectorAll('.chip[data-preset]')) x.classList.toggle('on', x === b);
-  refresh(); animateGate();
+  setPresetSelection(b);
+  refreshThenAnimate();
 });
+
+function setPresetSelection(selected){
+  for(const chip of $('presets').querySelectorAll('.chip[data-preset]')){
+    const on = chip === selected;
+    chip.classList.toggle('on', on);
+    chip.setAttribute('aria-pressed', String(on));
+  }
+}
 
 function applyPreset(p){
   $('baseRate').value = Math.log10(p.b);
@@ -152,29 +171,48 @@ function setClaim(sens, spec){
 }
 function clearClaim(){ claimed = null; $('claimChip').hidden = true; }
 
-$('claimBtn').addEventListener('click', () => openClaim(true));
-$('claimCancel').addEventListener('click', () => openClaim(false));
+$('claimBtn').addEventListener('click', openClaim);
+$('claimCancel').addEventListener('click', () => closeClaim());
 $('claimApply').addEventListener('click', () => {
   const sens = clampPct(+$('claimSens').value), spec = clampPct(+$('claimSpec').value);
   const {dprime, t} = fromClaim(sens, spec);
   setDT(dprime, t); setClaim(sens, spec);
-  for(const x of $('presets').querySelectorAll('.chip[data-preset]')) x.classList.remove('on');
-  openClaim(false); refresh(); animateGate();
+  setPresetSelection(null);
+  closeClaim(); refreshThenAnimate();
 });
 function clampPct(v){ return Math.max(0.01, Math.min(0.999, (isFinite(v) ? v : 99) / 100)); }
-function openClaim(show){
-  $('claimPop').hidden = !show;
-  $('claimBtn').setAttribute('aria-expanded', String(show));
-  if(show) $('claimSens').focus();
+let claimReturnFocus = null;
+function openClaim(){
+  claimReturnFocus = document.activeElement;
+  $('claimPop').hidden = false;
+  $('claimBtn').setAttribute('aria-expanded', 'true');
+  $('claimSens').focus();
+}
+function closeClaim({restoreFocus = true} = {}){
+  if($('claimPop').hidden) return;
+  $('claimPop').hidden = true;
+  $('claimBtn').setAttribute('aria-expanded', 'false');
+  const target = claimReturnFocus?.isConnected ? claimReturnFocus : $('claimBtn');
+  claimReturnFocus = null;
+  if(restoreFocus) target.focus({preventScroll: true});
 }
 document.addEventListener('pointerdown', e => {
-  if(!$('claimPop').hidden && !$('claimPop').contains(e.target) && e.target !== $('claimBtn')) openClaim(false);
+  if(!$('claimPop').hidden && !$('claimPop').contains(e.target) && e.target !== $('claimBtn'))
+    closeClaim({restoreFocus: false});
 }, true);
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('claimPop').hidden) openClaim(false); });
+document.addEventListener('keydown', e => {
+  if($('claimPop').hidden) return;
+  if(e.key === 'Escape'){ e.preventDefault(); closeClaim(); return; }
+  if(e.key !== 'Tab') return;
+  const focusable = [...$('claimPop').querySelectorAll('input, button:not([disabled])')];
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+});
 
 /* ---------- threshold drag on the plot ---------- */
 const distwrap = $('distwrap');
-let dragging = false;
+let dragPointerId = null;
 function tAtClientX(clientX){
   const svg = distwrap.querySelector('svg');
   if(!svg) return null;
@@ -182,28 +220,35 @@ function tAtClientX(clientX){
   return tFromSvgX((clientX - r.left) / r.width * lastDistW, lastDistW);
 }
 distwrap.addEventListener('pointerdown', e => {
-  if(!e.target.closest('[data-drag]')) return;
-  dragging = true; distwrap.setPointerCapture(e.pointerId);
+  if(!e.target.closest('[data-drag]') || dragPointerId != null) return;
+  dragPointerId = e.pointerId; distwrap.setPointerCapture(e.pointerId);
   moveThreshold(e.clientX);
 });
-distwrap.addEventListener('pointermove', e => { if(dragging) moveThreshold(e.clientX); });
-distwrap.addEventListener('pointerup', () => { if(dragging){ dragging = false; animateGate(); } });
+distwrap.addEventListener('pointermove', e => {
+  if(e.pointerId === dragPointerId) moveThreshold(e.clientX);
+});
+distwrap.addEventListener('pointerup', e => finishThresholdDrag(e.pointerId));
+distwrap.addEventListener('pointercancel', e => finishThresholdDrag(e.pointerId));
+distwrap.addEventListener('lostpointercapture', e => finishThresholdDrag(e.pointerId, false));
+function finishThresholdDrag(pointerId, release = true){
+  if(!dragEndsForPointer(dragPointerId, pointerId)) return;
+  dragPointerId = null;
+  if(release && distwrap.hasPointerCapture(pointerId)) distwrap.releasePointerCapture(pointerId);
+  refreshThenAnimate();
+}
 function moveThreshold(clientX){
   const t = tAtClientX(clientX);
   if(t == null) return;
-  $('threshold').value = t; clearClaim(); refresh();
+  $('threshold').value = t; clearClaim(); setPresetSelection(null); refresh();
 }
 /* keyboard on the handle (delegated — the handle re-renders each refresh) */
 distwrap.addEventListener('keydown', e => {
   if(!e.target.closest('[data-drag]')) return;
-  const step = e.shiftKey ? 0.25 : 0.05;
-  let d = 0;
-  if(e.key === 'ArrowRight' || e.key === 'ArrowUp') d = step;
-  else if(e.key === 'ArrowLeft' || e.key === 'ArrowDown') d = -step;
-  else return;
+  const next = adjustThreshold(+$('threshold').value, e.key, e.shiftKey);
+  if(next == null) return;
   e.preventDefault();
-  $('threshold').value = Math.max(-3, Math.min(6, +$('threshold').value + d));
-  clearClaim(); refresh(); scheduleAnim();
+  $('threshold').value = next;
+  clearClaim(); setPresetSelection(null); refresh(); scheduleAnim();
 });
 
 /* ---------- exports ---------- */
@@ -235,7 +280,8 @@ wireCopyVerdict($('verdictAlarm'));
     if(isFinite(+h.t)) $('threshold').value = Math.max(-3, Math.min(6, +h.t));
     if(Array.isArray(h.c) && h.c.length === 2) setClaim(+h.c[0], +h.c[1]);
   }
-  onThemeChange(() => { lastDistSvg = ''; lastBoxHtml = ''; refresh(); animateGate(); });
+  setPresetSelection(null);
+  onThemeChange(() => { lastDistSvg = ''; lastBoxHtml = ''; refreshThenAnimate(); });
   reducedMotion.addEventListener('change', animateGate);
   addEventListener('resize', rafBatched(() => refresh()));
   doRefresh();

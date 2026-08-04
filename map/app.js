@@ -20,6 +20,7 @@ import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel,
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {mapDiff, mapDiffView} from './diff.js';
 import {gaugeHandoff} from './handoff.js';
+import {cardMenuRows, createPostDragClickGuard} from './interactions.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -189,14 +190,8 @@ attachEditInPlace($('preview'), {
     verdictedit: {validate: validVerdictInput, placeholder: () => ro ? ro.verdict : ''},
     cardmenu: {menu: el => {
       const it = model && model.items.find(i => i.srcLine === +el.dataset.line);
-      return [
-        {label: 'Rename…', opens: 'label'},
-        {label: 'Edit field…', opens: 'field'},   // opens the FIRST field target; dead if the item has none
-        /* the coarse-pointer placement path (drag needs a fine pointer): arms a
-           one-shot tap-the-plane placement — see the placing block below */
-        {label: it && it.x != null ? 'Move…' : 'Place on map…', action: true},
-        {label: 'Remove', action: true, danger: true},
-      ];
+      const fieldTarget = $('preview').querySelector('[data-edit="field"][data-line="' + el.dataset.line + '"]');
+      return cardMenuRows(it, !!fieldTarget);
     }},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
@@ -288,8 +283,8 @@ wireExports({
 });
 
 /* ---------- drag-to-place: a drop is a text edit ---------- */
-let suppressClick = false;   // a completed drag must not open the card menu
-const drag = {armed: null, active: false, ghost: null, srcEl: null};
+const postDragClick = createPostDragClickGuard();
+const drag = {armed: null, active: false, ghost: null, srcEl: null, pointerId: null};
 const finePointer = () => matchMedia('(pointer: fine)').matches;   // coarse pointers reposition via the source @ x,y
 function planeCoords(cx, cy){
   const plane = document.querySelector('#preview svg rect[data-plane]');
@@ -305,9 +300,10 @@ function endDrag(){
   if(drag.ghost) drag.ghost.remove();
   if(drag.srcEl) drag.srcEl.style.opacity = '';
   document.body.style.cursor = '';
-  drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
+  drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null; drag.pointerId = null;
 }
 $('preview').addEventListener('pointerdown', e => {
+  postDragClick.clear();
   if(!finePointer()) return;   // fine-only: on coarse, reposition by editing the source @ x,y (Move… cardmenu row is a follow-up)
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g || e.button !== 0) return;
@@ -315,9 +311,11 @@ $('preview').addEventListener('pointerdown', e => {
   if(!item) return;
   e.preventDefault();   // no text selection while dragging
   drag.armed = {line: +g.dataset.line, label: item.label, x: e.clientX, y: e.clientY};
+  drag.pointerId = e.pointerId;
   drag.srcEl = g;
 });
 window.addEventListener('pointermove', e => {
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   if(!drag.armed) return;
   if(!drag.active){
     if(Math.hypot(e.clientX - drag.armed.x, e.clientY - drag.armed.y) < 4) return;
@@ -336,10 +334,11 @@ window.addEventListener('pointermove', e => {
   drag.ghost.style.top = (e.clientY + 14) + 'px';
 });
 window.addEventListener('pointerup', e => {
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   if(!drag.armed) return;
   const wasActive = drag.active, src = drag.armed.line;
   endDrag();
-  if(wasActive) suppressClick = true;
+  postDragClick.arm(wasActive && $('preview').contains(e.target));
   if(!wasActive) return;
   const at = planeCoords(e.clientX, e.clientY);
   if(!at) return;
@@ -355,9 +354,20 @@ window.addEventListener('keydown', e => {
 });
 /* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
    ghost instead of stranding it until the next pointerup */
-window.addEventListener('pointercancel', () => { if(drag.armed) endDrag(); });
+window.addEventListener('pointercancel', e => {
+  if(!drag.armed) return;
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+  postDragClick.clear();
+  endDrag();
+});
+window.addEventListener('lostpointercapture', e => {
+  if(!drag.armed) return;   // a normal post-pointerup release must not clear the click guard
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+  postDragClick.clear();
+  endDrag();
+});
 $('preview').addEventListener('click', e => {
-  if(suppressClick){ e.stopPropagation(); suppressClick = false; }
+  if(postDragClick.consume()){ e.preventDefault(); e.stopPropagation(); }
 }, true);
 
 /* ---------- Move… / Place on map…: one-shot tap-the-plane placement ----------

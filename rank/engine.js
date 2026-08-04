@@ -8,10 +8,11 @@ export const SEED = 0x5EED;
 
 export function sigmaW(ww){ return Math.log(1 + ww / 100) / 1.6448536; }
 const clampScore = v => Math.max(1, Math.min(10, v));
+const clampWeight = v => Math.max(0, v);
 
 export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
   const items = state.items.filter(it =>
-    it.s.every(v => isFinite(v) && v > 0) && isFinite(it.e) && it.e > 0);
+    it.s.every(v => isFinite(v)) && isFinite(it.e));
   const n = items.length;
   if(n < 2) return null;
   const nc = state.criteria.length;
@@ -30,9 +31,9 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
   const scoreBuf = new Array(n);
   const order = Array.from({length: n}, (_, i) => i);
 
-  const sw = state.sw, sgw = sigmaW(state.ww);
+  const sw = Math.max(0, state.sw || 0), sgw = sigmaW(Math.max(0, state.ww || 0));
   for(let sim = 0; sim < nsim; sim++){
-    const ws = state.criteria.map(c => c.w * Math.exp(sgw * gauss()));
+    const ws = state.criteria.map(c => clampWeight(c.w || 0) * Math.exp(sgw * gauss()));
     for(let i = 0; i < n; i++){
       const it = items[i];
       let benefit = 0;
@@ -49,8 +50,8 @@ export function simulate(state, {nsim = NSIM, seed = SEED} = {}){
   /* base ranking with unperturbed values */
   const baseScore = items.map(it => {
     let b = 0;
-    state.criteria.forEach((c, ci) => { b += c.w * it.s[ci]; });
-    return b / it.e;
+    state.criteria.forEach((c, ci) => { b += clampWeight(c.w || 0) * clampScore(it.s[ci]); });
+    return b / clampScore(it.e);
   });
   const baseOrder = Array.from({length: n}, (_, i) => i)
     .sort((a, b) => baseScore[b] - baseScore[a]);

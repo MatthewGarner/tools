@@ -40,6 +40,8 @@ try{
   check('facilitator: console mode after start', true);
 
   const joinUrl = await pageF.locator('#joinlink').inputValue();
+  check('join link: Copy enables only after the encoded join URL exists',
+    joinUrl.length > 20 && await pageF.locator('#copylink').isEnabled());
   /* z: = deflate-raw + base64url (2026-08-02); the legacy branch keeps the check honest if the format reverts */
   const rawHash = joinUrl.split('#')[1];
   const decoded = rawHash.startsWith('z:')
@@ -65,6 +67,11 @@ try{
   const A = await participant('light', 80, 4, 8);
   const B = await participant('dark', 20, 30, 50);
   check('participants: both submitted', true);
+  await A.page.reload({waitUntil: 'networkidle'});
+  check('participant: reload restores the local draft before relay status can repaint it',
+    await A.page.locator('.q[data-q="0"] input[type=range]').inputValue() === '80' &&
+    await A.page.locator('.q[data-q="1"] input[data-part=low]').inputValue() === '4' &&
+    await A.page.locator('.q[data-q="1"] input[data-part=high]').inputValue() === '8');
 
   /* facilitator poll picks the count up (5s ± jitter cadence) */
   await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('2'),

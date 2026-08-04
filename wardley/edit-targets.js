@@ -101,6 +101,12 @@ export function addComponent(text, name, stage){
   return {afterLine: Math.max(0, last), newLine, select: name};
 }
 
+/* /wardley srcLine values are 0-based. The exact name identity disambiguates
+   the fresh component from snapshot ghosts or any other line-shaped target. */
+export function addedComponentTarget(add, name){
+  return {kind: 'name', line: add.afterLine + 1, data: {raw: String(name).trim()}};
+}
+
 /* ---- edges (the Needs… toggle): an edge is a PAIR inside a possibly-longer
    chain line, never a line of its own by construction. ---- */
 

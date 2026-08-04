@@ -116,12 +116,28 @@ const PAGES = {
      tripped on 400B, so the raise buys back real room rather than the next
      400B of anything: fermi actual ~183.4k (~1.6k headroom), rank ~94.2k
      (~840B). See the "previous six raises" note above on why thin is a trap. */
-  'fermi/index.html': 190_000, 'rank/index.html': 102_000,   /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* 190k -> 197k (2026-08-04 interaction reliability): fermi's explicit
+     pending-state/export flush, URL-coherent cashflow threshold and horizon,
+     reduced-motion cleanup, and tested interaction helper are first-load
+     correctness code. Actual 191.6k; the budget restores ~5k headroom instead
+     of leaving the next small reliability fix to trip a 1.6k overage. */
+  'fermi/index.html': 197_000, 'rank/index.html': 102_000,   /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
-     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */ 'flow/index.html': 116_000,   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
-  'alarm/index.html': 102_000,
-  'case/index.html': 444_000,   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+     growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
+  /* 116k -> 122k (2026-08-04 interaction reliability): the visibility-gated
+     queue animation runtime, export/hash flush and preset state semantics are
+     first-load correctness code. Actual 116.9k; retain about 5k headroom. */
+  'flow/index.html': 122_000,   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+  /* 102k -> 108k (2026-08-04 interaction reliability): keyboard threshold
+     policy, pointer lifecycle cleanup, selected-preset state and dialog focus
+     restoration are first-load interaction correctness. Actual 103.1k; leave
+     real room for the next small safety fix. */
+  'alarm/index.html': 108_000,
+  /* 444k -> 454k (2026-08-04 interaction reliability): the Case parity pass
+     adds status editing and honest absent-field affordances to the rendered
+     artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
+  'case/index.html': 454_000,   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 103_000,   /* register core + store + wizard + 2 renderers + app */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
@@ -183,7 +199,10 @@ const PAGES = {
      grammar tools link syntax.css, so the cost lands where the feature is. Each of
      those pages nets ~+1.15k (the shared sheet, less the ~450B copy it deleted).
      roadmap also gained `story:` and a corrected `headline:` gloss. --- */
-  'roadmap/index.html': 611_000,   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  /* 611k -> 622k (2026-08-04 interaction reliability): menu moves now use
+     the same FLIP path as drags and the pointer-scoped post-drag guard makes
+     cancellation safe. Actual 616.1k; preserve ~6k headroom. */
+  'roadmap/index.html': 622_000,   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -209,7 +228,10 @@ const PAGES = {
      render.js needs. Raised again to 517k the same day when `story:` added
      storyLine() to the same module — /why inherits that too, and cannot use it
      either (no snapshot compare, no `story:` key). Actual ~515.6k, ~1.4k. */
-  'why/index.html': 530_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
+  /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
+     exact post-render add locator, which prevents the reported DSL-focus jump
+     and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
+  'why/index.html': 539_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
@@ -218,8 +240,14 @@ const PAGES = {
      tightest of the DSL pages (no headroom left after Stage 0's shared
      editor/workspace growth). Actual load ~470.9k, set with ~7.1k headroom,
      in line with the other DSL pages. */
-  'tree/index.html': 506_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */
-  'map/index.html': 497_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
+  /* 506k -> 515k (2026-08-04 interaction reliability): Tree consumes the
+     exact post-render add locator for inline default creation (the other
+     reported DSL-focus path). Actual 508.8k; retain ~6k headroom. */
+  'tree/index.html': 515_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */
+  /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
+     derivation and scoped drag click guard prevent dead field actions and
+     stale suppression. Actual 500.8k; retain ~6k headroom. */
+  'map/index.html': 507_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -231,15 +259,26 @@ const PAGES = {
      — and review caught two of them bypassing the key, so app.js and engine.js
      both had to route through resolveVerdict. ~400B of imports and call sites on
      a page that had 103B of headroom. Actual ~494.4k, ~1.6k headroom. */
-  'gauge/index.html': 515_000, 'timeline/index.html': 505_000,   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
-  'wardley/index.html': 482_000,   /* 474k->477k 2026-08-02 fig-arrival + settle bytes */   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
+  /* 515k -> 533k (2026-08-04 interaction reliability): Gauge now carries
+     participant draft recovery/race safety plus precise default-add targeting.
+     Actual 526.6k; retain ~6k headroom. */
+  /* Timeline also carries the shared exact post-render add locator: 505k ->
+     516k (2026-08-04), actual 509.2k with ~6k remaining. */
+  'gauge/index.html': 533_000, 'timeline/index.html': 516_000,   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */
+  /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
+     add returns focus to the fresh semantic component and its pointer-scoped
+     guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
+  'wardley/index.html': 494_000,   /* 474k->477k 2026-08-02 fig-arrival + settle bytes */   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
      render.js the edit-gated rename targets + ＋ capsules (~1.6k), app.js the
      betMenu/adds wiring (~1.9k). Tipped 182B over; actual now ~480.2k, ~5.8k
      headroom — in line with the other DSL pages. */
-  'bets/index.html': 506_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
+  /* 506k -> 516k (2026-08-04 interaction reliability): Bets' shareable view
+     state and exact pre-entry/default add targeting are first-load behavior.
+     Actual 509.8k; retain ~6k headroom. */
+  'bets/index.html': 516_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool
@@ -248,7 +287,13 @@ const PAGES = {
      nav/family/footer markup (~2k a page). Only two budgets actually tripped;
      the rest had headroom and stay put. cycles 470k -> 472k (actual ~466.8k,
      ~5.2k headroom) — it was the tightest energy page before this. */
-  'energy/index.html': 40_000, 'energy/risk/index.html': 462_000,   /* 449k->453k 2026-08-02 verdict-eip bytes */ 'energy/cycles/index.html': 486_000,   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
+  /* Risk 462k -> 472k (2026-08-04): exact default-add target and Escape/
+     two-step undo safety are first-load behavior. Actual 466.1k; keep ~6k. */
+  'energy/index.html': 40_000, 'energy/risk/index.html': 472_000,   /* 449k->453k 2026-08-02 verdict-eip bytes */
+  /* Cycles 486k -> 501k (2026-08-04): worker-revision stale-edit protection,
+     exact default-add focus and the narrow editable discount field. Actual
+     494.2k; retain ~6.8k. */
+  'energy/cycles/index.html': 501_000,   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
   'energy/frequency/index.html': 101_000, 'energy/merit-order/index.html': 149_000,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4% */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
@@ -286,7 +331,10 @@ const PAGES = {
      energy.css replaced five per-tool token blocks and verdict.js replaced this
      page's hand-rolled verdict paragraph. Actual ~146.3k, ~5.7k headroom, which
      puts it back in line with the other pages instead of on the edge. */
-  'energy/intraday/index.html': 156_000,
+  /* 156k -> 163k (2026-08-04 interaction reliability): stable callout-focus
+     restoration, one owned playback loop, reduced-motion settle and viewport
+     clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
+  'energy/intraday/index.html': 163_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

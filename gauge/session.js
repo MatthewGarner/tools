@@ -10,6 +10,8 @@ import {onThemeChange} from '../assets/app-common.js';
 import {paintMetrics} from '../assets/verdict.js';
 import {encodeHash} from '../assets/series.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
+import {schemaFingerprint, draftKey, encodeDraft, decodeDraft} from './draft.js';
+import {tryClipboardWrite, requestLock} from './safety.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
 
@@ -52,11 +54,24 @@ const slugOf = model => ((model.title || 'gauge')).toLowerCase()
 export function initConsole({model, text, relay, ctx, $, id, key}){
   $('ctitle').textContent = model.title || 'Gauge session';
   let joinUrl = '';   // filled when the encode lands (~1ms) — the copy button reads the variable, never a stale capture
-  encodeHash({t: text, id}).then(s => { joinUrl = location.origin + location.pathname + '#' + s; $('joinlink').value = joinUrl; });
-  $('copylink').addEventListener('click', () => {
-    if(!joinUrl) return;   // the encode hasn't landed yet — never claim Copied with nothing on the clipboard
-    if(navigator.clipboard) navigator.clipboard.writeText(joinUrl).catch(() => {});
-    $('copylink').textContent = 'Copied';
+  $('copylink').disabled = true;
+  encodeHash({t: text, id}).then(s => {
+    joinUrl = location.origin + location.pathname + '#' + s;
+    $('joinlink').value = joinUrl;
+    $('copylink').disabled = false;
+  }).catch(() => {
+    $('joinlink').value = 'Couldn’t prepare the join link. Refresh and try again.';
+  });
+  $('copylink').addEventListener('click', async () => {
+    if(!joinUrl) return;
+    $('copylink').disabled = true;
+    const copied = await tryClipboardWrite(navigator.clipboard, joinUrl);
+    $('copylink').disabled = false;
+    if(!copied){
+      $('joinlink').focus();
+      $('joinlink').select();
+    }
+    $('copylink').textContent = copied ? 'Copied' : 'Select link to copy';
     setTimeout(() => { $('copylink').textContent = 'Copy'; }, 1800);
   });
 
@@ -138,6 +153,9 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     onError(){ $('cstate').textContent = 'reconnecting…'; },
   });
   const poll = mkPoll();
+  /* Reveal, round transition and deletion all mutate the same relay session.
+     One shared lock prevents conflicting or duplicated requests. */
+  const actionRequests = requestLock([$('creveal'), $('cround2'), $('cend')]);
 
   /* two-step reveal: arm, then commit (works for whichever round is live) */
   let armed = false, armTimer = null;
@@ -155,7 +173,9 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     }
     clearTimeout(armTimer);
     armed = false;
-    const r = await relay.reveal(id, key);
+    const attempt = await actionRequests.run(() => relay.reveal(id, key));
+    if(!attempt.started) return;
+    const r = attempt.value;
     if(!r.ok){
       $('creveal').textContent = label;
       $('cstate').textContent = r.status === 404 ? ENDED : "Couldn't reveal — try again.";
@@ -180,7 +200,9 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
       return;
     }
     clearTimeout(r2Timer);
-    const r = await relay.round2(id, key);
+    const attempt = await actionRequests.run(() => relay.round2(id, key));
+    if(!attempt.started) return;
+    const r = attempt.value;
     if(!r.ok){
       r2Armed = false;
       $('cround2').textContent = 'Open a second round (Delphi)';
@@ -232,7 +254,9 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
       return;
     }
     clearTimeout(endTimer);
-    const r = await relay.end(id, key);
+    const attempt = await actionRequests.run(() => relay.end(id, key));
+    if(!attempt.started) return;
+    const r = attempt.value;
     if(!r.ok && r.status !== 404){
       endArmed = false;
       $('cend').textContent = 'End session now';
@@ -265,6 +289,8 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
   }
 
   let lastResponses = null, lastDelphi = null;
+  const fingerprint = schemaFingerprint(model);
+  let participantRound = 1, editRevision = 0, applyingDraft = false;
 
   const readFields = () => [...$('pform').querySelectorAll('input[data-part]')].map(el => ({
     q: +el.closest('.q').dataset.q,
@@ -273,6 +299,56 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     value: el.value,
     touched: el.dataset.touched === '1',
   }));
+  const readName = () => {
+    const el = $('pform').querySelector('[data-name]');
+    return el ? el.value : '';
+  };
+  const storedDraft = round => {
+    try{
+      return decodeDraft(localStorage.getItem(draftKey(id, round, fingerprint)), round, fingerprint);
+    }catch(e){
+      return null;
+    }
+  };
+  const writeDraft = (round, fields = readFields(), name = readName()) => {
+    try{
+      localStorage.setItem(draftKey(id, round, fingerprint),
+        encodeDraft({round, fingerprint, fields, name}));
+    }catch(e){}
+  };
+  const applyDraft = draft => {
+    if(!draft) return false;
+    applyingDraft = true;
+    const fields = new Map(draft.fields.map(f =>
+      [f.q + ':' + f.part + ':' + (f.opt === undefined ? '' : f.opt), f]));
+    for(const el of $('pform').querySelectorAll('input[data-part]')){
+      const q = +el.closest('.q').dataset.q;
+      const key = q + ':' + el.dataset.part + ':' +
+        (el.dataset.opt === undefined ? '' : +el.dataset.opt);
+      const field = fields.get(key);
+      if(!field) continue;
+      el.value = field.value;
+      el.dispatchEvent(new Event('input', {bubbles: true}));
+      /* wireFormEvents marks probability sliders touched on every input; put
+         the persisted semantic state back after refreshing its output. */
+      el.dataset.touched = field.touched ? '1' : '0';
+    }
+    const name = $('pform').querySelector('[data-name]');
+    if(name) name.value = draft.name;
+    applyingDraft = false;
+    editRevision = 0;
+    return true;
+  };
+  /* A round-2 draft wins on an untouched reload. If the relay response arrives
+     after typing begins, the live (newer) form is carried forward instead. */
+  const activateRound = next => {
+    if(next !== 2 || participantRound === 2) return;
+    const live = {fields: readFields(), name: readName()};
+    const nextDraft = storedDraft(2);
+    participantRound = 2;
+    if(nextDraft && editRevision === 0) applyDraft(nextDraft);
+    else writeDraft(2, live.fields, live.name);
+  };
 
   /* chips wiring: steppers (±5, clamped so the question total can't exceed 100) and
      a live "N left" remainder that reddens off 100. Wrong sums are surfaced by
@@ -293,6 +369,18 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     const sum = chipSum(qEl);
     if(left){ left.textContent = String(100 - sum); left.classList.toggle('over', sum !== 100); }
   });
+  applyDraft(storedDraft(1));
+  $('pform').addEventListener('input', () => {
+    if(applyingDraft) return;
+    editRevision++;
+    writeDraft(participantRound);
+  });
+  /* One load-time check chooses the authoritative round; participants still do
+     not poll, and results remain explicitly on-demand. */
+  const roundReady = relay.status(id).then(r => {
+    if(r.ok) activateRound(r.data.round);
+    return r;
+  });
   function markErrors(errors){
     for(const qEl of $('pform').querySelectorAll('.q[data-q]')){
       const err = errors.find(e => e.q === +qEl.dataset.q);
@@ -309,13 +397,18 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
   };
 
   $('psubmit').addEventListener('click', async () => {
+    const btn = $('psubmit');
+    if(btn.disabled) return;
+    btn.disabled = true;
+    await roundReady;
     const {values, errors, answered} = collectValues(model, readFields());
     markErrors(errors);
     $('perr').hidden = true;
-    if(errors.length) return;
+    if(errors.length){ btn.disabled = false; return; }
     if(!answered){
       $('perr').textContent = 'Answer at least one question before submitting.';
       $('perr').hidden = false;
+      btn.disabled = false;
       return;
     }
     const payload = {participantId: pid, values};
@@ -324,12 +417,11 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       if(!name){
         $('perr').textContent = 'This session asks for your name.';
         $('perr').hidden = false;
+        btn.disabled = false;
         return;
       }
       payload.name = name;
     }
-    const btn = $('psubmit');
-    btn.disabled = true;
     const r = await relay.submit(id, payload);
     btn.disabled = false;
     if(r.ok){
@@ -347,6 +439,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     const r = await relay.status(id);
     if(r.status === 404) return say(ENDED);
     if(!r.ok) return say("Couldn't reach the relay — try again.");
+    activateRound(r.data.round);
     if(!r.data.revealed)
       return say('Not revealed yet — ' + r.data.count + ' response' + (r.data.count === 1 ? '' : 's') + ' so far.');
     if(r.data.round === 2 && r.data.revealed2){

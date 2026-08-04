@@ -1,9 +1,8 @@
 /* Pure phase machine for the premortem wizard. Gating lives here so the app and
    the tests agree on when a phase can advance; the doc's `phase` is the state. */
-import {isRisk} from './register.js';
+import {isRisk, isScoreable} from './register.js';
 
 export const PHASES = ['FRAME', 'WRITE', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE', 'REGISTER'];
-const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
 
 export function canAdvance(doc){
   const es = (doc.entries || []).filter(isRisk);   // board items (fact/assumption/belief) don't count toward the wizard gates
@@ -12,8 +11,8 @@ export function canAdvance(doc){
       ? {ok: true} : {ok: false, why: 'Name the effort and the failure question first.'};
     case 'COLLECT': return es.length
       ? {ok: true} : {ok: false, why: 'Write down at least one way it could fail.'};
-    case 'SCORE': return es.some(scoreable)
-      ? {ok: true} : {ok: false, why: 'Score at least one risk — a likelihood and an impact range.'};
+    case 'SCORE': return es.some(isScoreable)
+      ? {ok: true} : {ok: false, why: 'Score at least one risk with complete low–high ranges (likelihood 0–100%, impact at least 0).'};
     default: return {ok: true};
   }
 }

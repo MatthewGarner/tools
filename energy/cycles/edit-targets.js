@@ -72,6 +72,28 @@ export function addKeyLine(text, key){
   return {afterLine, newLine};
 }
 
+/* Exact fresh-field identity per optional key. A range deliberately opens its
+   high value (the value the compact artefact foregrounds); charge may be a
+   single value, so its stable destination is the low/only field. */
+const ADD_TARGET_FIELD = {
+  charge: 'chargeLo', second: 'secondHi', drift: 'driftHi',
+  augment: 'augHi', discount: 'discHi',
+};
+export function addedKeyTarget(add, key){
+  const field = ADD_TARGET_FIELD[key];
+  return field ? {kind: 'num', line: add.afterLine + 1, data: {field}} : null;
+}
+
+/* The control that replaces the cancelled item after the normal re-render. */
+export function addKeyReturnIdentity(key){
+  if(key === 'second' || key === 'augment') return {kind: 'addkey', data: {key}};
+  return {kind: 'cardmenu', data: {band: key === 'charge' ? 'price' : 'life'}};
+}
+
+export function isUntouchedKeyAdd(text, line, newLine){
+  return text.split(/\r?\n/)[line] === newLine;
+}
+
 export function removeKeyLine(text, key){
   if(!ADDABLE.has(key)) return -1;
   const src = parse(text).srcLines[key];

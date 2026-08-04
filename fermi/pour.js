@@ -150,7 +150,9 @@ export function mountPour(histCanvas, wrapEl){
       for(const g of grains) settled[binOf(g.fin)]++;
       for(let r = 0; r < k; r++) for(const kick of ks[r]) stampTick(r, kick);   // source-over same-colour ⇒ order-independent
       backdrop(1);
-      timers.push(setTimeout(() => fade(), 4000));
+      // The settled explanation may remain briefly, but reduced-motion must not
+      // sneak an opacity animation back in through the common fade path.
+      timers.push(setTimeout(teardown, 4000));
       return;
     }
     // animate — timestamp-driven so the pace is identical at 30 / 60 / 120Hz (rAF passes ts).

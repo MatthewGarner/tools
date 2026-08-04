@@ -32,6 +32,18 @@ export function addQuestionLine(text, type = 'prob'){
   return {afterLine: lastConfig >= 0 ? lastConfig : lines.length - 1, newLine};
 }
 
+/* Exact artefact identity for the question just inserted by addQuestionLine.
+   Source lines stay in the parser/renderer's native 0-based convention; the
+   shared EIP opener treats this value as opaque. */
+export function addedQuestionTarget(add){
+  return {kind: 'qtext', line: add.afterLine + 1};
+}
+
+/* Escape may cancel only the untouched line created by this add gesture. */
+export function isUntouchedQuestionAdd(text, line, newLine){
+  return text.split(/\r?\n/)[line] === newLine;
+}
+
 /* Only lines that parse as questions may be removed. */
 export function removeQuestionLine(text, srcLine){
   return parse(text).questions.some(q => q.srcLine === srcLine);

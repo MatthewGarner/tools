@@ -110,6 +110,16 @@ export function addLegLine(text, kind){
   return {afterLine, newLine};
 }
 
+/* The new structure's generated label is the first-class artefact field opened
+   after insertion. Keep the parser/renderer's source line untouched. */
+export function addedLegTarget(add){
+  return {kind: 'label', line: add.afterLine + 1};
+}
+
+export function isUntouchedLegAdd(text, line, newLine){
+  return text.split(/\r?\n/)[line] === newLine;
+}
+
 export function removeLegLine(text, srcLine){
   return parse(text).structures.some(s => s.srcLine === srcLine);
 }

@@ -101,7 +101,7 @@ const ROLLOUT = [
   ['tree', '/tree/', '#preview', true], ['why', '/why/', '#preview', true],
   ['roadmap', '/roadmap/', '#preview', false], ['map', '/map/', '#preview', false],
   ['bets', '/bets/', '#preview', false], ['gauge', '/gauge/', '#preview', false],
-  ['wardley', '/wardley/', '#preview', false], ['risk', '/energy/risk/', '#preview', false],
+  ['wardley', '/wardley/', '#preview', false], ['case', '/case/', '#preview', false], ['risk', '/energy/risk/', '#preview', false],
   ['cycles', '/energy/cycles/', '#preview', false], ['intraday', '/energy/intraday/', '#pricewrap', false],
 ];
 

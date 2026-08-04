@@ -1,7 +1,7 @@
 /* Energy-origin worker — same strategy as the root sw.js (see its comment);
    PRECACHE lists URLs as served on energy.matthewgarner.me and is generated
    by dev/gen-sw.mjs (dev/pwa-precache.test.mjs enforces). */
-const CACHE = 'energy-0353e9e200';
+const CACHE = 'energy-97377c50ee';
 const PRECACHE = [
   '/',
   '/assets/about.css',
@@ -41,6 +41,7 @@ const PRECACHE = [
   '/cycles/edit-targets.js',
   '/cycles/editor.js',
   '/cycles/engine.js',
+  '/cycles/interaction-state.js',
   '/cycles/motion-spec.js',
   '/cycles/parse.js',
   '/cycles/render.js',
@@ -49,6 +50,7 @@ const PRECACHE = [
   '/frequency/',
   '/frequency/app.js',
   '/frequency/engine.js',
+  '/frequency/interaction.js',
   '/frequency/render.js',
   '/frequency/state.js',
   '/frequency/style.css',
@@ -59,6 +61,7 @@ const PRECACHE = [
   '/intraday/',
   '/intraday/app.js',
   '/intraday/day.js',
+  '/intraday/interaction.js',
   '/intraday/motion-spec.js',
   '/intraday/render-day.js',
   '/intraday/state.js',
@@ -67,6 +70,7 @@ const PRECACHE = [
   '/merit-order/',
   '/merit-order/app.js',
   '/merit-order/engine.js',
+  '/merit-order/interactions.js',
   '/merit-order/motion-spec.js',
   '/merit-order/render.js',
   '/merit-order/scenarios.js',

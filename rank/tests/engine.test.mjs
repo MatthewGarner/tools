@@ -42,6 +42,18 @@ test('base order ranks the unperturbed WSJF scores', () => {
   }
 });
 
+test('out-of-range direct state is normalised identically for base and wobble runs', () => {
+  const hostile = structuredClone(state);
+  hostile.items[0].s[0] = 100;
+  hostile.items[0].e = -4;
+  hostile.criteria[0].w = -9;
+  const clean = structuredClone(state);
+  clean.items[0].s[0] = 10;
+  clean.items[0].e = 1;
+  clean.criteria[0].w = 0;
+  assert.deepEqual(simulate(hostile, {seed: 7}), simulate(clean, {seed: 7}));
+});
+
 test('verdict grammar: one settled item "makes" the cut', () => {
   const {headline, body} = verdictCopy([
     {name: 'A', ptop: 0.97}, {name: 'B', ptop: 0.5}, {name: 'C', ptop: 0.4},

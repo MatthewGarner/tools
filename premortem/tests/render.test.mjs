@@ -27,6 +27,18 @@ test('SCORE: paired p and impact inputs', () => {
   assert.match(h, /data-p="lo"/);
   assert.match(h, /data-p="hi"/);
   assert.match(h, /data-impact="hi"/);
+  assert.match(h, /aria-label="Likelihood low for r"/);
+  assert.match(h, /aria-label="Likelihood high for r"/);
+  assert.match(h, /aria-label="Impact low for r"/);
+  assert.match(h, /aria-label="Impact high for r"/);
+});
+
+test('SCORE renders a partial range as an empty field, never the string null', () => {
+  const e = {...newEntry('r'), p: [25, null], impact: [null, 40]};
+  const h = renderPhase({phase: 'SCORE', unit: '£k', entries: [e]}, new Date());
+  assert.ok(!h.includes('value="null"'));
+  assert.match(h, /data-p="lo"[^>]*value="25"/);
+  assert.match(h, /data-p="hi"[^>]*value=""/);
 });
 test('VOTE renders the pool arithmetic (people × 3) + vote hooks', () => {
   const doc = {phase: 'VOTE', people: 4, entries: [{...newEntry('r'), p: [10, 20], impact: [1, 2],
@@ -78,6 +90,15 @@ test('board escapes hostile text and carries a column add-input per kind', () =>
   assert.match(h, /data-add-kind="assumption"/);
   assert.match(h, /data-add-kind="belief"/);
 });
+test('board numeric ranges have specific accessible names', () => {
+  const e = kinded('checkout risk', 'assumption', {id: 'a1'});
+  const card = renderBoard({entries: [e]}, new Date());
+  assert.match(card, /aria-label="Confidence low for checkout risk"/);
+  assert.match(card, /aria-label="Confidence high for checkout risk"/);
+  const promoteForm = renderBoard({entries: [e]}, new Date(), 'a1');
+  assert.match(promoteForm, /aria-label="Likelihood wrong low for checkout risk"/);
+  assert.match(promoteForm, /aria-label="Impact high for checkout risk"/);
+});
 test('boardVerdict names one figure, verbatim in the line, on every branch', () => {
   const cases = [
     boardVerdict([]),
@@ -104,12 +125,11 @@ test('promote turns an assumption into a scored risk', () => {
   assert.deepEqual(r.p, [20, 40]);
   assert.deepEqual(r.impact, [50, 100]);
 });
-test('promote pre-fill is sorted — a one-sided confidence never inverts the likelihood', () => {
-  const a = kinded('assume', 'assumption', {p: [40, 0], id: 'a1'});   // one-sided confidence → naive inverse would be 100–60
+test('promote pre-fill ignores an invalid confidence range instead of inventing bounds', () => {
+  const a = kinded('assume', 'assumption', {p: [40, 0], id: 'a1'});   // legacy one-sided value created by the old null→0 coercion
   const h = renderBoard({entries: [a]}, new Date(), 'a1');
-  const lo = +h.match(/data-promotep="lo"[^>]*value="(\d+)"/)[1];
-  const hi = +h.match(/data-promotep="hi"[^>]*value="(\d+)"/)[1];
-  assert.ok(lo <= hi, 'likelihood-wrong pre-fill not inverted (' + lo + ' <= ' + hi + ')');
+  assert.match(h, /data-promotep="lo"[^>]*value=""/);
+  assert.match(h, /data-promotep="hi"[^>]*value=""/);
 });
 test('register shows only risks — board items never leak in', () => {
   const rs = [{...newEntry('real risk here'), p: [30, 50], impact: [100, 200]},

@@ -16,14 +16,14 @@ main{display:flex;flex-direction:column;gap:20px}
    .segmented view toggle, which inverts to ink the same way. "Done" keeps its
    ✓ glyph so the three states never rest on colour alone. */
 .phaserail{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
-.phaserail li{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+.phaserail button{font:inherit;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
   color:var(--muted);
   padding:7px 11px;border:1px solid var(--border);border-radius:0;background:none;cursor:pointer;
   min-height:34px;display:inline-flex;align-items:center;gap:5px}
-.phaserail li.done{color:var(--ink);border-color:var(--ink)}
-.phaserail li.done::before{content:"✓";letter-spacing:0}
-.phaserail li.current{border-color:var(--ink);color:var(--bg);background:var(--ink)}
-.phaserail li[aria-disabled="true"]{cursor:default;opacity:.6}
+.phaserail li.done button{color:var(--ink);border-color:var(--ink)}
+.phaserail li.done button::before{content:"✓";letter-spacing:0}
+.phaserail li.current button{border-color:var(--ink);color:var(--bg);background:var(--ink)}
+.phaserail button:disabled{cursor:default;opacity:.6}
 
 /* toolbar: view toggle (Wizard / Board / Register) + always-visible undo */
 .toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -153,10 +153,16 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .gatewhy{color:var(--st-risk-ink);font-size:13px}
 #savedlist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .savedrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-.savedrow .stitle{flex:1;font-weight:600;cursor:pointer;overflow-wrap:anywhere}
+.savedrow .stitle{flex:1;font:inherit;font-weight:600;text-align:left;color:var(--ink);cursor:pointer;
+  overflow-wrap:anywhere;border:0;background:none;padding:8px 0;min-height:44px}
 .savedrow .smeta{color:var(--muted);font-size:12.5px}
 .savedrow .sdel{min-width:44px;min-height:44px;border:1px solid var(--border);border-radius:0;background:var(--card);color:var(--muted);cursor:pointer}
 .savedempty{color:var(--muted);font-size:14px}
+.deleteundo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 0;
+  padding:10px 12px;border:1px solid var(--border);background:var(--bg);font-size:13.5px}
+.deleteundo[hidden]{display:none}
+.sr-status{position:fixed;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);
+  white-space:nowrap;border:0}
 
 footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 
@@ -183,7 +189,7 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
 }
 @media (pointer:coarse){
   .btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}
-  .phaserail li{min-height:44px}
+  .phaserail button{min-height:44px}
   .bcdel{width:44px;height:44px;font-size:20px}
 }
 

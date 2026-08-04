@@ -4,9 +4,9 @@ import {layoutMap} from './layout.js';
 import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
-  addComponent, removeComponent, addEdge, removeEdge} from './edit-targets.js';
+  addComponent, addedComponentTarget, removeComponent, addEdge, removeEdge} from './edit-targets.js';
 import {readHashState, writeHashState, mix} from '../assets/series.js';
-import {applyLineOps, insertAndSelect} from '../assets/editor-common.js';
+import {applyLineOps} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -19,6 +19,7 @@ import {mapReadout} from './render.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
+import {makeDragClickGuard} from './drag-click-guard.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -179,7 +180,7 @@ function componentMenuRows(el){
   rows.push({label: 'Remove component', action: true, danger: true});
   return rows;
 }
-attachEditInPlace($('preview'), {
+const eip = attachEditInPlace($('preview'), {
   kinds: {...kinds,
     additem: {validate: kinds.name.validate},
     componentmenu: {menu: componentMenuRows},
@@ -194,8 +195,8 @@ attachEditInPlace($('preview'), {
     })) return;
     if(kind === 'additem'){
       const r = addComponent(editor.getText(), newValue, el.dataset.stage || null);
-      insertAndSelect(editor, r.afterLine, r.newLine, r.select,
-        {focus: matchMedia('(pointer: fine)').matches});
+      editor.insertLinesAfter(r.afterLine, [r.newLine]);
+      eip.focusAt(addedComponentTarget(r, newValue), {origin: el});
       return;
     }
     if(kind === 'componentmenu'){
@@ -225,8 +226,9 @@ attachEditInPlace($('preview'), {
 /* ---------- drag-to-evolve (horizontal only; release writes "@ x") ----------
    Two modes: wide pills drag by DELTA (grab anywhere on the pill); narrow
    strips map the pointer ABSOLUTELY across the card's track (thumb-natural). */
-let suppressClick = false;   // a completed drag must not open the name editor
+const dragClick = makeDragClickGuard();
 const drag = {armed: null, active: false, el: null};
+const dragKey = d => d.line + '\0' + d.name;
 function dragEnd(commit = false){
   if(drag.el){
     drag.el.classList.remove('dragging');
@@ -245,12 +247,15 @@ function evoScale(){
   return {perPx: (GEOM.w / r.width) / (GEOM.w - 2 * GEOM.pad), userPerPx: GEOM.w / r.width};
 }
 $('preview').addEventListener('pointerdown', e => {
+  /* A later physical gesture is definitive proof that the compatibility-click
+     turn has passed, even if a background tab delayed the expiry timer. */
+  dragClick.clear();
   const g = e.target.closest && e.target.closest('#preview svg g[data-drag="evo"]');
   if(!g || e.button !== 0 || !model) return;
   e.preventDefault();
   const track = g.hasAttribute('data-strip') ? g.querySelector('[data-track]') : null;
   const dot = track ? g.querySelector('[data-dot]') : null;
-  drag.armed = {line: +g.dataset.line, name: g.dataset.name, x: e.clientX, y: e.clientY,
+  drag.armed = {pointerId: e.pointerId, line: +g.dataset.line, name: g.dataset.name, x: e.clientX, y: e.clientY,
     track, dot, dot0: dot ? +dot.getAttribute('cx') : 0, ratio: null};
   drag.el = g;
   /* capture ONLY strip drags: with capture active, the compatibility click
@@ -259,7 +264,7 @@ $('preview').addEventListener('pointerdown', e => {
   if(track) try{ g.setPointerCapture(e.pointerId); }catch(err){}
 });
 window.addEventListener('pointermove', e => {
-  if(!drag.armed) return;
+  if(!drag.armed || e.pointerId !== drag.armed.pointerId) return;
   if(!drag.active){
     if(Math.abs(e.clientX - drag.armed.x) < 4) return;
     drag.active = true;
@@ -280,7 +285,11 @@ window.addEventListener('pointermove', e => {
   drag.el.setAttribute('transform', 'translate(' + dxUser + ' 0)');
 });
 window.addEventListener('pointerup', e => {
-  if(!drag.armed) return;
+  if(!drag.armed || e.pointerId !== drag.armed.pointerId) return;
+  const pointerId = drag.armed.pointerId;
+  const componentKey = dragKey(drag.armed);
+  const releaseTarget = document.elementFromPoint(e.clientX, e.clientY);
+  const releasedInside = !!(releaseTarget && $('preview').contains(releaseTarget));
   const wasActive = drag.active, line = drag.armed.line, startX = drag.armed.x;
   const key = drag.armed.name.toLowerCase();
   const ratio = drag.armed.ratio;
@@ -291,14 +300,16 @@ window.addEventListener('pointerup', e => {
      not demand a drag on a phone */
   if(track && !wasActive){
     const r = track.getBoundingClientRect();
-    suppressClick = true;
+    if(releasedInside) dragClick.arm(pointerId, componentKey);
+    else dragClick.clear(pointerId);
     applyEdits(dragRewrite(editor.getText(), line,
       Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))));
     if(matchMedia('(pointer: fine)').matches) editor.view.focus();
     return;
   }
   if(!wasActive) return;
-  suppressClick = true;
+  if(releasedInside) dragClick.arm(pointerId, componentKey);
+  else dragClick.clear(pointerId);
   if(track){
     if(ratio !== null) applyEdits(dragRewrite(editor.getText(), line, ratio));
   } else {
@@ -311,12 +322,29 @@ window.addEventListener('pointerup', e => {
   /* keep ⌘Z live after a drag; never on coarse pointers (focus pops the keyboard) */
   if(matchMedia('(pointer: fine)').matches) editor.view.focus();
 });
-window.addEventListener('pointercancel', () => { if(drag.armed) dragEnd(); });
+window.addEventListener('pointercancel', e => {
+  dragClick.clear(e.pointerId);
+  if(drag.armed && e.pointerId === drag.armed.pointerId) dragEnd();
+});
+$('preview').addEventListener('lostpointercapture', e => {
+  /* Automatic release after pointerup is no longer an armed gesture.  A loss
+     while armed is cancellation, and must clear both drag and click state. */
+  if(drag.armed && e.pointerId === drag.armed.pointerId){
+    dragClick.clear(e.pointerId);
+    dragEnd();
+  }
+});
 window.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && drag.armed) dragEnd();
+  if(e.key === 'Escape' && drag.armed){
+    dragClick.clear(drag.armed.pointerId);
+    dragEnd();
+  }
 });
 $('preview').addEventListener('click', e => {
-  if(suppressClick){ e.stopPropagation(); suppressClick = false; }
+  const g = e.target.closest && e.target.closest('#preview svg g[data-drag="evo"]');
+  const pointerId = typeof e.pointerId === 'number' ? e.pointerId : null;
+  const componentKey = g ? g.dataset.line + '\0' + g.dataset.name : '';
+  if(dragClick.consume(pointerId, componentKey)) e.stopPropagation();
 }, true);
 
 /* ---------- example chips ---------- */

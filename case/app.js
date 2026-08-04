@@ -3,7 +3,7 @@
 import {parse} from './parse.js';
 import {render, toMarkdown, caseReadout, NARROW} from './render.js';
 import {createEditor} from './editor.js';
-import {validators, editLabel, editNote, setQuestion} from './edit-targets.js';
+import {validators, editLabel, editNote, setQuestion, setStatus} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {applyLineOps} from '../assets/editor-common.js';
 import {measure, themeColors, onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
@@ -119,6 +119,7 @@ attachEditInPlace($('preview'), {
     label: {validate: validators.label},
     note: {validate: validators.note},
     question: {validate: validators.question},
+    status: {options: ['open', 'decided', 'parked']},
     verdict: {menu: () => verdictMenuRows(model && model.verdict)},
     verdictedit: {validate: validVerdictInput,
       placeholder: () => model ? caseReadout({...model, verdict: null}).line : ''},
@@ -131,6 +132,10 @@ attachEditInPlace($('preview'), {
     })) return;
     if(kind === 'question'){
       editor.setText(setQuestion(editor.getText(), newValue));
+      return;
+    }
+    if(kind === 'status'){
+      editor.setText(setStatus(editor.getText(), newValue));
       return;
     }
     const lines = editor.getText().split('\n');
