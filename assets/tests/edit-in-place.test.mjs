@@ -39,8 +39,35 @@ test('spec.custom is checked before cycle/menu/input, and forceInput bypasses it
 
 test('cardMenu grows an optional extra(el) rows hook, backward-compatible when unset', () => {
   assert.match(src, /export function cardMenu\(\{field, add, remove = 'Remove branch', extra\}\)/);
-  assert.match(src, /return \{menu: extra \? build : build\(\)\}/,
-    'no extra ⇒ menu is the same static array as before (existing callers unaffected)');
+  assert.match(src, /const dynamic = !!extra \|\| typeof field === 'function';/,
+    'neither extra nor a functional field ⇒ menu stays the same static array as before');
+  assert.match(src, /return \{menu: dynamic \? build : build\(\)\}/);
+});
+
+test('cardMenu field may be a function, omitted when it returns falsy', () => {
+  assert.match(src, /const f = typeof field === 'function' \? field\(el\) : field;/);
+  assert.match(src, /if\(f\) rows\.push\(f\);/, 'a falsy field(el) result omits the row rather than pushing undefined');
+});
+
+test('an opens-row with no matching inline target falls back to the menu trigger itself, never a silent no-op', () => {
+  assert.match(src, /if\(t\) open\(t, \{forceInput: true\}\);/);
+  assert.match(src, /else open\(activeEl, \{kind: row\.opens, raw: '', forceInput: false\}\);/,
+    'missing target ⇒ same interaction, anchored at the card-menu trigger, empty raw, no forced text input');
+});
+
+test('open() lets opts.kind/opts.raw override the element dataset, threaded through every downstream read', () => {
+  assert.match(src, /const kind = opts\.kind !== undefined \? opts\.kind : el\.dataset\.edit;/);
+  assert.match(src, /const raw = opts\.raw !== undefined \? opts\.raw : \(el\.dataset\.raw \|\| ''\);/);
+  // prefill, the no-change comparison, and the commit's oldRaw all read the
+  // overridable `raw` local — none of them re-reads el.dataset.raw directly,
+  // which would silently drop the override
+  assert.match(src, /input\.value = raw;/, 'input prefill uses the overridable raw');
+  assert.match(src, /v\.trim\(\) === raw\.trim\(\)/, 'no-change comparison uses the overridable raw');
+  assert.match(src, /onCommit\(kind, line, raw, v\.trim\(\), el\);/, 'commit\'s oldRaw uses the overridable raw');
+});
+
+test('open() never silently drops an unknown kind — it announces instead', () => {
+  assert.match(src, /if\(!spec\)\{[\s\S]{0,400}announce\(/, 'an unresolvable kind announces rather than returning silently');
 });
 
 test('renderPopoverRows handles commit and submenu rows', () => {

@@ -31,8 +31,10 @@ function clampToViewport(el, rect){
 
 let errUid = 0;
 
-/* The house card-menu shape, shared by the DSL card tools (why, tree): Rename
-   first, one type-specific field row (`field` — a {label, opens} spec), an
+/* The house card-menu shape — currently called only by tree; why imports
+   `cardMenu` but builds its own menu rows by hand instead (why/app-menu.js),
+   so that import is dead (left alone; not this fix's job). Rename first, one
+   type-specific field row (`field` — a {label, opens} spec), an
    ＋ Add action, and a danger Remove last. Building all six per-node-kind menus
    from this keeps the row order and the ＋ (U+FF0B) glyph from drifting between
    tools. `add` is the noun after "＋ Add "; `remove` defaults to "Remove branch"
@@ -44,21 +46,31 @@ export function cardMenu({field, add, remove = 'Remove branch', extra}){
      "Explore payoff…" commit rows, and fills the leaf-p hole ("Edit
      probability…") for kinds whose `field` slot is already taken by value.
      Wrapping the menu in a function only when `extra` is supplied keeps every
-     existing call site (no `extra`) byte-identical — same static array as before. */
+     existing call site (no `extra`) byte-identical — same static array as before.
+     `field` may also be a function (el) => row | falsy, for a row that's only
+     sometimes honest to offer (tree's cardmenu-chance: "Edit probability…"
+     means nothing on a node whose own parent isn't chance-kind) — a falsy
+     result omits the row entirely rather than opening a dead popover. */
+  const dynamic = !!extra || typeof field === 'function';
   const build = el => {
-    const rows = [{label: 'Rename…', opens: 'label'}, field];
+    const rows = [{label: 'Rename…', opens: 'label'}];
+    const f = typeof field === 'function' ? field(el) : field;
+    if(f) rows.push(f);
     if(extra) rows.push(...extra(el));
     rows.push({label: '＋ Add ' + add, action: true});
     rows.push({label: remove, action: true, danger: true});
     return rows;
   };
-  return {menu: extra ? build : build()};
+  return {menu: dynamic ? build : build()};
 }
 
 export function attachEditInPlace(preview, {kinds, onCommit}){
   let active = null;   // {input, el, away, errEl, onCancel}
   let missStatus = null;
-  function announceMiss(){
+  /* shared sr-only live region — openAt/focusAt's "couldn't find a fresh
+     target" message and open()'s "nothing here can act on that" safety net
+     (Part 3, below) are the same kind of announcement, just different text */
+  function announce(msg){
     if(!missStatus){
       missStatus = document.createElement('div');
       missStatus.className = 'sr-only';
@@ -67,8 +79,9 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       document.body.appendChild(missStatus);
     }
     missStatus.textContent = '';
-    requestAnimationFrame(() => { missStatus.textContent = 'The new item could not be opened here. Focus returned to the original control.'; });
+    requestAnimationFrame(() => { missStatus.textContent = msg; });
   }
+  function announceMiss(){ announce('The new item could not be opened here. Focus returned to the original control.'); }
 
   function close(){
     if(!active) return;
@@ -127,11 +140,26 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
              when the target also carries a spec.custom (e.g. tree's hot-number
              slider intercept) that would otherwise redirect a plain open(). */
           if(t) open(t, {forceInput: true});
+          /* Renderers emit an inline [data-edit] target for a field only when it's
+             already set — an unset value/probability/lane has nothing on the card
+             to anchor to, so `t` is null here on every unset-field row. That must
+             never be a silent no-op (the defect class this whole path guards
+             against): open the SAME interaction anchored at the menu's own trigger
+             instead — its kind is the row's opens kind, raw is empty (nothing
+             authored yet), forceInput stays false so an options/menu kind still
+             opens its picker rather than being forced into a bare text input. */
+          else open(activeEl, {kind: row.opens, raw: '', forceInput: false});
         } else if(row.submenu){
           const r = b.getBoundingClientRect();        // capture BEFORE close() disposes the button
           close();
           renderPopoverRows(row.submenu, r, activeEl); // sub-popover; same focus-restore target
         } else {                                       // action row
+          /* action rows (＋ Add…/Remove…) deliberately read activeEl.dataset.edit/
+             .raw directly rather than going through open()'s opts.kind/opts.raw
+             override system above — they never call open() at all, and they act
+             on the CARD-MENU's own node (its kind, its line, its raw), not on
+             any particular field. There is no "missing target" concept for an
+             action row to fall back from. */
           close();
           onCommit(activeEl.dataset.edit, +activeEl.dataset.line, activeEl.dataset.raw || '', '✖' + row.label, activeEl);
         }
@@ -179,9 +207,23 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   }
   function open(el, opts = {}){
     close();
-    const kind = el.dataset.edit;
+    /* opts.kind/opts.raw (set only by the opens-row fallback above, when the
+       precise inline target doesn't exist) override el's own dataset — every
+       other read below goes through these two locals rather than back to
+       el.dataset.edit/el.dataset.raw, so the override reaches the input
+       prefill, the no-change comparison, the commit's oldRaw, options/cycle
+       "on" marking, the aria-label and the validate/spec lookup alike. */
+    const kind = opts.kind !== undefined ? opts.kind : el.dataset.edit;
     const spec = kinds[kind];
-    if(!spec) return;
+    if(!spec){
+      /* never a silent no-op (Part 3, the safety net): announce and stop —
+         should be unreachable now that every opens-row either finds its
+         target or falls back to a kind that IS in this tool's kinds map,
+         but a future menu row naming a kind that never got wired here must
+         say so rather than vanish. */
+      announce('That option can’t be edited here.');
+      return;
+    }
     /* A custom hook, checked before cycle/menu/input, lets a tool fully own the
        open gesture for specific instances of a kind — e.g. tree's hot numbers,
        which supersede the popover with a persistent slider (mobile-input C5).
@@ -190,10 +232,19 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
        bespoke overlay for the intercepted case. opts.forceInput (set only by
        the menu's own "opens" row above) skips the hook, so precise numeric
        entry always has a path even once a tap supersedes it. A no-op for every
-       kind that never sets spec.custom — every tool but tree, today. */
+       kind that never sets spec.custom — every tool but tree, today.
+       NOTE: only kind/raw are overridable — spec.custom(el)/spec.menu(el)/
+       spec.placeholder(el) below all still receive the literal `el` passed
+       in, unswapped. Under the opens-row fallback that `el` is the CARDMENU
+       GROUP, not a field tspan. Harmless today only because tree's one
+       spec.custom checks `el.hasAttribute('data-hot')`, which a cardmenu
+       group never carries (that attribute lives on hot field tspans only) —
+       so the hook always declines and falls through. A future spec.custom/
+       menu/placeholder that reads some OTHER el.dataset field would need to
+       cope with `el` meaning "the card's own trigger", not "this field". */
     if(spec.custom && !opts.forceInput && spec.custom(el)) return;
     const rect = el.getBoundingClientRect();
-    const raw = el.dataset.raw || '';
+    const raw = opts.raw !== undefined ? opts.raw : (el.dataset.raw || '');
     /* cycle kinds step to the next value on click. On a COARSE pointer a bare tap
        must NOT commit silently (the mis-tap trap): a multi-value cycle opens a
        marked options popover to PICK; a ['×'] remove cycle opens a one-row danger
@@ -265,7 +316,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     }
     const input = document.createElement('input');
     input.className = 'eip-input';
-    input.value = el.dataset.raw || '';
+    input.value = raw;
     input.setAttribute('aria-label', 'Edit ' + kind);
     if(spec.inputmode) input.inputMode = spec.inputmode;   // numeric keypad on phones (Rule 3); dates stay text for `..`
     /* placeholder (documented in the header, now real): static string or (el)=>string —
@@ -295,7 +346,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     const commit = () => {
       if(!active) return;
       const v = input.value;
-      if(v.trim() === (el.dataset.raw || '').trim()){ close(); return; }
+      if(v.trim() === raw.trim()){ close(); return; }
       if(spec.validate && !spec.validate(v)){
         input.classList.remove('invalid');
         void input.offsetWidth;          // restart the shake
@@ -307,7 +358,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       }
       const line = +el.dataset.line;
       close();
-      onCommit(kind, line, el.dataset.raw || '', v.trim(), el);
+      onCommit(kind, line, raw, v.trim(), el);
     };
     input.addEventListener('keydown', e => {
       if(e.key === 'Enter'){ e.preventDefault(); commit(); }

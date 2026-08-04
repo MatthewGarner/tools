@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, applies, applyExplore} from '../edit-targets.js';
+import {validators, applies, applyExplore, hasIncomingProb} from '../edit-targets.js';
 import {parse} from '../parse.js';
 
 test('prob rewrite preserves everything else on the line', () => {
@@ -10,6 +10,80 @@ test('prob rewrite preserves everything else on the line', () => {
                '  X (p=0.2 to 0.4): 0');
 });
 
+/* set-when-unset (Part 2, the unset-edit fix batch): a child of a chance
+   parent that never got an authored "(p=...)" — the "no p= among
+   probabilistic siblings — given p=0" default in parse.js — has a real,
+   editable p but no annotation text on its line yet. */
+test('prob rewrite: inserts a fresh "(p=...)" before the trailing value when the line has none yet', () => {
+  assert.equal(applies.prob('  B: 20', '', '0.2'), '  B (p=0.2): 20');
+  assert.equal(applies.prob('    B', '', '0.2'), '    B (p=0.2)');
+  // whitespace between the label and the colon doesn't leave a stray gap
+  assert.equal(applies.prob('  B  : 20', '', '0.2'), '  B (p=0.2): 20');
+});
+
+/* adversarial (review pass, unset-edit fix batch): a bare lastIndexOf(':')
+   mistakes a colon-bearing LABEL for the value separator — validators.label
+   permits colons ("Note: sub label" is a legal label; parse.js only treats
+   the last colon as a value split when what follows it parses as money).
+   Every case here is checked against what tree/parse.js would ACTUALLY read
+   the resulting line as, not just eyeballed. */
+test('prob rewrite: a colon inside the LABEL is never mistaken for the value separator', () => {
+  // label contains a colon, and carries no value at all — the whole
+  // colon-bearing string stays the label; p lands at the true end
+  assert.equal(applies.prob('    Note: sub label', '', '0.4'), '    Note: sub label (p=0.4)');
+  {
+    const line = applies.prob('    Note: sub label', '', '0.4');
+    const node = parse('Root\n  A (p=0.5): 1\n  ' + line.trim()).root.children[1];
+    assert.equal(node.label, 'Note: sub label');
+    assert.equal(node.p.lo, 0.4);
+  }
+  // label contains a colon AND the line carries a real value — p lands
+  // before the TRUE (last, money-parsing) colon, not the label's own
+  assert.equal(applies.prob('  Plan B: the sequel: 10', '', '0.4'),
+               '  Plan B: the sequel (p=0.4): 10');
+  {
+    const line = applies.prob('  Plan B: the sequel: 10', '', '0.4');
+    const node = parse('Root\n  A (p=0.5): 1\n  ' + line.trim()).root.children[1];
+    assert.equal(node.label, 'Plan B: the sequel');
+    assert.equal(node.value.lo, 10);
+    assert.equal(node.p.lo, 0.4);
+  }
+});
+
+test('prob rewrite: a bare trailing colon (no value after it) is not mistaken for one either', () => {
+  const line = applies.prob('  Branch A:', '', '0.3');
+  assert.equal(line, '  Branch A: (p=0.3)');
+  const node = parse('Root\n  A (p=0.5): 1\n  ' + line.trim()).root.children[1];
+  assert.equal(node.label, 'Branch A:');
+  // no value TOKEN was ever authored — a childless node with none gets the
+  // finalise() leaf default ({lo:0,hi:0} + a warning), so valueRaw (not
+  // value) is the honest "nothing was written here" signal
+  assert.equal(node.valueRaw, null);
+  assert.equal(node.p.lo, 0.3);
+});
+
+test('prob rewrite: a line carrying trailing free text ("// comment"-shaped) is handled the same way parse.js reads it', () => {
+  // tree node lines have no comment syntax (only a WHOLE line starting with
+  // // is a comment) — "//" here is just more label text, and the value
+  // split still lands on the one colon whose tail parses as money
+  const line = applies.prob('  Task // note: 10', '', '0.4');
+  assert.equal(line, '  Task // note (p=0.4): 10');
+  const node = parse('Root\n  A (p=0.5): 1\n  ' + line.trim()).root.children[1];
+  assert.equal(node.label, 'Task // note');
+  assert.equal(node.value.lo, 10);
+});
+
+test('prob rewrite: inserts correctly around range values (both "to" and dash syntax)', () => {
+  assert.equal(applies.prob('  B: 35 to 60', '', '0.2'), '  B (p=0.2): 35 to 60');
+  assert.equal(applies.prob('  B: 35-60', '', '0.2'), '  B (p=0.2): 35-60');
+});
+
+test('prob rewrite: an existing "(p=...)" is still a plain replace, even on a colon-bearing label', () => {
+  assert.equal(applies.prob('  Note (p=0.1): 10', '0.1', '0.9'), '  Note (p=0.9): 10');
+  assert.equal(applies.prob('  Plan B: the sequel (p=0.1): 10', '0.1', '0.9'),
+               '  Plan B: the sequel (p=0.9): 10');
+});
+
 test('value rewrite replaces the tail component only', () => {
   assert.equal(applies.value('  Submit bid: -150k', '-150k', '-200k'),
                '  Submit bid: -200k');
@@ -17,6 +91,55 @@ test('value rewrite replaces the tail component only', () => {
                '      Win (p=0.6): 1M');
   // label containing the same text as the value
   assert.equal(applies.value('  5k run: 5k', '5k', '8k'), '  5k run: 8k');
+});
+
+/* set-when-unset: the DSL permits a trailing money amount on ANY node line
+   (decision and chance nodes, not just leaves) — a decision node with no
+   value yet is a legitimate, not a foreign, edit target. */
+test('value rewrite: appends ": value" when the line has no value yet (oldRaw empty)', () => {
+  assert.equal(applies.value('  Branch A', '', '5k'), '  Branch A: 5k');
+  assert.equal(applies.value('    B (p=0.4)', '', '10k'), '    B (p=0.4): 10k');
+  // trailing whitespace doesn't leave a stray space before the colon
+  assert.equal(applies.value('  Branch A   ', '', '5k'), '  Branch A: 5k');
+});
+
+/* adversarial (review pass): a line that already ends in a BARE colon (no
+   value after it — parse.js's own rule means that colon carries no value
+   yet either) must not get a second one appended. */
+test('value rewrite: a line ending in a bare colon does not get doubled up ("Branch A:: 5k")', () => {
+  const line = applies.value('  Branch A:', '', '5k');
+  assert.equal(line, '  Branch A: 5k');
+  const node = parse('Root\n  ' + line.trim()).root.children[0];
+  assert.equal(node.label, 'Branch A');
+  assert.equal(node.value.lo, 5000);
+  // trailing whitespace after the bare colon is handled the same way
+  assert.equal(applies.value('  Branch A:   ', '', '5k'), '  Branch A: 5k');
+});
+
+test('hasIncomingProb: true only for a node whose own p came from a chance parent', () => {
+  assert.equal(hasIncomingProb({p: {lo: 0.3, hi: 0.4}}), true);
+  assert.equal(hasIncomingProb({p: 'rest'}), true);
+  assert.equal(hasIncomingProb({p: {lo: 0, hi: 0}}), true);   // the auto-defaulted "given p=0" case
+  assert.equal(hasIncomingProb({p: null}), false);
+  assert.equal(hasIncomingProb(null), false);
+  assert.equal(hasIncomingProb(undefined), false);
+});
+
+test('hasIncomingProb reflects the parsed tree: a chance node under a DECISION parent carries no incoming p', () => {
+  const m = parse([
+    'Root',
+    '  Approach A',
+    '    Chance node',
+    '      Win (p=0.5): 10',
+    '      Lose (p=rest): 0',
+    '  Approach B: 5',
+  ].join('\n'));
+  const approachA = m.root.children[0];
+  const chanceNode = approachA.children[0];
+  assert.equal(approachA.kind, 'decision');
+  assert.equal(chanceNode.kind, 'chance', 'its OWN children carry p, so its own kind is chance');
+  assert.equal(hasIncomingProb(chanceNode), false, 'but its PARENT is decision-kind — nothing incoming to edit');
+  assert.equal(hasIncomingProb(chanceNode.children[0]), true, 'Win, by contrast, sits directly under a chance parent');
 });
 
 test('label rewrite keeps indent, p and value', () => {

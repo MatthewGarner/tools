@@ -52,6 +52,18 @@ function pageLoad(page){
 }
 
 const PAGES = {
+  /* --- unset-edit fix batch (2026-08-04): assets/edit-in-place.js's shared
+     opens-row fallback (a missing inline target now opens the same
+     interaction anchored at the card-menu trigger, never a silent no-op) —
+     plus the opts.kind/opts.raw override, the never-silent announce() path,
+     and the review-pass doc comments that came with it — rides EVERY
+     attachEditInPlace page, all eleven of them (tree, bets, why, roadmap,
+     wardley, map, gauge, case, timeline, energy/risk, energy/cycles).
+     Reason written here once rather than per page: only the seven that had
+     under ~5k headroom actually needed a bump — roadmap, tree, gauge,
+     wardley, case, energy/risk, energy/cycles, each with its own comment
+     below — the other four absorbed the same few hundred bytes inside
+     existing slack and are untouched. --- */
   /* --- try-it specimens (2026-08-02): syntax-try.js + syntax.css affordance +
      data-try attrs ride the ten DSL pages; each +3k, reason written once. --- */
   /* --- Copy-the-verdict (2026-08-02): wireCopyVerdict/wireCopyTap (~2.6k on
@@ -137,7 +149,7 @@ const PAGES = {
   /* 444k -> 454k (2026-08-04 interaction reliability): the Case parity pass
      adds status editing and honest absent-field affordances to the rendered
      artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
-  'case/index.html': 462_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+  'case/index.html': 467_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 113_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
@@ -202,7 +214,12 @@ const PAGES = {
   /* 611k -> 622k (2026-08-04 interaction reliability): menu moves now use
      the same FLIP path as drags and the pointer-scoped post-drag guard makes
      cancellation safe. Actual 616.1k; preserve ~6k headroom. */
-  'roadmap/index.html': 636_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  /* 636k -> 641k (unset-edit fix batch): assets/edit-in-place.js grows an
+     opens-row fallback (missing inline target ⇒ same interaction anchored at
+     the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
+     override threaded through open() — shared bytes every EIP-using page
+     pays once. Actual 636.1k; preserve ~5k headroom. */
+  'roadmap/index.html': 641_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -243,7 +260,11 @@ const PAGES = {
   /* 506k -> 515k (2026-08-04 interaction reliability): Tree consumes the
      exact post-render add locator for inline default creation (the other
      reported DSL-focus path). Actual 508.8k; retain ~6k headroom. */
-  'tree/index.html': 536_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
+  /* 536k -> 541k (unset-edit fix batch): edit-in-place.js's shared opens-row
+     fallback (above) plus tree's own cardmenu-chance gating (hasIncomingProb,
+     a functional cardMenu `field`) and the prob/value set-when-unset
+     rewrites in edit-targets.js. Actual 536.2k; preserve ~5k headroom. */
+  'tree/index.html': 541_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
@@ -264,11 +285,17 @@ const PAGES = {
      Actual 526.6k; retain ~6k headroom. */
   /* Timeline also carries the shared exact post-render add locator: 505k ->
      516k (2026-08-04), actual 509.2k with ~6k remaining. */
-  'gauge/index.html': 540_000, 'timeline/index.html': 545_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */
+  /* gauge 540k -> 546k (unset-edit fix batch): edit-in-place.js's shared
+     opens-row fallback lands on every EIP page, gauge included. Actual
+     540.4k; preserve ~5.6k headroom. */
+  'gauge/index.html': 546_000, 'timeline/index.html': 545_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
-  'wardley/index.html': 512_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 506.9k, ~5k headroom */   /* 474k->477k 2026-08-02 fig-arrival + settle bytes */   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
+  /* wardley 512k -> 518k (unset-edit fix batch): edit-in-place.js's shared
+     opens-row fallback lands on every EIP page, wardley included. Actual
+     512.5k; preserve ~5.5k headroom. */
+  'wardley/index.html': 518_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 506.9k, ~5k headroom */   /* 474k->477k 2026-08-02 fig-arrival + settle bytes */   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
@@ -289,11 +316,11 @@ const PAGES = {
      ~5.2k headroom) — it was the tightest energy page before this. */
   /* Risk 462k -> 472k (2026-08-04): exact default-add target and Escape/
      two-step undo safety are first-load behavior. Actual 466.1k; keep ~6k. */
-  'energy/index.html': 40_000, 'energy/risk/index.html': 480_000,   /* 2026-08-04 fold: merged actual 474.1k, ~6k headroom */   /* 449k->453k 2026-08-02 verdict-eip bytes */
+  'energy/index.html': 40_000, 'energy/risk/index.html': 486_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 481k, ~5k headroom */   /* 2026-08-04 fold: merged actual 474.1k, ~6k headroom */   /* 449k->453k 2026-08-02 verdict-eip bytes */
   /* Cycles 486k -> 501k (2026-08-04): worker-revision stale-edit protection,
      exact default-add focus and the narrow editable discount field. Actual
      494.2k; retain ~6.8k. */
-  'energy/cycles/index.html': 508_000,   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
+  'energy/cycles/index.html': 514_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 509k, ~5k headroom */   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
   'energy/frequency/index.html': 108_000, 'energy/merit-order/index.html': 156_000,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4% */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant

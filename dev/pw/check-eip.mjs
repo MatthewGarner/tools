@@ -112,14 +112,16 @@ check('label rename lands in text and diagram',
    each commit a real source change, one undo apiece; a node tap opens the
    NEW menu, not the old node-<kind> add/remove-only popover (superseded, no
    longer emitted at all). "Submit bid" (decision, srcLine 4) carries a
-   value; "Outcome" (chance, srcLine 5) carries neither a value nor a
-   probability of its own (those live on ITS children, Win/Lose) — so its
-   Edit-probability row is a documented dead no-op here, same accepted
-   pattern as why's fieldless Status rows; its Rename/Add/Remove are still
-   live. "Win" (leaf, srcLine 6) carries both a probability and a value on
-   its own line — every row is live. Each action gets its own round trip:
-   commit, assert, ONE Meta+z, assert full revert to the pre-menu baseline
-   before the next action starts clean. */
+   value; "Outcome" (chance, srcLine 5) carries neither a value of its own
+   nor an incoming probability — its own PARENT ("Submit bid") is
+   decision-kind, so there is nothing for a p= annotation to mean on this
+   node's own line (parse.js only assigns p to children of a chance parent),
+   and its "Edit probability…" row is OMITTED outright (the unset-edit fix
+   batch, Part 2 — an honest omission, not a dead click); its Rename/Add/
+   Remove are still live. "Win" (leaf, srcLine 6) carries both a probability
+   and a value on its own line — every row is live. Each action gets its own
+   round trip: commit, assert, ONE Meta+z, assert full revert to the
+   pre-menu baseline before the next action starts clean. */
 {
   check('tree: the old node-<kind> popover target is gone',
     (await page.evaluate(() => document.querySelectorAll('#preview svg [data-edit^="node-"]').length)) === 0);
@@ -187,25 +189,19 @@ check('label rename lands in text and diagram',
   await undo();
   check('tree: one undo restores the removed option (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
-  // chance node ("Outcome", srcLine 5): Rename works; Edit probability is a
-  // documented dead row; Remove branch drops the whole Win/Lose subtree
+  // chance node ("Outcome", srcLine 5): its own PARENT ("Submit bid") is
+  // decision-kind, so "Edit probability…" is omitted outright (Part 2, the
+  // unset-edit fix batch) — Rename and Remove branch still work.
   await tapMarker(5);
   await page.waitForTimeout(200);
-  check('tree: chance marker tap opens the menu with the expected rows',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit probability…|＋ Add outcome|Remove branch');
+  check('tree: chance marker tap opens the menu WITHOUT Edit probability… (its parent is decision-kind, not chance)',
+    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add outcome|Remove branch');
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await page.waitForTimeout(200);
   check('tree: chance menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Outcome');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
-
-  await tapMarker(5);
-  await page.waitForTimeout(200);
-  await page.locator('.eip-pop button', {hasText: 'Edit probability…'}).click();
-  await page.waitForTimeout(200);
-  check('tree: chance Edit probability is a documented dead no-op (Outcome carries no p of its own) — no popup opens',
-    await page.locator('.eip-input').count() === 0 && await page.locator('.eip-pop').count() === 0);
 
   await tapMarker(5);
   await page.waitForTimeout(200);
@@ -421,6 +417,92 @@ check('label rename lands in text and diagram',
 }
 
 check('no console/page errors', errors.length === 0);
+
+/* ---- tree: cardmenu-decision "Edit value…" on a node with NO value yet
+   (the unset-edit fix batch, Part 2) — a decision node's own line carries no
+   trailing money amount when every branching happens further down the tree.
+   render.js emits no inline data-edit="value" target at all in that case, so
+   the row must fall back to opening the same interaction anchored at the
+   card-menu trigger (assets/edit-in-place.js's opens-row fallback, Part 1),
+   landing in a fresh empty input rather than doing nothing. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('Root\n  Branch A\n    Sub1: 10\n    Sub2: 20\n  Branch B: 5');
+  await p.waitForTimeout(700);
+  const before = await p.evaluate(() => localStorage.getItem('tree-src'));
+  // "Branch A" is srcLine 1 by construction (line 0 is the root) — the
+  // card-menu <g> itself carries no label text (unlike roadmap's single-
+  // group card markup), so tree tests key off the known line, same idiom
+  // as tapMarker above.
+  const line = 1;
+  check('tree: "Branch A" has no inline value target (no value authored yet)',
+    (await p.locator('#preview svg [data-edit="value"][data-line="' + line + '"]').count()) === 0);
+
+  const box = await p.locator('#preview svg g[data-edit^="cardmenu-"][data-line="' + line + '"] rect[data-hit]').boundingBox();
+  await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Edit value…'}).click();
+  await p.waitForTimeout(200);
+  check('tree: Edit value… on a valueless decision node opens an EMPTY input (not silence)',
+    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  await p.locator('.eip-input').fill('8k');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: commit appends the value annotation, keeping the rest of the line intact',
+    after.includes('Branch A: 8k') && !after.includes('Branch B: 8k'));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  check('tree: one undo reverts the value-set edit', (await p.evaluate(() => localStorage.getItem('tree-src'))) === before);
+  check('tree valueless-decision: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
+/* ---- tree: prob set-when-unset through the NORMAL INLINE target, not the
+   fallback (review pass, unset-edit fix batch) — a chance parent with two or
+   more children lacking p= gets each one defaulted to p={0,0} WITH A WARNING
+   (parse.js's finalise()): a real, editable p but no "(p=...)" text on the
+   line yet, so the rendered target's own data-raw is already "" — no missing
+   target here, the fallback never engages. The sibling under test carries a
+   colon INSIDE ITS LABEL ("Note: sub label") specifically to lock the P1 fix
+   (applies.prob must anchor on the true value colon, not the label's own). ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE, {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('Chance\n  A (p=0.4): 10\n  Note: sub label: 20\n  B: 30');
+  await p.waitForTimeout(700);
+  const before = await p.evaluate(() => localStorage.getItem('tree-src'));
+
+  // srcLine 2 = "  Note: sub label: 20" — real p (defaulted 0), no annotation yet
+  check('tree: the parse-defaulted sibling already carries an inline prob target with an empty raw',
+    await p.locator('#preview svg [data-edit="prob"][data-line="2"][data-raw=""]').count() === 1);
+  await p.locator('#preview svg [data-edit="prob"][data-line="2"]').click();
+  await p.waitForTimeout(200);
+  check('tree: clicking it opens the plain input, prefilled empty (not the slider, not silence)',
+    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  await p.locator('.eip-input').fill('0.25');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => localStorage.getItem('tree-src'));
+  check('tree: the annotation lands right before the TRUE value colon — the label’s own colon is untouched',
+    after.includes('Note: sub label (p=0.25): 20'));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  check('tree: one undo reverts the prob-set edit', (await p.evaluate(() => localStorage.getItem('tree-src'))) === before);
+  check('tree prob set-when-unset (inline): no console/page errors', errs.length === 0);
+  await p.close();
+}
 
 /* ---- why: popover status + cycle assumption ---- */
 {
@@ -882,6 +964,76 @@ check('no console/page errors', errors.length === 0);
   check('roadmap: drag does not open the card menu', await p.locator('.eip-pop').count() === 0);
 
   check('roadmap: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
+/* ---- roadmap: Status…/Edit note… on a CHART item with neither set yet (the
+   unset-edit fix batch, Part 1) — the chart renderer (roadmap/render.js)
+   emits NO inline data-edit="status"/"note" target at all for a status-less/
+   note-less card (unlike register/board/focus, which always emit an
+   empty-raw target for these fields — see the narrow-register block below),
+   so both rows used to resolve to nothing. They now fall back to the shared
+   card-menu trigger (assets/edit-in-place.js's opens-row fallback) and open
+   the real picker/input instead. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await p.waitForTimeout(500);
+
+  const title = 'Home-screen widget gallery';   // NEXT/Growth: shipped with no status, no note
+  const lineOfCard = async t => p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: t}).first().getAttribute('data-line');
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async t => {
+    const line = await lineOfCard(t);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
+  };
+  const line = await lineOfCard(title);
+  check('roadmap: the chart renders neither a status nor a note target for this item',
+    (await p.locator('#preview svg [data-edit="status"][data-line="' + line + '"]').count()) === 0 &&
+    (await p.locator('#preview svg [data-edit="note"][data-line="' + line + '"]').count()) === 0);
+
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+
+  // (a) Status… — must open the real options picker, never silence
+  await tapCard(title);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Status… on an unset item opens the status picker (not silence)',
+    await p.locator('.eip-pop button', {hasText: 'doing'}).count() === 1);
+  await p.locator('.eip-pop button', {hasText: 'doing'}).click();
+  await p.waitForTimeout(600);
+  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: picking a status writes the bracket tag onto the item’s own line',
+    tStatus.includes(title + ' [doing]'));
+  await undo();
+  check('roadmap: one undo reverts the status-set edit', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // (b) Edit note… — must open an empty input, never silence
+  await tapCard(title);
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Edit note…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Edit note… on an unset item opens an EMPTY input (not silence)',
+    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  await p.locator('.eip-input').fill('now shipping in beta');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: the typed note lands as " -- note" on the item’s own line',
+    tNote.includes(title + ' -- now shipping in beta'));
+  await undo();
+  check('roadmap: one undo reverts the note-set edit', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('roadmap unset-status/note: no console/page errors', errs.length === 0);
   await p.close();
 }
 
@@ -1486,6 +1638,60 @@ check('no console/page errors', errors.length === 0);
 
   check('roadmap: no console/page errors (chart Lane… absence)', errs.length === 0);
   await p.close();
+}
+
+/* ---- roadmap: Lane… on a style:register doc rendered as the CHART at
+   NARROW width (the unset-edit fix batch, Part 1) — doRefresh always
+   renders the chart below the narrow breakpoint regardless of model.style
+   (register/board/focus docs on phones hit this too — roadmap/app.js:
+   `narrow ? render(...) : model.style === 'register' ? ...`), but itemMenu
+   still offers Lane… because the MODEL itself is register-styled. The chart
+   has no data-edit="lane" target at all, so the row used to resolve to
+   nothing; it now falls back to an empty input anchored at the card menu
+   and commits through setLane (roadmap/edit-targets.js), same rewrite the
+   wide register table's own lane cell would use. ---- */
+{
+  const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const p = await mctx.newPage();
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('style: register\n\nNOW\nShip it\n');
+  await p.waitForTimeout(700);
+
+  const line = await p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: 'Ship it'}).first().getAttribute('data-line');
+  check('roadmap narrow-register: the chart renders no inline lane target for this item',
+    (await p.locator('#preview svg [data-edit="lane"][data-line="' + line + '"]').count()) === 0);
+
+  const cardLocator = p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  await cardLocator.scrollIntoViewIfNeeded();
+  await p.waitForTimeout(300);
+  const cardBox = await cardLocator.boundingBox();
+  await tapCardMenu(p, cardBox, line);
+  await p.waitForTimeout(200);
+  check('roadmap narrow-register: the menu still offers Lane… (the MODEL is register-styled)',
+    await p.locator('.eip-pop button', {hasText: 'Lane…'}).count() === 1);
+
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  await p.locator('.eip-pop button', {hasText: 'Lane…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap narrow-register: Lane… opens an EMPTY input (not silence)',
+    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  await p.locator('.eip-input').fill('Core');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(600);
+  const after = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap narrow-register: commit sets the "Lane: " prefix on the item’s own line', /^Core: Ship it$/m.test(after));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  check('roadmap narrow-register: one undo reverts the lane-set edit', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('roadmap narrow-register: no console/page errors', errs.length === 0);
+  await mctx.close();
 }
 
 /* ---- roadmap narrow (mobile-emulated): card menu away-listener leak proof —

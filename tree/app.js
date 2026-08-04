@@ -18,7 +18,7 @@ import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
-import {validators, applies, subtreeRange, childLineFor, applyExplore} from './edit-targets.js';
+import {validators, applies, subtreeRange, childLineFor, applyExplore, hasIncomingProb} from './edit-targets.js';
 
 const $ = id => document.getElementById(id);
 const preview = $('preview');
@@ -459,13 +459,27 @@ const treeEip = attachEditInPlace(preview, {
     verdictedit: {validate: validVerdictInput,
       placeholder: () => (model && results) ? treeVerdictParts(model, results).line : ''},
     /* card menu supersedes the old node-<kind> add/remove-only popover with
-       Rename/Edit value or probability/Add/Remove; opens:'value'/'prob' is a
-       dead no-op on the (rare) node instance that doesn't carry that field —
-       e.g. the root marker has no incoming edge so no label/value/prob tspan
-       exists for it at all — same accepted no-op as why's fieldless rows.
+       Rename/Edit value or probability/Add/Remove. opens:'value'/'prob' can
+       still name a field this particular node instance has no INLINE target
+       for yet (an unset value, or an unset-but-real probability) — the shared
+       edit-in-place fallback (assets/edit-in-place.js's opens-row handler)
+       opens the same interaction anchored at the menu itself rather than
+       silently no-op'ing, so "Edit value…" on a valueless decision/leaf node
+       and "Edit probability…" on a p-less-but-annotatable chance node both
+       still work, landing in a fresh empty input. cardmenu-chance's field row
+       goes one step further and is OMITTED outright when the node's own
+       PARENT isn't chance-kind (hasIncomingProb, edit-targets.js): that node
+       has no incoming p at all, ever — nothing honest to edit, not merely
+       nothing filled in yet (same distinction the root marker draws: no
+       incoming edge, no label/value/prob field, so cardmenu-root-* below
+       carries no field row of any kind).
        `extra: exploreRowsFor` (B3) appends the Explore…/leaf-p rows above. */
     'cardmenu-decision': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'option', extra: exploreRowsFor}),
-    'cardmenu-chance': cardMenu({field: {label: 'Edit probability…', opens: 'prob'}, add: 'outcome', extra: exploreRowsFor}),
+    'cardmenu-chance': cardMenu({
+      field: el => hasIncomingProb(model && findByLine(model, +el.dataset.line))
+        ? {label: 'Edit probability…', opens: 'prob'} : null,
+      add: 'outcome', extra: exploreRowsFor,
+    }),
     'cardmenu-leaf': cardMenu({field: {label: 'Edit value…', opens: 'value'}, add: 'outcome', remove: 'Remove', extra: exploreRowsFor}),
     /* the root's Add-only menu, one per root kind so the label's noun matches
        what childLineFor actually inserts: a decision root gets a top-level
