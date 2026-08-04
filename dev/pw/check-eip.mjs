@@ -2316,7 +2316,14 @@ check('no console/page errors', errors.length === 0);
     await cySettle();
     return true;
   };
-  const cyUndo = async () => { await cyTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); await cySettle(); };
+  /* a still-open floating eip field can sit exactly over the scrolled actions
+     row (post ux-polish geometry) and swallow the undo tap — dismiss it first
+     the way a user would (an away pointerdown commits-and-closes; the add has
+     already landed, so this keeps it). */
+  const cyDismiss = async () => { await mpage.evaluate(() => {
+    document.querySelector('input.eip-input')?.blur();   // blur = commit-and-close (untouched → keep)
+  }); await mpage.waitForTimeout(250); };
+  const cyUndo = async () => { await cyDismiss(); await cyTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); await cySettle(); };
   const cyBase = await cySrc();
 
   const cyInfo = await mpage.evaluate(() => ({
