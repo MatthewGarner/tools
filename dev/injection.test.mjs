@@ -170,18 +170,22 @@ test('why renderers escape hostile labels in both projections', async () => {
   const {project} = await import('../why/project.js');
   const {renderOst} = await import('../why/render-ost.js');
   const {renderMap} = await import('../why/render-map.js');
+  const {renderWhyPresentation} = await import('../why/render-presentation.js');
   const doc = 'outcome: ' + EVIL[1] + '\n  ' + EVIL[2] + '\n    ' + EVIL[3] + ' [testing]\n      ? ' + EVIL[4];
   const m = parse(doc), pr = project(m);
   assertClean(renderOst(m, pr, {...ctx, edit: true}), 'why-ost');
   assertClean(renderOst(m, pr, {...ctx, edit: true, width: 360}), 'why-ost-narrow');
   assertClean(renderMap(m, pr, ctx), 'why-map');
   assertClean(renderMap(m, pr, {...ctx, width: 360}), 'why-map-narrow');
+  assertClean(renderWhyPresentation(m, ctx), 'why-presentation');
 });
 
 test('tree renderer escapes hostile option labels', async () => {
   const {parse} = await import('../tree/parse.js');
   const {evaluate} = await import('../tree/engine.js');
   const {render} = await import('../tree/render.js');
+  const {treeVerdictParts} = await import('../tree/render.js');
+  const {renderDensity} = await import('../tree/render-density.js');
   /* a real chance node (p=… / p=rest) with hostile labels on every node, so
      the ctx.hot mark path (B2) has real prob/value lines to address — a bare
      edit:true with no hot set would never exercise data-hot="" at all. */
@@ -207,6 +211,7 @@ test('tree renderer escapes hostile option labels', async () => {
   assertClean(out, 'tree');
   assert.ok(out.includes('data-hot=""'),
     'tree: ctx.hot produced no data-hot="" mark — the injection coverage of the mark path would be vacuous');
+  assertClean(renderDensity(m, evaluate(m), {...ctx, intent: 'presentation'}, treeVerdictParts), 'tree-density-presentation');
 });
 
 test('map renderer + readout escape hostile labels, fields, zone names', async () => {
@@ -214,11 +219,14 @@ test('map renderer + readout escape hostile labels, fields, zone names', async (
   const {resolve} = await import('../map/zones.js');
   const {readout} = await import('../map/readout.js');
   const {render} = await import('../map/render.js');
+  const {renderMapPresentation} = await import('../map/render-presentation.js');
   const doc = 'title: ' + EVIL[0] + '\nx: ' + EVIL[4] + '\ny: safe\nzone band; x + y > 120\n' +
     EVIL.map((e, i) => e.replace(/[@:]/g, ' ') + ' ' + i + ' @ ' + (i * 15 + 5) + ',' + (i * 12 + 8) +
       ' :: note: ' + EVIL[(i + 1) % EVIL.length].replace(/:/g, ' ')).join('\n');
   const m = parse(doc), r = resolve(m);
-  assertClean(render(m, r, readout(m, r), {...ctx, edit: true}), 'map');
+  const ro = readout(m, r);
+  assertClean(render(m, r, ro, {...ctx, edit: true}), 'map');
+  assertClean(renderMapPresentation(m, r, ro, ctx), 'map-presentation');
 });
 
 test('gauge overlay + FORM HTML escape hostile question text and names', async () => {
@@ -279,6 +287,7 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   const {simulate} = await import('../bets/engine.js');
   const {renderBoard} = await import('../bets/render.js');
   const {renderQuadrant} = await import('../bets/render-quadrant.js');
+  const {renderBetsPresentation} = await import('../bets/render-presentation.js');
   const {betsDiff, betsDiffView} = await import('../bets/diff.js');
   const m = parse('title: T\nunit: £k\nG\n  A bet: stake 10, odds 20-40%, payoff 30-60\n    kill: watch this by 2026-01-01');
   const b = m.groups[0].bets[0];
@@ -290,6 +299,7 @@ test('bets board renderer escapes hostile bet names, kill text, title, lane', as
   assertClean(renderBoard(m, sim, {...ctx, edit: true, width: 390}), 'bets-narrow');
   assertClean(renderQuadrant(m, sim, ctx), 'bets-quadrant');
   assertClean(renderQuadrant(m, sim, {...ctx, width: 390}), 'bets-quadrant-narrow');
+  assertClean(renderBetsPresentation(m, sim, ctx), 'bets-presentation');
 
   /* compare path: a hostile SNAPSHOT model diffed against the hostile CURRENT
      model above — one bet shares the (evil) name so it shows up MOVED, one

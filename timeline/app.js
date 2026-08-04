@@ -53,11 +53,11 @@ function currentDiff(){
   if(!cur || !model || !model.items.length) return null;
   return timelineDiffView(timelineDiff(cur.model, model), cur.label);
 }
-function ctx(slide){
-  return {colors: themeColors(), measure, slide, dark: isDark(), today: todayDay()};
+function ctx(intent){
+  return {colors: themeColors(), measure, intent, dark: isDark(), today: todayDay()};
 }
-function activeRender(slide, edit = false){
-  return render(model, ctx(slide), currentDiff(), {edit});
+function activeRender(intent, edit = false, width){
+  return render(model, {...ctx(intent),...(width?{width}:{})}, currentDiff(), {edit,intent});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -72,8 +72,8 @@ function doRefresh(){
       ? 'No milestones yet — write one like “Grid: Energisation 2027-02 .. 2027-06”.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    // the PREVIEW carries the narrow width (<520 ⇒ renderNarrow); exports never do
-    const svg = render(model, {...ctx(false), width: narrowWidth(pv)}, currentDiff(), {edit: true});
+    const width=narrowWidth(pv),intent=width<520?'live-narrow':'live-wide';
+    const svg = activeRender(intent,true,width);
     paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
     lastSvg = svg;
     motionOverride = undefined;
@@ -198,15 +198,16 @@ attachEditInPlace($('preview'), {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports ---------- */
-function svgString(slide){
-  return (model && model.items.length) ? activeRender(slide, false) : null;
+function svgString(intent){
+  return (model && model.items.length) ? activeRender(intent, false) : null;
 }
 function slug(){
   return slugify(model.title, 'timeline');
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => svgString(true),
+  getSvg: () => svgString('native'),
+  getCopy: () => svgString('presentation'),
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a

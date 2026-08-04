@@ -2,6 +2,8 @@
    Outcome bands contain opportunity lanes (laneGroups); audits ride the
    badge mechanism; uncommitted first-level opportunities show ghost chips. */
 import {render as renderRoadmap} from '../roadmap/render.js';
+import {renderDeck as renderRoadmapDeck} from '../roadmap/render-deck.js';
+import {layoutRoadmap} from '../roadmap/layout.js';
 
 export function renderMap(model, projection, ctx){
   const items = [];
@@ -19,7 +21,8 @@ export function renderMap(model, projection, ctx){
     return name;
   };
 
-  for(const outcome of model.outcomes){
+  const indexedOutcomes = model.outcomes.length > 3 || model.outcomes.some(o => o.label.length > 44);
+  for(const [outcomeIndex, outcome] of model.outcomes.entries()){
     const lanes = [];
     const laneByOpp = new Map();
     for(const opp of outcome.children.filter(c => c.kind === 'opportunity')){
@@ -65,7 +68,12 @@ export function renderMap(model, projection, ctx){
           note: '', status: null, url: null, srcLine: e.node.srcLine, _node: e.node});
       }
     }
-    if(lanes.length) laneGroups.push({label: outcome.label, lanes});
+    if(lanes.length) laneGroups.push({
+      label: (indexedOutcomes ? 'O' + String(outcomeIndex + 1).padStart(2, '0') + ' · ' : '') + outcome.label,
+      rawLabel: outcome.label,
+      displayId: 'O' + String(outcomeIndex + 1).padStart(2, '0'),
+      lanes,
+    });
   }
 
   const roadmapModel = {
@@ -74,6 +82,7 @@ export function renderMap(model, projection, ctx){
     lanes: laneGroups.flatMap(g => g.lanes), laneGroups, items,
     warnings: [], wip: 0, fade: true,
     palette: model.palette, accent: model.accent,
+    headline: '', story: '', focus: undefined, timeAxis: false,
   };
   const diff = {
     badge: it => {
@@ -85,5 +94,11 @@ export function renderMap(model, projection, ctx){
     },
     dropped: [], since: '', any: false,
   };
-  return renderRoadmap(roadmapModel, {...ctx, diff});
+  if(ctx.intent === 'presentation'){
+    return renderRoadmapDeck({...roadmapModel, style: 'grid'}, {...ctx, diff});
+  }
+  const roadmapLayout = layoutRoadmap(roadmapModel, {
+    kind: 'native', measure: ctx.measure, width: ctx.width,
+  });
+  return renderRoadmap(roadmapModel, {...ctx, diff, roadmapLayout});
 }

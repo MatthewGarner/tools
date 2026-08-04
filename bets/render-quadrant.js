@@ -12,16 +12,14 @@
    -> a dashed ring around the bubble. Lane hues come from the shared,
    ALREADY-VALIDATED PALETTES ramp (assets/series.js: ocean/slate/ember/plum)
    cycled per lane — never an invented hex. Pure; colours + measure from ctx.
-   Per-bet labels use a greedy free-space placement pass (16 compass anchors x
-   3 rings, priority = biggest stake then most extreme |EV| first) with a
-   leader line only when a label can't sit snug against its bubble — see
-   placeLabels below. Portfolios over NAME_ONLY_THRESHOLD bets drop the
-   microcopy line so blocks stay small enough for the placer to find clean
-   space (narrow already drops it regardless of count). No edit hooks:
+   Sparse per-bet labels use a measured free-space placement pass; if any
+   label cannot remain clear, or the portfolio exceeds nine bets, the field
+   switches to source-order display IDs and an exhaustive in-plane key. No edit hooks:
    editing stays on the board. Wide ~960; narrow (<520) fits a square-ish
    plot to the width and wraps the legend — mirrors render.js's split. */
 import {esc, txt} from '../assets/svg.js';
 import {PALETTES, niceTicks} from '../assets/series.js';
+import {measuredLines, quadrantDensity, sourceBets} from './layout.js';
 
 const WIDE = 960;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -50,8 +48,7 @@ export function renderQuadrant(model, sim, ctx = {}){
 /* shared prep: flat bet list w/ lane index, portfolio EV domain (always ⊇ 0,
    padded — mirrors render.js's prep so both views agree on scale logic). */
 export function prep(model, sim){
-  const flat = [];
-  model.groups.forEach((g, gi) => { for(const b of g.bets) flat.push({b, gi}); });
+  const flat = sourceBets(model, sim).map(record => ({...record, gi: record.groupIndex}));
   let elo = 0, ehi = 1, maxStake = 0, totalStake = 0;
   for(const {b} of flat){
     const e = recOf(sim, b).ev;
@@ -84,10 +81,7 @@ const microFor = b => num(stakeMid(b)) + ' @ ' + pct(oddsOf(b)) + ' → pays ' +
    candidate (in-bounds preferred). A leader line is drawn only when the
    winning candidate came from the escape ring (i.e. it isn't snug against
    the bubble) — the small-portfolio look stays leader-free. */
-export const NAME_ONLY_THRESHOLD = 9;   // >9 bets -> drop microcopy so label blocks are
-                                  // small enough for the placer to find clean
-                                  // space; tuned by eye against the 12-bet
-                                  // crowded fixture (bets-quadrant-crowded).
+export const NAME_ONLY_THRESHOLD = 9;   // retained as the direct/key density boundary
 /* 16-point compass (E first, then fanning out by angle, south/clockwise
    preferred at each tier before north/counter-clockwise — generalises the
    8-point E,SE,NE,S,N,SW,NW,W priority pattern with finer resolution, which
@@ -109,6 +103,21 @@ function boxAt(cx, cy, dx, dy, off, w, h){
 /* boolean overlap test for label boxes — exported so tests can assert
    pairwise non-overlap directly against placeLabels' output. */
 export const boxesOverlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+export function labelsAreClear(placed, bounds, avoid = []){
+  for(let i = 0; i < placed.length; i++){
+    const p = placed[i];
+    if(!inBounds(p.box, bounds)) return false;
+    if(avoid.some(box => boxesOverlap(p.box, box))) return false;
+    for(let j = i + 1; j < placed.length; j++) if(boxesOverlap(p.box, placed[j].box)) return false;
+    for(const bubble of placed){
+      const nx = Math.max(p.box.x, Math.min(bubble.cx, p.box.x + p.box.w));
+      const ny = Math.max(p.box.y, Math.min(bubble.cy, p.box.y + p.box.h));
+      if(Math.hypot(bubble.cx - nx, bubble.cy - ny) < bubble.radius - 0.01) return false;
+    }
+  }
+  return true;
+}
 
 function overlapArea(a, b){
   const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
@@ -157,10 +166,12 @@ export function placeLabels(items, {bounds, measure, nameSize, microSize, gap = 
   const out = new Array(items.length);
 
   for(const {it, idx} of order){
-    const nameW = measure(it.name, nameFont);
+    const nameLines = it.nameLines || [it.name];
+    const nameW = Math.max(...nameLines.map(line => measure(line, nameFont)));
     const microW = it.micro ? measure(it.micro, microFont) : 0;
     const w = Math.max(nameW, microW) + 4;
-    const lineH = it.micro ? (nameSize + microSize + 6) : (nameSize + 4);
+    const nameBlockH = nameLines.length * (nameSize + 3);
+    const lineH = it.micro ? (nameBlockH + microSize + 3) : (nameBlockH + 1);
     // scaled by line HEIGHT, not box width — a long name/microcopy string must
     // not fling the escape ring (and its leader line) halfway across the plot;
     // it only needs to clear one more row's worth of local obstruction.
@@ -181,7 +192,8 @@ export function placeLabels(items, {bounds, measure, nameSize, microSize, gap = 
     }
     const chosen = best || any;
     placedBoxes.push(chosen);
-    out[idx] = {...it, box: chosen, anchor: chosen.anchor, w, lineH, leader: chosen.off > it.radius + smallGap};
+    out[idx] = {...it, nameLines, box: chosen, anchor: chosen.anchor, w, lineH,
+      leader: chosen.off > it.radius + smallGap};
   }
   return out;
 }
@@ -196,13 +208,13 @@ export function layoutBubbles(P, sim, geo){
   const innerY0 = plotY0 + rMax, innerY1 = plotY1 - rMax;
   const sx = v => innerX0 + v / 100 * (innerX1 - innerX0);
   const sy = v => innerY1 - (v - P.elo) / ((P.ehi - P.elo) || 1) * (innerY1 - innerY0);
-  return P.flat.map(({b, gi}) => {
+  return P.flat.map(({b, gi, id, sourceOrder}) => {
     const rec = recOf(sim, b), e = rec.ev;
     const [oLo, oHi] = oddsOf(b), oMid = (oLo + oHi) / 2;
     const stake = stakeMid(b);
     const radius = rMin + (rMax - rMin) * Math.sqrt(Math.max(0, stake / P.maxStake));
     return {
-      b, gi, e, oLo, oHi, radius, hue: laneHue(gi, dark), kill: !!b.kill,
+      b, gi, id, sourceOrder, e, oLo, oHi, radius, hue: laneHue(gi, dark), kill: !!b.kill,
       cx: sx(oMid), cy: sy(e.p50), hx0: sx(oLo), hx1: sx(oHi), vy0: sy(e.p10), vy1: sy(e.p90),
       name: b.name, micro: microSize ? microFor(b) : null, stake, absEv: Math.abs(e.p50),
     };
@@ -278,7 +290,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
       '" stroke="' + it.hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
     marks.push('<line x1="' + r2(it.cx) + '" y1="' + r2(it.vy0) + '" x2="' + r2(it.cx) + '" y2="' + r2(it.vy1) +
       '" stroke="' + it.hue + '" stroke-width="1.5" stroke-opacity="0.55"/>');
-    marks.push('<circle data-key="' + esc(it.name) + '" cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius) + '" fill="' + it.hue +
+    marks.push('<circle data-key="' + it.id + '" cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius) + '" fill="' + it.hue +
       '" fill-opacity="0.32" stroke="' + it.hue + '" stroke-width="1.5"/>');
     if(!it.kill) marks.push('<circle cx="' + r2(it.cx) + '" cy="' + r2(it.cy) + '" r="' + r2(it.radius + 4) +
       '" fill="none" stroke="' + c.err + '" stroke-width="1.5" stroke-dasharray="3 3"/>');
@@ -291,16 +303,40 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   const captionBox = {x: plotX1 - 6 - capW, y: plotY0 + 4, w: capW, h: tickSize + 6};
   const bounds = {x0: Math.max(2, plotX0 - (padX || 0)), x1: plotX1 + (padX || 0),
     y0: Math.max(2, plotY0 - (padTop || 0)), y1: plotY1};
-  const placed = placeLabels(items, {bounds, measure, nameSize, microSize, gap: 6, avoid: [captionBox]});
-  for(const p of placed){
-    const tx = p.anchor === 'start' ? p.box.x : p.anchor === 'end' ? p.box.x + p.box.w : p.box.x + p.box.w / 2;
-    if(p.leader){
-      const L = leaderFor(p.cx, p.cy, p.radius, p.box);
-      parts.push('<line x1="' + r2(L.x1) + '" y1="' + r2(L.y1) + '" x2="' + r2(L.x2) + '" y2="' + r2(L.y2) +
-        '" stroke="' + c.muted + '" stroke-width="1" stroke-opacity="0.6"/>');
+  let keyBottom = 0;
+  if(geo.key){
+    for(const it of items){
+      parts.push('<rect x="' + r2(it.cx - 13) + '" y="' + r2(it.cy - 7) + '" width="26" height="14" fill="' + c.card +
+        '" stroke="' + it.hue + '" stroke-width="1"/>');
+      parts.push(txt(it.cx, it.cy + 3, it.id, 7.5, c.ink, {weight: 700, mono: true, anchor: 'middle'}));
     }
-    parts.push(txt(tx, p.box.y + nameSize, p.name, nameSize, c.ink, {weight: 600, anchor: p.anchor, halo: c.card}));
-    if(p.micro) parts.push(txt(tx, p.box.y + nameSize + microSize + 3, p.micro, microSize, c.muted, {anchor: p.anchor, halo: c.card}));
+    const K = geo.key;
+    parts.push('<rect data-quadrant-key="" x="' + K.x0 + '" y="' + K.y0 + '" width="' + (K.x1 - K.x0) + '" height="' + K.height +
+      '" fill="' + c.card + '" stroke="' + c.border + '"/>');
+    parts.push(txt(K.x0 + 14, K.y0 + 24, 'FULL BET KEY · SOURCE ORDER', 10, c.accentInk, {weight: 700, tracking: '0.09em'}));
+    let ky = K.y0 + 38;
+    for(const row of K.rows){
+      parts.push('<line x1="' + (K.x0 + 12) + '" y1="' + ky + '" x2="' + (K.x1 - 12) + '" y2="' + ky + '" stroke="' + c.border + '"/>');
+      parts.push(txt(K.x0 + 14, ky + 20, row.id, 9.5, row.hue, {weight: 700, mono: true}));
+      row.nameLines.forEach((line, i) => parts.push(txt(K.x0 + 58, ky + 19 + i * 14, line, 11.5, c.ink, {weight: 600})));
+      parts.push(txt(K.x0 + 58, ky + 21 + row.nameLines.length * 14, row.micro, 9.5, c.muted, {mono: true}));
+      ky += row.height;
+    }
+    keyBottom = K.y0 + K.height;
+  } else {
+    const placed = geo.placed || placeLabels(items, {bounds, measure, nameSize, microSize, gap: 6, avoid: [captionBox]});
+    for(const p of placed){
+      const tx = p.anchor === 'start' ? p.box.x : p.anchor === 'end' ? p.box.x + p.box.w : p.box.x + p.box.w / 2;
+      if(p.leader){
+        const L = leaderFor(p.cx, p.cy, p.radius, p.box);
+        parts.push('<line x1="' + r2(L.x1) + '" y1="' + r2(L.y1) + '" x2="' + r2(L.x2) + '" y2="' + r2(L.y2) +
+          '" stroke="' + c.muted + '" stroke-width="1" stroke-opacity="0.6"/>');
+      }
+      p.nameLines.forEach((line, i) => parts.push(txt(tx, p.box.y + nameSize + i * (nameSize + 3), line,
+        nameSize, c.ink, {weight: 600, anchor: p.anchor, halo: c.card})));
+      if(p.micro) parts.push(txt(tx, p.box.y + p.nameLines.length * (nameSize + 3) + microSize,
+        p.micro, microSize, c.muted, {anchor: p.anchor, halo: c.card}));
+    }
   }
 
   // legend: lane swatches + mark-language notes, flow-wrapped
@@ -308,7 +344,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   const legendItems = model.groups.map((g, gi) => ({text: '● ' + g.name.toUpperCase(), color: laneHue(gi, dark)}));
   legendItems.push({text: '⊘ dashed ring = no kill criterion', color: c.err});
   legendItems.push({text: '○ bubble area ∝ stake', color: c.muted});
-  let lx = plotX0, ly = plotY1 + 4 + tickSize + 2 + axisTitleSize + 22;
+  let lx = plotX0, ly = Math.max(plotY1 + 4 + tickSize + 2 + axisTitleSize + 22, keyBottom ? keyBottom + 20 : 0);
   const rowH = legendSize + 8;
   for(const it of legendItems){
     const w = measure(it.text, legendFont) + 20;
@@ -317,6 +353,30 @@ function plotAndLegend(model, sim, c, measure, P, geo){
     lx += w;
   }
   return {parts, bottomY: ly + 6};
+}
+
+function makeKey(P, geo, measure, x0, x1, y0){
+  const nameWidth = x1 - x0 - 72;
+  const rows = P.flat.map(record => {
+    const lines = measuredLines(record.b.name, '600 11.5px ' + SANS, nameWidth, measure);
+    return {id: record.id, hue: laneHue(record.gi, geo.dark), nameLines: lines, micro: microFor(record.b),
+      height: Math.max(42, 28 + lines.length * 14)};
+  });
+  return {x0, x1, y0, rows, height: 38 + rows.reduce((sum, row) => sum + row.height, 0) + 10};
+}
+
+function directPlacement(P, sim, geo, measure){
+  const maxNameWidth = 180;
+  const lines = P.flat.map(record => measuredLines(record.b.name, '600 ' + geo.nameSize + 'px ' + SANS, maxNameWidth, measure));
+  if(lines.some(value => value.length > 2)) return null;
+  const items = layoutBubbles(P, sim, geo).map((item, i) => ({...item, nameLines: lines[i]}));
+  const bounds = {x0: Math.max(2, geo.plotX0 - (geo.padX || 0)), x1: geo.plotX1 + (geo.padX || 0),
+    y0: Math.max(2, geo.plotY0 - (geo.padTop || 0)), y1: geo.plotY1};
+  const capText = 'CERTAINTY ZONE — ODDS ≥ 90%';
+  const capW = measure(capText, '700 ' + geo.tickSize + 'px ' + SANS) + 8;
+  const avoid = [{x: geo.plotX1 - 6 - capW, y: geo.plotY0 + 4, w: capW, h: geo.tickSize + 6}];
+  const placed = placeLabels(items, {bounds, measure, nameSize: geo.nameSize, microSize: geo.microSize, gap: 6, avoid});
+  return labelsAreClear(placed, bounds, avoid) ? placed : null;
 }
 
 /* ---------------- WIDE ---------------- */
@@ -337,9 +397,15 @@ function renderWide(model, sim, ctx){
   parts.push(txt(right, 72, 'NET EV ' + sgn(P.pf.p50) + ' · P10 ' + sgn(P.pf.p10) + ' · P90 ' + sgn(P.pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
 
   const panelTop = 90;
-  const geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right - 4, plotY1: panelTop + 22 + 400,
+  let geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right - 4, plotY1: panelTop + 22 + 400,
     dark, rMin: 10, rMax: 30, nameSize: 12.5, microSize: nameOnly ? null : 10, tickSize: 9.5, axisTitleSize: 10.5,
     legendSize: 9.5, unit: model.unit, padX: 16, padTop: 16};
+  const density = quadrantDensity(P.flat.length);
+  const placed = density === 'keyed' ? null : directPlacement(P, sim, geo, measure);
+  if(!placed){
+    geo = {...geo, plotX1: 590, microSize: null};
+    geo.key = makeKey(P, geo, measure, 620, right, geo.plotY0);
+  } else geo.placed = placed;
   const {parts: body, bottomY} = plotAndLegend(model, sim, c, measure, P, geo);
 
   const panelBot = bottomY + 14;
@@ -373,6 +439,10 @@ function renderNarrow(model, sim, ctx){
   const plotY0 = y + 4, plotY1 = plotY0 + plotW;   // square-ish: height ≈ width
   const geo = {plotX0, plotY0, plotX1, plotY1, dark, rMin: 6, rMax: 16, nameSize: 11, microSize: null,
     tickSize: 8.5, axisTitleSize: 9, legendSize: 8.5, unit: model.unit, padX: 10, padTop: 8};
+  const density = quadrantDensity(P.flat.length);
+  const placed = density === 'keyed' ? null : directPlacement(P, sim, geo, measure);
+  if(!placed) geo.key = makeKey(P, geo, measure, pad, W - pad, plotY1 + 42);
+  else geo.placed = placed;
   const {parts: body, bottomY} = plotAndLegend(model, sim, c, measure, P, geo);
   parts.push(...body);
   parts.push('<rect data-narrow="" width="0" height="0" fill="none"/>');

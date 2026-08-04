@@ -3,6 +3,7 @@ import {parse} from './parse.js';
 import {resolve} from './zones.js';
 import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
+import {renderMapPresentation} from './render-presentation.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {paintKicker} from '../assets/verdict.js';
@@ -20,6 +21,7 @@ import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel,
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {mapDiff, mapDiffView} from './diff.js';
 import {gaugeHandoff} from './handoff.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -117,8 +119,10 @@ function currentDiff(){
   if(!cur || !model || !ro) return null;
   return mapDiffView(mapDiff(cur.model, model), cur.label);
 }
-function activeRender(slide, edit = false){
-  return render(model, resolved, ro, {colors: themeColors(), measure, slide, dark: isDark(), edit}, currentDiff());
+function activeRender(intent = 'live'){
+  const ctx = {colors: themeColors(), measure, slide: false, dark: isDark(), edit: intent === 'live', intent};
+  if(intent === 'live') ctx.width = narrowWidth($('preview'));
+  return render(model, resolved, ro, ctx, intent === 'live' ? currentDiff() : null);
 }
 function doRefresh(){
   /* any re-parse invalidates an armed Move…/Place placement: its line number
@@ -138,7 +142,7 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
   } else {
     ro = readout(model, resolved);
-    const svg = activeRender(false, true);
+    const svg = activeRender('live');
     paint(svg, REVEAL); lastSvg = svg;
   }
   renderWarnings();
@@ -175,6 +179,7 @@ const ws = initWorkspace({
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
+watchNarrowBucket($('preview'), () => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- edit-in-place ---------- */
 attachEditInPlace($('preview'), {
@@ -272,17 +277,22 @@ function renderSaved(){
 paintKicker($('kicker'), '06', 'Two axes, named zones');
 
 /* ---------- exports ---------- */
-function svgString(slide){
+function nativeSvgString(){
   if(!hasContent() || !ro) return null;
-  return activeRender(slide);
+  return activeRender('native');
+}
+function presentationSvgString(){
+  if(!hasContent() || !ro) return null;
+  return renderMapPresentation(model, resolved, ro,
+    {colors: themeColors(), measure, dark: isDark(), intent: 'presentation'});
 }
 function slug(){
   return slugify(model.title || model.preset, 'map');
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
-  getSvg: () => svgString(false),
-  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
+  getSvg: nativeSvgString,
+  getCopy: presentationSvgString,
   getMarkdown: () => ro ? toMarkdown(ro, model) : null,
   slug,
 });

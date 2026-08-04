@@ -3,6 +3,7 @@ import {parse} from './parse.js';
 import {project, whyVerdict, whyMetrics} from './project.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {renderOst} from './render-ost.js';
+import {renderWhyPresentation} from './render-presentation.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {whyDiff, whyDiffView} from './diff.js';
 import {renderMap} from './render-map.js';
@@ -81,8 +82,11 @@ function currentDiff(){
    renderer (render-map.js), so the map view inherits roadmap's narrow
    relayout for free. Exports never pass edit:true, so they never carry a
    width — the wide artefact stays pinned regardless of the on-screen bucket. */
-function activeRender(slide, edit){
-  const ctx = {colors: themeColors(), measure, slide, dark: isDark(), edit, width: edit ? renderWidth() : undefined};
+function activeRender(intent = 'native', edit = false){
+  const presentation = intent === 'presentation';
+  const ctx = {colors: themeColors(), measure, slide: false, intent, dark: isDark(), edit,
+    today: new Date().toISOString().slice(0, 10), width: edit ? renderWidth() : undefined};
+  if(presentation && view === 'ost') return renderWhyPresentation(model, ctx);
   return view === 'ost' ? renderOst(model, projection, ctx, currentDiff()) : renderMap(model, projection, ctx);
 }
 function doRefresh(){
@@ -97,7 +101,7 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
   } else {
     projection = project(model);
-    const svg = activeRender(false, true);
+    const svg = activeRender('live', true);
     paint(svg, REVEAL); lastSvg = svg;
   }
   renderWarnings();
@@ -236,17 +240,17 @@ function renderSaved(){
 }
 
 /* ---------- exports (active view) ---------- */
-function svgString(slide){
+function svgString(intent){
   if(!model || !model.outcomes.length || !projection) return null;
-  return activeRender(slide);
+  return activeRender(intent);
 }
 function slug(){
   return slugify((model.title || 'why') + '-' + view);
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => svgString(false),
-  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
+  getSvg: () => svgString('native'),
+  getCopy: () => svgString('presentation'),
   slug,
 });
 

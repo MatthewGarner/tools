@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {layoutMap} from '../layout.js';
-import {renderMap, toMarkdown} from '../render.js';
+import {renderMap, toMarkdown, GEOM} from '../render.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
@@ -11,6 +11,8 @@ const ctx = {
   palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8'],
   measure: t => t.length * 7,
 };
+const mapLayout = (model, intent = 'native') => layoutMap(model, {measure: ctx.measure, intent, geom: GEOM});
+
 
 const SRC = `title: Habitat platform
 anchor: Habit tracking
@@ -22,7 +24,7 @@ Streak engine -> Push gateway`;
 
 const draw = (src = SRC, opts = {}, c = ctx) => {
   const m = parse(src);
-  return renderMap(m, layoutMap(m), c, opts);
+  return renderMap(m, mapLayout(m), c, opts);
 };
 
 /* minimal wellformedness: every attribute is quoted and balanced, no bare
@@ -98,7 +100,7 @@ Streak engine @ 0.55
 Fresh thing @ genesis
 Habit tracking -> Streak engine
 Habit tracking -> Fresh thing`);
-  const s = renderMap(cur, layoutMap(cur), ctx, {compare: {prev, label: 'March'}});
+  const s = renderMap(cur, mapLayout(cur), ctx, {compare: {prev, label: 'March'}});
   assert.ok(s.includes('Since March: 1 drifted right · 1 new · 1 dropped'));
   assert.match(s, /class="drift-arrow"/);
   assert.ok(s.includes('NEW'));
@@ -110,7 +112,7 @@ Habit tracking -> Fresh thing`);
 test('compare: tiny drift under epsilon is not a move', () => {
   const prev = parse('anchor: A\nB @ 0.50\nA -> B');
   const cur = parse('anchor: A\nB @ 0.51\nA -> B');
-  const s = renderMap(cur, layoutMap(cur), ctx, {compare: {prev, label: 'x'}});
+  const s = renderMap(cur, mapLayout(cur), ctx, {compare: {prev, label: 'x'}});
   assert.ok(!s.includes('drift-arrow'));
   assert.ok(s.includes('Since x: no changes'));
 });
@@ -118,7 +120,7 @@ test('compare: tiny drift under epsilon is not a move', () => {
 test('markdown groups by stage, lists ghosts, carries the live link', async () => {
   const {toMarkdown} = await import('../render.js');
   const m = parse(SRC);
-  const md = toMarkdown(m, layoutMap(m), 'https://example.com/#z');
+  const md = toMarkdown(m, mapLayout(m), 'https://example.com/#z');
   assert.match(md, /\*\*custom\*\*: Streak engine/);
   assert.match(md, /unplaced: Push gateway/);
   assert.match(md, /example\.com/);
@@ -133,7 +135,7 @@ App A @ product
 App B @ product
 Need -> App A -> Core engine
 Need -> App B -> Core engine`);
-  const r = mapReadout(m, layoutMap(m));
+  const r = mapReadout(m, mapLayout(m));
   assert.match(r.verdict, /Core engine/);
   assert.match(r.verdict, /load-bearing/);
   assert.equal(r.fig, '2 things need it');       // the ONE key figure, verbatim in the line
@@ -143,16 +145,16 @@ Need -> App B -> Core engine`);
 test('readout: composition verdict when nothing is load-bearing left of product', async () => {
   const {mapReadout} = await import('../render.js');
   const exec = parse('anchor: N\nA @ product\nB @ commodity\nN -> A -> B');
-  assert.match(mapReadout(exec, layoutMap(exec)).verdict, /execution map/);
-  assert.equal(mapReadout(exec, layoutMap(exec)).fig, '');   // no single number to quote
+  assert.match(mapReadout(exec, mapLayout(exec)).verdict, /execution map/);
+  assert.equal(mapReadout(exec, mapLayout(exec)).fig, '');   // no single number to quote
   const disco = parse('anchor: N\nA @ genesis\nB @ custom\nN -> A\nN -> B');
-  assert.match(mapReadout(disco, layoutMap(disco)).verdict, /discovery/);
+  assert.match(mapReadout(disco, mapLayout(disco)).verdict, /discovery/);
 });
 
 test('readout: flags ghosts and dropped loops by name', async () => {
   const {mapReadout} = await import('../render.js');
   const m = parse('anchor: N\nA @ custom\nB @ custom\nGhosty\nN -> A -> B\nB -> A\nN -> Ghosty');
-  const r = mapReadout(m, layoutMap(m));
+  const r = mapReadout(m, mapLayout(m));
   assert.ok(r.flags.some(f => f.includes('unplaced')));
   assert.ok(r.flags.some(f => f.includes('loop') && f.includes('B') && f.includes('A')));
 });
@@ -262,7 +264,7 @@ test('edit+compare: add-zones clear the compare ghost pills too', () => {
   // the zone must sit below the ghost, not just below current nodes
   const prev = parse('anchor: N\nA @ custom\nDeep @ 0.15\nN -> A -> Deep');
   const cur = parse('anchor: N\nA @ custom\nN -> A');
-  const s = renderMap(cur, layoutMap(cur), {...ctx, palette: ctx.palette},
+  const s = renderMap(cur, mapLayout(cur), {...ctx, palette: ctx.palette},
     {edit: true, compare: {prev, label: 'Jan'}});
   const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>＋<\/text>/g)].map(m => +m[1]);
   // the dropped-ghost pill (Deep) is the lowest thing on the plane; its centre
@@ -287,18 +289,72 @@ test('add-zones sit as one row below the lowest pill in a crowded column', () =>
 
 /* ---------- `verdict:` on the artefact (2026-07-31) ---------- */
 test('verdict: off drops the band; authored text replaces it', () => {
-  const off = renderMap(parse('verdict: off\n' + SRC), layoutMap(parse('verdict: off\n' + SRC)), ctx);
+  const off = renderMap(parse('verdict: off\n' + SRC), mapLayout(parse('verdict: off\n' + SRC)), ctx);
   assert.ok(!off.includes('VERDICT'));
   const src2 = 'verdict: Buy the gateway, build the engine\n' + SRC;
-  const authored = renderMap(parse(src2), layoutMap(parse(src2)), ctx);
+  const authored = renderMap(parse(src2), mapLayout(parse(src2)), ctx);
   assert.ok(authored.includes('VERDICT'));
   assert.ok(authored.includes('Buy the gateway, build the engine'));
 });
 
 test('verdict: off must not leave a bare **** in the markdown export', () => {
   const off = parse('verdict: off\n' + SRC);
-  const md = toMarkdown(off, layoutMap(off), 'https://x');
+  const md = toMarkdown(off, mapLayout(off), 'https://x');
   assert.ok(!md.includes('****'), md.split('\n').slice(0, 4).join(' | '));
   const auth = parse('verdict: Buy the gateway\n' + SRC);
-  assert.ok(toMarkdown(auth, layoutMap(auth), 'https://x').includes('**Buy the gateway**'));
+  assert.ok(toMarkdown(auth, mapLayout(auth), 'https://x').includes('**Buy the gateway**'));
+});
+
+test('dense wide map uses authored-position IDs and a full source-order key', () => {
+  const components = Array.from({length: 18}, (_, i) => `Capability ${String(i + 1).padStart(2, '0')} @ ${((i % 4) + 1) / 5}`).join('\n');
+  const src = 'title: Dense landscape\nanchor: Need\n' + components;
+  const model=parse(src),layout=mapLayout(model),svg=renderMap(model,layout,ctx,{intent:'native'});
+  assert.ok(svg.includes('COMPONENT KEY · SOURCE ORDER'));
+  assert.equal((svg.match(/data-evolution-pin/g)||[]).length,18);
+  for(const id of ['W01','W09','W18']) assert.ok(svg.includes(id));
+  for(const name of ['Capability 01','Capability 18']) assert.ok(svg.includes(name));
+});
+
+test('long names render as two-line measured field cards', () => {
+  const src='anchor: Need\nLong component for cohort onboarding @ custom\nNeed -> Long component for cohort onboarding';
+  const model=parse(src),layout=mapLayout(model),svg=renderMap(model,layout,ctx,{intent:'native'});
+  const placed=layout.nodes.find(item=>!item.anchor);
+  assert.equal(placed.lines.length,2);
+  assert.ok(placed.lines.every(line=>svg.includes(line)));
+});
+
+test('dependency loops are called out inside the map as well as the readout', () => {
+  const src='anchor: Need\nA @ custom\nB @ product\nNeed -> A -> B\nB -> A';
+  const model=parse(src),svg=renderMap(model,mapLayout(model),ctx,{intent:'native'});
+  assert.ok(svg.includes('data-loop-callout="L01"'));
+  assert.ok(svg.includes('DEPENDENCY LOOP'));
+  assert.ok(svg.includes('dependency loop'));
+});
+
+test('presentation is a fixed dependency-spine slide with an explicit rule and remainder', () => {
+  const src=`title: Habitat landscape
+anchor: Need
+Experience @ genesis
+App @ product
+Engine @ custom
+Database @ commodity
+Gateway @ commodity
+Analytics @ product
+Need -> Experience -> App -> Engine -> Database
+App -> Gateway
+Experience -> Analytics`;
+  const model=parse(src),layout=mapLayout(model,'presentation');
+  const svg=renderMap(model,layout,ctx,{intent:'presentation'});
+  assert.match(svg,/^<svg[^>]*width="1920" height="1080"/);
+  assert.ok(svg.includes('DEPENDENCY SPINE · DEEPEST PATH, THEN IN-DEGREE'));
+  assert.ok(svg.includes('SELECTION: DEEPEST DEPENDENCY SPINE, THEN IN-DEGREE'));
+  assert.ok(svg.includes('FURTHER COMPONENT'));
+  for(const x of [0.125,0.625,0.375,0.875]) assert.ok(svg.includes('data-authored-x="'+x+'"'));
+});
+
+test('narrow cards carry the same stable IDs and full labels as wide keys', () => {
+  const model=parse(SRC),layout=mapLayout(model,'live-narrow');
+  const svg=renderMap(model,layout,narrowCtx,{intent:'live-narrow'});
+  assert.ok(svg.includes('W01')&&svg.includes('W03'));
+  assert.ok(svg.includes('Streak engine')&&svg.includes('Push gateway'));
 });

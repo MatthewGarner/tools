@@ -1,37 +1,103 @@
-/* Shared export wiring (moved from gauge 2026-07-06). Four actions, in one
-   fixed order everywhere: Copy PNG · Copy as markdown · PNG · SVG. Every
-   button is optional — pass the ones the surface has.
+/* Shared export wiring. Four optional actions, in one fixed order everywhere:
+   Copy PNG · Copy as markdown · PNG · SVG.
 
-   Simplified 2026-07-31: the Poster and slide-size downloads are gone. The
-   deck-shaped render didn't need a button of its own — where a tool has one,
-   it passes it as getCopy and Copy PNG (the one-click, paste-into-a-deck
-   action) hands it over. Downloads always give you what's on screen. */
-import {download, svgToCanvas} from './app-common.js';
+   getSvg is the full-detail native artefact used by both downloads. SVG is
+   exhaustive; PNG is available while that artboard fits the shared raster
+   budget. getCopy may supply a distinct presentation-summary render for the
+   paste-into-a-deck action, otherwise Copy PNG falls back to getSvg. */
+import {download, pngRasterPlan, svgToCanvas} from './app-common.js';
+
+const buttonText = (btn, fallback) => btn.textContent || fallback;
+const buttonDescriptions = new WeakMap();
+
+const rasterMessage = error => {
+  if(error?.code === 'side') return 'PNG exceeds 4,096px side — download SVG';
+  if(error?.code === 'area') return 'PNG exceeds 3M-unit area — download SVG';
+  if(error?.code === 'dimensions' || error?.code === 'root') return 'PNG has no valid size — download SVG';
+  if(error?.code === 'decode' || error?.code === 'encode') return 'SVG could not be rasterised — download SVG';
+  return 'PNG could not be created — download SVG';
+};
+
+const describe = (btn, description) => {
+  if(!btn) return;
+  buttonDescriptions.set(btn, description);
+  btn.title = description;
+  if(btn.setAttribute){
+    btn.setAttribute('aria-label', description);
+    btn.setAttribute('aria-live', 'polite');
+  }
+};
 
 export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug}){
   const flash = (btn, msg, revert) => {
     btn.textContent = msg;
-    setTimeout(() => { btn.textContent = revert; }, 2000);
+    if(btn.setAttribute) btn.setAttribute('aria-label', msg);
+    setTimeout(() => {
+      btn.textContent = revert;
+      if(btn.setAttribute) btn.setAttribute('aria-label', buttonDescriptions.get(btn) || revert);
+    }, 2000);
   };
+  describe(buttons.copypng, getCopy
+    ? 'Copy PNG — presentation summary'
+    : 'Copy PNG — full-detail artefact');
+  describe(buttons.copymd, 'Copy full-detail artefact as markdown');
+  describe(buttons.dlpng, 'Download full-detail PNG — available within the raster limit');
+  describe(buttons.dlsvg, 'Download full-detail SVG — exhaustive at any supported size');
   if(buttons.dlsvg) buttons.dlsvg.addEventListener('click', () => {
     const svg = getSvg();
     if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
   });
   if(buttons.dlpng) buttons.dlpng.addEventListener('click', () => {
     const svg = getSvg();
-    if(svg) svgToCanvas(svg, c => c.toBlob(b => download(slug() + '.png', b), 'image/png'));
+    if(!svg) return;
+    const revert = buttonText(buttons.dlpng, 'PNG');
+    const plan = pngRasterPlan(svg);
+    if(!plan.ok) return flash(buttons.dlpng, rasterMessage(plan), revert);
+    svgToCanvas(svg, c => {
+      try {
+        c.toBlob(b => b
+          ? download(slug() + '.png', b)
+          : flash(buttons.dlpng, 'PNG could not be encoded — download SVG', revert), 'image/png');
+      }catch(_){
+        flash(buttons.dlpng, 'PNG could not be encoded — download SVG', revert);
+      }
+    }, error => flash(buttons.dlpng, rasterMessage(error), revert));
   });
   if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
-    const svg = (getCopy || getSvg)();   // getCopy: the deck-shaped render, where the tool has one
+    const svg = (getCopy || getSvg)();
     if(!svg) return;
+    const revert = buttonText(buttons.copypng, 'Copy PNG');
     if(!navigator.clipboard || !window.ClipboardItem)
-      return flash(buttons.copypng, 'Clipboard unavailable — use Download', 'Copy PNG');
-    // stays synchronous to clipboard.write — awaiting first loses Safari's transient-activation window
+      return flash(buttons.copypng, 'Clipboard unavailable — use Download', revert);
+    const plan = pngRasterPlan(svg);
+    if(!plan.ok) return flash(buttons.copypng, rasterMessage(plan), revert);
+
+    // clipboard.write remains in this synchronous click turn: awaiting Image
+    // decode first loses Safari's transient-activation window.
+    let rasterError = null;
     const blobPromise = new Promise((resolve, reject) =>
-      svgToCanvas(svg, c => c.toBlob(b => b ? resolve(b) : reject(new Error('toBlob')), 'image/png')));
-    navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
-      .then(() => flash(buttons.copypng, 'Copied — paste into your deck', 'Copy PNG'))
-      .catch(() => flash(buttons.copypng, 'Copy blocked — use Download', 'Copy PNG'));
+      svgToCanvas(svg, c => {
+        try {
+          c.toBlob(b => {
+            if(b) resolve(b);
+            else {
+              rasterError = {ok: false, code: 'canvas', detail: 'PNG encoding returned no data.'};
+              reject(new Error(rasterError.detail));
+            }
+          }, 'image/png');
+        }catch(error){
+          rasterError = {ok: false, code: 'canvas', detail: error?.message || 'PNG encoding failed.'};
+          reject(error);
+        }
+      }, error => { rasterError = error; reject(error); }));
+    try {
+      navigator.clipboard.write([new ClipboardItem({'image/png': blobPromise})])
+        .then(() => flash(buttons.copypng, 'Copied — paste into your deck', revert))
+        .catch(() => flash(buttons.copypng,
+          rasterError ? rasterMessage(rasterError) : 'Copy blocked — use Download', revert));
+    }catch(_){
+      flash(buttons.copypng, 'Copy blocked — use Download', revert);
+    }
   });
   if(buttons.copymd) buttons.copymd.addEventListener('click', () => {
     const md = getMarkdown();

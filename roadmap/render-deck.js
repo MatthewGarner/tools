@@ -16,6 +16,7 @@ import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule,
 import {renderRegisterDeck} from './render-register.js';
 import {renderBoardDeck} from './render-board.js';
 import {renderFocusDeck} from './render-focus.js';
+import {layoutRoadmap} from './layout.js';
 export {registerColumns, capFit} from './deck-parts.js';
 export {renderRegisterBody} from './render-register.js';
 export {renderBoardBody, boardGeometry, typeRamp} from './render-board.js';
@@ -69,6 +70,10 @@ export function deckFrame(model, ctx, C, bodyFn){
   if(st.svg){ s.push(st.svg); bodyTop = storyY + st.height + 14; }
 
   s.push(bodyFn(bodyTop, 968));
+  if(ctx.roadmapLayout && ctx.roadmapLayout.selection){
+    s.push(txt(W - M, 990, ctx.roadmapLayout.selection.line, 13, C.muted,
+      {anchor: 'end', weight: 700, tracking: 1.1}));
+  }
   s.push(line(M, 1002, W - M, 1002, C.border));
   s.push(txt(M, 1036, deckMetrics(model), 17, C.muted, {weight: 600}));
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
@@ -141,6 +146,9 @@ const STYLE_RENDERERS = {
 };
 
 export function renderDeck(model, ctx = {}){
-  const renderFn = STYLE_RENDERERS[effectiveStyle(model)] || STYLE_RENDERERS.board;
-  return renderFn(model, ctx, paletteColors(model, ctx));
+  const roadmapLayout = layoutRoadmap(model, {kind: 'presentation', measure: ctx.measure, width: W});
+  const selectedModel = roadmapLayout.model;
+  const renderFn = STYLE_RENDERERS[effectiveStyle(selectedModel)] || STYLE_RENDERERS.board;
+  const selectedCtx = {...ctx, roadmapLayout};
+  return renderFn(selectedModel, selectedCtx, paletteColors(selectedModel, selectedCtx));
 }

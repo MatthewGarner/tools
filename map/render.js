@@ -3,6 +3,8 @@ import {PALETTES, scheme, mix} from '../assets/series.js';
 import {esc, wrapText, editTarget, btnAttrs} from '../assets/svg.js';
 import {paintOrder, labelAnchors} from './zones.js';
 import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
+import {layoutPlaced, measuredLines, sourceItems} from './layout.js';
+export {nudge} from './layout.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -23,39 +25,6 @@ export const TOKENS = {
   slideScale: 1.35, bottomPad: 18,
 };
 
-/* render-time collision repulsion: capsule boxes repel; dots (authored positions)
-   never move. Boxes marked {fixed: true} (zone labels) are obstacles that push
-   others but never move themselves. Deterministic; exported for tests. */
-export function nudge(boxes, x0, y0, x1, y1, iters = 24){
-  const b = boxes.map(o => ({...o}));
-  for(let it = 0; it < iters; it++){
-    let moved = false;
-    for(let i = 0; i < b.length; i++) for(let j = i + 1; j < b.length; j++){
-      const a = b[i], c = b[j];
-      if(a.fixed && c.fixed) continue;
-      const ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
-      const oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
-      if(ox <= 0 || oy <= 0) continue;
-      moved = true;
-      const aShare = a.fixed ? 0 : (c.fixed ? 1 : 0.5);
-      if(oy <= ox){
-        const total = oy + 2, dir = a.y <= c.y ? -1 : 1;
-        a.y += dir * total * aShare; c.y -= dir * total * (1 - aShare);
-      } else {
-        const total = ox + 2, dir = a.x <= c.x ? -1 : 1;
-        a.x += dir * total * aShare; c.x -= dir * total * (1 - aShare);
-      }
-    }
-    for(const o of b){
-      if(o.fixed) continue;
-      o.x = Math.min(Math.max(o.x, x0), x1 - o.w);
-      o.y = Math.min(Math.max(o.y, y0), y1 - o.h);
-    }
-    if(!moved) break;
-  }
-  return b;
-}
-
 export function render(model, resolved, ro, ctx, diff = null){
   const {measure, slide = false, dark = false} = ctx;
   const paletteHex = model.accent ||
@@ -71,15 +40,15 @@ export function render(model, resolved, ro, ctx, diff = null){
      hero verdict — but keep the zone columns, which are content, not chrome. */
   const showTitle = !!model.title;
   const flaggedLines = new Set(ro.flagged.map(f => f.item.srcLine));
-  const placed = model.items.filter(i => i.x != null);
   const hasTray = ro.unplaced.length > 0;
+  const titleFont = '700 ' + T.titleSize * S + 'px ' + F.serif;
+  const titleLines = showTitle ? measuredLines(model.title, titleFont, T.planeW * S, measure) : [];
 
   /* ---- geometry ---- */
-  const headerH = (showTitle ? T.headerH : T.headerHNoTitle) * S;
+  const headerH = showTitle ? (T.headerH + Math.max(0, titleLines.length - 1) * 25) * S : T.headerHNoTitle * S;
   const planeX = (T.pad + T.axisW) * S, planeY = headerH;
   const planeW = T.planeW * S, planeH = T.planeH * S;
-  const trayX = planeX + planeW + T.trayGap * S;
-  const W = Math.round(hasTray ? trayX + T.trayW * S + T.pad * S : planeX + planeW + T.pad * S);
+  const narrow = !!ctx.width && ctx.width < 520;
   const px = x => planeX + x / 100 * planeW;
   const py = y => planeY + (1 - y / 100) * planeH;
 
@@ -113,8 +82,9 @@ export function render(model, resolved, ro, ctx, diff = null){
     const editable = z.kind === 'cell' || (z.kind === 'rule' && z.srcLine != null);
     const zcx = px(a[0]), zcy = py(a[1]);
     const lw = measure(z.name.toUpperCase(), zoneFont) + z.name.length * T.zoneTracking;
-    zoneLabelBoxes.push({x: zcx - lw / 2, y: zcy - T.zoneSize * S,
-      w: lw, h: T.zoneSize * S + 4 * S, fixed: true});
+    const zg = model.preset === 'futures' ? 12 * S : 0;
+    zoneLabelBoxes.push({x: zcx - lw / 2 - zg, y: zcy - T.zoneSize * S - zg,
+      w: lw + zg * 2, h: T.zoneSize * S + 4 * S + zg * 2, fixed: true});
     const zoneText = '<text x="' + zcx + '" y="' + zcy + '" text-anchor="middle"' +
       ' font-size="' + T.zoneSize * S + '" font-weight="600" letter-spacing="' + T.zoneTracking +
       '" fill="' + (toneHex(z.tone) || C.muted) + '">' + esc(z.name.toUpperCase()) + '</text>';
@@ -211,26 +181,26 @@ export function render(model, resolved, ro, ctx, diff = null){
     return editTarget(inner, {x: cx - 22 * S, y: cy - 22 * S, w: 44 * S, h: 44 * S, bg: C.bg},
       {kind: 'additem', line: -1, raw: '', label: 'Add item'});
   };
-  const removeW = edit ? 13 * S : 0;
-  const cards = placed.map(it => {
-    const label = truncate(it.label);
-    const w = measure(label, font) + T.cardPadX * 2 * S + removeW;
-    const cx = px(it.x), cy = py(it.y);
-    let bx = cx + T.cardGapX * S;
-    if(bx + w > planeX + planeW - 4) bx = cx - T.cardGapX * S - w;
-    return {it, label, w, h: T.cardH * S, x: bx, y: cy - T.cardH * S / 2, cx, cy};
-  });
-  if(edit && !hasTray){
+  if(!hasTray){
     const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
     zoneLabelBoxes.push({x: planeX + planeW - aw - 8 * S, y: planeY + 8 * S,
       w: aw, h: T.cardH * S + 4 * S, fixed: true});
   }
-  const nudged = nudge([...cards.map(c => ({x: c.x, y: c.y, w: c.w, h: c.h})), ...zoneLabelBoxes],
-    planeX + 2, planeY + 2, planeX + planeW - 2, planeY + planeH - 2);
-  cards.forEach((c, i) => { c.x = nudged[i].x; c.y = nudged[i].y; });
-  for(const c of cards){
-    const flagged = flaggedLines.has(c.it.srcLine);
-    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '"' +
+  const records = sourceItems(model, ro);
+  const mapLayout = layoutPlaced(records, {planeX, planeY, planeW, planeH, scale: S,
+    measure, font, maxLabelW: T.cardMaxW, zoneObstacles: zoneLabelBoxes});
+  const cards = mapLayout.records;
+  const keyW = 320 * S, keyGap = T.trayGap * S;
+  const keyBeside = mapLayout.mode === 'keyed' && !narrow;
+  const keyX = planeX + planeW + keyGap;
+  const trayX = planeX + planeW + keyGap + (keyBeside ? keyW + keyGap : 0);
+  const W = Math.round(hasTray ? trayX + T.trayW * S + T.pad * S :
+    (keyBeside ? keyX + keyW + T.pad * S : planeX + planeW + T.pad * S));
+  let keyBottom = 0;
+  if(mapLayout.mode === 'direct') for(const c of cards){
+    const flagged = c.flagged;
+    body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '" data-display-id="' + c.id + '" data-geometry="' +
+      [c.cx, c.cy, c.x, c.y, c.w, c.h].map(v => Number(v).toFixed(2)).join(',') + '"' +
       btnAttrs('More options: ' + c.it.label) + (edit ? ' data-menu=""' : '') + '>');
     /* invisible hit rect, full capsule width, centred on the capsule centre
        (not the dot — after nudge the capsule can sit well away from the
@@ -242,12 +212,13 @@ export function render(model, resolved, ro, ctx, diff = null){
        whose capsule-height boxes still touch is a documented limit. First
        child so it paints under the visible capsule + label. */
     const capMidY = c.y + c.h / 2;
-    let minGap = Infinity;
+    let crowdedHit = false;
     for(const o of cards){
       if(o === c || o.x + o.w <= c.x || o.x >= c.x + c.w) continue;   // no x-overlap
-      minGap = Math.min(minGap, Math.abs((o.y + o.h / 2) - capMidY));
+      const gap = Math.abs((o.y + o.h / 2) - capMidY);
+      if(gap < 44 * S) crowdedHit = true;
     }
-    const halfH = Math.max(c.h / 2, Math.min(22 * S, minGap / 2));
+    const halfH = crowdedHit ? c.h / 2 : 22 * S;
     body.push('<rect data-hit="" x="' + c.x + '" y="' + (capMidY - halfH) + '" width="' + c.w +
       '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
     const capX = c.x + c.w / 2, capY = c.y + c.h / 2;
@@ -261,20 +232,63 @@ export function render(model, resolved, ro, ctx, diff = null){
       body.push('<text x="' + (c.cx + (T.dotR + 6) * S) + '" y="' + (c.cy - (T.dotR + 3) * S) +
         '" font-size="' + 8.5 * S + '" font-weight="600" letter-spacing="0.6" fill="' + C.accent + '">NEW</text>');
     }
-    const labX = c.x + T.cardPadX * S, labBase = c.y + c.h - 6 * S;
+    const labX = c.x + T.cardPadX * S;
+    const labBase = c.lines.length === 1 ? c.y + c.h - 6 * S : c.y + T.cardSize * S + 4 * S;
     body.push('<text data-edit="label" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.label) +
       '" x="' + labX + '" y="' + labBase + '" font-size="' + T.cardSize * S +
       '" font-weight="700" fill="' + (flagged ? C.err : C.ink) + '"' + btnAttrs('Rename: ' + c.it.label) +
-      '>' + esc(c.label) + '</text>');
-    if(flagged)
-      body.push('<rect x="' + labX + '" y="' + (labBase + 3 * S).toFixed(2) + '" width="' +
-        (measure(c.label, font)).toFixed(2) + '" height="' + (2 * S).toFixed(2) +
-        '" fill="' + C.err + '"/>');
+      '>' + esc(c.lines[0]) + '</text>');
+    c.lines.slice(1).forEach((line, i) => body.push('<text x="' + labX + '" y="' +
+      (labBase + (i + 1) * 13 * S) + '" font-size="' + T.cardSize * S + '" font-weight="700" fill="' +
+      (flagged ? C.err : C.ink) + '">' + esc(line) + '</text>'));
+    if(flagged) for(let i = 0; i < c.lines.length; i++)
+      body.push('<rect x="' + labX + '" y="' + (labBase + i * 13 * S + 3 * S).toFixed(2) + '" width="' +
+        measure(c.lines[i], font).toFixed(2) + '" height="' + (2 * S).toFixed(2) + '" fill="' + C.err + '"/>');
     if(edit) body.push('<text data-edit="removeitem" data-line="' + c.it.srcLine + '" data-raw=""' +
-      ' x="' + (c.x + c.w - T.cardPadX * S) + '" y="' + (c.y + c.h - 6 * S) + '" text-anchor="end"' +
+      ' x="' + Math.min(planeX + planeW - 4 * S, c.x + c.w + 12 * S) + '" y="' + (c.y + c.h / 2 + 4 * S) + '" text-anchor="end"' +
       ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Remove ' + c.it.label) +
       '>×</text>');
     body.push('</g>');
+  } else {
+    for(const c of cards){
+      const tone = c.flagged ? C.err : C.accent;
+      body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '" data-display-id="' + c.id + '" data-geometry="' +
+        [c.cx, c.cy].map(v => Number(v).toFixed(2)).join(',') + '"' + btnAttrs('More options: ' + c.it.label) +
+        (edit ? ' data-menu=""' : '') + '>');
+      body.push('<rect data-hit="" x="' + (c.cx - 22 * S) + '" y="' + (c.cy - 22 * S) + '" width="' + (44 * S) + '" height="' + (44 * S) + '" fill="' + C.card + '" fill-opacity="0"/>');
+      body.push(marker(c.cx, c.cy, tone));
+      body.push('<rect x="' + (c.cx + 7 * S) + '" y="' + (c.cy - 9 * S) + '" width="' + (30 * S) + '" height="' + (18 * S) +
+        '" fill="' + C.card + '" stroke="' + tone + '"/>');
+      body.push('<text x="' + (c.cx + 22 * S) + '" y="' + (c.cy + 3.5 * S) + '" text-anchor="middle" font-size="' +
+        (8 * S) + '" font-weight="700" fill="' + C.ink + '">' + c.id + '</text></g>');
+    }
+    const kx = narrow ? planeX : keyX;
+    const ky0 = narrow ? planeY + planeH + T.axisH * S + 14 * S : planeY;
+    const kw = narrow ? planeW : keyW;
+    const keyRows = cards.map(c => ({...c, keyLines: measuredLines(c.it.label, '700 ' + T.cardSize * S + 'px ' + F.body,
+      kw - 74 * S, measure)}));
+    const keyH = 34 * S + keyRows.reduce((sum, row) => sum + Math.max(34 * S, (row.keyLines.length * 13 + 18) * S), 0) + 10 * S;
+    body.push('<rect data-map-key="" x="' + kx + '" y="' + ky0 + '" width="' + kw + '" height="' + keyH +
+      '" fill="' + C.card + '" stroke="' + C.border + '"/>');
+    body.push('<text x="' + (kx + 12 * S) + '" y="' + (ky0 + 21 * S) + '" font-size="' + (9.5 * S) +
+      '" font-weight="700" letter-spacing="' + (0.8 * S) + '" fill="' + C.accentInk + '">FULL MAP KEY · SOURCE ORDER</text>');
+    let ky = ky0 + 34 * S;
+    for(const row of keyRows){
+      const rh = Math.max(34 * S, (row.keyLines.length * 13 + 18) * S);
+      body.push('<line x1="' + (kx + 10 * S) + '" y1="' + ky + '" x2="' + (kx + kw - 10 * S) + '" y2="' + ky + '" stroke="' + C.border + '"/>');
+      body.push('<text x="' + (kx + 12 * S) + '" y="' + (ky + 18 * S) + '" font-size="' + (9 * S) + '" font-weight="700" fill="' +
+        (row.flagged ? C.err : C.accentInk) + '">' + row.id + '</text>');
+      const tx = kx + 54 * S;
+      body.push('<text data-edit="label" data-line="' + row.it.srcLine + '" data-raw="' + esc(row.it.label) + '" x="' + tx + '" y="' +
+        (ky + 17 * S) + '" font-size="' + (T.cardSize * S) + '" font-weight="700" fill="' + (row.flagged ? C.err : C.ink) + '"' +
+        btnAttrs('Rename: ' + row.it.label) + '>' + esc(row.keyLines[0]) + '</text>');
+      row.keyLines.slice(1).forEach((line, i) => body.push('<text x="' + tx + '" y="' + (ky + (30 + i * 13) * S) +
+        '" font-size="' + (T.cardSize * S) + '" font-weight="700" fill="' + (row.flagged ? C.err : C.ink) + '">' + esc(line) + '</text>'));
+      body.push('<text x="' + tx + '" y="' + (ky + rh - 5 * S) + '" font-size="' + (8.5 * S) + '" fill="' + C.muted + '">@ ' +
+        row.it.x + ', ' + row.it.y + (row.flagged ? ' · FLAGGED' : '') + '</text>');
+      ky += rh;
+    }
+    keyBottom = ky0 + keyH;
   }
 
   /* ---- tray ---- */
@@ -284,8 +298,8 @@ export function render(model, resolved, ro, ctx, diff = null){
       '" font-weight="600" letter-spacing="0.8" fill="' + C.muted + '">UNPLACED — DRAG ONTO THE MAP</text>');
     let ty = planeY + 24 * S;
     for(const it of ro.unplaced){
-      const label = truncate(it.label);
-      const w = Math.min(measure(label, font) + T.cardPadX * 2 * S, T.trayW * S);
+      const lines = measuredLines(it.label, font, (T.trayW - T.cardPadX * 2) * S, measure);
+      const w = T.trayW * S, rowH = Math.max(T.trayCardH * S, (lines.length * 13 + 8) * S);
       /* edit mode: the tray card is a cardmenu trigger too (Place on map… is
          the coarse-pointer placement path — drag needs a fine pointer). The
          hit rect caps at the row pitch so adjacent rows meet, never overlap.
@@ -293,22 +307,23 @@ export function render(model, resolved, ro, ctx, diff = null){
       body.push('<g data-line="' + it.srcLine + '" data-tray="1"' +
         (edit ? ' data-edit="cardmenu"' + btnAttrs('More options: ' + it.label) + ' data-menu=""' : '') + '>');
       if(edit){
-        const halfH = Math.max(T.cardH * S / 2, Math.min(22 * S, T.trayCardH * S / 2));
-        body.push('<rect data-hit="" x="' + trayX + '" y="' + (ty + T.cardH * S / 2 - halfH) +
-          '" width="' + w + '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
+        body.push('<rect data-hit="" x="' + trayX + '" y="' + ty +
+          '" width="' + w + '" height="' + rowH + '" fill="' + C.card + '" fill-opacity="0"/>');
       }
-      body.push('<rect x="' + trayX + '" y="' + ty + '" width="' + w + '" height="' + T.cardH * S +
+      body.push('<rect x="' + trayX + '" y="' + ty + '" width="' + w + '" height="' + rowH +
         '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="4 3"/>');
       body.push('<text data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
-        '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) +
+        '" x="' + (trayX + T.cardPadX * S) + '" y="' + (ty + 15 * S) +
         '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Rename: ' + it.label) +
-        '>' + esc(label) + '</text>');
+        '>' + esc(lines[0]) + '</text>');
+      lines.slice(1).forEach((line, i) => body.push('<text x="' + (trayX + T.cardPadX * S) + '" y="' +
+        (ty + (28 + i * 13) * S) + '" font-size="' + T.cardSize * S + '" fill="' + C.muted + '">' + esc(line) + '</text>'));
       if(edit) body.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw=""' +
-        ' x="' + (trayX + w - T.cardPadX * S) + '" y="' + (ty + T.cardH * S - 6 * S) + '" text-anchor="end"' +
+        ' x="' + (trayX + w - T.cardPadX * S) + '" y="' + (ty + 15 * S) + '" text-anchor="end"' +
         ' font-size="' + T.cardSize * S + '" fill="' + C.muted + '"' + btnAttrs('Remove ' + it.label) +
         '>×</text>');
       body.push('</g>');
-      ty += T.trayCardH * S;
+      ty += rowH;
     }
     if(edit){
       const aw = measure('＋ Add item', font) + T.cardPadX * 2 * S;
@@ -325,7 +340,7 @@ export function render(model, resolved, ro, ctx, diff = null){
 
   /* ---- readout panel ---- */
   const roX = T.pad * S, roW = W - T.pad * 2 * S;
-  let roY = Math.max(planeY + planeH + T.axisH * S, trayBottom) + T.roGap * S;
+  let roY = Math.max(planeY + planeH + T.axisH * S, trayBottom, keyBottom) + T.roGap * S;
   /* the VERDICT block (Swiss 6b): kicker + wrapped display line carrying exactly
      one brand-marked figure. Its returned advance drives the readout's flow, so
      a long verdict pushes the zone columns down instead of colliding with them. */
@@ -414,18 +429,18 @@ export function render(model, resolved, ro, ctx, diff = null){
   s.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>');
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
-  if(showTitle)
-    s.push('<text x="' + T.pad * S + '" y="' + T.titleY * S + '" font-family=\'' + F.serif +
-      '\' font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' +
-      esc(model.title) + '</text>');
+  if(showTitle) titleLines.forEach((line, i) =>
+    s.push('<text data-title-line="' + (i + 1) + '" x="' + T.pad * S + '" y="' + (T.titleY + i * 25) * S + '" font-family=\'' + F.serif +
+      '\' font-size="' + T.titleSize * S + '" font-weight="700" fill="' + C.ink + '">' + esc(line) + '</text>'));
   /* the metrics row opening the artefact — counts only (the 22px title line above
      already names the model; repeating it in caps one line down reads as a stutter) */
   if(showTitle && model.items.length)
-    s.push(svgMetrics({x: T.pad * S, y: (T.titleY + 17) * S, model: '',   /* the title line above owns the name */
+    s.push(svgMetrics({x: T.pad * S, y: (T.titleY + 17 + Math.max(0, titleLines.length - 1) * 25) * S, model: '',
       counts: ro.counts || [], ink: C.ink, muted: C.muted, font: F.body, scale: S}));
   s.push('<text x="' + (W - T.pad * S) + '" y="' + (showTitle ? T.titleY : 14) * S +
     '" text-anchor="end" font-size="' + T.dateSize * S + '" fill="' + C.muted + '">' +
     new Date().toISOString().slice(0, 10) + '</text>');
+  if(narrow) s.push('<rect data-narrow="" width="0" height="0" fill="none"/>');
   s.push(...body, '</svg>');
   return s.join('');
 }

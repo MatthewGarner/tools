@@ -29,8 +29,23 @@ export function mountTouchUndo(actionsEl, editor){
   return b;
 }
 
+export const FIT_READABILITY_FLOOR = 0.70;
+
+/* Pure threshold decision: Fit is an automatic convenience, so it may not make
+   data illegible. Explicit numeric zoom remains the user's choice and bypasses
+   this guard. A renderer can raise (never lower) the shared floor by declaring
+   data-min-readable-scale on its SVG root. */
+export function fitReadabilityDecision({naturalWidth,fitWidth,declaredMinScale}){
+  const natural=Number(naturalWidth),fit=Number(fitWidth),declared=Number(declaredMinScale);
+  const minScale=Math.max(FIT_READABILITY_FLOOR,
+    Number.isFinite(declared)&&declared>0?declared:FIT_READABILITY_FLOOR);
+  const scale=natural>0&&Number.isFinite(fit)?fit/natural:1;
+  return {guard:Number.isFinite(scale)&&scale<minScale,scale,minScale};
+}
+
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
+  let focusArtefact = false;
 
   function svgEl(){ return preview.querySelector('svg'); }
   function naturalWidth(svg){
@@ -49,7 +64,6 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
      so none of this touches phones. */
   const FIT_FLOOR = 560;        // px: never chase a fold shorter than this
   const WIDE = 520;             // the narrow-relayout bucket (assets/narrow-width.js) — below it, don't cap
-  const LEGIBLE = 0.7;          // never shrink a board past this fraction of the width Fit would give it
   function foldHeight(){
     const top = preview.getBoundingClientRect().top + scrollY;   // the pane's document offset
     return Math.max(FIT_FLOOR, innerHeight - top - 28);           // 28 = breathing room under the fold
@@ -65,23 +79,60 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
      clientWidth, which would feed back into the cap and let it oscillate */
   const paneWidth = () => preview.getBoundingClientRect().width;
   function fitCap(svg){
-    if(workspace.classList.contains('collapsed')) return 0;      // collapse = "give it room"
+    if(workspace.classList.contains('collapsed') || focusArtefact) return 0; // collapse = "give it room"
     const vb = svg.viewBox.baseVal;
     const aspect = (vb && vb.height) ? vb.width / vb.height : 0;
     const pane = paneWidth();
     if(!aspect || pane < WIDE) return 0;
-    const cap = Math.round(aspect * foldHeight());
-    return cap >= pane * LEGIBLE ? cap : 0;
+    return Math.round(aspect * foldHeight());
+  }
+  let fitAdvice = null;
+  function advisory(){
+    if(fitAdvice) return fitAdvice;
+    const el=document.createElement('div');
+    el.className='fit-readability-advisory';
+    el.hidden=true;
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
+    const copy=document.createElement('span');
+    copy.textContent='Fit would make this artefact hard to read. It stays at full size and can pan.';
+    const action=document.createElement('button');
+    action.type='button';
+    action.textContent='Focus artefact';
+    action.addEventListener('click',()=>{
+      focusArtefact=true;
+      workspace.classList.add('focus-artefact');
+      tab.textContent='›';
+      tab.title='Show the editor  [';
+      tab.setAttribute('aria-expanded','false');
+      applyZoom();
+    });
+    el.append(copy,action);
+    preview.parentNode.insertBefore(el,preview);
+    fitAdvice=el;
+    return el;
+  }
+  function showAdvisory(show){
+    if(!show&& !fitAdvice)return;
+    advisory().hidden=!show;
   }
   function applyZoom(){
     const svg = svgEl();
-    if(!svg) return;
+    if(!svg){showAdvisory(false);return;}
     let w, mw, mi;
     if(zoom === 'fit'){
       const cap = fitCap(svg);
-      w = '100%'; mw = cap ? cap + 'px' : '';
-      mi = cap ? 'auto' : '';        // centre ONLY a capped board; a zoomed board stays put
-    } else { w = Math.round(naturalWidth(svg) * zoom) + 'px'; mw = 'none'; mi = ''; }
+      const pane=paneWidth(),fitWidth=cap?Math.min(pane,cap):pane;
+      const declared=svg.getAttribute('data-min-readable-scale');
+      const decision=fitReadabilityDecision({naturalWidth:naturalWidth(svg),fitWidth,declaredMinScale:declared});
+      const guard=!matchMedia('(pointer: coarse)').matches&&decision.guard;
+      if(guard){w=Math.round(naturalWidth(svg))+'px';mw='none';mi='';}
+      else {w='100%';mw=cap?cap+'px':'';mi=cap?'auto':'';}
+      showAdvisory(guard&&!focusArtefact&&!workspace.classList.contains('collapsed'));
+    } else {
+      w = Math.round(naturalWidth(svg) * zoom) + 'px'; mw = 'none'; mi = '';
+      showAdvisory(false);
+    }
     if(svg.style.width !== w) svg.style.width = w;         // idempotent: no style write, no ResizeObserver echo
     if(svg.style.maxWidth !== mw) svg.style.maxWidth = mw;
     if(svg.style.marginInline !== mi) svg.style.marginInline = mi;
@@ -132,6 +183,8 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
 
   /* collapse */
   function setCollapsed(c){
+    focusArtefact=false;
+    workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
     tab.textContent = c ? '›' : '‹';
     tab.title = (c ? 'Show' : 'Hide') + ' the editor  [';
@@ -139,12 +192,24 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     applyZoom();                                    // collapsing releases the fold cap (see applyZoom)
     if(onCollapseChange) onCollapseChange(c);
   }
-  tab.addEventListener('click', () => setCollapsed(!workspace.classList.contains('collapsed')));
+  function toggleCollapsed(){
+    if(focusArtefact){
+      focusArtefact=false;
+      workspace.classList.remove('focus-artefact');
+      tab.textContent=workspace.classList.contains('collapsed')?'›':'‹';
+      tab.title=(workspace.classList.contains('collapsed')?'Show':'Hide')+' the editor  [';
+      tab.setAttribute('aria-expanded',String(!workspace.classList.contains('collapsed')));
+      applyZoom();
+      return;
+    }
+    setCollapsed(!workspace.classList.contains('collapsed'));
+  }
+  tab.addEventListener('click', toggleCollapsed);
   window.addEventListener('keydown', e => {
     if(e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey){
       const el = document.activeElement;
       if(el && (el.closest('.cm-editor') || /INPUT|TEXTAREA|SELECT/.test(el.tagName))) return;
-      setCollapsed(!workspace.classList.contains('collapsed'));
+      toggleCollapsed();
     }
   });
   setCollapsed(false);
