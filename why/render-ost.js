@@ -79,6 +79,8 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
   const assumpColor = st => (AH[st] || [C.muted, C.muted])[1];
   const aLines = new Map();
   const cardWFor = depth => Math.max(MIN_CARD, W - 2*PAD - Math.min(depth, MAX_INDENT_DEPTH) * INDENT);
+  const indexedOutcomes = model.outcomes.length > 3 || model.outcomes.some(o => o.label.length > 44);
+  const outcomeIds = new Map(model.outcomes.map((o, i) => [o, 'O' + String(i + 1).padStart(2, '0')]));
 
   /* prep: depth-first: each node's OWN card width shrinks with depth (clamped),
      so the label wrap (and assumption wrap) measure against that width, not a
@@ -91,7 +93,8 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
     node._cardW = cardW;
     const innerW = cardW - T.cardPadX*2;
     const glyph = KIND_GLYPH[node.kind];
-    node._lines = wrapText((glyph ? glyph + ' ' : '') + node.label, labelFont, innerW, measure);
+    const indexed = indexedOutcomes && node.kind === 'outcome' ? outcomeIds.get(node) + ' · ' : '';
+    node._lines = wrapText((glyph ? glyph + ' ' : '') + indexed + node.label, labelFont, innerW, measure);
     let h = T.cardPadY*2 + node._lines.length * T.labelLh;
     if(node.kind === 'solution') h += T.pillH + T.pillGap;
     for(const a of node._assumps){
@@ -146,7 +149,8 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
     const isOutcome = node.kind === 'outcome';
     const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-menu="" data-raw=""' +
       btnAttrs('More options: ' + node.label) : '';
-    s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + ny + '" width="' + cardW +
+    s.push('<rect' + cardEip + (isOutcome ? ' data-outcome-id="' + outcomeIds.get(node) + '"' : '') +
+      ' data-line="' + node.srcLine + '" x="' + x + '" y="' + ny + '" width="' + cardW +
       '" height="' + node._h + '" rx="0" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
@@ -165,34 +169,36 @@ function renderOstNarrow(model, projection, ctx, diff, C, T){
         '" fill="' + (solid ? C.card : bcol) + '">' + esc(blabel) + '</text>');
     }
     let ty = ny + T.cardPadY + T.labelSize;
-    for(const line of node._lines){
-      s.push('<text data-edit="label" data-line="' + node.srcLine + '" data-raw="' + esc(node.label) +
-        '" x="' + (x + T.cardPadX) + '" y="' + ty + '" font-size="' + T.labelSize +
+    for(const [lineIndex, line] of node._lines.entries()){
+      const labelEdit = edit && lineIndex === 0 ? ' data-edit="label" data-line="' + node.srcLine + '" data-raw="' +
+        esc(node.label) + '"' + btnAttrs('Rename: ' + node.label) : '';
+      s.push('<text' + labelEdit + ' x="' + (x + T.cardPadX) + '" y="' + ty + '" font-size="' + T.labelSize +
         '" font-weight="600"' + (isOutcome ? ' font-family=\'' + F.serif + '\'' : '') +
-        ' fill="' + C.ink + '"' + btnAttrs('Rename: ' + node.label) +
+        ' fill="' + C.ink + '"' +
         '>' + esc(line) + '</text>');
       ty += T.labelLh;
     }
     if(node.kind === 'solution'){
       const col = statusColor(node.status);
       const label = STATUS_LABEL[node.status].toUpperCase();
-      const eip = ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status +
-        '"' + btnAttrs('Cycle status: ' + node.label);
+      const eip = edit ? ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status +
+        '"' + btnAttrs('Cycle status: ' + node.label) : '';
       const tw = measure(label, '600 ' + T.pillSize + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX) + '" y="' + (ty - T.labelSize + 3) + '" width="' + (tw + T.pillPadX*2) +
         '" height="' + T.pillH + '" rx="0" fill="' + tint(col) + '"' + tagStroke(col) + '/>');
-      s.push('<text' + eip + ' x="' + (x + T.cardPadX + T.pillPadX) + '" y="' + (ty - T.labelSize + 3 + T.pillH - 4.5) +
+      s.push('<text x="' + (x + T.cardPadX + T.pillPadX) + '" y="' + (ty - T.labelSize + 3 + T.pillH - 4.5) +
         '" font-size="' + T.pillSize + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + statusInkFor(node.status) + '">' + esc(label) + '</text>');
+        '" fill="' + statusInkFor(node.status) + '" pointer-events="none">' + esc(label) + '</text>');
       ty += T.pillH + T.pillGap;
     }
     for(const a of node._assumps){
       const col = assumpColor(a.status);
       const rows = aLines.get(a);
       rows.forEach((row, i) => {
-        s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
-          '" x="' + (x + T.cardPadX) + '" y="' + ty + '" font-size="' + T.assumpSize +
-          '" fill="' + col + '"' + btnAttrs('Cycle assumption status: ' + a.label) +
+        const assumptionEdit = edit && i === 0 ? ' data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' +
+          a.status + '"' + btnAttrs('Cycle assumption status: ' + a.label) : '';
+        s.push('<text' + assumptionEdit + ' x="' + (x + T.cardPadX) + '" y="' + ty + '" font-size="' + T.assumpSize +
+          '" fill="' + col + '"' +
           '>' + esc(row) + '</text>');
         if(edit && i === rows.length - 1){
           const xx = Math.min(x + T.cardPadX + measure(row, assumpFont) + 8, x + cardW - T.cardPadX);
@@ -257,10 +263,14 @@ export function renderOst(model, projection, ctx, diff = null){
   const aLines = new Map();   // assumption node → wrapped display lines
 
   /* measure every node card; assumptions fold into their solution's card */
+  const indexedOutcomes = model.outcomes.length > 3 || model.outcomes.some(o => o.label.length > 44);
+  const outcomeIds = new Map(model.outcomes.map((o, i) => [o, 'O' + String(i + 1).padStart(2, '0')]));
   function prep(node){
     node._assumps = node.children.filter(c => c.kind === 'assumption');
     node._kids = node.children.filter(c => c.kind !== 'assumption');
-    node._lines = wrapText(node.label, labelFont, innerW, measure);
+    const displayLabel = indexedOutcomes && node.kind === 'outcome'
+      ? outcomeIds.get(node) + ' · ' + node.label : node.label;
+    node._lines = wrapText(displayLabel, labelFont, innerW, measure);
     let h = T.cardPadY*2*S + node._lines.length * T.labelLh*S;
     if(node.kind === 'solution') h += T.pillH*S + T.pillGap*S;
     for(const a of node._assumps){
@@ -286,7 +296,8 @@ export function renderOst(model, projection, ctx, diff = null){
   }
   model.outcomes.forEach(o => { prep(o); place(o, 0); cursorY += 10*S; });
 
-  const headerH = ((model.title ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0))*S;
+  const bare = !!ctx.bare;
+  const headerH = bare ? 0 : ((model.title ? T.headerH : T.headerHNoTitle) + (diff ? 20 : 0))*S;
   const W = Math.round(T.pad*2*S + (maxDepth + 1) * T.colW*S);
   const droppedH = diff && diff.dropped.length ? (20 + diff.dropped.length * 15)*S : 0;
   const H = Math.round(headerH + cursorY + droppedH + T.bottomPad*S);
@@ -297,14 +308,14 @@ export function renderOst(model, projection, ctx, diff = null){
   s.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>');
   s.push('<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>');
-  if(model.title){
+  if(!bare && model.title){
     s.push('<text x="' + T.pad*S + '" y="' + T.titleY*S + '" font-family=\'' + F.serif +
       '\' font-size="' + T.titleSize*S + '" font-weight="700" fill="' + C.ink + '">' + esc(model.title) + '</text>');
   }
-  s.push('<text x="' + (W - T.pad*S) + '" y="' + (model.title ? T.titleY : 14)*S +
+  if(!bare) s.push('<text x="' + (W - T.pad*S) + '" y="' + (model.title ? T.titleY : 14)*S +
     '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' +
-    new Date().toISOString().slice(0, 10) + '</text>');
-  if(diff){
+    (ctx.today || new Date().toISOString().slice(0, 10)) + '</text>');
+  if(!bare && diff){
     s.push('<text x="' + T.pad*S + '" y="' + ((model.title ? T.titleY + 19 : 14))*S +
       '" font-size="' + 12*S + '" font-weight="600" fill="' + C.accent + '">' +
       esc(diff.narrative) + '</text>');
@@ -319,7 +330,8 @@ export function renderOst(model, projection, ctx, diff = null){
     /* edit-gated: the card body is a menu target (rename / status / add child / remove branch) */
     const cardEip = edit ? ' data-edit="cardmenu-' + node.kind + '" data-hit="" data-menu="" data-raw=""' +
       btnAttrs('More options: ' + node.label) : '';
-    s.push('<rect' + cardEip + ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
+    s.push('<rect' + cardEip + (isOutcome ? ' data-outcome-id="' + outcomeIds.get(node) + '"' : '') +
+      ' data-line="' + node.srcLine + '" x="' + x + '" y="' + y + '" width="' + T.cardW*S +
       '" height="' + node._h + '" rx="0" fill="' + (isOutcome ? tint(C.accent) : C.card) +
       '" stroke="' + (isOutcome ? C.accent : C.border) + '" stroke-width="1"' +
       (unaddressed ? ' stroke-dasharray="3 3"' : '') + '/>');
@@ -340,34 +352,37 @@ export function renderOst(model, projection, ctx, diff = null){
         '" fill="' + (solid ? C.card : bcol) + '">' + esc(blabel) + '</text>');
     }
     let ty = y + T.cardPadY*S + T.labelSize*S;
-    for(const line of node._lines){
-      s.push('<text data-edit="label" data-line="' + node.srcLine + '" data-raw="' + esc(node.label) +
-        '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.labelSize*S +
+    for(const [lineIndex, line] of node._lines.entries()){
+      const labelEdit = edit && lineIndex === 0 ? ' data-edit="label" data-line="' + node.srcLine + '" data-raw="' +
+        esc(node.label) + '"' + btnAttrs('Rename: ' + node.label) : '';
+      s.push('<text' + labelEdit +
+        ' x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.labelSize*S +
         '" font-weight="600"' + (isOutcome ? ' font-family=\'' + F.serif + '\'' : '') +
-        ' fill="' + C.ink + '"' + btnAttrs('Rename: ' + node.label) +
+        ' fill="' + C.ink + '"' +
         '>' + esc(line) + '</text>');
       ty += T.labelLh*S;
     }
     if(node.kind === 'solution'){
       const col = statusColor(node.status);
       const label = STATUS_LABEL[node.status].toUpperCase();
-      const eip = ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status +
-        '"' + btnAttrs('Cycle status: ' + node.label);
+      const eip = edit ? ' data-edit="status" data-line="' + node.srcLine + '" data-raw="' + node.status +
+        '"' + btnAttrs('Cycle status: ' + node.label) : '';
       const tw = measure(label, '600 ' + T.pillSize*S + 'px ' + F.body) + label.length * T.pillTracking;
       s.push('<rect' + eip + ' x="' + (x + T.cardPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S) + '" width="' + (tw + T.pillPadX*2*S) +
         '" height="' + T.pillH*S + '" rx="0" fill="' + tint(col) + '"' + tagStroke(col) + '/>');
-      s.push('<text' + eip + ' x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
+      s.push('<text x="' + (x + T.cardPadX*S + T.pillPadX*S) + '" y="' + (ty - T.labelSize*S + 3*S + T.pillH*S - 4.5*S) +
         '" font-size="' + T.pillSize*S + '" font-weight="600" letter-spacing="' + T.pillTracking +
-        '" fill="' + statusInkFor(node.status) + '">' + esc(label) + '</text>');
+        '" fill="' + statusInkFor(node.status) + '" pointer-events="none">' + esc(label) + '</text>');
       ty += T.pillH*S + T.pillGap*S;
     }
     for(const a of node._assumps){
       const col = assumpColor(a.status);
       const rows = aLines.get(a);
       rows.forEach((row, i) => {
-        s.push('<text data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
-          '" x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
-          '" fill="' + col + '"' + btnAttrs('Cycle assumption status: ' + a.label) +
+        s.push('<text' + (edit && i === 0 ? ' data-edit="astatus" data-line="' + a.srcLine + '" data-raw="' + a.status +
+          '"' + btnAttrs('Cycle assumption status: ' + a.label) : '') +
+          ' x="' + (x + T.cardPadX*S) + '" y="' + ty + '" font-size="' + T.assumpSize*S +
+          '" fill="' + col + '"' +
           '>' + esc(row) + '</text>');
         if(edit && i === rows.length - 1){   /* one-click remove just past the row text (map's × idiom) */
           const xx = Math.min(x + T.cardPadX*S + measure(row, assumpFont) + 8*S, x + (T.cardW - T.cardPadX)*S);

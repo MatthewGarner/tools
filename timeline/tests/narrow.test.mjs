@@ -161,12 +161,12 @@ test('narrow: [fixed] and [done] lay out identically — the ±? predicate agree
 });
 
 /* Swiss 6b: the page carries no HTML verdict, so the narrow artefact carries the
-   one — same anatomy, re-wrapped at 17px. Exports never take this path. */
-test('narrow: the verdict re-wraps at 17px and keeps its single brand figure', () => {
+   one — same anatomy, re-wrapped above the 11px data floor. Exports never take this path. */
+test('narrow: the verdict re-wraps above the data floor and keeps its single brand figure', () => {
   const svg = render(parse(DOC), {...ctx, width: W});
   assert.match(svg, /data-narrow=""/);
   assert.match(svg, />VERDICT</);
-  assert.match(svg, /font-size="17" font-weight="700"/);
+  assert.match(svg, /font-size="18\.7" font-weight="700"/);
   assert.equal((svg.match(/#D62015/g) || []).length, 1);
   const v = timelineVerdict(parse(DOC), ctx.today);
   assert.ok(v.fig && v.line.includes(v.fig));

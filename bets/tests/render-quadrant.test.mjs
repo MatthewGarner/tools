@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {simulate} from '../engine.js';
-import {renderQuadrant, placeLabels, boxesOverlap, layoutBubbles, prep, NAME_ONLY_THRESHOLD} from '../render-quadrant.js';
+import {renderQuadrant, placeLabels, boxesOverlap, layoutBubbles, prep, labelsAreClear, NAME_ONLY_THRESHOLD} from '../render-quadrant.js';
 
 const COLORS = {ink: '#141b21', muted: '#5b6670', accent: '#c05621', accentInk: '#8e4a1e',
   bg: '#f7f8f6', card: '#ffffff', border: '#e2e5e1', err: '#b3403a', track: '#e7e9e5',
@@ -220,11 +220,15 @@ test('placeLabels: never drops a label, even in a pathologically tight box', () 
   assert.ok(placed[0].box && Number.isFinite(placed[0].box.x) && Number.isFinite(placed[0].box.y));
 });
 
-test('name-only mode: microcopy absent past NAME_ONLY_THRESHOLD bets, present at/under it', () => {
+test('dense mode replaces direct labels with source-order IDs and a full in-plane key', () => {
   assert.equal(NAME_ONLY_THRESHOLD, 9);
   const svgCrowded = renderQuadrant(crowdedModel, crowdedSim, CTX);   // 12 bets
-  assert.ok(!svgCrowded.includes('→ pays'), 'name-only mode should drop the microcopy line past the threshold');
+  assert.match(svgCrowded, /data-quadrant-key=""/);
+  assert.match(svgCrowded, /FULL BET KEY · SOURCE ORDER/);
+  for(const id of ['B01', 'B06', 'B12']) assert.ok(svgCrowded.includes(id));
+  assert.ok(svgCrowded.includes('→ pays'), 'the key retains stake/odds/payoff detail');
   const svgSmall = renderQuadrant(model, sim, CTX);   // 3 bets, well under threshold
+  assert.ok(!svgSmall.includes('data-quadrant-key=""'), 'small portfolios keep direct labels');
   assert.ok(svgSmall.includes('→ pays'), 'small portfolios keep the microcopy line');
 });
 

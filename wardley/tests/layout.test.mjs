@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {layoutMap} from '../layout.js';
 
-const lay = (src, geom) => layoutMap(parse(src), geom);
+const lay = (src, geom) => layoutMap(parse(src), {measure: text => text.length * 7, intent: 'native', geom});
 const node = (l, name) => l.nodes.find(n => n.name === name);
 
 test('anchors top, dependents below, needs deepest', () => {
@@ -62,4 +62,49 @@ test('links carry pixel endpoints between the right nodes', () => {
 test('geometry: px maps x through pad and width', () => {
   const l = lay('anchor: Need\nMid @ 0.5\nNeed -> Mid', {w: 1000, h: 600, pad: 100});
   assert.equal(node(l, 'Mid').px, 100 + 0.5 * 800);
+});
+
+test('authored evolution x survives every density and export intent exactly', () => {
+  const components = Array.from({length: 18}, (_, i) => `Component ${i + 1} @ ${(i + 1) / 20}`).join('\n');
+  const model = parse('anchor: Need\n' + components);
+  for(const intent of ['live-wide', 'native', 'presentation']){
+    const layout = layoutMap(model, {measure: text => text.length * 7, intent});
+    for(const component of model.components.values()){
+      const placed = node(layout, component.name);
+      assert.equal(placed.x, component.x);
+      assert.equal(placed.px, layout.pad + component.x * (layout.w - 2 * layout.pad));
+    }
+  }
+});
+
+test('density assigns stable source-order IDs and an exhaustive key', () => {
+  const components = Array.from({length: 18}, (_, i) => `Capability ${String(i + 1).padStart(2, '0')} @ ${((i % 4) + 1) / 5}`).join('\n');
+  const layout = lay('anchor: Need\n' + components);
+  assert.equal(layout.density, 'keyed');
+  assert.equal(layout.keyEntries.length, 18);
+  assert.deepEqual(layout.keyEntries.map(item => item.id),
+    Array.from({length:18}, (_, i) => 'W' + String(i + 1).padStart(2, '0')));
+  assert.ok(layout.nodes.filter(item => !item.anchor).every(item => item.useKey && item.lines[0] === item.id));
+});
+
+test('long direct names become measured two-line cards without row overlap', () => {
+  const src = `anchor: Customer need
+Long capability for cohort onboarding @ custom
+Reliable notification delivery service @ custom
+Customer need -> Long capability for cohort onboarding
+Customer need -> Reliable notification delivery service`;
+  const layout = lay(src);
+  const cards = layout.nodes.filter(item => !item.anchor);
+  assert.ok(cards.every(item => item.lines.length === 2 && item.cardH > 28));
+  const [a,b] = cards;
+  const overlapX = a.cardX < b.cardX+b.cardW && a.cardX+a.cardW > b.cardX;
+  assert.ok(!overlapX || Math.abs(a.y-b.y) >= Math.max(a.cardH,b.cardH));
+});
+
+test('cycle callouts and dependency spine are deterministic', () => {
+  const src = 'anchor: Need\nA @ custom\nB @ product\nC @ commodity\nNeed -> A -> B -> C\nC -> A';
+  const a=lay(src),b=lay(src);
+  assert.deepEqual(a.loopCallouts,b.loopCallouts);
+  assert.equal(a.loopCallouts.length,1);
+  assert.deepEqual(a.spine.map(item=>item.name),['Need','A','B','C']);
 });

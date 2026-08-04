@@ -11,6 +11,7 @@ import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify,
 import {wireExports} from '../assets/exports.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {rafBatched} from '../assets/schedule.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion} from "../assets/motion.js";
@@ -73,7 +74,9 @@ function doRefresh(){
     rebindFocus();   // I-5: re-resolve/dismiss the focused ref before ctx.hot is built (I-8 needs it fresh)
     const hot = computeHotSet(model);
     if(focus) hot.add(focus.kind + ':' + focus.line);   // I-8: keep the focused mark whatever loadBearing now says
-    const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot});
+    const width = narrowWidth(pv);
+    const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot,
+      intent: width ? 'live-narrow' : 'live-wide', width});
     paint(svg, REVEAL, {onSwap: reapplyActiveMark}); lastSvg = svg;
     paintMetrics($('metrics'), model.title || 'Untitled tree', metricCounts());
     if(focus) resyncFocusUI();   // repaint the slider's own extent/value + clear any mid-drag classes
@@ -115,6 +118,7 @@ const ws = initWorkspace({
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
+watchNarrowBucket(preview, () => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- priced-insistence walk (B3) ----------
    Tap (or Enter/Space) a load-bearing number → the ONE persistent slider (outside #preview,
@@ -548,17 +552,17 @@ function metricCounts(){
 }
 
 /* ---------- exports ---------- */
-function svgString(slide){
+function svgString(intent){
   if(!model || !model.root || !results) return null;
-  return render(model, results, {colors: themeColors(), measure, slide, dark: isDark()});
+  return render(model, results, {colors: themeColors(), measure, intent, dark: isDark()});
 }
 function slug(){
   return slugify(model.title, 'decision-tree');
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => svgString(),
-  getCopy: () => svgString(true),      // Copy PNG hands over the deck-shaped render
+  getSvg: () => svgString('native'),
+  getCopy: () => svgString('presentation'),
   slug,
 });
 

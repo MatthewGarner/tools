@@ -6,7 +6,7 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-00d451f223';
+const CACHE = 'tools-4dd0c4c7c2';
 const PRECACHE = [
   '/',
   '/alarm/',
@@ -54,8 +54,10 @@ const PRECACHE = [
   '/bets/edit-targets.js',
   '/bets/editor.js',
   '/bets/engine.js',
+  '/bets/layout.js',
   '/bets/motion-spec.js',
   '/bets/parse.js',
+  '/bets/render-presentation.js',
   '/bets/render-quadrant.js',
   '/bets/render.js',
   '/bets/style.css',
@@ -106,9 +108,11 @@ const PRECACHE = [
   '/map/edit-targets.js',
   '/map/editor.js',
   '/map/handoff.js',
+  '/map/layout.js',
   '/map/motion-spec.js',
   '/map/parse.js',
   '/map/readout.js',
+  '/map/render-presentation.js',
   '/map/render.js',
   '/map/style.css',
   '/map/zones.js',
@@ -131,6 +135,7 @@ const PRECACHE = [
   '/roadmap/edit-targets.js',
   '/roadmap/edit.js',
   '/roadmap/editor.js',
+  '/roadmap/layout.js',
   '/roadmap/motion-spec.js',
   '/roadmap/pack.js',
   '/roadmap/parse.js',
@@ -153,6 +158,7 @@ const PRECACHE = [
   '/timeline/edit-targets.js',
   '/timeline/editor.js',
   '/timeline/handoff.js',
+  '/timeline/layout.js',
   '/timeline/mergebias.js',
   '/timeline/motion-spec.js',
   '/timeline/parse.js',
@@ -164,8 +170,10 @@ const PRECACHE = [
   '/tree/editor.js',
   '/tree/engine.js',
   '/tree/format.js',
+  '/tree/layout.js',
   '/tree/motion-spec.js',
   '/tree/parse.js',
+  '/tree/render-density.js',
   '/tree/render.js',
   '/tree/style.css',
   '/wardley/',
@@ -188,6 +196,7 @@ const PRECACHE = [
   '/why/project.js',
   '/why/render-map.js',
   '/why/render-ost.js',
+  '/why/render-presentation.js',
   '/why/style.css'
 ];
 

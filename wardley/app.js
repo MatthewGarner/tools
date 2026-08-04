@@ -77,14 +77,17 @@ function currentCompare(){
 }
 /* width-aware: the preview re-lays-out below NARROW; exports stay pinned wide */
 let sizeBucket = 'wide';
-function activeRender(forExport = false){
+function activeRender(renderIntent){
+  const intent = renderIntent || (sizeBucket === 'narrow' ? 'live-narrow' : 'live-wide');
   const compare = currentCompare();
   const c = ctx();
-  if(!forExport && sizeBucket === 'narrow') c.width = $('preview').clientWidth;
-  const opts = {};
+  c.intent = intent;
+  if(intent === 'live-narrow') c.width = $('preview').clientWidth;
+  const opts = {intent};
   if(compare) opts.compare = compare;
-  if(!forExport) opts.edit = true;   // chrome only for the live preview, never exports
-  return renderMap(model, layout, c, opts);
+  if(intent.startsWith('live-')) opts.edit = true;
+  const renderLayout = layoutMap(model, {measure, intent, geom: GEOM});
+  return renderMap(model, renderLayout, c, opts);
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -101,7 +104,7 @@ function doRefresh(){
       : 'Start typing — or load an example.') + '</p>';
     paintMetrics($('metrics'), '', []);
   } else {
-    layout = layoutMap(model);
+    layout = layoutMap(model, {measure, intent: 'native', geom: GEOM});
     const svg = activeRender();
     paint(svg, REVEAL); lastSvg = svg;
     /* the verdict itself is drawn INSIDE the artefact (render.js's readout band) —
@@ -323,8 +326,8 @@ $('preview').addEventListener('click', e => {
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
-function svgString(){
-  return (model && model.components.size) ? activeRender(true) : null;
+function svgString(intent){
+  return (model && model.components.size) ? activeRender(intent) : null;
 }
 /* The counted facts the map already knows, feeding the page's metrics row. */
 function mapCounts(){
@@ -339,7 +342,8 @@ function slug(){
 }
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => svgString(),
+  getSvg: () => svgString('native'),
+  getCopy: () => svgString('presentation'),
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
@@ -347,7 +351,7 @@ wireExports({
    equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.components.size) return;
-  const md = toMarkdown(model, layoutMap(model), location.href);
+  const md = toMarkdown(model, layoutMap(model, {measure, intent: 'native', geom: GEOM}), location.href);
   try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }
 });

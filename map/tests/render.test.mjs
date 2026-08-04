@@ -278,13 +278,57 @@ test('verdict block: VERDICT kicker, 24px display line, exactly one brand figure
 });
 
 test('the verdict advance drives the readout flow — a long verdict never overlaps a zone column', () => {
-  const long = 'preset: risk\ntitle: T\n' +
-    'A catastrophically long risk label that will certainly wrap the display line @ 90,90\nB @ 10,10';
+  const long = 'verdict: ' + 'This deliberately long authored verdict keeps stating the decision and its consequence '.repeat(4) +
+    '\npreset: risk\ntitle: T\nA @ 90,90\nB @ 10,10';
   const svg = run(long);
   const ys = [...svg.matchAll(/y="([\d.]+)" font-family="'Helvetica Neue'[^>]*font-size="24"/g)].map(m => +m[1]);
   assert.ok(ys.length >= 2, 'the long verdict really did wrap');
   const zoneY = +svg.match(/y="([\d.]+)" font-size="10\.5" font-weight="600" letter-spacing="0\.8"/)[1];
   assert.ok(zoneY > ys[ys.length - 1], 'the zone columns start below the last verdict line');
+});
+
+test('semantic item geometry is identical with and without edit chrome', () => {
+  const src = 'preset: futures\ntitle: Geometry\nSignal one @ 25,25\nSignal two @ 75,75';
+  const plain = run(src), editable = run(src, {edit: true});
+  const geometry = svg => [...svg.matchAll(/data-geometry="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(geometry(editable), geometry(plain));
+});
+
+test('long title uses measured lines and increases the header before the field', () => {
+  const svg = run('title: A deliberately long map title that should settle cleanly across two measured lines without clipping\npreset: risk\nA @ 50,50');
+  const lines = [...svg.matchAll(/data-title-line="(\d+)"/g)];
+  assert.ok(lines.length >= 2);
+  const planeY = +svg.match(/data-plane="1"[^>]*y="([\d.]+)"/)[1];
+  assert.ok(planeY > 70);
+});
+
+test('dense native map expands for an exhaustive source-order key', () => {
+  const src = 'preset: risk\ntitle: Dense\n' + Array.from({length: 12}, (_, i) => `Risk ${i + 1} @ 50,50`).join('\n');
+  const svg = run(src);
+  assert.match(svg, /data-map-key=""/);
+  assert.match(svg, /FULL MAP KEY · SOURCE ORDER/);
+  for(const id of ['M01', 'M06', 'M12']) assert.ok(svg.includes(id));
+  for(let i = 1; i <= 12; i++) assert.ok(svg.includes('Risk ' + i));
+  assert.equal(+svg.match(/data-plane="1"[^>]*width="([\d.]+)"/)[1], 620, 'field keeps its minimum width');
+  assert.ok(+svg.match(/<svg[^>]*width="(\d+)"/)[1] > 718, 'native artboard expands for the key');
+});
+
+test('narrow dense map keeps the field width and puts the register below it', () => {
+  const src = 'preset: assumptions\ntitle: Dense\n' + Array.from({length: 10}, (_, i) => `Item ${i + 1} @ 50,50`).join('\n');
+  const svg = run(src, {width: 390});
+  const plane = svg.match(/data-plane="1"[^>]*y="([\d.]+)"[^>]*width="([\d.]+)" height="([\d.]+)"/);
+  const keyY = +svg.match(/data-map-key=""[^>]*y="([\d.]+)"/)[1];
+  assert.equal(+plane[2], 620);
+  assert.ok(keyY >= +plane[1] + +plane[3]);
+  assert.match(svg, /data-narrow=""/);
+});
+
+test('small maps across core presets retain direct labels', () => {
+  for(const preset of ['futures', 'assumptions', 'risk']){
+    const svg = run(`preset: ${preset}\nOne @ 20,80\nTwo @ 80,20`);
+    assert.ok(!svg.includes('data-map-key=""'), preset + ' unexpectedly keyed');
+    assert.ok(svg.includes('>One<') && svg.includes('>Two<'));
+  }
 });
 
 /* ---------- `verdict:` on the artefact (2026-07-31) ---------- */

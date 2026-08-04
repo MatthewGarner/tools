@@ -389,3 +389,70 @@ test('verdict: <text> stands alone — the tool\'s operational rest is not appen
   assert.equal(vd.rest, '');
   assert.ok(render(m, ctx).includes('We hold the energisation date'));
 });
+
+/* ---------- explicit density + export intents ---------- */
+test('live-wide sparse plans render as a decision card with canonical edit targets',()=>{
+  const model=parse('title: Launch decision\nApp: Beta 2026-08 .. 2026-09\nLaunch 2026-10 [fixed]');
+  const svg=render(model,{...ctx,intent:'live-wide'},null,{intent:'live-wide',edit:true});
+  assert.match(svg,/data-mode="sparse"/);
+  assert.match(svg,/data-decision-card/);
+  for(const target of ['label','dates','status','removeitem','additem'])assert.match(svg,new RegExp('data-edit="'+target+'"'));
+  assert.equal((svg.match(/data-ms="p50"/g)||[]).length,2);
+});
+
+test('native dense export is exhaustive and marks repeated cut-crossing intervals',()=>{
+  const lines=['title: Dense programme','Lane: Crossing programme 2026-01 .. 2029-12'];
+  for(let i=0;i<20;i++)lines.push(`Lane: Event ${String(i+1).padStart(2,'0')} 2026-${String(1+(i%12)).padStart(2,'0')} [fixed]`);
+  const svg=render(parse(lines.join('\n')),{...ctx,intent:'native'},null,{intent:'native'});
+  assert.match(svg,/data-mode="panels"/);
+  assert.ok((svg.match(/data-display-id="T01"/g)||[]).length>1);
+  assert.match(svg,/continues →/);
+  for(let i=1;i<=21;i++)assert.match(svg,new RegExp('data-display-id="T'+String(i).padStart(2,'0')+'"'));
+});
+
+test('dense live-wide uses exhaustive wrapped panels rather than a clipped board',()=>{
+  const label='Long authored milestone with an operationally specific outcome and accountable owner';
+  const src=Array.from({length:20},(_,i)=>`Lane: ${label} ${i+1} 2026-${String(1+(i%12)).padStart(2,'0')} [fixed]`).join('\n');
+  const svg=render(parse(src),{...ctx,intent:'live-wide'},null,{intent:'live-wide',edit:true});
+  assert.match(svg,/data-intent="live-wide"[^>]*data-mode="panels"/);
+  assert.match(svg,/data-label-column-width="280"/);
+  assert.ok(!svg.includes('>'+label+' 1</text>'),'long label must be split across measured text lines');
+  for(const target of ['label','dates','status','additem'])assert.match(svg,new RegExp('data-edit="'+target+'"'));
+  assert.equal(new Set([...svg.matchAll(/data-display-id="(T\d+)"/g)].map(match=>match[1])).size,20);
+});
+
+test('Copy PNG presentation is fixed 1920×1080 and states selection plus remainder',()=>{
+  const src=Array.from({length:10},(_,i)=>`Milestone ${i+1} 2026-${String(i+1).padStart(2,'0')} .. 2026-${String(Math.min(12,i+2)).padStart(2,'0')}`).join('\n');
+  const svg=render(parse(src),{...ctx,intent:'presentation'},null,{intent:'presentation'});
+  assert.match(svg,/^<svg[^>]*width="1920" height="1080"/);
+  assert.match(svg,/data-font-floor="22"/);
+  assert.match(svg,/SELECTION: EARLIEST OPEN P50 · FIXED TIE-BREAK · SOURCE ORDER/);
+  assert.match(svg,/3 MORE IN NATIVE EXPORT/);
+  assert.equal((svg.match(/data-presentation-item=/g)||[]).length,7);
+});
+
+test('new density and presentation paths escape hostile authored text',()=>{
+  const hostile='"><script>alert(1)</script>';
+  const sparse=parse(`title: ${hostile}\nLane: ${hostile} 2026-08 .. 2026-09`);
+  const dense=parse(Array.from({length:17},(_,i)=>`Lane: ${hostile} ${i} 2026-${String(1+(i%12)).padStart(2,'0')} [fixed]`).join('\n'));
+  for(const [model,intent] of [[sparse,'live-wide'],[dense,'native'],[dense,'presentation']]){
+    const svg=render(model,{...ctx,intent},null,{intent});
+    assert.ok(!svg.includes('<script>'));
+    assert.ok(svg.includes('&lt;script&gt;'));
+  }
+});
+
+test('generated data type meets live/native 11px and presentation 22px floors',()=>{
+  const medium=parse(Array.from({length:6},(_,i)=>`Lane: Event ${i+1} 2026-${String(i+1).padStart(2,'0')} .. 2026-12`).join('\n'));
+  const many=parse(Array.from({length:10},(_,i)=>`Event ${i+1} 2026-${String(i+1).padStart(2,'0')} [fixed]`).join('\n'));
+  const minFont=svg=>Math.min(...[...svg.matchAll(/font-size="([\d.]+)"/g)].map(match=>+match[1]));
+  const variants=[
+    [render(medium,{...ctx,intent:'live-wide'},null,{intent:'live-wide'}),11],
+    [render(medium,{...ctx,intent:'live-narrow',width:390},null,{intent:'live-narrow'}),11],
+    [render(medium,{...ctx,intent:'native'},null,{intent:'native'}),11],
+    [render(many,{...ctx,intent:'presentation'},null,{intent:'presentation'}),22],
+  ];
+  for(const [svg,floor] of variants)assert.ok(minFont(svg)>=floor,`${minFont(svg)} < ${floor}`);
+  assert.match(variants[0][0],/data-min-readable-scale="1"/);
+  assert.match(variants[1][0],/data-min-readable-scale="1"/);
+});

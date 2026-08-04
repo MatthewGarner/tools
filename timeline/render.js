@@ -8,6 +8,7 @@ import {fmtDay, STATUSES, isPointDate} from './parse.js';
 import {mergeBias, laneVsDeadline} from './mergebias.js';
 import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
 import {resolveVerdict} from '../assets/verdict.js';
+import {layoutTimeline} from './layout.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -77,7 +78,7 @@ export function whiskerFill(col, dark){
    capsule idiom: tinted fill + coloured label, so it survives greyscale export).
    Width is a separate pure helper because msLabelAnchor must RESERVE it before
    the draw site exists — the two must agree or packing splices the pill. */
-const PILL = {size: 8, h: 14, padX: 6, tracking: 0.6, gap: 6};
+const PILL = {size: 11, h: 17, padX: 6, tracking: 0.6, gap: 6};
 export function riskPillW(S, measure){
   return measure('RISK', '600 ' + PILL.size * S + 'px ' + F.body) +
     4 * PILL.tracking * S + PILL.padX * 2 * S;
@@ -294,7 +295,7 @@ export function timelineVerdict(model, today){
    rows. A full-width dashed "＋ Add to <lane>" capsule closes every named lane and
    a global "＋ Add milestone" closes the board. All edit markup is gated behind
    `edit`, so the non-edit path (and its goldens) is byte-for-byte unchanged. */
-function renderNarrow(model, ctx, C, today, diff, edit = false){
+function renderNarrow(model, ctx, C, today, diff, edit = false, layout = null){
   const {measure} = ctx;
   const dark = !!ctx.dark;
   const items = model.items;
@@ -305,7 +306,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   const LANEHDR = 22, LANEGAP = 8;
   const TITLE_LH = 17, DATES_LH = 15, TRACK = 22, ROWGAP = 14, TOPPAD = 8, BOTPAD = 14;
   const ADDH = 44;                                   // ≥44px dashed "＋ Add" capsule (edit only)
-  const titleFont = '600 12.5px ' + F.body, noteFont = '10.5px ' + F.body;
+  const titleFont = '600 12.5px ' + F.body, noteFont = '11px ' + F.body;
   const colorOf = it => it.status === 'done' ? C.status.done
     : it.status === 'risk' ? C.err
     : it.status === 'fixed' ? C.ink                    // an immovable fact — the TODAY flag's colour
@@ -347,7 +348,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   let flagL = Infinity, flagR = -Infinity;
   if(todayVisible){
     const x = X(today);
-    const pw = measure('TODAY', '700 8px ' + F.body) + 10;
+    const pw = measure('TODAY', '700 11px ' + F.body) + 10;
     flagL = (x + pw > W - 2) ? x - pw : x; flagR = flagL + pw;
   }
 
@@ -369,7 +370,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
     const lw = measure(lab, '10px ' + F.body), l = tk.x - lw / 2, r = tk.x + lw / 2;
     const underFlag = todayVisible && r >= flagL - 3 && l <= flagR + 3;
     if(l >= 2 && r <= W - 2 && l >= lastLabelR + 6 && !underFlag){
-      s.push(txt(tk.x, AXIS - 9, lab, 10, C.muted, {anchor: 'middle'}));
+      s.push(txt(tk.x, AXIS - 9, lab, 11, C.muted, {anchor: 'middle'}));
       lastLabelR = r; firstLabel = false;
     }
   }
@@ -378,13 +379,13 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   if(todayVisible){
     s.push('<rect x="' + flagL.toFixed(1) + '" y="' + (sinceH + 1) + '" width="' + (flagR - flagL).toFixed(1) +
       '" height="14" rx="0" fill="' + C.ink + '"/>');
-    s.push(txt((flagL + flagR) / 2, sinceH + 11, 'TODAY', 8, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
+    s.push(txt((flagL + flagR) / 2, sinceH + 11, 'TODAY', 11, C.bg, {anchor: 'middle', weight: 700, tracking: 0.6}));
   }
 
   /* since-line (compare): its OWN top row, left-aligned (Fable I4) */
   if(diff){
     const sl = wrapText(diff.sinceLine, noteFont, plotW, measure);
-    s.push(txt(PAD, 11, sl[0] + (sl.length > 1 ? '…' : ''), 10, C.accent, {weight: 600}));
+    s.push(txt(PAD, 11, sl[0] + (sl.length > 1 ? '…' : ''), 11, C.accent, {weight: 600}));
   }
   const todayX = todayVisible ? X(today) : null;
 
@@ -411,7 +412,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
      track; every scale line is confined to the track band, so nothing crosses text) */
   for(const row of laid){
     if(row.header){
-      s.push(txt(PAD, row.top + 15, row.header.toUpperCase(), 10.5, C.muted, {weight: 600, tracking: 1}));
+      s.push(txt(PAD, row.top + 15, row.header.toUpperCase(), 11, C.muted, {weight: 600, tracking: 1}));
       continue;
     }
     if(row.addLane){ s.push(addCapsule(row.addLane, row.top)); continue; }
@@ -461,10 +462,10 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
     }
     if(diff && diff.newKeys.has(k))
       s.push(txt(Math.min(PAD + measure(titleLines[titleLines.length - 1], titleFont) + 8 + pillAfter, W - PAD - 24),
-        titleBottom, 'NEW', 8.5, C.accent, {weight: 600, tracking: 0.6}));   // clamp so it never clips off-canvas
+        titleBottom, 'NEW', 11, C.accent, {weight: 600, tracking: 0.6}));   // clamp so it never clips off-canvas
     if(edit) s.push('<g data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) + '"' +
       btnAttrs('Edit dates: ' + it.label) + '>');
-    s.push(txt(PAD, subY, subLines[0] + (subLines.length > 1 ? '…' : ''), 10.5, C.muted));
+    s.push(txt(PAD, subY, subLines[0] + (subLines.length > 1 ? '…' : ''), 11, C.muted));
     if(edit) s.push('</g>');
 
     s.push('<rect x="' + plotX + '" y="' + tTop.toFixed(1) + '" width="' + plotW + '" height="' + TRACK +
@@ -497,7 +498,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') + '"' +
         btnAttrs('Status: ' + it.label) : '')));
     if(ghost && ghost.slipDays)
-      s.push(txt(x50 + msR + 4, cy - 4, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 9.5,
+      s.push(txt(x50 + msR + 4, cy - 4, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 11,
         ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.card}));   // baseline inside the band
     if(edit) s.push('</g>');
   }
@@ -510,12 +511,12 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   if(vd.line){
     const vb = svgVerdict({x: PAD, y: dy + 22, width: W - PAD * 2, line: vd.line, fig: vd.fig,
       ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: F.serifDq,
-      measure, size: T.verdictSizeNarrow, scale: 1, edit: edit ? {raw: model.verdict ?? ''} : undefined});
+      measure, size: T.verdictSizeNarrow, scale: 1.1, edit: edit ? {raw: model.verdict ?? ''} : undefined});
     s.push(vb.svg);
     dy += 22 + vb.height;
     if(vd.rest){
       for(const ln of wrapText(vd.rest, noteFont, W - PAD * 2, measure)){
-        s.push(txt(PAD, dy, ln, 10.5, C.muted));
+        s.push(txt(PAD, dy, ln, 11, C.muted));
         dy += 14;
       }
     }
@@ -524,28 +525,159 @@ function renderNarrow(model, ctx, C, today, diff, edit = false){
   /* dropped list (compare) at the foot */
   if(diff && diff.dropped.length){
     dy += 14;
-    s.push(txt(PAD, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), 10, C.muted, {weight: 600, tracking: 1}));
-    for(const label of diff.dropped){ dy += 14; s.push(txt(PAD, dy, label, 10.5, C.muted, {strike: true})); }
+    s.push(txt(PAD, dy, 'DROPPED SINCE ' + diff.since.toUpperCase(), 11, C.muted, {weight: 600, tracking: 1}));
+    for(const label of diff.dropped){ dy += 14; s.push(txt(PAD, dy, label, 11, C.muted, {strike: true})); }
   }
   const H = Math.round(dy + BOTPAD);
-  return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" data-intent="live-narrow" data-font-floor="' + (layout?.fontFloor ?? 11) + '" data-min-readable-scale="1" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + F.body + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
 }
 
-export function render(model, ctx, diff = null, {edit = false} = {}){
+const decisionDiamond = (cx,cy,r,fill,stroke,extra='') =>
+  '<path' + extra + ' d="M' + cx.toFixed(1) + ' ' + (cy-r).toFixed(1) + ' L' +
+  (cx+r).toFixed(1) + ' ' + cy.toFixed(1) + ' L' + cx.toFixed(1) + ' ' +
+  (cy+r).toFixed(1) + ' L' + (cx-r).toFixed(1) + ' ' + cy.toFixed(1) +
+  ' Z" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.5"/>';
+
+function itemColor(it,C){
+  return it.status==='done'?C.status.done:it.status==='risk'?C.err:it.status==='fixed'?C.ink:C.accent;
+}
+
+/* One or two milestones are not a miniature Gantt. They become one decision
+   surface with a shared chronology rail and enough room to read the evidence. */
+function renderSparse(model,ctx,C,diff,edit,layout){
+  const W=1442,PAD=26,cardY=78,rowH=92,cardH=52+model.items.length*rowH;
+  const plotX=390,plotW=W-plotX-PAD;
+  const X=day=>plotX+(day-layout.lo)/(layout.hi-layout.lo)*plotW;
+  const vd=timelineVerdict(model,layout.today);
+  const verdictY=cardY+cardH+28;
+  const vb=svgVerdict({x:PAD,y:verdictY,width:W-PAD*2,line:vd.line,fig:vd.fig,ink:C.ink,
+    muted:C.muted,brandText:C.brandText||C.ink,font:F.serifDq,measure:ctx.measure,size:24,scale:Math.max(1,layout.fontFloor/10),
+    edit:edit?{raw:model.verdict??''}:undefined});
+  const H=Math.round(verdictY+vb.height+(vd.rest?34:0)+PAD);
+  const small=Math.max(10,layout.fontFloor);
+  const s=['<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>'];
+  s.push(txt(PAD,36,model.title||'Decision timeline',22,C.ink,{weight:700}));
+  s.push(txt(PAD,58,'NEXT DECISIONS · '+model.items.length+' MILESTONE'+(model.items.length===1?'':'S'),small,C.muted,{weight:600,tracking:1.2}));
+  s.push(txt(W-PAD,36,fmtDay(layout.today),11,C.muted,{anchor:'end'}));
+  s.push('<rect data-decision-card="" x="'+PAD+'" y="'+cardY+'" width="'+(W-PAD*2)+'" height="'+cardH+'" fill="'+C.card+'" stroke="'+C.border+'"/>');
+  s.push(txt(PAD+18,cardY+27,'MILESTONE',small,C.muted,{weight:600,tracking:1}));
+  s.push(txt(plotX,cardY+27,fmtDay(layout.lo,{month:true}),small,C.muted));
+  s.push(txt(W-PAD-18,cardY+27,fmtDay(layout.hi,{month:true}),small,C.muted,{anchor:'end'}));
+  model.items.forEach((it,index)=>{
+    const placed=layout.placements.get(it),y=cardY+52+index*rowH,cy=y+48,col=itemColor(it,C);
+    const x50=X(it.p50),x90=X(it.p90);
+    if(index)s.push('<line x1="'+(PAD+18)+'" y1="'+y+'" x2="'+(W-PAD-18)+'" y2="'+y+'" stroke="'+C.border+'"/>');
+    s.push(txt(PAD+18,y+22,placed.id+' · '+(it.lane||'UNLANED').toUpperCase()+' · '+(it.status||'PLANNING').toUpperCase(),small,C.muted,{weight:600,tracking:.8}));
+    s.push('<text'+(edit?' data-edit="label" data-line="'+it.srcLine+'" data-raw="'+esc(it.label)+'" tabindex="0" role="button"':'')+
+      ' x="'+(PAD+18)+'" y="'+(y+44)+'" font-size="15" font-weight="700" fill="'+C.ink+'">'+esc(it.label)+'</text>');
+    s.push('<text'+(edit?' data-edit="dates" data-line="'+it.srcLine+'" data-raw="'+esc(it.rawDates)+'" tabindex="0" role="button"':'')+
+      ' x="'+(PAD+18)+'" y="'+(y+64)+'" font-size="11.5" fill="'+C.muted+'">'+esc(placed.description)+'</text>');
+    if(edit)s.push('<text data-edit="removeitem" data-line="'+it.srcLine+'" data-raw="" tabindex="0" role="button" aria-label="Remove '+esc(it.label)+'" x="368" y="'+(y+44)+'" font-size="12.5" text-anchor="end" fill="'+C.muted+'">×</text>');
+    s.push('<line x1="'+plotX+'" y1="'+cy+'" x2="'+(plotX+plotW)+'" y2="'+cy+'" stroke="'+C.border+'"/>');
+    if(!it.single&&x90-x50>1){
+      s.push('<rect data-ms="whisker" x="'+x50.toFixed(1)+'" y="'+(cy-7)+'" width="'+(x90-x50).toFixed(1)+'" height="14" rx="7" fill="'+whiskerFill(col,!!ctx.dark)+'"/>');
+      s.push(decisionDiamond(x90,cy,5,C.card,col,' data-ms="p90"'));
+    }
+    s.push(decisionDiamond(x50,cy,6,col,C.card,' data-ms="p50" data-mskey="'+esc(keyOf(it))+'"'+
+      (edit?' data-edit="status" data-line="'+it.srcLine+'" data-raw="'+(it.status||'')+'" tabindex="0" role="button"':'')));
+  });
+  if(edit)s.push(txt(W-PAD,verdictY,'＋ Add milestone',12.5,C.muted,{anchor:'end'}).replace('<text','<text data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button"'));
+  s.push(vb.svg);
+  if(vd.rest&&vb.height)s.push(txt(PAD,verdictY+vb.height,vd.rest,11.5,C.muted));
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-intent="'+layout.intent+'" data-mode="sparse" data-font-floor="'+layout.fontFloor+'" data-min-readable-scale="1" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="'+F.body+'">'+s.join('')+'</svg>';
+}
+
+/* Native exports remain exhaustive by stacking readable local time windows.
+   Crossing ranges repeat with the same T## identifier and an explicit continuation
+   label, so a page cut can never silently amputate uncertainty. */
+function renderPanels(model,ctx,C,layout,edit=false){
+  const W=1442,PAD=26,plotX=390,plotW=W-plotX-PAD;
+  const headerH=76,panelGap=22,panelHead=48;
+  const heights=layout.panels.map(p=>panelHead+Math.max(62,p.entries.reduce((sum,entry)=>sum+entry.rowH,0))+18);
+  const H=Math.round(headerH+heights.reduce((a,b)=>a+b,0)+panelGap*(layout.panels.length-1)+70);
+  const s=['<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>'];
+  s.push(txt(PAD,34,model.title||'Milestone timeline',22,C.ink,{weight:700}));
+  s.push(txt(PAD,55,model.items.length+' MILESTONES · '+layout.panels.length+' READABLE PANELS · EXHAUSTIVE',11,C.muted,{weight:600,tracking:1}));
+  s.push(txt(W-PAD,34,fmtDay(layout.today),11,C.muted,{anchor:'end'}));
+  let y=headerH;
+  layout.panels.forEach((panel,panelIndex)=>{
+    const ph=heights[panelIndex],range=Math.max(1,panel.end-panel.start),X=day=>plotX+(day-panel.start)/range*plotW;
+    s.push('<g data-panel="'+(panelIndex+1)+'"><rect x="'+PAD+'" y="'+y+'" width="'+(W-PAD*2)+'" height="'+ph+'" fill="'+C.card+'" stroke="'+C.border+'"/>');
+    s.push(txt(PAD+16,y+23,'WINDOW '+String(panelIndex+1).padStart(2,'0'),11,C.ink,{weight:700,tracking:1}));
+    s.push(txt(plotX,y+23,fmtDay(panel.start,{month:true})+' — '+fmtDay(panel.end,{month:true}),11,C.muted));
+    if(panel.cutCrossings.length)s.push(txt(W-PAD-16,y+23,panel.cutCrossings.length+' CONTINUING',11,C.accent,{anchor:'end',weight:600}));
+    let rowY=y+panelHead;
+    panel.entries.forEach((entry,row)=>{
+      const it=entry.it,ry=rowY,cy=ry+entry.rowH/2,col=itemColor(it,C);
+      const x50=Math.max(plotX,X(it.p50)),x90=Math.min(plotX+plotW,X(it.p90));
+      if(row)s.push('<line x1="'+(PAD+16)+'" y1="'+ry+'" x2="'+(W-PAD-16)+'" y2="'+ry+'" stroke="'+C.border+'" opacity=".7"/>');
+      s.push('<g data-display-id="'+entry.id+'" data-label-column-width="280"'+(entry.continuesFrom||entry.continuesTo?' data-continuation=""':'')+'>');
+      s.push(txt(PAD+16,ry+22,entry.id,12,C.accent,{weight:700}));
+      if(edit)s.push('<g data-edit="label" data-line="'+it.srcLine+'" data-raw="'+esc(it.label)+'" tabindex="0" role="button">');
+      entry.labelLines.forEach((line,index)=>s.push(txt(PAD+58,ry+22+index*16,line,12.5,C.ink,{weight:600})));
+      if(edit)s.push('</g><g data-edit="dates" data-line="'+it.srcLine+'" data-raw="'+esc(it.rawDates)+'" tabindex="0" role="button">');
+      const detailY=ry+22+entry.labelLines.length*16;
+      entry.detailLines.forEach((line,index)=>s.push(txt(PAD+58,detailY+index*14,line,11,C.muted)));
+      if(edit)s.push('</g>');
+      if(entry.continuesFrom)s.push(txt(plotX+8,cy-9,'← continues',11,C.accent,{weight:600}));
+      if(entry.continuesTo)s.push(txt(plotX+plotW-8,cy-9,'continues →',11,C.accent,{anchor:'end',weight:600}));
+      if(!it.single&&x90-x50>1)s.push('<rect data-ms="whisker" x="'+x50.toFixed(1)+'" y="'+(cy-6)+'" width="'+(x90-x50).toFixed(1)+'" height="12" rx="6" fill="'+whiskerFill(col,!!ctx.dark)+'"/>');
+      if(it.p50>=panel.start&&it.p50<=panel.end)s.push(decisionDiamond(x50,cy,5.5,col,C.card,' data-ms="p50"'+(edit?' data-edit="status" data-line="'+it.srcLine+'" data-raw="'+(it.status||'')+'" tabindex="0" role="button"':'')));
+      if(!it.single&&it.p90>=panel.start&&it.p90<=panel.end)s.push(decisionDiamond(x90,cy,4.5,C.card,col,' data-ms="p90"'));
+      s.push('</g>'); rowY+=entry.rowH;
+    });
+    s.push('</g>'); y+=ph+panelGap;
+  });
+  if(edit)s.push(txt(W-PAD,H-28,'＋ Add milestone',12.5,C.muted,{anchor:'end'}).replace('<text','<text data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button"'));
+  s.push(txt(PAD,H-28,'PANEL CUTS PREFER EMPTY WINDOWS; CROSSING RANGES REPEAT WITH STABLE IDs.',11,C.muted,{weight:600,tracking:.7}));
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-intent="'+layout.intent+'" data-mode="panels" data-font-floor="'+layout.fontFloor+'"'+(layout.intent==='live-wide'?' data-min-readable-scale="1"':'')+' width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="'+F.body+'">'+s.join('')+'</svg>';
+}
+
+function renderPresentation(model,ctx,C,layout){
+  const W=1920,H=1080,PAD=82,rows=layout.presentation.selected;
+  const s=['<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>'];
+  s.push(txt(PAD,84,'TIMELINE / DECISION CUT',22,C.accent,{weight:700,tracking:2}));
+  s.push(txt(PAD,138,model.title||'Milestone timeline',42,C.ink,{weight:700}));
+  s.push(txt(PAD,176,layout.presentation.rule,22,C.muted,{weight:600,tracking:1.2}));
+  s.push(txt(W-PAD,84,fmtDay(layout.today),22,C.muted,{anchor:'end'}));
+  const top=226,rowH=104;
+  rows.forEach((entry,index)=>{
+    const it=entry.it,y=top+index*rowH,col=itemColor(it,C);
+    s.push('<g data-presentation-item="'+entry.id+'"><rect x="'+PAD+'" y="'+y+'" width="'+(W-PAD*2)+'" height="84" fill="'+C.card+'" stroke="'+C.border+'"/>');
+    s.push(txt(PAD+24,y+31,entry.id,22,C.accent,{weight:700}));
+    s.push(txt(PAD+92,y+31,it.label,22,C.ink,{weight:700}));
+    s.push(txt(PAD+92,y+61,(it.lane||'Unlaned')+' · '+(it.status||'planning')+' · '+entry.description,22,C.muted));
+    s.push(decisionDiamond(W-PAD-44,y+42,9,col,C.card,' data-ms="p50"'));
+    s.push('</g>');
+  });
+  const footerY=982;
+  s.push('<line x1="'+PAD+'" y1="'+footerY+'" x2="'+(W-PAD)+'" y2="'+footerY+'" stroke="'+C.border+'"/>');
+  s.push(txt(PAD,footerY+34,'SELECTION: '+layout.presentation.rule,22,C.muted,{weight:600}));
+  s.push(txt(W-PAD,footerY+34,layout.presentation.remainder?layout.presentation.remainder+' MORE IN NATIVE EXPORT':'COMPLETE SET',22,C.ink,{anchor:'end',weight:700}));
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-intent="presentation" data-mode="decision-cut" data-font-floor="'+layout.fontFloor+'" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="'+F.body+'">'+s.join('')+'</svg>';
+}
+
+export function render(model, ctx, diff = null, {edit = false, intent = null} = {}){
   const {measure, slide = false, dark = false} = ctx;
   const hasTitle = !!model.title;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
-  const S = slide ? T.slideScale : 1;
+  const explicitIntent=intent||ctx.intent||null;
+  const resolvedIntent=explicitIntent||(ctx.width&&ctx.width<520?'live-narrow':'legacy');
+  const S = slide ? T.slideScale : resolvedIntent === 'native' ? 1.375 : resolvedIntent === 'live-wide' ? 1.3 : 1;
   const today = model.today ?? ctx.today;
   const items = model.items;
+  const composition=layoutTimeline(model,{measure,intent:resolvedIntent,today,diff,width:ctx.width});
+  if(composition.mode==='presentation')return renderPresentation(model,ctx,C,composition);
+  if(composition.mode==='panels')return renderPanels(model,ctx,C,composition,edit);
+  if(composition.mode==='sparse')return renderSparse(model,ctx,C,diff,edit,composition);
 
   /* narrow (phone) relayout — preview-only early return; exports never set width */
   const NARROW = 520;
-  if(ctx.width && ctx.width < NARROW && items.length) return renderNarrow(model, ctx, C, today, diff, edit);
+  if(ctx.width && ctx.width < NARROW && items.length) return renderNarrow(model, ctx, C, today, diff, edit, composition);
 
   /* the verdict block (Swiss 6b): one display line carrying one brand figure,
      with the operational bits as a muted line beneath. Its advance drives H. */
@@ -576,10 +708,10 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
      P50, right-of-P90, or the left-flip — so packing, the add zone and the drawn
      label always agree. A flip-left label reaches LEFT of its P50 diamond, so its
      startX opens a NEW row instead of splicing the previous milestone's P90. */
-  const laneRows = new Map();
-  const laneMaxRightX = new Map();
+  const laneRows = explicitIntent ? composition.laneRows : new Map();
+  const laneMaxRightX = explicitIntent ? composition.laneMaxRightX : new Map();
   const labelFont = '600 ' + T.labelSize * S + 'px ' + F.body;
-  for(const lane of model.lanes){
+  if(!explicitIntent) for(const lane of model.lanes){
     const rows = [];
     let extent = 0;
     for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
@@ -685,7 +817,8 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
        which relies on its text bbox) — a real tap target, not a hopeful one. */
     if(edit && lane){
       const zw = T.addZoneW * S, zh = T.addZoneH * S;
-      const zx = Math.min(laneMaxRightX.get(lane) + 12 * S, plotX + plotW - zw);
+      const laneExtent=laneMaxRightX.get(lane)*(explicitIntent?S:1);
+      const zx = Math.min(laneExtent + 12 * S, plotX + plotW - zw);
       const zy = y0 + h / 2;
       s.push('<g data-edit="additem" data-lane="' + esc(lane) + '" data-line="-1" data-raw="" tabindex="0" role="button"' +
         ' aria-label="Add milestone into ' + esc(lane) + '">' +
@@ -722,7 +855,8 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
   for(const it of items){
     const col = colorOf(it);
     const k = keyOf(it);
-    const y = laneTop.get(it.lane) + (T.lanePadY + it._row * T.rowH + T.rowH / 2) * S;
+    const placed=explicitIntent?composition.placements.get(it):null;
+    const y = laneTop.get(it.lane) + (T.lanePadY + (placed?placed.row:it._row) * T.rowH + T.rowH / 2) * S;
     const x50 = X(it.p50), x90 = X(it.p90), r = T.msR * S;
     const ghost = diff && diff.byKey.get(k);
     if(ghost && ghost.oldP50 !== it.p50){
@@ -744,8 +878,9 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') +
         '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(it.label) + '"' : '')));
 
-    const labelX = it._labelX;
-    const ae = it._anchorEnd ? ' text-anchor="end"' : '';   // flip-left labels are right-anchored
+    const labelX = placed?placed.labelX*S:it._labelX;
+    const anchorEnd=placed?placed.anchorEnd:it._anchorEnd;
+    const ae = anchorEnd ? ' text-anchor="end"' : '';   // flip-left labels are right-anchored
     const eipL = edit ? ' data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) +
       '" tabindex="0" role="button" aria-label="Edit label: ' + esc(it.label) + '"' : '';
     const eipD = edit ? ' data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) +
@@ -759,7 +894,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     if(it.status === 'risk'){
       const tW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont);
       const pw = riskPillW(S, measure);
-      const px = it._anchorEnd ? labelX - tW - PILL.gap * S - pw : labelX + tW + PILL.gap * S;
+      const px = anchorEnd ? labelX - tW - PILL.gap * S - pw : labelX + tW + PILL.gap * S;
       s.push(riskPill(px, y - 13.5 * S, S, C, measure).svg);
       pillAfter = PILL.gap * S + pw;
     }
@@ -768,7 +903,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
       '" font-size="' + T.noteSize * S + '" fill="' + C.muted + '">' + esc(sub) + '</text>');
     if(edit){
       // when flipped the × goes BEFORE the sub, end-anchored (start-anchored clears it by ~1px only)
-      const rmX = it._anchorEnd ? labelX - measure(sub, noteFont) - 8 * S : labelX + measure(sub, noteFont) + 8 * S;
+      const rmX = anchorEnd ? labelX - measure(sub, noteFont) - 8 * S : labelX + measure(sub, noteFont) + 8 * S;
       s.push('<text data-edit="removeitem" data-line="' + it.srcLine + '" data-raw="" tabindex="0" role="button"' +
         ' aria-label="Remove ' + esc(it.label) + '"' + ae + ' x="' + rmX.toFixed(1) +
         '" y="' + (y + 10.5 * S).toFixed(1) + '" font-size="' + T.noteSize * S +
@@ -780,10 +915,10 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
         ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, anchor: 'end'}));
     }
     if(diff && diff.newKeys.has(k)){
-      const newX = it._anchorEnd ? labelX - measure(it.label, labelFont) - 8 * S - pillAfter
+      const newX = anchorEnd ? labelX - measure(it.label, labelFont) - 8 * S - pillAfter
         : labelX + measure(it.label, labelFont) + 8 * S + pillAfter;
       s.push(txt(newX, y - 2 * S, 'NEW', 8.5 * S, C.accent,
-        {weight: 600, tracking: 0.6, anchor: it._anchorEnd ? 'end' : undefined}));
+        {weight: 600, tracking: 0.6, anchor: anchorEnd ? 'end' : undefined}));
     }
   }
 
@@ -808,7 +943,7 @@ export function render(model, ctx, diff = null, {edit = false} = {}){
     }
   }
 
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+  return '<svg xmlns="http://www.w3.org/2000/svg"' + (explicitIntent?' data-intent="'+resolvedIntent+'" data-font-floor="'+composition.fontFloor+'" data-min-readable-scale="1"':'') + ' width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + F.body + '">' + s.join('') + '</svg>';
 }
 

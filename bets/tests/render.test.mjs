@@ -45,6 +45,28 @@ test('audit badges render for known audits (loser + certainty + no-kill)', () =>
   assert.match(svg, /NO KILL CRITERION/);
 });
 
+test('wide rows reserve a protected numeric strip and audit gutter per bet', () => {
+  const svg = renderBoard(model, sim, CTX);
+  assert.equal([...svg.matchAll(/data-numeric-strip=""/g)].length, 3);
+  assert.equal([...svg.matchAll(/data-audit-gutter=""/g)].length, 3);
+});
+
+test('wide edit composition has one canonical card-menu row per bet source line', () => {
+  const svg = renderBoard(model, sim, {...CTX, edit: true});
+  for(const line of [4, 6, 8])
+    assert.equal([...svg.matchAll(new RegExp('data-edit="cardmenu" data-line="' + line + '"', 'g'))].length, 1);
+});
+
+test('more than eight bets renders an exhaustive full register in ledger mode', () => {
+  const src = `Dense\n` + Array.from({length: 10}, (_, i) =>
+    `  Bet ${i + 1}: stake ${i + 1}, odds 30-50%, payoff ${20 + i}-${40 + i}`).join('\n');
+  const m = parse(src), s = simulate(m), svg = renderBoard(m, s, CTX);
+  assert.match(svg, /PORTFOLIO LEDGER/);
+  assert.match(svg, /FULL BET REGISTER · SOURCE ORDER/);
+  assert.equal([...svg.matchAll(/data-row="bet"/g)].length, 10);
+  for(let i = 1; i <= 10; i++) assert.ok(svg.includes('Bet ' + i));
+});
+
 test('edit hooks on stake / odds / payoff / kill with data-line', () => {
   const svg = renderBoard(model, sim, CTX);
   assert.match(svg, /data-edit="stake" data-line="4"/);

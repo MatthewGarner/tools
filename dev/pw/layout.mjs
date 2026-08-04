@@ -35,7 +35,12 @@ for(const {path, chip, view} of TOOLS){
   await page.waitForTimeout(500);
   check(path + ' collapse hides rail', !(await page.locator('.rail').isVisible()));
   const after = await svgW();
-  check(path + ' diagram grows on collapse (' + Math.round(before) + '→' + Math.round(after) + ')', after > before * 1.2);
+  /* A density artefact may declare a 1:1 physical-size floor so type never
+     becomes smaller than its authored size. In that case it deliberately pans
+     at both rail widths rather than growing; every other board should expand. */
+  const minReadable = +(await page.locator('#preview svg').getAttribute('data-min-readable-scale') || 0);
+  check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
+    after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));
   check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
 
   /* URL round-trip of collapsed state */

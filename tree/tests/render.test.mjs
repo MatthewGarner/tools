@@ -106,6 +106,12 @@ test('edit-in-place targets: tspans carry kind, line and raw source', () => {
   assert.ok(svg.includes('data-edit="label"'));
 });
 
+test('card menus expose a dependable 44px SVG hit target', () => {
+  const m = parse(BID);
+  const svg = render(m, evaluate(m), ctx({edit: true}));
+  assert.match(svg, /data-menu=""[\s\S]*data-hit=""[^>]*width="44"[^>]*height="44"[^>]*pointer-events="all"/);
+});
+
 /* B2: the priced-insistence walk's crossfade/hot-mark hooks. Doc has no
    title: line so srcLine matches the plan's canonical numbers directly —
    line 0 Root, line 1 Bid (root option), line 3 Win (the hot prob+value). */
@@ -173,4 +179,50 @@ test('verdict: an authored line still carries ONE brand figure, derived from its
 test('verdict: an authored line survives a tree with no decision root, where the tool has nothing to say', () => {
   const m = parse('verdict: Nothing to choose here yet\nOutcome\n  Win (p=0.5): 10\n  Lose (p=rest): 0');
   assert.equal(treeVerdictParts(m, evaluate(m)).line, 'Nothing to choose here yet');
+});
+
+const DENSE = `title: Long-range launch decision
+Decision
+  Commit to the comprehensive partner-led launch with a deliberately long descriptive name: -250k
+    Commercial response
+      Strong adoption across the first customer cohort (p=0.3): 2M to 4M
+      Useful signal but material rework remains (p=0.4): 300k to 900k
+      Weak demand and an expensive retreat (p=rest): -1M to -400k
+  Run a carefully bounded pilot before making the full commitment: -80k
+    Evidence gate
+      Customer evidence
+        Clear pull from the intended audience (p=0.55): 900k to 1.4M
+        Ambiguous signal requiring another round (p=rest): -180k to 120k
+  Hold the current course and revisit after the planning window: 0`;
+
+test('dense native output carries the exhaustive decision register', () => {
+  const m=parse(DENSE),svg=render(m,evaluate(m),ctx({intent:'native'}));
+  assert.ok(svg.includes('OPTIONS REGISTER · FULL MODEL'));
+  for(const label of ['PROBABILITY','PAYOFF','EXPECTED VALUE','POLICY STATUS']) assert.ok(svg.includes(label));
+  assert.ok(svg.includes('Commit to the comprehensive') && svg.includes('partner-led launch'));
+  assert.ok(!svg.includes('NaN'));
+});
+
+test('edit chrome leaves geometry unchanged and register mirrors stay read-only', () => {
+  const m=parse(DENSE),results=evaluate(m),plain=render(m,results,ctx({intent:'native'})),edited=render(m,results,ctx({intent:'native',edit:true}));
+  const dims=svg=>svg.match(/^<svg[^>]*width="([\d.]+)" height="([\d.]+)"/).slice(1);
+  assert.deepEqual(dims(edited),dims(plain));
+  const mirrors=[...edited.matchAll(/<g data-register-row="[^"]+" data-mirror="">([\s\S]*?)<\/g>/g)].map(x=>x[1]);
+  assert.ok(mirrors.length && mirrors.every(x=>!x.includes('data-edit=')));
+});
+
+test('every authored line has one canonical editable label in wide and narrow', () => {
+  const m=parse(DENSE),results=evaluate(m),nodes=[];
+  (function walk(node){if(!node.implicit)nodes.push(node);node.children.forEach(walk);})(m.root);
+  for(const extra of [{intent:'live-wide'},{intent:'live-narrow',width:390}]){
+    const svg=render(m,results,ctx({...extra,edit:true}));
+    nodes.forEach(node=>assert.equal((svg.match(new RegExp('data-edit="label" data-line="'+node.srcLine+'"','g'))||[]).length,1,extra.intent+' line '+node.srcLine));
+  }
+});
+
+test('phone is a memo and Copy PNG is a labelled policy-path slide', () => {
+  const m=parse(DENSE),results=evaluate(m),phone=render(m,results,ctx({intent:'live-narrow',width:390}));
+  assert.match(phone,/width="390"/); assert.ok(phone.includes('data-memo-row')&&phone.includes('RECOMMENDED PATH')); assert.ok(!phone.includes('data-tree-edge'));
+  const slide=render(m,results,ctx({intent:'presentation'}));
+  assert.match(slide,/^<svg[^>]*width="1920" height="1080"/); assert.ok(slide.includes('RECOMMENDED POLICY PATH')&&slide.includes('SELECTION: POLICY PATH')&&slide.includes('FULL SVG'));
 });

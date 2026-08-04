@@ -5,6 +5,7 @@ import {parse} from './parse.js';
 import {simulate, verdictParts, markdown} from './engine.js';
 import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
+import {renderBetsPresentation} from './render-presentation.js';
 import {betsDiff, betsDiffView} from './diff.js';
 import {createEditor} from './editor.js';
 import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
@@ -92,19 +93,18 @@ function auditCounts(s){
   return counts;
 }
 /* width-aware: the live preview re-lays-out below 520px (narrowWidth's
-   built-in threshold, shared by both views); exports always render the wide
-   artefact by omitting width entirely. Compare is preview-only AND
+   built-in threshold, shared by both views); native exports render the wide
+   active view, while Copy PNG uses its fixed presentation summary. Compare is preview-only AND
    board-only — the quadrant is a portfolio-shape lens, not a diff, so it
-   never receives ctx.compare even when a snapshot is selected; exports stay
-   the plain view (board or quadrant) whatever snapshot is selected, so a
-   shared/exported slide never carries stray "was …" annotations from the
+   never receives ctx.compare even when a snapshot is selected; native exports stay
+   the plain view (board or quadrant), so a shared artefact never carries stray "was …" annotations from the
    author's own review session. */
-function activeRender(forExport){
-  const c = {colors: themeColors(), measure};
+function activeRender(intent = 'live'){
+  const c = {colors: themeColors(), measure, intent};
   /* live preview is editable (rename target + narrow ＋ capsules); exports and
      goldens render without ctx.edit, so the artefact never carries edit chrome */
-  if(!forExport){ c.width = narrowWidth($('preview')); c.edit = true; }
-  if(!forExport && view === 'board'){
+  if(intent === 'live'){ c.width = narrowWidth($('preview')); c.edit = true; }
+  if(intent === 'live' && view === 'board'){
     const compare = currentCompare();
     if(compare) c.compare = compare;
   }
@@ -124,7 +124,7 @@ function doRefresh(){
     paintMetrics($('metrics'), '', []);
   } else {
     sim = simulate(model);
-    const svg = activeRender(false);
+    const svg = activeRender('live');
     // quadrant dots glide to new positions as you tune a bet (data-key=bet name);
     // board view has no data-key marks so FLIP is a no-op there.
     paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
@@ -301,17 +301,20 @@ function renderSaved(){
 }
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
-function svgString(){
-  return (hasBets(model) && sim) ? activeRender(true) : null;
+function nativeSvgString(){
+  return (hasBets(model) && sim) ? activeRender('native') : null;
+}
+function presentationSvgString(){
+  return (hasBets(model) && sim) ? renderBetsPresentation(model, sim,
+    {colors: themeColors(), measure, intent: 'presentation'}) : null;
 }
 function slug(){
   return slugify(model && model.title, 'bets');
 }
 wireExports({
-  /* the wide board is deck-ready as it stands, so Copy PNG hands over the same
-     artefact the downloads do — no separate deck-shaped render here */
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
-  getSvg: svgString,
+  getSvg: nativeSvgString,
+  getCopy: presentationSvgString,
   getMarkdown: () => (hasBets(model) && sim) ? markdown(model, sim, location.href) : null,
   slug,
 });

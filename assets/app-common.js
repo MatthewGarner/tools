@@ -36,28 +36,73 @@ export function download(name, blob){
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-/* The quote char is a WILDCARD (fixed 2026-07-31). Most renderers emit a
-   double-quoted root, but a font-family containing double quotes forces the
-   whole root onto single quotes — which is exactly what cycles' and risk' slide
-   renders do. A double-quote-only pattern matched null there and threw on
-   dims[1], so those renders could never rasterize; the poster frame hid it by
-   re-wrapping them in a root of its own, and nothing else rasterized them until
-   Copy PNG inherited the deck-shaped render. Bail loudly rather than throw. */
-export function svgToCanvas(svg, cb){
-  const img = new Image();
-  const dims = svg.match(/width=['"](\d+)['"] height=['"](\d+)['"]/);
-  if(!dims) return console.error('svgToCanvas: no integer width/height on the root <svg> — cannot size the PNG');
-  const w = +dims[1], h = +dims[2], scale = 2;
-  img.onerror = () => console.error('svgToCanvas: SVG failed to decode — invalid XML in the export string?');
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = w * scale; c.height = h * scale;
-    const cctx = c.getContext('2d');
-    cctx.scale(scale, scale);
-    cctx.drawImage(img, 0, 0);
-    cb(c);
+/* Native PNG is deliberately bounded. SVG remains the exhaustive format for
+   artefacts beyond this budget; attempting a browser canvas above it is both
+   unreliable and liable to consume a surprising amount of memory. The side
+   limit applies to the root artboard before the existing 2x raster scale. */
+export const PNG_RASTER_SCALE = 2;
+export const PNG_MAX_ARTBOARD_AREA = 3_000_000;
+export const PNG_MAX_ARTBOARD_SIDE = 4_096;
+
+const dimension = (root, name) => {
+  const m = root.match(new RegExp(`\\b${name}\\s*=\\s*(['"])(\\d+(?:\\.\\d+)?)\\1`, 'i'));
+  return m ? Number(m[2]) : NaN;
+};
+
+/* Pure, synchronous preflight. Keeping this separate from Image decoding lets
+   Copy PNG reject an oversized artefact before clipboard.write is called,
+   while valid copies still call clipboard.write inside the click activation. */
+export function pngRasterPlan(svg){
+  const root = typeof svg === 'string' && svg.match(/<svg\b[^>]*>/i)?.[0];
+  if(!root) return {ok: false, code: 'root', detail: 'No root <svg> element was found.'};
+  const width = dimension(root, 'width');
+  const height = dimension(root, 'height');
+  if(!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+    return {ok: false, code: 'dimensions', detail: 'The root <svg> needs positive numeric width and height attributes.'};
+  if(width > PNG_MAX_ARTBOARD_SIDE || height > PNG_MAX_ARTBOARD_SIDE)
+    return {ok: false, code: 'side', width, height,
+      detail: `${width} × ${height} exceeds the ${PNG_MAX_ARTBOARD_SIDE}px artboard-side limit.`};
+  if(width * height > PNG_MAX_ARTBOARD_AREA)
+    return {ok: false, code: 'area', width, height,
+      detail: `${width} × ${height} exceeds the ${PNG_MAX_ARTBOARD_AREA.toLocaleString('en')} unit² artboard limit.`};
+  return {ok: true, width, height, scale: PNG_RASTER_SCALE,
+    canvasWidth: Math.ceil(width * PNG_RASTER_SCALE),
+    canvasHeight: Math.ceil(height * PNG_RASTER_SCALE)};
+}
+
+/* Callback compatibility is retained for all current callers. The optional
+   error callback receives a structured failure; without one, failures remain
+   visible in the console for direct/legacy use. Returns false only when the
+   synchronous dimension/budget preflight fails. */
+export function svgToCanvas(svg, cb, onError){
+  const fail = error => {
+    if(onError) onError(error);
+    else console.error(`svgToCanvas: ${error.detail}`);
   };
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  const plan = pngRasterPlan(svg);
+  if(!plan.ok){ fail(plan); return false; }
+
+  const img = new Image();
+  img.onerror = () => fail({ok: false, code: 'decode', detail: 'The SVG could not be decoded as an image.'});
+  img.onload = () => {
+    try {
+      const c = document.createElement('canvas');
+      c.width = plan.canvasWidth; c.height = plan.canvasHeight;
+      const cctx = c.getContext('2d');
+      if(!cctx) return fail({ok: false, code: 'canvas', detail: 'The browser could not create a PNG canvas.'});
+      cctx.scale(plan.scale, plan.scale);
+      cctx.drawImage(img, 0, 0);
+      cb(c);
+    }catch(_){
+      fail({ok: false, code: 'canvas', detail: 'The browser could not render this SVG to a PNG canvas.'});
+    }
+  };
+  try {
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  }catch(_){
+    fail({ok: false, code: 'encode', detail: 'The SVG could not be prepared for PNG conversion.'});
+  }
+  return true;
 }
 
 /* Re-render hook: OS scheme change or explicit data-theme stamp. */

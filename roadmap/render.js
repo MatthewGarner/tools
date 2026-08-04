@@ -2,6 +2,7 @@
 import {STATUS_LABEL, activeCount} from './parse.js';
 import {packLane} from './pack.js';
 import {standfirst, storyLine} from './text-parts.js';
+import {layoutRoadmap} from './layout.js';
 
 const F = {
   body: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -76,11 +77,11 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     if(slack > 0) cursor += slack / 2;
   }
   const ed = c.it.edit || {};
-  const titleEip = (!c.it.ghost && ed.title !== false)
-    ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
-      '"' + btnAttrs('Rename: ' + c.it.title) : '';
   c.lines.forEach((line, li2) => {
     const lastLine = li2 === c.lines.length - 1;
+    const titleEip = (!c.it.ghost && ed.title !== false && li2 === 0)
+      ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
+        '"' + btnAttrs('Rename: ' + c.it.title) : '';
     s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
       '" font-weight="' + (c.it.ghost ? '400" font-style="italic' : '600') +
       '" fill="' + (c.it.ghost ? C.muted : C.ink) + '">' + esc(line) +
@@ -89,10 +90,10 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     cursor += lhTitle;
   });
   if(c.it.url) s.push('</a>');
-  const noteEip = (c.it.note && (c.it.edit || {}).note !== false)
-    ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
-      '"' + btnAttrs('Edit note: ' + c.it.title) : '';
-  for(const line of c.noteLines){
+  for(const [noteIndex, line] of c.noteLines.entries()){
+    const noteEip = (noteIndex === 0 && c.it.note && (c.it.edit || {}).note !== false)
+      ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
+        '"' + btnAttrs('Edit note: ' + c.it.title) : '';
     s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
       '" fill="' + C.muted + '">' + esc(line) + '</text>');
     cursor += lhNote;
@@ -345,6 +346,10 @@ function renderNarrow(model, ctx, C, T){
 
 export function render(model, ctx){
   const {measure, diff = null, slide = false, dark = false} = ctx;
+  const roadmapLayout = ctx.roadmapLayout || layoutRoadmap(model, {
+    kind: ctx.intent || 'native', measure, width: ctx.width,
+  });
+  model = roadmapLayout.model;
   const paletteHex = model.accent ||
     (PALETTES[model.palette] ? PALETTES[model.palette][dark ? 'dark' : 'light'] : null);
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
@@ -354,7 +359,10 @@ export function render(model, ctx){
   if(isNarrow) return renderNarrow(model, ctx, C, T);
   const nH = model.horizons.length;
   const S = slide ? T.slideScale : 1;
-  const PAD = T.pad*S, LANE_W = model.lanes.some(l => l) ? T.laneW*S : 0, GAP = T.colGap*S;
+  const PAD = T.pad*S;
+  const hasLaneRail = model.lanes.some(l => l) || (model.laneGroups && model.laneGroups.length);
+  const LANE_W = hasLaneRail ? Math.max(T.laneW, roadmapLayout.laneRailWidth || 0)*S : 0;
+  const GAP = T.colGap*S;
   const colW = (nH <= 4 ? T.colWNarrow : T.colWWide) * S;
   const W = Math.round(PAD*2 + LANE_W + nH*colW + (nH-1)*GAP);
   const cardPadX = T.cardPadX*S, cardPadY = T.cardPadY*S, cardGap = T.cardGap*S;
@@ -420,25 +428,34 @@ export function render(model, ctx){
   /* the AUTHORED standfirst (2026-07-31) grows the header rather than overlapping
      the columns — measured here because headerH drives every y below it. Zero for
      a doc with no headline, so those stay byte-identical. */
-  const sfWide = standfirst(model, PAD, (model.title ? T.titleY + 12 : 16) * S, W - PAD * 2, measure, C, edit);
+  const titleLines = model.title
+    ? wrapText(model.title, '700 ' + T.titleSize*S + 'px ' + F.serif,
+        Math.max(120*S, W - PAD*2 - 170*S), measure).slice(0, 2)
+    : [];
+  const titleExtra = Math.max(0, titleLines.length - 1) * 27*S;
+  const sfWide = standfirst(model, PAD, (model.title ? T.titleY + 12 : 16) * S + titleExtra, W - PAD * 2, measure, C, edit);
   const stWide = storyLine(model, diff, PAD,
-    (model.title ? T.titleY + 12 : 16) * S + sfWide.height, W - PAD * 2, measure, C, edit);
-  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S + sfWide.height + stWide.height;
+    (model.title ? T.titleY + 12 : 16) * S + titleExtra + sfWide.height, W - PAD * 2, measure, C, edit);
+  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S + titleExtra + sfWide.height + stWide.height;
   const colHeadH = T.colHeadH*S;
   /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */
-  const bandH = 30*S;
+  const bandBaseH = 30*S;
   const groupAtLane = new Map();
   if(model.laneGroups){
     for(const g of model.laneGroups){
       const first = g.lanes.find(l => model.lanes.includes(l));
-      if(first !== undefined) groupAtLane.set(first, g.label);
+      if(first !== undefined){
+        const lines = wrapText(g.label.toUpperCase(), '700 ' + 13*S + 'px ' + F.serif,
+          Math.max(80*S, LANE_W - 10*S), measure).slice(0, 3);
+        groupAtLane.set(first, {label: g.label, lines, height: Math.max(bandBaseH, (lines.length*16 + 14)*S)});
+      }
     }
   }
   const laneTops = [];
   const lanePack = {};   // lane -> {at, rowH[], depth[], yTrack[]}
   let y = headerH + colHeadH;
   for(const lane of model.lanes){
-    if(groupAtLane.has(lane)) y += bandH;
+    if(groupAtLane.has(lane)) y += groupAtLane.get(lane).height;
     const list = laneList[lane];
     const {at, nTracks} = packed[lane];   // packed once, above
     /* a track row is as tall as its tallest item. On a span-free doc equalisation is
@@ -486,8 +503,9 @@ export function render(model, ctx){
 
   /* title + date */
   if(model.title){
-    s.push('<text x="' + PAD + '" y="' + T.titleY*S + '" font-family=\'' + F.serif +
-      '\' font-size="' + T.titleSize*S + '" font-weight="700" fill="' + C.ink + '">' + esc(model.title) + '</text>');
+    titleLines.forEach((line, i) => s.push('<text data-title-line="' + (i + 1) + '" x="' + PAD + '" y="' +
+      (T.titleY*S + i*27*S) + '" font-family=\'' + F.serif + '\' font-size="' + T.titleSize*S +
+      '" font-weight="700" fill="' + C.ink + '">' + esc(line) + '</text>'));
   }
   if(model.dateStr !== 'off'){
     const d = model.dateStr || new Date().toISOString().slice(0, 10);
@@ -622,9 +640,11 @@ export function render(model, ctx){
   model.lanes.forEach((lane, li) => {
     const top = laneTops[li];
     if(groupAtLane.has(lane)){
-      s.push('<text x="' + PAD + '" y="' + (top - 12*S) + '" font-family=\'' + F.serif +
-        '\' font-size="' + 13*S + '" font-weight="700" fill="' + C.accent + '">' +
-        esc(groupAtLane.get(lane).toUpperCase()) + '</text>');
+      const group = groupAtLane.get(lane);
+      const firstY = top - group.height + 17*S;
+      group.lines.forEach((line, i) => s.push('<text data-outcome-index="' + esc(group.label) + '" x="' + PAD +
+        '" y="' + (firstY + i*16*S) + '" font-family=\'' + F.serif + '\' font-size="' + 13*S +
+        '" font-weight="700" fill="' + C.accent + '">' + esc(line) + '</text>'));
       s.push('<line x1="' + PAD + '" y1="' + (top - T.laneSepInset*S) + '" x2="' + (W - PAD) + '" y2="' + (top - T.laneSepInset*S) +
         '" stroke="' + C.accent + '" stroke-width="1" opacity="0.5"/>');
     } else if(li > 0){
