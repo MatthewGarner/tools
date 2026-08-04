@@ -202,7 +202,7 @@ export function render(model, resolved, ro, ctx, diff = null){
     body.push('<g data-edit="cardmenu" data-line="' + c.it.srcLine + '" data-display-id="' + c.id + '" data-geometry="' +
       [c.cx, c.cy, c.x, c.y, c.w, c.h].map(v => Number(v).toFixed(2)).join(',') + '"' +
       btnAttrs('More options: ' + c.it.label) + (edit ? ' data-menu=""' : '') + '>');
-    /* invisible hit rect, full capsule width, centred on the capsule centre
+    /* invisible hit rect covers the capsule AND its adjacent × control, centred on the capsule centre
        (not the dot — after nudge the capsule can sit well away from the
        authored dot). nudge() only separates the visible 20px capsules, never
        these 44px boxes, so cap each rect's HEIGHT to its nearest x-overlapping
@@ -219,7 +219,7 @@ export function render(model, resolved, ro, ctx, diff = null){
       if(gap < 44 * S) crowdedHit = true;
     }
     const halfH = crowdedHit ? c.h / 2 : 22 * S;
-    body.push('<rect data-hit="" x="' + c.x + '" y="' + (capMidY - halfH) + '" width="' + c.w +
+    body.push('<rect data-hit="" x="' + c.x + '" y="' + (capMidY - halfH) + '" width="' + (c.w + 16 * S) +
       '" height="' + (halfH * 2) + '" fill="' + C.card + '" fill-opacity="0"/>');
     const capX = c.x + c.w / 2, capY = c.y + c.h / 2;
     if(Math.hypot(capX - c.cx, capY - c.cy) > 26 * S)
