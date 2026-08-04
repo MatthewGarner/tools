@@ -2298,7 +2298,14 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(900);
   const cySrc = () => mpage.evaluate(() => localStorage.getItem('cycles-src'));
   // scroll the target to centre, then click fresh viewport coords (see block note)
+  /* cycles renders through a worker: while a render is pending the preview is
+     inert and taps are (correctly) rejected as stale. Fixed sleeps outlast the
+     worker locally but not on a loaded CI runner — so settle on !inert, not on
+     wall-clock (first red: the price ⋯ menu, CI eip shard, 2026-08-04). */
+  const cySettle = () => mpage.waitForFunction(
+    () => !document.getElementById('preview')?.inert, null, {timeout: 10_000});
   const cyTap = async sel => {
+    await cySettle();
     const pt = await mpage.evaluate(s => { const g = document.querySelector(s); if(!g) return null;
       g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect();
       return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }, sel);
@@ -2306,9 +2313,10 @@ check('no console/page errors', errors.length === 0);
     await mpage.waitForTimeout(150);
     await mpage.mouse.click(pt.x, pt.y);
     await mpage.waitForTimeout(300);
+    await cySettle();
     return true;
   };
-  const cyUndo = async () => { await cyTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); };
+  const cyUndo = async () => { await cyTap('.stage .actions .touch-undo'); await mpage.waitForTimeout(400); await cySettle(); };
   const cyBase = await cySrc();
 
   const cyInfo = await mpage.evaluate(() => ({
