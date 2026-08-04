@@ -8,18 +8,12 @@
   h1{ font-size: clamp(24px, 7vw, 30px); } /* per-tool base is 32px flat */
   .tagline{ font-size: 14px; line-height: 1.45; margin-top: 4px; }
 
-  /* "Try:" examples: one swipeable row instead of wrapping 2–3 deep.
-     The last chip peeks and an edge fade signals "more →". 44px targets kept
-     (controls.css @ pointer:coarse). mask-image here is an alpha ramp, not a colour. */
+  /* Presets are discrete choices, not a carousel: keep every option visible.
+     The shared coarse-pointer rule in controls.css preserves 44px targets. */
   .chips{
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
-            mask-image: linear-gradient(90deg, #000 88%, transparent);
+    flex-wrap: wrap;
+    overflow-x: visible;
+    -webkit-mask-image: none;
+            mask-image: none;
   }
-  .chips::-webkit-scrollbar{ display: none; }
-  .chips > .chip{ flex: 0 0 auto; scroll-snap-align: start; }
 }

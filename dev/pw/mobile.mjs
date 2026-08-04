@@ -72,6 +72,27 @@ for(const [name, url] of ALL){
   ok(parity.font, `${name}: body wears the system font stack`);
   ok(parity.bg, `${name}: body background is the token --bg`);
   ok(parity.h1, `${name}: h1 wears the Swiss display stack`);
+  /* Presets are discrete choices rather than a carousel: every visible .chip in
+     a populated .chips row must fit the row without a horizontal scroller. */
+  const presetRows = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.chips')].filter(row =>
+      row.offsetParent !== null && row.querySelector(':scope > .chip'));
+    const failures = [];
+    for(const row of rows){
+      const rr = row.getBoundingClientRect();
+      const overflow = getComputedStyle(row).overflowX;
+      const chips = [...row.querySelectorAll('.chip')].filter(chip => chip.offsetParent !== null);
+      const clipped = chips.some(chip => {
+        const cr = chip.getBoundingClientRect();
+        return cr.left < rr.left - 1 || cr.right > rr.right + 1;
+      });
+      if(overflow !== 'visible' || row.scrollWidth > row.clientWidth + 1 || clipped)
+        failures.push(row.id || '(unnamed)');
+    }
+    return {count: rows.length, failures};
+  });
+  if(presetRows.count) ok(presetRows.failures.length === 0,
+    `${name}: all preset chips wrap without horizontal scrolling${presetRows.failures.length ? ' — ' + presetRows.failures.join(', ') : ''}`);
   /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
      must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
      have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the
@@ -411,6 +432,7 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.waitForTimeout(700);
   ok(await page.evaluate(() => !!document.querySelector('#preview svg[data-narrow]')),
     'timeline: the phone PREVIEW is the narrow relayout (precondition for the export check)');
+  await page.getByText('Export', {exact: true}).click();
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlsvg')]);
   const svg = await readFile(await dl.path(), 'utf8');
   const w = parseInt((svg.match(/<svg[^>]*width="(\d+)"/) || [])[1] || '0', 10);
@@ -710,6 +732,7 @@ for(const [name, url, chip] of WIDENED){
   // exports the REGISTER TABLE, not the chart the preview is showing. Read the
   // downloaded blob and assert the register header (ITEM/HORIZON) is present and
   // no data-cell (which would mean the chart leaked into the export).
+  await page.getByText('Export', {exact: true}).click();
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
     page.click('#dlsvg'),
@@ -755,6 +778,7 @@ for(const [name, url, chip] of WIDENED){
   // THE MOBILE-EXPORT EXCEPTION: Download SVG exports the live FOCUS artefact
   // (hero content), not the chart the preview shows — and carries no chart
   // data-cell and no edit markup (edit:false export path).
+  await page.getByText('Export', {exact: true}).click();
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlsvg')]);
   const svg = await readFile(await dl.path(), 'utf8');
   ok(svg.includes('Streak freeze') && !svg.includes('data-cell'),
