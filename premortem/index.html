@@ -35,6 +35,10 @@
     <div class="card">
       <h2>Your registers</h2>
       <div id="savedlist"></div>
+      <div class="deleteundo" id="homefeedback" hidden>
+        <span id="homefeedbacktext" role="status" aria-live="polite"></span>
+        <button class="btn" id="restoredeleted" type="button">Undo delete</button>
+      </div>
       <div class="actions"><button class="btn primary" id="newbtn">＋ New premortem</button></div>
     </div>
   </div>
@@ -43,6 +47,7 @@
     <div class="toolbar">
       <div class="viewtoggle segmented" id="viewtoggle" role="group" aria-label="View"></div>
       <button class="btn" id="undo" title="Undo (⌘Z)" aria-label="Undo">↶<span class="ulabel"> Undo</span></button>
+      <button class="btn" id="homebtn" type="button">← Registers</button>
     </div>
     <div class="metrics" id="metrics" hidden></div>
     <div id="wizardview">
@@ -62,6 +67,8 @@
       </div>
     </div>
   </div>
+
+  <div class="sr-status" id="announcer" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div class="about">
     <h2>Why imagine failure first</h2>

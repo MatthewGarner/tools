@@ -3,8 +3,8 @@ import {parse} from './parse.js';
 import {simulate, fmtUnit} from './engine.js';
 import {render, toMarkdown, riskVerdict, riskVerdictParts, focusedIndex} from './render.js';
 import {createEditor} from './editor.js';
-import {validators, editField, editLabel, removeParam, addLegLine, removeLegLine} from './edit-targets.js';
-import {insertAndSelect} from '../../assets/editor-common.js';
+import {validators, editField, editLabel, removeParam, addLegLine, removeLegLine,
+  addedLegTarget, isUntouchedLegAdd} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
@@ -175,7 +175,29 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
   },
 });
 
-attachEditInPlace($('preview'), {
+const announceEdit = text => { $('editstatus').textContent = text; };
+let pendingLegAdd = null;
+function insertLeg(add){
+  const source = editor.view.state.doc.line(add.afterLine + 1);
+  editor.view.dispatch({changes: {from: source.to, to: source.to, insert: '\n' + add.newLine},
+    userEvent: 'input.complete'});
+}
+function replaceFreshLeg(line, text){
+  const source = editor.view.state.doc.line(line + 1);
+  editor.view.dispatch({changes: {from: source.from, to: source.to, insert: text},
+    userEvent: 'input.complete'});
+}
+function focusRiskAdd(){
+  const started = performance.now();
+  const attempt = () => {
+    const target = $('preview').querySelector('[data-edit="addleg"]');
+    if(target?.isConnected && target.getClientRects().length){ target.focus({preventScroll: true}); return; }
+    if(performance.now() - started < 1200) requestAnimationFrame(attempt);
+    else $('railtab').focus({preventScroll: true});
+  };
+  requestAnimationFrame(attempt);
+}
+const riskEip = attachEditInPlace($('preview'), {
   kinds: {
     num: {validate: validators.num},
     label: {validate: validators.label},
@@ -191,7 +213,20 @@ attachEditInPlace($('preview'), {
     if(kind === 'addleg'){
       const r = addLegLine(editor.getText(), value);
       if(!r) return;
-      insertAndSelect(editor, r.afterLine, r.newLine, undefined, {focus: matchMedia('(pointer: fine)').matches});
+      const freshLine = r.afterLine + 1;
+      insertLeg(r);
+      pendingLegAdd = {line: freshLine, newLine: r.newLine};
+      void riskEip.openAt(addedLegTarget(r), {
+        origin: el,
+        onCancel(){
+          if(isUntouchedLegAdd(editor.getText(), freshLine, r.newLine)) editor.removeLine(freshLine);
+          pendingLegAdd = null;
+          announceEdit('Structure creation cancelled.');
+          setTimeout(focusRiskAdd, 140);
+        },
+        onMiss(){ pendingLegAdd = null; announceEdit('Structure added. Its in-place editor could not be opened.'); focusRiskAdd(); },
+        timeout: 1200,
+      });
       return;
     }
     if(kind === 'removeleg'){
@@ -203,7 +238,12 @@ attachEditInPlace($('preview'), {
       : kind === 'addlimit' ? editField(cur, 'limit', value)
       : kind === 'removelimit' ? removeParam(cur, 'limit')
       : editField(cur, el.dataset.field, value);
-    if(next !== cur) editor.replaceLine(line, next);   // dispatches through CodeMirror — undoable
+    if(next !== cur){
+      if(kind === 'label' && pendingLegAdd?.line === line){
+        replaceFreshLeg(line, next);          // a separate undo step from creating the structure
+        pendingLegAdd = null;
+      } else editor.replaceLine(line, next);
+    }
   },
 });
 

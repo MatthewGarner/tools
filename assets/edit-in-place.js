@@ -3,7 +3,13 @@
    editable elements carry data-edit (kind), data-line (source line), data-raw
    (exact source component, pre-filled). Commit calls onCommit(kind, line, raw, value, el)
    — el is the clicked element, for apps whose targets carry extra data- payload;
-   the app owns the line rewrite + editor dispatch (undoable). */
+   the app owns the line rewrite + editor dispatch (undoable).
+
+   The returned openAt() is for an add action that has just re-rendered the
+   artefact. It finds ONE fresh target by its exact, caller-owned identity
+   ({kind, line, data}), never parses or normalises a source line, and opens the
+   same inline input as a direct click. It deliberately waits for the normal
+   CodeMirror → debounced render pipeline rather than poking the editor. */
 import {trapPopoverFocus} from './popover-focus.js';
 export {trapPopoverFocus};
 
@@ -47,7 +53,19 @@ export function cardMenu({field, add, remove = 'Remove branch', extra}){
 }
 
 export function attachEditInPlace(preview, {kinds, onCommit}){
-  let active = null;   // {input, el, away, errEl}
+  let active = null;   // {input, el, away, errEl, onCancel}
+  let missStatus = null;
+  function announceMiss(){
+    if(!missStatus){
+      missStatus = document.createElement('div');
+      missStatus.className = 'sr-only';
+      missStatus.setAttribute('role', 'status');
+      missStatus.setAttribute('aria-live', 'polite');
+      document.body.appendChild(missStatus);
+    }
+    missStatus.textContent = '';
+    requestAnimationFrame(() => { missStatus.textContent = 'The new item could not be opened here. Focus returned to the original control.'; });
+  }
 
   function close(){
     if(!active) return;
@@ -118,7 +136,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     document.body.appendChild(pop);
     clampToViewport(pop, rect);
     const away = e => { if(!pop.contains(e.target)) close(); };
-    active = {input: pop, el: activeEl, away};
+    active = {input: pop, el: activeEl, away, ignoreScrollUntil: performance.now() + 100};
     document.addEventListener('pointerdown', away, true);
     trapPopoverFocus(pop, close);
   }
@@ -150,7 +168,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     document.body.appendChild(pop);
     clampToViewport(pop, rect);
     const away = e => { if(!pop.contains(e.target)) close(); };
-    active = {input: pop, el, away};
+    active = {input: pop, el, away, ignoreScrollUntil: performance.now() + 100};
     document.addEventListener('pointerdown', away, true);
     trapPopoverFocus(pop, close);
   }
@@ -235,7 +253,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
       document.body.appendChild(pop);
       clampToViewport(pop, rect);
       const away = e => { if(!pop.contains(e.target)) close(); };
-      active = {input: pop, el, away};
+      active = {input: pop, el, away, ignoreScrollUntil: performance.now() + 100};
       document.addEventListener('pointerdown', away, true);
       trapPopoverFocus(pop, close);
       return;
@@ -267,7 +285,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     clampToViewport(input, rect);
     input.focus();
     input.select();
-    active = {input, el, errEl};
+    active = {input, el, errEl, onCancel: opts.onCancel, ignoreScrollUntil: performance.now() + 100};
 
     const commit = () => {
       if(!active) return;
@@ -288,7 +306,12 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
     };
     input.addEventListener('keydown', e => {
       if(e.key === 'Enter'){ e.preventDefault(); commit(); }
-      else if(e.key === 'Escape'){ e.preventDefault(); close(); }
+      else if(e.key === 'Escape'){
+        e.preventDefault();
+        const cancel = active?.onCancel;
+        close();
+        if(cancel) cancel();
+      }
       e.stopPropagation();
     });
     /* a revision in progress silences the stale error rather than leaving a
@@ -332,7 +355,56 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   /* page scrolls close the editor; scrolls INSIDE it (select() on an
      overflowing prefill scrolls the input's own content) must not */
   window.addEventListener('scroll', e => {
-    if(active && e.target !== active.input) close();
+    /* Focusing a fresh popover button can cause the browser to scroll it into
+       view. That is not a user dismissal; ignore that short settling scroll,
+       then retain the normal close-on-real-page-scroll rule. */
+    if(active && e.target !== active.input && performance.now() >= active.ignoreScrollUntil) close();
   }, true);
-  return {close};
+
+  const isVisible = el => el.isConnected && preview.contains(el) && el.getClientRects().length > 0;
+  const matchesTarget = (el, target) => {
+    if(el.dataset.edit !== target.kind || el.dataset.line !== String(target.line)) return false;
+    return Object.entries(target.data || {}).every(([key, value]) => el.dataset[key] === String(value));
+  };
+  /* Wait through the app's ordinary render cadence (normally 120ms debounce +
+     rAF). A target is accepted only once, connected, visible, and exact; an
+     ambiguous or missing target is a safe failure, never a fallback to the DSL. */
+  function openAt(target, {origin = document.activeElement, onCancel, onMiss, timeout = 500} = {}){
+    if(!target || !target.kind || target.line === undefined || target.line === null) return Promise.resolve(false);
+    const started = performance.now();
+    return new Promise(resolve => {
+      const attempt = () => {
+        const hits = [...preview.querySelectorAll('[data-edit]')]
+          .filter(el => isVisible(el) && matchesTarget(el, target));
+        if(hits.length === 1){ open(hits[0], {forceInput: true, onCancel}); resolve(true); return; }
+        if(performance.now() - started < timeout){ requestAnimationFrame(attempt); return; }
+        if(origin?.isConnected && typeof origin.focus === 'function') origin.focus({preventScroll: true});
+        announceMiss();
+        if(onMiss) onMiss();
+        resolve(false);
+      };
+      requestAnimationFrame(attempt);
+    });
+  }
+  /* Pre-entry adds have already committed their name in an artefact input. They
+     need the same exact fresh-target guarantee, but must not open a second text
+     field after the source insertion. */
+  function focusAt(target, {origin = document.activeElement, onMiss, timeout = 500} = {}){
+    if(!target || !target.kind || target.line === undefined || target.line === null) return Promise.resolve(false);
+    const started = performance.now();
+    return new Promise(resolve => {
+      const attempt = () => {
+        const hits = [...preview.querySelectorAll('[data-edit]')]
+          .filter(el => isVisible(el) && matchesTarget(el, target));
+        if(hits.length === 1){ hits[0].focus({preventScroll: true}); resolve(true); return; }
+        if(performance.now() - started < timeout){ requestAnimationFrame(attempt); return; }
+        if(origin?.isConnected && typeof origin.focus === 'function') origin.focus({preventScroll: true});
+        announceMiss();
+        if(onMiss) onMiss();
+        resolve(false);
+      };
+      requestAnimationFrame(attempt);
+    });
+  }
+  return {close, openAt, focusAt};
 }

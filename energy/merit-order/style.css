@@ -24,7 +24,7 @@
    regardless of the chart's current scale. Screen-reader users get the
    fully-accessible #demand slider instead; this is a pointer/touch-only
    convenience, so it's hidden from the a11y tree. */
-.demand-hit{position:absolute;cursor:ew-resize;background:transparent;touch-action:none}
+.demand-hit{position:absolute;cursor:ew-resize;background:transparent;touch-action:pan-y}
 
 /* per-plant edit callout (tap a bar): fixed-position popover, same visual
    language as assets/workspace.css's .eip-pop but its own class — this tool

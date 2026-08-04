@@ -21,6 +21,29 @@ test('save/load/list round-trip through the index', () => {
   assert.equal(store.load('a'), null);
 });
 
+test('trash is a persistent, one-level tombstone that can restore the register', () => {
+  const backend = shim(), store = makeStore(backend);
+  store.save({id: 'a', title: 'Recover me', entries: []});
+  const tomb = store.trash('a');
+  assert.equal(tomb.doc.title, 'Recover me');
+  assert.equal(store.load('a'), null);
+  assert.equal(store.list().length, 0);
+  assert.equal(makeStore(backend).trashed().doc.id, 'a', 'survives a reload/new store instance');
+  const restored = makeStore(backend).restoreTrash();
+  assert.equal(restored.id, 'a');
+  assert.equal(store.load('a').title, 'Recover me');
+  assert.equal(store.list().length, 1);
+  assert.equal(store.trashed(), null);
+});
+
+test('purging trash makes a tombstone irrecoverable', () => {
+  const store = makeStore(shim());
+  store.save({id: 'a', title: 'Gone', entries: []});
+  store.trash('a'); store.purgeTrash();
+  assert.equal(store.trashed(), null);
+  assert.equal(store.restoreTrash(), null);
+});
+
 test('toLink small doc → hash; oversized doc → null', async () => {
   assert.match(await toLink({v: 1, id: 'x', entries: []}), /^#/);
   // incompressible bulk — repetitive workshop prose would deflate back under the cap

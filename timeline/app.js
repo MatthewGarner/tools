@@ -4,8 +4,9 @@ import {render, toMarkdown, timelineVerdict} from './render.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {premortemHandoff} from './handoff.js';
 import {toLink as premortemLink} from '../premortem/store.js';
-import {createEditor, insertAndSelect} from './editor.js';
-import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine} from './edit-targets.js';
+import {createEditor} from './editor.js';
+import {validators, editLabel, editDates, setStatus, setLane, editNote,
+  addItemLine, addedItemTarget, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {paintKicker} from '../assets/verdict.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
@@ -148,7 +149,7 @@ function milestoneMenu(m, srcLine){
   ];
 }
 
-attachEditInPlace($('preview'), {
+const eip = attachEditInPlace($('preview'), {
   kinds: {
     label: {validate: validators.label},
     dates: {validate: validators.dates},
@@ -176,8 +177,11 @@ attachEditInPlace($('preview'), {
       const r = addItemLine(editor.getText(), todayISO(), el.dataset.lane || undefined);
       const label = newValue.replace(/^✖/, '').trim();
       const line = r.newLine.replace('New milestone', label || 'New milestone');
-      insertAndSelect(editor, r.afterLine, line, label || 'New milestone',
-        {focus: matchMedia('(pointer: fine)').matches});
+      /* The add input already collected the name in the artefact. One source
+         insertion is the whole commit; once the normal render catches up,
+         focus the exact fresh label without reopening an input or touching CM. */
+      editor.insertLinesAfter(r.afterLine, [line]);
+      eip.focusAt(addedItemTarget(r, label), {origin: el});
       return;
     }
     if(kind === 'removeitem' || newValue === '✖Remove milestone'){

@@ -34,11 +34,15 @@ test('dead exhibit renders as ghost (dashed), never a live link', () => {
   assert.ok(!svg.includes('href="https://example.com/x"'), 'a dead exhibit must never navigate');
 });
 
-test('open and edit affordances never overlap (the mobile tap bug)', () => {
+test('each exhibit has one combined link/focus stop, separate from its edit targets', () => {
   for(const svg of [draw(SRC, {live: true, edit: true}),
     render(parse(SRC), {...ctx, width: 390}, {live: true, edit: true})]){
-    for(const m of svg.matchAll(/<a [^>]*>([\s\S]*?)<\/a>/g))
+    const links = [...svg.matchAll(/<a [^>]*>([\s\S]*?)<\/a>/g)];
+    assert.equal(links.length, 3, 'one link/focus stop per live exhibit');
+    for(const m of links){
       assert.ok(!m[1].includes('data-edit'), 'an edit target inside a link eats the tap: ' + m[1].slice(0, 80));
+      assert.ok(m[1].includes('\u2197'), 'the one anchor owns the pill and trailing arrow');
+    }
     assert.ok(svg.includes('\u2197'), 'the trailing open-arrow affordance exists');
     assert.ok(svg.includes('fill="transparent"'), 'links carry a real 44px hit rect');
   }
@@ -56,12 +60,27 @@ test('caseReadout: authored wins; open case states its honest count', () => {
   assert.equal(caseReadout(parse('verdict: off\nA -> /map/#x')).line, '');
 });
 
-test('edit mode marks label/note/question targets; plain render does not', () => {
+test('edit mode exposes one honest target for every editable case field', () => {
   const e = draw(SRC, {edit: true});
   assert.ok(e.includes('data-edit="label"') && e.includes('data-edit="note"') &&
-    e.includes('data-edit="question"') && e.includes('data-edit="verdict"'));
+    e.includes('data-edit="question"') && e.includes('data-edit="status"') &&
+    e.includes('data-edit="verdict"'));
+  assert.equal((e.match(/data-edit="question"/g) || []).length, 1,
+    'a wrapped question is one keyboard target, not one per line');
   const p = draw(SRC, {});
   assert.ok(!p.includes('data-edit='), 'goldens/exports stay chrome-free');
+});
+
+test('missing question and notes get real edit targets; exhibit creation stays explicitly source-led', () => {
+  const src = 'title: New case\nstatus: open\nBoard options -> /tree/#def';
+  for(const svg of [draw(src, {edit: true}),
+    render(parse(src), {...ctx, width: 390}, {edit: true, live: true})]){
+    assert.match(svg, /data-edit="question"[^>]*data-raw=""/);
+    assert.match(svg, /data-edit="note"[^>]*data-raw=""/);
+    assert.ok(svg.includes('+ question') && svg.includes('+ note'));
+    assert.ok(svg.includes('opacity="0.55"'), 'empty affordances are visibly secondary');
+  }
+  assert.ok(draw('title: New case', {edit: true}).includes('Add exhibits in the source panel'));
 });
 
 test('narrow relayout under the bucket; height follows content', () => {
@@ -82,5 +101,5 @@ test('hostile labels/notes escape (the injection corpus is the standing gate)', 
 
 test('empty doc renders the teaching empty state', () => {
   const svg = draw('title: New case');
-  assert.ok(svg.includes('No exhibits yet'));
+  assert.ok(svg.includes('Add exhibits in the source panel'));
 });

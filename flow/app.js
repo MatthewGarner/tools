@@ -9,6 +9,7 @@ import {mountMotion} from '../assets/motion.js';
 import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, wireCopyTap} from '../assets/verdict.js';
+import {queueMotionAllowed, queueTime, flowHashState} from './motion-runtime.js';
 
 const $ = id => document.getElementById(id);
 const NO_LIMIT = 40;                       // the slider's top position (21) means "no limit"
@@ -102,20 +103,40 @@ function doRefresh(){
 
   restartAnim(result);
   clearTimeout(hashTimer);
-  hashTimer = setTimeout(() => writeHashState({d: p.demandPerWeek, s: p.itemDays, t: p.team,
-    w: +$('wip').value, v: variability, tc: +$('tcost').value, hc: +$('hcost').value,
-    b: +$('batch').value, q: backlogNow}), 400);
+  hashTimer = setTimeout(writeFlowHash, 400);
 }
-function refresh(){ cancelAnimationFrame(rafId); rafId = requestAnimationFrame(doRefresh); }
-function schedule(){ clearTimeout(debTimer); debTimer = setTimeout(refresh, 120); }
+function liveFlowState(){
+  return flowHashState(params(), {wip: $('wip').value, transactionCost: $('tcost').value,
+    holdCost: $('hcost').value, batch: $('batch').value, backlog: $('backlog').value});
+}
+function writeFlowHash(){ hashTimer = null; return writeHashState(liveFlowState()); }
+function refresh(){
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(() => { rafId = 0; doRefresh(); });
+}
+function schedule(){
+  clearTimeout(debTimer);
+  debTimer = setTimeout(() => { debTimer = null; refresh(); }, 120);
+}
+function ensureFresh(){
+  if(!debTimer && !rafId) return;
+  clearTimeout(debTimer); debTimer = null;
+  cancelAnimationFrame(rafId); rafId = 0;
+  doRefresh();
+}
 
 /* ---------- controls ---------- */
 for(const id of ['demand', 'size', 'team', 'wip', 'tcost', 'hcost', 'batch', 'backlog'])
-  $(id).addEventListener('input', schedule);
+  $(id).addEventListener('input', () => { clearPresetSelection(); schedule(); });
 /* the radiogroup's buttons carry real radio state — class alone is invisible
    to a screen reader (merit-order's pattern) */
 const varButtons = [...$('variability').children];
+const presetButtons = [...$('presets').querySelectorAll('.chip')];
 varButtons.forEach(b => b.setAttribute('role', 'radio'));
+function clearPresetSelection(){
+  for(const b of presetButtons){ b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
+}
+for(const b of presetButtons) b.setAttribute('aria-pressed', String(b.classList.contains('on')));
 function syncVariability(){
   for(const b of varButtons){
     const active = b.dataset.v === variability;
@@ -127,6 +148,7 @@ syncVariability();
 $('variability').addEventListener('click', e => {
   const b = e.target.closest('button');
   if(!b) return;
+  clearPresetSelection();
   variability = b.dataset.v;
   syncVariability();
   schedule();
@@ -138,7 +160,11 @@ $('presets').addEventListener('click', e => {
   $('demand').value = p.demand; $('size').value = p.size; $('team').value = p.team; $('wip').value = p.wip;
   variability = p.v;
   syncVariability();
-  for(const x of $('presets').querySelectorAll('.chip')) x.classList.toggle('on', x === b);
+  for(const x of presetButtons){
+    const selected = x === b;
+    x.classList.toggle('on', selected);
+    x.setAttribute('aria-pressed', String(selected));
+  }
   schedule();
 });
 
@@ -147,6 +173,7 @@ $('presets').addEventListener('click', e => {
    in-progress dots sliding left→right by work progress → done counter. */
 const strip = $('strip');
 let animState = null, animRaf = 0, animStart = 0;
+let stripVisible = false;
 
 function buildTimeline(events){
   const items = new Map();
@@ -162,8 +189,10 @@ function buildTimeline(events){
 
 function restartAnim(result){
   cancelAnimationFrame(animRaf);
+  animRaf = 0;
   const note = $('animnote');
   if(reducedMotion.matches || !result.events){
+    animState = null;
     note.textContent = 'motion off — steady-state averages shown';
     $('cbacklog').textContent = result.backlogSlopePerWeek > 0.5
       ? '+' + result.backlogSlopePerWeek.toFixed(1) + '/wk'
@@ -176,15 +205,45 @@ function restartAnim(result){
   const tEnd = result.events.length ? result.events[result.events.length - 1].t : 0;
   const windowDays = 18 * WEEK;
   animState = {items: buildTimeline(result.events), t0: Math.max(0, tEnd - windowDays), t1: tEnd};
-  note.textContent = 'replaying the last ' + Math.round(windowDays / WEEK) + ' simulated weeks on a 12s loop';
+  note.textContent = 'the last ' + Math.round(windowDays / WEEK) + ' simulated weeks · replay pauses off screen';
+  startAnim();
+}
+
+function canRunAnim(){
+  return queueMotionAllowed({reduced: reducedMotion.matches, hidden: document.hidden,
+    visible: stripVisible, hasEvents: !!animState});
+}
+function stopAnim(){
+  if(animRaf) cancelAnimationFrame(animRaf);
+  animRaf = 0;
+}
+function startAnim(){
+  stopAnim();
+  if(!animState) return;
+  if(!canRunAnim()){
+    // Keep a useful settled frame painted without paying for an unseen loop.
+    if(!document.hidden) drawFrame(animState, animState.t1);
+    return;
+  }
   animStart = performance.now();
   const loop = now => {
-    const frac = ((now - animStart) / 12000) % 1;
-    drawFrame(animState, animState.t0 + frac * (animState.t1 - animState.t0));
+    if(!canRunAnim()){ animRaf = 0; return; }
+    drawFrame(animState, queueTime(now, animStart, animState));
     animRaf = requestAnimationFrame(loop);
   };
   animRaf = requestAnimationFrame(loop);
 }
+
+if(typeof IntersectionObserver !== 'undefined'){
+  new IntersectionObserver(entries => {
+    const entry = entries[entries.length - 1];
+    const visible = entry.isIntersecting && entry.intersectionRatio >= 0.15;
+    if(visible === stripVisible) return;
+    stripVisible = visible;
+    visible ? startAnim() : stopAnim();
+  }, {threshold: [0, 0.15]}).observe(strip);
+} else stripVisible = true;
+document.addEventListener('visibilitychange', () => document.hidden ? stopAnim() : startAnim());
 
 function drawFrame(state, tau){
   const C = themeColors();
@@ -246,13 +305,16 @@ function drawFrame(state, tau){
 /* ---------- exports (shared wiring; one call per card) ---------- */
 const slug = () => 'flow-' + (lastParams ? lastParams.demandPerWeek + 'w' + lastParams.wipLimit : 'x');
 wireExports({buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => lastSvg || null, slug});
+  getSvg: () => { ensureFresh(); return lastSvg || null; }, slug});
 wireExports({buttons: {dlsvg: $('dlbatchsvg'), dlpng: $('dlbatchpng'), copypng: $('copybatchpng')},
-  getSvg: () => lastBatchSvg || null, slug: () => 'flow-batch-' + (lastEcon ? lastEcon.optimum : 'x')});
+  getSvg: () => { ensureFresh(); return lastBatchSvg || null; }, slug: () => 'flow-batch-' + (lastEcon ? lastEcon.optimum : 'x')});
 wireExports({buttons: {dlsvg: $('dltriagesvg'), dlpng: $('dltriagepng'), copypng: $('copytriagepng')},
-  getSvg: () => lastTriageSvg || null, slug: () => 'flow-triage-' + $('backlog').value});
+  getSvg: () => { ensureFresh(); return lastTriageSvg || null; }, slug: () => 'flow-triage-' + $('backlog').value});
 $('copydoc').addEventListener('click', async () => {
+  ensureFresh();
   if(!lastResult) return;
+  clearTimeout(hashTimer);
+  await writeFlowHash();
   const md = markdownSummary(lastResult, lastSweep, lastKnee, lastParams,
     {econ: lastEcon, triage: lastTriage, initialBacklog: +$('backlog').value});
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }

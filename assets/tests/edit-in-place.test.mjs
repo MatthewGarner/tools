@@ -53,3 +53,30 @@ test('renderPopoverRows handles commit and submenu rows', () => {
   // so a looser close\(\) would incidentally pass on the comment text.
   assert.match(src, /getBoundingClientRect\(\)[\s\S]{0,100}\bclose\(\);[\s\S]{0,40}renderPopoverRows\(row\.submenu/, 'submenu captures rect before close, then re-renders');
 });
+
+test('post-add targeting is exact, waits for the normal render, and never falls back to the DSL', () => {
+  assert.match(src, /function openAt\(target, \{origin = document\.activeElement, onCancel, onMiss, timeout = 500\}/);
+  assert.match(src, /el\.dataset\.edit !== target\.kind \|\| el\.dataset\.line !== String\(target\.line\)/,
+    'kind and source line are exact strings, not normalised numbers');
+  assert.match(src, /Object\.entries\(target\.data \|\| \{\}\).*el\.dataset\[key\] === String\(value\)/s,
+    'callers can require a stable per-target identity too');
+  assert.match(src, /hits\.length === 1/, 'ambiguous targets are rejected');
+  assert.match(src, /requestAnimationFrame\(attempt\)/, 'waits through the normal debounced render path');
+  assert.match(src, /origin\?\.isConnected.*origin\.focus/s, 'miss restores the originating artefact control');
+  assert.match(src, /function announceMiss\(\)/, 'a miss is announced rather than silently falling back');
+  assert.match(src, /function focusAt\(target, \{origin = document\.activeElement, onMiss, timeout = 500\}/,
+    'pre-entry adds use exact semantic focus without opening a second input');
+});
+
+test('Escape can cancel a just-created default item through caller-owned source rewrites', () => {
+  assert.match(src, /active = \{input, el, errEl, onCancel: opts\.onCancel, ignoreScrollUntil: performance\.now\(\) \+ 100\}/);
+  assert.match(src, /const cancel = active\?\.onCancel;[\s\S]{0,100}if\(cancel\) cancel\(\);/,
+    'the inline input asks the owning tool to remove its default on Escape');
+});
+
+test('opening a focus-trapped menu survives its own focus-induced scroll', () => {
+  assert.match(src, /ignoreScrollUntil: performance\.now\(\) \+ 100/,
+    'new popovers receive a short focus-settling window');
+  assert.match(src, /performance\.now\(\) >= active\.ignoreScrollUntil\) close\(\)/,
+    'real later page scrolling still dismisses an active editor');
+});

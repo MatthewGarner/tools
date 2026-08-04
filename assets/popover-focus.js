@@ -5,18 +5,17 @@
    attachEditInPlace machinery just for this one helper — a real byte-budget hit
    on intraday's much smaller page (dev/weight.test.mjs). */
 
-/* Focuses the first button on open; Escape and a wrapping Tab/Shift+Tab live on
-   the popover itself so focus never escapes it or falls onto the page behind
-   it. `onEscape` is the caller's real close() function. A popover with no
-   buttons (a read-only callout) is made focusable itself instead, so keyboard/
-   AT users still land somewhere sensible and Tab can't leave it either. */
-export function trapPopoverFocus(pop, onEscape){
+/* Focuses the first button on open; Escape and (for action menus) a wrapping
+   Tab/Shift+Tab live on the popover itself. Informational callouts can opt out
+   of the Tab trap: they are not dialogs and must not create a keyboard island.
+   `onEscape` is the caller's real close() function. */
+export function trapPopoverFocus(pop, onEscape, {trap = true} = {}){
   const buttons = () => [...pop.querySelectorAll('button')];
   pop.addEventListener('keydown', e => {
     if(e.key === 'Escape'){ e.preventDefault(); onEscape(); return; }
-    if(e.key !== 'Tab') return;
+    if(e.key !== 'Tab' || !trap) return;
     const bs = buttons();
-    if(!bs.length){ e.preventDefault(); return; }   // read-only popover: Tab can't leave it either
+    if(!bs.length){ e.preventDefault(); return; }   // action popover with no button: retain a safe focus loop
     const first = bs[0], last = bs[bs.length - 1];
     if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }

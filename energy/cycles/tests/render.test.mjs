@@ -61,6 +61,14 @@ test('narrow + edit: per-band ⋯ card menus and ghost ＋ capsules; wide/non-ed
   assert.ok(!render(mg, og, ctx, {edit: true}).includes('data-edit="addkey"'), 'wide edit keeps the ghost prompt');
 });
 
+test('an authored discount has an exact in-place destination in the narrow artefact', () => {
+  const {m, o} = sim(FULL + '\ndiscount: 7..10%');
+  const narrow = render(m, o, {...ctx, width: 480}, {edit: true});
+  assert.match(narrow, /data-edit='num' data-line='\d+' data-raw='10' data-field='discHi'/);
+  const wide = render(m, o, {...ctx, width: 1200}, {edit: true});
+  assert.ok(!wide.includes("data-field='discHi'"), 'authoring-only discount pill stays out of the wide poster');
+});
+
 test('markdown carries all three verdicts', () => {
   const {m, o} = sim(FULL);
   const md = toMarkdown(m, o);

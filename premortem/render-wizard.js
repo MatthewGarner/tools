@@ -1,11 +1,10 @@
 /* Per-phase HTML for the premortem wizard. Every user string through esc().
    The interactive hooks (data-* attributes) are the contract app.js binds to. */
 import {esc} from '../assets/svg.js';
-import {exposure, isRisk} from './register.js';
+import {exposure, isRisk, isScoreable} from './register.js';
 import {votePool} from './wizard.js';
 import {renderRegister} from './render-register.js';
 
-const scoreable = e => Array.isArray(e.p) && Array.isArray(e.impact);
 const risksOf = doc => (doc.entries || []).filter(isRisk);   // the wizard works the risks; facts/assumptions/beliefs live on the board
 const TAGS = ['tiger', 'paper-tiger', 'elephant'];
 
@@ -61,21 +60,22 @@ function cluster(doc){
     '<p class="phint">Group the same fear said different ways; merge exact duplicates so you don\'t double-count.</p></div>';
 }
 function score(doc){
+  const val = (range, i) => range?.[i] ?? '';
   const rows = risksOf(doc).map(e =>
     '<div class="scrow" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
     '<span class="scin"><label>likelihood</label>' +
-    '<input type="number" min="0" max="100" data-p="lo" data-id="' + e.id + '" value="' + (e.p ? e.p[0] : '') + '">–' +
-    '<input type="number" min="0" max="100" data-p="hi" data-id="' + e.id + '" value="' + (e.p ? e.p[1] : '') + '">%</span>' +
+    '<input type="number" min="0" max="100" data-p="lo" data-id="' + e.id + '" value="' + val(e.p, 0) + '" aria-label="Likelihood low for ' + esc(e.text) + '">–' +
+    '<input type="number" min="0" max="100" data-p="hi" data-id="' + e.id + '" value="' + val(e.p, 1) + '" aria-label="Likelihood high for ' + esc(e.text) + '">%</span>' +
     '<span class="scin"><label>impact</label>' +
-    '<input type="number" min="0" data-impact="lo" data-id="' + e.id + '" value="' + (e.impact ? e.impact[0] : '') + '">–' +
-    '<input type="number" min="0" data-impact="hi" data-id="' + e.id + '" value="' + (e.impact ? e.impact[1] : '') + '"></span></div>').join('');
+    '<input type="number" min="0" data-impact="lo" data-id="' + e.id + '" value="' + val(e.impact, 0) + '" aria-label="Impact low for ' + esc(e.text) + '">–' +
+    '<input type="number" min="0" data-impact="hi" data-id="' + e.id + '" value="' + val(e.impact, 1) + '" aria-label="Impact high for ' + esc(e.text) + '"></span></div>').join('');
   return '<div class="phase" data-phase="SCORE"><h2>Score the ranges</h2>' +
     '<label class="fl inlinelabel">Impact unit <input type="text" data-field="unit" value="' + esc(doc.unit || '£k') + '"></label>' +
     '<p class="phint">Give a 90% range, not a point — agree the range, then argue the actions. Likelihood and impact both as low–high.</p>' +
     rows + '</div>';
 }
 function actions(doc){
-  const rows = (doc.entries || []).filter(scoreable).map(e =>
+  const rows = (doc.entries || []).filter(isScoreable).map(e =>
     '<div class="acrow" data-id="' + e.id + '"><p class="acrisk">' + esc(e.text) + '</p>' +
     e.actions.map((a, ai) => '<div class="acitem">' +
       '<input type="text" data-action="text" data-id="' + e.id + '" data-ai="' + ai + '" value="' + esc(a.text || '') + '" placeholder="mitigation" aria-label="Action">' +

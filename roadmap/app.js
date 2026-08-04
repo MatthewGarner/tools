@@ -21,6 +21,7 @@ import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {createPostDragClickGuard, moveCommit} from './interactions.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -305,8 +306,12 @@ attachEditInPlace($('preview'), {
       return;
     }
     if(kind === 'movehorizon'){
-      const text = moveHorizon(editor.getText(), lineNo, newValue);
-      if(text) editor.setText(text);   // one transaction → one undo step, same as drag
+      const current = editor.getText();
+      const change = moveCommit(current, moveHorizon(current, lineNo, newValue));
+      if(change){
+        flipNext = change.flip;
+        editor.setText(change.text);   // one transaction → one undo step, same as drag
+      }
       return;
     }
     if(kind === 'setspan'){
@@ -520,9 +525,9 @@ $('importgo').addEventListener('click', () => {
 });
 
 /* ---------- drag-and-drop: a drop is a text edit ---------- */
-let suppressClick = false;   // a completed drag must not open the card menu
+const postDragClick = createPostDragClickGuard();
 const drag = {armed: null, active: false, ghost: null, hover: null, srcEl: null, dropline: null,
-  edge: null, edgeChip: null};   // edge = the span edit gesture (left/right handle); its own mode
+  edge: null, edgeChip: null, pointerId: null};   // edge = the span edit gesture (left/right handle); its own mode
 /* drag is a fine-pointer affordance only: on a coarse (touch) device it fights
    the narrow stack's vertical swipe-to-scroll (no auto-scroll, no drop-zone
    feedback that reads on a finger) — "Move to…" in the card menu is the phone
@@ -602,11 +607,12 @@ function endDrag(){
   if(drag.srcEl) drag.srcEl.style.opacity = '';
   document.body.style.cursor = '';
   drag.armed = null; drag.active = false; drag.ghost = null; drag.srcEl = null;
-  drag.edge = null; drag.edgeChip = null;   // a cancelled edge must not leave the mode armed
+  drag.edge = null; drag.edgeChip = null; drag.pointerId = null;   // a cancelled edge must not leave the mode armed
 }
 /* (FLIP glide migrated to the shared motion.js applyFlip — keyed data-key=title,
    zoom-scale-aware; triggered via flipNext on a drop, see doRefresh.) */
 $('preview').addEventListener('pointerdown', e => {
+  postDragClick.clear();
   if(!finePointer()) return;   // coarse pointers use the card menu's Move to… / Runs until… rows
   if(e.button !== 0) return;
   /* a pointerup lost outside the window (drag off-screen, alt-tab mid-gesture) can
@@ -619,6 +625,7 @@ $('preview').addEventListener('pointerdown', e => {
   if(edgeEl){
     e.preventDefault();
     drag.edge = {side: edgeEl.dataset.spanEdge, line: +edgeEl.dataset.line};
+    drag.pointerId = e.pointerId;
     document.body.style.cursor = 'col-resize';
     return;
   }
@@ -628,9 +635,11 @@ $('preview').addEventListener('pointerdown', e => {
   if(!item) return;
   e.preventDefault();   // no text selection while dragging
   drag.armed = {line: +g.dataset.line, title: item.title, x: e.clientX, y: e.clientY};
+  drag.pointerId = e.pointerId;
   drag.srcEl = g;
 });
 window.addEventListener('pointermove', e => {
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   if(drag.edge){
     /* no re-render during the gesture — cards must not jump under the cursor.
        Highlight the target column band (the same hover mechanism the card drag
@@ -697,11 +706,12 @@ window.addEventListener('pointermove', e => {
   }
 });
 window.addEventListener('pointerup', e => {
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   if(drag.edge){
     const edge = drag.edge;
     const cell = cellAt(e.clientX, e.clientY);
     endDrag();
-    suppressClick = true;
+    postDragClick.arm($('preview').contains(e.target));
     if(!cell || !model) return;
     const it = model.items.find(i => i.srcLine === edge.line);
     const targetH = cell ? cell.h : null;
@@ -726,7 +736,7 @@ window.addEventListener('pointerup', e => {
     if(cell) target = {h: cell.h, lane: cell.lane, beforeLine: cell.beforeLine === src ? null : cell.beforeLine};
   }
   endDrag();
-  if(wasActive) suppressClick = true;
+  postDragClick.arm(wasActive && $('preview').contains(e.target));
   if(!target || !model) return;
   if(inBandView()){
     /* the target horizon may have no header line yet (a synthesised empty
@@ -752,16 +762,27 @@ window.addEventListener('keydown', e => {
 });
 /* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
    ghost + dropline instead of stranding them until the next pointerup */
-window.addEventListener('pointercancel', () => { if(drag.armed || drag.edge) endDrag(); });
+window.addEventListener('pointercancel', e => {
+  if(!drag.armed && !drag.edge) return;
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+  postDragClick.clear();
+  endDrag();
+});
+window.addEventListener('lostpointercapture', e => {
+  if(!drag.armed && !drag.edge) return;   // a normal post-pointerup release must not clear the click guard
+  if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
+  postDragClick.clear();
+  endDrag();
+});
 $('preview').addEventListener('click', e => {
-  if(suppressClick){ e.stopPropagation(); suppressClick = false; }
+  if(postDragClick.consume()){ e.preventDefault(); e.stopPropagation(); }
 }, true);
 
 /* the focus lens: a rail header (data-lens="<horizon>") commits focus:<horizon> —
    a plain click, not edit-in-place, so it needs its own handler + keyboard mirror
    (eip's Enter/Space shell only fires for [data-edit], and the header carries
    neither [data-edit] nor sits inside a [data-menu] cardmenu group, so there is no
-   collision with either). The capture-phase suppressClick handler above still
+   collision with either). The capture-phase post-drag click guard above still
    guards a drag-ended click — it stops the event before it ever reaches this
    bubble-phase listener, same as it already does for edit-in-place. */
 function commitLens(name){

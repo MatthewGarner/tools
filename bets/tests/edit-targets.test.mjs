@@ -2,7 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {kinds, validators, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
-  renameBet, removeBet, addBetLine, addGroupLine} from '../edit-targets.js';
+  renameBet, removeBet, addBetLine, addGroupLine,
+  addedBetTarget, addedGroupTarget, addedKillTarget} from '../edit-targets.js';
 
 /* same fixture as parse.test.mjs — srcLines are 1-based (bets/parse.js) */
 const FULL = `title: Q3 product portfolio
@@ -278,6 +279,15 @@ test('addGroupLine appends a heading after the last non-blank line, parses clean
 test('addGroupLine ignores trailing blank lines when picking the anchor', () => {
   const r = addGroupLine(FULL + '\n\n');
   assert.equal(r.afterLine, 11);
+});
+
+test('post-add identities convert 0-based insertion anchors to bets 1-based srcLines once', () => {
+  const bet = addBetLine(FULL, 5);
+  assert.deepEqual(addedBetTarget(bet, '  Search follow-up  '),
+    {kind: 'name', line: 10, data: {raw: 'Search follow-up'}});
+  const group = addGroupLine(FULL);
+  assert.deepEqual(addedGroupTarget(group), {kind: 'addbet', line: 13});
+  assert.deepEqual(addedKillTarget(6), {kind: 'kill', line: 7, data: {raw: 'reason'}});
 });
 
 test('name/group validators: reasonable names pass, structure-breaking ones fail', () => {

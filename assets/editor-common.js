@@ -189,18 +189,18 @@ export function applyLineOps(editor, ops){
   editor.view.dispatch({changes: lineOpsChanges(editor.view.state, ops)});
 }
 
-/* Insert a line after afterLine, then select `select` (or the whole new line)
-   inside it and focus — the add-from-the-diagram affordance the DSL tools share.
-   The caret lands on the placeholder so typing replaces it immediately. */
-export function insertAndSelect(editor, afterLine, newLine, select, {focus = true} = {}){
+/* Insert a line after afterLine and select `select` (or the whole new line).
+   This remains the one undoable source dispatch for add flows, but artefacts now
+   own the next interaction: callers use the returned zero-based source line to
+   open the freshly-rendered in-place field. Focus is opt-in only for legacy
+   callers; an artefact add must never move focus into CodeMirror. */
+export function insertAndSelect(editor, afterLine, newLine, select, {focus = false} = {}){
   editor.insertLinesAfter(afterLine, [newLine]);
   const ln = editor.view.state.doc.line(afterLine + 2);
   const text = select || newLine;
   const idx = select ? Math.max(0, newLine.indexOf(select)) : 0;
   editor.view.dispatch({selection: {anchor: ln.from + idx, head: ln.from + idx + text.length}});
-  // focus lands the caret on the placeholder to type it — a desktop convenience. On a
-  // COARSE pointer it yanks focus into the DSL and raises the soft keyboard over the
-  // artefact the user is editing in place; suppress it there (they tap the new item to
-  // name it in place instead). (mobile-input focus fix, 2026-07-16)
+  // A caller that explicitly asks for the legacy editor flow retains it on a fine pointer.
   if(focus && !matchMedia('(pointer: coarse)').matches) editor.view.focus();
+  return {srcLine: afterLine + 1, select: select || newLine};
 }

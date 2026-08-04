@@ -3,8 +3,8 @@ import {parse} from './parse.js';
 import {simulate, verdict, thresholdFigure, simKey, fmtUnit} from './engine.js';
 import {render as renderSvg, toMarkdown} from './render.js';
 import {createEditor} from './editor.js';
-import {validators, editField, addKeyLine, removeKeyLine} from './edit-targets.js';
-import {insertAndSelect} from '../../assets/editor-common.js';
+import {validators, editField, addKeyLine, removeKeyLine, addedKeyTarget,
+  addKeyReturnIdentity, isUntouchedKeyAdd} from './edit-targets.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {autoloadExample, shouldPersist} from '../../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../../assets/app-common.js';
@@ -16,8 +16,10 @@ import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 import {paintKicker, paintMetrics, paintVerdict, resolveVerdict} from '../../assets/verdict.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../../assets/verdict-edit.js';
+import {createPreviewRevisionGuard} from './interaction-state.js';
 
 const $ = id => document.getElementById(id);
+const stageEl = $('preview');
 const paint = mountMotion($("preview"));
 
 const EXAMPLES = [
@@ -68,6 +70,7 @@ let model = null, out = null, lastSvg = '', lastText = '';
 let lastKey = null;
 globalThis.__cyclesSimCount = 0;
 let rafId = 0, debTimer = null, hashTimer = null;
+let previewEip = null, verdictEip = null;
 
 /* ---------- async sim dispatch (rev-3 state machine, spec §"Refresh loop
    (app.js) — rev 3 state machine") ----------
@@ -93,6 +96,39 @@ const SIM_TIMEOUT_MS = 5000;
    TimeoutMs) so the timeout/leak paths are exercisable in ms, not 5s. */
 const simTimeoutMs = () => globalThis.__cyclesSimTimeoutMs || SIM_TIMEOUT_MS;
 
+const previewRevision = createPreviewRevisionGuard({
+  closeActive(){
+    if(previewEip) previewEip.close();
+    if(verdictEip) verdictEip.close();
+  },
+  onBlockedChange(blocked, revision){
+    stageEl.toggleAttribute('inert', blocked);
+    stageEl.setAttribute('aria-busy', String(blocked));
+    if(blocked) stageEl.dataset.pendingRevision = String(revision);
+    else {
+      delete stageEl.dataset.pendingRevision;
+      stageEl.dataset.renderRevision = String(revision);
+    }
+  },
+});
+
+/* `inert` handles real pointer/keyboard input. The capture guard also rejects
+   synthetic/delayed events and proves the target still belongs to the rendered
+   revision and remains connected before shared EIP sees it. */
+function rejectStaleEdit(e){
+  const target = e.target.closest && e.target.closest('[data-edit]');
+  if(!target) return;
+  const revision = Number(stageEl.dataset.renderRevision);
+  const entityExists = target.isConnected && stageEl.contains(target);
+  if(previewRevision.accepts(revision, entityExists)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}
+stageEl.addEventListener('click', rejectStaleEdit, true);
+stageEl.addEventListener('keydown', e => {
+  if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') rejectStaleEdit(e);
+}, true);
+
 function spawnWorker(){
   try{
     const w = new Worker(new URL('./sim-worker.js', import.meta.url), {type: 'module'});
@@ -115,7 +151,8 @@ function abandonInFlight(){
   if(worker){ worker.terminate(); worker = spawnWorker(); }   // stop wasted CPU; fresh worker for next
 }
 
-function commit(res, key){
+function commit(res, key, revision){
+  if(!previewRevision.settle(revision)) return;
   out = res; lastKey = key; pendingKey = null;
   render();                                     // renders out + sets actions ON (via setActionsEnabled(!!out))
 }
@@ -124,7 +161,7 @@ function runSync(key, id){
   if(id !== seq) return;                        // superseded before we ran
   clearTimeout(timeoutId);
   __cyclesSimCount++;
-  commit(simulate(model, {seed: 1, n: 5000}), key);
+  commit(simulate(model, {seed: 1, n: 5000}), key, id);
 }
 
 function markWorkerDead(){
@@ -134,7 +171,7 @@ function markWorkerDead(){
 function onWorkerMessage({out: res, reqId}){
   if(reqId !== seq) return;                     // superseded/abandoned
   clearTimeout(timeoutId);
-  commit(res, pendingKey);
+  commit(res, pendingKey, reqId);
 }
 
 /* Both fallbacks (durable onerror + failsafe timeout) route through dispatch,
@@ -154,6 +191,7 @@ function dispatch(key){
   abandonInFlight();                            // supersede: kill any different in-flight sim first
   pendingKey = key;
   const id = ++seq;
+  previewRevision.begin(id);
   setActionsEnabled(false);
   if(!worker) return runSync(key, id);          // sync path commits instantly — no wait to signal
   __cyclesSimCount++;
@@ -162,7 +200,6 @@ function dispatch(key){
   timeoutId = setTimeout(() => { markWorkerDead(); dispatch(key); }, simTimeoutMs());
 }
 
-const stageEl = $('preview');
 function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
   return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
@@ -189,7 +226,7 @@ function renderVerdict(){
 function cyclesVerdictLine(){
   return out ? resolveVerdict(model.verdict, {line: verdict('threshold', out), fig: ''}).line : '';
 }
-attachEditInPlace($('verdict').parentElement.parentElement, {
+verdictEip = attachEditInPlace($('verdict').parentElement.parentElement, {
   kinds: {
     verdict: {menu: () => verdictMenuRows(model && model.verdict)},
     verdictedit: {validate: validVerdictInput, placeholder: cyclesVerdictLine},
@@ -235,7 +272,7 @@ function render(){
   renderVerdict();
   renderMetrics();
   renderWarnings();
-  setActionsEnabled(!!out);
+  setActionsEnabled(!!out && !previewRevision.blocked);
 }
 function persistAndScheduleHash(text){
   try{ if(shouldPersist()) localStorage.setItem('cycles-src', text); }catch(e){}
@@ -248,9 +285,9 @@ function doRefresh(){
   model = parse(text);
   const key = simKey(model);
   persistAndScheduleHash(text);                 // the existing localStorage + writeHash timer, always
-  if(key === null){ abandonInFlight(); out = null; lastKey = null; render(); return; }
+  if(key === null){ abandonInFlight(); previewRevision.clear(seq); out = null; lastKey = null; render(); return; }
   if(key === pendingKey) return;                // in-flight request will render this
-  if(key === lastKey){ abandonInFlight(); render(); return; }   // memoised: theme/rotation/no-op/revert
+  if(key === lastKey){ abandonInFlight(); previewRevision.clear(seq); render(); return; }   // memoised: theme/rotation/no-op/revert
   dispatch(key);                                // key is new → fresh sim, off the main thread
 }
 function refresh(){
@@ -299,7 +336,13 @@ function bandMenu(m, band){
 /* edit-in-place: numeric field pills, per-band card menu (⋯), and a one-tap
    ＋ capsule on the ghost bands. All structure edits route through the pure
    add/removeKeyLine rewrites → one undoable CodeMirror dispatch each. */
-attachEditInPlace($('preview'), {
+let pendingKeyAdd = null;
+function insertKey(add){
+  const source = editor.view.state.doc.line(add.afterLine + 1);
+  editor.view.dispatch({changes: {from: source.to, to: source.to, insert: '\n' + add.newLine},
+    userEvent: 'input.complete'});
+}
+previewEip = attachEditInPlace($('preview'), {
   kinds: {
     num: {validate: validators.num},
     cardmenu: {menu: el => bandMenu(model, el.dataset.band)},
@@ -310,7 +353,39 @@ attachEditInPlace($('preview'), {
       const key = (el && el.dataset && el.dataset.key) || value;   // capsule carries data-key; menu row passes key as value
       const r = addKeyLine(editor.getText(), key);
       if(!r) return;
-      insertAndSelect(editor, r.afterLine, r.newLine, undefined, {focus: matchMedia('(pointer: fine)').matches});
+      const freshLine = r.afterLine + 1;
+      insertKey(r);
+      pendingKeyAdd = {line: freshLine, key};
+      const returnIdentity = addKeyReturnIdentity(key);
+      const focusFreshAdd = () => {
+        const started = performance.now();
+        const attempt = () => {
+          const candidates = [...stageEl.querySelectorAll('[data-edit="' + returnIdentity.kind + '"]')];
+          const target = candidates.find(node => Object.entries(returnIdentity.data)
+            .every(([name, expected]) => node.dataset[name] === String(expected)));
+          if(target?.isConnected && !stageEl.inert && target.getClientRects().length){
+            target.focus({preventScroll: true}); return;
+          }
+          if(performance.now() - started < 6500) requestAnimationFrame(attempt);
+          else $('railtab').focus({preventScroll: true});
+        };
+        requestAnimationFrame(attempt);
+      };
+      void previewEip.openAt(addedKeyTarget(r, key), {
+        origin: el,
+        onCancel(){
+          if(isUntouchedKeyAdd(editor.getText(), freshLine, r.newLine)) editor.removeLine(freshLine);
+          pendingKeyAdd = null;
+          $('editstatus').textContent = 'Assumption creation cancelled.';
+          focusFreshAdd();
+        },
+        onMiss(){
+          pendingKeyAdd = null;
+          $('editstatus').textContent = 'Assumption added. Its in-place editor could not be opened.';
+          focusFreshAdd();
+        },
+        timeout: 6500,
+      });
       return;
     }
     if(kind === 'removekey'){
@@ -321,7 +396,12 @@ attachEditInPlace($('preview'), {
     const cur = editor.getLine(line);
     const next = editField(cur, el.dataset.field, value);
     if(next === cur) return;
-    editor.replaceLine(line, next);   // dispatches through CodeMirror — undoable
+    if(pendingKeyAdd?.line === line){
+      const source = editor.view.state.doc.line(line + 1);
+      editor.view.dispatch({changes: {from: source.from, to: source.to, insert: next},
+        userEvent: 'input.complete'});
+      pendingKeyAdd = null;
+    } else editor.replaceLine(line, next);   // dispatches through CodeMirror — undoable
   },
 });
 

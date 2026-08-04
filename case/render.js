@@ -28,7 +28,7 @@ export function caseReadout(model){
   return resolveVerdict(model.verdict, auto);
 }
 
-function statusTag(model, c, measure, x, y, anchorEnd){
+function statusTag(model, c, measure, x, y, anchorEnd, opts){
   const label = model.status.toUpperCase();
   const w = measure(label, '600 ' + MICRO + 'px ' + SANS) + label.length * MICRO_TRACK + 18;
   const lx = anchorEnd ? x - w : x;
@@ -36,9 +36,14 @@ function statusTag(model, c, measure, x, y, anchorEnd){
   const stroke = decided ? c.accent : c.border;
   const fill = decided ? tint(c.accent, c.bg, 0.12) : 'none';
   const text = decided ? c.accent : c.muted;
-  return '<rect x="' + lx + '" y="' + (y - 14) + '" width="' + w + '" height="20" rx="0" fill="' +
-    fill + '" stroke="' + stroke + '" stroke-width="1.2"/>' +
-    micro(lx + 9, y, label, text);
+  const body = '<rect x="' + lx + '" y="' + (y - 14) + '" width="' + w + '" height="20" rx="0" fill="' +
+    fill + '" stroke="' + stroke + '" stroke-width="1.2"/>' + micro(lx + 9, y, label, text);
+  if(!opts.edit) return body;   // export/golden markup stays byte-stable
+  const edit = opts.edit ? ' data-edit="status" data-line="' + (model.srcLines.status ?? -1) +
+    '" data-raw="' + esc(model.status) + '" tabindex="0" role="button" aria-label="Change case status"' : '';
+  return '<g' + edit + '><rect x="' + (lx - 4) + '" y="' + (y - 26) +
+    '" width="' + (w + 8) + '" height="44" fill="transparent"/>' +
+    body + '</g>';
 }
 
 function pillW(name, measure){
@@ -67,14 +72,14 @@ function row(ex, i, c, measure, geom, opts){
   parts.push('<text x="' + x + '" y="' + (yMid + 4) + '" font-size="12" fill="' + c.muted + '">' + num + '</text>');
   const p = toolPill(ex, c, measure, x + 30, yMid);
   const live = opts.live && ex.live;
-  /* the OPEN affordances: the pill and a trailing ↗, each its own <a> with an
-     invisible ≥44px hit rect (fill transparent — fill:none catches no pointers).
+  /* The OPEN affordance is one anchor/focus stop spanning both the pill and
+     trailing ↗, with invisible ≥44px hit rects (fill transparent —
+     fill:none catches no pointers).
      The label/note stay edit targets and must NEVER sit inside the link, or a
      phone tap lands on the edit handler and the link never fires. */
   if(live){
     parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
-      '<rect x="' + (x + 26) + '" y="' + (yMid - 22) + '" width="' + (p.w + 8) + '" height="44" fill="transparent"/>' + p.svg + '</a>');
-    parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
+      '<rect x="' + (x + 26) + '" y="' + (yMid - 22) + '" width="' + (p.w + 8) + '" height="44" fill="transparent"/>' + p.svg +
       '<rect x="' + (x + width - 44) + '" y="' + (yMid - 22) + '" width="44" height="44" fill="transparent"/>' +
       '<text x="' + (x + width - 6) + '" y="' + (yMid + 5) + '" text-anchor="end" font-size="14" fill="' + c.accent + '">\u2197</text></a>');
   } else parts.push(p.svg);
@@ -96,6 +101,11 @@ function row(ex, i, c, measure, geom, opts){
         '>' + esc(t) + '</text>');
     }
     h = ny + 13;
+  } else if(opts.edit){
+    parts.push('<text x="' + lx + '" y="' + (yMid + 23) + '" font-size="12.5" fill="' + c.muted +
+      '" opacity="0.55" data-edit="note" data-line="' + ex.srcLine + '" data-raw="" tabindex="0" role="button"' +
+      ' aria-label="Add note to exhibit: ' + esc(ex.label) + '">+ note</text>');
+    h = 48;
   }
   return {svg: parts.join(''), h};
 }
@@ -114,7 +124,7 @@ export function render(model, ctx, opts = {}){
   if(typeof ctx.today === 'string')
     parts.push('<text x="' + (w - pad) + '" y="26" text-anchor="end" font-size="12" fill="' + c.muted + '">' +
       esc(ctx.today) + '</text>');
-  parts.push(statusTag(model, c, measure, w - pad, 48, true));
+  parts.push(statusTag(model, c, measure, w - pad, 48, true, opts));
   const n = model.exhibits.length, ln = model.lanes.length;
   parts.push('<text x="' + pad + '" y="58" font-size="12.5" fill="' + c.muted + '">' +
     n + ' exhibit' + (n === 1 ? '' : 's') + (ln ? ' · ' + ln + ' lane' + (ln === 1 ? '' : 's') : '') +
@@ -124,14 +134,19 @@ export function render(model, ctx, opts = {}){
 
   /* ---- the question, as standfirst ---- */
   if(model.question){
+    let first = true;
     for(const t of wrapText(model.question, '17px ' + SANS, inner - 180, measure)){
       parts.push('<text x="' + pad + '" y="' + y + '" font-size="17" fill="' + c.ink + '"' +
-        (opts.edit ? ' data-edit="question" data-line="' + (model.srcLines.question ?? -1) +
+        (opts.edit && first ? ' data-edit="question" data-line="' + (model.srcLines.question ?? -1) +
           '" data-raw="' + esc(model.question) + '" tabindex="0" role="button" aria-label="Edit the question"' : '') +
         '>' + esc(t) + '</text>');
-      y += 26;
+      y += 26; first = false;
     }
     y += 6;
+  } else if(opts.edit){
+    parts.push('<text x="' + pad + '" y="' + y + '" font-size="14" fill="' + c.muted +
+      '" opacity="0.55" data-edit="question" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add a question">+ question</text>');
+    y += 32;
   }
 
   /* ---- exhibit index, grouped by lane ---- */
@@ -161,7 +176,7 @@ export function render(model, ctx, opts = {}){
   if(!model.exhibits.length){
     y += 26;
     parts.push('<text x="' + pad + '" y="' + y + '" font-size="13" fill="' + c.muted +
-      '">No exhibits yet — paste a tool URL as “Label -&gt; url”.</text>');
+      '">Add exhibits in the source panel: “Label -&gt; tool URL”.</text>');
     y += 8;
   }
   y += 16;
@@ -195,7 +210,7 @@ export function renderNarrow(model, ctx, opts = {}){
   parts.push('<text x="' + pad + '" y="' + y + '" font-family="' + SERIF + '" font-size="20" font-weight="700" fill="' +
     c.ink + '">' + esc(model.title || 'Case file') + '</text>');
   y += 22;
-  parts.push(statusTag(model, c, measure, pad, y, false));
+  parts.push(statusTag(model, c, measure, pad, y, false, opts));
   const n = model.exhibits.length;
   parts.push('<text x="' + (pad + 90) + '" y="' + y + '" font-size="12" fill="' + c.muted + '">' +
     n + ' exhibit' + (n === 1 ? '' : 's') + '</text>');
@@ -209,6 +224,10 @@ export function renderNarrow(model, ctx, opts = {}){
         '>' + esc(t) + '</text>');
       y += 22; first = false;
     }
+  } else if(opts.edit){
+    parts.push('<text x="' + pad + '" y="' + y + '" font-size="14" fill="' + c.muted +
+      '" opacity="0.55" data-edit="question" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add a question">+ question</text>');
+    y += 22;
   }
   y += 4;
   parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y + '" stroke="' + c.border + '"/>');
@@ -248,6 +267,11 @@ export function renderNarrow(model, ctx, opts = {}){
           '>' + esc(t) + '</text>');
         firstN = false;
       }
+    } else if(opts.edit){
+      y += 18;
+      body.push('<text x="' + pad + '" y="' + y + '" font-size="12.5" fill="' + c.muted +
+        '" opacity="0.55" data-edit="note" data-line="' + ex.srcLine + '" data-raw="" tabindex="0" role="button"' +
+        ' aria-label="Add note to exhibit: ' + esc(ex.label) + '">+ note</text>');
     }
     parts.push(body.join(''));   // label/note: edit targets, never inside the link
     y += 8;

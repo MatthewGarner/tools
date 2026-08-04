@@ -6,7 +6,11 @@ const browser = await chromium.launch();
 const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
 const errors = trackErrors(page);
 const results = [];
-const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+const check = (name, ok) => {
+  const result = (ok ? 'PASS ' : 'FAIL ') + name;
+  results.push(result);
+  if(!ok) console.error(result); // keep actionable failures visible in long CI logs
+};
 
 /* Mobile-emulated contexts: locator.click() scrolls-then-clicks as one step, and a
    trailing scroll-settle event can still land AFTER the click dispatches — racing
@@ -540,28 +544,38 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('why: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
-  /* ---- outcome + opportunity cards: the guard-widen review flagged that
-     cardmenu-outcome/-opportunity do NOT start with 'card-', so without
-     widening the onCommit guard their Add/Remove rows would silently fall
-     through to the label rewrite instead of acting. Prove each kind's menu
-     carries its own Add label AND that Add/Remove actually commit. Status…
-     is a dead row on these two (no status pill on outcomes/opportunities) —
-     same accepted no-op as roadmap's note-less "Edit note…" row. ---- */
+  /* ---- outcome + opportunity cards: these have no status field, so their
+     menus must not offer a dead Status… row. Add inserts a default then opens
+     the NEW label inside the artefact (not the DSL); Escape removes that exact
+     untouched default. ---- */
   await tapCard(1);   // outcome: "Improve 90-day retention"
   await p.waitForTimeout(200);
-  check('why: outcome card menu carries the outcome Add label',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add opportunity|Remove branch');
+  check('why: outcome card menu carries only real actions',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add opportunity|Remove branch');
   await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
   await p.waitForTimeout(600);
   const tOutAdd = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: outcome menu Add opportunity inserts a new opportunity line', tOutAdd.includes('New opportunity'));
+  check('why: outcome Add opens the fresh inline artifact field, not the DSL',
+    tOutAdd.includes('New opportunity') && await p.locator('.eip-input').inputValue() === 'New opportunity' &&
+    !(await p.evaluate(() => !!document.activeElement?.closest('.cm-editor'))));
+  await p.keyboard.press('Escape'); await p.waitForTimeout(600);
+  check('why: Escape cancels the untouched default opportunity',
+    (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+  await tapCard(1); await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
+  await p.waitForTimeout(500);
+  await p.locator('.eip-input').fill('Retention value is unclear');
+  await p.keyboard.press('Enter'); await p.waitForTimeout(600);
+  check('why: Enter commits the in-place opportunity name',
+    (await p.evaluate(() => localStorage.getItem('why-src'))).includes('Retention value is unclear'));
   await undo();
-  check('why: one undo restores the pre-add baseline (outcome)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+  await undo();
+  check('why: two undo steps restore the named add (rename, then creation)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(16);   // opportunity leaf "Progress feels invisible" — no children, safe to remove alone
   await p.waitForTimeout(200);
-  check('why: opportunity card menu carries the opportunity Add label',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add solution|Remove branch');
+  check('why: opportunity card menu carries no dead Status action',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add solution|Remove branch');
   await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await p.waitForTimeout(600);
   const tOppRemove = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -1578,8 +1592,8 @@ check('no console/page errors', errors.length === 0);
   const trayBox = await trayHit.boundingBox();
   await p.mouse.click(trayBox.x + 4, trayBox.y + trayBox.height / 2);
   await p.waitForTimeout(200);
-  check('map: tray card menu offers Place on map…',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Place on map…|Remove');
+  check('map: tray card menu offers only reachable actions, including Place on map…',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Place on map…|Remove');
   await p.locator('.eip-pop button', {hasText: 'Place on map…'}).click();
   await p.waitForTimeout(250);
   await p.mouse.click(plane0.x + plane0.width * 0.6, plane0.y + plane0.height * 0.3);
@@ -1823,8 +1837,10 @@ check('no console/page errors', errors.length === 0);
     lines7.slice(cacheIdx + 1, firstEdgeIdx7).every(l => l.trim() === ''));
   check('wardley: added component renders in the map',
     (await wpage.locator('#preview svg').innerHTML()).includes('Cache'));
-  check('wardley: fine-pointer add focuses the editor', await wpage.evaluate(() =>
-    !!document.activeElement && !!document.activeElement.closest('.cm-editor')));
+  check('wardley: pre-entry add returns focus to the fresh artifact component, not the editor', await wpage.evaluate(() =>
+    document.activeElement?.dataset.edit === 'name' &&
+    document.activeElement?.dataset.raw === 'Cache' &&
+    !document.activeElement.closest('.cm-editor')));
 
   // component menu: tap Cache's ⋯ → danger row removes the declaration + any edge mentions
   await wpage.locator('[data-edit="componentmenu"][data-raw="Cache"]').first().click();
@@ -2381,10 +2397,16 @@ insure: premium 6 attach 65 limit 30`;
     (await rkSrc()) === rkBase);
   await rkBtn('Insure');
   check('risk narrow: picking Insure appends a merchant-derived leg', /^insure: premium 6 attach 66$/m.test(await rkSrc()));
-  check('risk narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
-    !document.activeElement || !document.activeElement.closest('.cm-editor')));
-  await rkUndo();
-  check('risk narrow: one Undo removes the added leg', (await rkSrc()) === rkBase);
+  check('risk narrow: default add opens the fresh in-artifact label, never CodeMirror',
+    await mpage.locator('.eip-input').count() === 1 && !(await mpage.evaluate(() =>
+      document.activeElement?.closest('.cm-editor'))));
+  await mpage.keyboard.press('Escape'); await mpage.waitForTimeout(500);
+  check('risk narrow: Escape cancels the untouched added leg', (await rkSrc()) === rkBase);
+  await rkTap('[data-edit="addleg"]'); await rkBtn('Insure');
+  await mpage.locator('.eip-input').fill('Named cover'); await mpage.keyboard.press('Enter'); await mpage.waitForTimeout(400);
+  check('risk narrow: naming the new leg is a second, in-artifact edit', /insure: premium 6 attach 66 "Named cover"$/m.test(await rkSrc()));
+  await rkUndo(); await rkUndo();
+  check('risk narrow: two Undos revert named creation (name, then leg)', (await rkSrc()) === rkBase);
 
   // the whole card still toggles the focus verdict via an empty-area tap (data-focus)
   const vBefore = await mpage.evaluate(() => document.getElementById('verdict').textContent);
@@ -2965,9 +2987,16 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await gBtn('Chips');
   check('gauge: picking Chips appends a 2-option chips question',
     /\nNew question :: chips Option A \| Option B$/.test(await gSrc()));
-  check('gauge: coarse add-question opts OUT of editor focus', !(await inCm()));
-  await gUndo();
-  check('gauge: one Undo removes the added question', (await gSrc()) === gBase);
+  check('gauge: default question opens its fresh in-artifact name field, not CodeMirror',
+    await mpage.locator('.eip-input').count() === 1 && !(await inCm()));
+  await mpage.keyboard.press('Escape'); await mpage.waitForTimeout(500);
+  check('gauge: Escape cancels the untouched new question', (await gSrc()) === gBase);
+  await gTap('[data-edit="addq"]'); await gBtn('Chips');
+  await mpage.locator('.eip-input').fill('Where should we invest?'); await mpage.keyboard.press('Enter'); await mpage.waitForTimeout(400);
+  check('gauge: naming the new question is a second in-artifact edit',
+    /\nWhere should we invest\? :: chips Option A \| Option B$/.test(await gSrc()));
+  await gUndo(); await gUndo();
+  check('gauge: two Undos revert named question creation (name, then question)', (await gSrc()) === gBase);
 
   // --- remove QUESTION: coarse danger confirm ---
   await gTap('[data-edit="removeq"][data-line="3"]');

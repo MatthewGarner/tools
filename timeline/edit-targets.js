@@ -118,6 +118,15 @@ export function addItemLine(text, todayISO, lane){
   return {afterLine: Math.max(0, last), newLine, select: 'New milestone'};
 }
 
+/* Exact rendered identity of a milestone inserted from the artefact. Source
+   lines in /timeline are 0-based, so a line inserted after `afterLine` renders
+   at afterLine + 1. Keeping this as a pure companion to addItemLine prevents
+   the app from guessing line conventions while it waits for the fresh SVG. */
+export function addedItemTarget(add, label){
+  return {kind: 'label', line: add.afterLine + 1,
+    data: {raw: String(label || 'New milestone').trim() || 'New milestone'}};
+}
+
 export function removeItemLine(text, srcLine){
   return parse(text).items.some(i => i.srcLine === srcLine);
 }

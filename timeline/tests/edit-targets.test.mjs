@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, removeItemLine}
+import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, addedItemTarget, removeItemLine}
   from '../edit-targets.js';
 
 test('validators: labels reject dates/config/brackets; dates accept 1–2 parseable dates', () => {
@@ -50,6 +50,12 @@ test('addItemLine with a lane that has no items falls back to the whole-document
   const r = addItemLine(doc, '2026-07-10', 'Build');
   assert.equal(r.afterLine, 0);
   assert.equal(r.newLine, 'New milestone 2026-08 .. 2026-10');
+});
+
+test('addedItemTarget preserves timeline\'s 0-based line and exact committed label', () => {
+  const add = addItemLine('title: T\nGrid: Offer 2026-08 .. 2026-10', '2026-07-10');
+  assert.deepEqual(addedItemTarget(add, '  Signed contract  '),
+    {kind: 'label', line: 2, data: {raw: 'Signed contract'}});
 });
 
 test('removeItemLine: only item lines are removable', () => {

@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addQuestionLine, removeQuestionLine,
+  addedQuestionTarget, isUntouchedQuestionAdd,
   renameQuestion, setType, setUnit, renameOption, addOption, removeOption,
 } from '../edit-targets.js';
 import {parse} from '../parse.js';
@@ -33,6 +34,17 @@ test('addQuestionLine takes a type: range/chips get sensible starter tails', () 
   // each template round-trips to the intended type
   assert.equal(parse(addQuestionLine(doc, 'range').newLine).questions[0].type, 'range');
   assert.equal(parse(addQuestionLine(doc, 'chips').newLine).questions[0].type, 'chips');
+});
+
+test('a fresh question exposes its exact in-place target and guarded cancel identity', () => {
+  const add = addQuestionLine(doc, 'range');
+  const line = add.afterLine + 1;
+  const lines = doc.split('\n');
+  lines.splice(line, 0, add.newLine);
+  const inserted = lines.join('\n');
+  assert.deepEqual(addedQuestionTarget(add), {kind: 'qtext', line});
+  assert.equal(isUntouchedQuestionAdd(inserted, line, add.newLine), true);
+  assert.equal(isUntouchedQuestionAdd(inserted.replace('New question', 'Edited'), line, add.newLine), false);
 });
 
 test('removeQuestionLine accepts only question lines', () => {

@@ -4,7 +4,7 @@ import {EditorState} from '../../roadmap/vendor/codemirror.js';
 import {lineOpsChanges} from '../../assets/editor-common.js';
 import {parse} from '../parse.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
-  addComponent, removeComponent, addEdge, removeEdge} from '../edit-targets.js';
+  addComponent, addedComponentTarget, removeComponent, addEdge, removeEdge} from '../edit-targets.js';
 
 const DOC = `title: T
 anchor: Need
@@ -119,6 +119,12 @@ test('addComponent: config-only doc → after the config block', () => {
 });
 test('addComponent: empty doc → line 0', () => {
   assert.equal(addComponent('', 'B', 'custom').afterLine, 0);
+});
+
+test('addedComponentTarget preserves wardley\'s 0-based line and exact name', () => {
+  const add = addComponent(HABITAT, 'Cache', 'commodity');
+  assert.deepEqual(addedComponentTarget(add, ' Cache '),
+    {kind: 'name', line: add.afterLine + 1, data: {raw: 'Cache'}});
 });
 test('removeComponent: declaration deleted, 3-chain spliced, 2-chain line deleted', () => {
   const ops = removeComponent(HABITAT, 4, 'Streak engine');

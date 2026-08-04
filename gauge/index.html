@@ -70,6 +70,7 @@
       </div>
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <p id="editstatus" class="sr-only" aria-live="polite"></p>
       <p class="headline" id="revealhead" aria-live="polite" aria-atomic="true"></p>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
@@ -105,7 +106,7 @@
     <p class="sharelabel">Join link — drop it in the meeting chat</p>
     <div class="linkrow">
       <input id="joinlink" readonly aria-label="Join link">
-      <button class="btn" id="copylink">Copy</button>
+      <button class="btn" id="copylink" disabled>Copy</button>
     </div>
     <p class="hint">This tab is the facilitator console — its URL is your facilitator link (bookmark-safe; sessions live 24 hours).</p>
   </div>

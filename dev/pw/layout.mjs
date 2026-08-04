@@ -67,6 +67,12 @@ for(const {path, chip, view} of TOOLS){
   await page.waitForTimeout(350);
   const zoomedW = (await page.locator('#preview svg').evaluate(s => s.getBoundingClientRect().width));
   check(path + ' zoom + enlarges beyond fit', zoomedW > fitW * 1.05 || zoomedW > (await page.locator('.preview').evaluate(p => p.clientWidth)));
+  await page.locator('.zoomctl button', {hasText: '100%'}).click();
+  for(let i = 0; i < 5; i++) await page.locator('.zoomctl button', {hasText: '+'}).click();
+  check(path + ' zoom has a disabled maximum endpoint', await page.locator('.zoomctl button', {hasText: '+'}).isDisabled());
+  await page.locator('.zoomctl button', {hasText: '100%'}).click();
+  for(let i = 0; i < 4; i++) await page.locator('.zoomctl button', {hasText: '−'}).click();
+  check(path + ' zoom has a disabled minimum endpoint', await page.locator('.zoomctl button', {hasText: '−'}).isDisabled());
   await page.locator('.zoomctl button', {hasText: 'Fit'}).click();
   await page.waitForTimeout(500);
   check(path + ' Fit restores', Math.abs((await svgW()) - fitW) < 8);

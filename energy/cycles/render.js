@@ -164,6 +164,8 @@ export function render(model, out, ctx, {edit = false} = {}){
   const b3w = (model.augment && out.augment) ? [
     pillW('augment ' + numStr(model.augment.lo / 1000) + '..' + numStr(model.augment.hi / 1000) + ' £/kWh'),
     ...(model.drift ? [pillW('drift ' + numStr(model.drift.lo * 100) + '..' + numStr(model.drift.hi * 100) + '%/yr')] : []),
+    ...(edit && isNarrow && model.srcLines.discount != null
+      ? [rangePW('discount', numStr(model.discount.lo * 100), numStr(model.discount.hi * 100), '%')] : []),
     ...(out.augment.pNever > 0.15 ? [pillW('never pays 0/10')] : [])] : [];
   const b1Rows = isNarrow ? flowRows(b1w) : 2;
   const b2Rows = isNarrow ? flowRows(b2w) : 1;
@@ -332,6 +334,9 @@ export function render(model, out, ctx, {edit = false} = {}){
     if(model.drift) px += pill(px, y + b3h - wrapN(vA) * 22 - 36,
       'drift ' + numStr(model.drift.lo * 100) + '..' + numStr(model.drift.hi * 100) + '%/yr',
       {field: 'driftHi', raw: numStr(model.drift.hi * 100), line: ln('drift')});
+    if(edit && isNarrow && model.srcLines.discount != null)
+      px += rangePill(px, y + b3h - wrapN(vA) * 22 - 36, 'discount',
+        numStr(model.discount.lo * 100), numStr(model.discount.hi * 100), 'disc', ln('discount'), '%');
     if(out.augment.pNever > 0.15) pill(px, y + b3h - wrapN(vA) * 22 - 36,
       'never pays ' + Math.round(out.augment.pNever * 10) + '/10', {col: C.muted});
     parts.push('<rect x=\'48\' y=\'' + (y + b3h - wrapN(vA) * 22 - 6) + '\' width=\'4\' height=\'' + (wrapN(vA) * 22) + '\' fill=\'' + accent + '\'/>');

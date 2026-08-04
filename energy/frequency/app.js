@@ -7,8 +7,8 @@ import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../../assets/app-common.js';
 import {wireExports} from '../../assets/exports.js';
-import {rafBatched} from '../../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../assets/verdict.js';
+import {traceMotionMode} from './interaction.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -16,7 +16,7 @@ async function boot(){
   const $ = id => document.getElementById(id);
   const IDS = ['inertia', 'trip', 'dr', 'dm', 'dc', 'gfm'];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  let lastSvg = '', rafId = 0, hashTimer = null;
+  let lastSvg = '', rafId = 0, inputRaf = 0, hashTimer = null;
   let lastResult = null, lastParams = null;
 
   // hot-path DOM queries: both node lists are static (fixed markup, no
@@ -93,8 +93,8 @@ async function boot(){
       $('deltas').textContent = '';
     }
     lastSvg = renderTrace(result, p, {colors: themeColors(), measure});
-    const still = reducedMotion.matches || !animate;
-    drawCanvas(result, p, still ? Infinity : 0);   // Infinity = draw fully at once
+    const still = traceMotionMode({reduced: reducedMotion.matches, hidden: document.hidden, animate}) === 'still';
+    drawCanvas(result, p, still ? Infinity : 0, still);   // Infinity = draw fully at once
     clearTimeout(hashTimer);
     hashTimer = setTimeout(() => writeHashState({
       i: v.inertia, tr: v.trip, dr: v.dr, dm: v.dm, dc: v.dc, g: v.gfm}), 400);
@@ -104,7 +104,7 @@ async function boot(){
 
   /* Animate the fall: reveal the trace up to a moving time cursor.
      Annotation set mirrors render.js's renderTrace — keep the two consistent. */
-  function drawCanvas(result, p, fromTime){
+  function drawCanvas(result, p, fromTime, immediate = false){
     cancelAnimationFrame(rafId);
     const cv = $('trace'), dpr = devicePixelRatio || 1;
     const w = cv.clientWidth, h = cv.clientHeight;
@@ -208,7 +208,8 @@ async function boot(){
 
       if(cursor < tEnd) rafId = requestAnimationFrame(frame);
     };
-    rafId = requestAnimationFrame(frame);
+    if(immediate) frame(performance.now());
+    else rafId = requestAnimationFrame(frame);
   }
 
   // wiring
@@ -216,28 +217,45 @@ async function boot(){
   // frame, each triggering up to 7 full 3000-step ODE integrations (simulate
   // + leverDeltas's 5x + the ghost); coalesce N events/frame to one refresh.
   // No delay (unlike the 120ms debounce elsewhere) — a slider wants immediacy.
-  const scheduleRefresh = rafBatched(() => {
-    for(const c of presetChips) c.classList.remove('on');
+  const scheduleRefresh = () => {
+    for(const c of presetChips){ c.classList.remove('on'); c.setAttribute('aria-pressed', 'false'); }
+    if(inputRaf) return;
+    inputRaf = requestAnimationFrame(() => { inputRaf = 0; refresh(false); });
+  };
+  const ensureFresh = () => {
+    if(!inputRaf) return;
+    cancelAnimationFrame(inputRaf); inputRaf = 0;
     refresh(false);
-  });
+  };
   for(const id of IDS) $(id).addEventListener('input', scheduleRefresh);
   $('tripbtn').addEventListener('click', () => refresh(true));
   for(const btn of presetChips){
     btn.addEventListener('click', () => {
       const preset = PRESETS[btn.dataset.preset];
       for(const id of IDS) $(id).value = preset[id];
-      for(const c of presetChips) c.classList.toggle('on', c === btn);
+      for(const c of presetChips){
+        const selected = c === btn;
+        c.classList.toggle('on', selected);
+        c.setAttribute('aria-pressed', String(selected));
+      }
       refresh(true);
     });
   }
+  for(const c of presetChips) c.setAttribute('aria-pressed', String(c.classList.contains('on')));
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
-    getSvg: () => lastSvg,
-    getMarkdown: () => toMarkdown(lastResult, lastParams),
+    getSvg: () => { ensureFresh(); return lastSvg; },
+    getMarkdown: () => { ensureFresh(); return toMarkdown(lastResult, lastParams); },
     slug: () => 'frequency-inertia',
   });
   onThemeChange(() => refresh(false));
-  addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity); });
+  addEventListener('resize', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true); });
+  reducedMotion.addEventListener('change', () => { if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true); });
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden) cancelAnimationFrame(rafId);
+    else if(inputRaf){ cancelAnimationFrame(inputRaf); inputRaf = 0; refresh(false); }
+    else if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true);
+  });
 
   // restore state from the URL, else default (guard s.dr/s.dm for older links
   // saved before those levers existed)

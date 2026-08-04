@@ -46,6 +46,7 @@ export function fitReadabilityDecision({naturalWidth,fitWidth,declaredMinScale})
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
   let focusArtefact = false;
+  const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
 
   function svgEl(){ return preview.querySelector('svg'); }
   function naturalWidth(svg){
@@ -147,11 +148,14 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   new ResizeObserver(applyZoom).observe(preview);
   addEventListener('resize', applyZoom);
   function setZoom(z){
+    if(typeof z === 'number') z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
     zoom = z;
     for(const b of zoomHost.querySelectorAll('button')){
       const active = b.dataset.z === String(z);
       b.classList.toggle('on', active);
       b.setAttribute('aria-pressed', String(active));   // a SR user hears which zoom is active
+      if(b.dataset.z === 'minus') b.disabled = typeof zoom === 'number' && zoom <= MIN_ZOOM;
+      if(b.dataset.z === 'plus') b.disabled = typeof zoom === 'number' && zoom >= MAX_ZOOM;
     }
     applyZoom();
   }

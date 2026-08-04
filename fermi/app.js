@@ -15,6 +15,7 @@ import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {effectiveHorizon, cashflowHashState, cashflowTailNote} from './interactions.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -46,6 +47,14 @@ let curLayout = null;                 // the live histLayout (px/inv) so a drag 
 let draggingHandle = false;           // suppresses click-to-set + hover tooltip during a threshold drag
 let confessSnapshot = null;           // pre-Adopt varState snapshot for the one-shot Undo
 const $ = id => document.getElementById(id);
+const estimateExampleButtons = [], cashflowExampleButtons = [];
+function syncExampleButtons(buttons, selected = null){
+  for(const b of buttons){
+    const on = b.dataset.example === selected;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
 
 /* ---------- scenarios (A/B compare) ---------- */
 let active = 'A';
@@ -216,8 +225,9 @@ function writeHash(){
   const state = compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
     : packScen(scenStore.A);
-  writeHashState(state);
+  return writeHashState(state);
 }
+function flushEstimateHash(){ clearTimeout(hashTimer); return writeHash(); }
 
 /* ---------- variable rows ---------- */
 let varRowsSig = '';
@@ -328,7 +338,17 @@ function drawSparks(){
 
 /* ---------- lint / compute ---------- */
 let timer = null;
-function schedule(ms){ clearTimeout(timer); timer = setTimeout(lint, ms); }
+function schedule(ms){
+  syncExampleButtons(estimateExampleButtons);
+  clearTimeout(timer);
+  $('results').classList.add('is-stale');
+  timer = setTimeout(() => { timer = null; lint(); }, ms);
+}
+function ensureFreshEstimate(){
+  if(!timer) return;
+  clearTimeout(timer); timer = null;
+  lint();
+}
 
 function showPlaceholder(msg){
   $('ph').textContent = msg;
@@ -553,7 +573,7 @@ $('viewdist').addEventListener('click', () => { view = 'dist'; applyView(); });
 $('viewtree').addEventListener('click', () => { view = 'tree'; applyView(); });
 const treeSlug = () => 'drivers-' + ($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model');
 wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
-  getSvg: () => lastTreeSvg || null, slug: treeSlug});
+  getSvg: () => { ensureFreshEstimate(); return lastTreeSvg || null; }, slug: treeSlug});
 
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
@@ -786,10 +806,7 @@ function replay(){
   $('pourverdict').textContent = v.text;
   pour.play(trace, layout, rows, colors, {reduced: reducedMotion(), dom: v.topName});
 }
-$('replay').addEventListener('click', replay);
-// press-and-hold on the P50 tile is the accelerator (pointerdown only — not also click)
-$('p50').addEventListener('pointerdown', e => { e.preventDefault(); replay(); });
-$('p50').addEventListener('contextmenu', e => { e.preventDefault(); });
+$('replay').addEventListener('click', () => { ensureFreshEstimate(); replay(); });
 
 /* ---------- "What must be true" — the confession ---------- */
 let lastConfess = null;   // {c, T} cache so a theme flip repaints without re-solving
@@ -905,16 +922,22 @@ for(const ex of EXAMPLES){
   const b = document.createElement('button');
   b.className = 'chip';
   b.textContent = ex.name;
+  b.dataset.example = ex.name;
+  b.setAttribute('aria-pressed', 'false');
   b.addEventListener('click', () => {
+    syncExampleButtons(estimateExampleButtons, ex.name);
     $('formula').value = ex.f;
     for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist:'auto'});
     varRowsSig = '';
     lint();
   });
+  estimateExampleButtons.push(b);
   $('chips').appendChild(b);
 }
 $('copy').addEventListener('click', async () => {
+  ensureFreshEstimate();
   if(!last) return;
+  await flushEstimateHash();
   const txt = 'P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' (spread ×' + sig(last.p90 / last.p10, 2) + ')' : '') +
     ' — ' + $('formula').value + ' — ' + location.href;
@@ -927,7 +950,9 @@ $('copy').addEventListener('click', async () => {
   }
 });
 $('copydoc').addEventListener('click', async () => {
+  ensureFreshEstimate();
   if(!last) return;
+  await flushEstimateHash();
   const lines = [];
   lines.push('**Estimate — `' + $('formula').value.trim() + '`**');
   lines.push('');
@@ -969,6 +994,7 @@ $('copydoc').addEventListener('click', async () => {
   }
 });
 $('png').addEventListener('click', () => {
+  ensureFreshEstimate();
   if(!last) return;
   const src = $('hist');
   const C = themeColors();
@@ -1001,6 +1027,7 @@ function renderSaved(){
     title: m => m.f,
     deleteLabel: m => 'Delete saved model ' + m.name,
     onLoad: m => {
+      syncExampleButtons(estimateExampleButtons);
       $('formula').value = m.f;
       for(const [k, p] of Object.entries(m.v || {})){
         varState.set(k, {lo:String(p[0] ?? ''), hi:String(p[1] ?? ''), dist:p[2] || 'auto'});
@@ -1021,6 +1048,7 @@ function renderSaved(){
   save.className = 'chip';
   save.textContent = '＋ Save current';
   save.addEventListener('click', () => {
+    ensureFreshEstimate();
     const f = $('formula').value.trim();
     if(!f) return;
     const v = {};
@@ -1060,6 +1088,7 @@ if(boot && boot.a && boot.b){
   // hash-safe — writeHash() no-ops until the first real interaction (shouldPersist).
   autoloadExample(() => {
     const ex = EXAMPLES[0];
+    syncExampleButtons(estimateExampleButtons, ex.name);
     $('formula').value = ex.f;
     for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist: 'auto'});
     varRowsSig = '';
@@ -1109,6 +1138,7 @@ $('modeest').addEventListener('click', () => { if(pageMode !== 'est'){ setMode('
 $('modecf').addEventListener('click', () => { if(pageMode !== 'cf'){ setMode('cf'); cfWriteHashSafe(); } });
 
 function renderCfRows(){
+  cf.horizon = effectiveHorizon(cf.horizon, cf.periods.length);
   const holder = $('cfrows');
   holder.textContent = '';
   cf.periods.forEach((p, i) => {
@@ -1136,8 +1166,7 @@ function renderCfRows(){
     } else row.appendChild(document.createElement('div'));
     holder.appendChild(row);
   });
-  $('cftailnote').textContent = 't' + cf.periods.length + '…t' + cf.horizon +
-    ' repeat the t' + (cf.periods.length - 1) + ' range';
+  $('cftailnote').textContent = cashflowTailNote(cf.horizon, cf.periods.length);
   $('cfgrain').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.g === cf.grain));
   $('cfrlo').value = cf.rlo; $('cfrhi').value = cf.rhi; $('cfhorizon').value = cf.horizon;
   $('cfdebton').checked = cf.debtOn;
@@ -1162,10 +1191,16 @@ for(const id of ['cfrlo', 'cfrhi']) $(id).addEventListener('input', () => {
   cf.rlo = $('cfrlo').value; cf.rhi = $('cfrhi').value; cfSchedule();
 });
 $('cfhorizon').addEventListener('input', () => {
-  cf.horizon = Math.max(1, Math.min(60, parseInt($('cfhorizon').value, 10) || cf.periods.length - 1));
-  $('cftailnote').textContent = 't' + cf.periods.length + '…t' + cf.horizon +
-    ' repeat the t' + (cf.periods.length - 1) + ' range';
+  const typed = Number.parseInt($('cfhorizon').value, 10);
+  if(Number.isFinite(typed)) cf.horizon = typed;
+  $('cftailnote').textContent = cashflowTailNote(
+    effectiveHorizon(cf.horizon, cf.periods.length), cf.periods.length);
   cfSchedule();
+});
+$('cfhorizon').addEventListener('change', () => {
+  cf.horizon = effectiveHorizon($('cfhorizon').value, cf.periods.length);
+  $('cfhorizon').value = cf.horizon;
+  $('cftailnote').textContent = cashflowTailNote(cf.horizon, cf.periods.length);
 });
 $('cfdebton').addEventListener('change', () => {
   cf.debtOn = $('cfdebton').checked;
@@ -1175,7 +1210,16 @@ $('cfdebton').addEventListener('change', () => {
 for(const [id, key] of [['cfdscr', 'dscr'], ['cfrd', 'rd'], ['cften', 'tenor']])
   $(id).addEventListener('input', () => { cf[key] = $(id).value; cfSchedule(); });
 $('cfcase').addEventListener('change', () => { cf.sizingCase = $('cfcase').value; cfSchedule(); });
-function cfSchedule(){ clearTimeout(cfTimer); cfTimer = setTimeout(cfPaint, 150); }
+function cfSchedule(){
+  syncExampleButtons(cashflowExampleButtons);
+  clearTimeout(cfTimer);
+  cfTimer = setTimeout(() => { cfTimer = null; cfPaint(); }, 150);
+}
+function ensureFreshCashflow(){
+  if(!cfTimer) return;
+  clearTimeout(cfTimer); cfTimer = null;
+  cfPaint();
+}
 
 function cfParse(){
   const periods = [];
@@ -1203,6 +1247,8 @@ function cfPaint(){
     cfResult = null; cfSig = ''; cfSvg = '';
     $('cftout').textContent = '—';
     $('cfdebtbox').hidden = true;
+    clearTimeout(cfHashTimer);
+    cfHashTimer = setTimeout(cfWriteHash, 400);
     return;
   }
   const sig = JSON.stringify(spec);
@@ -1231,13 +1277,16 @@ function cfRenderThresh(){
   const p = (s.length - lo) / s.length;
   el.textContent = p < 0.001 ? '<0.1%' : p > 0.999 ? '>99.9%' : (p * 100).toFixed(p < 0.095 ? 1 : 0) + '%';
 }
-$('cftin').addEventListener('input', cfRenderThresh);
+$('cftin').addEventListener('input', () => { cfRenderThresh(); cfWriteHashSafe(); });
 
 for(const ex of CF_EXAMPLES){
   const b = document.createElement('button');
   b.className = 'chip';
   b.textContent = ex.name;
+  b.dataset.example = ex.name;
+  b.setAttribute('aria-pressed', 'false');
   b.addEventListener('click', () => {
+    syncExampleButtons(cashflowExampleButtons, ex.name);
     cf.grain = ex.grain; cf.horizon = ex.horizon; cf.rlo = ex.rlo; cf.rhi = ex.rhi;
     cf.periods = ex.periods.map(p => ({...p}));
     cf.debtOn = !!ex.debtOn;
@@ -1246,14 +1295,18 @@ for(const ex of CF_EXAMPLES){
     renderCfRows();
     cfPaint();
   });
+  cashflowExampleButtons.push(b);
   $('cfchips').appendChild(b);
 }
 
 wireExports({buttons: {dlsvg: $('cfsvg'), dlpng: $('cfpng'), copypng: $('cfcopypng')},
-  getSvg: () => cfSvg || null,
+  getSvg: () => { ensureFreshCashflow(); return cfSvg || null; },
   slug: () => cfResult && cfResult.framing === 'runway' ? 'runway' : 'cashflow-npv'});
 $('cfcopydoc').addEventListener('click', async () => {
+  ensureFreshCashflow();
   if(!cfResult) return;
+  clearTimeout(cfHashTimer);
+  await cfWriteHash();
   const md = cashflowMarkdown(cfResult, cfSpec, location.href);
   try{
     await navigator.clipboard.writeText(md);
@@ -1263,13 +1316,7 @@ $('cfcopydoc').addEventListener('click', async () => {
 });
 
 function cfWriteHash(){
-  const state = {m: 'cf', g: cf.grain, h: cf.horizon, rl: cf.rlo, rh: cf.rhi,
-    p: cf.periods.map(p => [p.lo, p.hi])};
-  if(cf.debtOn){
-    state.d1 = 1; state.dscr = cf.dscr; state.rd = cf.rd; state.dcase = cf.sizingCase;
-    if(cf.tenor) state.ten = cf.tenor;
-  }
-  writeHashState(state);
+  return writeHashState(cashflowHashState(cf, $('cftin').value));
 }
 function cfWriteHashSafe(){ clearTimeout(cfHashTimer); cfHashTimer = setTimeout(cfWriteHash, 100); }
 
@@ -1282,6 +1329,8 @@ if(boot && boot.m === 'cf'){
   if(Array.isArray(boot.p) && boot.p.length){
     cf.periods = boot.p.slice(0, 61).map(pair => ({lo: String(pair[0] ?? ''), hi: String(pair[1] ?? '')}));
   }
+  cf.horizon = effectiveHorizon(cf.horizon, cf.periods.length);
+  if(typeof boot.ct === 'string') $('cftin').value = boot.ct;
   if(boot.d1){
     cf.debtOn = true;
     if(typeof boot.dscr === 'string') cf.dscr = boot.dscr;

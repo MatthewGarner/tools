@@ -148,28 +148,35 @@ const ws = initWorkspace({
 /* ---------- view toggle ---------- */
 function setView(v){
   view = v;
-  $('viewost').classList.toggle('on', v === 'ost');
-  $('viewmap').classList.toggle('on', v === 'map');
-  $('viewost').setAttribute('aria-selected', String(v === 'ost'));
-  $('viewmap').setAttribute('aria-selected', String(v === 'map'));
+  syncViewToggle();
   lastSvg = ''; paint.reset();
   refresh();
+}
+function syncViewToggle(){
+  $('viewost').classList.toggle('on', view === 'ost');
+  $('viewmap').classList.toggle('on', view === 'map');
+  $('viewost').setAttribute('aria-selected', String(view === 'ost'));
+  $('viewmap').setAttribute('aria-selected', String(view === 'map'));
 }
 $('viewost').addEventListener('click', () => setView('ost'));
 $('viewmap').addEventListener('click', () => setView('map'));
 
-attachEditInPlace($('preview'), {
+const whyEip = attachEditInPlace($('preview'), {
   kinds: {
     status: {options: SOLUTION_STATUSES},
     astatus: {cycle: ASSUMPTION_CYCLE},
     label: {validate: eipValidators.label},
     title: {validate: eipValidators.label},   // map-view card titles are labels
-    /* card menu supersedes the old card-<kind> action popover (single Add +
-       Remove) with Rename/Status/Add/Remove; opens:'status' is dead for
-       outcome/opportunity cards (only solutions carry a status pill) — same
-       accepted no-op as roadmap's note-less "Edit note…" row */
-    'cardmenu-outcome': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'opportunity'}),
-    'cardmenu-opportunity': cardMenu({field: {label: 'Status…', opens: 'status'}, add: 'solution'}),
+    /* Outcomes and opportunities have no status field. Keep their menus honest:
+       a menu row must either open a real target or make a real source change. */
+    'cardmenu-outcome': {menu: [
+      {label: 'Rename…', opens: 'label'}, {label: '＋ Add opportunity', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
+    'cardmenu-opportunity': {menu: [
+      {label: 'Rename…', opens: 'label'}, {label: '＋ Add solution', action: true},
+      {label: 'Remove branch', action: true, danger: true},
+    ]},
     /* dynamic: base Rename/Status/＋ Add rows plus one submenu row per
        assumption (status picker + danger remove), resolved fresh from the
        current model each time the menu opens — app-menu.js's solutionMenu. */
@@ -187,12 +194,16 @@ attachEditInPlace($('preview'), {
     ]},
     removeassump: {cycle: ['×']},
   },
-  onCommit(kind, lineNo, oldRaw, newValue){
+  onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind.startsWith('cardmenu')){
       if(newValue.startsWith('✖＋ Add')){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
-        insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        const inserted = insertAndSelect(editor, r.afterLine, r.newLine, r.select);
+        whyEip.openAt({kind: 'label', line: inserted.srcLine}, {
+          origin: el,
+          onCancel(){ editor.removeLine(inserted.srcLine); },
+        });
       } else if(newValue === '✖Remove branch'){
         const rr = subtreeRange(editor.getText(), lineNo);
         if(rr) editor.removeLines(rr.from, rr.to);
@@ -271,8 +282,7 @@ watchNarrowBucket(previewEl, rerender);
     try{ text = localStorage.getItem('why-src') || ''; }catch(e){}
   }
   renderSaved();
-  $('viewost').classList.toggle('on', view === 'ost');
-  $('viewmap').classList.toggle('on', view === 'map');
+  syncViewToggle();
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();

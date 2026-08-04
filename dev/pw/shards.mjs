@@ -16,7 +16,7 @@
    install chromium only (which also trims their apt-deps step). */
 export const SHARDS = [
   {name: 'smoke',         suites: ['smoke.mjs'],                          browsers: 'chromium'},
-  {name: 'eip',           suites: ['check-eip.mjs', 'map.mjs'],           browsers: 'chromium'},
+  {name: 'eip',           suites: ['check-eip.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium'},
   {name: 'mobile-core',   suites: ['mobile.mjs', 'check.mjs', 'pwa.mjs'], browsers: 'chromium'},
   {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs'],           browsers: 'chromium webkit'},
   {name: 'layout-gauge',  suites: ['layout.mjs', 'gauge.mjs'],            browsers: 'chromium'},
@@ -31,7 +31,7 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
 export const SUITE_SECONDS = {
   'smoke.mjs': 138, 'check-eip.mjs': 124, 'mobile.mjs': 88, 'motion.mjs': 81,
   'layout.mjs': 77, 'webkit.mjs': 45, 'gauge.mjs': 27, 'check.mjs': 25,
-  'pwa.mjs': 19, 'map.mjs': 8,
+  'pwa.mjs': 19, 'map.mjs': 8, 'case.mjs': 4,
 };
 
 /* `node shards.mjs --json` → the GitHub Actions matrix (single line on stdout).

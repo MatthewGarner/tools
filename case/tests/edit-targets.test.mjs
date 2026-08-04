@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, editLabel, editNote, setQuestion} from '../edit-targets.js';
+import {validators, editLabel, editNote, setQuestion, setStatus} from '../edit-targets.js';
 
 test('label rewrite replaces only the label segment', () => {
   assert.equal(editLabel('Money: NPV model -> /fermi/#x // note', 'NPV model', 'The £ case'),
@@ -20,5 +20,14 @@ test('setQuestion rewrites, inserts after title, or removes', () => {
   assert.equal(setQuestion('title: T\nA -> /map/#x', 'Asked?'),
     'title: T\nquestion: Asked?\nA -> /map/#x');
   assert.equal(setQuestion('title: T\nquestion: Old?\nA -> /map/#x', ''),
+    'title: T\nA -> /map/#x');
+});
+
+test('setStatus rewrites or inserts the parser default as a real config line', () => {
+  assert.equal(setStatus('title: T\nstatus: open\nA -> /map/#x', 'parked'),
+    'title: T\nstatus: parked\nA -> /map/#x');
+  assert.equal(setStatus('title: T\nquestion: Decide?\nA -> /map/#x', 'decided'),
+    'title: T\nquestion: Decide?\nstatus: decided\nA -> /map/#x');
+  assert.equal(setStatus('title: T\nA -> /map/#x', 'unknown'),
     'title: T\nA -> /map/#x');
 });

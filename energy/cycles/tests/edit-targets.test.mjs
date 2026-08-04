@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {validators, editField, addKeyLine, removeKeyLine, ADDABLE} from '../edit-targets.js';
+import {validators, editField, addKeyLine, removeKeyLine, ADDABLE,
+  addedKeyTarget, addKeyReturnIdentity, isUntouchedKeyAdd} from '../edit-targets.js';
 
 const DOC =
 `title: Cycle budget
@@ -90,6 +91,32 @@ test('the inserted line parses cleanly (soft warnings only, no new errors)', () 
     assert.ok(m.srcLines[k] != null, k + ' is now a real parsed key');
     assert.ok(!m.warnings.some(w => /don’t know/.test(w)), k + ' produced no unknown-key warning');
   }
+});
+
+test('every addable key has one exact fresh artefact field and safe return control', () => {
+  const fields = {charge: 'chargeLo', second: 'secondHi', drift: 'driftHi', augment: 'augHi', discount: 'discHi'};
+  for(const key of ADDABLE){
+    const add = addKeyLine(DOC, key);
+    assert.deepEqual(addedKeyTarget(add, key),
+      {kind: 'num', line: add.afterLine + 1, data: {field: fields[key]}});
+    const lines = DOC.split('\n');
+    lines.splice(add.afterLine + 1, 0, add.newLine);
+    assert.equal(isUntouchedKeyAdd(lines.join('\n'), add.afterLine + 1, add.newLine), true);
+  }
+  assert.deepEqual(addKeyReturnIdentity('second'), {kind: 'addkey', data: {key: 'second'}});
+  assert.deepEqual(addKeyReturnIdentity('augment'), {kind: 'addkey', data: {key: 'augment'}});
+  assert.deepEqual(addKeyReturnIdentity('charge'), {kind: 'cardmenu', data: {band: 'price'}});
+  assert.deepEqual(addKeyReturnIdentity('discount'), {kind: 'cardmenu', data: {band: 'life'}});
+  assert.equal(addedKeyTarget({afterLine: 2}, 'nope'), null);
+});
+
+test('cancel identity rejects a line changed after insertion', () => {
+  const add = addKeyLine(DOC, 'second');
+  const lines = DOC.split('\n');
+  lines.splice(add.afterLine + 1, 0, add.newLine);
+  const inserted = lines.join('\n');
+  assert.equal(isUntouchedKeyAdd(inserted, add.afterLine + 1, add.newLine), true);
+  assert.equal(isUntouchedKeyAdd(inserted.replace('35..60%', '35..70%'), add.afterLine + 1, add.newLine), false);
 });
 
 test('addKeyLine is a no-op when the key is already present or not addable', () => {

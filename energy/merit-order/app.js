@@ -17,6 +17,7 @@ import {REVEAL} from './motion-spec.js';
 import {rafBatched} from '../../assets/schedule.js';
 import {trapPopoverFocus} from '../../assets/popover-focus.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../../assets/verdict.js';
+import {createPointerDrag, calloutPosition} from './interactions.js';
 
 if (typeof document !== 'undefined') boot();
 
@@ -35,7 +36,6 @@ async function boot(){
   let state = {world: 'gbToday', condition: null, params: {...WORLDS.gbToday.params}, adv: {}};
   let hashTimer = null;
   let wasNegative = false, lastMarginalName;
-  let dragging = false;
 
   const currentStack = () => applyAdv(buildStack(state.params, catalogue()), state.adv);
   const currentState = () => ({generators: currentStack(), demand: state.params.demand});
@@ -55,7 +55,6 @@ async function boot(){
   const hitRect = document.createElement('div');
   hitRect.className = 'demand-hit';
   hitRect.setAttribute('aria-hidden', 'true');
-  hitRect.addEventListener('pointerdown', e => { e.preventDefault(); dragging = true; });
 
   function positionHitRect(){
     const line = chartwrap.querySelector('.demand-line');
@@ -95,21 +94,25 @@ async function boot(){
     return snapped !== null ? snapped : Math.round(gw * 10) / 10;
   }
 
-  const dragMove = rafBatched(clientX => {
-    if(!dragging) return;   // dragging may have ended before this frame fired
+  const dragMove = rafBatched((clientX, pointerId) => {
+    if(demandDrag.activePointerId !== pointerId) return;   // pointer may have ended before this frame
     state.params.demand = Math.min(demandMax(), snapDemand(clientXToGW(clientX)));
     markCustom();
     render(false);
   });
-  window.addEventListener('pointermove', e => {
-    if(!dragging) return;
-    dragMove(e.clientX);
+  const demandDrag = createPointerDrag({
+    capture(pointerId){ chartwrap.setPointerCapture(pointerId); },
+    release(pointerId){ if(chartwrap.hasPointerCapture(pointerId)) chartwrap.releasePointerCapture(pointerId); },
+    onMove: dragMove,
+    onSettle(){ render(true); },
   });
-  window.addEventListener('pointerup', () => {
-    if(!dragging) return;
-    dragging = false;
-    render(true);
+  hitRect.addEventListener('pointerdown', e => {
+    if(demandDrag.start(e.pointerId) && e.pointerType === 'mouse') e.preventDefault();
   });
+  chartwrap.addEventListener('pointermove', e => demandDrag.move(e.pointerId, e.clientX));
+  chartwrap.addEventListener('pointerup', e => demandDrag.finish(e.pointerId));
+  chartwrap.addEventListener('pointercancel', e => demandDrag.cancel(e.pointerId));
+  chartwrap.addEventListener('lostpointercapture', e => demandDrag.lost(e.pointerId));
 
   /* ---- hot-path DOM queries: both chip groups are static markup (fixed
      World/Conditions buttons, see index.html) — cache once like mustrunButtons
@@ -173,6 +176,20 @@ async function boot(){
 
   /* ---- per-block edit callout ---- */
   let activeCallout = null;
+  const plantEl = name => [...chartwrap.querySelectorAll('g[data-plant]')].find(el => el.dataset.plant === name);
+  function positionCallout(pop, el){
+    const pos = calloutPosition(el.getBoundingClientRect(), pop.getBoundingClientRect(),
+      {width: innerWidth, height: innerHeight});
+    pop.style.left = pos.left + 'px';
+    pop.style.top = pos.top + 'px';
+  }
+  function reanchorCallout(){
+    if(!activeCallout) return;
+    const el = plantEl(activeCallout.name);
+    if(!el){ closeCallout(); return; }
+    activeCallout.el = el;
+    positionCallout(activeCallout.pop, el);
+  }
   function closeCallout(){
     if(!activeCallout) return;
     const {pop, away, el} = activeCallout;
@@ -190,22 +207,21 @@ async function boot(){
        after the browser finishes that click, and by then activeElement is
        <body> ONLY if nothing else claimed focus meanwhile — that's the one
        case (Escape) that actually needs restoring. */
-    if(el && typeof el.focus === 'function') setTimeout(() => {
-      if(!activeCallout && document.activeElement === document.body) el.focus();
+    const returnTo = el && el.isConnected ? el : $('demand');
+    if(returnTo && typeof returnTo.focus === 'function') setTimeout(() => {
+      if(!activeCallout && document.activeElement === document.body) returnTo.focus();
     }, 0);
   }
   function openCallout(name, el){
     closeCallout();
-    const rect = el.getBoundingClientRect();
     const pop = document.createElement('div');
     pop.className = 'mo-callout';
-    pop.style.left = Math.round(Math.max(8, Math.min(rect.left, innerWidth - 240))) + 'px';
-    pop.style.top = Math.round(rect.bottom + 6) + 'px';
     renderCalloutView(pop, name);
     document.body.appendChild(pop);
     const away = e => { if(!pop.contains(e.target)) closeCallout(); };
     document.addEventListener('pointerdown', away, true);
-    activeCallout = {pop, away, el};
+    activeCallout = {pop, away, el, name};
+    positionCallout(pop, el);
     trapPopoverFocus(pop, closeCallout);
   }
   function renderCalloutView(pop, name){
@@ -298,6 +314,7 @@ async function boot(){
        that was just removed */
     const first = pop.querySelector('button');
     if(first) first.focus();
+    if(activeCallout) positionCallout(pop, activeCallout.el);
   }
   chartwrap.addEventListener('click', e => {
     const g = e.target.closest && e.target.closest('g[data-plant]');
@@ -309,6 +326,8 @@ async function boot(){
     const g = e.target.closest && e.target.closest('g[data-plant]');
     if(g){ e.preventDefault(); openCallout(g.dataset.plant, g); }
   });
+  chartwrap.addEventListener('scroll', reanchorCallout, {passive: true});
+  addEventListener('resize', reanchorCallout);
 
   /* ---- FLIP + flash: settle-only, reduced-motion gated ---- */
   function flashEl(el){
@@ -374,6 +393,7 @@ async function boot(){
       chartwrap.appendChild(hitRect);
       positionHitRect();
     }
+    reanchorCallout();   // paint replaced every plant node; preserve identity, anchor and focus
 
     syncOutputs();
     syncChips();
