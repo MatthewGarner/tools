@@ -1,6 +1,6 @@
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
-import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife} from './engine.js';
-import {readHashState, writeHashState} from '../assets/series.js';
+import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale} from './engine.js';
+import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
@@ -25,7 +25,8 @@ let verdictText = '';
 // don't reflow under the thumb on a drag-and-hold. Typed/keyboard edits keep the safety commit.
 let sliderDown = false;
 const clampScore = value => Math.max(1, Math.min(10, value));
-const clampWeight = value => Math.max(0, value);
+// toPrecision scrubs binary float tails (0.6000000000000001) off slider arithmetic
+const clampWeight = value => Math.max(0, Number(value.toPrecision(12)));
 
 /* examples + default weights live in ./examples.js (pure, invariant-tested) */
 
@@ -36,9 +37,8 @@ function renderHead(){
   const th0 = document.createElement('th');
   th0.innerHTML = '<span class="lbl">Initiative</span>';
   tr.appendChild(th0);
-  const sliderMax = 2 * Math.max(1, ...state.criteria.map(x => x.w || 0));   // 0 → 2× the largest weight (M3)
+  const headScale = sliderScale(state.criteria.map(x => x.w));   // 0 → 2× the largest weight (M3), nice step
   const wstrip = $('wstrip'); wstrip.textContent = '';   // phone weight surface (header is display:none on phones)
-  const sliderStep = String(Math.max(0.1, sliderMax / 100));
   state.criteria.forEach((c, ci) => {
     const th = document.createElement('th');
     const nm = document.createElement('input');
@@ -51,14 +51,14 @@ function renderHead(){
     w.className = 'weight'; w.type = 'number'; w.min = '0'; w.step = '0.5'; w.value = c.w;
     w.setAttribute('aria-label', c.name + ' weight');
     const mkSlider = label => { const s = document.createElement('input');
-      s.className = 'wslider'; s.type = 'range'; s.min = '0'; s.max = String(sliderMax); s.step = sliderStep;
+      s.className = 'wslider'; s.type = 'range'; s.min = '0'; s.max = String(headScale.max); s.step = String(headScale.step);
       s.value = c.w; s.setAttribute('aria-label', label); return s; };
     const sl = mkSlider(c.name + ' weight slider');
     // phone strip control (the header is display:none on phones)
     const srow = document.createElement('div'); srow.className = 'wsrow';
     const slab = document.createElement('span'); slab.className = 'wslabel'; slab.textContent = c.name || 'Criterion';
     const ssl = mkSlider((c.name || 'Criterion') + ' weight');
-    const sval = document.createElement('span'); sval.className = 'wsval'; sval.textContent = c.w;
+    const sval = document.createElement('span'); sval.className = 'wsval'; sval.textContent = fmt(c.w);
     srow.append(slab, ssl, sval); wstrip.appendChild(srow);
     // name edit updates BOTH labels; no resim (names don't affect the numeric result — batch 7)
     nm.addEventListener('input', () => { c.name = nm.value; slab.textContent = nm.value || 'Criterion';
@@ -67,17 +67,16 @@ function renderHead(){
     // NEVER write back to the control the user is typing in (C1: Chrome returns '' for '1.', so a
     // write-back stomps the keystroke). A debounced safety commit (I2) covers drag-back-to-start /
     // typed edits, where `change` may never fire.
+    // Never recalibrate max/step here: mid-gesture the ceiling moves under the thumb
+    // and (max = 2× largest) compounds exponentially — weights hit 1e13+ in the wild.
+    // commit() recalibrates, so a full drag tops out at 2× per gesture by design.
     const setW = (val, src) => {
       if(!isFinite(val)) return;
       c.w = clampWeight(val);
-      const nextMax = Math.max(2, 2 * Math.max(...state.criteria.map(x => x.w || 0)));
-      [sl, ssl].forEach(control => { control.max = String(nextMax); });
-      const nextStep = String(Math.max(0.1, nextMax / 100));
-      [sl, ssl].forEach(control => { control.step = nextStep; });
       if(src !== w) w.value = c.w;
       if(src !== sl) sl.value = c.w;
       if(src !== ssl) ssl.value = c.w;
-      sval.textContent = Math.round(c.w * 10) / 10;
+      sval.textContent = fmt(c.w);
       liveReweight();
       if(!sliderDown) schedule(600);   // pointer-drag defers the MC resim to release (no reflow under the thumb); typed/keyboard edits keep the safety
     };
@@ -96,7 +95,10 @@ function renderHead(){
     const commit = () => {
       sliderDown = false;
       c.w = w.value === '' ? 0 : clampWeight(parseFloat(w.value));
-      w.value = c.w; sl.value = c.w; ssl.value = c.w; sval.textContent = c.w;
+      // recalibrate BOTH sliders to the new weights (max before value — value clamps to max)
+      const scale = sliderScale(state.criteria.map(x => x.w));
+      [sl, ssl].forEach(control => { control.max = String(scale.max); control.step = String(scale.step); });
+      w.value = c.w; sl.value = c.w; ssl.value = c.w; sval.textContent = fmt(c.w);
       schedule(0);
     };
     [w, sl, ssl].forEach(el => el.addEventListener('change', commit));

@@ -387,6 +387,28 @@ for(const [name, url, selectors] of CONTAINERS){
   await page.waitForTimeout(200);
   const after = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));
   ok(before !== after, `rank: dragging a phone weight re-ranks the rows`);
+  // Runaway guard (2026-08-05): holding the thumb at the far right used to double the
+  // slider max on EVERY input event (max = 2× largest weight, recalibrated mid-drag),
+  // compounding weights to 1e13+ whose unrounded readouts broke the layout. Emulate a
+  // sustained drag pinned at the max — the weight must top out at 2× per gesture and
+  // the readout must stay compact.
+  const runaway = await page.evaluate(() => {
+    const sl = document.querySelector('#wstrip .wslider');
+    const preMax = parseFloat(sl.max);
+    sl.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
+    for(let i = 0; i < 25; i++){
+      sl.value = sl.max;
+      sl.dispatchEvent(new Event('input', {bubbles: true}));
+    }
+    sl.dispatchEvent(new PointerEvent('pointerup', {bubbles: true}));
+    sl.dispatchEvent(new Event('change', {bubbles: true}));
+    return {preMax, w: parseFloat(sl.value),
+      readout: sl.parentElement.querySelector('.wsval').textContent};
+  });
+  ok(runaway.w <= runaway.preMax * 1.001,
+    `rank: pinned-at-max drag tops out at the gesture ceiling (${runaway.w} <= ${runaway.preMax})`);
+  ok(runaway.readout.length <= 6,
+    `rank: weight readout stays compact after a max drag ("${runaway.readout}")`);
   await page.close();
 }
 
