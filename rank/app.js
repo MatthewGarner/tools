@@ -86,8 +86,33 @@ function renderHead(){
     // a slider drag: hold off the resim while the pointer is down, then commit on release —
     // pointerup is guaranteed even when the value ends where it began (drag-back-to-start),
     // where `change` never fires, so this also subsumes the I2 stuck-fade safety.
+    // Recalibration eases the max over ~150ms so the thumb GLIDES to its place on the
+    // new scale (an edge-push lands mid-track: the ceiling doubled, the value didn't)
+    // instead of teleporting. Value is re-asserted every frame — an intermediate max
+    // below a freshly typed value would otherwise clamp it. A new grab snaps to the
+    // target first: dragging against a moving ceiling is the runaway bug in miniature.
+    let tweenRaf = 0, tweenTarget = 0;
+    const setMax = max => [sl, ssl].forEach(ctl => { ctl.max = String(max); ctl.value = c.w; });
+    const settleScale = () => { if(tweenRaf){ cancelAnimationFrame(tweenRaf); tweenRaf = 0; setMax(tweenTarget); } };
+    const retune = () => {
+      const scale = sliderScale(state.criteria.map(x => x.w));
+      [sl, ssl].forEach(ctl => { ctl.step = String(scale.step); });
+      const from = parseFloat(sl.max);
+      settleScale();
+      tweenTarget = scale.max;
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches || !isFinite(from) || from === scale.max){
+        setMax(scale.max); return;
+      }
+      const t0 = performance.now();
+      const frame = now => {
+        const k = Math.min(1, (now - t0) / 150), e = 1 - (1 - k) * (1 - k);   // ease-out
+        setMax(from + (scale.max - from) * e);
+        tweenRaf = k < 1 ? requestAnimationFrame(frame) : 0;
+      };
+      tweenRaf = requestAnimationFrame(frame);
+    };
     [sl, ssl].forEach(el => {
-      el.addEventListener('pointerdown', () => { sliderDown = true; });
+      el.addEventListener('pointerdown', () => { settleScale(); sliderDown = true; });
       const release = () => { if(sliderDown){ sliderDown = false; schedule(0); } };
       el.addEventListener('pointerup', release);
       el.addEventListener('pointercancel', release);
@@ -95,10 +120,8 @@ function renderHead(){
     const commit = () => {
       sliderDown = false;
       c.w = w.value === '' ? 0 : clampWeight(parseFloat(w.value));
-      // recalibrate BOTH sliders to the new weights (max before value — value clamps to max)
-      const scale = sliderScale(state.criteria.map(x => x.w));
-      [sl, ssl].forEach(control => { control.max = String(scale.max); control.step = String(scale.step); });
-      w.value = c.w; sl.value = c.w; ssl.value = c.w; sval.textContent = fmt(c.w);
+      w.value = c.w; sval.textContent = fmt(c.w);
+      retune();   // eased recalibration of BOTH sliders (max + step); re-asserts slider values
       schedule(0);
     };
     [w, sl, ssl].forEach(el => el.addEventListener('change', commit));

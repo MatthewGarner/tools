@@ -409,6 +409,14 @@ for(const [name, url, selectors] of CONTAINERS){
     `rank: pinned-at-max drag tops out at the gesture ceiling (${runaway.w} <= ${runaway.preMax})`);
   ok(runaway.readout.length <= 6,
     `rank: weight readout stays compact after a max drag ("${runaway.readout}")`);
+  // the eased recalibration must SETTLE: max = 2× the (new) largest weight, value intact
+  await page.waitForTimeout(400);
+  const settled = await page.evaluate(() => {
+    const sl = document.querySelector('#wstrip .wslider');
+    return {max: parseFloat(sl.max), w: parseFloat(sl.value)};
+  });
+  ok(Math.abs(settled.max - 2 * settled.w) < 1e-9 && settled.w === runaway.w,
+    `rank: slider scale settles at 2x the committed weight (${settled.w} on 0..${settled.max})`);
   await page.close();
 }
 
