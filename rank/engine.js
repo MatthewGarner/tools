@@ -1,7 +1,7 @@
 /* Pure rank-stability engine: WSJF wobble simulation + verdict copy.
    Lifted verbatim from the inline script (same seed, same RNG call order)
    so results match what the tool has always shown. */
-import {mulberry32} from '../assets/series.js';
+import {mulberry32, fmt} from '../assets/series.js';
 
 export const NSIM = 4000;
 export const SEED = 0x5EED;
@@ -147,7 +147,23 @@ function buildFlips(state, items){
     flips: ranked, easiest: ranked[0] || null};
 }
 
-const fmtW = w => Math.round(w * 100) / 100;
+/* Weight slider calibration (M3): max = 2× the largest weight so a drag to the end,
+   release, drag again reaches any value; step snapped to a 1/2/5×10ⁿ "nice" value so
+   slider positions land on clean decimals. Recomputed on COMMIT only — recomputing
+   while the pointer is down moves the ceiling under the thumb and compounds
+   exponentially (the 7e13-weight runaway). */
+export function sliderScale(weights){
+  const max = 2 * Math.max(1, ...weights.map(w => w || 0));
+  return {max, step: niceStep(max / 100)};
+}
+function niceStep(raw){
+  const r = Math.max(0.1, raw);
+  const pow = Math.pow(10, Math.floor(Math.log10(r)));
+  const m = r / pow;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * pow;
+}
+
+const fmtW = w => fmt(w);   // compact (3 sig figs, k/M/B/T) — a raw 14-digit weight breaks the verdict line
 export function flipCopy(flip, ww){
   if(!flip || !flip.easiest){
     return {tone: 'immovable',

@@ -98,3 +98,10 @@ test('flipCopy: fragile inside the wobble, robust outside, immovable when none',
   assert.match(none.text, /No single weight/i);
   assert.equal(none.tone, 'immovable');
 });
+
+test('flipCopy: astronomical weights (legacy runaway URLs) render compact, never 14-digit runs', () => {
+  const f = flipAnalysis({...rig,
+    criteria: [{name: 'Value', w: 472081849680849}, {name: 'Urgency', w: 70174405151985}]});
+  const copy = flipCopy(f, 50);
+  assert.ok(!/\d{5,}/.test(copy.text), 'no long digit run in: ' + copy.text);
+});
