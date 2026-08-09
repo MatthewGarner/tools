@@ -45,11 +45,13 @@ Growth: Referral flow [risk] -- waiting on app-store review
 Platform: Sync engine rewrite -- conflicts are the #1 support driver
 
 NEXT
-Core: Smart reminders -- learn each habit's natural time of day
+Core: Smart reminders [bet: reminders] -- learn each habit's natural time of day
 Growth: Home-screen widget gallery
 Platform: Full offline mode
 
 LATER
+Core: Reminder personalisation [if reminders]
+Core: Digest emails [unless reminders] -- the fallback nudge channel
 Core: Accountability circles -- small groups, shared streaks
 Growth: Coach marketplace
 Platform: Wearables integration`},
