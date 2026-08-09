@@ -29,7 +29,10 @@ const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
 
 /* metrics footer — the same facts every deck carries */
 export function deckMetrics(model){
-  const by = s => model.items.filter(i => i.status === s).length;
+  /* dropped items leave the status tallies (same rule as activeCount): a dropped
+     [risk] item isn't live trouble — except [doing], which is still in flight */
+  const by = s => model.items.filter(i => i.status === s &&
+    (i.worldState !== 'dropped' || s === 'doing')).length;
   return [plural(model.items.length, 'item', 'items'),
           plural(model.horizons.length, 'horizon', 'horizons'),
           by('doing') ? by('doing') + ' in progress' : null,

@@ -249,3 +249,12 @@ test('a hostile bet name is escaped in every capsule-bearing renderer', () => {
     assert.ok(!svg.includes('<script>'));
   }
 });
+
+test('deckMetrics: dropped items leave the status tallies, except [doing] still in flight', async () => {
+  const {parse} = await import('../parse.js');
+  const {deckMetrics} = await import('../render-deck.js');
+  const m = parse('NOW\nA [bet: x lost]\nNEXT\nB [if x] [risk]\nC [if x] [doing]\nD [risk]');
+  const foot = deckMetrics(m);
+  assert.ok(foot.includes('1 at risk'), 'only the live [risk] item counts: ' + foot);
+  assert.ok(foot.includes('1 in progress'), 'dropped [doing] stays in flight: ' + foot);
+});
