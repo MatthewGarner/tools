@@ -722,6 +722,53 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
+// roadmap conditional card menu (A6): on a coarse pointer the what-if capsule
+// hit rect has pointer-events:none (fine-pointer-only, style.css), so a bet
+// item's card menu is the phone home for both Resolve… and the What-if rows
+// (spec §4). Tap a bet item's card body and assert both are present and
+// every top-level row clears the 44px tap-target floor.
+{
+  const page = await ctx.newPage();
+  const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
+    'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
+  const hash = Buffer.from(doc, 'utf8').toString('base64');
+  await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(500);
+
+  const betCard = page.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: 'Reminders engine'}).first();
+  const betLine = await betCard.getAttribute('data-line');
+  const cardBody = page.locator('#preview svg g[data-edit="cardmenu"][data-line="' + betLine + '"] rect[data-hit]');
+  await cardBody.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box = await cardBody.boundingBox();
+  await page.mouse.click(box.x + 8, box.y + 4);
+  await page.waitForTimeout(300);
+
+  const rowTexts = await page.locator('.eip-pop > button, .eip-pop > [role="menuitem"]').evaluateAll(
+    els => els.map(el => el.textContent.trim()));
+  ok(rowTexts.some(t => t.startsWith('Resolve')), `roadmap: bet item card menu carries a Resolve… row (${JSON.stringify(rowTexts)})`);
+  ok(rowTexts.some(t => t.startsWith('What if: pays off')), 'roadmap: bet item card menu carries a "What if: pays off" row');
+  ok(rowTexts.some(t => t.startsWith('What if: fails')), 'roadmap: bet item card menu carries a "What if: fails" row');
+
+  const rowHeights = await page.locator('.eip-pop > button, .eip-pop > [role="menuitem"]')
+    .evaluateAll(els => els.map(el => el.getBoundingClientRect().height));
+  ok(rowHeights.length > 0 && rowHeights.every(h => h >= 44),
+    `roadmap: every top-level card-menu row is >= 44px tall (min ${rowHeights.length ? Math.min(...rowHeights) : 'n/a'})`);
+
+  // What-if actually cycles the preview from the menu (view-state, no text edit)
+  const beforeSrc = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  await page.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+  await page.waitForTimeout(400);
+  const chipShown = await page.evaluate(() => {
+    const el = document.getElementById('whatifchip');
+    return !!el && !el.hidden && el.textContent.trim().length > 0;
+  });
+  const afterSrc = await page.evaluate(() => localStorage.getItem('roadmap-src'));
+  ok(chipShown, 'roadmap: "What if: pays off" from the card menu shows the previewing chip');
+  ok(afterSrc === beforeSrc, 'roadmap: a what-if row commit never edits the text (view-state only)');
+  await page.close();
+}
+
 // roadmap register phone fallback + the mobile-export exception (Task 8): on a
 // phone-width `style: register` doc the preview falls back to the chart's narrow
 // STACK — the register table can't fit a phone — but Download SVG still exports

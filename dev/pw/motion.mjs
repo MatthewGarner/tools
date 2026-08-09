@@ -232,6 +232,72 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
   await page.close();
 }
 
+/* ---- roadmap what-if: a world flip cross-fades opacity IN PLACE (spec §3:
+   "NOT FLIP — nothing changes position"). doRefresh's captureLineOpacity/
+   fadeLineOpacity pair sets each surviving card's inline style.opacity back to
+   its OLD value right after the swap, then clears it two rAFs later so the CSS
+   `transition: opacity` on g[data-line] (style.css) tweens old -> new — so a
+   MutationObserver watching for that inline style write is the one true signal
+   a cross-fade actually ran (a fixed sleep would race the two-rAF window).
+   prefers-reduced-motion -> motionStill() bails before ever touching style, so
+   the same probe must stay silent there (hard cut, no transition at all). ---- */
+{
+  const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
+    'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
+  const hash = Buffer.from(doc, 'utf8').toString('base64');
+
+  const {page, errors} = await open('/roadmap/#' + hash, {viewport: {width: 1200, height: 800}});
+  await page.addInitScript(() => {
+    window.__wifProbe = {crossFadeSeen: false};
+    new MutationObserver(muts => {
+      for(const m of muts){
+        const op = m.target && m.target.style && m.target.style.opacity;
+        if(op) window.__wifProbe.crossFadeSeen = true;
+      }
+    }).observe(document, {subtree: true, attributes: true, attributeFilter: ['style']});
+  });
+  await page.reload({waitUntil: 'networkidle'});   // re-navigate so the init script is armed before app.js boots
+  await page.waitForTimeout(300);
+  const wi = page.locator('#preview svg rect[data-whatif]').first();
+  check('what-if: hit rect present for the declared bet', await wi.count() === 1);
+  const box = await wi.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const seen = await page.waitForFunction(() => window.__wifProbe.crossFadeSeen, {timeout: 1000})
+    .then(() => true).catch(() => false);
+  check('what-if: cross-fade transition applies on a world flip (inline opacity set then cleared)', seen);
+  check('what-if: chip announces the previewed world', !(await page.locator('#whatifchip').isHidden()));
+  check('what-if: no console errors', errors.length === 0);
+  await page.close();
+}
+{
+  const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
+    'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
+  const hash = Buffer.from(doc, 'utf8').toString('base64');
+
+  const {page, errors} = await open('/roadmap/#' + hash, {viewport: {width: 1200, height: 800}, reducedMotion: 'reduce'});
+  await page.addInitScript(() => {
+    window.__wifProbe = {crossFadeSeen: false};
+    new MutationObserver(muts => {
+      for(const m of muts){
+        const op = m.target && m.target.style && m.target.style.opacity;
+        if(op) window.__wifProbe.crossFadeSeen = true;
+      }
+    }).observe(document, {subtree: true, attributes: true, attributeFilter: ['style']});
+  });
+  await page.reload({waitUntil: 'networkidle'});
+  await page.waitForTimeout(300);
+  const wi = page.locator('#preview svg rect[data-whatif]').first();
+  const box = await wi.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(500);   // well past the two-rAF window a motion-on flip would use
+  const seen = await page.evaluate(() => window.__wifProbe.crossFadeSeen);
+  check('what-if reduced-motion: hard cut — no inline opacity transition applied', !seen);
+  check('what-if reduced-motion: the state still changes (chip announces the previewed world)',
+    !(await page.locator('#whatifchip').isHidden()));
+  check('what-if reduced-motion: no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const r of results) console.log(r);
 await browser.close();
 report('motion', {...tally(results), min: 60});

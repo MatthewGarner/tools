@@ -587,6 +587,38 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.close();
 }
 
+// dropped item still drags (spec §2: conditioned/dropped items keep full EIP,
+// drag and span gestures — they are text, never the ghost treatment that
+// strips data-hit/data-edit). A lost bet drops "Dropped rider" (its own [if]
+// condition failed); dragging it into a later column must rewrite the text
+// exactly like a plain card's chart drag above.
+{
+  const p = await browser.newPage({viewport: DRAG_VIEWPORT});
+  const droppedDoc = 'NOW\nCore: Root gate [bet: gate lost]\nNEXT\n' +
+    'Core: Dropped rider [if gate] -- should still drag\nCore: Other item\nLATER\nCore: Third item';
+  const hash = Buffer.from(droppedDoc, 'utf8').toString('base64');
+  await p.goto(BASE + '#' + hash, {waitUntil: 'networkidle'});
+  await p.waitForTimeout(400);
+  const textBefore = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const card = p.locator('#preview svg g[data-line]', {hasText: 'Dropped rider'});
+  const cell = p.locator('#preview svg rect[data-cell="2|Core"]');   // LATER/Core
+  const from = await card.boundingBox();
+  const to = await cell.boundingBox();
+  check('roadmap dropped item: drag endpoints are both on screen', dragBoxesVisible(p, from, to));
+  await p.mouse.move(from.x + from.width / 2, from.y + 10);
+  await p.mouse.down();
+  await p.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {steps: 12});
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const textAfter = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const laterIdx = textAfter.split('\n').findIndex(l => l.trim() === 'LATER');
+  const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Dropped rider'));
+  check('roadmap dropped item: drag moves it under LATER in the text', movedIdx > laterIdx && laterIdx > 0);
+  check('roadmap dropped item: the [if gate] condition token survives the drag', /Dropped rider \[if gate\]/.test(textAfter));
+  check('roadmap dropped item: drag changed the doc', textAfter !== textBefore);
+  await p.close();
+}
+
 check('no stray console/page errors', errors.length === 0);   // was folded into the exit condition
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
