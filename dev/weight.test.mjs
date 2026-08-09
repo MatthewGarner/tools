@@ -219,9 +219,11 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 656_000,   /* 2026-08-09 conditional roadmap A1: parse.js gains bet/cond
-     tokens + the applyWorld cascade engine (structural warnings + moot/cycle derivation);
-     actual 650.6k, ~5.4k headroom, same convention as the folds below */
+  'roadmap/index.html': 666_000,   /* 2026-08-09 conditional roadmap A2: the verdict ladder gains
+     the aftermath/fork tiers (+ the applyWorld diff each fork candidate runs) and the authored
+     `verdict:` key's EIP wiring (verdict-edit.js + a second attachEditInPlace root); actual
+     661.0k, ~5k headroom, same convention as the folds below. Was 656_000 (A1: parse.js gains
+     bet/cond tokens + the applyWorld cascade engine; actual 650.6k, ~5.4k headroom). */
      /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a

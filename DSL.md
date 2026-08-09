@@ -49,7 +49,7 @@ The ten grammars differ, but they're a family and obey the same rules:
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -88,6 +88,7 @@ swimlanes, WIP limits, and a deck export.
 - `style:` deck layout, one of `board`, `focus`, `register`, `grid`.
 - `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
   first non-empty horizon when absent, blank, or naming no real horizon.
+- `verdict:` — `off` to carry no verdict at all, or your own line to replace the tool's. Omit it and the tool writes one, as it always has.
 
 **Node syntax:**
 - A line equal to a horizon name (case-insensitive, trailing `:` optional) opens that

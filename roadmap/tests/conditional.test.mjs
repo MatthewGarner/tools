@@ -3,7 +3,7 @@
    Plan: docs/superpowers/plans/2026-08-09-conditional-roadmap-plan.md A1. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse, applyWorld, activeCount, wipBreaches} from '../parse.js';
+import {parse, applyWorld, activeCount, wipBreaches, roadmapVerdict, roadmapMetrics} from '../parse.js';
 
 /* ---------- token recognition ---------- */
 
@@ -254,4 +254,124 @@ test('a bet-free doc keeps the exact pre-existing shape (additive model only)', 
   assert.equal(m.items[0].worldState, null);
   assert.deepEqual(m.bets, {});
   assert.equal(activeCount(m, 0), 2, 'unchanged WIP behaviour when no bets exist');
+});
+
+/* ---------- slice A2: verdict ladder (aftermath, fork) + metrics + verdict: ---------- */
+
+test('roadmapMetrics appends "N bets" only when bets are declared', () => {
+  const none = parse('NOW\nCore: A');
+  assert.ok(!roadmapMetrics(none).some(s => s.includes('bet')));
+
+  const one = parse('NOW\nCore: A [bet: x]');
+  assert.ok(roadmapMetrics(one).includes('1 bet'));
+
+  const two = parse('NOW\nCore: A [bet: x]\nNEXT\nCore: B [bet: y]');
+  assert.ok(roadmapMetrics(two).includes('2 bets'));
+});
+
+test('aftermath (tier 2): a LOST bet with dropped riders — plural wording, house nOfT fig', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: reminders lost]\nNEXT\nCore: B [if reminders]\nCore: C [if reminders]\nCore: D [if reminders]');
+  const v = roadmapVerdict(m);
+  assert.equal(v.line, 'The reminders bet lost — 3 items fall away.');
+  assert.equal(v.fig, '3 of 4');
+});
+
+test('aftermath (tier 2): a WON bet drops its own fallbacks — "fallback items", not bare "items"', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: x won]\nNEXT\nCore: B [unless x]\nCore: C [unless x]');
+  const v = roadmapVerdict(m);
+  assert.equal(v.line, 'The x bet won — 2 fallback items fall away.');
+  assert.equal(v.fig, '2 of 3');
+});
+
+test('aftermath singular: "1 item falls away" / "1 fallback item falls away"', () => {
+  const lost = roadmapVerdict(parse('wip: off\nNOW\nCore: A [bet: x lost]\nNEXT\nCore: B [if x]'));
+  assert.equal(lost.line, 'The x bet lost — 1 item falls away.');
+
+  const won = roadmapVerdict(parse('wip: off\nNOW\nCore: A [bet: x won]\nNEXT\nCore: B [unless x]'));
+  assert.equal(won.line, 'The x bet won — 1 fallback item falls away.');
+});
+
+test('aftermath: moot bets never speak for themselves — their drops attribute to the resolved root', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: a lost]\nNEXT\nCore: A2 [if a] [bet: b]\nLater\nCore: C [if b]\nCore: D [unless b]');
+  const v = roadmapVerdict(m);
+  // A2 (dropped by a-lost) and C (dropped by moot b, chained to root a) both attribute to "a"
+  assert.equal(v.line, 'The a bet lost — 2 items fall away.');
+  assert.ok(!v.line.includes('The b bet'), 'the moot bet never gets its own aftermath line');
+});
+
+test('aftermath: multiple resolved bets with drops — most dropped speaks, ties by earliest declaration line', () => {
+  const mostDropped = parse('wip: off\nNOW\nCore: A [bet: x lost]\nCore: E [bet: y lost]\nNEXT\nCore: B [if x]\nCore: F [if y]\nCore: G [if y]');
+  const v1 = roadmapVerdict(mostDropped);
+  assert.equal(v1.line, 'The y bet lost — 2 items fall away.', 'y dropped 2, x dropped 1 — y speaks');
+
+  // tie (1 drop each): x is declared earlier in the text than y
+  const tie = parse('wip: off\nNOW\nCore: A [bet: x lost]\nCore: E [bet: y lost]\nNEXT\nCore: B [if x]\nCore: F [if y]');
+  const v2 = roadmapVerdict(tie);
+  assert.equal(v2.line, 'The x bet lost — 1 item falls away.', 'tied counts — earliest declaration (x) speaks');
+});
+
+test('fork (tier 3): an unresolved bet with conditioned items — house nOfT + "turn(s) on"', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: x]\nNEXT\nCore: B [if x]\nLater\nCore: C [unless x]');
+  const v = roadmapVerdict(m);
+  assert.equal(v.line, '2 of 3 items turn on the x bet — the plan forks there, and says so.');
+  assert.equal(v.fig, '2 of 3');
+});
+
+test('fork: singular reach uses "turns"', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: x]\nNEXT\nCore: B [if x]');
+  const v = roadmapVerdict(m);
+  assert.equal(v.line, '1 of 2 items turns on the x bet — the plan forks there, and says so.');
+});
+
+test('fork: transitive reach counts a moot-cascade dependent, and the wider-reaching bet speaks', () => {
+  const m = parse('NOW\nCore: A [bet: a]\nNEXT\nCore: A2 [if a] [bet: b]\nLater\nCore: C [if b]\nCore: D [unless b]');
+  const v = roadmapVerdict(m);
+  // a's resolution ripples through A2, C and D (b's fate is downstream of a); b alone only reaches C/D
+  assert.equal(v.line, '3 of 4 items turn on the a bet — the plan forks there, and says so.');
+});
+
+test('fork never fires for a moot or resolved bet — only truly unresolved ones', () => {
+  const won = parse('wip: off\nNOW\nCore: A [bet: x won]\nNEXT\nCore: B [if x]');
+  assert.ok(!roadmapVerdict(won).line.includes('turn'), 'a resolved bet is not a live fork');
+});
+
+test('dropped items leave the flags tier — a dropped [risk] item does not read as live trouble', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: x lost]\nCore: B [if x] [risk]');
+  const v = roadmapVerdict(m);
+  assert.ok(!v.line.includes('the risk sits inside'));
+  assert.ok(!v.line.includes('trouble sits beyond'));
+});
+
+test('dropped items leave the shape tier denominator once no bet/fork/aftermath is in play', () => {
+  // a WON bet with no dropped items at all (nothing conditions "on the failure branch")
+  // falls through every earlier tier straight to shape; a separate, unrelated resolved
+  // bet with one dropped fallback still fires aftermath first — kept apart here so the
+  // shape tier itself is what's under test.
+  const allLive = parse('wip: off\nNOW\nCore: A\nNEXT\nCore: B');
+  const base = roadmapVerdict(allLive);
+  assert.equal(base.fig, '1 of 2');
+
+  const withDrop = parse('wip: off\nNOW\nCore: A [bet: x won]\nNEXT\nCore: B\nCore: C [unless x]');
+  // C drops (unless a WON bet) — aftermath fires first, proving drops never leak into shape's count
+  const v = roadmapVerdict(withDrop);
+  assert.ok(v.line.startsWith('The x bet won'));
+});
+
+test('verdict: config key parses, comment-stripped, raw (assets/verdict.js resolves off/empty)', () => {
+  const m = parse('title: T\nverdict: 3 of 5 bets are unfunded\nNOW\nCore: A');
+  assert.equal(m.verdict, '3 of 5 bets are unfunded');
+
+  const off = parse('verdict: off\nNOW\nCore: A');
+  assert.equal(off.verdict, 'off');
+
+  const commented = parse('verdict: text here // an aside\nNOW\nCore: A');
+  assert.equal(commented.verdict, 'text here');
+
+  const absent = parse('NOW\nCore: A');
+  assert.equal(absent.verdict, null);
+});
+
+test('verdict: missing-colon near-miss gets the same hint as other config keys', () => {
+  const m = parse('verdict off');
+  assert.ok(m.warnings.some(w => w.includes('did you mean "verdict:"')));
 });

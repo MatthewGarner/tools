@@ -9,7 +9,8 @@ import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js'
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics} from './parse.js';
-import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict, resolveVerdict} from '../assets/verdict.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -181,10 +182,13 @@ function doRefresh(){
   }
   /* the header/verdict anatomy rides this same loop — both painters bail out
      when their strings are unchanged, so a keystroke that doesn't move a count
-     costs nothing */
+     costs nothing. The authored `verdict:` key (2026-08-09) overrides the
+     auto ladder — resolveVerdict owns absent/off/authored, once, for every tool. */
   paintMetrics($('metrics'), model.items.length ? (model.title || 'Untitled') : '', roadmapMetrics(model));
   const vd = roadmapVerdict(model);
-  paintVerdict($('verdict'), vd ? vd.line : '', vd ? vd.fig : '');
+  const vv = resolveVerdict(model.verdict, {line: vd ? vd.line : '', fig: vd ? vd.fig : ''});
+  paintVerdict($('verdict'), vv.line, vv.fig);
+  $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
@@ -343,6 +347,25 @@ attachEditInPlace($('preview'), {
     const line = editor.getLine(lineNo);
     const newLine = eipApplies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
+  },
+});
+
+/* The authored verdict's own edit-in-place root (2026-08-09), same shared
+   verdict-edit.js contract every tool with a `verdict:` key uses. Its target
+   sits in the .vwrap sibling of #preview, so it needs its own attach rooted
+   at their shared ancestor (.stage) — same pattern as energy/cycles+wardley. */
+attachEditInPlace($('verdict').parentElement.parentElement, {
+  kinds: {
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => (model ? (roadmapVerdict(model) || {}).line : '') || ''},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:/i,
+      getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
+    });
   },
 });
 
@@ -834,4 +857,4 @@ watchNarrowBucket(previewEl, rerender);
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict']);

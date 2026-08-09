@@ -130,18 +130,95 @@ const vb = (n, t, sing, plur) => (n === 1 || t === 1) ? sing : plur;
 export function roadmapMetrics(model){
   if(!model || !model.items || !model.items.length) return [];
   const lanes = model.lanes.filter(Boolean).length;
+  const nBets = Object.keys(model.bets || {}).length;
   return [
     plural(model.items.length, 'item'),
     plural(model.horizons.length, 'horizon'),
     lanes ? plural(lanes, 'lane') : null,
+    nBets ? plural(nBets, 'bet') : null,
     model.wip > 0 ? 'Wip limit ' + model.wip : null,
   ].filter(Boolean);
+}
+
+/* ---------- verdict tiers 2/3 (2026-08-09): resolved-bet aftermath + open fork ----------
+   Both walk model.items/model.bets as baked by parse() (the text world) — never
+   call applyWorld themselves except the fork tier's OWN diff, which is pure and
+   throws its projections away immediately (never mutates model). */
+
+/* A dropped item's dropReason names the bet it's conditioned on, but that bet
+   may itself be MOOT (its own item dropped by something else) — walk up the
+   chain to the resolved (won/lost) bet actually responsible, so a cascade of
+   moot bets attributes every drop to the one bet that really answered.
+   Returns null when the chain never reaches a resolved bet (shouldn't happen
+   for an item that's actually dropped, but a cycle-guard costs nothing). */
+function rootResolvedBet(model, nameLc, visited){
+  visited = visited || new Set();
+  if(visited.has(nameLc)) return null;
+  visited.add(nameLc);
+  const b = model.bets[nameLc];
+  if(!b) return null;
+  if(b.effective === 'won' || b.effective === 'lost') return nameLc;
+  if(b.effective === 'moot'){
+    const declaring = model.items[b.itemIndex];
+    if(declaring && declaring.dropReason)
+      return rootResolvedBet(model, declaring.dropReason.name.toLowerCase(), visited);
+  }
+  return null;
+}
+
+/* Tier 2 — aftermath: a resolved bet (won OR lost — both are quotable) whose
+   resolution transitively dropped items. Moot bets never speak for themselves;
+   their drops attribute to the resolved root that caused the moot cascade. */
+function aftermathTier(model){
+  const total = model.items.length;
+  const counts = {};
+  for(const it of model.items){
+    if(it.worldState !== 'dropped' || !it.dropReason) continue;
+    const root = rootResolvedBet(model, it.dropReason.name.toLowerCase());
+    if(root) counts[root] = (counts[root] || 0) + 1;
+  }
+  const entries = Object.keys(counts).map(nameLc =>
+    ({nameLc, n: counts[nameLc], srcLine: model.bets[nameLc].srcLine}));
+  if(!entries.length) return null;
+  entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most dropped speaks; ties = earliest declared
+  const {nameLc, n} = entries[0];
+  const b = model.bets[nameLc];
+  const dropWord = n === 1 ? 'item' : 'items';
+  const dropVerb = n === 1 ? 'falls' : 'fall';
+  const kind = b.effective === 'won' ? 'fallback ' : '';   // a won bet's casualties are its own fallbacks
+  const fig = n + ' of ' + total;   // bare "n of t" — house style, the noun stays plain-coloured in the line
+  return {fig, line: 'The ' + b.display + ' bet ' + b.effective + ' — ' + n + ' ' + kind + dropWord + ' ' + dropVerb + ' away.'};
+}
+
+/* Tier 3 — fork: an unresolved bet (not moot — a bet nobody can answer yet
+   isn't a live fork) with conditioned items. "Transitive" reach is measured by
+   diffing the won/lost projections: whatever changes state between the two
+   worlds genuinely turns on this bet, riders and moot-cascade fallbacks alike,
+   without hand-rolling the cascade a second time. */
+function forkTier(model){
+  const total = model.items.length;
+  const unresolved = Object.keys(model.bets).filter(nameLc => model.bets[nameLc].effective === 'unresolved');
+  if(!unresolved.length) return null;
+  const entries = unresolved.map(nameLc => {
+    const won = applyWorld(model, {[nameLc]: 'won'});
+    const lost = applyWorld(model, {[nameLc]: 'lost'});
+    let n = 0;
+    for(let i = 0; i < model.items.length; i++)
+      if(won.items[i].worldState !== lost.items[i].worldState) n++;
+    return {nameLc, n, srcLine: model.bets[nameLc].srcLine};
+  }).filter(e => e.n > 0);
+  if(!entries.length) return null;
+  entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most riders+fallbacks speaks; ties = earliest declared
+  const {nameLc, n} = entries[0];
+  const b = model.bets[nameLc];
+  const fig = n + ' of ' + total;   // bare pair; the line's own nOfT prefix is what actually highlights
+  return {fig, line: nOfT(n, total, 'item') + ' ' + vb(n, total, 'turns', 'turn') +
+    ' on the ' + b.display + ' bet — the plan forks there, and says so.'};
 }
 
 export function roadmapVerdict(model){
   if(!model || !model.items || !model.items.length) return null;
   const first = model.horizons[0];
-  const total = model.items.length;
 
   /* 1 — a column over its declared wip limit: the limit is a plan the author
      already made, so breaking it outranks everything else. The worst column
@@ -159,8 +236,23 @@ export function roadmapVerdict(model){
     }
   }
 
-  /* 2 — flags: inside the commitment they ARE the story, beyond it a warning. */
-  const inFirst = model.items.filter(i => i.h === 0);
+  /* 2 — aftermath: a resolved bet (won or lost) whose resolution transitively
+     dropped items — quotable in either direction, moot bets never speak. */
+  const aftermath = aftermathTier(model);
+  if(aftermath) return aftermath;
+
+  /* 3 — fork: an unresolved bet with conditioned items still turning on it. */
+  const fork = forkTier(model);
+  if(fork) return fork;
+
+  /* Dropped items (reality already answered) leave the flags and shape tiers —
+     both the numerator and the denominator — else a resolved-away [risk] still
+     reads as live trouble on a plan the text says isn't happening. */
+  const live = model.items.filter(i => i.worldState !== 'dropped');
+  const total = live.length;
+
+  /* 4 — flags: inside the commitment they ARE the story, beyond it a warning. */
+  const inFirst = live.filter(i => i.h === 0);
   const flaggedFirst = inFirst.filter(i => FLAGGED.has(i.status)).length;
   if(flaggedFirst){
     const fig = flaggedFirst + ' of ' + inFirst.length;
@@ -168,14 +260,14 @@ export function roadmapVerdict(model){
       vb(flaggedFirst, inFirst.length, 'is', 'are') +
       " flagged — the risk sits inside what you've already committed."};
   }
-  const flagged = model.items.filter(i => FLAGGED.has(i.status)).length;
+  const flagged = live.filter(i => FLAGGED.has(i.status)).length;
   if(flagged){
     const fig = flagged + ' of ' + total;
     return {fig, line: nOfT(flagged, total, 'item') + ' ' + vb(flagged, total, 'is', 'are') +
       ' flagged, none in ' + first + ' — the trouble sits beyond the commitment.'};
   }
 
-  /* 3 — otherwise the shape: how much is committed vs only shaped. */
+  /* 5 — otherwise the shape: how much is committed vs only shaped. */
   const n = inFirst.length;
   const fig = n + ' of ' + total;
   const head = nOfT(n, total, 'item') + ' ' + vb(n, total, 'sits', 'sit') + ' in ' + first;
@@ -188,7 +280,7 @@ export function roadmapVerdict(model){
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, focus:undefined, timeAxis:false, bets:{}};
+    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -196,7 +288,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
@@ -235,6 +327,7 @@ export function parse(text){
         else model.warnings.push('line ' + (ln+1) + ': unknown style "' + snippet(val) + '" — use ' + DECK_STYLES.join(' / '));
       }
       else if(key === 'focus') model.focus = val || undefined;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
@@ -264,7 +357,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;

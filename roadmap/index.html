@@ -71,6 +71,8 @@
           <dd>one line on <em>why</em> the plan changed — shown on every view and export while a snapshot comparison is active</dd>
           <dt><code data-try="">focus: NEXT</code></dt>
           <dd>which horizon the <code>focus</code> view heroes (defaults to the first with items)</dd>
+          <dt><code data-try="">verdict: off</code></dt>
+          <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
         </dl>
         <h4>Items</h4>
         <dl>
@@ -97,7 +99,9 @@
     <section class="stage">
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
+      <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
+      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
+      </div>
       <div class="actions">
         <span class="method" id="stylelbl">View and export style:</span>
         <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">
