@@ -183,11 +183,12 @@ function aftermathTier(model){
   entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most dropped speaks; ties = earliest declared
   const {nameLc, n} = entries[0];
   const b = model.bets[nameLc];
-  const dropWord = n === 1 ? 'item' : 'items';
-  const dropVerb = n === 1 ? 'falls' : 'fall';
-  const kind = b.effective === 'won' ? 'fallback ' : '';   // a won bet's casualties are its own fallbacks
-  const fig = n + ' of ' + total;   // bare "n of t" — house style, the noun stays plain-coloured in the line
-  return {fig, line: 'The ' + b.display + ' bet ' + b.effective + ' — ' + n + ' ' + kind + dropWord + ' ' + dropVerb + ' away.'};
+  const kind = b.effective === 'won' ? 'fallback item' : 'item';   // a won bet's casualties are its own fallbacks
+  /* the line embeds the fig verbatim — markFigure only colours a substring it
+     can find, and a bare count ("3") could false-match a digit in a bet name */
+  const fig = n + ' of ' + total;
+  return {fig, line: 'The ' + b.display + ' bet ' + b.effective + ' — ' +
+    nOfT(n, total, kind) + ' ' + vb(n, total, 'falls', 'fall') + ' away.'};
 }
 
 /* Tier 3 — fork: an unresolved bet (not moot — a bet nobody can answer yet

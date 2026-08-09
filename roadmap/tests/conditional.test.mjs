@@ -272,42 +272,42 @@ test('roadmapMetrics appends "N bets" only when bets are declared', () => {
 test('aftermath (tier 2): a LOST bet with dropped riders — plural wording, house nOfT fig', () => {
   const m = parse('wip: off\nNOW\nCore: A [bet: reminders lost]\nNEXT\nCore: B [if reminders]\nCore: C [if reminders]\nCore: D [if reminders]');
   const v = roadmapVerdict(m);
-  assert.equal(v.line, 'The reminders bet lost — 3 items fall away.');
+  assert.equal(v.line, 'The reminders bet lost — 3 of 4 items fall away.');
   assert.equal(v.fig, '3 of 4');
 });
 
 test('aftermath (tier 2): a WON bet drops its own fallbacks — "fallback items", not bare "items"', () => {
   const m = parse('wip: off\nNOW\nCore: A [bet: x won]\nNEXT\nCore: B [unless x]\nCore: C [unless x]');
   const v = roadmapVerdict(m);
-  assert.equal(v.line, 'The x bet won — 2 fallback items fall away.');
+  assert.equal(v.line, 'The x bet won — 2 of 3 fallback items fall away.');
   assert.equal(v.fig, '2 of 3');
 });
 
 test('aftermath singular: "1 item falls away" / "1 fallback item falls away"', () => {
   const lost = roadmapVerdict(parse('wip: off\nNOW\nCore: A [bet: x lost]\nNEXT\nCore: B [if x]'));
-  assert.equal(lost.line, 'The x bet lost — 1 item falls away.');
+  assert.equal(lost.line, 'The x bet lost — 1 of 2 items falls away.');
 
   const won = roadmapVerdict(parse('wip: off\nNOW\nCore: A [bet: x won]\nNEXT\nCore: B [unless x]'));
-  assert.equal(won.line, 'The x bet won — 1 fallback item falls away.');
+  assert.equal(won.line, 'The x bet won — 1 of 2 fallback items falls away.');
 });
 
 test('aftermath: moot bets never speak for themselves — their drops attribute to the resolved root', () => {
   const m = parse('wip: off\nNOW\nCore: A [bet: a lost]\nNEXT\nCore: A2 [if a] [bet: b]\nLater\nCore: C [if b]\nCore: D [unless b]');
   const v = roadmapVerdict(m);
   // A2 (dropped by a-lost) and C (dropped by moot b, chained to root a) both attribute to "a"
-  assert.equal(v.line, 'The a bet lost — 2 items fall away.');
+  assert.equal(v.line, 'The a bet lost — 2 of 4 items fall away.');
   assert.ok(!v.line.includes('The b bet'), 'the moot bet never gets its own aftermath line');
 });
 
 test('aftermath: multiple resolved bets with drops — most dropped speaks, ties by earliest declaration line', () => {
   const mostDropped = parse('wip: off\nNOW\nCore: A [bet: x lost]\nCore: E [bet: y lost]\nNEXT\nCore: B [if x]\nCore: F [if y]\nCore: G [if y]');
   const v1 = roadmapVerdict(mostDropped);
-  assert.equal(v1.line, 'The y bet lost — 2 items fall away.', 'y dropped 2, x dropped 1 — y speaks');
+  assert.equal(v1.line, 'The y bet lost — 2 of 5 items fall away.', 'y dropped 2, x dropped 1 — y speaks');
 
   // tie (1 drop each): x is declared earlier in the text than y
   const tie = parse('wip: off\nNOW\nCore: A [bet: x lost]\nCore: E [bet: y lost]\nNEXT\nCore: B [if x]\nCore: F [if y]');
   const v2 = roadmapVerdict(tie);
-  assert.equal(v2.line, 'The x bet lost — 1 item falls away.', 'tied counts — earliest declaration (x) speaks');
+  assert.equal(v2.line, 'The x bet lost — 1 of 4 items falls away.', 'tied counts — earliest declaration (x) speaks');
 });
 
 test('fork (tier 3): an unresolved bet with conditioned items — house nOfT + "turn(s) on"', () => {
