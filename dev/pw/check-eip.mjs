@@ -890,8 +890,9 @@ check('no console/page errors', errors.length === 0);
 
   await tapCard("Streak shield");
   await p.waitForTimeout(200);
+  /* the flagship example declares a bet, so every card carries Condition… */
   check('roadmap: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Remove item');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
