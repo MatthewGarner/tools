@@ -548,7 +548,7 @@ function deriveWorld(model, assumed){
     const b = bets[nameLc];
     if(!b) return 'unresolved';
     if(visiting.has(nameLc)){
-      worldWarnings.push('bet "' + b.display + '" sits in a condition cycle with itself — reads unresolved');
+      worldWarnings.push('line ' + (b.srcLine + 1) + ': bet "' + b.display + '" sits in a condition cycle — reads unresolved');
       return 'unresolved';
     }
     visiting.add(nameLc);
