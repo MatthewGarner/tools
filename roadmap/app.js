@@ -8,8 +8,9 @@ import {renderFocusLive, focusHeroIndex} from './render-focus.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics} from './parse.js';
-import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics, applyWorld} from './parse.js';
+import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict, resolveVerdict} from '../assets/verdict.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
@@ -17,11 +18,13 @@ import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
-import {mountMotion} from "../assets/motion.js";
+import {mountMotion, motionStill} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
+import {previewableBet} from './cond-parts.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -42,11 +45,13 @@ Growth: Referral flow [risk] -- waiting on app-store review
 Platform: Sync engine rewrite -- conflicts are the #1 support driver
 
 NEXT
-Core: Smart reminders -- learn each habit's natural time of day
+Core: Smart reminders [bet: reminders] -- learn each habit's natural time of day
 Growth: Home-screen widget gallery
 Platform: Full offline mode
 
 LATER
+Core: Reminder personalisation [if reminders]
+Core: Digest emails [unless reminders] -- the fallback nudge channel
 Core: Accountability circles -- small groups, shared streaks
 Growth: Coach marketplace
 Platform: Wearables integration`},
@@ -108,6 +113,126 @@ let model = null, lastSvg = '', hashTimer = null;
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
+/* ---------- what-if preview (A4) ---------- */
+/* Per-bet preview map, view-state only — never text, never hash (spec §3).
+   {nameLc: 'won'|'lost'}; multiple entries compose through applyWorld's own
+   cascade. Threaded into every live view + verdict/metrics/WIP so the screen
+   stays self-consistent in the previewed world; EXPORTS/snapshots never see
+   it (they keep reading `model`, never `projected`, below). */
+let whatIf = {};
+/* Drop a bet's preview the instant it stops being previewable: resolved in
+   text, renamed, or gone — "survives ordinary typing otherwise" (spec).
+   previewableBet() is the single source of truth for "can this bet still be
+   previewed" (render.js/render-*.js use the same test for the hit rect), so
+   pruning and hit-rect emission can never disagree about a bet's state. */
+function pruneWhatIf(m){
+  for(const k of Object.keys(whatIf)){
+    const b = m.bets[k];
+    /* drop the instant the TEXT world stops calling it unresolved — resolved,
+       renamed/gone, made MOOT by a text edit mid-preview, or now a cascade
+       CYCLE (review finding F2's third case: text edit changes reachability). */
+    if(!b || b.cycle || b.effective !== 'unresolved') delete whatIf[k];
+  }
+}
+function whatIfNames(){ return Object.keys(whatIf); }
+/* Sets (or clears, value falsy) one bet's preview outcome directly — the
+   shared primitive under both the capsule's cycle gesture and the What-if…
+   menu rows (A5), which pick a specific outcome rather than cycling. Forces a
+   repaint past the lastSvg memo (paint.reset(), same idiom wireSnapshots.
+   onChange already uses) since the SOURCE TEXT hasn't changed — doRefresh's
+   own `svg !== lastSvg` memo would otherwise see the identical text and skip
+   the render entirely. */
+/* Keyboard focus survives a cycle (review F3): paint()'s innerHTML swap drops
+   focus to <body> on every repaint, so without this a keyboard user gets ONE
+   Enter/Space cycle per Tab journey. Recorded here (BEFORE the swap, while
+   document.activeElement is still the rect that triggered this call) and
+   consumed once, right after doRefresh's paint(), by restoreWhatIfFocus()
+   below — never for a menu-row click, where the old focus is a menu item,
+   not the rect, so the check below is false and nothing is forced. */
+let pendingWhatIfFocus = null;
+function setWhatIf(nameLc, value){
+  const ae = document.activeElement;
+  if(ae && ae.dataset && ae.dataset.whatif === nameLc) pendingWhatIfFocus = nameLc;
+  if(value) whatIf[nameLc] = value; else delete whatIf[nameLc];
+  lastSvg = ''; paint.reset(); refresh();
+}
+/* cycles a bet's preview: unresolved -> won -> lost -> unresolved (the capsule click/tap gesture). */
+function cycleWhatIf(nameLc){
+  const cur = whatIf[nameLc];
+  setWhatIf(nameLc, cur === 'won' ? 'lost' : cur === 'lost' ? null : 'won');
+}
+/* Consumed once per doRefresh, right after the preview repaints: re-focuses
+   the SAME bet's hit rect in the new markup, or — if the rect is gone
+   (resolved/pruned by this very cycle, or a text edit mid-preview) — the
+   chip's reset button when the chip is visible. Silent no-op otherwise (a
+   keyboard user who wasn't on the rect never gets their focus hijacked). */
+function restoreWhatIfFocus(pv){
+  if(!pendingWhatIfFocus) return;
+  const name = pendingWhatIfFocus; pendingWhatIfFocus = null;
+  const rect = pv.querySelector("[data-whatif='" + name.replace(/[^a-z0-9-]/g, '') + "']");
+  if(rect){ rect.focus(); return; }
+  const chip = $('whatifchip');
+  if(chip && !chip.hidden){ const btn = chip.querySelector('button'); if(btn) btn.focus(); }
+}
+function resetWhatIf(){
+  if(!whatIfNames().length) return;
+  whatIf = {};
+  lastSvg = ''; paint.reset(); refresh();
+}
+/* Cross-fade on a world flip (spec §3: "NOT FLIP — nothing changes position").
+   mountMotion's shared paint() does an innerHTML swap with no DOM diffing, so
+   the CSS `transition:opacity` on g[data-line] (style.css) can't animate by
+   itself — there is no continuous element to transition. This captures each
+   card's opacity BEFORE the swap (keyed by data-line, stable across a toggle
+   since the text doesn't move) and, right after, sets the surviving elements'
+   inline opacity back to their OLD value then clears it a frame later so the
+   CSS transition tweens old -> new — same capture/apply shape as the shared
+   FLIP helper, kept local to roadmap (one caller; not assets/ material yet).
+   prefers-reduced-motion -> motionStill() bails to a hard cut, same gate FLIP uses. */
+function captureLineOpacity(){
+  const m = new Map();
+  for(const el of previewEl.querySelectorAll('[data-line]')) m.set(el.getAttribute('data-line'), el.getAttribute('opacity') || '1');
+  return m;
+}
+function fadeLineOpacity(old){
+  if(motionStill() || !old) return;
+  const changed = [];
+  for(const el of previewEl.querySelectorAll('[data-line]')){
+    const prev = old.get(el.getAttribute('data-line')); if(prev == null) continue;
+    const next = el.getAttribute('opacity') || '1';
+    if(prev !== next) changed.push([el, prev]);
+  }
+  for(const [el, prev] of changed){ el.style.transition = 'none'; el.style.opacity = prev; }
+  if(changed.length) requestAnimationFrame(() => requestAnimationFrame(() => {
+    for(const [el] of changed){ el.style.transition = ''; el.style.opacity = ''; }
+  }));
+}
+/* the chip: a roadmap-only element OUTSIDE #preview (the paint innerHTML-swap
+   wipes anything inside it) — sibling of the verdict block in index.html.
+   role="status" (in the markup) so a world flip is announced; hidden when no
+   bet is being previewed. */
+function syncWhatIfChip(m){
+  const chip = $('whatifchip');
+  const names = whatIfNames().filter(k => m.bets[k]);   // pruneWhatIf already ran this cycle, belt+braces
+  if(!names.length){ chip.hidden = true; chip.textContent = ''; return; }
+  chip.hidden = false;
+  chip.textContent = '';
+  const lead = document.createElement('span');
+  lead.textContent = 'previewing: ';
+  chip.appendChild(lead);
+  names.forEach((k, i) => {
+    if(i) chip.appendChild(document.createTextNode(' · '));
+    const strong = document.createElement('strong');
+    strong.textContent = m.bets[k].display + ' ' + (whatIf[k] === 'won' ? 'pays off' : 'fails');
+    chip.appendChild(strong);
+  });
+  chip.appendChild(document.createTextNode(' — exports show all paths — '));
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.textContent = 'reset';
+  reset.addEventListener('click', resetWhatIf);
+  chip.appendChild(reset);
+}
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
@@ -147,10 +272,19 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
   const text = editor.getText();
   model = parse(text);
+  pruneWhatIf(model);   // survives ordinary typing; drops on resolve/rename/gone (spec §3)
+  /* the SAME projected model feeds every live view, the verdict, the metrics
+     and the WIP breach check — "no '3 dropped' cards under a verdict still
+     calling the fork open" (spec §3). EXPORTS and snapshots never see this:
+     they keep reading `model` (plainStyleSvg/deckSvgString/copymd/wireSnapshots
+     below), never `projected`. Identity when no preview is active, so a
+     bet-free or preview-free doc is byte-identical to before this slice. */
+  const projected = whatIfNames().length ? applyWorld(model, whatIf) : model;
   editor.setHorizons(model.horizons);
-  renderWarnings(model);
+  renderWarnings(projected);
   syncStylePicker(model);
   syncHeadline(model);
+  syncWhatIfChip(model);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -165,26 +299,42 @@ function doRefresh(){
        live preview stays the chart — the classic working surface — and board-live
        appears only when the author (or the picker) writes style:board. inBandView
        below must stay in lockstep with these arms. */
-    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()};
-    const svg = narrow ? render(model, {...liveCtx, width: w})
-      : model.style === 'register' ? renderRegisterLive(model, liveCtx)
-      : model.style === 'board' ? renderBoardLive(model, liveCtx)
-      : model.style === 'focus' ? renderFocusLive(model, liveCtx)
-      : render(model, {...liveCtx, width: w});
+    /* textBets: the TEXT-WORLD bets map (this `model`, unprojected — never
+       `projected`'s) — threaded so every renderer's previewableBet() check
+       reads the text's truth, not whatever world is currently previewed
+       (cond-parts.js's previewableBet doc, F2). */
+    /* coarse: gates whatifHitRect's a11y attrs (review F8) — an inert tabindex/
+       role/aria-label on a coarse pointer promises a cycle CSS already blocks
+       (style.css's pointer-events:none default) and VoiceOver would announce
+       an unreachable button; the card menu's What-if… rows stay the coarse path. */
+    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer()};
+    const svg = narrow ? render(projected, {...liveCtx, width: w})
+      : model.style === 'register' ? renderRegisterLive(projected, liveCtx)
+      : model.style === 'board' ? renderBoardLive(projected, liveCtx)
+      : model.style === 'focus' ? renderFocusLive(projected, liveCtx)
+      : render(projected, {...liveCtx, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
+      // A what-if world flip has no flipAttr (nothing moves) — the opacity
+      // capture/apply pair around paint() cross-fades what changed state.
+      const opState = captureLineOpacity();
       paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom});
+      fadeLineOpacity(opState);
       lastSvg = svg;
       flipNext = false;
     }
   }
+  restoreWhatIfFocus(pv);
   /* the header/verdict anatomy rides this same loop — both painters bail out
      when their strings are unchanged, so a keystroke that doesn't move a count
-     costs nothing */
-  paintMetrics($('metrics'), model.items.length ? (model.title || 'Untitled') : '', roadmapMetrics(model));
-  const vd = roadmapVerdict(model);
-  paintVerdict($('verdict'), vd ? vd.line : '', vd ? vd.fig : '');
+     costs nothing. The authored `verdict:` key (2026-08-09) overrides the
+     auto ladder — resolveVerdict owns absent/off/authored, once, for every tool. */
+  paintMetrics($('metrics'), model.items.length ? (model.title || 'Untitled') : '', roadmapMetrics(projected));
+  const vd = roadmapVerdict(projected);
+  const vv = resolveVerdict(model.verdict, {line: vd ? vd.line : '', fig: vd ? vd.fig : ''});
+  paintVerdict($('verdict'), vv.line, vv.fig);
+  $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
@@ -209,8 +359,51 @@ const ws = initWorkspace({
    replacement for dragging a card to another column. Resolved fresh from the
    current model each time the menu opens (same idiom as why's solutionMenu),
    keyed off the clicked card's own srcLine. */
-function itemMenu(m, srcLine){
+function itemMenu(m, srcLine, whatIfMap){
   const item = m && m.items.find(i => i.srcLine === srcLine);
+  /* Resolve…: bet items only, rewrites the item's OWN [bet: …] token. `on`
+     reflects the WRITTEN outcome (item.bet.outcome), never the what-if
+     preview — resolving is a text edit, so it must read the text's truth. */
+  const resolveRow = (item && item.bet) ? {label: 'Resolve…', submenu: [
+    {label: 'won', on: item.bet.outcome === 'won',
+      commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome || '', value: 'won'}},
+    {label: 'lost', on: item.bet.outcome === 'lost',
+      commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome || '', value: 'lost'}},
+    ...(item.bet.outcome ? [{label: 'unresolve', on: false,
+      commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome, value: ''}}] : []),
+  ]} : null;
+  /* What-if…: same bet items, but only while the bet is UNRESOLVED in text
+     (previewableBet — the same test the capsule hit-rect uses, so the menu
+     and the capsule can never disagree about whether a bet is previewable).
+     These rows do NOT dispatch a text edit — onCommit('whatif', …) mutates
+     the view-state whatIf map directly (spec §3/§4: view-state only). */
+  const whatIfName = item ? previewableBet(m && m.bets, item) : null;
+  const whatIfRows = whatIfName ? [
+    {label: 'What if: pays off', on: (whatIfMap || {})[whatIfName] === 'won',
+      commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'won'}},
+    {label: 'What if: fails', on: (whatIfMap || {})[whatIfName] === 'lost',
+      commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'lost'}},
+    {label: 'What if: clear', on: !(whatIfMap || {})[whatIfName],
+      commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: ''}},
+  ] : [];
+  /* Condition…: every item, whenever ≥1 bet is declared anywhere in the doc —
+     one "if <name>" / "unless <name>" pair per declared bet, skipping the
+     item's own bet (a fork can never condition on itself, same rule parse.js
+     enforces on the text). "clear condition" appears only when one is set. */
+  const selfBetLc = (item && item.bet) ? item.bet.name.toLowerCase() : null;
+  const condNames = Object.keys(m && m.bets || {}).filter(nameLc => nameLc !== selfBetLc);
+  const conditionRow = (item && condNames.length) ? {label: 'Condition…', submenu: [
+    ...condNames.flatMap(nameLc => {
+      const display = m.bets[nameLc].display;
+      return ['if', 'unless'].map(when => ({
+        label: when + ' ' + display,
+        on: !!(item.cond && item.cond.name.toLowerCase() === nameLc && item.cond.when === when),
+        commit: {kind: 'condition', line: srcLine, oldRaw: '', value: when + ':' + display},
+      }));
+    }),
+    ...(item.cond ? [{label: 'clear condition', on: false,
+      commit: {kind: 'clearcondition', line: srcLine, oldRaw: '', value: ''}}] : []),
+  ]} : null;
   const moveRows = item ? m.horizons.map(h => ({
     label: h, on: m.horizons[item.h] === h,
     commit: {kind: 'movehorizon', line: srcLine, oldRaw: m.horizons[item.h], value: h},
@@ -261,6 +454,9 @@ function itemMenu(m, srcLine){
      lane field would be unreachable on those devices. The chart carries no
      data-edit="lane" target at all (no lane column), so an `opens` row there would
      resolve to nothing — same reason the rail (no lane target either) is excluded. */
+  if(resolveRow) rows.push(resolveRow);
+  rows.push(...whatIfRows);
+  if(conditionRow) rows.push(conditionRow);
   if(m && (m.style === 'register' || m.style === 'board' || (m.style === 'focus' && !focusRail)))
     rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
@@ -276,7 +472,7 @@ attachEditInPlace($('preview'), {
     status: {options: EDIT_STATUSES},
     lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
-    cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
+    cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line, whatIf)},
     /* the authored words edit where they read (2026-08-02) — same rewrites the
        page's headline field and config lines use, one undo step each */
     headline: {validate: v => !v.trim().startsWith('//')},
@@ -321,6 +517,29 @@ attachEditInPlace($('preview'), {
       if(next !== cur) editor.setText(next);
       return;
     }
+    if(kind === 'resolvebet'){
+      const cur = editor.getText(), next = resolveBet(cur, lineNo, newValue || null);
+      if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'condition'){
+      const i = newValue.indexOf(':'), when = newValue.slice(0, i), name = newValue.slice(i + 1);
+      const cur = editor.getText(), next = setCondition(cur, lineNo, name, when);
+      if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'clearcondition'){
+      const cur = editor.getText(), next = clearCondition(cur, lineNo);
+      if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'whatif'){
+      /* View-state only — never a text edit (spec §3): mutate the whatIf map
+         directly and force the repaint the menu's own commit dispatch expects. */
+      const it = model && model.items.find(i => i.srcLine === lineNo);
+      if(it && it.bet) setWhatIf(it.bet.name.toLowerCase(), newValue || null);
+      return;
+    }
     if(newValue === '✖Remove item'){
       if(removeItemLine(editor.getText(), lineNo)) editor.removeLine(lineNo);
       return;
@@ -343,6 +562,25 @@ attachEditInPlace($('preview'), {
     const line = editor.getLine(lineNo);
     const newLine = eipApplies[kind](line, oldRaw, newValue);
     if(newLine !== line) editor.replaceLine(lineNo, newLine);
+  },
+});
+
+/* The authored verdict's own edit-in-place root (2026-08-09), same shared
+   verdict-edit.js contract every tool with a `verdict:` key uses. Its target
+   sits in the .vwrap sibling of #preview, so it needs its own attach rooted
+   at their shared ancestor (.stage) — same pattern as energy/cycles+wardley. */
+attachEditInPlace($('verdict').parentElement.parentElement, {
+  kinds: {
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => (model ? (roadmapVerdict(model) || {}).line : '') || ''},
+  },
+  onCommit(kind, lineNo, oldRaw, newValue){
+    handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(), setText: t => editor.setText(t),
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:/i,
+      getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
+    });
   },
 });
 
@@ -629,6 +867,10 @@ $('preview').addEventListener('pointerdown', e => {
     document.body.style.cursor = 'col-resize';
     return;
   }
+  /* the what-if capsule: checked next, same sibling discipline as the edge
+     handle above — never armed as a drag (the click/keydown listeners below
+     do the actual cycling). */
+  if(e.target.closest && e.target.closest('[data-whatif]')) return;
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
@@ -805,6 +1047,24 @@ $('preview').addEventListener('keydown', e => {
   if(lens){ e.preventDefault(); commitLens(lens.dataset.lens); }
 });
 
+/* the what-if capsule (A4): same shape as data-lens above — a plain click,
+   not edit-in-place (the sibling hit rect carries no [data-edit], precisely
+   so eip's own closest('[data-edit]') never resolves it to the cardmenu
+   ancestor — see cond-parts.js's whatifHitRect comment). Keyboard mirrors
+   the lens pattern too: tabindex/role live on the rect itself (render.js/
+   render-*.js), Enter/Space cycles regardless of pointer type — only the
+   CLICK path is fine-pointer-only (CSS `pointer-events` gates that in
+   style.css, coarse taps land on the card instead). */
+$('preview').addEventListener('click', e => {
+  const wi = e.target.closest && e.target.closest('[data-whatif]');
+  if(wi){ e.preventDefault(); cycleWhatIf(wi.dataset.whatif); }
+}, false);
+$('preview').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const wi = e.target.closest && e.target.closest('[data-whatif]');
+  if(wi){ e.preventDefault(); cycleWhatIf(wi.dataset.whatif); }
+});
+
 /* ---------- theme change → re-render ---------- */
 function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
@@ -834,4 +1094,4 @@ watchNarrowBucket(previewEl, rerender);
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict']);

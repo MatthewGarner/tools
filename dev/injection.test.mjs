@@ -486,11 +486,11 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
   assertClean(renderBoard(doc, new Date(), board[1].id), 'premortem-board-promoting');
 });
 
-/* ---------- authored verdicts (2026-07-31) ----------
+/* ---------- authored verdicts (2026-07-31, roadmap joined 2026-08-09) ----------
    `verdict: <text>` is a NEW path for author-supplied text straight into an SVG
-   text node, on seven tools at once. It is exactly the shape of string that has
+   text node, on eight tools at once. It is exactly the shape of string that has
    broken exports twice before, so every tool that accepts the key gets the
-   corpus run through it. One test, seven renderers, no per-tool memory needed. */
+   corpus run through it. One test, eight renderers, no per-tool memory needed. */
 test('every tool accepting verdict: escapes a hostile authored line', async () => {
   const evil = EVIL.join(' ');   // one line carrying every hostile shape at once
   const v = 'verdict: ' + evil.replace(/\n/g, ' ') + '\n';
@@ -537,6 +537,11 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
   const {render: rrender} = await import('../energy/risk/render.js');
   const rm = rparse(v + 'merchant: 40..90\nfloor: 55');
   assertClean(rrender(rm, rsimulate(rm), ctx), 'risk verdict:');
+
+  const {parse: rdparse} = await import('../roadmap/parse.js');
+  const {render: rdrender} = await import('../roadmap/render.js');
+  const rdm = rdparse(v + 'NOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders');
+  assertClean(rdrender(rdm, ctx), 'roadmap verdict:');
 });
 
 /* `headline:` reached only the deck until 2026-07-31 and `story:` is new — two
@@ -558,4 +563,59 @@ test('roadmap escapes a hostile headline and story on every artefact', async () 
   assertClean(renderBoardLive(parse(doc('board')), {...ctx, diff}), 'board headline+story');
   assertClean(renderRegisterLive(parse(doc('register')), {...ctx, diff}), 'register headline+story');
   assertClean(renderFocusLive(parse(doc('focus')), {...ctx, diff}), 'focus headline+story');
+});
+
+/* ---------- conditional roadmap (A6) ----------
+   Bet names themselves are `[a-z0-9-]+` (case-insensitive) — the parser refuses
+   anything else, so a hostile payload can never ride a bet NAME. It rides the
+   surrounding free text instead: lane/title/note on the bet-declaring item, the
+   conditioned rider, and the dropped item's own title/note (the dropped capsule
+   also splices in the bet's DISPLAY name, itself just the declared name's
+   original casing — still [a-z0-9-]+, but exercised here as belt-and-braces).
+   Two bet names sit at the grammar's shape boundaries: a single character ("x")
+   and one using every allowed class at once (letters+digits+hyphens). Covers a
+   WON bet (drops its own [unless] fallback) and a LOST bet (drops its own [if]
+   rider) — the two dropped-tag wordings — across every live renderer + deck. */
+test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items, and hostile bet names at the grammar\'s shape boundary parse cleanly, across every live renderer + deck', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {render} = await import('../roadmap/render.js');
+  const {renderBoardLive} = await import('../roadmap/render-board.js');
+  const {renderRegisterLive} = await import('../roadmap/render-register.js');
+  const {renderFocusLive} = await import('../roadmap/render-focus.js');
+  const {renderBoardDeck} = await import('../roadmap/render-board.js');
+  const {renderRegisterDeck} = await import('../roadmap/render-register.js');
+  const {renderFocusDeck} = await import('../roadmap/render-focus.js');
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const {paletteColors} = await import('../roadmap/render-deck.js');
+
+  const doc = style => (style ? 'style: ' + style + '\n' : '') +
+    'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL[1].replace(/:/g, ';') + ' lane: ' + label(1) + '\n' +
+    'NEXT\n' +
+    EVIL[2].replace(/:/g, ';') + ' lane: ' + label(2) + ' [bet: shipped-a1-b2] -- ' + EVIL[3] + '\n' +
+    EVIL[4].replace(/:/g, ';') + ' lane: ' + label(4) + ' [if shipped-a1-b2] -- ' + EVIL[5] + '\n' +
+    'Lane: ' + label(6) + ' won-item [bet: won-x won]\n' +
+    EVIL[0].replace(/:/g, ';') + ' lane: ' + label(0) + ' [unless won-x] -- ' + EVIL[1] + '\n' +   // dropped: won -> unless drops
+    'Lane: ' + label(2) + ' lost-item [bet: x lost]\n' +
+    EVIL[3].replace(/:/g, ';') + ' lane: ' + label(3) + ' [if x] -- ' + EVIL[4];                    // dropped: lost -> if drops
+
+  const m = parse(doc());
+  // the parsed model must actually HAVE the subject this test claims to cover
+  // — a bet, a dropped item — or a future refactor that silently broke the
+  // fixture (grammar drift, a renamed key) would still pass every assertClean
+  // call below on an EMPTY doc that escapes nothing because there's nothing to escape.
+  assert.ok(m.bets['shipped-a1-b2'] && m.bets['won-x'] && m.bets.x, 'the fixture declares its three bets');
+  assert.ok(m.items.some(i => i.worldState === 'dropped'), 'the fixture actually drops an item');
+  assertClean(render(m, {...ctx, edit: true}), 'roadmap conditional');
+  assertClean(render(m, {...ctx, edit: true, width: 360}), 'roadmap conditional narrow');
+  assertClean(renderBoardLive(parse(doc('board')), {...ctx, edit: true}), 'board-live conditional');
+  assertClean(renderRegisterLive(parse(doc('register')), {...ctx, edit: true}), 'register-live conditional');
+  assertClean(renderFocusLive(parse(doc('focus')), {...ctx, edit: true}), 'focus-live conditional');
+  const boardM = parse(doc('board'));
+  assertClean(renderBoardDeck(boardM, ctx, paletteColors(boardM, ctx)), 'roadmap-deck-board conditional');
+  const registerM = parse(doc('register'));
+  assertClean(renderRegisterDeck(registerM, ctx, paletteColors(registerM, ctx)), 'roadmap-deck-register conditional');
+  const focusM = parse(doc('focus'));
+  assertClean(renderFocusDeck(focusM, ctx, paletteColors(focusM, ctx)), 'roadmap-deck-focus conditional');
+  assertClean(renderDeck(m, ctx), 'roadmap-deck-grid conditional');
 });

@@ -6,6 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import {parse, roadmapVerdict, roadmapMetrics} from '../parse.js';
+import {resolveVerdict} from '../../assets/verdict.js';
 
 const v = src => roadmapVerdict(parse(src));
 /* the contract every tier owes: the key figure is IN the line, verbatim */
@@ -210,4 +211,42 @@ A`)), ['1 item', '3 horizons']);
 test('metrics — an empty model hides the row', () => {
   assert.deepEqual(roadmapMetrics(parse('')), []);
   assert.deepEqual(roadmapMetrics(null), []);
+});
+
+/* ---------- authored `verdict:` override, at the paint level (2026-08-09) ----------
+   app.js: `resolveVerdict(model.verdict, {line: vd.line, fig: vd.fig})` — the
+   authored key ALWAYS wins over the auto ladder above when present and
+   non-empty; 'off' (or an empty string) hides the verdict entirely regardless
+   of what the auto ladder would have said; an ABSENT key (never wrote
+   `verdict:`) falls through to the auto line untouched. resolveVerdict is
+   generic (assets/verdict.js, shared by every tool with a verdict), so this
+   proves roadmap's own wiring calls it correctly, not resolveVerdict itself
+   (that's assets/tests/verdict.test.mjs's job — out of this task's file
+   allowlist). */
+test('authored verdict: beats the auto ladder outright, whatever tier the ladder would have picked', () => {
+  const m = parse(`verdict: We are betting the quarter on retention
+wip: 1
+NOW
+A
+B
+C`);   // tier 1 (WIP breach) would otherwise speak loudly here
+  const auto = roadmapVerdict(m);
+  assert.ok(auto && auto.line.includes('WIP'), 'sanity: the auto ladder has something to say');
+  const v = resolveVerdict(m.verdict, auto);
+  assert.equal(v.line, 'We are betting the quarter on retention');
+  assert.ok(!v.line.includes('WIP'), 'the authored line replaces the auto line outright, not alongside it');
+});
+
+test('authored verdict: off hides the verdict even when the auto ladder would have spoken', () => {
+  const m = parse('verdict: off\nwip: 1\nNOW\nA\nB\nC');
+  const v = resolveVerdict(m.verdict, roadmapVerdict(m));
+  assert.deepEqual(v, {line: '', fig: ''});
+});
+
+test('authored verdict: an absent key falls through to the auto line, untouched', () => {
+  const m = parse('wip: 1\nNOW\nA\nB\nC');
+  assert.equal(m.verdict, null, 'sanity: no verdict: key was written');
+  const auto = roadmapVerdict(m);
+  const v = resolveVerdict(m.verdict, auto);
+  assert.deepEqual(v, {line: auto.line, fig: auto.fig});
 });

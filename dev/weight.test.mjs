@@ -219,7 +219,33 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 641_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  'roadmap/index.html': 705_000,   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
+     routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
+     app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
+     DECK-only always-show-tag path (board narrowest ramp + focus rail suffix) — actual 703.1k,
+     ~1.9k headroom. */
+  /* 2026-08-09 review-fix batch: parse.js gains the resolution-
+     beats-bare same-line rule, the cross-line duplicate sweep, direct-unless aftermath tracking,
+     cycle-member exclusion from the fork tier, the two structural warnings moved into deriveWorld
+     (world-state gated), the [done]-under-moot warning, near-miss/multi-word tolerances, and the
+     moot-before-assumed effectiveOf precedence — actual 697.9k, ~2.1k headroom. */
+  /* 2026-08-09 conditional roadmap A4: what-if preview — the
+     whatIf state/prune/cycle/chip/cross-fade wiring in app.js, the whatifHitRect/previewableBet
+     helpers in cond-parts.js, and the sibling-rect emission in render.js/render-board.js/
+     render-register.js/render-focus.js (all roadmap-only — the opacity cross-fade stayed local
+     to app.js rather than growing the shared assets/motion.js, so no other page pays for it);
+     actual 683.6k, ~1.4k headroom. */   /* 2026-08-09 A5: resolveBet/setCondition/clearCondition
+     + the addStatus/status/setLane/setSpan hardening in edit-targets.js, plus the Resolve…/
+     Condition…/What-if menu rows + onCommit arms in app.js; actual 694.6k, ~3.4k headroom. */
+  /* 2026-08-09 conditional roadmap A3: render states for cond/
+     dropped/bet items across chart+board+register+focus+deck (a new cond-parts.js module, plus
+     capsule/opacity/flag-suppression wiring in every renderer); actual 671.3k, ~5k headroom.
+     Was 666_000 (A2: the verdict ladder gains the aftermath/fork tiers (+ the applyWorld diff
+     each fork candidate runs) and the authored `verdict:` key's EIP wiring (verdict-edit.js +
+     a second attachEditInPlace root); actual 661.0k, ~5k headroom, same convention as the folds
+     below. Was 656_000 (A1: parse.js gains bet/cond tokens + the applyWorld cascade engine;
+     actual 650.6k, ~5.4k headroom). */
+     /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -248,7 +274,16 @@ const PAGES = {
   /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
      exact post-render add locator, which prevents the reported DSL-focus jump
      and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
-  'why/index.html': 636_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 630.5k, ~5.5k headroom */
+  'why/index.html': 678_000,   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
+     activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
+     (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
+  /* 2026-08-09 review-fix batch: why pays parse.js's growth too (it
+     imports roadmap/parse.js directly for the same bet/cond model); actual 669.8k, ~2.2k headroom. */
+  /* 2026-08-09 conditional roadmap A3: why pays roadmap/render.js's
+     new cond-parts.js import too (delegation — /why's map view renders through renderRoadmap,
+     so every render-state byte lands here); actual 662.8k, ~5.2k headroom. Was 653_000 (A1: why
+     pays roadmap/parse.js's bet/cond+applyWorld growth too; actual 647.5k, ~5.5k headroom). */
+     /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 630.5k, ~5.5k headroom */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px

@@ -37,10 +37,17 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    for that menu — in a band at both ends of every spanning card. So they are inert
    unless the pointer is fine. */
 .preview svg rect[data-span-edge]{pointer-events:none}
+/* what-if hit rect (A4): same fine-pointer-only discipline as the span-edge
+   handle above — coarse pointers get the card menu's what-if rows (A5)
+   instead. Keyboard access (tabindex/Enter/Space, app.js) is unaffected by
+   pointer-events — it's a separate focus/keydown path, not hit-testing. */
+.preview svg rect[data-whatif]{pointer-events:none}
 @media (pointer: fine){
   .preview svg g[data-edit="cardmenu"]{cursor:grab;touch-action:none}
   .preview svg rect[data-span-edge]{pointer-events:auto;cursor:col-resize}
+  .preview svg rect[data-whatif]{pointer-events:auto;cursor:pointer}
 }
+.preview svg rect[data-whatif]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (prefers-reduced-motion: no-preference){
   .preview svg g[data-line]{transition:opacity .15s}
 }
@@ -74,3 +81,22 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* drag support on top of the shared workspace preview */
 .preview{position:relative}
 .preview svg{user-select:none;-webkit-user-select:none}
+
+/* the what-if chip (A4): a sibling of the verdict block, OUTSIDE #preview —
+   the paint innerHTML-swap wipes anything inside #preview, so this can't
+   live there. role="status" is on the element in index.html (announces a
+   world flip); hidden whenever no bet is being previewed. Survives the
+   <520px narrow relayout unchanged — it isn't part of the SVG artefact. */
+.whatif-chip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+  margin:10px 0 0;padding:8px 12px;font-size:12.5px;color:var(--muted);
+  background:var(--card);border:1px solid var(--border)}
+.whatif-chip[hidden]{display:none}
+.whatif-chip strong{color:var(--ink);font-weight:600}
+.whatif-chip button{font:inherit;font-weight:600;color:var(--accent);
+  background:none;border:1px solid transparent;border-radius:0;
+  padding:2px 7px;margin:0;cursor:pointer}
+.whatif-chip button:hover,.whatif-chip button:focus-visible{border-color:var(--border);outline:none}
+@media (pointer: coarse){
+  .whatif-chip{font-size:13px}
+  .whatif-chip button{min-height:44px;padding:10px 12px}
+}

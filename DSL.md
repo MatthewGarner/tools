@@ -49,7 +49,7 @@ The ten grammars differ, but they're a family and obey the same rules:
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` | `HORIZON` header, then `Lane: Item [status] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -88,6 +88,7 @@ swimlanes, WIP limits, and a deck export.
 - `style:` deck layout, one of `board`, `focus`, `register`, `grid`.
 - `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
   first non-empty horizon when absent, blank, or naming no real horizon.
+- `verdict:` — `off` to carry no verdict at all, or your own line to replace the tool's. Omit it and the tool writes one, as it always has.
 
 **Node syntax:**
 - A line equal to a horizon name (case-insensitive, trailing `:` optional) opens that
@@ -95,11 +96,33 @@ swimlanes, WIP limits, and a deck export.
 - Under a column, each line is an **item**: `[Lane:] Title [status] [-- note] [-> url] [xN]`.
   - `Lane:` optional swimlane prefix (`Platform: …`).
   - `[status]` one of `[done]`, `[doing]`, `[risk]`, `[blocked]` (with a few aliases).
+  - `[bet: name]` flags this item as a fork point (`name` is letters/digits/hyphens only);
+    `[bet: name won]` / `[bet: name lost]` writes the resolution once reality answers — a
+    written resolution always beats a bare declaration, whatever order the lines are in.
+    `[if name]` / `[unless name]` make an item conditional on that bet paying off (or not);
+    at most one condition per item.
   - `-- note` trailing annotation; `-> url` a link; `xN` spans N columns (time axis only).
+
+**Worlds.** Each bet is unresolved, won or lost until you write a resolution. A bet whose
+own item is dropped (its condition failed) reads **moot** — "never ran", never "lost" — and
+its `[if]` dependents drop the same way (`never ran`, not a claimed loss) while its
+`[unless]` fallbacks stay **live** (a bet that never ran certainly didn't pay off). `[done]`
+always outranks the fork: a finished item never ghosts or drops, though it warns if it's
+itself *conditioned* on a bet that's still unresolved, lost, or never ran — the past can't be
+conditional.
 
 **What it warns about:** unknown palette / bad accent / bad `wip` / unknown `style`; a config
 line placed after the first header (read as a lane item); header typos; items before any
-header (skipped); an unknown `[status]`; a span used without a time axis.
+header (skipped); an unknown `[status]`; a span used without a time axis; a bet name that
+isn't letters/digits/hyphens; a reserved bet name (`won`/`lost`); a duplicate `[bet: x]`
+declaration; conflicting `won` + `lost` resolutions (reads unresolved); a second condition on
+one item; an unknown outcome word; a condition naming a bet that doesn't exist (with a
+"did you mean" suggestion when a declared bet's name is within edit distance 1); an item
+conditioning on its own bet (condition dropped); near-miss forms `[bet x]` / `[if: x]`
+(missing colon/space); a bet nothing conditions on; a conditioned item in the first horizon
+(a maybe in the commitment column); a conditioned item in an earlier horizon than its bet;
+`[done]` conditioned on an unresolved, lost, or never-ran bet; `[doing]` on a dropped item;
+a cascade cycle (reads unresolved).
 
 ```dsl tool=roadmap
 title: Team roadmap
@@ -114,8 +137,11 @@ NOW
 Platform: Onboarding revamp [doing] -- cut signup steps
 NEXT
 Platform: Enterprise SSO
+Platform: Retention engine [bet: retention]
+Platform: Proactive nudges [if retention]
 Later
 Billing: Usage-based pricing
+Billing: Manual outreach fallback [unless retention]
 ```
 
 ## wardley

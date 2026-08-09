@@ -8,6 +8,7 @@ import {moveItem} from '../edit.js';
    The renderer is never mutated as a model. */
 import {setSpan, setSpanStart, moveItemKeepingSpan} from '../edit-targets.js';
 import {setLane, addNote, addStatus, ensureHorizonHeader} from '../edit-targets.js';
+import {resolveBet, setCondition, clearCondition} from '../edit-targets.js';
 
 test('title rewrite keeps lane, status, note, link', () => {
   assert.equal(applies.title('Core: Streak freeze [doing] -- top request -> https://x', 'Streak freeze', 'Streak shield'),
@@ -343,4 +344,144 @@ test('ensureHorizonHeader is a no-op when the header already exists', () => {
   const text = 'NOW\nCore: A\nNEXT\nCore: B';
   const model = parse(text);
   assert.equal(ensureHorizonHeader(text, model, 1), text);
+});
+
+/* ---- A5: conditional-roadmap EIP rewrites ---- */
+
+const BET_DOC = 'NOW\nCore: Ship reminders [bet: reminders]\nGrowth: Fallback plan [unless reminders]\n' +
+  'NEXT\nCore: Depends on it [if reminders]\n';
+
+/* ---- resolveBet ---- */
+test('resolveBet writes "won" onto the [bet: …] token, preserving name casing and position', () => {
+  const doc = 'NOW\nCore: Ship it [bet: Reminders] -- note\n';
+  const out = resolveBet(doc, 1, 'won');
+  assert.match(out, /^Core: Ship it \[bet: Reminders won\] -- note$/m);
+  assert.equal(parse(out).items[0].bet.outcome, 'won');
+});
+test('resolveBet writes "lost"', () => {
+  const out = resolveBet(BET_DOC, 1, 'lost');
+  assert.match(out, /^Core: Ship reminders \[bet: reminders lost\]$/m);
+});
+test('resolveBet(null) unresolves an already-resolved token', () => {
+  const doc = 'NOW\nCore: Ship it [bet: reminders won]\n';
+  const out = resolveBet(doc, 1, null);
+  assert.match(out, /^Core: Ship it \[bet: reminders\]$/m);
+  assert.equal(parse(out).items[0].bet.outcome, null);
+});
+test('resolveBet is a no-op when the line carries no [bet: …] token', () => {
+  const doc = 'NOW\nCore: Plain item\n';
+  assert.equal(resolveBet(doc, 1, 'won'), doc);
+});
+test('resolveBet does not touch a bracket-shaped string in the note', () => {
+  const doc = 'NOW\nCore: Plain item -- looks like [bet: not-real]\n';
+  assert.equal(resolveBet(doc, 1, 'won'), doc);
+});
+
+/* ---- setCondition ---- */
+test('setCondition inserts a fresh [if name] token after the title (no other brackets)', () => {
+  const doc = 'NOW\nCore: A\nNEXT\nCore: B [bet: reminders]\n';
+  const out = setCondition(doc, 1, 'reminders', 'if');
+  assert.match(out, /^Core: A \[if reminders\]$/m);
+  const it = parse(out).items.find(i => i.title === 'A');
+  assert.deepEqual(it.cond, {name: 'reminders', when: 'if'});
+});
+test('setCondition inserts AFTER an existing [status]/[bet…] run, before xN (canonical order)', () => {
+  const doc = 'horizons: quarterly from Q3 2026 x2\nQ3 2026\nCore: A [doing] x2\nQ4 2026\nCore: B [bet: reminders]\n';
+  const out = setCondition(doc, 2, 'reminders', 'unless');
+  assert.match(out, /^Core: A \[doing\] \[unless reminders\] x2$/m);
+  const it = parse(out).items.find(i => i.title === 'A');
+  assert.equal(it.span, 2);
+  assert.deepEqual(it.cond, {name: 'reminders', when: 'unless'});
+});
+test('setCondition replaces an existing condition token in place (position preserved)', () => {
+  const out = setCondition(BET_DOC, 4, 'reminders', 'unless');
+  assert.match(out, /^Core: Depends on it \[unless reminders\]$/m);
+});
+test('setCondition round-trips through parse with an identical model otherwise', () => {
+  const out = setCondition(BET_DOC, 2, 'reminders', 'if');   // "Fallback plan" was [unless reminders]
+  const it = parse(out).items.find(i => i.title === 'Fallback plan');
+  assert.deepEqual(it.cond, {name: 'reminders', when: 'if'});
+});
+test('setCondition is a no-op for an unknown `when`', () => {
+  assert.equal(setCondition(BET_DOC, 1, 'reminders', 'maybe'), BET_DOC);
+});
+test('setCondition is a no-op for an out-of-range line', () => {
+  assert.equal(setCondition(BET_DOC, 99, 'reminders', 'if'), BET_DOC);
+});
+
+/* ---- clearCondition ---- */
+test('clearCondition removes the token and leaves no orphaned double space', () => {
+  const out = clearCondition(BET_DOC, 4);
+  assert.match(out, /^Core: Depends on it$/m);
+});
+test('clearCondition removes a token that sits mid-line, keeping the rest', () => {
+  const doc = 'NOW\nCore: A [if reminders] -- a note\n';
+  const out = clearCondition(doc, 1);
+  assert.match(out, /^Core: A -- a note$/m);
+});
+test('clearCondition is a no-op when the line has no condition token', () => {
+  assert.equal(clearCondition(BET_DOC, 1), BET_DOC);
+});
+
+/* ---- hardening: addStatus must be status-token-specific, not any-bracket ---- */
+test('addStatus still works on a line that already carries a [bet: …] token', () => {
+  const doc = 'NOW\nCore: A [bet: reminders]\n';
+  const out = addStatus(doc, 1, 'doing');
+  assert.match(out, /^Core: A \[doing\] \[bet: reminders\]$/m);
+  const it = parse(out).items[0];
+  assert.equal(it.status, 'doing');
+  assert.equal(it.bet.name, 'reminders');
+});
+test('addStatus still works on a line that already carries a condition token', () => {
+  const doc = 'NOW\nCore: A [if reminders]\nNEXT\nCore: reminders [bet: reminders]\n';
+  const out = addStatus(doc, 1, 'risk');
+  assert.match(out, /^Core: A \[risk\] \[if reminders\]$/m);
+});
+
+/* ---- hardening: the status REWRITE must target the status token, not the first bracket ---- */
+test('applies.status cycles the status bracket without destroying a bet token', () => {
+  const line = 'Core: Pilot [bet: x] [doing]';
+  const out = applies.status(line, 'doing', 'risk');
+  assert.equal(out, 'Core: Pilot [bet: x] [risk]');
+});
+test('applies.status cycles the status bracket when it comes BEFORE the bet token', () => {
+  const line = 'Core: Pilot [doing] [bet: x]';
+  const out = applies.status(line, 'doing', 'risk');
+  assert.equal(out, 'Core: Pilot [risk] [bet: x]');
+});
+
+/* ---- hardening: setLane clear must ignore ": " inside bracket tokens ---- */
+test('setLane("") clears the lane prefix on a line whose brackets contain ": "', () => {
+  const doc = 'NOW\nCore: A [doing] [bet: x]\n';
+  const out = setLane(doc, 1, '');
+  assert.match(out, /^A \[doing\] \[bet: x\]$/m);
+  assert.equal(parse(out).items[0].lane, '');
+});
+
+/* ---- hardening: setSpan must not mis-stack xN around bet/cond brackets ---- */
+test('setSpan on a line with xN AFTER the bet bracket (canonical) rewrites in place', () => {
+  const doc = 'horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: A [bet: reminders] x2\n';
+  const out = setSpan(doc, 2, 3);
+  assert.match(out, /^Core: A \[bet: reminders\] x3$/m);
+  const it = parse(out).items[0];
+  assert.equal(it.span, 3);
+  assert.equal(it.bet.name, 'reminders');
+});
+test('setSpan on a line with xN BEFORE the bet bracket normalises rather than stacking a second token', () => {
+  const doc = 'horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: A x2 [bet: reminders]\n';
+  const out = setSpan(doc, 2, 3);
+  assert.equal((out.match(/x3/g) || []).length, 1, 'exactly one xN token after the rewrite');
+  const it = parse(out).items[0];
+  assert.equal(it.span, 3);
+  assert.equal(it.bet.name, 'reminders');
+});
+test('setSpan round-trips through parse with an identical model (title/bet/cond) on a bet+cond line', () => {
+  const doc = 'horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: A [bet: reminders] [if other] x2\nQ4 2026\nCore: B [bet: other]\n';
+  const before = parse(doc).items[0];
+  const out = setSpan(doc, 2, 3);
+  const after = parse(out).items[0];
+  assert.equal(after.title, before.title);
+  assert.deepEqual(after.bet, before.bet);
+  assert.deepEqual(after.cond, before.cond);
+  assert.equal(after.span, 3);
 });

@@ -45,6 +45,11 @@ into the right input/popover/cycle interaction; and each tool owns the pure, tes
 function that rewrites its own text (`<tool>/edit-targets.js`). The rewrite is pure
 and tested in node — the DOM is just the trigger.
 
+The one deliberate exception is a preview, never a model: the roadmap "what-if" view
+lets you see a bet as won or lost without writing that resolution — it's a lens
+computed over the parsed model, held in memory only, never written back into the
+text and never carried into an export.
+
 The DSLs share conventions: soft, line-numbered warnings rather than hard errors
 (a half-finished document still renders); `//` comments; `title:` / `palette:` /
 `accent:` config keys; two-space indents; and a source-line reference on every

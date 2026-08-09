@@ -92,6 +92,19 @@ for(const [k, src] of Object.entries(docs)){
      section it runs THROUGH lists it under "also running" — a span-free doc
      has runLines = [] and no through items, so no OTHER narrow golden can move. */
   variants['roadmap-spans-narrow'] = render(spanModel, {...ctxBase, edit: true, width: 360});
+
+  /* CONDITIONAL (A6): an unresolved fork — one declared bet, an [if] rider, an
+     [unless] fallback, and the bet's own item still [doing] (in-flight WIP
+     counts even while the fork is open). Chart style, wide. Pins the open-bet
+     capsule (`BET name`), the cond dashed-muted treatment + `if`/`unless`
+     capsules, and the what-if hit rect the live preview paints under them. */
+  const forkDoc = 'title: Fork doc\ndate: 2026-08-09\nhorizons: Now, Next, Later\nwip: off\nNOW\n' +
+    'Core: Foundation\nNEXT\n' +
+    'Core: Retention engine [bet: retention] [doing] -- ships behind a flag\n' +
+    'Core: Proactive nudges [if retention]\n' +
+    'Core: Manual outreach [unless retention]\n' +
+    'LATER\nGrowth: Cross-sell push';
+  variants['roadmap-fork'] = render(parse(forkDoc), {...ctxBase, edit: true});
 }
 
 /* deck exports (roadmap/render-deck.js) — a separate module from render.js
@@ -208,6 +221,25 @@ for(const [k, src] of Object.entries(docs)){
      One golden per artefact pins the block AND the layout it pushes down. */
   variants['register-live-headline'] = renderRegisterLive(parse('headline: We are consolidating — three bets, no more\n' + regLiveDoc), {...ctxBase});
 
+  /* CONDITIONAL (A6): a RESOLVED world — a lost bet whose own [if] rider drops
+     (making that rider's own declared bet MOOT: a moot-chain drop, "never ran"),
+     an [unless] fallback that stays LIVE because a lost bet still didn't pay off,
+     and a won bet whose [unless] fallback drops ("won") while its [if] rider
+     stays live. Register style, edit:false (pins layout, not edit affordances —
+     injection.test.mjs covers those) so the won/lost/moot dropped-tag wordings
+     and the muted dropped-row wash golden-lock. */
+  const resolvedDoc = 'title: Resolved world\nstyle: register\ndate: 2026-08-09\nwip: off\nNOW\n' +
+    'Core: Foundation\nNEXT\n' +
+    'Core: Root gate [bet: gate lost]\n' +
+    'Core: Cascade bet [bet: cascade] [if gate] -- runs only if gate pays off\n' +
+    'Core: Downstream rider [if cascade] -- depends on cascade paying off\n' +
+    'Core: Fallback when gate fails [unless gate] -- still live, gate certainly did not pay off\n' +
+    'LATER\n' +
+    'Growth: Expansion bet [bet: expansion won]\n' +
+    'Growth: Won fallback dropped [unless expansion] -- superseded once expansion shipped\n' +
+    'Growth: Won rider stays [if expansion]';
+  variants['register-live-conditional'] = renderRegisterLive(parse(resolvedDoc), {...ctxBase});
+
   /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
      pins the LAYOUT (content-width columns, content-driven height, the
@@ -305,6 +337,14 @@ for(const [k, src] of Object.entries(docs)){
   const dm = wparse(deepDoc);
   const dpr = project(dm);
   variants['why-ost-narrow-deep'] = norm(renderOst(dm, dpr, {...ctxBase, edit: true, width: 360}));
+
+  /* Gate B: a committed solution with a broken assumption — the map view's
+     at-risk ghost (dashed + BROKEN ASSUMPTION badge, still fully editable).
+     Otherwise unreachable by the fixtures above, all of which stay healthy. */
+  const brokenDoc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Shaky reminders [delivering]\n      ? habit sticks [broken]';
+  const bm = wparse(brokenDoc);
+  const bpr = project(bm);
+  variants['why-map-broken'] = norm(renderMap(bm, bpr, {...ctxBase, edit: true}));
 }
 
 /* /map fixtures (dates normalised) */

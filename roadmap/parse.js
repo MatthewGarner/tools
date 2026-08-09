@@ -89,9 +89,13 @@ export const DECK_STYLES = ['board', 'focus', 'register', 'grid'];
 
 /* Items ACTIVE in a column: those whose span covers it. On a span-free doc this is
    exactly "items written in this column", so span-free behaviour is unchanged by
-   construction. */
+   construction. Dropped items (a bet resolved against their condition) leave WIP —
+   the work isn't happening — UNLESS still marked [doing]: work in flight counts
+   regardless of what the fork says, and that combination warns (parse/applyWorld). */
 export function activeCount(model, h){
-  return model.items.filter(i => i.h <= h && h <= i.h + Math.max(1, i.span || 1) - 1).length;
+  return model.items.filter(i => i.h <= h && h <= i.h + Math.max(1, i.span || 1) - 1)
+    .filter(i => i.worldState !== 'dropped' || i.status === 'doing')
+    .length;
 }
 
 /* One plain sentence per breaching column. STATES THE FACT — the tool reports what
@@ -126,18 +130,102 @@ const vb = (n, t, sing, plur) => (n === 1 || t === 1) ? sing : plur;
 export function roadmapMetrics(model){
   if(!model || !model.items || !model.items.length) return [];
   const lanes = model.lanes.filter(Boolean).length;
+  const nBets = Object.keys(model.bets || {}).length;
   return [
     plural(model.items.length, 'item'),
     plural(model.horizons.length, 'horizon'),
     lanes ? plural(lanes, 'lane') : null,
+    nBets ? plural(nBets, 'bet') : null,
     model.wip > 0 ? 'Wip limit ' + model.wip : null,
   ].filter(Boolean);
+}
+
+/* ---------- verdict tiers 2/3 (2026-08-09): resolved-bet aftermath + open fork ----------
+   Both walk model.items/model.bets as baked by parse() (the text world) — never
+   call applyWorld themselves except the fork tier's OWN diff, which is pure and
+   throws its projections away immediately (never mutates model). */
+
+/* A dropped item's dropReason names the bet it's conditioned on, but that bet
+   may itself be MOOT (its own item dropped by something else) — walk up the
+   chain to the resolved (won/lost) bet actually responsible, so a cascade of
+   moot bets attributes every drop to the one bet that really answered.
+   Returns null when the chain never reaches a resolved bet (shouldn't happen
+   for an item that's actually dropped, but a cycle-guard costs nothing). */
+function rootResolvedBet(model, nameLc, visited){
+  visited = visited || new Set();
+  if(visited.has(nameLc)) return null;
+  visited.add(nameLc);
+  const b = (model.bets || {})[nameLc];
+  if(!b) return null;
+  if(b.effective === 'won' || b.effective === 'lost') return nameLc;
+  if(b.effective === 'moot'){
+    const declaring = model.items[b.itemIndex];
+    if(declaring && declaring.dropReason)
+      return rootResolvedBet(model, declaring.dropReason.name.toLowerCase(), visited);
+  }
+  return null;
+}
+
+/* Tier 2 — aftermath: a resolved bet (won OR lost — both are quotable) whose
+   resolution transitively dropped items. Moot bets never speak for themselves;
+   their drops attribute to the resolved root that caused the moot cascade. */
+function aftermathTier(model){
+  const bets = model.bets || {};
+  const total = model.items.length;
+  const counts = {};
+  const allDirect = {};   // true if every drop for root is a direct [unless root]
+  for(const it of model.items){
+    if(it.worldState !== 'dropped' || !it.dropReason) continue;
+    const root = rootResolvedBet(model, it.dropReason.name.toLowerCase());
+    if(!root) continue;
+    counts[root] = (counts[root] || 0) + 1;
+    const direct = !!(it.cond && it.cond.when === 'unless' && it.cond.name.toLowerCase() === root);
+    allDirect[root] = (root in allDirect) ? (allDirect[root] && direct) : direct;
+  }
+  const entries = Object.keys(counts).map(nameLc =>
+    ({nameLc, n: counts[nameLc], srcLine: bets[nameLc].srcLine}));
+  if(!entries.length) return null;
+  entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most dropped speaks; ties = earliest declared
+  const {nameLc, n} = entries[0];
+  const b = bets[nameLc];
+  const kind = allDirect[nameLc] ? 'fallback item' : 'item';
+  /* the line embeds the fig verbatim — markFigure only colours a substring it
+     can find, and a bare count ("3") could false-match a digit in a bet name */
+  const fig = n + ' of ' + total;
+  return {fig, line: 'The ' + b.display + ' bet ' + b.effective + ' — ' +
+    nOfT(n, total, kind) + ' ' + vb(n, total, 'falls', 'fall') + ' away.'};
+}
+
+/* Tier 3 — fork: an unresolved bet (not moot — a bet nobody can answer yet
+   isn't a live fork) with conditioned items. "Transitive" reach is measured by
+   diffing the won/lost projections: whatever changes state between the two
+   worlds genuinely turns on this bet, riders and moot-cascade fallbacks alike,
+   without hand-rolling the cascade a second time. */
+function forkTier(model){
+  const bets = model.bets || {};
+  const total = model.items.length;
+  const unresolved = Object.keys(bets).filter(nameLc => bets[nameLc].effective === 'unresolved' && !bets[nameLc].cycle);
+  if(!unresolved.length) return null;
+  const entries = unresolved.map(nameLc => {
+    const won = applyWorld(model, {[nameLc]: 'won'});
+    const lost = applyWorld(model, {[nameLc]: 'lost'});
+    let n = 0;
+    for(let i = 0; i < model.items.length; i++)
+      if(won.items[i].worldState !== lost.items[i].worldState) n++;
+    return {nameLc, n, srcLine: bets[nameLc].srcLine};
+  }).filter(e => e.n > 0);
+  if(!entries.length) return null;
+  entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most riders+fallbacks speaks; ties = earliest declared
+  const {nameLc, n} = entries[0];
+  const b = bets[nameLc];
+  const fig = n + ' of ' + total;   // bare pair; the line's own nOfT prefix is what actually highlights
+  return {fig, line: nOfT(n, total, 'item') + ' ' + vb(n, total, 'turns', 'turn') +
+    ' on the ' + b.display + ' bet — the plan forks there, and says so.'};
 }
 
 export function roadmapVerdict(model){
   if(!model || !model.items || !model.items.length) return null;
   const first = model.horizons[0];
-  const total = model.items.length;
 
   /* 1 — a column over its declared wip limit: the limit is a plan the author
      already made, so breaking it outranks everything else. The worst column
@@ -155,8 +243,23 @@ export function roadmapVerdict(model){
     }
   }
 
-  /* 2 — flags: inside the commitment they ARE the story, beyond it a warning. */
-  const inFirst = model.items.filter(i => i.h === 0);
+  /* 2 — aftermath: a resolved bet (won or lost) whose resolution transitively
+     dropped items — quotable in either direction, moot bets never speak. */
+  const aftermath = aftermathTier(model);
+  if(aftermath) return aftermath;
+
+  /* 3 — fork: an unresolved bet with conditioned items still turning on it. */
+  const fork = forkTier(model);
+  if(fork) return fork;
+
+  /* Dropped items (reality already answered) leave the flags and shape tiers —
+     both the numerator and the denominator — else a resolved-away [risk] still
+     reads as live trouble on a plan the text says isn't happening. */
+  const live = model.items.filter(i => i.worldState !== 'dropped');
+  const total = live.length;
+
+  /* 4 — flags: inside the commitment they ARE the story, beyond it a warning. */
+  const inFirst = live.filter(i => i.h === 0);
   const flaggedFirst = inFirst.filter(i => FLAGGED.has(i.status)).length;
   if(flaggedFirst){
     const fig = flaggedFirst + ' of ' + inFirst.length;
@@ -164,14 +267,14 @@ export function roadmapVerdict(model){
       vb(flaggedFirst, inFirst.length, 'is', 'are') +
       " flagged — the risk sits inside what you've already committed."};
   }
-  const flagged = model.items.filter(i => FLAGGED.has(i.status)).length;
+  const flagged = live.filter(i => FLAGGED.has(i.status)).length;
   if(flagged){
     const fig = flagged + ' of ' + total;
     return {fig, line: nOfT(flagged, total, 'item') + ' ' + vb(flagged, total, 'is', 'are') +
       ' flagged, none in ' + first + ' — the trouble sits beyond the commitment.'};
   }
 
-  /* 3 — otherwise the shape: how much is committed vs only shaped. */
+  /* 5 — otherwise the shape: how much is committed vs only shaped. */
   const n = inFirst.length;
   const fig = n + ' of ' + total;
   const head = nOfT(n, total, 'item') + ' ' + vb(n, total, 'sits', 'sit') + ' in ' + first;
@@ -184,7 +287,7 @@ export function roadmapVerdict(model){
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, focus:undefined, timeAxis:false};
+    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -192,7 +295,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
@@ -231,6 +334,7 @@ export function parse(text){
         else model.warnings.push('line ' + (ln+1) + ': unknown style "' + snippet(val) + '" — use ' + DECK_STYLES.join(' / '));
       }
       else if(key === 'focus') model.focus = val || undefined;
+      else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
@@ -260,7 +364,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;
@@ -269,13 +373,117 @@ export function parse(text){
     const laneMatch = line.match(/^([^[\]]+?)\s*:\s+(.*)$/);
     if(laneMatch){ lane = laneMatch[1].trim(); line = laneMatch[2].trim(); }
 
-    let status = null;
-    line = line.replace(/\[([^\]]+)\]/g, (m, tag) => {
-      const s = STATUS_ALIASES[tag.trim().toLowerCase()];
-      if(s) status = s;
-      else model.warnings.push('line ' + (ln+1) + ': unknown status [' + tag + '] — ignored (use done / doing / risk / blocked)');
+    let status = null, betTag = null, condTag = null;
+    line = line.replace(/\[([^\]]+)\]/g, (m, tagRaw) => {
+      const tag = tagRaw.trim();
+      const s = STATUS_ALIASES[tag.toLowerCase()];
+      if(s){ status = s; return ''; }   // status stays LAST-wins — deliberately unlike bet/cond below
+
+      /* [bet: name] / [bet: name won|lost] — the fork itself. First bet token on
+         a line wins; a second is a duplicate and warns rather than silently
+         overwriting (a resolution must not be clobbered by a stray later token). */
+      const betM = tag.match(/^bet\s*:\s*(.+)$/i);
+      if(betM){
+        const rest = betM[1].trim();
+        const words = rest.split(/\s+/).filter(Boolean);
+        let name, outcome = null;
+        const lastLc = words.length >= 2 ? words[words.length - 1].toLowerCase() : null;
+        if(lastLc === 'won' || lastLc === 'lost'){
+          outcome = lastLc;
+          name = words.slice(0, -1).join(' ');
+        } else if(words.length >= 2){
+          model.warnings.push('line ' + (ln+1) +
+            ': bet name wants one word (letters, numbers, hyphens) — for a resolution write ' +
+            '[bet: name won] or [bet: name lost] — ignored');
+          return '';
+        } else {
+          name = words[0] || rest;
+        }
+        if(!/^[a-z0-9-]+$/i.test(name)){
+          model.warnings.push('line ' + (ln+1) + ': bet name ' + snippet(name) +
+            ' — use letters, numbers, hyphens only — [bet: …] ignored');
+          return '';
+        }
+        const nameLc = name.toLowerCase();
+        if(nameLc === 'won' || nameLc === 'lost'){
+          model.warnings.push('line ' + (ln+1) + ': "' + name +
+            '" is reserved (won/lost are outcomes, not names) — [bet: ' + name + '] ignored');
+          return '';
+        }
+        if(betTag){
+          const sameName = betTag.name.toLowerCase() === nameLc;
+          const oneResolves = (betTag.outcome == null) !== (outcome == null);
+          if(sameName && oneResolves){
+            model.warnings.push('line ' + (ln+1) + ': [' + betTag.tagText + '] and [' + tag +
+              '] on one line — the resolution wins');
+            if(outcome != null) betTag = {name, outcome, tagText: tag};
+          } else {
+            model.warnings.push('line ' + (ln+1) + ': duplicate [bet: ' + name +
+              '] on one line — first wins');
+          }
+        } else {
+          betTag = {name, outcome, tagText: tag};
+        }
+        return '';
+      }
+      /* near-miss: [bet x] (missing colon) reads as a status typo otherwise —
+         give it a bet-specific hint, never the done/doing/risk/blocked one. */
+      const betNear = tag.match(/^bet\s+(\S.*)$/i);
+      if(betNear){
+        model.warnings.push('line ' + (ln+1) + ': [' + tag + '] — did you mean "[bet: ' +
+          betNear[1].trim() + ']"? — ignored');
+        return '';
+      }
+
+      /* [if name] / [unless name] — at most one condition per item; first wins. */
+      const condM = tag.match(/^(if|unless)\s+(.+)$/i);
+      if(condM){
+        const when = condM[1].toLowerCase();
+        const name = condM[2].trim();
+        if(name.startsWith(':')){   // [if : x]: \s+ ate the space, name became ": x"
+          const cleaned = name.replace(/^:\s*/, '').trim();
+          model.warnings.push('line ' + (ln+1) + ': [' + tag + '] — did you mean "[' +
+            when + ' ' + cleaned + ']"? — ignored');
+          return '';
+        }
+        if(!/^[a-z0-9-]+$/i.test(name)){
+          model.warnings.push('line ' + (ln+1) + ': condition name ' + snippet(name) +
+            ' — use letters, numbers, hyphens only — [' + when + ' …] ignored');
+          return '';
+        }
+        if(condTag){
+          model.warnings.push('line ' + (ln+1) + ': second condition [' + tag +
+            '] on this line ignored — first wins');
+        } else {
+          condTag = {name, when};
+        }
+        return '';
+      }
+      /* near-miss: [if: x] / [unless: x] (colon instead of space) */
+      const condNear = tag.match(/^(if|unless)\s*:\s*(.+)$/i);
+      if(condNear){
+        model.warnings.push('line ' + (ln+1) + ': [' + tag + '] — did you mean "[' +
+          condNear[1].toLowerCase() + ' ' + condNear[2].trim() + ']"? — ignored');
+        return '';
+      }
+      const condBare = tag.match(/^(if|unless)$/i);
+      if(condBare){
+        const when = condBare[1].toLowerCase();
+        model.warnings.push('line ' + (ln+1) + ': [' + when + '] needs a bet name — like [' + when + ' reminders]');
+        return '';
+      }
+
+      model.warnings.push('line ' + (ln+1) + ': unknown status [' + tag + '] — ignored (use done / doing / risk / blocked)');
       return '';
     }).trim();
+
+    /* self-condition: an item conditioning on the very bet it declares — the
+       fork can never answer about itself, so the condition is dropped. */
+    if(betTag && condTag && betTag.name.toLowerCase() === condTag.name.toLowerCase()){
+      model.warnings.push('line ' + (ln+1) + ': item conditions on its own bet ("' +
+        betTag.name + '") — condition dropped');
+      condTag = null;
+    }
 
     let url = null;
     const linkMatch = line.match(/\s->\s+(\S+)\s*$/);
@@ -324,7 +532,9 @@ export function parse(text){
     if(!line) continue;
     if(!model.lanes.includes(lane)) model.lanes.push(lane);
     model.items.push({lane, h: currentH, title: line, note, status, url,
-      span, declaredSpan, spanEnd, srcLine: ln});
+      span, declaredSpan, spanEnd, srcLine: ln,
+      bet: betTag ? {name: betTag.name, outcome: betTag.outcome} : null,
+      cond: condTag ? {name: condTag.name, when: condTag.when} : null});
   }
   if(preHeader.length === 1){
     const n = preHeader[0];
@@ -338,5 +548,209 @@ export function parse(text){
   if(model.lanes.includes('') && model.lanes.length > 1){
     model.lanes = model.lanes.filter(l => l !== '').concat(['']);
   }
+
+  /* Assemble the bets map + every structural (world-independent) warning:
+     duplicate/conflicting declarations, dangling conditions, horizon ordering,
+     bets nothing conditions on. Then bake the TEXT world (assumed = {}) onto
+     the model directly — activeCount and every renderer read worldState/
+     effective straight off model.items/model.bets, never calling applyWorld
+     themselves. This is also the ONLY place cascade/drop-derived warnings are
+     appended: applyWorld() (below) recomputes states for a preview but never
+     re-appends warnings, so a what-if preview can never disagree with the text
+     world about what's wrong with the text (see deriveWorld's comment). */
+  buildBets(model);
+  const baked = deriveWorld(model, {});
+  model.items = baked.items;
+  model.bets = baked.bets;
+  model.warnings.push(...baked.warnings);
   return model;
+}
+
+/* Structural bet/condition bookkeeping — independent of any world (resolved,
+   assumed or otherwise). Mutates model.warnings and model.items[].cond (a
+   dangling condition is dropped once warned) and sets model.bets to a plain
+   {nameLc: {name, display, outcome, srcLine, itemIndex, h}} map, `outcome`
+   being the WRITTEN resolution only (null when unresolved) — `effective`
+   (which folds in cascade/assumed) is added later by deriveWorld. */
+function buildBets(model){
+  const rawBets = {};
+  model.items.forEach((it, idx) => {
+    if(!it.bet) return;
+    const nameLc = it.bet.name.toLowerCase();
+    (rawBets[nameLc] = rawBets[nameLc] || []).push(
+      {name: it.bet.name, outcome: it.bet.outcome, srcLine: it.srcLine, itemIndex: idx});
+  });
+
+  const bets = {};
+  for(const nameLc in rawBets){
+    const entries = rawBets[nameLc];
+    const resolutions = entries.filter(e => e.outcome);
+    let outcome = null, conflict = false;
+    if(resolutions.length){
+      const distinct = new Set(resolutions.map(e => e.outcome));
+      if(distinct.size > 1){
+        conflict = true;
+        const last = resolutions[resolutions.length - 1];
+        model.warnings.push('line ' + (last.srcLine + 1) + ': bet "' + entries[0].name +
+          '" has conflicting resolutions (won and lost) — reads unresolved');
+      } else {
+        outcome = resolutions[0].outcome;   // a resolution beats a bare declaration, any order
+      }
+    }
+    if(!conflict){   // beyond the true first is a duplicate, bare or resolved
+      for(let k = 1; k < entries.length; k++){
+        model.warnings.push('line ' + (entries[k].srcLine + 1) + ': duplicate [bet: ' + entries[k].name +
+          (entries[k].outcome ? ' ' + entries[k].outcome : '') +
+          '] — already declared at line ' + (entries[0].srcLine + 1) + ' — first wins');
+      }
+    }
+    const canonical = entries[0];
+    bets[nameLc] = {name: canonical.name, display: canonical.name, outcome,
+      srcLine: canonical.srcLine, itemIndex: canonical.itemIndex, h: model.items[canonical.itemIndex].h};
+  }
+  model.bets = bets;
+
+  const betNames = Object.keys(bets);
+  const conditioned = new Set();
+  model.items.forEach(it => {
+    if(!it.cond) return;
+    const nameLc = it.cond.name.toLowerCase();
+    if(!bets[nameLc]){
+      const suggestion = betNames.find(n => near(it.cond.name, bets[n].display));
+      model.warnings.push('line ' + (it.srcLine + 1) + ': no bet named "' + it.cond.name + '"' +
+        (suggestion ? ' — did you mean "' + bets[suggestion].display + '"?' : '') + ' — condition ignored');
+      it.cond = null;
+      return;
+    }
+    conditioned.add(nameLc);
+    // moved to deriveWorld (worldState==='cond')
+  });
+  betNames.forEach(nameLc => {
+    if(!conditioned.has(nameLc)){
+      model.warnings.push('line ' + (bets[nameLc].srcLine + 1) + ': bet "' + bets[nameLc].display +
+        '" — nothing conditions on it');
+    }
+  });
+}
+
+/* The shared cascade engine. Computes, for a given `assumed` (per-bet
+   {nameLc: 'won'|'lost'} preview map, {} for the text-only world):
+     - per-item worldState: null | 'cond' (ghosted, fork unresolved) | 'dropped'
+     - per-item dropReason: null | {name, display, effective} for wording
+     - per-bet effective: 'unresolved' | 'won' | 'lost' | 'moot'
+   Rules: a WRITTEN resolution always wins, over both `assumed` and cascade.
+   [done] outranks the fork — a done item is never cond/dropped. A cycle in the
+   condition graph (a depends on b depends on a) can't be evaluated; it warns
+   and every bet in it reads unresolved. Moot (own item dropped, transitively)
+   is a distinct outcome from won/lost — a cascade never claims a resolution
+   reality never produced. [if b] dependents of a moot b DROP (never ran);
+   [unless b] fallbacks of a moot b are LIVE (b certainly didn't pay off, so
+   the fallback world applies) — this is the one place if/unless truly diverge.
+   Returns NEW items/bets (never mutates its inputs) plus a `warnings` array
+   that the CALLER decides whether to keep: parse() bakes the text world
+   (assumed={}) and appends these to model.warnings; the exported applyWorld()
+   (previews) throws them away, so a what-if preview never disagrees with the
+   text world about what's wrong with the text — only parse-time warnings ever
+   reach the model, once. */
+function deriveWorld(model, assumed){
+  const worldWarnings = [];
+  const bets = {};
+  for(const k in model.bets) bets[k] = {...model.bets[k]};
+  const items = model.items.map(it => ({...it}));
+  const cache = {}, visiting = new Set();
+
+  function effectiveOf(nameLc){
+    if(Object.prototype.hasOwnProperty.call(cache, nameLc)) return cache[nameLc];
+    const b = bets[nameLc];
+    if(!b) return 'unresolved';
+    if(visiting.has(nameLc)){
+      worldWarnings.push('line ' + (b.srcLine + 1) + ': bet "' + b.display + '" sits in a condition cycle — reads unresolved');
+      for(const v of visiting) if(bets[v]) bets[v].cycle = true;
+      return 'unresolved';
+    }
+    visiting.add(nameLc);
+    let result;
+    if(b.outcome === 'won' || b.outcome === 'lost'){
+      result = b.outcome;                                   // written beats everything
+    } else {
+      const st = stateOf(items[b.itemIndex]);   // moot outranks assumed
+      if(st === 'dropped'){
+        result = 'moot';
+      } else if(assumed && (assumed[nameLc] === 'won' || assumed[nameLc] === 'lost')){
+        result = assumed[nameLc];
+      } else {
+        result = 'unresolved';
+      }
+    }
+    visiting.delete(nameLc);
+    cache[nameLc] = result;
+    return result;
+  }
+
+  function stateOf(item){
+    if(item.status === 'done') return null;                 // the past can't be conditional
+    if(!item.cond) return null;
+    const nameLc = item.cond.name.toLowerCase();
+    const eff = effectiveOf(nameLc);
+    if(item.cond.when === 'if'){
+      if(eff === 'lost' || eff === 'moot') return 'dropped';
+      if(eff === 'unresolved') return 'cond';
+      return null;                                            // won
+    }
+    /* unless: the fallback runs whenever the bet did NOT pay off, including
+       when it never ran at all (moot) — only a WON bet drops the fallback. */
+    if(eff === 'won') return 'dropped';
+    if(eff === 'unresolved') return 'cond';
+    return null;                                              // lost or moot
+  }
+
+  for(const it of items){
+    it.worldState = stateOf(it);
+    it.dropReason = null;
+    if(it.worldState === 'dropped' && it.cond){
+      const nameLc = it.cond.name.toLowerCase();
+      const b = bets[nameLc];
+      it.dropReason = {name: it.cond.name, display: b ? b.display : it.cond.name, effective: effectiveOf(nameLc)};
+    }
+    if(it.worldState === 'cond' && it.cond){   // fires only while the fork is open
+      const nameLc = it.cond.name.toLowerCase();
+      const b = bets[nameLc];
+      if(it.h === 0){
+        worldWarnings.push('line ' + (it.srcLine + 1) + ': ' + snippet(it.title) +
+          ' is conditioned on "' + (b ? b.display : it.cond.name) + '" but sits in ' + model.horizons[0] +
+          ' — a maybe in the commitment column');
+      }
+      if(b && it.h < b.h){
+        worldWarnings.push('line ' + (it.srcLine + 1) + ': ' + snippet(it.title) +
+          ' is conditioned on "' + b.display + '", declared later (in ' +
+          model.horizons[b.h] + ') — the condition sits in an earlier horizon than its bet');
+      }
+    }
+    if(it.status === 'doing' && it.worldState === 'dropped'){
+      worldWarnings.push('line ' + (it.srcLine + 1) + ': [doing] item is dropped by its condition' +
+        (it.cond ? ' ("' + it.cond.name + '")' : '') + ' — still in flight, so it still counts toward WIP');
+    }
+    if(it.status === 'done' && it.cond){
+      const eff = effectiveOf(it.cond.name.toLowerCase());
+      if(eff === 'unresolved' || eff === 'lost' || eff === 'moot'){
+        const clause = eff === 'moot' ? 'which never ran' : 'which is ' + eff;
+        worldWarnings.push('line ' + (it.srcLine + 1) + ': [done] item is conditioned on bet "' +
+          it.cond.name + '", ' + clause + ' — done outranks the fork, kept');
+      }
+    }
+  }
+  for(const nameLc in bets) bets[nameLc].effective = effectiveOf(nameLc);
+  return {items, bets, warnings: worldWarnings};
+}
+
+/* Pure model → model: never mutates `model`. `assumed` is a per-bet preview
+   map ({name: 'won'|'lost'}, any casing; {} or undefined = the text-only
+   world) used by roadmap's what-if UI (later slice) to feed renderers/verdict/
+   metrics/WIP a self-consistent projected world. Never appends warnings — see
+   deriveWorld's comment. */
+export function applyWorld(model, assumed){
+  const a = {};
+  if(assumed) for(const k in assumed) a[k.toLowerCase()] = assumed[k];
+  const {items, bets} = deriveWorld(model, a);
+  return {...model, items, bets, warnings: model.warnings};
 }

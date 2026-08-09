@@ -4,9 +4,10 @@
    Named render-*.js so renderer-coverage forces the live renderer into the
    injection corpus. */
 import {txt, esc, btnAttrs} from '../assets/svg.js';
-import {STATUS_LABEL} from './parse.js';
-import {rect, line, clip1, wrapN, capFit, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
+import {STATUS_LABEL, activeCount} from './parse.js';
+import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
    note; the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
@@ -47,15 +48,24 @@ export function boardGeometry(model, zoneH){
 
 /* CARD column: drop-notes -> clamp-title -> cap+chip ladder, capFit sharing
    the same proven-terminating helper the list path uses. */
-function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, measure}){
+function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, measure, model}){
   const fT = '700 ' + ramp.fsT + 'px ' + SANS, fN = ramp.fsN + 'px ' + SANS;
+  const hasBets = anyBet(model);
+  /* DECK export always carries the tag, even at the narrowest ramp — an
+     export has no card menu to fall back on, and Matt's ruling is exports
+     must carry every path (review F4); the height model already budgets
+     `tag ? 30 : 0` unconditionally below, so dropping the ramp gate here is
+     the whole fix. LIVE narrow columns keep the fade-only degrade — that's
+     paintBoardCard, a different function, untouched. */
+  const showTag = hasBets;
   const layCards = (noteLines, titleLines) => list.map(it => {
-    const b = badgeOf(it);
+    const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
+    const tag = showTag ? cardTag(model, it) : null;
     const tl = wrapN(it.title, fT, cw - ramp.pad * 2, titleLines, measure);
     const nl = it.note && noteLines ? wrapN(it.note, fN, cw - ramp.pad * 2, noteLines, measure) : [];
     const foot = it.lane || it.status ? 30 : 6;
-    return {it, b, tl, nl,
-      h: ramp.pad * 2 + (b ? 30 : 0) + tl.length * (ramp.fsT + 5) + nl.length * (ramp.fsN + 6) + foot};
+    return {it, b, tag, tl, nl,
+      h: ramp.pad * 2 + (b ? 30 : 0) + (tag ? 30 : 0) + tl.length * (ramp.fsT + 5) + nl.length * (ramp.fsN + 6) + foot};
   });
   const sumH = cards => cards.reduce((a, c) => a + c.h, 0) + Math.max(0, cards.length - 1) * 14;
   let cards = layCards(ramp.notes, 2);
@@ -68,10 +78,14 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
   const capsuleWidth = label => measure(label, '700 11px ' + SANS) + 16;
   for(const c of cards.slice(0, shown)){
     const {it} = c;
-    const flag = it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
-    s.push('<g opacity="' + fadeOp.toFixed(2) + '">');
+    // dropped's own treatment wins over the flag border — reality already
+    // answered, so a resolved-away risk must not still read as live trouble
+    const flag = it.worldState === 'dropped' ? null :
+      it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+    s.push('<g opacity="' + stateOpacity(it, fadeOp).toFixed(2) + '">');
     s.push(rect(cx, cy, cw, c.h, C.card, {rx: 12, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
     let ty = cy + ramp.pad;
+    if(c.tag){ const [tcol, tink] = tagColors(c.tag, C); s.push(capsule(cx + ramp.pad, ty - 4, c.tag.label, tcol, tink, measure).svg); ty += 30; }
     if(c.b){ s.push(badgeCapsule(cx + ramp.pad, ty - 4, c.b, C, measure).svg); ty += 30; }
     ty += ramp.fsT - 4;
     for(const ln of c.tl){ s.push(txt(cx + ramp.pad, ty, ln, ramp.fsT, C.ink, {weight: 700})); ty += ramp.fsT + 5; }
@@ -99,10 +113,15 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
    sub-line, single line each (clip1, never wraps), fixed row height 38/56 —
    flagged rows carry a 3px status-coloured edge bar, never colour alone.
    capFit-capped with its own "+N more" chip. */
-function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure}){
+function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure, model}){
+  const hasBets = anyBet(model);
   const rows = list.map(it => {
+    const tag = hasBets ? cardTag(model, it) : null;
+    // list-mode rows are the dense fallback — the tag rides the sub-line,
+    // before the note, truncated with everything else via the same clip1
     const sub = [it.lane ? it.lane.toUpperCase() : '',
-      it.status ? STATUS_LABEL[it.status].toUpperCase() : '', it.note || ''].filter(Boolean).join('  ·  ');
+      it.status ? STATUS_LABEL[it.status].toUpperCase() : '', tag ? tag.label : '',
+      it.note || ''].filter(Boolean).join('  ·  ');
     return {it, sub, h: sub ? 56 : 38};
   });
   const shown = capFit(rows.map(r => r.h), availH, 0, 48);
@@ -111,8 +130,9 @@ function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure}){
   let ry = cy0;
   for(const r of rows.slice(0, shown)){
     const {it, sub} = r;
-    const flag = it.status === 'risk' || it.status === 'blocked';
-    s.push('<g opacity="' + fadeOp.toFixed(2) + '">');
+    // dropped's treatment wins over the flag border
+    const flag = it.worldState !== 'dropped' && (it.status === 'risk' || it.status === 'blocked');
+    s.push('<g opacity="' + stateOpacity(it, fadeOp).toFixed(2) + '">');
     if(flag) s.push(rect(cx, ry + 2, 3, sub ? 44 : 28, C.status[it.status], {rx: 1.5}));
     const tx = cx + (flag ? 14 : 0);
     s.push(txt(tx, ry + 18, clip1(it.title, '600 17px ' + SANS, cw - (flag ? 14 : 0), measure), 17, C.ink, {weight: 600}));
@@ -146,7 +166,7 @@ function boardBodyFn(model, ctx, C){
     const laneRank = new Map(model.lanes.map((l, i) => [l, i]));
     const byLane = arr => [...arr].sort((a, b) =>
       (laneRank.get(a.lane) - laneRank.get(b.lane)) || (a.srcLine - b.srcLine));
-    const overWip = model.wip > 0 && inH(0).length > model.wip;
+    const overWip = model.wip > 0 && activeCount(model, 0) > model.wip;
 
     const s = [];
     for(let h = 0; h < nH; h++){
@@ -154,7 +174,10 @@ function boardBodyFn(model, ctx, C){
       s.push(rect(x, y0, colW, zoneH, h === 0 ? C.accent + '0D' : C.ink + '05', {rx: 14}));
       s.push(txt(x + 20, y0 + 34, hs[h].toUpperCase(), 15, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.6}));
       const list = byLane(inH(h));
-      const countLbl = h === 0 && overWip ? list.length + ' · OVER WIP' : String(list.length);
+      /* label shows the ACTIVE count (matching the overWip flag) — dropped
+         items are still painted in `list` below, just not counted. */
+      const activeH = activeCount(model, h);
+      const countLbl = h === 0 && overWip ? activeH + ' · OVER WIP' : String(activeH);
       s.push(txt(x + colW - 20, y0 + 34, countLbl, 13, h === 0 && overWip ? C.err : C.muted,
         {anchor: 'end', weight: 700, tracking: 1}));
 
@@ -166,8 +189,8 @@ function boardBodyFn(model, ctx, C){
       }
       const fadeOp = model.fade && nH > 1 ? 1 - (h / (nH - 1)) * 0.35 : 1;
       const r = listMode
-        ? paintListColumn(list, {cx, cy0: y0 + headH + 8, cw, fadeOp, availH, C, measure})
-        : paintCardColumn(list, {cx, cy0: y0 + headH, cw, availH, ramp, fadeOp, badgeOf, C, measure});
+        ? paintListColumn(list, {cx, cy0: y0 + headH + 8, cw, fadeOp, availH, C, measure, model})
+        : paintCardColumn(list, {cx, cy0: y0 + headH, cw, availH, ramp, fadeOp, badgeOf, C, measure, model});
       s.push(r.svg);
     }
     if(diff && diff.dropped && diff.dropped.length){
@@ -208,10 +231,11 @@ const BOARD_LIVE = {M: 24, COLW: 330, GAP: 24, RPAD: 16, HEADH: 44};
    drop band must stay under the cards, A2). Returns its height. Emits the
    edit markup (cardmenu <g>, data-hit rect, title/note/lane/status targets)
    only when edit. */
-function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf}){
+function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse}){
   const {RPAD} = BOARD_LIVE;
   const fT = '700 18px ' + SANS, fN = '14px ' + SANS;
-  const b = badgeOf(it);
+  const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
+  const tag = hasBets ? cardTag(model, it) : null;
   const tl = wrapN(it.title, fT, cw - RPAD * 2, 2, measure);
   const nl = it.note ? wrapN(it.note, fN, cw - RPAD * 2, 2, measure) : [];
   const footH = it.lane || it.status || edit ? 26 : 8;
@@ -219,15 +243,29 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf}){
   // row emitted below — without this the ghost collides with the lane/status foot.
   // edit:false with no note reserves nothing, so the export/golden path is unchanged.
   const noteH = nl.length ? nl.length * 19 + 4 : (edit ? 19 : 0);
-  const h = RPAD * 2 + tl.length * 24 + noteH + footH;
+  const tagH = tag ? 30 : 0;
+  const h = RPAD * 2 + tagH + tl.length * 24 + noteH + footH;
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
-  const flag = it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+  // dropped's treatment wins over the flag border
+  const flag = it.worldState === 'dropped' ? null :
+    it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+  const op = stateOpacity(it, 1);   // 1 for a plain item — no attribute added, byte-identical
   const g = [];
-  g.push('<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
+  g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
+    (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  g.push(rect(x, y, cw, h, C.card, {rx: 12, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
+  g.push(rect(x, y, cw, h, C.card, {rx: 12, stroke: flag || C.border,
+    sw: flag ? 1.5 : 1, dash: it.worldState === 'cond' ? '3 3' : null}));
+  let whatifRect = null;   // sibling of the card's <g>, pushed after it closes
+  if(tag){
+    const [tcol, tink] = tagColors(tag, C);
+    const cap = capsule(x + RPAD, y + RPAD - 4, tag.label, tcol, tink, measure);
+    g.push(cap.svg);
+    const nameLc = edit ? previewableBet(textBets || model.bets, it) : null;
+    if(nameLc) whatifRect = whatifHitRect(nameLc, it.bet.name, x + RPAD, y + RPAD - 4, cap.w, 22, coarse);
+  }
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + cw + '" height="' + h + '" fill="transparent"/>');
-  let ty = y + RPAD + 14;
+  let ty = y + RPAD + 14 + tagH;
   tl.forEach((ln, li) => {
     g.push('<text' + (edit && li === 0 ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' +
       btnAttrs('Rename: ' + it.title) : '') +
@@ -266,19 +304,21 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf}){
   }
   if(b && b.kind === 'new') g.push(badgeCapsule(x + RPAD, y - 10, b, C, measure).svg);
   g.push('</g>');
+  if(whatifRect) g.push(whatifRect);
   return {svg: g.join(''), h};
 }
 
 export function renderBoardLive(model, ctx){
   const C = paletteColors(model, ctx);
-  const {measure, diff = null, edit = false} = ctx;
+  const {measure, diff = null, edit = false, textBets, coarse} = ctx;
   const {M, COLW, GAP, RPAD, HEADH} = BOARD_LIVE;
   const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;
   const hs = model.horizons, nH = hs.length;
   const W = M * 2 + nH * COLW + (nH - 1) * GAP;
   const laneRank = new Map(model.lanes.map((l, i) => [l, i]));
   const byLane = arr => [...arr].sort((a, b) => (laneRank.get(a.lane) - laneRank.get(b.lane)) || (a.srcLine - b.srcLine));
-  const overWip = model.wip > 0 && model.items.filter(i => i.h === 0).length > model.wip;
+  const overWip = model.wip > 0 && activeCount(model, 0) > model.wip;
+  const hasBets = anyBet(model);   // hoisted (F6) — was recomputed per card
 
   const s = [];
   let y = 34;
@@ -301,13 +341,14 @@ export function renderBoardLive(model, ctx){
     s.push(rect(x, y, COLW, HEADH - 8, h === 0 ? C.accent + '0D' : 'none', {rx: 10}));
     s.push(txt(x + RPAD, y + 24, hs[h].toUpperCase(), 14, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.4}));
     const list = byLane(model.items.filter(i => i.h === h));
-    const cntLbl = h === 0 && overWip ? list.length + ' · OVER WIP' : String(list.length);
+    const activeH = activeCount(model, h);
+    const cntLbl = h === 0 && overWip ? activeH + ' · OVER WIP' : String(activeH);
     s.push(txt(x + COLW - RPAD, y + 24, cntLbl, 12, h === 0 && overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
 
     const groupSvg = [];
     let cy = colTop;
     for(const it of list){
-      const card = paintBoardCard(it, x, cy, COLW, {C, measure, edit, badgeOf});
+      const card = paintBoardCard(it, x, cy, COLW, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse});
       groupSvg.push(card.svg);
       cy += card.h + 12;
     }

@@ -5,7 +5,8 @@
 import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
-import {STATUS_LABEL} from './parse.js';
+import {STATUS_LABEL, activeCount} from './parse.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
 /* Fixed deck geometry as LITERALS — RAIL_W must NOT be `INNER - HERO_W - HGAP`
    with INNER imported from render-deck.js: across the import cycle those consts
    are in the TDZ at module-load and throw. INNER is 1720 on the 1920 deck. */
@@ -33,21 +34,24 @@ export function focusHeroIndex(model){
 }
 export function focusColumnCount(n){ return n >= 6 ? 2 : 1; }
 
-function layoutHeroCard(it, cardW, measure){
+function layoutHeroCard(it, cardW, measure, tag){
   const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
   const PAD = HWASH_PAD;
   const laneH = it.lane ? 22 : 0;
   const tl = wrapN(it.title, fT, cardW - PAD * 2, 2, measure);
   const nl = it.note ? wrapN(it.note, fN, cardW - PAD * 2, 2, measure) : [];
   const statusH = it.status ? 34 : 0;
-  const h = PAD * 2 + laneH + tl.length * 32 + (nl.length ? nl.length * 21 + 6 : 0) + statusH;
-  return {it, tl, nl, h: Math.max(h, PAD * 2 + 32)};
+  const tagH = tag ? 30 : 0;
+  const h = PAD * 2 + laneH + tagH + tl.length * 32 + (nl.length ? nl.length * 21 + 6 : 0) + statusH;
+  return {it, tl, nl, tag, h: Math.max(h, PAD * 2 + 32)};
 }
 
 function paintHeroCard(c, x, y, w, C, measure){
   const PAD = HWASH_PAD;
   const s = [];
-  const flag = c.it.status === 'risk' ? C.status.risk : c.it.status === 'blocked' ? C.status.blocked : null;
+  // dropped's treatment wins over the flag border
+  const flag = c.it.worldState === 'dropped' ? null :
+    c.it.status === 'risk' ? C.status.risk : c.it.status === 'blocked' ? C.status.blocked : null;
   s.push(rect(x, y, w, c.h, C.card, {rx: 14, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
   if(c.it.lane){
     const laneLbl = c.it.lane.toUpperCase();
@@ -55,17 +59,23 @@ function paintHeroCard(c, x, y, w, C, measure){
     s.push(txt(x + w - PAD - lw, y + PAD + 8, laneLbl, 11, C.muted, {weight: 700, tracking: 1.2}));
   }
   let ty = y + PAD + (c.it.lane ? 22 : 0) + 24;
+  if(c.tag){
+    const [tcol, tink] = tagColors(c.tag, C);
+    s.push(capsule(x + PAD, ty - 20, c.tag.label, tcol, tink, measure).svg);
+    ty += 30;
+  }
   for(const ln of c.tl){ s.push(txt(x + PAD, ty, ln, 26, C.ink, {weight: 700})); ty += 32; }
   if(c.nl.length){ ty += 4; for(const ln of c.nl){ s.push(txt(x + PAD, ty, ln, 16, C.muted)); ty += 21; } }
   if(c.it.status) s.push(statusCapsule(x + PAD, y + c.h - PAD - 22, c.it.status, C, measure).svg);
   return s.join('');
 }
 
-function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure}){
+function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure, model}){
+  const hasBets = anyBet(model);
   const twoCol = focusColumnCount(list.length) === 2;
   const colGap = 18, rowGap = 16;
   const cardW = twoCol ? (w - colGap) / 2 : w;
-  const laid = list.map(it => layoutHeroCard(it, cardW, measure));
+  const laid = list.map(it => layoutHeroCard(it, cardW, measure, hasBets ? cardTag(model, it) : null));
   const rows = [];
   if(twoCol) for(let i = 0; i < laid.length; i += 2) rows.push(laid.slice(i, i + 2));
   else for(const c of laid) rows.push([c]);
@@ -76,7 +86,11 @@ function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure}){
   let cy = y0;
   for(const row of rows.slice(0, shown)){
     const h = rowH(row);
-    row.forEach((c, i) => s.push(paintHeroCard({...c, h}, x + i * (cardW + colGap), cy, cardW, C, measure)));
+    row.forEach((c, i) => {
+      const op = stateOpacity(c.it, 1);
+      const svg = paintHeroCard({...c, h}, x + i * (cardW + colGap), cy, cardW, C, measure);
+      s.push(op < 1 ? '<g opacity="' + op.toFixed(2) + '">' + svg + '</g>' : svg);
+    });
     cy += h + rowGap;
   }
   if(shown < rows.length){
@@ -88,6 +102,15 @@ function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure}){
   return {svg: s.join(''), bottom: cy};
 }
 
+/* Turns a cardTag() result into the rail's compact export-only suffix word
+   (F4) — reuses cardTag's own label wording (kept in one place), only
+   reshaping 'dropped — X' into 'dropped (X)' to read naturally after " — ". */
+function railTagSuffix(tag){
+  if(!tag) return '';
+  if(tag.kind === 'dropped') return 'dropped (' + tag.label.replace(/^dropped — /, '') + ')';
+  return tag.label;
+}
+
 function focusBodyFn(model, ctx, C){
   return (y0, y1) => {
     const {measure} = ctx;
@@ -95,10 +118,13 @@ function focusBodyFn(model, ctx, C){
     const heroIdx = focusHeroIndex(model);
     const heroItems = model.items.filter(i => i.h === heroIdx).sort((a, b) => a.srcLine - b.srcLine);
     const heroX = M, headerH = 44;
+    const hasBets = anyBet(model);   // gates the rail row suffix below (F4)
 
     const s = [];
-    const overWip = heroIdx === 0 && model.wip > 0 && heroItems.length > model.wip;
-    const countLbl = overWip ? heroItems.length + ' — OVER WIP ' + model.wip : String(heroItems.length);
+    /* activeCount for the flag/label; heroItems (all, incl. dropped) still paints below. */
+    const heroActive = activeCount(model, heroIdx);
+    const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
+    const countLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip : String(heroActive);
     s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
     s.push(txt(heroX + HERO_W, y0 + 30, countLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700, tracking: 1}));
 
@@ -115,7 +141,7 @@ function focusBodyFn(model, ctx, C){
       const availH = Math.max(60, y1 - (washY0 + HWASH_PAD) - HWASH_PAD);
       stack = paintHeroStack(heroItems, {
         x: heroX + HWASH_PAD, y0: washY0 + HWASH_PAD, w: HERO_W - HWASH_PAD * 2,
-        availH, heroName: hs[heroIdx], C, measure,
+        availH, heroName: hs[heroIdx], C, measure, model,
       });
     }
     const washH = Math.min(y1, stack.bottom + HWASH_PAD) - washY0;
@@ -149,9 +175,30 @@ function focusBodyFn(model, ctx, C){
         const laneLbl = u.it.lane ? u.it.lane.toUpperCase() : '';
         const laneW = laneLbl ? measure(laneLbl, '700 10px ' + SANS) + laneLbl.length * 0.6 : 0;
         const titleMaxW = Math.max(20, RAIL_W - 34 - (laneW ? laneW + 14 : 0));
-        s.push('<g opacity="' + fadeOp.toFixed(2) + '">');
+        // rail rows are the fade-only degrade (A3 §3) — dropped/cond override the
+        // column fade outright, same single-strongest-state rule as the hero. No
+        // room for a capsule here, but a DECK EXPORT has no card menu to fall
+        // back on (unlike the live rail), so it carries the fact as a compact
+        // text suffix instead — "title — if reminders" / "title — dropped
+        // (reminders lost)" in the rail's muted style — the simplest honest
+        // form at this width (F4; exports-carry-all-paths, Matt's ruling).
+        // Only appended when title + suffix together still fit the column
+        // (measured against the SAME titleMaxW the plain clip1 path uses);
+        // otherwise degrades to the plain clipped title, same as before —
+        // a half-drawn suffix would read as a truncated bet name, not a fact.
+        const tag = hasBets ? cardTag(model, u.it) : null;
+        const suffixWord = tag ? railTagSuffix(tag) : '';
+        const suffix = suffixWord ? ' — ' + suffixWord : '';
+        const titleFont = '15px ' + SANS;
+        const fits = suffix && measure(u.it.title + suffix, titleFont) <= titleMaxW;
+        s.push('<g opacity="' + stateOpacity(u.it, fadeOp).toFixed(2) + '">');
         s.push(txt(railX, ry + 24, numeral, 15, C.muted, {weight: 700}));
-        s.push(txt(railX + 34, ry + 24, clip1(u.it.title, '15px ' + SANS, titleMaxW, measure), 15, C.ink));
+        if(fits){
+          s.push(txt(railX + 34, ry + 24, u.it.title, 15, C.ink));
+          s.push(txt(railX + 34 + measure(u.it.title, titleFont), ry + 24, suffix, 15, C.muted));
+        } else {
+          s.push(txt(railX + 34, ry + 24, clip1(u.it.title, titleFont, titleMaxW, measure), 15, C.ink));
+        }
         if(laneLbl) s.push(txt(railX + RAIL_W, ry + 22, laneLbl, 10, C.muted, {anchor: 'end', weight: 700, tracking: 1}));
         s.push('</g>');
       }
@@ -204,10 +251,11 @@ const FOCUS_LIVE = {M: 24, HERO_W: 720, HGAP: 40, RAIL_W: 360, RPAD: 16, HEADH: 
    'moved' badge is painted with the raw capsule() builder instead — it
    must NOT go through badgeCapsule's upper-casing, because the "was X"
    label is a horizon NAME and needs to stay readable in its given case. */
-function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf}){
+function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse}){
   const {RPAD} = FOCUS_LIVE;
   const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
-  const b = badgeOf(it);
+  const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
+  const tag = hasBets ? cardTag(model, it) : null;
   const tl = wrapN(it.title, fT, w - RPAD * 2, 2, measure);
   const nl = it.note ? wrapN(it.note, fN, w - RPAD * 2, 2, measure) : [];
   const footH = it.lane || it.status || edit ? 30 : 10;
@@ -215,15 +263,29 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf}){
   // ghost row emitted below — mirrors paintBoardCard's noteH reservation so
   // the ghost never collides with the lane/status foot.
   const noteH = nl.length ? nl.length * 21 + 6 : (edit ? 21 : 0);
-  const h = RPAD * 2 + tl.length * 32 + noteH + footH;
+  const tagH = tag ? 30 : 0;   // unified with deck layoutHeroCard + board live paintBoardCard (F5)
+  const h = RPAD * 2 + tagH + tl.length * 32 + noteH + footH;
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
-  const flag = it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+  // dropped's treatment wins over the flag border
+  const flag = it.worldState === 'dropped' ? null :
+    it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+  const op = stateOpacity(it, 1);   // 1 for a plain card — attribute omitted, byte-identical
   const g = [];
-  g.push('<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
+  g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
+    (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  g.push(rect(x, y, w, h, C.card, {rx: 14, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
+  g.push(rect(x, y, w, h, C.card, {rx: 14, stroke: flag || C.border,
+    sw: flag ? 1.5 : 1, dash: it.worldState === 'cond' ? '3 3' : null}));
+  let whatifRect = null;   // sibling of the card's <g>, pushed after it closes
+  if(tag){
+    const [tcol, tink] = tagColors(tag, C);
+    const cap = capsule(x + RPAD, y + RPAD - 4, tag.label, tcol, tink, measure);
+    g.push(cap.svg);
+    const nameLc = edit ? previewableBet(textBets || model.bets, it) : null;
+    if(nameLc) whatifRect = whatifHitRect(nameLc, it.bet.name, x + RPAD, y + RPAD - 4, cap.w, 22, coarse);
+  }
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="transparent"/>');
-  let ty = y + RPAD + 20;
+  let ty = y + RPAD + 20 + tagH;
   tl.forEach((ln, li) => {
     g.push('<text' + (edit && li === 0 ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' +
       btnAttrs('Rename: ' + it.title) : '') +
@@ -266,6 +328,7 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf}){
       : capsule(x + RPAD, y - 12, b.label, C.muted, C.muted, measure).svg);
   }
   g.push('</g>');
+  if(whatifRect) g.push(whatifRect);
   return {svg: g.join(''), h};
 }
 
@@ -283,8 +346,12 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit}){
   const titleFont = '15px ' + SANS;
   const titleMaxW = Math.max(20, w - 34 - (laneW ? laneW + 14 : 0));
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
+  // the rail is the fade-only degrade (A3 §3) — no room for a capsule, the
+  // card menu carries the bet/cond info instead (A5)
+  const op = stateOpacity(it, 1);   // 1 for a plain row — attribute omitted, byte-identical
   const g = [];
-  g.push('<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
+  g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
+    (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + w + '" height="' + ROWH + '" fill="transparent"/>');
   g.push(txt(x, y + 24, numeral, 15, C.muted, {weight: 700}));
@@ -299,11 +366,12 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit}){
 
 export function renderFocusLive(model, ctx){
   const C = paletteColors(model, ctx);
-  const {measure, diff = null, edit = false} = ctx;
+  const {measure, diff = null, edit = false, textBets, coarse} = ctx;
   const {M, HERO_W, HGAP, RAIL_W, RPAD, HEADH} = FOCUS_LIVE;
   const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;   // HERO only — never wired to rail rows
   const hs = model.horizons, nH = hs.length;
   const heroIdx = focusHeroIndex(model);
+  const hasBets = anyBet(model);   // hoisted (F6) — was recomputed per hero card
   const W = M * 2 + HERO_W + HGAP + RAIL_W;
   const heroX = M, railX = M + HERO_W + HGAP;
   const inH = h => model.items.filter(i => i.h === h).sort((a, b) => a.srcLine - b.srcLine);
@@ -325,14 +393,15 @@ export function renderFocusLive(model, ctx){
 
   // ---- HERO zone (the focused horizon — cards, or "Nothing scheduled" when EMPTY) ----
   const heroItems = inH(heroIdx);
-  const overWip = heroIdx === 0 && model.wip > 0 && heroItems.length > model.wip;
+  const heroActive = activeCount(model, heroIdx);
+  const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
   s.push(txt(heroX, zoneTop + 22, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
-  s.push(txt(heroX + HERO_W, zoneTop + 22, overWip ? heroItems.length + ' — OVER WIP ' + model.wip : String(heroItems.length), 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
+  s.push(txt(heroX + HERO_W, zoneTop + 22, overWip ? heroActive + ' — OVER WIP ' + model.wip : String(heroActive), 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
   const heroCardsTop = zoneTop + HEADH;
   const heroBuf = [];
   let hy = heroCardsTop + RPAD;
   if(heroItems.length){
-    for(const it of heroItems){ const c = paintFocusHeroCard(it, heroX + RPAD, hy, HERO_W - RPAD * 2, {C, measure, edit, badgeOf}); heroBuf.push(c.svg); hy += c.h + 14; }
+    for(const it of heroItems){ const c = paintFocusHeroCard(it, heroX + RPAD, hy, HERO_W - RPAD * 2, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse}); heroBuf.push(c.svg); hy += c.h + 14; }
   } else {
     heroBuf.push(rect(heroX + RPAD, hy, HERO_W - RPAD * 2, 84, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
     heroBuf.push(txt(heroX + HERO_W / 2, hy + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'})); hy += 84 + 14;

@@ -184,6 +184,36 @@ for(const theme of ['light', 'dark']){
   await page.close();
   await ctx.close();
 }
+/* roadmap what-if on the REAL Safari engine (A6): a bet doc loaded via hash,
+   one click on the capsule's data-whatif hit rect, and the chip appears — the
+   click-target/pointer-events wiring (style.css gates data-whatif to
+   pointer:fine) is exactly the class of thing that renders differently on
+   real WebKit than Blink emulation. */
+{
+  const ctx = await browser.newContext({...devices['iPhone 13'], hasTouch: false, isMobile: false, reducedMotion: 'reduce'});
+  const page = await ctx.newPage();
+  try{
+    const doc = 'NOW\nCore: Foundation\nNEXT\nCore: Reminders engine [bet: reminders]\n' +
+      'Core: Nice UI [if reminders]\nLATER\nCore: Fallback plan [unless reminders]';
+    const hash = Buffer.from(doc, 'utf8').toString('base64');
+    await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle', timeout: 20000});
+    await page.waitForTimeout(400);
+    const wi = page.locator('#preview svg rect[data-whatif]').first();
+    const box = await wi.boundingBox();
+    ok(!!box, 'roadmap (webkit): what-if hit rect present for the declared bet');
+    if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(400);
+    const chipVisible = await page.evaluate(() => {
+      const el = document.getElementById('whatifchip');
+      return !!el && !el.hidden && el.textContent.trim().length > 0;
+    });
+    ok(chipVisible, 'roadmap (webkit): the what-if chip appears after a click on the real Safari engine');
+  }catch(e){
+    ok(false, 'roadmap (webkit): what-if click — ' + String(e).split('\n')[0]);
+  }
+  await page.close();
+  await ctx.close();
+}
 await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
 report('webkit', {pass, fail, min: TOOLS.length * 2});   // ≥1 check/tool/theme; catches a crash or empty derived list

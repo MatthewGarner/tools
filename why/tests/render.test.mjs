@@ -1,5 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {parse} from '../parse.js';
 import {project} from '../project.js';
 import {renderOst} from '../render-ost.js';
@@ -59,6 +61,42 @@ test('map view: broken assumption badge in err colour', () => {
   const svg = run(renderMap, doc);
   assert.ok(svg.includes('BROKEN ASSUMPTION'));
   assert.ok(svg.includes('#b33'), 'err colour used');
+});
+
+/* Gate B: committed solutions with a broken assumption stay live entries
+   (project() untouched — see project.test.mjs) but render.map view as a
+   distinct at-risk ghost: dashed border + the loud BROKEN ASSUMPTION badge,
+   fully legible and fully editable — never roadmap's `ghost`/`worldState`
+   vocabulary (those mean an authored roadmap fact, not "this tree still
+   says delivering but its own assumption broke"). */
+test('map view: broken-assumption solution is a dashed at-risk ghost, stays editable', () => {
+  const doc = 'outcome: O\n  Need\n    Shaky [delivering]\n      ? belief [broken]';
+  const svg = run(renderMap, doc, {edit: true});
+  assert.ok(svg.includes('BROKEN ASSUMPTION'), 'badge stays legible');
+  assert.ok(svg.includes('stroke-dasharray="3 3"'), 'at-risk ghost is dashed');
+  assert.ok(svg.includes('data-edit="cardmenu"') && svg.includes('data-edit="title"'),
+    'stays fully editable — never the ghost treatment, which strips data-edit');
+  assert.ok(!svg.includes('worldState'), 'never roadmap\'s worldState vocabulary');
+});
+
+test('map view: healthy doc (no broken assumptions) carries no at-risk markup — untested/no-why unaffected', () => {
+  const svg = run(renderMap);   // DOC: testing+untested, delivering+holds, delivering+no-why — no broken assumption anywhere
+  assert.ok(svg.includes('UNTESTED BET'));
+  assert.ok(svg.includes('NO WHY'));
+  /* the only stroke-dasharray in a healthy map is the ghost placeholder chip
+     ('no committed solution yet'), never a real card */
+  const cardDash = /<rect data-hit="" [^>]*stroke-dasharray/;
+  assert.ok(!cardDash.test(svg), 'no real card is dashed without a broken assumption');
+});
+
+test('map view: no-why + broken-assumption composite keeps both facts (NO WHY lane placement + BROKEN ASSUMPTION badge), same at-risk treatment', () => {
+  const doc = 'outcome: O\n  Orphan [delivering]\n    ? belief [broken]';
+  /* an orphan solution has no opportunity ancestor, so it renders in the
+     "no why" lane rather than under a named opportunity */
+  const svg = run(renderMap, doc);
+  assert.ok(svg.includes('⚠ no why') || svg.includes('no why'), 'NO WHY lane placement kept');
+  assert.ok(svg.includes('BROKEN ASSUMPTION'), 'BROKEN ASSUMPTION badge kept');
+  assert.ok(svg.includes('stroke-dasharray="3 3"'), 'no-why + broken composite is still an at-risk ghost');
 });
 
 test('ost view: cards, status pills, assumption glyphs, dashed unaddressed', () => {
@@ -128,6 +166,28 @@ test('ost view: shipped dimmed; escaping works in both views', () => {
   assert.ok(ost.includes('opacity="0.42"'));
   assert.ok(ost.includes('Need &amp; &lt;more&gt;'));
   assert.ok(run(renderMap, doc).includes('Need &amp; &lt;more&gt;'));
+});
+
+/* Gate B byte-identity guard: the committed why-map golden (a healthy doc,
+   no broken assumptions) must render EXACTLY as it did before the atRisk
+   flag existed — mirrors dev/golden.mjs's own fixture/ctx so this test fails
+   the moment the render path drifts, independent of `golden.mjs verify`. */
+test('map view: golden fixture (no broken assumptions) is byte-identical to the committed golden', () => {
+  const ctxBase = {
+    colors: {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg:'#f7f8f6',
+      err:'#b33', status:{done:'#1D7A3E',doing:'#1F4FD8',risk:'#9A6A00',blocked:'#B3403A'},
+      statusInk:{done:'#1C753C',doing:'#1A44C2',risk:'#8E6200',blocked:'#B3403A'}, accentInk:'#0A6C94',
+      brand:'#E2231A', brandText:'#D62015'},
+    measure: (t) => t.length * 7,
+  };
+  const doc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Smart reminders [testing]\n      ? wanted\n' +
+    '    Streak freeze [delivering]\n      ? works [holds]\n  Chores feeling\n  Orphan [delivering]';
+  const m = parse(doc);
+  const pr = project(m);
+  const svg = renderMap(m, pr, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  const goldenPath = fileURLToPath(new URL('../../dev/golden/why-map.svg', import.meta.url));
+  const golden = readFileSync(goldenPath, 'utf8');
+  assert.equal(svg, golden);
 });
 
 test('palette scheme applies in both views', () => {

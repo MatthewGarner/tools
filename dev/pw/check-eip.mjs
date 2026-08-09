@@ -1,5 +1,6 @@
 /* Edit-in-place browser checks (tree). */
 import {chromium, devices} from 'playwright';
+import {readFileSync} from 'node:fs';
 import {trackErrors, report, tally} from './_harness.mjs';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
@@ -890,8 +891,9 @@ check('no console/page errors', errors.length === 0);
 
   await tapCard("Streak shield");
   await p.waitForTimeout(200);
+  /* the flagship example declares a bet, so every card carries Condition… */
   check('roadmap: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Remove item');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -1121,6 +1123,285 @@ check('no console/page errors', errors.length === 0);
     await p.locator('.eip-pop button', {hasText: 'Runs until…'}).count() === 0);
 
   check('roadmap: no console/page errors (Runs until…)', errs.length === 0);
+  await p.close();
+}
+
+/* ---- roadmap: conditional bets — Resolve…/Condition…/What-if… menu rows
+   (A5). A dedicated bets doc: "Ship reminders" declares the bet, "Fallback
+   plan" is its [unless] rider (drops once the bet WINS), "Depends on it" is
+   its [if] rider, "Unrelated item" carries no bet/cond (the Condition… target
+   for a fresh set). Cards resolved by TITLE (see the desktop block above). ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\n' +
+    'Growth: Fallback plan [unless reminders]\nPlatform: Unrelated item\n' +
+    'NEXT\nCore: Depends on it [if reminders]\n');
+  await p.waitForTimeout(700);
+
+  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: title}).first().getAttribute('data-line');
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async title => {
+    const line = await lineOfCard(title);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+
+  // ---- Resolve… ----
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('roadmap: a bet item’s menu offers Resolve… but no "unresolve" while unresolved',
+    (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Resolve… submenu lists won/lost, no unresolve row yet',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'won|lost');
+  await p.locator('.eip-pop button', {hasText: 'won'}).click();
+  await p.waitForTimeout(600);
+  const tWon = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: Resolve… won writes the resolution onto the [bet: …] token',
+    tWon.includes('[bet: reminders won]'));
+  const svgWon = await p.locator('#preview svg').innerHTML();
+  const plainWon = svgWon.replace(/<[^>]+>/g, ' ');
+  check('roadmap: resolving won drops the [unless] fallback and the board says so',
+    /dropped\s*—\s*reminders won/.test(plainWon) && plainWon.includes('Fallback plan'));
+
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Resolve… on a resolved bet offers won (marked on)/lost/unresolve',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'won|lost|unresolve' &&
+    (await p.locator('.eip-pop button.on').innerText()) === 'won');
+  await p.locator('.eip-pop button', {hasText: 'unresolve'}).click();
+  await p.waitForTimeout(600);
+  const tUnresolved = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: Resolve… unresolve clears the outcome, keeping the bare declaration',
+    tUnresolved.includes('[bet: reminders]') && !tUnresolved.includes('won'));
+  await undo(); await undo();
+  check('roadmap: two undos restore the pre-resolve baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- What-if… (view-state only — the text must never change) ----
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('roadmap: an unresolved bet item’s menu offers the three What if… rows',
+    (await p.locator('.eip-pop button', {hasText: 'What if:'}).allInnerTexts()).join('|') ===
+    'What if: pays off|What if: fails|What if: clear');
+  await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+  await p.waitForTimeout(400);
+  check('roadmap: What if: pays off does NOT touch the source text',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+  check('roadmap: What if: pays off shows the preview chip',
+    !(await p.locator('#whatifchip').isHidden()) &&
+    (await p.locator('#whatifchip').innerText()).includes('reminders') &&
+    (await p.locator('#whatifchip').innerText()).includes('pays off'));
+  const svgPreview = await p.locator('#preview svg').innerHTML();
+  const plainPreview = svgPreview.replace(/<[^>]+>/g, ' ');
+  check('roadmap: the previewed world drops the fallback in the LIVE board too',
+    /dropped\s*—\s*reminders won/.test(plainPreview) && plainPreview.includes('Fallback plan'));
+
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('roadmap: the "pays off" row now reads on',
+    (await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).getAttribute('class') || '').includes('on'));
+  await p.locator('.eip-pop button', {hasText: 'What if: clear'}).click();
+  await p.waitForTimeout(400);
+  check('roadmap: What if: clear hides the chip and restores the text world',
+    await p.locator('#whatifchip').isHidden());
+  check('roadmap: no source text ever changed across the what-if flow',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- Condition… ----
+  await tapCard('Unrelated item');
+  await p.waitForTimeout(200);
+  check('roadmap: a non-bet item’s menu offers Condition… (≥1 bet declared)',
+    (await p.locator('.eip-pop button', {hasText: 'Condition…'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Condition… lists if/unless for the declared bet, no clear row yet',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'if reminders|unless reminders');
+  await p.locator('.eip-pop button', {hasText: 'if reminders'}).click();
+  await p.waitForTimeout(600);
+  const tCond = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: picking "if reminders" writes the condition token onto the item’s own line',
+    tCond.includes('Unrelated item [if reminders]'));
+
+  await tapCard('Unrelated item');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Condition… now marks "if reminders" on and offers "clear condition"',
+    (await p.locator('.eip-pop button.on').innerText()) === 'if reminders' &&
+    (await p.locator('.eip-pop button', {hasText: 'clear condition'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'clear condition'}).click();
+  await p.waitForTimeout(600);
+  const tClear = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: clear condition removes the token', tClear.includes('Unrelated item\n') || /Unrelated item\s*$/m.test(tClear));
+  await undo();
+  check('roadmap: one undo restores the just-cleared condition', (await p.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Unrelated item [if reminders]'));
+  await undo();
+  check('roadmap: a second undo restores the pre-condition baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('roadmap conditional bets: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
+/* ---- roadmap: conditional bets, additions (test-quality audit 2026-08-09) —
+   exports ignore an active preview, the chip's full contract (a11y role,
+   copy, multi-bet listing, reset clears everything), keyboard cycling
+   surviving a repaint with no re-tabbing (F3 regression), and the menu rows'
+   NEGATIVE cases (no Condition… with zero bets declared anywhere; no
+   Resolve…/What-if… on an item that carries no bet of its own). Same doc
+   shape as the block above, but with a SECOND bet so the chip's multi-
+   preview listing has something real to list. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\n' +
+    'Growth: Fallback plan [unless reminders]\nPlatform: Unrelated item\n' +
+    'NEXT\nCore: Depends on it [if reminders]\nCore: Second bet [bet: launch]\n' +
+    'Core: Launch rider [if launch]\n');
+  await p.waitForTimeout(700);
+
+  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: title}).first().getAttribute('data-line');
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async title => {
+    const line = await lineOfCard(title);
+    const body = cardBody(line);
+    await body.scrollIntoViewIfNeeded();   // the Export disclosure can leave the page scrolled
+    await tapCardMenu(p, await body.boundingBox(), line);
+  };
+
+  // ---- (a) exports ignore an active preview: the download/copy path reads
+  // `model`, never the previewed `projected` — arm a what-if, then pull the
+  // REAL SVG through the page's own Download SVG button and prove it still
+  // states the true unresolved fork (both branch tags), never the preview's
+  // dropped-looking world. ----
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+  await p.waitForTimeout(400);
+  check('exports-ignore-preview: the chip confirms a preview really is active first',
+    !(await p.locator('#whatifchip').isHidden()));
+  await p.locator('details:has(summary:text("Export"))').first().locator('summary').click();
+  await p.waitForTimeout(150);
+  const [dl] = await Promise.all([
+    p.waitForEvent('download', {timeout: 8000}),
+    p.locator('#dlsvg').click(),
+  ]);
+  const exportedSvg = readFileSync(await dl.path(), 'utf8');
+  check('exports-ignore-preview: the downloaded SVG carries BOTH branch tags (the true open fork)',
+    exportedSvg.includes('if reminders') && exportedSvg.includes('unless reminders'));
+  check('exports-ignore-preview: the downloaded SVG carries no preview-only dropped state',
+    !exportedSvg.includes('dropped —'));
+  await p.locator('details:has(summary:text("Export"))').first().locator('summary').click();   // close it — it sits over the canvas at this viewport
+  await p.waitForTimeout(150);
+
+  // ---- (b) the chip contract: role=status, the fixed copy, multi-preview
+  // listing, and the reset button actually clearing EVERY armed preview. ----
+  check('chip: role="status" so a world flip is announced to assistive tech',
+    (await p.locator('#whatifchip').getAttribute('role')) === 'status');
+  check('chip: carries the fixed "exports show all paths" reassurance',
+    (await p.locator('#whatifchip').innerText()).includes('exports show all paths'));
+  await tapCard('Second bet');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'What if: fails'}).click();
+  await p.waitForTimeout(400);
+  const chipText = await p.locator('#whatifchip').innerText();
+  check('chip: lists every armed preview, not just the most recent',
+    chipText.includes('reminders') && chipText.includes('pays off') &&
+    chipText.includes('launch') && chipText.includes('fails'));
+  await p.locator('#whatifchip button', {hasText: 'reset'}).click();
+  await p.waitForTimeout(400);
+  check('chip: reset hides the chip', await p.locator('#whatifchip').isHidden());
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('chip: reset actually cleared BOTH bets\' previews, not just one — "pays off" no longer marked on',
+    !((await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).getAttribute('class') || '').includes('on')));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  await tapCard('Second bet');
+  await p.waitForTimeout(200);
+  check('chip: reset cleared the SECOND bet\'s preview too — "fails" no longer marked on',
+    !((await p.locator('.eip-pop button', {hasText: 'What if: fails'}).getAttribute('class') || '').includes('on')));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+
+  // ---- (c) keyboard: focus the capsule's what-if hit rect once, then
+  // Enter×3 cycles unresolved→won→lost→unresolved with focus staying on the
+  // SAME rect throughout — no re-tabbing (F3 regression guard). ----
+  const wi = p.locator("#preview svg rect[data-whatif='reminders']").first();
+  await wi.focus();
+  check('keyboard: the what-if rect is the focused element after Tab-equivalent focus',
+    await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(400);
+  check('keyboard Enter #1: cycles to "pays off" and the chip says so',
+    (await p.locator('#whatifchip').innerText()).includes('pays off'));
+  check('keyboard Enter #1: focus survived the repaint, still on the SAME rect (no re-tab)',
+    await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(400);
+  check('keyboard Enter #2: cycles to "fails"',
+    (await p.locator('#whatifchip').innerText()).includes('fails'));
+  check('keyboard Enter #2: focus still on the same rect',
+    await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(400);
+  check('keyboard Enter #3: cycles back to cleared (chip hides, or drops "reminders" from its listing)',
+    (await p.locator('#whatifchip').isHidden()) || !(await p.locator('#whatifchip').innerText()).includes('reminders'));
+  check('keyboard Enter #3: focus still on the same rect after a full cycle, no Tab needed at any step',
+    await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
+
+  // ---- (d) menu negatives ----
+  // no bets declared anywhere → no Condition… row on ANY item.
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Plain item\nNEXT\nCore: Another one\n');
+  await p.waitForTimeout(700);
+  await tapCard('Plain item');
+  await p.waitForTimeout(200);
+  check('menu negative: zero bets declared anywhere → no Condition… row',
+    (await p.locator('.eip-pop button', {hasText: 'Condition…'}).count()) === 0);
+  check('menu negative: zero bets declared → no Resolve… row either',
+    (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 0);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+
+  // a doc WITH a bet, but tapping the item that carries neither bet nor
+  // cond of its own → Resolve…/What-if… absent (those are bet-item-only),
+  // Condition… present (≥1 bet exists elsewhere to condition on).
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\nGrowth: Plain neighbour\n');
+  await p.waitForTimeout(700);
+  await tapCard('Plain neighbour');
+  await p.waitForTimeout(200);
+  check('menu negative: a non-bet item never offers Resolve…',
+    (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 0);
+  check('menu negative: a non-bet item never offers What if…',
+    (await p.locator('.eip-pop button', {hasText: 'What if:'}).count()) === 0);
+  check('menu positive (contrast): the SAME non-bet item DOES offer Condition… once a bet exists elsewhere',
+    (await p.locator('.eip-pop button', {hasText: 'Condition…'}).count()) === 1);
+
+  check('roadmap conditional bets (additions): no console/page errors', errs.length === 0);
   await p.close();
 }
 
@@ -3358,4 +3639,4 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
 
 console.log(results.join('\n'));
 await browser.close();
-report('check-eip', {...tally(results), min: 100});
+report('check-eip', {...tally(results), min: 480});   // ~90% of the current 536 (was 100, stale since well before this file's growth)
