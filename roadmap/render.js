@@ -38,6 +38,7 @@ export const TOKENS = {
 export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
+import {anyBet, cardTag, tagColors, stateOpacity} from './cond-parts.js';
 
 /* stable per-card identity for the shared FLIP (renumber-safe, unlike srcLine) —
    the title, normalised. Matches the app's drop-FLIP key. */
@@ -48,17 +49,25 @@ const titleKey = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
    loop layout below and (a later narrow layout) at stacked coordinates. */
 function drawCard(c, x, cy, colW, fadeOp, edit, st){
   const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote} = st;
+  const opacity = stateOpacity(c.it, fadeOp);   // dropped/cond override the certainty fade outright, never multiply it
   const s = [];
   s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
-    '" data-key="' + esc(titleKey(c.it.title)) + '" opacity="' + fadeOp.toFixed(2) + '"' +
+    '" data-key="' + esc(titleKey(c.it.title)) + '" opacity="' + opacity.toFixed(2) + '"' +
     (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) +
     (edit && !c.it.ghost ? ' data-menu=""' : '') + '>');
   s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
     '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
     '" stroke="' + C.border + '" stroke-width="1"' +
-    (c.it.ghost ? ' stroke-dasharray="3 3"' : '') + '/>');
+    /* cond keeps its full card fill and edit markup — dashed border ONLY,
+       never the ghost treatment (which strips data-edit/data-hit/menus) */
+    ((c.it.ghost || c.it.worldState === 'cond') ? ' stroke-dasharray="3 3"' : '') + '/>');
   /* top-anchored cursor: each block advances by its budgeted height */
   let cursor = cy + cardPadY;
+  if(c.tag){
+    const [tcol, tink] = tagColors(c.tag, C);
+    s.push(capsule(x + cardPadX, cursor, c.tag.label, tcol, tink).svg);
+    cursor += T.badgeH*S;
+  }
   if(c.badge){
     const bcol = c.badge.kind === 'new' ? C.accent :
                  c.badge.kind === 'alert' ? C.err : C.muted;
@@ -142,8 +151,12 @@ function renderNarrow(model, ctx, C, T){
      colW here differs from the wide grid's columns. Per-card height only. */
   const cells = {};
   for(const lane of model.lanes) cells[lane] = model.horizons.map(() => []);
+  const hasBets = anyBet(model);
   for(const it of model.items){
-    const badge = diff ? diff.badge(it) : null;
+    /* diff badges are suppressed on dropped items — reality already answered,
+       so a "NEW"/moved badge on a dropped card would misstate the change */
+    const badge = diff && it.worldState !== 'dropped' ? diff.badge(it) : null;
+    const tag = hasBets ? cardTag(model, it) : null;
     const lines = wrapText(it.title, titleFont, innerW, measure);
     /* a span cannot be a LENGTH here — the phone stack sections by horizon and a
        card belongs to exactly one section — so it becomes a LABEL. Appended to
@@ -158,8 +171,8 @@ function renderNarrow(model, ctx, C, T){
       ...(runLine ? wrapText(runLine, noteFont, innerW, measure) : []),
     ];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
-      (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0);
-    cells[it.lane][it.h].push({it, lines, noteLines, badge, cardH: h});
+      (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0) + (tag ? T.badgeH : 0);
+    cells[it.lane][it.h].push({it, lines, noteLines, badge, tag, cardH: h});
   }
 
   const capsule = (px, py, label, col, inkCol = col) => {
@@ -277,7 +290,8 @@ function renderNarrow(model, ctx, C, T){
     /* items in flight THROUGH this month but not starting in it — without this the
        month reads empty while the work is running, and the phone view would
        contradict the board */
-    const through = model.items.filter(i => i.h < h && h <= i.h + Math.max(1, i.span || 1) - 1);
+    const through = model.items.filter(i => i.worldState !== 'dropped' &&
+      i.h < h && h <= i.h + Math.max(1, i.span || 1) - 1);
     if(through.length){
       const label = 'also running: ' + through.map(i => i.title).join(' · ');
       for(const l of wrapText(label, noteFont, W - PAD*2, measure)){
@@ -375,16 +389,19 @@ export function render(model, ctx){
      keep the historical numbers exactly. */
   const laneList = {};    // lane -> [{it,lines,noteLines,badge,cardH,h0,h1,span,w}] in SOURCE order
   for(const lane of model.lanes) laneList[lane] = [];
+  const hasBets = anyBet(model);
   for(const it of model.items){
-    const badge = diff ? diff.badge(it) : null;    // {kind:'new'|'moved', label}
+    // diff badges are suppressed on dropped items — reality already answered
+    const badge = diff && it.worldState !== 'dropped' ? diff.badge(it) : null;    // {kind:'new'|'moved', label}
+    const tag = hasBets ? cardTag(model, it) : null;
     const span = Math.max(1, Math.min(it.span || 1, nH - it.h));
     const w = colW + (span - 1)*(colW + GAP);
     const iw = w - cardPadX*2;
     const lines = wrapText(it.title, titleFont, iw, measure);
     const noteLines = it.note ? wrapText(it.note, noteFont, iw, measure) : [];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
-      (it.status ? T.statusH*S : 0) + (badge ? T.badgeH*S : 0);
-    laneList[it.lane].push({it, lines, noteLines, badge, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
+      (it.status ? T.statusH*S : 0) + (badge ? T.badgeH*S : 0) + (tag ? T.badgeH*S : 0);
+    laneList[it.lane].push({it, lines, noteLines, badge, tag, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
   }
 
   /* does anything actually span? Several things (the equalisation rule below, the
@@ -615,8 +632,10 @@ export function render(model, ctx){
      card becomes a span by mouse. Preview-only: edit2 is false for every export
      and every golden, so `compare` cannot see these rects. */
   function drawSpanItem(c, x, cy, fadeOp, edit2){
+    // the decoration (cap + range label) rides the SAME single-strongest-state
+    // opacity as the card itself, so a dropped/conditioned span reads coherently
     const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle),
-                 drawSpanDecoration(c, x, cy, fadeOp)];
+                 drawSpanDecoration(c, x, cy, stateOpacity(c.it, fadeOp))];
     /* Handles ONLY on a time axis. A span is meaningless on now/next/later, so there
        is nothing to resize there — and, crucially, `/why`'s map view delegates to
        this renderer with edit:true and never sets a time axis. Without this gate it

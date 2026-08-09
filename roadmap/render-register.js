@@ -6,6 +6,7 @@ import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
+import {anyBet, cardTag, tagColors, stateOpacity} from './cond-parts.js';
 
 function registerBodyFn(model, ctx, C){
   return (y0, y1) => {
@@ -46,8 +47,10 @@ function registerBodyFn(model, ctx, C){
        property of the ITEM, not of the group, so it must print on every
        spanning row, first-in-group or not, or a spanning item that isn't
        first would show no range at all. */
+    const hasBets = anyBet(model);
     const layout = noteMax => rows.map((it, i) => {
-      const b = badgeOf(it);
+      const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
+      const tag = hasBets ? cardTag(model, it) : null;
       const groupFirst = i === 0 || rows[i - 1].h !== it.h;
       const range = hCol ? spanRange(model, it) : null;
       const printH = groupFirst || !!range;
@@ -57,9 +60,10 @@ function registerBodyFn(model, ctx, C){
       const hLines = [];
       if(hCol && printH) hLines.push(range || model.horizons[it.h]);
       if(hCol && b && b.kind === 'moved') hLines.push(b.label);
-      const contentH = Math.max(tl.length * 19, nl.length * 17, hLines.length * 17,
+      const itemH = tl.length * 19 + (tag ? 22 : 0);   // the tag stacks UNDER the title, in the item column only
+      const contentH = Math.max(itemH, nl.length * 17, hLines.length * 17,
         (stCol && it.status) ? 22 : 0, 17);
-      return {it, b, tl, nl, hLines, printH, h: RPAD * 2 + contentH};
+      return {it, b, tag, tl, nl, hLines, printH, h: RPAD * 2 + contentH};
     });
     let laidRows = layout(2);
     const sumH = list => list.reduce((a, r) => a + r.h, 0);
@@ -68,35 +72,43 @@ function registerBodyFn(model, ctx, C){
 
     let ry = y0 + headH;
     for(const r of laidRows.slice(0, shown)){
-      const {it, b, tl, nl, hLines} = r;
-      const wash = it.status === 'blocked' ? C.status.blocked + '33'
+      const {it, b, tag, tl, nl, hLines} = r;
+      const rowSvg = [];
+      // dropped's treatment wins over the flag wash — reality already answered
+      const wash = it.worldState === 'dropped' ? null : it.status === 'blocked' ? C.status.blocked + '33'
         : it.status === 'risk' ? tint(C.status.risk) : null;
-      if(wash) s.push(rect(REGISTER_GEOM.M, ry, REGISTER_GEOM.INNER, r.h, wash));
+      if(wash) rowSvg.push(rect(REGISTER_GEOM.M, ry, REGISTER_GEOM.INNER, r.h, wash));
       let ty = ry + RPAD + 13;
       tl.forEach((ln, li) => {
-        s.push(txt(itemCol.x + RPAD, ty, ln, 15, C.ink, {weight: 700}));
+        rowSvg.push(txt(itemCol.x + RPAD, ty, ln, 15, C.ink, {weight: 700}));
         if(li === 0 && b && b.kind === 'new'){
           const lw = measure(ln, titleFont);
-          s.push(badgeCapsule(itemCol.x + RPAD + lw + 10, ty - 15, b, C, measure).svg);
+          rowSvg.push(badgeCapsule(itemCol.x + RPAD + lw + 10, ty - 15, b, C, measure).svg);
         }
         ty += 19;
       });
+      if(tag){
+        const [tcol, tink] = tagColors(tag, C);
+        rowSvg.push(capsule(itemCol.x + RPAD, ty - 13, tag.label, tcol, tink, measure).svg);
+      }
       if(laneCol && it.lane)
-        s.push(txt(laneCol.x + RPAD, ry + RPAD + 13, clip1(it.lane, secFont, laneCol.w - RPAD * 2, measure), 13, C.muted));
+        rowSvg.push(txt(laneCol.x + RPAD, ry + RPAD + 13, clip1(it.lane, secFont, laneCol.w - RPAD * 2, measure), 13, C.muted));
       if(hCol){
         let hy = ry + RPAD + 13;
         hLines.forEach((ln, li) => {
-          if(li === 0 && r.printH) s.push(txt(hCol.x + RPAD, hy, ln, 13, C.ink, {weight: 700}));
-          else s.push(italTxt(hCol.x + RPAD, hy, ln, 12.5, C.muted));
+          if(li === 0 && r.printH) rowSvg.push(txt(hCol.x + RPAD, hy, ln, 13, C.ink, {weight: 700}));
+          else rowSvg.push(italTxt(hCol.x + RPAD, hy, ln, 12.5, C.muted));
           hy += 17;
         });
       }
       if(stCol && it.status)
-        s.push(statusCapsule(stCol.x + RPAD, ry + (r.h - 22) / 2, it.status, C, measure).svg);
+        rowSvg.push(statusCapsule(stCol.x + RPAD, ry + (r.h - 22) / 2, it.status, C, measure).svg);
       if(noteCol && nl.length){
         let ny = ry + RPAD + 13;
-        for(const ln of nl){ s.push(txt(noteCol.x + RPAD, ny, ln, 13, C.muted)); ny += 17; }
+        for(const ln of nl){ rowSvg.push(txt(noteCol.x + RPAD, ny, ln, 13, C.muted)); ny += 17; }
       }
+      const op = stateOpacity(it, 1);   // 1 for a plain row — no wrapper group, byte-identical
+      s.push(op < 1 ? '<g opacity="' + op.toFixed(2) + '">' + rowSvg.join('') + '</g>' : rowSvg.join(''));
       ry += r.h;
       s.push(line(REGISTER_GEOM.M, ry, REGISTER_GEOM.W - REGISTER_GEOM.M, ry, C.border, 1, 0.5));
     }
@@ -230,15 +242,21 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model}){
   const col = k => cols.find(c => c.key === k);
   const itemCol = col('item'), laneCol = col('lane'), hCol = col('horizon'), stCol = col('status'), noteCol = col('note');
   const titleFont = '700 15px ' + SANS, secFont = '13px ' + SANS, noteFont = '13px ' + SANS;
-  const b = badgeOf(it);
+  const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
+  const tag = anyBet(model) ? cardTag(model, it) : null;
   const tl = wrapN(it.title, titleFont, itemCol.w - RPAD * 2, 2, measure);
   const nl = noteCol && it.note ? wrapN(it.note, noteFont, noteCol.w - RPAD * 2, 2, measure) : [];
-  const rowH = RPAD * 2 + Math.max(tl.length * 19, 17, nl.length * 17, it.status ? 22 : 0);
+  const itemH = tl.length * 19 + (tag ? 22 : 0);
+  const rowH = RPAD * 2 + Math.max(itemH, 17, nl.length * 17, it.status ? 22 : 0);
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
+  const op = stateOpacity(it, 1);   // 1 for a plain row — attribute omitted, byte-identical
   const g = [];
-  g.push('<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
+  g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
+    (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  const wash = it.status === 'blocked' ? C.status.blocked + '33' : it.status === 'risk' ? tint(C.status.risk) : null;
+  // dropped's treatment wins over the flag wash
+  const wash = it.worldState === 'dropped' ? null :
+    it.status === 'blocked' ? C.status.blocked + '33' : it.status === 'risk' ? tint(C.status.risk) : null;
   if(wash) g.push(rect(cols[0].x, ry, cols[cols.length - 1].x + cols[cols.length - 1].w - cols[0].x, rowH, wash));
   if(edit) g.push('<rect data-hit="" x="' + cols[0].x + '" y="' + ry + '" width="' +
     (cols[cols.length - 1].x + cols[cols.length - 1].w - cols[0].x) + '" height="' + rowH + '" fill="transparent"/>');
@@ -250,6 +268,10 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model}){
       ' x="' + (itemCol.x + RPAD) + '" y="' + ty + '" font-size="15" font-weight="700" fill="' + C.ink + '">' + esc(ln) + '</text>');
     ty += 19;
   });
+  if(tag){
+    const [tcol, tink] = tagColors(tag, C);
+    g.push(capsule(itemCol.x + RPAD, ty - 13, tag.label, tcol, tink, measure).svg);
+  }
   /* lane (edit target even when empty) */
   if(laneCol) g.push(cellText(laneCol, ry + RPAD + 13, it.lane, 'lane', it.srcLine, C.muted, secFont, RPAD, measure, edit,
     '+ lane', 'Edit lane: ' + it.title));

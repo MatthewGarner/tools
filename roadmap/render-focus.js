@@ -6,6 +6,7 @@ import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
 import {STATUS_LABEL} from './parse.js';
+import {anyBet, cardTag, tagColors, stateOpacity} from './cond-parts.js';
 /* Fixed deck geometry as LITERALS — RAIL_W must NOT be `INNER - HERO_W - HGAP`
    with INNER imported from render-deck.js: across the import cycle those consts
    are in the TDZ at module-load and throw. INNER is 1720 on the 1920 deck. */
@@ -33,21 +34,24 @@ export function focusHeroIndex(model){
 }
 export function focusColumnCount(n){ return n >= 6 ? 2 : 1; }
 
-function layoutHeroCard(it, cardW, measure){
+function layoutHeroCard(it, cardW, measure, tag){
   const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
   const PAD = HWASH_PAD;
   const laneH = it.lane ? 22 : 0;
   const tl = wrapN(it.title, fT, cardW - PAD * 2, 2, measure);
   const nl = it.note ? wrapN(it.note, fN, cardW - PAD * 2, 2, measure) : [];
   const statusH = it.status ? 34 : 0;
-  const h = PAD * 2 + laneH + tl.length * 32 + (nl.length ? nl.length * 21 + 6 : 0) + statusH;
-  return {it, tl, nl, h: Math.max(h, PAD * 2 + 32)};
+  const tagH = tag ? 30 : 0;
+  const h = PAD * 2 + laneH + tagH + tl.length * 32 + (nl.length ? nl.length * 21 + 6 : 0) + statusH;
+  return {it, tl, nl, tag, h: Math.max(h, PAD * 2 + 32)};
 }
 
 function paintHeroCard(c, x, y, w, C, measure){
   const PAD = HWASH_PAD;
   const s = [];
-  const flag = c.it.status === 'risk' ? C.status.risk : c.it.status === 'blocked' ? C.status.blocked : null;
+  // dropped's treatment wins over the flag border
+  const flag = c.it.worldState === 'dropped' ? null :
+    c.it.status === 'risk' ? C.status.risk : c.it.status === 'blocked' ? C.status.blocked : null;
   s.push(rect(x, y, w, c.h, C.card, {rx: 14, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
   if(c.it.lane){
     const laneLbl = c.it.lane.toUpperCase();
@@ -55,17 +59,23 @@ function paintHeroCard(c, x, y, w, C, measure){
     s.push(txt(x + w - PAD - lw, y + PAD + 8, laneLbl, 11, C.muted, {weight: 700, tracking: 1.2}));
   }
   let ty = y + PAD + (c.it.lane ? 22 : 0) + 24;
+  if(c.tag){
+    const [tcol, tink] = tagColors(c.tag, C);
+    s.push(capsule(x + PAD, ty - 20, c.tag.label, tcol, tink, measure).svg);
+    ty += 30;
+  }
   for(const ln of c.tl){ s.push(txt(x + PAD, ty, ln, 26, C.ink, {weight: 700})); ty += 32; }
   if(c.nl.length){ ty += 4; for(const ln of c.nl){ s.push(txt(x + PAD, ty, ln, 16, C.muted)); ty += 21; } }
   if(c.it.status) s.push(statusCapsule(x + PAD, y + c.h - PAD - 22, c.it.status, C, measure).svg);
   return s.join('');
 }
 
-function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure}){
+function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure, model}){
+  const hasBets = anyBet(model);
   const twoCol = focusColumnCount(list.length) === 2;
   const colGap = 18, rowGap = 16;
   const cardW = twoCol ? (w - colGap) / 2 : w;
-  const laid = list.map(it => layoutHeroCard(it, cardW, measure));
+  const laid = list.map(it => layoutHeroCard(it, cardW, measure, hasBets ? cardTag(model, it) : null));
   const rows = [];
   if(twoCol) for(let i = 0; i < laid.length; i += 2) rows.push(laid.slice(i, i + 2));
   else for(const c of laid) rows.push([c]);
@@ -76,7 +86,11 @@ function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure}){
   let cy = y0;
   for(const row of rows.slice(0, shown)){
     const h = rowH(row);
-    row.forEach((c, i) => s.push(paintHeroCard({...c, h}, x + i * (cardW + colGap), cy, cardW, C, measure)));
+    row.forEach((c, i) => {
+      const op = stateOpacity(c.it, 1);
+      const svg = paintHeroCard({...c, h}, x + i * (cardW + colGap), cy, cardW, C, measure);
+      s.push(op < 1 ? '<g opacity="' + op.toFixed(2) + '">' + svg + '</g>' : svg);
+    });
     cy += h + rowGap;
   }
   if(shown < rows.length){
@@ -115,7 +129,7 @@ function focusBodyFn(model, ctx, C){
       const availH = Math.max(60, y1 - (washY0 + HWASH_PAD) - HWASH_PAD);
       stack = paintHeroStack(heroItems, {
         x: heroX + HWASH_PAD, y0: washY0 + HWASH_PAD, w: HERO_W - HWASH_PAD * 2,
-        availH, heroName: hs[heroIdx], C, measure,
+        availH, heroName: hs[heroIdx], C, measure, model,
       });
     }
     const washH = Math.min(y1, stack.bottom + HWASH_PAD) - washY0;
@@ -149,7 +163,10 @@ function focusBodyFn(model, ctx, C){
         const laneLbl = u.it.lane ? u.it.lane.toUpperCase() : '';
         const laneW = laneLbl ? measure(laneLbl, '700 10px ' + SANS) + laneLbl.length * 0.6 : 0;
         const titleMaxW = Math.max(20, RAIL_W - 34 - (laneW ? laneW + 14 : 0));
-        s.push('<g opacity="' + fadeOp.toFixed(2) + '">');
+        // rail rows are the fade-only degrade (A3 §3) — dropped/cond override the
+        // column fade outright, same single-strongest-state rule as the hero, but
+        // no capsule here: the card menu carries the bet/cond info instead (A5)
+        s.push('<g opacity="' + stateOpacity(u.it, fadeOp).toFixed(2) + '">');
         s.push(txt(railX, ry + 24, numeral, 15, C.muted, {weight: 700}));
         s.push(txt(railX + 34, ry + 24, clip1(u.it.title, '15px ' + SANS, titleMaxW, measure), 15, C.ink));
         if(laneLbl) s.push(txt(railX + RAIL_W, ry + 22, laneLbl, 10, C.muted, {anchor: 'end', weight: 700, tracking: 1}));
@@ -204,10 +221,11 @@ const FOCUS_LIVE = {M: 24, HERO_W: 720, HGAP: 40, RAIL_W: 360, RPAD: 16, HEADH: 
    'moved' badge is painted with the raw capsule() builder instead — it
    must NOT go through badgeCapsule's upper-casing, because the "was X"
    label is a horizon NAME and needs to stay readable in its given case. */
-function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf}){
+function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model}){
   const {RPAD} = FOCUS_LIVE;
   const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
-  const b = badgeOf(it);
+  const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
+  const tag = anyBet(model) ? cardTag(model, it) : null;
   const tl = wrapN(it.title, fT, w - RPAD * 2, 2, measure);
   const nl = it.note ? wrapN(it.note, fN, w - RPAD * 2, 2, measure) : [];
   const footH = it.lane || it.status || edit ? 30 : 10;
@@ -215,15 +233,22 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf}){
   // ghost row emitted below — mirrors paintBoardCard's noteH reservation so
   // the ghost never collides with the lane/status foot.
   const noteH = nl.length ? nl.length * 21 + 6 : (edit ? 21 : 0);
-  const h = RPAD * 2 + tl.length * 32 + noteH + footH;
+  const tagH = tag ? 34 : 0;
+  const h = RPAD * 2 + tagH + tl.length * 32 + noteH + footH;
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
-  const flag = it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+  // dropped's treatment wins over the flag border
+  const flag = it.worldState === 'dropped' ? null :
+    it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
+  const op = stateOpacity(it, 1);   // 1 for a plain card — attribute omitted, byte-identical
   const g = [];
-  g.push('<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
+  g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
+    (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  g.push(rect(x, y, w, h, C.card, {rx: 14, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
+  g.push(rect(x, y, w, h, C.card, {rx: 14, stroke: flag || C.border,
+    sw: flag ? 1.5 : 1, dash: it.worldState === 'cond' ? '3 3' : null}));
+  if(tag){ const [tcol, tink] = tagColors(tag, C); g.push(capsule(x + RPAD, y + RPAD - 4, tag.label, tcol, tink, measure).svg); }
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="transparent"/>');
-  let ty = y + RPAD + 20;
+  let ty = y + RPAD + 20 + tagH;
   tl.forEach((ln, li) => {
     g.push('<text' + (edit && li === 0 ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' +
       btnAttrs('Rename: ' + it.title) : '') +
@@ -283,8 +308,12 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit}){
   const titleFont = '15px ' + SANS;
   const titleMaxW = Math.max(20, w - 34 - (laneW ? laneW + 14 : 0));
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
+  // the rail is the fade-only degrade (A3 §3) — no room for a capsule, the
+  // card menu carries the bet/cond info instead (A5)
+  const op = stateOpacity(it, 1);   // 1 for a plain row — attribute omitted, byte-identical
   const g = [];
-  g.push('<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
+  g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
+    (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + w + '" height="' + ROWH + '" fill="transparent"/>');
   g.push(txt(x, y + 24, numeral, 15, C.muted, {weight: 700}));
@@ -332,7 +361,7 @@ export function renderFocusLive(model, ctx){
   const heroBuf = [];
   let hy = heroCardsTop + RPAD;
   if(heroItems.length){
-    for(const it of heroItems){ const c = paintFocusHeroCard(it, heroX + RPAD, hy, HERO_W - RPAD * 2, {C, measure, edit, badgeOf}); heroBuf.push(c.svg); hy += c.h + 14; }
+    for(const it of heroItems){ const c = paintFocusHeroCard(it, heroX + RPAD, hy, HERO_W - RPAD * 2, {C, measure, edit, badgeOf, model}); heroBuf.push(c.svg); hy += c.h + 14; }
   } else {
     heroBuf.push(rect(heroX + RPAD, hy, HERO_W - RPAD * 2, 84, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
     heroBuf.push(txt(heroX + HERO_W / 2, hy + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'})); hy += 84 + 14;
