@@ -3,7 +3,7 @@
    Plan: docs/superpowers/plans/2026-08-09-conditional-roadmap-plan.md A3. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse, applyWorld} from '../parse.js';
+import {parse, applyWorld, roadmapVerdict} from '../parse.js';
 import {render} from '../render.js';
 import {renderBoardDeck, renderBoardLive, typeRamp, boardGeometry} from '../render-board.js';
 import {renderRegisterDeck, renderRegisterLive} from '../render-register.js';
@@ -90,10 +90,15 @@ test('a bet-free doc: chart/board/register/focus/deck carry no capsule/dashed ma
     renderDeck(m, ctx()),
   ];
   for(const svg of svgs){
-    assert.ok(!svg.includes('stroke-dasharray="3 3"') || !svg.includes('BET '), 'no bet capsule on a bet-free doc');
+    // a direct, non-disjunctive check: NONE of the cond/bet-specific markup ever
+    // appears on a betless doc, full stop (the old `!dash || !BET` form could
+    // never fail for a betless doc regardless of dash usage, since dashes
+    // painted for unrelated reasons — spans, ghosts — would make the LHS true).
+    assert.ok(!svg.includes('BET '), 'no bet-open capsule text on a bet-free doc');
+    assert.ok(!/\bif [A-Za-z]/.test(svg) && !/\bunless [A-Za-z]/.test(svg), 'no cond capsule text');
     assert.ok(!/dropped —/.test(svg));
-    assert.ok(!/BET [A-Za-z]/.test(svg));
     assert.ok(!/·\s*(won|lost|never ran)/.test(svg));
+    assert.ok(!svg.includes('data-whatif'), 'no what-if hit rect');
   }
 });
 
@@ -138,10 +143,31 @@ test('chart: a moot bet\'s own item shows "never ran" and its [if] rider drops t
 
 /* ---------- board ---------- */
 
-test('board deck: card-column capsule + list-mode sub-line tag', () => {
-  const m = parse(FORK_DOC);
+/* card mode's tag is a real capsule() — a rx="0" rect immediately followed
+   by its own <text>label</text>; list mode's tag rides the dot-joined
+   sub-line as plain text, no capsule rect at all. The two fixtures below
+   are sized to actually LAND in each mode (render-board.js's boardGeometry
+   flips to list mode once >25% of a column's items would be hidden at the
+   card ramp's worst-case height — read at test-write time, not asserted
+   generically here since it's an implementation detail, not the contract). */
+const CAPSULE_TAG = /<rect[^>]*rx="0"[^>]*\/><text[^>]*>if reminders<\/text>/;
+
+test('board deck, card mode (few items): the cond tag renders as its own capsule rect+text', () => {
+  const m = parse(FORK_DOC);   // 2 items in NEXT — nowhere near the list-mode threshold
   const svg = renderBoardDeck(m, ctx(), colors);
-  assert.ok(svg.includes('BET reminders') || svg.includes('if reminders'));
+  assert.match(svg, CAPSULE_TAG, 'card mode paints the tag as an isolated capsule');
+});
+
+test('board deck, list mode (many items in one column): the cond tag rides the dot-joined sub-line as plain text', () => {
+  const many = 'title: T\nNOW\nCore: Root [bet: reminders]\n' +
+    Array.from({length: 20}, (_, i) => 'Lane' + i + ': Item' + i + ' [if reminders] [risk]').join('\n') +
+    '\nNEXT\nCore: X';
+  const m = parse(many);
+  const {listMode} = boardGeometry(m, 1000);
+  assert.ok(listMode, 'sanity: this fixture really does flip to list mode');
+  const svg = renderBoardDeck(m, ctx(), colors);
+  assert.doesNotMatch(svg, CAPSULE_TAG, 'list mode never paints an isolated tag capsule');
+  assert.match(svg, /LANE0\s+·\s+AT RISK\s+·\s+if reminders/, 'the tag rides the sub-line, dot-joined with lane/status');
 });
 
 test('board deck: the tag still renders at the NARROWEST card-column ramp (fsN:0) — exports carry every path (F4)', () => {
@@ -176,14 +202,24 @@ test('board: dropped item carries no flag border even when [risk]', () => {
 /* ---------- register ---------- */
 
 test('register deck + live: tag under the title, no risk/blocked wash on a dropped row', () => {
-  const doc = 'title: T\nNOW\nCore: Root [bet: root lost]\nNEXT\nCore: Fallout [if root] [risk]\nLATER\nCore: X';
-  const m = parse(doc);
-  const deckSvg = renderRegisterDeck(m, ctx(), colors);
-  const liveSvg = renderRegisterLive(m, ctx({edit: true}));
-  for(const svg of [deckSvg, liveSvg]){
-    assert.ok(svg.includes('dropped — root lost'));
-    // the blocked/risk wash uses tint(C.status.risk) or +'33' suffix — assert absence near Fallout
-    assert.ok(!svg.includes(colors.status.risk + '33'));
+  // risk's wash is tint(C.status.risk) === C.status.risk + '1F'; blocked's is
+  // C.status.blocked + '33' (render-register.js's `wash` ternary) — a doc that
+  // used [risk] and asserted the '33' suffix could never fail, since risk never
+  // emits that suffix in the first place. Cover BOTH real suffixes, scoped to
+  // the dropped row's own markup (the slice from "Fallout" back to the
+  // previous row's closing tag), not the whole document.
+  for(const [flag, suffix] of [['risk', colors.status.risk + '1F'], ['blocked', colors.status.blocked + '33']]){
+    const doc = 'title: T\nNOW\nCore: Root [bet: root lost]\nNEXT\nCore: Fallout [if root] [' + flag + ']\nLATER\nCore: X';
+    const m = parse(doc);
+    const deckSvg = renderRegisterDeck(m, ctx(), colors);
+    const liveSvg = renderRegisterLive(m, ctx({edit: true}));
+    for(const svg of [deckSvg, liveSvg]){
+      assert.ok(svg.includes('dropped — root lost'));
+      const i = svg.indexOf('Fallout');
+      const rowStart = Math.max(0, svg.lastIndexOf('/>', i - 20));   // the previous row's separator <line .../>
+      const row = svg.slice(rowStart, i + 400);
+      assert.ok(!row.includes(suffix), flag + ': wash suffix ' + suffix + ' leaked onto the dropped row');
+    }
   }
 });
 
@@ -248,21 +284,15 @@ test('new cond/dropped/bet markup is well-formed XML everywhere it renders', () 
   for(const [label, svg] of cases) assertWellFormedTags(svg, label);
 });
 
-/* ---------- injection: hostile bet/cond names ---------- */
-
-test('a hostile bet name is escaped in every capsule-bearing renderer', () => {
-  const hostile = '<script>alert(1)</script>';
-  const doc = 'title: T\nNOW\nCore: A [bet: xss]\nNEXT\nCore: B [if xss]';
-  // can't put the hostile string INTO the bet name (grammar is [a-z0-9-]+),
-  // so prove escaping via the title instead, alongside a real bet/cond pair —
-  // the point is that cardTag's own output always flows through the same
-  // esc()-at-emission discipline as every other capsule label in this file.
-  const m = parse(doc.replace('Ship base', hostile));
-  for(const svg of [render(m, ctx()), renderBoardLive(m, ctx({edit: true})),
-    renderRegisterLive(m, ctx({edit: true})), renderFocusLive(m, ctx({edit: true}))]){
-    assert.ok(!svg.includes('<script>'));
-  }
-});
+/* Injection coverage for cond/bet markup (hostile titles/notes, boundary-
+   shape bet names) lives in dev/injection.test.mjs's dedicated "roadmap
+   CONDITIONAL" case — a prior version of this test built a doc, then called
+   `doc.replace('Ship base', hostile)` where the doc contained no such
+   substring, so the replace was a silent no-op and the assertion tested an
+   unrelated title ("T") that was never hostile. Removed rather than patched:
+   duplicating the injection corpus's job here would just be a second place
+   to drift, and this file's real subject (cardTag's own output shape) is
+   covered by the tests above. */
 
 test('deckMetrics: dropped items leave the status tallies, except [doing] still in flight', async () => {
   const {parse} = await import('../parse.js');
@@ -318,13 +348,45 @@ test('previewableBet: STILL previewable under a what-if preview that shows it wo
   assert.equal(previewableBet(m.bets, projectedWon.items[0]), 'reminders',
     'a preview-only outcome must not disable further cycling');
 });
-test('previewableBet: null once the bet is gone (renamed/removed) — the prune case', () => {
-  const before = parse(FORK_DOC);
-  const after = parse(FORK_DOC.replace('reminders', 'launch'));   // renamed everywhere
-  // simulate app.js's pruneWhatIf: a preview keyed by the OLD name has no
-  // matching bet in the freshly-parsed model
-  assert.equal(before.bets.reminders && previewableBet(before.bets, before.items[0]), 'reminders');
-  assert.equal(after.bets.reminders, undefined, 'the old name no longer exists — prune drops it');
+/* app.js's pruneWhatIf(m) walks the CURRENT whatIf preview map's keys and
+   drops any key whose bet, in the freshly-parsed text-world `m.bets`, no
+   longer satisfies previewableBet's own test — the API is (bets, it), so a
+   pruned key is exercised here the same way pruneWhatIf itself does: look
+   the stale name up in the new bets map (it has no `it` of its own once
+   renamed/gone, so pruneWhatIf's real check is `!b || b.cycle ||
+   b.effective !== 'unresolved'`, i.e. previewableBet's guard minus the `it`
+   argument) — every one of the five ways a previously-previewable bet can
+   stop being previewable, all against the CURRENT API. */
+test('previewableBet: every reason a previously-previewable bet stops being previewable (the prune cases)', () => {
+  const fork = parse(FORK_DOC);
+  assert.equal(previewableBet(fork.bets, fork.items[0]), 'reminders', 'sanity: previewable before any of this');
+
+  // 1. stale key: the bet no longer exists in the freshly-parsed map at all
+  //    (renamed away) — pruneWhatIf's `!b` branch.
+  const renamed = parse(FORK_DOC.replace(/reminders/g, 'launch'));
+  assert.equal(renamed.bets.reminders, undefined, 'the old name is gone from the new bets map');
+  assert.equal(previewableBet(fork.bets, fork.items[0]), 'reminders');   // still true against the OLD map
+  assert.equal(previewableBet(renamed.bets, fork.items[0]), null, 'gone from the NEW map — not previewable');
+
+  // 2. resolved (won or lost) in text — the bare declaration gained a resolution.
+  const resolved = parse(RESOLVED_WON);
+  assert.equal(previewableBet(resolved.bets, resolved.items[0]), null);
+
+  // 3. moot — a text edit made the bet's own host item drop.
+  const moot = parse(MOOT_DOC);
+  const gateItem = moot.items.find(i => i.bet && i.bet.name.toLowerCase() === 'gate');
+  assert.equal(moot.bets.gate.effective, 'moot');
+  assert.equal(previewableBet(moot.bets, gateItem), null);
+
+  // 4. condition cycle — a text edit made the bet's reachability circular.
+  const cyc = parse('title: T\nNOW\nA [bet: x] [if y]\nB [bet: y] [if x]');
+  assert.ok(cyc.bets.x.cycle);
+  assert.equal(previewableBet(cyc.bets, cyc.items[0]), null);
+
+  // 5. the item itself carries no bet at all in the fresh parse (e.g. the
+  //    `[bet: …]` token was deleted from that line by the same edit).
+  const noBet = parse('title: T\nNOW\nCore: Ship base\nNEXT\nCore: Smart nudges');
+  assert.equal(previewableBet(noBet.bets, noBet.items[0]), null);
 });
 
 test('whatifHitRect: single-quoted XML-legal attrs, tabindex/role/aria-label present, no bare booleans', () => {
@@ -442,4 +504,44 @@ test('F1: a genuinely over-wip column (excluding the dropped item) still flags',
   assert.ok(/3 ITEMS/.test(render(m, ctx())), 'chart flag states the ACTIVE count (3), not the raw 4');
   assert.ok(renderBoardLive(m, ctx({edit: true})).includes('3 · OVER WIP'));
   assert.ok(renderFocusLive(m, ctx({edit: true})).includes('3 — OVER WIP 1'));
+});
+
+/* ---------- test-quality audit additions (2026-08-09) ---------- */
+
+test('forkTier: two unresolved bets with equal transitive reach — the earliest DECLARED speaks, not the first alphabetically or in doc order of riders', () => {
+  // both bets have exactly one rider each (n=1) — a genuine tie on reach.
+  // "beta" is declared on an EARLIER line than "alpha" (NOW, before NEXT), so
+  // beta must speak despite alpha's rider appearing first in the document.
+  const doc = 'title: T\nNOW\nCore: Root beta [bet: beta]\nNEXT\nCore: Rider alpha [if alpha]\n' +
+    'Core: Root alpha [bet: alpha]\nCore: Rider beta [if beta]';
+  const m = parse(doc);
+  assert.ok(m.bets.alpha.srcLine > m.bets.beta.srcLine, 'sanity: beta really is declared earlier');
+  const r = roadmapVerdict(m);
+  assert.ok(r.line.includes('beta'), 'the earlier-declared bet speaks on a tie: ' + r.line);
+  assert.ok(!r.line.includes('the alpha bet'), r.line);
+});
+
+test('a bet declared on a merely-GHOSTED host (worldState "cond", not dropped) stays unresolved — moot requires the host to actually drop', () => {
+  // Gate declares bet "gate" but is ITSELF conditioned on the still-unresolved
+  // "outer" bet — Gate's worldState is 'cond' (ghosted), never 'dropped', so
+  // "gate" must read unresolved, not moot: only an actually-dropped host bakes
+  // a moot effective (parse.js's stateOf/effectiveOf: moot needs eff==='dropped').
+  const doc = 'title: T\nNOW\nCore: Outer [bet: outer]\nCore: Gate [bet: gate] [if outer]\nNEXT\nCore: Rider [if gate]';
+  const m = parse(doc);
+  const gateItem = m.items.find(i => i.title === 'Gate');
+  assert.equal(gateItem.worldState, 'cond', 'sanity: Gate is ghosted, not dropped');
+  assert.equal(m.bets.gate.effective, 'unresolved');
+});
+
+test('narrow chart\'s "also running" line excludes a dropped spanning item, even while a live spanning item still gets named', () => {
+  const doc = 'title: T\nhorizons: quarterly from Q1 2026 x4\nQ1 2026\n' +
+    'Core: Root [bet: root lost]\nCore: Dropped span [if root] x3\nCore: Live span x3\nQ2 2026\nCore: Filler';
+  const m = parse(doc);
+  const dropped = m.items.find(i => i.title === 'Dropped span');
+  assert.equal(dropped.worldState, 'dropped', 'sanity: it really is dropped');
+  const svg = render(m, ctx({width: 380}));
+  const also = /also running: ([^<]*)/.exec(svg);
+  assert.ok(also, 'the live spanning item keeps an "also running" line');
+  assert.ok(also[1].includes('Live span'), also[1]);
+  assert.ok(!also[1].includes('Dropped span'), 'a dropped spanning item never appears in "also running": ' + also[1]);
 });

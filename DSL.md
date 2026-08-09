@@ -107,8 +107,9 @@ swimlanes, WIP limits, and a deck export.
 own item is dropped (its condition failed) reads **moot** — "never ran", never "lost" — and
 its `[if]` dependents drop the same way (`never ran`, not a claimed loss) while its
 `[unless]` fallbacks stay **live** (a bet that never ran certainly didn't pay off). `[done]`
-always outranks the fork: a finished item never ghosts or drops, though it warns if its own
-bet is still unresolved or lost — the past can't be conditional.
+always outranks the fork: a finished item never ghosts or drops, though it warns if it's
+itself *conditioned* on a bet that's still unresolved, lost, or never ran — the past can't be
+conditional.
 
 **What it warns about:** unknown palette / bad accent / bad `wip` / unknown `style`; a config
 line placed after the first header (read as a lane item); header typos; items before any
@@ -116,11 +117,12 @@ header (skipped); an unknown `[status]`; a span used without a time axis; a bet 
 isn't letters/digits/hyphens; a reserved bet name (`won`/`lost`); a duplicate `[bet: x]`
 declaration; conflicting `won` + `lost` resolutions (reads unresolved); a second condition on
 one item; an unknown outcome word; a condition naming a bet that doesn't exist (with a
-near-match suggestion); an item conditioning on its own bet (condition dropped); near-miss
-forms `[bet x]` / `[if: x]` (missing colon/space); a bet nothing conditions on; a conditioned
-item in the first horizon (a maybe in the commitment column); a conditioned item in an
-earlier horizon than its bet; `[done]` under an unresolved or lost bet; `[doing]` on a
-dropped item; a cascade cycle (reads unresolved).
+"did you mean" suggestion when a declared bet's name is within edit distance 1); an item
+conditioning on its own bet (condition dropped); near-miss forms `[bet x]` / `[if: x]`
+(missing colon/space); a bet nothing conditions on; a conditioned item in the first horizon
+(a maybe in the commitment column); a conditioned item in an earlier horizon than its bet;
+`[done]` conditioned on an unresolved, lost, or never-ran bet; `[doing]` on a dropped item;
+a cascade cycle (reads unresolved).
 
 ```dsl tool=roadmap
 title: Team roadmap

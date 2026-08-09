@@ -600,6 +600,12 @@ test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items
     EVIL[3].replace(/:/g, ';') + ' lane: ' + label(3) + ' [if x] -- ' + EVIL[4];                    // dropped: lost -> if drops
 
   const m = parse(doc());
+  // the parsed model must actually HAVE the subject this test claims to cover
+  // — a bet, a dropped item — or a future refactor that silently broke the
+  // fixture (grammar drift, a renamed key) would still pass every assertClean
+  // call below on an EMPTY doc that escapes nothing because there's nothing to escape.
+  assert.ok(m.bets['shipped-a1-b2'] && m.bets['won-x'] && m.bets.x, 'the fixture declares its three bets');
+  assert.ok(m.items.some(i => i.worldState === 'dropped'), 'the fixture actually drops an item');
   assertClean(render(m, {...ctx, edit: true}), 'roadmap conditional');
   assertClean(render(m, {...ctx, edit: true, width: 360}), 'roadmap conditional narrow');
   assertClean(renderBoardLive(parse(doc('board')), {...ctx, edit: true}), 'board-live conditional');
