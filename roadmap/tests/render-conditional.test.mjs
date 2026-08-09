@@ -3,13 +3,13 @@
    Plan: docs/superpowers/plans/2026-08-09-conditional-roadmap-plan.md A3. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse} from '../parse.js';
+import {parse, applyWorld} from '../parse.js';
 import {render} from '../render.js';
 import {renderBoardDeck, renderBoardLive} from '../render-board.js';
 import {renderRegisterDeck, renderRegisterLive} from '../render-register.js';
 import {renderFocusDeck, renderFocusLive} from '../render-focus.js';
 import {renderDeck} from '../render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity} from '../cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from '../cond-parts.js';
 
 const measure = (s, f) => (s ? s.length : 0) * ((/(\d+)px/.exec(String(f)) || [])[1] || 12) * 0.55;
 const colors = {
@@ -257,4 +257,90 @@ test('deckMetrics: dropped items leave the status tallies, except [doing] still 
   const foot = deckMetrics(m);
   assert.ok(foot.includes('1 at risk'), 'only the live [risk] item counts: ' + foot);
   assert.ok(foot.includes('1 in progress'), 'dropped [doing] stays in flight: ' + foot);
+});
+
+/* ---------- A4: what-if preview — previewableBet / whatifHitRect ---------- */
+/* Spec §3. Plan A4. previewableBet() is the single test app.js's pruning and
+   every renderer's hit-rect gate both call — it must stay reliable against an
+   ALREADY-PROJECTED (what-if) model, since that's exactly what the live
+   renderers are handed once a preview is active. */
+
+test('previewableBet: the bet-declaring item of an unresolved bet is previewable', () => {
+  const m = parse(FORK_DOC);
+  assert.equal(previewableBet(m, m.items[0]), 'reminders');
+});
+test('previewableBet: null for a non-bet item (cond/plain), and for a missing item', () => {
+  const m = parse(FORK_DOC);
+  assert.equal(previewableBet(m, m.items[1]), null, 'a [if] item carries no bet of its own');
+  assert.equal(previewableBet(m, null), null);
+});
+test('previewableBet: null once the bet is resolved IN TEXT (won or lost)', () => {
+  const won = parse(RESOLVED_WON), lost = parse(RESOLVED_LOST);
+  assert.equal(previewableBet(won, won.items[0]), null);
+  assert.equal(previewableBet(lost, lost.items[0]), null);
+});
+test('previewableBet: STILL previewable under a what-if preview that shows it won/lost — only a TEXT resolution is a no-op', () => {
+  const m = parse(FORK_DOC);
+  const projectedWon = applyWorld(m, {reminders: 'won'});
+  // the projected model's cardTag now reads 'bet-won', but the bet carries no
+  // WRITTEN resolution — outcome is still null — so the capsule stays clickable
+  assert.equal(cardTag(projectedWon, projectedWon.items[0]).kind, 'bet-won');
+  assert.equal(previewableBet(projectedWon, projectedWon.items[0]), 'reminders',
+    'a preview-only outcome must not disable further cycling');
+});
+test('previewableBet: null once the bet is gone (renamed/removed) — the prune case', () => {
+  const before = parse(FORK_DOC);
+  const after = parse(FORK_DOC.replace('reminders', 'launch'));   // renamed everywhere
+  // simulate app.js's pruneWhatIf: a preview keyed by the OLD name has no
+  // matching bet in the freshly-parsed model
+  assert.equal(before.bets.reminders && previewableBet(before, before.items[0]), 'reminders');
+  assert.equal(after.bets.reminders, undefined, 'the old name no longer exists — prune drops it');
+});
+
+test('whatifHitRect: single-quoted XML-legal attrs, tabindex/role/aria-label present, no bare booleans', () => {
+  const svg = whatifHitRect('reminders', 'Reminders', 10, 20, 100, 17);
+  assert.match(svg, /^<rect data-whatif='reminders' tabindex='0' role='button' aria-label='[^']*' x='10' y='20' width='100' height='17' fill='transparent'\/>$/);
+  assert.ok(!svg.includes('"'), 'single-quoted throughout, matching the span-edge discipline');
+});
+test('whatifHitRect: aria-label never contains the literal cond-capsule substring "if <name>"', () => {
+  // the render-conditional rail/hero test above greps live SVG for exactly
+  // "if reminders" to prove a rail row carries no cond capsule; a hero's own
+  // what-if aria-label must never collide with that check
+  const svg = whatifHitRect('reminders', 'reminders', 0, 0, 10, 10);
+  assert.ok(!svg.includes('if reminders'));
+});
+test('whatifHitRect: escapes a hostile bet name/display', () => {
+  const svg = whatifHitRect('x', '<script>alert(1)</script>', 0, 0, 10, 10);
+  assert.ok(!svg.includes('<script>'));
+});
+
+test('render.js: the hit rect is emitted ONLY in edit mode, only for the previewable bet item, as a sibling of the card <g>', () => {
+  const m = parse(FORK_DOC);
+  const live = render(m, ctx({edit: true}));
+  const exported = render(m, ctx());   // edit omitted -> false, the export/golden path
+  assert.equal((live.match(/data-whatif='reminders'/g) || []).length, 1);
+  assert.ok(!exported.includes('data-whatif'), 'exports/goldens must never carry the hit rect');
+  // sibling, never nested inside the cardmenu <g> — eip's closest('[data-edit]')
+  // must not resolve a click on it back to the card menu
+  const i = live.indexOf("data-whatif='reminders'");
+  const cardGClose = live.lastIndexOf('</g>', i);
+  assert.ok(cardGClose !== -1 && cardGClose < i, 'the hit rect sits AFTER the card <g> has already closed');
+});
+test('render.js: a resolved bet emits NO hit rect at all (not merely inert)', () => {
+  const won = parse(RESOLVED_WON);
+  assert.ok(!render(won, ctx({edit: true})).includes('data-whatif'));
+});
+test('the hit rect rides board/register/focus-hero live views too; the fade-only rail carries none', () => {
+  const fork = parse(FORK_DOC);
+  for(const svg of [renderBoardLive(fork, ctx({edit: true})), renderRegisterLive(fork, ctx({edit: true})),
+    renderFocusLive(fork, ctx({edit: true}))]){
+    assert.ok(svg.includes("data-whatif='reminders'"), svg.slice(0, 40));
+  }
+  // FOCUS: "Ship base" (the bet) is in NOW, the hero by default — put a SECOND
+  // bet in a rail horizon to prove the rail itself never gets a hit rect
+  // (spec: rail is fade-only, the card menu carries the info in A5)
+  const railDoc = 'title: T\nNOW\nCore: Ship base [bet: reminders]\nNEXT\nCore: Second bet [bet: other]\nLATER\nCore: X [if other]';
+  const railSvg = renderFocusLive(parse(railDoc), ctx({edit: true}));
+  assert.ok(railSvg.includes("data-whatif='reminders'"), 'hero bet still gets a rect');
+  assert.ok(!railSvg.includes("data-whatif='other'"), 'the rail bet (not the hero) gets none');
 });

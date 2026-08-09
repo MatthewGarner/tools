@@ -13,8 +13,27 @@
    than a single flag. `anyBet` is exported too, for callers that want one
    cheap top-level guard as defence in depth. */
 
+import {esc} from '../assets/svg.js';
+
 export function anyBet(model){
   return !!(model && model.items && model.items.some(i => i.bet || i.cond));
+}
+
+/* The what-if click target (A4): the bet's OWN declaring item, but only
+   when the bet carries no WRITTEN resolution. Reads `model.bets[nameLc]
+   .outcome`, never `.effective` — deriveWorld/applyWorld never touch
+   `outcome` (only `effective` folds in cascade/preview), so this test stays
+   reliable even against an already-projected (what-if) model: a bet shown
+   as "won" purely by preview is still previewable (cycles on), while a bet
+   resolved in the TEXT is not (clicking its capsule is a no-op — so it gets
+   no hit rect at all, per spec, rather than an inert one). Returns the
+   lowercase bet name, or null. */
+export function previewableBet(model, it){
+  if(!it || !it.bet) return null;
+  const nameLc = it.bet.name.toLowerCase();
+  const b = model && model.bets ? model.bets[nameLc] : null;
+  if(!b || b.outcome) return null;
+  return nameLc;
 }
 
 /* The single informational tag a card carries: dropped beats a bet
@@ -75,4 +94,24 @@ export function stateOpacity(it, certFade){
   if(it && it.worldState === 'dropped') return DROPPED_OPACITY;
   if(it && it.worldState === 'cond') return COND_OPACITY;
   return certFade;
+}
+
+/* The invisible what-if hit rect, sized to the tag capsule it sits under —
+   emitted by the CALLER as a SIBLING painted AFTER (never inside) the
+   card's own cardmenu <g>, exactly the data-span-edge discipline (render.js)
+   and for the same reason: `closest('[data-edit]')` (edit-in-place) would
+   otherwise resolve to the cardmenu ancestor and swallow the click before
+   app.js's pointerdown handler ever sees data-whatif. Fine pointers only —
+   app.js gates the gesture (coarse pointers never reach this check, same as
+   the drag armer); keyboard-reachable regardless (tabindex + Enter/Space,
+   the data-lens pattern). single-quoted XML-legal attrs throughout. */
+export function whatifHitRect(nameLc, display, x, y, w, h){
+  /* wording avoids the literal substring "if <name>" (a colon, not a space,
+     separates "what-if" from the bet name) — the render-conditional suite
+     greps live SVG for exactly that substring to prove a rail row carries
+     NO cond capsule, and a hero's own what-if aria-label sitting right next
+     to it would otherwise false-positive that check. */
+  return "<rect data-whatif='" + esc(nameLc) + "' tabindex='0' role='button' aria-label='" +
+    esc('what-if: ' + display + ' pays off / fails — cycles') +
+    "' x='" + x + "' y='" + y + "' width='" + w + "' height='" + h + "' fill='transparent'/>";
 }

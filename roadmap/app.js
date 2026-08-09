@@ -8,7 +8,7 @@ import {renderFocusLive, focusHeroIndex} from './render-focus.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
-import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics} from './parse.js';
+import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics, applyWorld} from './parse.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict, resolveVerdict} from '../assets/verdict.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
@@ -18,7 +18,7 @@ import {moveItem} from './edit.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
-import {mountMotion} from "../assets/motion.js";
+import {mountMotion, motionStill} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
@@ -109,6 +109,95 @@ let model = null, lastSvg = '', hashTimer = null;
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
+/* ---------- what-if preview (A4) ---------- */
+/* Per-bet preview map, view-state only — never text, never hash (spec §3).
+   {nameLc: 'won'|'lost'}; multiple entries compose through applyWorld's own
+   cascade. Threaded into every live view + verdict/metrics/WIP so the screen
+   stays self-consistent in the previewed world; EXPORTS/snapshots never see
+   it (they keep reading `model`, never `projected`, below). */
+let whatIf = {};
+/* Drop a bet's preview the instant it stops being previewable: resolved in
+   text, renamed, or gone — "survives ordinary typing otherwise" (spec).
+   previewableBet() is the single source of truth for "can this bet still be
+   previewed" (render.js/render-*.js use the same test for the hit rect), so
+   pruning and hit-rect emission can never disagree about a bet's state. */
+function pruneWhatIf(m){
+  for(const k of Object.keys(whatIf)){
+    const b = m.bets[k];
+    if(!b || b.outcome) delete whatIf[k];
+  }
+}
+function whatIfNames(){ return Object.keys(whatIf); }
+/* cycles a bet's preview: unresolved -> won -> lost -> unresolved. Forces a
+   repaint past the lastSvg memo (paint.reset(), same idiom wireSnapshots.
+   onChange already uses) since the SOURCE TEXT hasn't changed — doRefresh's
+   own `svg !== lastSvg` memo would otherwise see the identical text and skip
+   the render entirely. */
+function cycleWhatIf(nameLc){
+  const cur = whatIf[nameLc];
+  const next = cur === 'won' ? 'lost' : cur === 'lost' ? null : 'won';
+  if(next) whatIf[nameLc] = next; else delete whatIf[nameLc];
+  lastSvg = ''; paint.reset(); refresh();
+}
+function resetWhatIf(){
+  if(!whatIfNames().length) return;
+  whatIf = {};
+  lastSvg = ''; paint.reset(); refresh();
+}
+/* Cross-fade on a world flip (spec §3: "NOT FLIP — nothing changes position").
+   mountMotion's shared paint() does an innerHTML swap with no DOM diffing, so
+   the CSS `transition:opacity` on g[data-line] (style.css) can't animate by
+   itself — there is no continuous element to transition. This captures each
+   card's opacity BEFORE the swap (keyed by data-line, stable across a toggle
+   since the text doesn't move) and, right after, sets the surviving elements'
+   inline opacity back to their OLD value then clears it a frame later so the
+   CSS transition tweens old -> new — same capture/apply shape as the shared
+   FLIP helper, kept local to roadmap (one caller; not assets/ material yet).
+   prefers-reduced-motion -> motionStill() bails to a hard cut, same gate FLIP uses. */
+function captureLineOpacity(){
+  const m = new Map();
+  for(const el of previewEl.querySelectorAll('[data-line]')) m.set(el.getAttribute('data-line'), el.getAttribute('opacity') || '1');
+  return m;
+}
+function fadeLineOpacity(old){
+  if(motionStill() || !old) return;
+  const changed = [];
+  for(const el of previewEl.querySelectorAll('[data-line]')){
+    const prev = old.get(el.getAttribute('data-line')); if(prev == null) continue;
+    const next = el.getAttribute('opacity') || '1';
+    if(prev !== next) changed.push([el, prev]);
+  }
+  for(const [el, prev] of changed){ el.style.transition = 'none'; el.style.opacity = prev; }
+  if(changed.length) requestAnimationFrame(() => requestAnimationFrame(() => {
+    for(const [el] of changed){ el.style.transition = ''; el.style.opacity = ''; }
+  }));
+}
+/* the chip: a roadmap-only element OUTSIDE #preview (the paint innerHTML-swap
+   wipes anything inside it) — sibling of the verdict block in index.html.
+   role="status" (in the markup) so a world flip is announced; hidden when no
+   bet is being previewed. */
+function syncWhatIfChip(m){
+  const chip = $('whatifchip');
+  const names = whatIfNames().filter(k => m.bets[k]);   // pruneWhatIf already ran this cycle, belt+braces
+  if(!names.length){ chip.hidden = true; chip.textContent = ''; return; }
+  chip.hidden = false;
+  chip.textContent = '';
+  const lead = document.createElement('span');
+  lead.textContent = 'previewing: ';
+  chip.appendChild(lead);
+  names.forEach((k, i) => {
+    if(i) chip.appendChild(document.createTextNode(' · '));
+    const strong = document.createElement('strong');
+    strong.textContent = m.bets[k].display + ' ' + (whatIf[k] === 'won' ? 'pays off' : 'fails');
+    chip.appendChild(strong);
+  });
+  chip.appendChild(document.createTextNode(' — exports show all paths — '));
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.textContent = 'reset';
+  reset.addEventListener('click', resetWhatIf);
+  chip.appendChild(reset);
+}
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
@@ -148,10 +237,19 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
   const text = editor.getText();
   model = parse(text);
+  pruneWhatIf(model);   // survives ordinary typing; drops on resolve/rename/gone (spec §3)
+  /* the SAME projected model feeds every live view, the verdict, the metrics
+     and the WIP breach check — "no '3 dropped' cards under a verdict still
+     calling the fork open" (spec §3). EXPORTS and snapshots never see this:
+     they keep reading `model` (plainStyleSvg/deckSvgString/copymd/wireSnapshots
+     below), never `projected`. Identity when no preview is active, so a
+     bet-free or preview-free doc is byte-identical to before this slice. */
+  const projected = whatIfNames().length ? applyWorld(model, whatIf) : model;
   editor.setHorizons(model.horizons);
-  renderWarnings(model);
+  renderWarnings(projected);
   syncStylePicker(model);
   syncHeadline(model);
+  syncWhatIfChip(model);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -167,15 +265,19 @@ function doRefresh(){
        appears only when the author (or the picker) writes style:board. inBandView
        below must stay in lockstep with these arms. */
     const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()};
-    const svg = narrow ? render(model, {...liveCtx, width: w})
-      : model.style === 'register' ? renderRegisterLive(model, liveCtx)
-      : model.style === 'board' ? renderBoardLive(model, liveCtx)
-      : model.style === 'focus' ? renderFocusLive(model, liveCtx)
-      : render(model, {...liveCtx, width: w});
+    const svg = narrow ? render(projected, {...liveCtx, width: w})
+      : model.style === 'register' ? renderRegisterLive(projected, liveCtx)
+      : model.style === 'board' ? renderBoardLive(projected, liveCtx)
+      : model.style === 'focus' ? renderFocusLive(projected, liveCtx)
+      : render(projected, {...liveCtx, width: w});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
+      // A what-if world flip has no flipAttr (nothing moves) — the opacity
+      // capture/apply pair around paint() cross-fades what changed state.
+      const opState = captureLineOpacity();
       paint(svg, REVEAL, {flipAttr: flipNext ? 'data-key' : undefined, scale: ws.scale, onSwap: ws.applyZoom});
+      fadeLineOpacity(opState);
       lastSvg = svg;
       flipNext = false;
     }
@@ -184,8 +286,8 @@ function doRefresh(){
      when their strings are unchanged, so a keystroke that doesn't move a count
      costs nothing. The authored `verdict:` key (2026-08-09) overrides the
      auto ladder — resolveVerdict owns absent/off/authored, once, for every tool. */
-  paintMetrics($('metrics'), model.items.length ? (model.title || 'Untitled') : '', roadmapMetrics(model));
-  const vd = roadmapVerdict(model);
+  paintMetrics($('metrics'), model.items.length ? (model.title || 'Untitled') : '', roadmapMetrics(projected));
+  const vd = roadmapVerdict(projected);
   const vv = resolveVerdict(model.verdict, {line: vd ? vd.line : '', fig: vd ? vd.fig : ''});
   paintVerdict($('verdict'), vv.line, vv.fig);
   $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
@@ -652,6 +754,10 @@ $('preview').addEventListener('pointerdown', e => {
     document.body.style.cursor = 'col-resize';
     return;
   }
+  /* the what-if capsule: checked next, same sibling discipline as the edge
+     handle above — never armed as a drag (the click/keydown listeners below
+     do the actual cycling). */
+  if(e.target.closest && e.target.closest('[data-whatif]')) return;
   const g = e.target.closest && e.target.closest('#preview svg g[data-line]');
   if(!g) return;
   const item = model && model.items.find(i => i.srcLine === +g.dataset.line);
@@ -826,6 +932,24 @@ $('preview').addEventListener('keydown', e => {
   if(e.key !== 'Enter' && e.key !== ' ') return;
   const lens = e.target.closest && e.target.closest('[data-lens]');
   if(lens){ e.preventDefault(); commitLens(lens.dataset.lens); }
+});
+
+/* the what-if capsule (A4): same shape as data-lens above — a plain click,
+   not edit-in-place (the sibling hit rect carries no [data-edit], precisely
+   so eip's own closest('[data-edit]') never resolves it to the cardmenu
+   ancestor — see cond-parts.js's whatifHitRect comment). Keyboard mirrors
+   the lens pattern too: tabindex/role live on the rect itself (render.js/
+   render-*.js), Enter/Space cycles regardless of pointer type — only the
+   CLICK path is fine-pointer-only (CSS `pointer-events` gates that in
+   style.css, coarse taps land on the card instead). */
+$('preview').addEventListener('click', e => {
+  const wi = e.target.closest && e.target.closest('[data-whatif]');
+  if(wi){ e.preventDefault(); cycleWhatIf(wi.dataset.whatif); }
+}, false);
+$('preview').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const wi = e.target.closest && e.target.closest('[data-whatif]');
+  if(wi){ e.preventDefault(); cycleWhatIf(wi.dataset.whatif); }
 });
 
 /* ---------- theme change → re-render ---------- */

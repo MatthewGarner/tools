@@ -6,7 +6,7 @@ import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
 
 function registerBodyFn(model, ctx, C){
   return (y0, y1) => {
@@ -268,9 +268,13 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model}){
       ' x="' + (itemCol.x + RPAD) + '" y="' + ty + '" font-size="15" font-weight="700" fill="' + C.ink + '">' + esc(ln) + '</text>');
     ty += 19;
   });
+  let whatifRect = null;   // sibling of the row's <g>, pushed to `s` after it closes
   if(tag){
     const [tcol, tink] = tagColors(tag, C);
-    g.push(capsule(itemCol.x + RPAD, ty - 13, tag.label, tcol, tink, measure).svg);
+    const cap = capsule(itemCol.x + RPAD, ty - 13, tag.label, tcol, tink, measure);
+    g.push(cap.svg);
+    const nameLc = edit ? previewableBet(model, it) : null;
+    if(nameLc) whatifRect = whatifHitRect(nameLc, it.bet.name, itemCol.x + RPAD, ty - 13, cap.w, 22);
   }
   /* lane (edit target even when empty) */
   if(laneCol) g.push(cellText(laneCol, ry + RPAD + 13, it.lane, 'lane', it.srcLine, C.muted, secFont, RPAD, measure, edit,
@@ -305,6 +309,7 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model}){
   g.push(line(cols[0].x, ry + rowH, cols[cols.length - 1].x + cols[cols.length - 1].w, ry + rowH, C.border, 1, 0.5));
   g.push('</g>');
   s.push(g.join(''));
+  if(whatifRect) s.push(whatifRect);
   return rowH;
 }
 

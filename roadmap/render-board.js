@@ -7,7 +7,7 @@ import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
 import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
    note; the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
@@ -249,7 +249,14 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model}){
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
   g.push(rect(x, y, cw, h, C.card, {rx: 12, stroke: flag || C.border,
     sw: flag ? 1.5 : 1, dash: it.worldState === 'cond' ? '3 3' : null}));
-  if(tag){ const [tcol, tink] = tagColors(tag, C); g.push(capsule(x + RPAD, y + RPAD - 4, tag.label, tcol, tink, measure).svg); }
+  let whatifRect = null;   // sibling of the card's <g>, pushed after it closes
+  if(tag){
+    const [tcol, tink] = tagColors(tag, C);
+    const cap = capsule(x + RPAD, y + RPAD - 4, tag.label, tcol, tink, measure);
+    g.push(cap.svg);
+    const nameLc = edit ? previewableBet(model, it) : null;
+    if(nameLc) whatifRect = whatifHitRect(nameLc, it.bet.name, x + RPAD, y + RPAD - 4, cap.w, 22);
+  }
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + cw + '" height="' + h + '" fill="transparent"/>');
   let ty = y + RPAD + 14 + tagH;
   tl.forEach((ln, li) => {
@@ -290,6 +297,7 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model}){
   }
   if(b && b.kind === 'new') g.push(badgeCapsule(x + RPAD, y - 10, b, C, measure).svg);
   g.push('</g>');
+  if(whatifRect) g.push(whatifRect);
   return {svg: g.join(''), h};
 }
 

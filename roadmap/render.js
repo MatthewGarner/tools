@@ -38,7 +38,7 @@ export const TOKENS = {
 export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
-import {anyBet, cardTag, tagColors, stateOpacity} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
 
 /* stable per-card identity for the shared FLIP (renumber-safe, unlike srcLine) —
    the title, normalised. Matches the app's drop-FLIP key. */
@@ -63,9 +63,12 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     ((c.it.ghost || c.it.worldState === 'cond') ? ' stroke-dasharray="3 3"' : '') + '/>');
   /* top-anchored cursor: each block advances by its budgeted height */
   let cursor = cy + cardPadY;
+  let whatifRect = null;   // sibling of the <g>, appended after it closes — see cond-parts.js
   if(c.tag){
     const [tcol, tink] = tagColors(c.tag, C);
-    s.push(capsule(x + cardPadX, cursor, c.tag.label, tcol, tink).svg);
+    const cap = capsule(x + cardPadX, cursor, c.tag.label, tcol, tink);
+    s.push(cap.svg);
+    if(edit && c.whatif) whatifRect = whatifHitRect(c.whatif, c.it.bet.name, x + cardPadX, cursor, cap.w, T.pillH*S);
     cursor += T.badgeH*S;
   }
   if(c.badge){
@@ -115,6 +118,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
       STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
   }
   s.push('</g>');
+  if(whatifRect) s.push(whatifRect);
   return s.join('');
 }
 
@@ -157,6 +161,7 @@ function renderNarrow(model, ctx, C, T){
        so a "NEW"/moved badge on a dropped card would misstate the change */
     const badge = diff && it.worldState !== 'dropped' ? diff.badge(it) : null;
     const tag = hasBets ? cardTag(model, it) : null;
+    const whatif = hasBets ? previewableBet(model, it) : null;
     const lines = wrapText(it.title, titleFont, innerW, measure);
     /* a span cannot be a LENGTH here — the phone stack sections by horizon and a
        card belongs to exactly one section — so it becomes a LABEL. Appended to
@@ -172,7 +177,7 @@ function renderNarrow(model, ctx, C, T){
     ];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0) + (tag ? T.badgeH : 0);
-    cells[it.lane][it.h].push({it, lines, noteLines, badge, tag, cardH: h});
+    cells[it.lane][it.h].push({it, lines, noteLines, badge, tag, whatif, cardH: h});
   }
 
   const capsule = (px, py, label, col, inkCol = col) => {
@@ -394,6 +399,7 @@ export function render(model, ctx){
     // diff badges are suppressed on dropped items — reality already answered
     const badge = diff && it.worldState !== 'dropped' ? diff.badge(it) : null;    // {kind:'new'|'moved', label}
     const tag = hasBets ? cardTag(model, it) : null;
+    const whatif = hasBets ? previewableBet(model, it) : null;
     const span = Math.max(1, Math.min(it.span || 1, nH - it.h));
     const w = colW + (span - 1)*(colW + GAP);
     const iw = w - cardPadX*2;
@@ -401,7 +407,7 @@ export function render(model, ctx){
     const noteLines = it.note ? wrapText(it.note, noteFont, iw, measure) : [];
     const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH*S : 0) + (badge ? T.badgeH*S : 0) + (tag ? T.badgeH*S : 0);
-    laneList[it.lane].push({it, lines, noteLines, badge, tag, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
+    laneList[it.lane].push({it, lines, noteLines, badge, tag, whatif, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
   }
 
   /* does anything actually span? Several things (the equalisation rule below, the
