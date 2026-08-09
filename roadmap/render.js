@@ -59,8 +59,10 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
     '" stroke="' + C.border + '" stroke-width="1"' +
     /* cond keeps its full card fill and edit markup — dashed border ONLY,
-       never the ghost treatment (which strips data-edit/data-hit/menus) */
-    ((c.it.ghost || c.it.worldState === 'cond') ? ' stroke-dasharray="3 3"' : '') + '/>');
+       never the ghost treatment (which strips data-edit/data-hit/menus).
+       atRisk (why's render-map only) reuses the same dashed mechanic for its
+       own at-risk-ghost vocabulary — still never ghost, stays fully editable. */
+    ((c.it.ghost || c.it.worldState === 'cond' || c.it.atRisk) ? ' stroke-dasharray="3 3"' : '') + '/>');
   /* top-anchored cursor: each block advances by its budgeted height */
   let cursor = cy + cardPadY;
   let whatifRect = null;   // sibling of the <g>, appended after it closes — see cond-parts.js

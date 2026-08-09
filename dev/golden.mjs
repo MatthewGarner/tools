@@ -337,6 +337,14 @@ for(const [k, src] of Object.entries(docs)){
   const dm = wparse(deepDoc);
   const dpr = project(dm);
   variants['why-ost-narrow-deep'] = norm(renderOst(dm, dpr, {...ctxBase, edit: true, width: 360}));
+
+  /* Gate B: a committed solution with a broken assumption — the map view's
+     at-risk ghost (dashed + BROKEN ASSUMPTION badge, still fully editable).
+     Otherwise unreachable by the fixtures above, all of which stay healthy. */
+  const brokenDoc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Shaky reminders [delivering]\n      ? habit sticks [broken]';
+  const bm = wparse(brokenDoc);
+  const bpr = project(bm);
+  variants['why-map-broken'] = norm(renderMap(bm, bpr, {...ctxBase, edit: true}));
 }
 
 /* /map fixtures (dates normalised) */

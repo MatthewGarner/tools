@@ -1,6 +1,12 @@
 /* Roadmap projection renderer: a thin adapter onto roadmap/render.js.
    Outcome bands contain opportunity lanes (laneGroups); audits ride the
-   badge mechanism; uncommitted first-level opportunities show ghost chips. */
+   badge mechanism; uncommitted first-level opportunities show ghost chips.
+   Gate B: a committed solution (now/next/no-why) whose top audit badge is
+   BROKEN ASSUMPTION gets `atRisk: true` — roadmap/render.js reuses its cond
+   dashed-border mechanic for this (cond-parts.js's stateOpacity/dasharray),
+   but this flag is why-only: roadmap's own parser never sets it, so a plain
+   roadmap doc is untouched, and `it.ghost`/`it.worldState` are never touched
+   here (the item stays fully editable — "at-risk", not "dropped"). */
 import {render as renderRoadmap} from '../roadmap/render.js';
 import {renderDeck as renderRoadmapDeck} from '../roadmap/render-deck.js';
 import {layoutRoadmap} from '../roadmap/layout.js';
@@ -46,7 +52,7 @@ export function renderMap(model, projection, ctx){
       items.push({lane, h: e.column === 'now' ? 0 : 1, title: e.node.label,
         note: e.breadcrumb && e.breadcrumb !== lane.trim() ? e.breadcrumb : '',
         status: null, url: null, srcLine: e.node.srcLine, _node: e.node,
-        edit: {note: false}});
+        edit: {note: false}, atRisk: badgeByNode.get(e.node) === 'BROKEN ASSUMPTION'});
     }
     for(const e of projection.later.filter(inThisOutcome)){
       const lane = nodeToLane.get(e.node);
@@ -65,7 +71,8 @@ export function renderMap(model, projection, ctx){
       lanes.push(lane);
       for(const e of orphans){
         items.push({lane, h: e.column === 'now' ? 0 : 1, title: e.node.label,
-          note: '', status: null, url: null, srcLine: e.node.srcLine, _node: e.node});
+          note: '', status: null, url: null, srcLine: e.node.srcLine, _node: e.node,
+          atRisk: badgeByNode.get(e.node) === 'BROKEN ASSUMPTION'});
       }
     }
     if(lanes.length) laneGroups.push({

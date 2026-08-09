@@ -87,12 +87,16 @@ export function tagColors(tag, C){
 
 /* Card opacity: single strongest state wins outright — dropped, then cond,
    then the column's certainty fade — NEVER multiplied together (a cond item
-   in a faded later column paints at the flat cond opacity, not cond*fade). */
+   in a faded later column paints at the flat cond opacity, not cond*fade).
+   `atRisk` (why's render-map only — roadmap's own parser never sets it) rides
+   the same COND_OPACITY tier: a committed solution with a broken assumption
+   is "falling out unless you act", the same half-committed register as an
+   unresolved condition, never roadmap's `worldState`. */
 export const DROPPED_OPACITY = 0.4;
 export const COND_OPACITY = 0.65;
 export function stateOpacity(it, certFade){
   if(it && it.worldState === 'dropped') return DROPPED_OPACITY;
-  if(it && it.worldState === 'cond') return COND_OPACITY;
+  if(it && (it.worldState === 'cond' || it.atRisk)) return COND_OPACITY;
   return certFade;
 }
 
