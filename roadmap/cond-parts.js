@@ -20,19 +20,24 @@ export function anyBet(model){
 }
 
 /* The what-if click target (A4): the bet's OWN declaring item, but only
-   when the bet carries no WRITTEN resolution. Reads `model.bets[nameLc]
-   .outcome`, never `.effective` — deriveWorld/applyWorld never touch
-   `outcome` (only `effective` folds in cascade/preview), so this test stays
-   reliable even against an already-projected (what-if) model: a bet shown
-   as "won" purely by preview is still previewable (cycles on), while a bet
-   resolved in the TEXT is not (clicking its capsule is a no-op — so it gets
-   no hit rect at all, per spec, rather than an inert one). Returns the
-   lowercase bet name, or null. */
-export function previewableBet(model, it){
+   when the bet is unresolved IN THE TEXT WORLD. Takes `bets` — the TEXT-
+   WORLD `model.bets` map (parse()'s own baked `.effective`, from the
+   UNPROJECTED model, never a `applyWorld`-projected one) — deliberately NOT
+   a full model, so a caller can never accidentally pass the projected
+   model's bets by reusing the same variable name a render pass calls
+   `model`. Reading the text-world map (rather than whatever preview is
+   active) keeps the test stable across a click-cycle: a bet the text still
+   calls unresolved stays previewable no matter what the CURRENT preview
+   shows it as (won/lost), so the capsule can cycle round; a bet resolved in
+   the TEXT, made MOOT by the cascade, or sitting in a condition CYCLE, is
+   never previewable — a moot/cycle bet's own item is already dropped/
+   unresolved-forever, so offering a world where it "pays off" is incoherent
+   (review finding F2). Returns the lowercase bet name, or null. */
+export function previewableBet(bets, it){
   if(!it || !it.bet) return null;
   const nameLc = it.bet.name.toLowerCase();
-  const b = model && model.bets ? model.bets[nameLc] : null;
-  if(!b || b.outcome) return null;
+  const b = bets ? bets[nameLc] : null;
+  if(!b || b.cycle || b.effective !== 'unresolved') return null;
   return nameLc;
 }
 
@@ -105,17 +110,31 @@ export function stateOpacity(it, certFade){
    card's own cardmenu <g>, exactly the data-span-edge discipline (render.js)
    and for the same reason: `closest('[data-edit]')` (edit-in-place) would
    otherwise resolve to the cardmenu ancestor and swallow the click before
-   app.js's pointerdown handler ever sees data-whatif. Fine pointers only —
-   app.js gates the gesture (coarse pointers never reach this check, same as
-   the drag armer); keyboard-reachable regardless (tabindex + Enter/Space,
-   the data-lens pattern). single-quoted XML-legal attrs throughout. */
-export function whatifHitRect(nameLc, display, x, y, w, h){
+   app.js's pointerdown handler ever sees data-whatif. CLICK is fine-pointer
+   only — style.css's pointer-events:none default gates that (coarse pointers
+   land on the card/menu instead, same as the drag armer) — but tabindex is a
+   SEPARATE focus/keydown path that pointer-events can't gate: without the
+   `coarse` flag below, a coarse-pointer device (an iPad with no attached
+   keyboard, an iPhone under VoiceOver) still exposed an element promising
+   "cycles" that nothing could actually reach, since CSS blocks its click and
+   there's no hardware Enter key to fire the keydown either — VoiceOver
+   announced an inert button (review F8). `coarse` (from ctx, computed once
+   at render time by app.js's `matchMedia('(pointer: coarse)')`) omits
+   tabindex/role/aria-label entirely on such a render — the rect still paints
+   (geometry parity for anything depending on its presence) but is a plain,
+   uninteresting shape to every assistive technology; the card menu's What-
+   if… rows (A5) remain the coarse-pointer path, exactly as the fine-pointer-
+   only click already assumed. A coarse device WITH a hardware keyboard loses
+   Enter-cycling on the capsule, same trade the spec's coarse story takes
+   everywhere else. single-quoted XML-legal attrs throughout. */
+export function whatifHitRect(nameLc, display, x, y, w, h, coarse){
   /* wording avoids the literal substring "if <name>" (a colon, not a space,
      separates "what-if" from the bet name) — the render-conditional suite
      greps live SVG for exactly that substring to prove a rail row carries
      NO cond capsule, and a hero's own what-if aria-label sitting right next
      to it would otherwise false-positive that check. */
-  return "<rect data-whatif='" + esc(nameLc) + "' tabindex='0' role='button' aria-label='" +
-    esc('what-if: ' + display + ' pays off / fails — cycles') +
-    "' x='" + x + "' y='" + y + "' width='" + w + "' height='" + h + "' fill='transparent'/>";
+  const a11y = coarse ? '' : " tabindex='0' role='button' aria-label='" +
+    esc('what-if: ' + display + ' pays off / fails — cycles') + "'";
+  return "<rect data-whatif='" + esc(nameLc) + "'" + a11y +
+    " x='" + x + "' y='" + y + "' width='" + w + "' height='" + h + "' fill='transparent'/>";
 }

@@ -170,12 +170,13 @@ function colsAt(model, M, INNER){
 
 export function renderRegisterLive(model, ctx){
   const C = paletteColors(model, ctx);
-  const {measure, diff = null, edit = false} = ctx;
+  const {measure, diff = null, edit = false, textBets, coarse} = ctx;
   const M = 24, W = LIVE_W, INNER = W - M * 2, RPAD = 12;
   const cols = colsAt(model, M, INNER);
   const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;
   const rows = registerRows(model);
   const byH = h => rows.filter(r => r.h === h);
+  const hasBets = anyBet(model);   // hoisted (F6) — was recomputed per row
 
   const s = [];
   let y = 34;
@@ -207,7 +208,7 @@ export function renderRegisterLive(model, ctx){
   for(let h = 0; h < model.horizons.length; h++){
     const groupTop = y;
     const groupSvg = [];
-    for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model});
+    for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
     if(edit){
       groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="none" stroke="' +
         C.border + '" stroke-dasharray="2 3"/>' +
@@ -238,12 +239,12 @@ export function renderRegisterLive(model, ctx){
    full-row data-hit rect, and per-cell data-edit text (empty data-raw where
    a field is absent, so it can be ADDED — every editable target, empty or
    not, also carries an aria-label per the a11y batch). */
-function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model}){
+function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse}){
   const col = k => cols.find(c => c.key === k);
   const itemCol = col('item'), laneCol = col('lane'), hCol = col('horizon'), stCol = col('status'), noteCol = col('note');
   const titleFont = '700 15px ' + SANS, secFont = '13px ' + SANS, noteFont = '13px ' + SANS;
   const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
-  const tag = anyBet(model) ? cardTag(model, it) : null;
+  const tag = hasBets ? cardTag(model, it) : null;
   const tl = wrapN(it.title, titleFont, itemCol.w - RPAD * 2, 2, measure);
   const nl = noteCol && it.note ? wrapN(it.note, noteFont, noteCol.w - RPAD * 2, 2, measure) : [];
   const itemH = tl.length * 19 + (tag ? 22 : 0);
@@ -273,8 +274,8 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model}){
     const [tcol, tink] = tagColors(tag, C);
     const cap = capsule(itemCol.x + RPAD, ty - 13, tag.label, tcol, tink, measure);
     g.push(cap.svg);
-    const nameLc = edit ? previewableBet(model, it) : null;
-    if(nameLc) whatifRect = whatifHitRect(nameLc, it.bet.name, itemCol.x + RPAD, ty - 13, cap.w, 22);
+    const nameLc = edit ? previewableBet(textBets || model.bets, it) : null;
+    if(nameLc) whatifRect = whatifHitRect(nameLc, it.bet.name, itemCol.x + RPAD, ty - 13, cap.w, 22, coarse);
   }
   /* lane (edit target even when empty) */
   if(laneCol) g.push(cellText(laneCol, ry + RPAD + 13, it.lane, 'lane', it.srcLine, C.muted, secFont, RPAD, measure, edit,

@@ -219,7 +219,12 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 700_000,   /* 2026-08-09 review-fix batch: parse.js gains the resolution-
+  'roadmap/index.html': 705_000,   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
+     routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
+     app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
+     DECK-only always-show-tag path (board narrowest ramp + focus rail suffix) — actual 703.1k,
+     ~1.9k headroom. */
+  /* 2026-08-09 review-fix batch: parse.js gains the resolution-
      beats-bare same-line rule, the cross-line duplicate sweep, direct-unless aftermath tracking,
      cycle-member exclusion from the fork tier, the two structural warnings moved into deriveWorld
      (world-state gated), the [done]-under-moot warning, near-miss/multi-word tolerances, and the
@@ -269,7 +274,10 @@ const PAGES = {
   /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
      exact post-render add locator, which prevents the reported DSL-focus jump
      and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
-  'why/index.html': 672_000,   /* 2026-08-09 review-fix batch: why pays parse.js's growth too (it
+  'why/index.html': 678_000,   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
+     activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
+     (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
+  /* 2026-08-09 review-fix batch: why pays parse.js's growth too (it
      imports roadmap/parse.js directly for the same bet/cond model); actual 669.8k, ~2.2k headroom. */
   /* 2026-08-09 conditional roadmap A3: why pays roadmap/render.js's
      new cond-parts.js import too (delegation — /why's map view renders through renderRoadmap,

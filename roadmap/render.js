@@ -48,7 +48,7 @@ const titleKey = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
    string for a single card at the given top-left (x, cy). Shared by the wide nested-
    loop layout below and (a later narrow layout) at stacked coordinates. */
 function drawCard(c, x, cy, colW, fadeOp, edit, st){
-  const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote} = st;
+  const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, coarse} = st;
   const opacity = stateOpacity(c.it, fadeOp);   // dropped/cond override the certainty fade outright, never multiply it
   const s = [];
   s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
@@ -70,7 +70,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     const [tcol, tink] = tagColors(c.tag, C);
     const cap = capsule(x + cardPadX, cursor, c.tag.label, tcol, tink);
     s.push(cap.svg);
-    if(edit && c.whatif) whatifRect = whatifHitRect(c.whatif, c.it.bet.name, x + cardPadX, cursor, cap.w, T.pillH*S);
+    if(edit && c.whatif) whatifRect = whatifHitRect(c.whatif, c.it.bet.name, x + cardPadX, cursor, cap.w, T.pillH*S, coarse);
     cursor += T.badgeH*S;
   }
   if(c.badge){
@@ -139,7 +139,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
    horizon. Models without laneGroups (plain roadmap) render exactly as
    before: groupAtLane stays empty and nothing new is emitted. */
 function renderNarrow(model, ctx, C, T){
-  const {measure, diff = null} = ctx;
+  const {measure, diff = null, textBets} = ctx;
   const edit = !!ctx.edit;
   const W = ctx.width;
   const PAD = T.pad;
@@ -163,7 +163,7 @@ function renderNarrow(model, ctx, C, T){
        so a "NEW"/moved badge on a dropped card would misstate the change */
     const badge = diff && it.worldState !== 'dropped' ? diff.badge(it) : null;
     const tag = hasBets ? cardTag(model, it) : null;
-    const whatif = hasBets ? previewableBet(model, it) : null;
+    const whatif = hasBets ? previewableBet(textBets || model.bets, it) : null;
     const lines = wrapText(it.title, titleFont, innerW, measure);
     /* a span cannot be a LENGTH here — the phone stack sections by horizon and a
        card belongs to exactly one section — so it becomes a LABEL. Appended to
@@ -195,7 +195,7 @@ function renderNarrow(model, ctx, C, T){
       w: pw,
     };
   };
-  const cardStyle = {T, S: 1, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
+  const cardStyle = {T, S: 1, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, coarse: !!ctx.coarse};
 
   const s = [];
   let y = 24;
@@ -228,7 +228,7 @@ function renderNarrow(model, ctx, C, T){
   }
   y += 10;
 
-  const firstColCount = model.items.filter(i => i.h === 0).length;
+  const firstColCount = activeCount(model, 0);
   const overWip = model.wip > 0 && firstColCount > model.wip;
   /* a span doc reports its per-section "also running" line instead (Task 6) — the
      historical start-count flag must not draw alongside it, or the phone and the
@@ -401,7 +401,7 @@ export function render(model, ctx){
     // diff badges are suppressed on dropped items — reality already answered
     const badge = diff && it.worldState !== 'dropped' ? diff.badge(it) : null;    // {kind:'new'|'moved', label}
     const tag = hasBets ? cardTag(model, it) : null;
-    const whatif = hasBets ? previewableBet(model, it) : null;
+    const whatif = hasBets ? previewableBet(ctx.textBets || model.bets, it) : null;
     const span = Math.max(1, Math.min(it.span || 1, nH - it.h));
     const w = colW + (span - 1)*(colW + GAP);
     const iw = w - cardPadX*2;
@@ -544,7 +544,7 @@ export function render(model, ctx){
 
   /* column headers, with a WIP flag on the first column */
   const colX = h => PAD + LANE_W + h*(colW + GAP);
-  const firstColCount = model.items.filter(i => i.h === 0).length;
+  const firstColCount = activeCount(model, 0);
   const overWip = model.wip > 0 && firstColCount > model.wip;
   for(let h = 0; h < nH; h++){
     s.push('<text x="' + colX(h) + '" y="' + (headerH + T.colHeadTextY*S) +
@@ -589,7 +589,7 @@ export function render(model, ctx){
   };
 
   /* shared context drawCard needs — same across every card in this render */
-  const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote};
+  const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, coarse: !!ctx.coarse};
 
   const shortCol = name => String(name).split(' ')[0].toUpperCase();
   /* On-board ends drop the year — the column headers supply it. An OFF-board end

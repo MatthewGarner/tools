@@ -128,7 +128,10 @@ let whatIf = {};
 function pruneWhatIf(m){
   for(const k of Object.keys(whatIf)){
     const b = m.bets[k];
-    if(!b || b.outcome) delete whatIf[k];
+    /* drop the instant the TEXT world stops calling it unresolved — resolved,
+       renamed/gone, made MOOT by a text edit mid-preview, or now a cascade
+       CYCLE (review finding F2's third case: text edit changes reachability). */
+    if(!b || b.cycle || b.effective !== 'unresolved') delete whatIf[k];
   }
 }
 function whatIfNames(){ return Object.keys(whatIf); }
@@ -139,7 +142,17 @@ function whatIfNames(){ return Object.keys(whatIf); }
    onChange already uses) since the SOURCE TEXT hasn't changed — doRefresh's
    own `svg !== lastSvg` memo would otherwise see the identical text and skip
    the render entirely. */
+/* Keyboard focus survives a cycle (review F3): paint()'s innerHTML swap drops
+   focus to <body> on every repaint, so without this a keyboard user gets ONE
+   Enter/Space cycle per Tab journey. Recorded here (BEFORE the swap, while
+   document.activeElement is still the rect that triggered this call) and
+   consumed once, right after doRefresh's paint(), by restoreWhatIfFocus()
+   below — never for a menu-row click, where the old focus is a menu item,
+   not the rect, so the check below is false and nothing is forced. */
+let pendingWhatIfFocus = null;
 function setWhatIf(nameLc, value){
+  const ae = document.activeElement;
+  if(ae && ae.dataset && ae.dataset.whatif === nameLc) pendingWhatIfFocus = nameLc;
   if(value) whatIf[nameLc] = value; else delete whatIf[nameLc];
   lastSvg = ''; paint.reset(); refresh();
 }
@@ -147,6 +160,19 @@ function setWhatIf(nameLc, value){
 function cycleWhatIf(nameLc){
   const cur = whatIf[nameLc];
   setWhatIf(nameLc, cur === 'won' ? 'lost' : cur === 'lost' ? null : 'won');
+}
+/* Consumed once per doRefresh, right after the preview repaints: re-focuses
+   the SAME bet's hit rect in the new markup, or — if the rect is gone
+   (resolved/pruned by this very cycle, or a text edit mid-preview) — the
+   chip's reset button when the chip is visible. Silent no-op otherwise (a
+   keyboard user who wasn't on the rect never gets their focus hijacked). */
+function restoreWhatIfFocus(pv){
+  if(!pendingWhatIfFocus) return;
+  const name = pendingWhatIfFocus; pendingWhatIfFocus = null;
+  const rect = pv.querySelector("[data-whatif='" + name.replace(/[^a-z0-9-]/g, '') + "']");
+  if(rect){ rect.focus(); return; }
+  const chip = $('whatifchip');
+  if(chip && !chip.hidden){ const btn = chip.querySelector('button'); if(btn) btn.focus(); }
 }
 function resetWhatIf(){
   if(!whatIfNames().length) return;
@@ -273,7 +299,15 @@ function doRefresh(){
        live preview stays the chart — the classic working surface — and board-live
        appears only when the author (or the picker) writes style:board. inBandView
        below must stay in lockstep with these arms. */
-    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO()};
+    /* textBets: the TEXT-WORLD bets map (this `model`, unprojected — never
+       `projected`'s) — threaded so every renderer's previewableBet() check
+       reads the text's truth, not whatever world is currently previewed
+       (cond-parts.js's previewableBet doc, F2). */
+    /* coarse: gates whatifHitRect's a11y attrs (review F8) — an inert tabindex/
+       role/aria-label on a coarse pointer promises a cycle CSS already blocks
+       (style.css's pointer-events:none default) and VoiceOver would announce
+       an unreachable button; the card menu's What-if… rows stay the coarse path. */
+    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer()};
     const svg = narrow ? render(projected, {...liveCtx, width: w})
       : model.style === 'register' ? renderRegisterLive(projected, liveCtx)
       : model.style === 'board' ? renderBoardLive(projected, liveCtx)
@@ -291,6 +325,7 @@ function doRefresh(){
       flipNext = false;
     }
   }
+  restoreWhatIfFocus(pv);
   /* the header/verdict anatomy rides this same loop — both painters bail out
      when their strings are unchanged, so a keystroke that doesn't move a count
      costs nothing. The authored `verdict:` key (2026-08-09) overrides the
@@ -342,7 +377,7 @@ function itemMenu(m, srcLine, whatIfMap){
      and the capsule can never disagree about whether a bet is previewable).
      These rows do NOT dispatch a text edit — onCommit('whatif', …) mutates
      the view-state whatIf map directly (spec §3/§4: view-state only). */
-  const whatIfName = item ? previewableBet(m, item) : null;
+  const whatIfName = item ? previewableBet(m && m.bets, item) : null;
   const whatIfRows = whatIfName ? [
     {label: 'What if: pays off', on: (whatIfMap || {})[whatIfName] === 'won',
       commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'won'}},
