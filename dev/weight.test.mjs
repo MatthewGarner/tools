@@ -219,7 +219,10 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 641_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
+  'roadmap/index.html': 656_000,   /* 2026-08-09 conditional roadmap A1: parse.js gains bet/cond
+     tokens + the applyWorld cascade engine (structural warnings + moot/cycle derivation);
+     actual 650.6k, ~5.4k headroom, same convention as the folds below */
+     /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
   /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
      roadmap/render.js, so every byte of the span layout is a cost /why pays for a
      feature it can never use (it has no time axis, so it can never carry a span —
@@ -248,7 +251,9 @@ const PAGES = {
   /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
      exact post-render add locator, which prevents the reported DSL-focus jump
      and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
-  'why/index.html': 636_000,   /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 630.5k, ~5.5k headroom */
+  'why/index.html': 653_000,   /* 2026-08-09 conditional roadmap A1: why pays roadmap/parse.js's
+     bet/cond+applyWorld growth too (delegation, per the note below); actual 647.5k, ~5.5k headroom */
+     /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 630.5k, ~5.5k headroom */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom
      explore bar (spec I6 — position:fixed + safe-area padding + the 44px
