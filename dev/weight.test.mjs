@@ -219,7 +219,12 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 698_000,   /* 2026-08-09 conditional roadmap A4: what-if preview — the
+  'roadmap/index.html': 700_000,   /* 2026-08-09 review-fix batch: parse.js gains the resolution-
+     beats-bare same-line rule, the cross-line duplicate sweep, direct-unless aftermath tracking,
+     cycle-member exclusion from the fork tier, the two structural warnings moved into deriveWorld
+     (world-state gated), the [done]-under-moot warning, near-miss/multi-word tolerances, and the
+     moot-before-assumed effectiveOf precedence — actual 697.9k, ~2.1k headroom. */
+  /* 2026-08-09 conditional roadmap A4: what-if preview — the
      whatIf state/prune/cycle/chip/cross-fade wiring in app.js, the whatifHitRect/previewableBet
      helpers in cond-parts.js, and the sibling-rect emission in render.js/render-board.js/
      render-register.js/render-focus.js (all roadmap-only — the opacity cross-fade stayed local
@@ -264,7 +269,9 @@ const PAGES = {
   /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
      exact post-render add locator, which prevents the reported DSL-focus jump
      and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
-  'why/index.html': 668_000,   /* 2026-08-09 conditional roadmap A3: why pays roadmap/render.js's
+  'why/index.html': 672_000,   /* 2026-08-09 review-fix batch: why pays parse.js's growth too (it
+     imports roadmap/parse.js directly for the same bet/cond model); actual 669.8k, ~2.2k headroom. */
+  /* 2026-08-09 conditional roadmap A3: why pays roadmap/render.js's
      new cond-parts.js import too (delegation — /why's map view renders through renderRoadmap,
      so every render-state byte lands here); actual 662.8k, ~5.2k headroom. Was 653_000 (A1: why
      pays roadmap/parse.js's bet/cond+applyWorld growth too; actual 647.5k, ~5.5k headroom). */

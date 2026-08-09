@@ -95,11 +95,15 @@ test('condition on a totally unrelated name warns without a false suggestion', (
   assert.ok(m.warnings.some(w => w.includes('no bet named "zzz"') && !w.includes('did you mean')));
 });
 
-test('unknown outcome word in [bet: x WORD] warns and stays unresolved', () => {
+/* review fix 7 (2026-08-09): a 2-word bet token whose trailing word isn't
+   won/lost used to register a phantom bet from the FIRST word ("x") with the
+   second word treated as a doomed "unknown outcome" ("maybe") — changed to a
+   single unified "wants one word" warning, no bet registered at all. */
+test('[bet: x maybe] — a multi-word token whose trailing word is not won/lost warns once, registers no bet', () => {
   const m = parse('NOW\nCore: A [bet: x maybe]');
-  assert.equal(m.items[0].bet.outcome, null);
-  assert.equal(m.bets.x.outcome, null);
-  assert.ok(m.warnings.some(w => w.includes('unknown outcome') && w.includes('maybe')));
+  assert.equal(m.items[0].bet, null);
+  assert.deepEqual(m.bets, {});
+  assert.ok(m.warnings.some(w => w.includes('bet name wants one word') && w.includes('[bet: name won]')));
 });
 
 test('self-condition (an item conditions on its own bet) is dropped and warned', () => {
@@ -374,4 +378,161 @@ test('verdict: config key parses, comment-stripped, raw (assets/verdict.js resol
 test('verdict: missing-colon near-miss gets the same hint as other config keys', () => {
   const m = parse('verdict off');
   assert.ok(m.warnings.some(w => w.includes('did you mean "verdict:"')));
+});
+
+/* ---------- review fixes (2026-08-09) ---------- */
+
+/* Fix 1: same-line [bet: x] [bet: x won] — the resolution wins, regardless of
+   which token comes first on the line. */
+
+test('[bet: x] [bet: x won] on one line — the resolution wins, not first-token-wins', () => {
+  const m = parse('NOW\nCore: A [bet: x] [bet: x won]');
+  assert.deepEqual(m.items[0].bet, {name: 'x', outcome: 'won'});
+  assert.equal(m.bets.x.outcome, 'won');
+  assert.ok(m.warnings.some(w => w.includes('[bet: x] and [bet: x won] on one line — the resolution wins')));
+});
+
+test('[bet: x lost] [bet: x] on one line — the resolution still wins in reverse order', () => {
+  const m = parse('NOW\nCore: A [bet: x lost] [bet: x]');
+  assert.deepEqual(m.items[0].bet, {name: 'x', outcome: 'lost'});
+  assert.ok(m.warnings.some(w => w.includes('the resolution wins')));
+});
+
+test('[bet: x] [bet: y] on one line (different names) keeps first-wins, existing warning', () => {
+  const m = parse('NOW\nCore: A [bet: x] [bet: y]');
+  assert.equal(m.items[0].bet.name, 'x');
+  assert.ok(m.warnings.some(w => w.includes('duplicate [bet:') && !w.includes('resolution wins')));
+});
+
+test('[bet: x] [bet: x] on one line (bare duplicate, same name) keeps first-wins, existing warning', () => {
+  const m = parse('NOW\nCore: A [bet: x] [bet: x]');
+  assert.equal(m.items[0].bet.outcome, null);
+  assert.ok(m.warnings.some(w => w.includes('duplicate [bet: x] on one line — first wins')));
+});
+
+/* Fix 2: duplicate-declaration warnings must fire for every bare/resolved mix
+   beyond the true first occurrence, citing that first occurrence's line. */
+
+test('a bare declaration followed by a later resolution still warns duplicate, citing the first line', () => {
+  const m = parse('NOW\nCore: A [bet: x]\nNEXT\nCore: B [bet: x won]\nCore: C [bet: x]');
+  assert.equal(m.bets.x.outcome, 'won');
+  assert.ok(m.warnings.some(w => w.includes('duplicate [bet: x won] — already declared at line 2')));
+  assert.ok(m.warnings.some(w => w.includes('duplicate [bet: x] — already declared at line 2')));
+});
+
+test('a resolution declared first, then a bare duplicate, still warns duplicate', () => {
+  const m = parse('NOW\nCore: A [bet: x won]\nNEXT\nCore: B [bet: x]');
+  assert.equal(m.bets.x.outcome, 'won');
+  assert.ok(m.warnings.some(w => w.includes('duplicate [bet: x] — already declared at line 2')));
+});
+
+test('a won+lost conflict does not also stack a duplicate-declaration warning', () => {
+  const m = parse('NOW\nCore: A [bet: x won]\nNEXT\nCore: B [bet: x lost]');
+  assert.ok(m.warnings.some(w => w.includes('conflicting resolutions')));
+  assert.ok(!m.warnings.some(w => w.includes('duplicate [bet:')), 'conflict warning covers the line, no double-warn');
+});
+
+/* Fix 3: aftermath "fallback item" wording only when every counted dropped
+   item is a DIRECT [unless root] of the speaking root. */
+
+test('aftermath: a transitive [if]-rider through a moot chain reads plain "item", not "fallback item"', () => {
+  const m = parse('wip: off\nNOW\nCore: Root [bet: a won]\nNEXT\nCore: Fallback [unless a] [bet: b]\nCore: Rider [if b]');
+  const v = roadmapVerdict(m);
+  assert.equal(v.line, 'The a bet won — 2 of 3 items fall away.');
+});
+
+/* Fix 4: cycle-tangled bets never speak for the fork tier. */
+
+test('fork tier never speaks for a bet caught in a condition cycle', () => {
+  const m = parse('NOW\nCore: A [bet: a] [if b]\nCore: B [bet: b] [if a]');
+  const v = roadmapVerdict(m);
+  assert.ok(!v.line.includes('turn'), 'a cycled bet is not a live fork, even though it reads unresolved');
+});
+
+/* Fix 5: the two structural warnings fire only while the fork is genuinely
+   open — worldState === 'cond' — not once a bet has resolved. */
+
+test('"maybe in the commitment column" does not fire once its bet has resolved', () => {
+  const won = parse('NOW\nCore: A [bet: x won]\nCore: B [if x]');
+  assert.ok(!won.warnings.some(w => w.includes('commitment column')));
+
+  const lost = parse('NOW\nCore: A [bet: x lost]\nCore: B [if x]');
+  assert.ok(!lost.warnings.some(w => w.includes('commitment column')));
+});
+
+test('"earlier horizon than its bet" does not fire once its bet has resolved', () => {
+  const m = parse('NOW\nCore: B [if x]\nNEXT\nCore: A [bet: x won]');
+  assert.ok(!m.warnings.some(w => w.includes('earlier horizon than its bet')));
+});
+
+/* Fix 6: [done] under a MOOT bet warns too, "which never ran". */
+
+test('[done] under a bet that turned out moot warns "which never ran"', () => {
+  const m = parse('wip: off\nNOW\nCore: A [bet: a lost]\nNEXT\nCore: A2 [if a] [bet: b]\nLater\nCore: C [if b] [done]');
+  assert.equal(m.items[2].worldState, null, 'done never drops, even under a moot bet');
+  assert.ok(m.warnings.some(w => w.includes('[done] item is conditioned') && w.includes('never ran')));
+});
+
+/* Fix 7a: [if : x] (space before colon) gets the did-you-mean hint. */
+
+test('[if : x] (space before colon) gets the did-you-mean hint, not the charset warning', () => {
+  const m = parse('NOW\nCore: A [bet: x]\nNEXT\nCore: B [if : x]');
+  assert.ok(m.warnings.some(w => w.includes('did you mean "[if x]"')));
+  assert.ok(!m.warnings.some(w => w.includes('letters, numbers, hyphens')));
+});
+
+test('[unless : x] (space before colon) gets the did-you-mean hint too', () => {
+  const m = parse('NOW\nCore: A [bet: x]\nNEXT\nCore: B [unless : x]');
+  assert.ok(m.warnings.some(w => w.includes('did you mean "[unless x]"')));
+});
+
+/* Fix 7b: bare [if] / [unless] get a name-shaped hint. */
+
+test('bare [if] / [unless] warn "needs a bet name", not the generic status hint', () => {
+  const ifM = parse('NOW\nCore: A [if]');
+  assert.ok(ifM.warnings.some(w => w.includes('[if] needs a bet name — like [if reminders]')));
+  assert.ok(!ifM.warnings.some(w => w.includes('use done / doing / risk / blocked')));
+
+  const unlessM = parse('NOW\nCore: A [unless]');
+  assert.ok(unlessM.warnings.some(w => w.includes('[unless] needs a bet name — like [unless reminders]')));
+});
+
+/* Fix 7c: multi-word bet tokens never register a phantom bet. */
+
+test('[bet: my name] does not register a phantom bet from the first word', () => {
+  const m = parse('NOW\nCore: A [bet: my name]');
+  assert.equal(m.items[0].bet, null);
+  assert.deepEqual(m.bets, {});
+  assert.ok(m.warnings.some(w => w.includes('bet name wants one word')));
+});
+
+test('[bet: x won early] does not vanish into the charset warning — mentions the resolution', () => {
+  const m = parse('NOW\nCore: A [bet: x won early]');
+  assert.equal(m.items[0].bet, null);
+  assert.ok(m.warnings.some(w => w.includes('bet name wants one word') && w.includes('[bet: name won] or [bet: name lost]')));
+});
+
+/* Fix 8: written > moot-derivation > assumed > unresolved. */
+
+test('applyWorld: an assumed value on a bet whose own item is moot is ignored — it stays moot', () => {
+  const m = parse('NOW\nCore: A [bet: a lost]\nNEXT\nCore: A2 [if a] [bet: mootBet]\nLater\nCore: C [if mootBet]');
+  const w = applyWorld(m, {mootBet: 'won'});
+  assert.equal(w.bets.mootbet.effective, 'moot', 'moot-derivation outranks the assumed value');
+  assert.equal(w.items[2].worldState, 'dropped', '[if] rider of a moot bet still drops');
+  assert.equal(w.items[2].dropReason.effective, 'moot');
+});
+
+test('applyWorld: a chained bet whose host goes LIVE under an assumed upstream win honours its own assumed value', () => {
+  const m = parse('NOW\nCore: A [bet: up]\nNEXT\nCore: B [if up] [bet: down]\nLater\nCore: C [if down]');
+  const w = applyWorld(m, {up: 'won', down: 'lost'});
+  assert.equal(w.items[1].worldState, null, 'B is live — up won');
+  assert.equal(w.bets.down.effective, 'lost', 'down\'s host is live, so its own assumed value applies');
+  assert.equal(w.items[2].worldState, 'dropped', '[if down] drops once down reads lost');
+});
+
+/* Fix 9: roadmapVerdict/forkTier/aftermathTier never throw on a model without bets. */
+
+test('roadmapVerdict does not throw on a model with no bets field at all', () => {
+  const m = {items: [{h: 0, status: null, worldState: null}], horizons: ['Now'], wip: 0};
+  assert.doesNotThrow(() => roadmapVerdict(m));
 });

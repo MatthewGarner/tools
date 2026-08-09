@@ -155,7 +155,7 @@ function rootResolvedBet(model, nameLc, visited){
   visited = visited || new Set();
   if(visited.has(nameLc)) return null;
   visited.add(nameLc);
-  const b = model.bets[nameLc];
+  const b = (model.bets || {})[nameLc];
   if(!b) return null;
   if(b.effective === 'won' || b.effective === 'lost') return nameLc;
   if(b.effective === 'moot'){
@@ -170,20 +170,25 @@ function rootResolvedBet(model, nameLc, visited){
    resolution transitively dropped items. Moot bets never speak for themselves;
    their drops attribute to the resolved root that caused the moot cascade. */
 function aftermathTier(model){
+  const bets = model.bets || {};
   const total = model.items.length;
   const counts = {};
+  const allDirect = {};   // true if every drop for root is a direct [unless root]
   for(const it of model.items){
     if(it.worldState !== 'dropped' || !it.dropReason) continue;
     const root = rootResolvedBet(model, it.dropReason.name.toLowerCase());
-    if(root) counts[root] = (counts[root] || 0) + 1;
+    if(!root) continue;
+    counts[root] = (counts[root] || 0) + 1;
+    const direct = !!(it.cond && it.cond.when === 'unless' && it.cond.name.toLowerCase() === root);
+    allDirect[root] = (root in allDirect) ? (allDirect[root] && direct) : direct;
   }
   const entries = Object.keys(counts).map(nameLc =>
-    ({nameLc, n: counts[nameLc], srcLine: model.bets[nameLc].srcLine}));
+    ({nameLc, n: counts[nameLc], srcLine: bets[nameLc].srcLine}));
   if(!entries.length) return null;
   entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most dropped speaks; ties = earliest declared
   const {nameLc, n} = entries[0];
-  const b = model.bets[nameLc];
-  const kind = b.effective === 'won' ? 'fallback item' : 'item';   // a won bet's casualties are its own fallbacks
+  const b = bets[nameLc];
+  const kind = allDirect[nameLc] ? 'fallback item' : 'item';
   /* the line embeds the fig verbatim — markFigure only colours a substring it
      can find, and a bare count ("3") could false-match a digit in a bet name */
   const fig = n + ' of ' + total;
@@ -197,8 +202,9 @@ function aftermathTier(model){
    worlds genuinely turns on this bet, riders and moot-cascade fallbacks alike,
    without hand-rolling the cascade a second time. */
 function forkTier(model){
+  const bets = model.bets || {};
   const total = model.items.length;
-  const unresolved = Object.keys(model.bets).filter(nameLc => model.bets[nameLc].effective === 'unresolved');
+  const unresolved = Object.keys(bets).filter(nameLc => bets[nameLc].effective === 'unresolved' && !bets[nameLc].cycle);
   if(!unresolved.length) return null;
   const entries = unresolved.map(nameLc => {
     const won = applyWorld(model, {[nameLc]: 'won'});
@@ -206,12 +212,12 @@ function forkTier(model){
     let n = 0;
     for(let i = 0; i < model.items.length; i++)
       if(won.items[i].worldState !== lost.items[i].worldState) n++;
-    return {nameLc, n, srcLine: model.bets[nameLc].srcLine};
+    return {nameLc, n, srcLine: bets[nameLc].srcLine};
   }).filter(e => e.n > 0);
   if(!entries.length) return null;
   entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most riders+fallbacks speaks; ties = earliest declared
   const {nameLc, n} = entries[0];
-  const b = model.bets[nameLc];
+  const b = bets[nameLc];
   const fig = n + ' of ' + total;   // bare pair; the line's own nOfT prefix is what actually highlights
   return {fig, line: nOfT(n, total, 'item') + ' ' + vb(n, total, 'turns', 'turn') +
     ' on the ' + b.display + ' bet — the plan forks there, and says so.'};
@@ -379,9 +385,20 @@ export function parse(text){
       const betM = tag.match(/^bet\s*:\s*(.+)$/i);
       if(betM){
         const rest = betM[1].trim();
-        const outM = rest.match(/^(\S+)\s+(\S+)$/);
-        const name = outM ? outM[1] : rest;
-        const outcomeWord = outM ? outM[2] : null;
+        const words = rest.split(/\s+/).filter(Boolean);
+        let name, outcome = null;
+        const lastLc = words.length >= 2 ? words[words.length - 1].toLowerCase() : null;
+        if(lastLc === 'won' || lastLc === 'lost'){
+          outcome = lastLc;
+          name = words.slice(0, -1).join(' ');
+        } else if(words.length >= 2){
+          model.warnings.push('line ' + (ln+1) +
+            ': bet name wants one word (letters, numbers, hyphens) — for a resolution write ' +
+            '[bet: name won] or [bet: name lost] — ignored');
+          return '';
+        } else {
+          name = words[0] || rest;
+        }
         if(!/^[a-z0-9-]+$/i.test(name)){
           model.warnings.push('line ' + (ln+1) + ': bet name ' + snippet(name) +
             ' — use letters, numbers, hyphens only — [bet: …] ignored');
@@ -393,18 +410,19 @@ export function parse(text){
             '" is reserved (won/lost are outcomes, not names) — [bet: ' + name + '] ignored');
           return '';
         }
-        let outcome = null;
-        if(outcomeWord != null){
-          const ow = outcomeWord.toLowerCase();
-          if(ow === 'won' || ow === 'lost') outcome = ow;
-          else model.warnings.push('line ' + (ln+1) + ': unknown outcome "' + outcomeWord +
-            '" in [bet: ' + name + '] — kept unresolved');
-        }
         if(betTag){
-          model.warnings.push('line ' + (ln+1) + ': duplicate [bet: ' + name +
-            '] on one line — first wins');
+          const sameName = betTag.name.toLowerCase() === nameLc;
+          const oneResolves = (betTag.outcome == null) !== (outcome == null);
+          if(sameName && oneResolves){
+            model.warnings.push('line ' + (ln+1) + ': [' + betTag.tagText + '] and [' + tag +
+              '] on one line — the resolution wins');
+            if(outcome != null) betTag = {name, outcome, tagText: tag};
+          } else {
+            model.warnings.push('line ' + (ln+1) + ': duplicate [bet: ' + name +
+              '] on one line — first wins');
+          }
         } else {
-          betTag = {name, outcome};
+          betTag = {name, outcome, tagText: tag};
         }
         return '';
       }
@@ -422,6 +440,12 @@ export function parse(text){
       if(condM){
         const when = condM[1].toLowerCase();
         const name = condM[2].trim();
+        if(name.startsWith(':')){   // [if : x]: \s+ ate the space, name became ": x"
+          const cleaned = name.replace(/^:\s*/, '').trim();
+          model.warnings.push('line ' + (ln+1) + ': [' + tag + '] — did you mean "[' +
+            when + ' ' + cleaned + ']"? — ignored');
+          return '';
+        }
         if(!/^[a-z0-9-]+$/i.test(name)){
           model.warnings.push('line ' + (ln+1) + ': condition name ' + snippet(name) +
             ' — use letters, numbers, hyphens only — [' + when + ' …] ignored');
@@ -440,6 +464,12 @@ export function parse(text){
       if(condNear){
         model.warnings.push('line ' + (ln+1) + ': [' + tag + '] — did you mean "[' +
           condNear[1].toLowerCase() + ' ' + condNear[2].trim() + ']"? — ignored');
+        return '';
+      }
+      const condBare = tag.match(/^(if|unless)$/i);
+      if(condBare){
+        const when = condBare[1].toLowerCase();
+        model.warnings.push('line ' + (ln+1) + ': [' + when + '] needs a bet name — like [' + when + ' reminders]');
         return '';
       }
 
@@ -555,11 +585,11 @@ function buildBets(model){
   for(const nameLc in rawBets){
     const entries = rawBets[nameLc];
     const resolutions = entries.filter(e => e.outcome);
-    const bares = entries.filter(e => !e.outcome);
-    let outcome = null;
+    let outcome = null, conflict = false;
     if(resolutions.length){
       const distinct = new Set(resolutions.map(e => e.outcome));
       if(distinct.size > 1){
+        conflict = true;
         const last = resolutions[resolutions.length - 1];
         model.warnings.push('line ' + (last.srcLine + 1) + ': bet "' + entries[0].name +
           '" has conflicting resolutions (won and lost) — reads unresolved');
@@ -567,10 +597,11 @@ function buildBets(model){
         outcome = resolutions[0].outcome;   // a resolution beats a bare declaration, any order
       }
     }
-    if(bares.length > 1){
-      for(let k = 1; k < bares.length; k++){
-        model.warnings.push('line ' + (bares[k].srcLine + 1) + ': duplicate [bet: ' + bares[k].name +
-          '] — already declared at line ' + (bares[0].srcLine + 1) + ' — first wins');
+    if(!conflict){   // beyond the true first is a duplicate, bare or resolved
+      for(let k = 1; k < entries.length; k++){
+        model.warnings.push('line ' + (entries[k].srcLine + 1) + ': duplicate [bet: ' + entries[k].name +
+          (entries[k].outcome ? ' ' + entries[k].outcome : '') +
+          '] — already declared at line ' + (entries[0].srcLine + 1) + ' — first wins');
       }
     }
     const canonical = entries[0];
@@ -592,16 +623,7 @@ function buildBets(model){
       return;
     }
     conditioned.add(nameLc);
-    if(it.h === 0){
-      model.warnings.push('line ' + (it.srcLine + 1) + ': ' + snippet(it.title) +
-        ' is conditioned on "' + bets[nameLc].display + '" but sits in ' + model.horizons[0] +
-        ' — a maybe in the commitment column');
-    }
-    if(it.h < bets[nameLc].h){
-      model.warnings.push('line ' + (it.srcLine + 1) + ': ' + snippet(it.title) +
-        ' is conditioned on "' + bets[nameLc].display + '", declared later (in ' +
-        model.horizons[bets[nameLc].h] + ') — the condition sits in an earlier horizon than its bet');
-    }
+    // moved to deriveWorld (worldState==='cond')
   });
   betNames.forEach(nameLc => {
     if(!conditioned.has(nameLc)){
@@ -643,17 +665,22 @@ function deriveWorld(model, assumed){
     if(!b) return 'unresolved';
     if(visiting.has(nameLc)){
       worldWarnings.push('line ' + (b.srcLine + 1) + ': bet "' + b.display + '" sits in a condition cycle — reads unresolved');
+      for(const v of visiting) if(bets[v]) bets[v].cycle = true;
       return 'unresolved';
     }
     visiting.add(nameLc);
     let result;
     if(b.outcome === 'won' || b.outcome === 'lost'){
-      result = b.outcome;                                   // written beats assumed and cascade
-    } else if(assumed && (assumed[nameLc] === 'won' || assumed[nameLc] === 'lost')){
-      result = assumed[nameLc];
+      result = b.outcome;                                   // written beats everything
     } else {
-      const st = stateOf(items[b.itemIndex]);
-      result = st === 'dropped' ? 'moot' : 'unresolved';
+      const st = stateOf(items[b.itemIndex]);   // moot outranks assumed
+      if(st === 'dropped'){
+        result = 'moot';
+      } else if(assumed && (assumed[nameLc] === 'won' || assumed[nameLc] === 'lost')){
+        result = assumed[nameLc];
+      } else {
+        result = 'unresolved';
+      }
     }
     visiting.delete(nameLc);
     cache[nameLc] = result;
@@ -685,15 +712,30 @@ function deriveWorld(model, assumed){
       const b = bets[nameLc];
       it.dropReason = {name: it.cond.name, display: b ? b.display : it.cond.name, effective: effectiveOf(nameLc)};
     }
+    if(it.worldState === 'cond' && it.cond){   // fires only while the fork is open
+      const nameLc = it.cond.name.toLowerCase();
+      const b = bets[nameLc];
+      if(it.h === 0){
+        worldWarnings.push('line ' + (it.srcLine + 1) + ': ' + snippet(it.title) +
+          ' is conditioned on "' + (b ? b.display : it.cond.name) + '" but sits in ' + model.horizons[0] +
+          ' — a maybe in the commitment column');
+      }
+      if(b && it.h < b.h){
+        worldWarnings.push('line ' + (it.srcLine + 1) + ': ' + snippet(it.title) +
+          ' is conditioned on "' + b.display + '", declared later (in ' +
+          model.horizons[b.h] + ') — the condition sits in an earlier horizon than its bet');
+      }
+    }
     if(it.status === 'doing' && it.worldState === 'dropped'){
       worldWarnings.push('line ' + (it.srcLine + 1) + ': [doing] item is dropped by its condition' +
         (it.cond ? ' ("' + it.cond.name + '")' : '') + ' — still in flight, so it still counts toward WIP');
     }
     if(it.status === 'done' && it.cond){
       const eff = effectiveOf(it.cond.name.toLowerCase());
-      if(eff === 'unresolved' || eff === 'lost'){
+      if(eff === 'unresolved' || eff === 'lost' || eff === 'moot'){
+        const clause = eff === 'moot' ? 'which never ran' : 'which is ' + eff;
         worldWarnings.push('line ' + (it.srcLine + 1) + ': [done] item is conditioned on bet "' +
-          it.cond.name + '", which is ' + eff + ' — done outranks the fork, kept');
+          it.cond.name + '", ' + clause + ' — done outranks the fork, kept');
       }
     }
   }
