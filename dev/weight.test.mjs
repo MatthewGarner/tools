@@ -219,12 +219,14 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 685_000,   /* 2026-08-09 conditional roadmap A4: what-if preview — the
+  'roadmap/index.html': 698_000,   /* 2026-08-09 conditional roadmap A4: what-if preview — the
      whatIf state/prune/cycle/chip/cross-fade wiring in app.js, the whatifHitRect/previewableBet
      helpers in cond-parts.js, and the sibling-rect emission in render.js/render-board.js/
      render-register.js/render-focus.js (all roadmap-only — the opacity cross-fade stayed local
      to app.js rather than growing the shared assets/motion.js, so no other page pays for it);
-     actual 683.6k, ~1.4k headroom. */
+     actual 683.6k, ~1.4k headroom. */   /* 2026-08-09 A5: resolveBet/setCondition/clearCondition
+     + the addStatus/status/setLane/setSpan hardening in edit-targets.js, plus the Resolve…/
+     Condition…/What-if menu rows + onCommit arms in app.js; actual 694.6k, ~3.4k headroom. */
   /* 2026-08-09 conditional roadmap A3: render states for cond/
      dropped/bet items across chart+board+register+focus+deck (a new cond-parts.js module, plus
      capsule/opacity/flag-suppression wiring in every renderer); actual 671.3k, ~5k headroom.

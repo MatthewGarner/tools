@@ -1124,6 +1124,136 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
+/* ---- roadmap: conditional bets — Resolve…/Condition…/What-if… menu rows
+   (A5). A dedicated bets doc: "Ship reminders" declares the bet, "Fallback
+   plan" is its [unless] rider (drops once the bet WINS), "Depends on it" is
+   its [if] rider, "Unrelated item" carries no bet/cond (the Condition… target
+   for a fresh set). Cards resolved by TITLE (see the desktop block above). ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const errs = trackErrors(p);
+  await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.press('Delete');
+  await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\n' +
+    'Growth: Fallback plan [unless reminders]\nPlatform: Unrelated item\n' +
+    'NEXT\nCore: Depends on it [if reminders]\n');
+  await p.waitForTimeout(700);
+
+  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
+    .filter({hasText: title}).first().getAttribute('data-line');
+  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const tapCard = async title => {
+    const line = await lineOfCard(title);
+    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
+  };
+  const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const undo = async () => {
+    await p.locator('.cm-content').click();
+    await p.keyboard.press('ControlOrMeta+z');
+    await p.waitForTimeout(500);
+  };
+
+  // ---- Resolve… ----
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('roadmap: a bet item’s menu offers Resolve… but no "unresolve" while unresolved',
+    (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Resolve… submenu lists won/lost, no unresolve row yet',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'won|lost');
+  await p.locator('.eip-pop button', {hasText: 'won'}).click();
+  await p.waitForTimeout(600);
+  const tWon = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: Resolve… won writes the resolution onto the [bet: …] token',
+    tWon.includes('[bet: reminders won]'));
+  const svgWon = await p.locator('#preview svg').innerHTML();
+  const plainWon = svgWon.replace(/<[^>]+>/g, ' ');
+  check('roadmap: resolving won drops the [unless] fallback and the board says so',
+    /dropped\s*—\s*reminders won/.test(plainWon) && plainWon.includes('Fallback plan'));
+
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Resolve… on a resolved bet offers won (marked on)/lost/unresolve',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'won|lost|unresolve' &&
+    (await p.locator('.eip-pop button.on').innerText()) === 'won');
+  await p.locator('.eip-pop button', {hasText: 'unresolve'}).click();
+  await p.waitForTimeout(600);
+  const tUnresolved = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: Resolve… unresolve clears the outcome, keeping the bare declaration',
+    tUnresolved.includes('[bet: reminders]') && !tUnresolved.includes('won'));
+  await undo(); await undo();
+  check('roadmap: two undos restore the pre-resolve baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- What-if… (view-state only — the text must never change) ----
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('roadmap: an unresolved bet item’s menu offers the three What if… rows',
+    (await p.locator('.eip-pop button', {hasText: 'What if:'}).allInnerTexts()).join('|') ===
+    'What if: pays off|What if: fails|What if: clear');
+  await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+  await p.waitForTimeout(400);
+  check('roadmap: What if: pays off does NOT touch the source text',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+  check('roadmap: What if: pays off shows the preview chip',
+    !(await p.locator('#whatifchip').isHidden()) &&
+    (await p.locator('#whatifchip').innerText()).includes('reminders') &&
+    (await p.locator('#whatifchip').innerText()).includes('pays off'));
+  const svgPreview = await p.locator('#preview svg').innerHTML();
+  const plainPreview = svgPreview.replace(/<[^>]+>/g, ' ');
+  check('roadmap: the previewed world drops the fallback in the LIVE board too',
+    /dropped\s*—\s*reminders won/.test(plainPreview) && plainPreview.includes('Fallback plan'));
+
+  await tapCard('Ship reminders');
+  await p.waitForTimeout(200);
+  check('roadmap: the "pays off" row now reads on',
+    (await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).getAttribute('class') || '').includes('on'));
+  await p.locator('.eip-pop button', {hasText: 'What if: clear'}).click();
+  await p.waitForTimeout(400);
+  check('roadmap: What if: clear hides the chip and restores the text world',
+    await p.locator('#whatifchip').isHidden());
+  check('roadmap: no source text ever changed across the what-if flow',
+    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  // ---- Condition… ----
+  await tapCard('Unrelated item');
+  await p.waitForTimeout(200);
+  check('roadmap: a non-bet item’s menu offers Condition… (≥1 bet declared)',
+    (await p.locator('.eip-pop button', {hasText: 'Condition…'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Condition… lists if/unless for the declared bet, no clear row yet',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'if reminders|unless reminders');
+  await p.locator('.eip-pop button', {hasText: 'if reminders'}).click();
+  await p.waitForTimeout(600);
+  const tCond = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: picking "if reminders" writes the condition token onto the item’s own line',
+    tCond.includes('Unrelated item [if reminders]'));
+
+  await tapCard('Unrelated item');
+  await p.waitForTimeout(200);
+  await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
+  await p.waitForTimeout(200);
+  check('roadmap: Condition… now marks "if reminders" on and offers "clear condition"',
+    (await p.locator('.eip-pop button.on').innerText()) === 'if reminders' &&
+    (await p.locator('.eip-pop button', {hasText: 'clear condition'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'clear condition'}).click();
+  await p.waitForTimeout(600);
+  const tClear = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap: clear condition removes the token', tClear.includes('Unrelated item\n') || /Unrelated item\s*$/m.test(tClear));
+  await undo();
+  check('roadmap: one undo restores the just-cleared condition', (await p.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Unrelated item [if reminders]'));
+  await undo();
+  check('roadmap: a second undo restores the pre-condition baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+
+  check('roadmap conditional bets: no console/page errors', errs.length === 0);
+  await p.close();
+}
+
 /* ---- roadmap: REGISTER — inline cell edits (title/lane/note/status), the
    headerless-horizon "+add" fix (A4), and the coarse-pointer Lane… menu row
    (A10). A dedicated quarterly doc: the xN token exercises addNote's

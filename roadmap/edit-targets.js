@@ -1,5 +1,5 @@
 /* Pure line rewrites for edit-in-place on the roadmap diagram. No DOM. */
-import {parse} from './parse.js';
+import {parse, STATUS_ALIASES} from './parse.js';
 import {moveItem} from './edit.js';
 
 export const STATUSES = ['done', 'doing', 'risk', 'blocked'];
@@ -8,6 +8,19 @@ export const validators = {
   title(v){ const s = v.trim(); return s.length > 0 && !/[[\]\n]/.test(s) && !s.includes(' -- '); },
   note(v){ return !/[\n[\]]/.test(v) && !v.includes(' -- '); },
 };
+
+/* Does this bracket-tag content read as a STATUS word (done/doing/risk/blocked,
+   plus their aliases) rather than a bet/cond token? Shared by every rewrite
+   that must find "the status bracket" specifically instead of "the first
+   bracket" — a bet/cond token sitting alongside a status must never be mistaken
+   for it (edit-targets hardening, spec §4/A5). */
+function isStatusTag(tag){ return !!STATUS_ALIASES[tag.trim().toLowerCase()]; }
+function hasStatusToken(text){
+  const re = /\[([^\]]+)\]/g;
+  let m;
+  while((m = re.exec(text))) if(isStatusTag(m[1])) return true;
+  return false;
+}
 
 export const applies = {
   title(line, oldRaw, newRaw){
@@ -20,8 +33,18 @@ export const applies = {
     if(i < 0) return line;
     return line.slice(0, i) + newRaw.trim() + line.slice(i + oldRaw.length);
   },
+  /* Cycles the STATUS bracket specifically — never "the first bracket" — so a
+     [bet: …]/[if …]/[unless …] token sharing the line survives untouched
+     regardless of which side of the status bracket it sits on (hardening,
+     spec §4: cycling status on "Pilot [bet: x] [doing]" used to destroy the
+     bet). A line with no status bracket is returned unchanged (nothing to
+     cycle — the addStatus insert-row is the empty-cell path). */
   status(line, _oldRaw, newRaw){
-    return line.replace(/\[[^\]]+\]/, '[' + newRaw + ']');
+    let replaced = false;
+    return line.replace(/\[([^\]]+)\]/g, (m, tag) => {
+      if(!replaced && isStatusTag(tag)){ replaced = true; return '[' + newRaw + ']'; }
+      return m;
+    });
   },
 };
 
@@ -142,7 +165,16 @@ export function setSpan(text, srcLine, span){
   const cut = [line.search(/\s--\s/), line.search(/\s->\s/)].filter(i => i >= 0);
   const at = cut.length ? Math.min(...cut) : line.length;
   let head = line.slice(0, at), tail = line.slice(at);
-  head = head.replace(/\s+x\d+\s*$/i, '');            // drop any existing token
+  /* Drop any existing xN token wherever it sits relative to a [status]/[bet…]/
+     [if…] bracket run — canonical order writes it at the very end (after every
+     bracket), but a hand-typed line may put it earlier ("A x2 [bet: x]"); parse.js
+     strips brackets before xN regardless of position, so a strictly-trailing
+     regex would fail to find it there and STACK a second token instead of
+     replacing the first (hardening, spec §4). Matching "xN immediately before a
+     bracket, or at the true end" covers both orders and always re-appends the
+     new token in canonical position (after any brackets), normalising a
+     non-canonical line along the way. */
+  head = head.replace(/\s+x\d+(?=\s*\[|\s*$)/i, '');
   lines[srcLine] = (n > 1 ? head.trimEnd() + ' x' + n : head.trimEnd()) + tail;
   return lines.join('\n');
 }
@@ -200,8 +232,11 @@ export function setLane(text, srcLine, lane){
   const m = raw.match(/^([^[\]]+?)\s*:\s+(.*)$/);
   const body = m ? m[2] : raw;
   if(!name){
-    /* clearing: refuse if the remaining body still contains ": " — parse would re-lane it */
-    if(/: /.test(body)) return text;
+    /* clearing: refuse if the remaining body still contains ": " OUTSIDE any
+       bracket token — parse would re-lane it. Bracket contents are excluded
+       (hardening, spec §4): a [bet: x] token legitimately contains ": " and
+       must not block clearing the lane on a bet/cond line. */
+    if(/: /.test(body.replace(/\[[^\]]*\]/g, ''))) return text;
     return replaceLineAt(lines, srcLine, body);
   }
   return replaceLineAt(lines, srcLine, name + ': ' + body);
@@ -223,20 +258,101 @@ export function addNote(text, srcLine, note){
   return replaceLineAt(lines, srcLine, head.trimEnd() + ' -- ' + n + tail);
 }
 
-/* Insert "[status]" on a status-less line. Status sits BEFORE xN on the source
-   ("Core: A [risk] x2"), so unlike addNote this one does peel the token off the
-   head and re-append it after the inserted bracket. */
+/* Insert "[status]" on a status-less line. Status sits BEFORE xN — and before
+   any [bet: …]/[if …]/[unless …] token, per the canonical order
+   "Lane: Title [status] [bet…] [if…] xN -- note -> url" — so unlike addNote
+   this one does peel the xN token off the head and re-append it at the end,
+   and inserts the status bracket right before any bet/cond bracket already
+   on the line rather than after it (hardening, spec §4: the old any-bracket
+   guard below made "already has a status" true for any bracket at all, so
+   this row silently no-opped on every bet/conditioned line). */
 export function addStatus(text, srcLine, status){
   if(!STATUSES.includes(status)) return text;
   const lines = text.split(/\r?\n/);
   if(srcLine < 0 || srcLine >= lines.length) return text;
   const line = lines[srcLine];
-  if(/\[[^\]]+\]/.test(line)) return text;   // already has a status
   const [head, tail] = headCut(line);
+  if(hasStatusToken(head)) return text;   // status-specific: a bet/cond bracket doesn't block this
   const xm = head.match(/\s+x\d+\s*$/i);
   const stem = xm ? head.slice(0, xm.index) : head;
   const xtok = xm ? head.slice(xm.index) : '';
-  return replaceLineAt(lines, srcLine, stem.trimEnd() + ' [' + status + ']' + xtok + tail);
+  const bracketIdx = stem.search(/\[/);   // first bet/cond bracket on the line, if any
+  const insertAt = bracketIdx >= 0 ? bracketIdx : stem.length;
+  const before = stem.slice(0, insertAt).trimEnd();
+  const after = stem.slice(insertAt).trimStart();
+  const newStem = before + ' [' + status + ']' + (after ? ' ' + after : '');
+  return replaceLineAt(lines, srcLine, newStem.trimEnd() + xtok + tail);
+}
+
+/* ---- conditional-roadmap tokens (A5): [bet: name won|lost], [if/unless name] ----
+   All three operate on the HEAD region only (headCut) — note text may legally
+   contain bracket-shaped strings (spec §4), so a whole-line regex would risk
+   rewriting a string the author typed as plain prose. All three are token-
+   targeted: they find the specific bracket they mean (bet: … / if …|unless …),
+   never "the first bracket" or "any bracket". */
+
+/* Resolve (or unresolve, outcome === null) the line's OWN [bet: name] token in
+   place — preserves the name's original casing and the token's position on
+   the line (a rewrite in place, not a re-append at some canonical slot,
+   because the token already exists and only its outcome is changing). No-op
+   when the line carries no [bet: …] token at all — never corrupts. */
+export function resolveBet(text, srcLine, outcome){
+  if(outcome !== 'won' && outcome !== 'lost' && outcome != null) return text;
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return text;
+  const line = lines[srcLine];
+  const [head, tail] = headCut(line);
+  const m = head.match(/\[\s*bet\s*:\s*([^\]]+?)\s*\]/i);
+  if(!m) return text;
+  const inner = m[1].trim();
+  const outM = inner.match(/^(\S+)\s+(\S+)$/);
+  const name = outM ? outM[1] : inner;          // keep the WRITTEN casing, never re-derive it
+  const newTag = '[bet: ' + name + (outcome ? ' ' + outcome : '') + ']';
+  const newHead = head.slice(0, m.index) + newTag + head.slice(m.index + m[0].length);
+  return replaceLineAt(lines, srcLine, newHead + tail);
+}
+
+/* Set (or replace) the line's condition token. `when` is 'if' | 'unless'.
+   An EXISTING condition token is rewritten in place (position preserved,
+   same reasoning as resolveBet). A fresh insert lands in the canonical slot:
+   right after any [status]/[bet: …] bracket run already on the line (or right
+   after the title stem when there is none), and always before xN — matching
+   the doc-wide order "Lane: Title [status] [bet…] [if…] xN -- note -> url".
+   No-op for an unknown `when` or an out-of-range line. */
+export function setCondition(text, srcLine, name, when){
+  if(when !== 'if' && when !== 'unless') return text;
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return text;
+  const line = lines[srcLine];
+  const [head, tail] = headCut(line);
+  const newTag = '[' + when + ' ' + name + ']';
+  const condRe = /\[\s*(?:if|unless)\s+[^\]]+\]/i;
+  const existing = head.match(condRe);
+  if(existing){
+    const newHead = head.slice(0, existing.index) + newTag + head.slice(existing.index + existing[0].length);
+    return replaceLineAt(lines, srcLine, newHead + tail);
+  }
+  const xm = head.match(/\s+x\d+\s*$/i);
+  const stem = xm ? head.slice(0, xm.index) : head;
+  const xtok = xm ? head.slice(xm.index) : '';
+  const bracketRun = stem.match(/(?:\s*\[[^\]]+\])+$/);   // trailing run of [status]/[bet…] tokens
+  const insertAt = bracketRun ? bracketRun.index + bracketRun[0].length : stem.length;
+  const before = stem.slice(0, insertAt).trimEnd();
+  const newStem = before + ' ' + newTag;
+  return replaceLineAt(lines, srcLine, newStem.trimEnd() + xtok + tail);
+}
+
+/* Remove the line's condition token, collapsing any orphaned double space left
+   behind. No-op when the line carries no condition token. */
+export function clearCondition(text, srcLine){
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return text;
+  const line = lines[srcLine];
+  const [head, tail] = headCut(line);
+  const condRe = /\s*\[\s*(?:if|unless)\s+[^\]]+\]/i;
+  if(!condRe.test(head)) return text;
+  const newHead = head.replace(condRe, '').replace(/ {2,}/g, ' ').trimEnd();
+  return replaceLineAt(lines, srcLine, newHead + tail);
 }
 
 /* Ensure a horizon's header line exists. Appends "HorizonName" at the END if

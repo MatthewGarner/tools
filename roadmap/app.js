@@ -22,7 +22,9 @@ import {mountMotion, motionStill} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
+import {previewableBet} from './cond-parts.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -128,16 +130,21 @@ function pruneWhatIf(m){
   }
 }
 function whatIfNames(){ return Object.keys(whatIf); }
-/* cycles a bet's preview: unresolved -> won -> lost -> unresolved. Forces a
+/* Sets (or clears, value falsy) one bet's preview outcome directly — the
+   shared primitive under both the capsule's cycle gesture and the What-if…
+   menu rows (A5), which pick a specific outcome rather than cycling. Forces a
    repaint past the lastSvg memo (paint.reset(), same idiom wireSnapshots.
    onChange already uses) since the SOURCE TEXT hasn't changed — doRefresh's
    own `svg !== lastSvg` memo would otherwise see the identical text and skip
    the render entirely. */
+function setWhatIf(nameLc, value){
+  if(value) whatIf[nameLc] = value; else delete whatIf[nameLc];
+  lastSvg = ''; paint.reset(); refresh();
+}
+/* cycles a bet's preview: unresolved -> won -> lost -> unresolved (the capsule click/tap gesture). */
 function cycleWhatIf(nameLc){
   const cur = whatIf[nameLc];
-  const next = cur === 'won' ? 'lost' : cur === 'lost' ? null : 'won';
-  if(next) whatIf[nameLc] = next; else delete whatIf[nameLc];
-  lastSvg = ''; paint.reset(); refresh();
+  setWhatIf(nameLc, cur === 'won' ? 'lost' : cur === 'lost' ? null : 'won');
 }
 function resetWhatIf(){
   if(!whatIfNames().length) return;
@@ -315,8 +322,51 @@ const ws = initWorkspace({
    replacement for dragging a card to another column. Resolved fresh from the
    current model each time the menu opens (same idiom as why's solutionMenu),
    keyed off the clicked card's own srcLine. */
-function itemMenu(m, srcLine){
+function itemMenu(m, srcLine, whatIfMap){
   const item = m && m.items.find(i => i.srcLine === srcLine);
+  /* Resolve…: bet items only, rewrites the item's OWN [bet: …] token. `on`
+     reflects the WRITTEN outcome (item.bet.outcome), never the what-if
+     preview — resolving is a text edit, so it must read the text's truth. */
+  const resolveRow = (item && item.bet) ? {label: 'Resolve…', submenu: [
+    {label: 'won', on: item.bet.outcome === 'won',
+      commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome || '', value: 'won'}},
+    {label: 'lost', on: item.bet.outcome === 'lost',
+      commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome || '', value: 'lost'}},
+    ...(item.bet.outcome ? [{label: 'unresolve', on: false,
+      commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome, value: ''}}] : []),
+  ]} : null;
+  /* What-if…: same bet items, but only while the bet is UNRESOLVED in text
+     (previewableBet — the same test the capsule hit-rect uses, so the menu
+     and the capsule can never disagree about whether a bet is previewable).
+     These rows do NOT dispatch a text edit — onCommit('whatif', …) mutates
+     the view-state whatIf map directly (spec §3/§4: view-state only). */
+  const whatIfName = item ? previewableBet(m, item) : null;
+  const whatIfRows = whatIfName ? [
+    {label: 'What if: pays off', on: (whatIfMap || {})[whatIfName] === 'won',
+      commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'won'}},
+    {label: 'What if: fails', on: (whatIfMap || {})[whatIfName] === 'lost',
+      commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'lost'}},
+    {label: 'What if: clear', on: !(whatIfMap || {})[whatIfName],
+      commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: ''}},
+  ] : [];
+  /* Condition…: every item, whenever ≥1 bet is declared anywhere in the doc —
+     one "if <name>" / "unless <name>" pair per declared bet, skipping the
+     item's own bet (a fork can never condition on itself, same rule parse.js
+     enforces on the text). "clear condition" appears only when one is set. */
+  const selfBetLc = (item && item.bet) ? item.bet.name.toLowerCase() : null;
+  const condNames = Object.keys(m && m.bets || {}).filter(nameLc => nameLc !== selfBetLc);
+  const conditionRow = (item && condNames.length) ? {label: 'Condition…', submenu: [
+    ...condNames.flatMap(nameLc => {
+      const display = m.bets[nameLc].display;
+      return ['if', 'unless'].map(when => ({
+        label: when + ' ' + display,
+        on: !!(item.cond && item.cond.name.toLowerCase() === nameLc && item.cond.when === when),
+        commit: {kind: 'condition', line: srcLine, oldRaw: '', value: when + ':' + display},
+      }));
+    }),
+    ...(item.cond ? [{label: 'clear condition', on: false,
+      commit: {kind: 'clearcondition', line: srcLine, oldRaw: '', value: ''}}] : []),
+  ]} : null;
   const moveRows = item ? m.horizons.map(h => ({
     label: h, on: m.horizons[item.h] === h,
     commit: {kind: 'movehorizon', line: srcLine, oldRaw: m.horizons[item.h], value: h},
@@ -367,6 +417,9 @@ function itemMenu(m, srcLine){
      lane field would be unreachable on those devices. The chart carries no
      data-edit="lane" target at all (no lane column), so an `opens` row there would
      resolve to nothing — same reason the rail (no lane target either) is excluded. */
+  if(resolveRow) rows.push(resolveRow);
+  rows.push(...whatIfRows);
+  if(conditionRow) rows.push(conditionRow);
   if(m && (m.style === 'register' || m.style === 'board' || (m.style === 'focus' && !focusRail)))
     rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
@@ -382,7 +435,7 @@ attachEditInPlace($('preview'), {
     status: {options: EDIT_STATUSES},
     lane: {validate: (v) => { const s = v.trim(); return !CONFIG_KEYS.test(s) && !/[\n[\]]/.test(v) && !s.startsWith('//') && !v.includes(': '); }},
     additem: {validate: eipValidators.title},
-    cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line)},
+    cardmenu: {menu: (el) => itemMenu(model, +el.dataset.line, whatIf)},
     /* the authored words edit where they read (2026-08-02) — same rewrites the
        page's headline field and config lines use, one undo step each */
     headline: {validate: v => !v.trim().startsWith('//')},
@@ -425,6 +478,29 @@ attachEditInPlace($('preview'), {
          would push an empty transaction onto the undo stack */
       const cur = editor.getText(), next = setSpan(cur, lineNo, +newValue);
       if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'resolvebet'){
+      const cur = editor.getText(), next = resolveBet(cur, lineNo, newValue || null);
+      if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'condition'){
+      const i = newValue.indexOf(':'), when = newValue.slice(0, i), name = newValue.slice(i + 1);
+      const cur = editor.getText(), next = setCondition(cur, lineNo, name, when);
+      if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'clearcondition'){
+      const cur = editor.getText(), next = clearCondition(cur, lineNo);
+      if(next !== cur) editor.setText(next);
+      return;
+    }
+    if(kind === 'whatif'){
+      /* View-state only — never a text edit (spec §3): mutate the whatIf map
+         directly and force the repaint the menu's own commit dispatch expects. */
+      const it = model && model.items.find(i => i.srcLine === lineNo);
+      if(it && it.bet) setWhatIf(it.bet.name.toLowerCase(), newValue || null);
       return;
     }
     if(newValue === '✖Remove item'){
