@@ -69,8 +69,12 @@ function wrapped(value, maxWidth, maxLines, measure){
   return lines;
 }
 
+/* The NAME, never the question. Preferring `question` made every diamond and
+   every "Waiting for …" chip carry a whole sentence — the tree became a wall of
+   wrapped prose. The question belongs in the inspector; the label is the short
+   name the author chose. */
 function decisionName(decision){
-  return String(decision?.displayName ?? decision?.question ?? decision?.name ?? '');
+  return String(decision?.name ?? decision?.key ?? '');
 }
 
 function answerLabel(direction){
@@ -133,35 +137,24 @@ function decisionAssumption(decision){
   return null;
 }
 
+/* The engine already decided this. `itemState` plus `displayEvidence` ARE the
+   contract (Stage 1 added the evidence reduction precisely so no renderer
+   re-derives semantic precedence); this function is a lookup, not a judgement.
+   It previously sniffed strings and walked the condition terms itself, which
+   returned "conditional" for every limbo item — the assumed branch sat below a
+   `pending` check that always won — so "Following an assumed yes" never
+   rendered, and a not-needed stump never said "Not needed". */
 function itemTreatment(item, decisions){
-  const marker = markerFor(item);
-  const explicitAssumption = assumedDirection(item, marker);
-  if(explicitAssumption) return {kind:'assumed', direction:explicitAssumption};
-  if(marker.includes('not-needed') || marker.includes('not needed') || marker.includes('excluded')){
-    return {kind:'ghost'};
+  const evidence = item?.displayEvidence || null;
+  const named = key => decisionName(decisions.get(dependencyKey(key))) || String(key ?? '');
+  switch(item?.itemState){
+    case 'not-needed': return {kind:'ghost'};
+    case 'limbo': return {kind:'assumed', direction:evidence?.direction === 'no' ? 'no' : 'yes'};
+    case 'waiting': return {kind:'conditional',
+      decision:named(evidence?.decision ?? item?.condition?.terms?.[0])};
+    case 'in-plan': return {kind:'normal'};
+    default: return {kind:'normal'};
   }
-  const terms = item?.condition?.terms || [];
-  const waitingKey = dependencyKey(item?.waitingFor ?? item?.displayState?.decision);
-  if(marker.includes('waiting')){
-    const name = dependencyName(item?.waitingFor, decisions) || decisionName(decisions.get(waitingKey)) ||
-      dependencyName(terms[0], decisions);
-    return {kind:'conditional', decision:name};
-  }
-  let pending = '';
-  let assumed = null;
-  for(const term of terms){
-    const decision = decisions.get(dependencyKey(term));
-    if(decision?.availability === 'moot') return {kind:'ghost'};
-    const actual = decision?.effectiveAnswer;
-    const wanted = term?.negated ? 'no' : 'yes';
-    if(actual && actual !== wanted) return {kind:'ghost'};
-    if(!actual && !pending) pending = decisionName(decision);
-    const direction = decisionAssumption(decision);
-    if(direction) assumed = direction;
-  }
-  if(pending) return {kind:'conditional', decision:pending};
-  if(assumed) return {kind:'assumed', direction:assumed};
-  return {kind:'normal'};
 }
 
 function treatmentLabel(treatment){
@@ -293,11 +286,18 @@ function armExtents(entry){
   };
 }
 
-function renderStump(box, C){
+function renderStump(box, C, measure){
   if(!box) return '';
+  /* The stump must SAY what it is. A bare "+1" in a dashed box reads as a
+     collapsed list, not as work this answer ruled out — and "Not needed" is the
+     display word for it. Falls back to the count alone only when the box is too
+     narrow to carry the phrase. */
+  const count = Number(box.count ?? 0);
+  const phrase = 'Not needed · ' + count;
+  const fits = typeof measure === 'function' && measure(phrase, '700 12px ' + SANS) <= box.w - 12;
   return '<g data-kind="stump">' +
     rect(box.x, box.y, box.w, box.h, wash(C.muted, '12'), {stroke:C.muted, sw:1, dash:'4 3'}) +
-    txt(box.x + box.w / 2, box.y + box.h / 2 + 4, '+' + String(box.count ?? 0), 12, C.muted,
+    txt(box.x + box.w / 2, box.y + box.h / 2 + 4, fits ? phrase : '+' + count, 12, C.muted,
       {weight:700, anchor:'middle'}) + '</g>';
 }
 
@@ -359,7 +359,7 @@ export function renderTree(projection, layout, ctx){
   for(const entry of layout.questions || []){
     for(const box of entry.arms.yes || []) svg += renderItem(box, decisions, C, measure);
     for(const box of entry.arms.no || []) svg += renderItem(box, decisions, C, measure);
-    svg += renderStump(entry.stump, C);
+    svg += renderStump(entry.stump, C, measure);
     svg += renderQuestion(entry, C, measure);
   }
   for(const box of layout.unplaced || []) svg += renderItem(box, decisions, C, measure);
