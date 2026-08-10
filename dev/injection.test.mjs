@@ -610,11 +610,18 @@ test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items
   assertClean(render(m, {...ctx, edit: true, width: 360}), 'roadmap conditional narrow');
   assertClean(renderBoardLive(parse(doc('board')), {...ctx, edit: true}), 'board-live conditional');
   assertClean(renderRegisterLive(parse(doc('register')), {...ctx, edit: true}), 'register-live conditional');
+  /* S4 (E10): group: outcome's section labels interpolate a bet's DISPLAY
+     name straight into a txt() call ("Only if <bet> pays off") — same esc()
+     path as every other label, but a new call site, so it gets its own
+     hostile-name pass rather than riding on the lane-mode assertion above. */
+  assertClean(renderRegisterLive(parse('group: outcome\n' + doc('register')), {...ctx, edit: true}), 'register-live conditional, group: outcome');
   assertClean(renderFocusLive(parse(doc('focus')), {...ctx, edit: true}), 'focus-live conditional');
   const boardM = parse(doc('board'));
   assertClean(renderBoardDeck(boardM, ctx, paletteColors(boardM, ctx)), 'roadmap-deck-board conditional');
   const registerM = parse(doc('register'));
   assertClean(renderRegisterDeck(registerM, ctx, paletteColors(registerM, ctx)), 'roadmap-deck-register conditional');
+  const registerOutcomeM = parse('group: outcome\n' + doc('register'));
+  assertClean(renderRegisterDeck(registerOutcomeM, ctx, paletteColors(registerOutcomeM, ctx)), 'roadmap-deck-register conditional, group: outcome');
   const focusM = parse(doc('focus'));
   assertClean(renderFocusDeck(focusM, ctx, paletteColors(focusM, ctx)), 'roadmap-deck-focus conditional');
   assertClean(renderDeck(m, ctx), 'roadmap-deck-grid conditional');

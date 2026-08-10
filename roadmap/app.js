@@ -21,7 +21,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {mountMotion, motionStill} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setGroup, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
 import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
@@ -256,6 +256,28 @@ function syncStylePicker(m){
     b.setAttribute('aria-pressed', String(on));   // a SR user hears which style will export
   }
 }
+/* S4 (E10): the By lane/By outcome control lives beside the style picker,
+   visible only when the register is the ACTIVE live view (effectiveStyle
+   covers the exports-only board/focus/grid resolution, but this control is
+   about the live table specifically, so it also checks model.style directly)
+   AND the viewport is wide enough that the register even renders — below the
+   520px narrow bucket the preview always falls back to the chart (the
+   composition bar's own rule), so a grouping control for a view that isn't
+   showing would be noise. */
+function syncGroupPicker(m){
+  const el = $('grouppicker');
+  const w = renderWidth();                 // number only <520, else undefined
+  const narrow = !!w && w < 520;
+  const show = m.style === 'register' && !narrow;
+  el.hidden = !show;
+  if(!show) return;
+  const active = m.group || 'lane';
+  for(const b of el.querySelectorAll('[data-group]')){
+    const on = b.dataset.group === active;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+}
 /* The headline field mirrors the doc's `headline:` line. Not while the author is
    typing IN it — a round-trip through parse would fight their cursor — so it
    syncs only when it isn't focused. */
@@ -283,6 +305,7 @@ function doRefresh(){
   editor.setHorizons(model.horizons);
   renderWarnings(projected);
   syncStylePicker(model);
+  syncGroupPicker(model);
   syncHeadline(model);
   syncWhatIfChip(model);
   const pv = $('preview');
@@ -578,7 +601,7 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
   onCommit(kind, lineNo, oldRaw, newValue){
     handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
-      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:/i,
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:/i,
       getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
     });
   },
@@ -637,6 +660,13 @@ $('stylepicker').addEventListener('click', e => {
   // not ~150ms behind a bets-style toggle (audit 2026-07-16). The debounced pass
   // still fires and coalesces (same doc ⇒ memoised render, no flash).
   if(b){ editor.setText(setStyle(editor.getText(), b.dataset.style)); refresh(); }
+});
+/* By lane / By outcome — same one-transaction pattern as the style picker.
+   setGroup already clears the line for the default ('lane'), so choosing it
+   never writes a noise `group: lane` line into the doc. */
+$('grouppicker').addEventListener('click', e => {
+  const b = e.target.closest('[data-group]');
+  if(b){ editor.setText(setGroup(editor.getText(), b.dataset.group)); refresh(); }
 });
 /* the headline field is the same act as typing `headline:` — one debounced text
    edit into the doc, so it undoes, persists and travels in the URL like the rest.
@@ -1094,4 +1124,4 @@ watchNarrowBucket(previewEl, rerender);
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group']);

@@ -89,6 +89,9 @@ swimlanes, WIP limits, and a deck export.
 - `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
   first non-empty horizon when absent, blank, or naming no real horizon.
 - `verdict:` — `off` to carry no verdict at all, or your own line to replace the tool's. Omit it and the tool writes one, as it always has.
+- `group:` the register's grouping lens, `lane` (default) or `outcome`: `group: outcome`
+  regroups the register into either-way / only-if-a-bet-pays-off / only-if-it-doesn't / not-needed
+  sections instead of by horizon. Affects only the `register` style — elsewhere it warns.
 
 **Node syntax:**
 - A line equal to a horizon name (case-insensitive, trailing `:` optional) opens that

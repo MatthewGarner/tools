@@ -240,6 +240,24 @@ for(const [k, src] of Object.entries(docs)){
     'Growth: Won rider stays [if expansion]';
   variants['register-live-conditional'] = renderRegisterLive(parse(resolvedDoc), {...ctxBase});
 
+  /* S4 (E10): `group: outcome` — the register's regrouping lens, captured
+     edit:false (layout, not edit affordances — dev/injection.test.mjs covers
+     those). One doc exercises all five sections: an open fork (gate: pays
+     off / doesn't), a genuine condition cycle (alpha/beta each conditioned
+     on the other), and a resolved-world casualty (the won fallback drops). */
+  const outcomeDoc = 'title: Portfolio register\nstyle: register\ngroup: outcome\ndate: 2026-08-10\nwip: off\nNOW\n' +
+    'Core: Foundation\nNEXT\n' +
+    'Core: Root gate [bet: gate]\n' +
+    'Core: Feature ships [if gate] -- ships once gate pays off\n' +
+    'Core: Fallback plan [unless gate] -- covers if gate fails\n' +
+    'Core: Alpha loop [bet: alpha] [if beta]\n' +
+    'Core: Beta loop [bet: beta] [if alpha]\n' +
+    'LATER\n' +
+    'Growth: Expansion bet [bet: expansion won]\n' +
+    'Growth: Won fallback dropped [unless expansion] -- superseded once expansion shipped\n' +
+    'Growth: Won rider stays [if expansion]';
+  variants['register-outcome'] = renderRegisterLive(parse(outcomeDoc), {...ctxBase});
+
   /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
      pins the LAYOUT (content-width columns, content-driven height, the

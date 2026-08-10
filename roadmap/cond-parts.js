@@ -154,6 +154,66 @@ export function stateOpacity(it, certFade){
   return certFade;
 }
 
+/* E10 (S4): the register's `group: outcome` lens — a pure REGROUPING over
+   the same row list registerRows() already produces (h/lane/srcLine order is
+   preserved WITHIN each section). Sections, in painting order:
+     - EITHER WAY: unconditional in the current world (worldState === null) —
+       includes bet-declaring items themselves and any item whose own cond
+       already resolved to null (won/if or lost-unless).
+     - per OPEN, non-cycle bet (srcLine — declaration order): ONLY IF <bet>
+       PAYS OFF ([if] members, worldState==='cond') then ONLY IF IT DOESN'T
+       ([unless] members) — membership by STATE not token, same rule
+       splitColumnZones (S3) already established for the board.
+     - IN A CONDITION CYCLE: cond items whose bet is stuck in a cycle — only
+       emitted when non-empty (most docs never have one).
+     - NOT NEEDED: worldState === 'dropped' (resolved-world casualties), last,
+       muted — the register's existing dropped-row treatment already handles
+       the visual weight; this section only handles ORDER.
+   Empty sections are omitted outright (the caller never paints a bare
+   header). Returns [{kind, label, items}] — `kind` doubles as the tint
+   lookup key (outcomeSectionTint) so the two never drift apart. */
+export function registerOutcomeGroups(model, rows){
+  const bets = (model && model.bets) || {};
+  const betList = Object.keys(bets).map(k => bets[k]);
+  const openBets = betList.filter(b => b.effective === 'unresolved' && !b.cycle)
+    .sort((a, b) => a.srcLine - b.srcLine);
+  const cycleNames = new Set(betList.filter(b => b.cycle).map(b => b.name.toLowerCase()));
+  const isCond = it => it.worldState === 'cond' && it.cond;
+
+  const groups = [];
+  const eitherWay = rows.filter(it => it.worldState === null);
+  if(eitherWay.length) groups.push({kind: 'either', label: 'Either way', items: eitherWay});
+  for(const bet of openBets){
+    const nameLc = bet.name.toLowerCase();
+    const mine = it => isCond(it) && it.cond.name.toLowerCase() === nameLc;
+    const ifItems = rows.filter(it => mine(it) && it.cond.when === 'if');
+    const unlessItems = rows.filter(it => mine(it) && it.cond.when === 'unless');
+    if(ifItems.length) groups.push({kind: 'pays', label: 'Only if ' + bet.display + ' pays off', items: ifItems});
+    if(unlessItems.length) groups.push({kind: 'not-pays', label: "Only if it doesn't", items: unlessItems});
+  }
+  const cycleItems = rows.filter(it => isCond(it) && cycleNames.has(it.cond.name.toLowerCase()));
+  if(cycleItems.length) groups.push({kind: 'cycle', label: 'In a condition cycle', items: cycleItems});
+  const notNeeded = rows.filter(it => it.worldState === 'dropped');
+  if(notNeeded.length) groups.push({kind: 'not-needed', label: 'Not needed', items: notNeeded, muted: true});
+  return groups;
+}
+
+/* Section header tint, by kind — reusing the same validated status-pill
+   fill/ink pairs the board's zone washes (S3) already ride: pays-off tracks
+   the done family, doesn't tracks blocked, cycle/not-needed/either stay
+   neutral muted (no fork tension to signal). Callers paint a thin coloured
+   rule at ~5% alpha under a letterspaced label — never a full wash — since
+   a register row is already dense; see render-register.js. */
+export function outcomeSectionTint(kind, C){
+  switch(kind){
+    case 'pays': return [C.status.done, C.statusInk.done];
+    case 'not-pays': return [C.status.blocked, C.statusInk.blocked];
+    case 'cycle':
+    case 'not-needed': return [C.muted, C.muted];
+    default: return [C.border, C.muted];   // 'either'
+  }
+}
+
 /* The invisible what-if hit rect, sized to the tag capsule it sits under —
    emitted by the CALLER as a SIBLING painted AFTER (never inside) the
    card's own cardmenu <g>, exactly the data-span-edge discipline (render.js)

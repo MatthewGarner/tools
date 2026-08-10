@@ -342,7 +342,7 @@ export function roadmapVerdict(model){
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null};
+    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane'};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -350,7 +350,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
@@ -390,6 +390,17 @@ export function parse(text){
       }
       else if(key === 'focus') model.focus = val || undefined;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
+      /* S4 (E10): the register's grouping LENS — lane (default, current
+         per-horizon behaviour) or outcome (either-way / per-bet pays-off /
+         doesn't / cycle / not-needed sections). Registered here AND in
+         edit-targets.js's CONFIG_KEYS, app.js's configRe + wireSyntaxTry list —
+         missing CONFIG_KEYS specifically would let a lane genuinely named
+         "group" collide with this key and vanish (spec's data-loss vector). */
+      else if(key === 'group'){
+        const g = val.toLowerCase();
+        if(g === 'lane' || g === 'outcome') model.group = g;
+        else model.warnings.push('line ' + (ln+1) + ': group: wants lane or outcome — reading lane');
+      }
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
@@ -419,7 +430,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;
@@ -618,6 +629,13 @@ export function parse(text){
   model.items = baked.items;
   model.bets = baked.bets;
   model.warnings.push(...baked.warnings);
+  /* group: outcome only means anything on the register — checked once, here,
+     after style/horizons (which set timeAxis) are both fully resolved,
+     because group: may be written before either in the config block. */
+  if(model.group === 'outcome'){
+    const eff = model.style || (model.timeAxis ? 'grid' : 'board');
+    if(eff !== 'register') model.warnings.push('group: only affects the register view');
+  }
   return model;
 }
 
