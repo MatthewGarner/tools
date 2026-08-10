@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {parse} from '../parse.js';
+import {project} from '../project.js';
 import {verdict} from '../verdict.js';
 
 const forbidden = ['moot', 'dormant', 'world', 'limbo', 'provenance', 'enumerable',
@@ -15,56 +17,38 @@ function assertDisplay(result){
   }
 }
 
-const decision = (name, extra = {}) => ({
-  key:name.toLowerCase().replaceAll(' ', '-'), name, signal:'A measurable signal', owner:'Alex',
-  srcLine:1, reach:0, ...extra,
-});
+const decision = (name, fields = '', due = '2026-12-15') => `decision ${name}:\n  question: ${name}?\n  signal: signal\n  owner: owner\n  answer-by: ${due}${fields}`;
+const verdictFor = (document, today = '2026-12-01') => verdict(project(parse(document), today));
 
-test('overdue is first and describes assumed followers when present', () => {
-  const overdue = decision('Launch decision', {
-    overdue:true, answerBy:'2026-12-08', effectiveAnswer:'yes', assumption:{direction:'yes'}, reach:8,
-  });
-  const result = verdict({today:'2026-12-15', decisions:[overdue], reachDenominator:8, items:[
-    {itemState:'in-plan', parentDecision:overdue.key, conditionResult:{provenance:new Set(['assumed-launch-decision'])}},
-    {itemState:'in-plan', parentDecision:overdue.key, conditionResult:{provenance:new Set(['assumed-launch-decision'])}},
-    {itemState:'in-plan', parentDecision:overdue.key, conditionResult:{provenance:new Set(['assumed-launch-decision'])}},
-  ]});
+test('overdue is first and describes only followers of its real assumption evidence', () => {
+  const result = verdictFor(`${decision('g', '\n  assume: yes 2026-12-08', '2026-12-08')}\n${decision('h', '\n  assume: no 2026-12-10', '2026-12-10')}\nNOW\n  Core: First [if g]\n  Core: Second [if g]\n  Core: Third [if g]\n  Core: Other assumption [unless h]`, '2026-12-15');
 
   assert.deepEqual(result, {
-    line:'The Launch decision answer is 7 days overdue; 3 items are following an assumed yes.',
+    line:'The g answer is 7 days overdue; 3 items are following an assumed yes.',
     fig:'7 days overdue',
   });
   assertDisplay(result);
 });
 
-test('overdue drops the assumption clause when nothing follows it', () => {
-  const result = verdict({today:'2026-12-15', decisions:[decision('Launch decision', {
-    overdue:true, answerBy:'2026-12-08', effectiveAnswer:'no', assumption:{direction:'no'},
-  })], items:[]});
+test('overdue drops the assumption clause when no item follows it', () => {
+  const result = verdictFor(`${decision('g', '\n  assume: no 2026-12-08', '2026-12-08')}\nNOW\n  Core: Shared`, '2026-12-15');
 
   assert.deepEqual(result, {
-    line:'The Launch decision answer is 7 days overdue.',
+    line:'The g answer is 7 days overdue.',
     fig:'7 days overdue',
   });
   assertDisplay(result);
 });
 
-test('untestable counts questions missing either a signal or an owner', () => {
-  const result = verdict({decisions:[
-    decision('First', {signal:''}),
-    decision('Second', {owner:null}),
-    decision('Sound'),
-  ], items:[], reachDenominator:0});
-
-  assert.deepEqual(result, {
-    line:'2 questions have no signal or owner — they cannot be answered as written.',
-    fig:'2 questions',
-  });
-  assertDisplay(result);
-});
-
-test('a single untestable question uses singular grammar', () => {
-  const result = verdict({decisions:[decision('Only', {owner:''})], items:[]});
+for(const missing of ['signal', 'owner', 'signal and owner']) test(`untestable reports a question missing ${missing}`, () => {
+  const fields = [
+    'decision broken:',
+    '  question: broken?',
+    ...(missing.includes('signal') ? [] : ['  signal: signal']),
+    ...(missing.includes('owner') ? [] : ['  owner: owner']),
+    '  answer-by: 2026-12-15',
+  ];
+  const result = verdictFor(fields.join('\n'));
 
   assert.deepEqual(result, {
     line:'1 question has no signal or owner — it cannot be answered as written.',
@@ -73,23 +57,18 @@ test('a single untestable question uses singular grammar', () => {
   assertDisplay(result);
 });
 
-test('reach uses the largest reach, then earlier due date, then source line', () => {
-  const result = verdict({decisions:[
-    decision('Later', {reach:3, answerBy:'2026-12-20', srcLine:2}),
-    decision('Chosen', {reach:3, answerBy:'2026-12-15', srcLine:8}),
-    decision('Same date later line', {reach:3, answerBy:'2026-12-15', srcLine:9}),
-    decision('Smaller', {reach:2, answerBy:'2026-11-01', srcLine:1}),
-  ], items:[], reachDenominator:8});
+test('reach is composed from a real document with five unconditional and three conditional items', () => {
+  const result = verdictFor(`${decision('groups')}\nNOW\n  Core: Shared one\n  Core: Shared two\n  Core: Shared three\n  Core: Shared four\n  Core: Shared five\n  Core: Conditional one [if groups]\n  Core: Conditional two [if groups]\n  Core: Conditional three [if groups]`);
 
   assert.deepEqual(result, {
-    line:'Three of eight items depend on the Chosen answer, due 15 December.',
+    line:'Three of eight items depend on the groups answer, due 15 December.',
     fig:'Three of eight',
   });
   assertDisplay(result);
 });
 
-test('empty reports that a plan has no questions', () => {
-  const result = verdict({decisions:[], items:[], reachDenominator:4});
+test('empty reports that a real plan has no questions', () => {
+  const result = verdictFor('NOW\n  Core: Only');
 
   assert.deepEqual(result, {
     line:'No questions yet — this is a plan, not a fork.',
@@ -99,7 +78,7 @@ test('empty reports that a plan has no questions', () => {
 });
 
 test('settled reports that every item remains included', () => {
-  const result = verdict({decisions:[decision('Settled')], items:[], reachDenominator:4});
+  const result = verdictFor(`${decision('settled')}\nNOW\n  Core: First\n  Core: Second`);
 
   assert.deepEqual(result, {
     line:'Every item is included in every remaining plan.',
@@ -108,14 +87,35 @@ test('settled reports that every item remains included', () => {
   assertDisplay(result);
 });
 
-test('document verdict overrides generated copy and off suppresses it', () => {
-  const input = {decisions:[decision('Broken', {signal:''})], items:[]};
-  const overridden = verdict({...input, verdict:'Use the editorial conclusion: 42 items.'});
+test('document verdict overrides generated copy', () => {
+  const result = verdictFor('verdict: Use the editorial conclusion: 42 items.\nNOW\n  Core: Only');
 
-  assert.deepEqual(overridden, {
+  assert.deepEqual(result, {
     line:'Use the editorial conclusion: 42 items.', fig:'42',
   });
-  assert.ok(overridden.line.includes(overridden.fig));
-  assert.equal(verdict({...input, verdict:'off'}), null);
-  assert.equal(verdict({...input, verdict:''}), null);
+  assertDisplay(result);
+});
+
+test('document verdict off suppresses generated copy', () => {
+  assert.equal(verdictFor('verdict: off\nNOW\n  Core: Only'), null);
+});
+
+/* Found by driving real documents, not by the suite: an ANSWERED question was
+   still ranked for reach, producing "One of one items depend on the g answer"
+   for a plan settled weeks ago. Reach belongs to open questions only, and the
+   verb agrees with the count while the noun agrees with the denominator. */
+test('an answered question does not rank for reach; the settled line wins', () => {
+  const doc = 'today: 2026-12-01\ndecision g:\n  question: q?\n  signal: s\n  owner: o\n' +
+    '  answer-by: 2026-11-01\n  answer: yes 2026-11-01\nNOW\n  Core: A [if g]';
+  const result = verdict(project(parse(doc), '2026-12-01'));
+  assert.equal(result.line, 'Every item is included in every remaining plan.');
+});
+
+test('reach reads singular for one item and plural for several', () => {
+  const head = 'today: 2026-12-01\ndecision groups:\n  question: q?\n  signal: s\n  owner: o\n  answer-by: 2026-12-15\n';
+  const one = verdict(project(parse(head + 'NOW\n  Core: S1\n  Core: S2\nLATER\n  Core: A [if groups]'), '2026-12-01'));
+  assert.equal(one.line, 'One of three items depends on the groups answer, due 15 December.');
+  const many = verdict(project(parse(head + 'NOW\n  Core: S1\n  Core: S2\n  Core: S3\n  Core: S4\n  Core: S5\n' +
+    'LATER\n  Core: A [if groups]\n  Core: B [if groups]\n  Core: C [if not groups]'), '2026-12-01'));
+  assert.equal(many.line, 'Three of eight items depend on the groups answer, due 15 December.');
 });

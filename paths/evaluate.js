@@ -226,7 +226,7 @@ function chooseParent(item, dependencies){
   return {parent:parent.key, secondary:eligible.filter(d => d.key !== parent.key).sort(bySource).map(d => d.key)};
 }
 
-export function project(model, injectedToday, assignment = {}){
+export function evaluate(model, injectedToday, assignment = {}){
   const resolution = resolveDecisions(model, injectedToday, assignment);
   const warnings = [...model.warnings];
   const seen = new Set(warnings.map(w => `${w.code}\0${w.line ?? ''}\0${w.subject ?? ''}`));
@@ -288,5 +288,3 @@ export function project(model, injectedToday, assignment = {}){
   return {...model, today:resolution.today, decisions:resolution.decisions,
     decisionByName:resolution.decisionByName, items, warnings};
 }
-
-export const evaluate = project;

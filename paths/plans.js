@@ -1,6 +1,6 @@
 /* Possible-plan enumeration for /paths. Pure and memoised per parsed model. */
 
-import {project, resolveDecisions} from './evaluate.js';
+import {evaluate, resolveDecisions} from './evaluate.js';
 
 export const PLAN_CAP = 6;
 const CACHE = new WeakMap();
@@ -104,8 +104,8 @@ function withReach(model, today, current){
   const reaches = new Map();
   for(const decision of model.decisions){
     const comparisonModel = withoutAnswer(model, decision.key);
-    const yes = project(comparisonModel, today, {[decision.key]:'yes'});
-    const no = project(comparisonModel, today, {[decision.key]:'no'});
+    const yes = evaluate(comparisonModel, today, {[decision.key]:'yes'});
+    const no = evaluate(comparisonModel, today, {[decision.key]:'no'});
     let reach = 0;
     for(let index = 0; index < yes.items.length; index++){
       if(yes.items[index].itemState !== no.items[index]?.itemState) reach++;
@@ -119,7 +119,7 @@ function withReach(model, today, current){
 }
 
 function calculate(model, today){
-  const current = withReach(model, today, project(model, today));
+  const current = withReach(model, today, evaluate(model, today));
   const reachability = enumerableDecisions(model, today, current);
   const enumerable = reachability.decisions;
   if(reachability.refusedCount){
@@ -135,7 +135,7 @@ function calculate(model, today){
   const assignments = assignmentRows(enumerable, current);
   const merged = new Map();
   for(const answers of assignments){
-    const projected = project(model, today, answers);
+    const projected = evaluate(model, today, answers);
     const signature = equivalenceSignature(projected.items);
     const labels = labelsFor(enumerable, projected);
     if(merged.has(signature)){

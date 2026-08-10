@@ -1,12 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse as parsePaths} from '../parse.js';
-import {project} from '../evaluate.js';
+import {evaluate} from '../evaluate.js';
 import {parse as parseRoadmap} from '../../roadmap/parse.js';
 import {knownDifference, sharedCases} from './fixtures/conformance.mjs';
 
 function normalizePaths(fixture){
-  const model = project(parsePaths(fixture.pathsDoc), fixture.today);
+  const model = evaluate(parsePaths(fixture.pathsDoc), fixture.today);
   return {
     host:model.decisionByName[fixture.host].value,
     items:Object.fromEntries(Object.entries(fixture.itemIdentityMap).map(([identity, pair]) => {

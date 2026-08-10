@@ -1,6 +1,4 @@
-/* /paths Tree topology. Pure; display copy and geometry belong to later layers. */
-
-import {enumeratePlans} from './plans.js';
+/* /paths Tree topology. Pure; consumes the shared project.js contract. */
 
 function dueOrder(left, right){
   const leftDue = left.decision.answerBy;
@@ -41,8 +39,7 @@ function armFor(item){
   return term.negated ? 'no' : 'yes';
 }
 
-export function treeProjection(model, today){
-  const projected = enumeratePlans(model, today);
+export function treeProjection(projected){
   const spine = projected.items.filter(item => !item.condition);
   const unplaced = projected.items.filter(item => item.condition && !item.parentDecision);
   const sourceOrder = new Map(projected.decisions.map((decision, index) => [decision.key, index]));

@@ -46,11 +46,15 @@ function provenanceOf(item){
 }
 
 function followsAssumption(item, decision){
-  if(item.itemState && item.itemState !== 'in-plan') return false;
-  const markers = [...provenanceOf(item)].filter(marker => String(marker).startsWith('assumed-'));
-  if(!markers.length) return false;
-  if(!decision?.key) return true;
-  return markers.some(marker => String(marker).includes(decision.key)) || item.parentDecision === decision.key;
+  const display = item?.displayEvidence;
+  if(display) return display.kind === 'assumption' && display.decision === decision?.key &&
+    display.direction === assumedDirection(decision);
+
+  const marker = `assumed-${assumedDirection(decision)}`;
+  if(![...provenanceOf(item)].includes(marker)) return false;
+  const evidence = item?.conditionResult?.evidence?.filter(member => member.decision?.key === decision?.key) || [];
+  if(evidence.length) return evidence.some(member => [...(member.decision.provenance || [])].includes(marker));
+  return item?.parentDecision === decision?.key;
 }
 
 function assumedDirection(decision){
@@ -97,12 +101,18 @@ export function verdict(projection){
     return {line:`${fig} ${has} no signal or owner — ${verb} be answered as written.`, fig};
   }
 
-  const ranked = decisions.filter(decision => Number(decision.reach) > 0).sort((left, right) =>
-    right.reach - left.reach || dueOrder(left, right));
+  /* Only an OPEN question still decides anything: an answered one's reach is
+     history, and ranking it produced "One of one items depend on the g answer"
+     for a plan whose single question was settled weeks ago. */
+  const ranked = decisions.filter(decision =>
+    Number(decision.reach) > 0 && !decision.effectiveAnswer && decision.availability === 'active')
+    .sort((left, right) => right.reach - left.reach || dueOrder(left, right));
   if(ranked.length){
     const decision = ranked[0];
     const fig = `${proseNumber(decision.reach, true)} of ${proseNumber(projection.reachDenominator)}`;
-    return {line:`${fig} items depend on the ${decisionName(decision)} answer, due ${dueLabel(decision.answerBy)}.`, fig};
+    /* the noun agrees with the denominator, the verb with the count (house nOfT) */
+    const verb = decision.reach === 1 ? 'depends' : 'depend';
+    return {line:`${fig} items ${verb} on the ${decisionName(decision)} answer, due ${dueLabel(decision.answerBy)}.`, fig};
   }
 
   if(!decisions.length){
