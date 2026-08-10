@@ -8,7 +8,7 @@
    author's `headline:` standfirst, if they wrote one → body band → footer rule
    + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
    via scheme()), never the style — a style owns STRUCTURE. */
-import {txt} from '../assets/svg.js';
+import {txt, wash} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
 import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule,
@@ -261,19 +261,19 @@ function spreadBodyFn(model, ctx){
     const leftRows = spreadCardRows(leftIdx, model);
     const rightRows = spreadCardRows(rightIdx, model);
 
-    s.push(rect(leftX, y0, leftW, bandBottom - y0, C.status.done + '0D', {rx: 14}));
+    s.push(rect(leftX, y0, leftW, bandBottom - y0, wash(C.status.done, '0D'), {rx: 14}));
     s.push(txt(leftX + 20, kickerY, ('IF ' + display + ' PAYS OFF').toUpperCase(), 14, C.statusInk.done,
       {weight: 700, tracking: 1.3}));
     s.push(leftRows.length
       ? paintSpreadPanel(leftRows, {cx: leftX + 20, cy0: panelTop, cw: leftW - 40, availH, C, measure})
       : italTxt(leftX + 20, panelTop + 20, 'nothing new starts', 14, C.muted));
 
-    s.push(rect(centreX, y0, centreW, bandBottom - y0, C.ink + '05', {rx: 14}));
+    s.push(rect(centreX, y0, centreW, bandBottom - y0, C.card, {rx: 14}));
     s.push(txt(centreX + centreW / 2, kickerY, 'EITHER WAY', 13, C.muted, {anchor: 'middle', weight: 700, tracking: 1.3}));
     s.push(paintCentrePanel(centreIdx, model, won, lost,
       {cx: centreX + 16, cy0: panelTop, cw: centreW - 32, availH, C, measure}));
 
-    s.push(rect(rightX, y0, rightW, bandBottom - y0, C.status.blocked + '0D', {rx: 14}));
+    s.push(rect(rightX, y0, rightW, bandBottom - y0, wash(C.status.blocked, '0D'), {rx: 14}));
     s.push(txt(rightX + 20, kickerY, "IF IT DOESN'T", 14, C.statusInk.blocked, {weight: 700, tracking: 1.3}));
     s.push(rightRows.length
       ? paintSpreadPanel(rightRows, {cx: rightX + 20, cy0: panelTop, cw: rightW - 40, availH, C, measure})

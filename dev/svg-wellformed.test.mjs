@@ -52,3 +52,19 @@ test('every golden root <svg> exposes integer dimensions svgToCanvas can read', 
     assert.ok(+m[1] > 0 && +m[2] > 0, file + ': zero-sized root (' + m[1] + '×' + m[2] + ')');
   }
 });
+
+/* A hex colour of the wrong LENGTH is not malformed XML — it's a valid attribute
+   holding an invalid value, and rasterisers disagree on the fallback (some paint
+   BLACK). Shipped once, 2026-08-10: a 3-digit ink token + '05' alpha suffix made
+   fill="#22205" and the deck-spread centre panel rendered as a black slab. Valid
+   forms: #rgb, #rrggbb, #rrggbbaa (and #rgba). Scan every fill/stroke in every
+   golden so no renderer can concat its way into an invalid colour again. */
+test('every golden fill/stroke hex colour has a valid length', () => {
+  const OK = new Set([3, 4, 6, 8]);
+  for(const file of readdirSync(dir).filter(f => f.endsWith('.svg'))){
+    const svg = readFileSync(new URL(file, dir), 'utf8');
+    for(const m of svg.matchAll(/(?:fill|stroke)="#([0-9a-fA-F]+)"/g)){
+      assert.ok(OK.has(m[1].length), file + ': invalid hex colour #' + m[1]);
+    }
+  }
+});

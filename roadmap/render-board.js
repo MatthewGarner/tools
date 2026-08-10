@@ -3,7 +3,7 @@
    export (byte-identical to what shipped) and the LIVE editable view (Task 3).
    Named render-*.js so renderer-coverage forces the live renderer into the
    injection corpus. */
-import {txt, esc, btnAttrs} from '../assets/svg.js';
+import {txt, esc, btnAttrs, wash} from '../assets/svg.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
@@ -238,7 +238,7 @@ function boardBodyFn(model, ctx, C){
     const s = [];
     for(let h = 0; h < nH; h++){
       const x = M + h * (colW + gap);
-      s.push(rect(x, y0, colW, zoneH, h === 0 ? C.accent + '0D' : C.ink + '05', {rx: 14}));
+      s.push(rect(x, y0, colW, zoneH, h === 0 ? wash(C.accent, '0D') : wash(C.ink, '05'), {rx: 14}));
       s.push(txt(x + 20, y0 + 34, hs[h].toUpperCase(), 15, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.6}));
       const list = byLane(inH(h));
       /* label shows the ACTIVE count (matching the overWip flag) — dropped
