@@ -90,11 +90,21 @@ function answerLabel(direction){
   return direction === 'no' ? 'Answer: no' : 'Answer: yes';
 }
 
+/* An overdue question said "Open" — the single most important thing this view
+   has to tell you, silently absent. The engine already carries `overdue` and
+   the day count on the decision; the label reads it rather than flattening
+   every unanswered question to the same word. */
 function questionState(question){
   const state = question?.displayState || {};
   if(state.kind === 'not-applicable') return 'No longer applies';
   if(state.kind === 'not-open') return 'Not open yet';
   if(state.kind === 'answered') return answerLabel(state.direction);
+  if(state.kind === 'overdue'){
+    const days = Number(state.days);
+    return Number.isFinite(days) && days > 0
+      ? days + (days === 1 ? ' day overdue' : ' days overdue')
+      : 'Overdue';
+  }
   return 'Open';
 }
 

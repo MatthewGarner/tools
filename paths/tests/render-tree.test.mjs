@@ -192,3 +192,17 @@ test('the outline is content-driven in height and never wider than its container
   assert.ok(heightOf(long) > heightOf(short), 'height grows with content');
   assert.equal(Number(/width="([\d.]+)"/.exec(long)[1]), 360);
 });
+
+/* Terra, Stage 2a review: an overdue question rendered "Open" — the single most
+   important thing this view has to say, silently absent. The projection already
+   carried {kind:'overdue', days}; the label simply never read it. */
+test('an overdue question says how overdue it is, in both renderers', () => {
+  const doc = 'today: 2026-12-22\n' + decisionBlock('groups') + 'LATER\n  Core: A [if groups]';
+  const wide = renderDoc(doc, '2026-12-22');
+  assert.match(wide, /7 days overdue/);
+  assert.doesNotMatch(wide, />Open</, 'an overdue question is not merely open');
+  const projection = project(parse(doc), '2026-12-22');
+  const narrow = renderOutline(treeProjection(projection),
+    {colors, measure, dark:false, today:'2026-12-22', width:360});
+  assert.match(narrow, /7 days overdue/);
+});
