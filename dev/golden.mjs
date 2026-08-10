@@ -227,7 +227,18 @@ for(const [k, src] of Object.entries(docs)){
     'NEXT\n' +
     'Growth: Referral push [bet: budget] [if retention]\n' +
     'Growth: Paid acquisition [unless budget]\n' +
-    'LATER\nGrowth: Enterprise tier';
+    /* an INDEPENDENT open bet (community stays unresolved in BOTH retention
+       worlds) -> Forums is cond-in-both: the centre's GHOST-capsule path is in
+       the byte-pin. Four extra unconditional items push the centre past its
+       cap of 5 -> the "+ n more" overflow path is pinned too (review
+       2026-08-10: a golden blind to ghost + overflow lets both regress
+       silently). NB [if budget] riders would NOT be centre-ghosts: budget goes
+       MOOT in the retention-lost world (its declaring item drops), so they'd
+       land LEFT — chained moot, not shared uncertainty. */
+    'Growth: Community beta [bet: community]\n' +
+    'Growth: Forums [if community]\n' +
+    'LATER\nGrowth: Enterprise tier\n' +
+    'Core: Widget refresh\nCore: Streak repair\nCore: Snooze controls\nCore: Quiet hours';
   variants['deck-spread'] = renderDeck(parse(spreadDoc), {...ctxBase});
 
   /* REGISTER LIVE (Task 4): the editable-table preview paint, captured at

@@ -187,40 +187,49 @@ function paintSpreadPanel(rows, {cx, cy0, cw, availH, C, measure}){
   for(let i = 0; i < shown; i++){
     const {it, sub} = rows[i];
     s.push(txt(cx, cy + 17, clip1(it.title, '600 15px ' + SANS, cw, measure), 15, C.ink, {weight: 600}));
-    if(sub) s.push(txt(cx, cy + 35, sub, 11, C.muted, {weight: 700, tracking: 0.5}));
+    if(sub) s.push(txt(cx, cy + 35, clip1(sub, '700 11px ' + SANS, cw, measure), 11, C.muted, {weight: 700, tracking: 0.5}));
     cy += rows[i].h + 10;
   }
   if(shown < rows.length) s.push(txt(cx, cy + 12, '+ ' + (rows.length - shown) + ' more', 13, C.muted, {weight: 600}));
   return s.join('');
 }
 
-/* centre panel: EITHER WAY — count + up to 5 titles, items still cond in
-   BOTH the won and lost projections (waiting on some OTHER, unrelated bet)
-   render ghosted with their existing capsule (cardTag reads the ORIGINAL
-   text-world model — the other bet is exactly as unresolved there). */
+/* centre panel: EITHER WAY — count + up to 5 titles. Any item still cond in
+   EITHER world carries its capsule (a bare title would overstate certainty —
+   the reading line counts these in k); items cond in BOTH worlds (waiting on
+   some OTHER, unrelated bet) additionally render ghosted. cardTag reads the
+   ORIGINAL text-world model — the other bet is exactly as unresolved there. */
 function paintCentrePanel(idxs, model, won, lost, {cx, cy0, cw, availH, C, measure}){
   const rows = [...idxs].sort((a, b) => model.items[a].srcLine - model.items[b].srcLine);
   const s = [];
   s.push(txt(cx, cy0 - 8, String(rows.length) + (rows.length === 1 ? ' item' : ' items'), 15, C.ink, {weight: 700}));
+  if(!rows.length){
+    s.push(italTxt(cx, cy0 + 20, 'nothing survives both worlds', 13, C.muted));
+    return s.join('');
+  }
   const CAP = 5;
-  let cy = cy0 + 20;
+  let cy = cy0 + 20, shown = 0;
   const rowH = 26;
   for(let i = 0; i < Math.min(CAP, rows.length) && (cy - cy0) < availH; i++){
     const idx = rows[i], it = model.items[idx];
-    const ghost = won.items[idx].worldState === 'cond' && lost.items[idx].worldState === 'cond';
-    const tag = ghost ? cardTag(model, it) : null;
+    const condW = won.items[idx].worldState === 'cond', condL = lost.items[idx].worldState === 'cond';
+    const tag = (condW || condL) ? cardTag(model, it) : null;
     if(tag){
+      const ghost = condW && condL;
       const [tcol, tink] = tagColors(tag, C);
-      const cap = capsule(cx, cy, tag.label, tcol, tink, measure);
-      s.push('<g opacity="0.65">' + cap.svg +
+      const cap = capsule(cx, cy, clip1(tag.label, '600 12px ' + SANS, cw - 18, measure), tcol, tink, measure);
+      s.push('<g' + (ghost ? ' opacity="0.65"' : '') + '>' + cap.svg +
         txt(cx, cy + 40, clip1(it.title, '600 13px ' + SANS, cw, measure), 13, C.ink, {weight: 600}) + '</g>');
       cy += 58;
     } else {
       s.push(txt(cx, cy + 12, clip1(it.title, '600 13px ' + SANS, cw, measure), 13, C.ink, {weight: 600}));
       cy += rowH;
     }
+    shown++;
   }
-  if(rows.length > CAP) s.push(txt(cx, cy + 6, '+ ' + (rows.length - CAP) + ' more', 12, C.muted, {weight: 600}));
+  /* count from SHOWN, not CAP — the height guard can stop the loop early, and a
+     "+ n more" that undercounts is silent truncation (review finding, 2026-08-10) */
+  if(shown < rows.length) s.push(txt(cx, cy + 6, '+ ' + (rows.length - shown) + ' more', 12, C.muted, {weight: 600}));
   return s.join('');
 }
 
@@ -262,7 +271,7 @@ function spreadBodyFn(model, ctx){
     const rightRows = spreadCardRows(rightIdx, model);
 
     s.push(rect(leftX, y0, leftW, bandBottom - y0, wash(C.status.done, '0D'), {rx: 14}));
-    s.push(txt(leftX + 20, kickerY, ('IF ' + display + ' PAYS OFF').toUpperCase(), 14, C.statusInk.done,
+    s.push(txt(leftX + 20, kickerY, clip1(('IF ' + display + ' PAYS OFF').toUpperCase(), '700 14px ' + SANS, leftW - 40, measure), 14, C.statusInk.done,
       {weight: 700, tracking: 1.3}));
     s.push(leftRows.length
       ? paintSpreadPanel(leftRows, {cx: leftX + 20, cy0: panelTop, cw: leftW - 40, availH, C, measure})
