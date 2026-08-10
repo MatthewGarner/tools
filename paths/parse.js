@@ -192,7 +192,7 @@ function parseItem(raw, line, period, model, add, warnUnmatched = true){
     add('parse', 'unmatched-line', line, raw.trim(),
       `line ${line}: ${quote(raw.trim())} cannot be read as a setting, decision or period — kept as an item in ${quote(period.name)}; use "Lane: Title" for an item`);
   }
-  const item = {identity:line, lane:laneName, title, note, url, status, condition,
+  const item = {identity:line - 1, lane:laneName, title, note, url, status, condition,
     period:period.name, periodIndex:model.periods.indexOf(period), srcLine:line - 1, raw:raw.trim()};
   period.items.push(item); model.items.push(item);
   return item;

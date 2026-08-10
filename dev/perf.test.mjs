@@ -86,6 +86,22 @@ test('timeline: 120-milestone render under 250ms', async () => {
   await timed(250, () => render(m, ctx));
 });
 
+test('paths: cold six-question plan enumeration under 50ms', async () => {
+  const {parse} = await import('../paths/parse.js');
+  const {enumeratePlans} = await import('../paths/plans.js');
+  const decisions = Array.from({length: 6}, (_, i) => `decision q${i}:
+  question: Question ${i}?
+  signal: signal ${i}
+  owner: owner ${i}
+  answer-by: 2026-12-15`).join('\n');
+  const items = Array.from({length: 24}, (_, i) =>
+    `  Core: Item ${i} [if q${i % 6} and q${(i + 1) % 6}]`).join('\n');
+  const model = parse(`${decisions}\nNOW\n${items}`);
+  let result;
+  await timed(50, () => { result = enumeratePlans(model, '2026-12-22'); });
+  assert.equal(result.worlds.possibleCount, 64, 'fidelity guard');
+});
+
 test('risk: 10k samples × 4 structures × 2 fits under 400ms', async () => {
   const {parse} = await import('../energy/risk/parse.js');
   const {simulate} = await import('../energy/risk/engine.js');
