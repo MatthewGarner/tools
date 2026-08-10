@@ -219,10 +219,16 @@ const PAGES = {
      the card-menu trigger, never a silent no-op) plus the opts.kind/opts.raw
      override threaded through open() — shared bytes every EIP-using page
      pays once. Actual 636.1k; preserve ~5k headroom. */
-  'roadmap/index.html': 716_000,   /* 705k -> 716k (2026-08-10, E9 honest counts): condCount() +
+  /* 705k -> 716k (2026-08-10, E9 honest counts): condCount() +
      the F/M split label (board/focus/grid/register), register per-horizon group headers, and the
      roadmapMetrics min/max "in play" range enumeration (parse.js) + its memo. Actual 710.8k,
      ~5.2k headroom. */
+  /* 716k -> 723k (2026-08-10, E1 board outcome zones): render-board.js's card-mode
+     column ladder gains group-aware capFit heights (zone header bundled into its
+     group's first card) plus the wash/label paint, and cond-parts.js gains
+     splitColumnZones — roadmap-only, both boards (deck card mode + live).
+     Actual 717.5k, ~5.5k headroom. */
+  'roadmap/index.html': 723_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -278,9 +284,13 @@ const PAGES = {
   /* 530k -> 539k (2026-08-04 interaction reliability): Why now consumes the
      exact post-render add locator, which prevents the reported DSL-focus jump
      and supplies Escape/undo-safe creation. Actual 533.3k; retain ~5.7k. */
-  'why/index.html': 686_000,   /* 678k -> 686k (2026-08-10, E9 honest counts): why pays render.js's
+  /* 678k -> 686k (2026-08-10, E9 honest counts): why pays render.js's
      grid condLabel + parse.js's condCount/roadmapMetrics range growth too (same delegation as
      below). Actual 680.3k, ~5.7k headroom. */
+  /* 686k -> 693k (2026-08-10, E1 board outcome zones): why pays cond-parts.js's
+     splitColumnZones growth too — render.js imports the whole module even though
+     the chart doesn't paint zones. Actual 687.0k, ~6.0k headroom. */
+  'why/index.html': 693_000,
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */

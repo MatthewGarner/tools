@@ -254,6 +254,18 @@ for(const [k, src] of Object.entries(docs)){
     parse('story: We chose depth over breadth this cycle\n' + boardLiveDoc),
     {...ctxBase, diff: {badge: () => null, dropped: ['old thing'], since: 'JUNE', any: true}});
 
+  /* E1 (S3): an OPEN fork on the live board — a live item, both halves of one
+     bet's zone (if-so + if-not), and a second open bet whose zone has only
+     an if-so half (its if-not is empty and must not paint) — pins the wash/
+     label markup, the live-flow-then-zones order, and the empty-half
+     omission all in one golden. edit:false, matching every other board-live
+     golden's export-path convention. */
+  const zonesDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing]\nCore: Ship reminders [bet: reminders]\n' +
+    'Core: Ship digest [bet: digest]\nNEXT\nCore: Widget gallery\n' +
+    'Core: Smart nudges [if reminders]\nCore: Manual outreach [unless reminders]\n' +
+    'Core: Digest follow-up [if digest]\nLATER\nCore: Coach marketplace';
+  variants['board-live-zones'] = renderBoardLive(parse(zonesDoc), {...ctxBase});
+
   /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
      pins the LAYOUT (fixed live width, content-driven height, the light

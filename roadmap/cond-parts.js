@@ -84,6 +84,41 @@ export function cardTag(model, it){
   return null;
 }
 
+/* E1 board outcome zones (S3, Rev A): within a column, an OPEN non-cycle
+   bet's [if]/[unless] riders group into "if so"/"if not" washes instead of
+   riding the flat byLane order. Membership is by STATE, never by token: an
+   item qualifies only when worldState==='cond' AND its cond names a bet
+   that is CURRENTLY open (effective==='unresolved') and not sitting in a
+   condition cycle. That excludes, on purpose: a [done][if x] item
+   (worldState is null — done outranks the fork, stateOf() in parse.js),
+   any dropped item (worldState is 'dropped', never 'cond'), and a cycle
+   bet's own cond items (worldState is still 'cond', but the bet carries
+   .cycle — its capsule already explains the state, so it stays in the
+   live flow rather than getting a zone nobody can resolve). `list` is the
+   column's already byLane-sorted item array; returns {live, zones} where
+   `zones` holds ONLY bets that actually have >=1 member in THIS column,
+   in srcLine (declaration) order — an empty half (no [if] or no [unless]
+   member here) is simply an empty array on that side, so the caller skips
+   painting it (empty half-zones don't paint). */
+export function splitColumnZones(model, list){
+  const bets = (model && model.bets) || {};
+  const openBets = Object.keys(bets).map(k => bets[k])
+    .filter(b => b.effective === 'unresolved' && !b.cycle)
+    .sort((a, b) => a.srcLine - b.srcLine);
+  const openNames = new Set(openBets.map(b => b.name.toLowerCase()));
+  const isZoneMember = it => it.worldState === 'cond' && it.cond && openNames.has(it.cond.name.toLowerCase());
+  const live = list.filter(it => !isZoneMember(it));
+  const zones = [];
+  for(const bet of openBets){
+    const nameLc = bet.name.toLowerCase();
+    const mine = it => isZoneMember(it) && it.cond.name.toLowerCase() === nameLc;
+    const ifItems = list.filter(it => mine(it) && it.cond.when === 'if');
+    const unlessItems = list.filter(it => mine(it) && it.cond.when === 'unless');
+    if(ifItems.length || unlessItems.length) zones.push({bet, ifItems, unlessItems});
+  }
+  return {live, zones};
+}
+
 /* Colour for a tag capsule — every pairing reuses tokens already validated
    and shipped elsewhere in this codebase (status pills, the register's own
    muted DROPPED capsule): won/lost ride the existing done/blocked status

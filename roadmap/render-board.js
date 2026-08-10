@@ -7,7 +7,24 @@ import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel, splitColumnZones} from './cond-parts.js';
+
+/* E1 (S3): the zone half's wash tint + label ink, shared by both boards —
+   if-so rides the done family, if-not the blocked family, both already
+   validated as status pill fill/ink pairs elsewhere in this codebase. Wash
+   alpha is the same very-low '0D' (~5%) suffix render-board.js already uses
+   for the first-horizon column wash, just tinted by outcome instead of the
+   accent. Label ink re-uses the pill's own contrast-boosted ink token — at
+   this alpha the backdrop barely moves, so ink/backdrop contrast stays
+   effectively ink/page-background contrast, checked >=4.5:1 in both themes
+   against the real tokens.css light/dark values (numbers in the commit
+   message that shipped this). */
+function zoneTint(half, C){
+  return half === 'if' ? [C.status.done, C.statusInk.done] : [C.status.blocked, C.statusInk.blocked];
+}
+function zoneLabel(bet, half){
+  return bet.display + (half === 'if' ? ' · if so' : ' · if not');
+}
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
    note; the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
@@ -47,7 +64,17 @@ export function boardGeometry(model, zoneH){
 }
 
 /* CARD column: drop-notes -> clamp-title -> cap+chip ladder, capFit sharing
-   the same proven-terminating helper the list path uses. */
+   the same proven-terminating helper the list path uses.
+
+   E1 (S3): the column's flat byLane `list` is re-ordered into live-flow
+   first, then each open non-cycle bet's if-so/if-not groups (srcLine
+   order) — `splitColumnZones` does the state-keyed membership work; a
+   bet-free (or zone-free) column reorders to itself, so `ordered` equals
+   `list` and every existing byte-identity golden is untouched. A ZONE
+   HEADER's height rides bundled into its group's FIRST card (never a
+   separate capFit entry) — that keeps a header and at least one of its
+   members atomic, so capFit can never truncate to a bare header with
+   nothing shown beneath it. */
 function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, measure, model}){
   const fT = '700 ' + ramp.fsT + 'px ' + SANS, fN = ramp.fsN + 'px ' + SANS;
   const hasBets = anyBet(model);
@@ -58,7 +85,23 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
      the whole fix. LIVE narrow columns keep the fade-only degrade — that's
      paintBoardCard, a different function, untouched. */
   const showTag = hasBets;
-  const layCards = (noteLines, titleLines) => list.map(it => {
+  const {live, zones} = splitColumnZones(model, list);
+  const HEADER_H = 26;
+  const headerAt = new Map();   // first item of a zone half -> {label, tint, ink}
+  const ordered = [...live];
+  for(const {bet, ifItems, unlessItems} of zones){
+    if(ifItems.length){
+      const [tint, ink] = zoneTint('if', C);
+      headerAt.set(ifItems[0], {label: zoneLabel(bet, 'if'), tint, ink});
+      ordered.push(...ifItems);
+    }
+    if(unlessItems.length){
+      const [tint, ink] = zoneTint('unless', C);
+      headerAt.set(unlessItems[0], {label: zoneLabel(bet, 'unless'), tint, ink});
+      ordered.push(...unlessItems);
+    }
+  }
+  const layCards = (noteLines, titleLines) => ordered.map(it => {
     const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
     const tag = showTag ? cardTag(model, it) : null;
     const tl = wrapN(it.title, fT, cw - ramp.pad * 2, titleLines, measure);
@@ -67,17 +110,35 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
     return {it, b, tag, tl, nl,
       h: ramp.pad * 2 + (b ? 30 : 0) + (tag ? 30 : 0) + tl.length * (ramp.fsT + 5) + nl.length * (ramp.fsN + 6) + foot};
   });
-  const sumH = cards => cards.reduce((a, c) => a + c.h, 0) + Math.max(0, cards.length - 1) * 14;
+  const sumH = cards => cards.reduce((a, c) => a + c.h + (headerAt.has(c.it) ? HEADER_H : 0), 0) +
+    Math.max(0, cards.length - 1) * 14;
   let cards = layCards(ramp.notes, 2);
   if(sumH(cards) > availH) cards = layCards(0, 2);          // drop notes
   if(sumH(cards) > availH) cards = layCards(0, 1);          // clamp titles to 1 line
-  const shown = capFit(cards.map(c => c.h), availH, 14, 54); // cap + chip
+  const heights = cards.map(c => c.h + (headerAt.has(c.it) ? HEADER_H : 0));
+  const shown = capFit(heights, availH, 14, 54); // cap + chip
+
+  // group boundaries (indices into `cards`) that start a header, so a header
+  // knows where its group's shown cards end (next header, or the column end)
+  const boundaryIdx = [];
+  cards.forEach((c, i) => { if(headerAt.has(c.it)) boundaryIdx.push(i); });
+  boundaryIdx.push(cards.length);
+  const groupEndFor = i => boundaryIdx[boundaryIdx.indexOf(i) + 1];
 
   const s = [];
   let cy = cy0;
   const capsuleWidth = label => measure(label, '700 11px ' + SANS) + 16;
-  for(const c of cards.slice(0, shown)){
-    const {it} = c;
+  for(let i = 0; i < shown; i++){
+    const c = cards[i], {it} = c;
+    const header = headerAt.get(it);
+    if(header){
+      const groupEnd = Math.min(groupEndFor(i), shown);
+      let gh = 0;
+      for(let j = i; j < groupEnd; j++) gh += cards[j].h + (j > i ? 14 : 0);
+      s.push(rect(cx - 6, cy, cw + 12, HEADER_H + gh + 6, header.tint + '0D', {rx: 12}));
+      s.push(txt(cx, cy + 17, header.label, 11, header.ink, {weight: 700, tracking: 0.6}));
+      cy += HEADER_H;
+    }
     // dropped's own treatment wins over the flag border — reality already
     // answered, so a resolved-away risk must not still read as live trouble
     const flag = it.worldState === 'dropped' ? null :
@@ -112,7 +173,13 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
 /* LIST column (the flipped board): title + a muted LANE · STATUS · note
    sub-line, single line each (clip1, never wraps), fixed row height 38/56 —
    flagged rows carry a 3px status-coloured edge bar, never colour alone.
-   capFit-capped with its own "+N more" chip. */
+   capFit-capped with its own "+N more" chip.
+
+   E1 (S3): list mode is the documented zone FALLBACK — it exists precisely
+   because a column is too crowded to fit its cards, and interleaving a
+   wash+label row into 38/56px dense rows would misread as noise rather than
+   structure. Rows stay in flat byLane order here; the cond tag already
+   rides the sub-line so the fork is still legible, just not grouped. */
 function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure, model}){
   const hasBets = anyBet(model);
   const rows = list.map(it => {
@@ -349,10 +416,31 @@ export function renderBoardLive(model, ctx){
 
     const groupSvg = [];
     let cy = colTop;
-    for(const it of list){
+    const paintCard = it => {
       const card = paintBoardCard(it, x, cy, COLW, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse});
       groupSvg.push(card.svg);
       cy += card.h + 12;
+    };
+    /* E1 (S3): live flow first (byLane, untouched), then each open non-cycle
+       bet's if-so/if-not groups — uncapped, so no capFit/header-boundary
+       bookkeeping is needed here (unlike the deck's card ladder): the wash
+       simply spans from its own header down to wherever `cy` lands after
+       painting every member of that half. */
+    const {live, zones} = splitColumnZones(model, list);
+    for(const it of live) paintCard(it);
+    for(const {bet, ifItems, unlessItems} of zones){
+      for(const [half, items] of [['if', ifItems], ['unless', unlessItems]]){
+        if(!items.length) continue;
+        const [tint, ink] = zoneTint(half, C);
+        const washTop = cy;
+        const headerSvg = txt(x + RPAD, washTop + 18, zoneLabel(bet, half), 11, ink, {weight: 700, tracking: 0.6});
+        cy += 26;
+        const before = groupSvg.length;
+        for(const it of items) paintCard(it);
+        const painted = groupSvg.splice(before);   // pull out the just-painted cards to reorder wash-first
+        const washH = (cy - 6) - washTop;
+        groupSvg.push(rect(x - 8, washTop, COLW + 16, washH, tint + '0D', {rx: 12}), headerSvg, ...painted);
+      }
     }
     if(!list.length){
       groupSvg.push(rect(x, colTop, COLW, 70, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));

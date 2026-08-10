@@ -546,3 +546,115 @@ test('narrow chart\'s "also running" line excludes a dropped spanning item, even
   assert.ok(also[1].includes('Live span'), also[1]);
   assert.ok(!also[1].includes('Dropped span'), 'a dropped spanning item never appears in "also running": ' + also[1]);
 });
+
+/* ---------- E1 (S3): board outcome zones — board-live + board-deck ---------- */
+/* Spec: docs/superpowers/specs/2026-08-10-track1-roadmap-conditional-display.md
+   S3, OVERRIDDEN by its Rev A block (membership by state, no not-needed
+   reorder, empty half-zones don't paint). Two open bets, "reminders"
+   (declared first) and "signup" (declared second), so one column carries
+   a live item, both halves of reminders' zone (with two if-so members in
+   DIFFERENT lanes to prove within-group order is still byLane, not doc
+   order), and signup's if-so-only zone (its if-not half is empty and must
+   not paint). */
+const TWO_BET_DOC = 'title: T\nNOW\nGrowth: Foundation\nCore: Ship base [bet: reminders]\nCore: Second bet [bet: signup]\n' +
+  'NEXT\nCore: Live one\n' +
+  'Core: Second nudge [if reminders]\nGrowth: First nudge [if reminders]\n' +
+  'Core: Fallback core [unless reminders]\n' +
+  'Core: Signup rider [if signup]\n' +
+  'LATER\nCore: X';
+
+test('E1: open fork zones (board LIVE, uncapped) — labels present, if/unless membership correct, live items first, within-group order stays byLane, two-bet zones in srcLine order', () => {
+  const m = parse(TWO_BET_DOC);
+  const svg = renderBoardLive(m, ctx({edit: true}));
+  assert.ok(svg.includes('reminders · if so'));
+  assert.ok(svg.includes('reminders · if not'));
+  assert.ok(svg.includes('signup · if so'));
+  const at = s => svg.indexOf(s);
+  // live flow first
+  assert.ok(at('Live one') < at('reminders · if so'), 'the live item comes before any zone');
+  // if items under if-so, unless under if-not
+  assert.ok(at('reminders · if so') < at('First nudge') && at('First nudge') < at('reminders · if not'),
+    'an [if] item paints inside the if-so zone, before the if-not header');
+  assert.ok(at('reminders · if not') < at('Fallback core'), 'the [unless] item paints inside the if-not zone');
+  // within-group order stays byLane: Growth ("First nudge") ranks before Core ("Second nudge")
+  // even though "Second nudge" is declared FIRST in the doc
+  assert.ok(at('First nudge') < at('Second nudge'), 'byLane order survives inside a zone group');
+  // two open bets: zones in srcLine (declaration) order — reminders before signup
+  assert.ok(at('reminders · if so') < at('signup · if so'), 'zones appear in bet srcLine order');
+});
+
+/* the DECK board is capacity-constrained (a fixed slide zoneH, the capFit +
+   "+N more" ladder) — TWO_BET_DOC's 5-card column legitimately overflows a
+   single 21px-ramp column and chips the tail, which is the overflow
+   ladder doing its job, not a zoning bug (proven above against the
+   uncapped live board instead). This fixture is sized to actually fit, so
+   the deck path is proven to paint the same zone markup when it does. */
+test('E1: open fork zones (board DECK, card mode) — the same zone markup paints when it fits the slide', () => {
+  const doc = 'title: T\nNOW\nCore: Ship base [bet: reminders]\nNEXT\nCore: Live one\n' +
+    'Core: Smart nudges [if reminders]\nCore: Manual digest [unless reminders]\nLATER\nCore: X';
+  const m = parse(doc);
+  const svg = renderBoardDeck(m, ctx(), colors);
+  const at = s => svg.indexOf(s);
+  assert.ok(svg.includes('reminders · if so') && svg.includes('reminders · if not'));
+  assert.ok(at('Live one') < at('reminders · if so'), 'live flow first, here too');
+  assert.ok(at('reminders · if so') < at('Smart nudges') && at('Smart nudges') < at('reminders · if not') &&
+    at('reminders · if not') < at('Manual digest'), 'if-so members before the if-not header, before its own members');
+});
+
+test('E1: [done][if x] stays in the live flow, never in a zone (worldState is null, not "cond")', () => {
+  const doc = 'title: T\nNOW\nCore: Root [bet: gate]\nNEXT\nCore: Old work [done] [if gate]\nCore: Rider [if gate]\nLATER\nCore: X';
+  const m = parse(doc);
+  const doneItem = m.items.find(i => i.title === 'Old work');
+  assert.equal(doneItem.worldState, null, 'sanity: done outranks the fork');
+  for(const svg of [renderBoardDeck(m, ctx(), colors), renderBoardLive(m, ctx({edit: true}))]){
+    const at = s => svg.indexOf(s);
+    assert.ok(at('gate · if so') !== -1, 'the zone still forms for the genuinely-conditional rider');
+    assert.ok(at('Old work') !== -1 && at('Old work') < at('gate · if so'),
+      'the done item paints in the live flow, before the zone header');
+  }
+});
+
+test('E1: a cycle bet\'s cond items stay in the live flow — no zone forms for a bet in a condition cycle', () => {
+  const doc = 'title: T\nNOW\nA [bet: x] [if y]\nB [bet: y] [if x]\nNEXT\nC';
+  const m = parse(doc);
+  assert.ok(m.bets.x.cycle && m.bets.y.cycle, 'sanity: both bets really are flagged as a cycle');
+  for(const svg of [renderBoardDeck(m, ctx(), colors), renderBoardLive(m, ctx({edit: true}))]){
+    assert.ok(!/·\s*if (so|not)/.test(svg), 'no zone label ever forms for a cycle bet: ' + svg.slice(0, 60));
+  }
+});
+
+test('E1: a resolved-only doc carries no zone markup at all', () => {
+  for(const doc of [RESOLVED_WON, RESOLVED_LOST, MOOT_DOC]){
+    const m = parse(doc);
+    for(const svg of [renderBoardDeck(m, ctx(), colors), renderBoardLive(m, ctx({edit: true}))]){
+      assert.ok(!/·\s*if (so|not)/.test(svg), 'a resolved/dropped doc paints no "if so"/"if not" zone: ' + doc.slice(0, 30));
+    }
+  }
+});
+
+test('E1: an empty half-zone never paints — a bet with only [if] members in this column gets no "if not" label', () => {
+  const doc = 'title: T\nNOW\nCore: Root [bet: gate]\nNEXT\nCore: Rider [if gate]\nLATER\nCore: X';
+  const m = parse(doc);
+  for(const svg of [renderBoardDeck(m, ctx(), colors), renderBoardLive(m, ctx({edit: true}))]){
+    assert.ok(svg.includes('gate · if so'));
+    assert.ok(!svg.includes('gate · if not'), 'the empty [unless] half must not paint a label');
+  }
+});
+
+test('E1: the zone wash/label carry no data-edit/data-line/data-key/data-whatif — only the cards inside do', () => {
+  const m = parse(TWO_BET_DOC);
+  const svg = renderBoardLive(m, ctx({edit: true}));
+  const i = svg.indexOf('reminders · if so');
+  assert.ok(i !== -1, 'sanity: the zone renders');
+  // walk back to the wash <rect> immediately preceding this header's <text>
+  const rectStart = svg.lastIndexOf('<rect', i);
+  const chunk = svg.slice(rectStart, svg.indexOf('</text>', i) + '</text>'.length);
+  assert.ok(!chunk.includes('data-edit') && !chunk.includes('data-line') &&
+    !chunk.includes('data-key') && !chunk.includes('data-whatif'), 'wash+label carry no edit/whatif markup: ' + chunk);
+});
+
+test('E1: board live still emits a data-hdrop band spanning under everything in a zoned column', () => {
+  const m = parse(TWO_BET_DOC);
+  const svg = renderBoardLive(m, ctx({edit: true}));
+  assert.match(svg, /<rect data-hdrop="1"[^>]*\/>/, 'the NEXT column (h=1, where every zone lives) still carries its drop band');
+});
