@@ -65,6 +65,8 @@
           <dd>any hex; derives a matching scheme (overrides palette)</dd>
           <dt><code data-try="">style: focus</code></dt>
           <dd>the view and the export shape — <code>board</code> (columns) · <code>focus</code> (hero + rail) · <code>register</code> (table) · <code>grid</code> (chart). The first three are live editable views too</dd>
+          <dt><code data-try="">group: outcome</code></dt>
+          <dd>regroup the register by consequence — either way, only if a bet pays off, only if it doesn't. The By&nbsp;lane / By&nbsp;outcome control above a register writes this for you; omit the key for the usual lane order</dd>
           <dt><code data-try="">headline: We are betting on retention</code></dt>
           <dd>the standfirst under the title — yours to write, never generated (also the field above the preview). It appears on <strong>every</strong> export</dd>
           <dt><code data-try="">story: We chose depth over breadth</code></dt>
@@ -73,6 +75,8 @@
           <dd>which horizon the <code>focus</code> view heroes (defaults to the first with items)</dd>
           <dt><code data-try="">verdict: off</code></dt>
           <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
+          <dt><code data-try="">deck: spread</code></dt>
+          <dd>Copy&nbsp;PNG exports the world spread instead of the styled deck — if the bet pays off, either way, if it doesn't: one slide, both futures. Needs an open bet with conditional items; the on-screen view is untouched</dd>
         </dl>
         <h4>Items</h4>
         <dl>
@@ -145,7 +149,7 @@
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>
-        <span class="method">The style picker sets both the view and what every export gives you · Copy PNG hands over the 16:9 deck; PNG/SVG give the style at its own size · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>
+        <span class="method">The style picker sets both the view and what every export gives you · Copy PNG hands over the 16:9 deck — or both futures side by side, with <code>deck: spread</code> on a doc that carries an open bet; PNG/SVG give the style at its own size · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>
       </div>
     </section>
 </div>
