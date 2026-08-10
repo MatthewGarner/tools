@@ -207,40 +207,6 @@ for(const [k, src] of Object.entries(docs)){
      (no style: line needed) since genHorizons sets model.timeAxis. */
   variants['deck-grid'] = renderDeck(parse(docs.quarterly), {...ctxBase});
 
-  /* E7 world spread: an open fork (retention) with BOTH arms present
-     (Proactive nudges [if] / Manual outreach fallback [unless]), a CHAINED
-     second bet (budget's own declaring item, Referral push, is itself
-     conditioned on retention — so Referral push lands LEFT and its own
-     [unless budget] rider, Paid acquisition, lands CENTRE, non-ghosted: its
-     state genuinely differs between retention's two worlds but stays in play
-     both times), an either-way spine (Onboarding polish / Retention engine /
-     Enterprise tier — unconditional either way) and both edge statuses:
-     [done][if retention] (Legacy import cleanup — excluded from every panel,
-     finished work isn't a future) and [doing][unless retention] (Manual
-     outreach fallback — keeps its IN PROGRESS pill on the RIGHT panel). */
-  const spreadDoc = 'title: Retention roadmap\ndeck: spread\ndate: 2026-08-09\nNOW\n' +
-    'Core: Onboarding polish\n' +
-    'Core: Retention engine [bet: retention] -- ships behind a flag\n' +
-    'Core: Proactive nudges [if retention]\n' +
-    'Core: Manual outreach fallback [doing] [unless retention]\n' +
-    'Core: Legacy import cleanup [done] [if retention]\n' +
-    'NEXT\n' +
-    'Growth: Referral push [bet: budget] [if retention]\n' +
-    'Growth: Paid acquisition [unless budget]\n' +
-    /* an INDEPENDENT open bet (community stays unresolved in BOTH retention
-       worlds) -> Forums is cond-in-both: the centre's GHOST-capsule path is in
-       the byte-pin. Four extra unconditional items push the centre past its
-       cap of 5 -> the "+ n more" overflow path is pinned too (review
-       2026-08-10: a golden blind to ghost + overflow lets both regress
-       silently). NB [if budget] riders would NOT be centre-ghosts: budget goes
-       MOOT in the retention-lost world (its declaring item drops), so they'd
-       land LEFT — chained moot, not shared uncertainty. */
-    'Growth: Community beta [bet: community]\n' +
-    'Growth: Forums [if community]\n' +
-    'LATER\nGrowth: Enterprise tier\n' +
-    'Core: Widget refresh\nCore: Streak repair\nCore: Snooze controls\nCore: Quiet hours';
-  variants['deck-spread'] = renderDeck(parse(spreadDoc), {...ctxBase});
-
   /* REGISTER LIVE (Task 4): the editable-table preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
      pins the LAYOUT (fixed live width, content-driven height, the light
