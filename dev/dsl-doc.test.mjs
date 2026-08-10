@@ -62,6 +62,12 @@ test('every example tag names a real DSL tool', () => {
   assert.deepEqual(bogus, [], 'example tags for non-existent tools: ' + bogus.join(', '));
 });
 
+test('the paths worked example demonstrates the reading decision field', () => {
+  const example = blocks.find(block => block.tool === 'paths');
+  assert.ok(example, 'paths example is missing');
+  assert.match(example.body, /^  reading:\s+\S.+$/m);
+});
+
 for(const {tool, body} of blocks){
   test(`DSL.md example for ${tool} parses with zero warnings`, async () => {
     const {parse} = await import(join(ROOT, tool, 'parse.js'));

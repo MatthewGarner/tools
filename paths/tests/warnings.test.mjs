@@ -22,6 +22,8 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   one(model, 'tab-indent', 2, 'parse', 'line 2: tab used for indentation — read as 2 spaces; replace it with 2 spaces');
   model = parse('NOW\n   Core: A');
   one(model, 'odd-indent', 2, 'parse', 'line 2: item is indented by 3 spaces — read as 2 spaces; use 2 spaces');
+  model = parse('decision groups:\n    question: q');
+  one(model, 'odd-indent', 2, 'parse', 'line 2: decision field is indented by 4 spaces — read as 2 spaces; use 2 spaces');
   model = parse('title: x\ndate: off\ntoday: 2026-08-10\n  Core: Streak repair');
   one(model, 'item-before-period', 4, 'parse', 'line 4: "Core: Streak repair" appears before any period — kept in the first period, "Now"; add a period heading above it');
 
@@ -42,6 +44,8 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   one(model, 'invalid-due-date', 5, 'parse', 'line 5: answer-by "2026-02-30" is not a valid date — use YYYY-MM-DD; due date ignored');
   model = parse(`${complete('groups')}\n  answer: yes 15-12-2026`);
   one(model, 'invalid-answer-date', 6, 'parse', 'line 6: answer date "15-12-2026" is not valid — use YYYY-MM-DD; answer date ignored');
+  model = parse(`${complete('groups')}\n  answer: maybe`);
+  one(model, 'invalid-answer-value', 6, 'parse', 'line 6: answer "maybe" is not valid — use "yes" or "no"; answer ignored');
   model = parse(`${complete('groups')}\n  assume: yes 15-12-2026`);
   one(model, 'invalid-assumption-date', 6, 'parse', 'line 6: assumption date "15-12-2026" is not valid — use YYYY-MM-DD; assumption ignored');
 
@@ -59,10 +63,22 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   one(model, 'duplicate-period', 3, 'parse', 'line 3: period "Later" already appears on line 1 — items below continue in the existing "Later" period; keep one heading');
   model = parse('Later\ndecision later work');
   one(model, 'invalid-period-heading', 2, 'parse', 'line 2: "decision later work" cannot be used as a period heading — kept as an item in "Later"; use a heading that does not begin with "decision"');
+  model = parse('Later\ndecisionx:');
+  one(model, 'invalid-decision-heading', 2, 'parse', 'line 2: "decisionx:" is not a valid decision heading — use one word with letters, numbers or hyphens, such as "decision coach-pricing:"');
+  model = parse('style: banana');
+  one(model, 'invalid-style', 1, 'parse', 'line 1: style "banana" is not valid — use "tree" or "plans"; style read as "tree"');
   model = parse('Later\n  title: Research');
   one(model, 'setting-in-item-position', 2, 'parse', 'line 2: "title: Research" read as the title setting, not an item in a lane called "title" — move settings above the first period, or rename the lane');
   model = parse('Later\n  Research follow-up');
   one(model, 'unmatched-line', 2, 'parse', 'line 2: "Research follow-up" cannot be read as a setting, decision or period — kept as an item in "Later"; use "Lane: Title" for an item');
+});
+
+test('warning dedupe suppresses a diagnostic genuinely emitted twice with one key', () => {
+  const model = parse('NOW\n  Core: A [planned] [planned]');
+  const warnings = model.warnings.filter(w => w.code === 'unknown-item-tag');
+  assert.equal(warnings.length, 1);
+  assert.deepEqual({code:warnings[0].code, line:warnings[0].line, subject:warnings[0].subject},
+    {code:'unknown-item-tag', line:2, subject:'planned'});
 });
 
 test('every build warning has its owning phase, exact source line and dedupe key', () => {

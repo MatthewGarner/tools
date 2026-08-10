@@ -1,65 +1,37 @@
 /* Possible-plan enumeration for /paths. Pure and memoised per parsed model. */
 
-import {evaluateOperation, project} from './evaluate.js';
+import {project, resolveDecisions} from './evaluate.js';
 
 export const PLAN_CAP = 6;
 const CACHE = new WeakMap();
 
-function possibleCondition(condition, possibleOf){
-  if(!condition?.valid) return new Set(['invalid']);
-  const operands = condition.terms.map(term => {
-    const values = [...possibleOf(term.key)].map(value => {
-      const operand = {value, provenance:new Set(), evidence:[]};
-      return term.negated ? evaluateOperation('not', [operand]).value : value;
+function enumerableDecisions(model, today, current){
+  const candidates = model.decisions.filter(decision => !decision.answer?.direction &&
+    !decision.cycle && (!decision.when || decision.when.valid));
+  const seed = candidates.filter(decision => {
+    if(!decision.when) return true;
+    const referencesUnanswered = decision.when.terms.some(term => {
+      const dependency = model.decisionByName[term.key];
+      return dependency && !dependency.answer?.direction && !dependency.cycle;
     });
-    return [...new Set(values)];
+    return !referencesUnanswered && current.decisionByName[decision.key]?.availability === 'active';
   });
-  let results = [{value:null}];
-  for(const values of operands){
-    const next = [];
-    for(const prefix of results) for(const value of values){
-      const list = prefix.operands ? [...prefix.operands, {value, provenance:new Set(), evidence:[]}]
-        : [{value, provenance:new Set(), evidence:[]}];
-      next.push({operands:list});
-    }
-    results = next;
-  }
-  const out = new Set();
-  for(const row of results) out.add(evaluateOperation(condition.operator, row.operands || []).value);
-  return out;
-}
+  if(seed.length > PLAN_CAP) return {decisions:seed, refusedCount:seed.length};
 
-function enumerableDecisions(model){
-  const memo = new Map(), visiting = new Set();
-  function possibleOf(key){
-    if(memo.has(key)) return memo.get(key);
-    const decision = model.decisionByName[key];
-    if(!decision || decision.cycle || visiting.has(key)) return new Set(['unknown']);
-    visiting.add(key);
-    let canOpen = true, canMoot = false;
-    if(decision.when){
-      if(!decision.when.valid) canOpen = false;
-      else {
-        const values = possibleCondition(decision.when, possibleOf);
-        canOpen = values.has('true'); canMoot = values.has('false');
-      }
+  const enumerable = [...seed];
+  const included = new Set(seed.map(decision => decision.key));
+  while(true){
+    const assignments = assignmentRows(enumerable, current);
+    const reachable = candidates.filter(decision => !included.has(decision.key) && assignments.some(answers =>
+      resolveDecisions(model, today, answers).decisionByName[decision.key]?.availability === 'active'));
+    if(!reachable.length) break;
+    if(enumerable.length + reachable.length > PLAN_CAP){
+      return {decisions:enumerable, refusedCount:enumerable.length + reachable.length};
     }
-    const out = new Set();
-    if(canOpen){
-      if(decision.answer?.direction) out.add(decision.answer.direction === 'yes' ? 'true' : 'false');
-      else { out.add('true'); out.add('false'); }
-    }
-    if(canMoot) out.add('false');
-    if(!out.size) out.add('unknown');
-    visiting.delete(key); memo.set(key, out);
-    return out;
+    for(const decision of reachable){ enumerable.push(decision); included.add(decision.key); }
+    enumerable.sort((a, b) => a.srcLine - b.srcLine);
   }
-  for(const decision of model.decisions) possibleOf(decision.key);
-  return model.decisions.filter(decision => !decision.answer?.direction && !decision.cycle &&
-    (!decision.when || decision.when.valid) && (() => {
-      if(!decision.when) return true;
-      return possibleCondition(decision.when, possibleOf).has('true');
-    })());
+  return {decisions:enumerable, refusedCount:null};
 }
 
 function countWord(n){
@@ -121,15 +93,17 @@ function sharesFor(current, worlds){
 
 function calculate(model, today){
   const current = project(model, today);
-  const enumerable = enumerableDecisions(model);
-  const enumerableCount = enumerable.length;
-  if(enumerableCount > PLAN_CAP){
+  const reachability = enumerableDecisions(model, today, current);
+  const enumerable = reachability.decisions;
+  if(reachability.refusedCount){
+    const enumerableCount = reachability.refusedCount;
     const reason = refusalReason(enumerableCount);
     const warning = {phase:'project', code:'possible-plan-refusal', line:null,
       subject:'worlds', message:reason};
     return {...current, warnings:[...current.warnings, warning], worlds:{refused:true, reason, enumerableCount},
       shares:null, matrix:[]};
   }
+  const enumerableCount = enumerable.length;
 
   const assignments = assignmentRows(enumerable, current);
   const merged = new Map();
@@ -163,4 +137,3 @@ export function enumeratePlans(model, today){
 
 export const projectPlans = enumeratePlans;
 export const plans = enumeratePlans;
-

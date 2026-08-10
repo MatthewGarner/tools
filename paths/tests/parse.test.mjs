@@ -19,6 +19,13 @@ test('CRLF, tabs and malformed one/three-space indents recover to the two-space 
   assert.deepEqual(model.warnings.map(w => w.code), ['tab-indent', 'odd-indent', 'odd-indent']);
 });
 
+test('decision fields at four-or-more spaces warn and recover as fields', () => {
+  const model = parse('decision groups:\n    question: Groups?\n      signal: invites\n  owner: growth\n  answer-by: 2026-12-15\nNOW\n  Core: Work [if groups]');
+  assert.equal(model.decisions[0].question, 'Groups?');
+  assert.equal(model.decisions[0].signal, 'invites');
+  assert.deepEqual(model.warnings.filter(w => w.code === 'odd-indent').map(w => w.line), [2, 3]);
+});
+
 test('item token stripping keeps note and later URL, statuses are last-wins, conditions first-wins', () => {
   const model = parse(`${complete('groups')}\n${complete('pricing')}\nNOW\n  Core: Coach x3 [doing] [blocked] [if groups] [if pricing] [planned] -- useful note -> https://example.test/x`);
   const item = model.items[0];
@@ -51,6 +58,19 @@ test('answer receipt fields remain uninterpreted and conflicting answers leave n
     direction:'yes', date:'2026-12-16', target:'15%', actual:'19%', receipt:'experiment 42',
     raw:'yes 2026-12-16 target: 15% actual: 19% -- experiment 42', srcLine:5, valid:true,
   });
+});
+
+test('an invalid answer direction warns and leaves the decision unanswered', () => {
+  const model = parse(`${complete('groups')}\n  answer: maybe\nNOW\n  Core: Work [if groups]`);
+  assert.equal(model.decisions[0].answer, null);
+  assert.equal(model.decisions[0].answers[0].valid, false);
+  assert.equal(model.warnings.filter(w => w.code === 'invalid-answer-value').length, 1);
+});
+
+test('every column-zero line beginning with decision is recovered, never made a period', () => {
+  const model = parse('decisionx:\n  Core: Work');
+  assert.equal(model.periods.some(period => period.name === 'decisionx'), false);
+  assert.equal(model.warnings.filter(w => w.code === 'invalid-decision-heading').length, 1);
 });
 
 test('calendar validation is lexical and rejects impossible dates including non-leap February', () => {

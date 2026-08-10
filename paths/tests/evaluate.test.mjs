@@ -93,6 +93,35 @@ test('resolution ladder is moot, dormant, written answer, assumption, then unkno
   assert.equal(unknown.decisionByName.groups.overdue, false);
 });
 
+test('a held answer becomes effective when a hypothetical host opens its decision', () => {
+  const model = parse(`${decision('groups')}\n${decision('pricing', '\n  when: groups\n  answer: yes')}\nNOW\n  Core: Market [if pricing]`);
+  const dormant = project(model, '2026-12-22');
+  assert.equal(dormant.decisionByName.pricing.availability, 'dormant');
+  assert.equal(dormant.decisionByName.pricing.effectiveAnswer, null);
+
+  const opened = project(model, '2026-12-22', {groups:'yes'});
+  assert.equal(opened.decisionByName.pricing.availability, 'active');
+  assert.equal(opened.decisionByName.pricing.effectiveAnswer, 'yes');
+  assert.equal(opened.items[0].itemState, 'in-plan');
+});
+
+test('display evidence follows assumption, host exclusion, written answer and pending-answer precedence', () => {
+  const assumed = project(parse(`${decision('a', '\n  assume: no 2026-12-20')}\n${decision('b')}\nNOW\n  Core: Assumed [if a and b]`), '2026-12-22');
+  assert.deepEqual(assumed.items[0].displayEvidence, {kind:'assumption', decision:'a', direction:'no'});
+
+  const moot = project(parse(`${decision('host', '\n  answer: no')}\n${decision('child', '\n  when: host')}\nNOW\n  Core: Moot [unless child]`), '2026-12-22');
+  assert.deepEqual(moot.items[0].displayEvidence,
+    {kind:'host-exclusion', decision:'child', host:'host', direction:'no'});
+
+  const answered = project(parse(`${decision('a', '\n  answer: yes')}\nNOW\n  Core: Answered [if a]`), '2026-12-22');
+  assert.deepEqual(answered.items[0].displayEvidence, {kind:'written-answer', decision:'a', direction:'yes'});
+
+  const waiting = project(parse(`${decision('a')}\nNOW\n  Core: Waiting [if a]`), '2026-12-10');
+  assert.deepEqual(waiting.items[0].displayEvidence, {kind:'pending-answer', decision:'a'});
+  const unconditional = project(parse('NOW\n  Core: Always'), '2026-12-10');
+  assert.deepEqual(unconditional.items[0].displayEvidence, {kind:'unconditional'});
+});
+
 test('pinned today overrides injection and date equality is not overdue or in-force', () => {
   const model = parse(`today: 2026-12-15\n${decision('groups', '\n  assume: yes 2026-12-14')}\nNOW\n  Core: Groups [if groups]`);
   const projected = project(model, '2099-01-01');

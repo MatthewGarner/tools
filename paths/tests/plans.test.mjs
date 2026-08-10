@@ -23,6 +23,23 @@ test('dormant decisions are recursively counted and non-open assignment labels s
   assert.ok(result.worlds.plans.some(plan => plan.assignments.some(a => a.labels.includes('pricing — Not open yet'))));
 });
 
+test('fixpoint reachability preserves assignment correlation for impossible conditions', () => {
+  const children = Array.from({length:6}, (_, i) => decision(`impossible${i}`, '\n  when: a and not a'));
+  const model = parse(`${decision('a')}\n${children.join('\n')}\nNOW\n  Core: Only real branch [if a]`);
+  const result = enumeratePlans(model, '2026-02-02');
+  assert.equal(result.worlds.refused, false);
+  assert.equal(result.worlds.enumerableCount, 1);
+  assert.equal(result.worlds.possibleCount, 2);
+  assert.equal(result.worlds.plans.reduce((sum, plan) => sum + plan.covers, 0), 2);
+});
+
+test('fixpoint reachability expands through a genuinely reachable host chain', () => {
+  const model = parse(`${decision('host')}\n${decision('child', '\n  when: host')}\n${decision('grandchild', '\n  when: child')}\nNOW\n  Core: End [if grandchild]`);
+  const result = enumeratePlans(model, '2026-02-02');
+  assert.equal(result.worlds.enumerableCount, 3);
+  assert.equal(result.worlds.possibleCount, 8);
+});
+
 test('equivalent worlds merge by ordered identity/state/period/status signature and retain coverage', () => {
   const model = parse(`${decision('x')}\n${decision('y')}\nNOW\n  Core: Either [if x or y]`);
   const result = enumeratePlans(model, '2026-02-02');
@@ -50,13 +67,26 @@ test('invalid when decisions and cycles are excluded from enumeration', () => {
   assert.equal(result.worlds.enumerableCount, 1);
 });
 
-test('three shares exhaust eligible non-done items and separate shared, assumed and dependent', () => {
-  const model = parse(`${decision('assumed', '\n  assume: yes 2026-02-01')}\n${decision('open')}\nNOW\n  Core: Shared\n  Core: Assumed [if assumed]\n  Core: Dependent [if open]\n  Core: Finished [done]`);
-  const result = enumeratePlans(model, '2026-02-02');
-  assert.deepEqual({denominator:result.shares.denominator, shared:result.shares.shared,
-    assumed:result.shares.assumed, dependent:result.shares.dependent},
-  {denominator:3, shared:1, assumed:1, dependent:1});
-  assert.equal(result.shares.sharedShare + result.shares.assumedShare + result.shares.dependentShare, 1);
+test('share partition table exhausts the denominator across interesting combinations', () => {
+  const rows = [
+    {name:'shared only', doc:'NOW\n  Core: Shared', counts:[1, 1, 0, 0]},
+    {name:'dependent only', doc:`${decision('open')}\nNOW\n  Core: Dependent [if open]`, counts:[1, 0, 0, 1]},
+    {name:'assumed only', doc:`${decision('assumed', '\n  assume: yes 2026-02-01')}\nNOW\n  Core: Assumed [if assumed]`, counts:[1, 0, 1, 0]},
+    {name:'mixed with done excluded', doc:`${decision('assumed', '\n  assume: yes 2026-02-01')}\n${decision('open')}\nNOW\n  Core: Shared\n  Core: Assumed [if assumed]\n  Core: Dependent [if open]\n  Core: Finished [done]`, counts:[3, 1, 1, 1]},
+    {name:'never included excluded', doc:`${decision('a')}\nNOW\n  Core: Impossible [if a and not a]`, counts:null},
+    {name:'done-only zero denominator', doc:'NOW\n  Core: Finished [done]', counts:null},
+  ];
+  for(const row of rows){
+    const shares = enumeratePlans(parse(row.doc), '2026-02-02').shares;
+    if(!row.counts){ assert.equal(shares, null, row.name); continue; }
+    const [denominator, shared, assumed, dependent] = row.counts;
+    assert.deepEqual({denominator:shares.denominator, shared:shares.shared,
+      assumed:shares.assumed, dependent:shares.dependent},
+    {denominator, shared, assumed, dependent}, row.name);
+    assert.equal(shared + assumed + dependent, denominator, `${row.name}: counts partition denominator`);
+    assert.equal(shares.sharedShare + shares.assumedShare + shares.dependentShare, 1,
+      `${row.name}: shares partition denominator`);
+  }
 });
 
 test('zero denominator yields no figure and repeated calls memoise per model and today', () => {
@@ -67,4 +97,3 @@ test('zero denominator yields no figure and repeated calls memoise per model and
   assert.equal(first, second);
   assert.notEqual(first, enumeratePlans(model, '2026-02-03'));
 });
-

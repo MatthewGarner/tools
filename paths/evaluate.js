@@ -99,7 +99,42 @@ function falseReason(whenResult, model){
   if(!host) return null;
   if(evidence.reason) return evidence.reason;
   const direction = evidence.rawValue === 'true' ? 'yes' : 'no';
-  return {host:host.name, direction};
+  return {host:host.name, hostKey:host.key, direction};
+}
+
+function displayEvidenceFor(source, conditionResult){
+  if(!source.condition) return {kind:'unconditional'};
+  if(!source.condition.valid || conditionResult.value === 'invalid') return {kind:'condition-error'};
+  const evidence = conditionResult.evidence || [];
+  for(const member of evidence){
+    const decision = member.decision;
+    if(decision?.assumption?.inForce){
+      return {kind:'assumption', decision:decision.key, direction:decision.assumption.direction};
+    }
+  }
+  for(const member of evidence){
+    const decision = member.decision;
+    if(member.reason && decision){
+      return {kind:'host-exclusion', decision:decision.key,
+        host:member.reason.hostKey || String(member.reason.host || '').toLowerCase(),
+        direction:member.reason.direction};
+    }
+  }
+  for(const member of evidence){
+    const decision = member.decision;
+    if(decision?.availability === 'active' && decision.answer?.direction &&
+      decision.effectiveAnswer === decision.answer.direction){
+      return {kind:'written-answer', decision:decision.key, direction:decision.answer.direction};
+    }
+  }
+  for(const member of evidence){
+    const decision = member.decision;
+    if(decision?.availability === 'active' && decision.effectiveAnswer){
+      return {kind:'assigned-answer', decision:decision.key, direction:decision.effectiveAnswer};
+    }
+  }
+  const pending = evidence.find(member => member.decision)?.decision;
+  return pending ? {kind:'pending-answer', decision:pending.key} : {kind:'condition-error'};
 }
 
 export function resolveDecisions(model, injectedToday, assignment = {}){
@@ -244,7 +279,8 @@ export function project(model, injectedToday, assignment = {}){
     const dependencies = source.condition?.valid
       ? source.condition.terms.map(t => resolution.decisionByName[t.key]).filter(Boolean)
       : [];
-    const item = {...source, conditionResult, itemState, state:itemState};
+    const displayEvidence = displayEvidenceFor(source, conditionResult);
+    const item = {...source, conditionResult, itemState, state:itemState, displayEvidence};
     const placement = source.condition?.valid ? chooseParent(item, dependencies) : {parent:null, secondary:[]};
     return {...item, parentDecision:placement.parent, secondaryDependencies:placement.secondary};
   });

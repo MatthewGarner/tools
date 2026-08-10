@@ -100,7 +100,11 @@ function parseAnswer(raw, decision, line, add){
   const head = receiptSplit[0].trim();
   const receipt = receiptSplit.length > 1 ? receiptSplit[1].trim() : '';
   const direction = /^(yes|no)\b/i.exec(head);
-  if(!direction) return {direction:null, date:null, target:null, actual:null, receipt, raw, srcLine:line - 1, valid:false};
+  if(!direction){
+    add('parse', 'invalid-answer-value', line, decision.key,
+      `line ${line}: answer ${quote(raw)} is not valid — use "yes" or "no"; answer ignored`);
+    return {direction:null, date:null, target:null, actual:null, receipt, raw, srcLine:line - 1, valid:false};
+  }
   const answer = {direction:direction[1].toLowerCase(), date:null, target:null, actual:null,
     receipt, raw, srcLine:line - 1, valid:true};
   const rest = head.slice(direction[0].length).trim();
@@ -320,6 +324,10 @@ export function parse(text){
       add('parse', 'odd-indent', lineNo, 'indent',
         `line ${lineNo}: item is indented by ${indent} spaces — read as 2 spaces; use 2 spaces`);
       indent = 2;
+    } else if(indent >= 4 && block?.type === 'decision'){
+      add('parse', 'odd-indent', lineNo, 'indent',
+        `line ${lineNo}: decision field is indented by ${indent} spaces — read as 2 spaces; use 2 spaces`);
+      indent = 2;
     }
     let content = physical.trim();
     content = content.replace(/(^|\s)\/\/.*$/, '').trim();
@@ -342,7 +350,15 @@ export function parse(text){
         if(isValidDate(value)) model.today = value;
         else add('parse', 'invalid-today', lineNo, 'today',
           `line ${lineNo}: today ${quote(value)} is not a valid date — use YYYY-MM-DD; date ignored`);
-      } else if(key === 'style') model.style = value.toLowerCase() === 'plans' ? 'plans' : 'tree';
+      } else if(key === 'style'){
+        const style = value.toLowerCase();
+        if(style === 'tree' || style === 'plans') model.style = style;
+        else {
+          model.style = 'tree';
+          add('parse', 'invalid-style', lineNo, 'style',
+            `line ${lineNo}: style ${quote(value)} is not valid — use "tree" or "plans"; style read as "tree"`);
+        }
+      }
       else if(key === 'verdict') model.verdict = value;
       else if(key === 'palette') model.palette = value;
       else if(key === 'accent') model.accent = value;
@@ -358,7 +374,7 @@ export function parse(text){
         model.decisions.push(decision); block = {type:'decision', decision};
         continue;
       }
-      if(/^decision\b/i.test(content)){
+      if(/^decision/i.test(content)){
         const period = block?.type === 'period' ? block.period : (model.periods.at(-1) || implicitPeriod(model));
         if(/:$/.test(content)){
           add('parse', 'invalid-decision-heading', lineNo, content,

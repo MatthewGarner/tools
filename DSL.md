@@ -98,6 +98,7 @@ accent: #C05621
 decision groups:
   question: Do people add at least three friends to a habit without prompting?
   signal: invites per user >= 3
+  reading: 3.4 in the winter cohort
   owner: growth squad
   answer-by: 2026-12-15
   answer: yes 2026-12-15 target: 3 actual: 3.4 -- winter cohort

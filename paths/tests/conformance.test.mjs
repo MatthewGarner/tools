@@ -9,9 +9,9 @@ function normalizePaths(fixture){
   const model = project(parsePaths(fixture.pathsDoc), fixture.today);
   return {
     host:model.decisionByName[fixture.host].value,
-    items:Object.fromEntries(Object.keys(fixture.itemIdentityMap).map(pathTitle => {
-      const item = model.items.find(candidate => candidate.title === pathTitle);
-      return [pathTitle, item.itemState];
+    items:Object.fromEntries(Object.entries(fixture.itemIdentityMap).map(([identity, pair]) => {
+      const item = model.items.find(candidate => candidate.identity === pair.paths);
+      return [identity, item.itemState];
     })),
   };
 }
@@ -21,9 +21,9 @@ function normalizeRoadmap(fixture){
   const effective = model.bets[fixture.host].effective;
   const host = effective === 'won' ? 'true' : effective === 'unresolved' ? 'unknown' : 'false';
   const items = {};
-  for(const [pathTitle, roadmapTitle] of Object.entries(fixture.itemIdentityMap)){
-    const item = model.items.find(candidate => candidate.title === roadmapTitle);
-    items[pathTitle] = item.worldState === 'dropped' ? 'not-needed'
+  for(const [identity, pair] of Object.entries(fixture.itemIdentityMap)){
+    const item = model.items.find(candidate => candidate.srcLine === pair.roadmap);
+    items[identity] = item.worldState === 'dropped' ? 'not-needed'
       : item.worldState === 'cond' ? 'waiting' : 'in-plan';
   }
   return {host, items};
@@ -44,4 +44,3 @@ test('known divergence: /paths mootness beats the child written yes; /roadmap ke
   assert.deepEqual(roadmap, knownDifference.expect.roadmap);
   assert.notDeepEqual(paths, roadmap);
 });
-
