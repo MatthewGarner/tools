@@ -626,3 +626,32 @@ test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items
   assertClean(renderFocusDeck(focusM, ctx, paletteColors(focusM, ctx)), 'roadmap-deck-focus conditional');
   assertClean(renderDeck(m, ctx), 'roadmap-deck-grid conditional');
 });
+
+/* E7 (deck world spread): a NEW body, a NEW call site for cardTag/tagColors
+   (the centre panel's ghost capsule) and a new capsule/title paint path per
+   panel — its own hostile-name pass, same S4-style fixture-validity guard
+   (a future refactor that silently zeroed the fork's reach would otherwise
+   pass every assertClean call below on a spread that renders nothing). */
+test('roadmap DECK (deck: spread) escapes hostile titles/lanes/notes across all three panels', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderDeck} = await import('../roadmap/render-deck.js');
+  const {forkEntries} = await import('../roadmap/parse.js');
+
+  const doc = 'deck: spread\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
+    EVIL[1].replace(/:/g, ';') + ' lane: ' + label(1) + ' [bet: shipped-a1-b2]\n' +           // CENTRE (no cond of its own)
+    EVIL[2].replace(/:/g, ';') + ' lane: ' + label(2) + ' [if shipped-a1-b2] -- ' + EVIL[3] + '\n' +      // LEFT
+    EVIL[4].replace(/:/g, ';') + ' lane: ' + label(4) + ' [doing] [unless shipped-a1-b2] -- ' + EVIL[5] + '\n' + // RIGHT, keeps its pill
+    EVIL[0].replace(/:/g, ';') + ' lane: ' + label(0) + '\n' +                                            // CENTRE, plain
+    'NEXT\n' +
+    EVIL[3].replace(/:/g, ';') + ' lane: ' + label(3) + ' [bet: x]\n' +
+    EVIL[5].replace(/:/g, ';') + ' lane: ' + label(5) + ' [if x]';                                        // CENTRE, ghosted capsule
+
+  const m = parse(doc);
+  // fixture-validity guard (S4's pattern): the fork this test claims to cover
+  // must actually exist, or a future refactor that zeroed reach would still
+  // pass every assertClean call below on a spread that renders nothing.
+  assert.ok(m.bets['shipped-a1-b2'], 'the fixture declares its spread bet');
+  const entries = forkEntries(m);
+  assert.ok(entries.length && entries[0].n > 0, 'the fixture actually has an open bet with reach');
+  assertClean(renderDeck(m, ctx), 'roadmap-deck-spread conditional');
+});

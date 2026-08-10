@@ -8,15 +8,17 @@
    author's `headline:` standfirst, if they wrote one → body band → footer rule
    + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
    via scheme()), never the style — a style owns STRUCTURE. */
-import {txt} from '../assets/svg.js';
+import {txt, wash} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
 import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule,
-  SANS, SERIF, r2, capFit, storyLine} from './deck-parts.js';
+  SANS, SERIF, r2, capFit, storyLine, italTxt} from './deck-parts.js';
 import {renderRegisterDeck} from './render-register.js';
 import {renderBoardDeck} from './render-board.js';
 import {renderFocusDeck} from './render-focus.js';
 import {layoutRoadmap} from './layout.js';
+import {forkEntries, applyWorld, STATUS_LABEL} from './parse.js';
+import {cardTag, tagColors} from './cond-parts.js';
 export {registerColumns, capFit} from './deck-parts.js';
 export {renderRegisterBody} from './render-register.js';
 export {renderBoardBody, boardGeometry, typeRamp} from './render-board.js';
@@ -148,7 +150,168 @@ const STYLE_RENDERERS = {
   board: renderBoardDeck, register: renderRegisterDeck, focus: renderFocusDeck, grid: renderGridDeck,
 };
 
+/* ------------------------------------------------------------------- *
+ * E7 — world spread (`deck: spread`). Opt-in, and full-model ONLY: unlike
+ * every style body above, this never runs through layoutRoadmap's
+ * presentation strip — a spread panel's membership is a claim about the
+ * WHOLE plan (`k of t items`, `t` = model.items.length), so trimming to
+ * three horizons first would silently make that claim about a subset while
+ * still printing the total. deckFrame still prints the same title/date/
+ * standfirst/metrics — it's handed the identical, unstripped model, so
+ * every number on the slide describes one document.
+ *
+ * Compare (per-item diff badges) and what-if are deliberately NOT part of
+ * this lens: compare answers "what changed since a snapshot", spread answers
+ * "what does this ONE open bet decide" — different questions, so diff badges
+ * are ignored here rather than layered on top (frame's own storyLine still
+ * carries the diff narrative). What-if previews are never exported at all
+ * (existing doctrine, cond-parts.js) — this body renders the TEXT world's
+ * own biggest fork, never a hypothetical one a viewer clicked into.
+ * ------------------------------------------------------------------- */
+
+/* compact left/right cards: title + lane/status subline, oldest-declared
+   first (srcLine) — same ordering rule as every other roadmap listing. */
+function spreadCardRows(idxs, model){
+  return idxs.map(i => model.items[i]).sort((a, b) => a.srcLine - b.srcLine).map(it => {
+    const sub = [it.lane ? it.lane.toUpperCase() : '', it.status ? STATUS_LABEL[it.status].toUpperCase() : '']
+      .filter(Boolean).join('   ·   ');
+    return {it, sub, h: sub ? 46 : 28};
+  });
+}
+
+function paintSpreadPanel(rows, {cx, cy0, cw, availH, C, measure}){
+  const s = [];
+  const heights = rows.map(r => r.h);
+  const shown = capFit(heights, availH, 10, 34);
+  let cy = cy0;
+  for(let i = 0; i < shown; i++){
+    const {it, sub} = rows[i];
+    s.push(txt(cx, cy + 17, clip1(it.title, '600 15px ' + SANS, cw, measure), 15, C.ink, {weight: 600}));
+    if(sub) s.push(txt(cx, cy + 35, clip1(sub, '700 11px ' + SANS, cw, measure), 11, C.muted, {weight: 700, tracking: 0.5}));
+    cy += rows[i].h + 10;
+  }
+  if(shown < rows.length) s.push(txt(cx, cy + 12, '+ ' + (rows.length - shown) + ' more', 13, C.muted, {weight: 600}));
+  return s.join('');
+}
+
+/* centre panel: EITHER WAY — count + up to 5 titles. Any item still cond in
+   EITHER world carries its capsule (a bare title would overstate certainty —
+   the reading line counts these in k); items cond in BOTH worlds (waiting on
+   some OTHER, unrelated bet) additionally render ghosted. cardTag reads the
+   ORIGINAL text-world model — the other bet is exactly as unresolved there. */
+function paintCentrePanel(idxs, model, won, lost, {cx, cy0, cw, availH, C, measure}){
+  const rows = [...idxs].sort((a, b) => model.items[a].srcLine - model.items[b].srcLine);
+  const s = [];
+  s.push(txt(cx, cy0 - 8, String(rows.length) + (rows.length === 1 ? ' item' : ' items'), 15, C.ink, {weight: 700}));
+  if(!rows.length){
+    s.push(italTxt(cx, cy0 + 20, 'nothing survives both worlds', 13, C.muted));
+    return s.join('');
+  }
+  const CAP = 5;
+  let cy = cy0 + 20, shown = 0;
+  const rowH = 26;
+  for(let i = 0; i < Math.min(CAP, rows.length) && (cy - cy0) < availH; i++){
+    const idx = rows[i], it = model.items[idx];
+    const condW = won.items[idx].worldState === 'cond', condL = lost.items[idx].worldState === 'cond';
+    const tag = (condW || condL) ? cardTag(model, it) : null;
+    if(tag){
+      const ghost = condW && condL;
+      const [tcol, tink] = tagColors(tag, C);
+      const cap = capsule(cx, cy, clip1(tag.label, '600 12px ' + SANS, cw - 18, measure), tcol, tink, measure);
+      s.push('<g' + (ghost ? ' opacity="0.65"' : '') + '>' + cap.svg +
+        txt(cx, cy + 40, clip1(it.title, '600 13px ' + SANS, cw, measure), 13, C.ink, {weight: 600}) + '</g>');
+      cy += 58;
+    } else {
+      s.push(txt(cx, cy + 12, clip1(it.title, '600 13px ' + SANS, cw, measure), 13, C.ink, {weight: 600}));
+      cy += rowH;
+    }
+    shown++;
+  }
+  /* count from SHOWN, not CAP — the height guard can stop the loop early, and a
+     "+ n more" that undercounts is silent truncation (review finding, 2026-08-10) */
+  if(shown < rows.length) s.push(txt(cx, cy + 6, '+ ' + (rows.length - shown) + ' more', 12, C.muted, {weight: 600}));
+  return s.join('');
+}
+
+function spreadBodyFn(model, ctx){
+  return (y0, y1, C) => {
+    const {measure} = ctx;
+    const entries = forkEntries(model);
+    const top = entries[0];
+    const nameLc = top.name, display = top.display;
+    const won = applyWorld(model, {[nameLc]: 'won'});
+    const lost = applyWorld(model, {[nameLc]: 'lost'});
+    const items = model.items;
+    const leftIdx = [], rightIdx = [], centreIdx = [];
+    for(let i = 0; i < items.length; i++){
+      const w = won.items[i].worldState !== 'dropped';
+      const l = lost.items[i].worldState !== 'dropped';
+      if(w && !l) leftIdx.push(i);
+      else if(!w && l) rightIdx.push(i);
+      else if(w && l && items[i].status !== 'done') centreIdx.push(i);
+    }
+
+    const gap = 28;
+    const usable = INNER - gap * 2;
+    const leftW = r2(usable * 0.4), centreW = r2(usable * 0.2), rightW = usable - leftW - centreW;
+    const leftX = M, centreX = leftX + leftW + gap, rightX = centreX + centreW + gap;
+
+    const bandBottom = Math.min(968, y1) - 34;   // room for the reading line
+    const kickerY = y0 + 20;
+    const panelTop = y0 + 44;
+    const availH = Math.max(0, bandBottom - panelTop);
+
+    /* each panel emits as one self-contained block — background, kicker,
+       body — rather than interleaving all three kickers first: keeps every
+       panel's markup contiguous in the output (nothing but geometry rides
+       on the order; SVG has no z-order concern here since the panels never
+       overlap). */
+    const s = [];
+    const leftRows = spreadCardRows(leftIdx, model);
+    const rightRows = spreadCardRows(rightIdx, model);
+
+    s.push(rect(leftX, y0, leftW, bandBottom - y0, wash(C.status.done, '0D'), {rx: 14}));
+    s.push(txt(leftX + 20, kickerY, clip1(('IF ' + display + ' PAYS OFF').toUpperCase(), '700 14px ' + SANS, leftW - 40, measure), 14, C.statusInk.done,
+      {weight: 700, tracking: 1.3}));
+    s.push(leftRows.length
+      ? paintSpreadPanel(leftRows, {cx: leftX + 20, cy0: panelTop, cw: leftW - 40, availH, C, measure})
+      : italTxt(leftX + 20, panelTop + 20, 'nothing new starts', 14, C.muted));
+
+    s.push(rect(centreX, y0, centreW, bandBottom - y0, C.card, {rx: 14}));
+    s.push(txt(centreX + centreW / 2, kickerY, 'EITHER WAY', 13, C.muted, {anchor: 'middle', weight: 700, tracking: 1.3}));
+    s.push(paintCentrePanel(centreIdx, model, won, lost,
+      {cx: centreX + 16, cy0: panelTop, cw: centreW - 32, availH, C, measure}));
+
+    s.push(rect(rightX, y0, rightW, bandBottom - y0, wash(C.status.blocked, '0D'), {rx: 14}));
+    s.push(txt(rightX + 20, kickerY, "IF IT DOESN'T", 14, C.statusInk.blocked, {weight: 700, tracking: 1.3}));
+    s.push(rightRows.length
+      ? paintSpreadPanel(rightRows, {cx: rightX + 20, cy0: panelTop, cw: rightW - 40, availH, C, measure})
+      : italTxt(rightX + 20, panelTop + 20, 'nothing new starts', 14, C.muted));
+
+    const readingY = bandBottom + 26;
+    s.push(txt(M, readingY, 'The ' + display + ' answer decides ' + top.n + ' of ' + items.length + ' items.',
+      15, C.muted, {weight: 600}));
+    return s.join('');
+  };
+}
+
+function renderSpreadDeck(model, ctx, C){
+  return deckFrame(model, ctx, C, (y0, y1) => spreadBodyFn(model, ctx)(y0, y1, C));
+}
+
 export function renderDeck(model, ctx = {}){
+  /* E7: the spread branch renders the ORIGINAL, full model — no presentation
+     strip, no strip note — and runs BEFORE layoutRoadmap so its numbers can
+     never disagree with the frame's. forkEntries(model).length is the same
+     guard parse.js's own end-of-parse warning uses (re-derived here, not
+     stored on the model, so a caller that mutates a model after parsing —
+     applyWorld previews, /why's synthetic model — always gets a fresh read).
+     /why's map view builds a model with no `deck` key at all, so this branch
+     is unreachable there by construction — the call at why/render-map.js:105
+     is untouched. */
+  if(model.deck === 'spread' && model.bets && forkEntries(model).length){
+    return renderSpreadDeck(model, ctx, paletteColors(model, ctx));
+  }
   const roadmapLayout = layoutRoadmap(model, {kind: 'presentation', measure: ctx.measure, width: W});
   const selectedModel = roadmapLayout.model;
   const renderFn = STYLE_RENDERERS[effectiveStyle(selectedModel)] || STYLE_RENDERERS.board;

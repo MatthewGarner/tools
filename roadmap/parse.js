@@ -251,31 +251,44 @@ function aftermathTier(model){
     nOfT(n, total, kind) + ' ' + vb(n, total, 'falls', 'fall') + ' away.'};
 }
 
-/* Tier 3 — fork: an unresolved bet (not moot — a bet nobody can answer yet
-   isn't a live fork) with conditioned items. "Transitive" reach is measured by
-   diffing the won/lost projections: whatever changes state between the two
-   worlds genuinely turns on this bet, riders and moot-cascade fallbacks alike,
-   without hand-rolling the cascade a second time. */
-function forkTier(model){
+/* Candidate open forks, shared by the verdict's fork tier (below) AND the
+   deck's world-spread body (render-deck.js, E7): every unresolved, non-cycle
+   bet with its world REACH — the count of items whose worldState differs
+   between the won and the lost projection ("transitive": riders and
+   moot-cascade fallbacks alike, without hand-rolling the cascade a second
+   time). Reach-0 bets (declared but nothing actually turns on them under
+   either world) are dropped; the rest sort by reach desc, ties by earliest
+   declaration (srcLine asc) — SAME rule forkTier always used, now named once.
+   Returns [] rather than null (an empty candidate LIST, not "no verdict") so
+   callers can test `.length` directly. */
+export function forkEntries(model){
   const bets = model.bets || {};
-  const total = model.items.length;
   const unresolved = Object.keys(bets).filter(nameLc => bets[nameLc].effective === 'unresolved' && !bets[nameLc].cycle);
-  if(!unresolved.length) return null;
+  if(!unresolved.length) return [];
   const entries = unresolved.map(nameLc => {
     const won = applyWorld(model, {[nameLc]: 'won'});
     const lost = applyWorld(model, {[nameLc]: 'lost'});
     let n = 0;
     for(let i = 0; i < model.items.length; i++)
       if(won.items[i].worldState !== lost.items[i].worldState) n++;
-    return {nameLc, n, srcLine: bets[nameLc].srcLine};
+    return {name: nameLc, display: bets[nameLc].display, n, srcLine: bets[nameLc].srcLine};
   }).filter(e => e.n > 0);
-  if(!entries.length) return null;
   entries.sort((a, b) => b.n - a.n || a.srcLine - b.srcLine);   // most riders+fallbacks speaks; ties = earliest declared
-  const {nameLc, n} = entries[0];
-  const b = bets[nameLc];
+  return entries;
+}
+
+/* Tier 3 — fork: an unresolved bet (not moot — a bet nobody can answer yet
+   isn't a live fork) with conditioned items. Repoints through forkEntries()
+   (E7) — verdict sentence is BYTE-IDENTICAL to before the extraction, same
+   inputs in the same order. */
+function forkTier(model){
+  const total = model.items.length;
+  const entries = forkEntries(model);
+  if(!entries.length) return null;
+  const {display, n} = entries[0];
   const fig = n + ' of ' + total;   // bare pair; the line's own nOfT prefix is what actually highlights
   return {fig, line: nOfT(n, total, 'item') + ' ' + vb(n, total, 'turns', 'turn') +
-    ' on the ' + b.display + ' bet — the plan forks there, and says so.'};
+    ' on the ' + display + ' bet — the plan forks there, and says so.'};
 }
 
 export function roadmapVerdict(model){
@@ -342,7 +355,7 @@ export function roadmapVerdict(model){
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane'};
+    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane', deck:null};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -350,7 +363,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|deck)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
@@ -401,6 +414,19 @@ export function parse(text){
         if(g === 'lane' || g === 'outcome') model.group = g;
         else model.warnings.push('line ' + (ln+1) + ': group: wants lane or outcome — reading lane');
       }
+      /* E7: the deck's world-spread body — opt-in, no change to any existing
+         export when unset. Empty value ("deck:" with nothing after it) is
+         IGNORED, not warned (a stray colon isn't the same mistake as a typo'd
+         value); an unknown value warns and is ignored, same style: pattern.
+         Same lane-collision hazard as group:/style: above — a lane genuinely
+         named "Deck" is eaten as config here too. Whether the spread actually
+         has anything to show (an open, non-cycle bet with reach) is checked
+         once, at the end of parse(), once bets/worldState are fully baked. */
+      else if(key === 'deck'){
+        const d = val.toLowerCase();
+        if(d === 'spread') model.deck = 'spread';
+        else if(d) model.warnings.push('line ' + (ln+1) + ': unknown deck ' + snippet(val) + ' — use spread');
+      }
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
@@ -430,7 +456,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|deck)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;
@@ -635,6 +661,16 @@ export function parse(text){
   if(model.group === 'outcome'){
     const eff = model.style || (model.timeAxis ? 'grid' : 'board');
     if(eff !== 'register') model.warnings.push('group: only affects the register view');
+  }
+  /* deck: spread only means anything with an open fork actually to show —
+     checked once, here, once bets/worldState are fully baked (forkEntries
+     needs both). No reach ⇒ the deck falls back to the style body; this
+     warning is the ONLY place that fallback is announced (render-deck.js's
+     own guard re-derives the same emptiness test, silently, at render time —
+     see its comment). */
+  if(model.deck === 'spread' && !forkEntries(model).length){
+    const eff = model.style || (model.timeAxis ? 'grid' : 'board');
+    model.warnings.push('deck: spread needs an open bet with conditional items — showing the ' + eff + ' deck');
   }
   return model;
 }

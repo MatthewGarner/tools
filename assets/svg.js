@@ -15,6 +15,13 @@ export function tint(hex){
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
 }
 
+/* Alpha-suffix a hex colour SAFELY: a 3-digit token + suffix is an invalid
+   colour some rasterisers paint BLACK (deck boards shipped that way; the
+   golden colour scan now guards the class). Non-6-digit input -> 'none'. */
+export function wash(hex, alpha){
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + alpha : 'none';
+}
+
 /* One-line <text> element with the attribute set the renderers share.
    Coordinates round to 2 decimals. mono switches to the ui-monospace stack. */
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
