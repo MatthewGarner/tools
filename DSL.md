@@ -49,7 +49,7 @@ The ten grammars differ, but they're a family and obey the same rules:
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` `group` `deck` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -92,6 +92,10 @@ swimlanes, WIP limits, and a deck export.
 - `group:` the register's grouping lens, `lane` (default) or `outcome`: `group: outcome`
   regroups the register into either-way / only-if-a-bet-pays-off / only-if-it-doesn't / not-needed
   sections instead of by horizon. Affects only the `register` style — elsewhere it warns.
+- `deck:` the Copy PNG export's world-spread body: `deck: spread` shows the biggest open
+  bet's two futures side by side (if it pays off / either way / if it doesn't) instead of
+  the usual `style:` layout. Needs an open, non-cycle bet with items actually turning on it
+  — with none, it warns and falls back to the `style:` deck.
 
 **Node syntax:**
 - A line equal to a horizon name (case-insensitive, trailing `:` optional) opens that
@@ -136,6 +140,7 @@ horizons: Now, Next, Later
 wip: 6
 style: focus
 focus: Later
+deck: spread
 NOW
 Platform: Onboarding revamp [doing] -- cut signup steps
 NEXT

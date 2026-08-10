@@ -228,7 +228,12 @@ const PAGES = {
      group's first card) plus the wash/label paint, and cond-parts.js gains
      splitColumnZones — roadmap-only, both boards (deck card mode + live).
      Actual 717.5k, ~5.5k headroom. */
-  'roadmap/index.html': 732_000,   // +hinges-on strip (S5/E6, 2026-08-10): 731792 bytes
+  /* 732k -> 749k (2026-08-10, E7 deck world spread): render-deck.js gains the
+     whole spread body (panel geometry, capFit-capped card columns, the centre
+     ghost path) plus a new import of parse.js's forkEntries/applyWorld and
+     cond-parts.js's cardTag/tagColors — a real feature, not creep. Actual
+     742.0k, ~7k headroom (spec's own ~+6k estimate). */
+  'roadmap/index.html': 749_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -290,7 +295,12 @@ const PAGES = {
   /* 686k -> 693k (2026-08-10, E1 board outcome zones): why pays cond-parts.js's
      splitColumnZones growth too — render.js imports the whole module even though
      the chart doesn't paint zones. Actual 687.0k, ~6.0k headroom. */
-  'why/index.html': 700_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
+  /* 700k -> 715k (2026-08-10, E7 deck world spread): /why's map view imports
+     renderDeck from roadmap/render-deck.js directly (its presentation-intent
+     branch) — same delegation cost as every other roadmap deck growth above,
+     paid for a lens /why's synthetic model can never trigger (it carries no
+     `deck` key at all). Actual 709.4k, ~5.6k headroom. */
+  'why/index.html': 715_000,
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */

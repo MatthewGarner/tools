@@ -601,7 +601,7 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
   onCommit(kind, lineNo, oldRaw, newValue){
     handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
-      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:/i,
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|deck)\s*:/i,
       getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
     });
   },
@@ -1124,4 +1124,4 @@ watchNarrowBucket(previewEl, rerender);
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group', 'deck']);
