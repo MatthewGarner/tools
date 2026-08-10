@@ -106,36 +106,8 @@ function dependencyName(value, decisions){
   return decisionName(decisions.get(dependencyKey(value)));
 }
 
-function markerFor(item){
-  const state = item?.displayState;
-  const values = [
-    typeof state === 'string' ? state : state?.kind,
-    item?.planState,
-    item?.state,
-    item?.inclusion,
-  ];
-  return values.find(value => typeof value === 'string')?.toLowerCase() || '';
-}
 
-function assumedDirection(item, marker){
-  if(marker.includes('assumed') && marker.includes('no')) return 'no';
-  if(marker.includes('assumed') && marker.includes('yes')) return 'yes';
-  const source = item?.provenance;
-  const kind = typeof source === 'string' ? source : source?.kind ?? source?.type ?? '';
-  if(String(kind).toLowerCase().includes('assum')){
-    const direction = source?.direction ?? source?.answer ?? item?.assumedAnswer;
-    return direction === 'no' ? 'no' : direction === 'yes' ? 'yes' : null;
-  }
-  return null;
-}
 
-function decisionAssumption(decision){
-  if(!decision?.effectiveAnswer) return null;
-  const source = decision.answerSource ?? decision.source ?? decision.provenance?.kind;
-  if(decision.assumed === true || String(source ?? '').toLowerCase().includes('assum') ||
-    (decision.answer == null && decision.effectiveAnswer)) return decision.effectiveAnswer;
-  return null;
-}
 
 /* The engine already decided this. `itemState` plus `displayEvidence` ARE the
    contract (Stage 1 added the evidence reduction precisely so no renderer

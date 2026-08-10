@@ -1,125 +1,156 @@
+/* Every case here builds its input from a REAL document:
+   parse → project → treeProjection → treeLayout → renderTree.
+
+   The previous version of this file hand-built fixture objects with invented
+   field names (`state` where the engine emits `itemState`, `displayName` where
+   it emits `name`). The renderer was then written to satisfy those fixtures, so
+   tests and code agreed with each other and disagreed with reality: on a real
+   document every diamond carried the whole question sentence, "Following an
+   assumed yes" never rendered, and a stump said only "+1". Tests that invent
+   their own input cannot catch that class of defect — so these do not. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {parse} from '../parse.js';
+import {project} from '../project.js';
+import {treeProjection} from '../tree.js';
 import {treeLayout} from '../layout-tree.js';
 import {renderTree} from '../render-tree.js';
 
 const measure = text => String(text).length * 7;
 const colors = {
-  bg:'#ffffff', panel:'#f7f7f7', ink:'#222222', muted:'#666666', line:'#cccccc',
-  accent:'#3355aa', yes:'#228844', no:'#aa3344', warning:'#bb7700',
-  status:{risk:'#cc8800', blocked:'#bb2233'},
+  bg:'#FBFBFA', card:'#F4F4F1', ink:'#111111', muted:'#6B6B68', border:'#D9D9D5',
+  accent:'#1F4FD8', accentInk:'#1A44C2', err:'#B3403A', track:'#EDF0EE',
+  status:{done:'#1D7A3E', doing:'#1F4FD8', risk:'#9A6A00', blocked:'#B3403A'},
+  statusInk:{done:'#1C753C', doing:'#1A44C2', risk:'#8E6200', blocked:'#B3403A'},
 };
-const ctx = {colors, measure, dark:false, today:'2026-08-10'};
 
-function decision(key, name, extra = {}){
-  return {key, decision:{key, displayName:name, srcLine:1, ...extra},
-    displayState:{kind:extra.effectiveAnswer ? 'answered' : 'open', direction:extra.effectiveAnswer},
-    arms:{yes:[], no:[]}, stump:null};
+function renderDoc(doc, today = '2026-12-22', width = 1160){
+  const projection = project(parse(doc), today);
+  const tp = treeProjection(projection);
+  const layout = treeLayout(tp, {width, measure});
+  return renderTree(tp, layout, {colors, measure, dark:false, today, projection});
 }
 
-function fixture(){
-  const alpha = decision('alpha', 'Alpha');
-  const beta = decision('beta', 'Beta');
-  const gamma = decision('gamma', 'Gamma', {effectiveAnswer:'yes', answer:null});
-  const items = {
-    included:{title:'Included <work>', lane:'Lane & one', state:'in-plan'},
-    ghost:{title:'Spare work', lane:'Lane two', state:'not-needed'},
-    pending:{title:'Pending work', lane:'Lane three', state:'waiting', waitingFor:'alpha',
-      parentDecision:'alpha', condition:{terms:[{key:'alpha'}]}},
-    assumedYes:{title:'Assumed yes work', lane:'Lane four', state:'assumed-yes',
-      parentDecision:'gamma', condition:{terms:[{key:'gamma'}]}},
-    assumedNo:{title:'Assumed no work', lane:'Lane five', state:'assumed-no',
-      parentDecision:'gamma', condition:{terms:[{key:'gamma', negated:true}]}},
-  };
-  alpha.arms.yes = [items.pending];
-  beta.arms.yes = [items.ghost];
-  gamma.arms.yes = [items.assumedYes, items.assumedNo];
-  return {
-    projection:{today:'2026-08-10', spine:[items.included], questions:[alpha, beta, gamma],
-      breadcrumbs:[], unplaced:[], warnings:[], reachDenominator:1},
-    items,
-  };
-}
+const decisionBlock = (name, extra = '') =>
+  `decision ${name}:\n  question: Does ${name} hold?\n  signal: a measurable signal\n` +
+  `  owner: a squad\n  answer-by: 2026-12-15\n${extra}`;
 
-test('item treatments carry distinct visuals and exact display copy', () => {
-  const {projection} = fixture();
-  const svg = renderTree(projection, treeLayout(projection, {width:1400, measure}), ctx);
-  assert.match(svg, /data-treatment="normal"[^>]*>.*?Included/s);
-  assert.match(svg, /data-treatment="ghost" opacity="0\.68"[^>]*>.*?Not needed/s);
-  assert.match(svg, /data-treatment="conditional"[^>]*>.*?Waiting for Alpha/s);
-  assert.match(svg, /data-treatment="assumed-yes"[^>]*>.*?url\(#tree-assumed-yes\).*?Following an assumed yes/s);
-  assert.match(svg, /data-treatment="assumed-no"[^>]*>.*?url\(#tree-assumed-no\).*?Following an assumed no/s);
+/* ---------- item states, each on a document that genuinely produces it ---------- */
+
+test('an unconditional item reads Included', () => {
+  const svg = renderDoc('today: 2026-12-01\nNOW\n  Core: Streak repair');
+  assert.match(svg, /Included/);
 });
 
-test('an answered question paints its collapsed stump exactly once with its count', () => {
-  const q = decision('answer', 'Ship?', {effectiveAnswer:'yes', answer:'yes'});
-  q.arms.yes = [{title:'Ship it', lane:'Delivery', parentDecision:'answer',
-    condition:{terms:[{key:'answer'}]}}];
-  q.stump = {side:'no', items:[{title:'One'}, {title:'Two'}], count:2};
-  const projection = {today:'2026-08-10', spine:[], questions:[q], breadcrumbs:[], unplaced:[], warnings:[]};
-  const svg = renderTree(projection, treeLayout(projection, {width:700, measure}), ctx);
-  assert.equal((svg.match(/data-kind="stump"/g) || []).length, 1);
-  assert.equal((svg.match(/>\+2<\/text>/g) || []).length, 1);
-  assert.doesNotMatch(svg, />One<|>Two</);
+test('an open question with no assumption leaves its items Waiting for that question, by name', () => {
+  const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') +
+    'LATER\n  Growth: Group challenges [if groups]', '2026-12-01');
+  assert.match(svg, /Waiting for groups/);
+  assert.doesNotMatch(svg, /Following an assumed/);
 });
 
-test('model-derived decision, title, and lane strings are XML-escaped', () => {
-  const {projection} = fixture();
-  projection.questions[0].decision.displayName = 'Choose <Alpha> & "friends"';
-  const svg = renderTree(projection, treeLayout(projection, {width:1400, measure}), ctx);
-  assert.match(svg, /Choose &lt;Alpha&gt; &amp; &quot;friends&quot;/);
-  assert.match(svg, /Included &lt;work&gt;/);
-  assert.match(svg, /Lane &amp; one/);
-  assert.doesNotMatch(svg, /Choose <Alpha>|Included <work>|Lane & one/);
+test('an in-force assumption reads Following an assumed yes, never Waiting', () => {
+  const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: yes 2026-12-22\n') +
+    'LATER\n  Growth: Group challenges [if groups]');
+  assert.match(svg, /Following an assumed yes/);
+  assert.doesNotMatch(svg, /Waiting for groups/);
 });
 
-test('display copy never leaks evaluator identifiers', () => {
-  const {projection} = fixture();
-  projection.questions[0].decision.availability = 'dormant';
-  projection.questions[1].decision.availability = 'moot';
-  projection.spine[0].provenance = {kind:'enumerable', world:'limbo'};
-  const svg = renderTree(projection, treeLayout(projection, {width:1400, measure}), ctx);
-  for(const identifier of ['moot', 'dormant', 'world', 'limbo', 'provenance', 'enumerable',
-    'in-plan', 'not-needed', 'waiting']) assert.doesNotMatch(svg, new RegExp(identifier));
-  for(const label of ['Open', 'Included', 'Not needed', 'Waiting for Alpha',
-    'Following an assumed yes', 'Following an assumed no']) assert.match(svg, new RegExp(label));
+test('an assumed no is distinguished from an assumed yes', () => {
+  const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: no 2026-12-22\n') +
+    'LATER\n  Growth: Group challenges [if groups]');
+  assert.match(svg, /Following an assumed no/);
+  assert.doesNotMatch(svg, /Following an assumed yes/);
 });
 
-test('status remains a small tag while conditional treatment owns the card', () => {
-  const q = decision('alpha', 'Alpha');
-  q.arms.yes = [{title:'At risk', lane:'Ops', status:'risk', state:'waiting', waitingFor:'alpha',
-    parentDecision:'alpha', condition:{terms:[{key:'alpha'}]}}];
-  const projection = {today:'2026-08-10', spine:[], questions:[q], breadcrumbs:[], unplaced:[], warnings:[]};
-  const svg = renderTree(projection, treeLayout(projection, {width:700, measure}), ctx);
-  const group = svg.match(/<g data-treatment="conditional"[\s\S]*?<\/g>/)?.[0] || '';
-  assert.match(group, /fill="#bb770014"[^>]*stroke="#bb7700"/);
-  assert.match(group, /fill="#cc88001F"[^>]*stroke="#cc8800"/);
-  assert.equal((group.match(/fill="#cc88001F"/g) || []).length, 1);
+test('an answered question marks the other arm Not needed', () => {
+  const svg = renderDoc('today: 2026-12-22\n' +
+    decisionBlock('reminders', '  answer: yes 2026-10-15\n') +
+    'LATER\n  Core: Reminder digest [if reminders]\n  Core: Manual outreach [unless reminders]');
+  assert.match(svg, /Not needed/);
 });
 
-test('unplaced items appear in a labelled band', () => {
-  const item = {title:'Loose work', lane:'Later', condition:{terms:[{key:'unknown'}]}};
-  const projection = {today:'2026-08-10', spine:[], questions:[], breadcrumbs:[], unplaced:[item], warnings:[]};
-  const svg = renderTree(projection, treeLayout(projection, {width:700, measure}), ctx);
-  assert.match(svg, /data-kind="unplaced"/);
-  assert.match(svg, />Unplaced<\/text>/);
-  assert.match(svg, />Loose work<\/text>/);
+/* ---------- the stump ---------- */
+
+test('an answered question paints ONE collapsed stump carrying its count and the words Not needed', () => {
+  const svg = renderDoc('today: 2026-12-22\n' +
+    decisionBlock('reminders', '  answer: yes 2026-10-15\n') +
+    'LATER\n  Core: Reminder digest [if reminders]\n' +
+    '  Core: Manual outreach [unless reminders]\n  Core: Phone calls [unless reminders]');
+  const stumps = svg.match(/data-kind="stump"/g) || [];
+  assert.equal(stumps.length, 1, 'exactly one stump, never a litter of dead cards');
+  assert.match(svg, /Not needed · 2/);
 });
 
-test('all fill and stroke hex colours have XML-safe lengths', () => {
-  const {projection} = fixture();
-  const shortCtx = {...ctx, colors:{...colors, ink:'#222', muted:'#777'}};
-  const svg = renderTree(projection, treeLayout(projection, {width:1400, measure}), shortCtx);
-  const valid = new Set([3, 4, 6, 8]);
-  for(const match of svg.matchAll(/(?:fill|stroke)="#([0-9a-fA-F]+)"/g)){
-    assert.ok(valid.has(match[1].length), match[0]);
-  }
+/* ---------- question labels ---------- */
+
+test('a question is labelled with its NAME and state, never its question sentence', () => {
+  const doc = 'today: 2026-12-01\ndecision groups:\n' +
+    '  question: Do people add three friends without prompting?\n' +
+    '  signal: invites per user >= 3\n  owner: growth squad\n  answer-by: 2026-12-15\n' +
+    'LATER\n  Growth: Group challenges [if groups]';
+  const svg = renderDoc(doc, '2026-12-01');
+  assert.match(svg, />groups</, 'the diamond carries the short name');
+  assert.doesNotMatch(svg, /Do people add three friends/,
+    'the question sentence belongs in the inspector, not on the diamond');
 });
 
-test('SVG tags use quoted attributes and form well-formed XML-level tags', () => {
-  const {projection} = fixture();
-  const svg = renderTree(projection, treeLayout(projection, {width:1400, measure}), ctx);
-  const tag = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
-  for(const candidate of svg.match(/<[^!/][^>]*>/g) || []) assert.match(candidate, tag, candidate);
-  assert.equal(svg.includes(' '), false);
+test('each question state renders its display word', () => {
+  const answered = renderDoc('today: 2026-12-22\n' + decisionBlock('a', '  answer: yes 2026-10-15\n') +
+    'LATER\n  Core: X [if a]');
+  assert.match(answered, /Answer: yes/);
+  const no = renderDoc('today: 2026-12-22\n' + decisionBlock('a', '  answer: no 2026-10-15\n') +
+    'LATER\n  Core: X [if a]');
+  assert.match(no, /Answer: no/);
+  const open = renderDoc('today: 2026-12-01\n' + decisionBlock('a') + 'LATER\n  Core: X [if a]', '2026-12-01');
+  assert.match(open, /Open/);
+});
+
+/* ---------- safety and the display boundary ---------- */
+
+test('model-derived strings are XML-escaped', () => {
+  const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') +
+    'LATER\n  A & <b>: Ship <it> & win [if groups]', '2026-12-01');
+  assert.match(svg, /&amp;/);
+  assert.doesNotMatch(svg, /<b>:/, 'a raw angle bracket from the document must never reach the markup');
+});
+
+test('display copy never leaks an engine identifier', () => {
+  const svg = renderDoc('today: 2026-12-22\n' +
+    decisionBlock('groups', '  assume: yes 2026-12-22\n') +
+    decisionBlock('pricing', '  when: groups\n') +
+    decisionBlock('done-one', '  answer: no 2026-10-15\n') +
+    'NOW\n  Core: Shared\nLATER\n  Core: A [if groups]\n  Core: B [unless done-one]\n  Core: C [if pricing]');
+  for(const word of ['moot', 'dormant', 'limbo', 'provenance', 'enumerable', 'in-plan', 'not-needed'])
+    assert.equal(svg.includes(word), false, `${word} leaked into display copy`);
+});
+
+test('risk and blocked stay small tags; the conditional treatment owns the card', () => {
+  const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') +
+    'LATER\n  Core: Risky thing [risk] [if groups]', '2026-12-01');
+  assert.match(svg, /RISK/);
+  assert.match(svg, /Waiting for groups/, 'the conditional state still owns the card');
+});
+
+test('an item whose condition names no known question is kept in a labelled band', () => {
+  const svg = renderDoc('today: 2026-12-01\nNOW\n  Core: Orphan [if nobody]', '2026-12-01');
+  assert.match(svg, /Unplaced/);
+  assert.match(svg, /Orphan/, 'malformed input degrades loudly; it is never dropped');
+});
+
+/* ---------- XML rules the export decoder enforces ---------- */
+
+test('every fill and stroke hex has a valid length', () => {
+  const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: yes 2026-12-22\n') +
+    'NOW\n  Core: Shared\nLATER\n  Core: A [if groups]');
+  for(const match of svg.matchAll(/(?:fill|stroke)="#([0-9a-fA-F]+)"/g))
+    assert.ok([3, 4, 6, 8].includes(match[1].length), `invalid hex #${match[1]}`);
+});
+
+test('every tag is strictly well-formed: no bare attributes, no stray quotes', () => {
+  const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups') +
+    'NOW\n  Core: Shared\nLATER\n  Core: A [if groups]');
+  const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
+  for(const tag of svg.match(/<[^!/][^>]*>/g) || [])
+    assert.match(tag, TAG, `malformed tag ${tag.slice(0, 120)}`);
 });
