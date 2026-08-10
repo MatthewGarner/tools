@@ -77,6 +77,15 @@ function decisionName(decision){
   return String(decision?.name ?? decision?.key ?? '');
 }
 
+/* Dates read as "15 Dec" in capsules and metadata (display dictionary); the raw
+   ISO value is for the text, not the artefact. */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function shortDate(iso){
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ''));
+  if(!match) return String(iso ?? '');
+  return String(Number(match[3])) + ' ' + (MONTHS[Number(match[2]) - 1] || '');
+}
+
 function answerLabel(direction){
   return direction === 'no' ? 'Answer: no' : 'Answer: yes';
 }
@@ -243,7 +252,7 @@ function renderQuestion(entry, C, measure){
   svg += txt(diamond.cx, diamond.cy + 23, questionState(question), 9, C.muted,
     {weight:600, anchor:'middle'});
   if(question.decision?.answerBy){
-    svg += txt(diamond.cx, diamond.cy + 37, 'Due · ' + String(question.decision.answerBy), 8,
+    svg += txt(diamond.cx, diamond.cy + 37, 'Due · ' + shortDate(question.decision.answerBy), 8,
       C.muted, {anchor:'middle'});
   }
   return svg + '</g>';
@@ -336,4 +345,69 @@ export function renderTree(projection, layout, ctx){
   }
   for(const box of layout.unplaced || []) svg += renderItem(box, decisions, C, measure);
   return svg + '</svg>';
+}
+
+/* NARROW OUTLINE (below a 520px container). Not a scaled tree — a genuine
+   relayout, because panning a fork diagram on a phone hides the one thing the
+   view exists to show. Same projection, same display words, stacked vertically:
+   shared work, then each question as a heading with its state, its arms
+   indented beneath it. Exports stay pinned to the wide artefact (house rule),
+   so this never becomes a second artefact of its own. */
+export function renderOutline(projection, ctx){
+  const {measure, colors} = ctx;
+  const C = palette(colors);
+  const W = Math.max(280, Math.min(520, ctx.width || 360));
+  const PAD = 14, ROW = 34, HEAD = 30;
+  const decisions = decisionMap(projection);
+  const rows = [];
+
+  const push = (kind, text, note, indent) => rows.push({kind, text, note, indent});
+  if(projection.breadcrumbs?.length)
+    push('crumbs', projection.breadcrumbs.map(crumb =>
+      decisionName(crumb.decision) + ' · ' + answerLabel(crumb.decision?.effectiveAnswer)).join('  ·  '), '', 0);
+  if(projection.spine?.length){
+    push('head', 'Shared work', '', 0);
+    for(const item of projection.spine) push('item', item.title, 'Included', 1);
+  }
+  for(const question of projection.questions || []){
+    push('head', decisionName(question.decision), questionState(question) +
+      (question.decision?.answerBy ? ' · Due ' + shortDate(question.decision.answerBy) : ''), 0);
+    const arm = (list, label) => {
+      if(!list?.length) return;
+      push('arm', label, '', 1);
+      for(const item of list) push('item', item.title, treatmentLabel(itemTreatment(item, decisions)), 2);
+    };
+    arm(question.arms?.yes, 'If so');
+    arm(question.arms?.no, 'If not');
+    if(question.stump) push('item', 'Not needed · ' + (question.stump.count ?? 0), '', 1);
+  }
+  if(projection.unplaced?.length){
+    push('head', 'Unplaced', '', 0);
+    for(const item of projection.unplaced) push('item', item.title, 'Condition needs fixing', 1);
+  }
+
+  const height = PAD * 2 + rows.reduce((sum, row) => sum + (row.kind === 'head' ? HEAD : ROW), 0);
+  let y = PAD, svg = '';
+  for(const row of rows){
+    const x = PAD + row.indent * 12;
+    if(row.kind === 'head'){
+      svg += txt(x, y + 18, clipped(row.text, W - x - PAD - 100, measure, TITLE_FONT), 13, C.ink, {weight:700});
+      if(row.note) svg += txt(W - PAD, y + 18, clipped(row.note, 130, measure), 9, C.muted,
+        {weight:600, anchor:'end'});
+      y += HEAD;
+      continue;
+    }
+    if(row.kind === 'crumbs' || row.kind === 'arm'){
+      svg += txt(x, y + 16, clipped(row.text, W - x - PAD, measure), 9, C.muted, {weight:600});
+      y += ROW - 8;
+      continue;
+    }
+    svg += rect(x, y, W - x - PAD, ROW - 6, C.surface, {stroke:C.border, sw:1});
+    svg += txt(x + 8, y + 14, clipped(row.text, W - x - PAD - 16, measure, TITLE_FONT), 12, C.ink, {weight:600});
+    if(row.note) svg += txt(x + 8, y + 25, clipped(row.note, W - x - PAD - 16, measure), 9, C.muted, {weight:600});
+    y += ROW;
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + r2(W) + '" height="' + r2(height) +
+    '" viewBox="0 0 ' + r2(W) + ' ' + r2(height) + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
+    '">' + rect(0, 0, W, height, C.bg) + svg + '</svg>';
 }

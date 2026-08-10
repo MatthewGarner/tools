@@ -14,7 +14,7 @@ import {parse} from '../parse.js';
 import {project} from '../project.js';
 import {treeProjection} from '../tree.js';
 import {treeLayout} from '../layout-tree.js';
-import {renderTree} from '../render-tree.js';
+import {renderTree, renderOutline} from '../render-tree.js';
 
 const measure = text => String(text).length * 7;
 const colors = {
@@ -153,4 +153,42 @@ test('every tag is strictly well-formed: no bare attributes, no stray quotes', (
   const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
   for(const tag of svg.match(/<[^!/][^>]*>/g) || [])
     assert.match(tag, TAG, `malformed tag ${tag.slice(0, 120)}`);
+});
+
+/* ---------- the narrow outline (below a 520px container) ---------- */
+
+function outlineDoc(doc, today = '2026-12-22', width = 360){
+  const projection = project(parse(doc), today);
+  return renderOutline(treeProjection(projection), {colors, measure, dark:false, today, width});
+}
+
+test('the outline stacks shared work, then each question with its arms', () => {
+  const svg = outlineDoc('today: 2026-12-01\n' + decisionBlock('groups') +
+    'NOW\n  Core: Streak repair\nLATER\n  Growth: Challenges [if groups]\n  Core: Solo [if not groups]', '2026-12-01');
+  assert.match(svg, /Shared work/);
+  assert.match(svg, /Streak repair/);
+  assert.match(svg, /If so/);
+  assert.match(svg, /If not/);
+  assert.match(svg, /Waiting for groups/);
+});
+
+test('the outline names an answered breadcrumb by its answer, never "Open"', () => {
+  const svg = outlineDoc('today: 2026-12-22\n' + decisionBlock('reminders', '  answer: yes 2026-10-15\n') +
+    decisionBlock('groups') + 'LATER\n  Core: Digest [if reminders]\n  Core: Challenges [if groups]');
+  assert.doesNotMatch(svg, /reminders · Open/, 'an answered question is not open');
+});
+
+test('dates read as "15 Dec", not as raw ISO, in both renderers', () => {
+  const doc = 'today: 2026-12-01\n' + decisionBlock('groups') + 'LATER\n  Core: A [if groups]';
+  assert.match(outlineDoc(doc, '2026-12-01'), /Due 15 Dec/);
+  assert.match(renderDoc(doc, '2026-12-01'), /Due · 15 Dec/);
+});
+
+test('the outline is content-driven in height and never wider than its container', () => {
+  const short = outlineDoc('today: 2026-12-01\nNOW\n  Core: One', '2026-12-01');
+  const long = outlineDoc('today: 2026-12-01\nNOW\n' +
+    Array.from({length: 12}, (_, i) => `  Core: Item ${i}`).join('\n'), '2026-12-01');
+  const heightOf = svg => Number(/height="([\d.]+)"/.exec(svg)[1]);
+  assert.ok(heightOf(long) > heightOf(short), 'height grows with content');
+  assert.equal(Number(/width="([\d.]+)"/.exec(long)[1]), 360);
 });
