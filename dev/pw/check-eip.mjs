@@ -1164,26 +1164,26 @@ check('no console/page errors', errors.length === 0);
     (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 1);
   await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
   await p.waitForTimeout(200);
-  check('roadmap: Resolve… submenu lists won/lost, no unresolve row yet',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'won|lost');
-  await p.locator('.eip-pop button', {hasText: 'won'}).click();
+  check('roadmap: Resolve… submenu lists paid off/didn\'t pay off, no reopen row yet',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === "paid off|didn't pay off");
+  await p.locator('.eip-pop button', {hasText: /^paid off$/}).click();
   await p.waitForTimeout(600);
   const tWon = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: Resolve… won writes the resolution onto the [bet: …] token',
+  check('roadmap: Resolve… paid off writes the resolution onto the [bet: …] token',
     tWon.includes('[bet: reminders won]'));
   const svgWon = await p.locator('#preview svg').innerHTML();
   const plainWon = svgWon.replace(/<[^>]+>/g, ' ');
-  check('roadmap: resolving won drops the [unless] fallback and the board says so',
-    /dropped\s*—\s*reminders won/.test(plainWon) && plainWon.includes('Fallback plan'));
+  check('roadmap: resolving paid off drops the [unless] fallback and the board says so',
+    /not needed\s*—\s*reminders paid off/.test(plainWon) && plainWon.includes('Fallback plan'));
 
   await tapCard('Ship reminders');
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
   await p.waitForTimeout(200);
-  check('roadmap: Resolve… on a resolved bet offers won (marked on)/lost/unresolve',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'won|lost|unresolve' &&
-    (await p.locator('.eip-pop button.on').innerText()) === 'won');
-  await p.locator('.eip-pop button', {hasText: 'unresolve'}).click();
+  check('roadmap: Resolve… on a resolved bet offers paid off (marked on)/didn\'t pay off/reopen',
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === "paid off|didn't pay off|reopen" &&
+    (await p.locator('.eip-pop button.on').innerText()) === 'paid off');
+  await p.locator('.eip-pop button', {hasText: 'reopen'}).click();
   await p.waitForTimeout(600);
   const tUnresolved = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: Resolve… unresolve clears the outcome, keeping the bare declaration',
@@ -1194,29 +1194,30 @@ check('no console/page errors', errors.length === 0);
   // ---- What-if… (view-state only — the text must never change) ----
   await tapCard('Ship reminders');
   await p.waitForTimeout(200);
-  check('roadmap: an unresolved bet item’s menu offers the three What if… rows',
+  check('roadmap: an unresolved bet item’s menu offers the two What if… rows plus clear preview',
     (await p.locator('.eip-pop button', {hasText: 'What if:'}).allInnerTexts()).join('|') ===
-    'What if: pays off|What if: fails|What if: clear');
-  await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+    "What if: it pays off|What if: it doesn't" &&
+    (await p.locator('.eip-pop button', {hasText: 'clear preview'}).count()) === 1);
+  await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).click();
   await p.waitForTimeout(400);
-  check('roadmap: What if: pays off does NOT touch the source text',
+  check('roadmap: What if: it pays off does NOT touch the source text',
     (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
-  check('roadmap: What if: pays off shows the preview chip',
+  check('roadmap: What if: it pays off shows the preview chip',
     !(await p.locator('#whatifchip').isHidden()) &&
     (await p.locator('#whatifchip').innerText()).includes('reminders') &&
     (await p.locator('#whatifchip').innerText()).includes('pays off'));
   const svgPreview = await p.locator('#preview svg').innerHTML();
   const plainPreview = svgPreview.replace(/<[^>]+>/g, ' ');
   check('roadmap: the previewed world drops the fallback in the LIVE board too',
-    /dropped\s*—\s*reminders won/.test(plainPreview) && plainPreview.includes('Fallback plan'));
+    /not needed\s*—\s*reminders paid off/.test(plainPreview) && plainPreview.includes('Fallback plan'));
 
   await tapCard('Ship reminders');
   await p.waitForTimeout(200);
   check('roadmap: the "pays off" row now reads on',
-    (await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).getAttribute('class') || '').includes('on'));
-  await p.locator('.eip-pop button', {hasText: 'What if: clear'}).click();
+    (await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).getAttribute('class') || '').includes('on'));
+  await p.locator('.eip-pop button', {hasText: 'clear preview'}).click();
   await p.waitForTimeout(400);
-  check('roadmap: What if: clear hides the chip and restores the text world',
+  check('roadmap: clear preview hides the chip and restores the text world',
     await p.locator('#whatifchip').isHidden());
   check('roadmap: no source text ever changed across the what-if flow',
     (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
@@ -1294,7 +1295,7 @@ check('no console/page errors', errors.length === 0);
   // dropped-looking world. ----
   await tapCard('Ship reminders');
   await p.waitForTimeout(200);
-  await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+  await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).click();
   await p.waitForTimeout(400);
   check('exports-ignore-preview: the chip confirms a preview really is active first',
     !(await p.locator('#whatifchip').isHidden()));
@@ -1308,7 +1309,7 @@ check('no console/page errors', errors.length === 0);
   check('exports-ignore-preview: the downloaded SVG carries BOTH branch tags (the true open fork)',
     exportedSvg.includes('if reminders') && exportedSvg.includes('unless reminders'));
   check('exports-ignore-preview: the downloaded SVG carries no preview-only dropped state',
-    !exportedSvg.includes('dropped —'));
+    !exportedSvg.includes('not needed —'));
   await p.locator('details:has(summary:text("Export"))').first().locator('summary').click();   // close it — it sits over the canvas at this viewport
   await p.waitForTimeout(150);
 
@@ -1320,25 +1321,25 @@ check('no console/page errors', errors.length === 0);
     (await p.locator('#whatifchip').innerText()).includes('exports show all paths'));
   await tapCard('Second bet');
   await p.waitForTimeout(200);
-  await p.locator('.eip-pop button', {hasText: 'What if: fails'}).click();
+  await p.locator('.eip-pop button', {hasText: "What if: it doesn't"}).click();
   await p.waitForTimeout(400);
   const chipText = await p.locator('#whatifchip').innerText();
   check('chip: lists every armed preview, not just the most recent',
     chipText.includes('reminders') && chipText.includes('pays off') &&
-    chipText.includes('launch') && chipText.includes('fails'));
+    chipText.includes('launch') && chipText.includes("doesn't pay off"));
   await p.locator('#whatifchip button', {hasText: 'reset'}).click();
   await p.waitForTimeout(400);
   check('chip: reset hides the chip', await p.locator('#whatifchip').isHidden());
   await tapCard('Ship reminders');
   await p.waitForTimeout(200);
   check('chip: reset actually cleared BOTH bets\' previews, not just one — "pays off" no longer marked on',
-    !((await p.locator('.eip-pop button', {hasText: 'What if: pays off'}).getAttribute('class') || '').includes('on')));
+    !((await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).getAttribute('class') || '').includes('on')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(150);
   await tapCard('Second bet');
   await p.waitForTimeout(200);
-  check('chip: reset cleared the SECOND bet\'s preview too — "fails" no longer marked on',
-    !((await p.locator('.eip-pop button', {hasText: 'What if: fails'}).getAttribute('class') || '').includes('on')));
+  check('chip: reset cleared the SECOND bet\'s preview too — "it doesn\'t" no longer marked on',
+    !((await p.locator('.eip-pop button', {hasText: "What if: it doesn't"}).getAttribute('class') || '').includes('on')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(150);
 
@@ -1357,8 +1358,8 @@ check('no console/page errors', errors.length === 0);
     await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(400);
-  check('keyboard Enter #2: cycles to "fails"',
-    (await p.locator('#whatifchip').innerText()).includes('fails'));
+  check('keyboard Enter #2: cycles to "doesn\'t pay off"',
+    (await p.locator('#whatifchip').innerText()).includes("doesn't pay off"));
   check('keyboard Enter #2: focus still on the same rect',
     await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
   await p.keyboard.press('Enter');

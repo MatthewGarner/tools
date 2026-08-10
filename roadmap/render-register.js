@@ -6,7 +6,9 @@ import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel,
+  registerOutcomeGroups, outcomeSectionTint} from './cond-parts.js';
+import {activeCount, condCount} from './parse.js';
 
 function registerBodyFn(model, ctx, C){
   return (y0, y1) => {
@@ -48,10 +50,28 @@ function registerBodyFn(model, ctx, C){
        spanning row, first-in-group or not, or a spanning item that isn't
        first would show no range at all. */
     const hasBets = anyBet(model);
-    const layout = noteMax => rows.map((it, i) => {
+    /* S4 (E10): `group: outcome` is a REGROUPING lens — the deck export
+       reorders the same rows into sections (either way / per-open-bet pays
+       off/doesn't / cycle / not needed) and each section header PARTICIPATES
+       in capFit as a row of its own (a header stranded with none of its
+       members below it would be worse than not showing the section at all).
+       Lane mode (the default) is entirely untouched below — `entries` is
+       just `rows` wrapped one level, so the byte-identity gate holds. */
+    const outcomeMode = model.group === 'outcome';
+    const entries = outcomeMode
+      ? registerOutcomeGroups(model, rows).flatMap(g =>
+          [{header: {label: g.label, kind: g.kind, count: g.items.length}}, ...g.items.map(it => ({it}))])
+      : rows.map(it => ({it}));
+    const HEADER_H = 30;
+    const layout = noteMax => entries.map((e, i) => {
+      if(e.header) return {header: e.header, h: HEADER_H};
+      const it = e.it;
       const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
       const tag = hasBets ? cardTag(model, it) : null;
-      const groupFirst = i === 0 || rows[i - 1].h !== it.h;
+      /* the horizon cell is ditto-suppressed within a LANE-mode group only —
+         outcome mode's groups are by bet-outcome, not by horizon, so every
+         row prints its own horizon (S4 spec: "horizon prints on every row"). */
+      const groupFirst = outcomeMode || i === 0 || !entries[i - 1].it || entries[i - 1].it.h !== it.h;
       const range = hCol ? spanRange(model, it) : null;
       const printH = groupFirst || !!range;
       const newCapW = b && b.kind === 'new' ? capsuleW(b.label.toUpperCase()) + 10 : 0;
@@ -72,6 +92,13 @@ function registerBodyFn(model, ctx, C){
 
     let ry = y0 + headH;
     for(const r of laidRows.slice(0, shown)){
+      if(r.header){
+        const [tint, ink] = outcomeSectionTint(r.header.kind, C);
+        s.push(line(REGISTER_GEOM.M, ry, REGISTER_GEOM.W - REGISTER_GEOM.M, ry, tint, 2));
+        s.push(txt(REGISTER_GEOM.M, ry + 20, r.header.label.toUpperCase() + ' — ' + r.header.count, 11, ink, {weight: 700, tracking: 1.6}));
+        ry += r.h;
+        continue;
+      }
       const {it, b, tag, tl, nl, hLines} = r;
       const rowSvg = [];
       // dropped's treatment wins over the flag wash — reality already answered
@@ -200,27 +227,52 @@ export function renderRegisterLive(model, ctx){
   s.push(line(M, headY + 28, W - M, headY + 28, C.border, 1.5));
   y = headY + 34;
 
-  /* --- one GROUP per horizon (every horizon, even empty: it's a drop
-     target + +add). The drop band is painted BEFORE the group's rows/+add
-     (buffered into groupSvg, pushed after the band) — a fill="transparent"
-     rect is a painted hit target, and on top it would sit above the rows
-     and swallow every click: cell edits, the row menu, +add, the drag. */
-  for(let h = 0; h < model.horizons.length; h++){
-    const groupTop = y;
-    const groupSvg = [];
-    for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
-    if(edit){
-      groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="none" stroke="' +
-        C.border + '" stroke-dasharray="2 3"/>' +
-        '<text data-edit="additem" data-lane="" data-col="' + esc(model.horizons[h]) + '" data-line="-1" data-raw="" x="' +
-        (M + 12) + '" y="' + (y + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' +
-        btnAttrs('Add item to ' + model.horizons[h]) + '>＋ ADD TO ' + esc(model.horizons[h].toUpperCase()) + '</text></g>');
-      y += 26;
+  /* S4 (E10): `group: outcome` swaps the per-horizon grouping for outcome
+     sections — a GROUPING LENS only. No data-hdrop drop bands, no "+ ADD"
+     rows (the editing affordances those exist for are about MOVING an item
+     between horizons, a lane-mode concept; card EIP — title/status/note/
+     lane/menu — is untouched, since paintRow itself doesn't change). */
+  if(model.group === 'outcome'){
+    for(const g of registerOutcomeGroups(model, rows)){
+      const [tint, ink] = outcomeSectionTint(g.kind, C);
+      s.push(line(M, y, W - M, y, tint, 2));
+      s.push(txt(M, y + 20, g.label.toUpperCase() + ' — ' + g.items.length, 11, ink, {weight: 700, tracking: 1.6}));
+      y += 28;
+      for(const it of g.items) y += paintRow(s, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
+      y += 10;
     }
-    if(edit) s.push('<rect data-hdrop="' + h + '" x="' + M + '" y="' + groupTop + '" width="' + INNER +
-      '" height="' + Math.max(28, y - groupTop) + '" fill="transparent"/>');   // FIRST — under the rows
-    s.push(groupSvg.join(''));                                                  // rows + "+add" on top
-    y += 10;
+  } else {
+    /* --- one GROUP per horizon (every horizon, even empty: it's a drop
+       target + +add). The drop band is painted BEFORE the group's rows/+add
+       (buffered into groupSvg, pushed after the band) — a fill="transparent"
+       rect is a painted hit target, and on top it would sit above the rows
+       and swallow every click: cell edits, the row menu, +add, the drag. */
+    for(let h = 0; h < model.horizons.length; h++){
+      const groupTop = y;
+      const groupSvg = [];
+      /* E9: a small letterspaced group header naming the horizon + its honest
+         F + M conditional split — the register's own no-count gap, closed only
+         once a bet exists anywhere in the doc (a bet-free register stays
+         byte-identical: no header row, no reserved height). */
+      if(hasBets){
+        s.push(txt(M, y + 10, model.horizons[h].toUpperCase() + '   ' +
+          condCountLabel(activeCount(model, h), condCount(model, h)), 11, C.muted, {weight: 700, tracking: 1.6}));
+        y += 20;
+      }
+      for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
+      if(edit){
+        groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="none" stroke="' +
+          C.border + '" stroke-dasharray="2 3"/>' +
+          '<text data-edit="additem" data-lane="" data-col="' + esc(model.horizons[h]) + '" data-line="-1" data-raw="" x="' +
+          (M + 12) + '" y="' + (y + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' +
+          btnAttrs('Add item to ' + model.horizons[h]) + '>＋ ADD TO ' + esc(model.horizons[h].toUpperCase()) + '</text></g>');
+        y += 26;
+      }
+      if(edit) s.push('<rect data-hdrop="' + h + '" x="' + M + '" y="' + groupTop + '" width="' + INNER +
+        '" height="' + Math.max(28, y - groupTop) + '" fill="transparent"/>');   // FIRST — under the rows
+      s.push(groupSvg.join(''));                                                  // rows + "+add" on top
+      y += 10;
+    }
   }
 
   /* --- metrics line (the closest thing roadmap has to a verdict) --- */

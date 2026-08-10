@@ -98,6 +98,18 @@ export function activeCount(model, h){
     .length;
 }
 
+/* Of activeCount's set, the ones still hinging on an open fork (worldState
+   === 'cond') — same span-coverage filter shape, so the two counts are
+   always comparable column-for-column. activeCount INCLUDES cond items (a
+   maybe still counts as work in the column); the honest DISPLAYED split
+   used by every renderer is F = activeCount(model, h) − condCount(model, h)
+   (settled/unconditional) and M = condCount(model, h) (conditional). */
+export function condCount(model, h){
+  return model.items.filter(i => i.h <= h && h <= i.h + Math.max(1, i.span || 1) - 1)
+    .filter(i => i.worldState === 'cond')
+    .length;
+}
+
 /* One plain sentence per breaching column. STATES THE FACT — the tool reports what
    is true and leaves the judgement to the author (the rule the deck headline set).
    app.js appends its own "(Raise or silence …)" hint to the list. */
@@ -127,16 +139,58 @@ const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'))
 const nOfT = (n, t, one, many) => n + ' of ' + t + ' ' + (t === 1 ? one : (many || one + 's'));
 const vb = (n, t, sing, plur) => (n === 1 || t === 1) ? sing : plur;
 
+/* E9 metrics range (DOM header only — deckMetrics/SVG exports never call
+   this): min/max whole-model "still in play" item count across every
+   won/lost combination of the OPEN (effective === 'unresolved'), non-cycle
+   bets. A cycle bet can't be assumed either way (deriveWorld refuses it),
+   so it's excluded from both the trigger and the enumeration — a doc that
+   has only cycle bets shows no range, same as a doc with none open.
+   "In play" mirrors activeCount's dropped-exemption rule but WHOLE-MODEL,
+   each item counted once (never per-horizon, never summed across horizons).
+   Capped at 2^6 worlds; past the cap the segment is omitted rather than
+   burning perf on a doc nobody will read the range for. Memoised per model
+   OBJECT (WeakMap) — repeat roadmapMetrics calls on the same parsed/
+   projected model (e.g. re-renders that didn't change the model) don't
+   re-enumerate; a what-if preview hands in a NEW object each time (applyWorld
+   never mutates), so the memo is never stale, just occasionally cold. */
+const RANGE_CACHE = new WeakMap();
+function itemsInPlay(model, assumed){
+  const w = applyWorld(model, assumed);
+  return w.items.filter(i => i.worldState !== 'dropped' || i.status === 'doing').length;
+}
+function inPlayRange(model){
+  if(RANGE_CACHE.has(model)) return RANGE_CACHE.get(model);
+  const openBets = Object.keys(model.bets || {})
+    .filter(k => model.bets[k].effective === 'unresolved' && !model.bets[k].cycle);
+  let result = null;
+  if(openBets.length >= 1 && openBets.length <= 6){
+    const n = openBets.length;
+    let lo = Infinity, hi = -Infinity;
+    for(let mask = 0; mask < (1 << n); mask++){
+      const assumed = {};
+      for(let i = 0; i < n; i++) assumed[openBets[i]] = (mask & (1 << i)) ? 'won' : 'lost';
+      const count = itemsInPlay(model, assumed);
+      if(count < lo) lo = count;
+      if(count > hi) hi = count;
+    }
+    result = {lo, hi};
+  }
+  RANGE_CACHE.set(model, result);
+  return result;
+}
+
 export function roadmapMetrics(model){
   if(!model || !model.items || !model.items.length) return [];
   const lanes = model.lanes.filter(Boolean).length;
   const nBets = Object.keys(model.bets || {}).length;
+  const range = inPlayRange(model);
   return [
     plural(model.items.length, 'item'),
     plural(model.horizons.length, 'horizon'),
     lanes ? plural(lanes, 'lane') : null,
     nBets ? plural(nBets, 'bet') : null,
     model.wip > 0 ? 'Wip limit ' + model.wip : null,
+    range ? (range.lo === range.hi ? range.lo + ' in play' : 'between ' + range.lo + ' and ' + range.hi + ' in play') : null,
   ].filter(Boolean);
 }
 
@@ -192,7 +246,8 @@ function aftermathTier(model){
   /* the line embeds the fig verbatim — markFigure only colours a substring it
      can find, and a bare count ("3") could false-match a digit in a bet name */
   const fig = n + ' of ' + total;
-  return {fig, line: 'The ' + b.display + ' bet ' + b.effective + ' — ' +
+  const outcomeWord = {won: 'paid off', lost: "didn't pay off"}[b.effective] || b.effective;
+  return {fig, line: 'The ' + b.display + ' bet ' + outcomeWord + ' — ' +
     nOfT(n, total, kind) + ' ' + vb(n, total, 'falls', 'fall') + ' away.'};
 }
 
@@ -287,7 +342,7 @@ export function roadmapVerdict(model){
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null};
+    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane'};
   let currentH = -1;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
@@ -295,7 +350,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
@@ -335,6 +390,17 @@ export function parse(text){
       }
       else if(key === 'focus') model.focus = val || undefined;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
+      /* S4 (E10): the register's grouping LENS — lane (default, current
+         per-horizon behaviour) or outcome (either-way / per-bet pays-off /
+         doesn't / cycle / not-needed sections). Registered here AND in
+         edit-targets.js's CONFIG_KEYS, app.js's configRe + wireSyntaxTry list —
+         missing CONFIG_KEYS specifically would let a lane genuinely named
+         "group" collide with this key and vanish (spec's data-loss vector). */
+      else if(key === 'group'){
+        const g = val.toLowerCase();
+        if(g === 'lane' || g === 'outcome') model.group = g;
+        else model.warnings.push('line ' + (ln+1) + ': group: wants lane or outcome — reading lane');
+      }
       else {
         const gen = genHorizons(val);
         const hs = gen || val.split(',').map(s => s.trim()).filter(Boolean);
@@ -364,7 +430,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;
@@ -563,6 +629,13 @@ export function parse(text){
   model.items = baked.items;
   model.bets = baked.bets;
   model.warnings.push(...baked.warnings);
+  /* group: outcome only means anything on the register — checked once, here,
+     after style/horizons (which set timeAxis) are both fully resolved,
+     because group: may be written before either in the config block. */
+  if(model.group === 'outcome'){
+    const eff = model.style || (model.timeAxis ? 'grid' : 'board');
+    if(eff !== 'register') model.warnings.push('group: only affects the register view');
+  }
   return model;
 }
 
@@ -727,13 +800,14 @@ function deriveWorld(model, assumed){
       }
     }
     if(it.status === 'doing' && it.worldState === 'dropped'){
-      worldWarnings.push('line ' + (it.srcLine + 1) + ': [doing] item is dropped by its condition' +
+      worldWarnings.push('line ' + (it.srcLine + 1) + ': [doing] item is not needed under its condition' +
         (it.cond ? ' ("' + it.cond.name + '")' : '') + ' — still in flight, so it still counts toward WIP');
     }
     if(it.status === 'done' && it.cond){
       const eff = effectiveOf(it.cond.name.toLowerCase());
       if(eff === 'unresolved' || eff === 'lost' || eff === 'moot'){
-        const clause = eff === 'moot' ? 'which never ran' : 'which is ' + eff;
+        const clause = eff === 'moot' ? 'which never ran'
+          : eff === 'lost' ? "which didn't pay off" : 'which is ' + eff;
         worldWarnings.push('line ' + (it.srcLine + 1) + ': [done] item is conditioned on bet "' +
           it.cond.name + '", ' + clause + ' — done outranks the fork, kept');
       }

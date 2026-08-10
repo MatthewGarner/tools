@@ -5,8 +5,8 @@
 import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
-import {STATUS_LABEL, activeCount} from './parse.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+import {STATUS_LABEL, activeCount, condCount} from './parse.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel, betChain} from './cond-parts.js';
 /* Fixed deck geometry as LITERALS — RAIL_W must NOT be `INNER - HERO_W - HGAP`
    with INNER imported from render-deck.js: across the import cycle those consts
    are in the TDZ at module-load and throw. INNER is 1720 on the 1920 deck. */
@@ -104,10 +104,10 @@ function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure, model}){
 
 /* Turns a cardTag() result into the rail's compact export-only suffix word
    (F4) — reuses cardTag's own label wording (kept in one place), only
-   reshaping 'dropped — X' into 'dropped (X)' to read naturally after " — ". */
+   reshaping 'not needed — X' into 'not needed (X)' to read naturally after " — ". */
 function railTagSuffix(tag){
   if(!tag) return '';
-  if(tag.kind === 'dropped') return 'dropped (' + tag.label.replace(/^dropped — /, '') + ')';
+  if(tag.kind === 'dropped') return 'not needed (' + tag.label.replace(/^not needed — /, '') + ')';
   return tag.label;
 }
 
@@ -124,7 +124,8 @@ function focusBodyFn(model, ctx, C){
     /* activeCount for the flag/label; heroItems (all, incl. dropped) still paints below. */
     const heroActive = activeCount(model, heroIdx);
     const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
-    const countLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip : String(heroActive);
+    const countLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip
+      : condCountLabel(heroActive, condCount(model, heroIdx));
     s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
     s.push(txt(heroX + HERO_W, y0 + 30, countLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700, tracking: 1}));
 
@@ -251,6 +252,54 @@ const FOCUS_LIVE = {M: 24, HERO_W: 720, HGAP: 40, RAIL_W: 360, RPAD: 16, HEADH: 
    'moved' badge is painted with the raw capsule() builder instead — it
    must NOT go through badgeCapsule's upper-casing, because the "was X"
    label is a horizon NAME and needs to stay readable in its given case. */
+/* Colour pair for one hinges-on link, by betChain() state — reuses the SAME
+   validated pairs cardTag/tagColors already ride (S5/E6, Rev A: "existing
+   tagColors pairs only"), plus the house risk pair for a cycle (already
+   shipped on hero cards via the status flag border, never invented here). */
+function hingeColors(state, C){
+  if(state === 'in a cycle') return [C.status.risk, C.statusInk.risk];
+  const kind = state === 'open' ? 'bet-open'
+    : state === 'paid off' ? 'bet-won'
+    : state === "didn't pay off" ? 'bet-lost'
+    : 'bet-moot';   // 'never ran'
+  return tagColors({kind}, C);
+}
+
+/* HINGES ON strip (S5/E6): one extra foot row under a LIVE hero card whose
+   item is worldState==='cond' — the upstream betChain() rendered as small
+   capsules, root-first, joined by '→'. Informational only: no data-edit, no
+   data-hit, no new tap target (coarse pointers are unaffected — nothing
+   here is reachable or needs to be). `y` is the row's TOP (capsule height
+   is the shared, fixed 22px from deck-parts' capsule() — exactly the +22
+   this row's presence adds to the card, so it fills its budget flush, with
+   no extra margin above or below).  Clipping keeps the FIRST (root) links
+   visible and drops from the END when the chain doesn't fit `maxW` — the
+   same "show what fits" idiom as capFit/clip1 elsewhere in this file,
+   rather than shrinking every capsule to squeeze the whole chain in. */
+function paintHinges(chain, x, y, maxW, C, measure){
+  const prefixFont = '700 10px ' + SANS;
+  const prefix = 'HINGES ON';
+  const prefixW = measure(prefix, prefixFont) + prefix.length * 0.6;
+  const capFont = '600 12px ' + SANS;
+  const arrowGap = measure('→', capFont) + 10;
+  const labels = chain.map(l => (l.when === 'unless' ? 'unless ' : '') + l.display + ' · ' + l.state);
+  const widths = labels.map(lbl => measure(lbl, capFont) + lbl.length * 0.6 + 18);
+  const availW = Math.max(0, maxW - prefixW - 10);
+  const shown = Math.max(1, capFit(widths, availW, arrowGap, 0));
+  const baseline = y + 15;
+  const g = ['<text x="' + x + '" y="' + baseline + '" font-size="10" font-weight="700" letter-spacing="1" fill="' +
+    C.muted + '">' + esc(prefix) + '</text>'];
+  let cx = x + prefixW + 10;
+  for(let i = 0; i < shown; i++){
+    const [col, ink] = hingeColors(chain[i].state, C);
+    const cap = capsule(cx, y, labels[i], col, ink, measure);
+    g.push(cap.svg);
+    cx += cap.w;
+    if(i < shown - 1){ g.push(txt(cx + 4, baseline, '→', 12, C.muted)); cx += arrowGap; }
+  }
+  return g.join('');
+}
+
 function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse}){
   const {RPAD} = FOCUS_LIVE;
   const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
@@ -263,8 +312,15 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
   // ghost row emitted below — mirrors paintBoardCard's noteH reservation so
   // the ghost never collides with the lane/status foot.
   const noteH = nl.length ? nl.length * 21 + 6 : (edit ? 21 : 0);
-  const tagH = tag ? 30 : 0;   // unified with deck layoutHeroCard + board live paintBoardCard (F5)
-  const h = RPAD * 2 + tagH + tl.length * 32 + noteH + footH;
+  const tagH = tag ? 30 : 0;   // unified with deck layoutHeroCard + board live paintBoardCard (F5) —
+  // EXCEPT for height: a LIVE cond-card is 22px TALLER than its deck twin
+  // (S5/E6's "hinges on" strip below is painted by THIS function only; the
+  // deck's layoutHeroCard/paintHeroCard never gained the extra row, so the
+  // two heights deliberately diverge for worldState==='cond' cards).
+  const hinge = it.worldState === 'cond' ? betChain(model, it) : [];
+  const hingeH = hinge.length ? 22 : 0;
+  const hBody = RPAD * 2 + tagH + tl.length * 32 + noteH + footH;
+  const h = hBody + hingeH;
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
   // dropped's treatment wins over the flag border
   const flag = it.worldState === 'dropped' ? null :
@@ -302,7 +358,7 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
       '" font-size="14" fill="' + C.muted + '" opacity="0.55"' + btnAttrs('Add note: ' + it.title) + '>+ note</text>');
     ty += 21;
   }
-  const fy = y + h - RPAD;
+  const fy = y + hBody - RPAD;
   // lane tag (edit target even when empty)
   if(it.lane){
     g.push('<text' + (edit ? ' data-edit="lane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '"' +
@@ -327,6 +383,7 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
       ? badgeCapsule(x + RPAD, y - 12, b, C, measure).svg
       : capsule(x + RPAD, y - 12, b.label, C.muted, C.muted, measure).svg);
   }
+  if(hinge.length) g.push(paintHinges(hinge, x + RPAD, y + hBody, w - RPAD * 2, C, measure));
   g.push('</g>');
   if(whatifRect) g.push(whatifRect);
   return {svg: g.join(''), h};
@@ -395,8 +452,10 @@ export function renderFocusLive(model, ctx){
   const heroItems = inH(heroIdx);
   const heroActive = activeCount(model, heroIdx);
   const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
+  const heroLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip
+    : condCountLabel(heroActive, condCount(model, heroIdx));
   s.push(txt(heroX, zoneTop + 22, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
-  s.push(txt(heroX + HERO_W, zoneTop + 22, overWip ? heroActive + ' — OVER WIP ' + model.wip : String(heroActive), 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
+  s.push(txt(heroX + HERO_W, zoneTop + 22, heroLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
   const heroCardsTop = zoneTop + HEADH;
   const heroBuf = [];
   let hy = heroCardsTop + RPAD;

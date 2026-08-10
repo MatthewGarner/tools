@@ -1,5 +1,5 @@
 /* (model, ctx) → SVG string. ctx = {colors, measure, diff?, slide?}. No DOM. */
-import {STATUS_LABEL, activeCount} from './parse.js';
+import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {packLane} from './pack.js';
 import {standfirst, storyLine} from './text-parts.js';
 import {layoutRoadmap} from './layout.js';
@@ -39,6 +39,21 @@ export {PALETTES, scheme} from '../assets/series.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, tint, wrapText, btnAttrs, editTarget} from '../assets/svg.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+
+/* E9 honest counts, this renderer's own tighter wording: "COND" rather than
+   board/focus/register's "conditional" — render.js's columns run narrower
+   (colWNarrow/colWWide) and renderNarrow's phone-width stack (360-380px in
+   practice) leaves no room for the longer word. `compact` drops the spaces
+   around "+" for the phone path specifically, where the label competes with
+   the horizon name and the accent bar on one line — chosen once, statically,
+   rather than measured per-render, since it's the tightest context this
+   chart ever paints in. M === 0 is the exact pre-existing string (byte
+   identity for bet-free/cond-free docs). */
+function condLabel(activeN, condN, compact){
+  if(!condN) return String(activeN);
+  const f = activeN - condN;
+  return compact ? f + '+' + condN + ' COND' : f + ' + ' + condN + ' COND';
+}
 
 /* stable per-card identity for the shared FLIP (renumber-safe, unlike srcLine) —
    the title, normalised. Matches the app's drop-FLIP key. */
@@ -252,8 +267,12 @@ function renderNarrow(model, ctx, C, T){
     s.push('<text x="' + PAD + '" y="' + (y + 12) + '" font-size="13" font-weight="700" letter-spacing="' +
       T.colHeadTracking + '" fill="' + C.ink + '">' + esc(hName.toUpperCase()) + '</text>');
     if(h === 0 && overWip && !anySpan){
+      /* the compact (no-space) form here, not the wide grid's spaced one — this
+         is the actual phone-width chart (renderWidth's <520px bucket, ~360-380px
+         in practice once page margins are subtracted), and the wide grid's
+         "F + M COND ITEMS" collides with the horizon name at that width. */
       s.push('<text x="' + (W - PAD) + '" y="' + (y + 12) + '" text-anchor="end" font-size="' + T.wipSize +
-        '" font-weight="600" fill="' + C.err + '">' + firstColCount + ' ITEMS</text>');
+        '" font-weight="600" fill="' + C.err + '">' + condLabel(firstColCount, condCount(model, 0), true) + ' ITEMS</text>');
     }
     y += 20;
     s.push('<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="3" rx="1.5" fill="' + C.accent + '"/>');
@@ -553,7 +572,7 @@ export function render(model, ctx){
     if(h === 0 && overWip && !anySpan){    // the historical first-column flag
       s.push('<text x="' + (colX(0) + colW) + '" y="' + (headerH + T.colHeadTextY*S) +
         '" text-anchor="end" font-size="' + T.wipSize*S + '" font-weight="600" fill="' + C.err + '">' +
-        firstColCount + ' ITEMS</text>');
+        condLabel(firstColCount, condCount(model, 0), false) + ' ITEMS</text>');
     }
     if(anySpan && model.wip > 0){
       /* inline after the name — a right-aligned count crowds the next header.
@@ -562,11 +581,12 @@ export function render(model, ctx){
       const n = activeCount(model, h);
       if(n){
         const over = n > model.wip;
+        const lbl = condLabel(n, condCount(model, h), false);
         const nameW = measure(model.horizons[h].toUpperCase(), '600 ' + T.colHeadSize*S + 'px ' + F.body) +
           model.horizons[h].length * T.colHeadTracking;
         s.push('<text x="' + (colX(h) + nameW + 8*S) + '" y="' + (headerH + T.colHeadTextY*S) +
           '" font-size="' + T.wipSize*S + '" font-weight="' + (over ? 700 : 600) + '" fill="' + (over ? C.err : C.muted) +
-          '"' + (over ? '' : ' opacity="0.7"') + '>' + (over ? '· ' + n + ' ACTIVE' : '· ' + n) + '</text>');
+          '"' + (over ? '' : ' opacity="0.7"') + '>' + (over ? '· ' + lbl + ' ACTIVE' : '· ' + lbl) + '</text>');
       }
     }
     s.push('<rect x="' + colX(h) + '" y="' + (headerH + T.colHeadBarY*S) + '" width="' + T.colHeadBarW*S +

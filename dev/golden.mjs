@@ -240,6 +240,24 @@ for(const [k, src] of Object.entries(docs)){
     'Growth: Won rider stays [if expansion]';
   variants['register-live-conditional'] = renderRegisterLive(parse(resolvedDoc), {...ctxBase});
 
+  /* S4 (E10): `group: outcome` — the register's regrouping lens, captured
+     edit:false (layout, not edit affordances — dev/injection.test.mjs covers
+     those). One doc exercises all five sections: an open fork (gate: pays
+     off / doesn't), a genuine condition cycle (alpha/beta each conditioned
+     on the other), and a resolved-world casualty (the won fallback drops). */
+  const outcomeDoc = 'title: Portfolio register\nstyle: register\ngroup: outcome\ndate: 2026-08-10\nwip: off\nNOW\n' +
+    'Core: Foundation\nNEXT\n' +
+    'Core: Root gate [bet: gate]\n' +
+    'Core: Feature ships [if gate] -- ships once gate pays off\n' +
+    'Core: Fallback plan [unless gate] -- covers if gate fails\n' +
+    'Core: Alpha loop [bet: alpha] [if beta]\n' +
+    'Core: Beta loop [bet: beta] [if alpha]\n' +
+    'LATER\n' +
+    'Growth: Expansion bet [bet: expansion won]\n' +
+    'Growth: Won fallback dropped [unless expansion] -- superseded once expansion shipped\n' +
+    'Growth: Won rider stays [if expansion]';
+  variants['register-outcome'] = renderRegisterLive(parse(outcomeDoc), {...ctxBase});
+
   /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
      pins the LAYOUT (content-width columns, content-driven height, the
@@ -254,6 +272,18 @@ for(const [k, src] of Object.entries(docs)){
     parse('story: We chose depth over breadth this cycle\n' + boardLiveDoc),
     {...ctxBase, diff: {badge: () => null, dropped: ['old thing'], since: 'JUNE', any: true}});
 
+  /* E1 (S3): an OPEN fork on the live board — a live item, both halves of one
+     bet's zone (if-so + if-not), and a second open bet whose zone has only
+     an if-so half (its if-not is empty and must not paint) — pins the wash/
+     label markup, the live-flow-then-zones order, and the empty-half
+     omission all in one golden. edit:false, matching every other board-live
+     golden's export-path convention. */
+  const zonesDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing]\nCore: Ship reminders [bet: reminders]\n' +
+    'Core: Ship digest [bet: digest]\nNEXT\nCore: Widget gallery\n' +
+    'Core: Smart nudges [if reminders]\nCore: Manual outreach [unless reminders]\n' +
+    'Core: Digest follow-up [if digest]\nLATER\nCore: Coach marketplace';
+  variants['board-live-zones'] = renderBoardLive(parse(zonesDoc), {...ctxBase});
+
   /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
      edit:false (the export/golden path — zero edit markup) so this golden
      pins the LAYOUT (fixed live width, content-driven height, the light
@@ -263,6 +293,16 @@ for(const [k, src] of Object.entries(docs)){
   const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
   variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
   variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
+
+  /* E6 (S5): the "hinges on" strip on a live hero card — a chained pair of
+     bets two links deep (root resolves won, gate stays open), pinning the
+     capsule text, the +22 card height, and the strip's absence from every
+     other card on the same doc. edit:false, matching every other focus-live
+     golden's export-path convention. */
+  const hingesDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
+    'Core: Root milestone [bet: root won]\nCore: Gate check [bet: gate] [if root]\n' +
+    'Core: Send digest [if gate]\nNEXT\nGrowth: Referral flow\nLATER\nGrowth: Coach marketplace';
+  variants['focus-live-hinges'] = renderFocusLive(parse(hingesDoc), {...ctxBase});
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

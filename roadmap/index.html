@@ -89,7 +89,7 @@
           <dt><code data-try="">Growth: Referral loop [bet: referrals]</code></dt>
           <dd>declare the item a <em>bet</em> — a fork the plan turns on. Click its capsule (or use the card menu) to preview each world; when reality answers, resolve it in the text: <code>[bet: referrals won]</code> / <code>[bet: referrals lost]</code></dd>
           <dt><code data-try="">Personalisation [if referrals]</code></dt>
-          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditioned items render ghosted while the fork is open — the losing branch stays on the board, marked dropped, when it closes</dd>
+          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditioned items render ghosted while the fork is open — the branch not needed stays on the board, marked not needed, when it closes</dd>
           <dt><code data-try="">… -- note text</code></dt>
           <dd>smaller second line on the card</dd>
           <dt><code data-try="">… -&gt; https://jira/PROJ-42</code></dt>
@@ -114,6 +114,10 @@
           <button data-style="focus" aria-pressed="false">Focus</button>
           <button data-style="register" aria-pressed="false">Register</button>
           <button data-style="grid" aria-pressed="false">Grid</button>
+        </div>
+        <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>
+          <button data-group="lane" aria-pressed="true">By lane</button>
+          <button data-group="outcome" aria-pressed="false">By outcome</button>
         </div>
       </div>
       <div class="actions">

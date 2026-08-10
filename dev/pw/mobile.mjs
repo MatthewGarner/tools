@@ -747,8 +747,8 @@ for(const [name, url, chip] of WIDENED){
   const rowTexts = await page.locator('.eip-pop > button, .eip-pop > [role="menuitem"]').evaluateAll(
     els => els.map(el => el.textContent.trim()));
   ok(rowTexts.some(t => t.startsWith('Resolve')), `roadmap: bet item card menu carries a Resolve… row (${JSON.stringify(rowTexts)})`);
-  ok(rowTexts.some(t => t.startsWith('What if: pays off')), 'roadmap: bet item card menu carries a "What if: pays off" row');
-  ok(rowTexts.some(t => t.startsWith('What if: fails')), 'roadmap: bet item card menu carries a "What if: fails" row');
+  ok(rowTexts.some(t => t.startsWith('What if: it pays off')), 'roadmap: bet item card menu carries a "What if: it pays off" row');
+  ok(rowTexts.some(t => t.startsWith("What if: it doesn't")), 'roadmap: bet item card menu carries a "What if: it doesn\'t" row');
 
   const rowHeights = await page.locator('.eip-pop > button, .eip-pop > [role="menuitem"]')
     .evaluateAll(els => els.map(el => el.getBoundingClientRect().height));
@@ -757,14 +757,14 @@ for(const [name, url, chip] of WIDENED){
 
   // What-if actually cycles the preview from the menu (view-state, no text edit)
   const beforeSrc = await page.evaluate(() => localStorage.getItem('roadmap-src'));
-  await page.locator('.eip-pop button', {hasText: 'What if: pays off'}).click();
+  await page.locator('.eip-pop button', {hasText: 'What if: it pays off'}).click();
   await page.waitForTimeout(400);
   const chipShown = await page.evaluate(() => {
     const el = document.getElementById('whatifchip');
     return !!el && !el.hidden && el.textContent.trim().length > 0;
   });
   const afterSrc = await page.evaluate(() => localStorage.getItem('roadmap-src'));
-  ok(chipShown, 'roadmap: "What if: pays off" from the card menu shows the previewing chip');
+  ok(chipShown, 'roadmap: "What if: it pays off" from the card menu shows the previewing chip');
   ok(afterSrc === beforeSrc, 'roadmap: a what-if row commit never edits the text (view-state only)');
   await page.close();
 }

@@ -153,7 +153,10 @@ check('markdown import renders', impSvg.includes('Imported item') && impSvg.incl
 // lane. Rows resolved BY TITLE, never data-line (a line number is a property
 // of the example doc, not a stable identity).
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height}, reducedMotion: 'reduce'});
+  /* E9's per-horizon headers add ~20px per horizon to the register, which put
+     the NEXT row below a 1000px fold — the endpoints must both be visible or
+     the drop is a silent no-op, so the register block gets the extra height. */
+  const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height + 160}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Habit app roadmap'}).click();
   await p.waitForTimeout(400);
