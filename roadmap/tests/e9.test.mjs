@@ -126,7 +126,7 @@ test('OVER WIP fires from the FULL activeCount even when the settled share (F) a
 test('register live: per-horizon group header with the F + M conditional split appears once a bet exists', () => {
   const m = parse(FORK_DOC);
   const svg = renderRegisterLive(m, ctx({edit: true}));
-  assert.ok(svg.includes('NOW') && svg.includes('1 + 0 conditional'), 'NOW: settled item, no cond');
+  assert.ok(svg.includes('NOW') && !svg.includes('+ 0 conditional'), 'NOW: settled horizon shows a plain count, never "+ 0 conditional" noise');
   assert.ok(svg.includes('0 + 2 conditional'), 'NEXT: both items conditional');
 });
 

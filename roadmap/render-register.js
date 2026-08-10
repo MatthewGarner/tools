@@ -6,7 +6,7 @@ import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel} from './cond-parts.js';
 import {activeCount, condCount} from './parse.js';
 
 function registerBodyFn(model, ctx, C){
@@ -215,9 +215,8 @@ export function renderRegisterLive(model, ctx){
        byte-identical: no header row, no reserved height). Lane mode only —
        an `group: outcome` register (S4) owns its own section headers instead. */
     if(hasBets){
-      const activeH = activeCount(model, h), condH = condCount(model, h);
       s.push(txt(M, y + 10, model.horizons[h].toUpperCase() + '   ' +
-        (activeH - condH) + ' + ' + condH + ' conditional', 11, C.muted, {weight: 700, tracking: 1.6}));
+        condCountLabel(activeCount(model, h), condCount(model, h)), 11, C.muted, {weight: 700, tracking: 1.6}));
       y += 20;
     }
     for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
