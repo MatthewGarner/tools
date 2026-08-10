@@ -19,6 +19,14 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
 
 const TOOLS = {
+  paths: {
+    keys: ['title', 'date', 'today', 'style', 'verdict', 'palette', 'accent'],
+    doc: ['title: T', 'date: off', 'today: 2026-12-22', 'style: tree', 'verdict: off',
+      'palette: ocean', 'accent: #C05621',
+      'decision groups:', '  question: Do friends appear?', '  signal: invites >= 3',
+      '  owner: growth', '  answer-by: 2026-12-15',
+      'NOW', '  Core: Shared work', '  Core: Rides it [if groups]'].join('\n'),
+  },
   roadmap: {
     keys: ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus'],
     doc: ['title: T', 'date: off', 'headline: A claim', 'story: A change story',

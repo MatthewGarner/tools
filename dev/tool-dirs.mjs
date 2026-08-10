@@ -6,7 +6,7 @@
    newest tool). Add a new tools-origin tool here in ONE place.
    Energy tools live under energy/ and are walked separately (never add
    'energy' here — the tools origin redirects /energy/* away). */
-export const TOOL_DIRS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley', 'alarm', 'duel', 'premortem', 'bets', 'signal-vs-noise', 'case'];
+export const TOOL_DIRS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow', 'timeline', 'wardley', 'alarm', 'duel', 'premortem', 'bets', 'signal-vs-noise', 'case', 'paths'];
 
 /* Binders sit APART from the instrument numbering (Matt, 2026-08-02): /case is
    an optional layer that BINDS instruments rather than being one — its kicker
@@ -25,7 +25,7 @@ export const BINDERS = ['case'];
 export const INSTRUMENTS = {
   roadmap: '01', timeline: '02', bets: '03', rank: '04', duel: '05',
   map: '06', tree: '07', why: '08', wardley: '09', premortem: '10',
-  fermi: '11', gauge: '12', alarm: '13', flow: '14', 'signal-vs-noise': '15',
+  fermi: '11', gauge: '12', alarm: '13', flow: '14', 'signal-vs-noise': '15', paths: '16',
 };
 
 /* Single source of truth for the energy-origin tool directories (energy/<dir>/).

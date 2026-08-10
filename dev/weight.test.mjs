@@ -414,6 +414,9 @@ const PAGES = {
      restoration, one owned playback loop, reduced-motion settle and viewport
      clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
   'energy/intraday/index.html': 166_000,
+  /* Tree + outline renderers, the layout, the four engine modules and the vendored
+     editor. Actual 522.8k; ~25% headroom as the house sets a new tool's budget. */
+  'paths/index.html': 653_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

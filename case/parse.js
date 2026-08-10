@@ -13,7 +13,7 @@ const STATUSES = ['open', 'decided', 'parked'];
    never shipped); dev/case-allowlist.test.mjs pins it to TOOL_DIRS so it can't
    drift when a tool ships. */
 export const SUITE_TOOLS = ['fermi', 'rank', 'roadmap', 'why', 'tree', 'map', 'gauge', 'flow',
-  'timeline', 'wardley', 'alarm', 'duel', 'premortem', 'bets', 'signal-vs-noise', 'case'];
+  'timeline', 'wardley', 'alarm', 'duel', 'premortem', 'bets', 'signal-vs-noise', 'case', 'paths'];
 export const ENERGY_TOOLS = ['cycles', 'risk', 'frequency', 'merit-order', 'intraday'];
 
 /* → {tool, live} — tool is the pill name ('' when nothing derivable) */
