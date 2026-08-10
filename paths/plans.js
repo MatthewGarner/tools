@@ -91,8 +91,35 @@ function sharesFor(current, worlds){
     dependentShare:1 - sharedShare - assumedShare};
 }
 
+function withoutAnswer(model, key){
+  const source = model.decisionByName[key];
+  if(!source?.answer?.direction) return model;
+  const replacement = {...source, answer:null};
+  return {...model,
+    decisions:model.decisions.map(decision => decision.key === key ? replacement : decision),
+    decisionByName:{...model.decisionByName, [key]:replacement}};
+}
+
+function withReach(model, today, current){
+  const reaches = new Map();
+  for(const decision of model.decisions){
+    const comparisonModel = withoutAnswer(model, decision.key);
+    const yes = project(comparisonModel, today, {[decision.key]:'yes'});
+    const no = project(comparisonModel, today, {[decision.key]:'no'});
+    let reach = 0;
+    for(let index = 0; index < yes.items.length; index++){
+      if(yes.items[index].itemState !== no.items[index]?.itemState) reach++;
+    }
+    reaches.set(decision.key, reach);
+  }
+  const decisions = current.decisions.map(decision => ({...decision, reach:reaches.get(decision.key) || 0}));
+  const decisionByName = Object.fromEntries(decisions.map(decision => [decision.key, decision]));
+  return {...current, decisions, decisionByName,
+    reachDenominator:current.items.filter(item => item.status !== 'done').length};
+}
+
 function calculate(model, today){
-  const current = project(model, today);
+  const current = withReach(model, today, project(model, today));
   const reachability = enumerableDecisions(model, today, current);
   const enumerable = reachability.decisions;
   if(reachability.refusedCount){

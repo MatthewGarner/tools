@@ -97,3 +97,32 @@ test('zero denominator yields no figure and repeated calls memoise per model and
   assert.equal(first, second);
   assert.notEqual(first, enumeratePlans(model, '2026-02-03'));
 });
+
+test('reach counts every item whose state differs between a decision yes and no', () => {
+  const model = parse(`${decision('fork')}\nNOW\n  Core: First [if fork]\n  Core: Second [unless fork]\n  Core: Third [if fork]`);
+  const result = enumeratePlans(model, '2026-02-02');
+  assert.equal(result.decisionByName.fork.reach, 3);
+  assert.equal(result.decisions[0].reach, 3);
+});
+
+test('an unused decision has zero reach', () => {
+  const result = enumeratePlans(parse(`${decision('unused')}\nNOW\n  Core: Always`), '2026-02-02');
+  assert.equal(result.decisionByName.unused.reach, 0);
+});
+
+test('reach is present when seven open questions make plan enumeration refuse', () => {
+  const decisions = Array.from({length:7}, (_, index) => decision(`q${index}`));
+  const result = enumeratePlans(parse(`${decisions.join('\n')}\nNOW\n  Core: First [if q0]`), '2026-02-02');
+  assert.equal(result.worlds.refused, true);
+  assert.deepEqual(result.decisions.map(entry => entry.reach), [1, 0, 0, 0, 0, 0, 0]);
+});
+
+test('reach denominator includes every item except done items', () => {
+  const result = enumeratePlans(parse(`${decision('fork')}\nNOW\n  Core: Conditional [if fork]\n  Core: Always\n  Core: Finished [done]`), '2026-02-02');
+  assert.equal(result.reachDenominator, 2);
+});
+
+test('reach compares both arms even when the decision already has an answer', () => {
+  const result = enumeratePlans(parse(`${decision('fork', '\n  answer: yes')}\nNOW\n  Core: Conditional [if fork]`), '2026-02-02');
+  assert.equal(result.decisionByName.fork.reach, 1);
+});
