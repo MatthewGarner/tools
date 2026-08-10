@@ -86,6 +86,31 @@ test('timeline: 120-milestone render under 250ms', async () => {
   await timed(250, () => render(m, ctx));
 });
 
+test('paths: cold six-question plan enumeration under 50ms', async () => {
+  const {parse} = await import('../paths/parse.js');
+  const {enumeratePlans} = await import('../paths/plans.js');
+  const decisions = Array.from({length: 6}, (_, i) => `decision q${i}:
+  question: Question ${i}?
+  signal: signal ${i}
+  owner: owner ${i}
+  answer-by: 2026-12-15`).join('\n');
+  const items = Array.from({length: 24}, (_, i) =>
+    `  Core: Item ${i} [if q${i % 6} and q${(i + 1) % 6}]`).join('\n');
+  const model = parse(`${decisions}\nNOW\n${items}`);
+  let result;
+  await timed(50, () => { result = enumeratePlans(model, '2026-12-22'); });
+  assert.equal(result.worlds.possibleCount, 64, 'all assignments were enumerated');
+  assert.equal(result.worlds.plans.reduce((sum, plan) => sum + plan.covers, 0), 64,
+    'merged plans cover every assignment');
+  assert.ok(result.matrix.length > 0 && result.matrix.some(row => row.states.some(Boolean)),
+    'the projected item-state matrix contains real work');
+  assert.ok(result.shares && result.shares.denominator > 0, 'the three-part figure was calculated');
+  assert.equal(result.shares.shared + result.shares.assumed + result.shares.dependent,
+    result.shares.denominator, 'share counts exhaust their denominator');
+  assert.equal(result.shares.sharedShare + result.shares.assumedShare + result.shares.dependentShare,
+    1, 'share fractions exhaust their denominator');
+});
+
 test('risk: 10k samples × 4 structures × 2 fits under 400ms', async () => {
   const {parse} = await import('../energy/risk/parse.js');
   const {simulate} = await import('../energy/risk/engine.js');
