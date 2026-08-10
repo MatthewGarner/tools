@@ -293,6 +293,16 @@ for(const [k, src] of Object.entries(docs)){
   const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
   variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
   variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
+
+  /* E6 (S5): the "hinges on" strip on a live hero card — a chained pair of
+     bets two links deep (root resolves won, gate stays open), pinning the
+     capsule text, the +22 card height, and the strip's absence from every
+     other card on the same doc. edit:false, matching every other focus-live
+     golden's export-path convention. */
+  const hingesDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
+    'Core: Root milestone [bet: root won]\nCore: Gate check [bet: gate] [if root]\n' +
+    'Core: Send digest [if gate]\nNEXT\nGrowth: Referral flow\nLATER\nGrowth: Coach marketplace';
+  variants['focus-live-hinges'] = renderFocusLive(parse(hingesDoc), {...ctxBase});
 }
 
 /* tree fixtures (dates normalised so captures are stable) */

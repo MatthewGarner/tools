@@ -214,6 +214,45 @@ export function outcomeSectionTint(kind, C){
   }
 }
 
+/* E6 (S5, Rev A): the focus hero "hinges on" chain — walks an item's OWN
+   condition up through the bet it names, to THAT bet's declaring item, to
+   ITS OWN condition, and so on, root-first. NEW code (not a lift of
+   rootResolvedBet, which walks dropReason and only makes sense for an
+   already-dropped item — a link here can be a currently-OPEN fork). Each
+   bet's declaring item is found via model.bets[nameLc].itemIndex, and the
+   walk carries its OWN `visited` set (never the baked `b.cycle` flag) so a
+   self-referential or mutually-referential chain terminates even before
+   deriveWorld's own cycle detection would have caught it — belt and braces,
+   cheap on any real doc (chains are short). Returns [] for an item with no
+   cond (the common case) or one whose cond parse.js already nulled (a
+   dangling "no such bet" condition, buildBets already warned). Each link is
+   {name, display, when, state}; `state` prefers 'in a cycle' over the raw
+   effective reading — a cycle bet reads unresolved forever, but the cycle
+   is the more useful fact for a reader following the chain. */
+export function betChain(model, it){
+  const chain = [];
+  const bets = (model && model.bets) || {};
+  const items = (model && model.items) || [];
+  const visited = new Set();
+  let cond = it && it.cond;
+  while(cond){
+    const nameLc = cond.name.toLowerCase();
+    if(visited.has(nameLc)) break;   // own cycle-guard, independent of b.cycle
+    visited.add(nameLc);
+    const b = bets[nameLc];
+    if(!b) break;   // dangling condition — parse.js would already have nulled it
+    const state = b.cycle ? 'in a cycle'
+      : b.effective === 'won' ? 'paid off'
+      : b.effective === 'lost' ? "didn't pay off"
+      : b.effective === 'moot' ? 'never ran'
+      : 'open';
+    chain.unshift({name: b.name, display: b.display, when: cond.when, state});
+    const declaring = items[b.itemIndex];
+    cond = declaring ? declaring.cond : null;
+  }
+  return chain;
+}
+
 /* The invisible what-if hit rect, sized to the tag capsule it sits under —
    emitted by the CALLER as a SIBLING painted AFTER (never inside) the
    card's own cardmenu <g>, exactly the data-span-edge discipline (render.js)
