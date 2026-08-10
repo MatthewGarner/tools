@@ -27,6 +27,20 @@ function assertClean(out, who){
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
 }
 
+test('paths wide tree renderer escapes hostile decision, item, and lane labels', async () => {
+  const {treeLayout} = await import('../paths/layout-tree.js');
+  const {renderTree} = await import('../paths/render-tree.js');
+  const item = {title:EVIL[1], lane:EVIL[2], parentDecision:'choice',
+    condition:{terms:[{key:'choice'}]}};
+  const question = {key:'choice', decision:{key:'choice', displayName:EVIL[0]},
+    displayState:{kind:'open'}, arms:{yes:[item], no:[]}, stump:null};
+  const projection = {today:'2026-08-10',
+    spine:[{title:EVIL[3], lane:EVIL[4]}], questions:[question], breadcrumbs:[],
+    unplaced:[{title:EVIL[5], lane:EVIL[0], condition:{terms:[]}}], warnings:[]};
+  assertClean(renderTree(projection, treeLayout(projection, {width:900, measure:ctx.measure}), ctx),
+    'paths-tree');
+});
+
 test('roadmap renderer escapes hostile titles/items/lanes', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {render} = await import('../roadmap/render.js');
