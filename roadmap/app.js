@@ -223,7 +223,7 @@ function syncWhatIfChip(m){
   names.forEach((k, i) => {
     if(i) chip.appendChild(document.createTextNode(' · '));
     const strong = document.createElement('strong');
-    strong.textContent = m.bets[k].display + ' ' + (whatIf[k] === 'won' ? 'pays off' : 'fails');
+    strong.textContent = m.bets[k].display + ' ' + (whatIf[k] === 'won' ? 'pays off' : "doesn't pay off");
     chip.appendChild(strong);
   });
   chip.appendChild(document.createTextNode(' — exports show all paths — '));
@@ -365,11 +365,11 @@ function itemMenu(m, srcLine, whatIfMap){
      reflects the WRITTEN outcome (item.bet.outcome), never the what-if
      preview — resolving is a text edit, so it must read the text's truth. */
   const resolveRow = (item && item.bet) ? {label: 'Resolve…', submenu: [
-    {label: 'won', on: item.bet.outcome === 'won',
+    {label: 'paid off', on: item.bet.outcome === 'won',
       commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome || '', value: 'won'}},
-    {label: 'lost', on: item.bet.outcome === 'lost',
+    {label: "didn't pay off", on: item.bet.outcome === 'lost',
       commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome || '', value: 'lost'}},
-    ...(item.bet.outcome ? [{label: 'unresolve', on: false,
+    ...(item.bet.outcome ? [{label: 'reopen', on: false,
       commit: {kind: 'resolvebet', line: srcLine, oldRaw: item.bet.outcome, value: ''}}] : []),
   ]} : null;
   /* What-if…: same bet items, but only while the bet is UNRESOLVED in text
@@ -379,11 +379,11 @@ function itemMenu(m, srcLine, whatIfMap){
      the view-state whatIf map directly (spec §3/§4: view-state only). */
   const whatIfName = item ? previewableBet(m && m.bets, item) : null;
   const whatIfRows = whatIfName ? [
-    {label: 'What if: pays off', on: (whatIfMap || {})[whatIfName] === 'won',
+    {label: 'What if: it pays off', on: (whatIfMap || {})[whatIfName] === 'won',
       commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'won'}},
-    {label: 'What if: fails', on: (whatIfMap || {})[whatIfName] === 'lost',
+    {label: "What if: it doesn't", on: (whatIfMap || {})[whatIfName] === 'lost',
       commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: 'lost'}},
-    {label: 'What if: clear', on: !(whatIfMap || {})[whatIfName],
+    {label: 'clear preview', on: !(whatIfMap || {})[whatIfName],
       commit: {kind: 'whatif', line: srcLine, oldRaw: '', value: ''}},
   ] : [];
   /* Condition…: every item, whenever ≥1 bet is declared anywhere in the doc —

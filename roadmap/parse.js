@@ -192,7 +192,8 @@ function aftermathTier(model){
   /* the line embeds the fig verbatim — markFigure only colours a substring it
      can find, and a bare count ("3") could false-match a digit in a bet name */
   const fig = n + ' of ' + total;
-  return {fig, line: 'The ' + b.display + ' bet ' + b.effective + ' — ' +
+  const outcomeWord = {won: 'paid off', lost: "didn't pay off"}[b.effective] || b.effective;
+  return {fig, line: 'The ' + b.display + ' bet ' + outcomeWord + ' — ' +
     nOfT(n, total, kind) + ' ' + vb(n, total, 'falls', 'fall') + ' away.'};
 }
 
@@ -727,13 +728,14 @@ function deriveWorld(model, assumed){
       }
     }
     if(it.status === 'doing' && it.worldState === 'dropped'){
-      worldWarnings.push('line ' + (it.srcLine + 1) + ': [doing] item is dropped by its condition' +
+      worldWarnings.push('line ' + (it.srcLine + 1) + ': [doing] item is not needed under its condition' +
         (it.cond ? ' ("' + it.cond.name + '")' : '') + ' — still in flight, so it still counts toward WIP');
     }
     if(it.status === 'done' && it.cond){
       const eff = effectiveOf(it.cond.name.toLowerCase());
       if(eff === 'unresolved' || eff === 'lost' || eff === 'moot'){
-        const clause = eff === 'moot' ? 'which never ran' : 'which is ' + eff;
+        const clause = eff === 'moot' ? 'which never ran'
+          : eff === 'lost' ? "which didn't pay off" : 'which is ' + eff;
         worldWarnings.push('line ' + (it.srcLine + 1) + ': [done] item is conditioned on bet "' +
           it.cond.name + '", ' + clause + ' — done outranks the fork, kept');
       }

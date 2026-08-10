@@ -51,18 +51,18 @@ export function previewableBet(bets, it){
 export function cardTag(model, it){
   if(!it) return null;
   if(it.worldState === 'dropped' && it.dropReason){
-    const word = it.dropReason.effective === 'won' ? 'won'
-      : it.dropReason.effective === 'lost' ? 'lost' : 'never ran';
-    return {kind: 'dropped', label: 'dropped — ' + it.dropReason.display + ' ' + word};
+    const word = it.dropReason.effective === 'won' ? 'paid off'
+      : it.dropReason.effective === 'lost' ? "didn't" : 'never ran';
+    return {kind: 'dropped', label: 'not needed — ' + it.dropReason.display + ' ' + word};
   }
   if(it.bet){
     const nameLc = it.bet.name.toLowerCase();
     const b = model && model.bets ? model.bets[nameLc] : null;
     const eff = b ? b.effective : 'unresolved';
-    if(eff === 'won') return {kind: 'bet-won', label: it.bet.name + ' · won'};
-    if(eff === 'lost') return {kind: 'bet-lost', label: it.bet.name + ' · lost'};
+    if(eff === 'won') return {kind: 'bet-won', label: it.bet.name + ' · paid off'};
+    if(eff === 'lost') return {kind: 'bet-lost', label: it.bet.name + " · didn't"};
     if(eff === 'moot') return {kind: 'bet-moot', label: it.bet.name + ' · never ran'};
-    return {kind: 'bet-open', label: 'BET ' + it.bet.name};
+    return {kind: 'bet-open', label: 'bet: ' + it.bet.name};
   }
   if(it.worldState === 'cond' && it.cond){
     return {kind: 'cond', label: (it.cond.when === 'unless' ? 'unless ' : 'if ') + it.cond.name};
@@ -134,7 +134,7 @@ export function whatifHitRect(nameLc, display, x, y, w, h, coarse){
      NO cond capsule, and a hero's own what-if aria-label sitting right next
      to it would otherwise false-positive that check. */
   const a11y = coarse ? '' : " tabindex='0' role='button' aria-label='" +
-    esc('what-if: ' + display + ' pays off / fails — cycles') + "'";
+    esc('what-if: ' + display + " pays off / doesn't — cycles") + "'";
   return "<rect data-whatif='" + esc(nameLc) + "'" + a11y +
     " x='" + x + "' y='" + y + "' width='" + w + "' height='" + h + "' fill='transparent'/>";
 }

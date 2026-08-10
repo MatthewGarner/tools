@@ -37,22 +37,22 @@ test('anyBet is false for a bet-free doc, true once any bet/cond appears', () =>
 test('cardTag: bet-open / cond / dropped / moot wording', () => {
   const m = parse(FORK_DOC);
   const [betItem, ifItem, unlessItem] = m.items;
-  assert.deepEqual(cardTag(m, betItem), {kind: 'bet-open', label: 'BET reminders'});
+  assert.deepEqual(cardTag(m, betItem), {kind: 'bet-open', label: 'bet: reminders'});
   assert.deepEqual(cardTag(m, ifItem), {kind: 'cond', label: 'if reminders'});
   // BOTH sides of an unresolved fork read as 'cond' — the fork hasn't answered,
   // so neither branch is dropped yet (that only happens once the bet resolves)
   assert.deepEqual(cardTag(m, unlessItem), {kind: 'cond', label: 'unless reminders'});
 
   const won = parse(RESOLVED_WON);
-  assert.deepEqual(cardTag(won, won.items[0]), {kind: 'bet-won', label: 'reminders · won'});
-  assert.deepEqual(cardTag(won, won.items[2]), {kind: 'dropped', label: 'dropped — reminders won'});
+  assert.deepEqual(cardTag(won, won.items[0]), {kind: 'bet-won', label: 'reminders · paid off'});
+  assert.deepEqual(cardTag(won, won.items[2]), {kind: 'dropped', label: 'not needed — reminders paid off'});
 
   const moot = parse(MOOT_DOC);
   const gate = moot.items[1], rider = moot.items[2];
   assert.equal(gate.worldState, 'dropped');
-  assert.deepEqual(cardTag(moot, gate), {kind: 'dropped', label: 'dropped — root lost'});
-  assert.deepEqual(cardTag(moot, rider), {kind: 'dropped', label: 'dropped — gate never ran'},
-    'a moot bet\'s own [if] dependent reads "never ran", never "lost"');
+  assert.deepEqual(cardTag(moot, gate), {kind: 'dropped', label: "not needed — root didn't"});
+  assert.deepEqual(cardTag(moot, rider), {kind: 'dropped', label: 'not needed — gate never ran'},
+    'a moot bet\'s own [if] dependent reads "never ran", never "didn\'t"');
 });
 
 test('cardTag never emits ✓/✗ glyphs or NBSP', () => {
@@ -95,9 +95,10 @@ test('a bet-free doc: chart/board/register/focus/deck carry no capsule/dashed ma
     // never fail for a betless doc regardless of dash usage, since dashes
     // painted for unrelated reasons — spans, ghosts — would make the LHS true).
     assert.ok(!svg.includes('BET '), 'no bet-open capsule text on a bet-free doc');
+    assert.ok(!svg.includes('bet: '), 'no bet-open capsule text on a bet-free doc');
     assert.ok(!/\bif [A-Za-z]/.test(svg) && !/\bunless [A-Za-z]/.test(svg), 'no cond capsule text');
-    assert.ok(!/dropped —/.test(svg));
-    assert.ok(!/·\s*(won|lost|never ran)/.test(svg));
+    assert.ok(!/not needed —/.test(svg));
+    assert.ok(!/·\s*(paid off|didn't|never ran)/.test(svg));
     assert.ok(!svg.includes('data-whatif'), 'no what-if hit rect');
   }
 });
@@ -107,21 +108,21 @@ test('a bet-free doc: chart/board/register/focus/deck carry no capsule/dashed ma
 test('chart: bet/cond/dropped capsules render, full EIP kept (never the ghost treatment)', () => {
   const m = parse(FORK_DOC);
   const svg = render(m, ctx({edit: true}));
-  assert.ok(svg.includes('BET reminders'));
+  assert.ok(svg.includes('bet: reminders'));
   assert.ok(svg.includes('if reminders'));
   assert.ok(svg.includes('data-edit="title"'), 'cond/bet cards keep full edit-in-place markup');
   assert.ok(svg.includes('data-edit="cardmenu"'));
 
   const won = parse(RESOLVED_WON);
   const svgWon = render(won, ctx({edit: true}));
-  assert.ok(svgWon.includes('reminders · won'));
-  assert.ok(svgWon.includes('dropped — reminders won'));
+  assert.ok(svgWon.includes('reminders · paid off'));
+  assert.ok(svgWon.includes('not needed — reminders paid off'));
   assert.ok(svgWon.includes('data-edit="title"'), 'a dropped card keeps full edit markup too');
 });
 
 test('chart narrow: same capsule/dashed treatment as wide', () => {
   const svg = render(parse(FORK_DOC), ctx({width: 380}));
-  assert.ok(svg.includes('BET reminders'));
+  assert.ok(svg.includes('bet: reminders'));
   assert.ok(svg.includes('if reminders'));
 });
 
@@ -136,9 +137,9 @@ test('chart: diff badge suppressed on a dropped item', () => {
 
 test('chart: a moot bet\'s own item shows "never ran" and its [if] rider drops the same way', () => {
   const svg = render(parse(MOOT_DOC), ctx());
-  assert.match(svg, /dropped — root lost/);
-  assert.match(svg, /dropped — gate never ran/);
-  assert.ok(!svg.includes('gate lost'));
+  assert.match(svg, /not needed — root didn&#39;t/);
+  assert.match(svg, /not needed — gate never ran/);
+  assert.ok(!svg.includes("gate didn't"));
 });
 
 /* ---------- board ---------- */
@@ -184,8 +185,8 @@ test('board deck: the tag still renders at the NARROWEST card-column ramp (fsN:0
 test('board live: full capsule + edit markup kept on cond/dropped cards', () => {
   const m = parse(RESOLVED_LOST);
   const svg = renderBoardLive(m, ctx({edit: true}));
-  assert.ok(svg.includes('reminders · lost'));
-  assert.ok(svg.includes('dropped — reminders lost'));
+  assert.ok(svg.includes("reminders · didn&#39;t"));
+  assert.ok(svg.includes("not needed — reminders didn&#39;t"));
   assert.ok(svg.includes('data-edit="cardmenu"'));
 });
 
@@ -214,7 +215,7 @@ test('register deck + live: tag under the title, no risk/blocked wash on a dropp
     const deckSvg = renderRegisterDeck(m, ctx(), colors);
     const liveSvg = renderRegisterLive(m, ctx({edit: true}));
     for(const svg of [deckSvg, liveSvg]){
-      assert.ok(svg.includes('dropped — root lost'));
+      assert.ok(svg.includes("not needed — root didn&#39;t"));
       const i = svg.indexOf('Fallout');
       const rowStart = Math.max(0, svg.lastIndexOf('/>', i - 20));   // the previous row's separator <line .../>
       const row = svg.slice(rowStart, i + 400);
@@ -225,7 +226,7 @@ test('register deck + live: tag under the title, no risk/blocked wash on a dropp
 
 test('register: BET/resolved capsules render', () => {
   const svg = renderRegisterLive(parse(RESOLVED_WON), ctx({edit: true}));
-  assert.ok(svg.includes('reminders · won'));
+  assert.ok(svg.includes('reminders · paid off'));
 });
 
 /* ---------- focus ---------- */
@@ -235,7 +236,7 @@ test('focus hero: full capsule; LIVE rail degrades to fade-only (no capsule text
   const m = parse(doc);
   const deckSvg = renderFocusDeck(m, ctx(), colors);
   const liveSvg = renderFocusLive(m, ctx({edit: true}));
-  for(const svg of [deckSvg, liveSvg]) assert.ok(svg.includes('BET reminders'), 'hero carries the capsule');
+  for(const svg of [deckSvg, liveSvg]) assert.ok(svg.includes('bet: reminders'), 'hero carries the capsule');
   assert.ok(deckSvg.includes('Smart nudges'));
   assert.ok(liveSvg.includes('Smart nudges'));
   // DECK: an export has no card menu to fall back on — the rail row states the
@@ -252,7 +253,7 @@ test('focus hero: full capsule; LIVE rail degrades to fade-only (no capsule text
 test('deck grid style shows the capsule through the delegated chart', () => {
   const doc = 'title: T\nhorizons: quarterly from Q1 2026 x4\nQ1 2026\nCore: Ship base [bet: reminders]\nQ2 2026\nCore: Smart nudges [if reminders]';
   const svg = renderDeck(parse(doc), ctx());
-  assert.ok(svg.includes('BET reminders'));
+  assert.ok(svg.includes('bet: reminders'));
 });
 
 /* ---------- SVG is XML, not HTML (dev/svg-wellformed.test.mjs scans only the

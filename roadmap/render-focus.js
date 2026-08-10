@@ -104,10 +104,10 @@ function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure, model}){
 
 /* Turns a cardTag() result into the rail's compact export-only suffix word
    (F4) — reuses cardTag's own label wording (kept in one place), only
-   reshaping 'dropped — X' into 'dropped (X)' to read naturally after " — ". */
+   reshaping 'not needed — X' into 'not needed (X)' to read naturally after " — ". */
 function railTagSuffix(tag){
   if(!tag) return '';
-  if(tag.kind === 'dropped') return 'dropped (' + tag.label.replace(/^dropped — /, '') + ')';
+  if(tag.kind === 'dropped') return 'not needed (' + tag.label.replace(/^not needed — /, '') + ')';
   return tag.label;
 }
 
