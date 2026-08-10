@@ -1,6 +1,6 @@
 # The DSL reference
 
-Ten of the tools in this repo read a small text DSL and render from it. This is one
+Eleven of the tools in this repo read a small text DSL and render from it. This is one
 document you can hand to an LLM so it can author valid input for any of them. Each tool's
 state lives entirely in the URL hash, so whatever the DSL produces is a bookmarkable,
 shareable link — there is no backend and no account.
@@ -9,7 +9,7 @@ The six tools **without** a DSL — `flow`, `rank`, `fermi`, `alarm`, `duel`, `p
 take their input through the UI (sliders, wizards, forms), not text. Don't write DSL for
 them.
 
-Jump to a tool: [roadmap](#roadmap) · [wardley](#wardley) · [bets](#bets) ·
+Jump to a tool: [paths](#paths) · [roadmap](#roadmap) · [wardley](#wardley) · [bets](#bets) ·
 [timeline](#timeline) · [map](#map) · [tree](#tree) · [why](#why) · [gauge](#gauge) ·
 [energy/cycles](#energycycles) · [energy/risk](#energyrisk)
 
@@ -17,7 +17,7 @@ Jump to a tool: [roadmap](#roadmap) · [wardley](#wardley) · [bets](#bets) ·
 
 ## Shared conventions
 
-The ten grammars differ, but they're a family and obey the same rules:
+The eleven grammars differ, but they're a family and obey the same rules:
 
 - **Config is `key: value`, one per line.** Most tools want config lines *before* the first
   content line — `roadmap`, `wardley`, `bets`, `gauge`, `tree` and `why` warn (or re-read
@@ -49,6 +49,7 @@ The ten grammars differ, but they're a family and obey the same rules:
 
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
+| [paths](#paths) | ✓ | ✓ | ✓ | `date` `today` `style` `verdict` | `decision name:` blocks, period headers, then `Lane: Item [status] [if/unless] -- note -> url` |
 | [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
@@ -63,6 +64,74 @@ The ten grammars differ, but they're a family and obey the same rules:
 \* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet.
 
 ---
+
+## paths
+
+**`/paths`** — a plan that keeps its unresolved decisions visible and shows which work is
+included, excluded, waiting, or following an explicit assumption.
+
+**Config keys:** `title:`, `date:` (`YYYY-MM-DD` or `off`), `today:` (`YYYY-MM-DD`, to pin
+the clock), `style:` (`tree` or `plans`), `verdict:` (authored text or `off`), `palette:`,
+and `accent:`.
+
+**Decision blocks:** `decision name:` at column zero, with two-space-indented fields.
+`question:`, `signal:`, `owner:` and `answer-by:` describe the question; `reading:` records
+the current evidence. `when:` makes a decision open only under another condition.
+`answer: yes|no [date] [target: value] [actual: value] [-- receipt]` records reality.
+`assume: yes|no YYYY-MM-DD` records a working assumption, which takes effect only after the
+due date and never becomes a known answer.
+
+**Plan items:** a column-zero period heading opens a section. Its two-space-indented items
+are `Lane: Title [status] [if expression] -- note -> url`. Status is `done`, `doing`, `risk`
+or `blocked`; expressions use one uniform `and` or `or`, with optional `not`. `[unless x]`
+is an alias for `[if not x]`.
+
+```dsl tool=paths
+title: Habitat — winter paths
+date: 2026-12-22
+today: 2026-12-22
+style: plans
+verdict: Keep the fallback visible until pricing is answered
+palette: ocean
+accent: #C05621
+
+decision groups:
+  question: Do people add at least three friends to a habit without prompting?
+  signal: invites per user >= 3
+  owner: growth squad
+  answer-by: 2026-12-15
+  answer: yes 2026-12-15 target: 3 actual: 3.4 -- winter cohort
+
+decision pricing:
+  question: Will coaches accept a 20% fee?
+  signal: signed coaches >= 10
+  owner: marketplace
+  answer-by: 2026-12-15
+  assume: yes 2026-12-22
+
+decision reminders:
+  question: Do reminders lift day-7 retention?
+  signal: retention lift >= 15%
+  owner: core squad
+  answer-by: 2026-12-10
+  answer: no 2026-12-10
+
+decision marketplace:
+  when: groups and pricing
+  question: Can supply support a January launch?
+  signal: available coaches >= 20
+  owner: marketplace
+  answer-by: 2027-01-20
+
+NOW
+  Core: Streak repair [doing]
+  Growth: Group challenges [if groups] [done]
+LATER
+  Core: Reminder fallback [unless reminders] [risk]
+  Growth: Coach pricing [if pricing] [blocked]
+  Growth: Marketplace launch [if marketplace]
+  Growth: Supply preparation [if groups and pricing]
+```
 
 ## roadmap
 
