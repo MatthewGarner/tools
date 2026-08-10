@@ -5,8 +5,8 @@
 import {txt, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
-import {STATUS_LABEL, activeCount} from './parse.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+import {STATUS_LABEL, activeCount, condCount} from './parse.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel} from './cond-parts.js';
 /* Fixed deck geometry as LITERALS — RAIL_W must NOT be `INNER - HERO_W - HGAP`
    with INNER imported from render-deck.js: across the import cycle those consts
    are in the TDZ at module-load and throw. INNER is 1720 on the 1920 deck. */
@@ -124,7 +124,8 @@ function focusBodyFn(model, ctx, C){
     /* activeCount for the flag/label; heroItems (all, incl. dropped) still paints below. */
     const heroActive = activeCount(model, heroIdx);
     const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
-    const countLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip : String(heroActive);
+    const countLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip
+      : condCountLabel(heroActive, condCount(model, heroIdx));
     s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
     s.push(txt(heroX + HERO_W, y0 + 30, countLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700, tracking: 1}));
 
@@ -395,8 +396,10 @@ export function renderFocusLive(model, ctx){
   const heroItems = inH(heroIdx);
   const heroActive = activeCount(model, heroIdx);
   const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
+  const heroLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip
+    : condCountLabel(heroActive, condCount(model, heroIdx));
   s.push(txt(heroX, zoneTop + 22, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
-  s.push(txt(heroX + HERO_W, zoneTop + 22, overWip ? heroActive + ' — OVER WIP ' + model.wip : String(heroActive), 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
+  s.push(txt(heroX + HERO_W, zoneTop + 22, heroLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
   const heroCardsTop = zoneTop + HEADH;
   const heroBuf = [];
   let hy = heroCardsTop + RPAD;

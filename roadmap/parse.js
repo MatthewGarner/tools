@@ -98,6 +98,18 @@ export function activeCount(model, h){
     .length;
 }
 
+/* Of activeCount's set, the ones still hinging on an open fork (worldState
+   === 'cond') — same span-coverage filter shape, so the two counts are
+   always comparable column-for-column. activeCount INCLUDES cond items (a
+   maybe still counts as work in the column); the honest DISPLAYED split
+   used by every renderer is F = activeCount(model, h) − condCount(model, h)
+   (settled/unconditional) and M = condCount(model, h) (conditional). */
+export function condCount(model, h){
+  return model.items.filter(i => i.h <= h && h <= i.h + Math.max(1, i.span || 1) - 1)
+    .filter(i => i.worldState === 'cond')
+    .length;
+}
+
 /* One plain sentence per breaching column. STATES THE FACT — the tool reports what
    is true and leaves the judgement to the author (the rule the deck headline set).
    app.js appends its own "(Raise or silence …)" hint to the list. */
@@ -127,16 +139,58 @@ const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'))
 const nOfT = (n, t, one, many) => n + ' of ' + t + ' ' + (t === 1 ? one : (many || one + 's'));
 const vb = (n, t, sing, plur) => (n === 1 || t === 1) ? sing : plur;
 
+/* E9 metrics range (DOM header only — deckMetrics/SVG exports never call
+   this): min/max whole-model "still in play" item count across every
+   won/lost combination of the OPEN (effective === 'unresolved'), non-cycle
+   bets. A cycle bet can't be assumed either way (deriveWorld refuses it),
+   so it's excluded from both the trigger and the enumeration — a doc that
+   has only cycle bets shows no range, same as a doc with none open.
+   "In play" mirrors activeCount's dropped-exemption rule but WHOLE-MODEL,
+   each item counted once (never per-horizon, never summed across horizons).
+   Capped at 2^6 worlds; past the cap the segment is omitted rather than
+   burning perf on a doc nobody will read the range for. Memoised per model
+   OBJECT (WeakMap) — repeat roadmapMetrics calls on the same parsed/
+   projected model (e.g. re-renders that didn't change the model) don't
+   re-enumerate; a what-if preview hands in a NEW object each time (applyWorld
+   never mutates), so the memo is never stale, just occasionally cold. */
+const RANGE_CACHE = new WeakMap();
+function itemsInPlay(model, assumed){
+  const w = applyWorld(model, assumed);
+  return w.items.filter(i => i.worldState !== 'dropped' || i.status === 'doing').length;
+}
+function inPlayRange(model){
+  if(RANGE_CACHE.has(model)) return RANGE_CACHE.get(model);
+  const openBets = Object.keys(model.bets || {})
+    .filter(k => model.bets[k].effective === 'unresolved' && !model.bets[k].cycle);
+  let result = null;
+  if(openBets.length >= 1 && openBets.length <= 6){
+    const n = openBets.length;
+    let lo = Infinity, hi = -Infinity;
+    for(let mask = 0; mask < (1 << n); mask++){
+      const assumed = {};
+      for(let i = 0; i < n; i++) assumed[openBets[i]] = (mask & (1 << i)) ? 'won' : 'lost';
+      const count = itemsInPlay(model, assumed);
+      if(count < lo) lo = count;
+      if(count > hi) hi = count;
+    }
+    result = {lo, hi};
+  }
+  RANGE_CACHE.set(model, result);
+  return result;
+}
+
 export function roadmapMetrics(model){
   if(!model || !model.items || !model.items.length) return [];
   const lanes = model.lanes.filter(Boolean).length;
   const nBets = Object.keys(model.bets || {}).length;
+  const range = inPlayRange(model);
   return [
     plural(model.items.length, 'item'),
     plural(model.horizons.length, 'horizon'),
     lanes ? plural(lanes, 'lane') : null,
     nBets ? plural(nBets, 'bet') : null,
     model.wip > 0 ? 'Wip limit ' + model.wip : null,
+    range ? (range.lo === range.hi ? range.lo + ' in play' : 'between ' + range.lo + ' and ' + range.hi + ' in play') : null,
   ].filter(Boolean);
 }
 

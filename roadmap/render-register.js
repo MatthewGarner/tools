@@ -7,6 +7,7 @@ import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+import {activeCount, condCount} from './parse.js';
 
 function registerBodyFn(model, ctx, C){
   return (y0, y1) => {
@@ -208,6 +209,17 @@ export function renderRegisterLive(model, ctx){
   for(let h = 0; h < model.horizons.length; h++){
     const groupTop = y;
     const groupSvg = [];
+    /* E9: a small letterspaced group header naming the horizon + its honest
+       F + M conditional split — the register's own no-count gap, closed only
+       once a bet exists anywhere in the doc (a bet-free register stays
+       byte-identical: no header row, no reserved height). Lane mode only —
+       an `group: outcome` register (S4) owns its own section headers instead. */
+    if(hasBets){
+      const activeH = activeCount(model, h), condH = condCount(model, h);
+      s.push(txt(M, y + 10, model.horizons[h].toUpperCase() + '   ' +
+        (activeH - condH) + ' + ' + condH + ' conditional', 11, C.muted, {weight: 700, tracking: 1.6}));
+      y += 20;
+    }
     for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
     if(edit){
       groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="none" stroke="' +

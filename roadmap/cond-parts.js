@@ -19,6 +19,20 @@ export function anyBet(model){
   return !!(model && model.items && model.items.some(i => i.bet || i.cond));
 }
 
+/* E9 honest counts: the shared "F + M conditional" label body, where F is
+   the settled/unconditional share of an activeCount and M is its condCount
+   (the caller passes both numbers, computed via parse.js's activeCount/
+   condCount — this module stays render-primitive-only, no model walking).
+   M === 0 returns the PLAIN count as a string — byte-identical to every
+   count label that predates this slice, which is the whole point: a
+   bet-free (or cond-free-at-this-column) doc never sees new text. board/
+   focus/register share this exact "conditional" wording; render.js's grid
+   uses its own tighter "COND" form (narrower columns, sometimes phone-width). */
+export function condCountLabel(activeN, condN){
+  if(!condN) return String(activeN);
+  return (activeN - condN) + ' + ' + condN + ' conditional';
+}
+
 /* The what-if click target (A4): the bet's OWN declaring item, but only
    when the bet is unresolved IN THE TEXT WORLD. Takes `bets` — the TEXT-
    WORLD `model.bets` map (parse()'s own baked `.effective`, from the

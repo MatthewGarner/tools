@@ -4,10 +4,10 @@
    Named render-*.js so renderer-coverage forces the live renderer into the
    injection corpus. */
 import {txt, esc, btnAttrs} from '../assets/svg.js';
-import {STATUS_LABEL, activeCount} from './parse.js';
+import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel} from './cond-parts.js';
 
 /* Column type ramp, by width: wider columns get bigger type and room for a
    note; the narrowest ramp (nH ~6-8) drops notes entirely (fsN: 0, notes: 0). */
@@ -177,7 +177,8 @@ function boardBodyFn(model, ctx, C){
       /* label shows the ACTIVE count (matching the overWip flag) — dropped
          items are still painted in `list` below, just not counted. */
       const activeH = activeCount(model, h);
-      const countLbl = h === 0 && overWip ? activeH + ' · OVER WIP' : String(activeH);
+      const baseLbl = condCountLabel(activeH, condCount(model, h));
+      const countLbl = h === 0 && overWip ? baseLbl + ' · OVER WIP' : baseLbl;
       s.push(txt(x + colW - 20, y0 + 34, countLbl, 13, h === 0 && overWip ? C.err : C.muted,
         {anchor: 'end', weight: 700, tracking: 1}));
 
@@ -342,7 +343,8 @@ export function renderBoardLive(model, ctx){
     s.push(txt(x + RPAD, y + 24, hs[h].toUpperCase(), 14, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.4}));
     const list = byLane(model.items.filter(i => i.h === h));
     const activeH = activeCount(model, h);
-    const cntLbl = h === 0 && overWip ? activeH + ' · OVER WIP' : String(activeH);
+    const baseLbl = condCountLabel(activeH, condCount(model, h));
+    const cntLbl = h === 0 && overWip ? baseLbl + ' · OVER WIP' : baseLbl;
     s.push(txt(x + COLW - RPAD, y + 24, cntLbl, 12, h === 0 && overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
 
     const groupSvg = [];
