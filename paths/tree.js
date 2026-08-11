@@ -39,6 +39,22 @@ function armFor(item){
   return term.negated ? 'no' : 'yes';
 }
 
+function terminalFor(worlds){
+  if(worlds?.refused){
+    const openQuestionCount = Number(worlds.enumerableCount);
+    const possibleCount = 2 ** openQuestionCount;
+    return {
+      kind:'limit',
+      openQuestionCount:Number.isFinite(openQuestionCount) ? openQuestionCount : null,
+      possibleCount:Number.isSafeInteger(possibleCount) ? possibleCount : null,
+      reason:String(worlds.reason || ''),
+    };
+  }
+  if(Number(worlds?.enumerableCount) === 0) return null;
+  const possibleCount = Number(worlds?.possibleCount);
+  return {kind:'count', possibleCount:Number.isFinite(possibleCount) ? possibleCount : 1};
+}
+
 export function treeProjection(projected){
   const spine = projected.items.filter(item => !item.condition);
   const unplaced = projected.items.filter(item => item.condition && !item.parentDecision);
@@ -52,26 +68,41 @@ export function treeProjection(projected){
     const no = memberships.filter(item => armFor(item) === 'no');
     const chosen = decision.effectiveAnswer;
     const stumpSide = chosen ? (chosen === 'yes' ? 'no' : 'yes') : null;
-    const stumpItems = stumpSide === 'yes' ? yes : stumpSide === 'no' ? no : [];
+    const rejected = stumpSide === 'yes' ? yes : stumpSide === 'no' ? no : [];
+    const stumpItems = rejected.filter(item => item.itemState === 'not-needed');
+    const continuation = chosen
+      ? (chosen === 'yes' ? yes : no).filter(item => item.itemState !== 'not-needed') : [];
+    const retainedRejected = chosen
+      ? rejected.filter(item => item.itemState !== 'not-needed') : [];
     return {
       key:decision.key,
       decision,
       displayState:displayState(decision, projected.today),
       reach:decision.reach,
-      arms:{
-        yes:stumpSide === 'yes' ? [] : yes,
-        no:stumpSide === 'no' ? [] : no,
-      },
-      stump:stumpSide ? {side:stumpSide, items:stumpItems, count:stumpItems.length} : null,
+      chosenSide:chosen || null,
+      /* Answered questions still keep completed work on the arm where it
+         actually happened. Live work on the selected arm becomes a
+         continuation even when another conjunct means it is waiting/limbo. */
+      arms:chosen ? {
+        yes:stumpSide === 'yes' ? retainedRejected : [],
+        no:stumpSide === 'no' ? retainedRejected : [],
+      } : {yes, no},
+      continuation,
+      stump:stumpItems.length ? {side:stumpSide, items:stumpItems, count:stumpItems.length} : null,
     };
   });
 
-  const breadcrumbs = ordered.filter(({decision}) => decision.effectiveAnswer).map(({decision}) => ({
-    key:decision.key,
-    decision,
-    direction:decision.effectiveAnswer,
-  }));
+  const questionByKey = new Map(questions.map(question => [question.key, question]));
+  const breadcrumbs = ordered.filter(({decision}) => decision.effectiveAnswer).map(({decision}) => {
+    const question = questionByKey.get(decision.key);
+    return {key:decision.key, decision, direction:decision.effectiveAnswer,
+      chosenSide:question?.chosenSide || decision.effectiveAnswer,
+      arms:question?.arms || {yes:[], no:[]},
+      continuation:question?.continuation || [],
+      stump:question?.stump || null};
+  });
 
   return {today:projected.today, spine, questions, unplaced, breadcrumbs,
+    terminal:terminalFor(projected.worlds),
     reachDenominator:projected.reachDenominator, warnings:projected.warnings};
 }

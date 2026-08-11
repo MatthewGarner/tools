@@ -105,6 +105,7 @@ function falseReason(whenResult, model){
 function displayEvidenceFor(source, conditionResult){
   if(!source.condition) return {kind:'unconditional'};
   if(!source.condition.valid || conditionResult.value === 'invalid') return {kind:'condition-error'};
+  if(source.status === 'done' && conditionResult.value === 'false') return {kind:'completed'};
   const evidence = conditionResult.evidence || [];
   for(const member of evidence){
     const decision = member.decision;
@@ -282,7 +283,10 @@ export function evaluate(model, injectedToday, assignment = {}){
     const displayEvidence = displayEvidenceFor(source, conditionResult);
     const item = {...source, conditionResult, itemState, state:itemState, displayEvidence};
     const placement = source.condition?.valid ? chooseParent(item, dependencies) : {parent:null, secondary:[]};
-    return {...item, parentDecision:placement.parent, secondaryDependencies:placement.secondary};
+    const secondaryDependencyMode = source.condition?.valid && source.condition.operator === 'and'
+      ? 'required' : null;
+    return {...item, parentDecision:placement.parent, secondaryDependencies:placement.secondary,
+      secondaryDependencyMode};
   });
 
   return {...model, today:resolution.today, decisions:resolution.decisions,

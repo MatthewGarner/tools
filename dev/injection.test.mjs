@@ -27,18 +27,28 @@ function assertClean(out, who){
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
 }
 
-test('paths wide tree renderer escapes hostile decision, item, and lane labels', async () => {
+test('paths wide tree and narrow outline escape a hostile real document', async () => {
+  const {parse} = await import('../paths/parse.js');
+  const {project} = await import('../paths/project.js');
+  const {treeProjection} = await import('../paths/tree.js');
   const {treeLayout} = await import('../paths/layout-tree.js');
-  const {renderTree} = await import('../paths/render-tree.js');
-  const item = {title:EVIL[1], lane:EVIL[2], parentDecision:'choice',
-    condition:{terms:[{key:'choice'}]}};
-  const question = {key:'choice', decision:{key:'choice', displayName:EVIL[0]},
-    displayState:{kind:'open'}, arms:{yes:[item], no:[]}, stump:null};
-  const projection = {today:'2026-08-10',
-    spine:[{title:EVIL[3], lane:EVIL[4]}], questions:[question], breadcrumbs:[],
-    unplaced:[{title:EVIL[5], lane:EVIL[0], condition:{terms:[]}}], warnings:[]};
-  assertClean(renderTree(projection, treeLayout(projection, {width:900, measure:ctx.measure}), ctx),
+  const {renderTree, renderOutline} = await import('../paths/render-tree.js');
+  const safe = value => value.replace(/:/g, ';');
+  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-08-10\nverdict: ' + EVIL[5] + '\n' +
+    'decision choice:\n  question: ' + EVIL[1] + '\n  signal: ' + EVIL[2] + '\n' +
+    '  reading: ' + EVIL[3] + '\n  owner: ' + EVIL[4] + '\n  answer-by: 2026-08-20\n' +
+    'NOW\n  ' + safe(EVIL[2]) + ': ' + EVIL[3] + ' -- ' + EVIL[4] + '\n' +
+    'LATER\n  ' + safe(EVIL[5]) + ': ' + EVIL[1] + ' [if choice] -- ' + EVIL[0] + '\n' +
+    '  ' + safe(EVIL[0]) + ': ' + EVIL[2] + ' [unless choice]';
+  const model = parse(doc);
+  assert.equal(model.decisions[0].question, EVIL[1],
+    'paths: hostile question survived the real current-field parser contract');
+  const projected = project(model, '2026-08-10');
+  const topology = treeProjection(projected);
+  const renderCtx = {...ctx, today:'2026-08-10', projection:projected};
+  assertClean(renderTree(topology, treeLayout(topology, {width:900, measure:ctx.measure}), renderCtx),
     'paths-tree');
+  assertClean(renderOutline(topology, {...renderCtx, width:360}), 'paths-outline');
 });
 
 test('roadmap renderer escapes hostile titles/items/lanes', async () => {

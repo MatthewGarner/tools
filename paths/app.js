@@ -1,6 +1,7 @@
 /* State, refresh loop, saved paths, exports, boot. */
 import {parse, CONFIG_KEYS} from './parse.js';
 import {project} from './project.js';
+import {oversizedUrlWarning} from './evaluate.js';
 import {treeProjection} from './tree.js';
 import {treeLayout} from './layout-tree.js';
 import {renderTree, renderOutline} from './render-tree.js';
@@ -14,7 +15,7 @@ import {watchNarrowBucket} from '../assets/narrow-width.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
-import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {paintKicker} from '../assets/verdict.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 
 const $ = id => document.getElementById(id);
@@ -97,6 +98,7 @@ LATER
 
 const EXAMPLES = [{name:'Habitat', src:HABITAT}];
 let model = null, projection = null, topology = null, lastSvg = '', hashTimer = null;
+let urlStateOversized = false, hashAttempt = 0;
 
 function colorsFor(current){
   const colors = themeColors();
@@ -105,24 +107,26 @@ function colorsFor(current){
 }
 
 function context(current, extra = {}){
-  return {colors:colorsFor(current), measure, dark:isDark(), today:projection?.today || todayString, ...extra};
+  return {colors:colorsFor(current), measure, dark:isDark(), today:projection?.today || todayString,
+    projection, ...extra};
 }
 
-function metrics(){
-  if(!projection) return [];
-  const questions = projection.decisions.length;
-  const items = projection.items.length;
-  const possible = projection.worlds?.refused ? null : projection.worlds?.possibleCount;
-  return [
-    `${questions} ${questions === 1 ? 'question' : 'questions'}`,
-    `${items} ${items === 1 ? 'item' : 'items'}`,
-    ...(possible == null ? [] : [`${possible} possible ${possible === 1 ? 'plan' : 'plans'}`]),
-  ];
+function renderWarnings(){
+  const warnings = projection ? [...projection.warnings] : [];
+  if(urlStateOversized) warnings.push(oversizedUrlWarning());
+  renderWarningList($('warns'), warnings.map(warning => warning.message || String(warning)));
 }
 
-function writeHash(){
+async function writeHash(){
   if(!shouldPersist()) return;
-  writeHashState({t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})});
+  const attempt = ++hashAttempt;
+  const ok = await writeHashState({t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})});
+  if(attempt !== hashAttempt) return;
+  const oversized = !ok;
+  if(oversized !== urlStateOversized){
+    urlStateOversized = oversized;
+    renderWarnings();
+  }
 }
 
 function doRefresh(){
@@ -130,7 +134,11 @@ function doRefresh(){
   model = parse(text);
   projection = project(model, todayString);
   topology = treeProjection(projection);
-  renderWarningList($('warns'), projection.warnings.map(warning => warning.message || String(warning)));
+  renderWarnings();
+  const readout = verdict(projection);
+  const counts = `${projection.decisions.length} ${projection.decisions.length === 1 ? 'question' : 'questions'}, ` +
+    `${projection.items.length} ${projection.items.length === 1 ? 'item' : 'items'}`;
+  $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}`;
 
   if(!model.items.length && !model.decisions.length){
     lastSvg = '';
@@ -142,13 +150,10 @@ function doRefresh(){
     const narrow = width > 0 && width < 520;
     const svg = narrow
       ? renderOutline(topology, context(model, {width}))
-      : renderTree(topology, treeLayout(topology, {width:Math.max(900, width || 1160), measure}), context(model));
+      : renderTree(topology, treeLayout(topology, {width:width || 1160, measure}), context(model));
     if(svg !== lastSvg){ preview.innerHTML = svg; lastSvg = svg; }
   }
 
-  paintMetrics($('metrics'), model.items.length || model.decisions.length ? (model.title || 'Untitled paths') : '', metrics());
-  const line = verdict(projection);
-  paintVerdict($('verdict'), line?.line || '', line?.fig || '');
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('paths-src', text); }catch(_){ }
   clearTimeout(hashTimer);
@@ -207,7 +212,6 @@ wireExports({
 });
 
 paintKicker($('kicker'), '16', 'The questions inside the plan');
-wireCopyVerdict($('verdict'));
 wireSyntaxTry(document.querySelector('details.syntax'), editor, CONFIG_KEYS);
 
 function rerender(){ lastSvg = ''; refresh(); }

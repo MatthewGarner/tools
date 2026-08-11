@@ -48,7 +48,7 @@
         <dt><code data-try="">today: 2026-08-10</code></dt>
         <dd>set the evaluation date instead of using the local date</dd>
         <dt><code data-try="">style: tree</code></dt>
-        <dd>choose <code>tree</code> or <code>plans</code></dd>
+        <dd>show the decision tree; older <code>style: plans</code> sources are read as tree with a warning</dd>
         <dt><code data-try="">verdict: off</code></dt>
         <dd>hide the verdict; any other text replaces the generated line</dd>
         <dt><code data-try="">palette: ocean</code></dt>
@@ -90,9 +90,8 @@
   </aside>
   <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
   <section class="stage">
-    <div class="metrics" id="metrics" hidden></div>
+    <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
     <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-    <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
     <div class="actions">
       <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
       <button class="btn primary" id="copypng">Copy PNG</button>

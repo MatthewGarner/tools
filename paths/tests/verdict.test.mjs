@@ -119,3 +119,11 @@ test('reach reads singular for one item and plural for several', () => {
     'LATER\n  Core: A [if groups]\n  Core: B [if groups]\n  Core: C [if not groups]'), '2026-12-01'));
   assert.equal(many.line, 'Three of eight items depend on the groups answer, due 15 December.');
 });
+
+test('a ranked question without a due date never emits an empty due phrase', () => {
+  const doc = 'decision groups:\n  question: q?\n  signal: s\n  owner: o\n' +
+    'LATER\n  Core: A [if groups]';
+  const result = verdict(project(parse(doc), '2026-12-01'));
+  assert.equal(result.line, 'One of one items depends on the groups answer.');
+  assert.doesNotMatch(result.line, /due\s*\./i);
+});

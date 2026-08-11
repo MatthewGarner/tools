@@ -112,7 +112,9 @@ export function verdict(projection){
     const fig = `${proseNumber(decision.reach, true)} of ${proseNumber(projection.reachDenominator)}`;
     /* the noun agrees with the denominator, the verb with the count (house nOfT) */
     const verb = decision.reach === 1 ? 'depends' : 'depend';
-    return {line:`${fig} items ${verb} on the ${decisionName(decision)} answer, due ${dueLabel(decision.answerBy)}.`, fig};
+    const due = dueLabel(decision.answerBy);
+    const deadline = due ? `, due ${due}` : '';
+    return {line:`${fig} items ${verb} on the ${decisionName(decision)} answer${deadline}.`, fig};
   }
 
   if(!decisions.length){

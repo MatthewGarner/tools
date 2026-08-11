@@ -138,12 +138,21 @@ test('when cycles stay dormant and invalid conditions remain waiting with their 
   assert.equal(invalid.items[0].condition.valid, false);
   assert.equal(invalid.items[0].condition.source, 'a and b or c');
   assert.equal(invalid.items[0].itemState, 'waiting');
+  assert.deepEqual(invalid.items[0].displayEvidence, {kind:'condition-error'});
 });
 
 test('done outranks every valid condition and warns only for false', () => {
   const model = evaluate(parse(`${decision('x', '\n  answer: no')}\nNOW\n  Core: Finished [if x] [done]`), '2026-12-22');
   assert.equal(model.items[0].itemState, 'in-plan');
+  assert.deepEqual(model.items[0].displayEvidence, {kind:'completed'});
   assert.equal(model.warnings.filter(w => w.code === 'done-false-condition').length, 1);
+});
+
+test('the projection marks only AND secondary dependencies as jointly required', () => {
+  const model = evaluate(parse(`${decision('a')}\n${decision('b')}\nNOW\n` +
+    '  Core: Joint [if a and b]\n  Core: Either [if a or b]'), '2026-12-01');
+  assert.equal(model.items[0].secondaryDependencyMode, 'required');
+  assert.equal(model.items[1].secondaryDependencyMode, null);
 });
 
 test('deterministic placement covers and/or, killers, date ties, missing dates and dormant exclusion', () => {

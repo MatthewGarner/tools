@@ -82,6 +82,89 @@ test('an answered question paints ONE collapsed stump carrying its count and the
   assert.match(svg, /Not needed · 2/);
 });
 
+test('an answered question with no rejected work paints no empty stump', () => {
+  const svg = renderDoc('today: 2026-12-22\n' +
+    decisionBlock('reminders', '  answer: yes 2026-10-15\n') +
+    'LATER\n  Core: Reminder digest [if reminders]');
+  assert.doesNotMatch(svg, /data-kind="stump"/);
+  assert.doesNotMatch(svg, /Not needed · 0/);
+});
+
+test('completed rejected work stays Completed on its actual arm and never inflates the Not needed stump', () => {
+  const svg = renderDoc('today: 2026-12-22\n' +
+    decisionBlock('reminders', '  answer: yes 2026-10-15\n') +
+    'LATER\n  Core: Already shipped [unless reminders] [done]\n' +
+    '  Core: Unbuilt fallback [unless reminders]');
+  assert.match(svg, /Already shipped/);
+  assert.match(svg, /Completed/);
+  assert.match(svg, /Not needed · 1/);
+  assert.doesNotMatch(svg, /Not needed · 2/);
+});
+
+test('answered compound work still waiting on another dependency renders wide and narrow', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('approved', '  answer: yes 2026-12-20\n').replace('2026-12-15', '2026-12-31') +
+    decisionBlock('research').replace('2026-12-15', '2026-12-01') +
+    'LATER\n  Core: Launch after both [if approved and research]';
+  for(const svg of [renderDoc(doc, '2026-12-20'), outlineDoc(doc, '2026-12-20')]){
+    assert.match(svg, /Launch after both/);
+    assert.match(svg, /Waiting for research/);
+    assert.match(svg, /If so/);
+  }
+});
+
+test('a compound continuation can remain limbo after its parent is answered', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('approved', '  answer: yes 2026-12-20\n').replace('2026-12-15', '2026-12-31') +
+    decisionBlock('research', '  assume: yes 2026-12-20\n').replace('2026-12-15', '2026-12-01') +
+    'LATER\n  Core: Launch after both [if approved and research]';
+  for(const svg of [renderDoc(doc, '2026-12-20'), outlineDoc(doc, '2026-12-20')]){
+    assert.match(svg, /Launch after both/);
+    assert.match(svg, /Following an assumed yes/);
+  }
+});
+
+test('answered-no continuations and mixed rejected work keep truthful arm labels', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('approved', '  answer: no 2026-12-20\n').replace('2026-12-15', '2026-12-31') +
+    decisionBlock('research').replace('2026-12-15', '2026-12-01') +
+    'LATER\n  Core: Launch another way [if not approved and research]\n' +
+    '  Core: Earlier approved work [if approved] [done]\n' +
+    '  Core: Unbuilt approved work [if approved]';
+  for(const svg of [renderDoc(doc, '2026-12-20'), outlineDoc(doc, '2026-12-20')]){
+    assert.match(svg, /Launch another way/);
+    assert.match(svg, /Waiting for research/);
+    assert.match(svg, /If not/);
+    assert.match(svg, /Earlier approved work/);
+    assert.match(svg, /Completed/);
+    assert.match(svg, /If so/);
+    assert.match(svg, /Not needed · 1/);
+  }
+});
+
+test('a collapsed answered question keeps answer and branch context beside its continuation', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('approved', '  answer: yes 2026-12-20\n') +
+    'LATER\n  Core: Launch [if approved]';
+  const svg = renderDoc(doc, '2026-12-20', 1);
+  assert.match(svg, /data-kind="breadcrumb"/);
+  assert.match(svg, /Yes · If so/);
+  assert.match(svg, /Launch/);
+  assert.match(svg, /Included/);
+});
+
+test('a fully collapsed answer renders chosen, completed rejected, and not-needed rejected work with context', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('fork', '  answer: yes 2026-12-20\n') +
+    'LATER\n  Core: Chosen [if fork]\n  Core: Done fallback [unless fork] [done]\n' +
+    '  Core: Unbuilt fallback [unless fork]';
+  const svg = renderDoc(doc, '2026-12-20', 1);
+  for(const text of ['Chosen', 'Done fallback', 'Unbuilt fallback', 'Not needed', 'Yes · If so', 'If not'])
+    assert.match(svg, new RegExp(text));
+  assert.match(svg, /data-treatment="completed"/);
+  assert.match(svg, /data-kind="stump"/);
+});
+
 /* ---------- question labels ---------- */
 
 test('a question is labelled with its NAME and state, never its question sentence', () => {
@@ -93,6 +176,55 @@ test('a question is labelled with its NAME and state, never its question sentenc
   assert.match(svg, />groups</, 'the diamond carries the short name');
   assert.doesNotMatch(svg, /Do people add three friends/,
     'the question sentence belongs in the inspector, not on the diamond');
+});
+
+test('the wide tree explicitly labels both arm directions even when the arms are empty', () => {
+  const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('unused'), '2026-12-01');
+  assert.match(svg, /If so/);
+  assert.match(svg, /If not/);
+});
+
+test('the wide Tree ends with the remaining plan count and its non-enumeration boundary', () => {
+  const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') +
+    decisionBlock('pricing'), '2026-12-01');
+  assert.match(svg, /data-kind="tree-terminal" data-state="count"/);
+  assert.match(svg, /4 possible plans remain/);
+  assert.match(svg, /Tree does not enumerate/);
+  assert.match(svg, /every combined plan/);
+});
+
+test('a real document with only unconditional work renders no open-plan terminal', () => {
+  const svg = renderDoc('NOW\n  Core: Only work', '2026-12-01');
+  assert.match(svg, /Only work/);
+  assert.doesNotMatch(svg, /data-kind="tree-terminal"/);
+  assert.doesNotMatch(svg, /After the open decisions/);
+});
+
+test('a fully answered real document renders no open-plan terminal', () => {
+  const svg = renderDoc('today: 2026-12-20\n' +
+    decisionBlock('settled', '  answer: yes 2026-12-20\n') +
+    'NOW\n  Core: Chosen [if settled]\n  Core: Rejected [unless settled]', '2026-12-20');
+  assert.match(svg, /Answer: yes/);
+  assert.doesNotMatch(svg, /data-kind="tree-terminal"/);
+  assert.doesNotMatch(svg, /After the open decisions/);
+});
+
+test('the wide Tree explicitly renders the enumeration-refused limit from a real document', () => {
+  const decisions = Array.from({length:7}, (_, index) => decisionBlock(`q${index}`));
+  const svg = renderDoc('today: 2026-12-01\n' + decisions.join(''), '2026-12-01');
+  assert.match(svg, /data-kind="tree-terminal" data-state="limit"/);
+  assert.match(svg, /Enumeration limit reached/);
+  assert.match(svg, /128 possible plans/);
+  assert.match(svg, /Tree does not enumerate/);
+  assert.match(svg, /every combined plan/);
+});
+
+test('unequal real arm streams retain both horizon labels and every item', () => {
+  const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('fork') +
+    'LATER\n  Core: Yes work [if fork]\n  Core: No one [unless fork]\n' +
+    '  Core: No two [unless fork]\n  Core: No three [unless fork]', '2026-12-01');
+  for(const text of ['If so', 'If not', 'Yes work', 'No one', 'No two', 'No three'])
+    assert.match(svg, new RegExp(text));
 });
 
 test('each question state renders its display word', () => {
@@ -132,10 +264,68 @@ test('risk and blocked stay small tags; the conditional treatment owns the card'
   assert.match(svg, /Waiting for groups/, 'the conditional state still owns the card');
 });
 
+test('all four work statuses, notes and projected dependency names render as separate card content', () => {
+  const doc = 'today: 2026-12-01\n' + decisionBlock('long-meaningful-decision-name') +
+    decisionBlock('coach-pricing') +
+    'NOW\n  Core: Finished [done]\n  Core: Underway [doing]\n  Core: Exposed [risk]\n' +
+    '  Core: Stuck [blocked]\nLATER\n' +
+    '  Marketplace: Joint launch [if long-meaningful-decision-name and coach-pricing] -- Preserve this note';
+  const svg = renderDoc(doc, '2026-12-01');
+  for(const status of ['DONE', 'DOING', 'RISK', 'BLOCKED']) assert.match(svg, new RegExp('>' + status + '<'));
+  assert.match(svg, /Preserve this note/);
+  assert.match(svg, /Needs · long-meaningful-decision-name/,
+    'the full primary decision name survives in the dependency tag title');
+  assert.match(svg, /Also · coach-pricing/);
+});
+
 test('an item whose condition names no known question is kept in a labelled band', () => {
   const svg = renderDoc('today: 2026-12-01\nNOW\n  Core: Orphan [if nobody]', '2026-12-01');
   assert.match(svg, /Unplaced/);
   assert.match(svg, /Orphan/, 'malformed input degrades loudly; it is never dropped');
+  assert.match(svg, /Condition needs fixing/);
+  assert.doesNotMatch(svg, /Not open yet/);
+});
+
+test('malformed condition evidence renders Condition needs fixing in wide and narrow views', () => {
+  const doc = 'today: 2026-12-01\n' + decisionBlock('groups') + decisionBlock('pricing') +
+    'NOW\n  Core: Broken [if groups and pricing or groups]';
+  const wide = renderDoc(doc, '2026-12-01');
+  const narrow = outlineDoc(doc, '2026-12-01');
+  for(const svg of [wide, narrow]){
+    assert.match(svg, /Condition needs fixing/);
+    assert.doesNotMatch(svg, /Waiting for/);
+    assert.doesNotMatch(svg, /Not open yet/);
+  }
+});
+
+test('contradictory repeated terms stay visible as condition errors at wide and constrained widths', () => {
+  const doc = 'today: 2026-12-20\n' + decisionBlock('a', '  answer: yes 2026-12-20\n') +
+    'NOW\n  Core: Item [if a and not a]';
+  for(const svg of [renderDoc(doc, '2026-12-20', 1160), renderDoc(doc, '2026-12-20', 1)]){
+    assert.match(svg, /Item/);
+    assert.match(svg, /Condition needs fixing/);
+    assert.match(svg, /data-kind="unplaced"/);
+  }
+});
+
+test('OR alternatives never claim that a secondary question is also required', () => {
+  const orSvg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') + decisionBlock('pricing') +
+    'NOW\n  Core: Either path [if groups or pricing]', '2026-12-01');
+  assert.doesNotMatch(orSvg, /Also ·/);
+  const andSvg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') + decisionBlock('pricing') +
+    'NOW\n  Core: Joint path [if groups and pricing]', '2026-12-01');
+  assert.match(andSvg, /Also ·/);
+});
+
+test('hostile custom accent text is rejected before parser output reaches SVG attributes', () => {
+  const doc = 'accent: #fff\" onload=\"alert(1)\nNOW\n  Core: Safe';
+  const parsed = parse(doc);
+  assert.equal(parsed.accent, null);
+  const projection = project(parsed, '2026-12-01');
+  const topology = treeProjection(projection);
+  const svg = renderTree(topology, treeLayout(topology, {width:700, measure}),
+    {colors, measure, dark:false, today:'2026-12-01', projection});
+  assert.doesNotMatch(svg, /onload|alert\(1\)/);
 });
 
 /* ---------- XML rules the export decoder enforces ---------- */
@@ -155,21 +345,159 @@ test('every tag is strictly well-formed: no bare attributes, no stray quotes', (
     assert.match(tag, TAG, `malformed tag ${tag.slice(0, 120)}`);
 });
 
+test('empty and fully-collapsed real documents render finite XML geometry', () => {
+  const collapsedDoc = 'today: 2026-12-20\n' +
+    decisionBlock('settled', '  answer: yes 2026-12-20\n') +
+    'LATER\n  Core: Continue [if settled]';
+  for(const svg of [renderDoc('', '2026-12-20', 1), renderDoc(collapsedDoc, '2026-12-20', 1)]){
+    assert.doesNotMatch(svg, /(?:NaN|[+-]?Infinity)/);
+    const root = /^<svg\b[^>]*\bwidth="([^"]+)"[^>]*\bheight="([^"]+)"[^>]*\bviewBox="([^"]+)"/.exec(svg);
+    assert.ok(root, 'root SVG geometry is present');
+    for(const value of [root[1], root[2], ...root[3].split(/\s+/)])
+      assert.ok(Number.isFinite(Number(value)), `finite root geometry, got ${value}`);
+    for(const match of svg.matchAll(/\b(?:x|y|x1|x2|cx|cy|width|height)="([^"]+)"/g))
+      assert.ok(Number.isFinite(Number(match[1])), `finite numeric attribute, got ${match[0]}`);
+  }
+});
+
+test('the Unplaced wash ends at the tree body and cannot cover the verdict canvas', () => {
+  const doc = 'verdict: Keep this verdict visible.\nNOW\n  Core: Orphan [if nobody]';
+  const projection = project(parse(doc), '2026-12-01');
+  const topology = treeProjection(projection);
+  const layout = treeLayout(topology, {width:700, measure});
+  const svg = renderTree(topology, layout, {colors, measure, dark:false, today:'2026-12-01', projection});
+  const match = /<g data-kind="unplaced"><rect x="0" y="([^"]+)" width="[^"]+" height="([^"]+)"/.exec(svg);
+  assert.ok(match, 'unplaced wash geometry is emitted');
+  assert.ok(Number(match[1]) + Number(match[2]) <= layout.totalHeight,
+    'translated wash stays inside bodyHeight');
+  assert.match(svg, /Keep this verdict visible/);
+});
+
 /* ---------- the narrow outline (below a 520px container) ---------- */
 
 function outlineDoc(doc, today = '2026-12-22', width = 360){
   const projection = project(parse(doc), today);
-  return renderOutline(treeProjection(projection), {colors, measure, dark:false, today, width});
+  return renderOutline(treeProjection(projection), {colors, measure, dark:false, today, width, projection});
 }
+
+test('a real wide export is a complete named artefact with frame, regions, metrics, and generated verdict', () => {
+  const doc = 'title: Habitat paths\ndate: 2026-12-02\n' + decisionBlock('groups') +
+    'NOW\n  Core: Shared repair\nLATER\n  Growth: Group challenges [if groups]';
+  const svg = renderDoc(doc, '2026-12-01');
+  assert.match(svg, /role="img" aria-labelledby="paths-tree-name paths-tree-description"/);
+  assert.match(svg, /<title id="paths-tree-name">Habitat paths — decision tree<\/title>/);
+  assert.match(svg, /<desc id="paths-tree-description">Dated 2026-12-02\. 1 question, 2 items, 2 possible plans\./);
+  assert.match(svg, /Questions: groups: Open/);
+  assert.match(svg, /Work: 1 included, 1 waiting/);
+  assert.match(svg, /Tree boundary: 2 possible plans remain/);
+  for(const text of ['Habitat paths', '2026-12-02', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
+    'SHARED WORK · IN EVERY PLAN', 'QUESTION PATHS · CHANGES WITH ANSWERS',
+    'One of two items depends on the groups answer']) assert.match(svg, new RegExp(text));
+  assert.match(svg, /data-kind="artifact-verdict"/);
+});
+
+test('a compact real wide Tree trims unused right canvas while retaining its minimum readable width', () => {
+  const compact = renderDoc('title: Compact plan\nNOW\n  Core: One card', '2026-12-01', 1160);
+  const rootWidth = Number(/^<svg\b[^>]*\bwidth="([^"]+)"/.exec(compact)?.[1]);
+  assert.equal(rootWidth, 520, 'compact content uses the wide-artifact floor, not the 1160px request');
+  assert.match(compact, /Compact plan/);
+  assert.match(compact, /One card/);
+
+  const fuller = renderDoc('NOW\n' + Array.from({length:4}, (_, index) =>
+    `  Core: Card ${index + 1}`).join('\n'), '2026-12-01', 1160);
+  const fullerWidth = Number(/^<svg\b[^>]*\bwidth="([^"]+)"/.exec(fuller)?.[1]);
+  assert.ok(fullerWidth > rootWidth && fullerWidth < 1160,
+    'the canvas remains content-driven above the floor without reverting to the full request');
+});
+
+test('the projected date and authored verdict contract survive wide export and narrow relayout', () => {
+  const base = 'title: Launch paths\nverdict: Choose the 2-week pilot first.\nNOW\n  Core: Pilot';
+  for(const svg of [renderDoc(base, '2026-12-03'), outlineDoc(base, '2026-12-03')]){
+    assert.match(svg, /Launch paths/);
+    assert.match(svg, /2026-12-03/, 'an absent date uses the injected/projected today');
+    assert.match(svg, /1 ITEM/);
+    assert.match(svg, /Choose the /);
+    assert.match(svg, />2<\/tspan>-week/, 'authored verdict remains visible with its figure treatment');
+    assert.match(svg, /role="img" aria-labelledby=/);
+  }
+
+  const off = 'title: Quiet paths\ndate: off\nverdict: off\nNOW\n  Core: Pilot';
+  for(const svg of [renderDoc(off, '2026-12-03'), outlineDoc(off, '2026-12-03')]){
+    assert.doesNotMatch(svg, /data-kind="artifact-date"/);
+    assert.doesNotMatch(svg, /data-kind="artifact-verdict"/);
+    assert.doesNotMatch(svg, />VERDICT</);
+  }
+});
+
+test('the narrow outline keeps the complete context as a genuine relayout', () => {
+  const svg = outlineDoc('title: Habitat mobile\ndate: 2026-12-04\n' + decisionBlock('groups') +
+    'NOW\n  Core: Shared repair\nLATER\n  Growth: Group challenges [if groups]', '2026-12-01', 320);
+  for(const text of ['Habitat mobile', '2026-12-04', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
+    'SHARED WORK · IN EVERY PLAN', 'QUESTION PATHS · CHANGES WITH ANSWERS', 'VERDICT'])
+    assert.match(svg, new RegExp(text));
+  assert.match(svg, /<title id="paths-tree-name">Habitat mobile — outline<\/title>/);
+  assert.equal(Number(/width="([\d.]+)"/.exec(svg)[1]), 320);
+});
+
+test('the narrow outline carries dependency text and the possible-plan limit boundary', () => {
+  const decisions = Array.from({length:7}, (_, index) => decisionBlock(`q${index}`));
+  const limit = outlineDoc('today: 2026-12-01\n' + decisions.join(''), '2026-12-01', 320);
+  for(const text of ['TREE BOUNDARY', 'Enumeration limit reached', '128 possible plans',
+    'Tree does not enumerate', 'every combined plan']) assert.match(limit, new RegExp(text));
+
+  const compound = outlineDoc('today: 2026-12-01\n' + decisionBlock('groups') +
+    decisionBlock('pricing') + 'LATER\n  Core: Joint [if groups and pricing] -- dependency note',
+  '2026-12-01', 320);
+  for(const text of ['dependency note', 'Needs · groups', 'Also · pricing'])
+    assert.match(compound, new RegExp(text));
+});
+
+test('long unspaced title and verdict tokens are clipped inside wide and narrow artefacts', () => {
+  const token = 'X'.repeat(180);
+  const doc = `title: ${token}\nverdict: ${token}\nNOW\n  Core: Item`;
+  for(const svg of [renderDoc(doc, '2026-12-01', 620), outlineDoc(doc, '2026-12-01', 320)]){
+    const header = /<g data-kind="artifact-header">([\s\S]*?)<\/g>/.exec(svg)?.[1] || '';
+    const readout = /<g data-kind="artifact-verdict">([\s\S]*?)<\/g>/.exec(svg)?.[1] || '';
+    assert.doesNotMatch(header, new RegExp(token));
+    assert.doesNotMatch(readout, new RegExp(token));
+    assert.match(header, /…/);
+    assert.match(readout, /…/);
+  }
+});
 
 test('the outline stacks shared work, then each question with its arms', () => {
   const svg = outlineDoc('today: 2026-12-01\n' + decisionBlock('groups') +
     'NOW\n  Core: Streak repair\nLATER\n  Growth: Challenges [if groups]\n  Core: Solo [if not groups]', '2026-12-01');
-  assert.match(svg, /Shared work/);
+  assert.match(svg, /SHARED WORK/);
   assert.match(svg, /Streak repair/);
   assert.match(svg, /If so/);
   assert.match(svg, /If not/);
   assert.match(svg, /Waiting for groups/);
+});
+
+test('the narrow outline names every simple rejected item beneath its Not needed count', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('reminders', '  answer: yes 2026-12-20\n') +
+    'LATER\n  Core: Chosen digest [if reminders]\n' +
+    '  Core: Manual outreach [unless reminders]\n  Core: Phone calls [unless reminders]';
+  const narrow = outlineDoc(doc, '2026-12-20');
+  for(const text of ['If not', 'Not needed · 2', 'Manual outreach', 'Phone calls'])
+    assert.match(narrow, new RegExp(text));
+  assert.ok(narrow.indexOf('If not') < narrow.indexOf('Not needed · 2'));
+  assert.ok(narrow.indexOf('Not needed · 2') < narrow.indexOf('Manual outreach'));
+  assert.ok(narrow.indexOf('Manual outreach') < narrow.indexOf('Phone calls'));
+});
+
+test('a compound item rejected by answered A=yes, B=no remains named in wide and narrow stumps', () => {
+  const doc = 'today: 2026-12-20\n' +
+    decisionBlock('a', '  answer: yes 2026-12-02\n') +
+    decisionBlock('b', '  answer: no 2026-12-02\n') +
+    'LATER\n  Core: Compound excluded [if a and b]';
+  for(const svg of [renderDoc(doc, '2026-12-20'), outlineDoc(doc, '2026-12-20')]){
+    assert.match(svg, /If so/);
+    assert.match(svg, /Not needed · 1/);
+    assert.match(svg, /Compound excluded/);
+  }
 });
 
 test('the outline names an answered breadcrumb by its answer, never "Open"', () => {
@@ -205,4 +533,21 @@ test('an overdue question says how overdue it is, in both renderers', () => {
   const narrow = renderOutline(treeProjection(projection),
     {colors, measure, dark:false, today:'2026-12-22', width:360});
   assert.match(narrow, /7 days overdue/);
+});
+
+test('narrow long decision names and overdue deadlines occupy separate rows at 390px and 320px', () => {
+  const name = 'international-coach-marketplace-pricing-decision';
+  const doc = 'today: 2026-12-22\n' + decisionBlock(name) +
+    `LATER\n  Core: A [if ${name}]`;
+  for(const width of [390, 320]){
+    const svg = outlineDoc(doc, '2026-12-22', width);
+    const group = /<g data-kind="outline-question">([\s\S]*?)<\/g>/.exec(svg)?.[1] || '';
+    const labels = [...group.matchAll(/<text x="([^"]+)" y="([^"]+)"[^>]*>([^<]*)<\/text>/g)];
+    assert.equal(labels.length, 2, `${width}px question header has exactly two text rows`);
+    assert.equal(labels[0][1], labels[1][1], `${width}px state starts at the name's left edge`);
+    assert.ok(Number(labels[1][2]) > Number(labels[0][2]), `${width}px baselines are disjoint`);
+    assert.match(labels[0][3], /international-coach/);
+    assert.equal(labels[1][3], '7 days overdue · Due 15 Dec',
+      `${width}px retains both overdue state and due date`);
+  }
 });

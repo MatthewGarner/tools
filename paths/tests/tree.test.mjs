@@ -28,11 +28,11 @@ test('a compound item appears once under its engine parent and keeps its seconda
   assert.deepEqual(memberships[0].item.secondaryDependencies, ['early']);
 });
 
-test('an answered question collapses its unchosen membership into one counted stump', () => {
+test('an answered question continues chosen work on the spine and collapses its rejected arm', () => {
   const tree = treeFor(`${decision('fork', '\n  answer: yes')}\nNOW\n  Core: Chosen [if fork]\n  Core: Fallback [unless fork]`, '2026-12-20');
   const question = tree.questions[0];
-  assert.deepEqual(titles(question.arms.yes), ['Chosen']);
-  assert.deepEqual(question.arms.no, []);
+  assert.deepEqual(question.arms, {yes:[], no:[]});
+  assert.deepEqual(titles(question.continuation), ['Chosen']);
   assert.deepEqual({side:question.stump.side, count:question.stump.count,
     titles:titles(question.stump.items)}, {side:'no', count:1, titles:['Fallback']});
 });
@@ -43,10 +43,38 @@ test('a question with no dependent items retains two explicit empty arms', () =>
   assert.equal(question.stump, null);
 });
 
-test('both arms can be empty after an answered unchosen arm is pruned', () => {
+test('an answered rejected arm creates a stump even when the chosen continuation is empty', () => {
   const question = treeFor(`${decision('fork', '\n  answer: yes')}\nNOW\n  Core: Fallback [unless fork]`, '2026-12-20').questions[0];
   assert.deepEqual(question.arms, {yes:[], no:[]});
   assert.equal(question.stump.count, 1);
+});
+
+test('an answered question never creates an empty rejected-arm stump', () => {
+  const question = treeFor(`${decision('fork', '\n  answer: yes')}\nNOW\n  Core: Chosen [if fork]`, '2026-12-20').questions[0];
+  assert.deepEqual(titles(question.continuation), ['Chosen']);
+  assert.equal(question.stump, null);
+});
+
+test('completed work rejected by the answer remains included and is excluded from the stump count', () => {
+  const question = treeFor(`${decision('fork', '\n  answer: yes')}\nNOW\n` +
+    '  Core: Already shipped [unless fork] [done]\n  Core: Unbuilt fallback [unless fork]', '2026-12-20').questions[0];
+  assert.deepEqual(titles(question.continuation), []);
+  assert.deepEqual(titles(question.arms.no), ['Already shipped']);
+  assert.equal(question.arms.no[0].itemState, 'in-plan');
+  assert.deepEqual({count:question.stump.count, titles:titles(question.stump.items)},
+    {count:1, titles:['Unbuilt fallback']});
+});
+
+test('an answered parent retains waiting compound work on its selected continuation', () => {
+  const tree = treeFor(`${decision('approved', '\n  answer: yes', '2026-12-31')}\n` +
+    `${decision('research', '', '2026-12-01')}\nNOW\n` +
+    '  Core: Launch after both [if approved and research]', '2026-12-20');
+  const approved = tree.questions.find(question => question.key === 'approved');
+  assert.deepEqual(titles(approved.continuation), ['Launch after both']);
+  assert.equal(approved.continuation[0].itemState, 'waiting');
+  assert.deepEqual(approved.continuation[0].displayEvidence,
+    {kind:'pending-answer', decision:'research'});
+  assert.equal(approved.stump, null);
 });
 
 test('identical due dates and source lines retain deterministic document order', () => {
@@ -84,10 +112,19 @@ test('zero items is a total projection with every question still present', () =>
 });
 
 test('one unconditional item and no questions projects only the spine', () => {
-  const tree = treeFor('NOW\n  Core: Only', '2026-12-01');
-  assert.deepEqual(titles(tree.spine), ['Only']);
+  const tree = treeFor('NOW\n  Core: Only work', '2026-12-01');
+  assert.deepEqual(titles(tree.spine), ['Only work']);
   assert.deepEqual(tree.questions, []);
   assert.deepEqual(tree.breadcrumbs, []);
+  assert.equal(tree.terminal, null);
+});
+
+test('a fully answered real document has no open-plan terminal', () => {
+  const tree = treeFor(`${decision('settled', '\n  answer: yes')}\nNOW\n` +
+    '  Core: Chosen [if settled]\n  Core: Rejected [unless settled]', '2026-12-20');
+  assert.deepEqual(tree.questions.map(question => question.displayState),
+    [{kind:'answered', direction:'yes'}]);
+  assert.equal(tree.terminal, null);
 });
 
 test('seven open questions project fully despite possible-plan refusal', () => {
@@ -99,10 +136,28 @@ test('seven open questions project fully despite possible-plan refusal', () => {
   assert.ok(tree.warnings.some(warning => warning.code === 'possible-plan-refusal'));
 });
 
-test('an item naming an answered question stays on its chosen arm, not the spine', () => {
+test('the terminal states the remaining possible-plan count from projected worlds', () => {
+  const tree = treeFor(`${decision('a')}\n${decision('b')}`, '2026-12-01');
+  assert.deepEqual(tree.terminal, {kind:'count', possibleCount:4});
+});
+
+test('the terminal exposes the enumeration limit without dropping Tree questions', () => {
+  const decisions = Array.from({length:7}, (_, index) => decision(`q${index}`));
+  const tree = treeFor(decisions.join('\n'), '2026-12-01');
+  assert.deepEqual(tree.terminal, {
+    kind:'limit',
+    openQuestionCount:7,
+    possibleCount:128,
+    reason:'Seven open questions would make 128 possible plans. Answer one, or use the Tree view.',
+  });
+  assert.equal(tree.questions.length, 7);
+});
+
+test('an item naming an answered question continues after its diamond, not on the shared spine', () => {
   const tree = treeFor(`${decision('fork', '\n  answer: yes')}\nNOW\n  Core: Conditional [if fork]`, '2026-12-20');
   assert.deepEqual(tree.spine, []);
-  assert.deepEqual(titles(tree.questions[0].arms.yes), ['Conditional']);
+  assert.deepEqual(tree.questions[0].arms, {yes:[], no:[]});
+  assert.deepEqual(titles(tree.questions[0].continuation), ['Conditional']);
   assert.deepEqual(tree.questions[0].displayState, {kind:'answered', direction:'yes'});
 });
 
@@ -116,4 +171,14 @@ test('breadcrumbs contain effective answers oldest-due first and leave collapse 
   assert.deepEqual(tree.breadcrumbs.map(crumb => ({key:crumb.key, direction:crumb.direction})), [
     {key:'earlier', direction:'yes'}, {key:'later', direction:'no'},
   ]);
+});
+
+test('answered breadcrumbs retain continuation, rejected completed work, and the not-needed stump', () => {
+  const tree = treeFor(`${decision('fork', '\n  answer: yes')}\nNOW\n` +
+    '  Core: Chosen [if fork]\n  Core: Done fallback [unless fork] [done]\n' +
+    '  Core: Unbuilt fallback [unless fork]', '2026-12-20');
+  const crumb = tree.breadcrumbs[0];
+  assert.deepEqual(titles(crumb.continuation), ['Chosen']);
+  assert.deepEqual(titles(crumb.arms.no), ['Done fallback']);
+  assert.deepEqual(titles(crumb.stump.items), ['Unbuilt fallback']);
 });
