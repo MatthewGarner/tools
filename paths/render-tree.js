@@ -1,6 +1,6 @@
 /* /paths wide Tree SVG. Pure: consumes treeProjection + treeLayout output. */
 
-import {esc, txt, wash, wrapText} from '../assets/svg.js';
+import {btnAttrs, esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../roadmap/deck-parts.js';
 import {verdict} from './verdict.js';
@@ -226,6 +226,15 @@ function questionState(question){
   return 'Open';
 }
 
+function decisionTargetAttrs(decision, state, ctx){
+  if(!ctx?.interactive || !decision) return '';
+  const selected = ctx.selectedKey === decision.key;
+  return ' data-select-decision="" data-decision-key="' + esc(decision.key) +
+    '" data-line="' + decision.srcLine + '" data-selected="' + selected +
+    '" aria-expanded="' + selected + '" aria-controls="decision-inspector"' +
+    btnAttrs('Inspect question ' + decisionName(decision) + ' — ' + state);
+}
+
 function decisionMap(projection){
   return new Map((projection.questions || []).map(question => [question.key, question.decision]));
 }
@@ -381,7 +390,7 @@ function renderItem(box, decisions, C, measure){
   return svg + '</g>';
 }
 
-function renderQuestion(entry, C, measure){
+function renderQuestion(entry, C, measure, ctx){
   const {diamond, question} = entry;
   const points = [
     [diamond.cx, diamond.y],
@@ -389,7 +398,8 @@ function renderQuestion(entry, C, measure){
     [diamond.cx, diamond.y + diamond.h],
     [diamond.x, diamond.cy],
   ].map(point => point.map(r2).join(',')).join(' ');
-  let svg = '<g data-kind="question"><title>' + esc(decisionName(question.decision)) +
+  let svg = '<g data-kind="question"' + decisionTargetAttrs(question.decision,
+    questionState(question), ctx) + '><title>' + esc(decisionName(question.decision)) +
     '</title><polygon points="' + points + '" fill="' + C.surface +
     '" stroke="' + C.ink + '" stroke-width="2"/>';
   const nameLines = wrapped(decisionName(question.decision), diamond.w - 38, 2, measure);
@@ -453,10 +463,15 @@ function renderStump(box, C, measure){
   return svg + '</g>';
 }
 
-function renderBreadcrumb(box, C, measure){
+function renderBreadcrumb(box, C, measure, ctx){
   const label = clipped(decisionName(box.crumb?.decision), box.w - 16, measure);
   const branch = box.crumb?.direction === 'no' ? 'No · If not' : 'Yes · If so';
-  return '<g data-kind="breadcrumb">' +
+  const interactiveHit = ctx?.interactive
+    ? '<rect data-hit="" x="' + r2(box.x) + '" y="' + r2(box.y - Math.max(0, 44 - box.h) / 2) +
+      '" width="' + r2(box.w) + '" height="' + r2(Math.max(44, box.h)) + '" fill="transparent"/>'
+    : '';
+  return '<g data-kind="breadcrumb"' + decisionTargetAttrs(box.crumb?.decision,
+    answerLabel(box.crumb?.direction), ctx) + '>' + interactiveHit +
     rect(box.x, box.y, box.w, box.h, wash(C.accent, '12'), {stroke:C.accent, sw:1}) +
     txt(box.x + 8, box.y + 11, label, 9, C.ink, {weight:600}) +
     txt(box.x + 8, box.y + 23, branch, 8, C.muted, {weight:600}) +
@@ -489,7 +504,8 @@ export function renderTree(projection, layout, ctx){
   const decisions = decisionMap(projection);
   let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
-    '" font-family="' + SANS + '" role="img" aria-labelledby="paths-tree-name paths-tree-description">';
+    '" font-family="' + SANS + '" role="' + (ctx.interactive ? 'group' : 'img') +
+    '" aria-labelledby="paths-tree-name paths-tree-description">';
   svg += accessibleHead(data, 'tree');
   svg += '<defs>' +
     '<pattern id="tree-assumed-yes" width="8" height="8" patternUnits="userSpaceOnUse">' +
@@ -535,7 +551,7 @@ export function renderTree(projection, layout, ctx){
     for(const item of box.arms?.no || []) svg += renderItem(item, decisions, C, measure);
     svg += renderStump(box.stump, C, measure);
     svg += renderCollapsedArmLabel(box, C);
-    svg += renderBreadcrumb(box, C, measure);
+    svg += renderBreadcrumb(box, C, measure, ctx);
   }
   for(const box of layout.continuations || []) svg += renderItem(box, decisions, C, measure);
   for(const entry of layout.questions || []){
@@ -544,7 +560,7 @@ export function renderTree(projection, layout, ctx){
     for(const box of entry.continuation || []) svg += renderItem(box, decisions, C, measure);
     svg += renderStump(entry.stump, C, measure);
     svg += renderArmLabels(entry, C);
-    svg += renderQuestion(entry, C, measure);
+    svg += renderQuestion(entry, C, measure, ctx);
   }
   svg += renderTerminal(layout.terminal, C);
   for(const box of layout.unplaced || []) svg += renderItem(box, decisions, C, measure);
@@ -568,7 +584,8 @@ export function renderOutline(projection, ctx){
   const decisions = decisionMap(projection);
   const rows = [];
 
-  const push = (kind, text, note, indent, details = []) => rows.push({kind, text, note, indent, details});
+  const push = (kind, text, note, indent, details = [], decision = null) =>
+    rows.push({kind, text, note, indent, details, decision});
   const pushItem = (item, indent) => {
     const status = itemStatus(item)?.label;
     const meta = [status, treatmentLabel(itemTreatment(item, decisions)), item.lane].filter(Boolean).join(' · ');
@@ -601,7 +618,8 @@ export function renderOutline(projection, ctx){
   if(projection.questions?.length) push('region', 'Question paths · changes with answers', '', 0);
   for(const question of projection.questions || []){
     push('question', decisionName(question.decision), questionState(question) +
-      (question.decision?.answerBy ? ' · Due ' + shortDate(question.decision.answerBy) : ''), 0);
+      (question.decision?.answerBy ? ' · Due ' + shortDate(question.decision.answerBy) : ''),
+    0, [], question.decision);
     const arm = (list, label) => {
       if(!list?.length) return;
       push('arm', label, '', 1);
@@ -681,7 +699,11 @@ export function renderOutline(projection, ctx){
       continue;
     }
     if(row.kind === 'question'){
-      svg += '<g data-kind="outline-question">' +
+      const hit = ctx.interactive
+        ? '<rect data-hit="" x="' + PAD + '" y="' + r2(y) + '" width="' + (W - PAD * 2) +
+          '" height="' + HEAD + '" fill="transparent"/>' : '';
+      svg += '<g data-kind="outline-question"' + decisionTargetAttrs(row.decision,
+        row.note.split(' · ')[0], ctx) + '>' + hit +
         txt(x, y + 15, clipped(row.text, W - x - PAD, measure, TITLE_FONT), 13, C.ink, {weight:700});
       if(row.note) svg += txt(x, y + 32, clipped(row.note, W - x - PAD, measure), 9, C.muted,
         {weight:600});
@@ -723,6 +745,7 @@ export function renderOutline(projection, ctx){
   }
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + r2(W) + '" height="' + r2(height) +
     '" viewBox="0 0 ' + r2(W) + ' ' + r2(height) + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
-    '" font-family="' + SANS + '" role="img" aria-labelledby="paths-tree-name paths-tree-description">' +
+    '" font-family="' + SANS + '" role="' + (ctx.interactive ? 'group' : 'img') +
+    '" aria-labelledby="paths-tree-name paths-tree-description">' +
     accessibleHead(data, 'outline') + rect(0, 0, W, height, C.bg) + header + svg + '</svg>';
 }

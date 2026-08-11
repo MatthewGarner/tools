@@ -70,6 +70,40 @@ function labelsFor(decisions, projected){
   });
 }
 
+/* Enumeration decides which binary assignments exist. A plan header has a
+   different job: explain every authored decision in that world, including
+   settled questions and conditional questions the assignment never opened.
+   Keep the two ledgers separate so adding context cannot change world count. */
+export function contextualLabelsFor(decisions, projected){
+  return decisions.map(decision => {
+    const state = projected.decisionByName[decision.key];
+    if(state?.availability !== 'active') return `${decision.name} — Not open yet`;
+    if(state.effectiveAnswer) return `${decision.name} — Answer: ${state.effectiveAnswer}`;
+    return `${decision.name} — Not open yet`;
+  });
+}
+
+/* Header context is the matrix's dependency closure, not the whole document.
+   Seed it from every item condition and the questions enumeration actually
+   varies, then walk `when:` terms towards their hosts. Source-order filtering
+   keeps labels deterministic while settled, unused questions stay out. */
+export function contextualDecisionsFor(model, enumerable){
+  const relevant = new Set(enumerable.map(decision => decision.key));
+  const traversed = new Set();
+  const visit = key => {
+    if(traversed.has(key)) return;
+    traversed.add(key);
+    const decision = model.decisionByName[key];
+    if(!decision) return;
+    relevant.add(key);
+    for(const term of decision.when?.terms || []) visit(term.key);
+  };
+  for(const decision of enumerable) visit(decision.key);
+  for(const item of model.items)
+    for(const term of item.condition?.terms || []) visit(term.key);
+  return model.decisions.filter(decision => relevant.has(decision.key));
+}
+
 function sharesFor(current, worlds, stateByWorld){
   if(!worlds.length) return null;
   const eligible = current.items.filter(item => item.status !== 'done' &&
@@ -129,6 +163,7 @@ function calculate(model, today){
       shares:null, matrix:[]};
   }
   const enumerableCount = enumerable.length;
+  const contextualDecisions = contextualDecisionsFor(model, enumerable);
 
   const assignments = assignmentRows(enumerable, current);
   const merged = new Map();
@@ -136,12 +171,13 @@ function calculate(model, today){
     const projected = evaluate(model, today, answers);
     const signature = equivalenceSignature(projected.items);
     const labels = labelsFor(enumerable, projected);
+    const contextLabels = contextualLabelsFor(contextualDecisions, projected);
     if(merged.has(signature)){
       const entry = merged.get(signature);
       entry.covers++;
-      entry.assignments.push({answers:{...answers}, labels});
+      entry.assignments.push({answers:{...answers}, labels, contextLabels});
     } else {
-      merged.set(signature, {signature, covers:1, assignments:[{answers:{...answers}, labels}],
+      merged.set(signature, {signature, covers:1, assignments:[{answers:{...answers}, labels, contextLabels}],
         labels, items:projected.items, decisions:projected.decisions});
     }
   }

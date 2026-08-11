@@ -358,16 +358,11 @@ export function parse(text){
           `line ${lineNo}: today ${quote(value)} is not a valid date — use YYYY-MM-DD; date ignored`);
       } else if(key === 'style'){
         const style = value.toLowerCase();
-        if(style === 'tree') model.style = style;
-        else if(style === 'plans'){
-          model.style = 'tree';
-          add('parse', 'legacy-plans-style', lineNo, 'style',
-            `line ${lineNo}: style "plans" is retained for compatibility but read as "tree" — the Plans view is not available`);
-        }
+        if(style === 'tree' || style === 'plans') model.style = style;
         else {
           model.style = 'tree';
           add('parse', 'invalid-style', lineNo, 'style',
-            `line ${lineNo}: style ${quote(value)} is not valid — use "tree"; style read as "tree"`);
+            `line ${lineNo}: style ${quote(value)} is not valid — use "tree" or "plans"; style read as "tree"`);
         }
       }
       else if(key === 'verdict') model.verdict = value;

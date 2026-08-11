@@ -31,9 +31,50 @@ function renderDoc(doc, today = '2026-12-22', width = 1160){
   return renderTree(tp, layout, {colors, measure, dark:false, today, projection});
 }
 
+function renderInteractiveDoc(doc, {today = '2026-12-22', width = 1160,
+  selectedKey = null, narrow = false} = {}){
+  const projection = project(parse(doc), today);
+  const tp = treeProjection(projection);
+  const ctx = {colors, measure, dark:false, today, projection, interactive:true, selectedKey};
+  return narrow
+    ? renderOutline(tp, {...ctx, width})
+    : renderTree(tp, treeLayout(tp, {width, measure}), ctx);
+}
+
 const decisionBlock = (name, extra = '') =>
   `decision ${name}:\n  question: Does ${name} hold?\n  signal: a measurable signal\n` +
   `  owner: a squad\n  answer-by: 2026-12-15\n${extra}`;
+
+test('interactive wide questions are named keyboard buttons carrying stable parsed identity', () => {
+  const svg = renderInteractiveDoc(decisionBlock('groups') +
+    'LATER\n  Growth: Group challenges [if groups]', {selectedKey:'groups'});
+  assert.match(svg, /role="group" aria-labelledby="paths-tree-name paths-tree-description"/);
+  assert.match(svg, /data-kind="question" data-select-decision="" data-decision-key="groups" data-line="0" data-selected="true" aria-expanded="true" aria-controls="decision-inspector" tabindex="0" role="button" aria-label="Inspect question groups — 7 days overdue"/);
+});
+
+test('interactive collapsed breadcrumbs retain a 44px hit target and answer-labelled button', () => {
+  const svg = renderInteractiveDoc(decisionBlock('groups', '  answer: yes 2026-12-10\n') +
+    'LATER\n  Growth: Group challenges [if groups]', {width:1});
+  assert.match(svg, /data-kind="breadcrumb" data-select-decision="" data-decision-key="groups"/);
+  assert.match(svg, /aria-label="Inspect question groups — Answer: yes"/);
+  assert.match(svg, /<rect data-hit=""[^>]*height="44" fill="transparent"/);
+});
+
+test('interactive narrow questions are full-row 44px keyboard targets with selected state', () => {
+  const svg = renderInteractiveDoc(decisionBlock('groups') +
+    'LATER\n  Growth: Group challenges [if groups]',
+  {width:390, narrow:true, selectedKey:'groups'});
+  assert.match(svg, /data-kind="outline-question" data-select-decision="" data-decision-key="groups" data-line="0" data-selected="true" aria-expanded="true" aria-controls="decision-inspector" tabindex="0" role="button"/);
+  assert.match(svg, /<rect data-hit=""[^>]*height="44" fill="transparent"/);
+});
+
+test('export renderers remain non-interactive images with no selection attributes', () => {
+  const doc = decisionBlock('groups') + 'LATER\n  Growth: Group challenges [if groups]';
+  for(const svg of [renderDoc(doc), outlineDoc(doc)]){
+    assert.match(svg, /role="img"/);
+    assert.doesNotMatch(svg, /data-select-decision|data-selected|tabindex="0"/);
+  }
+});
 
 /* ---------- item states, each on a document that genuinely produces it ---------- */
 

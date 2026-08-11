@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="../assets/mobile.css">
+<link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
@@ -47,8 +48,8 @@
         <dd>date the artefact; use <code>date: off</code> to hide it</dd>
         <dt><code data-try="">today: 2026-08-10</code></dt>
         <dd>set the evaluation date instead of using the local date</dd>
-        <dt><code data-try="">style: tree</code></dt>
-        <dd>show the decision tree; older <code>style: plans</code> sources are read as tree with a warning</dd>
+        <dt><code data-try="">style: tree</code> · <code data-try="">style: plans</code></dt>
+        <dd>show the decision tree or compare the distinct possible plans</dd>
         <dt><code data-try="">verdict: off</code></dt>
         <dd>hide the verdict; any other text replaces the generated line</dd>
         <dt><code data-try="">palette: ocean</code></dt>
@@ -92,6 +93,8 @@
   <section class="stage">
     <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
     <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <section class="decision-inspector" id="decision-inspector"
+      aria-labelledby="decision-inspector-title" hidden></section>
     <div class="actions">
       <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
       <button class="btn primary" id="copypng">Copy PNG</button>
@@ -102,7 +105,7 @@
           <button class="btn" id="dlsvg">SVG</button>
         </div>
       </details>
-      <span class="method">The phone view becomes an outline; every export remains the wide tree.</span>
+      <span class="method" id="view-method">The phone view becomes an outline; every export remains the wide tree.</span>
     </div>
   </section>
 </div>
