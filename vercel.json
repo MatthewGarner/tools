@@ -53,6 +53,23 @@
     {"source": "/cycles", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/cycles/", "permanent": false},
     {"source": "/frequency", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/frequency/", "permanent": false},
     {"source": "/merit-order", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/merit-order/", "permanent": false},
-    {"source": "/intraday", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/intraday/", "permanent": false}
+    {"source": "/intraday", "has": [{"type": "host", "value": "energy.matthewgarner.me"}], "destination": "/intraday/", "permanent": false},
+    {"source": "/fermi", "destination": "/fermi/", "permanent": false},
+    {"source": "/rank", "destination": "/rank/", "permanent": false},
+    {"source": "/roadmap", "destination": "/roadmap/", "permanent": false},
+    {"source": "/why", "destination": "/why/", "permanent": false},
+    {"source": "/tree", "destination": "/tree/", "permanent": false},
+    {"source": "/map", "destination": "/map/", "permanent": false},
+    {"source": "/gauge", "destination": "/gauge/", "permanent": false},
+    {"source": "/flow", "destination": "/flow/", "permanent": false},
+    {"source": "/timeline", "destination": "/timeline/", "permanent": false},
+    {"source": "/wardley", "destination": "/wardley/", "permanent": false},
+    {"source": "/alarm", "destination": "/alarm/", "permanent": false},
+    {"source": "/duel", "destination": "/duel/", "permanent": false},
+    {"source": "/premortem", "destination": "/premortem/", "permanent": false},
+    {"source": "/bets", "destination": "/bets/", "permanent": false},
+    {"source": "/signal-vs-noise", "destination": "/signal-vs-noise/", "permanent": false},
+    {"source": "/case", "destination": "/case/", "permanent": false},
+    {"source": "/paths", "destination": "/paths/", "permanent": false}
   ]
 }
