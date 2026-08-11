@@ -416,7 +416,16 @@ const PAGES = {
   'energy/intraday/index.html': 166_000,
   /* Tree + outline renderers, the layout, the four engine modules and the vendored
      editor. Actual 522.8k; ~25% headroom as the house sets a new tool's budget. */
-  'paths/index.html': 653_000,
+  /* 653k -> 724k (2026-08-11, parallel-roadmap Overview): overview.js and
+     render-overview.js add the canonical period x lane projection, complete
+     compound-condition semantics and the wide/narrow artefact (~50.6k); app.js
+     adds the evaluator-backed receipt, local Focus counterfactual and accessible
+     responsive receipt states (~16.5k); the corresponding responsive treatment
+     is ~5.6k. Overview is the default artefact and must work on the first offline
+     open, while Tree and Plans remain explicit supported zooms, so these are honest
+     page-graph bytes rather than an optional payload to hide behind lazy loading.
+     Actual 717.3k; retain ~6.7k headroom. */
+  'paths/index.html': 724_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

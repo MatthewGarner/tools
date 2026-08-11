@@ -66,7 +66,10 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   model = parse('Later\ndecisionx:');
   one(model, 'invalid-decision-heading', 2, 'parse', 'line 2: "decisionx:" is not a valid decision heading — use one word with letters, numbers or hyphens, such as "decision coach-pricing:"');
   model = parse('style: banana');
-  one(model, 'invalid-style', 1, 'parse', 'line 1: style "banana" is not valid — use "tree" or "plans"; style read as "tree"');
+  one(model, 'invalid-style', 1, 'parse', 'line 1: style "banana" is not valid — use "overview", "tree" or "plans"; style read as "overview"');
+  assert.equal(model.style, 'overview');
+  model = parse('style: overview');
+  assert.equal(model.style, 'overview');
   model = parse('style: plans');
   assert.equal(model.style, 'plans');
   assert.equal(model.warnings.length, 0);

@@ -27,12 +27,14 @@ function assertClean(out, who){
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
 }
 
-test('paths tree and possible-plan renderers escape a hostile real document', async () => {
+test('paths tree, overview and possible-plan renderers escape a hostile real document', async () => {
   const {parse} = await import('../paths/parse.js');
   const {project} = await import('../paths/project.js');
   const {treeProjection} = await import('../paths/tree.js');
   const {treeLayout} = await import('../paths/layout-tree.js');
   const {renderTree, renderOutline} = await import('../paths/render-tree.js');
+  const {overviewProjection} = await import('../paths/overview.js');
+  const {renderOverview, renderOverviewNarrow} = await import('../paths/render-overview.js');
   const {renderPlans, renderPlansNarrow} = await import('../paths/render-plans.js');
   const safe = value => value.replace(/:/g, ';');
   const doc = 'title: ' + EVIL[0] + '\ndate: 2026-08-10\nverdict: ' + EVIL[5] + '\n' +
@@ -50,6 +52,9 @@ test('paths tree and possible-plan renderers escape a hostile real document', as
   assertClean(renderTree(topology, treeLayout(topology, {width:900, measure:ctx.measure}), renderCtx),
     'paths-tree');
   assertClean(renderOutline(topology, {...renderCtx, width:360}), 'paths-outline');
+  const overview = overviewProjection(projected);
+  assertClean(renderOverview(overview, {...renderCtx, width:1100}), 'paths-overview');
+  assertClean(renderOverviewNarrow(overview, {...renderCtx, width:360}), 'paths-overview-narrow');
   assertClean(renderPlans(projected, {...renderCtx, width:900}), 'paths-plans');
   assertClean(renderPlansNarrow(projected, {...renderCtx, width:360}), 'paths-plans-narrow');
 });

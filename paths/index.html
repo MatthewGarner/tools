@@ -48,8 +48,8 @@
         <dd>date the artefact; use <code>date: off</code> to hide it</dd>
         <dt><code data-try="">today: 2026-08-10</code></dt>
         <dd>set the evaluation date instead of using the local date</dd>
-        <dt><code data-try="">style: tree</code> · <code data-try="">style: plans</code></dt>
-        <dd>show the decision tree or compare the distinct possible plans</dd>
+        <dt><code data-try="">style: overview</code> · <code data-try="">style: tree</code> · <code data-try="">style: plans</code></dt>
+        <dd>show the roadmap overview (the default), decision tree, or distinct possible plans</dd>
         <dt><code data-try="">verdict: off</code></dt>
         <dd>hide the verdict; any other text replaces the generated line</dd>
         <dt><code data-try="">palette: ocean</code></dt>
@@ -92,7 +92,13 @@
   <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
   <section class="stage">
     <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
-    <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <div class="overview-live" id="overview-live">
+      <div class="overview-main">
+        <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      </div>
+      <aside class="overview-receipt" id="overview-receipt" aria-labelledby="overview-receipt-title" hidden></aside>
+      <section class="focus-lens" id="focus-lens" aria-labelledby="focus-lens-title" hidden></section>
+    </div>
     <section class="decision-inspector" id="decision-inspector"
       aria-labelledby="decision-inspector-title" hidden></section>
     <div class="actions">
@@ -105,7 +111,7 @@
           <button class="btn" id="dlsvg">SVG</button>
         </div>
       </details>
-      <span class="method" id="view-method">The phone view becomes an outline; every export remains the wide tree.</span>
+      <span class="method" id="view-method">The phone view groups work by period; every export remains the full roadmap grid.</span>
     </div>
   </section>
 </div>

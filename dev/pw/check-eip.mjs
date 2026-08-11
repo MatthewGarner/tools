@@ -3638,18 +3638,172 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await mctx.close();
 }
 
-/* ---- paths selected-decision inspector: the SVG chooses a parsed decision;
-   every inspector edit is one source rewrite and remains selected after the
-   ordinary debounce/render cycle. Wide keyboard selection plus narrow 44px
-   geometry cover both renderers; answer controls cover the non-input action
-   path. ---- */
+/* ---- paths overview receipt + Focus lens + explicit Tree inspector: Overview
+   uses the evaluator-backed impact receipt while Tree retains its editable
+   legacy receipt and source-rewrite behavior during the staged migration. ---- */
 {
-  const pctx = await browser.newContext({viewport:{width:1280, height:900}, reducedMotion:'reduce'});
+  const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
   const perrors = trackErrors(p);
   const root = process.env.BASE || 'http://localhost:8087';
   const src = () => p.locator('#cmhost').textContent();
   await p.goto(root + '/paths/', {waitUntil:'networkidle'});
+  check('paths: the unstyled document opens the parallel overview with a deterministic receipt',
+    await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
+    await p.locator('#overview-receipt[data-decision-key="pricing"]').isVisible() &&
+    /changes directly with this answer/i.test(await p.locator('#overview-receipt').innerText()) &&
+    /also needs/i.test(await p.locator('#overview-receipt').innerText()) &&
+    await p.locator('#decision-inspector').isHidden());
+  check('paths: injected Fit advice cannot displace the roadmap or desktop receipt rail',
+    await p.evaluate(() => {
+      const live = document.querySelector('#overview-live');
+      const main = document.querySelector('.overview-main');
+      const preview = document.querySelector('#preview');
+      const receipt = document.querySelector('#overview-receipt');
+      const advice = document.querySelector('.fit-readability-advisory');
+      const mainBox = main?.getBoundingClientRect();
+      const previewBox = preview?.getBoundingClientRect();
+      const receiptBox = receipt?.getBoundingClientRect();
+      return live?.dataset.receiptLayout === 'rail' && advice?.parentElement === main &&
+        Math.abs(mainBox.x - previewBox.x) < 1 && previewBox.right <= receiptBox.left;
+    }));
+  const overviewQuestion = p.locator('[data-kind="attention-decision"][data-decision-key="groups"]');
+  await overviewQuestion.focus();
+  await overviewQuestion.press('Enter');
+  await p.waitForTimeout(400);
+  check('paths: overview keyboard selection updates and focuses the evaluator-backed live receipt',
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    await p.locator('[data-kind="attention-decision"][data-decision-key="groups"][data-selected="true"]').count() === 1 &&
+    await p.evaluate(() => document.activeElement?.id) === 'overview-receipt-title' &&
+    await p.locator('#decision-inspector').isHidden());
+  check('paths: decision selection announces the selected question and current state',
+    /Selected question: Will people invite three friends without prompting\?. Unanswered — due/.test(
+      await p.locator('#summary').innerText()));
+
+  await p.locator('#overview-receipt [data-open-focus]').click();
+  await p.waitForTimeout(300);
+  check('paths: Open focus is a deliberate local lens with stable selected decision',
+    await p.locator('#focus-lens').isVisible() && await p.locator('#preview').isHidden() &&
+    await p.evaluate(() => document.activeElement?.id) === 'focus-lens-title' &&
+    /Will people invite three friends/.test(await p.locator('#focus-lens-title').innerText()));
+  check('paths: Focus names yes/no as counterfactuals and exposes compound outcomes',
+    await p.locator('#focus-lens .focus-branch').count() === 2 &&
+    /If answered yes/.test(await p.locator('#focus-lens').innerText()) &&
+    /If answered no/.test(await p.locator('#focus-lens').innerText()) &&
+    /AND · requires Groups = yes and Pricing = no/.test(await p.locator('#focus-lens').innerText()) &&
+    /Counterfactual — not today’s plan/.test(await p.locator('#focus-lens').innerText()));
+  check('paths: Focus states honest export semantics',
+    /local counterfactual lens; exports remain the selected full roadmap overview/i.test(
+      await p.locator('#view-method').innerText()));
+  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  const focusDownload = p.waitForEvent('download');
+  await p.locator('#dlsvg').click();
+  const focusFile = await focusDownload;
+  const focusSvg = await (await import('node:fs/promises')).readFile(await focusFile.path(), 'utf8');
+  check('paths: Focus export remains the selected full overview with the rich receipt',
+    focusSvg.includes('data-kind="roadmap-grid"') &&
+    focusSvg.includes('data-kind="overview-receipt" data-decision-key="groups"') &&
+    focusSvg.includes('CHANGES DIRECTLY WITH THIS ANSWER') &&
+    !focusSvg.includes('data-kind="tree-body"'));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  check('paths: Escape returns to Overview, preserves selection and returns focus to the opener',
+    await p.locator('#preview').isVisible() && await p.locator('#focus-lens').isHidden() &&
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-focus')));
+
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  check('paths: phone Overview keeps the agenda and omits the embedded SVG receipt',
+    await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
+    await p.locator('#preview [data-kind="overview-receipt"]').count() === 0 &&
+    await p.locator('#overview-receipt').isHidden());
+  const phoneDecision = p.locator('[data-select-decision][data-decision-key="groups"]');
+  await phoneDecision.click();
+  await p.locator('#overview-receipt').waitFor({state:'visible'});
+  check('paths: phone selection opens the rich receipt as a labelled modal bottom sheet',
+    await p.locator('#overview-receipt').getAttribute('role') === 'dialog' &&
+    await p.locator('#overview-receipt').getAttribute('aria-modal') === 'true' &&
+    await p.locator('#overview-receipt').getAttribute('aria-labelledby') === 'overview-receipt-title' &&
+    /latest reading/i.test(await p.locator('#overview-receipt').innerText()) &&
+    /changes directly with this answer/i.test(await p.locator('#overview-receipt').innerText()) &&
+    await p.evaluate(() => document.activeElement?.id) === 'overview-receipt-title');
+  check('paths: phone receipt removes every background sibling from assistive navigation',
+    await p.evaluate(() => {
+      const host = document.querySelector('#overview-receipt');
+      let branch = host;
+      while(branch?.parentElement){
+        const parent = branch.parentElement;
+        for(const sibling of parent.children){
+          if(sibling === branch) continue;
+          if(!sibling.inert || sibling.getAttribute('aria-hidden') !== 'true') return false;
+        }
+        branch = parent;
+        if(parent === document.body) break;
+      }
+      return true;
+    }));
+  await p.keyboard.press('Tab');
+  check('paths: phone receipt traps focus inside the sheet',
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
+  await p.keyboard.press('Tab');
+  check('paths: a single-control phone receipt wraps its focus trap',
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
+  await p.locator('#overview-receipt [data-receipt-close]').click();
+  await p.waitForTimeout(100);
+  check('paths: Close dismisses the phone sheet and returns focus to its decision',
+    await p.locator('#overview-receipt').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups' &&
+    await p.evaluate(() => !document.querySelector('.overview-main').inert &&
+      !document.querySelector('.overview-main').hasAttribute('aria-hidden')));
+  await p.keyboard.press('Enter');
+  await p.locator('#overview-receipt').waitFor({state:'visible'});
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(100);
+  check('paths: Escape dismisses the phone sheet and returns focus to its decision',
+    await p.locator('#overview-receipt').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups');
+
+  await p.setViewportSize({width:901, height:900});
+  await p.waitForTimeout(500);
+  check('paths: a 901px viewport follows the narrow preview container, not the viewport',
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'sheet' &&
+    await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
+    await p.locator('#overview-receipt').isHidden() && await p.locator('#focus-lens').isHidden());
+
+  await p.setViewportSize({width:1100, height:900});
+  await p.waitForTimeout(500);
+  check('paths: constrained non-narrow desktop uses a dismissible overlay receipt',
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'overlay' &&
+    await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
+    await p.locator('#overview-receipt[data-layout="overlay"]').isVisible() &&
+    await p.locator('#overview-receipt [data-receipt-close]').count() === 1);
+  await p.locator('#overview-receipt [data-open-focus]').click();
+  await p.waitForTimeout(200);
+  const stackedFocus = await p.locator('#focus-lens .focus-branch').evaluateAll(elements =>
+    elements.length === 2 && elements[1].getBoundingClientRect().top > elements[0].getBoundingClientRect().top);
+  check('paths: Focus stacks from usable container width at constrained desktop',
+    await p.locator('#overview-live').getAttribute('data-focus-layout') === 'stacked' && stackedFocus);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
+  await p.setViewportSize({width:1700, height:900});
+  await p.waitForTimeout(500);
+  check('paths: resizing across the receipt boundary reflows overlay into the rail',
+    await p.evaluate(() => {
+      const main = document.querySelector('.overview-main').getBoundingClientRect();
+      const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
+      return document.querySelector('#overview-live').dataset.receiptLayout === 'rail' &&
+        getComputedStyle(document.querySelector('#overview-receipt')).position === 'sticky' &&
+        main.right <= receipt.left;
+    }));
+
+  await p.setViewportSize({width:1280, height:900});
+  await p.waitForTimeout(400);
+
+  await p.locator('details.syntax').evaluate(element => { element.open = true; });
+  await p.getByText('style: tree', {exact:true}).click();
+  await p.waitForTimeout(500);
   const question = p.locator('[data-select-decision][data-decision-key="groups"]');
   await question.focus();
   await question.press('Enter');
@@ -3710,7 +3864,6 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
      phone relayout, inspector exclusion and — most importantly — that exports
      are routed through the selected WIDE renderer rather than serialising the
      narrow preview or silently retaining Tree. */
-  await p.locator('details.syntax').evaluate(element => { element.open = true; });
   await p.getByText('style: plans', {exact:true}).click();
   await p.waitForTimeout(500);
   check('paths: style plans switches to the semantic phone relayout and removes the Tree inspector',
