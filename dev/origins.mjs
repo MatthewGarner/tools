@@ -1,3 +1,5 @@
+import {TOOL_DIRS} from './tool-dirs.mjs';
+
 /* Single source of truth for the two-origin path map. vercel.json's rewrites,
    serve.mjs's emulation and gen-sw's precache lists all derive from this table
    (origins.test.mjs enforces).
@@ -90,11 +92,25 @@ export function energyRedirectSources(){
     .map(r => r.from.replace(/\/$/, ''));
 }
 
+/* Tool directories are physical directories, so Vercel serves `/paths` as the
+   page rather than redirecting it to `/paths/`. Relative module and stylesheet
+   URLs then resolve at the site root. Canonicalise every bare tool URL before
+   that filesystem handling happens; this applies to previews too. */
+export function toolRedirectSources(){
+  return TOOL_DIRS.map(name => '/' + name);
+}
+
 export function vercelRedirects(){
-  return energyRedirectSources().map(source => ({
+  const energy = energyRedirectSources().map(source => ({
     source,
     has: [{type: 'host', value: ENERGY_HOST}],
     destination: source + '/',
     permanent: false,
   }));
+  const tools = toolRedirectSources().map(source => ({
+    source,
+    destination: source + '/',
+    permanent: false,
+  }));
+  return [...energy, ...tools];
 }

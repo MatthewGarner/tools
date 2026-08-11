@@ -13,7 +13,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {ENERGY_HOST, toRepoPath, toToolsPath, toOriginUrl, vercelRewrites,
-  vercelRedirects, energyRedirectSources} from './origins.mjs';
+  vercelRedirects, energyRedirectSources, toolRedirectSources} from './origins.mjs';
+import {TOOL_DIRS} from './tool-dirs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const vercel = JSON.parse(readFileSync(ROOT + 'vercel.json', 'utf8'));
@@ -47,12 +48,22 @@ test('tools origin redirects /energy/* (including the bare slash form)', () => {
 test('energy tool paths redirect bare → trailing-slash (no-slash asset-404 bug)', () => {
   // /risk, /cycles, /frequency, /merit-order, /intraday — but NOT /icons (asset dir) or the exact rows
   assert.deepEqual(energyRedirectSources().slice().sort(), ['/cycles', '/frequency', '/intraday', '/merit-order', '/risk']);
+  const expected = vercelRedirects().filter(r => r.has);
   const inVercel = (vercel.redirects || []).filter(r => energyRedirectSources().includes(r.source));
-  assert.deepEqual(inVercel, vercelRedirects());
-  for(const r of vercelRedirects()){
+  assert.deepEqual(inVercel, expected);
+  for(const r of expected){
     assert.deepEqual(r.has, [{type: 'host', value: ENERGY_HOST}]);
     assert.equal(r.destination, r.source + '/');   // canonical trailing-slash form
   }
+});
+
+test('every tools-origin page redirects bare → trailing-slash before relative assets load', () => {
+  assert.deepEqual(toolRedirectSources(), TOOL_DIRS.map(name => '/' + name));
+  const inVercel = (vercel.redirects || []).filter(r => toolRedirectSources().includes(r.source));
+  const expected = toolRedirectSources().map(source => ({
+    source, destination: source + '/', permanent: false,
+  }));
+  assert.deepEqual(inVercel, expected);
 });
 
 test('toRepoPath maps energy-origin paths and passes shared paths through', () => {

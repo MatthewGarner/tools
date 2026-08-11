@@ -70,6 +70,34 @@ for(const theme of ['light', 'dark']){
   await ctx.close();
 }
 
+/* A real directory is served at its bare URL by Vercel rather than receiving
+   the platform's usual slash redirect. That leaves relative `app.js`/CSS URLs
+   rooted at `/`, so this must enter through the same direct URL a shared link
+   uses, not only through the canonical links used by the generic sweep. */
+{
+  const ctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
+  try{
+    await page.goto(T + '/paths', {waitUntil: 'networkidle', timeout: 20000});
+    const state = await page.evaluate(() => ({
+      canonical: location.pathname === '/paths/',
+      editor: !!document.querySelector('#cmhost .cm-editor'),
+      example: document.getElementById('chips')?.textContent.includes('Habitat'),
+      preview: document.querySelector('#preview svg')?.textContent.includes('Habitat'),
+    }));
+    ok(state.canonical, 'paths (webkit): bare direct URL redirects to the canonical trailing slash');
+    ok(state.editor && state.example && state.preview,
+      'paths (webkit): direct URL loads editor, example chip, and rendered artefact');
+    ok(errs.length === 0, 'paths (webkit): direct URL has no page errors' + (errs.length ? ' — ' + errs[0] : ''));
+  }catch(e){
+    ok(false, 'paths (webkit): bare direct URL loads — ' + String(e).split('\n')[0]);
+  }
+  await page.close();
+  await ctx.close();
+}
+
 /* End-state legibility on the REAL Safari engine (shared table+measure with mobile.mjs).
    The shrink-to-fit bug class shipped TWICE specifically past the Blink-emulated suites,
    so the interaction-reached payoff artefacts get gated on WebKit too, not just Blink. */
