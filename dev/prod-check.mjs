@@ -22,11 +22,13 @@ const hex = n => randomBytes(n).toString('hex');
 const id = hex(16), key = hex(16);
 const call = (m, p, b) => fetch(BASE + '/api/gauge' + p, {method: m,
   headers: b ? {'content-type': 'application/json'} : undefined,
-  body: b ? JSON.stringify(b) : undefined}).then(r => r.status);
-check('relay create', await call('POST', '', {id, keyHash: createHash('sha256').update(key).digest('hex'), names: false}) === 200);
-check('relay submit', await call('PUT', '/' + id + '/response', {participantId: hex(8), values: [50]}) === 200);
-check('relay reveal', await call('POST', '/' + id + '/reveal', {key}) === 200);
-check('relay cleanup', await call('POST', '/' + id + '/end', {key}) === 200);
+  body: b ? JSON.stringify(b) : undefined});
+const created = await call('POST', '', {id, keyHash: createHash('sha256').update(key).digest('hex'), names: false});
+check('relay create', created.status === 200);
+check('relay responses are explicitly non-cacheable', created.headers.get('cache-control') === 'no-store, max-age=0');
+check('relay submit', (await call('PUT', '/' + id + '/response', {participantId: hex(8), values: [50]})).status === 200);
+check('relay reveal', (await call('POST', '/' + id + '/reveal', {key})).status === 200);
+check('relay cleanup', (await call('POST', '/' + id + '/end', {key})).status === 200);
 
 /* energy origin (fails until the DNS record + Vercel domain exist — that's the point) */
 const EBASE = 'https://energy.matthewgarner.me';
