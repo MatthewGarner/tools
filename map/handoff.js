@@ -4,9 +4,10 @@
 
 export function gaugeHandoff(model, ro){
   if(!ro || !ro.flagged.length) return null;
-  const lines = ['title: ' + (model.title || 'Assumption check') + ' — assumption check', 'names: off', ''];
+  const safe = value => String(value).replace(/[\r\n]+/g, ' ').replace(/::/g, '—').trim();
+  const lines = ['title: ' + safe(model.title || 'Assumption check') + ' — assumption check', 'names: off', ''];
   for(const f of ro.flagged){
-    lines.push(f.item.label + ' :: prob');
+    lines.push(safe(f.item.label) + ' :: prob');
   }
   return lines.join('\n');
 }

@@ -19,6 +19,10 @@ import {mountMotion} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
+import {loadSaved, storeSaved} from '../assets/saved-items.js';
+import {renderSavedDisclosure, savedSelectionAfterDelete} from '../assets/handoff-ui.js';
+import {gaugeImport} from './import-state.js';
+import {targetHashState} from '../assets/handoff.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -106,6 +110,8 @@ function composeCounts(model){
 }
 
 async function initCompose(hash){
+  const inbound = gaugeImport(hash);
+  let transient = !!inbound, activeSaved = null;
   let model = null, view = 'reveal', lastOut = '', hashTimer = null;
 
   /* participants never see the editor — only compose mode pays for CodeMirror */
@@ -233,7 +239,7 @@ async function initCompose(hash){
     if(!shouldPersist()) return;
     const state = {t: editor.getText()};
     if(ws.collapsed()) state.e = 0;
-    writeHashState(state);
+    writeHashState(targetHashState(state, transient ? inbound.meta : null));
   }
   function renderWarnings(){
     renderWarningList($('warns'), model ? model.warnings : []);
@@ -261,7 +267,19 @@ async function initCompose(hash){
       model.questions.length ? composeCounts(model) : []);
     renderWarnings();
     $('startbtn').disabled = !model.questions.length;
-    if(shouldPersist()){ try{ localStorage.setItem('gauge-src', text); }catch(e){} }
+    if(!transient && shouldPersist()){
+      if(activeSaved === null){
+        try{ localStorage.setItem('gauge-src', text); $('saveerror').textContent = ''; }
+        catch(e){ $('saveerror').textContent = 'Could not remember this draft in this browser.'; }
+      }
+      if(activeSaved !== null){
+        const list = loadSaved('gauge-saved');
+        if(list[activeSaved]){
+          list[activeSaved].src = text;
+          $('saveerror').textContent = storeSaved('gauge-saved', list) ? '' : 'Could not update this saved question set.';
+        }
+      }
+    }
     clearTimeout(hashTimer);
     hashTimer = setTimeout(writeHash, 400);
   }
@@ -283,6 +301,55 @@ async function initCompose(hash){
 
   /* examples */
   exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+
+  function leaveImport(text){
+    transient = false;
+    $('handoffstrip').hidden = true;
+    history.replaceState(null, '', location.pathname);
+    editor.setText(text || '');
+  }
+  function renderSaved(){
+    renderSavedDisclosure($('savedrow'), loadSaved('gauge-saved'), {
+      activeIndex: activeSaved, noun: 'question set',
+      onLoad: (m, i) => { activeSaved = i; leaveImport(m.src); },
+      onDelete: (m, i) => {
+        if(!confirm('Delete saved question set “' + m.name + '”? This cannot be undone.')) return;
+        const list = loadSaved('gauge-saved'); list.splice(i, 1);
+        if(!storeSaved('gauge-saved', list)){ $('saveerror').textContent = 'Could not delete this saved question set.'; return; }
+        const next = savedSelectionAfterDelete(activeSaved, i);
+        if(next.restoreCurrent){
+          let current = ''; try{ current = localStorage.getItem('gauge-src') || ''; }catch(e){}
+          activeSaved = null; leaveImport(current);
+        }else activeSaved = next.activeIndex;
+        $('saveerror').textContent = ''; renderSaved();
+      },
+      onSave: () => {
+      if(transient){ saveIncoming(); return; }
+      const text = editor.getText(); if(!parse(text).questions.length) return;
+      const list = loadSaved('gauge-saved');
+      list.push({name: (parse(text).title || 'Question set ' + (list.length + 1)).slice(0, 28), src: text});
+      if(!storeSaved('gauge-saved', list)){ $('saveerror').textContent = 'Could not save this question set.'; return; }
+      activeSaved = list.length - 1; $('saveerror').textContent = ''; renderSaved();
+      },
+    });
+  }
+  renderSaved();
+  function saveIncoming(){
+    if(!transient) return;
+    const text = editor.getText(), list = loadSaved('gauge-saved');
+    const name = (parse(text).title || 'Imported question set').slice(0, 28);
+    if(!storeSaved('gauge-saved', [...list, {name, src: text}])){
+      $('saveerror').textContent = 'Could not save this draft in this browser.'; return;
+    }
+    activeSaved = list.length;
+    $('saveerror').textContent = '';
+    leaveImport(text); renderSaved();
+  }
+  $('saveimport').addEventListener('click', saveIncoming);
+  $('returncurrent').addEventListener('click', () => {
+    let text = ''; try{ text = localStorage.getItem('gauge-src') || ''; }catch(e){}
+    activeSaved = null; leaveImport(text);
+  });
 
   /* exports (sample reveal) */
   const svgString = () => (model && model.questions.length)
@@ -324,7 +391,12 @@ async function initCompose(hash){
   watchNarrowBucket($('preview'), rerender);
 
   /* boot */
-  let text = hash && typeof hash.t === 'string' ? hash.t : '';
+  const invalidImport = hash && Object.prototype.hasOwnProperty.call(hash, 'x') && !inbound;
+  let text = inbound ? inbound.text : (!invalidImport && hash && typeof hash.t === 'string' ? hash.t : '');
+  if(inbound){
+    $('handofftitle').textContent = 'Draft from Map' + (inbound.meta.label ? ' · ' + inbound.meta.label : '');
+    $('handoffstrip').hidden = false;
+  }
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){ try{ text = localStorage.getItem('gauge-src') || ''; }catch(e){} }
   if(text) editor.setText(text);
