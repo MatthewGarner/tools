@@ -27,6 +27,30 @@ function assertClean(out, who){
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
 }
 
+test('paths wide tree and narrow outline escape a hostile real document', async () => {
+  const {parse} = await import('../paths/parse.js');
+  const {project} = await import('../paths/project.js');
+  const {treeProjection} = await import('../paths/tree.js');
+  const {treeLayout} = await import('../paths/layout-tree.js');
+  const {renderTree, renderOutline} = await import('../paths/render-tree.js');
+  const safe = value => value.replace(/:/g, ';');
+  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-08-10\nverdict: ' + EVIL[5] + '\n' +
+    'decision choice:\n  question: ' + EVIL[1] + '\n  signal: ' + EVIL[2] + '\n' +
+    '  reading: ' + EVIL[3] + '\n  owner: ' + EVIL[4] + '\n  answer-by: 2026-08-20\n' +
+    'NOW\n  ' + safe(EVIL[2]) + ': ' + EVIL[3] + ' -- ' + EVIL[4] + '\n' +
+    'LATER\n  ' + safe(EVIL[5]) + ': ' + EVIL[1] + ' [if choice] -- ' + EVIL[0] + '\n' +
+    '  ' + safe(EVIL[0]) + ': ' + EVIL[2] + ' [unless choice]';
+  const model = parse(doc);
+  assert.equal(model.decisions[0].question, EVIL[1],
+    'paths: hostile question survived the real current-field parser contract');
+  const projected = project(model, '2026-08-10');
+  const topology = treeProjection(projected);
+  const renderCtx = {...ctx, today:'2026-08-10', projection:projected};
+  assertClean(renderTree(topology, treeLayout(topology, {width:900, measure:ctx.measure}), renderCtx),
+    'paths-tree');
+  assertClean(renderOutline(topology, {...renderCtx, width:360}), 'paths-outline');
+});
+
 test('roadmap renderer escapes hostile titles/items/lanes', async () => {
   const {parse} = await import('../roadmap/parse.js');
   const {render} = await import('../roadmap/render.js');

@@ -4,6 +4,7 @@ import {chromium, devices} from 'playwright';
 import {inflateRawSync} from 'node:zlib';
 import {report, tally} from './_harness.mjs';
 import {spawn} from 'node:child_process';
+import {NO_STORE} from '../../api/gauge/_response.js';
 
 const PORT = 8091;
 const BASE = 'http://localhost:' + PORT;
@@ -29,6 +30,12 @@ const watchErrors = page => {
 };
 
 try{
+  const relayProbe = await fetch(BASE + '/api/gauge', {
+    method: 'POST', headers: {'content-type': 'application/json'}, body: '{}',
+  });
+  check('relay: API responses are explicitly non-cacheable',
+    relayProbe.headers.get('cache-control') === NO_STORE);
+
   /* facilitator composes and starts a session */
   const pageF = await (await browser.newContext()).newPage();
   const errF = watchErrors(pageF);

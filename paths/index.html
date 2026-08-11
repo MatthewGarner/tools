@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paths</title>
+<meta name="description" content="Plan work whose shape depends on questions that are not answered yet.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛤️</text></svg>">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
+<link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="../assets/mobile.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
+    <h1>Paths</h1>
+    <p class="tagline">Plan the work that depends on answers you do not have yet.</p>
+  </header>
+</div>
+
+<main>
+<div class="workspace" id="workspace">
+  <aside class="rail">
+    <div class="chips" id="chips"><span class="lead">Try:</span></div>
+    <div id="cmhost" aria-label="Paths source editor"></div>
+    <div class="chips" id="savedrow" style="margin-top:12px"></div>
+    <ul id="warns"></ul>
+    <details class="syntax">
+      <summary>Syntax reference</summary>
+      <h4>Config</h4>
+      <dl>
+        <dt><code data-try="">title: Habitat</code></dt>
+        <dd>name the plan</dd>
+        <dt><code data-try="">date: 2026-08-10</code></dt>
+        <dd>date the artefact; use <code>date: off</code> to hide it</dd>
+        <dt><code data-try="">today: 2026-08-10</code></dt>
+        <dd>set the evaluation date instead of using the local date</dd>
+        <dt><code data-try="">style: tree</code></dt>
+        <dd>show the decision tree; older <code>style: plans</code> sources are read as tree with a warning</dd>
+        <dt><code data-try="">verdict: off</code></dt>
+        <dd>hide the verdict; any other text replaces the generated line</dd>
+        <dt><code data-try="">palette: ocean</code></dt>
+        <dd>choose <code>ocean</code>, <code>slate</code>, <code>ember</code> or <code>plum</code></dd>
+        <dt><code data-try="">accent: #C05621</code></dt>
+        <dd>use a custom hex accent instead of the named palette</dd>
+      </dl>
+      <h4>Decisions</h4>
+      <dl>
+        <dt><code data-try="">decision groups:</code></dt>
+        <dd>start a decision block; names use letters, numbers and hyphens</dd>
+        <dt><code data-try="">  question: Will people invite three friends?</code></dt>
+        <dd>state the question to be answered</dd>
+        <dt><code data-try="">  signal: invites per active user</code></dt>
+        <dd>name the evidence that will answer it</dd>
+        <dt><code data-try="">  reading: 2.4 invites per user</code></dt>
+        <dd>record the latest reading</dd>
+        <dt><code data-try="">  owner: Growth</code></dt>
+        <dd>name who owns the answer</dd>
+        <dt><code data-try="">  answer-by: 2026-09-15</code></dt>
+        <dd>set the answer deadline</dd>
+        <dt><code data-try="">  when: groups</code></dt>
+        <dd>open this question only when another answer makes it relevant</dd>
+        <dt><code data-try="">  assume: yes 2026-09-16</code></dt>
+        <dd>state the direction to follow after the deadline while the answer stays open</dd>
+        <dt><code data-try="">  answer: yes 2026-09-12 -- experiment 42</code></dt>
+        <dd>close the question with an optional dated receipt</dd>
+      </dl>
+      <h4>Work</h4>
+      <dl>
+        <dt><code data-try="">  Growth: Group challenges [risk] -- needs moderation</code></dt>
+        <dd>an item line: lane, title, optional state, note and <code>-&gt;</code> link</dd>
+        <dt><code data-try="">[if groups]</code> · <code>[unless groups]</code> · <code>[if groups and pricing]</code> · <code>[if not groups]</code></dt>
+        <dd>include work only on the named answer path; compound conditions use one operator</dd>
+        <dt><code data-try="">NOW</code> / <code>NEXT</code> / <code>LATER</code></dt>
+        <dd>start a period; period names are free text</dd>
+      </dl>
+    </details>
+  </aside>
+  <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+  <section class="stage">
+    <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
+    <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <div class="actions">
+      <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
+      <button class="btn primary" id="copypng">Copy PNG</button>
+      <details class="action-disclosure">
+        <summary class="btn">Export</summary>
+        <div class="action-menu">
+          <button class="btn" id="dlpng">PNG</button>
+          <button class="btn" id="dlsvg">SVG</button>
+        </div>
+      </details>
+      <span class="method">The phone view becomes an outline; every export remains the wide tree.</span>
+    </div>
+  </section>
+</div>
+</main>
+
+<div class="wrap">
+  <footer>
+    No accounts, no tracking. The URL carries your paths — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, August 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

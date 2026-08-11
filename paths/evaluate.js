@@ -105,6 +105,7 @@ function falseReason(whenResult, model){
 function displayEvidenceFor(source, conditionResult){
   if(!source.condition) return {kind:'unconditional'};
   if(!source.condition.valid || conditionResult.value === 'invalid') return {kind:'condition-error'};
+  if(source.status === 'done' && conditionResult.value === 'false') return {kind:'completed'};
   const evidence = conditionResult.evidence || [];
   for(const member of evidence){
     const decision = member.decision;
@@ -226,7 +227,32 @@ function chooseParent(item, dependencies){
   return {parent:parent.key, secondary:eligible.filter(d => d.key !== parent.key).sort(bySource).map(d => d.key)};
 }
 
-export function project(model, injectedToday, assignment = {}){
+function stateForSource(source, resolution){
+  const conditionResult = source.condition
+    ? evaluateCondition(source.condition, term => {
+        const decision = resolution.decisionByName[term.key];
+        if(!decision) return {value:'invalid', provenance:new Set(), evidence:[]};
+        return {value:decision.value, provenance:decision.provenance,
+          evidence:[{term, decision, rawValue:decision.value, reason:decision.mootReason}]};
+      })
+    : {value:'true', provenance:new Set(), evidence:[], condition:null, clauses:[]};
+  let itemState = conditionResult.value === 'true' ? 'in-plan'
+    : conditionResult.value === 'false' ? 'not-needed'
+    : conditionResult.value === 'unknown' && [...conditionResult.provenance].some(p => p.startsWith('assumed-')) ? 'limbo'
+    : 'waiting';
+  if(source.status === 'done' && conditionResult.value !== 'invalid') itemState = 'in-plan';
+  return {conditionResult, itemState};
+}
+
+/* Reach needs only item states. Keep it on the same semantic helper as the
+   full projection without constructing warnings, display evidence and card
+   placement for twelve throwaway comparison worlds. */
+export function projectItemStates(model, injectedToday, assignment = {}){
+  const resolution = resolveDecisions(model, injectedToday, assignment);
+  return model.items.map(source => stateForSource(source, resolution).itemState);
+}
+
+export function evaluate(model, injectedToday, assignment = {}){
   const resolution = resolveDecisions(model, injectedToday, assignment);
   const warnings = [...model.warnings];
   const seen = new Set(warnings.map(w => `${w.code}\0${w.line ?? ''}\0${w.subject ?? ''}`));
@@ -256,18 +282,8 @@ export function project(model, injectedToday, assignment = {}){
   }
 
   const items = model.items.map(source => {
-    let conditionResult = source.condition
-      ? evaluateCondition(source.condition, term => {
-          const decision = resolution.decisionByName[term.key];
-          if(!decision) return {value:'invalid', provenance:new Set(), evidence:[]};
-          return {value:decision.value, provenance:decision.provenance,
-            evidence:[{term, decision, rawValue:decision.value, reason:decision.mootReason}]};
-        })
-      : {value:'true', provenance:new Set(), evidence:[], condition:null, clauses:[]};
-    let itemState = conditionResult.value === 'true' ? 'in-plan'
-      : conditionResult.value === 'false' ? 'not-needed'
-      : conditionResult.value === 'unknown' && [...conditionResult.provenance].some(p => p.startsWith('assumed-')) ? 'limbo'
-      : 'waiting';
+    const {conditionResult, itemState:projectedState} = stateForSource(source, resolution);
+    let itemState = projectedState;
     if(source.status === 'done' && conditionResult.value !== 'invalid'){
       if(conditionResult.value === 'false'){
         const line = source.srcLine + 1;
@@ -282,11 +298,12 @@ export function project(model, injectedToday, assignment = {}){
     const displayEvidence = displayEvidenceFor(source, conditionResult);
     const item = {...source, conditionResult, itemState, state:itemState, displayEvidence};
     const placement = source.condition?.valid ? chooseParent(item, dependencies) : {parent:null, secondary:[]};
-    return {...item, parentDecision:placement.parent, secondaryDependencies:placement.secondary};
+    const secondaryDependencyMode = source.condition?.valid && source.condition.operator === 'and'
+      ? 'required' : null;
+    return {...item, parentDecision:placement.parent, secondaryDependencies:placement.secondary,
+      secondaryDependencyMode};
   });
 
   return {...model, today:resolution.today, decisions:resolution.decisions,
     decisionByName:resolution.decisionByName, items, warnings};
 }
-
-export const evaluate = project;

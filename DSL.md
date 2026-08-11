@@ -71,7 +71,7 @@ The eleven grammars differ, but they're a family and obey the same rules:
 included, excluded, waiting, or following an explicit assumption.
 
 **Config keys:** `title:`, `date:` (`YYYY-MM-DD` or `off`), `today:` (`YYYY-MM-DD`, to pin
-the clock), `style:` (`tree` or `plans`), `verdict:` (authored text or `off`), `palette:`,
+the clock), `style:` (`tree`), `verdict:` (authored text or `off`), `palette:`,
 and `accent:`.
 
 **Decision blocks:** `decision name:` at column zero, with two-space-indented fields.
@@ -90,7 +90,7 @@ is an alias for `[if not x]`.
 title: Habitat — winter paths
 date: 2026-12-22
 today: 2026-12-22
-style: plans
+style: tree
 verdict: Keep the fallback visible until pricing is answered
 palette: ocean
 accent: #C05621

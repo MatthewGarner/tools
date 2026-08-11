@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {oversizedUrlWarning, project} from '../evaluate.js';
+import {evaluate, oversizedUrlWarning} from '../evaluate.js';
 import {enumeratePlans} from '../plans.js';
 
 function one(model, code, line, phase, message){
@@ -66,7 +66,12 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   model = parse('Later\ndecisionx:');
   one(model, 'invalid-decision-heading', 2, 'parse', 'line 2: "decisionx:" is not a valid decision heading — use one word with letters, numbers or hyphens, such as "decision coach-pricing:"');
   model = parse('style: banana');
-  one(model, 'invalid-style', 1, 'parse', 'line 1: style "banana" is not valid — use "tree" or "plans"; style read as "tree"');
+  one(model, 'invalid-style', 1, 'parse', 'line 1: style "banana" is not valid — use "tree"; style read as "tree"');
+  model = parse('style: plans');
+  assert.equal(model.style, 'tree');
+  one(model, 'legacy-plans-style', 1, 'parse', 'line 1: style "plans" is retained for compatibility but read as "tree" — the Plans view is not available');
+  model = parse('accent: red');
+  one(model, 'invalid-accent', 1, 'parse', 'line 1: accent "red" is not a valid 6-digit hex colour — accent ignored');
   model = parse('Later\n  title: Research');
   one(model, 'setting-in-item-position', 2, 'parse', 'line 2: "title: Research" read as the title setting, not an item in a lane called "title" — move settings above the first period, or rename the lane');
   model = parse('Later\n  Research follow-up');
@@ -103,23 +108,23 @@ test('every build warning has its owning phase, exact source line and dedupe key
 });
 
 test('every project warning has its owning phase, exact source line and dedupe key', () => {
-  let model = project(parse(`${complete('groups', '\n  assume: yes 2026-12-01')}\nNOW\n  Core: A [if groups]`), '2026-12-15');
+  let model = evaluate(parse(`${complete('groups', '\n  assume: yes 2026-12-01')}\nNOW\n  Core: A [if groups]`), '2026-12-15');
   one(model, 'assumption-before-due', 6, 'project', 'line 6: the assumption for "groups" is not used yet — the answer is due 15 December; remove the assumption or change its date');
-  model = project(parse('decision groups:\n  question: q\n  signal: s\n  owner: o\n  assume: yes 2026-12-01\nNOW\n  Core: A [if groups]'), '2026-12-20');
+  model = evaluate(parse('decision groups:\n  question: q\n  signal: s\n  owner: o\n  assume: yes 2026-12-01\nNOW\n  Core: A [if groups]'), '2026-12-20');
   one(model, 'assumption-no-due', 5, 'project', 'line 5: the assumption for "groups" has no start date — add a valid "answer-by:"; assumption not used');
 
-  model = project(parse(`${complete('groups')}\n${complete('pricing', '\n  when: groups\n  assume: yes 2026-12-20')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
+  model = evaluate(parse(`${complete('groups')}\n${complete('pricing', '\n  when: groups\n  assume: yes 2026-12-20')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
   one(model, 'assumption-dormant', 12, 'project', 'line 12: assumption not used because "pricing" is not open yet — remove it, or wait until the question opens');
-  model = project(parse(`${complete('groups', '\n  answer: no')}\n${complete('pricing', '\n  when: groups\n  assume: yes 2026-12-20')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
+  model = evaluate(parse(`${complete('groups', '\n  answer: no')}\n${complete('pricing', '\n  when: groups\n  assume: yes 2026-12-20')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
   one(model, 'assumption-moot', 13, 'project', 'line 13: assumption not used — Pricing did not apply because Groups was no; remove the assumption');
-  model = project(parse(`${complete('groups', '\n  answer: yes\n  assume: no 2026-12-20')}\nNOW\n  Core: A [if groups]`), '2026-12-22');
+  model = evaluate(parse(`${complete('groups', '\n  answer: yes\n  assume: no 2026-12-20')}\nNOW\n  Core: A [if groups]`), '2026-12-22');
   one(model, 'assumption-answered', 7, 'project', 'line 7: assumption not used because "groups" already has "Answer: yes" — remove the assumption');
 
-  model = project(parse(`${complete('groups')}\n${complete('pricing', '\n  when: groups\n  answer: yes')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
+  model = evaluate(parse(`${complete('groups')}\n${complete('pricing', '\n  when: groups\n  answer: yes')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
   one(model, 'answer-dormant', 12, 'project', 'line 12: the answer for "pricing" is kept, but is not used until this question opens');
-  model = project(parse(`${complete('groups', '\n  answer: no')}\n${complete('pricing', '\n  when: groups\n  answer: yes')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
+  model = evaluate(parse(`${complete('groups', '\n  answer: no')}\n${complete('pricing', '\n  when: groups\n  answer: yes')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
   one(model, 'answer-moot', 13, 'project', 'line 13: the answer for "pricing" is kept, but is not used — Pricing did not apply because Groups was no; remove the answer if it is no longer useful');
-  model = project(parse(`${complete('groups', '\n  answer: no')}\nNOW\n  Core: Group challenges [if groups] [done]`), '2026-12-22');
+  model = evaluate(parse(`${complete('groups', '\n  answer: no')}\nNOW\n  Core: Group challenges [if groups] [done]`), '2026-12-22');
   one(model, 'done-false-condition', 8, 'project', 'line 8: completed item "Group challenges" is labelled "Not needed" — kept because "[done]" records work already finished; remove the condition if the item was unconditional');
 
   const blocks = Array.from({length:7}, (_, i) => complete(`q${i}`));

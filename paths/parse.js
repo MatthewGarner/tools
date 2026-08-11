@@ -73,7 +73,13 @@ export function parseCondition(source){
     const name = words[i];
     if(!name || !/^[a-z0-9-]+$/i.test(name) || /^(and|or|not)$/i.test(name))
       return invalidCondition(raw, 'malformed');
-    terms.push({type:'term', name, key:name.toLowerCase(), negated});
+    const key = name.toLowerCase();
+    /* A decision can only determine one arm for an item. Keeping repeated
+       terms (especially `a and not a`) valid left the evaluator and tree with
+       different answers about which arm owned it, so the item could vanish.
+       Recover through the existing visible condition-error path instead. */
+    if(terms.some(term => term.key === key)) return invalidCondition(raw, 'repeated');
+    terms.push({type:'term', name, key, negated});
     i++;
     if(i === words.length) break;
     if(words[i].toLowerCase() !== operator || operator === 'single')
@@ -352,16 +358,25 @@ export function parse(text){
           `line ${lineNo}: today ${quote(value)} is not a valid date — use YYYY-MM-DD; date ignored`);
       } else if(key === 'style'){
         const style = value.toLowerCase();
-        if(style === 'tree' || style === 'plans') model.style = style;
+        if(style === 'tree') model.style = style;
+        else if(style === 'plans'){
+          model.style = 'tree';
+          add('parse', 'legacy-plans-style', lineNo, 'style',
+            `line ${lineNo}: style "plans" is retained for compatibility but read as "tree" — the Plans view is not available`);
+        }
         else {
           model.style = 'tree';
           add('parse', 'invalid-style', lineNo, 'style',
-            `line ${lineNo}: style ${quote(value)} is not valid — use "tree" or "plans"; style read as "tree"`);
+            `line ${lineNo}: style ${quote(value)} is not valid — use "tree"; style read as "tree"`);
         }
       }
       else if(key === 'verdict') model.verdict = value;
       else if(key === 'palette') model.palette = value;
-      else if(key === 'accent') model.accent = value;
+      else if(key === 'accent'){
+        if(/^#[0-9a-f]{6}$/i.test(value)) model.accent = value;
+        else add('parse', 'invalid-accent', lineNo, 'accent',
+          `line ${lineNo}: accent ${quote(value)} is not a valid 6-digit hex colour — accent ignored`);
+      }
       continue;
     }
 

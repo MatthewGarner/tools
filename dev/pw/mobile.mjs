@@ -22,7 +22,7 @@ const ALL_NAMES = new Set(ALL.map(([n]) => n));
 // autoload check). NB canvas-output tools (fermi, frequency) also autoload but
 // draw to <canvas> — the SVG-presence check below can't see them, so they're out.
 const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk',
-  'gauge', 'timeline', 'signal-vs-noise', 'case']);
+  'gauge', 'timeline', 'signal-vs-noise', 'case', 'paths']);
 const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;
@@ -263,6 +263,7 @@ for(const [n] of PREMODULE) ok(ALL_NAMES.has(n), `PREMODULE metadata "${n}" is a
 // a workspace shell can clip page overflow while the container inside it
 // still overflows (e.g. an oversized SVG or a fixed-width table row).
 const CONTAINERS = [
+  ['paths', T + '/paths/', ['#preview']],   // <520 swaps the tree for the outline relayout
   ['cycles', E + '/cycles/', ['#preview']],
   ['risk', E + '/risk/', ['#preview']],
   ['merit-order', E + '/merit-order/', ['#chartwrap']],

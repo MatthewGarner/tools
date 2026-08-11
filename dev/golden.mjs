@@ -773,6 +773,48 @@ for(const [k, src] of Object.entries(docs)){
   variants['bets-compare-narrow'] = renderBoard(bm, bsim, {...bCompareCtx, width: 390});
 }
 
+/* /paths fixtures: real DSL through the complete semantic projection. The wide
+   tree and narrow outline share one authored document so both presentations are
+   byte-gated against the same answered/open topology; the refusal fixture pins
+   the explicit Tree boundary when plan enumeration exceeds its safe limit. */
+{
+  const {parse: parsePaths} = await import('../paths/parse.js');
+  const {project: projectPaths} = await import('../paths/project.js');
+  const {treeProjection} = await import('../paths/tree.js');
+  const {treeLayout} = await import('../paths/layout-tree.js');
+  const {renderTree, renderOutline} = await import('../paths/render-tree.js');
+  const pathsDoc = 'title: Habitat decision paths\ndate: 2026-08-11\nverdict: Keep the rollout reversible while groups remains open\n' +
+    'decision reminders:\n  question: Do adaptive reminders improve week-four retention?\n' +
+    '  signal: week-four retention\n  reading: +6 percentage points\n  owner: Core\n' +
+    '  answer-by: 2026-07-24\n  answer: yes 2026-07-22 -- experiment HBT-42\n' +
+    'decision groups:\n  question: Will people invite three friends without prompting?\n' +
+    '  signal: invites per active user\n  reading: 2.4\n  owner: Growth\n  answer-by: 2026-09-15\n' +
+    'NOW\n  Core: Streak repair [done]\n  Core: Adaptive reminder rollout [doing] [if reminders] -- staged release\n' +
+    '  Core: Manual reminder fallback [unless reminders]\n' +
+    'NEXT\n  Growth: Friend invite prompt [risk] [if groups]\n' +
+    '  Platform: Moderation controls [blocked] [if groups and reminders] -- privacy review\n' +
+    'LATER\n  Growth: Solo challenges [unless groups]';
+  const pathsProjected = projectPaths(parsePaths(pathsDoc), '2026-08-11');
+  const pathsTree = treeProjection(pathsProjected);
+  const pathsCtx = {...ctxBase, today:'2026-08-11', projection:pathsProjected};
+  variants['paths-tree'] = renderTree(pathsTree,
+    treeLayout(pathsTree, {width:1160, measure:ctxBase.measure}), pathsCtx);
+  variants['paths-outline-narrow'] = renderOutline(pathsTree, {...pathsCtx, width:390});
+
+  const openDecision = index => 'decision q' + index + ':\n  question: Is signal ' + index + ' strong enough?\n' +
+    '  signal: signal ' + index + '\n  owner: Team ' + index + '\n  answer-by: 2026-09-' +
+    String(index + 10).padStart(2, '0');
+  const refusedDoc = 'title: Seven-question boundary\ndate: 2026-08-11\n' +
+    Array.from({length:7}, (_, index) => openDecision(index)).join('\n') +
+    '\nNOW\n  Core: Shared foundation\n' +
+    Array.from({length:7}, (_, index) => '  Team ' + index + ': Conditional work ' + index + ' [if q' + index + ']').join('\n');
+  const refusedProjected = projectPaths(parsePaths(refusedDoc), '2026-08-11');
+  const refusedTree = treeProjection(refusedProjected);
+  variants['paths-tree-refused'] = renderTree(refusedTree,
+    treeLayout(refusedTree, {width:1160, measure:ctxBase.measure}),
+    {...ctxBase, today:'2026-08-11', projection:refusedProjected});
+}
+
 /* /alarm fixtures (pure numeric params → deterministic) */
 {
   const {renderDistributions} = await import('../alarm/render.js');

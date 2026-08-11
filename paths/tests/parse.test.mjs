@@ -51,6 +51,13 @@ test('config in an item position remains config and a decision sub-key is not mi
   assert.ok(model.warnings.some(w => w.code === 'setting-in-item-position'));
 });
 
+test('custom accents accept one safe SVG colour form and reject hostile attribute text', () => {
+  assert.equal(parse('accent: #C05621').accent, '#C05621');
+  const model = parse('accent: #fff\" onload=\"alert(1)');
+  assert.equal(model.accent, null);
+  assert.equal(model.warnings.filter(warning => warning.code === 'invalid-accent').length, 1);
+});
+
 test('answer receipt fields remain uninterpreted and conflicting answers leave no answer', () => {
   const model = parse(`${complete('groups')}\n  answer: yes 2026-12-16 target: 15% actual: 19% -- experiment 42\n  answer: no 2026-12-17`);
   assert.equal(model.decisions[0].answer, null);
@@ -89,6 +96,13 @@ test('condition parser retains valid ASTs and invalid source without simplifying
   assert.equal(mixed.valid, false);
   assert.equal(mixed.error, 'mixed');
   assert.equal(mixed.source, 'groups and pricing or reminders');
+
+  for(const source of ['groups and groups', 'groups and not groups']){
+    const repeated = parseCondition(source);
+    assert.equal(repeated.valid, false, source);
+    assert.equal(repeated.error, 'repeated', source);
+    assert.equal(repeated.source, source);
+  }
 });
 
 test('duplicate declarations keep the first and later use is diagnosed without dropping the condition', () => {
