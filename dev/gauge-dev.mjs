@@ -7,6 +7,7 @@ import {extname, join, normalize} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createSession, putResponse, getSession, reveal, endSession, openRound2} from '../api/gauge/_lib.js';
 import {memoryKv} from '../api/gauge/_kv.js';
+import {NO_STORE} from '../api/gauge/_response.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.argv[2]) || 8090;
@@ -34,12 +35,12 @@ createServer(async (req, res) => {
       const raw = Buffer.concat(chunks).toString();
       if(raw) body = JSON.parse(raw);
     }catch(e){
-      res.writeHead(400, {'Content-Type': 'application/json'});
+      res.writeHead(400, {'Content-Type': 'application/json', 'Cache-Control': NO_STORE});
       return res.end('{"error":"bad json"}');
     }
     const ip = (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || 'local';
     const out = await route.fn(url.pathname.match(route.re), body, ip);
-    res.writeHead(out.status, {'Content-Type': 'application/json'});
+    res.writeHead(out.status, {'Content-Type': 'application/json', 'Cache-Control': NO_STORE});
     return res.end(JSON.stringify(out.body));
   }
   /* static */

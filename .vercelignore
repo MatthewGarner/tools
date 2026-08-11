@@ -8,7 +8,10 @@ DSL.md
 # from the main checkout) would otherwise upload these. This is the real reason
 # .vercelignore is worth adding.
 CLAUDE.md
+AGENTS.md
 docs/
+.Codex/
+.DS_Store
 .claude/
 .bar/
 .superpowers/
