@@ -10,12 +10,15 @@ import {confess, asciiNum} from './solve.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
-import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
+import {loadSaved, storeSaved} from '../assets/saved-items.js';
+import {renderSavedDisclosure, savedSelectionAfterDelete} from '../assets/handoff-ui.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {effectiveHorizon, cashflowHashState, cashflowTailNote} from './interactions.js';
+import {fermiImport, cloneEstimateState, returnEstimateState} from './import-state.js';
+import {targetHashState} from '../assets/handoff.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -36,6 +39,11 @@ const EXAMPLES = [
    f:'decisions_per_quarter * hours_per_decision * people_in_room * hourly_cost',
    v:{decisions_per_quarter:['12','30'], hours_per_decision:['1','4'], people_in_room:['4','9'], hourly_cost:['60','120']}},
 ];
+const defaultEstimateState = () => {
+  const ex = EXAMPLES[0], v = {};
+  for(const [name, [lo, hi]] of Object.entries(ex.v)) v[name] = [lo, hi, 'auto'];
+  return {f: ex.f, v};
+};
 
 /* ---------- state ---------- */
 const N = 20000;
@@ -47,6 +55,7 @@ let curLayout = null;                 // the live histLayout (px/inv) so a drag 
 let draggingHandle = false;           // suppresses click-to-set + hover tooltip during a threshold drag
 let confessSnapshot = null;           // pre-Adopt varState snapshot for the one-shot Undo
 const $ = id => document.getElementById(id);
+let transientImport = false, transientMeta = null, activeSaved = null, returnState = null;
 const estimateExampleButtons = [], cashflowExampleButtons = [];
 function syncExampleButtons(buttons, selected = null){
   for(const b of buttons){
@@ -219,13 +228,31 @@ function packScen(snap){
   if(snap.thresh) o.t = snap.thresh;
   return o;
 }
-function writeHash(){
-  if(!shouldPersist()) return;   // an auto-loaded example must not rewrite the blank URL until first interaction
+function runtimeState(){
   scenStore[active] = snapshot();
-  const state = compareOn
+  return compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
     : packScen(scenStore.A);
-  return writeHashState(state);
+}
+function writeHash(){
+  if(!shouldPersist()) return;   // examples stay hash-safe; imports update URL only
+  const state = runtimeState();
+  if(transientImport) return writeHashState(targetHashState(state, transientMeta));
+  if(activeSaved === null){
+    try{ localStorage.setItem('fermi-current', JSON.stringify(state)); }
+    catch(e){ $('err').textContent = 'Could not remember this estimate in this browser.'; $('err').style.display = 'block'; }
+  }
+  if(activeSaved !== null && !compareOn){
+    const list = loadSaved(SAVED_KEY);
+    if(list[activeSaved]){
+      const snap = packScen(scenStore.A);
+      Object.assign(list[activeSaved], snap);
+      if(!storeSaved(SAVED_KEY, list)){
+        $('err').textContent = 'Could not update this saved estimate.'; $('err').style.display = 'block';
+      }
+    }
+  }
+  return writeHashState(targetHashState(state));
 }
 function flushEstimateHash(){ clearTimeout(hashTimer); return writeHash(); }
 
@@ -1023,45 +1050,26 @@ $('png').addEventListener('click', () => {
 const SAVED_KEY = 'fermi-models';
 function renderSaved(){
   const row = $('savedrow');
-  renderSavedChips(row, loadSaved(SAVED_KEY), {
-    title: m => m.f,
-    deleteLabel: m => 'Delete saved model ' + m.name,
-    onLoad: m => {
-      syncExampleButtons(estimateExampleButtons);
-      $('formula').value = m.f;
-      for(const [k, p] of Object.entries(m.v || {})){
-        varState.set(k, {lo:String(p[0] ?? ''), hi:String(p[1] ?? ''), dist:p[2] || 'auto'});
-      }
-      threshStr = m.t || '';
-      $('tin').value = threshStr;
-      varRowsSig = '';
-      lint();
+  renderSavedDisclosure(row, loadSaved(SAVED_KEY), {
+    activeIndex: activeSaved, noun: 'estimate',
+    onLoad: (m, i) => {
+      if(activeSaved === null && !transientImport) returnState = runtimeState();
+      activateState(m, i); renderSaved();
     },
     onDelete: (m, i) => {
+      if(!confirm('Delete saved estimate “' + m.name + '”? This cannot be undone.')) return;
       const l = loadSaved(SAVED_KEY);
       l.splice(i, 1);
-      storeSaved(SAVED_KEY, l);
+      if(!storeSaved(SAVED_KEY, l)){
+        $('err').textContent = 'Could not delete this saved estimate.'; $('err').style.display = 'block'; return;
+      }
+      const next = savedSelectionAfterDelete(activeSaved, i);
+      if(next.restoreCurrent) activateState(returnState, null);
+      else activeSaved = next.activeIndex;
       renderSaved();
     },
+    onSave: saveCurrent,
   });
-  const save = document.createElement('button');
-  save.className = 'chip';
-  save.textContent = '＋ Save current';
-  save.addEventListener('click', () => {
-    ensureFreshEstimate();
-    const f = $('formula').value.trim();
-    if(!f) return;
-    const v = {};
-    for(const n of currentVarNames){
-      const st = varState.get(n);
-      if(st) v[n] = [st.lo, st.hi, st.dist || 'auto'];
-    }
-    const list = loadSaved(SAVED_KEY);
-    list.push({name: f.length > 26 ? f.slice(0, 24) + '…' : f, f, v, t: threshStr});
-    storeSaved(SAVED_KEY, list);
-    renderSaved();
-  });
-  row.appendChild(save);
 }
 renderSaved();
 
@@ -1074,16 +1082,53 @@ function unpackScen(o){
   }
   return {f: o.f, vars, thresh: typeof o.t === 'string' ? o.t : ''};
 }
-const boot = await readHash();
-if(boot && boot.a && boot.b){
-  compareOn = true;
-  scenStore.A = unpackScen(boot.a);
-  scenStore.B = unpackScen(boot.b);
-  active = boot.on === 'B' ? 'B' : 'A';
-  loadSnap(scenStore[active]);
+function applyState(state){
+  if(state && state.a && state.b){
+    compareOn = true;
+    scenStore.A = unpackScen(state.a); scenStore.B = unpackScen(state.b);
+    active = state.on === 'B' ? 'B' : 'A'; loadSnap(scenStore[active]);
+  }else{
+    compareOn = false; active = 'A';
+    scenStore.A = state ? unpackScen(state) : null; scenStore.B = null;
+    loadSnap(scenStore.A);
+  }
+}
+function activateState(state, savedIndex){
+  transientImport = false; transientMeta = null; activeSaved = savedIndex;
+  $('handoffstrip').hidden = true; history.replaceState(null, '', location.pathname);
+  syncExampleButtons(estimateExampleButtons); applyState(state); renderTabs(); lint();
+}
+const rawBoot = await readHash();
+const inbound = fermiImport(rawBoot);
+const boot = rawBoot && Object.prototype.hasOwnProperty.call(rawBoot, 'x') && !inbound ? null : rawBoot;
+let bootRememberFailed = false;
+if(inbound){
+  transientImport = true; transientMeta = inbound.meta;
+  let remembered = null;
+  try{ remembered = JSON.parse(localStorage.getItem('fermi-current') || 'null'); }catch(e){}
+  const hadCurrent = !!cloneEstimateState(remembered);
+  returnState = returnEstimateState(remembered, defaultEstimateState());
+  $('handofftitle').textContent = 'Estimate from Gauge' + (inbound.meta.label ? ' · ' + inbound.meta.label : '');
+  if(!hadCurrent){
+    $('handoffnote').textContent = 'No current estimate was found; returning opens the default example.';
+    $('returncurrent').textContent = 'Open default';
+  }
+  $('handoffstrip').hidden = false;
+  applyState(inbound.state);
 }else if(boot){
-  loadSnap(unpackScen(boot));
+  const adopted = cloneEstimateState(boot);
+  applyState(adopted);
+  if(adopted){
+    try{ localStorage.setItem('fermi-current', JSON.stringify(adopted)); }
+    catch(e){ bootRememberFailed = true; }
+  }
 }else{
+  let current = null;
+  try{ current = JSON.parse(localStorage.getItem('fermi-current') || 'null'); }catch(e){}
+  if(current && ((typeof current.f === 'string' && current.v && typeof current.v === 'object') ||
+    (current.a && current.b))){
+    applyState(current);
+  }else{
   // open alive: seed the first example so fermi greets you rendered, not blank.
   // hash-safe — writeHash() no-ops until the first real interaction (shouldPersist).
   autoloadExample(() => {
@@ -1093,9 +1138,48 @@ if(boot && boot.a && boot.b){
     for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist: 'auto'});
     varRowsSig = '';
   });
+  }
 }
 renderTabs();
 lint();
+if(bootRememberFailed){
+  $('err').textContent = 'Could not remember this shared estimate in this browser.'; $('err').style.display = 'block';
+}
+
+function leaveImport(state){
+  activateState(state, null);
+}
+function saveCurrent(){
+  if(transientImport){ saveIncoming(); return; }
+  ensureFreshEstimate();
+  const state = runtimeState();
+  if(compareOn){
+    $('err').textContent = 'Save A or B separately after leaving comparison.'; $('err').style.display = 'block'; return;
+  }
+  if(!state.f.trim()) return;
+  const list = loadSaved(SAVED_KEY), name = state.f.length > 26 ? state.f.slice(0, 24) + '…' : state.f;
+  const item = {name, ...state};
+  if(!storeSaved(SAVED_KEY, [...list, item])){
+    $('err').textContent = 'Could not save this estimate in this browser.'; $('err').style.display = 'block'; return;
+  }
+  if(activeSaved === null) returnState = state;
+  activateState(item, list.length); renderSaved();
+}
+function saveIncoming(){
+  if(!transientImport) return;
+  ensureFreshEstimate();
+  const state = packScen(snapshot()), list = loadSaved(SAVED_KEY);
+  const name = state.f.length > 26 ? state.f.slice(0, 24) + '…' : state.f;
+  const item = {name, ...state};
+  if(!storeSaved(SAVED_KEY, [...list, item])){
+    $('err').textContent = 'Could not save this estimate in this browser.'; $('err').style.display = 'block'; return;
+  }
+  activateState(item, list.length); renderSaved();
+}
+$('saveimport').addEventListener('click', saveIncoming);
+$('returncurrent').addEventListener('click', () => {
+  leaveImport(returnState);
+});
 
 /* ---------- cashflow mode (#13, absorbs #57) ---------- */
 let pageMode = 'est';

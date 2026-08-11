@@ -4,6 +4,8 @@
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 1442 / 437}   /* load-grace: default example's viewBox — see workspace.css */
 .method{color:var(--muted);font-size:12.5px}
+.handoffstatus{color:var(--st-risk-ink);font-size:13px;max-width:42ch}
+.handoffstatus:empty{display:none}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 
 /* card bodies are popover targets (add child / remove branch) in edit mode */

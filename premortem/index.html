@@ -44,6 +44,13 @@
   </div>
 
   <div id="workspace" hidden>
+    <div class="importstrip" id="importstrip" role="status" aria-live="polite" hidden>
+      <p><strong id="importsource">From a shared link</strong> · Your saved registers are unchanged.</p>
+      <div class="importactions">
+        <button class="btn primary" id="saveimport" type="button">Save as new register</button>
+        <button class="btn" id="returnfromimport" type="button">Return to registers</button>
+      </div>
+    </div>
     <div class="toolbar">
       <div class="viewtoggle segmented" id="viewtoggle" role="group" aria-label="View"></div>
       <button class="btn" id="undo" title="Undo (⌘Z)" aria-label="Undo">↶<span class="ulabel"> Undo</span></button>

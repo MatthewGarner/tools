@@ -220,8 +220,10 @@ wireExports({
 $('topremortem').addEventListener('click', async () => {
   const doc = premortemHandoff(model, todayDay());
   if(!doc) return;
+  $('handoffstatus').textContent = '';
   const link = await premortemLink(doc);   // ignore re-clicks while encoding: same doc, same link
   if(link) location.href = '/premortem/' + link;
+  else $('handoffstatus').textContent = 'This plan is too large to open in Premortem. Shorten the title, then try again.';
 });
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
