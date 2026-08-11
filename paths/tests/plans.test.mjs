@@ -23,6 +23,25 @@ test('dormant decisions are recursively counted and non-open assignment labels s
   assert.ok(result.worlds.plans.some(plan => plan.assignments.some(a => a.labels.includes('pricing — Not open yet'))));
 });
 
+test('context headers follow matrix ancestry, keep a relevant held child and omit settled unused decisions', () => {
+  const unused = Array.from({length:6}, (_, index) =>
+    decision(`unused${index}`, '\n  answer: yes 2026-01-01')).join('\n');
+  const doc = `${unused}
+${decision('a')}
+${decision('b', '\n  when: a\n  answer: yes 2026-01-01')}
+NOW
+  Core: B path [if b]`;
+  const result = enumeratePlans(parse(doc), '2026-02-02');
+  assert.equal(result.worlds.possibleCount, 2, 'only the unanswered ancestor a is enumerated');
+  const contexts = result.worlds.plans.flatMap(plan => plan.assignments.map(assignment => assignment.contextLabels));
+  assert.ok(contexts.every(labels => labels.length === 2 && labels.some(label => label.startsWith('a —')) &&
+    labels.some(label => label.startsWith('b —'))), 'only the relevant child and its ancestor are shown');
+  assert.ok(contexts.every(labels => labels.every(label => !label.startsWith('unused'))));
+  assert.ok(contexts.some(labels => labels.includes('a — Answer: yes') && labels.includes('b — Answer: yes')));
+  assert.ok(contexts.some(labels => labels.includes('a — Answer: no') && labels.includes('b — Not open yet')),
+    'the relevant held child remains visible but unreached');
+});
+
 test('fixpoint reachability preserves assignment correlation for impossible conditions', () => {
   const children = Array.from({length:6}, (_, i) => decision(`impossible${i}`, '\n  when: a and not a'));
   const model = parse(`${decision('a')}\n${children.join('\n')}\nNOW\n  Core: Only real branch [if a]`);

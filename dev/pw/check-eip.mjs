@@ -3705,6 +3705,36 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   check('paths: narrow question keeps keyboard semantics and a 44px row target',
     await narrow.getAttribute('tabindex') === '0' &&
     await narrow.locator('[data-hit]').getAttribute('height') === '44');
+
+  /* The view key switches the renderer, not the semantic projection. Prove the
+     phone relayout, inspector exclusion and — most importantly — that exports
+     are routed through the selected WIDE renderer rather than serialising the
+     narrow preview or silently retaining Tree. */
+  await p.locator('details.syntax').evaluate(element => { element.open = true; });
+  await p.getByText('style: plans', {exact:true}).click();
+  await p.waitForTimeout(500);
+  check('paths: style plans switches to the semantic phone relayout and removes the Tree inspector',
+    await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
+    await p.locator('#decision-inspector').isHidden() &&
+    /wide matrix/.test(await p.locator('#view-method').innerText()));
+  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  const plansDownload = p.waitForEvent('download');
+  await p.locator('#dlsvg').click();
+  const plansFile = await plansDownload;
+  const plansSvg = await (await import('node:fs/promises')).readFile(await plansFile.path(), 'utf8');
+  check('paths: a phone Plans export is the wide matrix, never the narrow stack or Tree',
+    plansSvg.includes('data-kind="plans-matrix"') &&
+    !plansSvg.includes('data-kind="plans-narrow"') && !plansSvg.includes('data-kind="tree-body"'));
+
+  await p.getByText('style: tree', {exact:true}).click();
+  await p.waitForTimeout(500);
+  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  const treeDownload = p.waitForEvent('download');
+  await p.locator('#dlsvg').click();
+  const treeFile = await treeDownload;
+  const treeSvg = await (await import('node:fs/promises')).readFile(await treeFile.path(), 'utf8');
+  check('paths: switching back keeps Tree exports Tree-only',
+    treeSvg.includes('data-kind="tree-body"') && !treeSvg.includes('data-kind="plans-matrix"'));
   check('paths: no console/page errors', perrors.length === 0);
   await pctx.close();
 }

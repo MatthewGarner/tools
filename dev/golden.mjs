@@ -783,6 +783,7 @@ for(const [k, src] of Object.entries(docs)){
   const {treeProjection} = await import('../paths/tree.js');
   const {treeLayout} = await import('../paths/layout-tree.js');
   const {renderTree, renderOutline} = await import('../paths/render-tree.js');
+  const {renderPlans, renderPlansNarrow} = await import('../paths/render-plans.js');
   const pathsDoc = 'title: Habitat decision paths\ndate: 2026-08-11\nverdict: Keep the rollout reversible while groups remains open\n' +
     'decision reminders:\n  question: Do adaptive reminders improve week-four retention?\n' +
     '  signal: week-four retention\n  reading: +6 percentage points\n  owner: Core\n' +
@@ -800,6 +801,11 @@ for(const [k, src] of Object.entries(docs)){
   variants['paths-tree'] = renderTree(pathsTree,
     treeLayout(pathsTree, {width:1160, measure:ctxBase.measure}), pathsCtx);
   variants['paths-outline-narrow'] = renderOutline(pathsTree, {...pathsCtx, width:390});
+  const plansProjected = projectPaths(parsePaths(pathsDoc.replace(
+    'title: Habitat decision paths', 'style: plans\ntitle: Habitat possible plans')), '2026-08-11');
+  const plansCtx = {...ctxBase, today:'2026-08-11', projection:plansProjected};
+  variants['paths-plans'] = renderPlans(plansProjected, {...plansCtx, width:1160});
+  variants['paths-plans-narrow'] = renderPlansNarrow(plansProjected, {...plansCtx, width:390});
 
   const openDecision = index => 'decision q' + index + ':\n  question: Is signal ' + index + ' strong enough?\n' +
     '  signal: signal ' + index + '\n  owner: Team ' + index + '\n  answer-by: 2026-09-' +
@@ -813,6 +819,9 @@ for(const [k, src] of Object.entries(docs)){
   variants['paths-tree-refused'] = renderTree(refusedTree,
     treeLayout(refusedTree, {width:1160, measure:ctxBase.measure}),
     {...ctxBase, today:'2026-08-11', projection:refusedProjected});
+  const refusedPlans = projectPaths(parsePaths('style: plans\n' + refusedDoc), '2026-08-11');
+  variants['paths-plans-refused'] = renderPlans(refusedPlans,
+    {...ctxBase, today:'2026-08-11', projection:refusedPlans, width:1160});
 }
 
 /* /alarm fixtures (pure numeric params → deterministic) */

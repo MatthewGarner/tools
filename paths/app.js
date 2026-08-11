@@ -5,6 +5,7 @@ import {oversizedUrlWarning} from './evaluate.js';
 import {treeProjection} from './tree.js';
 import {treeLayout} from './layout-tree.js';
 import {renderTree, renderOutline} from './render-tree.js';
+import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {verdict} from './verdict.js';
 import {auditableAnswerDraft, decisionEditSurface, resolveSelectedDecision} from './inspector.js';
 import {clearAnswer, clearAnswerBy, clearWhen, kinds as inspectorKinds,
@@ -265,8 +266,9 @@ function doRefresh(){
   const text = editor.getText();
   model = parse(text);
   projection = project(model, todayString);
-  topology = treeProjection(projection);
-  const retained = resolveSelectedDecision(projection, selectedDecision);
+  const plansView = model.style === 'plans';
+  topology = plansView ? null : treeProjection(projection);
+  const retained = plansView ? null : resolveSelectedDecision(projection, selectedDecision);
   selectedDecision = retained ? {key:retained.key, srcLine:retained.srcLine} : null;
   renderWarnings();
   const readout = verdict(projection);
@@ -282,15 +284,29 @@ function doRefresh(){
   } else {
     const width = preview.clientWidth;
     const narrow = width > 0 && width < 520;
-    const interactive = {interactive:true, selectedKey:selectedDecision?.key || null};
-    const svg = narrow
-      ? renderOutline(topology, context(model, {width, ...interactive}))
-      : renderTree(topology, treeLayout(topology, {width:width || 1160, measure}),
-        context(model, interactive));
+    let svg;
+    if(plansView){
+      svg = narrow
+        ? renderPlansNarrow(projection, context(model, {width}))
+        : renderPlans(projection, context(model, {width:width || 1160}));
+    } else {
+      const interactive = {interactive:true, selectedKey:selectedDecision?.key || null};
+      svg = narrow
+        ? renderOutline(topology, context(model, {width, ...interactive}))
+        : renderTree(topology, treeLayout(topology, {width:width || 1160, measure}),
+          context(model, interactive));
+    }
     if(svg !== lastSvg){ preview.innerHTML = svg; lastSvg = svg; }
   }
 
-  renderInspector();
+  if(plansView){
+    selectedDecision = null;
+    $('decision-inspector').hidden = true;
+    $('decision-inspector').replaceChildren();
+  } else renderInspector();
+  $('view-method').textContent = plansView
+    ? 'The phone view groups work by possible plan; every export remains the wide matrix.'
+    : 'The phone view becomes an outline; every export remains the wide tree.';
 
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('paths-src', text); }catch(_){ }
@@ -412,7 +428,9 @@ function renderSaved(){
 }
 
 function wideSvg(){
-  if(!model || !topology || (!model.items.length && !model.decisions.length)) return null;
+  if(!model || (!model.items.length && !model.decisions.length)) return null;
+  if(model.style === 'plans') return renderPlans(projection, context(model, {width:1160}));
+  if(!topology) return null;
   const layout = treeLayout(topology, {width:1160, measure});
   return renderTree(topology, layout, context(model));
 }
