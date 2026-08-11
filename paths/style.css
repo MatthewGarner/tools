@@ -1,0 +1,115 @@
+/* Selected-decision receipt: the tree chooses a question; this quiet ledger
+   edits its source fields. The accent rule is the visual tether between them. */
+.preview [data-select-decision]{cursor:pointer; outline:none}
+.preview [data-select-decision][data-selected="true"] > polygon,
+.preview [data-select-decision][data-selected="true"] > rect:not([data-hit]){
+  stroke:var(--accent-ink); stroke-width:3px;
+}
+.preview [data-select-decision]:focus-visible > polygon,
+.preview [data-select-decision]:focus-visible > rect:not([data-hit]){
+  stroke:var(--accent); stroke-width:3px;
+}
+.preview [data-kind="outline-question"][data-selected="true"] > text,
+.preview [data-kind="outline-question"]:focus-visible > text{fill:var(--accent-ink)}
+
+.decision-inspector{
+  margin:16px 0 0; padding:16px 18px 18px;
+  color:var(--ink); background:var(--bg);
+  border:1px solid var(--border); border-left:3px solid var(--accent);
+}
+.decision-inspector[hidden]{display:none}
+.inspector-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px}
+.inspector-kicker{
+  margin:0 0 3px; color:var(--muted); font-size:9px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase;
+}
+.inspector-head h2{
+  margin:0; font-family:Charter,"Bitstream Charter",Georgia,serif;
+  font-size:20px; line-height:1.15;
+}
+.inspector-close{
+  min-height:32px; padding:5px 0; color:var(--muted); background:none;
+  border:0; font:600 11px system-ui,-apple-system,"Segoe UI",sans-serif; cursor:pointer;
+}
+.inspector-close:hover{color:var(--accent-ink)}
+.inspector-close:focus-visible,
+.inspector-value:focus-visible,
+.inspector-answer-actions button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.inspector-field{min-width:0}
+.inspector-field.question-field{margin-top:14px}
+.inspector-label{
+  display:block; margin:0 0 4px; color:var(--muted); font-size:9px;
+  font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+}
+.inspector-value{
+  display:block; width:100%; min-height:30px; padding:3px 2px;
+  overflow-wrap:anywhere; color:var(--ink); background:none;
+  border:0; border-bottom:1px dotted var(--border); border-radius:0;
+  font:500 12px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;
+  text-align:left; cursor:text;
+}
+.question-field .inspector-value{
+  min-height:38px; font-family:Charter,"Bitstream Charter",Georgia,serif;
+  font-size:17px; font-weight:600; line-height:1.35;
+}
+.inspector-value:hover{color:var(--accent-ink); border-color:var(--accent)}
+.inspector-value.empty{color:var(--muted); font-style:italic}
+
+.inspector-flags{display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 14px}
+.inspector-flag{
+  display:inline-flex; align-items:center; min-height:22px; padding:2px 8px;
+  color:var(--muted); background:var(--card); border:1px solid var(--border);
+  font-size:9px; font-weight:700; letter-spacing:.04em;
+}
+.inspector-flag[data-state="active"],
+.inspector-flag[data-state="testable"]{color:var(--accent-ink); border-color:var(--accent)}
+.inspector-flag[data-state="untestable"]{color:var(--st-risk-ink)}
+
+.inspector-ledger{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px 20px; padding:14px 0;
+  border-block:1px solid var(--border);
+}
+.inspector-arms{
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0;
+  margin-top:14px; border:1px solid var(--border);
+}
+.inspector-arm{min-width:0; padding:12px 14px}
+.inspector-arm + .inspector-arm{border-left:1px solid var(--border)}
+.inspector-arm h3{
+  margin:0 0 8px; color:var(--muted); font-size:9px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+}
+.inspector-work{list-style:none; margin:0; padding:0}
+.inspector-work li + li{margin-top:8px; padding-top:8px; border-top:1px dotted var(--border)}
+.inspector-work-title,.inspector-work-meta{display:block; overflow-wrap:anywhere}
+.inspector-work-title{font-size:11px; font-weight:650}
+.inspector-work-meta,.inspector-arm-empty{margin:2px 0 0; color:var(--muted); font-size:9px; line-height:1.35}
+.inspector-answer{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; margin-top:14px}
+.inspector-answer-actions{display:flex; flex-wrap:wrap; align-items:end; justify-content:flex-end; gap:6px}
+.inspector-answer-help{flex:1 0 100%; margin:0 0 2px; color:var(--muted); font-size:9px; text-align:right}
+.inspector-answer-notice{
+  grid-column:1/-1; margin:0; padding:8px 10px; color:var(--muted);
+  background:var(--card); border-left:2px solid var(--accent); font-size:10px; line-height:1.4;
+}
+.inspector-answer-actions .btn[aria-pressed="true"]{
+  color:var(--accent-ink); border-color:var(--accent); background:var(--hl);
+}
+
+@media (max-width:700px){
+  .inspector-ledger{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .inspector-answer{grid-template-columns:1fr}
+  .inspector-answer-actions{justify-content:flex-start}
+  .inspector-answer-help{text-align:left}
+}
+@media (max-width:420px){
+  .decision-inspector{padding:14px}
+  .inspector-ledger{grid-template-columns:1fr}
+  .inspector-arms{grid-template-columns:1fr}
+  .inspector-arm + .inspector-arm{border-left:0; border-top:1px solid var(--border)}
+}
+@media (pointer:coarse){
+  .inspector-value,.inspector-close,.inspector-answer-actions .btn{min-height:44px}
+  .inspector-value{font-size:16px}
+}

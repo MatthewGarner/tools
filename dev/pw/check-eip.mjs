@@ -3638,6 +3638,77 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await mctx.close();
 }
 
+/* ---- paths selected-decision inspector: the SVG chooses a parsed decision;
+   every inspector edit is one source rewrite and remains selected after the
+   ordinary debounce/render cycle. Wide keyboard selection plus narrow 44px
+   geometry cover both renderers; answer controls cover the non-input action
+   path. ---- */
+{
+  const pctx = await browser.newContext({viewport:{width:1280, height:900}, reducedMotion:'reduce'});
+  const p = await pctx.newPage();
+  const perrors = trackErrors(p);
+  const root = process.env.BASE || 'http://localhost:8087';
+  const src = () => p.locator('#cmhost').textContent();
+  await p.goto(root + '/paths/', {waitUntil:'networkidle'});
+  const question = p.locator('[data-select-decision][data-decision-key="groups"]');
+  await question.focus();
+  await question.press('Enter');
+  await p.locator('#decision-inspector').waitFor({state:'visible'});
+  check('paths: wide question is a keyboard-operable parsed-decision target',
+    await question.getAttribute('role') === 'button' && await question.getAttribute('data-line') === '10');
+  check('paths: keyboard selection moves focus to the expanded inspector',
+    await p.evaluate(() => document.activeElement?.id) === 'decision-inspector-title' &&
+    await p.locator('[data-select-decision][data-decision-key="groups"]').getAttribute('aria-expanded') === 'true');
+  check('paths: selection opens the complete decision receipt',
+    await p.locator('#decision-inspector [data-edit]').count() === 8 &&
+    (await p.locator('#decision-inspector h2').innerText()) === 'groups');
+
+  const before = await src();
+  await p.locator('#decision-inspector [data-edit="question"]').click();
+  check('paths: question opens the shared EIP input prefilled',
+    await p.locator('.eip-input').inputValue() === 'Will people invite three friends without prompting?');
+  await p.locator('.eip-input').fill('Will people invite four friends?');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(500);
+  check('paths: inspector edit rewrites source and refreshes the receipt',
+    (await src()).includes('question: Will people invite four friends?') &&
+    (await p.locator('#decision-inspector [data-edit="question"]').innerText()) === 'Will people invite four friends?');
+  check('paths: the same decision remains selected after its source refresh',
+    await p.locator('[data-select-decision][data-decision-key="groups"][data-selected="true"]').count() === 1 &&
+    await p.locator('#decision-inspector').isVisible());
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+z');
+  await p.waitForTimeout(500);
+  check('paths: one Undo reverts the inspector text edit', (await src()) === before);
+
+  const beforeAnswer = await src();
+  await p.locator('#decision-inspector [data-answer-direction="no"]').click();
+  check('paths: Answer no opens an auditable dated draft and writes nothing yet',
+    (await src()) === beforeAnswer && /^no \d{4}-\d{2}-\d{2} -- $/.test(await p.locator('.eip-input').inputValue()));
+  await p.locator('.eip-input').fill('no 2026-08-11 -- experiment G-42');
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(500);
+  check('paths: confirming the dated receipt writes no bare answer',
+    (await src()).includes('  answer: no 2026-08-11 -- experiment G-42') &&
+    await p.locator('#decision-inspector [data-answer-direction="no"]').getAttribute('aria-pressed') === 'true');
+  check('paths: inspector arms show real affected work and explicit empty state',
+    await p.locator('#decision-inspector .inspector-arm').count() === 2 &&
+    /if so[\s\S]*friend invite prompt[\s\S]*if not/i.test(await p.locator('#decision-inspector .inspector-arms').innerText()));
+  await p.locator('#decision-inspector [data-clear-answer]').click();
+  await p.waitForTimeout(500);
+  check('paths: Clear answer removes the authored answer without losing selection',
+    !(await src()).includes('  answer: no') && await p.locator('#decision-inspector').isVisible());
+
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  const narrow = p.locator('[data-kind="outline-question"][data-decision-key="groups"]');
+  check('paths: narrow question keeps keyboard semantics and a 44px row target',
+    await narrow.getAttribute('tabindex') === '0' &&
+    await narrow.locator('[data-hit]').getAttribute('height') === '44');
+  check('paths: no console/page errors', perrors.length === 0);
+  await pctx.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
 report('check-eip', {...tally(results), min: 480});   // ~90% of the current 536 (was 100, stale since well before this file's growth)

@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="../assets/mobile.css">
+<link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
@@ -92,6 +93,8 @@
   <section class="stage">
     <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
     <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <section class="decision-inspector" id="decision-inspector"
+      aria-labelledby="decision-inspector-title" hidden></section>
     <div class="actions">
       <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
       <button class="btn primary" id="copypng">Copy PNG</button>

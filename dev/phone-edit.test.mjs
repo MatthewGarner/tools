@@ -105,6 +105,11 @@ const FLOORS = {
      The DOC below carries all three types (3-option chips so rmopt renders, a
      unit'd range) so every kind is exercised. */
   gauge:     {kinds: 8, menu: false},
+  /* paths (decision inspector, 2026-08-11): narrow SVG questions select a real
+     topology question, then the HTML receipt exposes all eight decision fields.
+     The driver selects `groups` from treeProjection before serialising the exact
+     field contract app.js consumes; a static page shell cannot satisfy this. */
+  paths:     {kinds: 8, menu: false},
 };
 
 /* ---- house-example docs (trimmed from each tool's first example chip) ---- */
@@ -117,6 +122,7 @@ const DOCS = {
   bets: 'title: Habitat — Q3 bet portfolio\nunit: £k\n\nGrowth bets\n  Referral flow v2: stake 80, odds 40-60%, payoff 300-500\n    kill: Signups per referral stay under 0.3 by 2026-09-15\n  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300',
   case: 'title: Wexcombe augmentation\nquestion: Augment in 2029, or run the fleet down?\nstatus: open\n\nMoney: Augment NPV model -> /fermi/#x // the £ case\nDelivery: Plan of record -> /timeline/#y',
   gauge: 'title: Q3 commitment review\nnames: off\n\nWe ship the referral loop :: prob\nWeeks to migrate billing :: range weeks\nPick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish',
+  paths: 'title: Habitat paths\ndecision groups:\n  question: Will groups retain?\n  signal: week-four retention\n  reading: 18%\n  owner: Growth\n  answer-by: 2026-09-10\n  assume: yes 2026-09-11\n  answer: yes 2026-09-08 -- cohort G-42\nNOW\n  Growth: Invite prompt [doing] [if groups]\n  Growth: Manual fallback [blocked] [unless groups]',
   wardley: 'title: Habitat platform\nanchor: Habit tracking\n\nHabit builder @ product\nStreak engine @ custom\nUser DB @ commodity\n\nHabit tracking -> Habit builder -> Streak engine -> User DB',
   'energy/cycles': 'title: Cycle budget — Wexcombe 100MW/2h\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%',
   'energy/risk': 'title: Route to market — Wexcombe 100MW/2h\nmerchant: 60..180\n\nfloor: 70 share 60% fee 5\ntoll: 95\ninsure: premium 6 attach 65 limit 30',
@@ -172,6 +178,16 @@ const DRIVERS = {
     const {parse} = await import('../gauge/parse.js');
     const {renderForm} = await import('../gauge/render-form.js');
     return renderForm(parse(doc), {editable: true});
+  },
+  async paths(doc){
+    const {parse} = await import('../paths/parse.js');
+    const {project} = await import('../paths/project.js');
+    const {treeProjection} = await import('../paths/tree.js');
+    const {inspectorEditSurfaceMarkup} = await import('../paths/inspector.js');
+    const topology = treeProjection(project(parse(doc), '2026-08-11'));
+    const selected = topology.questions.find(question => question.key === 'groups');
+    assert.ok(selected, 'paths phone driver failed to select the real groups topology question');
+    return inspectorEditSurfaceMarkup(selected);
   },
   async wardley(doc){
     const {parse} = await import('../wardley/parse.js');
