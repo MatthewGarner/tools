@@ -227,6 +227,31 @@ function chooseParent(item, dependencies){
   return {parent:parent.key, secondary:eligible.filter(d => d.key !== parent.key).sort(bySource).map(d => d.key)};
 }
 
+function stateForSource(source, resolution){
+  const conditionResult = source.condition
+    ? evaluateCondition(source.condition, term => {
+        const decision = resolution.decisionByName[term.key];
+        if(!decision) return {value:'invalid', provenance:new Set(), evidence:[]};
+        return {value:decision.value, provenance:decision.provenance,
+          evidence:[{term, decision, rawValue:decision.value, reason:decision.mootReason}]};
+      })
+    : {value:'true', provenance:new Set(), evidence:[], condition:null, clauses:[]};
+  let itemState = conditionResult.value === 'true' ? 'in-plan'
+    : conditionResult.value === 'false' ? 'not-needed'
+    : conditionResult.value === 'unknown' && [...conditionResult.provenance].some(p => p.startsWith('assumed-')) ? 'limbo'
+    : 'waiting';
+  if(source.status === 'done' && conditionResult.value !== 'invalid') itemState = 'in-plan';
+  return {conditionResult, itemState};
+}
+
+/* Reach needs only item states. Keep it on the same semantic helper as the
+   full projection without constructing warnings, display evidence and card
+   placement for twelve throwaway comparison worlds. */
+export function projectItemStates(model, injectedToday, assignment = {}){
+  const resolution = resolveDecisions(model, injectedToday, assignment);
+  return model.items.map(source => stateForSource(source, resolution).itemState);
+}
+
 export function evaluate(model, injectedToday, assignment = {}){
   const resolution = resolveDecisions(model, injectedToday, assignment);
   const warnings = [...model.warnings];
@@ -257,18 +282,8 @@ export function evaluate(model, injectedToday, assignment = {}){
   }
 
   const items = model.items.map(source => {
-    let conditionResult = source.condition
-      ? evaluateCondition(source.condition, term => {
-          const decision = resolution.decisionByName[term.key];
-          if(!decision) return {value:'invalid', provenance:new Set(), evidence:[]};
-          return {value:decision.value, provenance:decision.provenance,
-            evidence:[{term, decision, rawValue:decision.value, reason:decision.mootReason}]};
-        })
-      : {value:'true', provenance:new Set(), evidence:[], condition:null, clauses:[]};
-    let itemState = conditionResult.value === 'true' ? 'in-plan'
-      : conditionResult.value === 'false' ? 'not-needed'
-      : conditionResult.value === 'unknown' && [...conditionResult.provenance].some(p => p.startsWith('assumed-')) ? 'limbo'
-      : 'waiting';
+    const {conditionResult, itemState:projectedState} = stateForSource(source, resolution);
+    let itemState = projectedState;
     if(source.status === 'done' && conditionResult.value !== 'invalid'){
       if(conditionResult.value === 'false'){
         const line = source.srcLine + 1;

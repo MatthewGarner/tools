@@ -1,6 +1,6 @@
 /* Possible-plan enumeration for /paths. Pure and memoised per parsed model. */
 
-import {evaluate, resolveDecisions} from './evaluate.js';
+import {evaluate, projectItemStates, resolveDecisions} from './evaluate.js';
 
 export const PLAN_CAP = 6;
 const CACHE = new WeakMap();
@@ -70,17 +70,15 @@ function labelsFor(decisions, projected){
   });
 }
 
-function sharesFor(current, worlds){
+function sharesFor(current, worlds, stateByWorld){
   if(!worlds.length) return null;
-  const eligible = current.items.filter(item => item.status !== 'done' && worlds.some(world => {
-    const projected = world.items.find(candidate => candidate.identity === item.identity);
-    return projected?.itemState === 'in-plan';
-  }));
+  const eligible = current.items.filter(item => item.status !== 'done' &&
+    stateByWorld.some(states => states.get(item.identity) === 'in-plan'));
   const denominator = eligible.length;
   if(!denominator) return null;
   let shared = 0, assumed = 0;
   for(const item of eligible){
-    const inEvery = worlds.every(world => world.items.find(candidate => candidate.identity === item.identity)?.itemState === 'in-plan');
+    const inEvery = stateByWorld.every(states => states.get(item.identity) === 'in-plan');
     if(inEvery){ shared++; continue; }
     if([...item.conditionResult.provenance].some(member => member.startsWith('assumed-'))) assumed++;
   }
@@ -104,11 +102,11 @@ function withReach(model, today, current){
   const reaches = new Map();
   for(const decision of model.decisions){
     const comparisonModel = withoutAnswer(model, decision.key);
-    const yes = evaluate(comparisonModel, today, {[decision.key]:'yes'});
-    const no = evaluate(comparisonModel, today, {[decision.key]:'no'});
+    const yes = projectItemStates(comparisonModel, today, {[decision.key]:'yes'});
+    const no = projectItemStates(comparisonModel, today, {[decision.key]:'no'});
     let reach = 0;
-    for(let index = 0; index < yes.items.length; index++){
-      if(yes.items[index].itemState !== no.items[index]?.itemState) reach++;
+    for(let index = 0; index < yes.length; index++){
+      if(yes[index] !== no[index]) reach++;
     }
     reaches.set(decision.key, reach);
   }
@@ -148,9 +146,12 @@ function calculate(model, today){
     }
   }
   const plans = [...merged.values()];
+  /* Matrix/share aggregation asks for the same item state many times. Index
+     each merged plan once instead of repeatedly scanning all of its items. */
+  const stateByPlan = plans.map(plan => new Map(plan.items.map(item => [item.identity, item.itemState])));
   const matrix = current.items.map(item => ({identity:item.identity, period:item.period, status:item.status,
-    states:plans.map(plan => plan.items.find(candidate => candidate.identity === item.identity)?.itemState)}));
-  const shares = sharesFor(current, plans);
+    states:stateByPlan.map(states => states.get(item.identity))}));
+  const shares = sharesFor(current, plans, stateByPlan);
   return {...current, worlds:{refused:false, enumerableCount, possibleCount:assignments.length, plans}, shares, matrix};
 }
 

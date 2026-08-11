@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseCondition} from '../parse.js';
-import {evaluate, evaluateCondition, evaluateOperation} from '../evaluate.js';
+import {evaluate, evaluateCondition, evaluateOperation, projectItemStates} from '../evaluate.js';
 
 const provenanceSets = [];
 const provenanceWords = ['answered', 'never-arose', 'unknown', 'assumed-yes', 'assumed-no'];
@@ -146,6 +146,15 @@ test('done outranks every valid condition and warns only for false', () => {
   assert.equal(model.items[0].itemState, 'in-plan');
   assert.deepEqual(model.items[0].displayEvidence, {kind:'completed'});
   assert.equal(model.warnings.filter(w => w.code === 'done-false-condition').length, 1);
+});
+
+test('the lightweight reach projection has exactly the full projection item states', () => {
+  const model = parse(`${decision('a')}\n${decision('b', '\n  when: a')}\nNOW\n` +
+    '  Core: Joint [if a and b]\n  Core: Other [unless b]\n  Core: Finished [if b] [done]');
+  for(const assignment of [{}, {a:'yes'}, {a:'yes', b:'no'}, {a:'no', b:'yes'}]){
+    assert.deepEqual(projectItemStates(model, '2026-12-22', assignment),
+      evaluate(model, '2026-12-22', assignment).items.map(item => item.itemState));
+  }
 });
 
 test('the projection marks only AND secondary dependencies as jointly required', () => {
