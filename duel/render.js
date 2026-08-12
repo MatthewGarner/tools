@@ -1,7 +1,7 @@
 /* Pure HTML string builders for /duel: the two-card duel, the implied-order list,
    the loop report, and a markdown export. All item text through esc(). */
 import {esc} from '../assets/svg.js';
-import {active, impliedOrder, settledness, loops, budget} from './engine.js';
+import {active, impliedOrder, settledness, loops, budget, minDuels, verdictParts} from './engine.js';
 
 const loserOf = x => x.w === x.a ? x.b : x.a;
 const NUM = {2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight'};
@@ -40,9 +40,10 @@ export function renderOrder(state){
   const rows = order.map((o, pos) => {
     const tie = rankN[o.rank] > 1;
     const cls = ['orow', settled[pos], tie ? 'tie' : ''].filter(Boolean).join(' ');
-    const mush = settled[pos] === 'mushy' ? '<span class="mushmark" aria-hidden="true">~</span>' : '';
+    const stateLabel = settled[pos] === 'settled' ? 'Neighbours compared' : 'Needs direct comparison';
     return '<li class="' + cls + '"><span class="rank">' + o.rank + '</span>' +
-      '<span class="olabel">' + esc(state.items[o.idx]) + '</span>' + mush +
+      '<span class="olabel">' + esc(state.items[o.idx]) + '</span>' +
+      '<span class="statepill ' + settled[pos] + '">' + stateLabel + '</span>' +
       '<span class="oscore">' + (o.score > 0 ? '+' : '') + o.score + '</span></li>';
   });
   return '<ol class="orderlist">' + rows.join('') + '</ol>';
@@ -75,14 +76,22 @@ export function renderLoops(state){
 export function markdown(state, href){
   const n = state.items.length;
   const order = impliedOrder(n, state.duels);
+  const settled = settledness(n, state.duels);
   const ls = loops(n, state.duels);
-  const out = ['# ' + (state.q || 'Pairwise showdown'), '', '## Implied order', ''];
-  order.forEach(o => out.push(o.rank + '. ' + state.items[o.idx] + ' (' + (o.score > 0 ? '+' : '') + o.score + ')'));
+  const remaining = Math.max(0, minDuels(n) - active(state.duels).length);
+  const verdict = verdictParts(order, settled, ls, remaining);
+  const text = value => String(value || '').replace(/([\\`*_[\]<>])/g, '\\$1');
+  const out = ['# ' + text(state.q || 'Pairwise showdown'), '',
+    '## Confidence in this current order', '', verdict.line, '',
+    '## Current implied order', ''];
+  order.forEach((o, pos) => out.push(o.rank + '. ' + text(state.items[o.idx]) + ' — ' +
+    (settled[pos] === 'settled' ? 'neighbours compared' : 'needs a direct comparison') +
+    ' (' + (o.score > 0 ? '+' : '') + o.score + ')'));
   if(ls.length){
     out.push('', '## Loops (no clean order)', '');
     ls.forEach(loop => {
       const tri = loop.triangles[0] || [...loop.members].slice(0, 3);
-      out.push('- ' + tri.map(x => state.items[x]).join(' → ') + ' → ' + state.items[tri[0]]);
+      out.push('- ' + tri.map(x => text(state.items[x])).join(' → ') + ' → ' + text(state.items[tri[0]]));
     });
   }
   if(href) out.push('', '[Open in the pairwise showdown](' + href + ')');

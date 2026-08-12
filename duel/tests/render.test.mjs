@@ -41,6 +41,15 @@ test('progress percentage never leaves 0–100 when the budget is overrun', () =
 test('order list ranks with tie classes', () => {
   const h = renderOrder(st);                       // perfect loop → all score 0, all tied
   assert.equal((h.match(/class="[^"]*tie/g) || []).length, 3);
+  assert.match(h, /Neighbours compared/);
+});
+
+test('order list marks direct-neighbour evidence in words, not a legend', () => {
+  const h = renderOrder({q: 'Q', items: ['A', 'B', 'C'], duels: [
+    {a: 0, b: 1, w: 0}, {a: 1, b: 2, w: 1}, {a: 0, b: 2, w: 0},
+  ]});
+  assert.equal((h.match(/Neighbours compared/g) || []).length, 3);
+  assert.ok(!h.includes('Needs direct comparison'));
 });
 
 test('loop report: cycle text, tag buttons, synthesis after tagging', () => {
@@ -56,5 +65,14 @@ test('markdown carries order, loops and the live link', () => {
   const md = markdown(st, 'https://example.com/#x');
   assert.match(md, /Alpha/);
   assert.match(md, /loop/i);
+  assert.match(md, /No clean order/);
+  assert.match(md, /neighbours compared/);
   assert.match(md, /example\.com/);
+});
+
+test('markdown calls a partial order provisional instead of exporting it as a settled list', () => {
+  const md = markdown({q: 'What first?', items: ['A', 'B', 'C'], duels: [{a: 0, b: 1, w: 0}]});
+  assert.match(md, /The order is still provisional/);
+  assert.match(md, /## Current implied order/);
+  assert.match(md, /needs a direct comparison/);
 });
