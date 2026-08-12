@@ -153,9 +153,11 @@ for(const theme of ['light', 'dark']){
     await page.goto(T + '/tree/', {waitUntil: 'networkidle', timeout: 20000});
     await page.waitForTimeout(900);
     const line = await page.evaluate(() => {
-      const el = document.querySelector('#preview svg [data-hot]');
-      return el ? el.dataset.line : null;
+      const row = [...document.querySelectorAll('#preview svg [data-memo-row]')]
+        .find(el => /p=/.test(el.textContent || ''));
+      return row?.querySelector('[data-menu]')?.dataset.line ?? null;
     });
+    ok(line !== null, 'tree (webkit): a numeric memo row exposes its menu-only edit entry');
     if(line !== null){
       const marker = page.locator(`#preview svg [data-menu][data-line="${line}"]`);
       const hit = marker.locator('[data-hit]');
@@ -167,7 +169,8 @@ for(const theme of ['light', 'dark']){
       const box = await hit.boundingBox();
       if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       await page.waitForTimeout(300);
-      const row = page.locator('.eip-pop button', {hasText: 'Explore'}).first();
+      const row = page.locator('.eip-pop button', {hasText: 'Explore success odds…'}).first();
+      ok(await row.count() === 1, 'tree (webkit): the numeric card menu exposes Explore success odds…');
       if(await row.count()) await row.click();
       await page.waitForTimeout(300);
     }
