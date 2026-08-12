@@ -484,7 +484,7 @@ export function renderConditionsNarrow(overview, ctx = {}){
   const height = Math.ceil(y + NARROW_PAD);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + r2(width) + '" height="' + r2(height) +
     '" viewBox="0 0 ' + r2(width) + ' ' + r2(height) + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
-    '" font-family="' + SANS + '" ' + rootRole(ctx) + '>' + accessibleHead(overview) +
+    '" data-layout="stacked" font-family="' + SANS + '" ' + rootRole(ctx) + '>' + accessibleHead(overview) +
     rect(0, 0, width, height, C.bg) + head.svg + decisions.svg + body + '</svg>';
 }
 

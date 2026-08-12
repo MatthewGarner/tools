@@ -96,7 +96,9 @@ function accessibleHead(overview, decision, impact){
   const affected = impact ? affectedEntries(impact).length : 0;
   const title = `${titleOf(overview)} — question lens${decision ? ` for ${nameOf(decision)}` : ''}`;
   const question = String(decision?.question || nameOf(decision)).replace(/[.?!]+$/, '');
-  const description = decision
+  const description = decision && !questionIsOpen(decision)
+    ? `${question}. This question is not open yet. ${openingConditionCopy(decision.when)}. Answer outcomes are not compared until that prerequisite is satisfied.`
+    : decision
     ? `${question}. If yes and if no are compared across ${affected} affected ${affected === 1 ? 'work item' : 'work items'}. Other questions are parallel, not sequential.`
     : 'No question is available to compare.';
   return '<title id="paths-question-lens-name">' + esc(title) + '</title>' +
@@ -355,6 +357,33 @@ function openingConditionCopy(condition){
   return `OPENS ONLY IF ${terms.join(' AND ')}`;
 }
 
+/* A `when:` gate belongs to the selected decision itself. Its yes/no worlds
+   remain useful counterfactual machinery, but presenting them as options while
+   the gate is dormant or moot would contradict the model. */
+function questionIsOpen(decision){
+  return !decision?.when || decision.availability === 'active';
+}
+
+function prerequisiteBarrier(decision, x, y, width, C, measure){
+  const requirement = openingConditionCopy(decision.when);
+  const state = decision.currentState?.kind === 'moot' ? 'NO LONGER APPLIES' : 'NOT OPEN YET';
+  const copy = decision.currentState?.kind === 'moot'
+    ? 'This question is not applicable in the current plan, so answer outcomes are not shown.'
+    : 'This question cannot be answered yet. Answer outcomes are shown only after its opening condition is satisfied.';
+  const requirementLines = wrapped(requirement, width - 32, measure, `700 10px ${SANS}`);
+  const copyLines = wrapped(copy, width - 32, measure, `600 10px ${SANS}`);
+  const height = 44 + requirementLines.length * 13 + 8 + copyLines.length * 13 + 16;
+  let svg = '<g data-kind="question-prerequisite-barrier" data-availability="' +
+    esc(decision.availability || 'dormant') + '"><title>' + esc(`${nameOf(decision)} — ${state}. ${requirement}`) +
+    '</title>' + rect(x, y, width, height, wash(C.urgent, '08'), {stroke:C.urgent, sw:1}) +
+    rect(x, y, 5, height, C.urgent) + txt(x + 16, y + 22, state, 9, C.urgent, {weight:700, tracking:0.8});
+  let ty = y + 42;
+  for(const value of requirementLines){ svg += txt(x + 16, ty, value, 10, C.accentInk, {weight:700, tracking:0.25}); ty += 13; }
+  ty += 8;
+  for(const value of copyLines){ svg += txt(x + 16, ty, value, 10, C.ink, {weight:600}); ty += 13; }
+  return {svg:svg + '</g>', height};
+}
+
 function branchQuestionSentence(state){
   if(state?.availability === 'active') return state.effectiveAnswer
     ? `Would be open with a recorded ${state.effectiveAnswer} answer` : 'Would be open';
@@ -501,12 +530,18 @@ export function renderQuestionLens(overview, ctx = {}){
     const register = parallelRegister(overview, decision, PAD, y, width - PAD * 2, C, measure, ctx, false);
     body += register.svg;
     y += register.height + 25;
-    const gap = 22;
-    const columnWidth = (width - PAD * 2 - gap) / 2;
-    const yes = outcomeSection(impact, 'yes', PAD, y, columnWidth, C, measure);
-    const no = outcomeSection(impact, 'no', PAD + columnWidth + gap, y, columnWidth, C, measure);
-    body += yes.svg + no.svg;
-    y += Math.max(yes.height, no.height) + 22;
+    if(questionIsOpen(decision)){
+      const gap = 22;
+      const columnWidth = (width - PAD * 2 - gap) / 2;
+      const yes = outcomeSection(impact, 'yes', PAD, y, columnWidth, C, measure);
+      const no = outcomeSection(impact, 'no', PAD + columnWidth + gap, y, columnWidth, C, measure);
+      body += yes.svg + no.svg;
+      y += Math.max(yes.height, no.height) + 22;
+    }else{
+      const barrier = prerequisiteBarrier(decision, PAD, y, width - PAD * 2, C, measure);
+      body += barrier.svg;
+      y += barrier.height + 22;
+    }
     const history = historyBlock(impact, PAD, y, width - PAD * 2, C, measure);
     body += history.svg;
     y += history.height ? history.height + 18 : 0;
@@ -539,10 +574,16 @@ export function renderQuestionLensNarrow(overview, ctx = {}){
     const selectedReceipt = receipt(decision, NARROW_PAD, y, inner, C, measure, true);
     body += selectedReceipt.svg;
     y += selectedReceipt.height + 20;
-    for(const direction of ['yes', 'no']){
-      const outcome = outcomeSection(impact, direction, NARROW_PAD, y, inner, C, measure);
-      body += outcome.svg;
-      y += outcome.height + 22;
+    if(questionIsOpen(decision)){
+      for(const direction of ['yes', 'no']){
+        const outcome = outcomeSection(impact, direction, NARROW_PAD, y, inner, C, measure);
+        body += outcome.svg;
+        y += outcome.height + 22;
+      }
+    }else{
+      const barrier = prerequisiteBarrier(decision, NARROW_PAD, y, inner, C, measure);
+      body += barrier.svg;
+      y += barrier.height + 22;
     }
     const history = historyBlock(impact, NARROW_PAD, y, inner, C, measure);
     body += history.svg;

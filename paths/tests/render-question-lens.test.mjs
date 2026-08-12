@@ -83,6 +83,28 @@ test('parallel questions are an unordered interactive register with 44px targets
   assert.ok(hits.every(hit => Number(hit[1]) >= 44));
 });
 
+test('a selected conditional question that is not open shows its complete prerequisite, not executable answer columns', () => {
+  const doc = 'title: Conditional question\n' + decision('pricing', '\n  answer: yes 2026-08-11') +
+    decision('groups') + decision('expansion', '\n  when: pricing and groups') +
+    'NOW\n  Growth: Expansion offer [if expansion]\n  Core: Shared foundation';
+  const model = parse(doc), projected = project(model, '2026-08-11');
+  const overview = overviewProjection(projected);
+  const impact = decisionImpactProjection(model, projected, 'expansion');
+  for(const svg of [
+    renderQuestionLens(overview, {colors, measure, width:1160, selectedKey:'expansion', impact}),
+    renderQuestionLensNarrow(overview, {colors, measure, width:390, selectedKey:'expansion', impact}),
+  ]){
+    assert.match(svg, /data-kind="question-prerequisite-barrier" data-availability="dormant"/);
+    assert.match(svg, /NOT OPEN YET/);
+    assert.match(svg, /OPENS ONLY IF Pricing = YES AND Groups = YES/);
+    assert.match(svg, /This question cannot be answered yet\. Answer/);
+    assert.match(svg, /condition is satisfied\./);
+    assert.doesNotMatch(svg, /data-kind="question-outcome"/);
+    assert.doesNotMatch(svg, /data-kind="question-work-card"/);
+    assert.doesNotMatch(svg, />IF YES<\/text>|>IF NO<\/text>/);
+  }
+});
+
 test('history, excluded work, conditional questions and exact repair evidence remain visible', () => {
   const doc = 'title: Edge cases\n' + decision('pricing', '\n  answer: yes 2026-08-10') +
     decision('groups') + decision('expansion', '\n  when: pricing and groups') +

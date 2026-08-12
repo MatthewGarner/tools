@@ -120,7 +120,9 @@ let focusOverviewReturnAfterRender = false;
 let focusFocusLensAfterRender = false;
 let overviewMode = 'overview';
 let overviewReceiptSheetOpen = false;
-let overviewReceiptOverlayOpen = true;
+/* A receipt is useful after a person deliberately chooses a question. On a
+   constrained desktop it must not be the thing that first obscures the brief. */
+let overviewReceiptOverlayOpen = false;
 let overviewReceiptReturnKey = null;
 const overviewSheetBackground = new Map();
 
@@ -632,6 +634,11 @@ function doRefresh(){
     : '';
   $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}${selectedStatus}`;
   const surfaceMetrics = overviewSurfaceMetrics();
+  /* A wide rail is part of the Brief composition. At laptop widths, begin with
+     the roadmap fully visible; a decision click is the deliberate reveal. */
+  if(briefView && surfaceMetrics.receiptLayout === 'overlay' &&
+      overviewReceiptReturnKey == null && !focusOverviewReceiptAfterRender)
+    overviewReceiptOverlayOpen = false;
   /* Question lens and Conditions include their own explanation in the artefact.
      Giving them Brief's external receipt would hide the very comparison/matrix
      they exist to show, especially in a constrained desktop stage. */
@@ -648,6 +655,10 @@ function doRefresh(){
   } else {
     const width = roadmapView ? overviewMetrics.previewWidth : preview.clientWidth;
     const narrow = width > 0 && width < 520;
+    /* A comparison or conditions audit has a real stacked composition between
+       phone and full-stage width. Letting its 1120px export canvas merely pan
+       here hides the question or columns a person came to inspect. */
+    const stackedLens = (questionView || conditionsView) && width > 0 && width < 720;
     let svg;
     if(plansView){
       svg = narrow
@@ -662,13 +673,13 @@ function doRefresh(){
     } else if(questionView){
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         impact:overviewImpact, showReceipt:false};
-      svg = narrow
+      svg = stackedLens
         ? renderQuestionLensNarrow(overview, context(model, {width, ...interactive}))
         : renderQuestionLens(overview, context(model, {width:width || 1160, ...interactive}));
     } else if(conditionsView){
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         impact:overviewImpact, showReceipt:false};
-      svg = narrow
+      svg = stackedLens
         ? renderConditionsNarrow(overview, context(model, {width, ...interactive}))
         : renderConditions(overview, context(model, {width:width || 1160, ...interactive}));
     } else {

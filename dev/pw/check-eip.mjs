@@ -3773,9 +3773,13 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
 
   await p.setViewportSize({width:1100, height:900});
   await p.waitForTimeout(500);
-  check('paths: constrained non-narrow desktop uses a dismissible overlay receipt',
+  check('paths: constrained non-narrow desktop starts with the Brief unobscured',
     await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'overlay' &&
     await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
+    await p.locator('#overview-receipt').isHidden());
+  await p.locator('[data-select-decision][data-decision-key="groups"]').click();
+  await p.waitForTimeout(150);
+  check('paths: selecting a constrained-desktop decision opens its dismissible receipt',
     await p.locator('#overview-receipt[data-layout="overlay"]').isVisible() &&
     await p.locator('#overview-receipt [data-receipt-close]').count() === 1);
   await p.locator('#overview-receipt [data-open-focus]').click();
@@ -3828,10 +3832,23 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     !dependenciesSvg.includes('data-kind="roadmap-grid"') && !dependenciesSvg.includes('data-kind="tree-body"'));
   await p.setViewportSize({width:390, height:844});
   await p.waitForTimeout(400);
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  check('paths: phone More views menu is anchored inside the view strip',
+    await p.evaluate(() => {
+      const strip = document.querySelector('.paths-views')?.getBoundingClientRect();
+      const menu = document.querySelector('.paths-more-views > div')?.getBoundingClientRect();
+      return !!strip && !!menu && menu.left >= strip.left - 1 && menu.right <= strip.right + 1;
+    }));
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = false; });
   check('paths: phone Question lens stacks its readable outcomes without duplicate receipt sheet',
     await p.locator('[data-kind="question-lens-narrow"]').count() === 1 &&
     await p.locator('[data-kind="question-outcome"]').count() === 2 &&
     await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:1000, height:900});
+  await p.waitForTimeout(400);
+  check('paths: constrained desktop Question lens uses its readable stacked composition, not a cropped export canvas',
+    await p.locator('[data-kind="question-lens-narrow"]').count() === 1 &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
 
@@ -3848,6 +3865,11 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
     await p.locator('[data-kind="conditions-narrow-decision"] [data-hit]').count() >= 1 &&
     await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:1100, height:900});
+  await p.waitForTimeout(400);
+  check('paths: constrained desktop Conditions uses its readable stacked audit, not cropped decision columns',
+    await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
 

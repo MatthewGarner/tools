@@ -2,7 +2,7 @@
    edits its source fields. The accent rule is the visual tether between them. */
 .preview [data-select-decision]{cursor:pointer; outline:none}
 .paths-views{
-  display:flex; align-items:center; gap:12px; min-height:44px; margin:0 0 12px;
+  position:relative; display:flex; align-items:center; gap:12px; min-height:44px; margin:0 0 12px;
   padding-bottom:12px; border-bottom:1px solid var(--border);
 }
 .paths-views-label{
@@ -30,7 +30,10 @@
 @media (max-width:520px){
   .paths-views{align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:8px}
   .paths-views-label{padding-top:13px}
-  .paths-more-views{margin-left:0; padding-top:11px}
+  .paths-more-views{position:relative; margin-left:0; padding-top:11px}
+  /* The mobile disclosure is anchored to the view strip, not to its final
+     wrapped trigger. Its left edge therefore never escapes the phone pane. */
+  .paths-more-views > div{left:0; right:auto; width:max-content; min-width:112px; max-width:calc(100vw - 20px)}
 }
 .preview [data-select-decision][data-selected="true"] > polygon,
 .preview [data-select-decision][data-selected="true"] > rect:not([data-hit]){
