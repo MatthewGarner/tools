@@ -43,13 +43,13 @@ function conditionReceipt(readings, x0, y0, width, c, narrow){
     const x = x0 + i * (cardW + gap), pf = item.result, pl = lossPct(pf);
     parts.push('<rect data-condition="' + item.key + '" x="' + r2(x) + '" y="' + y0 + '" width="' + r2(cardW) +
       '" height="' + h + '" fill="' + c.card + '" stroke="' + c.border + '"/>');
-    parts.push(txt(x + 9, y0 + 17, item.label.toUpperCase(), narrow ? 7.8 : 8.2, c.muted,
+    parts.push(txt(x + 9, y0 + 17, item.label.toUpperCase(), narrow ? 8.5 : 8.2, c.muted,
       {weight: 700, tracking: '0.035em'}));
     parts.push(txt(x + 9, y0 + 39, pl == null ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + pl + '%', narrow ? 11 : 12.5,
       pl != null && pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true}));
     parts.push(txt(x + 9, y0 + 57, pf ? 'MEDIAN OUTCOME ' + sgn(pf.p50) + ' · ' + sgn(pf.p10) + '–' + sgn(pf.p90) : 'ADD SCOREABLE BETS',
       narrow ? 8.2 : 8.6, c.ink, {weight: 600, mono: true}));
-    if(narrow) parts.push(txt(x + 9, y0 + 75, i ? 'Whole portfolio moves together' : 'Each bet resolves on its own', 7.8, c.muted));
+    if(narrow) parts.push(txt(x + 9, y0 + 75, i ? 'Whole portfolio moves together' : 'Each bet resolves on its own', 8.5, c.muted));
   });
   return {parts, height: h};
 }
@@ -495,7 +495,9 @@ function renderNarrow(model, sim, ctx){
   const plotX0 = pad + 40, plotX1 = W - pad - 4, plotW = plotX1 - plotX0;
   const plotY0 = y + 4, plotY1 = plotY0 + plotW;   // square-ish: height ≈ width
   const geo = {plotX0, plotY0, plotX1, plotY1, dark, rMin: 6, rMax: 16, nameSize: 11, microSize: null,
-    tickSize: 8.5, axisTitleSize: 9, legendSize: 8.5, unit: model.unit, padX: 10, padTop: 8};
+    // The narrow surface can be scaled a little by the workspace chrome; keep
+    // its smallest authored labels above the 8px displayed legibility floor.
+    tickSize: 9, axisTitleSize: 9.5, legendSize: 9, unit: model.unit, padX: 10, padTop: 8};
   const density = quadrantDensity(P.flat.length);
   const placed = density === 'keyed' ? null : directPlacement(P, sim, geo, measure);
   if(!placed) geo.key = makeKey(P, geo, measure, pad, W - pad, plotY1 + 42);
