@@ -15,7 +15,7 @@ import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
-import {readHashState, writeHashState} from '../assets/series.js';
+import {encodeHash, readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion, motionStill} from "../assets/motion.js";
@@ -25,6 +25,7 @@ import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STA
 import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
+import {roadmapConditionalityHealth} from './handoff-paths.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -233,13 +234,33 @@ function syncWhatIfChip(m){
   reset.addEventListener('click', resetWhatIf);
   chip.appendChild(reset);
 }
+/* A Roadmap can describe a local fork without carrying the question, evidence,
+   owner or due date that would make it a Paths decision. Keep that boundary
+   visible: the count is useful on its own, while the handoff action appears
+   only when the pure builder can make a lossless, explicitly incomplete
+   starter. */
+let pathsStarter = null;
+let pathsStarterRevision = 0;
+function syncConditionalityHealth(m){
+  const health = roadmapConditionalityHealth(m);
+  const host = $('conditionality');
+  pathsStarter = health.starter;
+  pathsStarterRevision++;
+  host.hidden = health.items === 0;
+  $('conditionalitymsg').textContent = health.message;
+  $('pathsstarter').hidden = !pathsStarter;
+}
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
   const breaches = wipBreaches(m);
-  for(const breach of breaches) m.warnings.push(breach);
-  if(breaches.length) m.warnings.push('(Raise or silence with wip: N / wip: off.)');
-  renderWarningList(warns, m.warnings);
+  /* WIP breaches are a view-layer advisory, not parser truth. Never append
+     them to `m.warnings`: the strict Paths starter reads the parsed model and
+     must not become unavailable merely because this rendering has run. */
+  const warnings = breaches.length
+    ? [...m.warnings, ...breaches, '(Raise or silence with wip: N / wip: off.)']
+    : m.warnings;
+  renderWarningList(warns, warnings);
 }
 /* export-style picker: active chip reflects the RESOLVED (export) style via
    effectiveStyle — a quarterly doc with no style: line shows Grid active, not
@@ -308,6 +329,7 @@ function doRefresh(){
   syncGroupPicker(model);
   syncHeadline(model);
   syncWhatIfChip(model);
+  syncConditionalityHealth(model);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -375,6 +397,26 @@ const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+});
+
+/* Fresh-document handoff: encode the starter with the target tool's ordinary
+   URL-state codec, then navigate. No source edit, export or background sync is
+   involved; Paths remains responsible for surfacing its completion warnings. */
+$('pathsstarter').addEventListener('click', async () => {
+  const starter = pathsStarter;
+  const revision = pathsStarterRevision;
+  if(!starter) return;
+  const button = $('pathsstarter');
+  button.disabled = true;
+  try{
+    const hash = await encodeHash({t:starter});
+    /* Text can change during async compression. Refuse a stale navigation;
+       the refreshed CTA represents the new eligible source. */
+    if(revision !== pathsStarterRevision || starter !== pathsStarter) return;
+    location.href = '/paths/#' + hash;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 /* Card menu rows: the static base plus a dynamic "Move to…" submenu listing

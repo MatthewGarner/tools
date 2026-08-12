@@ -228,7 +228,13 @@ const PAGES = {
      group's first card) plus the wash/label paint, and cond-parts.js gains
      splitColumnZones — roadmap-only, both boards (deck card mode + live).
      Actual 717.5k, ~5.5k headroom. */
-  'roadmap/index.html': 736_000,   // E7 removed; keepers stay: wash() guard + the group: syntax row (2026-08-10): 732442 bytes
+  /* 736k -> 751k (2026-08-12, planning-family Gate 1): the reject-by-default
+     Roadmap -> Paths builder preserves conditional work only when the fresh
+     starter can be truthful, plus its compact health/action surface. The
+     22.3k Paths parser remains test-only: target-parser round trips prove the
+     contract without making every Roadmap visit load it. Actual 743.2k; keep
+     ~7.8k headroom. */
+  'roadmap/index.html': 751_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
