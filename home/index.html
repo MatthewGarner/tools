@@ -31,6 +31,23 @@
   .lede .tagline{font-size:17px;color:var(--ink)}
   .stats{display:flex;gap:40px;margin-top:24px}
   .statnum{font-size:30px;font-weight:700;letter-spacing:-.03em}
+  .planning-route{margin:0 0 44px;border-top:2px solid var(--ink);border-bottom:1px solid var(--border)}
+  .route-head{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(300px,1.3fr);gap:32px;
+    align-items:end;padding:18px 0 22px}
+  .route-head h2{margin:5px 0 0;font:700 28px/1.05 Charter,Georgia,serif;letter-spacing:-.025em}
+  .route-head p{margin:0;max-width:58ch;color:var(--muted);font-size:13px;line-height:1.55}
+  .route-steps{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border)}
+  .route-step{position:relative;display:grid;grid-template-rows:auto auto 1fr auto;gap:7px;min-height:188px;
+    padding:18px 20px 16px;border-left:1px solid var(--border);color:var(--ink);text-decoration:none}
+  .route-step:first-child{border-left:0}
+  .route-action{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand-text)}
+  .route-step h3{margin:0;font:700 20px/1.1 Charter,Georgia,serif;letter-spacing:-.018em}
+  .route-step p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+  .route-question{align-self:end;padding-top:10px;border-top:1px solid var(--border);font-size:11px;font-weight:700;
+    line-height:1.35;color:var(--ink)}
+  .route-step:hover{background:color-mix(in srgb, var(--brand) 3%, transparent)}
+  .route-step:hover h3{color:var(--brand-text)}
+  .route-step:focus-visible{outline:2px solid var(--data);outline-offset:-2px}
   .idxhead{display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;gap:12px;flex-wrap:wrap}
   a.tool{display:grid;grid-template-columns:52px 112px 200px 1fr 230px 20px;align-items:baseline;
     gap:0 12px;padding:14px 0;border-top:1px solid var(--border);
@@ -54,6 +71,9 @@
   .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
     border-top:1px solid var(--border);margin-top:16px;padding-top:12px}
   @media (max-width:900px){
+    .route-steps{grid-template-columns:repeat(2,1fr)}
+    .route-step:nth-child(3){border-left:0}
+    .route-step:nth-child(n+3){border-top:1px solid var(--border)}
     a.tool{grid-template-columns:40px 88px 1fr 20px;grid-template-rows:auto auto auto}
     .thumb{grid-column:2;grid-row:1 / 4;width:80px;height:30px;align-self:start;margin-top:2px}
     .tool h2{grid-column:3}
@@ -65,6 +85,17 @@
   @media (max-width:640px){
     body{padding-left:16px;padding-right:16px}
     .stats{gap:28px}
+    .planning-route{margin-bottom:34px}
+    .route-head{grid-template-columns:1fr;gap:10px;padding:16px 0 18px}
+    .route-head h2{font-size:24px}
+    .route-steps{grid-template-columns:1fr}
+    .route-step{grid-template-columns:66px 1fr;grid-template-rows:auto auto auto;gap:4px 12px;min-height:0;
+      padding:16px 4px;border-left:0;border-top:1px solid var(--border)}
+    .route-step:first-child{border-top:0}
+    .route-action{grid-row:1 / 4;align-self:start;padding-top:3px}
+    .route-step h3{font:700 18px/1.15 "Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif}
+    .route-step p{grid-column:2;font-size:12px}
+    .route-question{grid-column:2;align-self:start;padding:3px 0 0;border:0;color:var(--brand-text)}
   }
 
 /* the binder band — /case sits apart from the numbered index */
@@ -91,7 +122,7 @@
     <div class="lede">
       <p class="tagline">Small, sharp tools for product work under uncertainty. Each does one job exceptionally well — and every one of them prints a verdict it can defend.</p>
       <div class="stats">
-        <div><div class="statnum">15</div><div class="micro">Instruments</div></div>
+        <div><div class="statnum">16</div><div class="micro">Instruments</div></div>
         <div><div class="statnum">0</div><div class="micro">Sign-ups</div></div>
         <div><div class="statnum">1</div><div class="micro">URL = the file</div></div>
       </div>
@@ -99,6 +130,42 @@
   </header>
 
   <main>
+  <nav class="planning-route" aria-labelledby="planning-route-title">
+    <div class="route-head">
+      <div>
+        <span class="micro-ink">Planning under uncertainty</span>
+        <h2 id="planning-route-title">From open questions to an inspectable decision</h2>
+      </div>
+      <p>A common route, not a required workflow. Start with the instrument your decision needs; each keeps a different kind of uncertainty honest.</p>
+    </div>
+    <div class="route-steps">
+      <a class="route-step" href="/paths/">
+        <span class="route-action">Branch</span>
+        <h3>Paths</h3>
+        <p>Show the decisions in flight, the evidence that will answer them, and what each outcome unlocks.</p>
+        <span class="route-question">What could change the plan?</span>
+      </a>
+      <a class="route-step" href="/roadmap/">
+        <span class="route-action">Commit</span>
+        <h3>Roadmap</h3>
+        <p>Place the work currently in plan across horizons, with its decision basis visible.</p>
+        <span class="route-question">What belongs in the chosen plan?</span>
+      </a>
+      <a class="route-step" href="/timeline/">
+        <span class="route-action">Forecast</span>
+        <h3>Timeline</h3>
+        <p>Put honest date ranges around the milestones where timing matters, then show what moved.</p>
+        <span class="route-question">When might it land?</span>
+      </a>
+      <a class="route-step" href="/case/">
+        <span class="route-action">Bind</span>
+        <h3>Case file</h3>
+        <p>Collect the question, live instrument links and verdict into one durable decision record.</p>
+        <span class="route-question">What supports the decision?</span>
+      </a>
+    </div>
+  </nav>
+
   <div class="idxhead">
     <span class="micro-ink">Index</span>
     <span class="micro">Number · Instrument · Job · The question it answers</span>

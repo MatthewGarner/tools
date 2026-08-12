@@ -52,3 +52,18 @@ test('home carries each binder as a distinct band, never a numbered card', () =>
       b + ': a binder must never be a numbered instrument card');
   }
 });
+
+test('home names the planning-under-uncertainty family without replacing direct access', () => {
+  const home = read('home/index.html');
+  const route = /<nav class="planning-route"[\s\S]*?<\/nav>/.exec(home)?.[0] || '';
+  const members = [...route.matchAll(/<a class="route-step" href="\/([a-z-]+)\/">/g)].map(m => m[1]);
+  assert.deepEqual(members, ['paths', 'roadmap', 'timeline', 'case'],
+    'the common planning route must keep its intentional Paths → Roadmap → Timeline → Case order');
+  assert.match(route, /A common route, not a required workflow\./,
+    'the family must not imply every decision requires every instrument');
+  for(const dir of ['paths', 'roadmap', 'timeline'])
+    assert.match(home, new RegExp('<a class="tool" href="/' + dir + '/">'),
+      dir + ': family routing must not replace its direct instrument card');
+  assert.match(home, /<a class="binder" href="\/case\/">/,
+    'family routing must not replace Case file\'s direct binder band');
+});
