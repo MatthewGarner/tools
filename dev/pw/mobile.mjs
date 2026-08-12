@@ -385,6 +385,12 @@ for(const [name, url, selectors] of CONTAINERS){
   const strip = await page.$$eval('#wstrip .wslider', els => els.map(e => Math.round(e.getBoundingClientRect().height)));
   ok(strip.length >= 2, `rank: phone weight strip present on first load (${strip.length} sliders)`);
   ok(strip.every(h => h >= 44), `rank: phone weight sliders ≥44px (${strip.join(',')})`);
+  const materialFields = await page.evaluate(() => ['kin', 'ww', 'sw'].map(id => {
+    const el = document.getElementById(id), r = el.getBoundingClientRect();
+    return {id, font: parseFloat(getComputedStyle(el).fontSize), width: r.width, height: r.height};
+  }));
+  ok(materialFields.every(f => f.font >= 16 && f.height >= 44 && f.width >= 44),
+    `rank: capacity and wobble fields are iOS-safe, finger-sized controls (${materialFields.map(f => `${f.id} ${f.font}px/${f.width.toFixed(0)}×${f.height.toFixed(0)}`).join(', ')})`);
   const knifeOnLoad = await page.$$eval('#rrows .rrow.knife', els => els.length);
   ok(knifeOnLoad >= 1, `rank: a knife-edge pill shows on first load (${knifeOnLoad})`);
   const before = await page.$$eval('#rrows .rrow', els => els.map(e => e.dataset.itemIdx).join(','));

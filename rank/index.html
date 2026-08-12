@@ -203,6 +203,11 @@
      sheets (side borders + radius dropped, top/bottom hairlines kept). */
   @media (max-width:640px){
     .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+    /* These controls change the stated cut and uncertainty model; on phones
+       they need the same 16px/44px treatment as the initiative-score fields.
+       Keeping them small made iOS zoom and made a material assumption look
+       like secondary decoration. */
+    .kpick input,.method input{font-size:16px;min-height:44px;min-width:60px;padding:8px}
   }
 </style>
 <link rel="stylesheet" href="../assets/mobile.css">
