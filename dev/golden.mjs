@@ -592,6 +592,17 @@ for(const [k, src] of Object.entries(docs)){
   variants['timeline-fixed'] = trender(tfm, tctx);
   variants['timeline-fixed-narrow'] = trender(tfm, {...tctx, width: 360});
 
+  /* Last-responsible-moment: a named decision clock, not another forecast bar.
+     Wide + phone pin the derived diamond/receipt, while the fixed event still
+     participates as the ordinary external date it always was. */
+  const tLead = 'title: Office move — decision clock\ntoday: 2026-08-01\n' +
+    'Fit-out: Construction complete 2026-09 .. 2026-12\n' +
+    'IT: Network installed 2026-11 .. 2027-01\n' +
+    'Lease ends 2027-02-28 [fixed] [lead: 6w]';
+  const tlm = tparse(tLead);
+  variants['timeline-lrm'] = trender(tlm, tctx);
+  variants['timeline-lrm-narrow'] = trender(tlm, {...tctx, width: 360});
+
 }
 
 /* /risk fixtures (seeded engine → deterministic) */

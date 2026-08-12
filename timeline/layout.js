@@ -3,6 +3,7 @@
    model, measure adapter, today and intent. */
 import {fmtDay, isPointDate} from './parse.js';
 import {wrapText} from '../assets/svg.js';
+import {decisionLead, leadSubline} from './lrm.js';
 
 export const TIMELINE_GEOM = Object.freeze({pad:26,laneW:150,plotW:1240,rowH:32,laneGap:11,lanePadY:8});
 export const INTENT_FLOOR = Object.freeze({
@@ -17,7 +18,7 @@ const PANEL_TARGET = 10;
 const description = it => {
   const date = it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
     : fmtDay(it.p50, {month:(it.p90-it.p50)>45}) + ' → ' + fmtDay(it.p90, {month:(it.p90-it.p50)>45});
-  return date + (it.note ? ' · ' + it.note : '');
+  return date + (it.note ? ' · ' + it.note : '') + (it.leadDays ? ' · ' + leadSubline(it) : '');
 };
 const title = it => it.label + (it.single && !isPointDate(it) ? ' ±?' : '');
 const displayId = index => 'T' + String(index + 1).padStart(2, '0');
@@ -25,7 +26,8 @@ const key = it => it.lane + '|' + it.label;
 
 function domain(items, today, diff){
   const ghosts = diff ? [...diff.byKey.values()].map(g=>g.oldP50) : [];
-  const days = items.flatMap(it=>[it.p50,it.p90]).concat(today,ghosts);
+  const decisionDays = items.map(it => decisionLead(it)?.day).filter(Number.isFinite);
+  const days = items.flatMap(it=>[it.p50,it.p90]).concat(today,ghosts,decisionDays);
   const lo0=Math.min(...days),hi0=Math.max(...days);
   const pad=Math.max(14,Math.round((hi0-lo0)*0.05));
   return {lo:lo0-pad,hi:hi0+pad};
@@ -52,11 +54,16 @@ function packed(model,{measure,today,diff,geom,fontFloor}){
       if(labelX+widest>plotX+plotW-4 && x50-r-6-widest>=plotX+4){
         labelX=x50-r-6; anchorEnd=true;
       }
-      const startX=anchorEnd?labelX-widest:x50-r-4;
+      const lrm=decisionLead(it), lrmX=lrm?X(lrm.day):null;
+      /* The derived diamond has its own on-canvas `DECIDE BY` label. It is
+         part of the physical footprint of this item, not an annotation that
+         can splice an earlier milestone into the same row. */
+      const lrmStart=lrmX == null ? Infinity : lrmX - measure('DECIDE BY','700 8.5px sans-serif') / 2 - 6;
+      const startX=Math.min(anchorEnd?labelX-widest:x50-r-4,lrmStart);
       const rightX=Math.max(x90+r,anchorEnd?labelX:labelX+widest);
       let row=rows.findIndex(end=>startX>end+12);
       if(row<0){row=rows.length;rows.push(rightX);} else rows[row]=rightX;
-      const placed={it,id:displayId(index),sourceIndex:index,x50,x90,labelX,anchorEnd,row,
+      const placed={it,id:displayId(index),sourceIndex:index,x50,x90,lrmX,labelX,anchorEnd,row,
         title:title(it),description:description(it),startX,rightX};
       placements.set(it,placed);
       extent=Math.max(extent,rightX);
@@ -102,7 +109,9 @@ function panels(model,base,measure){
 }
 
 function presentationSelection(model,today,capacity=7){
-  const ordered=model.items.map((it,sourceIndex)=>({it,id:displayId(sourceIndex),sourceIndex}))
+  const all=model.items.map((it,sourceIndex)=>({it,id:displayId(sourceIndex),sourceIndex,
+    clock:decisionLead(it,today)}));
+  const ordinary=all.slice()
     .sort((a,b)=>{
       const ad=a.it.status==='done',bd=b.it.status==='done';
       if(ad!==bd)return ad?1:-1;
@@ -111,9 +120,20 @@ function presentationSelection(model,today,capacity=7){
       if(af!==bf)return af?-1:1;
       return a.sourceIndex-b.sourceIndex;
     });
-  const selected=ordered.slice(0,capacity).map(e=>({...e,title:title(e.it),description:description(e.it)}));
-  return {selected,remainder:Math.max(0,ordered.length-selected.length),
-    rule:'EARLIEST OPEN P50 · FIXED TIE-BREAK · SOURCE ORDER'};
+  /* A Copy PNG is a cut, never the full record. A decision clock is the one
+     temporal constraint that must not disappear merely because its external
+     event is late in source order. Put clocks first; the footer tells the truth
+     if there are more than the fixed canvas can carry. */
+  const clocks=all.filter(e=>e.clock).sort((a,b)=>{
+    const rank=x=>x.clock.state==='closed'?0:x.clock.state==='today'?1:2;
+    return rank(a)-rank(b)||a.clock.day-b.clock.day||a.sourceIndex-b.sourceIndex;
+  });
+  const chosen=[];
+  for(const e of [...clocks,...ordinary]) if(!chosen.includes(e) && chosen.length<capacity) chosen.push(e);
+  const selected=chosen.map(e=>({...e,title:title(e.it),description:description(e.it)}));
+  const decisionClockRemainder=clocks.filter(e=>!chosen.includes(e)).length;
+  return {selected,remainder:Math.max(0,all.length-selected.length),decisionClockRemainder,
+    rule:'DECISION CLOCKS · EARLIEST OPEN P50 · FIXED TIE-BREAK · SOURCE ORDER'};
 }
 
 export function layoutTimeline(model,options={}){

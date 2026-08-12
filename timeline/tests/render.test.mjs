@@ -426,7 +426,7 @@ test('Copy PNG presentation is fixed 1920×1080 and states selection plus remain
   const svg=render(parse(src),{...ctx,intent:'presentation'},null,{intent:'presentation'});
   assert.match(svg,/^<svg[^>]*width="1920" height="1080"/);
   assert.match(svg,/data-font-floor="22"/);
-  assert.match(svg,/SELECTION: EARLIEST OPEN P50 · FIXED TIE-BREAK · SOURCE ORDER/);
+  assert.match(svg,/SELECTION: DECISION CLOCKS · EARLIEST OPEN P50 · FIXED TIE-BREAK · SOURCE ORDER/);
   assert.match(svg,/3 MORE IN NATIVE EXPORT/);
   assert.equal((svg.match(/data-presentation-item=/g)||[]).length,7);
 });

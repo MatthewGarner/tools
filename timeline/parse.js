@@ -32,6 +32,14 @@ export function fmtDay(day, {month = false} = {}){
 
 const DATE_RE = /\d{4}-\d{2}(?:-\d{2})?/;
 
+export function parseLead(s){
+  const m = String(s).trim().match(/^(\d+)\s*(d|w)$/i);
+  if(!m) return null;
+  const n = +m[1];
+  if(!Number.isSafeInteger(n) || n < 1) return null;
+  return n * (m[2].toLowerCase() === 'w' ? 7 : 1);
+}
+
 export function parse(text){
   const model = {title: '', palette: 'ocean', accent: null, today: null, verdict: null,
     lanes: [], items: [], warnings: []};
@@ -77,11 +85,18 @@ export function parse(text){
     const noteM = body.match(/\/\/(.*)$/);
     if(noteM){ note = noteM[1].trim() || null; body = body.slice(0, noteM.index).trim(); }
 
-    let status = null;
-    body = body.replace(/\[([^\]]+)\]/, (m, t) => {
+    let status = null, leadDays = null;
+    body = body.replace(/\[([^\]]+)\]/g, (m, t) => {
       const tag = t.trim().toLowerCase();
-      if(STATUSES.includes(tag)) status = tag;
-      else warn('unknown status [' + t.trim() + '] — use ' + STATUSES.join(' / '));
+      if(STATUSES.includes(tag)){
+        if(status) warn('more than one status — using [' + status + ']');
+        else status = tag;
+      } else if(/^lead\s*:/i.test(tag)){
+        const parsed = parseLead(tag.slice(tag.indexOf(':') + 1));
+        if(parsed === null) warn('decision lead wants a positive duration like [lead: 6w]');
+        else if(leadDays !== null) warn('more than one decision lead — using the first');
+        else leadDays = parsed;
+      } else warn('unknown tag [' + t.trim() + '] — use ' + STATUSES.join(' / ') + ' / lead: 6w');
       return '';
     }).trim();
 
@@ -128,9 +143,13 @@ export function parse(text){
       warn('"' + head.slice(0, 30) + '" has no range — a single date claims certainty ' +
         'nobody has (add ".. P90", or mark it [fixed])');
     }
+    if(leadDays !== null && status !== 'fixed'){
+      warn('[lead: …] only belongs on a [fixed] external event — ignored');
+      leadDays = null;
+    }
 
     if(!laneSet.has(lane)){ laneSet.add(lane); model.lanes.push(lane); }
-    model.items.push({lane, label: head, p50, p90, rawDates: dateText, status, note, single, srcLine: ln});
+    model.items.push({lane, label: head, p50, p90, rawDates: dateText, status, note, single, leadDays, srcLine: ln});
   }
   return model;
 }
