@@ -35,21 +35,20 @@
 .preview svg [data-hot].active-hot{fill:var(--accent);font-weight:700}
 .preview svg [data-hot]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* the live re-route crossfade (mid-drag, evalDet-driven — a post-insert class
-   layer only; the SAME <g data-opt> already carries a T.fadeOp opacity
-   PRESENTATION ATTRIBUTE for the settled off-policy case, and any stylesheet
-   rule — including this one — beats a presentation attribute regardless of
-   specificity, so .live-on cleanly overrides it without !important). */
-.preview svg [data-opt]{transition:opacity .18s ease}
+/* Live rerouting keeps both paths readable. Solid accent outlines indicate
+   the active route; dashed outlines distinguish the other route without the
+   old low-contrast global fade. */
 .preview svg [data-opt].live-on{opacity:1}
-.preview svg [data-opt].live-off{opacity:.42}
+.preview svg [data-opt].live-on > rect{stroke:var(--accent);stroke-width:2}
+.preview svg [data-opt].live-off{opacity:1}
+.preview svg [data-opt].live-off > rect{stroke-dasharray:4 3}
 /* the MC verdict/EV readouts take a certainty-fade while the live midpoint
    layer is being dragged — they're stale until release re-runs the full
    10k-sim evaluate (the honesty crux, C4). */
 .preview svg [data-mc],.preview svg [data-verdict]{transition:opacity .18s ease}
 .preview svg [data-mc].pending,.preview svg [data-verdict].pending{opacity:.4}
 @media (prefers-reduced-motion:reduce){
-  .preview svg [data-opt],.preview svg [data-mc],.preview svg [data-verdict]{transition:none}
+  .preview svg [data-mc],.preview svg [data-verdict]{transition:none}
 }
 
 /* the one persistent slider bar: hidden until a number is engaged, sits just

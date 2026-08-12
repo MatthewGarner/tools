@@ -58,7 +58,10 @@ function eipTools(){
 const FLOORS = {
   roadmap:   {kinds: 5, menu: true},
   why:       {kinds: 7, menu: true},
-  tree:      {kinds: 7, menu: true},
+  /* Tree's live-narrow coarse surface deliberately removes the three tiny
+     inline field kinds. Its root/decision/chance/leaf menus plus verdict
+     remain, and each menu carries field-specific raw values for its rows. */
+  tree:      {kinds: 5, menu: true},
   /* map (mobile-input stage, 2026-07-16): Move…/Place on map… landed as a
      cardmenu ROW and the tray gained the same cardmenu kind — no NEW data-edit
      kind, so the floor honestly stays at 6 (additem, axis, cardmenu, field,
@@ -152,12 +155,12 @@ const DRIVERS = {
     const m = parse(doc);
     return renderOst(m, project(m), {...ctx, edit: true, width: W});
   },
-  async tree(doc){   // tree has no narrow relayout: wide artefact pans, edit markup intact
+  async tree(doc){
     const {parse} = await import('../tree/parse.js');
     const {evaluate} = await import('../tree/engine.js');
     const {render} = await import('../tree/render.js');
     const m = parse(doc);
-    return render(m, evaluate(m), {...ctx, edit: true});
+    return render(m, evaluate(m), {...ctx, edit: true, intent: 'live-narrow', width: W, coarse: true});
   },
   async map(doc){    // map has no narrow relayout either
     const {parse} = await import('../map/parse.js');

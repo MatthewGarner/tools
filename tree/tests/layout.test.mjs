@@ -19,6 +19,15 @@ Decision
         Ambiguous signal requiring another round (p=rest): -180k to 120k
   Hold the current course and revisit after the planning window: 0`;
 
+const DEEP = `Root decision
+  Expand
+    Market gate
+      Partner route
+        Evidence review
+          Strong signal: 100
+          Weak signal: -20
+  Stop: 0`;
+
 test('dense branch extents are deterministic, bounded and non-overlapping', () => {
   const model=parse(DENSE), results=evaluate(model), before=JSON.stringify(model);
   const layout=layoutTree(model,results,{measure,intent:'native'});
@@ -56,3 +65,14 @@ test('narrow is an exhaustive memo rather than scaled branch geometry', () => {
   assert.ok(layout.width<=390 && layout.rows.every(x=>x.x+x.w<=layout.width));
 });
 
+test('narrow rows retain complete ancestry after the indentation cap', () => {
+  const model=parse(DEEP),layout=layoutTree(model,evaluate(model),{measure,intent:'live-narrow',width:390});
+  const deep=layout.rows.find(row=>row.node.label==='Strong signal');
+  assert.equal(deep.depth,5);
+  assert.equal(deep.x,48,'depth remains visually capped at three indents');
+  assert.equal(deep.indentCapped,true);
+  assert.equal(deep.ancestry,'Root decision › Expand › Market gate › Partner route › Evidence review');
+  assert.ok(deep.ancestryLines.length>0);
+  assert.ok(deep.ancestryLines.join(' ').includes('Root decision'));
+  assert.ok(deep.h>layout.rows.find(row=>row.node.label==='Stop').h,'breadcrumb height is content-driven');
+});

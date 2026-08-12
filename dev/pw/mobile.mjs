@@ -575,10 +575,78 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
-// tree B4 — coarse-pointer priced-insistence entry (Fable I-4 replaced the
-// per-number 44px hit-rect assertion with these). On a coarse pointer a hot
-// number's own tspan doesn't open the slider directly — edit-in-place.js
-// redirects the tap to the node's own card-menu marker ([data-menu]), whose
+// Tree menu-only edit contract: phone rows have no inline field anchors, so
+// Rename/Edit/Add must remain fully self-contained through the 44px card menu.
+{
+  const doc = 'title: Bid decision\nRoot\n  Submit bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0';
+  const hash = Buffer.from(JSON.stringify({t: doc})).toString('base64');
+  const page = await ctx.newPage();
+  await page.goto(T + '/tree/#' + hash, {waitUntil: 'networkidle'}).catch(() => {});
+  await page.waitForTimeout(900);
+  const menuFor = label => page.locator('#preview svg [data-memo-row]').filter({hasText: label})
+    .locator('[data-menu]').first();
+  const tap = async locator => {
+    await locator.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(180);
+    const hit = locator.locator('[data-hit]');
+    const box = await hit.count() ? await hit.boundingBox() : await locator.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(180);
+  };
+  const choose = async label => {
+    const row = page.locator('.eip-pop button', {hasText: label});
+    await row.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(120);
+    const box = await row.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(220);
+  };
+  const inputOwnsFocus = () => page.evaluate(() =>
+    document.activeElement?.classList.contains('eip-input') && !document.activeElement?.classList.contains('cm-content'));
+
+  await tap(menuFor('Submit bid'));
+  await choose('Rename…');
+  ok(await page.locator('.eip-input').inputValue() === 'Submit bid',
+    'tree coarse: Rename is prefilled from the menu-only card');
+  ok(await inputOwnsFocus(), 'tree coarse: Rename focuses the visible artefact input, not CodeMirror');
+  await page.locator('.eip-input').fill('Place bid');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(550);
+  ok((await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Place bid: -150k'),
+    'tree coarse: Rename commits against the original label raw');
+
+  await tap(menuFor('Place bid'));
+  await choose('Edit value…');
+  ok(await page.locator('.eip-input').inputValue() === '-150k',
+    'tree coarse: Edit value is prefilled from the menu-only card');
+  ok(await inputOwnsFocus(), 'tree coarse: value editing does not focus hidden CodeMirror');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(180);
+
+  await tap(menuFor('Win'));
+  await choose('Edit probability…');
+  ok(await page.locator('.eip-input').inputValue() === '0.3-0.45',
+    'tree coarse: Edit probability is prefilled from the menu-only card');
+  ok(await inputOwnsFocus(), 'tree coarse: probability editing does not focus hidden CodeMirror');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(180);
+
+  await tap(menuFor('Place bid'));
+  await choose('Add option');
+  ok(await page.locator('.eip-input').count() === 1 && await page.locator('.eip-input').inputValue() === 'New option',
+    'tree coarse: Add opens a visible prefilled rename input on the new card');
+  ok(await inputOwnsFocus(), 'tree coarse: Add never leaves focus in hidden CodeMirror');
+  await page.locator('.eip-input').fill('Alternative route');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(550);
+  ok((await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Alternative route: 0'),
+    'tree coarse: Add + rename completes through the artefact');
+  await page.close();
+}
+
+// tree B4 — coarse-pointer priced-insistence entry. On a coarse pointer the
+// narrow renderer omits inline label/numeric edit targets entirely: the
+// node's 44px card-menu marker ([data-menu]) is the sole edit entry, and its
 // menu (B3's exploreRowsFor) carries an "Explore…" row that binds the ONE
 // persistent slider. This walks that whole path on a deliberately TALL tree
 // (6 near-identical options ⇒ every branch sits on a knife-edge, so several
@@ -596,22 +664,32 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/tree/#' + hash, {waitUntil: 'networkidle'}).catch(() => {});
   await page.waitForTimeout(1000);
 
-  const top = await page.evaluate(() => {
-    const hots = [...document.querySelectorAll('#preview svg [data-hot]')];
-    if(!hots.length) return null;
-    let best = null, bestTop = Infinity;
-    for(const el of hots){
-      const r = el.getBoundingClientRect();
-      if(r.top < bestTop){ bestTop = r.top; best = {line: el.dataset.line, kind: el.dataset.edit}; }
-    }
-    return best;
+  const editSurface = await page.evaluate(() => {
+    const svg = document.querySelector('#preview svg');
+    const menus = [...svg.querySelectorAll('[data-menu]')];
+    const numericRow = [...svg.querySelectorAll('[data-memo-row]')].find(row => /p=/.test(row.textContent || ''));
+    const marker = numericRow && numericRow.querySelector('[data-menu]');
+    return {
+      inline: svg.querySelectorAll('[data-edit="label"],[data-edit="prob"],[data-edit="value"]').length,
+      menuOnlyRows: svg.querySelectorAll('[data-memo-row][data-menu-only]').length,
+      rows: svg.querySelectorAll('[data-memo-row]').length,
+      allHits44: menus.every(menu => {
+        const hit=menu.querySelector('[data-hit]');
+        return hit && +hit.getAttribute('width') >= 44 && +hit.getAttribute('height') >= 44;
+      }),
+      line: marker && marker.dataset.line,
+    };
   });
-  ok(top !== null, 'tree: the tall 6-option fixture renders at least one load-bearing (hot) number');
+  ok(editSurface.inline === 0, 'tree: coarse narrow output has no tiny inline label/probability/value targets');
+  ok(editSurface.menuOnlyRows === editSurface.rows,
+    `tree: every narrow row is explicitly menu-only on coarse pointers (${editSurface.menuOnlyRows}/${editSurface.rows})`);
+  ok(editSurface.allHits44, 'tree: every coarse narrow card menu has a 44px hit rectangle');
+  ok(editSurface.line !== null, 'tree: the tall fixture exposes a card menu for a numeric row');
 
-  if(top){
-    const marker = page.locator(`#preview svg [data-menu][data-line="${top.line}"]`);
+  if(editSurface.line !== null){
+    const marker = page.locator(`#preview svg [data-menu][data-line="${editSurface.line}"]`);
     ok(await marker.count() === 1,
-      `tree: the topmost hot number's own node carries exactly one card-menu marker (line ${top.line})`);
+      `tree: the numeric row carries exactly one card-menu marker (line ${editSurface.line})`);
     await marker.scrollIntoViewIfNeeded();
     await page.waitForTimeout(200);
     const box = await marker.locator('[data-hit]').boundingBox();
@@ -643,7 +721,7 @@ for(const [name, url, chip] of WIDENED){
         };
       });
       ok(geom.top >= -1 && geom.bottom <= geom.vh + 1 && geom.left >= -1 && geom.right <= geom.vw + 1,
-        `tree: #explorebar sits fully inside the layout viewport after tapping the TOPMOST hot number on a tall ` +
+        `tree: #explorebar sits fully inside the layout viewport after tapping a numeric row on a tall ` +
         `tree (bar top ${geom.top.toFixed(0)}, bottom ${geom.bottom.toFixed(0)} vs viewport height ${geom.vh}) — ` +
         `the sticky bottom bar, not the old off-screen in-flow placement`);
       ok(geom.min !== '' && geom.max !== '' && geom.min !== geom.max,

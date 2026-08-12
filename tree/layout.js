@@ -165,10 +165,19 @@ function narrowRows(entries, measure, width, policy){
     const indent = Math.min(entry.depth, 3) * 16;
     const rowW = width - indent;
     const lines = wrapText(entry.node.label, font(14), rowW - 32, measure);
-    const h = 54 + lines.length * 19 +
+    /* Once indentation is capped, position alone can no longer distinguish a
+       node's parent. Keep the complete authored ancestry in the row instead
+       of making deep siblings look as though they share one parent. */
+    const ancestry = entry.depth > 3 ? entry.path.slice(0, -1).join(' › ') : '';
+    const ancestryLines = ancestry
+      ? wrapText('Continues from · ' + ancestry, font(9.5), rowW - 32, measure)
+      : [];
+    const ancestryH = ancestryLines.length ? ancestryLines.length * 14 + 4 : 0;
+    const h = 54 + ancestryH + lines.length * 19 +
       ((entry.node.p !== null && entry.node.p !== undefined) ? 16 : 0) + (entry.node.value ? 16 : 0);
     const row = {...entry, id: 'T' + String(index + 1).padStart(2, '0'), x: indent, y, w: rowW, h,
-      labelLines: lines, onPolicy: policy.has(entry.node)};
+      labelLines: lines, ancestry, ancestryLines, indentCapped: entry.depth > 3,
+      onPolicy: policy.has(entry.node)};
     y += h + g.narrowGap;
     return row;
   });
@@ -226,4 +235,3 @@ export function layoutTree(model, results, {measure, intent = 'native', width = 
     rawRange,
   };
 }
-

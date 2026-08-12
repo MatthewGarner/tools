@@ -61,11 +61,13 @@ test('6b: the verdict band height is content-driven — a long option pushes the
   assert.ok(yOfFirstNode(b) > yOfFirstNode(a), 'and pushes the tree below it — never a collision');
 });
 
-test('policy path uses scheme accent; rejected branch fades', () => {
+test('policy path uses scheme accent; rejected branches stay readable and explicitly labelled', () => {
   const m = parse(BID);
   const svg = render(m, evaluate(m), ctx());
   assert.ok(svg.includes('#1F4FD8'), 'ocean scheme accent on policy path (light)');
-  assert.ok(svg.includes('opacity="0.42"'), 'rejected option faded');
+  assert.ok(svg.includes('data-policy-state="alternative"'));
+  assert.ok(svg.includes('ALTERNATIVE · EV'));
+  assert.ok(!svg.includes('opacity="0.42"'), 'alternatives are never globally faded');
 });
 
 test('money formatting: currency symbol, minus before symbol', () => {
@@ -271,6 +273,41 @@ test('phone remains a memo; Copy PNG is a complete, full-strength root decision 
   assert.ok(slide.includes('Commercial response › Strong adoption'), 'chance provenance is kept in-plane');
   assert.ok(!slide.includes('opacity='), 'alternatives remain full strength');
   assert.ok(!slide.includes('RECOMMENDED POLICY PATH'));
+});
+
+test('deep phone rows disclose their full ancestry after indentation is capped', () => {
+  const source='Root decision\n  Expand\n    Market gate\n      Partner route\n        Evidence review\n          Strong signal: 100\n          Weak signal: -20\n  Stop: 0';
+  const m=parse(source),phone=render(m,evaluate(m),ctx({intent:'live-narrow',width:390}));
+  assert.ok(phone.includes('data-indent-capped=""'));
+  assert.ok(phone.includes('data-ancestry="Root decision › Expand › Market gate › Partner route › Evidence review"'));
+  assert.ok(phone.includes('Continues from · Root decision'));
+});
+
+test('coarse phone output offers only 44px card menus, not tiny inline field targets', () => {
+  const m=parse(BID),phone=render(m,evaluate(m),ctx({intent:'live-narrow',width:390,edit:true,coarse:true,
+    hot:new Set(['prob:4','value:4'])}));
+  for(const kind of ['label','prob','value']) assert.ok(!phone.includes('data-edit="'+kind+'"'),kind+' is menu-only');
+  assert.ok(!phone.includes('data-hot=""'));
+  assert.equal((phone.match(/data-menu-only=""/g)||[]).length,(phone.match(/data-memo-row=/g)||[]).length);
+  const menus=phone.match(/<g data-edit="cardmenu-[\s\S]*?<\/g>/g)||[];
+  assert.ok(menus.length>0);
+  assert.ok(menus.every(markup=>markup.includes('data-hit=""')&&markup.includes('width="44"')&&markup.includes('height="44"')));
+});
+
+test('coarse card menus carry exact source raws for prefilled field editing', () => {
+  const m=parse(BID),phone=render(m,evaluate(m),ctx({intent:'live-narrow',width:390,edit:true,coarse:true}));
+  const bidMenu=phone.match(/<g data-edit="cardmenu-decision" data-line="2"[^>]*>/)?.[0] || '';
+  const winMenu=phone.match(/<g data-edit="cardmenu-leaf" data-line="4"[^>]*>/)?.[0] || '';
+  assert.ok(bidMenu.includes('data-label-raw="Bid"')&&bidMenu.includes('data-value-raw="-150k"'));
+  assert.ok(winMenu.includes('data-label-raw="Win"')&&winMenu.includes('data-prob-raw="0.3-0.45"')&&
+    winMenu.includes('data-value-raw="2M to 5M"'));
+});
+
+test('phone alternatives use an explicit full-strength state instead of opacity', () => {
+  const m=parse(BID),phone=render(m,evaluate(m),ctx({intent:'live-narrow',width:390}));
+  assert.ok(phone.includes('data-policy-state="alternative"'));
+  assert.ok(phone.includes('ALTERNATIVE PATH ·'));
+  assert.ok(!phone.includes('opacity="0.42"'));
 });
 
 test('Decision comparison is truthfully partial when fixed-canvas capacity is exceeded and still includes the recommendation', () => {
