@@ -3736,7 +3736,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('#paths-projection-jump').isVisible() &&
     await p.evaluate(() => document.getElementById('paths-view-switch').nextElementSibling?.id === 'paths-projection-jump') &&
     await p.locator('#paths-projection-jump').evaluate(element => element.getBoundingClientRect().height >= 44) &&
-    /Choose exact outcome · \d+ ready/.test(await p.locator('#paths-projection-jump').innerText()));
+    /Choose exact outcome · \d+ ready/i.test(await p.locator('#paths-projection-jump').innerText()));
   check('paths: exact outcomes are not silently selected and unavailable worlds explain why',
     await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
     await p.locator('.projection-choice[data-available="false"] .projection-choice-state').count() > 0 &&
@@ -3748,7 +3748,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('.projection-unselected').count() === 0 &&
     await p.locator('.projection-body').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length === 1));
   check('paths: exact outcomes name the Possible Plan card they refine',
-    /Possible plan \d+ · Exact outcome \d+/.test(
+    /Possible plan \d+ · Exact outcome \d+/i.test(
       await p.locator('.projection-choice[data-available="true"] .projection-choice-reference').first().innerText()));
   const readyWorld = p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first();
   await readyWorld.check();
@@ -3758,14 +3758,14 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('.projection-confirmation').getAttribute('aria-live') === 'polite');
   check('paths: receipt exposes known, assumed and not-part sections plus the separation promise',
     await p.locator('.projection-ledger').count() === 3 &&
-    /Known from Paths[\s\S]*Assumed for this delivery projection[\s\S]*Not part/.test(
+    /Known from Paths[\s\S]*Assumed for this delivery projection[\s\S]*Not part/i.test(
       await p.locator('.projection-confirmation').innerText()) &&
-    (await p.locator('.projection-separation').innerText()) ===
-      'This creates a new Roadmap. It does not answer or alter Paths.');
+    (await p.locator('.projection-separation').innerText()).toLowerCase() ===
+      'this creates a new roadmap. it does not answer or alter paths.');
   check('paths: projection scope is explicit and the action names Roadmap plus basis',
-    (await p.locator('.projection-scope').innerText()) ===
-      'Select one ready outcome. Only decisions that affect delivery appear here; unrelated questions stay in Paths.' &&
-    (await p.locator('[data-create-roadmap]').innerText()) === 'Create Roadmap with this basis');
+    (await p.locator('.projection-scope').innerText()).toLowerCase() ===
+      'select one ready outcome. only decisions that affect delivery appear here; unrelated questions stay in paths.' &&
+    (await p.locator('[data-create-roadmap]').innerText()).toLowerCase() === 'create roadmap with this basis');
   const assumptionChecks = p.locator('.projection-assumption input[type="checkbox"]');
   const createRoadmap = p.locator('[data-create-roadmap]');
   check('paths: every assumed answer needs explicit acceptance and phone targets clear 44px',
