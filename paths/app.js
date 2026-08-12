@@ -8,6 +8,7 @@ import {renderTree, renderOutline} from './render-tree.js';
 import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {decisionImpactProjection, overviewProjection} from './overview.js';
 import {renderOverview, renderOverviewNarrow} from './render-overview.js';
+import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
 import {verdict} from './verdict.js';
 import {auditableAnswerDraft, decisionEditSurface, resolveSelectedDecision} from './inspector.js';
 import {clearAnswer, clearAnswerBy, clearWhen, kinds as inspectorKinds,
@@ -121,6 +122,10 @@ let overviewReceiptOverlayOpen = true;
 let overviewReceiptReturnKey = null;
 const overviewSheetBackground = new Map();
 
+function isRoadmapStyle(style = model?.style){
+  return style === 'overview' || style === 'dependencies';
+}
+
 function overviewSurfaceMetrics(){
   const host = $('overview-live');
   const surface = host.clientWidth ? host : preview;
@@ -133,7 +138,7 @@ function overviewSurfaceMetrics(){
 }
 
 function overviewReceiptUsesSheet(metrics = overviewSurfaceMetrics()){
-  return model?.style === 'overview' &&
+  return isRoadmapStyle() &&
     (metrics.narrow || matchMedia('(pointer: coarse)').matches);
 }
 
@@ -257,9 +262,9 @@ function renderOverviewReceipt(){
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
-  if(model?.style !== 'overview' || !overviewImpact || overviewMode === 'focus' ||
+  if(!isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
       (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
-    if(model?.style !== 'overview' || !overviewImpact){
+    if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
       overviewReceiptReturnKey = null;
     }
@@ -279,7 +284,8 @@ function renderOverviewReceipt(){
 
   const head = node('div', 'receipt-head');
   const identity = node('div', 'receipt-identity');
-  identity.appendChild(node('p', 'inspector-kicker', 'Selected decision'));
+  identity.appendChild(node('p', 'inspector-kicker',
+    model.style === 'dependencies' ? 'Focused decision' : 'Selected decision'));
   const title = node('h2', '', decision.question || decision.name);
   title.id = 'overview-receipt-title';
   title.tabIndex = -1;
@@ -380,7 +386,7 @@ function focusBranch(direction, branch){
 
 function renderFocusLens(){
   const host = $('focus-lens');
-  if(model?.style !== 'overview' || overviewMode !== 'focus' || !overviewImpact){
+  if(!isRoadmapStyle() || overviewMode !== 'focus' || !overviewImpact){
     host.hidden = true;
     host.replaceChildren();
     return;
@@ -399,7 +405,8 @@ function renderFocusLens(){
   identity.appendChild(title);
   identity.appendChild(node('p', 'focus-state', impact.currentState.sentence));
   head.appendChild(identity);
-  const back = node('button', 'btn focus-return', 'Return to overview');
+  const back = node('button', 'btn focus-return',
+    model.style === 'dependencies' ? 'Return to dependencies' : 'Return to overview');
   back.type = 'button';
   back.dataset.returnOverview = '';
   head.appendChild(back);
@@ -563,19 +570,21 @@ function doRefresh(){
   const plansView = model.style === 'plans';
   const treeView = model.style === 'tree';
   const overviewView = model.style === 'overview';
+  const dependenciesView = model.style === 'dependencies';
+  const roadmapView = overviewView || dependenciesView;
   topology = treeView ? treeProjection(projection) : null;
-  overview = overviewView ? overviewProjection(projection) : null;
+  overview = roadmapView ? overviewProjection(projection) : null;
   const retained = treeView ? resolveSelectedDecision(projection, selectedDecision) : null;
   selectedDecision = retained ? {key:retained.key, srcLine:retained.srcLine} : null;
-  const retainedOverview = overviewView
+  const retainedOverview = roadmapView
     ? resolveSelectedDecision({decisions:overview.decisions}, selectedOverviewDecision)
     : null;
   const overviewChoice = retainedOverview || overview?.initialSelection || null;
   selectedOverviewDecision = overviewChoice
     ? {key:overviewChoice.key, srcLine:overviewChoice.srcLine} : null;
-  overviewImpact = overviewView && selectedOverviewDecision
+  overviewImpact = roadmapView && selectedOverviewDecision
     ? decisionImpactProjection(model, projection, selectedOverviewDecision.key) : null;
-  if(!overviewView) overviewMode = 'overview';
+  if(!roadmapView) overviewMode = 'overview';
   renderWarnings();
   const readout = verdict(projection);
   const counts = `${projection.decisions.length} ${projection.decisions.length === 1 ? 'question' : 'questions'}, ` +
@@ -586,7 +595,7 @@ function doRefresh(){
   $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}${selectedStatus}`;
   const overviewMetrics = overviewSurfaceMetrics();
   const live = $('overview-live');
-  live.dataset.receiptLayout = overviewView ? overviewMetrics.receiptLayout : 'none';
+  live.dataset.receiptLayout = roadmapView ? overviewMetrics.receiptLayout : 'none';
   live.dataset.focusLayout = overviewMetrics.focusLayout;
 
   if(!model.items.length && !model.decisions.length){
@@ -595,7 +604,7 @@ function doRefresh(){
       ? 'No paths yet — add a decision or an item under a period.'
       : 'Start typing — or load an example.'}</p>`;
   } else {
-    const width = overviewView ? overviewMetrics.previewWidth : preview.clientWidth;
+    const width = roadmapView ? overviewMetrics.previewWidth : preview.clientWidth;
     const narrow = width > 0 && width < 520;
     let svg;
     if(plansView){
@@ -608,6 +617,12 @@ function doRefresh(){
         ? renderOutline(topology, context(model, {width, ...interactive}))
         : renderTree(topology, treeLayout(topology, {width:width || 1160, measure}),
           context(model, interactive));
+    } else if(dependenciesView){
+      const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
+        impact:overviewImpact, showReceipt:false};
+      svg = narrow
+        ? renderDependenciesNarrow(overview, context(model, {width, ...interactive}))
+        : renderDependencies(overview, context(model, {width:width || 1160, ...interactive}));
     } else {
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         expandedGroups:expandedOverviewGroups, impact:overviewImpact,
@@ -619,11 +634,13 @@ function doRefresh(){
     if(svg !== lastSvg){ preview.innerHTML = svg; lastSvg = svg; }
   }
 
-  renderOverviewSurface(overviewView, overviewMetrics);
+  renderOverviewSurface(roadmapView, overviewMetrics);
   if(treeView) renderInspector();
   else clearInspector();
-  $('view-method').textContent = overviewView && overviewMode === 'focus'
-    ? 'Focus is a local counterfactual lens; exports remain the selected full roadmap overview.'
+  $('view-method').textContent = roadmapView && overviewMode === 'focus'
+    ? `Focus is a local counterfactual lens; exports remain the selected full roadmap ${dependenciesView ? 'dependencies' : 'overview'}.`
+    : dependenciesView
+    ? 'The phone view keeps the decision spine readable; every export remains the full dependency roadmap.'
     : plansView
     ? 'The phone view groups work by possible plan; every export remains the wide matrix.'
     : treeView
@@ -666,7 +683,7 @@ attachEditInPlace($('decision-inspector'), {
 
 function chooseDecision(target, focusInspector = false){
   const choice = {key:target.dataset.decisionKey, srcLine:Number(target.dataset.line)};
-  if(model?.style === 'overview'){
+  if(isRoadmapStyle()){
     const resolved = resolveSelectedDecision({decisions:overview?.decisions || []}, choice);
     if(!resolved) return;
     selectedOverviewDecision = {key:resolved.key, srcLine:resolved.srcLine};
@@ -861,6 +878,9 @@ function wideSvg(){
   if(model.style === 'overview') return renderOverview(overview,
     context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
       impact:overviewImpact}));
+  if(model.style === 'dependencies') return renderDependencies(overview,
+    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
+      impact:overviewImpact}));
   if(!topology) return null;
   const layout = treeLayout(topology, {width:1160, measure});
   return renderTree(topology, layout, context(model));
@@ -889,7 +909,7 @@ new ResizeObserver(() => {
     Math.round(metrics.previewWidth)].join(':');
   if(key === lastOverviewSurfaceKey) return;
   lastOverviewSurfaceKey = key;
-  if(model?.style === 'overview') rerender();
+  if(isRoadmapStyle()) rerender();
 }).observe($('overview-live'), {box:'content-box'});
 onThemeChange(rerender);
 

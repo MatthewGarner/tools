@@ -3802,6 +3802,45 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await p.waitForTimeout(400);
 
   await p.locator('details.syntax').evaluate(element => { element.open = true; });
+  await p.getByText('style: dependencies', {exact:true}).click();
+  await p.waitForTimeout(500);
+  check('paths: Dependencies keeps the period × lane roadmap and makes the decision spine explicit',
+    await p.locator('[data-kind="decision-spine"]').count() === 1 &&
+    await p.locator('[data-kind="dependency-grid-base"]').count() === 1 &&
+    await p.locator('[data-kind="dependency-route"]').count() >= 1 &&
+    await p.locator('#decision-inspector').isHidden());
+  const dependencyQuestion = p.locator('[data-kind="decision-node"][data-decision-key="groups"]');
+  await dependencyQuestion.click();
+  await p.waitForTimeout(300);
+  check('paths: Dependencies shares selection and the evaluator-backed desktop receipt',
+    await dependencyQuestion.getAttribute('data-selected') === 'true' &&
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    /changes directly with this answer/i.test(await p.locator('#overview-receipt').innerText()));
+  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  const dependenciesDownload = p.waitForEvent('download');
+  await p.locator('#dlsvg').click();
+  const dependenciesFile = await dependenciesDownload;
+  const dependenciesSvg = await (await import('node:fs/promises')).readFile(await dependenciesFile.path(), 'utf8');
+  check('paths: Dependencies export is the wide focused dependency lens, never Overview or Tree',
+    dependenciesSvg.includes('data-kind="decision-spine"') &&
+    dependenciesSvg.includes('data-kind="dependency-grid-base"') &&
+    /<title[^>]*>[^<]*dependencies[^<]*groups/i.test(dependenciesSvg) &&
+    !dependenciesSvg.includes('data-kind="roadmap-grid"') && !dependenciesSvg.includes('data-kind="tree-body"'));
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  check('paths: phone Dependencies uses its readable agenda and opens the shared receipt sheet on selection',
+    await p.locator('[data-kind="narrow-decision-spine"]').count() === 1 &&
+    await p.locator('[data-kind="dependency-agenda"]').count() === 1 &&
+    await p.locator('#overview-receipt').isHidden());
+  await p.locator('[data-kind="narrow-decision-node"][data-decision-key="groups"]').click();
+  await p.locator('#overview-receipt').waitFor({state:'visible'});
+  check('paths: phone Dependencies reuses the labelled modal receipt sheet',
+    await p.locator('#overview-receipt').getAttribute('role') === 'dialog' &&
+    await p.locator('#overview-receipt').getAttribute('aria-modal') === 'true');
+  await p.keyboard.press('Escape');
+  await p.setViewportSize({width:1280, height:900});
+  await p.waitForTimeout(400);
+
   await p.getByText('style: tree', {exact:true}).click();
   await p.waitForTimeout(500);
   const question = p.locator('[data-select-decision][data-decision-key="groups"]');
@@ -3809,7 +3848,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await question.press('Enter');
   await p.locator('#decision-inspector').waitFor({state:'visible'});
   check('paths: wide question is a keyboard-operable parsed-decision target',
-    await question.getAttribute('role') === 'button' && await question.getAttribute('data-line') === '10');
+    await question.getAttribute('role') === 'button' && await question.getAttribute('data-line') === '11');
   check('paths: keyboard selection moves focus to the expanded inspector',
     await p.evaluate(() => document.activeElement?.id) === 'decision-inspector-title' &&
     await p.locator('[data-select-decision][data-decision-key="groups"]').getAttribute('aria-expanded') === 'true');

@@ -852,6 +852,7 @@ for(const [k, src] of Object.entries(docs)){
   const {project:projectPaths} = await import('../paths/project.js');
   const {overviewProjection, decisionImpactProjection} = await import('../paths/overview.js');
   const {renderOverview, renderOverviewNarrow} = await import('../paths/render-overview.js');
+  const {renderDependencies, renderDependenciesNarrow} = await import('../paths/render-dependencies.js');
   const decision = (name, extra = '') => `decision ${name}:\n  question: Does ${name} hold?\n` +
     `  signal: measurable ${name}\n  reading: current ${name}\n  owner: ${name} owner\n` +
     `  answer-by: 2026-08-10${extra}\n`;
@@ -871,6 +872,11 @@ for(const [k, src] of Object.entries(docs)){
   const pathsCtx = {...ctxBase, selectedKey:'pricing', impact};
   variants['paths-overview'] = renderOverview(pathsOverview, {...pathsCtx, width:1160});
   variants['paths-overview-narrow'] = renderOverviewNarrow(pathsOverview, {...pathsCtx, width:390});
+  /* Dependencies is deliberately a selected-decision lens rather than an all-at-once
+     graph. Pricing is third in source order here, pinning the focused-anchor behaviour
+     alongside direct, AND, OR and negated work. */
+  variants['paths-dependencies'] = renderDependencies(pathsOverview, {...pathsCtx, width:1160});
+  variants['paths-dependencies-narrow'] = renderDependenciesNarrow(pathsOverview, {...pathsCtx, width:390});
 }
 
 /* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),

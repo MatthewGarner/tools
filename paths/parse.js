@@ -358,11 +358,11 @@ export function parse(text){
           `line ${lineNo}: today ${quote(value)} is not a valid date — use YYYY-MM-DD; date ignored`);
       } else if(key === 'style'){
         const style = value.toLowerCase();
-        if(style === 'overview' || style === 'tree' || style === 'plans') model.style = style;
+        if(style === 'overview' || style === 'dependencies' || style === 'tree' || style === 'plans') model.style = style;
         else {
           model.style = 'overview';
           add('parse', 'invalid-style', lineNo, 'style',
-            `line ${lineNo}: style ${quote(value)} is not valid — use "overview", "tree" or "plans"; style read as "overview"`);
+            `line ${lineNo}: style ${quote(value)} is not valid — use "overview", "dependencies", "tree" or "plans"; style read as "overview"`);
         }
       }
       else if(key === 'verdict') model.verdict = value;
