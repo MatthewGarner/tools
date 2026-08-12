@@ -46,6 +46,28 @@ test('p=rest arithmetic and per-sim normalisation of over-summing siblings', () 
   assert.ok(r2.warnings.some(w => w.includes('sum')), 'over-sum warned');
 });
 
+test('a zero-total chance is an explicit no-outcome state, never described as normalised', () => {
+  const m = parse('Root\n  Risk\n    A (p=0): 100\n    B (p=0): 200\n  Safe: 10');
+  const chance = m.root.children[0];
+  const r = evaluate(m, {sims: 250});
+  assert.equal(r.stats.get(chance).mean, 0, 'no authored outcome contributes');
+  assert.equal(r.noOutcome.get(chance), 250, 'every zero-total draw is recorded');
+  assert.ok(r.warnings.some(w => w.includes('250 of 250') && w.includes('100%') && w.includes('no outcome contributed')));
+  assert.ok(!r.warnings.some(w => w.includes('zero') && w.includes('normalised')));
+  assert.equal(r.effectiveProbability.get(chance.children[0]), 0);
+  assert.equal(r.effectiveProbability.get(chance.children[1]), 0);
+});
+
+test('ranged probabilities surface sampled no-outcome count and rate', () => {
+  const m = parse('Root\n  Risk\n    Sometimes (p=0 to 0.2): 100\n  Safe: 10');
+  const chance = m.root.children[0];
+  const r = evaluate(m, {sims: 5000, seed: 99});
+  const count = r.noOutcome.get(chance);
+  assert.ok(count > 0 && count < 5000, 'range produces some, not all, zero-total draws: ' + count);
+  const warning = r.warnings.find(w => w.includes('no outcome contributed'));
+  assert.ok(warning && warning.includes(count + ' of 5000') && /\(\d+(?:\.\d)?%\)/.test(warning), warning);
+});
+
 test('nested decision inside chance: deepest decision resolved first', () => {
   // Chance leads to a sub-decision; the sub-decision must pick 300 (not 100),
   // making the chance branch worth 0.5×300 = 150 > the safe 120.

@@ -100,10 +100,47 @@ test('slide mode scales wider; chance-only tree has no verdict', () => {
 
 test('edit-in-place targets: tspans carry kind, line and raw source', () => {
   const m = parse(BID);
-  const svg = render(m, evaluate(m), ctx());
+  const svg = render(m, evaluate(m), ctx({edit: true}));
   assert.ok(svg.includes('data-edit="prob"') && svg.includes('data-raw="0.3-0.45"'));
   assert.ok(svg.includes('data-edit="value"') && svg.includes('data-raw="2M to 5M"'));
   assert.ok(svg.includes('data-edit="label"'));
+});
+
+test('native SVG export strips every live edit and keyboard-focus hook', () => {
+  const m = parse(BID);
+  const svg = render(m, evaluate(m), ctx({intent: 'native', edit: true}));
+  for(const token of ['data-edit=', 'data-menu=', 'data-hit=', 'data-raw=', 'tabindex=', 'role="button"']){
+    assert.ok(!svg.includes(token), 'native SVG must omit ' + token);
+  }
+});
+
+test('presentation export strips every live edit and keyboard-focus hook', () => {
+  const m = parse(BID);
+  const svg = render(m, evaluate(m), ctx({intent: 'presentation', edit: true}));
+  for(const token of ['data-edit=', 'data-menu=', 'data-hit=', 'data-raw=', 'tabindex=', 'role="button"']){
+    assert.ok(!svg.includes(token), 'presentation SVG must omit ' + token);
+  }
+});
+
+test('chance children are possible outcomes, never chosen outcomes', () => {
+  const m = parse(BID);
+  const svg = render(m, evaluate(m), ctx({intent: 'presentation'}));
+  assert.equal((svg.match(/POSSIBLE OUTCOME/g) || []).length, 2);
+  assert.ok(!svg.includes('CHOSEN OUTCOME'));
+});
+
+test('zero-effective-probability chance children are explicitly excluded', () => {
+  const m = parse('Root\n  Risk\n    Certain (p=1): 10\n    Impossible (p=rest): 999\n  Safe: 0');
+  const svg = render(m, evaluate(m), ctx({intent: 'presentation'}));
+  assert.ok(svg.includes('EXCLUDED · ZERO PROBABILITY'));
+  assert.equal((svg.match(/POSSIBLE OUTCOME/g) || []).length, 1);
+});
+
+test('hero evidence compares the recommendation with its closest EV competitor', () => {
+  const m = parse('Root\n  Distant: 0\n  Closest: 90\n  Recommend: 100');
+  const svg = render(m, evaluate(m), ctx());
+  assert.ok(svg.includes('beats Closest in'));
+  assert.ok(!svg.includes('beats Distant in'));
 });
 
 test('card menus expose a dependable 44px SVG hit target', () => {

@@ -59,7 +59,7 @@ const TOOLS = {
   tree: {
     keys: ['title', 'currency', 'palette', 'accent', 'verdict'],
     doc: ['title: T', 'currency: £', 'palette: ocean', 'accent: #C05621',
-      'verdict: We bid', 'Bid decision', '  Submit (p=0.5) : 100', '  Walk : 0'].join('\n'),
+      'verdict: We bid', 'Bid decision', '  Submit (p=0.5) : 100', '  Walk (p=rest) : 0'].join('\n'),
   },
   why: {
     keys: ['title', 'palette', 'accent'],
