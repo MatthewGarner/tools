@@ -1,10 +1,10 @@
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
    the DOM, the phase machine wiring, localStorage autosave, the WRITE timer, undo,
    and import-from-link. The doc is the single state; every mutation autosaves. */
-import {newEntry, mergeEntries, markdown, exposure, promote, isRisk, isScoreable,
+import {newEntry, mergeEntries, markdown, exposure, promote, promoteOpportunity, isRisk, isOpportunity, modeOf, isScoreable,
   isCompleteRange, exampleDoc} from './register.js';
 import {makeStore, toLink, fromLink} from './store.js';
-import {PHASES, canAdvance, advance, back, castVote} from './wizard.js';
+import {PHASES, canAdvance, advance, back, castVote, phaseLabel} from './wizard.js';
 import {renderPhase} from './render-wizard.js';
 import {renderBoard} from './render-board.js';
 import {debounced} from '../assets/schedule.js';
@@ -12,8 +12,6 @@ import {paintKicker, paintMetrics} from '../assets/verdict.js';
 
 const $ = id => document.getElementById(id);
 const store = makeStore();
-const LABELS = {FRAME: 'Frame', WRITE: 'Write', COLLECT: 'Collect', CLUSTER: 'Cluster',
-  SCORE: 'Score', ACTIONS: 'Actions', VOTE: 'Vote', REGISTER: 'Register'};
 const WRITE_SECS = 120;
 const DELETE_UNDO_MS = 10000;
 
@@ -24,9 +22,9 @@ const deletionTimers = new Map();   // doc id -> timer handle; one purge timer p
 const saveNow = () => { if(doc) store.save(doc); };
 const save = debounced(saveNow, 300);
 
-function newDoc(){
+function newDoc(mode = 'risk'){
   return {v: 1, id: (globalThis.crypto?.randomUUID?.() ?? 'd' + Date.now()),
-    title: '', question: '', unit: '£k', people: 5, phase: 'FRAME', entries: []};
+    mode, title: '', question: '', unit: '£k', people: 5, phase: 'FRAME', entries: []};
 }
 function snapshot(){ undoStack.push(structuredClone(doc)); if(undoStack.length > 20) undoStack.shift(); }
 function mutate(fn, paint = {}){ snapshot(); fn(); saveNow(); render(paint); }
@@ -35,6 +33,7 @@ const entry = id => doc.entries.find(e => e.id === id);
 /* ---------- render ---------- */
 function render(paint = {}){
   const home = !doc;
+  paintKicker($('kicker'), '10', doc && modeOf(doc) === 'success' ? 'Success made deliberately' : 'Failure named in advance');
   $('home').hidden = !home;
   $('workspace').hidden = home;
   if(timer){ clearInterval(timer); timer = 0; }
@@ -80,7 +79,7 @@ function finishPaint({focus = '', phaseFocus = false, announce = ''} = {}){
       if(!target.matches('button, input, select, textarea, a[href], [tabindex]')) target.tabIndex = -1;
       target.focus();
     }
-    const msg = announce || (phaseFocus && doc ? LABELS[doc.phase] + ' step' : '');
+    const msg = announce || (phaseFocus && doc ? phaseLabel(doc, doc.phase) + ' step' : '');
     if(msg){ $('announcer').textContent = ''; requestAnimationFrame(() => { $('announcer').textContent = msg; }); }
   });
 }
@@ -89,6 +88,13 @@ function finishPaint({focus = '', phaseFocus = false, announce = ''} = {}){
    existing render without adding a second exposure() pass. */
 function metricCounts(d){
   const entries = d.entries || [];
+  if(modeOf(d) === 'success'){
+    const opportunities = entries.filter(isOpportunity);
+    const essential = opportunities.filter(e => e.essential).length;
+    const board = entries.length - opportunities.length;
+    return [opportunities.length + ' opportunit' + (opportunities.length === 1 ? 'y' : 'ies'),
+      essential + ' must make true', board ? board + ' on the board' : ''];
+  }
   const risks = entries.filter(isRisk);
   const scored = risks.filter(isScoreable).length;
   const board = entries.length - risks.length;
@@ -110,17 +116,18 @@ function renderRail(){
     const cls = p === doc.phase ? 'current' : (i < cur || reached.has(p)) ? 'done' : '';
     const reachable = i <= cur || reached.has(p);
     return '<li class="' + cls + '"><button type="button" data-goto="' + p + '"' +
-      (p === doc.phase ? ' aria-current="step"' : '') + (reachable ? '' : ' disabled=""') + '>' + LABELS[p] + '</button></li>';
+      (p === doc.phase ? ' aria-current="step"' : '') + (reachable ? '' : ' disabled=""') + '>' + phaseLabel(doc, p) + '</button></li>';
   }).join('');
 }
 function renderHome(){
   const list = store.list().sort((a, b) => b.saved - a.saved);
   $('savedlist').innerHTML = list.length ? list.map(m => {
-    const n = m.risks ?? m.entries;   // risks only; old metas (pre-board) have no .risks but were all risks
+    const preParade = m.mode === 'success';
+    const n = preParade ? (m.opportunities ?? m.entries) : (m.risks ?? m.entries);
     const title = m.title ? m.title : 'Untitled premortem';
     return '<div class="savedrow" data-id="' + escHtml(m.id) + '"><button type="button" class="stitle" data-open="' + escHtml(m.id) + '">' +
     escHtml(title) + '</button>' +
-    '<span class="smeta">' + n + ' risk' + (n === 1 ? '' : 's') + '</span>' +
+    '<span class="smeta">' + n + ' ' + (preParade ? 'opportunit' + (n === 1 ? 'y' : 'ies') : 'risk' + (n === 1 ? '' : 's')) + (preParade ? ' · pre-parade' : '') + '</span>' +
     '<button class="sdel" data-del="' + escHtml(m.id) + '" aria-label="Delete ' + escHtml(title) + '">×</button></div>'; }).join('')
     : '<p class="savedempty">No registers yet — start a premortem below.</p>';
   renderDeletionFeedback();
@@ -223,11 +230,17 @@ boardPanel.addEventListener('click', e => {
       {focus: kind ? '[data-add-kind="' + kind + '"]' : '', announce: label + ' deleted. Undo available.'});
   }
   else if(d.promote){ promotingId = d.promote; render();
-    requestAnimationFrame(() => boardPanel.querySelector('[data-promoteimpact="lo"]')?.focus()); }
+    requestAnimationFrame(() => boardPanel.querySelector(modeOf(doc) === 'success' ? '[data-promoteok]' : '[data-promoteimpact="lo"]')?.focus()); }
   else if(d.promotecancel){ promotingId = null; render({focus: '[data-promote]'}); }
   else if(d.promoteok){ confirmPromote(d.promoteok); }
 });
 function confirmPromote(id){
+  if(modeOf(doc) === 'success'){
+    promotingId = null; view = 'register';
+    mutate(() => { doc.entries = doc.entries.map(x => x.id === id ? promoteOpportunity(x) : x); },
+      {phaseFocus: true, announce: 'Opportunity added to success register'});
+    return;
+  }
   const wrap = boardPanel.querySelector('.bcard.promoting[data-id="' + id + '"]');
   if(!wrap) return;
   const num = sel => { const v = wrap.querySelector(sel)?.value; return v === '' || v == null ? null : +v; };
@@ -245,8 +258,12 @@ function confirmPromote(id){
 
 /* ---------- home ---------- */
 $('newbtn').addEventListener('click', () => {
-  doc = newDoc(); undoStack = []; reached = new Set(); view = 'wizard'; promotingId = null; saveNow();
+  doc = newDoc('risk'); undoStack = []; reached = new Set(); view = 'wizard'; promotingId = null; saveNow();
   render({focus: '[data-field="title"]', announce: 'New premortem'});
+});
+$('newparade').addEventListener('click', () => {
+  doc = newDoc('success'); undoStack = []; reached = new Set(); view = 'wizard'; promotingId = null; saveNow();
+  render({focus: '[data-field="title"]', announce: 'New pre-parade'});
 });
 $('homebtn').addEventListener('click', () => {
   saveNow(); doc = null; undoStack = []; promotingId = null; render({focus: '#home h2', announce: 'Your registers'});
@@ -307,13 +324,16 @@ function updatePool(){ if(doc.phase === 'VOTE') render({focus: '[data-field="peo
 $('phasepanel').addEventListener('keydown', e => {
   if(e.target.dataset.add === 'entry' && e.key === 'Enter'){
     const v = e.target.value.trim();
-    if(v) mutate(() => { doc.entries.push(newEntry(v)); });
+    if(v) mutate(() => { doc.entries.push(newEntry(v, {kind: modeOf(doc) === 'success' ? 'opportunity' : 'risk'})); });
     requestAnimationFrame(() => $('phasepanel').querySelector('[data-add="entry"]')?.focus());
   }
 });
 $('phasepanel').addEventListener('change', e => {
   const d = e.target.dataset;
-  if(d.cluster !== undefined){
+  if(d.essential !== undefined){
+    mutate(() => { const en = entry(d.essential); if(en) en.essential = e.target.checked; },
+      {focus: '[data-essential="' + d.essential + '"]'});
+  } else if(d.cluster !== undefined){
     let val = e.target.value;
     if(val === '__new'){ val = (prompt('New cluster name') || '').trim(); if(!val){ render(); return; } }
     mutate(() => { const en = entry(d.cluster); if(en) en.cluster = val || null; },
@@ -331,7 +351,7 @@ $('phasepanel').addEventListener('click', e => {
       {focus: '[data-tag="' + d.tag + '"][data-id="' + d.id + '"]'});
   }
   else if(d.del){
-    const label = entry(d.del)?.text || 'Risk';
+    const label = entry(d.del)?.text || (modeOf(doc) === 'success' ? 'Opportunity' : 'Risk');
     mutate(() => { doc.entries = doc.entries.filter(x => x.id !== d.del); },
       {focus: '[data-add="entry"]', announce: label + ' deleted.'});
   }
@@ -362,9 +382,9 @@ $('phasepanel').addEventListener('click', e => {
   }
   else if(d.act === 'copylink'){ copyLink(); }
   else if(d.act === 'copydoc'){ copyDoc(); }
-  else if(d.act === 'reviewall'){ if(confirm('Mark every risk reviewed today?')) mutate(() => {
+  else if(d.act === 'reviewall'){ if(confirm('Mark every ' + (modeOf(doc) === 'success' ? 'opportunity' : 'risk') + ' reviewed today?')) mutate(() => {
     const now = new Date().toISOString(); doc.entries.forEach(en => { en.lastReviewed = now; }); },
-    {focus: '[data-act="reviewall"]', announce: 'All risks marked reviewed.'}); }
+    {focus: '[data-act="reviewall"]', announce: 'All ' + (modeOf(doc) === 'success' ? 'opportunities' : 'risks') + ' marked reviewed.'}); }
 });
 async function copyLink(){
   const link = await toLink(doc);
@@ -383,7 +403,6 @@ function toast(msg){
 
 /* ---------- boot ---------- */
 (async function boot(){
-  paintKicker($('kicker'), '10', 'Failure named in advance');
 /* board re-renders wholesale, so the chip is delegated, not wired per paint */
 $('boardpanel').addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('.vcopy');

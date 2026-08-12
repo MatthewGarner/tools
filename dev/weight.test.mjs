@@ -159,7 +159,12 @@ const PAGES = {
      retain ~6.2k headroom for this CodeMirror page. */
   'case/index.html': 479_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
-  'premortem/index.html': 113_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
+  /* 113k -> 125k (2026-08-13 pre-parade): the inverse workshop adds a distinct
+     opportunity register, commitment-only rendering/markdown, explicit home
+     entry point and shared phase language. It deliberately does not reuse risk
+     scoring, so the retained code is semantic protection rather than duplicated
+     presentation. Actual ~120.2k; retain ~4.8k headroom. */
+  'premortem/index.html': 125_000,
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:

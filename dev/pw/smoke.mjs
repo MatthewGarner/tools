@@ -424,6 +424,36 @@ for(const theme of ['light', 'dark']){
   check('premortem(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
+/* ---- pre-parade: inverse planning without invented success arithmetic ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/premortem/', theme);
+  await page.waitForTimeout(350);
+  await page.reload(); await page.waitForTimeout(250);
+  await page.click('#newparade'); await page.waitForTimeout(120);
+  await page.fill('[data-field="title"]', 'Habitat breakthrough');
+  await page.fill('[data-field="question"]', 'It is a runaway success. What did we do?');
+  await page.click('#next'); await page.waitForTimeout(100);
+  await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(100);
+  await page.fill('[data-add="entry"]', 'Keep the old onboarding reversible');
+  await page.press('[data-add="entry"]', 'Enter'); await page.waitForTimeout(100);
+  await page.click('#next'); await page.waitForTimeout(80); // cluster
+  await page.click('#next'); await page.waitForTimeout(80); // commit
+  check('pre-parade(' + theme + '): commits conditions rather than scoring likelihood or impact',
+    await page.locator('[data-essential]').count() === 1 && await page.locator('[data-p]').count() === 0 && await page.locator('[data-impact]').count() === 0);
+  check('pre-parade(' + theme + '): cannot advance without an explicit must-make-true condition', await page.locator('#next').isDisabled());
+  await page.check('[data-essential]'); await page.waitForTimeout(80);
+  await page.click('#next'); await page.waitForTimeout(80); // actions
+  await page.click('[data-actadd]'); await page.waitForTimeout(80);
+  await page.fill('[data-action="text"]', 'Run an A/B cutover');
+  await page.fill('[data-action="owner"]', 'Alex');
+  await page.click('#next'); await page.waitForTimeout(80); // vote
+  await page.click('#next'); await page.waitForTimeout(160); // register
+  const text = await page.locator('#phasepanel').innerText();
+  check('pre-parade(' + theme + '): success register names deliberate commitments, not a portfolio forecast',
+    text.toLowerCase().includes('success register') && text.toLowerCase().includes('must make true') && !text.includes('Portfolio exposure'));
+  check('pre-parade(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
 /* ---- premortem FAB board (Stage 2): three columns, promote → register ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/premortem/', theme);

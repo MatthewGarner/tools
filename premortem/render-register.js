@@ -3,9 +3,10 @@
    the portfolio line with its independence caveat, and a stale-count nag. */
 import {esc} from '../assets/svg.js';
 import {fmt} from '../assets/series.js';
-import {ranked, staleness, staleCount, isRisk, isScoreable} from './register.js';
+import {ranked, staleness, staleCount, isRisk, isScoreable, isOpportunity, modeOf} from './register.js';
 
 export function renderRegister(doc, exp, now = new Date()){
+  if(modeOf(doc) === 'success') return renderSuccessRegister(doc, now);
   const risks = (doc.entries || []).filter(isRisk);   // the register is risks only; board items live on the board
   const rows = ranked(risks, exp);
   const u = doc.unit ? ' ' + esc(doc.unit) : '';
@@ -50,4 +51,26 @@ export function renderRegister(doc, exp, now = new Date()){
     '<button class="btn" data-act="copydoc">Copy as markdown</button>' +
     '<button class="btn" data-act="reviewall">Mark all reviewed today</button>' +
     '<span class="method">Seeded Monte Carlo · the register lives in this browser; a link imports a copy</span></div>';
+}
+
+function renderSuccessRegister(doc, now){
+  const opportunities = (doc.entries || []).filter(isOpportunity).slice().sort((a, b) =>
+    Number(b.essential) - Number(a.essential) ||
+    b.actions.reduce((s, x) => s + (x.votes || 0), 0) - a.actions.reduce((s, x) => s + (x.votes || 0), 0));
+  const stale = staleCount(opportunities, now);
+  const body = opportunities.map((e, i) => {
+    const votes = e.actions.reduce((s, a) => s + (a.votes || 0), 0);
+    const st = staleness(e, now);
+    return '<tr class="rrow ' + st + '" data-id="' + e.id + '"><td class="rnum">' + (i + 1) + '</td>' +
+      '<td class="rtext">' + esc(e.text) + (e.essential ? '<span class="commitpill">must make true</span>' : '<span class="supportpill">supporting</span>') +
+      (e.cluster ? '<span class="clusterchip">' + esc(e.cluster) + '</span>' : '') + '</td>' +
+      '<td>' + e.actions.length + ' action' + (e.actions.length === 1 ? '' : 's') + '</td><td>' + votes + ' vote' + (votes === 1 ? '' : 's') +
+      '</td><td><span class="statuspill ' + e.status + '">' + esc(e.status) + '</span></td><td class="rstale">' + st + '</td></tr>';
+  }).join('');
+  return '<div class="reghead" role="heading" aria-level="2" tabindex="-1"><span class="regplane">Success register</span>' +
+    (doc.title ? '<span class="regsubject">' + esc(doc.title) + '</span>' : '') + '</div>' +
+    '<p class="registernote">A pre-parade records conditions we choose to make true. It is not a forecast, and it carries no invented upside score.</p>' +
+    '<div class="registerwrap"><table class="register successregister"><thead><tr><th></th><th>Opportunity</th><th>Actions</th><th>Votes</th><th>Status</th><th>Review</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+    (stale ? '<p class="stalenag">' + stale + ' ' + (stale === 1 ? 'opportunity' : 'opportunities') + ' not reviewed in 90 days — revisit the commitments or close them.</p>' : '') +
+    '<div class="actions"><button class="btn" data-act="copylink">Copy link</button><button class="btn" data-act="copydoc">Copy as markdown</button><button class="btn" data-act="reviewall">Mark all reviewed today</button><span class="method">A deliberate success-condition register · this browser keeps the copy</span></div>';
 }

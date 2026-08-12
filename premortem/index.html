@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Premortem</title>
-<meta name="description" content="Run a premortem — imagine the launch already failed and work backwards — into a living, EV-ranked risk register with honest uncertainty ranges and staleness that keeps it from lying.">
+<meta name="description" content="Run a premortem or pre-parade: turn failure modes into an honest risk register, or success conditions into deliberate commitments.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
@@ -27,7 +27,7 @@
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Premortem</h1>
-    <p class="tagline">Imagine it's already failed and work backwards — the failure you can name in advance is the one you can still prevent. The workshop is the front door; a living, EV-ranked risk register is what you keep.</p>
+    <p class="tagline">Use a premortem to name failure before it is costly, or a pre-parade to name the conditions you will deliberately make true. The workshop is the front door; the kept register makes the uncertainty honest.</p>
   </header>
 
   <main>
@@ -39,7 +39,7 @@
         <span id="homefeedbacktext" role="status" aria-live="polite"></span>
         <button class="btn" id="restoredeleted" type="button">Undo delete</button>
       </div>
-      <div class="actions"><button class="btn primary" id="newbtn">＋ New premortem</button></div>
+      <div class="actions"><button class="btn primary" id="newbtn">＋ New premortem</button><button class="btn" id="newparade">＋ New pre-parade</button></div>
     </div>
   </div>
 
@@ -71,11 +71,12 @@
   <div class="sr-status" id="announcer" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div class="about">
-    <h2>Why imagine failure first</h2>
+    <h2>Why rehearse both sides deliberately</h2>
     <div class="prose">
     <p>A premortem — Gary Klein's move, sharpened by Kahneman — flips the risk conversation. Instead of asking "what could go wrong?" (which invites polite, hedged answers), it asserts the project has already failed, months from now, and asks the room to explain why. Prospective hindsight loosens tongues: naming a concrete failure that <em>has happened</em> is socially far cheaper than raising a doubt about a plan everyone's committed to, and it surfaces the risks the optimism of a kickoff buries. Silent writing before any discussion keeps the first confident voice from anchoring everyone else — the wisdom of the room only shows up when its guesses start independent.</p>
+    <p>A pre-parade uses the same independence in the opposite direction: assume the effort became a runaway success, then name the conditions the team deliberately made true. Those conditions are commitments, not a probability-weighted upside forecast. Keeping them separate from the risk register is the point: optimism becomes concrete work rather than a green version of certainty.</p>
     <p>The output is where most premortems fail: a flip-chart photo nobody looks at again. This one lands each risk in a register with two honest ranges — how likely, and how much it costs — sampled as 90% intervals, not a false 3×3 red/amber/green. Exposure is likelihood × impact run as a Monte Carlo, so the ranking reflects genuine uncertainty and a portfolio line shows the sum (with the honest caveat that correlated risks stack higher than independent ones). Every risk carries owned actions, dot-voted so the room's attention goes to the mitigations worth doing first.</p>
-    <p>And a register only earns its keep if it stays alive. Each entry ages — fresh, then ageing, then stale past 90 days — with a visible fade and a nag, because an unreviewed risk register quietly lies: it reads as "we're on top of this" when really nobody has looked. Review it or close it. Everything lives in this browser (no accounts, no server); a link exports a copy so you can hand it on, never bind two people to one list. Sources: Klein, "Performing a Project Premortem"; Kahneman, <em>Thinking, Fast and Slow</em>.</p>
+    <p>And a register only earns its keep if it stays alive. Each entry ages — fresh, then ageing, then stale past 90 days — with a visible fade and a nag, because an unreviewed register quietly lies: it reads as "we're on top of this" when really nobody has looked. Review it or close it. Everything lives in this browser (no accounts, no server); a link exports a copy so you can hand it on, never bind two people to one list. Sources: Klein, "Performing a Project Premortem"; Kahneman, <em>Thinking, Fast and Slow</em>.</p>
     </div>
   </div>
   </main>

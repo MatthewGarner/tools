@@ -549,6 +549,30 @@ for(const es of END_STATES){
   await pctx.close();
 }
 
+// pre-parade on a phone: success conditions use the same workshop mechanics but
+// must remain a distinct no-portfolio register; no score grid is allowed to leak.
+{
+  const pctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  const page = await pctx.newPage();
+  await page.goto(T + '/premortem/', {waitUntil: 'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(350);
+  await page.reload(); await page.waitForTimeout(220);
+  await page.click('#newparade');
+  await page.fill('[data-field="title"]', 'Habitat phone breakthrough');
+  await page.fill('[data-field="question"]', 'Why did it win?');
+  await page.click('#next'); await page.click('[data-act="skiptimer"]');
+  await page.fill('[data-add="entry"]', 'Keep the old onboarding reversible'); await page.press('[data-add="entry"]', 'Enter');
+  await page.click('#next'); await page.click('#next');
+  const widths = await page.locator('[data-essential]').evaluateAll(nodes => nodes.map(n => ({w: n.getBoundingClientRect().width, h: n.closest('label').getBoundingClientRect().height})));
+  ok(widths.length === 1 && widths[0].h >= 44, 'pre-parade: must-make-true control is a 44px phone target');
+  ok(await page.locator('[data-p]').count() === 0 && await page.locator('[data-impact]').count() === 0, 'pre-parade: phone commit step has no pseudo-numeric score');
+  await page.check('[data-essential]'); await page.click('#next'); await page.click('#next'); await page.click('#next');
+  const vp = await page.evaluate(() => ({sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, text: document.querySelector('#phasepanel').innerText}));
+  ok(vp.sw <= vp.vw + 1, 'pre-parade: success register has no phone page overflow');
+  ok(vp.text.toLowerCase().includes('success register') && !vp.text.includes('Portfolio exposure'), 'pre-parade: phone register retains the no-forecast receipt');
+  await page.close(); await pctx.close();
+}
+
 // WIDENED cardmenu gate: on phone width, every non-ghost card exposes a
 // data-hit tap rect at least 44px on its long axis, and no two tap rects
 // intersect — a thumb must be able to land on exactly one card. Measures

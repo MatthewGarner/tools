@@ -10,6 +10,10 @@ let seq = 0;
 const iso = d => (d instanceof Date ? d : new Date()).toISOString();
 const effDist = lo => lo > 0 ? 'logn' : 'norm';           // matches fermi's effDist for auto
 export const isRisk = e => !!e && e.kind === 'risk';   // board items (fact/assumption/belief) share doc.entries but stay off the wizard + register
+export const isOpportunity = e => !!e && e.kind === 'opportunity';
+export const modeOf = doc => doc?.mode === 'success' ? 'success' : 'risk';
+export const registerKind = doc => modeOf(doc) === 'success' ? 'opportunity' : 'risk';
+export const isRegisterEntry = (doc, entry) => entry?.kind === registerKind(doc);
 export function isCompleteRange(range, min = 0, max = Infinity){
   return Array.isArray(range) && range.length === 2 &&
     range.every(v => Number.isFinite(v) && v >= min && v <= max) && range[0] <= range[1];
@@ -18,7 +22,7 @@ export const isScoreable = e => !!e && isCompleteRange(e.p, 0, 100) && isComplet
 
 export function newEntry(text, over = {}){
   const now = iso(new Date());
-  return {id: nextId(), text: text || '', kind: 'risk', tag: null, cluster: null,
+  return {id: nextId(), text: text || '', kind: 'risk', tag: null, cluster: null, essential: false,
     p: null, impact: null, actions: [], votes: 0, status: 'open',
     created: now, lastReviewed: now, ...over};
 }
@@ -95,9 +99,13 @@ export function mergeEntries(entries, srcId, dstId){
 }
 
 export function promote(entry, p, impact){ return {...entry, kind: 'risk', p, impact}; }
+export function promoteOpportunity(entry){
+  return {...entry, kind: 'opportunity', p: null, impact: null, essential: false};
+}
 
 const pctRange = p => p ? p[0] + '–' + p[1] + '%' : '—';
 export function markdown(doc, exp, now = new Date()){
+  if(modeOf(doc) === 'success') return successMarkdown(doc, now);
   const u = doc.unit ? ' ' + doc.unit : '';
   const risks = (doc.entries || []).filter(isRisk);   // export the register (risks), never board items
   const rows = ranked(risks, exp).filter(isScoreable);
@@ -116,6 +124,29 @@ export function markdown(doc, exp, now = new Date()){
   if(acts.length){
     out.push('', '## Actions', '');
     for(const a of acts) out.push('- ' + a.text + (a.owner ? ' — ' + a.owner : '') + ' _(' + a.risk + ')_');
+  }
+  return out.join('\n') + '\n';
+}
+
+function successMarkdown(doc, now){
+  const opportunities = (doc.entries || []).filter(isOpportunity).slice().sort((a, b) =>
+    Number(b.essential) - Number(a.essential) ||
+    b.actions.reduce((s, x) => s + (x.votes || 0), 0) - a.actions.reduce((s, x) => s + (x.votes || 0), 0));
+  const out = ['# ' + (doc.title || 'Success register'),
+    doc.question ? '\n_' + doc.question + '_' : '',
+    '', '## Success register', '', 'This is a pre-parade: conditions deliberately made true, not a forecast of success.',
+    '', '| # | Opportunity | Commitment | Actions | Status | Review |',
+    '|---|-------------|------------|---------|--------|--------|'];
+  opportunities.forEach((e, i) => {
+    const votes = e.actions.reduce((s, a) => s + (a.votes || 0), 0);
+    out.push('| ' + (i + 1) + ' | ' + e.text + ' | ' + (e.essential ? 'Must make true' : 'Supporting') +
+      ' | ' + e.actions.length + ' (' + votes + ' votes) | ' + e.status + ' | ' + staleness(e, now) + ' |');
+  });
+  const acts = opportunities.flatMap(e => e.actions.map(a => ({...a, opportunity: e.text})))
+    .sort((a, b) => (b.votes || 0) - (a.votes || 0));
+  if(acts.length){
+    out.push('', '## Deliberate actions', '');
+    for(const a of acts) out.push('- ' + a.text + (a.owner ? ' — ' + a.owner : '') + ' _(' + a.opportunity + ')_');
   }
   return out.join('\n') + '\n';
 }

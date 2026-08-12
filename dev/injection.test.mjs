@@ -514,6 +514,13 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
   assertClean(renderRegister(doc, exposure(doc.entries), new Date()), 'premortem-register');
   assertClean(renderBoard(doc, new Date()), 'premortem-board');
   assertClean(renderBoard(doc, new Date(), board[1].id), 'premortem-board-promoting');
+  const opportunity = {...newEntry(EVIL[1]), kind: 'opportunity', essential: true,
+    actions: [{text: EVIL[0], owner: EVIL[2], done: false, votes: 1}]};
+  const preParade = {...doc, mode: 'success', entries: [opportunity, ...board]};
+  for(const phase of ['FRAME', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE'])
+    assertClean(renderPhase({...preParade, phase}), 'pre-parade-' + phase);
+  assertClean(renderRegister(preParade, exposure([]), new Date()), 'pre-parade-register');
+  assertClean(renderBoard(preParade, new Date(), board[1].id), 'pre-parade-board-promoting');
 });
 
 /* ---------- authored verdicts (2026-07-31, roadmap joined 2026-08-09) ----------

@@ -6,7 +6,7 @@
    string through esc(); risks are NOT shown here (they live in the register). */
 import {esc} from '../assets/svg.js';
 import {markFigure} from '../assets/verdict.js';
-import {isCompleteRange} from './register.js';
+import {isCompleteRange, modeOf} from './register.js';
 
 const COLS = [
   ['fact', 'Facts', 'What we actually know — verified, not hoped'],
@@ -20,7 +20,7 @@ export function renderBoard(doc, now = new Date(), promotingId = null){
   const entries = doc.entries || [];
   const cols = COLS.map(([kind, label, hint]) => {
     const cards = entries.filter(e => e.kind === kind)
-      .map(e => card(e, kind, e.id === promotingId)).join('');
+      .map(e => card(e, kind, e.id === promotingId, modeOf(doc) === 'success')).join('');
     return '<section class="bcol" data-col="' + kind + '">' +
       '<h3 class="bcolh">' + label + '</h3>' +
       '<p class="bcolhint">' + hint + '</p>' +
@@ -29,7 +29,7 @@ export function renderBoard(doc, now = new Date(), promotingId = null){
         'placeholder="Add ' + article(kind) + ' ' + kind + ' — press Enter" aria-label="Add ' + article(kind) + ' ' + kind + '">' +
       '</section>';
   }).join('');
-  const bv = boardVerdict(entries);
+  const bv = boardVerdict(entries, modeOf(doc));
   /* the Copy chip is a SIBLING of the block (same rule as wireCopyVerdict:
      never inside the aria-live region); delegated listener in app.js */
   return '<div class="board">' + cols + '</div>' + verdictBlock(bv) +
@@ -48,7 +48,7 @@ function verdictBlock({line, fig}){
     '<p class="vline">' + runs + '</p></div>';
 }
 
-function card(e, kind, promoting){
+function card(e, kind, promoting, success){
   const promotable = kind !== 'fact';
   const conf = Array.isArray(e.p) ? e.p : null;
   const completeConf = isCompleteRange(conf, 0, 100);
@@ -57,6 +57,9 @@ function card(e, kind, promoting){
   if(!promotable)
     return '<div class="bcard fact" data-id="' + e.id + '">' + head + '</div>';
   if(promoting){
+    if(success) return '<div class="bcard promoting" data-id="' + e.id + '">' + head +
+      '<div class="promoteform"><p class="pfhint">What condition will we deliberately make true because this matters?</p>' +
+      '<div class="pfbtns"><button class="btn primary" data-promoteok="' + e.id + '">Add to success register</button><button class="btn" data-promotecancel="' + e.id + '">Cancel</button></div></div></div>';
     // p flips meaning: likelihood it BREAKS. Pre-fill from the inverse of the
     // confidence-it-holds range when it is complete and valid. Legacy partial
     // values are left blank rather than turned into invented likelihood bounds.
@@ -78,18 +81,19 @@ function card(e, kind, promoting){
     '<span class="bconf"><label>confidence it holds</label>' +
     '<input type="number" min="0" max="100" data-conf="lo" data-id="' + e.id + '" value="' + (conf?.[0] ?? '') + '" aria-label="Confidence low for ' + esc(e.text) + '">–' +
     '<input type="number" min="0" max="100" data-conf="hi" data-id="' + e.id + '" value="' + (conf?.[1] ?? '') + '" aria-label="Confidence high for ' + esc(e.text) + '">%</span>' +
-    '<button class="btn bcpromote" data-promote="' + e.id + '">Promote to risk →</button>' +
+    '<button class="btn bcpromote" data-promote="' + e.id + '">' + (success ? 'Add to success register →' : 'Promote to risk →') + '</button>' +
     '</div>';
 }
 
 /* The board's one quotable line + the load-bearing run inside it (which always
    appears verbatim in `line`). Plain text — the caller escapes. */
-export function boardVerdict(entries){
+export function boardVerdict(entries, mode = 'risk'){
   const list = entries || [];
+  const success = mode === 'success';
   const shaky = list.filter(e => e.kind === 'assumption' || e.kind === 'belief').length;
   const facts = list.filter(e => e.kind === 'fact').length;
   if(!shaky && !facts) return {
-    line: 'Empty board. Capture what you know, what you\'re assuming, and what you merely believe — then promote the shaky ones that would hurt if wrong.',
+    line: 'Empty board. Capture what you know, what you\'re assuming, and what you merely believe — then ' + (success ? 'add the conditions worth deliberately making true.' : 'promote the shaky ones that would hurt if wrong.'),
     fig: ''};   // no number, no red — a phrase is never the brand figure
   if(!shaky) return {
     line: facts + ' fact' + (facts === 1 ? '' : 's') +
@@ -97,6 +101,6 @@ export function boardVerdict(entries){
     fig: String(facts)};
   return {
     line: shaky + ' assumption' + (shaky === 1 ? '' : 's') + ' & belief' + (shaky === 1 ? '' : 's') +
-      ' on the board — the ones that would hurt if wrong belong in the register. Promote them.',
+      ' on the board — ' + (success ? 'the ones worth deliberately making true belong in the success register. Add them.' : 'the ones that would hurt if wrong belong in the register. Promote them.'),
     fig: String(shaky)};
 }
