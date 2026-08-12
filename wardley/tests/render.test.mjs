@@ -59,6 +59,7 @@ test('board: flat plane, stage labels under the axis, axis micros, metrics, read
   assert.match(s, /letter-spacing="1\.8"[^>]*>INVISIBLE</);
   assert.ok(!s.includes('closer to the user need'), 'the sentence-case axis caption is retired');
   assert.match(s, /map|discovery|execution/);             // readout verdict present
+  assert.match(s, /evolution positions are working claims/);
   wellFormed(s);
   assert.ok(!s.includes('NaN'));
 });
@@ -125,6 +126,7 @@ test('markdown groups by stage, lists ghosts, carries the live link', async () =
   assert.match(md, /unplaced: Push gateway/);
   assert.match(md, /example\.com/);
   assert.match(md, /3 dependencies/);
+  assert.match(md, /current strategic claims — not dates, forecasts, or delivery commitments/);
 });
 
 test('readout: names the load-bearing custom component as the biggest bet', async () => {
@@ -145,10 +147,11 @@ Need -> App B -> Core engine`);
 test('readout: composition verdict when nothing is load-bearing left of product', async () => {
   const {mapReadout} = await import('../render.js');
   const exec = parse('anchor: N\nA @ product\nB @ commodity\nN -> A -> B');
-  assert.match(mapReadout(exec, mapLayout(exec)).verdict, /execution map/);
+  assert.match(mapReadout(exec, mapLayout(exec)).verdict, /execution landscape/);
+  assert.match(mapReadout(exec, mapLayout(exec)).verdict, /not a delivery forecast/);
   assert.equal(mapReadout(exec, mapLayout(exec)).fig, '');   // no single number to quote
   const disco = parse('anchor: N\nA @ genesis\nB @ custom\nN -> A\nN -> B');
-  assert.match(mapReadout(disco, mapLayout(disco)).verdict, /discovery/);
+  assert.match(mapReadout(disco, mapLayout(disco)).verdict, /discovery landscape/);
 });
 
 test('readout: flags ghosts and dropped loops by name', async () => {
