@@ -780,7 +780,9 @@ for(const theme of ['light', 'dark']){
   await page.locator('#viewmap').click();
   await page.waitForTimeout(500);
   const map = await page.locator('#preview svg').innerHTML();
-  check('why(' + theme + '): roadmap view derives columns', map.includes('NOW') && map.includes('Streak freeze'));
+  check('why(' + theme + '): delivery lens derives columns without claiming an operating roadmap',
+    map.includes('NOW') && map.includes('Streak freeze') &&
+    (await page.locator('#viewnote').textContent()).includes('not delivery capacity or a decision plan'));
   check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
   check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
   check('why(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));

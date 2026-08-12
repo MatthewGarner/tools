@@ -29,7 +29,7 @@
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Why</h1>
-    <p class="tagline">Your roadmap and your opportunity solution tree disagree because they're maintained separately. Write one tree — outcomes, opportunities, solutions, assumptions — and project it two ways: the OST for discovery, the roadmap for delivery. Same file, so they can't drift.</p>
+    <p class="tagline">Your roadmap and your opportunity solution tree disagree because they're maintained separately. Write one tree — outcomes, opportunities, solutions, assumptions — and project it two ways: the OST for discovery, a delivery lens for readiness. Same file, so they can't drift.</p>
   </header>
 </div>
 
@@ -57,7 +57,7 @@
           <dd>a solution — the status tag makes it one: <code>[candidate]</code> <code>[testing]</code> <code>[delivering]</code> <code>[shipped]</code> <code>[parked]</code></dd>
           <dt><code data-try="">? users want this [holds]</code></dt>
           <dd>an assumption under a solution: <code>[untested]</code> (default) <code>[testing]</code> <code>[holds]</code> <code>[broken]</code></dd>
-          <dt>roadmap columns</dt>
+          <dt>delivery-lens columns</dt>
           <dd>derived, never declared: NOW = delivering · NEXT = testing · LATER = opportunities without committed solutions</dd>
         </dl>
       </details>
@@ -66,8 +66,9 @@
     <section class="stage">
       <div class="viewtoggle segmented" role="tablist">
         <button id="viewost" class="on" role="tab" aria-selected="true">OST</button>
-        <button id="viewmap" role="tab" aria-selected="false">Roadmap</button>
+        <button id="viewmap" role="tab" aria-selected="false">Delivery lens</button>
       </div>
+      <p class="viewnote" id="viewnote">Discovery lens — trace every solution to the customer opportunity and assumption it relies on.</p>
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
@@ -99,7 +100,7 @@
     <h2>Why one file?</h2>
     <div class="prose">
     <p>Teresa Torres's <a href="https://www.producttalk.org/opportunity-solution-trees/" target="_blank" rel="noopener">Opportunity Solution Tree</a> keeps solutions tethered to customer needs and a desired outcome; a now/next/later roadmap communicates sequence and intent. Teams keep both — maintained separately — and they drift: roadmap items lose their why, tested-nowhere solutions quietly become commitments. Here both are projections of the same text, so drift is structurally impossible.</p>
-    <p>The roadmap columns are derived from discovery status, never declared: NOW holds what you're delivering, NEXT holds what you're still testing, and LATER holds <em>opportunities</em> — needs you've acknowledged but haven't committed a solution to. That takes Janna Bastow's rule that later items should be problem statements to its logical end, and it means the roadmap cannot claim more certainty than your discovery supports.</p>
+    <p>The delivery-lens columns are derived from discovery status, never declared: NOW holds what you're delivering, NEXT holds what you're still testing, and LATER holds <em>opportunities</em> — needs you've acknowledged but haven't committed a solution to. That takes Janna Bastow's rule that later items should be problem statements to its logical end, and it means the lens cannot claim more certainty than your discovery supports. It is not an operating roadmap: use <a href="/roadmap/">Roadmap</a> for delivery commitments and <a href="/paths/">Paths</a> when outcomes could stop, pivot, or expand the work.</p>
     <p>The projections also audit each other: solutions with no opportunity ancestry land in a <strong>no why</strong> lane; committed solutions whose assumptions are all untested get an <strong>untested bet</strong> badge; a <strong>broken assumption</strong> on something you're delivering is the loudest flag on the page. Sources: Torres, <em>Continuous Discovery Habits</em>; Bastow on <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">now/next/later</a>.</p>
     </div>
   </section>

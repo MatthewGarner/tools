@@ -8,6 +8,7 @@
 
 /* view toggle */
 .viewtoggle{margin-bottom:12px}   /* type from the shared .segmented control */
+.viewnote{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.45;max-width:68ch}
 
 /* card bodies are menu targets (rename / status / add child / remove branch) in edit mode */
 .preview svg [data-edit^="cardmenu"]{cursor:pointer}
