@@ -67,11 +67,26 @@ test('gaugeHandoff: flagged items become prob questions that gauge itself parses
   const m = mparse('preset: assumptions\ntitle: Habitat — launch assumptions\nUsers will log daily @ 20,80\nSafe thing @ 80,20\nRisky pay claim @ 30,90');
   const r = resolve(m);
   const doc = gaugeHandoff(m, readout(m, r));
-  assert.ok(doc.includes('title: Habitat — launch assumptions — assumption check'));
+  assert.ok(doc.includes('title: Habitat — launch assumptions — room prior'));
+  assert.ok(doc.includes('does not replace a test'));
   const back = gparse(doc);
   assert.equal(back.questions.length, 2);              // the two test-first flags
   assert.ok(back.questions.every(q => q.type === 'prob'));
   assert.ok(back.questions.some(q => q.text === 'Users will log daily'));
+});
+
+test('gaugeHandoff: flags from other map methods never become invented probability questions', () => {
+  for(const src of [
+    'preset: risk\nUnowned severe @ 80,90',
+    'preset: stakeholders\nUnread executive @ 20,85',
+    'preset: skills\nOne-brain critical skill @ 20,90',
+    'preset: rag\nGreen claim on weak evidence @ 20,20 :: reported: green',
+  ]){
+    const m = mparse(src);
+    const r = resolve(m);
+    assert.ok(readout(m, r).flagged.length, src);
+    assert.equal(gaugeHandoff(m, readout(m, r)), null, src);
+  }
 });
 
 test('gaugeHandoff: nothing flagged → null', () => {

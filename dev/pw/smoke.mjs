@@ -835,7 +835,7 @@ for(const theme of ['light', 'dark']){
   })());
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('map(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('map(' + theme + '): flagged assumptions hand off to gauge (#93)', await (async () => {
+  check('map(' + theme + '): untested assumptions hand off to a clearly labelled Gauge-prior session (#93)', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(500);
     if(await page.locator('#togauge').isHidden()) return false;
@@ -848,7 +848,12 @@ for(const theme of ['light', 'dark']){
     const title = await page.locator('.cm-content').innerText();
     await page.goBack();
     await page.waitForTimeout(500);
-    return qs === 2 && title.includes('assumption check');
+    return qs === 2 && title.includes('room prior');
+  })());
+  check('map(' + theme + '): non-assumption flags do not invent a Gauge probability handoff', await (async () => {
+    await page.getByRole('button', {name: 'Risk grid'}).click();
+    await page.waitForTimeout(500);
+    return await page.locator('#togauge').isHidden();
   })());
   check('map(' + theme + '): snapshot compare shows drift', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
