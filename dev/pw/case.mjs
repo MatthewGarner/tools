@@ -14,8 +14,9 @@ await page.goto(BASE + '/case/', {waitUntil: 'networkidle'});
 await page.getByRole('button', {name: 'Wexcombe augmentation'}).click();
 await page.waitForTimeout(500);
 
+const exhibits = (await doc()).split('\n').filter(line => /\s->\s+\S+/.test(line)).length;
 const links = page.locator('#preview svg a');
-check('one live link per exhibit', await links.count() === 4);
+check('one live link per exhibit', await links.count() === exhibits);
 check('each live link combines its pill and open arrow', await links.evaluateAll(as =>
   as.every(a => a.textContent.includes('↗') && !a.querySelector('[data-edit]'))));
 check('wrapped question is a single edit target', await page.locator('#preview svg [data-edit="question"]').count() === 1);
