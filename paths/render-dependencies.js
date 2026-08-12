@@ -600,7 +600,7 @@ export function renderDependenciesNarrow(overview, ctx = {}){
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + r2(width) + '" height="' + r2(height) +
     '" viewBox="0 0 ' + r2(width) + ' ' + r2(height) + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" font-family="' + SANS + '" ' + rootRole(ctx) + '>' + accessibleHead(overview, selectedKey) +
-    rect(0, 0, width, height, C.bg) + head.svg + decisions.svg + body + '</svg>';
+    rect(0, 0, width, height, C.bg) + head.svg + decisions.svg + body + '</g></svg>';
 }
 
 export default renderDependencies;

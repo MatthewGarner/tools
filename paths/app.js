@@ -9,6 +9,8 @@ import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {decisionImpactProjection, overviewProjection} from './overview.js';
 import {renderOverview, renderOverviewNarrow} from './render-overview.js';
 import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
+import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
+import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
 import {verdict} from './verdict.js';
 import {auditableAnswerDraft, decisionEditSurface, resolveSelectedDecision} from './inspector.js';
 import {clearAnswer, clearAnswerBy, clearWhen, kinds as inspectorKinds,
@@ -123,7 +125,33 @@ let overviewReceiptReturnKey = null;
 const overviewSheetBackground = new Map();
 
 function isRoadmapStyle(style = model?.style){
-  return style === 'overview' || style === 'dependencies';
+  return style === 'brief' || style === 'question' || style === 'conditions' ||
+    style === 'overview' || style === 'dependencies';
+}
+
+function canonicalRoadmapStyle(style = model?.style){
+  if(style === 'overview') return 'brief';
+  if(style === 'dependencies') return 'question';
+  return style;
+}
+
+function setStyleInSource(style){
+  const text = editor.getText();
+  const next = String(style).toLowerCase();
+  const lines = text.split('\n');
+  const index = lines.findIndex(line => /^\s*style\s*:/i.test(line));
+  if(index >= 0) lines[index] = `style: ${next}`;
+  else lines.unshift(`style: ${next}`, '');
+  editor.setText(lines.join('\n'));
+}
+
+function syncViewControls(){
+  const style = canonicalRoadmapStyle();
+  document.querySelectorAll('[data-paths-view]').forEach(button => {
+    const active = button.dataset.pathsView === style;
+    button.setAttribute('aria-pressed', String(active));
+    button.classList.toggle('primary', active);
+  });
 }
 
 function overviewSurfaceMetrics(){
@@ -135,6 +163,13 @@ function overviewSurfaceMetrics(){
   return {width, narrow, receiptLayout,
     previewWidth:receiptLayout === 'rail' ? Math.max(520, width - 366) : width,
     focusLayout:width >= 760 ? 'split' : 'stacked'};
+}
+
+function receiptMetricsForStyle(metrics = overviewSurfaceMetrics()){
+  const style = canonicalRoadmapStyle();
+  return style === 'question' || style === 'conditions'
+    ? {...metrics, receiptLayout:'none', previewWidth:metrics.width}
+    : metrics;
 }
 
 function overviewReceiptUsesSheet(metrics = overviewSurfaceMetrics()){
@@ -256,13 +291,14 @@ function appendImpactSection(host, label, entries, empty = ''){
 
 function renderOverviewReceipt(){
   const host = $('overview-receipt');
-  const metrics = overviewSurfaceMetrics();
+  const metrics = receiptMetricsForStyle();
   const sheet = overviewReceiptUsesSheet(metrics);
   const overlay = metrics.receiptLayout === 'overlay';
+  const brief = canonicalRoadmapStyle() === 'brief';
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
-  if(!isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
+  if(!brief || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
       (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
     if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
@@ -285,7 +321,7 @@ function renderOverviewReceipt(){
   const head = node('div', 'receipt-head');
   const identity = node('div', 'receipt-identity');
   identity.appendChild(node('p', 'inspector-kicker',
-    model.style === 'dependencies' ? 'Focused decision' : 'Selected decision'));
+    canonicalRoadmapStyle() === 'question' ? 'Focused decision' : 'Selected decision'));
   const title = node('h2', '', decision.question || decision.name);
   title.id = 'overview-receipt-title';
   title.tabIndex = -1;
@@ -406,7 +442,7 @@ function renderFocusLens(){
   identity.appendChild(node('p', 'focus-state', impact.currentState.sentence));
   head.appendChild(identity);
   const back = node('button', 'btn focus-return',
-    model.style === 'dependencies' ? 'Return to dependencies' : 'Return to overview');
+    canonicalRoadmapStyle() === 'question' ? 'Return to question lens' : 'Return to brief');
   back.type = 'button';
   back.dataset.returnOverview = '';
   head.appendChild(back);
@@ -566,12 +602,14 @@ async function writeHash(){
 function doRefresh(){
   const text = editor.getText();
   model = parse(text);
+  const style = canonicalRoadmapStyle(model.style);
   projection = project(model, todayString);
   const plansView = model.style === 'plans';
   const treeView = model.style === 'tree';
-  const overviewView = model.style === 'overview';
-  const dependenciesView = model.style === 'dependencies';
-  const roadmapView = overviewView || dependenciesView;
+  const briefView = style === 'brief';
+  const questionView = style === 'question';
+  const conditionsView = style === 'conditions';
+  const roadmapView = briefView || questionView || conditionsView;
   topology = treeView ? treeProjection(projection) : null;
   overview = roadmapView ? overviewProjection(projection) : null;
   const retained = treeView ? resolveSelectedDecision(projection, selectedDecision) : null;
@@ -593,7 +631,11 @@ function doRefresh(){
     ? ` Selected question: ${overviewImpact.decision.question || overviewImpact.decision.name}. ${overviewImpact.currentState.sentence}.`
     : '';
   $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}${selectedStatus}`;
-  const overviewMetrics = overviewSurfaceMetrics();
+  const surfaceMetrics = overviewSurfaceMetrics();
+  /* Question lens and Conditions include their own explanation in the artefact.
+     Giving them Brief's external receipt would hide the very comparison/matrix
+     they exist to show, especially in a constrained desktop stage. */
+  const overviewMetrics = receiptMetricsForStyle(surfaceMetrics);
   const live = $('overview-live');
   live.dataset.receiptLayout = roadmapView ? overviewMetrics.receiptLayout : 'none';
   live.dataset.focusLayout = overviewMetrics.focusLayout;
@@ -617,12 +659,18 @@ function doRefresh(){
         ? renderOutline(topology, context(model, {width, ...interactive}))
         : renderTree(topology, treeLayout(topology, {width:width || 1160, measure}),
           context(model, interactive));
-    } else if(dependenciesView){
+    } else if(questionView){
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         impact:overviewImpact, showReceipt:false};
       svg = narrow
-        ? renderDependenciesNarrow(overview, context(model, {width, ...interactive}))
-        : renderDependencies(overview, context(model, {width:width || 1160, ...interactive}));
+        ? renderQuestionLensNarrow(overview, context(model, {width, ...interactive}))
+        : renderQuestionLens(overview, context(model, {width:width || 1160, ...interactive}));
+    } else if(conditionsView){
+      const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
+        impact:overviewImpact, showReceipt:false};
+      svg = narrow
+        ? renderConditionsNarrow(overview, context(model, {width, ...interactive}))
+        : renderConditions(overview, context(model, {width:width || 1160, ...interactive}));
     } else {
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         expandedGroups:expandedOverviewGroups, impact:overviewImpact,
@@ -635,17 +683,20 @@ function doRefresh(){
   }
 
   renderOverviewSurface(roadmapView, overviewMetrics);
+  syncViewControls();
   if(treeView) renderInspector();
   else clearInspector();
   $('view-method').textContent = roadmapView && overviewMode === 'focus'
-    ? `Focus is a local counterfactual lens; exports remain the selected full roadmap ${dependenciesView ? 'dependencies' : 'overview'}.`
-    : dependenciesView
-    ? 'The phone view keeps the decision spine readable; every export remains the full dependency roadmap.'
+    ? 'Focus is a local counterfactual lens; exports remain the selected full roadmap.'
+    : questionView
+    ? 'Question lens compares what changes under each answer; exports keep the selected decision visible.'
+    : conditionsView
+    ? 'Conditions is the full decision-to-work logic audit; exports preserve the complete matrix.'
     : plansView
     ? 'The phone view groups work by possible plan; every export remains the wide matrix.'
     : treeView
       ? 'The phone view becomes an outline; every export remains the wide tree.'
-      : 'The phone view groups work by period; every export remains the full roadmap grid.';
+      : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('paths-src', text); }catch(_){ }
@@ -707,7 +758,7 @@ function chooseDecision(target, focusInspector = false){
 }
 
 function toggleOverviewGroup(target){
-  if(model?.style !== 'overview') return false;
+  if(canonicalRoadmapStyle() !== 'brief') return false;
   const key = target.closest?.('[data-toggle-decision-group]')?.dataset.stateGroup;
   if(!key) return false;
   if(expandedOverviewGroups.has(key)) expandedOverviewGroups.delete(key);
@@ -875,10 +926,14 @@ function renderSaved(){
 function wideSvg(){
   if(!model || (!model.items.length && !model.decisions.length)) return null;
   if(model.style === 'plans') return renderPlans(projection, context(model, {width:1160}));
-  if(model.style === 'overview') return renderOverview(overview,
+  const style = canonicalRoadmapStyle(model.style);
+  if(style === 'brief') return renderOverview(overview,
     context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
       impact:overviewImpact}));
-  if(model.style === 'dependencies') return renderDependencies(overview,
+  if(style === 'question') return renderQuestionLens(overview,
+    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
+      impact:overviewImpact}));
+  if(style === 'conditions') return renderConditions(overview,
     context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
       impact:overviewImpact}));
   if(!topology) return null;
@@ -893,6 +948,13 @@ wireExports({
 
 paintKicker($('kicker'), '16', 'The questions inside the plan');
 wireSyntaxTry(document.querySelector('details.syntax'), editor, CONFIG_KEYS);
+
+document.querySelector('.paths-views').addEventListener('click', event => {
+  const button = event.target.closest?.('[data-paths-view]');
+  if(!button) return;
+  event.preventDefault();
+  setStyleInSource(button.dataset.pathsView);
+});
 
 function rerender(){ lastSvg = ''; refresh(); }
 watchNarrowBucket(preview, rerender);

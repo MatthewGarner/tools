@@ -21,7 +21,7 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
 const TOOLS = {
   paths: {
     keys: ['title', 'date', 'today', 'style', 'verdict', 'palette', 'accent'],
-    doc: ['title: T', 'date: off', 'today: 2026-12-22', 'style: overview', 'verdict: off',
+    doc: ['title: T', 'date: off', 'today: 2026-12-22', 'style: brief', 'verdict: off',
       'palette: ocean', 'accent: #C05621',
       'decision groups:', '  question: Do friends appear?', '  signal: invites >= 3',
       '  owner: growth', '  answer-by: 2026-12-15',

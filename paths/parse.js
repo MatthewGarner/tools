@@ -308,7 +308,7 @@ function build(model, add){
 }
 
 export function parse(text){
-  const model = {title:'', dateStr:null, today:null, style:'overview', verdict:null,
+  const model = {title:'', dateStr:null, today:null, style:'brief', verdict:null,
     palette:'ocean', accent:null, decisions:[], decisionByName:{}, periods:[], items:[], warnings:[]};
   const add = warningSink(model);
   const lines = String(text ?? '').replace(/\r/g, '').split('\n');
@@ -358,11 +358,12 @@ export function parse(text){
           `line ${lineNo}: today ${quote(value)} is not a valid date — use YYYY-MM-DD; date ignored`);
       } else if(key === 'style'){
         const style = value.toLowerCase();
-        if(style === 'overview' || style === 'dependencies' || style === 'tree' || style === 'plans') model.style = style;
+        if(style === 'brief' || style === 'question' || style === 'conditions' ||
+          style === 'overview' || style === 'dependencies' || style === 'tree' || style === 'plans') model.style = style;
         else {
-          model.style = 'overview';
+          model.style = 'brief';
           add('parse', 'invalid-style', lineNo, 'style',
-            `line ${lineNo}: style ${quote(value)} is not valid — use "overview", "dependencies", "tree" or "plans"; style read as "overview"`);
+            `line ${lineNo}: style ${quote(value)} is not valid — use "brief", "question", "conditions", "tree" or "plans"; style read as "brief"`);
         }
       }
       else if(key === 'verdict') model.verdict = value;

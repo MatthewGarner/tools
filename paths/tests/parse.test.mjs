@@ -51,9 +51,9 @@ test('config in an item position remains config and a decision sub-key is not mi
   assert.ok(model.warnings.some(w => w.code === 'setting-in-item-position'));
 });
 
-test('overview is the default style and all four authored views remain explicit', () => {
-  assert.equal(parse('title: Default view').style, 'overview');
-  for(const style of ['overview', 'dependencies', 'tree', 'plans'])
+test('brief is the default and roadmap aliases plus explicit views remain valid', () => {
+  assert.equal(parse('title: Default view').style, 'brief');
+  for(const style of ['brief', 'question', 'conditions', 'overview', 'dependencies', 'tree', 'plans'])
     assert.equal(parse(`style: ${style}`).style, style);
 });
 

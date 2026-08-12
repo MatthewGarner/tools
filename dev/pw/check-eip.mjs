@@ -3693,7 +3693,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     /AND · requires Groups = yes and Pricing = no/.test(await p.locator('#focus-lens').innerText()) &&
     /Counterfactual — not today’s plan/.test(await p.locator('#focus-lens').innerText()));
   check('paths: Focus states honest export semantics',
-    /local counterfactual lens; exports remain the selected full roadmap overview/i.test(
+    /local counterfactual lens; exports remain the selected full roadmap/i.test(
       await p.locator('#view-method').innerText()));
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const focusDownload = p.waitForEvent('download');
@@ -3801,54 +3801,65 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
 
-  await p.locator('details.syntax').evaluate(element => { element.open = true; });
-  await p.getByText('style: dependencies', {exact:true}).click();
+  await p.getByRole('button', {name:'Question lens'}).click();
   await p.waitForTimeout(500);
-  check('paths: Dependencies keeps the period × lane roadmap and makes the decision spine explicit',
-    await p.locator('[data-kind="decision-spine"]').count() === 1 &&
-    await p.locator('[data-kind="dependency-grid-base"]').count() === 1 &&
-    await p.locator('[data-kind="dependency-route"]').count() >= 1 &&
+  check('paths: visible Question lens switch edits the source and makes two answer outcomes explicit',
+    /style: question/.test(await src()) &&
+    await p.locator('[data-kind="question-lens"]').count() === 1 &&
+    await p.locator('[data-kind="question-outcome"][data-outcome="yes"]').count() === 1 &&
+    await p.locator('[data-kind="question-outcome"][data-outcome="no"]').count() === 1 &&
     await p.locator('#decision-inspector').isHidden());
-  const dependencyQuestion = p.locator('[data-kind="decision-node"][data-decision-key="groups"]');
+  const dependencyQuestion = p.locator('[data-kind="parallel-question"][data-decision-key="groups"]');
   await dependencyQuestion.click();
   await p.waitForTimeout(300);
-  check('paths: Dependencies shares selection and the evaluator-backed desktop receipt',
+  check('paths: Question lens shares selection without covering its own comparison',
     await dependencyQuestion.getAttribute('data-selected') === 'true' &&
-    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
-    /changes directly with this answer/i.test(await p.locator('#overview-receipt').innerText()));
+    await p.locator('#overview-receipt').isHidden() &&
+    await p.locator('[data-kind="question-receipt"][data-decision-key="groups"]').count() === 1);
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const dependenciesDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const dependenciesFile = await dependenciesDownload;
   const dependenciesSvg = await (await import('node:fs/promises')).readFile(await dependenciesFile.path(), 'utf8');
-  check('paths: Dependencies export is the wide focused dependency lens, never Overview or Tree',
-    dependenciesSvg.includes('data-kind="decision-spine"') &&
-    dependenciesSvg.includes('data-kind="dependency-grid-base"') &&
-    /<title[^>]*>[^<]*dependencies[^<]*groups/i.test(dependenciesSvg) &&
+  check('paths: Question lens export is the wide answer comparison, never Brief or Tree',
+    dependenciesSvg.includes('data-kind="question-lens"') &&
+    dependenciesSvg.includes('data-kind="question-outcome" data-outcome="yes"') &&
+    /<title[^>]*>[^<]*question lens[^<]*groups/i.test(dependenciesSvg) &&
     !dependenciesSvg.includes('data-kind="roadmap-grid"') && !dependenciesSvg.includes('data-kind="tree-body"'));
   await p.setViewportSize({width:390, height:844});
   await p.waitForTimeout(400);
-  check('paths: phone Dependencies uses its readable agenda and opens the shared receipt sheet on selection',
-    await p.locator('[data-kind="narrow-decision-spine"]').count() === 1 &&
-    await p.locator('[data-kind="dependency-agenda"]').count() === 1 &&
+  check('paths: phone Question lens stacks its readable outcomes without duplicate receipt sheet',
+    await p.locator('[data-kind="question-lens-narrow"]').count() === 1 &&
+    await p.locator('[data-kind="question-outcome"]').count() === 2 &&
     await p.locator('#overview-receipt').isHidden());
-  await p.locator('[data-kind="narrow-decision-node"][data-decision-key="groups"]').click();
-  await p.locator('#overview-receipt').waitFor({state:'visible'});
-  check('paths: phone Dependencies reuses the labelled modal receipt sheet',
-    await p.locator('#overview-receipt').getAttribute('role') === 'dialog' &&
-    await p.locator('#overview-receipt').getAttribute('aria-modal') === 'true');
-  await p.keyboard.press('Escape');
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
 
-  await p.getByText('style: tree', {exact:true}).click();
+  await p.getByRole('button', {name:'Conditions'}).click();
+  await p.waitForTimeout(400);
+  check('paths: visible Conditions switch edits source and opens a connector-free parallel atlas',
+    /style: conditions/.test(await src()) &&
+    await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
+    await p.locator('[data-kind="conditions-decision-header"]').count() >= 1 &&
+    await p.locator('#preview path').count() === 0 && await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  check('paths: phone Conditions becomes a readable agenda-style atlas with 44px questions',
+    await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
+    await p.locator('[data-kind="conditions-narrow-decision"] [data-hit]').count() >= 1 &&
+    await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:1280, height:900});
+  await p.waitForTimeout(400);
+
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  await p.getByRole('button', {name:'Tree'}).click();
   await p.waitForTimeout(500);
   const question = p.locator('[data-select-decision][data-decision-key="groups"]');
   await question.focus();
   await question.press('Enter');
   await p.locator('#decision-inspector').waitFor({state:'visible'});
   check('paths: wide question is a keyboard-operable parsed-decision target',
-    await question.getAttribute('role') === 'button' && await question.getAttribute('data-line') === '11');
+    await question.getAttribute('role') === 'button' && /^\d+$/.test(await question.getAttribute('data-line')));
   check('paths: keyboard selection moves focus to the expanded inspector',
     await p.evaluate(() => document.activeElement?.id) === 'decision-inspector-title' &&
     await p.locator('[data-select-decision][data-decision-key="groups"]').getAttribute('aria-expanded') === 'true');
@@ -3903,9 +3914,10 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
      phone relayout, inspector exclusion and — most importantly — that exports
      are routed through the selected WIDE renderer rather than serialising the
      narrow preview or silently retaining Tree. */
-  await p.getByText('style: plans', {exact:true}).click();
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  await p.getByRole('button', {name:'Plans'}).click();
   await p.waitForTimeout(500);
-  check('paths: style plans switches to the semantic phone relayout and removes the Tree inspector',
+  check('paths: More views Plans switches to the semantic phone relayout and removes the Tree inspector',
     await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
     await p.locator('#decision-inspector').isHidden() &&
     /wide matrix/.test(await p.locator('#view-method').innerText()));
@@ -3918,7 +3930,8 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     plansSvg.includes('data-kind="plans-matrix"') &&
     !plansSvg.includes('data-kind="plans-narrow"') && !plansSvg.includes('data-kind="tree-body"'));
 
-  await p.getByText('style: tree', {exact:true}).click();
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  await p.getByRole('button', {name:'Tree'}).click();
   await p.waitForTimeout(500);
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const treeDownload = p.waitForEvent('download');

@@ -416,18 +416,18 @@ const PAGES = {
   'energy/intraday/index.html': 166_000,
   /* Tree + outline renderers, the layout, the four engine modules and the vendored
      editor. Actual 522.8k; ~25% headroom as the house sets a new tool's budget. */
-  /* 653k -> 760k (2026-08-11/12, parallel-roadmap Overview + Dependencies): overview.js and
+  /* 653k -> 813k (2026-08-11/12, parallel-roadmap Brief + Question lens + Conditions): overview.js and
      render-overview.js add the canonical period x lane projection, complete
      compound-condition semantics and the wide/narrow artefact (~50.6k); app.js
      adds the evaluator-backed receipt, local Focus counterfactual and accessible
      responsive receipt states (~16.5k); the corresponding responsive treatment
-     is ~5.6k. render-dependencies.js adds a distinct selected-decision lens with
-     complete AND/OR/negated conditions, visible direct/downstream opening routes,
-     and a real narrow agenda (~36.3k). Overview is the default artefact and all
-     supported zooms must work on the first offline open, so these are honest
-     page-graph bytes rather than optional payload to hide behind lazy loading.
-     Actual 753.6k; retain ~6.4k headroom. */
-  'paths/index.html': 760_000,
+     is ~5.6k. The Decision graph is superseded by two complete, first-class
+     SVG artefacts: Question lens (~24k) and Conditions atlas (~21k), each with
+     a genuinely usable phone relayout. They share the evaluator-backed model,
+     cannot safely lazy-load under the offline guarantee, and are intentional
+     product capability rather than dead alternative code. Actual ~813.0k;
+     retain a small ~4k headroom. */
+  'paths/index.html': 817_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

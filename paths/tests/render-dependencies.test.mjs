@@ -129,6 +129,8 @@ test('narrow dependencies group complete requirements and render every item once
   assert.match(svg, /ONLY IF Pricing = YES AND Groups = YES/);
   assert.match(svg, /NOW · Growth/);
   assert.match(svg, /LATER · Core/);
+  assert.match(svg, /<g data-kind="dependency-agenda">[\s\S]*<\/g><\/svg>$/,
+    'the narrow agenda is a closed SVG group, so exported SVG remains valid XML');
 });
 
 test('interactive decision nodes use the shared selection contract and 44px targets', () => {
