@@ -2,6 +2,7 @@
 import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdictOf, delphiVerdictOf} from './engine.js';
 import {resolveVerdict} from '../assets/verdict.js';   // `verdict:` — the console headline must agree with the artefact band
 import {fermiHandoff} from './handoff.js';
+import {handoffHref, handoffMeta} from '../assets/handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
 import {startPoll, randomHex} from './relay-client.js';
@@ -229,7 +230,11 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
   function refreshHandoff(){ $('tofermi').hidden = !currentHandoff(); }
   $('tofermi').addEventListener('click', async () => {
     const h = currentHandoff();
-    if(h) location.href = '/fermi/#' + await encodeHash(h);
+    if(!h) return;
+    const href = await handoffHref('/fermi/', h,
+      handoffMeta('gauge', 'range-estimate', model.title || 'Gauge ranges'));
+    if(href) location.href = href;
+    else $('cstate').textContent = 'This result is too large to open in Fermi. Export it instead.';
   });
 
   wireExports({

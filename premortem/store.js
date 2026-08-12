@@ -3,9 +3,46 @@
    mints a fresh id so a shared register never binds two browsers together. */
 
 import {encodeHash, decodeHash} from '../assets/series.js';
+import {validHandoffMeta} from '../assets/handoff.js';
 
 const KEY = id => 'premortem:' + id, IDX = 'premortem:index', TRASH = 'premortem:trash', MAX = 8000;
 const freshId = () => (globalThis.crypto?.randomUUID?.() ?? 'imp' + Date.now() + Math.random().toString(36).slice(2, 6));
+const PHASES = new Set(['FRAME', 'WRITE', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE', 'REGISTER']);
+const KINDS = new Set(['risk', 'fact', 'assumption', 'belief']);
+const text = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
+const date = value => typeof value === 'string' && Number.isFinite(Date.parse(value))
+  ? new Date(value).toISOString() : null;
+const range = (value, max = Infinity) => Array.isArray(value) && value.length === 2 &&
+  value.every(n => Number.isFinite(n) && n >= 0 && n <= max) && value[0] <= value[1]
+  ? [value[0], value[1]] : null;
+
+function normaliseDoc(value){
+  if(!value || typeof value !== 'object' || Array.isArray(value) || value.v !== 1 || !Array.isArray(value.entries)) return null;
+  const people = Number.isFinite(value.people) ? Math.max(1, Math.min(100, Math.floor(value.people))) : 5;
+  let votesLeft = people;
+  const entries = value.entries.slice(0, 500).filter(e => e && typeof e === 'object' && !Array.isArray(e)).map((e, i) => ({
+    /* Imported ids drive rendered selectors, so mint safe unique ids rather than
+       trusting hostile or duplicate source values. */
+    id: 'imported-' + (i + 1), text: text(e.text, 2000),
+    kind: KINDS.has(e.kind) ? e.kind : 'risk',
+    tag: ['tiger', 'paper-tiger', 'elephant'].includes(e.tag) ? e.tag : null,
+    cluster: e.cluster == null ? null : text(e.cluster, 200),
+    p: range(e.p, 100), impact: range(e.impact),
+    actions: Array.isArray(e.actions) ? e.actions.slice(0, 100).filter(a => a && typeof a === 'object' && !Array.isArray(a)).map(a => {
+      const votes = Number.isFinite(a.votes) ? Math.min(votesLeft, Math.max(0, Math.floor(a.votes))) : 0;
+      votesLeft -= votes;
+      return {text: text(a.text, 2000), owner: text(a.owner, 300), done: a.done === true, votes};
+    }) : [],
+    votes: Number.isFinite(e.votes) ? Math.min(people, Math.max(0, Math.floor(e.votes))) : 0,
+    status: ['open', 'mitigating', 'closed'].includes(e.status) ? e.status : 'open',
+    created: date(e.created), lastReviewed: date(e.lastReviewed),
+  }));
+  const x = validHandoffMeta(value.x, {kind: 'risk-register'});
+  return {v: 1, id: freshId(), title: text(value.title, 500), question: text(value.question, 2000),
+    unit: text(value.unit, 20), people,
+    phase: PHASES.has(value.phase) ? value.phase : 'REGISTER', entries,
+    ...(Number.isFinite(value.endsAt) ? {endsAt: value.endsAt} : {}), ...(x ? {x} : {})};
+}
 
 export function makeStore(backend = localStorage){
   const readIdx = () => { try{ return JSON.parse(backend.getItem(IDX)) || []; }catch(e){ return []; } };
@@ -75,9 +112,6 @@ export async function fromLink(hash){
   try{
     const s = String(hash).replace(/^#/, '');
     if(!s) return null;
-    const doc = await decodeHash(s);
-    if(!doc || typeof doc !== 'object' || Array.isArray(doc)) return null;
-    if(Array.isArray(doc.entries)) doc.entries.forEach(e => { if(e && e.kind == null) e.kind = 'risk'; });   // legacy/foreign docs: no kind ⇒ risk (else invisible on every face)
-    return {...doc, id: freshId()};
+    return normaliseDoc(await decodeHash(s));
   }catch(e){ return null; }
 }

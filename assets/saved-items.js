@@ -10,9 +10,8 @@ export function loadSaved(key){
   try{ return JSON.parse(localStorage.getItem(key) || '[]'); }catch(e){ return []; }
 }
 export function storeSaved(key, list){
-  try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){}
+  try{ localStorage.setItem(key, JSON.stringify(list)); return true; }catch(e){ return false; }
 }
-
 /* Renders the "Saved:" lead + one chip per item into `row` (cleared first).
    Does NOT append a Save-current button — callers append their own after
    calling this, since what gets saved differs per tool.

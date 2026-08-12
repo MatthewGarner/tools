@@ -161,6 +161,12 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .deleteundo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 0;
   padding:10px 12px;border:1px solid var(--border);background:var(--bg);font-size:13.5px}
 .deleteundo[hidden]{display:none}
+.importstrip{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  margin:0 0 16px;padding:12px 14px;border:1px solid var(--border);background:var(--card)}
+.importstrip[hidden]{display:none}
+.importstrip p{margin:0;font-size:13.5px;color:var(--muted)}
+.importstrip strong{color:var(--ink)}
+.importactions{display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto}
 .sr-status{position:fixed;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);
   white-space:nowrap;border:0}
 
@@ -199,4 +205,6 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
    sheets (side borders + radius dropped, top/bottom hairlines kept). */
 @media (max-width:640px){
   .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+  .importstrip{align-items:stretch;flex-direction:column;margin-inline:-16px;padding-inline:16px}
+  .importactions .btn{flex:1;justify-content:center}
 }

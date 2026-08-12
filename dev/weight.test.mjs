@@ -133,7 +133,14 @@ const PAGES = {
      reduced-motion cleanup, and tested interaction helper are first-load
      correctness code. Actual 191.6k; the budget restores ~5k headroom instead
      of leaving the next small reliability fix to trip a 1.6k overage. */
-  'fermi/index.html': 199_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* 199k -> 214k (2026-08-11 local-first handoffs): Fermi now carries the
+     complete non-destructive import lifecycle: target-state validation,
+     provenance-safe URL updates, capture/restore for its ordinary and A/B
+     current estimates, named saved artefacts, and clear storage-failure paths.
+     The shared handoff/saved-item modules and compact import controls are part
+     of that correctness boundary, not optional chrome. Actual 208.0k; ~6k
+     headroom preserves the tripwire for unrelated growth. */
+  'fermi/index.html': 214_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
@@ -151,7 +158,12 @@ const PAGES = {
      artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
   'case/index.html': 467_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
-  'premortem/index.html': 113_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
+  /* 113k -> 120k (2026-08-11 local-first handoffs): Timeline imports now
+     validate and normalise an untrusted transient risk register before render,
+     preserve local registers until explicit promotion, and expose the compact
+     import lifecycle. The shared handoff controls and defensive codec are
+     correctness work. Actual 114.9k; ~5k headroom keeps the budget useful. */
+  'premortem/index.html': 120_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -290,7 +302,10 @@ const PAGES = {
   /* 686k -> 693k (2026-08-10, E1 board outcome zones): why pays cond-parts.js's
      splitColumnZones growth too — render.js imports the whole module even though
      the chart doesn't paint zones. Actual 687.0k, ~6.0k headroom. */
-  'why/index.html': 700_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
+  /* 700k -> 705k (2026-08-11): saved-items now reports local storage failure
+     instead of silently claiming success. Why uses that shared persistence
+     module; actual 699.6k, restoring a real ~5k tripwire margin. */
+  'why/index.html': 705_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
@@ -320,7 +335,10 @@ const PAGES = {
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
-  'map/index.html': 531_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */   /* 2026-08-04 fold wave 2: dead lostpointercapture listener replaced with window-blur drag cleanup, popover-focus.js roving-focus; actual 525.5k, ~5.5k headroom */
+  /* 531k -> 537k (2026-08-11 local-first handoffs): the guarded Map-to-Gauge
+     draft builder and visible oversize failure are first-load safety, and pull
+     in the small shared handoff transport. Actual 531.7k; retain ~5k. */
+  'map/index.html': 537_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */   /* 2026-08-04 fold wave 2: dead lostpointercapture listener replaced with window-blur drag cleanup, popover-focus.js roving-focus; actual 525.5k, ~5.5k headroom */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -340,7 +358,12 @@ const PAGES = {
   /* gauge 540k -> 546k (unset-edit fix batch): edit-in-place.js's shared
      opens-row fallback lands on every EIP page, gauge included. Actual
      540.4k; preserve ~5.6k headroom. */
-  'gauge/index.html': 546_000, 'timeline/index.html': 545_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */
+  /* 546k -> 560k (Gauge) and 545k -> 553k (Timeline), 2026-08-11 local-first
+     handoffs: Gauge gains a validated transient import, durable return state,
+     compact local library and safe Fermi continuation; Timeline gains the
+     shared versioned handoff marker and an honest oversize state. Actuals are
+     553.1k and 547.5k respectively, leaving about 6k/5.5k headroom. */
+  'gauge/index.html': 560_000, 'timeline/index.html': 553_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */

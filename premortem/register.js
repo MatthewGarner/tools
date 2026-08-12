@@ -80,6 +80,7 @@ export function ranked(entries, exp){
 
 const DAY = 86400000;
 export function staleness(entry, now = new Date()){
+  if(!entry?.lastReviewed || !Number.isFinite(Date.parse(entry.lastReviewed))) return 'unknown';
   const age = (now - new Date(entry.lastReviewed)) / DAY;
   return age < 30 ? 'fresh' : age <= 90 ? 'ageing' : 'stale';
 }

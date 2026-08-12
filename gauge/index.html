@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/assets/motion.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/handoff.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="../assets/mobile.css">
@@ -39,6 +40,8 @@
     <aside class="rail">
       <div class="chips" id="chips"><span class="lead">Try:</span></div>
       <div id="cmhost" aria-label="Question source editor"></div>
+      <div class="chips" id="savedrow"></div>
+      <p class="errline" id="saveerror" role="status" aria-live="polite"></p>
       <ul id="warns"></ul>
       <details class="syntax">
         <summary>Syntax reference</summary>
@@ -64,6 +67,10 @@
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
+      <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
+        <p class="handoff-copy"><strong id="handofftitle">Draft from Map</strong><small>Your current Gauge draft is unchanged.</small></p>
+        <div class="handoff-actions"><button class="btn" id="saveimport">Save as new</button><button class="btn" id="returncurrent">Return to current</button></div>
+      </div>
       <div class="viewtoggle segmented" role="tablist">
         <button id="viewform" role="tab" aria-selected="false">Form</button>
         <button id="viewreveal" class="on" role="tab" aria-selected="true">Sample reveal</button>
