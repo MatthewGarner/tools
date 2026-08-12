@@ -63,6 +63,46 @@ function toolPill(ex, c, measure, x, yMid){
     ' font-weight="600" letter-spacing="1.2" fill="' + text + '">' + esc(name) + '</text>'};
 }
 
+function ledger(entries){
+  return entries.map(entry => entry.key + '=' + entry.direction + ' @ ' + entry.date).join(' · ');
+}
+
+/* An opaque Roadmap URL may contain Markdown punctuation in its provenance.
+   Preserve it as prose in Case's Markdown export, never as export syntax. */
+function markdownText(value){
+  return String(value ?? '').replace(/[\\`*_{}\[\]()<>#+\-.!|&]/g, '\\$&');
+}
+
+/* Claim metadata belongs to Case, not to the member tools' models. Paths,
+   Roadmap and Timeline remain separate exhibits; these lines say what sort of
+   claim each URL carries. A projection gets its complete decoded receipt. */
+function planningLines(ex, width, measure){
+  const p = ex.planning;
+  if(!p) return [];
+  const out = [];
+  for(const text of wrapText((p.role + ' · ' + p.scope).toUpperCase(), '600 10px ' + SANS, width, measure))
+    out.push({text, claim:true});
+  if(p.basis){
+    for(const text of wrapText('From Paths: ' + p.basis.source, '12px ' + SANS, width, measure)) out.push({text});
+    if(p.basis.known.length)
+      for(const text of wrapText('Known: ' + ledger(p.basis.known), '12px ' + SANS, width, measure)) out.push({text});
+    if(p.basis.assumed.length)
+      for(const text of wrapText('Assumed: ' + ledger(p.basis.assumed), '12px ' + SANS, width, measure)) out.push({text});
+  }
+  return out;
+}
+
+function planningMarkdown(p){
+  if(!p) return '';
+  let text = p.role + ' · ' + p.scope;
+  if(p.basis){
+    text += ' · From Paths: ' + markdownText(p.basis.source);
+    if(p.basis.known.length) text += ' · Known: ' + ledger(p.basis.known);
+    if(p.basis.assumed.length) text += ' · Assumed: ' + ledger(p.basis.assumed);
+  }
+  return text;
+}
+
 /* one exhibit row; returns {svg, h}. Wide layout: NN · pill · label — note. */
 function row(ex, i, c, measure, geom, opts){
   const {x, width, labelX} = geom;
@@ -89,25 +129,32 @@ function row(ex, i, c, measure, geom, opts){
     (opts.edit ? ' data-edit="label" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.label) +
       '" tabindex="0" role="button" aria-label="Rename exhibit: ' + esc(ex.label) + '"' : '') +
     '>' + esc(ex.label) + '</text>');
-  let h = 30;
+  let cursor = yMid + 5;
+  const context = planningLines(ex, width - (lx - x) - 8, measure);
+  for(const line of context){
+    cursor += line.claim ? 17 : 18;
+    parts.push('<text x="' + lx + '" y="' + cursor + '" font-size="' + (line.claim ? 10 : 12) + '"' +
+      (line.claim ? ' font-weight="600" letter-spacing="0.9"' : '') + ' fill="' + (line.claim ? c.accent : c.muted) + '">' +
+      esc(line.text) + '</text>');
+  }
   if(ex.note){
     const noteLines = wrapText(ex.note, '12.5px ' + SANS, width - (lx - x), measure);
-    let ny = yMid + 5, firstN = true;
+    let firstN = true;
     for(const t of noteLines){
-      ny += 18;
-      parts.push('<text x="' + lx + '" y="' + ny + '" font-size="12.5" fill="' + c.muted + '"' +
+      cursor += 18;
+      parts.push('<text x="' + lx + '" y="' + cursor + '" font-size="12.5" fill="' + c.muted + '"' +
         (opts.edit && firstN ? ' data-edit="note" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.note) +
           '" tabindex="0" role="button" aria-label="Edit note: ' + esc(ex.note) + '"' : '') +
         '>' + esc(t) + '</text>');
       firstN = false;
     }
-    h = ny + 13;
   } else if(opts.edit){
-    parts.push('<text x="' + lx + '" y="' + (yMid + 23) + '" font-size="12.5" fill="' + c.muted +
+    cursor += 18;
+    parts.push('<text x="' + lx + '" y="' + cursor + '" font-size="12.5" fill="' + c.muted +
       '" opacity="0.55" data-edit="note" data-line="' + ex.srcLine + '" data-raw="" tabindex="0" role="button"' +
       ' aria-label="Add note to exhibit: ' + esc(ex.label) + '">+ note</text>');
-    h = 48;
   }
+  const h = context.length || ex.note ? Math.max(30, cursor + 13) : (opts.edit ? 48 : 30);
   return {svg: parts.join(''), h};
 }
 
@@ -258,6 +305,12 @@ export function renderNarrow(model, ctx, opts = {}){
       (opts.edit ? ' data-edit="label" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.label) +
         '" tabindex="0" role="button" aria-label="Rename exhibit: ' + esc(ex.label) + '"' : '') +
       '>' + esc(ex.label) + '</text>');
+    for(const line of planningLines(ex, inner, measure)){
+      y += line.claim ? 17 : 18;
+      body.push('<text x="' + pad + '" y="' + y + '" font-size="' + (line.claim ? 10 : 12) + '"' +
+        (line.claim ? ' font-weight="600" letter-spacing="0.9"' : '') + ' fill="' +
+        (line.claim ? c.accent : c.muted) + '">' + esc(line.text) + '</text>');
+    }
     if(ex.note){
       let firstN = true;
       for(const t of wrapText(ex.note, '12.5px ' + SANS, inner, measure)){
@@ -307,7 +360,8 @@ export function toMarkdown(model, href){
     if(lane) out.push('## ' + lane, '');
     for(const ex of list)
       out.push('- [' + ex.label + '](' + ex.url + ')' + (ex.note ? ' — ' + ex.note : '') +
-        (ex.live ? '' : ' *(not a suite link)*'));
+        (ex.live ? '' : ' *(not a suite link)*') +
+        (ex.planning ? '\n  - Claim: ' + planningMarkdown(ex.planning) : ''));
     out.push('');
   }
   if(href) out.push('[Open the case](' + href + ')');

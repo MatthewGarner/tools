@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {render, renderNarrow, caseReadout, NARROW} from '../render.js';
+import {render, renderNarrow, caseReadout, toMarkdown, NARROW} from '../render.js';
+import {planningRole} from '../planning-context.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c', bg: '#f7f8f6'},
@@ -19,6 +20,11 @@ Delivery: Plan of record -> /timeline/#ghi
 Odd one -> https://example.com/x`;
 
 const draw = (src = SRC, opts = {}, c = ctx) => render(parse(src), c, opts);
+const planningModel = src => {
+  const model = parse(src);
+  return {...model, exhibits:model.exhibits.map(exhibit =>
+    ({...exhibit, planning:planningRole(exhibit.url)}))};
+};
 
 test('cover carries title, question, lanes, pills, verdict and count', () => {
   const svg = draw();
@@ -50,6 +56,63 @@ test('each exhibit has one combined link/focus stop, separate from its edit targ
 
 test('exports carry no links even for live exhibits', () => {
   assert.ok(!draw(SRC, {}).includes('<a '), 'URLs live in the doc, not the picture');
+});
+
+test('planning exhibits state their distinct claim roles on wide, narrow and markdown exports', () => {
+  const src = 'Plan choices -> /paths/#x\nDelivery view -> /roadmap/#x\nDates -> /timeline/#x\nMoney -> /fermi/#x';
+  const model = planningModel(src);
+  for(const svg of [render(model, ctx), render(model, {...ctx, width:390})]){
+    for(const text of [
+      'DECISION PLAN · ALL OUTCOMES',
+      'DELIVERY ROADMAP · COMMITMENT AND SHAPED WORK',
+      'TIMING FORECAST · P50–P90 RANGES',
+    ]) assert.ok(svg.includes(text), text);
+    assert.equal((svg.match(/DECISION PLAN/g) || []).length, 1);
+  }
+  const markdown = toMarkdown(model, 'https://tools.matthewgarner.me/case/#x');
+  assert.match(markdown, /Claim: Decision plan · All outcomes/);
+  assert.match(markdown, /Claim: Timing forecast · P50–P90 ranges/);
+  assert.doesNotMatch(markdown, /Money[^\n]*\n  - Claim:/, 'non-planning exhibits stay unchanged');
+});
+
+test('a delivery projection renders the complete known/assumed basis safely', () => {
+  const model = planningModel('Projection -> /roadmap/#x');
+  model.exhibits[0].planning = {
+    kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
+    basis:{source:'Growth <review> & reset',
+      known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
+      assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]},
+  };
+  for(const svg of [render(model, ctx), render(model, {...ctx, width:390})]){
+    assert.ok(svg.includes('DELIVERY PROJECTION · ONE EXACT PATHS OUTCOME'));
+    assert.ok(svg.includes('Known: pricing=yes @ 2026-08-03'));
+    assert.ok(svg.includes('Assumed: groups=no @ 2026-08-12'));
+    assert.ok(svg.includes('Growth &lt;review&gt; &amp; reset'));
+    assert.ok(!svg.includes('<review>'));
+  }
+  const markdown = toMarkdown(model);
+  assert.match(markdown, /Known: pricing=yes @ 2026-08-03/);
+  assert.match(markdown, /Assumed: groups=no @ 2026-08-12/);
+});
+
+test('projection provenance is plain text in Markdown, never injected link syntax', () => {
+  const model = planningModel('Projection -> /roadmap/#x');
+  model.exhibits[0].planning = {
+    kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
+    basis:{source:'Growth ](https://evil.example)', known:[], assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]},
+  };
+  const markdown = toMarkdown(model);
+  assert.ok(markdown.includes('From Paths: Growth \\]\\(https://evil\\.example\\)'));
+  assert.doesNotMatch(markdown, /\[.*\]\(https:\/\/evil\.example\)/);
+});
+
+test('projection provenance escapes named entities in Markdown', () => {
+  const model = planningModel('Projection -> /roadmap/#x');
+  model.exhibits[0].planning = {
+    kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
+    basis:{source:'&lt;script&gt; &lbrack;forged&rbrack;', known:[], assumed:[{key:'x', direction:'yes', date:'2026-08-12'}]},
+  };
+  assert.ok(toMarkdown(model).includes('\\&lt;script\\&gt; \\&lbrack;forged\\&rbrack;'));
 });
 
 test('caseReadout: authored wins; open case states its honest count', () => {

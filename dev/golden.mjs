@@ -687,18 +687,29 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {parse: cparse} = await import('../case/parse.js');
   const {render: crender} = await import('../case/render.js');
+  const {planningRole} = await import('../case/planning-context.js');
   const cdoc = 'title: Wexcombe augmentation\nquestion: Augment in 2029, or run the fleet down?\n' +
     'status: decided\nverdict: We augment — the warranty binds 3 years before the wear does\n' +
     'Money: Augment NPV model -> /fermi/#abc // the £ case\nMoney: Board options -> /tree/#def\n' +
-    'Delivery: Plan of record -> /timeline/#ghi\nRisk: Premortem register -> /premortem/#jkl';
+    'Decision: Outcome plan -> /paths/#ghi\nDelivery: Timing forecast -> /timeline/#jkl\n' +
+    'Risk: Premortem register -> /premortem/#mno';
   const cctx = {...ctxBase, today: '2026-08-02'};
-  const cm = cparse(cdoc);
+  const context = model => ({...model, exhibits:model.exhibits.map(exhibit =>
+    ({...exhibit, planning:planningRole(exhibit.url)}))});
+  const cm = context(cparse(cdoc));
   variants['case-cover'] = crender(cm, cctx);
-  const cOpen = cparse(cdoc.replace('status: decided', 'status: open').replace(/verdict: [^\n]*\n/, ''));
+  const cOpen = context(cparse(cdoc.replace('status: decided', 'status: open').replace(/verdict: [^\n]*\n/, '')));
   variants['case-open'] = crender(cOpen, cctx);
-  const cGhost = cparse(cdoc + '\nUnlinked thing -> https://example.com/x');
+  const cGhost = context(cparse(cdoc + '\nUnlinked thing -> https://example.com/x'));
   variants['case-ghost'] = crender(cGhost, cctx);
   variants['case-narrow'] = crender(cm, {...cctx, width: 390});
+  const cProjection = context(cparse('title: Habitat delivery projection\nstatus: open\n' +
+    'Delivery: Chosen outcome -> /roadmap/#x'));
+  cProjection.exhibits[0].planning = {kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
+    basis:{source:'Habitat growth decisions',
+      known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
+      assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]}};
+  variants['case-projection'] = crender(cProjection, cctx);
 }
 
 /* /wardley fixtures (pure layout → deterministic) */

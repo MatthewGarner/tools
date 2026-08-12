@@ -2,6 +2,7 @@
    kicker reads CASE FILE — {status}, never an instrument number. */
 import {parse} from './parse.js';
 import {render, toMarkdown, caseReadout, NARROW} from './render.js';
+import {planningRole, projectPlanningContexts} from './planning-context.js';
 import {createEditor} from './editor.js';
 import {validators, editLabel, editNote, setQuestion, setStatus} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
@@ -33,7 +34,8 @@ status: open
 
 Money: Augment NPV model -> /fermi/#eyJ2IjoxfQ // the £ case either way
 Money: Board options -> /tree/#eyJ2IjoxfQ // priced routes, incl. do-nothing
-Delivery: Plan of record -> /timeline/#eyJ2IjoxfQ // P50–P90 dates
+Decision: Outcome plan -> /paths/#eyJ2IjoxfQ // every decision and outcome remains visible
+Delivery: Timing forecast -> /timeline/#eyJ2IjoxfQ // P50–P90 dates
 Risk: Premortem register -> /premortem/#eyJ2IjoxfQ // the failure modes, scored`},
   {name: 'Habitat 2.0 launch', src:
 `title: Habitat 2.0 launch
@@ -42,11 +44,14 @@ status: decided
 verdict: We ship March — the streak engine rides the 2nd release
 
 Money: Revenue model -> /fermi/#eyJ2IjoxfQ
-Delivery: Launch plan -> /timeline/#eyJ2IjoxfQ // merge-risk read
+Decision: Outcome plan -> /paths/#eyJ2IjoxfQ // all outcomes, including holding launch
+Delivery: Chosen-outcome roadmap -> /roadmap/#z:TY3BagJBDEB_JcxdWLcgMiJYitCTHizUw1ziTtDYNTMkWUXEfxcPCz0_3nuP4CEGZ-8pwjce2NEhU89X0jtULWfqnIskyegUoW3a2aSZT6ZtkgMaW4SKfjJIYbSPWm5-gkwdGxexFBaAYjdSylCVO5bj8k62GlvNxwLQbLhQfstDtaWU1f_TZvub5KsoRdi5Ev6BUkXWJJv1_mdEnxmr85VA6cKSSUFL35fBw_MF // one exact outcome; receipt shown below
+Delivery: Launch forecast -> /timeline/#eyJ2IjoxfQ // P50–P90 merge-risk dates
 Risk: Launch premortem -> /premortem/#eyJ2IjoxfQ`},
 ];
 
 let model = null, lastSvg = '', hashTimer = null, sizeBucket = 'wide', oversize = false;
+let planningRevision = 0, planningPending = false;
 
 const ctx = () => ({colors: themeColors(), measure, today: todayISO(),
   width: sizeBucket === 'narrow' ? $('preview').clientWidth : undefined});
@@ -62,9 +67,7 @@ function renderWarnings(){
   if(oversize) list.push('this case is too large for a link — the URL was NOT updated; trim exhibits or notes');
   renderWarningList($('warns'), list);
 }
-function doRefresh(){
-  const text = editor.getText();
-  model = parse(text);
+function paintPreview(text){
   const pv = $('preview');
   if(!text.trim()){
     lastSvg = ''; paint.reset();
@@ -75,7 +78,33 @@ function doRefresh(){
   }
   paintKickerLine();
   renderWarnings();
-  setActionsEnabled(!!lastSvg);
+  setActionsEnabled(!!lastSvg && !planningPending);
+}
+function doRefresh(){
+  const text = editor.getText();
+  const revision = ++planningRevision;
+  const parsed = parse(text);
+  planningPending = parsed.exhibits.length > 0;
+  model = {...parsed, exhibits:parsed.exhibits.map(exhibit =>
+    ({...exhibit, planning:planningRole(exhibit.url)}))};
+  paintPreview(text);
+
+  /* URL-carried Roadmap text may be compressed, so basis recognition is
+     async. The generic Roadmap claim paints immediately; a complete valid
+     basis upgrades it to a projection receipt. A later edit always wins. */
+  projectPlanningContexts(parsed.exhibits).then(contexts => {
+    if(revision !== planningRevision || editor.getText() !== text) return;
+    planningPending = false;
+    if(contexts.some(context => context && context.basis))
+      model = {...model, exhibits:model.exhibits.map((exhibit, i) =>
+        ({...exhibit, planning:contexts[i]}))};
+    paintPreview(text);
+  }).catch(() => {
+    if(revision !== planningRevision || editor.getText() !== text) return;
+    planningPending = false;
+    paintPreview(text);
+  });
+
   if(shouldPersist()){ try{ localStorage.setItem('case-src', text); }catch(e){} }
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);

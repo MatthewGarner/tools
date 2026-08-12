@@ -406,6 +406,9 @@ test('case renderer escapes hostile titles/labels/notes/lanes', async () => {
     EVIL.map((e, i) => label(i) + ': ' + label(i + 1) + ' -> /fermi/#x // ' + label(i + 2)).join('\n') + '\n' +
     label(3) + ' -> https://evil.example/' + encodeURIComponent(EVIL[3]);
   const m = parse(doc);
+  m.exhibits[0].planning = {kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
+    basis:{source:EVIL[4], known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
+      assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]}};
   assertClean(render(m, ctx, {edit: true, live: true}), 'case');
   assertClean(render(m, {...ctx, width: 390}), 'case-narrow');
 });

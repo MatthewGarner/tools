@@ -149,7 +149,11 @@ const PAGES = {
   /* 444k -> 454k (2026-08-04 interaction reliability): the Case parity pass
      adds status editing and honest absent-field affordances to the rendered
      artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
-  'case/index.html': 467_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+  /* 467k -> 479k (2026-08-12 planning-family context): canonical URL
+     recognition, bounded Roadmap-basis decoding and claim-labelled exports
+     are the Case binder's job, not decorative shell bytes. Actual 472.8k;
+     retain ~6.2k headroom for this CodeMirror page. */
+  'case/index.html': 479_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   'premortem/index.html': 113_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
@@ -233,8 +237,14 @@ const PAGES = {
      starter can be truthful, plus its compact health/action surface. The
      22.3k Paths parser remains test-only: target-parser round trips prove the
      contract without making every Roadmap visit load it. Actual 743.2k; keep
-     ~7.8k headroom. */
-  'roadmap/index.html': 751_000,
+     ~7.8k headroom.
+     751k -> 765k (2026-08-12, Gate 2 projection basis): the export-wide
+     `basis:` datum, its atomic parser and the readable conditional Markdown /
+     Focus treatment are first-load Roadmap semantics. Why also pays the shared
+     renderer/parser through its Roadmap delegation, but remains under its own
+     budget. Actual 758.4k; this restores ~6.6k headroom rather than masking a
+     known shipped feature behind a permanently red gate. */
+  'roadmap/index.html': 765_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -296,7 +306,12 @@ const PAGES = {
   /* 686k -> 693k (2026-08-10, E1 board outcome zones): why pays cond-parts.js's
      splitColumnZones growth too — render.js imports the whole module even though
      the chart doesn't paint zones. Actual 687.0k, ~6.0k headroom. */
-  'why/index.html': 700_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
+  /* 700k -> 716k (2026-08-12, Roadmap projection basis): Why deliberately
+     delegates Roadmap's parser and renderer for its delivery lens, so the
+     atomic `basis:` grammar and non-erasable conditional export text are an
+     honest shared dependency rather than Why-local creep. Actual 710.3k;
+     restore ~5.7k headroom. */
+  'why/index.html': 716_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
@@ -425,8 +440,12 @@ const PAGES = {
      selector/receipt. This is the deliberate cross-tool handoff: it keeps the
      target parser out of the runtime graph, adds no dependency or shared live
      model, and makes known/assumed/not-part truth visible before navigation.
-     Actual ~691k; retain ~9k for this larger interaction surface. */
-  'paths/index.html': 700_000,
+     Actual ~691k; retain ~9k for this larger interaction surface.
+     700k -> 708k (2026-08-12 selector polish): exact-outcome availability,
+     focus-safe view switching and the phone-first chooser are required for the
+     new projection flow to remain discoverable rather than an off-screen
+     matrix. Actual 700.2k; preserve ~7.8k headroom. */
+  'paths/index.html': 708_000,
 };
 
 if(process.env.WEIGHT_DEBUG){
