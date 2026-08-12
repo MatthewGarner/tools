@@ -3650,6 +3650,10 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   const root = process.env.BASE || 'http://localhost:8087';
   const src = () => p.locator('#cmhost').textContent();
   await p.goto(root + '/paths/', {waitUntil:'networkidle'});
+  check('paths: Tree / Possible Plans is an obvious stage control with source-synced state',
+    await p.locator('#paths-view-switch').isVisible() &&
+    await p.locator('[data-paths-view="tree"]').getAttribute('aria-pressed') === 'true' &&
+    await p.locator('[data-paths-view="plans"]').getAttribute('aria-pressed') === 'false');
   const question = p.locator('[data-select-decision][data-decision-key="groups"]');
   await question.focus();
   await question.press('Enter');
@@ -3710,14 +3714,72 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
      phone relayout, inspector exclusion and — most importantly — that exports
      are routed through the selected WIDE renderer rather than serialising the
      narrow preview or silently retaining Tree. */
-  await p.locator('details.syntax').evaluate(element => { element.open = true; });
-  await p.getByText('style: plans', {exact:true}).click();
+  await p.locator('[data-paths-view="plans"]').click();
   await p.waitForTimeout(500);
   check('paths: style plans switches to the semantic phone relayout and removes the Tree inspector',
     await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
     await p.locator('#decision-inspector').isHidden() &&
-    /wide matrix/.test(await p.locator('#view-method').innerText()));
+    /wide matrix/.test(await p.locator('#view-method').innerText()) &&
+    await p.locator('[data-paths-view="plans"]').getAttribute('aria-pressed') === 'true' &&
+    (await src()).includes('style: plans'));
+  await p.locator('.touch-undo').evaluate(element => element.click());
+  await p.waitForTimeout(500);
+  check('paths: the stage view switch is one undoable source transaction',
+    await p.locator('[data-paths-view="tree"]').getAttribute('aria-pressed') === 'true' &&
+    !(await src()).includes('style: plans'));
+  await p.locator('[data-paths-view="plans"]').click();
+  await p.waitForTimeout(500);
+  check('paths: delivery projection is stage-local beside Possible Plans, never an editor-rail action',
+    await p.locator('#roadmap-projection').isVisible() && await p.evaluate(() =>
+      document.getElementById('preview').nextElementSibling?.id === 'roadmap-projection'));
+  check('paths: phone Plans exposes one prominent shortcut to the canonical exact-outcome flow',
+    await p.locator('#paths-projection-jump').isVisible() &&
+    await p.evaluate(() => document.getElementById('paths-view-switch').nextElementSibling?.id === 'paths-projection-jump') &&
+    await p.locator('#paths-projection-jump').evaluate(element => element.getBoundingClientRect().height >= 44) &&
+    /Choose exact outcome · \d+ ready/.test(await p.locator('#paths-projection-jump').innerText()));
+  check('paths: exact outcomes are not silently selected and unavailable worlds explain why',
+    await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
+    await p.locator('.projection-choice[data-available="false"] .projection-choice-state').count() > 0 &&
+    /Unavailable —/.test(await p.locator('.projection-choice[data-available="false"] .projection-choice-state').first().innerText()));
+  await p.locator('#paths-projection-jump').click();
+  check('paths: shortcut reveals the receipt flow without choosing an outcome',
+    await p.evaluate(() => document.activeElement?.name) === 'roadmap-projection-world' &&
+    await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
+    await p.locator('.projection-unselected').count() === 0 &&
+    await p.locator('.projection-body').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length === 1));
+  check('paths: exact outcomes name the Possible Plan card they refine',
+    /Possible plan \d+ · Exact outcome \d+/.test(
+      await p.locator('.projection-choice[data-available="true"] .projection-choice-reference').first().innerText()));
+  const readyWorld = p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first();
+  await readyWorld.check();
+  await p.waitForTimeout(100);
+  check('paths: choosing an exact outcome keeps radio-group focus and announces its receipt',
+    await p.evaluate(() => document.activeElement?.name) === 'roadmap-projection-world' &&
+    await p.locator('.projection-confirmation').getAttribute('aria-live') === 'polite');
+  check('paths: receipt exposes known, assumed and not-part sections plus the separation promise',
+    await p.locator('.projection-ledger').count() === 3 &&
+    /Known from Paths[\s\S]*Assumed for this delivery projection[\s\S]*Not part/.test(
+      await p.locator('.projection-confirmation').innerText()) &&
+    (await p.locator('.projection-separation').innerText()) ===
+      'This creates a new Roadmap. It does not answer or alter Paths.');
+  check('paths: projection scope is explicit and the action names Roadmap plus basis',
+    (await p.locator('.projection-scope').innerText()) ===
+      'Select one ready outcome. Only decisions that affect delivery appear here; unrelated questions stay in Paths.' &&
+    (await p.locator('[data-create-roadmap]').innerText()) === 'Create Roadmap with this basis');
+  const assumptionChecks = p.locator('.projection-assumption input[type="checkbox"]');
+  const createRoadmap = p.locator('[data-create-roadmap]');
+  check('paths: every assumed answer needs explicit acceptance and phone targets clear 44px',
+    await assumptionChecks.count() > 0 && await createRoadmap.isDisabled() &&
+    await p.locator('.projection-assumption').first().evaluate(element => element.getBoundingClientRect().height >= 44));
+  for(let index = 0; index < await assumptionChecks.count(); index++) await assumptionChecks.nth(index).check();
+  check('paths: accepting the complete exact ledger enables creation', await createRoadmap.isEnabled());
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  check('paths: phone export trigger and menu remain fully inside the viewport', await p.evaluate(() => {
+    const trigger = document.querySelector('.action-disclosure > summary')?.getBoundingClientRect();
+    const menu = document.querySelector('.action-disclosure .action-menu')?.getBoundingClientRect();
+    return trigger && menu && trigger.left >= 0 && trigger.right <= innerWidth + 1 &&
+      menu.left >= 0 && menu.right <= innerWidth + 1;
+  }));
   const plansDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const plansFile = await plansDownload;
@@ -3726,7 +3788,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     plansSvg.includes('data-kind="plans-matrix"') &&
     !plansSvg.includes('data-kind="plans-narrow"') && !plansSvg.includes('data-kind="tree-body"'));
 
-  await p.getByText('style: tree', {exact:true}).click();
+  await p.locator('[data-paths-view="tree"]').click();
   await p.waitForTimeout(500);
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const treeDownload = p.waitForEvent('download');
@@ -3735,6 +3797,48 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   const treeSvg = await (await import('node:fs/promises')).readFile(await treeFile.path(), 'utf8');
   check('paths: switching back keeps Tree exports Tree-only',
     treeSvg.includes('data-kind="tree-body"') && !treeSvg.includes('data-kind="plans-matrix"'));
+
+  /* Re-enter Plans and prove the fresh-document handoff itself. The style edit
+     deliberately cleared the earlier receipt, so the exact world and every
+     assumption must be selected again before navigation. */
+  await p.locator('[data-paths-view="plans"]').click();
+  await p.waitForTimeout(500);
+  check('paths: a source view edit clears the earlier exact selection and acceptance',
+    await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
+    await p.locator('.projection-confirmation').count() === 0);
+  await p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first().check();
+  const freshChecks = p.locator('.projection-assumption input[type="checkbox"]');
+  for(let index = 0; index < await freshChecks.count(); index++) await freshChecks.nth(index).check();
+
+  /* onChange is deliberately debounced. Edit source and click Create before
+     that 120ms refresh: the click path must synchronously validate current
+     editor bytes and refuse the old receipt rather than navigating stale. */
+  const sourceBeforeStale = await p.evaluate(() => localStorage.getItem('paths-src'));
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.insertText(sourceBeforeStale.replace('Streak repair', 'Streak repair — changed'));
+  await p.locator('[data-create-roadmap]').click();
+  check('paths: Create inside the debounce window refuses a stale selected basis',
+    p.url().includes('/paths/') && await p.locator('.projection-message').isVisible());
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.insertText(sourceBeforeStale);
+  await p.waitForTimeout(500);
+  await p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first().check();
+  const restoredChecks = p.locator('.projection-assumption input[type="checkbox"]');
+  for(let index = 0; index < await restoredChecks.count(); index++) await restoredChecks.nth(index).check();
+  const pathsBeforeProjection = await p.evaluate(() => localStorage.getItem('paths-src'));
+  await Promise.all([
+    p.waitForURL(/\/roadmap\/#z:/),
+    p.locator('[data-create-roadmap]').click(),
+  ]);
+  await p.waitForTimeout(500);
+  const roadmapSource = await p.locator('#cmhost').textContent();
+  check('paths: exact creation opens a fresh Roadmap with visible known/assumed basis',
+    p.url().includes('/roadmap/#z:') && roadmapSource.includes('basis: paths "Habitat"; answered reminders=yes@2026-07-22; assumed') &&
+    !roadmapSource.includes('[if ') && !roadmapSource.includes('[unless '));
+  check('paths: creating the Roadmap did not rewrite the Paths source',
+    await p.evaluate(() => localStorage.getItem('paths-src')) === pathsBeforeProjection);
   check('paths: no console/page errors', perrors.length === 0);
   await pctx.close();
 }

@@ -420,9 +420,13 @@ const PAGES = {
      restoration, one owned playback loop, reduced-motion settle and viewport
      clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
   'energy/intraday/index.html': 166_000,
-  /* Tree + outline renderers, the layout, the four engine modules and the vendored
-     editor. Actual 522.8k; ~25% headroom as the house sets a new tool's budget. */
-  'paths/index.html': 653_000,
+  /* 653k -> 700k (2026-08-12 exact delivery projections): Paths now carries the
+     pure fail-closed Paths→Roadmap builder plus its stage-local exact-world
+     selector/receipt. This is the deliberate cross-tool handoff: it keeps the
+     target parser out of the runtime graph, adds no dependency or shared live
+     model, and makes known/assumed/not-part truth visible before navigation.
+     Actual ~691k; retain ~9k for this larger interaction surface. */
+  'paths/index.html': 700_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

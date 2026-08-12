@@ -92,7 +92,19 @@
   <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
   <section class="stage">
     <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
+    <div class="paths-viewbar">
+      <span class="method" id="paths-view-label">View</span>
+      <div class="segmented paths-view-switch" id="paths-view-switch" role="group"
+        aria-labelledby="paths-view-label">
+        <button type="button" data-paths-view="tree" aria-pressed="true">Tree</button>
+        <button type="button" data-paths-view="plans" aria-pressed="false">Possible Plans</button>
+      </div>
+      <button class="paths-projection-jump" id="paths-projection-jump" type="button"
+        aria-controls="roadmap-projection" hidden>Choose exact outcome <span aria-hidden="true">&#8595;</span></button>
+    </div>
     <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <section class="roadmap-projection" id="roadmap-projection"
+      aria-labelledby="roadmap-projection-title" hidden></section>
     <section class="decision-inspector" id="decision-inspector"
       aria-labelledby="decision-inspector-title" hidden></section>
     <div class="actions">

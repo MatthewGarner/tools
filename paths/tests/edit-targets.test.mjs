@@ -5,7 +5,7 @@ import {
   clearAnswer, clearAnswerBy, clearAssumption, clearOwner, clearQuestion,
   clearReading, clearSignal, clearWhen, kinds, setAnswer, setAnswerBy,
   setAnswerRaw, setAssumption, setAssumptionRaw, setOwner, setQuestion,
-  setReading, setSignal, setWhen,
+  setReading, setSignal, setStyle, setWhen,
   validators,
 } from '../edit-targets.js';
 
@@ -291,6 +291,19 @@ NOW
   const out = apply(doc, setSignal(doc, 0, 'week-four retention'));
   assert.equal(decision(out, 0).signal, 'week-four retention');
   assert.equal(parse(out).palette, 'ocean');
+});
+
+test('stage view switch writes one exact undoable style operation in the config block', () => {
+  const contentFirst = 'decision groups:\n  question: Groups?\nNOW\n  Core: Work [if groups]';
+  const inserted = apply(contentFirst, setStyle(contentFirst, 'plans'));
+  assert.equal(inserted.startsWith('style: plans\ndecision groups:'), true);
+  assert.equal(parse(inserted).style, 'plans');
+
+  const configured = 'title: Habitat\nstyle: tree\npalette: plum\nNOW\n  Core: Work';
+  const ops = setStyle(configured, 'plans');
+  assert.deepEqual(ops, [{line:1, text:'style: plans'}]);
+  assert.equal(parse(apply(configured, ops)).style, 'plans');
+  assert.equal(setStyle(configured, 'cards'), null);
 });
 
 test('validators and kinds accept safe clears and reject values the setters cannot represent', () => {
