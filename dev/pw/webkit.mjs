@@ -230,6 +230,11 @@ for(const theme of ['light', 'dark']){
     await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle', timeout: 20000});
     await page.waitForTimeout(400);
     const wi = page.locator('#preview svg rect[data-whatif]').first();
+    /* The conditional card may sit below the iPhone viewport. WebKit's raw
+       mouse coordinates do not auto-scroll it into view, so mirror the
+       reader's scroll before sending the fine-pointer click. */
+    await wi.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
     const box = await wi.boundingBox();
     ok(!!box, 'roadmap (webkit): what-if hit rect present for the declared bet');
     if(box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

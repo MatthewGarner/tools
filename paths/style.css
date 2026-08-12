@@ -12,6 +12,18 @@
 .preview [data-kind="outline-question"][data-selected="true"] > text,
 .preview [data-kind="outline-question"]:focus-visible > text{fill:var(--accent-ink)}
 
+/* Paths and Roadmap are adjacent instruments, not interchangeable views. Put
+   the boundary where a new document begins, in prose rather than another
+   control or shared model. */
+.planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
+  margin:16px 0 0;padding:10px 12px;border-left:3px solid var(--accent);
+  background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+.planning-boundary span{color:var(--accent-ink);font-size:9px;font-weight:750;
+  letter-spacing:.13em;text-transform:uppercase}
+.planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.planning-boundary a{color:var(--accent-ink);font-weight:700}
+@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
+
 .paths-viewbar{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   margin:0 0 12px; padding:0 0 10px; border-bottom:1px solid var(--border);

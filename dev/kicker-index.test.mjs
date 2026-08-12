@@ -67,3 +67,23 @@ test('home names the planning-under-uncertainty family without replacing direct 
   assert.match(home, /<a class="binder" href="\/case\/">/,
     'family routing must not replace Case file\'s direct binder band');
 });
+
+test('Paths, Roadmap and Timeline name their different planning claims at the entry point', () => {
+  const paths = read('paths/index.html');
+  const roadmap = read('roadmap/index.html');
+  const timeline = read('timeline/index.html');
+  assert.match(paths, /Decision plan · all outcomes/,
+    'Paths must identify its all-outcomes decision-plan claim before the workspace');
+  assert.match(paths, /question can stop, pivot or expand investment/,
+    'Paths must state the uncertainty it owns, rather than reading like a schedule');
+  assert.match(roadmap, /Delivery roadmap · committed work/,
+    'Roadmap must identify its delivery claim before the workspace');
+  assert.match(roadmap, /If an open question can stop, pivot or expand investment, design the decision plan in <a href="\/paths\/">Paths<\/a> first\./,
+    'Roadmap must route material conditionality to Paths without implying a shared model');
+  assert.match(timeline, /Timing forecast · ranges, not promises/,
+    'Timeline must identify its forecast claim before the workspace');
+  assert.match(timeline, /does not decide which conditional work belongs in the plan/,
+    'Timeline must not make a timing forecast look like a decision or delivery plan');
+  assert.match(timeline, /<a href="\/paths\/">Paths<\/a> and <a href="\/roadmap\/">Roadmap<\/a>/,
+    'Timeline must route decision and delivery concerns back to their distinct instruments');
+});

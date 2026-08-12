@@ -8,6 +8,14 @@
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
+  margin:16px 0 0;padding:10px 12px;border-left:3px solid var(--accent);
+  background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+.planning-boundary span{color:var(--accent-ink);font-size:9px;font-weight:750;
+  letter-spacing:.13em;text-transform:uppercase}
+.planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.planning-boundary a{color:var(--accent-ink);font-weight:700}
+@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
 select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);border-radius:0;
   background:var(--card);color:var(--ink);font-family:inherit;max-width:210px}
 /* the headline field — the UI half of `headline:`. Given its own labelled row
