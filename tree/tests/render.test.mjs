@@ -124,14 +124,14 @@ test('presentation export strips every live edit and keyboard-focus hook', () =>
 
 test('chance children are possible outcomes, never chosen outcomes', () => {
   const m = parse(BID);
-  const svg = render(m, evaluate(m), ctx({intent: 'presentation'}));
+  const svg = render(m, evaluate(m), ctx({intent: 'live-narrow', width: 390}));
   assert.equal((svg.match(/POSSIBLE OUTCOME/g) || []).length, 2);
   assert.ok(!svg.includes('CHOSEN OUTCOME'));
 });
 
 test('zero-effective-probability chance children are explicitly excluded', () => {
   const m = parse('Root\n  Risk\n    Certain (p=1): 10\n    Impossible (p=rest): 999\n  Safe: 0');
-  const svg = render(m, evaluate(m), ctx({intent: 'presentation'}));
+  const svg = render(m, evaluate(m), ctx({intent: 'live-narrow', width: 390}));
   assert.ok(svg.includes('EXCLUDED · ZERO PROBABILITY'));
   assert.equal((svg.match(/POSSIBLE OUTCOME/g) || []).length, 1);
 });
@@ -257,9 +257,98 @@ test('every authored line has one canonical editable label in wide and narrow', 
   }
 });
 
-test('phone is a memo and Copy PNG is a labelled policy-path slide', () => {
+test('phone remains a memo; Copy PNG is a complete, full-strength root decision comparison', () => {
   const m=parse(DENSE),results=evaluate(m),phone=render(m,results,ctx({intent:'live-narrow',width:390}));
   assert.match(phone,/width="390"/); assert.ok(phone.includes('data-memo-row')&&phone.includes('RECOMMENDED PATH')); assert.ok(!phone.includes('data-tree-edge'));
   const slide=render(m,results,ctx({intent:'presentation'}));
-  assert.match(slide,/^<svg[^>]*width="1920" height="1080"/); assert.ok(slide.includes('RECOMMENDED POLICY PATH')&&slide.includes('SELECTION: POLICY PATH')&&slide.includes('FULL SVG'));
+  assert.match(slide,/^<svg[^>]*width="1920" height="1080"/);
+  for(const label of ['Commit to the comprehensive', 'Run a carefully bounded pilot', 'Hold the current course']) assert.ok(slide.includes(label));
+  for(const label of ['DECISION COMPARISON', 'MEAN EV', 'P10–P90', 'WIN RATE VS RECOMMENDATION',
+    'CHANCE INPUTS', 'RECOMMENDED', 'COMPLETE ROOT COMPARISON · 3 OF 3 OPTIONS']) assert.ok(slide.includes(label), label);
+  assert.equal((slide.match(/data-comparison-option=/g)||[]).length, 3);
+  for(const label of ['MEAN EV', 'P10–P90', 'WIN RATE VS RECOMMENDATION'])
+    assert.equal((slide.match(new RegExp(label,'g'))||[]).length,3,label+' appears once per root option');
+  assert.ok(slide.includes('Commercial response › Strong adoption'), 'chance provenance is kept in-plane');
+  assert.ok(!slide.includes('opacity='), 'alternatives remain full strength');
+  assert.ok(!slide.includes('RECOMMENDED POLICY PATH'));
+});
+
+test('Decision comparison is truthfully partial when fixed-canvas capacity is exceeded and still includes the recommendation', () => {
+  const options=Array.from({length:17},(_,i)=>'  Option '+String(i+1).padStart(2,'0')+': '+i).join('\n');
+  const m=parse('title: Deliberately crowded comparison\nRoot\n'+options),slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('PARTIAL ROOT COMPARISON'));
+  assert.ok(slide.includes('OF 17 OPTIONS'));
+  assert.ok(slide.includes('Option 17') && slide.includes('RECOMMENDED'));
+  assert.ok(slide.includes('Native SVG contains all options and branches'));
+});
+
+test('Decision comparison qualifies its closest flip against the authored range', () => {
+  const m=parse(BID),slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('CLOSEST DECISION FLIP'));
+  assert.ok(slide.includes('OUTSIDE AUTHORED 90% RANGE'));
+  assert.ok(slide.includes('Win'));
+});
+
+test('Decision comparison preserves the midpoint/Monte Carlo honesty seam', () => {
+  const m=parse('Root\n  Risky\n    Big (p=0.5): 10M to 40M\n    Bust (p=rest): -5M\n  Safe: 9M');
+  const slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('MIDPOINT SENSITIVITY'));
+  assert.ok(slide.includes('On midpoints, Risky edges ahead'));
+  assert.ok(slide.includes('Across full ranges, Monte Carlo recommends Safe'));
+  assert.ok(!slide.includes('CLOSEST DECISION FLIP'));
+});
+
+test('long authored verdict stays bounded and declares its slide truncation', () => {
+  const verdict='A deliberately overlong authored conclusion '.repeat(70)+'ends here';
+  const m=parse('verdict: '+verdict+'\nRoot\n  A: 10\n  B: 5');
+  const slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('VERDICT ABBREVIATED FOR SLIDE'));
+  assert.ok(slide.includes('Native SVG keeps the full authored verdict'));
+  const ys=[...slide.matchAll(/\sy="(-?[\d.]+)"/g)].map(match=>+match[1]);
+  assert.ok(ys.length && Math.min(...ys)>=0 && Math.max(...ys)<=1080,
+    'all authored-verdict composition remains on the 1080 canvas');
+  assert.equal((slide.match(/data-comparison-option=/g)||[]).length,2);
+});
+
+test('long option titles are visibly abbreviated and cards preserve metric/provenance separation', () => {
+  const long='An exceptionally long option title whose important distinguishing suffix is ALPHA '.repeat(5);
+  const m=parse('Root\n  '+long+': 10\n  Brief: 5'),slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('…'));
+  assert.ok(slide.includes('OPTION TITLES ABBREVIATED'));
+  const cards=[...slide.matchAll(/data-comparison-option="[^"]+"><rect[^>]*height="([\d.]+)"/g)].map(match=>+match[1]);
+  assert.deepEqual(cards.length,2);
+  assert.ok(cards.every(height=>height>=136));
+  for(const card of slide.matchAll(/data-comparison-option="[^"]+"[\s\S]*?<text[^>]*y="([\d.]+)"[^>]*>MEAN EV<\/text>[\s\S]*?<text[^>]*y="([\d.]+)"[^>]*>[^<]*<\/text>[\s\S]*?<text[^>]*y="([\d.]+)"[^>]*>CHANCE INPUTS<\/text>/g)){
+    assert.ok(+card[3]-(+card[2])>=12,'chance provenance clears the metric-value baseline');
+  }
+});
+
+test('chance-only and leaf Copy PNGs give an explicit Native SVG fallback', () => {
+  for(const source of ['Weather\n  Sun (p=0.5): 10\n  Rain (p=rest): 0','Single: 10']){
+    const m=parse(source),slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+    assert.ok(slide.includes('NO ROOT DECISION TO COMPARE'));
+    assert.ok(slide.includes('Use Native SVG for the complete model'));
+    assert.ok(!slide.includes('COMPLETE ROOT COMPARISON · 0 OF 0 OPTIONS'));
+  }
+});
+
+test('one-option root is not misrepresented as a comparison', () => {
+  const m=parse('Root\n  Only option: 10'),slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('NO ROOT DECISION TO COMPARE'));
+  assert.ok(slide.includes('only one root option'));
+  assert.ok(slide.includes('there is no alternative to compare'));
+  assert.ok(!slide.includes('COMPLETE ROOT COMPARISON · 1 OF 1 OPTIONS'));
+});
+
+test('long sensitivity labels stay in separate bounded columns and disclose abbreviation', () => {
+  const risky='Risky option with a very long distinguishing label '.repeat(7)+'RISKY-END';
+  const safe='Safe option with a very long distinguishing label '.repeat(7)+'SAFE-END';
+  const m=parse('Root\n  '+risky+'\n    Big (p=0.5): 10M to 40M\n    Bust (p=rest): -5M\n  '+safe+': 9M');
+  const slide=render(m,evaluate(m),ctx({intent:'presentation'}));
+  assert.ok(slide.includes('SENSITIVITY LABELS ABBREVIATED'));
+  const ribbons=[...slide.matchAll(/data-sensitivity-column="(left|right)"[^>]*>[\s\S]*?<text[^>]*x="([\d.]+)"[^>]*>([^<]+)<\/text>/g)];
+  assert.equal(ribbons.length,2);
+  assert.ok(ribbons.every(match=>match[3].includes('…')),'both long labels visibly abbreviate');
+  assert.ok(ribbons.every(match=>!match[3].includes('RISKY-END')&&!match[3].includes('SAFE-END')),
+    'unbounded suffixes never enter the fixed sensitivity columns');
 });

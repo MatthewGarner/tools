@@ -4,6 +4,7 @@ import {PALETTES, scheme, fmt} from '../assets/series.js';
 import {esc, btnAttrs, wrapText} from '../assets/svg.js';
 import {svgVerdict, svgMetrics} from '../assets/verdict-svg.js';
 import {layoutTree, TREE_GEOM} from './layout.js';
+import {decisionComparisonProjection} from './comparison.js';
 
 const SANS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 const SERIF = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';
@@ -11,6 +12,16 @@ export const NARROW = 520;
 const T = {pad:32, fade:.42, bottom:24};
 const e = s => esc(String(s));
 const n2 = n => Math.round(n * 100) / 100;
+
+function clippedLines(text, font, width, measure, maxLines){
+  const full=wrapText(text,font,width,measure),lines=full.slice(0,maxLines),clipped=full.length>maxLines;
+  if(clipped&&lines.length){
+    let last=lines[lines.length-1];
+    while(last.length>1&&measure(last+'…',font)>width) last=last.slice(0,-1);
+    lines[lines.length-1]=last.replace(/[\s,.;:]+$/,'')+'…';
+  }
+  return {lines,clipped};
+}
 
 function intent(ctx){
   if(ctx.intent) return ctx.intent;
@@ -155,8 +166,101 @@ function narrow(model,results,ctx,C,layout,verdictParts){
 }
 
 function presentation(model,results,ctx,C,layout,verdictParts){
-  const W=1920,H=1080,v=values(model),h=head(model,results,ctx,C,W,verdictParts,true),entries=layout.entries.filter(x=>layout.selected.has(x.node)&&!x.node.implicit),shown=entries.slice(0,12),hidden=layout.total-shown.length,cols=Math.max(1,Math.min(2,Math.ceil(shown.length/6))),colW=(W-144-(cols-1)*28)/cols,rowH=Math.min(112,Math.max(80,(820-h.h)/Math.min(6,Math.max(shown.length,1)))),start=h.h+42;
-  const out=['<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family=\''+SANS+'\'><rect width="1920" height="1080" fill="'+C.bg+'"/>',h.svg,'<text x="72" y="'+(h.h+16)+'" font-size="14" font-weight="650" letter-spacing="2" fill="'+C.muted+'">RECOMMENDED POLICY PATH</text>'];shown.forEach((entry,i)=>{const col=Math.floor(i/6),row=i%6,x=72+col*(colW+28),y=start+row*rowH,lines=wrapText(entry.node.label,'650 20px '+SANS,colW-80,ctx.measure).slice(0,2),st=results.stats.get(entry.node);out.push('<g data-presentation-node="'+entry.node.srcLine+'"><rect x="'+x+'" y="'+y+'" width="'+colW+'" height="'+(rowH-10)+'" fill="'+C.card+'" stroke="'+C.border+'"/><line x1="'+x+'" y1="'+y+'" x2="'+x+'" y2="'+(y+rowH-10)+'" stroke="'+C.accent+'" stroke-width="5"/><text x="'+(x+20)+'" y="'+(y+25)+'" font-size="12" font-weight="650" fill="'+C.accent+'">'+status(entry.node,model.root,layout.policy,results)+'</text>');lines.forEach((line,j)=>out.push('<text x="'+(x+20)+'" y="'+(y+52+j*23)+'" font-size="20" font-weight="650" fill="'+C.ink+'">'+e(line)+'</text>'));if(st)out.push('<text x="'+(x+colW-20)+'" y="'+(y+rowH-30)+'" text-anchor="end" font-size="15" fill="'+C.muted+'">EV '+e(v.money(st.mean))+'</text>');out.push('</g>');});const foot=hidden>0?'SELECTION: POLICY PATH · '+hidden+' FURTHER '+(hidden===1?'BRANCH':'BRANCHES')+' IN FULL SVG':'SELECTION: POLICY PATH · COMPLETE MODEL SHOWN';out.push('<line x1="72" y1="1014" x2="1848" y2="1014" stroke="'+C.border+'"/><text x="72" y="1045" font-size="16" font-weight="650" letter-spacing="1.4" fill="'+C.muted+'">'+e(foot)+'</text></svg>');return out.join('');
+  const W=1920,H=1080,v=values(model),rawVerdict=verdictParts(model,results),verdictLimit=180;
+  const verdictAbbreviated=rawVerdict.line.length>verdictLimit;
+  const boundedVerdict=verdictAbbreviated
+    ? {line:rawVerdict.line.slice(0,verdictLimit-1).replace(/[\s,.;:]+$/,'')+'…',fig:''}
+    : rawVerdict;
+  const h=head(model,results,ctx,C,W,()=>boundedVerdict,true);
+  const comparison=decisionComparisonProjection(model,results),all=comparison.options;
+  const sectionY=h.h+18,flip=comparison.closestFlip,seam=comparison.modelDisagreement;
+  const start=h.h+((flip||seam)?88:68),footerY=1014,gap=12;
+  const desiredCols=all.length<=1?1:all.length<=10?2:3;
+  const comparisonWidth=(W-144-(desiredCols-1)*24)/desiredCols;
+  const hasTwoLineTitle=all.some(option=>wrapText(option.label,'650 18px '+SANS,
+    comparisonWidth-(option.recommended?170:62),ctx.measure).length>1);
+  const minCardH=hasTwoLineTitle?136:120;
+  const rowsFit=Math.max(1,Math.min(5,Math.floor((footerY-start+gap)/(minCardH+gap))));
+  const capacity=desiredCols*rowsFit;
+  let shown=all.slice(0,capacity);
+  if(all.length>capacity&&comparison.recommendation&&!shown.some(option=>option.recommended)){
+    shown=[...shown.slice(0,-1),all.find(option=>option.recommended)].sort((a,b)=>
+      model.root.children.indexOf(a.node)-model.root.children.indexOf(b.node));
+  }
+  const cols=Math.min(desiredCols,Math.max(1,shown.length)),rows=Math.max(1,Math.ceil(shown.length/cols));
+  const colGap=24,colW=(W-144-(cols-1)*colGap)/cols;
+  const rowH=Math.max(minCardH,Math.min(148,Math.floor((footerY-start-(rows-1)*gap)/rows)));
+  const out=['<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family=\''+SANS+'\'><rect width="1920" height="1080" fill="'+C.bg+'"/>',h.svg,
+    '<text x="72" y="'+sectionY+'" font-size="14" font-weight="650" letter-spacing="2" fill="'+C.muted+'">DECISION COMPARISON</text>'];
+  if(all.length<2){
+    const kind=all.length===1?'only one root option':model.root?.kind==='chance'?'chance model':'single outcome';
+    out.push('<rect x="72" y="'+(start+12)+'" width="1776" height="170" fill="'+C.card+'" stroke="'+C.border+'"/>',
+      '<text x="96" y="'+(start+58)+'" font-size="15" font-weight="650" letter-spacing="1.6" fill="'+C.muted+'">NO ROOT DECISION TO COMPARE</text>',
+      '<text x="96" y="'+(start+96)+'" font-size="26" font-weight="650" fill="'+C.ink+'">This has '+kind+'; there is no alternative to compare.</text>',
+      '<text x="96" y="'+(start+132)+'" font-size="17" fill="'+C.muted+'">Use Native SVG for the complete model.</text>',
+      '<line x1="72" y1="'+footerY+'" x2="1848" y2="'+footerY+'" stroke="'+C.border+'"/>',
+      '<text x="72" y="1045" font-size="15" font-weight="650" letter-spacing="1.1" fill="'+C.muted+'">COMPARISON UNAVAILABLE · Native SVG remains exhaustive</text></svg>');
+    return out.join('');
+  }
+  let sensitivityAbbreviated=false;
+  if(seam){
+    const left=clippedLines('On midpoints, '+comparison.midpointRecommendation.label+' edges ahead',
+      '650 16px '+SANS,820,ctx.measure,1);
+    const right=clippedLines('Across full ranges, Monte Carlo recommends '+comparison.recommendation.label,
+      '650 13px '+SANS,820,ctx.measure,1);
+    sensitivityAbbreviated=left.clipped||right.clipped;
+    out.push('<g data-sensitivity-column="left"><text x="72" y="'+(sectionY+28)+'" font-size="16" font-weight="650" fill="'+C.ink+'">MIDPOINT SENSITIVITY · '+e(left.lines[0])+'</text></g>',
+      '<g data-sensitivity-column="right"><text x="1848" y="'+(sectionY+28)+'" text-anchor="end" font-size="13" font-weight="650" fill="'+C.muted+'">'+e(right.lines[0])+'</text></g>');
+  }else if(flip){
+    const threshold=flip.kind==='prob'?'p='+n2(flip.threshold):v.money(flip.threshold);
+    const authored=flip.kind==='prob'
+      ? 'p='+n2(flip.authored.lo)+(flip.authored.lo===flip.authored.hi?'':'–'+n2(flip.authored.hi))
+      : v.range(flip.authored);
+    const rangeState=flip.insideAuthoredRange?'WITHIN AUTHORED 90% RANGE':'OUTSIDE AUTHORED 90% RANGE';
+    const left=clippedLines('CLOSEST DECISION FLIP · '+flip.label+' '+(flip.kind==='prob'?'probability':'payoff')+' at '+threshold,
+      '650 16px '+SANS,820,ctx.measure,1);
+    const right=clippedLines(rangeState+' · AUTHORED '+authored,'650 13px '+SANS,820,ctx.measure,1);
+    sensitivityAbbreviated=left.clipped||right.clipped;
+    out.push('<g data-sensitivity-column="left"><text x="72" y="'+(sectionY+28)+'" font-size="16" font-weight="650" fill="'+C.ink+'">MIDPOINT SENSITIVITY · '+e(left.lines[0])+'</text></g>',
+      '<g data-sensitivity-column="right"><text x="1848" y="'+(sectionY+28)+'" text-anchor="end" font-size="13" font-weight="650" fill="'+(flip.insideAuthoredRange?C.accent:C.muted)+'">'+e(right.lines[0])+'</text></g>');
+  }else{
+    out.push('<text x="72" y="'+(sectionY+28)+'" font-size="16" fill="'+C.muted+'">CLOSEST DECISION FLIP · No threshold found in the explored input ranges</text>');
+  }
+  let titlesAbbreviated=false;
+  shown.forEach((option,i)=>{
+    const col=i%cols,row=Math.floor(i/cols),x=72+col*(colW+colGap),y=start+row*(rowH+gap);
+    const titleFit=clippedLines(option.label,'650 18px '+SANS,colW-(option.recommended?170:62),ctx.measure,2);
+    const title=titleFit.lines; titlesAbbreviated ||= titleFit.clipped;
+    const st=option.stats,mean=st?v.money(st.mean):'—',interval=st?v.money(st.p10)+' … '+v.money(st.p90):'—';
+    const win=option.recommended?'REFERENCE':option.winRateVsRecommendation===null?'—':Math.round(option.winRateVsRecommendation*100)+'%';
+    const chance=option.chanceInputs.length
+      ? option.chanceInputs[0].label+' · '+option.chanceInputs[0].authored+(option.chanceInputs.length>1?' · +'+(option.chanceInputs.length-1)+' more':'')
+      : 'None';
+    const chanceLines=wrapText(chance,'12px '+SANS,colW-32,ctx.measure);
+    const chanceLine=(chanceLines[0]||'')+(chanceLines.length>1?'…':'');
+    out.push('<g data-comparison-option="'+option.node.srcLine+'"><rect x="'+x+'" y="'+y+'" width="'+colW+'" height="'+rowH+'" fill="'+C.card+'" stroke="'+(option.recommended?C.accent:C.border)+'" stroke-width="'+(option.recommended?2:1)+'"/>',
+      '<line x1="'+x+'" y1="'+y+'" x2="'+x+'" y2="'+(y+rowH)+'" stroke="'+(option.recommended?C.accent:C.muted)+'" stroke-width="4"/>',
+      '<text x="'+(x+16)+'" y="'+(y+20)+'" font-size="10" font-weight="650" letter-spacing="1.2" fill="'+C.muted+'">OPTION '+String(model.root.children.indexOf(option.node)+1).padStart(2,'0')+'</text>');
+    if(option.recommended) out.push('<text x="'+(x+colW-16)+'" y="'+(y+20)+'" text-anchor="end" font-size="10" font-weight="700" letter-spacing="1.1" fill="'+C.accent+'">RECOMMENDED</text>');
+    title.forEach((line,j)=>out.push('<text x="'+(x+16)+'" y="'+(y+43+j*20)+'" font-size="18" font-weight="650" fill="'+C.ink+'">'+e(line)+'</text>'));
+    const metricsY=y+(title.length>1?78:61),m1=x+16,m2=x+colW*.34,m3=x+colW*.69;
+    out.push('<text x="'+m1+'" y="'+metricsY+'" font-size="9" font-weight="650" letter-spacing="1" fill="'+C.muted+'">MEAN EV</text>',
+      '<text x="'+m2+'" y="'+metricsY+'" font-size="9" font-weight="650" letter-spacing="1" fill="'+C.muted+'">P10–P90</text>',
+      '<text x="'+m3+'" y="'+metricsY+'" font-size="9" font-weight="650" letter-spacing=".7" fill="'+C.muted+'">WIN RATE VS RECOMMENDATION</text>',
+      '<text x="'+m1+'" y="'+(metricsY+17)+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+e(mean)+'</text>',
+      '<text x="'+m2+'" y="'+(metricsY+17)+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+e(interval)+'</text>',
+      '<text x="'+m3+'" y="'+(metricsY+17)+'" font-size="14" font-weight="650" fill="'+C.ink+'">'+e(win)+'</text>',
+      '<text x="'+(x+16)+'" y="'+(y+rowH-29)+'" font-size="9" font-weight="650" letter-spacing="1" fill="'+C.muted+'">CHANCE INPUTS</text>',
+      '<text x="'+(x+16)+'" y="'+(y+rowH-12)+'" font-size="12" fill="'+C.muted+'">'+e(chanceLine)+'</text></g>');
+  });
+  const complete=shown.length===all.length,provenancePartial=shown.some(option=>option.chanceInputs.length>1);
+  const foot=(complete?'COMPLETE':'PARTIAL')+' ROOT COMPARISON · '+shown.length+' OF '+all.length+' OPTIONS'+
+    (provenancePartial?' · CHANCE INPUTS ABBREVIATED':'')+(titlesAbbreviated?' · OPTION TITLES ABBREVIATED':'')+
+    (sensitivityAbbreviated?' · SENSITIVITY LABELS ABBREVIATED':'')+
+    (verdictAbbreviated?' · VERDICT ABBREVIATED FOR SLIDE · Native SVG keeps the full authored verdict':'')+
+    (!verdictAbbreviated?' · Native SVG contains '+(complete?'the exhaustive branch model':'all options and branches'):'');
+  out.push('<line x1="72" y1="'+footerY+'" x2="1848" y2="'+footerY+'" stroke="'+C.border+'"/><text x="72" y="1045" font-size="15" font-weight="650" letter-spacing="1.1" fill="'+C.muted+'">'+e(foot)+'</text></svg>');
+  return out.join('');
 }
 
 export function renderDensity(model,results,ctx,verdictParts){

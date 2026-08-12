@@ -337,7 +337,13 @@ const PAGES = {
      fallback (above) plus tree's own cardmenu-chance gating (hasIncomingProb,
      a functional cardMenu `field`) and the prob/value set-when-unset
      rewrites in edit-targets.js. Actual 536.2k; preserve ~5k headroom. */
-  'tree/index.html': 541_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
+  /* 541k -> 553k (2026-08-12, Decision comparison Copy PNG): comparison.js
+     projects every root option's paired evidence, chance provenance and nearest
+     flip range status; render-density.js replaces the selected policy-path slide
+     with the complete/explicitly-partial fixed-canvas comparison. Copy PNG must
+     resolve during its originating click, so this is honest first-load code, not
+     a payload that can be deferred. Actual 547.1k; preserve ~5.9k headroom. */
+  'tree/index.html': 553_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
