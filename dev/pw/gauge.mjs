@@ -129,7 +129,10 @@ try{
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
 
   /* Revealed room ranges become a review-needed Fermi draft, never an automatic estimate. */
-  check('facilitator: Draft Fermi inputs appears after reveal', await pageF.locator('#tofermi').isVisible());
+  check('facilitator: Draft Fermi inputs appears after reveal with an explicit review-needed warning',
+    await pageF.locator('#tofermi').isVisible() &&
+    await pageF.locator('#fermiDraftNote').isVisible() &&
+    /not automatically a calibrated 90% belief/.test(await pageF.locator('#fermiDraftNote').innerText()));
   {
     const target = await pageF.evaluate(() => {
       // read the destination without navigating the console away

@@ -230,8 +230,9 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     const h = currentHandoff();
     $('tofermi').hidden = !h;
     const note = fermiHandoffIssue(model);
-    $('fermiDraftNote').hidden = !note;
-    $('fermiDraftNote').textContent = note;
+    $('fermiDraftNote').hidden = !(h || note);
+    $('fermiDraftNote').textContent = note ||
+      'A room range is an elicited assumption, not automatically a calibrated 90% belief. Fermi will ask you to restate or adopt every range before simulating.';
   }
   $('tofermi').addEventListener('click', async () => {
     const h = currentHandoff();

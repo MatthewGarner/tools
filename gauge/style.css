@@ -46,8 +46,8 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .probout{font-variant-numeric:tabular-nums;font-weight:600;min-width:44px;text-align:right}
 .anchors{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:4px}
 .rangerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.rangerow input[type=number]{width:110px;flex:1 1 90px;min-width:0;max-width:150px;font:inherit;font-size:14px;color:var(--ink);
-  background:var(--bg);border:1px solid var(--border);border-radius:0;padding:7px 10px}
+.rangerow input[type=number]{width:110px;flex:1 1 90px;min-width:0;max-width:150px;font:inherit;font-size:16px;color:var(--ink);
+  background:var(--bg);border:1px solid var(--border);border-radius:0;padding:8px 10px;min-height:44px}
 .rangerow .to{color:var(--muted);font-size:13px}
 .rangerow .unit{color:var(--muted);font-size:13px}
 /* chips allocation rows: 44px steppers, 16px input (no iOS zoom) */
@@ -63,8 +63,8 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .qerr{color:var(--err);font-size:12.5px;margin:8px 0 0}
 .q.haserr{border-color:var(--err)}
 .namefield label{font-size:13.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
-.namefield input{flex:1;font:inherit;font-size:14px;color:var(--ink);background:var(--bg);
-  border:1px solid var(--border);border-radius:0;padding:7px 10px}
+.namefield input{flex:1;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);
+  border:1px solid var(--border);border-radius:0;padding:8px 10px;min-height:44px}
 .pintro{color:var(--muted);font-size:14px;margin:4px 0 18px;max-width:60ch}
 
 /* ---- console ---- */
@@ -81,11 +81,9 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 .about code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
-/* iOS zooms into any focused input under 16px — keep form inputs at 16px on small screens */
-@media (max-width:700px){
-  .rangerow input[type=number],.namefield input{font-size:16px}
-  .linkrow input{font-size:16px}
-}
+/* iOS zooms into any focused input under 16px. The range/name controls are
+   already 16px+44px at every width; the share link only needs the phone bump. */
+@media (max-width:700px){.linkrow input{font-size:16px}}
 
 /* participants and the live console land on the session, not the pitch */
 body[data-mode="participant"] header .tagline,
