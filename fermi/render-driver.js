@@ -4,19 +4,21 @@
    colours and text measure from ctx only. */
 import {esc, tint, txt} from '../assets/svg.js';
 import {fmt, sig} from './engine.js';
+import {normalizeReceipt, receiptChipLabel, receiptLabel} from './state.js';
 
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const OP = {'*': '×', '/': '÷', '+': '+', '-': '−', '^': '^', neg: '−'};
-const PAD = 28, ROW_H = 54, COL_W = 128, CAP_H = 40, OP_R = 13, OUT_W = 236, OUT_H = 96, HEAD_H = 64;
+const PAD = 28, ROW_H = 72, COL_W = 128, CAP_H = 58, OP_R = 13, OUT_W = 236, OUT_H = 96, HEAD_H = 64;
 
 const f1 = n => (Math.round(n * 100) / 100).toString();
 
 export function renderDriverTree(model, ctx){
   const c = ctx.colors, measure = ctx.measure;
-  const {ast, ranges, sens = [], p10, p50, p90, fullRatio, scenLabel} = model;
+  const {ast, ranges, sens = [], p10, p50, p90, fullRatio, scenLabel, bases} = model;
   const shares = Object.fromEntries(sens.map(s => [s.name, s.share]));
   const top = sens.length ? sens[0] : null;
+  const baseFor = name => normalizeReceipt(bases instanceof Map ? bases.get(name) : bases && bases[name]);
 
   /* positions: leaves stacked by in-order row; internal nodes at the mean of
      their children; columns by depth from the root (root rightmost) */
@@ -50,7 +52,8 @@ export function renderDriverTree(model, ctx){
 
   const leafTexts = nodes.filter(nd => nd.leaf).map(nd => nd.n.t === 'var'
     ? Math.max(measure(nd.n.name, '600 12px ' + MONO),
-        measure(rangeText(ranges[nd.n.name]), '11px ' + SANS))
+        measure(rangeText(ranges[nd.n.name]), '11px ' + SANS),
+        measure(receiptChipLabel(baseFor(nd.n.name)), '600 9.5px ' + SANS))
     : measure(fmt(nd.n.v), '600 12px ' + MONO));
   const capW = Math.min(260, Math.max(110, ...leafTexts) + 26);
   const rootCx = PAD + capW + maxD * COL_W + (maxD ? 0 : 30);
@@ -112,8 +115,12 @@ export function renderDriverTree(model, ctx){
         s.push('<rect data-node="var" data-name="' + esc(nd.n.name) + '" x="' + PAD + '" y="' + f1(y0) +
           '" width="' + f1(capW) + '" height="' + CAP_H + '" rx="0" fill="' +
           (isTop ? tint(c.accent) : c.card) + '" stroke="' + (isTop ? c.accent : c.border) + '"/>');
-        s.push(txt(PAD + 13, nd.y - 3, nd.n.name, 12, c.ink, {weight: 600, mono: true}));
-        s.push(txt(PAD + 13, nd.y + 12, rangeText(ranges[nd.n.name]), 11, c.muted));
+        s.push(txt(PAD + 13, nd.y - 10, fit(nd.n.name, capW - 26, '600 12px ' + MONO, measure),
+          12, c.ink, {weight: 600, mono: true}));
+        s.push(txt(PAD + 13, nd.y + 5, rangeText(ranges[nd.n.name]), 11, c.muted));
+        const receipt = receiptChipLabel(baseFor(nd.n.name));
+        s.push(txt(PAD + 13, nd.y + 20, fit(receipt, capW - 26, '600 9.5px ' + SANS, measure),
+          9.5, baseFor(nd.n.name) ? c.accent : c.muted, {weight: 600}));
       } else {
         s.push('<rect data-node="num" x="' + PAD + '" y="' + f1(nd.y - 12) + '" width="' + f1(capW) +
           '" height="24" rx="0" fill="none" stroke="' + c.border + '" stroke-dasharray="3 3"/>');
@@ -141,12 +148,27 @@ export function renderDriverTree(model, ctx){
 
   /* pure display — no data-edit targets here, so a role="img" summary is
      safe (it never hides interactive descendants) */
+  const provenanceSummary = nodes.filter(nd => nd.leaf && nd.n.t === 'var')
+    .map(nd => nd.n.name.replace(/_/g, ' ') + ': ' + receiptLabel(baseFor(nd.n.name))).join('. ');
+  const accessibleSummary = 'What drives the answer: ' + headline +
+    (provenanceSummary ? ' Assumption sources. ' + provenanceSummary + '.' : '');
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +
-    esc('What drives the answer: ' + headline) + '">' +
+    esc(accessibleSummary) + '"><title>What drives the answer</title><desc>' + esc(accessibleSummary) + '</desc>' +
     '<rect width="' + W + '" height="' + H + '" fill="' + c.card + '"/>' + s.join('') + '</svg>';
 }
 
 function rangeText(r){
   return r ? fmt(r[0]) + ' – ' + fmt(r[1]) : '';
+}
+
+function fit(text, maxW, font, measure){
+  if(measure(text, font) <= maxW) return text;
+  let lo = 0, hi = text.length;
+  while(lo < hi){
+    const mid = Math.ceil((lo + hi) / 2);
+    if(measure(text.slice(0, mid) + '…', font) <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo).trimEnd() + '…';
 }

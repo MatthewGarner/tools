@@ -618,6 +618,40 @@ for(const theme of ['light', 'dark']){
     return await page.locator('.histwrap').isVisible() && !(await page.locator('#driverwrap').isVisible());
   })());
   check('fermi(' + theme + '): driver svg decodes as an image', await svgDecodes(page, '#driverwrap svg'));
+  check('fermi(' + theme + '): input provenance survives hash reload and reaches the driver tree', await (async () => {
+    await page.locator('#modeest').click();
+    await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click();
+    await page.waitForTimeout(450);
+    const sources = page.locator('.vsource');
+    await sources.nth(0).selectOption('snapshot');
+    await sources.nth(1).selectOption('person');
+    await page.waitForTimeout(550);
+    const hash = await page.evaluate(() => location.hash);
+    await page.goto(T + '/fermi/' + hash, {waitUntil: 'networkidle'});
+    await page.waitForTimeout(500);
+    await page.locator('#viewtree').click();
+    const text = await page.locator('#driverwrap svg').innerText();
+    return /Data snapshot/.test(text) && /One person's estimate/.test(text);
+  })());
+  check('fermi(' + theme + '): a Gauge input marked not used cannot later enter the formula without review', await (async () => {
+    const state = {
+      f: 'a * b', v: {a: ['1', '2', 'auto'], b: ['2', '3', 'auto']}, p: {
+        a: {kind: 'gauge', label: 'A', round: 1, responses: 2, pooling: 'envelope', status: 'adopted'},
+        b: {kind: 'gauge', label: 'B', round: 1, responses: 2, pooling: 'envelope', status: 'not-used'},
+      },
+    };
+    const packed = await page.evaluate(async state => {
+      const data = new TextEncoder().encode(JSON.stringify(state));
+      const cs = new CompressionStream('deflate-raw');
+      const writer = cs.writable.getWriter(); writer.write(data); writer.close();
+      const bytes = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+      return '#z:' + btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }, state);
+    await page.goto(T + '/fermi/' + packed, {waitUntil: 'networkidle'});
+    await page.waitForTimeout(500);
+    return !(await page.locator('#results').isVisible()) && /Review needed/.test(await page.locator('#ph').innerText()) &&
+      await page.getByRole('button', {name: 'Adopt b as my 90% range'}).isVisible();
+  })());
   check('fermi(' + theme + '): cashflow mode renders NPV verdict', await (async () => {
     await page.locator('#modecf').click();
     await page.waitForTimeout(600);

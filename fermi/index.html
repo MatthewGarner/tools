@@ -64,10 +64,10 @@
   .chip.on{border-color:var(--accent);color:var(--accent-ink)}
   #err{color:var(--err);font-size:13.5px;margin-top:10px;display:none}
   #vars{margin-top:18px;display:none}
-  .vhead{display:grid;grid-template-columns:1fr 96px 12px 96px 100px 56px;gap:8px;align-items:end;
+  .vhead{display:grid;grid-template-columns:1fr 96px 12px 96px 100px 56px 140px;gap:8px;align-items:end;
     font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted);margin-bottom:6px}
-  .vrow{display:grid;grid-template-columns:1fr 96px 12px 96px 100px 56px;gap:8px;align-items:center;
+  .vrow{display:grid;grid-template-columns:1fr 96px 12px 96px 100px 56px 140px;gap:8px;align-items:center;
     padding:5px 0}
   .vname{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .vrow input{
@@ -79,6 +79,10 @@
     width:100%;font-size:12.5px;padding:7px 4px;border:1px solid var(--border);
     border-radius:0;background:var(--bg);color:var(--muted);font-family:inherit;
   }
+  .vsource{font-size:12.5px!important}
+  .vreceipt{grid-column:1/-1;color:var(--muted);font-size:12px;line-height:1.35;margin-top:-4px}
+  .vadopt{grid-column:1/-1;justify-self:start;margin-top:-2px}
+  .provenance{margin:10px 0 0;color:var(--muted);font-size:12.5px;line-height:1.45}
   .spark{display:block;width:56px;height:26px}
   .dash{color:var(--muted);text-align:center}
   #results{display:none}
@@ -179,13 +183,17 @@
     .tile.mid{order:-1}
     .vhead{display:none}
     .vrow{grid-template-columns:1fr 80px 8px 80px;
-      grid-template-areas:"n lo d hi" "sel sel sp sp"}
+      grid-template-areas:"n lo d hi" "sel sel sp sp" "src src src src" "receipt receipt receipt receipt" "adopt adopt adopt adopt" "omit omit omit omit"}
     .vrow .vname{grid-area:n}
     .vrow .vlo{grid-area:lo}
     .vrow .vdash{grid-area:d}
     .vrow .vhi{grid-area:hi}
     .vrow select{grid-area:sel;width:auto;justify-self:start}
     .vrow .spark{grid-area:sp;justify-self:end}
+    .vrow .vsource{grid-area:src;width:100%;font-size:16px!important}
+    .vrow .vreceipt{grid-area:receipt;margin:0}
+    .vrow .vadopt-adopt{grid-area:adopt}
+    .vrow .vadopt-omit{grid-area:omit}
     .srow{grid-template-columns:minmax(0,100px) 1fr 80px}
   }
   @media (prefers-reduced-motion: no-preference){
@@ -196,7 +204,7 @@
   @media (pointer: coarse){
     /* fingers need 44px: the segmented toggles and fit-selects predated this and were 29–33px */
     .tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
-    .vrow select,#tin,#cftin{min-height:44px}
+    .vrow select,.vrow input,#tin,#cftin{min-height:44px;font-size:16px}
     .adopt{min-height:44px;padding:8px 16px}
   }
 
@@ -237,7 +245,7 @@
     <div class="chips" id="savedrow"></div>
     <div id="err" role="alert"></div>
     <div id="vars">
-      <div class="vhead"><span>Variable</span><span>Low</span><span></span><span>High</span><span>Fit</span><span></span></div>
+      <div class="vhead"><span>Variable</span><span>Low</span><span></span><span>High</span><span>Fit</span><span></span><span>Receipt</span></div>
       <div id="vrows"></div>
     </div>
     </div>
@@ -297,6 +305,7 @@
         <div class="tile"><div class="tl">P90 · high</div><div class="tv" id="p90"></div></div>
       </div>
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
+      <p class="provenance" id="provenance" aria-live="polite" aria-atomic="true"></p>
       <p class="spread" id="spread" aria-live="polite" aria-atomic="true"></p>
       <div class="viewseg segmented" role="tablist" aria-label="Result view">
         <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>

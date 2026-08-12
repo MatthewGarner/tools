@@ -219,6 +219,12 @@ for(const [name, url] of AUTOLOAD){
       `fermi: card band full-bleeds to the viewport edge (${Math.round(m.card)}/${m.vw} = ${(m.card / m.vw * 100).toFixed(1)}%)`);
     ok(m.hist / m.vw >= 0.90,
       `fermi: histogram surface reclaims >=90% of phone width (${Math.round(m.hist)}/${m.vw} = ${(m.hist / m.vw * 100).toFixed(1)}%)`);
+    const controls = await page.evaluate(() => [...document.querySelectorAll('.vrow input, .vrow select')].map(el => {
+      const r = el.getBoundingClientRect();
+      return {font: parseFloat(getComputedStyle(el).fontSize), h: r.height};
+    }));
+    ok(controls.every(c => c.font >= 16 && c.h >= 44),
+      'fermi: phone assumption controls are 16px text and 44px targets');
   }
   await page.close();
 }
