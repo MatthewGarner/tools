@@ -925,9 +925,26 @@ for(const theme of ['light', 'dark']){
   })());
   check('flow(' + theme + '): triage drain framing on an overloaded pile',
     /pile|clears|never/i.test(await page.locator('#triagewrap svg').innerHTML()));
+  check('flow(' + theme + '): expedite card names the waiting trade', await (async () => {
+    await page.locator('#expedite').fill('1');
+    await page.waitForTimeout(500);
+    const e = await page.locator('#expeditewrap svg').innerHTML();
+    return /EXPEDITE LANE/.test(e) && /same people and WIP/i.test(e) && /STANDARD/.test(e);
+  })());
+  check('flow(' + theme + '): dependent dice keeps local capacity distinct from flow', await (async () => {
+    const d = await page.locator('#dicewrap svg').innerHTML();
+    return /LOCAL CAPACITY IS NOT FLOW/.test(d) && /STEP 1/.test(d) && /WORK WAITING/.test(d);
+  })());
+  check('flow(' + theme + '): dependent dice can be re-rolled without losing its artifact', await (async () => {
+    const before = await page.locator('#dicewrap svg').innerHTML();
+    await page.getByRole('button', {name: 'Roll again'}).click();
+    await page.waitForTimeout(250);
+    const after = await page.locator('#dicewrap svg').innerHTML();
+    return after !== before && /DEPENDENT DICE/.test(after);
+  })());
   check('flow(' + theme + '): readout svg decodes as an image', await svgDecodes(page, '#verdictwrap svg'));
   check('flow(' + theme + '): no undefined/NaN leaks into any svg', await (async () => {
-    for(const sel of ['#verdictwrap svg', '#batchwrap svg', '#triagewrap svg']){
+    for(const sel of ['#verdictwrap svg', '#batchwrap svg', '#triagewrap svg', '#expeditewrap svg', '#dicewrap svg']){
       const s = await page.locator(sel).innerHTML();
       if(/undefined|NaN/.test(s)) return false;
     }

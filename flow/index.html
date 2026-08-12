@@ -48,13 +48,13 @@
      get it via aria-live; sighted users get it too (never SVG-text-only) */
   .verdict{font-size:15px;line-height:1.5;color:var(--ink);margin:12px 0 0;max-width:70ch}
   .verdict:empty{display:none}
-  #batchwrap svg,#triagewrap svg{display:block;width:100%;height:auto;margin-top:6px}
+  #batchwrap svg,#triagewrap svg,#expeditewrap svg,#dicewrap svg{display:block;width:100%;height:auto;margin-top:6px}
   #strip{display:block;width:100%;height:112px}
   .striplegend{display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:var(--muted)}
   .striplegend b{color:var(--ink);font-variant-numeric:tabular-nums}
-  .readcard, .batchcard, .triagecard{overflow:hidden}
-  #verdictwrap, #batchwrap, #triagewrap{overflow-x:auto}
-  #verdictwrap svg, #batchwrap svg, #triagewrap svg{display:block;width:100%;height:auto;min-width:640px}
+  .readcard, .batchcard, .triagecard, .expeditecard, .dicecard{overflow:hidden}
+  #verdictwrap, #batchwrap, #triagewrap, #expeditewrap, #dicewrap{overflow-x:auto}
+  #verdictwrap svg, #batchwrap svg, #triagewrap svg, #expeditewrap svg, #dicewrap svg{display:block;width:100%;height:auto;min-width:640px}
   .method{color:var(--muted);font-size:12.5px}
 
   /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
@@ -173,12 +173,43 @@
     </div>
   </div>
 
+  <div class="card expeditecard">
+    <h2>Price the expedite lane</h2>
+    <p class="cardintro">An expedite is not extra capacity. It jumps the same queue, so the saved waiting has to appear somewhere else. Set a small arrival rate and inspect the service-class trade.</p>
+    <div class="controls">
+      <div class="ctl"><label>Expedited requests <output id="expediteout"></output></label>
+        <input type="range" id="expedite" min="0" max="3" step="0.25" value="0" aria-label="Expedited requests per week"></div>
+    </div>
+    <div id="expeditewrap"></div>
+    <div class="actions">
+      <button class="btn" id="copyexpeditepng">Copy PNG</button>
+      <details class="action-disclosure"><summary class="btn">Export</summary><div class="action-menu"><button class="btn" id="dlexpeditepng">PNG</button><button class="btn" id="dlexpeditesvg">SVG</button></div></details>
+      <span class="method">Priority queue sensitivity · same people and WIP · no free throughput</span>
+    </div>
+  </div>
+
+  <div class="card dicecard">
+    <h2>Play the dependent dice</h2>
+    <p class="cardintro">Five dependent steps each roll from the same distribution. Their local averages can look healthy while the system still accumulates waiting between them.</p>
+    <div class="controls">
+      <div class="ctl"><label>Days to play <output id="diceDaysout"></output></label>
+        <input type="range" id="diceDays" min="10" max="60" step="5" value="30" aria-label="Days in the dependent dice game"></div>
+    </div>
+    <div id="dicewrap"></div>
+    <div class="actions">
+      <button class="btn" id="rolldice">Roll again</button>
+      <button class="btn" id="copydicepng">Copy PNG</button>
+      <details class="action-disclosure"><summary class="btn">Export</summary><div class="action-menu"><button class="btn" id="dldicepng">PNG</button><button class="btn" id="dldicesvg">SVG</button></div></details>
+      <span class="method">Goldratt-style dependent-dice demonstration · one sampled run, not a team forecast</span>
+    </div>
+  </div>
+
   <div class="about">
     <h2>Why waiting dominates</h2>
     <div class="prose">
     <p>Little's Law says items-in-progress = arrival rate × time-in-system. Push a team toward 100% busy and the queue — not the work — sets your delivery date. Near full utilisation, small bumps in demand or item size multiply waiting non-linearly (the queueing curve Reinertsen built <i>The Principles of Product Development Flow</i> around). That's why the verdict splits the average item's calendar time into <b>working</b> and <b>waiting</b> — the waiting is usually the bigger number, and it's the one your process choices control.</p>
     <p>The WIP limit slider shows the other half of the argument: in-progress items share the team, so WIP above capacity doesn't add throughput — it just stretches every item's calendar time. "Start less, finish more" falls out of the arithmetic. But note what a WIP limit can't do: if demand exceeds capacity, the backlog grows without bound and no limit fixes that — the tool says so, loudly, rather than hiding the queue upstream.</p>
-    <p>The batch-size card prices Reinertsen's other classic trade with the same demand number: a release's fixed transaction cost argues for batching up, the cost of delay argues for shipping now, and the U-shaped sum of the two has a floor — your economic batch size. Triage ranks the four standard backlog levers — more people, less intake, smaller items, a WIP limit — against the queue you actually have.</p>
+    <p>The batch-size card prices Reinertsen's other classic trade with the same demand number: a release's fixed transaction cost argues for batching up, the cost of delay argues for shipping now, and the U-shaped sum of the two has a floor — your economic batch size. Triage ranks the four standard backlog levers — more people, less intake, smaller items, a WIP limit — against the queue you actually have. The expedite lane makes the hidden tax of priority visible, while dependent dice shows why locally reasonable capacity cannot promise system flow.</p>
     <p>One honest caveat: this is a flow model of one stage. Real teams aren't a single pipe, and constraints in human systems are often policy, mindset, or coordination rather than a visible logjam — a lesson the Theory of Constraints crowd learned the hard way. Use this to win the argument about overloading; use judgement for everything else.</p>
     </div>
   </div>

@@ -13,8 +13,8 @@ test('queue motion runs only while visible, foregrounded, and permitted', () => 
 
 test('flow link state is built from the same live controls as the export', () => {
   assert.deepEqual(flowHashState({demandPerWeek: 7, itemDays: 3, team: 4, cov: 'low'},
-    {wip: '9', transactionCost: '1200', holdCost: '80', batch: '6', backlog: '11'}),
-  {d: 7, s: 3, t: 4, w: 9, v: 'low', tc: 1200, hc: 80, b: 6, q: 11});
+    {wip: '9', transactionCost: '1200', holdCost: '80', batch: '6', backlog: '11', expedite: '1.5', diceDays: '25', diceSeed: 42}),
+  {d: 7, s: 3, t: 4, w: 9, v: 'low', tc: 1200, hc: 80, b: 6, q: 11, e: 1.5, dd: 25, ds: 42});
 });
 
 test('a restarted loop begins at the start of its window instead of catching up hidden time', () => {

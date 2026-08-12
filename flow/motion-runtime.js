@@ -14,5 +14,6 @@ export function queueTime(now, start, {t0, t1}, duration = 12000){
 export function flowHashState(p, controls){
   return {d: p.demandPerWeek, s: p.itemDays, t: p.team,
     w: Number(controls.wip), v: p.cov, tc: Number(controls.transactionCost),
-    hc: Number(controls.holdCost), b: Number(controls.batch), q: Number(controls.backlog)};
+    hc: Number(controls.holdCost), b: Number(controls.batch), q: Number(controls.backlog),
+    e: Number(controls.expedite), dd: Number(controls.diceDays), ds: Number(controls.diceSeed)};
 }

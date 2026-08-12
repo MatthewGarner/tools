@@ -486,7 +486,9 @@ for(const [k, src] of Object.entries(docs)){
   /* batch U-curve + queue triage panels (#75, #65) */
   const {leverTriage} = await import('../flow/engine.js');
   const {batchEconomics} = await import('../flow/economics.js');
-  const {renderBatch, renderTriage} = await import('../flow/render.js');
+  const {renderBatch, renderTriage, renderExpedite, renderDice} = await import('../flow/render.js');
+  const {expediteSensitivity} = await import('../flow/expedite.js');
+  const {diceGame} = await import('../flow/dice.js');
   const fctx = {...ctxBase, colors: {...ctxBase.colors, track: '#edf0ee'}};
   const econP = {demandPerWeek: 3, transactionCost: 1000, holdCostPerItemWeek: 500, currentBatch: 8, maxBatch: 30};
   variants['flow-batch'] = renderBatch(batchEconomics(econP), econP, fctx);
@@ -494,6 +496,8 @@ for(const [k, src] of Object.entries(docs)){
   const overP = {demandPerWeek: 6, itemDays: 4, team: 4, wipLimit: 4, cov: 0.5};
   variants['flow-triage-drain'] = renderTriage(leverTriage(overP, {initialBacklog: 20}), overP, 20, fctx);
   variants['flow-triage-lead'] = renderTriage(leverTriage(healthyP, {initialBacklog: 0}), healthyP, 0, fctx);
+  variants['flow-expedite'] = renderExpedite(expediteSensitivity(healthyP, {expeditePerWeek: 1}), fctx);
+  variants['flow-dependent-dice'] = renderDice(diceGame({days: 30, seed: 4}), fctx);
 }
 
 /* /fermi driver-tree fixtures (#73): seeded MC → deterministic sens → exact SVG */

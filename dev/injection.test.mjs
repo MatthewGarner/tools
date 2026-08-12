@@ -459,7 +459,9 @@ test('fermi cashflow renderer stays clean (verdict text is numeric-only today �
 
 test('flow readout + triage renderers escape hostile lever labels (labels are hardcoded engine vocabulary today; hostile-ified here so future free text can\'t slip through)', async () => {
   const {simulate, wipSweep, kneeWip, leverTriage} = await import('../flow/engine.js');
-  const {renderReadout, renderTriage} = await import('../flow/render.js');
+  const {renderReadout, renderTriage, renderExpedite, renderDice} = await import('../flow/render.js');
+  const {expediteSensitivity} = await import('../flow/expedite.js');
+  const {diceGame} = await import('../flow/dice.js');
   const params = {demandPerWeek: 5, itemDays: 4, team: 3, wipLimit: 6, cov: 'high'};
   const result = simulate(params, {trace: true});
   const sweep = wipSweep(params);
@@ -468,6 +470,8 @@ test('flow readout + triage renderers escape hostile lever labels (labels are ha
   triage.levers = triage.levers.map((l, i) => ({...l, label: EVIL[i % EVIL.length] + ' — ' + l.label}));
   assertClean(renderReadout(result, sweep, knee, params, ctx), 'flow-readout');
   assertClean(renderTriage(triage, params, 40, ctx), 'flow-triage');
+  assertClean(renderExpedite(expediteSensitivity(params, {expeditePerWeek: 1}), ctx), 'flow-expedite');
+  assertClean(renderDice(diceGame({seed: 4}), ctx), 'flow-dice');
 });
 
 test('alarm renderers stay well-formed under extreme numeric params (no user strings here — the surface is degenerate params, not labels)', async () => {
