@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {parse} from '../parse.js';
-import {simulate, verdictCopy, verdictParts, markdown} from '../engine.js';
+import {simulate, verdictCopy, verdictParts, markdown, scenarioReading, OUTCOME_SCENARIOS} from '../engine.js';
 
 /* Fixture engineered so each audit arm is isolated (Fable review):
    - Near cert  odds 90-100 → certainty via lo≥90 (near-certain WIN)
@@ -65,12 +66,104 @@ test('portfolio: pLoss in (0,1); histogram 40 bins summing to nsim', () => {
   assert.ok(s.portfolio.p10 < s.portfolio.p50 && s.portfolio.p50 < s.portfolio.p90);
 });
 
+test('valid legacy documents preserve the independent portfolio and EV bytes for a fixed seed', () => {
+  const legacy = parse(`G
+  A: stake 10-20, odds 30-50%, payoff 40-80
+  B: stake 15, odds 60%, payoff 30`);
+  const s = simulate(legacy, {seed: 48879, nsim: 128});
+  const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  assert.equal(hash(s.portfolio), '187e3e1964cfac641d085d0e8278a5303364d263adb871f8b7d42125355991be');
+  assert.equal(hash([...s.bets].map(([line, record]) => [line, record.ev])),
+    'c56978e5c45ae973086ea3f6169c1e6b1aa16f4cfd865e13f9050c405e970c82');
+  assert.strictEqual(s.scenarios.independent, s.portfolio, 'legacy portfolio is the independent scenario alias');
+  assert.equal(s.scenarios.declared, 'independent');
+});
+
+test('paired scenarios: two equal 50% bets lose near 25% independently and 50% under shared outcomes', () => {
+  const m = parse(`G
+  A: stake 25, odds 50%, payoff 100
+  B: stake 25, odds 50%, payoff 100`);
+  const s = simulate(m, {seed: 12345, nsim: 40000});
+  assert.ok(Math.abs(s.scenarios.independent.pLoss - 0.25) < 0.015,
+    `independent loss rate ${s.scenarios.independent.pLoss}`);
+  assert.ok(Math.abs(s.scenarios.shared.pLoss - 0.50) < 0.015,
+    `shared loss rate ${s.scenarios.shared.pLoss}`);
+  for(const record of s.bets.values())
+    assert.deepEqual(record.ev, {p10: 25, p50: 25, p90: 25}, 'scenario pairing never changes per-Bet EV');
+});
+
+test('a one-Bet portfolio is exactly paired between equivalent scenarios', () => {
+  const s = simulate(parse(`G\n  Only: stake 20-40, odds 30-70%, payoff 80-160`), {seed: 9, nsim: 1000});
+  assert.deepEqual(s.scenarios.shared, s.scenarios.independent);
+});
+
+test('invalid terms are excluded rather than reordered/clamped into the outcome', () => {
+  const valid = parse(`G\n  Sound: stake 10, odds 50%, payoff 30`);
+  const mixed = parse(`G
+  Broken stake: stake 20-10, odds 50%, payoff 30
+  Broken odds: stake 10, odds -20-120%, payoff 30
+  Broken payoff: stake 10, odds 50%, payoff -30
+  Sound: stake 10, odds 50%, payoff 30`);
+  const a = simulate(valid, {seed: 77, nsim: 512});
+  const b = simulate(mixed, {seed: 77, nsim: 512});
+  assert.deepEqual(b.portfolio, a.portfolio, 'unscoreable rows consume no simulation draws or outcome');
+  assert.deepEqual(b.scenarios.shared, a.scenarios.shared);
+  const records = [...b.bets.values()];
+  assert.deepEqual(records.slice(0, 3).map(r => r.scoreable), [false, false, false]);
+  assert.equal(records[3].scoreable, true);
+  const md = markdown(mixed, b);
+  assert.match(md, /\| Broken odds \| 10 \| — \| 30 \| NOT SCORED \|/,
+    'unscoreable terms stay visibly unscored in the text export');
+  assert.doesNotMatch(md, /—%/);
+});
+
+test('all-invalid portfolio makes both outcome scenarios explicitly unavailable', () => {
+  const m = parse(`G\n  Invalid: stake 20-10, odds 50%, payoff 30`);
+  const s = simulate(m, {seed: 2, nsim: 64});
+  assert.equal(s.scoreableCount, 0);
+  assert.equal(s.portfolio, null);
+  assert.equal(s.scenarios.independent, null);
+  assert.equal(s.scenarios.shared, null);
+  assert.equal(s.concentration, null);
+  assert.equal(scenarioReading(s, 'shared').available, false);
+  assert.match(markdown(m, s), /Not available — no scoreable bets/);
+  assert.doesNotMatch(markdown(m, s), /P\(loses money\).*0%/);
+});
+
+test('valid all-zero portfolio remains a finite scored result', () => {
+  const s = simulate(parse(`G\n  Zero: stake 0, odds 0-100%, payoff 0`), {seed: 2, nsim: 64});
+  assert.equal(s.scoreableCount, 1);
+  for(const scenario of [s.scenarios.independent, s.scenarios.shared]){
+    for(const key of ['p10', 'p50', 'p90', 'pLoss']) assert.ok(Number.isFinite(scenario[key]), `${key} finite`);
+    assert.equal(scenario.histogram.reduce((n, bin) => n + bin[2], 0), 64);
+  }
+});
+
+test('scenarioReading supplies declared labels and Median outcome terminology', () => {
+  const s = simulate(parse(`G\n  A: stake 25, odds 50%, payoff 100`), {nsim: 32});
+  assert.equal(OUTCOME_SCENARIOS.independent, 'Independent baseline');
+  assert.equal(OUTCOME_SCENARIOS.shared, 'Shared-outcome stress');
+  const reading = scenarioReading(s, 'shared');
+  assert.equal(reading.label, 'Shared-outcome stress');
+  assert.equal(reading.medianOutcome, reading.portfolio.p50);
+});
+
 test('concentration: named at ≥40% stake share, null below', () => {
   const named = simulate(model);                       // Sure loser is 100/200 = 50%
   assert.equal(named.concentration.name, 'Sure loser');
+  assert.equal(named.concentration.srcLine, 4);
   assert.ok(Math.abs(named.concentration.share - 0.5) < 0.001);
   const flat = simulate(parse(`G\n  A: stake 25, odds 30-50%, payoff 40-90\n  B: stake 25, odds 30-50%, payoff 40-90\n  C: stake 25, odds 30-50%, payoff 40-90\n  D: stake 25, odds 30-50%, payoff 40-90`));
   assert.equal(flat.concentration, null, 'no bet ≥40% → null');
+});
+
+test('concentration identity ignores an invalid giant and survives duplicate visible names', () => {
+  const m = parse(`G
+  Sound: stake 1000, odds 150%, payoff 3000
+  Sound: stake 80, odds 50%, payoff 100
+  Sound: stake 20, odds 50%, payoff 100`);
+  const s = simulate(m);
+  assert.deepEqual(s.concentration, {name: 'Sound', srcLine: 3, share: 0.8});
 });
 
 test('verdict copy quotes P(loses money) as a percentage', () => {
@@ -89,10 +182,16 @@ test('verdictParts names P(loses money) as the key figure, verbatim in the line'
     'verdictCopy stays the plain line the markdown/poster exports consume');
 });
 
-test('markdown carries the honest table + audit counts', () => {
+test('markdown carries the honest table, paired assumptions and Median outcome terminology', () => {
   const s = simulate(model);
   const md = markdown(model, s, 'https://x/bets/#abc');
   assert.match(md, /Sure loser/);
   assert.match(md, /NO KILL CRITERION/);
   assert.match(md, /£k/);
+  assert.match(md, /Independent baseline/);
+  assert.match(md, /Shared-outcome stress/);
+  assert.match(md, /Only realised win\/loss outcomes share one common draw/);
+  assert.match(md, /ranges remain independently sampled/);
+  assert.match(md, /Median outcome/);
+  assert.doesNotMatch(md, /net EV/i);
 });

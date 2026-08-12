@@ -31,11 +31,30 @@ test('board carries lane names, title, and every slip name', () => {
   assert.match(svg, /Billing rewrite/);
 });
 
-test('header carries the verdict + P(loses money) + net EV + independence caveat', () => {
+test('header carries both named condition readings with P(loses money) and median outcome', () => {
   const svg = renderBoard(model, sim, CTX);
-  assert.match(svg, /P\(loses money\)/i);
-  assert.match(svg, /NET EV/i);
-  assert.match(svg, /independent/i);
+  assert.equal([...svg.matchAll(/P\(LOSES MONEY\)/g)].length >= 2, true);
+  assert.match(svg, /INDEPENDENT BASELINE/);
+  assert.match(svg, /SHARED-OUTCOME STRESS/);
+  assert.match(svg, /MEDIAN/);
+  assert.doesNotMatch(svg, /NET EV/i);
+});
+
+test('unscored rows are explicit and cannot create a fake safe portfolio result', () => {
+  const m = parse('G\n  Invalid: stake 20-10, odds 50%, payoff 30');
+  const svg = renderBoard(m, simulate(m), CTX);
+  assert.match(svg, /NOT SCORED/);
+  assert.match(svg, /NOT AVAILABLE/);
+  assert.match(svg, /NO SCOREABLE BETS/);
+  assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
+});
+
+test('condition readings survive the narrow relayout and accessible summary', () => {
+  const svg = renderBoard(model, sim, {...CTX, width: 390});
+  assert.match(svg, /data-condition="independent"/);
+  assert.match(svg, /data-condition="shared"/);
+  assert.match(svg, /<title id="bets-title">Q3 portfolio<\/title>/);
+  assert.match(svg, /<desc id="bets-desc">Independent baseline:/);
 });
 
 test('audit badges render for known audits (loser + certainty + no-kill)', () => {
@@ -55,6 +74,21 @@ test('wide edit composition has one canonical card-menu row per bet source line'
   const svg = renderBoard(model, sim, {...CTX, edit: true});
   for(const line of [4, 6, 8])
     assert.equal([...svg.matchAll(new RegExp('data-edit="cardmenu" data-line="' + line + '"', 'g'))].length, 1);
+});
+
+test('interactive SVG controls are siblings, never nested buttons', () => {
+  const svg = renderBoard(model, sim, {...CTX, edit: true});
+  let depth = 0;
+  for(const token of svg.matchAll(/<g\b[^>]*>|<\/g>/g)){
+    if(token[0] === '</g>'){ depth--; continue; }
+    if(/role="button"/.test(token[0])){
+      const close = svg.indexOf('</g>', token.index);
+      assert.equal(/role="button"/.test(svg.slice(token.index + token[0].length, close)), false,
+        'a button group contains another role=button');
+    }
+    depth++;
+  }
+  assert.equal(depth, 0);
 });
 
 test('more than eight bets renders an exhaustive full register in ledger mode', () => {

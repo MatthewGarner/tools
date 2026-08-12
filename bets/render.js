@@ -16,7 +16,7 @@
    value targets + per-card data-menu predate the flag and stay unconditional. */
 import {esc, txt, tint, editTarget, wrapText, btnAttrs} from '../assets/svg.js';
 import {betKey} from './diff.js';
-import {boardPlan, measuredLines} from './layout.js';
+import {boardPlan, conditionReadings, measuredLines} from './layout.js';
 
 const WIDE = 1240;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -26,12 +26,40 @@ const num = v => (v < 0 ? MINUS : '') + Math.round(Math.abs(v));
 const sgn = v => (v < 0 ? MINUS : '+') + Math.round(Math.abs(v));
 const rng = r => !r ? '—' : r[0] === r[1] ? num(r[0]) : num(r[0]) + '–' + num(r[1]);
 const pct = r => !r ? '—' : r[0] === r[1] ? r[0] + '%' : r[0] + '–' + r[1] + '%';
-const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: []};
+const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: [], scoreable: false};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 /* portfolio-level concentration honesty note — null when no bet reaches the
    engine's ≥40%-of-total-stake threshold, so callers reserve no gap for it */
 const concentrationLine = conc => !conc ? null :
   '⚑ ' + conc.name + ' is ' + Math.round(conc.share * 100) + '% of total stake — one bet carries the book.';
+
+const lossPct = pf => pf ? Math.round((pf.pLoss || 0) * 100) : null;
+const outcomeText = pf => pf ? 'MEDIAN OUTCOME ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90) : 'NOT AVAILABLE';
+
+/* The paired condition receipt is the board's thesis: the same portfolio can
+   look robust under separate outcomes and fragile when the environment moves
+   every bet together.  The labels and conditional sentences make that claim
+   without inventing a correlation coefficient. */
+function conditionCards(readings, x0, y0, width, c, narrow){
+  const gap = narrow ? 8 : 10, cardW = (width - gap) / 2, h = narrow ? 112 : 92;
+  const out = [];
+  [readings.baseline, readings.stress].forEach((item, i) => {
+    const x = x0 + i * (cardW + gap), pf = item.result, pl = lossPct(pf);
+    const tone = pl != null && pl >= 50 ? c.err : c.accentInk;
+    out.push('<rect data-condition="' + item.key + '" x="' + r2(x) + '" y="' + r2(y0) + '" width="' + r2(cardW) +
+      '" height="' + h + '" fill="' + c.card + '" stroke="' + c.border + '"/>');
+    out.push(txt(x + 10, y0 + 18, item.label.toUpperCase(), narrow ? 8.2 : 9, c.muted,
+      {weight: 700, tracking: narrow ? '0.035em' : '0.07em'}));
+    out.push(txt(x + 10, y0 + (narrow ? 43 : 43), pl == null ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + pl + '%',
+      narrow ? 13 : 15, tone, {weight: 700, mono: true}));
+    out.push(txt(x + 10, y0 + (narrow ? 63 : 62), outcomeText(pf), narrow ? 8.6 : 9.2, c.ink, {weight: 600, mono: true}));
+    const copyLines = wrapText(item.condition, (narrow ? '8.5px ' : '8.8px ') + SANS, cardW - 20,
+      s => String(s).length * (narrow ? 4.3 : 4.5));
+    copyLines.slice(0, narrow ? 3 : 2).forEach((line, li) => out.push(txt(x + 10,
+      y0 + (narrow ? 81 : 77) + li * (narrow ? 11 : 10), line, narrow ? 8.5 : 8.8, c.muted)));
+  });
+  return {parts: out, height: h};
+}
 
 export function renderBoard(model, sim, ctx = {}){
   return (!!ctx.width && ctx.width < 520) ? renderNarrow(model, sim, ctx) : renderWide(model, sim, ctx);
@@ -41,12 +69,13 @@ export function renderBoard(model, sim, ctx = {}){
 function prep(model, sim){
   const flat = [];
   for(const g of model.groups) for(const b of g.bets) flat.push(b);
-  const flagged = flat.filter(b => recOf(sim, b).audits.length).length;
-  const totalStake = flat.reduce((t, b) => t + stakeMid(b), 0);
+  const scoreable = flat.filter(b => recOf(sim, b).scoreable !== false);
+  const flagged = scoreable.filter(b => recOf(sim, b).audits.length).length;
+  const totalStake = scoreable.reduce((t, b) => t + stakeMid(b), 0);
   let elo = 0, ehi = 1;
-  for(const b of flat){ const e = recOf(sim, b).ev; elo = Math.min(elo, e.p10); ehi = Math.max(ehi, e.p90); }
+  for(const b of scoreable){ const e = recOf(sim, b).ev; elo = Math.min(elo, e.p10); ehi = Math.max(ehi, e.p90); }
   const epad = (ehi - elo) * 0.05 || 1;
-  return {flat, flagged, totalStake, elo: elo - epad, ehi: ehi + epad, pf: sim.portfolio, conc: sim.concentration};
+  return {flat, scoreable, flagged, totalStake, elo: elo - epad, ehi: ehi + epad, pf: sim.portfolio, conc: sim.concentration};
 }
 
 /* killed bets grouped by the lane they lived in at snapshot time (case-
@@ -103,8 +132,9 @@ function renderWide(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
   const compare = ctx.compare || null, edit = !!ctx.edit;
   const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
+  const conditions = conditionReadings(sim);
   const plan = boardPlan(model, sim, {measure});
-  const pl = Math.round((pf.pLoss || 0) * 100);
+  const pl = lossPct(pf);
   const concLine = concentrationLine(conc);
   /* Name, numeric strip, EV range and audit marks each own a non-overlapping
      horizontal region. Long names wrap inside nameEnd; failed audits stack in
@@ -117,14 +147,14 @@ function renderWide(model, sim, ctx){
   const parts = [], body = [];
 
   /* header strap */
-  parts.push('<text x="40" y="52" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
-  parts.push(txt(40, 74, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
-  parts.push(txt(C.right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
-  parts.push(txt(C.right, 72, 'NET EV ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
-  if(compare) parts.push(txt(40, 96, compare.headline, 11.5, c.accentInk, {weight: 700, tracking: '0.01em'}));
+  parts.push('<text x="40" y="48" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
+  parts.push(txt(40, 70, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
+  const receipt = conditionCards(conditions, 610, 16, C.right - 610, c, false);
+  parts.push(...receipt.parts);
+  if(compare) parts.push(txt(40, 106, compare.headline, 11.5, c.accentInk, {weight: 700, tracking: '0.01em'}));
 
   // column heads
-  const panelTop = compare ? 112 : 90, colHeadY = panelTop + 26;
+  const panelTop = compare ? 122 : 112, colHeadY = panelTop + 26;
   for(const [s, x, a] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['P50', C.p50, 'end'], ['P90', C.p90, 'end']])
     body.push(txt(x, colHeadY, s, 9, c.muted, {weight: 700, tracking: '0.08em', anchor: a}));
@@ -186,8 +216,7 @@ function renderWide(model, sim, ctx){
          it last (topmost) would swallow every click in the row, including
          ones meant for the smaller cells (roadmap's cardmenu row is the
          proven precedent for this ordering). */
-      body.push('<g data-row="bet" data-id="' + row.id + '" data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>');
-      body.push('<rect data-hit="" x="' + C.left + '" y="' + y + '" width="' + (C.right - C.left) + '" height="' + rowH + '" fill="transparent"/>');
+      body.push('<g data-row="bet" data-id="' + row.id + '">');
       if(rec.audits.length) body.push('<rect x="' + C.left + '" y="' + y + '" width="' + (C.right - C.left) + '" height="' + rowH + '" fill="' + c.err + '" fill-opacity="0.035"/>');
       body.push('<rect data-numeric-strip="" x="' + C.strip0 + '" y="' + y + '" width="' + (C.strip1 - C.strip0) + '" height="' + rowH +
         '" fill="' + c.track + '" fill-opacity="0.42"/>');
@@ -210,6 +239,10 @@ function renderWide(model, sim, ctx){
       cell(body, C.stake, y + 4, rng(b.stake), e, c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null);
       cell(body, C.odds, y + 4, pct(b.odds), e, c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null);
       cell(body, C.payoff, y + 4, rng(b.payoff), e, c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null);
+      if(rec.scoreable === false){
+        body.push(txt(C.p50, y + 23, 'NOT SCORED', 11, c.err, {mono: true, anchor: 'end', weight: 700}));
+        body.push(txt((C.bar0 + C.bar1) / 2, y + 23, 'Correct invalid or missing terms', 9, c.muted, {anchor: 'middle'}));
+      } else {
       body.push(txt(C.p10, y + 23, sgn(e.p10), 12, e.p10 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'}));
       body.push(txt(C.p50, y + 23, sgn(e.p50), 12, e.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
       body.push(txt(C.p90, y + 23, sgn(e.p90), 12, e.p90 < 0 ? c.err : c.muted, {mono: true, anchor: 'end'}));
@@ -219,6 +252,7 @@ function renderWide(model, sim, ctx){
       body.push('<rect x="' + r2(ex(e.p10)) + '" y="' + (y + 15) + '" width="' + r2(Math.max(1.5, ex(e.p90) - ex(e.p10))) + '" height="7" rx="0" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.6"/>');
       body.push('<line x1="' + r2(ex(0)) + '" y1="' + (y + 12) + '" x2="' + r2(ex(0)) + '" y2="' + (y + 25) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
       body.push('<line x1="' + r2(ex(e.p50)) + '" y1="' + (y + 13) + '" x2="' + r2(ex(e.p50)) + '" y2="' + (y + 24) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
+      }
       // sub-line: kill "fold if" on the left (editable), moved "was …" + stamps on the right
       if(b.kill){
         const killY = nameY + row.nameLines.length * 16 + 5;
@@ -233,7 +267,10 @@ function renderWide(model, sim, ctx){
         if(mv.odds) body.push(txt(C.odds, wy, 'was ' + pct(mv.odds), 9, c.muted, {mono: true, anchor: 'end'}));
         if(mv.payoff) body.push(txt(C.payoff, wy, 'was ' + rng(mv.payoff), 9, c.muted, {mono: true, anchor: 'end'}));
       }
-      rec.audits.forEach((audit, i) => body.push(stamp(audit, (C.audit0 + C.audit1) / 2, y + 17 + i * 21, c, i % 2 ? -2 : -4)));
+      if(rec.scoreable !== false) rec.audits.forEach((audit, i) => body.push(stamp(audit, (C.audit0 + C.audit1) / 2, y + 17 + i * 21, c, i % 2 ? -2 : -4)));
+      body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>' +
+        '<rect data-hit="" x="' + (C.right - 44) + '" y="' + y + '" width="44" height="44" fill="transparent"/>' +
+        txt(C.right - 14, y + 27, '⋯', 14, c.muted, {weight: 700, anchor: 'middle'}) + '</g>');
       body.push('</g>');
       y += rowH;
       body.push('<line x1="' + C.left + '" y1="' + y + '" x2="' + C.right + '" y2="' + y + '" stroke="' + c.border + '" stroke-width="0.75"/>');
@@ -259,9 +296,11 @@ function renderWide(model, sim, ctx){
   body.push('<line x1="' + C.left + '" y1="' + y + '" x2="' + C.right + '" y2="' + y + '" stroke="' + c.ink + '" stroke-width="1.5" stroke-opacity="0.8"/>');
   body.push(txt(C.left, y + 24, 'PORTFOLIO — ' + flat.length + ' BETS', 10.5, c.ink, {weight: 700, tracking: '0.05em'}));
   body.push(txt(C.stake, y + 24, num(totalStake), 13, c.ink, {mono: true, anchor: 'end', weight: 700}));
-  body.push(txt(C.p10, y + 24, sgn(pf.p10), 13, pf.p10 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-  body.push(txt(C.p50, y + 24, sgn(pf.p50), 13, pf.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
-  body.push(txt(C.p90, y + 24, sgn(pf.p90), 13, pf.p90 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
+  if(pf){
+    body.push(txt(C.p10, y + 24, sgn(pf.p10), 13, pf.p10 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
+    body.push(txt(C.p50, y + 24, sgn(pf.p50), 13, pf.p50 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
+    body.push(txt(C.p90, y + 24, sgn(pf.p90), 13, pf.p90 < 0 ? c.err : c.ink, {mono: true, anchor: 'end', weight: 700}));
+  } else body.push(txt(C.p50, y + 24, 'NOT AVAILABLE · NO SCOREABLE BETS', 10, c.err, {mono: true, anchor: 'end', weight: 700}));
   body.push(txt(C.right, y + 24, flagged + ' FLAGGED', 9.5, flagged ? c.err : c.muted, {weight: 700, anchor: 'end', tracking: '0.05em'}));
   y += 40;
 
@@ -272,15 +311,19 @@ function renderWide(model, sim, ctx){
   }
 
   // outcome rail
-  y = outcomeRail(body, pf, pl, C.left, C.right, y, c, false, compare);
+  y = outcomeRail(body, conditions, C.left, C.right, y, c, false, compare);
   const panelBot = y + 8;
   parts.push('<rect x="16" y="' + panelTop + '" width="' + (WIDE - 32) + '" height="' + (panelBot - panelTop) + '" rx="0" fill="' + c.card + '" stroke="' + c.border + '" stroke-width="1"/>');
   parts.push(...body);
-  parts.push(txt(C.left, panelBot + 22, 'RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS · STAMPS MARK FAILED AUDITS · BETS ASSUMED INDEPENDENT', 9, c.muted, {tracking: '0.04em'}));
+  parts.push(txt(C.left, panelBot + 22, 'RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS · BOTH PORTFOLIO CONDITIONS SHOWN · STAMPS MARK FAILED AUDITS', 9, c.muted, {tracking: '0.04em'}));
   parts.push(txt(C.right, panelBot + 22, 'ALL FIGURES ' + (model.unit || '').toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
 
   const H = panelBot + 40;
-  return svgShell(WIDE, H, c, parts.join(''), false);
+  const stress = conditions.stress.result;
+  return svgShell(WIDE, H, c, parts.join(''), false,
+    model.title || 'Bets board',
+    conditions.baseline.label + ': ' + (pf ? pl + '% lose money, median outcome ' + sgn(pf.p50) : 'not available') + '. ' +
+      conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') + '.');
 }
 
 /* a right-aligned editable numeric cell (stake/odds/payoff); `tone` overrides
@@ -291,22 +334,38 @@ function cell(body, x, y, str, e, c, hooks, tone){
   body.push(editTarget(inner, {x: r2(x - 64), y: r2(y + 2), w: 68, h: 26, bg: c.bg}, hooks));
 }
 
-function outcomeRail(body, pf, pl, x0, x1, y, c, narrow, compare){
+function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare){
+  const pf = conditions.baseline.result;
+  const stress = conditions.stress.result;
+  if(!pf){
+    body.push(txt(x0, y + 10, 'SIMULATED OUTCOMES · NOT AVAILABLE', 9, c.err,
+      {weight: 700, tracking: '0.06em'}));
+    body.push(txt(x0, y + 28, 'No scoreable bets — correct invalid or missing stake, odds and payoff terms.',
+      narrow ? 9 : 10, c.muted));
+    return y + 38;
+  }
+  const pl = lossPct(pf);
   const bins = pf.histogram || [[0, 1, 0]];
+  const stressBins = stress && stress.histogram;
   const prevPf = compare && compare.prevSim && compare.prevSim.portfolio;
   const prevBins = prevPf && prevPf.histogram;
   /* one shared scale for both bands — the ghost must sit on the same ruler
      as the live one, or "drift" reads as noise instead of movement. */
-  const hlo = Math.min(bins[0][0], 0, prevBins ? prevBins[0][0] : Infinity);
-  const hhi = Math.max(bins[bins.length - 1][1], 1, prevBins ? prevBins[prevBins.length - 1][1] : -Infinity);
+  const hlo = Math.min(bins[0][0], 0, stressBins ? stressBins[0][0] : Infinity,
+    prevBins ? prevBins[0][0] : Infinity);
+  const hhi = Math.max(bins[bins.length - 1][1], 1,
+    stressBins ? stressBins[stressBins.length - 1][1] : -Infinity,
+    prevBins ? prevBins[prevBins.length - 1][1] : -Infinity);
   const rx = v => x0 + (v - hlo) / (hhi - hlo || 1) * (x1 - x0);
   if(narrow){                                              // stack — the two captions collide on a phone
-    body.push(txt(x0, y + 6, 'SIMULATED OUTCOMES — 4,000 RUNS', 9, c.muted, {weight: 700, tracking: '0.06em'}));
-    body.push(txt(x0, y + 20, pl + '% OF RUNS END BELOW ZERO', 9.5, pl >= 50 ? c.err : c.accentInk, {weight: 700, tracking: '0.04em'}));
+    body.push(txt(x0, y + 6, 'INDEPENDENT OUTCOMES — 4,000 RUNS', 9, c.muted, {weight: 700, tracking: '0.06em'}));
+    body.push(txt(x0, y + 20, pl + '% BELOW ZERO · MEDIAN ' + sgn(pf.p50), 9.5,
+      pl >= 50 ? c.err : c.accentInk, {weight: 700, tracking: '0.04em'}));
     y += 18;
   } else {
-    body.push(txt(x0, y + 10, 'SIMULATED OUTCOMES — 4,000 SEEDED RUNS', 9, c.muted, {weight: 700, tracking: '0.08em'}));
-    body.push(txt(x1, y + 10, pl + '% OF RUNS END BELOW ZERO', 9, pl >= 50 ? c.err : c.accentInk, {weight: 700, tracking: '0.05em', anchor: 'end'}));
+    body.push(txt(x0, y + 10, 'INDEPENDENT BASELINE · 4,000 SEEDED RUNS', 9, c.muted, {weight: 700, tracking: '0.08em'}));
+    body.push(txt(x1, y + 10, pl + '% BELOW ZERO · MEDIAN ' + sgn(pf.p50), 9,
+      pl >= 50 ? c.err : c.accentInk, {weight: 700, tracking: '0.05em', anchor: 'end'}));
   }
   const ry = y + 18;
   body.push('<rect x="' + x0 + '" y="' + ry + '" width="' + (x1 - x0) + '" height="8" rx="0" fill="' + c.track + '"/>');
@@ -319,6 +378,20 @@ function outcomeRail(body, pf, pl, x0, x1, y, c, narrow, compare){
   body.push(txt(rx(pf.p90), ry + 26, 'P90 ' + sgn(pf.p90), 9.5, c.muted, {anchor: 'middle', mono: true}));
   if(hlo < 0) body.push(txt(rx(0), ry + 26, '0', 9.5, c.muted, {anchor: 'middle', mono: true}));
   let bottom = ry + 34;
+  if(stress){
+    const sy = bottom + 6, spl = lossPct(stress);
+    body.push(txt(x0, sy + 6, 'SHARED-OUTCOME STRESS', 8, spl >= 50 ? c.err : c.accentInk,
+      {weight: 700, tracking: '0.05em'}));
+    body.push(txt(x1, sy + 6, spl + '% BELOW ZERO · MEDIAN ' + sgn(stress.p50), 8,
+      spl >= 50 ? c.err : c.muted, {weight: 700, anchor: 'end'}));
+    const s0 = rx(stress.p10), s1 = rx(stress.p90);
+    body.push('<rect x="' + r2(Math.min(s0, s1)) + '" y="' + (sy + 12) + '" width="' +
+      r2(Math.max(1, Math.abs(s1 - s0))) + '" height="6" fill="' + c.err +
+      '" fill-opacity="0.28" stroke="' + c.err + '" stroke-width="1" stroke-dasharray="3 2"/>');
+    body.push('<line x1="' + r2(rx(stress.p50)) + '" y1="' + (sy + 9) + '" x2="' + r2(rx(stress.p50)) +
+      '" y2="' + (sy + 21) + '" stroke="' + c.err + '" stroke-width="1.5"/>');
+    bottom = sy + 26;
+  }
   /* ghost portfolio band: the snapshot's own P10-P90, faint/dashed, drawn
      beneath the live band on the same scale — re-simulated once and
      memoised in app.js (never here; see the file header). */
@@ -351,17 +424,18 @@ function renderNarrow(model, sim, ctx){
     {x: pad, y: r2(top), w: inner, h: 44, bg: c.bg},
     {kind, line, raw: '', label: aria});
   const {flat, flagged, totalStake, elo, ehi, pf, conc} = prep(model, sim);
+  const conditions = conditionReadings(sim);
   const plan = boardPlan(model, sim, {measure, nameWidth: inner - 24, killWidth: inner - 24});
-  const pl = Math.round((pf.pLoss || 0) * 100);
+  const pl = lossPct(pf);
   const concLine = concentrationLine(conc);
   const ex = (v, x0, w) => x0 + (v - elo) / (ehi - elo || 1) * w;
   const parts = [];
   let y = 30;
   parts.push('<text x="' + pad + '" y="' + y + '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
   y += 22;
-  parts.push(txt(pad, y, 'P(LOSES MONEY) ' + pl + '%', 15, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true})); y += 18;
-  parts.push(txt(pad, y, 'NET EV ' + sgn(pf.p50) + ' [' + sgn(pf.p10) + ' – ' + sgn(pf.p90) + '] ' + (model.unit || ''), 11.5, c.muted, {mono: true})); y += 16;
-  parts.push(txt(pad, y, flat.length + ' bets · ' + flagged + ' flagged · stake ' + num(totalStake), 11, c.muted)); y += 20;
+  parts.push(txt(pad, y, flat.length + ' bets · ' + flagged + ' flagged · stake ' + num(totalStake), 11, c.muted)); y += 12;
+  const receipt = conditionCards(conditions, pad, y, inner, c, true);
+  parts.push(...receipt.parts); y += receipt.height + 12;
   if(compare){
     // wrapped — the label can carry a title, easily wider than a phone card
     for(const ln of wrapText(compare.headline, '11px ' + SANS, inner, measure)){
@@ -444,6 +518,11 @@ function renderNarrow(model, sim, ctx){
       }
       // EV bar + P10/P50/P90
       const bx = pad + 12, bw = inner - 24, neg = e.p50 < 0;
+      if(rec.scoreable === false){
+        card.push(txt(bx, y + 8, 'NOT SCORED', 12, c.err, {mono: true, weight: 700}));
+        card.push(txt(bx, y + 24, 'Correct invalid or missing terms', 10, c.muted));
+        y += 36;
+      } else {
       card.push('<rect x="' + bx + '" y="' + y + '" width="' + bw + '" height="8" rx="0" fill="' + c.track + '"/>');
       if(elo < 0) card.push('<line x1="' + r2(ex(0, bx, bw)) + '" y1="' + (y - 3) + '" x2="' + r2(ex(0, bx, bw)) + '" y2="' + (y + 11) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
       card.push('<rect x="' + r2(ex(e.p10, bx, bw)) + '" y="' + y + '" width="' + r2(Math.max(1.5, ex(e.p90, bx, bw) - ex(e.p10, bx, bw))) + '" height="8" rx="0" fill="' + (neg ? c.err : c.accent) + '" fill-opacity="0.55"/>');
@@ -451,6 +530,7 @@ function renderNarrow(model, sim, ctx){
       y += 20;
       card.push(txt(pad + 12, y, 'EV ' + sgn(e.p50) + ' [' + sgn(e.p10) + ' – ' + sgn(e.p90) + ']', 11, neg ? c.err : c.muted, {mono: true, weight: neg ? 700 : 400}));
       y += 16;
+      }
       if(b.kill){
         const line = wrapText('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure)[0];
         const kinner = txt(pad + 12, y + 8, line, 10.5, c.muted);
@@ -458,13 +538,15 @@ function renderNarrow(model, sim, ctx){
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
         y += 16;
       }
-      if(rec.audits.length){ y += 12; stampRow(card, rec.audits, W - pad - 8, y, c); y += 8; }
+      if(rec.scoreable !== false && rec.audits.length){ y += 12; stampRow(card, rec.audits, W - pad - 8, y, c); y += 8; }
       y += 6;
       const cardH = y - top;
-      parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>');
-      parts.push('<rect data-hit="" x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" fill="transparent"/>');
+      parts.push('<g data-row="bet">');
       parts.push('<rect x="' + pad + '" y="' + top + '" width="' + inner + '" height="' + r2(cardH) + '" rx="0" fill="' + c.card + '" fill-opacity="0.5" stroke="' + (rec.audits.length ? c.err : c.border) + '" stroke-width="1.2" stroke-opacity="' + (rec.audits.length ? '0.5' : '1') + '"/>');
       parts.push(...card);
+      parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>' +
+        '<rect data-hit="" x="' + (pad + inner - 44) + '" y="' + top + '" width="44" height="44" fill="transparent"/>' +
+        txt(pad + inner - 18, top + 27, '⋯', 15, c.muted, {weight: 700, anchor: 'middle'}) + '</g>');
       parts.push('</g>');
       y += 10;
     }
@@ -489,9 +571,13 @@ function renderNarrow(model, sim, ctx){
   if(edit){ parts.push(addCapsule('＋ Add group', 'Add group', 'addgroup', -1, y)); y += 56; }
   // portfolio outcome rail
   parts.push(txt(pad, y + 10, 'PORTFOLIO — ' + flat.length + ' BETS', 10, c.ink, {weight: 700, tracking: '0.05em'})); y += 22;
-  y = outcomeRail(parts, pf, pl, pad, W - pad, y, c, true, compare);
+  y = outcomeRail(parts, conditions, pad, W - pad, y, c, true, compare);
   parts.push('<rect data-narrow="" width="0" height="0" fill="none"/>');
-  return svgShell(W, y + 20, c, parts.join(''), true);
+  const stress = conditions.stress.result;
+  return svgShell(W, y + 20, c, parts.join(''), true,
+    model.title || 'Bets board',
+    conditions.baseline.label + ': ' + (pf ? pl + '% lose money, median outcome ' + sgn(pf.p50) : 'not available') + '. ' +
+      conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') + '.');
 }
 
 function ncell(parts, x, y, label, val, c, hooks, tone){
@@ -499,8 +585,9 @@ function ncell(parts, x, y, label, val, c, hooks, tone){
   parts.push(editTarget(inner, {x: r2(x - 2), y: r2(y - 12), w: 96, h: 34, bg: c.bg}, hooks));
 }
 
-function svgShell(W, H, c, inner, narrow){
+function svgShell(W, H, c, inner, narrow, title = 'Bets board', desc = 'A portfolio of explicit bets with uncertainty ranges and audit exceptions.'){
   H = Math.ceil(H);
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
-    '" font-family="' + SANS + '"><rect width="' + W + '" height="' + H + '" fill="' + c.bg + '"/>' + inner + '</svg>';
+    '" font-family="' + SANS + '" role="img" aria-labelledby="bets-title bets-desc"><title id="bets-title">' + esc(title) +
+    '</title><desc id="bets-desc">' + esc(desc) + '</desc><rect width="' + W + '" height="' + H + '" fill="' + c.bg + '"/>' + inner + '</svg>';
 }

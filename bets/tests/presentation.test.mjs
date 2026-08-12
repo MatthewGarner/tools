@@ -18,6 +18,11 @@ test('Copy render is a fixed 1920×1080 summary with selection and remainder in-
   assert.match(svg, /SELECTION/);
   assert.match(svg, /HIGHEST STAKE UPPER BOUND/);
   assert.match(svg, /6 SHOWN · 3 FURTHER BETS IN FULL SVG/);
+  assert.match(svg, /INDEPENDENT BASELINE/);
+  assert.match(svg, /SHARED-OUTCOME STRESS/);
+  assert.match(svg, /MEDIAN OUTCOME/);
+  assert.doesNotMatch(svg, /NET EV/);
+  assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B01–B03/);
   assert.match(svg, /PRESENTATION SUMMARY · FULL DETAIL: DOWNLOAD SVG/);
 });
 
@@ -27,4 +32,54 @@ test('presentation carries only ranked selections, no edit chrome or model mutat
   for(const name of ['Bet 1', 'Bet 2', 'Bet 3']) assert.ok(!svg.includes('>' + name + '<'));
   assert.ok(!svg.includes('data-edit='));
   assert.equal('id' in model.groups[0].bets[0], false);
+});
+
+test('presentation names an omitted no-kill and P50-loss exception in-plane', () => {
+  const source = `title: Exceptions\nunit: £k\nG\n` +
+    Array.from({length: 6}, (_, i) => `  Range ${i + 1}: stake 0-110, odds 60%, payoff 300\n    kill: stop range ${i + 1}`).join('\n') +
+    '\n  Concentrated loss: stake 100, odds 0%, payoff 1';
+  const m = parse(source), s = simulate(m);
+  const svg = renderBetsPresentation(m, s, {colors: COLORS, measure});
+  assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B07 · P50 LOSS B07/);
+});
+
+test('presentation names a high-concentration portfolio exception even when its card is selected', () => {
+  const source = `title: Concentration\nunit: £k\nG\n` +
+    Array.from({length: 6}, (_, i) => `  Small ${i + 1}: stake 1, odds 100%, payoff 10\n    kill: stop small ${i + 1}`).join('\n') +
+    '\n  Carrier: stake 100, odds 0%, payoff 1\n    kill: stop carrier';
+  const m = parse(source), s = simulate(m);
+  const svg = renderBetsPresentation(m, s, {colors: COLORS, measure});
+  assert.match(svg, /PORTFOLIO EXCEPTION · HIGH CONCENTRATION B07/);
+});
+
+test('concentration receipt uses scored identity with an invalid giant and duplicate names', () => {
+  const m = parse(`G
+  Sound: stake 1000, odds 150%, payoff 3000
+  Sound: stake 80, odds 50%, payoff 100
+  Sound: stake 20, odds 50%, payoff 100`);
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  assert.match(svg, /TOTAL STAKE 100/);
+  assert.match(svg, /PORTFOLIO EXCEPTION · HIGH CONCENTRATION B02/);
+  assert.match(svg, /NOT SCORED · B01 Sound/);
+});
+
+test('unscored bets never enter ranked cards or stake totals, but remain disclosed', () => {
+  const m = parse(`title: Invalid mix\nunit: £k\nG
+  Invalid giant: stake 1000, odds 150%, payoff 3000
+  Sound: stake 10, odds 50%, payoff 40`);
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  assert.match(svg, /TOTAL STAKE 10 £k/);
+  assert.match(svg, /NOT SCORED · B01 Invalid giant/);
+  assert.match(svg, />Sound</);
+  assert.doesNotMatch(svg, />Invalid giant</);
+});
+
+test('all-unscored Copy summary says unavailable rather than 0% safe', () => {
+  const m = parse('G\n  Invalid: stake 10, odds 150%, payoff 30');
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  assert.match(svg, /NOT AVAILABLE/);
+  assert.match(svg, /Add a scoreable bet/);
+  assert.match(svg, /Correct invalid terms/);
+  assert.match(svg, /NOT SCORED · B01 Invalid/);
+  assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
 });

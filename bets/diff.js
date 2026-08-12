@@ -1,4 +1,8 @@
-/* Snapshot compare (2026-07-12, deferred from v1): bets are keyed by name;
+/* Snapshot compare (2026-07-12, deferred from v1): bets are keyed by their
+   parser-assigned group-qualified occurrence identity, never visible name
+   alone. Two `Experiment` bets can therefore coexist without one silently
+   overwriting the other in diffItems' Map.
+
    the "state" that counts as a move is stake/odds/payoff plus whether a kill
    criterion exists — any change there is a MOVED bet. The headline calls that
    composite "odds moved" as the user-facing shorthand for "a number changed",
@@ -11,9 +15,29 @@
    Monte-Carlo resim is too costly to redo on every keystroke unmemoised. */
 import {diffItems} from '../assets/snapshots.js';
 
-const key = b => b.name.toLowerCase();
+const key = b => b.occurrenceKey || JSON.stringify([(b.group || '').toLowerCase(), 1, b.name.toLowerCase(), 1]);
 const state = b => JSON.stringify([b.stake, b.odds, b.payoff, !!b.kill]);
 const flatten = model => model.groups.flatMap(g => g.bets.map(b => ({...b, group: g.name})));
+
+export function duplicateVisibleNames(model){
+  const seen = new Map(), duplicates = [];
+  for(const bet of flatten(model)){
+    const name = String(bet.name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if(seen.has(name)){
+      if(!duplicates.some(item => item.name === name)) duplicates.push({name, first: seen.get(name), duplicate: bet});
+    } else seen.set(name, bet);
+  }
+  return duplicates;
+}
+
+export function comparisonSafety(oldModel, model){
+  const duplicates = [...duplicateVisibleNames(oldModel), ...duplicateVisibleNames(model)];
+  return duplicates.length ? {
+    safe: false,
+    warning: 'Snapshot comparison paused: duplicate bet names can change identity when another duplicate is inserted. Rename duplicates before comparing.',
+    line: duplicates[0].duplicate.srcLine,
+  } : {safe: true, warning: '', line: null};
+}
 
 export function betsDiff(oldModel, model){
   return diffItems(flatten(oldModel), flatten(model), {key, state});

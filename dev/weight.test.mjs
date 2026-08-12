@@ -384,7 +384,12 @@ const PAGES = {
   /* 506k -> 516k (2026-08-04 interaction reliability): Bets' shareable view
      state and exact pre-entry/default add targeting are first-load behavior.
      Actual 509.8k; retain ~6k headroom. */
-  'bets/index.html': 541_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
+  /* 541k -> 570k (2026-08-12 shared-outcome stress): Bets now carries a paired
+     independent/shared-outcome portfolio reading across Board, Quadrant, PNG
+     and Markdown, plus fail-closed invalid-row handling and occurrence-safe
+     snapshot protection. This is first-load decision truth, not optional
+     chrome. Actual 563.3k; retain ~6.7k headroom. */
+  'bets/index.html': 570_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool

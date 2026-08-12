@@ -39,7 +39,6 @@ function parseRange(v){
   return {lo, hi, isRange};
 }
 
-const clamp100 = n => Math.min(100, Math.max(0, n));
 const fmtNum = n => String(n);
 function formatRange({lo, hi, isRange}, percent){
   const suffix = percent ? '%' : '';
@@ -64,8 +63,12 @@ function rewriteAttr(key, percent){
     const re = new RegExp('(' + key + ')(\\s+)([^,]*?)\\s*(?=,|$)', 'i');
     const m = re.exec(attrs);
     if(!m) return null;
-    let {lo, hi, isRange} = parsed;
-    if(percent){ lo = clamp100(lo); hi = clamp100(hi); }
+    const {lo, hi, isRange} = parsed;
+    /* Never turn an invalid claim into a different valid claim. Parser and
+       direct manipulation now share the same truth boundary: percentages
+       outside 0–100 and descending ranges are rejected, leaving the authored
+       source untouched for correction. */
+    if(lo > hi || lo < 0 || (percent && hi > 100)) return null;
     const newVal = formatRange({lo, hi, isRange}, percent);
     const start = m.index + m[1].length + m[2].length;
     const end = start + m[3].length;
@@ -195,9 +198,16 @@ export function addedKillTarget(betSrcLine){
 }
 
 export const kinds = {
-  stake:  {validate: v => parseRange(v) !== null},
-  odds:   {validate: v => parseRange(v) !== null},
-  payoff: {validate: v => parseRange(v) !== null},
+  stake:  {validate: v => {
+    const r = parseRange(v); return !!r && r.lo <= r.hi && r.lo >= 0;
+  }},
+  odds:   {validate: v => {
+    const r = parseRange(v);
+    return !!r && r.lo <= r.hi && r.lo >= 0 && r.hi <= 100;
+  }},
+  payoff: {validate: v => {
+    const r = parseRange(v); return !!r && r.lo <= r.hi && r.lo >= 0;
+  }},
   kill:   {validate: () => true},
   name:     {validate: validators.name},
   addbet:   {validate: validators.name},
