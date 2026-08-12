@@ -26,6 +26,7 @@ import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
 import {roadmapConditionalityHealth} from './handoff-paths.js';
+import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -247,7 +248,8 @@ function syncConditionalityHealth(m){
   pathsStarter = health.starter;
   pathsStarterRevision++;
   host.hidden = health.items === 0;
-  $('conditionalitymsg').textContent = health.message;
+  $('conditionalitymsg').textContent = health.message + (health.items && !pathsStarter
+    ? ' This needs a Paths plan, but this Roadmap cannot be converted automatically.' : '');
   $('pathsstarter').hidden = !pathsStarter;
 }
 function renderWarnings(m){
@@ -643,7 +645,7 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
   onCommit(kind, lineNo, oldRaw, newValue){
     handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
-      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:/i,
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s*:/i,
       getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
     });
   },
@@ -730,35 +732,12 @@ $('headline').addEventListener('keydown', e => { if(e.key === 'Enter') commitHea
    wireExports' literal 'Copy as markdown' revert — kept for the different flash copy. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
-  const lines = [];
-  if(model.title) lines.push('## ' + model.title, '');
-  /* the authored standfirst travels into the doc too (2026-07-31) — it reaches
-     all four picture exports, so the text one must not be the odd exception */
-  if(model.headline) lines.push('_' + model.headline + '_', '');
-  /* the diff narrative, only when a comparison is active — same rule the artefacts
-     follow, so the doc and the picture never disagree about what is on show */
-  if(model.story && makeDiff(model)) lines.push('> ' + model.story, '');
-  model.horizons.forEach((hName, h) => {
-    const inH = model.items.filter(i => i.h === h);
-    if(!inH.length) return;
-    lines.push('### ' + hName, '');
-    for(const lane of model.lanes){
-      const inLane = inH.filter(i => i.lane === lane);
-      for(const it of inLane){
-        let l = '- ' + (lane ? '**' + lane + ':** ' : '') + it.title;
-        if(it.status) l += ' _(' + STATUS_LABEL[it.status].toLowerCase() + ')_';
-        if(it.note) l += ' — ' + it.note;
-        lines.push(l);
-      }
-    }
-    lines.push('');
-  });
-  lines.push('_[Live roadmap](' + location.href + ')_');
+  const markdown = roadmapToMarkdown(model, {href: location.href, includeStory: !!makeDiff(model)});
   try{
-    await navigator.clipboard.writeText(lines.join('\n'));
+    await navigator.clipboard.writeText(markdown);
     $('copymd').textContent = 'Copied';
     setTimeout(() => { $('copymd').textContent = 'Copy as markdown'; }, 1500);
-  }catch(e){ prompt('Copy this:', lines.join('\n')); }
+  }catch(e){ prompt('Copy this:', markdown); }
 });
 
 /* ---------- snapshot wiring (shared) ---------- */
@@ -798,33 +777,8 @@ function renderSaved(){
 }
 
 /* ---------- markdown import ---------- */
-const STATUS_FROM_LABEL = {'done':'done','in progress':'doing','doing':'doing','at risk':'risk','risk':'risk','blocked':'blocked'};
 function mdToDsl(md){
-  const out = [];
-  for(const raw of md.split(/\r?\n/)){
-    const line = raw.trim();
-    if(!line) continue;
-    let m;
-    if((m = line.match(/^##\s+(.*)$/)) && !line.startsWith('###')){ out.unshift('title: ' + m[1].trim()); continue; }
-    if((m = line.match(/^###\s+(.*)$/))){ out.push('', m[1].trim()); continue; }
-    if((m = line.match(/^[-*]\s+(.*)$/))){
-      let item = m[1].trim();
-      let lane = '', status = '', note = '';
-      const laneM = item.match(/^\*\*(.+?):?\*\*:?\s+(.*)$/);
-      if(laneM){ lane = laneM[1].replace(/:$/, ''); item = laneM[2]; }
-      const stM = item.match(/_\(([^)]+)\)_/);
-      if(stM){
-        const st = STATUS_FROM_LABEL[stM[1].toLowerCase().trim()];
-        if(st) status = ' [' + st + ']';
-        item = item.replace(stM[0], '').trim();
-      }
-      const noteM = item.match(/^(.*?)\s+—\s+(.*)$/);
-      if(noteM){ item = noteM[1].trim(); note = ' -- ' + noteM[2].trim(); }
-      out.push((lane ? lane + ': ' : '') + item + status + note);
-      continue;
-    }
-  }
-  return out.join('\n');
+  return markdownToRoadmapDsl(md);
 }
 $('importgo').addEventListener('click', () => {
   const dsl = mdToDsl($('importarea').value);
@@ -1166,4 +1120,4 @@ watchNarrowBucket(previewEl, rerender);
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group', 'basis']);

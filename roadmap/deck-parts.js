@@ -11,7 +11,7 @@ import {SANS, SERIF, serifGroup, clip1, wrapN} from './text-parts.js';
 /* the text primitives live in text-parts.js (split 2026-07-31 so roadmap/render.js
    — and through it /why — need not carry the whole deck toolkit). Re-exported here
    so every existing importer of deck-parts is untouched. */
-export {SANS, SERIF, serifGroup, clip1, wrapN, standfirst, storyLine} from './text-parts.js';
+export {SANS, SERIF, serifGroup, clip1, wrapN, standfirst, storyLine, basisBand, basisDesc} from './text-parts.js';
 export const r2 = n => Math.round(n * 100) / 100;
 
 /* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/

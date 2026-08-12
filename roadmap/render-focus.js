@@ -3,7 +3,8 @@
    export (byte-identical) and the LIVE editable view (Task 4). Named render-*.js
    so renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, esc, btnAttrs} from '../assets/svg.js';
-import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine} from './deck-parts.js';
+import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine,
+  basisBand, basisDesc} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel, betChain} from './cond-parts.js';
@@ -161,7 +162,11 @@ function focusBodyFn(model, ctx, C){
       const list = model.items.filter(i => i.h === h).sort((a, b) => a.srcLine - b.srcLine);
       if(!list.length) continue;
       units.push({type: 'header', h, height: 34});
-      for(const it of list){ rank++; units.push({type: 'row', h, it, rank, height: 38}); }
+      for(const it of list){
+        rank++;
+        const tag = hasBets ? cardTag(model, it) : null;
+        units.push({type: 'row', h, it, rank, tag, height: tag ? 58 : 38});
+      }
     }
     const railAvail = Math.max(0, y1 - y0 - 6);
     const shownU = capFit(units.map(u => u.height), railAvail, 0, 34);
@@ -179,27 +184,15 @@ function focusBodyFn(model, ctx, C){
         // rail rows are the fade-only degrade (A3 §3) — dropped/cond override the
         // column fade outright, same single-strongest-state rule as the hero. No
         // room for a capsule here, but a DECK EXPORT has no card menu to fall
-        // back on (unlike the live rail), so it carries the fact as a compact
-        // text suffix instead — "title — if reminders" / "title — dropped
-        // (reminders lost)" in the rail's muted style — the simplest honest
-        // form at this width (F4; exports-carry-all-paths, Matt's ruling).
-        // Only appended when title + suffix together still fit the column
-        // (measured against the SAME titleMaxW the plain clip1 path uses);
-        // otherwise degrades to the plain clipped title, same as before —
-        // a half-drawn suffix would read as a truncated bet name, not a fact.
-        const tag = hasBets ? cardTag(model, u.it) : null;
-        const suffixWord = tag ? railTagSuffix(tag) : '';
-        const suffix = suffixWord ? ' — ' + suffixWord : '';
+        // back on (unlike the live rail), so it gives the fact its OWN line.
+        // The title may clip; the condition never competes with it or vanishes.
+        const suffixWord = u.tag ? railTagSuffix(u.tag) : '';
         const titleFont = '15px ' + SANS;
-        const fits = suffix && measure(u.it.title + suffix, titleFont) <= titleMaxW;
         s.push('<g opacity="' + stateOpacity(u.it, fadeOp).toFixed(2) + '">');
         s.push(txt(railX, ry + 24, numeral, 15, C.muted, {weight: 700}));
-        if(fits){
-          s.push(txt(railX + 34, ry + 24, u.it.title, 15, C.ink));
-          s.push(txt(railX + 34 + measure(u.it.title, titleFont), ry + 24, suffix, 15, C.muted));
-        } else {
-          s.push(txt(railX + 34, ry + 24, clip1(u.it.title, titleFont, titleMaxW, measure), 15, C.ink));
-        }
+        s.push(txt(railX + 34, ry + 24, clip1(u.it.title, titleFont, titleMaxW, measure), 15, C.ink));
+        if(suffixWord) s.push(txt(railX + 34, ry + 44,
+          clip1(suffixWord, '13px ' + SANS, RAIL_W - 34, measure), 13, C.muted, {weight: 600}));
         if(laneLbl) s.push(txt(railX + RAIL_W, ry + 22, laneLbl, 10, C.muted, {anchor: 'end', weight: 700, tracking: 1}));
         s.push('</g>');
       }
@@ -231,7 +224,8 @@ export function renderFocusBody(model, ctx, y0, y1){
  * HERO card gets FULL inline edit targets (title/note/status/lane),
  * mirroring render-board.js's paintBoardCard. The RAIL row stays a CLEAN
  * ranked index — numeral + an editable title (rename) + a read-only lane
- * label — no status/lane/note targets at all; rail status moves through a
+ * label, plus a dedicated second line when its work is conditional — no
+ * status/lane/note targets at all; rail status moves through a
  * card-menu submenu (Task 5), not an inline target. Both hero AND rail
  * rows carry a cardmenu group (rename + "more options" live everywhere);
  * only the hero paints new/moved diff badges — the rail stays diff-clean.
@@ -394,8 +388,9 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
    caller. Returns {svg, h}. data-raw on the title is the FULL title even
    when clip1 truncates the on-screen text — the editor needs the real
    value, not the ellipsis. */
-function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit}){
-  const ROWH = 36;
+function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit, tag}){
+  const condition = tag ? railTagSuffix(tag) : '';
+  const ROWH = condition ? 56 : 36;
   const numeral = String(rank).padStart(2, '0');
   const laneLbl = it.lane ? it.lane.toUpperCase() : '';
   const laneFont = '700 10px ' + SANS;
@@ -403,8 +398,9 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit}){
   const titleFont = '15px ' + SANS;
   const titleMaxW = Math.max(20, w - 34 - (laneW ? laneW + 14 : 0));
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
-  // the rail is the fade-only degrade (A3 §3) — no room for a capsule, the
-  // card menu carries the bet/cond info instead (A5)
+  // The rail remains a clean index, but uncertainty is not allowed to vanish
+  // behind the card menu: it gets a quiet, dedicated second line. The title
+  // may clip; the condition is measured independently and remains visible.
   const op = stateOpacity(it, 1);   // 1 for a plain row — attribute omitted, byte-identical
   const g = [];
   g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
@@ -416,6 +412,8 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit}){
   g.push('<text' + (edit ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' +
     btnAttrs('Rename: ' + it.title) : '') +
     ' x="' + (x + 34) + '" y="' + (y + 24) + '" font-size="15" fill="' + C.ink + '">' + esc(display) + '</text>');
+  if(condition) g.push(txt(x + 34, y + 44, clip1(condition, '13px ' + SANS, w - 34, measure),
+    13, C.muted, {weight:600}));
   if(laneLbl) g.push(txt(x + w, y + 22, laneLbl, 10, C.muted, {anchor: 'end', weight: 700, tracking: 1}));
   g.push('</g>');
   return {svg: g.join(''), h: ROWH};
@@ -442,6 +440,8 @@ export function renderFocusLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 22;
+  const basis = basisBand(model, M, y, W - M * 2, measure, C);
+  if(basis.height){ s.push(basis.svg); y += basis.height; }
   const sfF = standfirst(model, M, y, W - M * 2, measure, C, !!ctx.edit);   // the authored standfirst
   if(sfF.height){ s.push(sfF.svg); y += sfF.height; }
   const sfFStory = storyLine(model, diff, M, y, W - M * 2, measure, C, !!ctx.edit);   // the diff narrative
@@ -493,7 +493,12 @@ export function renderFocusLive(model, ctx){
       txt(railX, ry + 18, hs[h].toUpperCase(), 13, C.muted, {weight: 700, tracking: 1.4}) + '</g>');
     secBuf.push(line(railX, ry + 26, railX + RAIL_W, ry + 26, C.border, 1, 0.6));
     ry += 34;
-    if(list.length){ for(const it of list){ rank++; const r = paintFocusRailRow(it, rank, railX, ry, RAIL_W, {C, measure, edit}); secBuf.push(r.svg); ry += r.h; } }
+    if(list.length){ for(const it of list){
+      rank++;
+      const tag = hasBets ? cardTag(model, it) : null;
+      const r = paintFocusRailRow(it, rank, railX, ry, RAIL_W, {C, measure, edit, tag});
+      secBuf.push(r.svg); ry += r.h;
+    } }
     else { secBuf.push(txt(railX, ry + 16, 'Nothing scheduled', 12, C.muted)); ry += 26; }
     if(edit){ secBuf.push(addRow(railX, RAIL_W, h, ry)); ry += 26; }
     s.push(band(h, railX, RAIL_W, secTop, ry));   // band UNDER this section's content
@@ -507,5 +512,5 @@ export function renderFocusLive(model, ctx){
   const H = Math.round(bottom + 38);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' +
-    '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+    basisDesc(model) + '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
 }

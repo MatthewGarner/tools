@@ -20,6 +20,10 @@ const docs = {
   nolanes: 'date: 2026-07-04\nNOW\nplain item\nNEXT\nanother much longer item title that wraps across lines for sure definitely',
   quarterly: 'title: Q\ndate: 2026-07-04\nhorizons: quarterly from Q3 2026 x5\nwip: off\nfade: off\nQ3 2026\nA: one\nQ1 2027\nB: two',
 };
+const basisDoc = 'title: Growth delivery\ndate: 2026-08-12\n' +
+  'basis: paths "Growth decisions"; answered pricing=yes@2026-08-03, retention=no@2026-08-09; assumed groups=no@2026-08-12\n' +
+  'headline: Keep shared work moving while the open choice resolves.\n' +
+  'NOW\nCore: Repair the streak [doing]\nNEXT\nGrowth: Improve invitations\nLATER\nCore: Deepen retention';
 const variants = {};
 for(const [k, src] of Object.entries(docs)){
   const m = parse(src);
@@ -105,6 +109,11 @@ for(const [k, src] of Object.entries(docs)){
     'Core: Manual outreach [unless retention]\n' +
     'LATER\nGrowth: Cross-sell push';
   variants['roadmap-fork'] = render(parse(forkDoc), {...ctxBase, edit: true});
+  /* Projection basis: one named Paths world, with known answers and an
+     explicit planning assumption. Pinned wide + narrow so neither header
+     composition can silently flatten the assumption into certainty. */
+  variants['roadmap-basis'] = render(parse(basisDoc), {...ctxBase});
+  variants['roadmap-basis-narrow'] = render(parse(basisDoc), {...ctxBase, width: 360});
 }
 
 /* deck exports (roadmap/render-deck.js) — a separate module from render.js
@@ -114,6 +123,7 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {renderDeck} = await import('../roadmap/render-deck.js');
   variants['deck-board'] = renderDeck(parse(docs.lanes), {...ctxBase});
+  variants['deck-board-basis'] = renderDeck(parse(basisDoc), {...ctxBase});
   /* the flipped-to-list rendering path (a distinct code path from card
      columns — the prototype's version of this had no cap and overflowed the
      frame, which is exactly what this golden pins down). */
@@ -216,6 +226,7 @@ for(const [k, src] of Object.entries(docs)){
   const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
     'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
   variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
+  variants['register-live-basis'] = renderRegisterLive(parse(basisDoc), {...ctxBase});
   /* the AUTHORED standfirst on the live artefacts (2026-07-31). `headline:` used
      to reach the deck alone, so two of four exports ignored what the author wrote.
      One golden per artefact pins the block AND the layout it pushes down. */
@@ -267,6 +278,7 @@ for(const [k, src] of Object.entries(docs)){
   const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
     'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
   variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
+  variants['board-live-basis'] = renderBoardLive(parse(basisDoc), {...ctxBase});
   variants['board-live-headline'] = renderBoardLive(parse('headline: We are consolidating — three bets, no more\n' + boardLiveDoc), {...ctxBase});
   variants['board-live-story'] = renderBoardLive(
     parse('story: We chose depth over breadth this cycle\n' + boardLiveDoc),
@@ -292,6 +304,7 @@ for(const [k, src] of Object.entries(docs)){
   const {renderFocusLive} = await import('../roadmap/render-focus.js');
   const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
   variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
+  variants['focus-live-basis'] = renderFocusLive(parse(basisDoc), {...ctxBase});
   variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
 
   /* E6 (S5): the "hinges on" strip on a live hero card — a chained pair of

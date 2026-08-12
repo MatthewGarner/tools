@@ -98,6 +98,10 @@ function safeForks(model){
 function safeStructure(model){
   if(!isRecord(model) || !Array.isArray(model.horizons) || !Array.isArray(model.items) ||
      !isRecord(model.bets) || starterTitle(model) === null) return false;
+  /* A Paths-sourced delivery projection is not a fresh Roadmap-local decision
+     model. Re-handing it to Paths without a deliberate provenance mapping
+     would manufacture a loop and relabel assumptions as new questions. */
+  if(model.basis != null) return false;
   if(!sourceWarningsAreLossless(model)) return false;
   if(model.horizons.length < 1 || !model.horizons.every(safePeriod)) return false;
   if(new Set(model.horizons.map(keyOf)).size !== model.horizons.length) return false;

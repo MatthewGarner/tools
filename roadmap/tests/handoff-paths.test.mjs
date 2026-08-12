@@ -179,6 +179,21 @@ test('resolved, conflicting, chained, moot and cyclic forks are refused', () => 
   for(const doc of docs) assert.equal(roadmapToPathsStarter(parseRoadmap(doc)), null, doc);
 });
 
+test('a projection-basis Roadmap refuses the starter until provenance has a deliberate mapping', () => {
+  const source = parseRoadmap([
+    'basis: paths "Growth decisions"; assumed pricing=yes@2026-08-12',
+    'NOW',
+    'Core: Price experiment [bet: pricing]',
+    'NEXT',
+    'Growth: Coach expansion [if pricing]',
+  ].join('\n'));
+  assert.ok(source.basis, 'fixture must carry a valid projection basis');
+  assert.equal(roadmapToPathsStarter(source), null);
+  const health = roadmapConditionalityHealth(source);
+  assert.equal(health.starter, null);
+  assert.equal(health.items, 1, 'the health warning remains useful even while conversion is refused');
+});
+
 test('conditional in-flight work is refused because either outcome could drop it', () => {
   const source = parseRoadmap(`Now
 Core: Probe [bet: x]

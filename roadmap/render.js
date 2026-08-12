@@ -1,7 +1,7 @@
 /* (model, ctx) → SVG string. ctx = {colors, measure, diff?, slide?}. No DOM. */
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {packLane} from './pack.js';
-import {standfirst, storyLine} from './text-parts.js';
+import {standfirst, storyLine, basisBand, basisDesc} from './text-parts.js';
 import {layoutRoadmap} from './layout.js';
 
 const F = {
@@ -230,6 +230,8 @@ function renderNarrow(model, ctx, C, T){
     s.push('<text x="' + PAD + '" y="' + y + '" font-size="' + T.dateSize + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
     y += 20;
   } else y += 6;
+  const basisNarrow = basisBand(model, PAD, y, W - PAD * 2, measure, C);
+  if(basisNarrow.height){ s.push(basisNarrow.svg); y += basisNarrow.height; }
   /* the AUTHORED standfirst (2026-07-31) — every artefact carries it, not just
      the deck. Zero height when the author wrote none, so a headline-free doc is
      byte-identical to before. */
@@ -381,7 +383,7 @@ function renderNarrow(model, ctx, C, T){
      honours touch-action on the svg root, never on child elements */
   return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + F.body + '\'>' +
-    '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+    basisDesc(model) + '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
 }
 
 export function render(model, ctx){
@@ -477,10 +479,12 @@ export function render(model, ctx){
         Math.max(120*S, W - PAD*2 - 170*S), measure).slice(0, 2)
     : [];
   const titleExtra = Math.max(0, titleLines.length - 1) * 27*S;
-  const sfWide = standfirst(model, PAD, (model.title ? T.titleY + 12 : 16) * S + titleExtra, W - PAD * 2, measure, C, edit);
+  const headerTextY = (model.title ? T.titleY + 12 : 16) * S + titleExtra;
+  const basisWide = basisBand(model, PAD, headerTextY, W - PAD * 2, measure, C, S);
+  const sfWide = standfirst(model, PAD, headerTextY + basisWide.height, W - PAD * 2, measure, C, edit);
   const stWide = storyLine(model, diff, PAD,
-    (model.title ? T.titleY + 12 : 16) * S + titleExtra + sfWide.height, W - PAD * 2, measure, C, edit);
-  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S + titleExtra + sfWide.height + stWide.height;
+    headerTextY + basisWide.height + sfWide.height, W - PAD * 2, measure, C, edit);
+  const headerH = (model.title ? T.headerH : T.headerHNoTitle)*S + titleExtra + basisWide.height + sfWide.height + stWide.height;
   const colHeadH = T.colHeadH*S;
   /* optional lane groups: [{label, lanes[]}] — a labelled band before its first lane */
   const bandBaseH = 30*S;
@@ -543,6 +547,7 @@ export function render(model, ctx){
   const s = [];
   s.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + Math.round(H) +
     '" viewBox="0 0 ' + W + ' ' + Math.round(H) + '" font-family=\'' + F.body + '\'>');
+  if(model.basis) s.push(basisDesc(model));
   s.push('<rect width="' + W + '" height="' + Math.round(H) + '" fill="' + C.bg + '"/>');
 
   /* title + date */
@@ -558,6 +563,7 @@ export function render(model, ctx){
       '" text-anchor="end" font-size="' + T.dateSize*S + '" fill="' + C.muted + '">' + esc(dLabel) + '</text>');
   }
 
+  if(basisWide.height) s.push(basisWide.svg);
   if(sfWide.height) s.push(sfWide.svg);
   if(stWide.height) s.push(stWide.svg);
 

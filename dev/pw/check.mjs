@@ -105,11 +105,13 @@ check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTM
 
 // markdown import round trip
 await page2.getByRole('button', {name: 'Import markdown'}).click();
-await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Imported item _(in progress)_ — with note');
+await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
 await page2.waitForTimeout(400);
 const impSvg = await page2.locator('#preview svg').innerHTML();
-check('markdown import renders', impSvg.includes('Imported item') && impSvg.includes('Imported Plan'));
+check('markdown import renders with conditionality and safe link', impSvg.includes('Imported item') &&
+  impSvg.includes('Imported Plan') && impSvg.includes('if signal') &&
+  impSvg.includes('href="https://example.test/item"'));
 
 // drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform.
 // The flagship doc is a plain now/next/later roadmap → the CHART, whose drag is
@@ -695,7 +697,7 @@ Core: Already underway [doing] [if x]`;
   check('roadmap -> paths: health remains visible when a truthful starter is unavailable',
     await p.locator('#conditionality').isVisible() &&
     (await p.locator('#conditionalitymsg').innerText()) ===
-      '1 unfinished delivery item is directly conditional on 1 open fork.');
+      '1 unfinished delivery item is directly conditional on 1 open fork. This needs a Paths plan, but this Roadmap cannot be converted automatically.');
   check('roadmap -> paths: unsafe source has no handoff action', await action.isHidden());
   check('roadmap -> paths: 390px handoff state has no console/page errors', handoffErrors.length === 0);
   await p.close();

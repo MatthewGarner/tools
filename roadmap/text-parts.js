@@ -16,6 +16,99 @@ export const SERIF = '"Helvetica Neue", Helvetica, "Segoe UI", Roboto, sans-seri
 
 export const serifGroup = inner => '<g font-family=\'' + SERIF + '\'>' + inner + '</g>';
 
+function basisDescription(basis){
+  if(!basis) return '';
+  const describe = (entries, kind) => (entries || []).map(e =>
+    e.key + ' equals ' + e.direction + ' (' + kind + ' ' + e.date + ')').join('; ');
+  const descriptions = [];
+  if(basis.answered && basis.answered.length) descriptions.push('Known: ' + describe(basis.answered, 'answered'));
+  if(basis.assumed && basis.assumed.length) descriptions.push('Assumed: ' + describe(basis.assumed, 'assumed'));
+  return 'Delivery projection from Paths: ' + String(basis.source || '').trim() + '. ' + descriptions.join('. ') + '.';
+}
+
+/* wrapText keeps whole words, which is normally the right editorial rule. A
+   basis can contain machine keys with no spaces, though; one long key must not
+   force horizontal overflow on a phone or be elided. Split only an individually
+   over-wide run, and retain every character. */
+function wrapBasisText(text, font, maxW, measure){
+  const lines = wrapText(text, font, maxW, measure);
+  const out = [];
+  for(const line of lines){
+    let rest = line;
+    while(rest && measure(rest, font) > maxW){
+      let lo = 1, hi = rest.length;
+      while(lo < hi){
+        const mid = Math.ceil((lo + hi) / 2);
+        if(measure(rest.slice(0, mid), font) <= maxW) lo = mid;
+        else hi = mid - 1;
+      }
+      const take = Math.max(1, lo);
+      out.push(rest.slice(0, take));
+      rest = rest.slice(take);
+    }
+    if(rest) out.push(rest);
+  }
+  return out;
+}
+
+/* A Roadmap generated from Paths is a projection of one explicit world, not a
+   promise that every upstream question has been answered. This small ledger
+   stamp therefore belongs in the document header on EVERY artefact. It is
+   deliberately text, not a legend: the provenance and the known/assumed split
+   must survive SVG/PNG export and must be readable without learning a key.
+
+   `scale` is used by the working chart's slide pass; coordinates passed by that
+   renderer are already scaled, so only the type/rhythm scale here. With no
+   basis the zero result lets every existing artefact remain byte-identical. */
+export function basisBand(model, x, y, innerW, measure, colors, scale = 1){
+  const basis = model && model.basis;
+  if(!basis) return {svg:'', height:0, description:''};
+
+  const first = 'DELIVERY PROJECTION · FROM PATHS: ' + String(basis.source || '').trim();
+  const ledger = [];
+  if(basis.answered && basis.answered.length){
+    ledger.push('Known: ' + basis.answered.map(e => e.key + ' = ' + e.direction).join(' · '));
+  }
+  if(basis.assumed && basis.assumed.length){
+    ledger.push('Assumed: ' + basis.assumed.map(e => e.key + ' = ' + e.direction).join(' · '));
+  }
+  const second = ledger.join(' · ');
+
+  const labelSize = 10.5 * scale, valueSize = 12.5 * scale;
+  const labelLh = 15 * scale, valueLh = 18 * scale;
+  const inset = 12 * scale, ruleGap = 8 * scale, bottom = 8 * scale;
+  const textX = x + inset;
+  const textW = Math.max(1, innerW - inset);
+  const firstLines = wrapBasisText(first, '700 ' + labelSize + 'px ' + SANS, textW, measure);
+  const secondLines = wrapBasisText(second, '600 ' + valueSize + 'px ' + SANS, textW, measure);
+  const firstH = firstLines.length * labelLh;
+  const secondH = secondLines.length * valueLh;
+  const h = firstH + ruleGap + secondH + bottom;
+  const parts = [
+    '<line x1="' + x + '" y1="' + y + '" x2="' + x + '" y2="' + (y + h - bottom) +
+      '" stroke="' + colors.accent + '" stroke-width="' + (3 * scale) + '"/>',
+  ];
+  firstLines.forEach((ln, i) => parts.push(txt(textX, y + labelSize + i * labelLh, ln,
+    labelSize, colors.muted, {weight:700, tracking:1.05 * scale})));
+  const secondY = y + firstH + ruleGap;
+  secondLines.forEach((ln, i) => parts.push(txt(textX, secondY + valueSize + i * valueLh, ln,
+    valueSize, colors.ink, {weight:600})));
+
+  return {
+    svg: parts.join(''),
+    height: h,
+    description: basisDescription(basis),
+  };
+}
+
+/* Put the dated machine-readable account once at the root of each standalone
+   SVG. The visible band stays concise; screen readers and detached SVGs retain
+   when each upstream answer/assumption was recorded. */
+export function basisDesc(model){
+  const description = basisDescription(model && model.basis);
+  return description ? '<desc>' + esc(description) + '</desc>' : '';
+}
+
 /* clip to one line / wrap to N, both with an ellipsis on overflow. */
 export function clip1(text, font, maxW, measure){
   let s = String(text);

@@ -23,7 +23,9 @@ The eleven grammars differ, but they're a family and obey the same rules:
   content line — `roadmap`, `wardley`, `bets`, `gauge`, `tree` and `why` warn (or re-read
   the line as content) if a config key appears after content. `timeline`, `map`,
   `energy/cycles` and `energy/risk` are order-free.
-- **`//` starts a comment** — a whole line, or a trailing comment after content.
+- **`//` starts a comment** — a whole line, or a trailing comment after content. Roadmap's
+  atomic `basis:` provenance is the exception: `//` there invalidates the datum rather
+  than being stripped.
 - **Indentation is 2 spaces, and it means structure** in `bets`, `tree` and `why` (a child
   is one level deeper than its parent). The other tools read flat lines or lists; leading
   spaces there are just trimmed.
@@ -50,7 +52,7 @@ The eleven grammars differ, but they're a family and obey the same rules:
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
 | [paths](#paths) | ✓ | ✓ | ✓ | `date` `today` `style` `verdict` | `decision name:` blocks, period headers, then `Lane: Item [status] [if/unless] -- note -> url` |
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -162,6 +164,15 @@ swimlanes, WIP limits, and a deck export.
 - `group:` the register's grouping lens, `lane` (default) or `outcome`: `group: outcome`
   regroups the register into either-way / only-if-a-bet-pays-off / only-if-it-doesn't / not-needed
   sections instead of by horizon. Affects only the `register` style — elsewhere it warns.
+- `basis:` identifies a delivery projection made from one exact Paths world. It is absent
+  on an ordinary roadmap and atomic when present:
+  `basis: paths "Growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12`.
+  `answered` means a written answer in Paths; `assumed` means a choice accepted only for
+  planning. Each decision key can appear once across both comma-separated ledgers, and
+  every entry carries a real ISO date. Any malformed or duplicate part discards the whole
+  basis rather than retaining partial provenance. To keep the fixed deck header fully
+  readable, source labels are capped at 80 characters, keys at 32 characters, and the
+  two ledgers together at 8 entries.
 
 **Node syntax:**
 - A line equal to a horizon name (case-insensitive, trailing `:` optional) opens that
@@ -195,7 +206,8 @@ conditioning on its own bet (condition dropped); near-miss forms `[bet x]` / `[i
 (missing colon/space); a bet nothing conditions on; a conditioned item in the first horizon
 (a maybe in the commitment column); a conditioned item in an earlier horizon than its bet;
 `[done]` conditioned on an unresolved, lost, or never-ran bet; `[doing]` on a dropped item;
-a cascade cycle (reads unresolved).
+a cascade cycle (reads unresolved); a malformed or duplicate `basis:` datum (the whole
+projection basis is ignored).
 
 ```dsl tool=roadmap
 title: Team roadmap
