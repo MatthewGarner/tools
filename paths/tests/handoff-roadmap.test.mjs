@@ -61,6 +61,16 @@ test('a non-first assignment inside a merged Possible Plan becomes its own exact
   assert.equal(target.warnings.length, 0, built.text);
 });
 
+test('delivery projection omits Paths learning contracts with the rest of the decision model', () => {
+  const source = doc(`title: Contract boundary\n${decision('x', '\n  learn: Interview 12 customers\n  enough: Yes at 8 of 12; no at 3 or fewer')}`, {
+    now:'  Core: Shared', next:'  Growth: Expansion [if x]', later:'  Growth: Alternative [unless x]',
+  });
+  const inspected = inspectRoadmapProjection(source, '2026-08-12', {x:'yes'});
+  const built = buildRoadmapProjection(source, '2026-08-12', {x:'yes'}, acceptance(inspected));
+  assert.equal(built.ok, true);
+  assert.doesNotMatch(built.text, /(?:learn|enough):|Interview 12|8 of 12/);
+});
+
 test('Known comes only from a source answer; injected and authored assumptions remain Assumed', () => {
   const source = doc(`title: Classification\n${decision('priced', '\n  answer: yes 2026-08-03')}\n${decision('groups', '\n  assume: no 2026-08-11')}`, {
     now:'  Core: Foundation', next:'  Growth: Combined [if priced and groups]', later:'',

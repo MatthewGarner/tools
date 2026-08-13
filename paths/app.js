@@ -12,19 +12,21 @@ import {renderOverview, renderOverviewNarrow} from './render-overview.js';
 import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
 import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
 import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
-import {renderLearningAgenda, renderLearningAgendaNarrow} from './render-learning-agenda.js';
+import {renderLearningAgenda, renderLearningAgendaNarrow,
+  renderLearningAgendaReceipt} from './render-learning-agenda.js';
 import {buildRoadmapProjection, deliveryAssignment, inspectRoadmapProjection,
   projectionAcceptance, roadmapProjectionChoices} from './handoff-roadmap.js';
 import {verdict} from './verdict.js';
 import {auditableAnswerDraft, decisionEditSurface, resolveSelectedDecision} from './inspector.js';
 import {clearAnswer, clearAnswerBy, clearWhen, kinds as inspectorKinds,
   setAnswerBy, setAnswerRaw, setAssumptionRaw, setOwner, setQuestion, setReading,
-  setSignal, setWhen} from './edit-targets.js';
+  setEnough, setLearn, setSignal, setWhen} from './edit-targets.js';
 import {applyLineOps, makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
-import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
+import {download, measure, isDark, themeColors, onThemeChange, renderWarningList,
+  pngRasterPlan, slugify, svgToCanvas, exampleChips} from '../assets/app-common.js';
 import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -55,8 +57,8 @@ const lang = StreamLanguage.define({
       if(/^decision\s+[a-z0-9-]+\s*:/i.test(line)){
         stream.match(/^\s*decision\s+[a-z0-9-]+\s*:/i); return 'heading';
       }
-      if(/^\s{2}(question|signal|reading|owner|answer-by|when|assume|answer)\s*:/i.test(stream.string)){
-        stream.match(/^\s*(question|signal|reading|owner|answer-by|when|assume|answer)\s*:/i);
+      if(/^\s{2}(question|signal|reading|learn|enough|owner|answer-by|when|assume|answer)\s*:/i.test(stream.string)){
+        stream.match(/^\s*(question|signal|reading|learn|enough|owner|answer-by|when|assume|answer)\s*:/i);
         return 'meta';
       }
     }
@@ -80,6 +82,8 @@ decision reminders:
   question: Do adaptive reminders improve week-four retention?
   signal: week-four retention in the reminder experiment
   reading: +6 percentage points
+  learn: Compare week-four retention for adaptive and fixed reminder cohorts
+  enough: Yes at +5 percentage points or more; no at +1 or less; otherwise keep the question open
   owner: Core
   answer-by: 2026-07-24
   answer: yes 2026-07-22 -- experiment HBT-42
@@ -88,6 +92,8 @@ decision groups:
   question: Will people invite three friends without prompting?
   signal: invites per active user
   reading: 2.4 invites per active user
+  learn: Run an unprompted invitation pilot with 100 newly active people
+  enough: Yes at 3 invites per active user or more; no below 1; otherwise keep the question open
   owner: Growth
   answer-by: 2026-09-15
 
@@ -95,6 +101,8 @@ decision pricing:
   question: Will coaches accept a revenue share?
   signal: accepted offers in the coach pilot
   reading: 3 of 10 accepted
+  learn: Put the revenue-share offer to 20 coaches using the same script
+  enough: Yes at 12 acceptances or more; no at 6 or fewer; otherwise keep the question open
   owner: Marketplace
   answer-by: 2026-08-01
   assume: no 2026-08-02
@@ -268,6 +276,11 @@ function syncViewControls(){
     button.setAttribute('aria-pressed', String(active));
     button.classList.toggle('primary', active);
   });
+  const hasReceipt = style === 'agenda' && !!selectedOverviewDecision;
+  ['agenda-receipt-svg', 'agenda-receipt-png'].forEach(id => {
+    const scoped = $(id);
+    if(scoped) scoped.hidden = !hasReceipt;
+  });
 }
 
 function overviewSurfaceMetrics(){
@@ -289,6 +302,7 @@ function receiptMetricsForStyle(metrics = overviewSurfaceMetrics()){
      above the artefact. A phone selection becomes the same accessible sheet
      as Brief, so it never starts below an off-screen diagram. */
   const sheet = metrics.narrow || matchMedia('(pointer: coarse)').matches;
+  if(style === 'agenda') return {...metrics, receiptLayout:sheet ? 'sheet' : 'none', previewWidth:metrics.width};
   const receiptLayout = sheet ? 'sheet' : metrics.width >= 1240 ? 'rail' : 'inline';
   return {...metrics, receiptLayout,
     previewWidth:receiptLayout === 'rail' ? Math.max(720, metrics.width - 366) : metrics.width};
@@ -411,6 +425,15 @@ function appendImpactSection(host, label, entries, empty = ''){
   host.appendChild(section);
 }
 
+function appendAgendaOutcome(host, direction, outcome){
+  const entries = [
+    ...(outcome?.work || []).map(entry => ({sentence:`${entry.title} — ${entry.effect}`})),
+    ...(outcome?.decisions || []).map(entry => ({sentence:`${entry.question} — ${entry.effect}`})),
+  ];
+  appendImpactSection(host, `If ${direction}, the plan changes`, entries,
+    `No modeled plan or downstream changes if ${direction}.`);
+}
+
 function nextDecisionAction(decision){
   if(canonicalRoadmapStyle() === 'agenda') return learningAgendaNextAction(decision);
   if(decision.repairEvidence?.length)
@@ -428,7 +451,8 @@ function renderOverviewReceipt(){
   const sheet = overviewReceiptUsesSheet(metrics);
   const overlay = metrics.receiptLayout === 'overlay';
   const style = canonicalRoadmapStyle();
-  const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions' || style === 'agenda';
+  const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions' ||
+    style === 'agenda' && sheet;
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
@@ -446,6 +470,8 @@ function renderOverviewReceipt(){
   const impact = overviewImpact;
   const decision = impact.decision;
   const narrative = impact.narrative;
+  const agendaEntry = style === 'agenda'
+    ? overview?.entries?.find(entry => entry.key === decision.key) || null : null;
   host.hidden = false;
   host.replaceChildren();
   host.dataset.decisionKey = impact.key;
@@ -459,9 +485,8 @@ function renderOverviewReceipt(){
   title.id = 'overview-receipt-title';
   title.tabIndex = -1;
   identity.appendChild(title);
-  const agendaState = style === 'agenda'
-    ? overview?.entries?.find(entry => entry.key === decision.key)?.currentState : null;
-  identity.appendChild(node('p', 'receipt-state', (agendaState || impact.currentState).sentence));
+  identity.appendChild(node('p', 'receipt-state',
+    (agendaEntry?.currentState || impact.currentState).sentence));
   head.appendChild(identity);
   if(sheet || overlay){
     const close = node('button', 'receipt-close', 'Close');
@@ -473,12 +498,14 @@ function renderOverviewReceipt(){
   host.appendChild(head);
 
   const ledger = node('dl', 'receipt-ledger');
-  for(const [label, value] of [
+  const facts = [
     ['Signal', decision.signal || 'Needs repair'],
     ['Latest reading', decision.reading || 'No reading recorded'],
     ['Owner', decision.owner || 'Needs repair'],
     ['Answer by', decision.answerBy || 'Needs repair'],
-  ]){
+  ];
+  if(decision.when?.source) facts.push(['Opens when', decision.when.source]);
+  for(const [label, value] of facts){
     const row = node('div', 'receipt-fact');
     row.appendChild(node('dt', '', label));
     row.appendChild(node('dd', '', value));
@@ -486,14 +513,38 @@ function renderOverviewReceipt(){
   }
   host.appendChild(ledger);
 
-  const next = node('section', 'receipt-next');
-  next.appendChild(node('h3', '', 'Next action'));
-  next.appendChild(node('p', '', nextDecisionAction(decision)));
-  host.appendChild(next);
+  const nextAction = nextDecisionAction(agendaEntry || decision);
+  if(agendaEntry){
+    const contract = node('section', 'receipt-contract');
+    contract.appendChild(node('h3', '', 'Learning contract'));
+    const contractFields = node('div', 'receipt-contract-fields');
+    const contractView = {srcLine:decision.srcLine};
+    contractFields.appendChild(editableValue(contractView, {
+      kind:'learn', label:'Deliberate move', raw:decision.learn || '',
+      fallback:'Add the deliberate learning move', className:'learning-contract-field',
+    }));
+    contractFields.appendChild(editableValue(contractView, {
+      kind:'enough', label:'Enough to decide', raw:decision.enough || '',
+      fallback:'Add the evidence standard', className:'learning-contract-field',
+    }));
+    contract.appendChild(contractFields);
+    host.appendChild(contract);
+  }
+  if(!agendaEntry || nextAction !== agendaEntry.learningMove){
+    const next = node('section', 'receipt-next');
+    next.appendChild(node('h3', '', agendaEntry ? 'Current next action' : 'Next action'));
+    next.appendChild(node('p', '', nextAction));
+    host.appendChild(next);
+  }
 
   appendImpactSection(host, 'Continues while unresolved', narrative.continues,
     'No continuing authored work is unchanged by this answer.');
-  appendImpactSection(host, 'Changes directly with this answer', narrative.direct,
+  if(agendaEntry){
+    appendAgendaOutcome(host, 'yes', agendaEntry.outcomes?.yes);
+    appendAgendaOutcome(host, 'no', agendaEntry.outcomes?.no);
+    host.appendChild(node('p', 'receipt-basis',
+      'Result changes are computed from current Paths conditions at the evaluated date; not a delivery commitment.'));
+  } else appendImpactSection(host, 'Changes directly with this answer', narrative.direct,
     'No simple-condition work changes directly.');
   appendImpactSection(host, 'Also needs …', narrative.alsoNeeds);
   appendImpactSection(host, 'Either … can unlock', narrative.eitherCanUnlock);
@@ -674,6 +725,14 @@ function renderInspector(){
   }
   host.appendChild(flags);
 
+  const contract = node('section', 'inspector-contract');
+  contract.appendChild(node('h3', '', 'Learning contract'));
+  const contractFields = node('div', 'inspector-contract-fields');
+  for(const kind of ['learn', 'enough'])
+    contractFields.appendChild(editableValue(view, editField(kind)));
+  contract.appendChild(contractFields);
+  host.appendChild(contract);
+
   const ledger = node('div', 'inspector-ledger');
   for(const kind of ['signal', 'reading', 'owner', 'answer-by', 'assume', 'when'])
     ledger.appendChild(editableValue(view, editField(kind)));
@@ -773,8 +832,10 @@ function doRefresh(){
   const readout = verdict(projection);
   const counts = `${projection.decisions.length} ${projection.decisions.length === 1 ? 'question' : 'questions'}, ` +
     `${projection.items.length} ${projection.items.length === 1 ? 'item' : 'items'}`;
+  const selectedAgendaEntry = agendaView && overviewImpact
+    ? overview?.entries?.find(entry => entry.key === overviewImpact.decision.key) : null;
   const selectedStatus = overviewImpact
-    ? ` Selected question: ${overviewImpact.decision.question || overviewImpact.decision.name}. ${overviewImpact.currentState.sentence}.`
+    ? ` Selected question: ${overviewImpact.decision.question || overviewImpact.decision.name}. ${(selectedAgendaEntry?.currentState || overviewImpact.currentState).sentence}.`
     : '';
   $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}${selectedStatus}`;
   const surfaceMetrics = overviewSurfaceMetrics();
@@ -861,7 +922,7 @@ function doRefresh(){
     : conditionsView
     ? 'Conditions is the full decision-to-work logic audit; exports preserve the complete matrix.'
     : agendaView
-    ? 'Learning agenda ranks evidence work, not delivery work; exports retain every decision state and authored dependency.'
+    ? 'Learning moves run in parallel; default exports retain the full agenda, while the selected receipt is explicitly scoped.'
     : plansView
     ? 'The phone view groups work by possible plan; every export remains the wide matrix.'
     : treeView
@@ -941,6 +1002,8 @@ function decisionOps(kind, line, value){
   if(kind === 'question') return setQuestion(text, line, value);
   if(kind === 'signal') return setSignal(text, line, value);
   if(kind === 'reading') return setReading(text, line, value);
+  if(kind === 'learn') return setLearn(text, line, value);
+  if(kind === 'enough') return setEnough(text, line, value);
   if(kind === 'owner') return setOwner(text, line, value);
   if(kind === 'answer-by') return value ? setAnswerBy(text, line, value) : clearAnswerBy(text, line);
   if(kind === 'assume') return setAssumptionRaw(text, line, value);
@@ -950,6 +1013,14 @@ function decisionOps(kind, line, value){
 }
 
 attachEditInPlace($('decision-inspector'), {
+  kinds:inspectorKinds,
+  onCommit(kind, line, _raw, value){
+    const ops = decisionOps(kind, line, value);
+    if(ops?.length) applyLineOps(editor, ops);
+  },
+});
+
+attachEditInPlace($('overview-receipt'), {
   kinds:inspectorKinds,
   onCommit(kind, line, _raw, value){
     const ops = decisionOps(kind, line, value);
@@ -1167,10 +1238,55 @@ function wideSvg(){
   const layout = treeLayout(topology, {width:1160, measure});
   return renderTree(topology, layout, context(model));
 }
+
+function selectedAgendaReceiptSvg(){
+  if(canonicalRoadmapStyle() !== 'agenda' || !overview || !selectedOverviewDecision) return null;
+  return renderLearningAgendaReceipt(overview,
+    context(model, {width:760, selectedKey:selectedOverviewDecision.key}));
+}
+
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
   getSvg:wideSvg,
   slug:() => slugify(model?.title, 'paths'),
+});
+
+function selectedAgendaReceiptExport(){
+  const svg = selectedAgendaReceiptSvg();
+  if(!svg) return null;
+  const decision = overview?.entries?.find(entry => entry.key === selectedOverviewDecision?.key);
+  const receiptSlug = slugify(`${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} receipt`,
+    'paths-decision-receipt');
+  return {svg, receiptSlug};
+}
+
+$('agenda-receipt-svg').addEventListener('click', () => {
+  const output = selectedAgendaReceiptExport();
+  if(output) download(`${output.receiptSlug}.svg`, new Blob([output.svg], {type:'image/svg+xml'}));
+});
+
+$('agenda-receipt-png').addEventListener('click', () => {
+  const output = selectedAgendaReceiptExport();
+  if(!output) return;
+  const button = $('agenda-receipt-png');
+  const label = 'Selected decision receipt · PNG';
+  const plan = pngRasterPlan(output.svg);
+  const flash = message => {
+    button.textContent = message;
+    button.setAttribute('aria-label', message);
+    setTimeout(() => {
+      button.textContent = label;
+      button.setAttribute('aria-label', label);
+    }, 2000);
+  };
+  if(!plan.ok) return flash('Receipt PNG unavailable — download SVG');
+  svgToCanvas(output.svg, canvas => {
+    try {
+      canvas.toBlob(blob => blob
+        ? download(`${output.receiptSlug}.png`, blob)
+        : flash('Receipt PNG unavailable — download SVG'), 'image/png');
+    }catch(_){ flash('Receipt PNG unavailable — download SVG'); }
+  }, () => flash('Receipt PNG unavailable — download SVG'));
 });
 
 paintKicker($('kicker'), '16', 'The questions inside the plan');

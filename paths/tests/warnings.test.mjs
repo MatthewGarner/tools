@@ -28,7 +28,7 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   one(model, 'item-before-period', 4, 'parse', 'line 4: "Core: Streak repair" appears before any period — kept in the first period, "Now"; add a period heading above it');
 
   model = parse('decision groups:\n  question: q\n  signal: s\n  owner: o\n  answer-by: 2026-12-15\n  measure: x');
-  one(model, 'unknown-decision-field', 6, 'parse', 'line 6: unknown decision field "measure:" — field ignored; use question / signal / reading / owner / answer-by / when / assume / answer');
+  one(model, 'unknown-decision-field', 6, 'parse', 'line 6: unknown decision field "measure:" — field ignored; use question / signal / reading / learn / enough / owner / answer-by / when / assume / answer');
   model = parse('decision groups:\n  question: q\n  signal: s\n  owner: first\n  answer-by: 2026-12-15\n  owner: second');
   one(model, 'duplicate-decision-field', 6, 'parse', 'line 6: second "owner:" field ignored — the value on line 4 is kept; keep one "owner:" field');
   model = parse(`${complete('groups')}\n  answer: yes\n  answer: yes`);

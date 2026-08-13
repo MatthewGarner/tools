@@ -1,7 +1,9 @@
 /* /paths DSL -> parsed model. Pure; no DOM and no clock. */
 
 export const CONFIG_KEYS = ['title', 'date', 'today', 'style', 'verdict', 'palette', 'accent'];
-export const DECISION_FIELDS = ['question', 'signal', 'reading', 'owner', 'answer-by', 'when', 'assume', 'answer'];
+export const DECISION_FIELDS = [
+  'question', 'signal', 'reading', 'learn', 'enough', 'owner', 'answer-by', 'when', 'assume', 'answer',
+];
 export const STATUSES = ['done', 'doing', 'risk', 'blocked'];
 
 const CONFIG = new Set(CONFIG_KEYS);
@@ -380,7 +382,7 @@ export function parse(text){
       const header = /^decision\s+([a-z0-9-]+):$/i.exec(content);
       if(header){
         const decision = {name:header[1], key:header[1].toLowerCase(), srcLine:index,
-          question:null, signal:null, reading:null, owner:null, answerBy:null,
+          question:null, signal:null, reading:null, learn:null, enough:null, owner:null, answerBy:null,
           when:null, assumption:null, answer:null, answers:[], fieldLines:{}, cycle:false};
         model.decisions.push(decision); block = {type:'decision', decision};
         continue;
@@ -421,7 +423,7 @@ export function parse(text){
         const key = field[1].toLowerCase(), value = field[2].trim(), decision = block.decision;
         if(!FIELDS.has(key)){
           add('parse', 'unknown-decision-field', lineNo, key,
-            `line ${lineNo}: unknown decision field ${quote(key + ':')} — field ignored; use question / signal / reading / owner / answer-by / when / assume / answer`);
+            `line ${lineNo}: unknown decision field ${quote(key + ':')} — field ignored; use question / signal / reading / learn / enough / owner / answer-by / when / assume / answer`);
           continue;
         }
         if(key === 'answer'){
@@ -450,7 +452,8 @@ export function parse(text){
           continue;
         }
         decision.fieldLines[key] = lineNo;
-        if(key === 'question' || key === 'signal' || key === 'reading' || key === 'owner') decision[key] = value;
+        if(key === 'question' || key === 'signal' || key === 'reading' || key === 'learn' ||
+           key === 'enough' || key === 'owner') decision[key] = value;
         else if(key === 'answer-by'){
           if(isValidDate(value)) decision.answerBy = value;
           else add('parse', 'invalid-due-date', lineNo, decision.key,

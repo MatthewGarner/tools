@@ -1,7 +1,7 @@
-/* Pure decision-led work queue for learning. This module does not infer
-   experiments from roadmap work: every learning move is assembled only from
-   the decision's authored signal, owner and answer-by fields. Conditional
-   reach comes from the same evaluator-backed overview impact used elsewhere. */
+/* Pure decision-led work queue for learning. A move and its evidence standard
+   exist only when the decision explicitly authors `learn:` and `enough:`.
+   Conditional consequences still come from the evaluator-backed overview
+   impact used elsewhere; this module never invents experiments or plan arms. */
 
 import {decisionCurrentState, decisionImpactProjection, overviewProjection} from './overview.js';
 
@@ -14,8 +14,19 @@ function rank(left, right){
   return left.srcLine - right.srcLine;
 }
 
-function learningMove(decision){
-  return `Get ${decision.signal} from ${decision.owner} by ${decision.answerBy}.`;
+function learningContract(decision){
+  const learn = decision.learn || null;
+  const enough = decision.enough || null;
+  const missing = [];
+  if(!learn) missing.push('learn');
+  if(!enough) missing.push('enough');
+  return {learn, enough, missing, complete:missing.length === 0,
+    required:decision.availability === 'active' && !decision.effectiveAnswer};
+}
+
+function missingContractCopy(missing){
+  if(missing.length === 2) return 'add both "learn:" and "enough:"';
+  return `add "${missing[0]}:"`;
 }
 
 function hasOpeningRepair(decision){
@@ -27,12 +38,15 @@ function hasOpeningRepair(decision){
 export function learningAgendaNextAction(decision){
   if(hasOpeningRepair(decision))
     return 'Repair the opening condition before planning any learning move.';
-  if(decision.repairEvidence?.length)
-    return 'Complete the missing or invalid decision fields before planning the evidence move.';
   if(decision.availability === 'moot') return 'No learning move is due while this question no longer applies.';
   if(decision.availability === 'dormant') return 'Wait until this question opens.';
   if(decision.effectiveAnswer) return 'No learning move is due while this answer remains current.';
-  return learningMove(decision);
+  if(decision.repairEvidence?.length)
+    return 'Complete the missing or invalid decision fields before planning the evidence move.';
+  const contract = decision.learningContract || learningContract(decision);
+  if(!contract.complete)
+    return `Author the learning contract: ${missingContractCopy(contract.missing)}.`;
+  return contract.learn;
 }
 
 function unique(values){
@@ -56,6 +70,23 @@ function impactCopy(impact){
         downstream.length ? `${downstream.length} downstream` : ''].filter(Boolean).join(' · ')};
 }
 
+function outcomeCopy(impact){
+  const arm = direction => {
+    const branch = impact?.narrative?.branches?.[direction] || {};
+    const work = (branch.work || []).map(entry => ({identity:entry.identity, title:entry.title,
+      relation:entry.relation, requirement:entry.requirement, effect:entry.sentence}));
+    const decisions = (branch.decisions || []).map(entry => ({key:entry.key, question:entry.question,
+      relation:entry.relation, effect:entry.sentence}));
+    const empty = !work.length && !decisions.length;
+    const counts = [work.length ? `${work.length} plan ${work.length === 1 ? 'effect' : 'effects'}` : '',
+      decisions.length ? `${decisions.length} downstream ${decisions.length === 1 ? 'effect' : 'effects'}` : '']
+      .filter(Boolean);
+    return {work, decisions, empty, summary:empty
+      ? 'No modeled plan or downstream changes for this outcome.' : counts.join(' · ')};
+  };
+  return {yes:arm('yes'), no:arm('no')};
+}
+
 function openingCondition(decision){
   if(!decision.when) return null;
   if(!decision.when.valid || decision.cycle) return 'Opening condition needs repair.';
@@ -69,13 +100,18 @@ function openingRepairEvidence(decision){
     reason.code === 'unknown-when-decision' || reason.code === 'when-cycle');
 }
 
-function agendaState(projected, decision){
+function agendaState(projected, decision, contract){
   if(openingRepairEvidence(decision).length) return {kind:'not-ready',
     sentence:'Opening condition needs repair — this question cannot be scheduled yet'};
   const lifecycle = decisionCurrentState(projected, decision, []);
   if(decision.availability === 'moot' || decision.availability === 'dormant') return lifecycle;
+  if(decision.effectiveAnswer) return lifecycle;
   if(decision.repairEvidence.length) return {kind:'not-ready',
     sentence:'Unanswered — not ready; complete the evidence contract'};
+  if(contract.required && !contract.complete){
+    const prefix = decision.assumption?.inForce ? 'Still unanswered' : 'Unanswered';
+    return {kind:'not-ready', sentence:`${prefix} — learning contract not ready; ${missingContractCopy(contract.missing)}`};
+  }
   if(decision.assumption?.inForce) return {kind:'assumption',
     sentence:`Still unanswered — ${lifecycle.sentence.toLowerCase()}`};
   return lifecycle;
@@ -84,17 +120,21 @@ function agendaState(projected, decision){
 function agendaEntry(model, projected, decision){
   const impact = decisionImpactProjection(model, projected, decision.key);
   const impactView = impactCopy(impact);
-  const currentState = agendaState(projected, decision);
+  const outcomes = outcomeCopy(impact);
+  const contract = learningContract(decision);
+  const currentState = agendaState(projected, decision, contract);
   const openingRepair = openingRepairEvidence(decision);
   const reach = Math.max(0, Number(decision.reach) || 0);
   return {...decision, currentState, reach,
     reachSentence:reach
       ? `${reach} current work ${reach === 1 ? 'item changes' : 'items change'} between yes and no.`
       : 'No current authored work changes between yes and no. This does not mean the question is unimportant.',
-    learningMove:decision.repairEvidence.length ? null : learningMove(decision),
-    nextAction:learningAgendaNextAction({...decision, openingRepair}),
+    learningContract:contract,
+    learningMove:decision.learn || null,
+    evidenceStandard:decision.enough || null,
+    nextAction:learningAgendaNextAction({...decision, learningContract:contract, openingRepair}),
     hygiene:decision.repairEvidence, openingRepair,
-    openingCondition:openingCondition(decision), impact:impactView};
+    openingCondition:openingCondition(decision), impact:impactView, outcomes};
 }
 
 export function learningAgendaProjection(model, projected){

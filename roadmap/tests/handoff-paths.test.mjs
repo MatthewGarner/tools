@@ -23,7 +23,7 @@ Growth: Shared foundations`);
   const text = roadmapToPathsStarter(source);
   assert.ok(text);
   assert.equal(text.split('\n')[0],
-    '// Generated from Roadmap conditional work. Complete every decision before using this plan.');
+    '// Generated from Roadmap conditional work. Complete every decision and its learning contract before using this plan.');
   assert.equal(text.split('\n')[1], 'title: Habitat — decision-plan starter');
   assert.ok(text.indexOf('decision Pricing:') < text.indexOf('decision Groups:'),
     'decision declarations retain source occurrence order');
@@ -38,6 +38,8 @@ Growth: Shared foundations`);
     'missing-question', 'missing-signal', 'missing-owner', 'missing-due-date',
   ]);
   assert.deepEqual(target.decisions.map(d => d.name), ['Pricing', 'Groups']);
+  assert.ok(target.decisions.every(d => d.learn === null && d.enough === null),
+    'Roadmap cannot invent a learning move or evidence standard');
   assert.deepEqual(target.periods.map(p => p.name), ['Now', 'Next', 'Later']);
   assert.deepEqual(target.items.map(i => ({lane:i.lane, title:i.title, status:i.status, note:i.note, url:i.url})), [
     {lane:'Discovery', title:'Price pilot', status:null, note:'Test willingness', url:'https://example.test/pilot'},
