@@ -204,6 +204,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
   const phone = contextOptions.isMobile === true;
   let captured = false;
   async function selectAndInspect(view, artefactPattern, key, question, capture = false){
+    let sheetClosedForExport = false;
     await qualityPage.getByRole('button', {name:view}).click();
     await qualityPage.waitForFunction(pattern => new RegExp(pattern).test(
       document.querySelector('#preview svg')?.innerHTML || ''), artefactPattern);
@@ -290,6 +291,10 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
       if(phone){
         await receipt.getByRole('button', {name:/Close decision receipt/}).click();
         await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
+        await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
+        check(`${name} Learning agenda receipt restores focus before export`,
+          await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
+        sheetClosedForExport = true;
       }
       await exportMenu.locator('summary').click();
       check(`${name} Learning agenda offers a scoped PNG and SVG decision receipt`,
@@ -307,9 +312,10 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
         await receipt.getByRole('button', {name:/Close decision receipt/}).click();
         await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
       }
-      await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
+      if(!sheetClosedForExport)
+        await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
       check(`${name} ${view} returns focus to the selected SVG decision`,
-        await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
+        sheetClosedForExport || await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
     }
   }
 
