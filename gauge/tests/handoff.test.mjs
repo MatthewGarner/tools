@@ -10,7 +10,6 @@ import {readout} from '../../map/readout.js';
 import {unpackScen} from '../../fermi/state.js';
 import {tokenize, parse as fparse, collectVars} from '../../fermi/engine.js';
 import {gaugeImport} from '../import-state.js';
-import {fermiImport, cloneEstimateState, returnEstimateState} from '../../fermi/import-state.js';
 import {handoffHref, handoffMeta, validHandoffMeta, withoutHandoffMeta, targetHashState} from '../../assets/handoff.js';
 import {readFileSync} from 'node:fs';
 
@@ -125,34 +124,8 @@ test('Map → Gauge import requires provenance and target-parseable questions', 
   assert.equal(gparse(inbound.text).questions[0].text, 'A');
 });
 
-test('Gauge → Fermi import requires provenance and complete target variables', () => {
-  const x = handoffMeta('gauge', 'range-estimate', 'Room ranges');
-  assert.equal(fermiImport({f:'a * b', v:{a:['1','2']}, x}), null);
-  assert.equal(fermiImport({f:'a + )', v:{a:['1','2']}, x}), null);
-  assert.equal(fermiImport({f:'a', v:{a:['1','2']}}), null);
-  const inbound = fermiImport({f:'a * b', v:{a:['1','2'], b:['3','4'], injected:['x','y']}, x});
-  assert.deepEqual(Object.keys(inbound.state.v), ['a','b']);
-});
-
-test('Fermi return snapshot preserves both scenarios without provenance aliases', () => {
-  const x = handoffMeta('gauge', 'range-estimate', 'Room');
-  const original = {a:{f:'a',v:{a:['1','2','auto']},x}, b:{f:'b',v:{b:['3','4','auto']}}, on:'B', x};
-  const saved = cloneEstimateState(original);
-  assert.deepEqual(saved, {a:{f:'a',v:{a:['1','2','auto']}}, b:{f:'b',v:{b:['3','4','auto']}}, on:'B'});
-  original.a.v.a[0] = 'changed';
-  assert.equal(saved.a.v.a[0], '1', 'return snapshot is independent of transient edits');
-});
-
-test('legacy URL-only A/B state is adoptable and missing current falls back safely', () => {
-  const legacy = {a:{f:'a',v:{a:['1','2']}}, b:{f:'b',v:{b:['3','4']}}, on:'B'};
-  assert.deepEqual(returnEstimateState(legacy, {f:'fallback',v:{fallback:['1','1']}}), legacy,
-    'normal URL-only A/B state can become the remembered current');
-  assert.deepEqual(returnEstimateState(null, {f:'fallback',v:{fallback:['1','1','auto']}}),
-    {f:'fallback',v:{fallback:['1','1','auto']}}, 'Return never restores a null/blank estimator');
-});
-
 test('Map labels cannot inject Gauge DSL delimiters or lines', () => {
-  const doc = gaugeHandoff({title:'Habitat\nnames: on'},
+  const doc = gaugeHandoff({preset:'assumptions', title:'Habitat\nnames: on'},
     {flagged:[{item:{label:'Bad :: range weeks\nInjected :: chips A | B'}}]});
   const back = gparse(doc);
   assert.equal(back.questions.length, 1);

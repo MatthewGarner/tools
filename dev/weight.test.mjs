@@ -164,7 +164,7 @@ const PAGES = {
      entry point and shared phase language. It deliberately does not reuse risk
      scoring, so the retained code is semantic protection rather than duplicated
      presentation. Actual ~120.2k; retain ~4.8k headroom. */
-  'premortem/index.html': 125_000,
+  'premortem/index.html': 132_000, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -356,7 +356,7 @@ const PAGES = {
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
-  'map/index.html': 531_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */   /* 2026-08-04 fold wave 2: dead lostpointercapture listener replaced with window-blur drag cleanup, popover-focus.js roving-focus; actual 525.5k, ~5.5k headroom */
+  'map/index.html': 538_000,   /* 531k->538k (2026-08-13 planning routing): the guarded Map→Gauge prior handoff is first-load because availability must track the rendered map. Actual 532.0k; retain a real budget guard. */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -376,7 +376,7 @@ const PAGES = {
   /* gauge 540k -> 546k (unset-edit fix batch): edit-in-place.js's shared
      opens-row fallback lands on every EIP page, gauge included. Actual
      540.4k; preserve ~5.6k headroom. */
-  'gauge/index.html': 546_000, 'timeline/index.html': 560_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */   /* 2026-08-12 #92 decision clock: a small pure LRM model and all-intent receipts add ~15k; actual 554.7k, ~5.3k headroom. */
+  'gauge/index.html': 561_000, 'timeline/index.html': 560_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
@@ -455,17 +455,11 @@ const PAGES = {
      restoration, one owned playback loop, reduced-motion settle and viewport
      clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
   'energy/intraday/index.html': 166_000,
-  /* 653k -> 700k (2026-08-12 exact delivery projections): Paths now carries the
-     pure fail-closed Paths→Roadmap builder plus its stage-local exact-world
-     selector/receipt. This is the deliberate cross-tool handoff: it keeps the
-     target parser out of the runtime graph, adds no dependency or shared live
-     model, and makes known/assumed/not-part truth visible before navigation.
-     Actual ~691k; retain ~9k for this larger interaction surface.
-     700k -> 708k (2026-08-12 selector polish): exact-outcome availability,
-     focus-safe view switching and the phone-first chooser are required for the
-     new projection flow to remain discoverable rather than an off-screen
-     matrix. Actual 700.2k; preserve ~7.8k headroom. */
-  'paths/index.html': 708_000,
+  /* 817k -> 878k (2026-08-13 integration): Paths deliberately carries both
+     the all-outcomes Brief / Question lens / Conditions renderers and the
+     fail-closed exact-world Roadmap projection. These share the evaluator and
+     must stay eager for offline export parity. Actual 869.6k; retain ~8k. */
+  'paths/index.html': 878_000,
 };
 
 if(process.env.WEIGHT_DEBUG){
