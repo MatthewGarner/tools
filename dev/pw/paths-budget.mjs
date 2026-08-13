@@ -287,6 +287,10 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
           return receiptState ? summary.includes(receiptState) : /Unanswered/.test(summary);
         }));
       const exportMenu = qualityPage.locator('.action-disclosure');
+      if(phone){
+        await receipt.getByRole('button', {name:/Close decision receipt/}).click();
+        await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
+      }
       await exportMenu.locator('summary').click();
       check(`${name} Learning agenda offers a scoped PNG and SVG decision receipt`,
         await qualityPage.locator('#agenda-receipt-png').isVisible() &&
@@ -299,8 +303,10 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
     }
     if(phone){
       check(`${name} ${view} opens an accessible decision sheet`, openedAccessibleSheet);
-      await receipt.getByRole('button', {name:/Close decision receipt/}).click();
-      await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
+      if(await receipt.isVisible()){
+        await receipt.getByRole('button', {name:/Close decision receipt/}).click();
+        await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
+      }
       await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
       check(`${name} ${view} returns focus to the selected SVG decision`,
         await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
