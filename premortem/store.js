@@ -54,8 +54,9 @@ export function makeStore(backend = localStorage){
     backend.setItem(KEY(doc.id), JSON.stringify(doc));
     const idx = readIdx().filter(m => m.id !== doc.id);
     const es = doc.entries || [];
-    idx.push({id: doc.id, title: doc.title || '', entries: es.length,
-      risks: es.filter(e => e.kind === 'risk').length, saved: Date.now()});
+    idx.push({id: doc.id, title: doc.title || '', mode: doc.mode === 'success' ? 'success' : 'risk', entries: es.length,
+      risks: es.filter(e => e.kind === 'risk').length,
+      opportunities: es.filter(e => e.kind === 'opportunity').length, saved: Date.now()});
     writeIdx(idx);
   };
   /* Trash is an array of {doc, deleted} tombstones — one per deleted register,

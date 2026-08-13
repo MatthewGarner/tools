@@ -146,3 +146,25 @@ test('COLLECT and SCORE list risks only, not board items', () => {
   const s = renderPhase({phase: 'SCORE', unit: '£k', entries: es}, new Date());
   assert.ok(!s.includes('lurking assumption'), 'SCORE is risks only');
 });
+
+test('pre-parade renders opportunity language and no likelihood/impact score controls', () => {
+  const e = kinded('Keep the old onboarding reversible', 'opportunity', {essential: true, actions: [{text: 'Run an A/B cutover', owner: 'Alex', votes: 2}]});
+  const doc = {mode: 'success', title: 'Habitat win', question: 'What did we do?', unit: '£k', phase: 'SCORE', entries: [e, kinded('board belief', 'belief')]};
+  const score = renderPhase(doc, new Date());
+  assert.match(score, /Must make true/);
+  assert.ok(!score.includes('likelihood'));
+  assert.ok(!score.includes('data-impact'));
+  assert.ok(!score.includes('board belief'));
+  const register = renderRegister({...doc, phase: 'REGISTER'}, exposure([], {seed: 1}), new Date());
+  assert.match(register, /Success register/);
+  assert.match(register, /must make true/);
+  assert.ok(!register.includes('Portfolio exposure'));
+  assert.ok(!register.includes('EV-ranked'));
+});
+
+test('pre-parade board promotion is direct and never asks for numeric harm ranges', () => {
+  const h = renderBoard({mode: 'success', entries: [kinded('Coaches will join', 'belief', {id: 'b1'})]}, new Date(), 'b1');
+  assert.match(h, /Add to success register/);
+  assert.ok(!h.includes('data-promoteimpact'));
+  assert.ok(!h.includes('data-promotep'));
+});

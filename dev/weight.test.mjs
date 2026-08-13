@@ -133,21 +133,18 @@ const PAGES = {
      reduced-motion cleanup, and tested interaction helper are first-load
      correctness code. Actual 191.6k; the budget restores ~5k headroom instead
      of leaving the next small reliability fix to trip a 1.6k overage. */
-  /* 199k -> 214k (2026-08-11 local-first handoffs): Fermi now carries the
-     complete non-destructive import lifecycle: target-state validation,
-     provenance-safe URL updates, capture/restore for its ordinary and A/B
-     current estimates, named saved artefacts, and clear storage-failure paths.
-     The shared handoff/saved-item modules and compact import controls are part
-     of that correctness boundary, not optional chrome. Actual 208.0k; ~6k
-     headroom preserves the tripwire for unrelated growth. */
-  'fermi/index.html': 214_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* 199k -> 215k (2026-08-12 Fermi provenance): receipt normalisation, durable
+     URL/save state, the review-needed Gauge draft gate, semantic export copy and
+     taller accessible driver-tree leaves are product correctness, not optional
+     decoration. Actual 210k; retain roughly 5k headroom. */
+  'fermi/index.html': 215_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
   /* 116k -> 122k (2026-08-04 interaction reliability): the visibility-gated
      queue animation runtime, export/hash flush and preset state semantics are
      first-load correctness code. Actual 116.9k; retain about 5k headroom. */
-  'flow/index.html': 124_000,   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+  'flow/index.html': 144_000,   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   /* 102k -> 108k (2026-08-04 interaction reliability): keyboard threshold
      policy, pointer lifecycle cleanup, selected-preset state and dialog focus
      restoration are first-load interaction correctness. Actual 103.1k; leave
@@ -156,14 +153,18 @@ const PAGES = {
   /* 444k -> 454k (2026-08-04 interaction reliability): the Case parity pass
      adds status editing and honest absent-field affordances to the rendered
      artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
-  'case/index.html': 467_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+  /* 467k -> 479k (2026-08-12 planning-family context): canonical URL
+     recognition, bounded Roadmap-basis decoding and claim-labelled exports
+     are the Case binder's job, not decorative shell bytes. Actual 472.8k;
+     retain ~6.2k headroom for this CodeMirror page. */
+  'case/index.html': 479_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
-  /* 113k -> 120k (2026-08-11 local-first handoffs): Timeline imports now
-     validate and normalise an untrusted transient risk register before render,
-     preserve local registers until explicit promotion, and expose the compact
-     import lifecycle. The shared handoff controls and defensive codec are
-     correctness work. Actual 114.9k; ~5k headroom keeps the budget useful. */
-  'premortem/index.html': 120_000,   /* register core + store + wizard + 2 renderers + app */   /* 2026-08-04 fold: paint-option focus/announce plumbing on every phasepanel mutate (real feature bytes) */   /* 2026-08-04 fold wave 2: multi-tomb trash store + SCORE-row invalid-range hint + boot re-arm; actual 107.6k, ~5k headroom */
+  /* 113k -> 125k (2026-08-13 pre-parade): the inverse workshop adds a distinct
+     opportunity register, commitment-only rendering/markdown, explicit home
+     entry point and shared phase language. It deliberately does not reuse risk
+     scoring, so the retained code is semantic protection rather than duplicated
+     presentation. Actual ~120.2k; retain ~4.8k headroom. */
+  'premortem/index.html': 132_000, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
   'signal-vs-noise/index.html': 103_000,   /* no editor — seeded engine + 2 renderers + turn-loop app */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -240,7 +241,19 @@ const PAGES = {
      group's first card) plus the wash/label paint, and cond-parts.js gains
      splitColumnZones — roadmap-only, both boards (deck card mode + live).
      Actual 717.5k, ~5.5k headroom. */
-  'roadmap/index.html': 736_000,   // E7 removed; keepers stay: wash() guard + the group: syntax row (2026-08-10): 732442 bytes
+  /* 736k -> 751k (2026-08-12, planning-family Gate 1): the reject-by-default
+     Roadmap -> Paths builder preserves conditional work only when the fresh
+     starter can be truthful, plus its compact health/action surface. The
+     22.3k Paths parser remains test-only: target-parser round trips prove the
+     contract without making every Roadmap visit load it. Actual 743.2k; keep
+     ~7.8k headroom.
+     751k -> 765k (2026-08-12, Gate 2 projection basis): the export-wide
+     `basis:` datum, its atomic parser and the readable conditional Markdown /
+     Focus treatment are first-load Roadmap semantics. Why also pays the shared
+     renderer/parser through its Roadmap delegation, but remains under its own
+     budget. Actual 758.4k; this restores ~6.6k headroom rather than masking a
+     known shipped feature behind a permanently red gate. */
+  'roadmap/index.html': 765_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -302,10 +315,12 @@ const PAGES = {
   /* 686k -> 693k (2026-08-10, E1 board outcome zones): why pays cond-parts.js's
      splitColumnZones growth too — render.js imports the whole module even though
      the chart doesn't paint zones. Actual 687.0k, ~6.0k headroom. */
-  /* 700k -> 705k (2026-08-11): saved-items now reports local storage failure
-     instead of silently claiming success. Why uses that shared persistence
-     module; actual 699.6k, restoring a real ~5k tripwire margin. */
-  'why/index.html': 705_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
+  /* 700k -> 716k (2026-08-12, Roadmap projection basis): Why deliberately
+     delegates Roadmap's parser and renderer for its delivery lens, so the
+     atomic `basis:` grammar and non-erasable conditional export text are an
+     honest shared dependency rather than Why-local creep. Actual 710.3k;
+     restore ~5.7k headroom. */
+  'why/index.html': 716_000,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
@@ -331,14 +346,17 @@ const PAGES = {
      fallback (above) plus tree's own cardmenu-chance gating (hasIncomingProb,
      a functional cardMenu `field`) and the prob/value set-when-unset
      rewrites in edit-targets.js. Actual 536.2k; preserve ~5k headroom. */
-  'tree/index.html': 541_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
+  /* 541k -> 553k (2026-08-12, Decision comparison Copy PNG): comparison.js
+     projects every root option's paired evidence, chance provenance and nearest
+     flip range status; render-density.js replaces the selected policy-path slide
+     with the complete/explicitly-partial fixed-canvas comparison. Copy PNG must
+     resolve during its originating click, so this is honest first-load code, not
+     a payload that can be deferred. Actual 547.1k; preserve ~5.9k headroom. */
+  'tree/index.html': 553_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
-  /* 531k -> 537k (2026-08-11 local-first handoffs): the guarded Map-to-Gauge
-     draft builder and visible oversize failure are first-load safety, and pull
-     in the small shared handoff transport. Actual 531.7k; retain ~5k. */
-  'map/index.html': 537_000,   /* 483k->488k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 481k->483k 2026-08-02 review: ~1k headroom, thin trap; actual ~480k, ~3k */  /* 480k->481k 2026-08-02 review: esc() apostrophe hardening + its why-comment ride svg.js */   /* 2026-08-04 fold wave 2: dead lostpointercapture listener replaced with window-blur drag cleanup, popover-focus.js roving-focus; actual 525.5k, ~5.5k headroom */
+  'map/index.html': 538_000,   /* 531k->538k (2026-08-13 planning routing): the guarded Map→Gauge prior handoff is first-load because availability must track the rendered map. Actual 532.0k; retain a real budget guard. */
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -358,12 +376,7 @@ const PAGES = {
   /* gauge 540k -> 546k (unset-edit fix batch): edit-in-place.js's shared
      opens-row fallback lands on every EIP page, gauge included. Actual
      540.4k; preserve ~5.6k headroom. */
-  /* 546k -> 560k (Gauge) and 545k -> 553k (Timeline), 2026-08-11 local-first
-     handoffs: Gauge gains a validated transient import, durable return state,
-     compact local library and safe Fermi continuation; Timeline gains the
-     shared versioned handoff marker and an honest oversize state. Actuals are
-     553.1k and 547.5k respectively, leaving about 6k/5.5k headroom. */
-  'gauge/index.html': 560_000, 'timeline/index.html': 553_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; gauge merged actual 534.7k, ~5k headroom */   /* 500k->503k 2026-08-02 #93 hop: premortem/store.js rides the graph */   /* +5k each 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-02 review: gauge +chips syntax row tripped a 69B shortfall (actual 498.1k, ~2.9k now); timeline off 886B headroom (actual 485.1k, ~2.9k) */   /* 2026-08-04 fold wave 2: gauge double-add guard + popover-focus.js roving-focus/role=menu ride both pages; timeline actual 539.3k, ~5.7k headroom */
+  'gauge/index.html': 561_000, 'timeline/index.html': 560_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
@@ -380,7 +393,12 @@ const PAGES = {
   /* 506k -> 516k (2026-08-04 interaction reliability): Bets' shareable view
      state and exact pre-entry/default add targeting are first-load behavior.
      Actual 509.8k; retain ~6k headroom. */
-  'bets/index.html': 541_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
+  /* 541k -> 570k (2026-08-12 shared-outcome stress): Bets now carries a paired
+     independent/shared-outcome portfolio reading across Board, Quadrant, PNG
+     and Markdown, plus fail-closed invalid-row handling and occurrence-safe
+     snapshot protection. This is first-load decision truth, not optional
+     chrome. Actual 563.3k; retain ~6.7k headroom. */
+  'bets/index.html': 570_000,   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool
@@ -437,20 +455,11 @@ const PAGES = {
      restoration, one owned playback loop, reduced-motion settle and viewport
      clamping are first-load interaction safety. Actual 156.9k; keep ~6k. */
   'energy/intraday/index.html': 166_000,
-  /* Tree + outline renderers, the layout, the four engine modules and the vendored
-     editor. Actual 522.8k; ~25% headroom as the house sets a new tool's budget. */
-  /* 653k -> 813k (2026-08-11/12, parallel-roadmap Brief + Question lens + Conditions): overview.js and
-     render-overview.js add the canonical period x lane projection, complete
-     compound-condition semantics and the wide/narrow artefact (~50.6k); app.js
-     adds the evaluator-backed receipt, local Focus counterfactual and accessible
-     responsive receipt states (~16.5k); the corresponding responsive treatment
-     is ~5.6k. The Decision graph is superseded by two complete, first-class
-     SVG artefacts: Question lens (~24k) and Conditions atlas (~21k), each with
-     a genuinely usable phone relayout. They share the evaluator-backed model,
-     cannot safely lazy-load under the offline guarantee, and are intentional
-     product capability rather than dead alternative code. Actual ~813.0k;
-     retain a small ~4k headroom. */
-  'paths/index.html': 817_000,
+  /* 817k -> 878k (2026-08-13 integration): Paths deliberately carries both
+     the all-outcomes Brief / Question lens / Conditions renderers and the
+     fail-closed exact-world Roadmap projection. These share the evaluator and
+     must stay eager for offline export parity. Actual 869.6k; retain ~8k. */
+  'paths/index.html': 878_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

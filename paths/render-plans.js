@@ -432,6 +432,12 @@ export function renderPlansNarrow(projection, ctx){
   const width = Math.max(280, Math.min(520, Number(ctx.width) || 360));
   const header = narrowHeader(data, width, C, measure);
   let y = header.height, content = '<g data-kind="plans-narrow">';
+  const readoutLine = data.readout ? boundedTokens(data.readout.line,
+    width - NARROW_PAD * 2, measure, '700 17px ' + SANS) : '';
+  const readout = data.readout ? svgVerdict({x:NARROW_PAD, y:y + 2, width:width - NARROW_PAD * 2,
+    line:readoutLine, fig:data.readout.fig, ink:C.ink, muted:C.muted,
+    brandText:C.brandText, font:SANS, measure, size:17}) : {svg:'', height:0};
+  if(readout.svg){ content += '<g data-kind="artifact-verdict">' + readout.svg + '</g>'; y += readout.height + 20; }
   if(data.worlds.refused){
     const block = refusal(data, NARROW_PAD, y, width - NARROW_PAD * 2, C, measure, true);
     content += block.svg; y += block.height + 16;
@@ -443,12 +449,6 @@ export function renderPlansNarrow(projection, ctx){
       content += block.svg; y += block.height + 12;
     }
   }
-  const readoutLine = data.readout ? boundedTokens(data.readout.line,
-    width - NARROW_PAD * 2, measure, '700 17px ' + SANS) : '';
-  const readout = data.readout ? svgVerdict({x:NARROW_PAD, y:y + 2, width:width - NARROW_PAD * 2,
-    line:readoutLine, fig:data.readout.fig, ink:C.ink, muted:C.muted,
-    brandText:C.brandText, font:SANS, measure, size:17}) : {svg:'', height:0};
-  if(readout.svg){ content += '<g data-kind="artifact-verdict">' + readout.svg + '</g>'; y += readout.height + 20; }
   content += '</g>';
   const height = Math.ceil(y + NARROW_PAD);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + r2(width) + '" height="' + r2(height) +

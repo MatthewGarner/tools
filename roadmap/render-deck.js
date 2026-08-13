@@ -12,7 +12,7 @@ import {txt} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
 import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule,
-  SANS, SERIF, r2, capFit, storyLine} from './deck-parts.js';
+  SANS, SERIF, r2, capFit, storyLine, basisBand, basisDesc} from './deck-parts.js';
 import {renderRegisterDeck} from './render-register.js';
 import {renderBoardDeck} from './render-board.js';
 import {renderFocusDeck} from './render-focus.js';
@@ -61,7 +61,19 @@ export function deckFrame(model, ctx, C, bodyFn){
   const headline = (model.headline || '').trim();
   let bodyTop = 176;
   let storyY = 150;
-  if(headline){
+  const basis = basisBand(model, M, 146, INNER, measure, C);
+  if(basis.height){
+    s.push(basis.svg);
+    const afterBasis = 146 + basis.height;
+    bodyTop = afterBasis + 14;
+    storyY = afterBasis;
+    if(headline){
+      const vLines = wrapN(headline, '600 22px ' + SERIF, INNER, 2, measure);
+      s.push(serifGroup(vLines.map((ln, i) => txt(M, afterBasis + 22 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
+      bodyTop = afterBasis + 66 + (vLines.length - 1) * 30;
+      storyY = afterBasis + 34 + (vLines.length - 1) * 30;
+    }
+  } else if(headline){
     const vLines = wrapN(headline, '600 22px ' + SERIF, INNER, 2, measure);
     s.push(serifGroup(vLines.map((ln, i) => txt(M, 170 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
     bodyTop = 214 + (vLines.length - 1) * 30;
@@ -80,7 +92,7 @@ export function deckFrame(model, ctx, C, bodyFn){
   s.push(line(M, 1002, W - M, 1002, C.border));
   s.push(txt(M, 1036, deckMetrics(model), 17, C.muted, {weight: 600}));
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
-    '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' + s.join('') + '</svg>';
+    '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' + basisDesc(model) + s.join('') + '</svg>';
 }
 
 export function paletteColors(model, ctx){
@@ -120,7 +132,7 @@ function gridBodyFn(model, ctx, C){
     const {measure, diff = null, dark = false} = ctx;
     /* headline+story cleared with title/date: the frame prints each ONCE —
        leaving them on the clone doubled the standfirst inside the scaled body */
-    const inner = renderChart({...model, title: '', dateStr: 'off', headline: '', story: ''},
+    const inner = renderChart({...model, title: '', dateStr: 'off', headline: '', story: '', basis: null},
       {colors: ctx.colors, measure, diff, dark, slide: true});
     const {w, h} = svgDims(inner);
     const bodyH = Math.max(0, y1 - y0);

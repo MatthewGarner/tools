@@ -71,7 +71,10 @@ main{display:flex;flex-direction:column;gap:20px}
   font-size:13px;color:var(--muted)}
 .orow.settled .olabel{color:var(--ink)}
 .orow.mushy .olabel{color:var(--muted)}
-.orow .mushmark{color:var(--st-risk-ink);font-weight:700}
+.statepill{display:inline-flex;align-items:center;min-height:22px;padding:2px 6px;border:1px solid var(--border);
+  font-size:9px;font-weight:700;letter-spacing:.07em;line-height:1.1;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.statepill.settled{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.statepill.mushy{border-style:dashed;color:var(--st-risk-ink)}
 .orow.tie .rank{color:var(--accent-ink)}
 
 /* loops */

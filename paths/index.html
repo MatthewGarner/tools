@@ -28,6 +28,10 @@
     <p class="kicker" id="kicker"></p>
     <h1>Paths</h1>
     <p class="tagline">Plan the work that depends on answers you do not have yet.</p>
+    <aside class="planning-boundary" aria-label="When to use Paths">
+      <span>Decision plan · all outcomes</span>
+      <p>Use Paths when a question can stop, pivot or expand investment. It keeps the possible plans visible until evidence resolves them.</p>
+    </aside>
   </header>
 </div>
 
@@ -107,6 +111,8 @@
         </div>
       </details>
     </nav>
+    <button class="paths-projection-jump" id="paths-projection-jump" type="button"
+      aria-controls="roadmap-projection" hidden>Choose exact outcome</button>
     <div class="overview-live" id="overview-live">
       <div class="overview-main">
         <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
@@ -114,6 +120,8 @@
       <aside class="overview-receipt" id="overview-receipt" aria-labelledby="overview-receipt-title" hidden></aside>
       <section class="focus-lens" id="focus-lens" aria-labelledby="focus-lens-title" hidden></section>
     </div>
+    <section class="roadmap-projection" id="roadmap-projection"
+      aria-labelledby="roadmap-projection-title" hidden></section>
     <section class="decision-inspector" id="decision-inspector"
       aria-labelledby="decision-inspector-title" hidden></section>
     <div class="actions">

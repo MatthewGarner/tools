@@ -7,6 +7,36 @@ export const QUADRANT_DIRECT_THRESHOLD = 6;
 export const QUADRANT_KEY_THRESHOLD = 9;
 export const PRESENTATION_LIMIT = 6;
 
+/* Portfolio outcomes are deliberately read through two named lenses.  The
+   engine owns how the shared-outcome run is produced; renderers own the
+   promise that neither lens can disappear from a live or exported artefact.
+   Keep this adapter tolerant of the portfolio being returned directly or
+   wrapped in a scenario record so the rendering contract remains small. */
+const portfolioResult = value => {
+  const result = value && value.portfolio ? value.portfolio : value;
+  return result && Number.isFinite(result.p50) && Number.isFinite(result.pLoss) ? result : null;
+};
+
+export function conditionReadings(sim){
+  const baseline = portfolioResult(sim && sim.portfolio);
+  const stressRecord = sim && (sim.sharedConditions || sim.sharedCondition ||
+    (sim.scenarios && (sim.scenarios.sharedConditions || sim.scenarios.shared)));
+  const stress = portfolioResult(stressRecord);
+  const metadata = (stressRecord && stressRecord.meta) || (sim && (sim.dependence || sim.scenarioMetadata)) || {};
+  return {
+    baseline: {
+      key: 'independent', label: 'Independent baseline', result: baseline,
+      condition: 'If each bet resolves on its own', available: !!baseline,
+    },
+    stress: {
+      key: 'shared', label: 'Shared-outcome stress', result: stress,
+      condition: metadata.condition || metadata.description ||
+        'If realised wins and losses move together; parameter ranges stay independent',
+      available: !!stress,
+    },
+  };
+}
+
 const recOf = (sim, b) => sim?.bets?.get(b.srcLine) ||
   {ev: {p10: 0, p50: 0, p90: 0}, audits: []};
 const stakeUpper = b => b.stake ? b.stake[1] : 0;
@@ -73,15 +103,39 @@ export function quadrantDensity(count){
 
 export function presentationSelection(model, sim, limit = PRESENTATION_LIMIT){
   const records = sourceBets(model, sim);
-  const ranked = records.slice().sort((a, b) =>
+  const scoreable = records.filter(record => record.rec.scoreable !== false);
+  const unscored = records.filter(record => record.rec.scoreable === false);
+  const ranked = scoreable.slice().sort((a, b) =>
     (b.stakeUpper - a.stakeUpper) ||
     (b.absP50Ev - a.absP50Ev) ||
     (a.sourceOrder - b.sourceOrder));
   const selected = ranked.slice(0, Math.max(0, limit));
   return {
     selected,
-    remainder: Math.max(0, records.length - selected.length),
+    records,
+    unscored,
+    omitted: ranked.slice(Math.max(0, limit)),
+    remainder: Math.max(0, scoreable.length - selected.length),
     total: records.length,
     rule: 'highest stake upper bound · then |P50 EV| · source order',
   };
+}
+
+/* A fixed-size slide can select only six cards, but it must never make
+   material exceptions vanish. This returns every omitted no-kill / P50-loss
+   record for an exhaustive in-plane disclosure strip; concentration is a
+   portfolio-level exception and is disclosed separately whether selected or
+   omitted. */
+export function omittedMaterialExceptions(selection){
+  const shown = new Set(selection.selected.map(record => record.b.srcLine));
+  /* Older callers do not provide selection.omitted; source records are not
+     recoverable from the compact selection alone, so presentationSelection
+     also exposes the complete ranked set below. */
+  const records = selection.records || [...selection.selected];
+  return records.filter(record => record.rec.scoreable !== false && !shown.has(record.b.srcLine)).map(record => {
+    const reasons = [];
+    if(record.rec.audits.includes('NO KILL CRITERION')) reasons.push('NO KILL');
+    if(record.rec.audits.includes('LOSES AT P50')) reasons.push('P50 LOSS');
+    return reasons.length ? {record, reasons} : null;
+  }).filter(Boolean);
 }

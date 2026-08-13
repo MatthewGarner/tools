@@ -59,12 +59,35 @@ test('dashed ring for a no-kill bet, none for a bet with a kill', () => {
 test('axis titles present', () => {
   const svg = renderQuadrant(model, sim, CTX);
   assert.match(svg, /ODDS OF SUCCESS/);
-  assert.match(svg, /NET EV/);
+  assert.match(svg, /P50 EV/);
+  assert.doesNotMatch(svg, /NET EV/);
 });
 
-test('certainty-zone label present when a bet has odds >= 90', () => {
+test('both implied-certainty zones match the audit extremes', () => {
   const svg = renderQuadrant(model, sim, CTX);   // Billing rewrite is 90-100%
-  assert.match(svg, /CERTAINTY ZONE/);
+  assert.match(svg, /data-zone="certainty-low"/);
+  assert.match(svg, /data-zone="certainty"/);
+  assert.match(svg, /LOW ≥ 90%/);
+  assert.match(svg, /HIGH ≤ 10%/);
+});
+
+test('paired condition receipt and accessible structured summary survive both widths', () => {
+  for(const svg of [renderQuadrant(model, sim, CTX), renderQuadrant(model, sim, {...CTX, width: 390})]){
+    assert.match(svg, /data-condition="independent"/);
+    assert.match(svg, /data-condition="shared"/);
+    assert.match(svg, /SHARED-OUTCOME STRESS/);
+    assert.match(svg, /<title id="bets-quadrant-title">Q3 portfolio<\/title>/);
+    assert.match(svg, /<desc id="bets-quadrant-desc">Risk-return view\./);
+  }
+});
+
+test('unscored bets are listed but never plotted or counted as stake', () => {
+  const m = parse('G\n  Invalid: stake 200, odds 120%, payoff 300');
+  const svg = renderQuadrant(m, simulate(m), CTX);
+  assert.match(svg, /NOT SCORED · B01 Invalid/);
+  assert.match(svg, /0 BETS · 1 LANES · TOTAL STAKE 0/);
+  assert.equal((svg.match(/<circle/g) || []).length, 0);
+  assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
 });
 
 test('loss region present when a bet EV < 0', () => {

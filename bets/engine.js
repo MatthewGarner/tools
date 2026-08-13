@@ -1,9 +1,16 @@
-/* Pure engine: one seeded Monte-Carlo pass yields TWO readings from the same
-   draws (deliberately different questions):
+/* Pure engine: one seeded Monte-Carlo pass yields the existing independent
+   baseline plus a paired shared-outcome stress. Both scenarios reuse the
+   same sampled stake, odds and payoff for every Bet; only the Bernoulli draw
+   differs. The independent result remains at `portfolio` for backwards
+   compatibility and remains seed-for-seed byte-identical for valid documents.
+
+   The pass also yields two deliberately different kinds of reading:
      - per-bet EV band = distribution of p·payoff − stake (parameter uncertainty)
        → the slip band + LOSES AT P50 ("is this bet sound?")
-     - portfolio fan + P(loses money) = distribution of REALISED outcomes,
-       per sim per bet bernoulli(p)·payoff − stake, summed ("what might happen?")
+     - portfolio fan + P(loses money) = distribution of REALISED outcomes.
+       The baseline uses one uniform per Bet; the stress reuses the first
+       scoreable Bet's uniform across every Bet in that run, the maximum
+       positive co-movement compatible with their sampled marginal odds.
    Odds sample as normal + clamp to 0–100 (percentages, not money); stake/payoff
    as lognormal + floor 0 (positive money). rangeSampler is a closure built ONCE
    per bet outside the loop; point ranges consume zero RNG. */
@@ -12,6 +19,21 @@ import {mulberry32, gaussian, rangeSampler, quantile, fmt} from '../assets/serie
 const SEED = 0xBE75, NSIM = 4000, BINS = 40;
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mid = r => r ? (r[0] + r[1]) / 2 : 0;
+
+export const OUTCOME_SCENARIOS = Object.freeze({
+  independent: 'Independent baseline',
+  shared: 'Shared-outcome stress',
+});
+
+/* One terminology/selection seam for renderers and exports. `portfolio`
+   remains the baseline alias so older consumers do not need to know the
+   paired shape exists. */
+export function scenarioReading(sim, key = 'independent'){
+  const scenario = key === 'shared' ? 'shared' : 'independent';
+  const portfolio = sim && sim.scenarios ? sim.scenarios[scenario] : sim.portfolio;
+  return {key: scenario, label: OUTCOME_SCENARIOS[scenario], portfolio,
+    available: !!portfolio, medianOutcome: portfolio ? portfolio.p50 : null};
+}
 
 export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
   const rand = mulberry32(seed), gauss = gaussian(rand);
@@ -27,37 +49,55 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
     stk: b.stake ? rangeSampler(b.stake[0], b.stake[1], 'logn', rand, gauss) : null,
     ev: [],
   }));
+  const scoreableCount = sim.filter(record => record.ok).length;
 
   const portfolio = new Array(nsim);
+  const sharedPortfolio = new Array(nsim);
   for(let i = 0; i < nsim; i++){
-    let outcome = 0;
+    let outcome = 0, sharedOutcome = 0, sharedDraw = null;
     for(const s of sim){
       if(!s.ok){ s.ev.push(0); continue; }
       const p = clamp(s.odds(), 0, 100) / 100;
       const pay = Math.max(0, s.pay());
       const stk = Math.max(0, s.stk());
       s.ev.push(p * pay - stk);
-      outcome += (rand() < p ? pay : 0) - stk;
+      /* Consume exactly the same draw, in the same position, as the legacy
+         baseline. The first scoreable Bet's draw is also the run-wide stress
+         draw, which keeps a one-Bet portfolio exactly paired rather than
+         inventing a finite-sample difference between equivalent scenarios. */
+      const independentDraw = rand();
+      if(sharedDraw === null) sharedDraw = independentDraw;
+      outcome += (independentDraw < p ? pay : 0) - stk;
+      sharedOutcome += (sharedDraw < p ? pay : 0) - stk;
     }
     portfolio[i] = outcome;
+    sharedPortfolio[i] = sharedOutcome;
   }
 
   const bets = new Map();
   for(const s of sim){
     const sorted = s.ev.slice().sort((a, b) => a - b);
     const ev = {p10: quantile(sorted, 0.1), p50: quantile(sorted, 0.5), p90: quantile(sorted, 0.9)};
-    bets.set(s.bet.srcLine, {ev, audits: auditsFor(s.bet, ev)});
+    bets.set(s.bet.srcLine, {ev, audits: auditsFor(s.bet, ev), scoreable: s.ok});
   }
 
-  portfolio.sort((a, b) => a - b);
-  const pLoss = portfolio.filter(v => v < 0).length / nsim;
+  const independent = scoreableCount ? portfolioSummary(portfolio, nsim) : null;
+  const shared = scoreableCount ? portfolioSummary(sharedPortfolio, nsim) : null;
   return {
     bets,
-    portfolio: {
-      p10: quantile(portfolio, 0.1), p50: quantile(portfolio, 0.5), p90: quantile(portfolio, 0.9),
-      pLoss, histogram: histogram(portfolio, nsim),
-    },
-    concentration: concentrationOf(flat),
+    scoreableCount,
+    portfolio: independent,
+    scenarios: {declared: 'independent', independent, shared},
+    concentration: concentrationOf(sim.filter(record => record.ok).map(record => record.bet)),
+  };
+}
+
+function portfolioSummary(outcomes, nsim){
+  outcomes.sort((a, b) => a - b);
+  const pLoss = outcomes.filter(v => v < 0).length / nsim;
+  return {
+    p10: quantile(outcomes, 0.1), p50: quantile(outcomes, 0.5), p90: quantile(outcomes, 0.9),
+    pLoss, histogram: histogram(outcomes, nsim),
   };
 }
 
@@ -79,7 +119,7 @@ function concentrationOf(flat){
   let bi = -1, best = 0;
   stakes.forEach((v, i) => { if(v > best){ best = v; bi = i; } });
   const share = best / total;
-  return share >= 0.40 ? {name: flat[bi].name, share} : null;
+  return share >= 0.40 ? {name: flat[bi].name, srcLine: flat[bi].srcLine, share} : null;
 }
 
 function histogram(sorted, nsim){
@@ -120,13 +160,19 @@ export function markdown(model, sim, href){
   for(const g of model.groups){
     for(const b of g.bets){
       const r = sim.bets.get(b.srcLine);
-      out.push('| ' + b.name + ' | ' + rng(b.stake) + ' | ' + rng(b.odds) + '% | ' + rng(b.payoff) + ' | ' +
-        fmt(r.ev.p50) + ' | ' + (r.audits.join('; ') || '—') + ' |');
+      out.push('| ' + b.name + ' | ' + rng(b.stake) + ' | ' + (b.odds ? rng(b.odds) + '%' : '—') + ' | ' + rng(b.payoff) + ' | ' +
+        (r.scoreable ? fmt(r.ev.p50) : 'NOT SCORED') + ' | ' +
+        (r.scoreable ? (r.audits.join('; ') || '—') : 'NOT SCORED — correct invalid or missing terms') + ' |');
     }
   }
-  const p = sim.portfolio;
-  out.push('', 'Portfolio net EV **' + fmt(p.p50) + u + '** [' + fmt(p.p10) + '–' + fmt(p.p90) + '] · P(loses money) **' +
-    Math.round(p.pLoss * 100) + '%** — assumes bets are independent.');
+  const baseline = scenarioReading(sim, 'independent');
+  const shared = scenarioReading(sim, 'shared');
+  const line = reading => !reading.available ? reading.label + ': **Not available — no scoreable bets.**' :
+    reading.label + ': Median outcome **' + fmt(reading.medianOutcome) + u + '** [' +
+      fmt(reading.portfolio.p10) + '–' + fmt(reading.portfolio.p90) + '] · P(loses money) **' +
+      Math.round(reading.portfolio.pLoss * 100) + '%**.';
+  out.push('', line(baseline), '', line(shared) +
+    ' Only realised win/loss outcomes share one common draw; stake, odds and payoff ranges remain independently sampled. This is a stress, not a forecast.');
   if(href) out.push('', '[Open in bets](' + href + ')');
   return out.join('\n') + '\n';
 }

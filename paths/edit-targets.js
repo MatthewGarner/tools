@@ -67,6 +67,30 @@ function applyOps(text, ops){
   return lines.join('\n');
 }
 
+/* The stage view switch is a source edit, just like every other interaction in
+   the rendered tool. Return one CodeMirror-ready operation so Tree / Possible
+   Plans is undoable and URL-coherent without creating a second UI state. */
+export function setStyle(text, value){
+  const style = String(value || '').toLowerCase();
+  if(style !== 'tree' && style !== 'plans') return null;
+  const lines = String(text ?? '').replace(/\r/g, '').split('\n');
+  let winner = -1;
+  for(let line = 0; line < lines.length; line++) if(/^style\s*:/i.test(lines[line])) winner = line;
+  if(winner >= 0) return [{line:winner, text:`style: ${style}`}];
+  if(!String(text ?? '').trim()) return [{line:0, text:`style: ${style}`}];
+
+  let at = lines.length;
+  for(let line = 0; line < lines.length; line++){
+    const content = lines[line].trim();
+    if(!content || content.startsWith('//') || CONFIG.test(content)) continue;
+    at = line;
+    break;
+  }
+  if(at === 0) return [{line:0, text:`style: ${style}\n${lines[0]}`}];
+  const previous = at - 1;
+  return [{line:previous, text:`${lines[previous]}\nstyle: ${style}`}];
+}
+
 function rewriteLine(line, value){
   const {code, comment} = splitComment(line);
   const match = /^(\s*[a-z-]+\s*:\s*).*$/i.exec(code);

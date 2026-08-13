@@ -149,7 +149,7 @@ function doRefresh(){
   }
   renderWarnings();
   setActionsEnabled(!!lastSvg);
-  $('togauge').hidden = !(ro && ro.flagged.length);
+  $('togauge').hidden = !gaugeHandoff(model, ro);
   try{ if(shouldPersist()) localStorage.setItem('map-src', text); }catch(e){}
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeHash, 400);
@@ -443,7 +443,7 @@ document.addEventListener('pointerdown', e => {
   disarmPlace();
 }, true);
 
-/* ---------- #93: flagged items → gauge session ---------- */
+/* ---------- #93: untested assumption-map items → Gauge priors ---------- */
 $('togauge').addEventListener('click', async () => {
   if(!model || !ro) return;
   const doc = gaugeHandoff(model, ro);

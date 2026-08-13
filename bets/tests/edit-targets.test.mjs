@@ -107,12 +107,23 @@ test('a trailing // comment on a bet line survives an odds rewrite', () => {
   assert.deepEqual(b.odds, [25, 45]);
 });
 
-test('odds validate accepts an out-of-range value; rewrite clamps 20-150% to 20-100%', () => {
-  assert.equal(kinds.odds.validate('20-150'), true);
-  const edits = rewriteOdds(FULL, 6, '30-50%', '20-150');
-  assert.match(edits[0].text, /odds 20-100%/);
-  const b = parse(apply(FULL, edits)).groups[0].bets[0];
-  assert.deepEqual(b.odds, [20, 100]);
+test('odds edit rejects out-of-range or descending claims without silently rewriting them', () => {
+  assert.equal(kinds.odds.validate('20-150'), false);
+  assert.equal(kinds.odds.validate('70-30'), false);
+  assert.equal(rewriteOdds(FULL, 6, '30-50%', '20-150'), null);
+  assert.equal(rewriteOdds(FULL, 6, '30-50%', '70-30'), null);
+});
+
+test('stake and payoff edits reject negative or descending ranges like the parser', () => {
+  for(const [kind, rewrite, raw] of [
+    [kinds.stake, rewriteStake, '120'],
+    [kinds.payoff, rewritePayoff, '400-900'],
+  ]){
+    for(const invalid of ['-10', '20-10']){
+      assert.equal(kind.validate(invalid), false);
+      assert.equal(rewrite(FULL, 6, raw, invalid), null);
+    }
+  }
 });
 
 test('invalid input returns null (no edit) and fails validate', () => {

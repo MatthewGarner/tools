@@ -4,9 +4,17 @@
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 1442 / 437}   /* load-grace: default example's viewBox — see workspace.css */
 .method{color:var(--muted);font-size:12.5px}
+.planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
+  margin-top:16px;padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--accent);
+  background:var(--wash)}
+.planning-boundary span{color:var(--accent-ink);font-size:9px;font-weight:750;
+  letter-spacing:.13em;text-transform:uppercase;white-space:nowrap}
+.planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.planning-boundary a{color:var(--accent-ink);font-weight:700}
 .handoffstatus{color:var(--st-risk-ink);font-size:13px;max-width:42ch}
 .handoffstatus:empty{display:none}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
+@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
 
 /* card bodies are popover targets (add child / remove branch) in edit mode */
 .preview svg [data-edit^="card-"]{cursor:pointer}

@@ -125,6 +125,16 @@ test('save meta carries a risks-only count (board items do not inflate the home 
   assert.equal(meta.risks, 1);
   assert.equal(meta.entries, 3);
 });
+test('save meta preserves pre-parade identity and its opportunity count', () => {
+  const mem = new Map();
+  const store = makeStore({getItem: k => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: k => mem.delete(k)});
+  store.save({id: 'd1', title: 'T', mode: 'success', entries: [
+    {...newEntry('an opportunity'), kind: 'opportunity'}, {...newEntry('a belief'), kind: 'belief'}]});
+  const meta = store.list().find(m => m.id === 'd1');
+  assert.equal(meta.mode, 'success');
+  assert.equal(meta.opportunities, 1);
+  assert.equal(meta.risks, 0);
+});
 test('fromLink defaults a missing kind to risk (legacy/foreign docs stay visible)', async () => {
   const doc = {v: 1, id: 'orig', title: 'T', entries: [{id: 'e1', text: 'no kind here'}]};
   const imported = await fromLink(await toLink(doc));

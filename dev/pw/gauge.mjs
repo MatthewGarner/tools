@@ -46,6 +46,11 @@ try{
   await pageF.waitForSelector('#console:not([hidden])', {timeout: 10000});
   check('facilitator: console mode after start', true);
 
+  /* The console generates the compressed participant URL asynchronously.
+     Waiting on its value—not an incidental button state—keeps this check
+     deterministic on slower CI runners. */
+  await pageF.waitForFunction(() => document.getElementById('joinlink').value.includes('#'),
+    null, {timeout: 10000});
   const joinUrl = await pageF.locator('#joinlink').inputValue();
   check('join link: Copy enables only after the encoded join URL exists',
     joinUrl.length > 20 && await pageF.locator('#copylink').isEnabled());
@@ -128,8 +133,11 @@ try{
   await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
 
-  /* #93: revealed ranges hand off to fermi as prefilled variables */
-  check('facilitator: → Fermi appears after reveal', await pageF.locator('#tofermi').isVisible());
+  /* Revealed room ranges become a review-needed Fermi draft, never an automatic estimate. */
+  check('facilitator: Draft Fermi inputs appears after reveal with an explicit review-needed warning',
+    await pageF.locator('#tofermi').isVisible() &&
+    await pageF.locator('#fermiDraftNote').isVisible() &&
+    /not automatically a calibrated 90% belief/.test(await pageF.locator('#fermiDraftNote').innerText()));
   {
     const target = await pageF.evaluate(() => {
       // read the destination without navigating the console away
@@ -139,12 +147,13 @@ try{
       pageF.waitForNavigation({timeout: 8000}),
       pageF.locator('#tofermi').click(),
     ]);
-    check('facilitator: → Fermi lands on fermi with the range prefilled', await (async () => {
+    check('facilitator: Draft Fermi inputs lands with provenance and blocks simulation until restated', await (async () => {
       if(!pageF.url().includes('/fermi/')) return false;
       await pageF.waitForTimeout(600);
       const formula = await pageF.locator('#formula').inputValue();
-      const p50 = await pageF.locator('#p50').innerText();
-      return formula.includes('weeks_to_migrate') && p50.length > 0 && p50 !== '—';
+      const review = await pageF.locator('.vreceipt').innerText().catch(() => '');
+      const placeholder = await pageF.locator('#ph').innerText().catch(() => '');
+      return formula === '' && /Gauge → review needed/.test(review) && /not automatically your 90% belief/.test(placeholder);
     })());
     await pageF.goBack();
     await pageF.waitForTimeout(800);

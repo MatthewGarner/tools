@@ -104,6 +104,12 @@ test('setStatus reproduces the fine-pointer step chain none→done→risk→none
   assert.equal(setStatus(risk, ''), base);
 });
 
+test('setStatus clears a decision lead when the source is no longer fixed', () => {
+  const src='Gate 2026-10-01 [fixed] [lead: 6w] // external';
+  assert.equal(setStatus(src, 'risk'), 'Gate 2026-10-01 [risk] // external');
+  assert.equal(setStatus(src, 'fixed'), src);
+});
+
 test('setLane: insert / replace / clear the prefix, keeping status + note', () => {
   assert.equal(setLane('Offer 2026-08 .. 2026-10 [risk] // note', 'Grid'),
     'Grid: Offer 2026-08 .. 2026-10 [risk] // note');

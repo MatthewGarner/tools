@@ -55,13 +55,13 @@
     <div class="metrics" id="metrics" hidden></div>
     <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
     <div class="readcols">
-      <div class="readcol"><h2>Current standings</h2><div id="orderwrap"></div></div>
+      <div class="readcol"><h2>Current implied order</h2><div id="orderwrap"></div></div>
       <div class="readcol" id="loopcol" hidden><h2>No clean order</h2><div id="loopwrap"></div></div>
     </div>
     <div class="actions">
       <button class="btn" id="copydoc">Copy as markdown</button>
       <button class="btn" id="copylink">Copy link</button>
-      <span class="method">Copeland order from your duels · the URL carries the whole session</span>
+      <span class="method">Copeland order from your duels · “neighbours compared” means directly compared · the URL carries the whole session</span>
     </div>
   </div>
 
@@ -70,7 +70,7 @@
     <div class="prose">
     <p>Scoring frameworks — RICE, weighted grids — ask you to put numbers on things nobody believes to one decimal place, then inherit that false precision into the ranking. A pairwise duel asks the one question people can actually answer: between these two, which first? Do enough of them and a full order falls out (Copeland: rank by wins minus losses), but you never had to invent a single number. The tool is stingy with your attention — it serves the duels that carry the most information (closing triangles, splitting near-ties), so a dozen taps usually settle a field of eight.</p>
     <p>The real payoff is where the order <em>won't</em> settle. If you say A beats B, B beats C, then C beats A, there is no consistent ranking — and that's not a mistake, it's a signal. Each of those three judgements was made on a different criterion (A is cheaper, B ships sooner, C matters more), and the loop is the moment those unshared criteria surface. The tool finds every such loop (strongly-connected components of the beats-graph) and asks you to name the criterion on each edge; once you do, "three criteria pretending to be one" is the honest read.</p>
-    <p>So use the order when it's clean, and use the loops when it isn't — they're the argument worth having, found before anyone anchored on a spreadsheet. A "mushy" position just means two neighbours were never directly compared; the tool will offer you exactly those duels if you want to firm it up. No scores, no weights, no theatre — kin to the rank tool, without the numbers.</p>
+    <p>So use the order when it's clean, and use the loops when it isn't — they're the argument worth having, found before anyone anchored on a spreadsheet. A position that “needs direct comparison” means two neighbours were never directly compared; the tool will offer you exactly those duels if you want to firm it up. This is a priority discussion record, not an expected-value model, a decision receipt, or a delivery plan: use <a href="/tree/">Tree</a> for quantified choices, <a href="/paths/">Paths</a> for conditional investment, and <a href="/roadmap/">Roadmap</a> for delivery commitments.</p>
     </div>
   </div>
   </main>

@@ -50,11 +50,20 @@ export function editDates(line, oldRaw, newRaw){
 export function setStatus(line, status){
   const st = String(status || '');
   if(st && !STATUSES.includes(st)) return line;
-  const stripped = line.replace(/\s*\[[^\]]+\]/, '');
+  /* A decision lead only has meaning with [fixed]. Do not leave a syntactically
+     valid but semantically orphaned `[lead: …]` behind after a card-menu status
+     edit; text remains the model, so the rewrite must make the changed state
+     clear in the source as well as in the render. */
+  const stripped = line.replace(/\s*\[(?:done|risk|fixed)\]/ig, '')
+    .replace(st === 'fixed' ? /$^/ : /\s*\[lead\s*:[^\]]+\]/ig, '');
   if(!st) return stripped;
   const noteM = stripped.match(/\s*\/\/.*$/);
   const head = noteM ? stripped.slice(0, noteM.index) : stripped;
   const tail = noteM ? stripped.slice(noteM.index) : '';
+  if(st === 'fixed'){
+    const leadM=head.match(/\s*(\[lead\s*:[^\]]+\])\s*$/i);
+    if(leadM) return head.slice(0,leadM.index).trimEnd() + ' [fixed] ' + leadM[1] + tail;
+  }
   return head.replace(/\s*$/, '') + ' [' + st + ']' + tail;
 }
 

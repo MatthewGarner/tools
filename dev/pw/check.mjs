@@ -105,11 +105,13 @@ check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTM
 
 // markdown import round trip
 await page2.getByRole('button', {name: 'Import markdown'}).click();
-await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Imported item _(in progress)_ — with note');
+await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
 await page2.waitForTimeout(400);
 const impSvg = await page2.locator('#preview svg').innerHTML();
-check('markdown import renders', impSvg.includes('Imported item') && impSvg.includes('Imported Plan'));
+check('markdown import renders with conditionality and safe link', impSvg.includes('Imported item') &&
+  impSvg.includes('Imported Plan') && impSvg.includes('if signal') &&
+  impSvg.includes('href="https://example.test/item"'));
 
 // drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform.
 // The flagship doc is a plain now/next/later roadmap → the CHART, whose drag is
@@ -619,6 +621,85 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   check('roadmap dropped item: drag moves it under LATER in the text', movedIdx > laterIdx && laterIdx > 0);
   check('roadmap dropped item: the [if gate] condition token survives the drag', /Dropped rider \[if gate\]/.test(textAfter));
   check('roadmap dropped item: drag changed the doc', textAfter !== textBefore);
+  await p.close();
+}
+
+// Roadmap -> Paths decision-plan starter (planning-family Gate 1). The Roadmap
+// reports direct conditional work on its own, and offers the transfer only when
+// the pure builder can preserve every source occurrence without inventing the
+// question, evidence, owner or due date Paths requires.
+{
+  const p = await browser.newPage({viewport: {width: 1280, height: 1000}, reducedMotion: 'reduce'});
+  const handoffErrors = trackErrors(p);
+  const source = `title: Habitat
+horizons: Now, Next, Later
+wip: 1
+Now
+Discovery: Price pilot [bet: Pricing] -- Test willingness
+Next
+Growth: Coach expansion [if Pricing]
+Growth: Fixed-fee trial [unless Pricing]
+Later
+Growth: Shared foundations`;
+  const hash = Buffer.from(source, 'utf8').toString('base64');
+  await p.goto(BASE + '#' + hash, {waitUntil: 'networkidle'});
+  await p.waitForTimeout(400);
+  const health = p.locator('#conditionality');
+  const action = p.getByRole('button', {name: 'Turn conditional work into a decision-plan starter'});
+  check('roadmap -> paths: direct conditional-work health is explicit',
+    await health.isVisible() && (await p.locator('#conditionalitymsg').innerText()) ===
+      '2 unfinished delivery items are directly conditional on 1 open fork.');
+  check('roadmap -> paths: WIP advice does not mutate starter eligibility',
+    (await p.locator('#warns').innerText()).includes('Next has 2 items in flight (wip: 1).'));
+  check('roadmap -> paths: exact starter action appears only for the safe source', await action.isVisible());
+  const sourceBefore = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  await action.click();
+  await p.waitForURL(/\/paths\/#z:/);
+  await p.waitForTimeout(400);
+  const target = await p.evaluate(() => localStorage.getItem('paths-src'));
+  const sourceAfter = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  check('roadmap -> paths: action opens a fresh codec-seeded Paths URL',
+    p.url().includes('/paths/#z:') && target?.includes('title: Habitat — decision-plan starter'));
+  check('roadmap -> paths: generated starter omits invented decision evidence',
+    target?.includes('decision Pricing:') && !/^\s{2}(question|signal|owner|answer-by):/m.test(target));
+  check('roadmap -> paths: Paths keeps its four truthful completion warnings',
+    await p.locator('#warns li').count() === 4);
+  check('roadmap -> paths: the source Roadmap is unchanged by the handoff',
+    sourceBefore === source && sourceAfter === source);
+  check('roadmap -> paths: wide handoff has no console/page errors', handoffErrors.length === 0);
+  await p.close();
+}
+{
+  const p = await browser.newPage({viewport: {width: 390, height: 844}, reducedMotion: 'reduce'});
+  const handoffErrors = trackErrors(p);
+  const safe = `title: Habitat
+Now
+Core: Probe [bet: x]
+Next
+Core: Conditional work [if x]`;
+  await p.goto(BASE + '#' + Buffer.from(safe, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
+  await p.waitForTimeout(400);
+  const action = p.getByRole('button', {name: 'Turn conditional work into a decision-plan starter'});
+  const box = await action.boundingBox();
+  const dimensions = await p.evaluate(() => ({scroll:document.documentElement.scrollWidth, width:innerWidth}));
+  check('roadmap -> paths: 390px action stays legible with a 44px touch target',
+    await action.isVisible() && box && box.height >= 44 && dimensions.scroll <= dimensions.width + 1);
+
+  const unsafe = `title: Habitat
+Now
+Core: Probe [bet: x]
+Next
+Core: Already underway [doing] [if x]`;
+  await p.locator('.cm-content').click();
+  await p.keyboard.press('ControlOrMeta+a');
+  await p.keyboard.insertText(unsafe);
+  await p.waitForTimeout(500);
+  check('roadmap -> paths: health remains visible when a truthful starter is unavailable',
+    await p.locator('#conditionality').isVisible() &&
+    (await p.locator('#conditionalitymsg').innerText()) ===
+      '1 unfinished delivery item is directly conditional on 1 open fork. This needs a Paths plan, but this Roadmap cannot be converted automatically.');
+  check('roadmap -> paths: unsafe source has no handoff action', await action.isHidden());
+  check('roadmap -> paths: 390px handoff state has no console/page errors', handoffErrors.length === 0);
   await p.close();
 }
 

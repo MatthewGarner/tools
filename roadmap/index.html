@@ -30,6 +30,10 @@
     <p class="kicker" id="kicker"></p>
     <h1>Roadmap as code</h1>
     <p class="tagline">A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
+    <aside class="planning-boundary" aria-label="When to use Roadmap">
+      <span>Delivery roadmap · committed work</span>
+      <p>Use Roadmap for work you are prepared to carry. If an open question can stop, pivot or expand investment, design the decision plan in <a href="/paths/">Paths</a> first.</p>
+    </aside>
   </header>
 </div>
 
@@ -51,6 +55,8 @@
         <dl>
           <dt><code data-try="">title: Trading roadmap</code></dt>
           <dd>title (optional; <code>date:</code> overrides today's date, <code>date: off</code> hides it)</dd>
+          <dt><code data-try="">basis: paths &quot;Growth decisions&quot;; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12</code></dt>
+          <dd>the exact Paths world this delivery projection is based on. <code>answered</code> records written answers; <code>assumed</code> records choices accepted only for planning. Omit this on an ordinary roadmap</dd>
           <dt><code data-try="">horizons: Q3, Q4, 2027</code></dt>
           <dd>rename the columns (2–8; default Now, Next, Later)</dd>
           <dt><code data-try="">horizons: quarterly from Q3 2026 x4</code></dt>
@@ -91,7 +97,7 @@
           <dt><code data-try="">Growth: Referral loop [bet: referrals]</code></dt>
           <dd>declare the item a <em>bet</em> — a fork the plan turns on. Click its capsule (or use the card menu) to preview each world; when reality answers, resolve it in the text: <code>[bet: referrals won]</code> / <code>[bet: referrals lost]</code></dd>
           <dt><code data-try="">Personalisation [if referrals]</code></dt>
-          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditioned items render ghosted while the fork is open — the branch not needed stays on the board, marked not needed, when it closes</dd>
+          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditioned items render ghosted while the fork is open — the branch not needed stays on the board, marked not needed, when it closes. When the fork can move without losing meaning, the conditional-work summary can start an incomplete <a href="/paths/">Paths</a> decision plan for you to finish</dd>
           <dt><code data-try="">… -- note text</code></dt>
           <dd>smaller second line on the card</dd>
           <dt><code data-try="">… -&gt; https://jira/PROJ-42</code></dt>
@@ -109,6 +115,13 @@
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
       </div>
       <div class="whatif-chip" id="whatifchip" role="status" hidden></div>
+      <aside class="conditionality-health" id="conditionality" aria-labelledby="conditionalitylabel" hidden>
+        <div>
+          <p class="conditionality-label" id="conditionalitylabel">Conditional work</p>
+          <p class="conditionality-message" id="conditionalitymsg" aria-live="polite" aria-atomic="true"></p>
+        </div>
+        <button class="btn" id="pathsstarter" type="button" hidden>Turn conditional work into a decision-plan starter</button>
+      </aside>
       <div class="actions">
         <span class="method" id="stylelbl">View and export style:</span>
         <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">

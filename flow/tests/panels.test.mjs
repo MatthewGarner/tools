@@ -2,7 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {batchEconomics} from '../economics.js';
 import {leverTriage, simulate, wipSweep, kneeWip} from '../engine.js';
-import {renderBatch, renderTriage, markdownSummary} from '../render.js';
+import {renderBatch, renderTriage, renderExpedite, renderDice, markdownSummary} from '../render.js';
+import {expediteSensitivity} from '../expedite.js';
+import {diceGame} from '../dice.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
@@ -69,14 +71,38 @@ test('drain times render in weeks, converted from simulated days', () => {
   assert.ok(!svg.includes(Math.round(top.drainDays) + ' weeks'), 'days must not be printed as weeks');
 });
 
-test('markdown summary appends batch and triage paragraphs when given', () => {
+test('markdown summary carries every decision lens when given', () => {
   const result = simulate(healthy);
   const sweep = wipSweep(healthy), knee = kneeWip(sweep);
   const econ = batchEconomics(econBase);
   const triage = leverTriage(healthy, {initialBacklog: 12});
-  const md = markdownSummary(result, sweep, knee, healthy, {econ, triage, initialBacklog: 12});
+  const expedite = expediteSensitivity(healthy, {expeditePerWeek: 1});
+  const dice = diceGame({seed: 4});
+  const md = markdownSummary(result, sweep, knee, healthy, {econ, triage, expedite, dice, initialBacklog: 12});
   assert.match(md, /Economic batch/);
   assert.match(md, /lever/i);
+  assert.match(md, /Expedite lane/);
+  assert.match(md, /Dependent dice/);
   const plain = markdownSummary(result, sweep, knee, healthy);
   assert.doesNotMatch(plain, /Economic batch/);
+  assert.doesNotMatch(plain, /Expedite lane/);
+});
+
+test('expedite card names the service-class trade and does not promise free capacity', () => {
+  const r = expediteSensitivity(healthy, {expeditePerWeek: 1});
+  const svg = renderExpedite(r, ctx);
+  assert.match(svg, /EXPEDITE LANE/);
+  assert.match(svg, /same people and WIP|same people/i);
+  assert.match(svg, /EXPEDITED/);
+  assert.match(svg, /STANDARD/);
+  assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
+});
+
+test('dependent dice card states local/system distinction and keeps every step visible', () => {
+  const game = diceGame({stations: 5, days: 30, seed: 4});
+  const svg = renderDice(game, ctx);
+  assert.match(svg, /LOCAL CAPACITY IS NOT FLOW/);
+  assert.equal((svg.match(/STEP /g) || []).length, 5);
+  assert.match(svg, /dependencies turn variation into waiting/i);
+  assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
 });

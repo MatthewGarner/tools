@@ -1,7 +1,9 @@
 /* DOM shell: sliders → sim → readout + canvas strip. Engine and readout are pure. */
 import {simulate, wipSweep, kneeWip, leverTriage, WEEK} from './engine.js';
 import {batchEconomics} from './economics.js';
-import {renderReadout, renderBatch, renderTriage, markdownSummary, readoutVerdictParts} from './render.js';
+import {expediteSensitivity} from './expedite.js';
+import {diceGame} from './dice.js';
+import {renderReadout, renderBatch, renderTriage, renderExpedite, renderDice, markdownSummary, readoutVerdictParts} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -29,6 +31,7 @@ let variability = 'high';
 let lastSvg = '', lastResult = null, lastSweep = null, lastKnee = 1, lastParams = null;
 let sweepKey = '', debTimer = null, rafId = 0, hashTimer = null;
 let lastBatchSvg = '', lastEcon = null, lastTriageSvg = '', lastTriage = null, triageKey = '';
+let lastExpediteSvg = '', lastExpedite = null, lastDiceSvg = '', lastDice = null, diceSeed = 0xD1CE;
 
 function params(){
   const wipPos = +$('wip').value;
@@ -62,6 +65,8 @@ function syncOutputs(){
   $('hcostout').textContent = '£' + (+$('hcost').value).toLocaleString('en-GB') + '/item·week';
   $('batchout').textContent = $('batch').value + ($('batch').value === '1' ? ' item' : ' items');
   $('backlogout').textContent = $('backlog').value === '0' ? 'none' : $('backlog').value + ' items';
+  $('expediteout').textContent = (+$('expedite').value).toFixed(2).replace(/\.00$/, '') + '/week';
+  $('diceDaysout').textContent = $('diceDays').value + ' days';
   for(const el of document.querySelectorAll('input[type=range]')){
     const f = (el.value - el.min) / (el.max - el.min) * 100;
     el.style.setProperty('--fill', f + '%');
@@ -101,13 +106,21 @@ function doRefresh(){
   const triageSvg = renderTriage(lastTriage, p, backlogNow, ctx);
   if(triageSvg !== lastTriageSvg){ $('triagewrap').innerHTML = triageSvg; lastTriageSvg = triageSvg; }
 
+  lastExpedite = expediteSensitivity(p, {expeditePerWeek: +$('expedite').value});
+  const expediteSvg = renderExpedite(lastExpedite, ctx);
+  if(expediteSvg !== lastExpediteSvg){ $('expeditewrap').innerHTML = expediteSvg; lastExpediteSvg = expediteSvg; }
+  lastDice = diceGame({days: +$('diceDays').value, seed: diceSeed});
+  const diceSvg = renderDice(lastDice, ctx);
+  if(diceSvg !== lastDiceSvg){ $('dicewrap').innerHTML = diceSvg; lastDiceSvg = diceSvg; }
+
   restartAnim(result);
   clearTimeout(hashTimer);
   hashTimer = setTimeout(writeFlowHash, 400);
 }
 function liveFlowState(){
   return flowHashState(params(), {wip: $('wip').value, transactionCost: $('tcost').value,
-    holdCost: $('hcost').value, batch: $('batch').value, backlog: $('backlog').value});
+    holdCost: $('hcost').value, batch: $('batch').value, backlog: $('backlog').value,
+    expedite: $('expedite').value, diceDays: $('diceDays').value, diceSeed});
 }
 function writeFlowHash(){ hashTimer = null; return writeHashState(liveFlowState()); }
 function refresh(){
@@ -126,7 +139,7 @@ function ensureFresh(){
 }
 
 /* ---------- controls ---------- */
-for(const id of ['demand', 'size', 'team', 'wip', 'tcost', 'hcost', 'batch', 'backlog'])
+for(const id of ['demand', 'size', 'team', 'wip', 'tcost', 'hcost', 'batch', 'backlog', 'expedite', 'diceDays'])
   $(id).addEventListener('input', () => { clearPresetSelection(); schedule(); });
 /* the radiogroup's buttons carry real radio state — class alone is invisible
    to a screen reader (merit-order's pattern) */
@@ -310,13 +323,19 @@ wireExports({buttons: {dlsvg: $('dlbatchsvg'), dlpng: $('dlbatchpng'), copypng: 
   getSvg: () => { ensureFresh(); return lastBatchSvg || null; }, slug: () => 'flow-batch-' + (lastEcon ? lastEcon.optimum : 'x')});
 wireExports({buttons: {dlsvg: $('dltriagesvg'), dlpng: $('dltriagepng'), copypng: $('copytriagepng')},
   getSvg: () => { ensureFresh(); return lastTriageSvg || null; }, slug: () => 'flow-triage-' + $('backlog').value});
+wireExports({buttons: {dlsvg: $('dlexpeditesvg'), dlpng: $('dlexpeditepng'), copypng: $('copyexpeditepng')},
+  getSvg: () => { ensureFresh(); return lastExpediteSvg || null; }, slug: () => 'flow-expedite-' + $('expedite').value});
+wireExports({buttons: {dlsvg: $('dldicesvg'), dlpng: $('dldicepng'), copypng: $('copydicepng')},
+  getSvg: () => { ensureFresh(); return lastDiceSvg || null; }, slug: () => 'flow-dice-' + $('diceDays').value});
+$('rolldice').addEventListener('click', () => { diceSeed = (diceSeed + 0x9E3779B9) >>> 0; lastDiceSvg = ''; refresh(); });
 $('copydoc').addEventListener('click', async () => {
   ensureFresh();
   if(!lastResult) return;
   clearTimeout(hashTimer);
   await writeFlowHash();
   const md = markdownSummary(lastResult, lastSweep, lastKnee, lastParams,
-    {econ: lastEcon, triage: lastTriage, initialBacklog: +$('backlog').value});
+    {econ: lastEcon, triage: lastTriage, initialBacklog: +$('backlog').value,
+      expedite: lastExpedite, dice: lastDice});
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
@@ -338,8 +357,11 @@ function flash(id, msg){
     if(isFinite(+h.hc) && +h.hc) $('hcost').value = +h.hc;
     if(isFinite(+h.b) && +h.b) $('batch').value = +h.b;
     if(isFinite(+h.q)) $('backlog').value = +h.q;
+    if(isFinite(+h.e)) $('expedite').value = +h.e;
+    if(isFinite(+h.dd)) $('diceDays').value = +h.dd;
+    if(isFinite(+h.ds)) diceSeed = +h.ds;
   }
-  onThemeChange(() => { lastSvg = ''; lastBatchSvg = ''; lastTriageSvg = ''; refresh(); });
+  onThemeChange(() => { lastSvg = ''; lastBatchSvg = ''; lastTriageSvg = ''; lastExpediteSvg = ''; lastDiceSvg = ''; refresh(); });
   reducedMotion.addEventListener('change', refresh);
   // a resize fires many events per drag of the browser edge; coalesce to one redraw/frame
   addEventListener('resize', rafBatched(() => { if(lastResult) drawFrame(animState, animState ? animState.t1 : 0); }));

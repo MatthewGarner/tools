@@ -59,13 +59,22 @@ test('probability ranges and points', () => {
   assert.equal(chance.children[2].p, 'rest');
 });
 
-test('missing p among probabilistic siblings warns; lone unlabelled child becomes rest', () => {
+test('missing p among probabilistic siblings is explicit p=0, never inferred as rest', () => {
   const m1 = parse('Root\n  A\n    X (p=0.5): 10\n    Y: 20\n    Z (p=rest): 0');
   assert.ok(m1.warnings.some(w => w.includes('Y')));
   const m2 = parse('Root\n  A\n    X (p=0.7): 10\n    Y: 20\n  B: 1');
   const y = m2.root.children[0].children[1];
-  assert.equal(y.p, 'rest');
-  assert.equal(m2.warnings.length, 0);
+  assert.deepEqual(y.p, {lo: 0, hi: 0});
+  assert.ok(m2.warnings.some(w => w.includes('Y') && w.includes('no p=') && w.includes('p=0')));
+});
+
+test('only the first authored p=rest survives; duplicates fail safely to p=0 with their own warning', () => {
+  const m = parse('Root\n  A\n    X (p=0.4): 10\n    Other (p=rest): 2\n    Duplicate (p=rest): 999\n  B: 1');
+  const chance = m.root.children[0];
+  assert.equal(chance.children[1].p, 'rest');
+  assert.deepEqual(chance.children[2].p, {lo: 0, hi: 0});
+  assert.equal(chance.children[2].pRaw, '0', 'editor/display raw matches the effective rejected probability');
+  assert.ok(m.warnings.some(w => w.includes('line 5') && w.includes('second p=rest') && w.includes('p=0')));
 });
 
 test('leaf without value warned and treated as 0', () => {

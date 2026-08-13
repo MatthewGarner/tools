@@ -75,3 +75,30 @@ test('driver tree: the top driver capsule is visually distinct (tinted fill)', (
   const m = svg.match(new RegExp('data-node="var" data-name="' + top + '"[^>]*fill="([^"]+)"'));
   assert.ok(m && m[1] !== ctx.colors.card, 'top driver fill differs from card');
 });
+
+test('driver tree: every input carries a readable provenance receipt', () => {
+  const bases = new Map([
+    ['attendees', {kind: 'gauge', label: 'Gauge room envelope', question: 'How many attend?',
+      unit: 'people', round: 1, responses: 7, pooling: 'envelope', status: 'needs-restatement'}],
+    ['hourly_cost', {kind: 'snapshot', label: 'May finance export'}],
+    ['meeting_hours', {kind: 'person', label: 'Operations lead'}],
+  ]);
+  const svg = renderDriverTree({...meeting, bases}, ctx);
+  assert.match(svg, /Gauge · review needed/);
+  assert.match(svg, /Data snapshot · May finance export/);
+  assert.match(svg, /One person&#39;s estimate · Operations lead/);
+  assert.match(svg, /Stated here/); // weeks_per_year has no receipt
+  assert.match(svg, /Gauge → review needed · Gauge room envelope · people · 7 responses · round 1 · room envelope/);
+  assert.match(svg, /Assumption sources/);
+});
+
+test('driver tree: hostile and long provenance labels stay escaped and within their card', () => {
+  const hostile = '<script>alert("x")</script> & ' + 'a very long source label '.repeat(5);
+  const svg = renderDriverTree({...meeting, bases: {
+    attendees: {kind: 'snapshot', label: hostile},
+  }}, ctx);
+  assert.doesNotMatch(svg, /<script>/);
+  assert.match(svg, /&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt; &amp;/);
+  assert.match(svg, /Data snapshot · &lt;script&gt;alert\(&quot;x…/);
+  assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
+});

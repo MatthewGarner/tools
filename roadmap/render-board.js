@@ -5,7 +5,7 @@
    injection corpus. */
 import {txt, esc, btnAttrs, wash} from '../assets/svg.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
-import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, SANS} from './deck-parts.js';
+import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, basisBand, basisDesc, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel, splitColumnZones} from './cond-parts.js';
 
@@ -164,8 +164,11 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
     cy += c.h + 14;
   }
   if(shown < cards.length){
+    const hidden = cards.slice(shown);
+    const conditional = hidden.filter(c => c.it.worldState === 'cond').length;
+    const overflow = '+ ' + hidden.length + ' more' + (conditional ? ' · ' + conditional + ' conditional' : '');
     s.push(rect(cx, cy, cw, 40, 'none', {rx: 20, stroke: C.border, sw: 1, dash: '4 4'}));
-    s.push(txt(cx + 18, cy + 26, '+ ' + (cards.length - shown) + ' more', 14, C.muted, {weight: 600}));
+    s.push(txt(cx + 18, cy + 26, overflow, 14, C.muted, {weight: 600}));
   }
   return {svg: s.join(''), shown, total: cards.length};
 }
@@ -210,8 +213,11 @@ function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure, model})
     s.push(line(cx, ry - 12, cx + cw, ry - 12, C.border, 1, 0.55));
   }
   if(shown < rows.length){
+    const hidden = rows.slice(shown);
+    const conditional = hidden.filter(r => r.it.worldState === 'cond').length;
+    const overflow = '+ ' + hidden.length + ' more' + (conditional ? ' · ' + conditional + ' conditional' : '');
     s.push(rect(cx, ry, cw, 40, 'none', {rx: 20, stroke: C.border, sw: 1, dash: '4 4'}));
-    s.push(txt(cx + 18, ry + 26, '+ ' + (rows.length - shown) + ' more', 14, C.muted, {weight: 600}));
+    s.push(txt(cx + 18, ry + 26, overflow, 14, C.muted, {weight: 600}));
   }
   return {svg: s.join(''), shown, total: rows.length};
 }
@@ -397,6 +403,8 @@ export function renderBoardLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 22;
+  const basis = basisBand(model, M, y, W - M * 2, measure, C);
+  if(basis.height){ s.push(basis.svg); y += basis.height; }
   const sf = standfirst(model, M, y, W - M * 2, measure, C, !!ctx.edit);   // the authored standfirst
   if(sf.height){ s.push(sf.svg); y += sf.height; }
   const sfStory = storyLine(model, diff, M, y, W - M * 2, measure, C, !!ctx.edit);   // the diff narrative
@@ -468,5 +476,5 @@ export function renderBoardLive(model, ctx){
   const H = Math.round(my + 38);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' +
-    '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+    basisDesc(model) + '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
 }

@@ -133,6 +133,8 @@ test('narrow plans relayout is plan-first and preserves status, dependencies and
   assert.match(svg, /RISK · Included|RISK · Not needed/);
   assert.match(svg, /DOING · Included/);
   assert.match(svg, /groups — Answer: yes/);
+  assert.ok(svg.indexOf('data-kind="artifact-verdict"') < svg.indexOf('data-kind="narrow-plan"'),
+    'the phone verdict should precede the long plan stack');
 });
 
 test('wide and narrow plans are complete accessible artefacts and escape hostile real source', () => {

@@ -4,7 +4,8 @@
    renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
-  registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine} from './deck-parts.js';
+  registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine,
+  basisBand, basisDesc} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel,
   registerOutcomeGroups, outcomeSectionTint} from './cond-parts.js';
@@ -216,6 +217,8 @@ export function renderRegisterLive(model, ctx){
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
   if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
   y += 24;
+  const basis = basisBand(model, M, y, W - M * 2, measure, C);
+  if(basis.height){ s.push(basis.svg); y += basis.height; }
   const sfR = standfirst(model, M, y, W - M * 2, measure, C, !!ctx.edit);   // the authored standfirst
   if(sfR.height){ s.push(sfR.svg); y += sfR.height; }
   const sfRStory = storyLine(model, diff, M, y, W - M * 2, measure, C, !!ctx.edit);   // the diff narrative
@@ -281,7 +284,7 @@ export function renderRegisterLive(model, ctx){
   const H = y + 40;
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + Math.round(H) +
     '" viewBox="0 0 ' + W + ' ' + Math.round(H) + '" font-family=\'' + SANS + '\'>' +
-    '<rect width="' + W + '" height="' + Math.round(H) + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
+    basisDesc(model) + '<rect width="' + W + '" height="' + Math.round(H) + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
 }
 
 /* Paint ONE row into `s` (the caller's buffer — the per-horizon group array,

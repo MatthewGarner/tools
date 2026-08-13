@@ -9,6 +9,7 @@ import {mergeBias, laneVsDeadline} from './mergebias.js';
 import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
 import {resolveVerdict} from '../assets/verdict.js';
 import {layoutTimeline} from './layout.js';
+import {decisionLead, leadDuration, leadReceipt, leadSubline, primaryDecisionLead} from './lrm.js';
 
 const F = {
   body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -95,11 +96,12 @@ export function riskPill(px, pyTop, S, C, measure){
 
 /* the dates/note sub-line under each label — the extent pass and the milestone
    loop measure this exact string (module-level so msLabelAnchor stays pure) */
-export function subOf(it){
+export function baseSubOf(it){
   return (it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
     : fmtDay(it.p50, {month: (it.p90 - it.p50) > 45}) + ' → ' + fmtDay(it.p90, {month: (it.p90 - it.p50) > 45})) +
     (it.note ? ' · ' + it.note : '');
 }
+export function subOf(it){ return baseSubOf(it) + (it.leadDays ? ' · ' + leadSubline(it) : ''); }
 
 const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -153,6 +155,11 @@ function restParts(model, today){
   const ranged = items.filter(i => !i.single);
   const widest = ranged.length ? ranged.reduce((a, b) => (b.p90 - b.p50) > (a.p90 - a.p50) ? b : a) : null;
   const parts = [];
+  const primary = primaryDecisionLead(model, today);
+  if(primary){
+    const receipt = leadReceipt(primary.it, today);
+    parts.push({text: receipt.text, fig: fmtDay(primary.day)});
+  }
   /* one ranged lane + a deadline: mergeBias stays silent (there is no MERGE), but
      the question is well posed and the answer is already computed. */
   const lvd = laneVsDeadline(model, today);
@@ -270,8 +277,24 @@ export function timelineVerdict(model, today){
      `off` takes the whole band with it. */
   const auth = a => {
     const r = resolveVerdict(model.verdict, a);
-    return model.verdict == null ? {...r, rest: a.rest} : {...r, rest: ''};
+    /* An authored verdict can replace the forecast's editorial conclusion, but
+       cannot quietly erase an operational clock. `off` remains an explicit
+       request to suppress the whole band; a real authored line keeps the clock
+       as its supporting receipt. */
+    const hasClock = !!primaryDecisionLead(model, today);
+    return model.verdict == null || (hasClock && !r.off) ? {...r, rest: a.rest} : {...r, rest: ''};
   };
+  /* A decision clock is more immediately actionable than an aggregate fit. It
+     leads when present; merge risk stays in the supporting line, not erased. */
+  const clock = primaryDecisionLead(model, today);
+  if(clock){
+    const receipt = leadReceipt(clock.it, today);
+    /* The automatic clock is already the lead line. An authored verdict takes
+       that place, so keep the clock as a supporting operational receipt. */
+    const clockParts = (model.verdict == null ? parts.slice(1) : parts).map(p => p.text);
+    if(mb) clockParts.unshift(mergeCopy(mb).short);
+    return auth({line: receipt.text, fig: fmtDay(clock.day), rest: clockParts.join('  ')});
+  }
   if(mb) return auth({line: mergeCopy(mb).short, fig: pc(mb.pAll), rest});
   if(!parts.length) return auth({line: '', fig: '', rest: ''});
   return auth({line: parts[0].text, fig: parts[0].fig, rest: parts.slice(1).map(p => p.text).join('  ')});
@@ -313,8 +336,9 @@ function renderNarrow(model, ctx, C, today, diff, edit = false, layout = null){
     : C.accent;
 
   /* shared time axis — the exact wide-path domain */
-  const lo0 = Math.min(...items.map(i => i.p50), today);
-  const hi0 = Math.max(...items.map(i => i.p90), today);
+  const lrmDays = items.map(i => decisionLead(i)?.day).filter(Number.isFinite);
+  const lo0 = Math.min(...items.map(i => i.p50), today, ...lrmDays);
+  const hi0 = Math.max(...items.map(i => i.p90), today, ...lrmDays);
   const ghostDays = diff ? [...diff.byKey.values()].map(g => g.oldP50) : [];
   const lo1 = Math.min(lo0, ...ghostDays), hi1 = Math.max(hi0, ...ghostDays);
   const padD = Math.max(14, Math.round((hi1 - lo1) * 0.05));
@@ -332,8 +356,9 @@ function renderNarrow(model, ctx, C, today, diff, edit = false, layout = null){
     for(const it of items.filter(i => i.lane === lane).sort((a, b) => a.p50 - b.p50)){
       const titleLines = wrapText(it.label + (showsPm(it) ? ' ±?' : ''),
         titleFont, plotW, measure);
-      laid.push({it, titleLines, top: y});
-      y += titleLines.length * TITLE_LH + DATES_LH + TRACK + ROWGAP;
+      const clockLine = it.leadDays ? leadSubline(it) : '';
+      laid.push({it, titleLines, clockLine, top: y});
+      y += titleLines.length * TITLE_LH + DATES_LH + (clockLine ? DATES_LH : 0) + TRACK + ROWGAP;
     }
     if(edit && lane){ laid.push({addLane: lane, top: y}); y += ADDH + LANEGAP; }
   }
@@ -417,16 +442,17 @@ function renderNarrow(model, ctx, C, today, diff, edit = false, layout = null){
     }
     if(row.addLane){ s.push(addCapsule(row.addLane, row.top)); continue; }
     if(row.addAll){ s.push(addCapsule('', row.top)); continue; }
-    const {it, titleLines, top} = row;
+    const {it, titleLines, clockLine, top} = row;
     const col = colorOf(it), k = keyOf(it);
     const ty = top + 13;
     const titleBottom = ty + (titleLines.length - 1) * TITLE_LH;
-    const subLines = wrapText(subOf(it), noteFont, plotW, measure);
+    const subLines = wrapText(baseSubOf(it), noteFont, plotW, measure);
     const subY = titleBottom + DATES_LH;
+    const clockY = subY + (clockLine ? DATES_LH : 0);
     /* the whisker track: a faint C.card band (so the whisker tint composites over
        C.card exactly as Ship 1 validated), with the month gridlines + the TODAY rule
        drawn INSIDE it — never across the label text above */
-    const cy = subY + 4 + TRACK / 2, tTop = cy - TRACK / 2, tBot = cy + TRACK / 2;
+    const cy = clockY + 4 + TRACK / 2, tTop = cy - TRACK / 2, tBot = cy + TRACK / 2;
     const x50 = X(it.p50), x90 = X(it.p90);
 
     /* EDIT: the whole row is one tap target — a data-menu cardmenu <g> with a ≥44px
@@ -467,6 +493,7 @@ function renderNarrow(model, ctx, C, today, diff, edit = false, layout = null){
       btnAttrs('Edit dates: ' + it.label) + '>');
     s.push(txt(PAD, subY, subLines[0] + (subLines.length > 1 ? '…' : ''), 11, C.muted));
     if(edit) s.push('</g>');
+    if(clockLine) s.push(txt(PAD, clockY, clockLine, 11, col, {weight:600, tracking:.25}));
 
     s.push('<rect x="' + plotX + '" y="' + tTop.toFixed(1) + '" width="' + plotW + '" height="' + TRACK +
       '" rx="0" fill="' + C.card + '" stroke="' + C.border + '"/>');
@@ -497,6 +524,14 @@ function renderNarrow(model, ctx, C, today, diff, edit = false, layout = null){
       (it === nextUp ? ' data-next=""' : '') +
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') + '"' +
         btnAttrs('Status: ' + it.label) : '')));
+    const clock = decisionLead(it, today);
+    if(clock && clock.day >= lo && clock.day <= hi){
+      const cx = X(clock.day);
+      s.push('<g data-lrm="" aria-label="' + esc(leadReceipt(it, today).text) + '"><title>' + esc(leadReceipt(it, today).text) + '</title>' +
+        '<line x1="' + cx.toFixed(1) + '" y1="' + cy.toFixed(1) + '" x2="' + x50.toFixed(1) +
+        '" y2="' + cy.toFixed(1) + '" stroke="' + col + '" stroke-width="1" stroke-dasharray="2 3"/>' +
+        diamond(cx, cy, 4.5, C.bg, col, ' data-ms="lrm"') + '</g>');
+    }
     if(ghost && ghost.slipDays)
       s.push(txt(x50 + msR + 4, cy - 4, (ghost.slipDays > 0 ? '+' : '−') + wk(ghost.slipDays), 11,
         ghost.slipDays > 0 ? C.err : C.status.done, {weight: 700, halo: C.card}));   // baseline inside the band
@@ -582,6 +617,11 @@ function renderSparse(model,ctx,C,diff,edit,layout){
     }
     s.push(decisionDiamond(x50,cy,6,col,C.card,' data-ms="p50" data-mskey="'+esc(keyOf(it))+'"'+
       (edit?' data-edit="status" data-line="'+it.srcLine+'" data-raw="'+(it.status||'')+'" tabindex="0" role="button"':'')));
+    const clock=decisionLead(it,layout.today);
+    if(clock){
+      const cx=X(clock.day), receipt=leadReceipt(it,layout.today).text;
+      s.push('<g data-lrm="" aria-label="'+esc(receipt)+'"><title>'+esc(receipt)+'</title><line x1="'+cx.toFixed(1)+'" y1="'+cy+'" x2="'+x50.toFixed(1)+'" y2="'+cy+'" stroke="'+col+'" stroke-dasharray="2 3"/><path data-ms="lrm" d="M'+cx.toFixed(1)+' '+(cy-5)+' L'+(cx+5).toFixed(1)+' '+cy+' L'+cx.toFixed(1)+' '+(cy+5)+' L'+(cx-5).toFixed(1)+' '+cy+' Z" fill="'+C.bg+'" stroke="'+col+'" stroke-width="1.5"/></g>');
+    }
   });
   if(edit)s.push(txt(W-PAD,verdictY,'＋ Add milestone',12.5,C.muted,{anchor:'end'}).replace('<text','<text data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button"'));
   s.push(vb.svg);
@@ -626,6 +666,11 @@ function renderPanels(model,ctx,C,layout,edit=false){
       if(!it.single&&x90-x50>1)s.push('<rect data-ms="whisker" x="'+x50.toFixed(1)+'" y="'+(cy-6)+'" width="'+(x90-x50).toFixed(1)+'" height="12" rx="6" fill="'+whiskerFill(col,!!ctx.dark)+'"/>');
       if(it.p50>=panel.start&&it.p50<=panel.end)s.push(decisionDiamond(x50,cy,5.5,col,C.card,' data-ms="p50"'+(edit?' data-edit="status" data-line="'+it.srcLine+'" data-raw="'+(it.status||'')+'" tabindex="0" role="button"':'')));
       if(!it.single&&it.p90>=panel.start&&it.p90<=panel.end)s.push(decisionDiamond(x90,cy,4.5,C.card,col,' data-ms="p90"'));
+      const clock=decisionLead(it,layout.today);
+      if(clock&&clock.day>=panel.start&&clock.day<=panel.end){
+        const cx=X(clock.day),receipt=leadReceipt(it,layout.today).text;
+        s.push('<g data-lrm="" aria-label="'+esc(receipt)+'"><title>'+esc(receipt)+'</title><path data-ms="lrm" d="M'+cx.toFixed(1)+' '+(cy-4.5)+' L'+(cx+4.5).toFixed(1)+' '+cy+' L'+cx.toFixed(1)+' '+(cy+4.5)+' L'+(cx-4.5).toFixed(1)+' '+cy+' Z" fill="'+C.bg+'" stroke="'+col+'" stroke-width="1.5"/>'+txt(cx,cy-10,'DECIDE BY',8.5,col,{anchor:'middle',weight:700,tracking:.35})+'</g>');
+      }
       s.push('</g>'); rowY+=entry.rowH;
     });
     s.push('</g>'); y+=ph+panelGap;
@@ -650,12 +695,21 @@ function renderPresentation(model,ctx,C,layout){
     s.push(txt(PAD+92,y+31,it.label,22,C.ink,{weight:700}));
     s.push(txt(PAD+92,y+61,(it.lane||'Unlaned')+' · '+(it.status||'planning')+' · '+entry.description,22,C.muted));
     s.push(decisionDiamond(W-PAD-44,y+42,9,col,C.card,' data-ms="p50"'));
+    const clock=decisionLead(it,layout.today);
+    if(clock){
+      const receipt=leadReceipt(it,layout.today).text;
+      s.push('<g data-lrm="" aria-label="'+esc(receipt)+'"><title>'+esc(receipt)+'</title>'+txt(W-PAD-74,y+68,'DECIDE BY '+fmtDay(clock.day),22,col,{anchor:'end',weight:700,tracking:.4})+'</g>');
+    }
     s.push('</g>');
   });
   const footerY=982;
   s.push('<line x1="'+PAD+'" y1="'+footerY+'" x2="'+(W-PAD)+'" y2="'+footerY+'" stroke="'+C.border+'"/>');
   s.push(txt(PAD,footerY+34,'SELECTION: '+layout.presentation.rule,22,C.muted,{weight:600}));
-  s.push(txt(W-PAD,footerY+34,layout.presentation.remainder?layout.presentation.remainder+' MORE IN NATIVE EXPORT':'COMPLETE SET',22,C.ink,{anchor:'end',weight:700}));
+  const remainder=layout.presentation.remainder;
+  const extra=layout.presentation.decisionClockRemainder;
+  s.push(txt(W-PAD,footerY+34,remainder
+    ? remainder+' MORE IN NATIVE EXPORT'+(extra?' · '+extra+' DECISION CLOCK'+(extra===1?'':'S'):'')
+    : 'COMPLETE SET',22,C.ink,{anchor:'end',weight:700}));
   return '<svg xmlns="http://www.w3.org/2000/svg" data-intent="presentation" data-mode="decision-cut" data-font-floor="'+layout.fontFloor+'" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="'+F.body+'">'+s.join('')+'</svg>';
 }
 
@@ -684,8 +738,9 @@ export function render(model, ctx, diff = null, {edit = false, intent = null} = 
   const vd = timelineVerdict(model, today);
 
   /* time domain: everything visible, today included */
-  const lo0 = items.length ? Math.min(...items.map(i => i.p50), today) : today - 30;
-  const hi0 = items.length ? Math.max(...items.map(i => i.p90), today) : today + 90;
+  const lrmDays = items.map(i => decisionLead(i)?.day).filter(Number.isFinite);
+  const lo0 = items.length ? Math.min(...items.map(i => i.p50), today, ...lrmDays) : today - 30;
+  const hi0 = items.length ? Math.max(...items.map(i => i.p90), today, ...lrmDays) : today + 90;
   const ghostDays = diff ? [...diff.byKey.values()].map(g => g.oldP50) : [];
   const lo1 = Math.min(lo0, ...ghostDays), hi1 = Math.max(hi0, ...ghostDays);
   const padD = Math.max(14, Math.round((hi1 - lo1) * 0.05));
@@ -878,6 +933,16 @@ export function render(model, ctx, diff = null, {edit = false, intent = null} = 
       (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + (it.status || '') +
         '" tabindex="0" role="button" aria-label="Cycle status: ' + esc(it.label) + '"' : '')));
 
+    const clock = decisionLead(it, today);
+    if(clock && clock.day >= lo && clock.day <= hi){
+      const cx = placed?.lrmX != null ? placed.lrmX * S : X(clock.day), receipt = leadReceipt(it, today).text;
+      s.push('<g data-lrm="" aria-label="' + esc(receipt) + '"><title>' + esc(receipt) + '</title>' +
+        '<line x1="' + cx.toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + x50.toFixed(1) +
+        '" y2="' + y.toFixed(1) + '" stroke="' + col + '" stroke-width="1" stroke-dasharray="2 3"/>' +
+        diamond(cx, y, r * .8, C.bg, col, ' data-ms="lrm"') +
+        txt(cx, y - 12 * S, 'DECIDE BY', 8.5 * S, col, {anchor:'middle',weight:700,tracking:.45}) + '</g>');
+    }
+
     const labelX = placed?placed.labelX*S:it._labelX;
     const anchorEnd=placed?placed.anchorEnd:it._anchorEnd;
     const ae = anchorEnd ? ' text-anchor="end"' : '';   // flip-left labels are right-anchored
@@ -957,10 +1022,11 @@ export function toMarkdown(model, diff, url, today){
   lines.push('| Milestone | Lane | P50 | P90 | |');
   lines.push('|---|---|---|---|---|');
   for(const it of model.items){
+    const clock = decisionLead(it, today);
     lines.push('| ' + it.label + ' | ' + (it.lane || '—') + ' | ' + fmtDay(it.p50) + ' | ' +
       (it.single ? (it.status === 'done' ? 'done' : it.status === 'fixed' ? 'fixed' : 'no range')
         : fmtDay(it.p90)) + ' | ' +
-      (it.status || '') + ' |');
+      ((it.status || '') + (clock ? ' · decide by ' + fmtDay(clock.day) + ' (' + leadDuration(clock.leadDays) + ' lead)' : '')) + ' |');
   }
   if(diff && diff.slips.length){
     lines.push('');

@@ -1,7 +1,7 @@
 /* Console + participant DOM wiring. All rendering/stats come from the pure modules. */
 import {sessionStats, markdownSummary, mergeFinal, delphiStats, countLabel, verdictOf, delphiVerdictOf} from './engine.js';
 import {resolveVerdict} from '../assets/verdict.js';   // `verdict:` — the console headline must agree with the artefact band
-import {fermiHandoff} from './handoff.js';
+import {fermiHandoff, fermiHandoffIssue} from './handoff.js';
 import {handoffHref, handoffMeta} from '../assets/handoff.js';
 import {renderForm, collectValues} from './render-form.js';
 import {renderOverlay} from './render-overlay.js';
@@ -227,7 +227,14 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
         delphiStats(model, responses, responses2));
     return responses ? fermiHandoff(model, sessionStats(model, responses)) : null;
   }
-  function refreshHandoff(){ $('tofermi').hidden = !currentHandoff(); }
+  function refreshHandoff(){
+    const h = currentHandoff();
+    $('tofermi').hidden = !h;
+    const note = fermiHandoffIssue(model);
+    $('fermiDraftNote').hidden = !(h || note);
+    $('fermiDraftNote').textContent = note ||
+      'A room range is an elicited assumption, not automatically a calibrated 90% belief. Fermi will ask you to restate or adopt every range before simulating.';
+  }
   $('tofermi').addEventListener('click', async () => {
     const h = currentHandoff();
     if(!h) return;

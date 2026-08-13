@@ -15,7 +15,7 @@ import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
-import {readHashState, writeHashState} from '../assets/series.js';
+import {encodeHash, readHashState, writeHashState} from '../assets/series.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion, motionStill} from "../assets/motion.js";
@@ -25,6 +25,8 @@ import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STA
 import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
+import {roadmapConditionalityHealth} from './handoff-paths.js';
+import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -233,13 +235,34 @@ function syncWhatIfChip(m){
   reset.addEventListener('click', resetWhatIf);
   chip.appendChild(reset);
 }
+/* A Roadmap can describe a local fork without carrying the question, evidence,
+   owner or due date that would make it a Paths decision. Keep that boundary
+   visible: the count is useful on its own, while the handoff action appears
+   only when the pure builder can make a lossless, explicitly incomplete
+   starter. */
+let pathsStarter = null;
+let pathsStarterRevision = 0;
+function syncConditionalityHealth(m){
+  const health = roadmapConditionalityHealth(m);
+  const host = $('conditionality');
+  pathsStarter = health.starter;
+  pathsStarterRevision++;
+  host.hidden = health.items === 0;
+  $('conditionalitymsg').textContent = health.message + (health.items && !pathsStarter
+    ? ' This needs a Paths plan, but this Roadmap cannot be converted automatically.' : '');
+  $('pathsstarter').hidden = !pathsStarter;
+}
 function renderWarnings(m){
   const warns = $('warns');
   warns.textContent = '';
   const breaches = wipBreaches(m);
-  for(const breach of breaches) m.warnings.push(breach);
-  if(breaches.length) m.warnings.push('(Raise or silence with wip: N / wip: off.)');
-  renderWarningList(warns, m.warnings);
+  /* WIP breaches are a view-layer advisory, not parser truth. Never append
+     them to `m.warnings`: the strict Paths starter reads the parsed model and
+     must not become unavailable merely because this rendering has run. */
+  const warnings = breaches.length
+    ? [...m.warnings, ...breaches, '(Raise or silence with wip: N / wip: off.)']
+    : m.warnings;
+  renderWarningList(warns, warnings);
 }
 /* export-style picker: active chip reflects the RESOLVED (export) style via
    effectiveStyle — a quarterly doc with no style: line shows Grid active, not
@@ -308,6 +331,7 @@ function doRefresh(){
   syncGroupPicker(model);
   syncHeadline(model);
   syncWhatIfChip(model);
+  syncConditionalityHealth(model);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -375,6 +399,26 @@ const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+});
+
+/* Fresh-document handoff: encode the starter with the target tool's ordinary
+   URL-state codec, then navigate. No source edit, export or background sync is
+   involved; Paths remains responsible for surfacing its completion warnings. */
+$('pathsstarter').addEventListener('click', async () => {
+  const starter = pathsStarter;
+  const revision = pathsStarterRevision;
+  if(!starter) return;
+  const button = $('pathsstarter');
+  button.disabled = true;
+  try{
+    const hash = await encodeHash({t:starter});
+    /* Text can change during async compression. Refuse a stale navigation;
+       the refreshed CTA represents the new eligible source. */
+    if(revision !== pathsStarterRevision || starter !== pathsStarter) return;
+    location.href = '/paths/#' + hash;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 /* Card menu rows: the static base plus a dynamic "Move to…" submenu listing
@@ -601,7 +645,7 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
   onCommit(kind, lineNo, oldRaw, newValue){
     handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
-      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:/i,
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s*:/i,
       getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
     });
   },
@@ -688,35 +732,12 @@ $('headline').addEventListener('keydown', e => { if(e.key === 'Enter') commitHea
    wireExports' literal 'Copy as markdown' revert — kept for the different flash copy. */
 $('copymd').addEventListener('click', async () => {
   if(!model || !model.items.length) return;
-  const lines = [];
-  if(model.title) lines.push('## ' + model.title, '');
-  /* the authored standfirst travels into the doc too (2026-07-31) — it reaches
-     all four picture exports, so the text one must not be the odd exception */
-  if(model.headline) lines.push('_' + model.headline + '_', '');
-  /* the diff narrative, only when a comparison is active — same rule the artefacts
-     follow, so the doc and the picture never disagree about what is on show */
-  if(model.story && makeDiff(model)) lines.push('> ' + model.story, '');
-  model.horizons.forEach((hName, h) => {
-    const inH = model.items.filter(i => i.h === h);
-    if(!inH.length) return;
-    lines.push('### ' + hName, '');
-    for(const lane of model.lanes){
-      const inLane = inH.filter(i => i.lane === lane);
-      for(const it of inLane){
-        let l = '- ' + (lane ? '**' + lane + ':** ' : '') + it.title;
-        if(it.status) l += ' _(' + STATUS_LABEL[it.status].toLowerCase() + ')_';
-        if(it.note) l += ' — ' + it.note;
-        lines.push(l);
-      }
-    }
-    lines.push('');
-  });
-  lines.push('_[Live roadmap](' + location.href + ')_');
+  const markdown = roadmapToMarkdown(model, {href: location.href, includeStory: !!makeDiff(model)});
   try{
-    await navigator.clipboard.writeText(lines.join('\n'));
+    await navigator.clipboard.writeText(markdown);
     $('copymd').textContent = 'Copied';
     setTimeout(() => { $('copymd').textContent = 'Copy as markdown'; }, 1500);
-  }catch(e){ prompt('Copy this:', lines.join('\n')); }
+  }catch(e){ prompt('Copy this:', markdown); }
 });
 
 /* ---------- snapshot wiring (shared) ---------- */
@@ -756,33 +777,8 @@ function renderSaved(){
 }
 
 /* ---------- markdown import ---------- */
-const STATUS_FROM_LABEL = {'done':'done','in progress':'doing','doing':'doing','at risk':'risk','risk':'risk','blocked':'blocked'};
 function mdToDsl(md){
-  const out = [];
-  for(const raw of md.split(/\r?\n/)){
-    const line = raw.trim();
-    if(!line) continue;
-    let m;
-    if((m = line.match(/^##\s+(.*)$/)) && !line.startsWith('###')){ out.unshift('title: ' + m[1].trim()); continue; }
-    if((m = line.match(/^###\s+(.*)$/))){ out.push('', m[1].trim()); continue; }
-    if((m = line.match(/^[-*]\s+(.*)$/))){
-      let item = m[1].trim();
-      let lane = '', status = '', note = '';
-      const laneM = item.match(/^\*\*(.+?):?\*\*:?\s+(.*)$/);
-      if(laneM){ lane = laneM[1].replace(/:$/, ''); item = laneM[2]; }
-      const stM = item.match(/_\(([^)]+)\)_/);
-      if(stM){
-        const st = STATUS_FROM_LABEL[stM[1].toLowerCase().trim()];
-        if(st) status = ' [' + st + ']';
-        item = item.replace(stM[0], '').trim();
-      }
-      const noteM = item.match(/^(.*?)\s+—\s+(.*)$/);
-      if(noteM){ item = noteM[1].trim(); note = ' -- ' + noteM[2].trim(); }
-      out.push((lane ? lane + ': ' : '') + item + status + note);
-      continue;
-    }
-  }
-  return out.join('\n');
+  return markdownToRoadmapDsl(md);
 }
 $('importgo').addEventListener('click', () => {
   const dsl = mdToDsl($('importarea').value);
@@ -1124,4 +1120,4 @@ watchNarrowBucket(previewEl, rerender);
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group', 'basis']);

@@ -427,6 +427,9 @@ test('case renderer escapes hostile titles/labels/notes/lanes', async () => {
     EVIL.map((e, i) => label(i) + ': ' + label(i + 1) + ' -> /fermi/#x // ' + label(i + 2)).join('\n') + '\n' +
     label(3) + ' -> https://evil.example/' + encodeURIComponent(EVIL[3]);
   const m = parse(doc);
+  m.exhibits[0].planning = {kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
+    basis:{source:EVIL[4], known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
+      assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]}};
   assertClean(render(m, ctx, {edit: true, live: true}), 'case');
   assertClean(render(m, {...ctx, width: 390}), 'case-narrow');
 });
@@ -477,7 +480,9 @@ test('fermi cashflow renderer stays clean (verdict text is numeric-only today �
 
 test('flow readout + triage renderers escape hostile lever labels (labels are hardcoded engine vocabulary today; hostile-ified here so future free text can\'t slip through)', async () => {
   const {simulate, wipSweep, kneeWip, leverTriage} = await import('../flow/engine.js');
-  const {renderReadout, renderTriage} = await import('../flow/render.js');
+  const {renderReadout, renderTriage, renderExpedite, renderDice} = await import('../flow/render.js');
+  const {expediteSensitivity} = await import('../flow/expedite.js');
+  const {diceGame} = await import('../flow/dice.js');
   const params = {demandPerWeek: 5, itemDays: 4, team: 3, wipLimit: 6, cov: 'high'};
   const result = simulate(params, {trace: true});
   const sweep = wipSweep(params);
@@ -486,6 +491,8 @@ test('flow readout + triage renderers escape hostile lever labels (labels are ha
   triage.levers = triage.levers.map((l, i) => ({...l, label: EVIL[i % EVIL.length] + ' — ' + l.label}));
   assertClean(renderReadout(result, sweep, knee, params, ctx), 'flow-readout');
   assertClean(renderTriage(triage, params, 40, ctx), 'flow-triage');
+  assertClean(renderExpedite(expediteSensitivity(params, {expeditePerWeek: 1}), ctx), 'flow-expedite');
+  assertClean(renderDice(diceGame({seed: 4}), ctx), 'flow-dice');
 });
 
 test('alarm renderers stay well-formed under extreme numeric params (no user strings here — the surface is degenerate params, not labels)', async () => {
@@ -532,6 +539,13 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
   assertClean(renderRegister(doc, exposure(doc.entries), new Date()), 'premortem-register');
   assertClean(renderBoard(doc, new Date()), 'premortem-board');
   assertClean(renderBoard(doc, new Date(), board[1].id), 'premortem-board-promoting');
+  const opportunity = {...newEntry(EVIL[1]), kind: 'opportunity', essential: true,
+    actions: [{text: EVIL[0], owner: EVIL[2], done: false, votes: 1}]};
+  const preParade = {...doc, mode: 'success', entries: [opportunity, ...board]};
+  for(const phase of ['FRAME', 'COLLECT', 'CLUSTER', 'SCORE', 'ACTIONS', 'VOTE'])
+    assertClean(renderPhase({...preParade, phase}), 'pre-parade-' + phase);
+  assertClean(renderRegister(preParade, exposure([]), new Date()), 'pre-parade-register');
+  assertClean(renderBoard(preParade, new Date(), board[1].id), 'pre-parade-board-promoting');
 });
 
 /* ---------- authored verdicts (2026-07-31, roadmap joined 2026-08-09) ----------

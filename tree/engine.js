@@ -16,9 +16,9 @@ const Z90 = 1.6448536;
 const COARSE = 30;
 
 export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
-  const warnings = [];
+  const warnings = [], noOutcome = new Map(), effectiveProbability = new Map();
   const policy = new Map(), stats = new Map();
-  if(!model.root) return {policy, stats, headToHead: [], flips: [], warnings};
+  if(!model.root) return {policy, stats, headToHead: [], flips: [], warnings, noOutcome, effectiveProbability};
 
   const rand = mulberry32(seed);
   const gauss = gaussian(rand);
@@ -45,13 +45,12 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
       p10: quantile(sorted, .1), p50: quantile(sorted, .5), p90: quantile(sorted, .9)};
   };
 
-  /* one-time probability sanity warning per chance node (midpoints) */
   (function warnSums(node){
     if(node.kind === 'chance'){
       const explicit = node.children.filter(c => c.p !== 'rest');
       const hasRest = node.children.some(c => c.p === 'rest');
       const s = explicit.reduce((a, c) => a + mid(c.p), 0);
-      if(!hasRest && Math.abs(s - 1) > 0.02){
+      if(!hasRest && Math.abs(s) >= 1e-12 && Math.abs(s - 1) > 0.02){
         warnings.push('"' + node.label + '": probabilities sum to ' + s.toFixed(2) + ' — normalised');
       } else if(hasRest && s > 1.001){
         warnings.push('"' + node.label + '": explicit probabilities sum to ' + s.toFixed(2) + ' before rest — normalised');
@@ -83,10 +82,10 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
         c.p === 'rest' ? null : sampleArr(c.p));
       arr = own;
       const restIdx = node.children.findIndex(c => c.p === 'rest');
-      /* scratch buffer for the per-sim probability vector, hoisted out of the
-         sims loop (same math, no per-sim array/closure allocation) */
       const nKids = node.children.length;
       const ps = new Float64Array(nKids);
+      const probabilityTotals = new Float64Array(nKids);
+      let zeroTotal = 0;
       for(let s = 0; s < sims; s++){
         let sum = 0;
         for(let i = 0; i < nKids; i++){
@@ -100,10 +99,22 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
           ps[restIdx] = 1 - sum;
         } else if(sum > 0){
           for(let i = 0; i < nKids; i++) ps[i] /= sum;
+        } else {
+          zeroTotal++;
         }
         let total = 0;
-        for(let i = 0; i < nKids; i++) total += ps[i] * childArrs[i][s];
+        for(let i = 0; i < nKids; i++){
+          probabilityTotals[i] += ps[i];
+          total += ps[i] * childArrs[i][s];
+        }
         arr[s] += total;
+      }
+      for(let i = 0; i < nKids; i++) effectiveProbability.set(node.children[i], probabilityTotals[i] / sims);
+      if(zeroTotal){
+        noOutcome.set(node, zeroTotal);
+        const pct = (zeroTotal * 100 / sims).toFixed(1).replace(/\.0$/, '');
+        warnings.push('"' + node.label + '": no outcome contributed in ' + zeroTotal + ' of ' +
+          sims + ' sampled worlds (' + pct + '%) because effective probabilities totalled zero');
       }
     }
     stats.set(node, statsOf(arr));
@@ -112,7 +123,6 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
   }
   evalArr(model.root);
 
-  /* head-to-head: root decision options, paired parameter draws */
   const headToHead = [];
   if(model.root.kind === 'decision'){
     const kids = model.root.children;
@@ -121,15 +131,12 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
         const A = kids[i]._arr, B = kids[j]._arr;
         let wins = 0;
         for(let s = 0; s < sims; s++) wins += A[s] > B[s] ? 1 : (A[s] === B[s] ? 0.5 : 0);
-        headToHead.push({a: kids[i].label, b: kids[j].label, aShare: wins / sims});
+        headToHead.push({a: kids[i].label, b: kids[j].label, aNode:kids[i], bNode:kids[j], aShare: wins / sims});
       }
     }
   }
 
-  /* drop the per-sim arrays now head-to-head has used them */
   (function scrub(node){ delete node._arr; node.children.forEach(scrub); })(model.root);
-
-  /* deterministic midpoint rollback is now the pure export evalDet(model, ...) below (B0). */
 
   const flips = [];
   if(model.root.kind === 'decision' && model.root.children.length > 1){
@@ -178,7 +185,7 @@ export function evaluate(model, {sims = 10000, seed = 0x5EED} = {}){
     })(model.root);
   }
 
-  return {policy, stats, headToHead, flips, warnings};
+  return {policy, stats, headToHead, flips, warnings, noOutcome, effectiveProbability};
 }
 
 /* Deterministic midpoint rollback with optional per-node parameter OVERRIDES — the pure primitive

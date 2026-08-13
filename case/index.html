@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Case file — one link holds the decision</title>
-<meta name="description" content="A decision spans tools: the model, the tree, the timeline, the premortem. The case file binds them — paste each tool's URL as an exhibit, and one link carries the whole kit behind a cover page.">
+<title>Case file — one link holds the decision evidence</title>
+<meta name="description" content="Bind the models, decision plans, delivery projections, forecasts and risks behind one decision — without pretending they make the same claim.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂️</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
@@ -28,7 +28,7 @@
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Case file</h1>
-    <p class="tagline">A real decision scatters across tools — the model in one URL, the timeline in another, the premortem in a third. Paste those URLs here as exhibits and one link holds the whole case behind a cover page: the question, the kit, and the verdict when you reach it.</p>
+    <p class="tagline">A real decision scatters across models, decision plans, delivery projections, forecasts and risks. Paste those tool URLs here as exhibits. Case keeps each claim distinct, then gives the whole argument one cover, one verdict and one link.</p>
   </header>
 </div>
 
@@ -46,8 +46,10 @@
           <dd>an exhibit: a label, then <code>-></code>, then a tool URL pasted from the address bar</dd>
           <dt><code data-try="">Money: Board options -> /tree/#def</code></dt>
           <dd>a lane prefix groups exhibits — Money, Delivery, Risk, anything</dd>
-          <dt><code data-try="">Plan of record -> /timeline/#ghi // P50–P90 dates</code></dt>
+          <dt><code data-try="">Timing forecast -> /timeline/#ghi // P50–P90 dates</code></dt>
           <dd>a <code>// note</code> says why the exhibit matters</dd>
+          <dt><code data-try="">Decision: Outcome plan -> /paths/#abc</code></dt>
+          <dd>planning URLs identify their claim: Paths shows all outcomes; Roadmap shows delivery work (and a known/assumed receipt when it is a Paths projection); Timeline forecasts timing ranges</dd>
         </dl>
         <h4>The cover</h4>
         <dl>
@@ -77,7 +79,7 @@
             <button class="btn" id="dlsvg">SVG</button>
           </div>
         </details>
-        <span class="method">Work in the tools, paste each URL here as an exhibit · exhibit rows open their tool live · the URL carries the whole case</span>
+        <span class="method">Work in the tools, paste each URL here · planning rows state what they claim · exhibit rows open only when you choose them · the URL carries the whole case</span>
       </div>
     </section>
 </div>
@@ -86,9 +88,9 @@
   <section class="about">
     <h2>Why a binder, and why one URL?</h2>
     <div class="prose">
-    <p>Every tool on this site keeps its whole state in its URL — a fermi model, a decision tree, a delivery timeline, each one a bookmarkable claim. That's the superpower, and its cost: a real decision uses four of them, and they scatter across chat threads and documents until nobody can find the version that mattered. The case file composes what the URLs already carry.</p>
-    <p>Assembly is deliberately manual: do the work in the member tools, then paste each URL here as an exhibit line with a label, a lane and a note saying why it matters. The cover renders as you type — the question as the standfirst, the exhibits as a register grouped by lane, and the verdict once you commit to one. A case never computes its verdict; the exhibits argue, you decide, and the cover states it.</p>
-    <p>The case's own URL then carries the whole kit — one link for the board pack, the handover, the retro six months later. Exhibit rows are live links, so the reader lands on the actual model, not a screenshot of it. Exports keep the register but leave the URLs in the document, where links belong.</p>
+    <p>Every tool on this site keeps its state in its URL — a model, a decision plan, a delivery roadmap, a timing forecast. Each is a bookmarkable claim, but they are not interchangeable. Paths describes the outcomes still in play. Roadmap distinguishes commitment from shaped work; when it is projected from Paths, Case shows the exact known and assumed basis. Timeline forecasts when work may land.</p>
+    <p>Assembly is deliberately manual: do the work in the member tools, then paste each URL here with a label, lane and note saying why it matters. Case recognizes canonical Paths, Roadmap and Timeline URLs locally; it never fetches them, merges their models or changes their state. Unreadable or unsafe URLs earn no inferred context.</p>
+    <p>The cover renders the question, a claim-labelled exhibit register and the verdict once you commit to one. A case never computes that verdict: the exhibits argue, you decide, and the cover states it. The case URL then carries the whole kit for a board pack, handover or later retro; readers open an exhibit only when they choose its row.</p>
     </div>
   </section>
 </div>

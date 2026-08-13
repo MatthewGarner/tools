@@ -19,7 +19,7 @@
    plot to the width and wraps the legend — mirrors render.js's split. */
 import {esc, txt} from '../assets/svg.js';
 import {PALETTES, niceTicks} from '../assets/series.js';
-import {measuredLines, quadrantDensity, sourceBets} from './layout.js';
+import {conditionReadings, measuredLines, quadrantDensity, sourceBets} from './layout.js';
 
 const WIDE = 960;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -30,10 +30,29 @@ const sgn = v => (v < 0 ? MINUS : '+') + Math.round(Math.abs(v));
 const axisNum = v => Math.abs(v) < 1e-9 ? '0' : sgn(v);
 const rng = r => !r ? '—' : r[0] === r[1] ? num(r[0]) : num(r[0]) + '–' + num(r[1]);
 const pct = r => !r ? '—' : r[0] === r[1] ? r[0] + '%' : r[0] + '–' + r[1] + '%';
-const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: []};
+const recOf = (sim, b) => sim.bets.get(b.srcLine) || {ev: {p10: 0, p50: 0, p90: 0}, audits: [], scoreable: false};
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
 const oddsOf = b => b.odds || [0, 0];
 const payoffOf = b => b.payoff || [0, 0];
+const lossPct = pf => pf ? Math.round((pf.pLoss || 0) * 100) : null;
+
+function conditionReceipt(readings, x0, y0, width, c, narrow){
+  const gap = narrow ? 8 : 10, cardW = (width - gap) / 2, h = narrow ? 86 : 72;
+  const parts = [];
+  [readings.baseline, readings.stress].forEach((item, i) => {
+    const x = x0 + i * (cardW + gap), pf = item.result, pl = lossPct(pf);
+    parts.push('<rect data-condition="' + item.key + '" x="' + r2(x) + '" y="' + y0 + '" width="' + r2(cardW) +
+      '" height="' + h + '" fill="' + c.card + '" stroke="' + c.border + '"/>');
+    parts.push(txt(x + 9, y0 + 17, item.label.toUpperCase(), narrow ? 8.5 : 8.2, c.muted,
+      {weight: 700, tracking: '0.035em'}));
+    parts.push(txt(x + 9, y0 + 39, pl == null ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + pl + '%', narrow ? 11 : 12.5,
+      pl != null && pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true}));
+    parts.push(txt(x + 9, y0 + 57, pf ? 'MEDIAN OUTCOME ' + sgn(pf.p50) + ' · ' + sgn(pf.p10) + '–' + sgn(pf.p90) : 'ADD SCOREABLE BETS',
+      narrow ? 8.2 : 8.6, c.ink, {weight: 600, mono: true}));
+    if(narrow) parts.push(txt(x + 9, y0 + 75, i ? 'Whole portfolio moves together' : 'Each bet resolves on its own', 8.5, c.muted));
+  });
+  return {parts, height: h};
+}
 
 /* lane hues: the shared, contrast-validated ramp — cycled, never invented.
    `dark` defaults false (bets/app.js doesn't thread a theme flag into the
@@ -48,7 +67,9 @@ export function renderQuadrant(model, sim, ctx = {}){
 /* shared prep: flat bet list w/ lane index, portfolio EV domain (always ⊇ 0,
    padded — mirrors render.js's prep so both views agree on scale logic). */
 export function prep(model, sim){
-  const flat = sourceBets(model, sim).map(record => ({...record, gi: record.groupIndex}));
+  const records = sourceBets(model, sim).map(record => ({...record, gi: record.groupIndex}));
+  const flat = records.filter(record => record.rec.scoreable !== false);
+  const unscored = records.filter(record => record.rec.scoreable === false);
   let elo = 0, ehi = 1, maxStake = 0, totalStake = 0;
   for(const {b} of flat){
     const e = recOf(sim, b).ev;
@@ -58,7 +79,8 @@ export function prep(model, sim){
     totalStake += sm;
   }
   const epad = (ehi - elo) * 0.08 || 1;
-  return {flat, elo: elo - epad, ehi: ehi + epad, maxStake: maxStake || 1, totalStake, pf: sim.portfolio};
+  return {flat, unscored, elo: elo - epad, ehi: ehi + epad, maxStake: maxStake || 1, totalStake,
+    pf: sim.portfolio, conditions: conditionReadings(sim)};
 }
 
 const microFor = b => num(stakeMid(b)) + ' @ ' + pct(oddsOf(b)) + ' → pays ' + rng(payoffOf(b));
@@ -242,20 +264,28 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   parts.push('<rect data-zone="loss" x="' + r2(plotX0) + '" y="' + r2(sy(0)) + '" width="' + r2(plotX1 - plotX0) +
     '" height="' + r2(plotY1 - sy(0)) + '" fill="' + c.err + '" fill-opacity="0.055"/>');
 
-  // certainty zone (odds >= 90%): the ODDS IMPLY CERTAINTY audit, as a place
+  // certainty zones exactly mirror ODDS IMPLY CERTAINTY: high bound <=10 OR low bound >=90
+  const zx1 = sx(10);
   const zx0 = sx(90);
+  parts.push('<rect data-zone="certainty-low" x="' + r2(plotX0) + '" y="' + r2(plotY0) + '" width="' + r2(zx1 - plotX0) +
+    '" height="' + r2(plotY1 - plotY0) + '" fill="' + c.muted + '" fill-opacity="0.05"/>');
   parts.push('<rect data-zone="certainty" x="' + r2(zx0) + '" y="' + r2(plotY0) + '" width="' + r2(plotX1 - zx0) +
     '" height="' + r2(plotY1 - plotY0) + '" fill="' + c.muted + '" fill-opacity="0.05"/>');
   parts.push('<line x1="' + r2(zx0) + '" y1="' + r2(plotY0) + '" x2="' + r2(zx0) + '" y2="' + r2(plotY1) +
+    '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.7"/>');
+  parts.push('<line x1="' + r2(zx1) + '" y1="' + r2(plotY0) + '" x2="' + r2(zx1) + '" y2="' + r2(plotY1) +
     '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.7"/>');
   /* label sits in the top MARGIN of the plot box, not vertically centred in
      the zone strip — a bet that actually triggers "odds >= 90%" lands its
      bubble right in this column, so a full-height label would run straight
      through it. Right-anchored near the top keeps it clear of the typical
      bubble band and still reads as "about" the right-hand zone. */
-  const capText = 'CERTAINTY ZONE — ODDS ≥ 90%';
+  const capText = 'IMPLIED CERTAINTY — LOW ≥ 90%';
+  const lowCapText = 'HIGH ≤ 10%';
   parts.push(txt(plotX1 - 6, plotY0 + tickSize + 6, capText, tickSize, c.muted,
     {weight: 700, anchor: 'end', tracking: '0.06em', halo: c.card}));
+  parts.push(txt(plotX0 + 6, plotY0 + tickSize + 6, lowCapText, tickSize, c.muted,
+    {weight: 700, anchor: 'start', tracking: '0.06em', halo: c.card}));
 
   // y gridlines + ticks (0 is always in-domain by construction — drawn prominent)
   for(const t of niceTicks(elo, ehi)){
@@ -278,7 +308,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   {
     const ax = plotX0 - 8 - 30, ay = (plotY0 + plotY1) / 2;
     parts.push('<g transform="rotate(-90 ' + r2(ax) + ' ' + r2(ay) + ')">' +
-      txt(ax, ay, 'NET EV' + (unit ? ', ' + unit.toUpperCase() : ''), axisTitleSize, c.muted,
+      txt(ax, ay, 'P50 EV' + (unit ? ', ' + unit.toUpperCase() : ''), axisTitleSize, c.muted,
         {weight: 700, anchor: 'middle', tracking: '0.1em'}) + '</g>');
   }
 
@@ -301,6 +331,8 @@ function plotAndLegend(model, sim, c, measure, P, geo){
   const capFont = '700 ' + tickSize + 'px ' + SANS;
   const capW = measure(capText, capFont) + 8;
   const captionBox = {x: plotX1 - 6 - capW, y: plotY0 + 4, w: capW, h: tickSize + 6};
+  const lowCapW = measure(lowCapText, capFont) + 8;
+  const lowCaptionBox = {x: plotX0 + 2, y: plotY0 + 4, w: lowCapW, h: tickSize + 6};
   const bounds = {x0: Math.max(2, plotX0 - (padX || 0)), x1: plotX1 + (padX || 0),
     y0: Math.max(2, plotY0 - (padTop || 0)), y1: plotY1};
   let keyBottom = 0;
@@ -324,7 +356,7 @@ function plotAndLegend(model, sim, c, measure, P, geo){
     }
     keyBottom = K.y0 + K.height;
   } else {
-    const placed = geo.placed || placeLabels(items, {bounds, measure, nameSize, microSize, gap: 6, avoid: [captionBox]});
+    const placed = geo.placed || placeLabels(items, {bounds, measure, nameSize, microSize, gap: 6, avoid: [captionBox, lowCaptionBox]});
     for(const p of placed){
       const tx = p.anchor === 'start' ? p.box.x : p.anchor === 'end' ? p.box.x + p.box.w : p.box.x + p.box.w / 2;
       if(p.leader){
@@ -372,9 +404,14 @@ function directPlacement(P, sim, geo, measure){
   const items = layoutBubbles(P, sim, geo).map((item, i) => ({...item, nameLines: lines[i]}));
   const bounds = {x0: Math.max(2, geo.plotX0 - (geo.padX || 0)), x1: geo.plotX1 + (geo.padX || 0),
     y0: Math.max(2, geo.plotY0 - (geo.padTop || 0)), y1: geo.plotY1};
-  const capText = 'CERTAINTY ZONE — ODDS ≥ 90%';
+  const capText = 'IMPLIED CERTAINTY — LOW ≥ 90%';
   const capW = measure(capText, '700 ' + geo.tickSize + 'px ' + SANS) + 8;
-  const avoid = [{x: geo.plotX1 - 6 - capW, y: geo.plotY0 + 4, w: capW, h: geo.tickSize + 6}];
+  const lowCapText = 'HIGH ≤ 10%';
+  const lowCapW = measure(lowCapText, '700 ' + geo.tickSize + 'px ' + SANS) + 8;
+  const avoid = [
+    {x: geo.plotX1 - 6 - capW, y: geo.plotY0 + 4, w: capW, h: geo.tickSize + 6},
+    {x: geo.plotX0 + 2, y: geo.plotY0 + 4, w: lowCapW, h: geo.tickSize + 6},
+  ];
   const placed = placeLabels(items, {bounds, measure, nameSize: geo.nameSize, microSize: geo.microSize, gap: 6, avoid});
   return labelsAreClear(placed, bounds, avoid) ? placed : null;
 }
@@ -384,7 +421,7 @@ function renderWide(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
   const dark = !!ctx.dark;
   const P = prep(model, sim);
-  const pl = Math.round((P.pf.pLoss || 0) * 100);
+  const pl = lossPct(P.pf);
   const nameOnly = P.flat.length > NAME_ONLY_THRESHOLD;
   const parts = [];
   const right = 930;
@@ -393,10 +430,18 @@ function renderWide(model, sim, ctx){
       esc(model.title || 'Bets board') + '</text>');
   parts.push(txt(30, 74, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
     10, c.muted, {mono: true, tracking: '0.05em'}));
-  parts.push(txt(right, 50, 'P(LOSES MONEY) ' + pl + '%', 17, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true, anchor: 'end'}));
-  parts.push(txt(right, 72, 'NET EV ' + sgn(P.pf.p50) + ' · P10 ' + sgn(P.pf.p10) + ' · P90 ' + sgn(P.pf.p90), 10, c.muted, {mono: true, anchor: 'end'}));
+  const receipt = conditionReceipt(P.conditions, 460, 16, right - 460, c, false);
+  parts.push(...receipt.parts);
 
-  const panelTop = 90;
+  let panelTop = 102;
+  if(P.unscored.length){
+    const copy = 'NOT SCORED · ' + P.unscored.map(record => record.id + ' ' + record.b.name).join(', ');
+    for(const line of measuredLines(copy, '700 9px ' + SANS, right - 60, measure)){
+      parts.push(txt(30, panelTop + 12, line, 9, c.err, {weight: 700, tracking: '0.03em'}));
+      panelTop += 13;
+    }
+    panelTop += 5;
+  }
   let geo = {plotX0: 92, plotY0: panelTop + 22, plotX1: right - 4, plotY1: panelTop + 22 + 400,
     dark, rMin: 10, rMax: 30, nameSize: 12.5, microSize: nameOnly ? null : 10, tickSize: 9.5, axisTitleSize: 10.5,
     legendSize: 9.5, unit: model.unit, padX: 16, padTop: 16};
@@ -412,11 +457,16 @@ function renderWide(model, sim, ctx){
   parts.push('<rect x="16" y="' + panelTop + '" width="' + (WIDE - 32) + '" height="' + (panelBot - panelTop) +
     '" rx="0" fill="' + c.card + '" stroke="' + c.border + '" stroke-width="1"/>');
   parts.push(...body);
-  parts.push(txt(30, panelBot + 22, 'RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS · BUBBLE AREA ∝ STAKE · BETS ASSUMED INDEPENDENT', 9, c.muted, {tracking: '0.04em'}));
+  parts.push(txt(30, panelBot + 22, 'PER-BET P50 EV · BOTH PORTFOLIO CONDITIONS SHOWN · RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 9, c.muted, {tracking: '0.04em'}));
   parts.push(txt(right, panelBot + 22, 'ALL FIGURES ' + (model.unit || '').toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
 
   const H = panelBot + 40;
-  return svgShell(WIDE, H, c, parts.join(''), false);
+  const stress = P.conditions.stress.result;
+  return svgShell(WIDE, H, c, parts.join(''), false,
+    model.title || 'Bets quadrant',
+    'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? pl + '% lose money, median outcome ' + sgn(P.pf.p50) : 'not available') + '. ' +
+      P.conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') +
+      '. The horizontal axis is odds of success; the vertical axis is per-bet P50 expected value. Implied-certainty zones cover odds ranges wholly at or below 10%, or wholly at or above 90%.');
 }
 
 /* ---------------- NARROW: square-ish plot fit to the width ---------------- */
@@ -425,20 +475,29 @@ function renderNarrow(model, sim, ctx){
   const dark = !!ctx.dark;
   const W = Math.max(300, Math.round(ctx.width)), pad = 16;
   const P = prep(model, sim);
-  const pl = Math.round((P.pf.pLoss || 0) * 100);
+  const pl = lossPct(P.pf);
   const parts = [];
   let y = 30;
   parts.push('<text x="' + pad + '" y="' + y + '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" fill="' + c.ink + '">' +
     esc(model.title || 'Bets board') + '</text>');
   y += 22;
-  parts.push(txt(pad, y, 'P(LOSES MONEY) ' + pl + '%', 15, pl >= 50 ? c.err : c.accentInk, {weight: 700, mono: true})); y += 18;
-  parts.push(txt(pad, y, 'NET EV ' + sgn(P.pf.p50) + ' [' + sgn(P.pf.p10) + ' – ' + sgn(P.pf.p90) + '] ' + (model.unit || ''), 11.5, c.muted, {mono: true})); y += 16;
-  parts.push(txt(pad, y, P.flat.length + ' bets · ' + model.groups.length + ' lanes · stake ' + num(P.totalStake), 11, c.muted)); y += 18;
+  parts.push(txt(pad, y, P.flat.length + ' bets · ' + model.groups.length + ' lanes · stake ' + num(P.totalStake), 11, c.muted)); y += 12;
+  const receipt = conditionReceipt(P.conditions, pad, y, W - pad * 2, c, true);
+  parts.push(...receipt.parts); y += receipt.height + 12;
+  if(P.unscored.length){
+    const copy = 'NOT SCORED · ' + P.unscored.map(record => record.id + ' ' + record.b.name).join(', ');
+    for(const line of measuredLines(copy, '700 9px ' + SANS, W - pad * 2, measure)){
+      parts.push(txt(pad, y, line, 9, c.err, {weight: 700})); y += 13;
+    }
+    y += 4;
+  }
 
   const plotX0 = pad + 40, plotX1 = W - pad - 4, plotW = plotX1 - plotX0;
   const plotY0 = y + 4, plotY1 = plotY0 + plotW;   // square-ish: height ≈ width
   const geo = {plotX0, plotY0, plotX1, plotY1, dark, rMin: 6, rMax: 16, nameSize: 11, microSize: null,
-    tickSize: 8.5, axisTitleSize: 9, legendSize: 8.5, unit: model.unit, padX: 10, padTop: 8};
+    // The narrow surface can be scaled a little by the workspace chrome; keep
+    // its smallest authored labels above the 8px displayed legibility floor.
+    tickSize: 9, axisTitleSize: 9.5, legendSize: 9, unit: model.unit, padX: 10, padTop: 8};
   const density = quadrantDensity(P.flat.length);
   const placed = density === 'keyed' ? null : directPlacement(P, sim, geo, measure);
   if(!placed) geo.key = makeKey(P, geo, measure, pad, W - pad, plotY1 + 42);
@@ -446,11 +505,16 @@ function renderNarrow(model, sim, ctx){
   const {parts: body, bottomY} = plotAndLegend(model, sim, c, measure, P, geo);
   parts.push(...body);
   parts.push('<rect data-narrow="" width="0" height="0" fill="none"/>');
-  return svgShell(W, bottomY + 20, c, parts.join(''), true);
+  const stress = P.conditions.stress.result;
+  return svgShell(W, bottomY + 20, c, parts.join(''), true,
+    model.title || 'Bets quadrant',
+    'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? pl + '% lose money, median outcome ' + sgn(P.pf.p50) : 'not available') + '. ' +
+      P.conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') + '.');
 }
 
-function svgShell(W, H, c, inner, narrow){
+function svgShell(W, H, c, inner, narrow, title = 'Bets quadrant', desc = 'A risk-return view of explicit portfolio bets.'){
   H = Math.ceil(H);
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
-    '" font-family="' + SANS + '"><rect width="' + W + '" height="' + H + '" fill="' + c.bg + '"/>' + inner + '</svg>';
+    '" font-family="' + SANS + '" role="img" aria-labelledby="bets-quadrant-title bets-quadrant-desc"><title id="bets-quadrant-title">' +
+    esc(title) + '</title><desc id="bets-quadrant-desc">' + esc(desc) + '</desc><rect width="' + W + '" height="' + H + '" fill="' + c.bg + '"/>' + inner + '</svg>';
 }

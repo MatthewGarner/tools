@@ -2,11 +2,11 @@
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
    with edit-in-place + the coarse-pointer card menu. */
 import {parse} from './parse.js';
-import {simulate, verdictParts, markdown} from './engine.js';
+import {simulate, markdown} from './engine.js';
 import {renderBoard} from './render.js';
 import {renderQuadrant} from './render-quadrant.js';
 import {renderBetsPresentation} from './render-presentation.js';
-import {betsDiff, betsDiffView} from './diff.js';
+import {betsDiff, betsDiffView, comparisonSafety} from './diff.js';
 import {createEditor} from './editor.js';
 import {kinds, rewriteStake, rewriteOdds, rewritePayoff, rewriteKill,
   renameBet, removeBet, addBetLine, addGroupLine,
@@ -74,6 +74,7 @@ const prevSimCache = new WeakMap();
 function currentCompare(){
   const cur = snaps && snaps.current();
   if(!cur || !hasBets(model)) return null;
+  if(!comparisonSafety(cur.model, model).safe) return null;
   if(!prevSimCache.has(cur.model)) prevSimCache.set(cur.model, simulate(cur.model));
   const diffView = betsDiffView(betsDiff(cur.model, model), cur.label);
   return {...diffView, prevSim: prevSimCache.get(cur.model)};
@@ -86,12 +87,27 @@ function findBet(m, srcLine){
 function auditCounts(s){
   const counts = {kill: 0, certainty: 0, loses: 0, flagged: 0};
   for(const rec of s.bets.values()){
+    if(rec.scoreable === false) continue;
     if(rec.audits.includes('NO KILL CRITERION')) counts.kill++;
     if(rec.audits.includes('ODDS IMPLY CERTAINTY')) counts.certainty++;
     if(rec.audits.includes('LOSES AT P50')) counts.loses++;
     if(rec.audits.length) counts.flagged++;
   }
   return counts;
+}
+function pairedVerdict(s){
+  const independent = s.scenarios ? s.scenarios.independent : s.portfolio;
+  const shared = s.scenarios && s.scenarios.shared;
+  if(!independent) return {line: 'Portfolio outcomes are unavailable until at least one bet has valid stake, odds and payoff.', fig: 'NOT SCORED'};
+  const ip = Math.round(independent.pLoss * 100);
+  const sp = shared ? Math.round(shared.pLoss * 100) : null;
+  const signed = n => (n < 0 ? '−' : '+') + Math.round(Math.abs(n));
+  if(!shared) return {line: 'Independent baseline loses money ' + ip + '% of the time; shared-outcome stress is unavailable.', fig: ip + '%'};
+  return {
+    line: 'Independent baseline loses money ' + ip + '% of the time; shared outcomes, ' + sp + '%. Median outcomes ' +
+      signed(independent.p50) + ' and ' + signed(shared.p50) + '.',
+    fig: ip + '% → ' + sp + '%',
+  };
 }
 /* width-aware: the live preview re-lays-out below 520px (narrowWidth's
    built-in threshold, shared by both views); native exports render the wide
@@ -131,7 +147,7 @@ function doRefresh(){
     paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
     lastSvg = svg; flipMode = undefined;
     const counts = auditCounts(sim);
-    const v = verdictParts(sim.portfolio, counts);
+    const v = pairedVerdict(sim);
     paintVerdict($('verdict'), v.line, v.fig);
     /* the same four facts the board's own strap prints, above the artefact */
     paintMetrics($('metrics'), model.title || 'Bets board', [
@@ -140,7 +156,13 @@ function doRefresh(){
       counts.flagged + ' flagged',
     ]);
   }
-  renderWarningList($('warns'), model.warnings);
+  const warnings = model.warnings.slice();
+  const selectedSnapshot = snaps && snaps.current();
+  if(selectedSnapshot){
+    const safety = comparisonSafety(selectedSnapshot.model, model);
+    if(!safety.safe) warnings.push({line: safety.line, msg: safety.warning});
+  }
+  renderWarningList($('warns'), warnings);
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('bets-src', text); }catch(e){}
   clearTimeout(hashTimer);

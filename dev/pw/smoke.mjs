@@ -424,6 +424,36 @@ for(const theme of ['light', 'dark']){
   check('premortem(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
+/* ---- pre-parade: inverse planning without invented success arithmetic ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/premortem/', theme);
+  await page.waitForTimeout(350);
+  await page.reload(); await page.waitForTimeout(250);
+  await page.click('#newparade'); await page.waitForTimeout(120);
+  await page.fill('[data-field="title"]', 'Habitat breakthrough');
+  await page.fill('[data-field="question"]', 'It is a runaway success. What did we do?');
+  await page.click('#next'); await page.waitForTimeout(100);
+  await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(100);
+  await page.fill('[data-add="entry"]', 'Keep the old onboarding reversible');
+  await page.press('[data-add="entry"]', 'Enter'); await page.waitForTimeout(100);
+  await page.click('#next'); await page.waitForTimeout(80); // cluster
+  await page.click('#next'); await page.waitForTimeout(80); // commit
+  check('pre-parade(' + theme + '): commits conditions rather than scoring likelihood or impact',
+    await page.locator('[data-essential]').count() === 1 && await page.locator('[data-p]').count() === 0 && await page.locator('[data-impact]').count() === 0);
+  check('pre-parade(' + theme + '): cannot advance without an explicit must-make-true condition', await page.locator('#next').isDisabled());
+  await page.check('[data-essential]'); await page.waitForTimeout(80);
+  await page.click('#next'); await page.waitForTimeout(80); // actions
+  await page.click('[data-actadd]'); await page.waitForTimeout(80);
+  await page.fill('[data-action="text"]', 'Run an A/B cutover');
+  await page.fill('[data-action="owner"]', 'Alex');
+  await page.click('#next'); await page.waitForTimeout(80); // vote
+  await page.click('#next'); await page.waitForTimeout(160); // register
+  const text = await page.locator('#phasepanel').innerText();
+  check('pre-parade(' + theme + '): success register names deliberate commitments, not a portfolio forecast',
+    text.toLowerCase().includes('success register') && text.toLowerCase().includes('must make true') && !text.includes('Portfolio exposure'));
+  check('pre-parade(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
 /* ---- premortem FAB board (Stage 2): three columns, promote → register ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/premortem/', theme);
@@ -618,6 +648,40 @@ for(const theme of ['light', 'dark']){
     return await page.locator('.histwrap').isVisible() && !(await page.locator('#driverwrap').isVisible());
   })());
   check('fermi(' + theme + '): driver svg decodes as an image', await svgDecodes(page, '#driverwrap svg'));
+  check('fermi(' + theme + '): input provenance survives hash reload and reaches the driver tree', await (async () => {
+    await page.locator('#modeest').click();
+    await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click();
+    await page.waitForTimeout(450);
+    const sources = page.locator('.vsource');
+    await sources.nth(0).selectOption('snapshot');
+    await sources.nth(1).selectOption('person');
+    await page.waitForTimeout(550);
+    const hash = await page.evaluate(() => location.hash);
+    await page.goto(BASE + '/fermi/?smoke=provenance' + hash, {waitUntil: 'networkidle'});
+    await page.waitForTimeout(500);
+    await page.locator('#viewtree').click();
+    const text = await page.locator('#driverwrap svg').textContent() || '';
+    return /Data snapshot/.test(text) && /One person's estimate/.test(text);
+  })());
+  check('fermi(' + theme + '): a Gauge input marked not used cannot later enter the formula without review', await (async () => {
+    const state = {
+      f: 'a * b', v: {a: ['1', '2', 'auto'], b: ['2', '3', 'auto']}, p: {
+        a: {kind: 'gauge', label: 'A', round: 1, responses: 2, pooling: 'envelope', status: 'adopted'},
+        b: {kind: 'gauge', label: 'B', round: 1, responses: 2, pooling: 'envelope', status: 'not-used'},
+      },
+    };
+    const packed = await page.evaluate(async state => {
+      const data = new TextEncoder().encode(JSON.stringify(state));
+      const cs = new CompressionStream('deflate-raw');
+      const writer = cs.writable.getWriter(); writer.write(data); writer.close();
+      const bytes = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+      return '#z:' + btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }, state);
+    await page.goto(BASE + '/fermi/?smoke=gauge-review' + packed, {waitUntil: 'networkidle'});
+    await page.waitForTimeout(500);
+    return !(await page.locator('#results').isVisible()) && /Review needed/.test(await page.locator('#ph').innerText()) &&
+      await page.getByRole('button', {name: 'Adopt b as my 90% range'}).isVisible();
+  })());
   check('fermi(' + theme + '): cashflow mode renders NPV verdict', await (async () => {
     await page.locator('#modecf').click();
     await page.waitForTimeout(600);
@@ -641,7 +705,7 @@ for(const theme of ['light', 'dark']){
   check('fermi(' + theme + '): estimate mode restores untouched', await (async () => {
     await page.locator('#modeest').click();
     await page.waitForTimeout(400);
-    return await page.locator('#formula').isVisible() && await page.locator('#results').isVisible();
+    return await page.locator('#formula').isVisible() && !(await page.locator('#cfwrap').isVisible());
   })());
   check('fermi(' + theme + '): no console errors', errors.length === 0);
   await page.close();
@@ -716,7 +780,9 @@ for(const theme of ['light', 'dark']){
   await page.locator('#viewmap').click();
   await page.waitForTimeout(500);
   const map = await page.locator('#preview svg').innerHTML();
-  check('why(' + theme + '): roadmap view derives columns', map.includes('NOW') && map.includes('Streak freeze'));
+  check('why(' + theme + '): delivery lens derives columns without claiming an operating roadmap',
+    map.includes('NOW') && map.includes('Streak freeze') &&
+    (await page.locator('#viewnote').textContent()).includes('not delivery capacity or a decision plan'));
   check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
   check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
   check('why(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
@@ -769,7 +835,7 @@ for(const theme of ['light', 'dark']){
   })());
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('map(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('map(' + theme + '): flagged assumptions hand off to gauge (#93)', await (async () => {
+  check('map(' + theme + '): untested assumptions hand off to a clearly labelled Gauge-prior session (#93)', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(500);
     if(await page.locator('#togauge').isHidden()) return false;
@@ -782,7 +848,12 @@ for(const theme of ['light', 'dark']){
     const title = await page.locator('.cm-content').innerText();
     await page.goBack();
     await page.waitForTimeout(500);
-    return qs === 2 && title.includes('assumption check');
+    return qs === 2 && title.includes('room prior');
+  })());
+  check('map(' + theme + '): non-assumption flags do not invent a Gauge probability handoff', await (async () => {
+    await page.getByRole('button', {name: 'Risk grid'}).click();
+    await page.waitForTimeout(500);
+    return await page.locator('#togauge').isHidden();
   })());
   check('map(' + theme + '): snapshot compare shows drift', await (async () => {
     await page.getByRole('button', {name: 'Assumption map'}).click();
@@ -861,9 +932,26 @@ for(const theme of ['light', 'dark']){
   })());
   check('flow(' + theme + '): triage drain framing on an overloaded pile',
     /pile|clears|never/i.test(await page.locator('#triagewrap svg').innerHTML()));
+  check('flow(' + theme + '): expedite card names the waiting trade', await (async () => {
+    await page.locator('#expedite').fill('1');
+    await page.waitForTimeout(500);
+    const e = await page.locator('#expeditewrap svg').innerHTML();
+    return /EXPEDITE LANE/.test(e) && /same people and WIP/i.test(e) && /STANDARD/.test(e);
+  })());
+  check('flow(' + theme + '): dependent dice keeps local capacity distinct from flow', await (async () => {
+    const d = await page.locator('#dicewrap svg').innerHTML();
+    return /LOCAL CAPACITY IS NOT FLOW/.test(d) && /STEP 1/.test(d) && /WORK WAITING/.test(d);
+  })());
+  check('flow(' + theme + '): dependent dice can be re-rolled without losing its artifact', await (async () => {
+    const before = await page.locator('#dicewrap svg').innerHTML();
+    await page.getByRole('button', {name: 'Roll again'}).click();
+    await page.waitForTimeout(250);
+    const after = await page.locator('#dicewrap svg').innerHTML();
+    return after !== before && /DEPENDENT DICE/.test(after);
+  })());
   check('flow(' + theme + '): readout svg decodes as an image', await svgDecodes(page, '#verdictwrap svg'));
   check('flow(' + theme + '): no undefined/NaN leaks into any svg', await (async () => {
-    for(const sel of ['#verdictwrap svg', '#batchwrap svg', '#triagewrap svg']){
+    for(const sel of ['#verdictwrap svg', '#batchwrap svg', '#triagewrap svg', '#expeditewrap svg', '#dicewrap svg']){
       const s = await page.locator(sel).innerHTML();
       if(/undefined|NaN/.test(s)) return false;
     }

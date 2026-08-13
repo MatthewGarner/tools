@@ -76,7 +76,8 @@ function doRefresh(){
     if(focus) hot.add(focus.kind + ':' + focus.line);   // I-8: keep the focused mark whatever loadBearing now says
     const width = narrowWidth(pv);
     const svg = render(model, results, {colors: themeColors(), measure, dark: isDark(), edit: true, hot,
-      intent: width ? 'live-narrow' : 'live-wide', width});
+      intent: width ? 'live-narrow' : 'live-wide', width,
+      coarse: matchMedia('(pointer: coarse)').matches});
     paint(svg, REVEAL, {onSwap: reapplyActiveMark}); lastSvg = svg;
     paintMetrics($('metrics'), model.title || 'Untitled tree', metricCounts());
     if(focus) resyncFocusUI();   // repaint the slider's own extent/value + clear any mid-drag classes
@@ -505,8 +506,13 @@ const treeEip = attachEditInPlace(preview, {
         if(!r) return;
         const inserted = insertAndSelect(editor, r.afterLine, r.newLine, r.select);
         const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
-        treeEip.openAt({kind: 'label', line: inserted.srcLine}, {
+        const menuOnly = matchMedia('(pointer: coarse)').matches;
+        treeEip.openAt({kind: menuOnly ? 'cardmenu-leaf' : 'label', line: inserted.srcLine}, {
           origin: el,
+          /* Coarse rows intentionally carry no tiny label tspan. Open the
+             same prefilled label editor, visibly anchored to the fresh 44px
+             card menu, rather than focusing the hidden source editor. */
+          openAs: menuOnly ? {kind: 'label', raw: inserted.select} : undefined,
           // undo() (not a forward removeLine) pops the insert's own isolated group —
           // Escape leaves no extra "remove" entry for a stray Ctrl+Z to resurrect.
           onCancel(){ if(editor.getText() === addedText) editor.undo(); },

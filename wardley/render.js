@@ -140,8 +140,8 @@ export function mapReadout(model, layout, opts = {}){
   } else {
     const left = placed.filter(n => n.x < 0.5).length;
     verdict = left > placed.length / 2
-      ? 'Mostly genesis and custom — a discovery map; expect it to redraw.'
-      : 'Mostly product and commodity — an execution map; the argument is sequencing, not invention.';
+      ? 'Mostly genesis and custom — a discovery landscape; revisit these position claims often.'
+      : 'Mostly product and commodity — an execution landscape; the argument is sequencing, not a delivery forecast.';
   }
   const flags = [];
   const ghosts = comps.filter(n => n.ghost);
@@ -200,7 +200,12 @@ function compareParts(model, layout, compare, c){
 }
 
 export function toMarkdown(model, layout, href){
-  const out = ['# ' + (model.title || 'Wardley map'), ''];
+  const out = [
+    '# ' + (model.title || 'Wardley map'),
+    '',
+    '> Evolution positions are current strategic claims — not dates, forecasts, or delivery commitments.',
+    '',
+  ];
   const r = mapReadout(model, layout);
   /* guarded since `verdict: off` can empty this — an unguarded push emitted a
      bare '****' into the doc (found in review, 2026-07-31) */
@@ -244,7 +249,7 @@ function renderNarrow(model, layout, ctx, opts){
   const ghostN = comps.filter(n => n.ghost).length;
   parts.push('<text x="' + pad + '" y="' + y + '" font-size="11" fill="' + c.muted + '">' +
     comps.length + ' components · ' + model.edges.length + ' dependencies' +
-    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
+    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + ' · positions are working claims</text>');
   y += 10;
 
   let added = new Set(), oldX = new Map();
@@ -413,7 +418,7 @@ function renderPresentation(model, layout, ctx){
     '<text x="1848" y="50" text-anchor="end" font-size="18" fill="' + c.muted + '">' +
       esc(typeof ctx.today === 'string' ? ctx.today : '') + '</text>', V.svg,
     '<text x="72" y="274" font-size="14" font-weight="700" letter-spacing="2" fill="' + c.muted +
-      '">DEPENDENCY SPINE · DEEPEST PATH, THEN IN-DEGREE</text>'];
+      '">DEPENDENCY SPINE · DEEPEST PATH, THEN IN-DEGREE · POSITIONS ARE WORKING CLAIMS</text>'];
   STAGES.forEach((stage, i) => {
     const x0 = pad + stage.lo * fieldW, x1 = pad + stage.hi * fieldW;
     if(i) parts.push('<line x1="' + x0 + '" y1="' + fieldTop + '" x2="' + x0 + '" y2="' + fieldBottom +
@@ -472,7 +477,7 @@ export function renderMap(model, layout, ctx, opts = {}){
   head.push('<text x="' + pad + '" y="56" font-size="12.5" fill="' + c.muted + '">' +
     comps.length + ' component' + (comps.length === 1 ? '' : 's') + ' · ' +
     model.edges.length + ' dependenc' + (model.edges.length === 1 ? 'y' : 'ies') +
-    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + '</text>');
+    (ghostN ? ' · ' + ghostN + ' unplaced' : '') + ' · evolution positions are working claims</text>');
 
   let compareInfo = null;
   if(opts.compare){

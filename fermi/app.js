@@ -10,15 +10,14 @@ import {confess, asciiNum} from './solve.js';
 import {simulateCashflow} from './cashflow.js';
 import {renderCashflow, cashflowMarkdown} from './render-cashflow.js';
 import {measure, download, onThemeChange, themeColors as sharedThemeColors} from '../assets/app-common.js';
-import {loadSaved, storeSaved} from '../assets/saved-items.js';
-import {renderSavedDisclosure, savedSelectionAfterDelete} from '../assets/handoff-ui.js';
+import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {effectiveHorizon, cashflowHashState, cashflowTailNote} from './interactions.js';
-import {fermiImport, cloneEstimateState, returnEstimateState} from './import-state.js';
-import {targetHashState} from '../assets/handoff.js';
+import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
+  normalizeReceipt, receiptLabel} from './state.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -39,11 +38,6 @@ const EXAMPLES = [
    f:'decisions_per_quarter * hours_per_decision * people_in_room * hourly_cost',
    v:{decisions_per_quarter:['12','30'], hours_per_decision:['1','4'], people_in_room:['4','9'], hourly_cost:['60','120']}},
 ];
-const defaultEstimateState = () => {
-  const ex = EXAMPLES[0], v = {};
-  for(const [name, [lo, hi]] of Object.entries(ex.v)) v[name] = [lo, hi, 'auto'];
-  return {f: ex.f, v};
-};
 
 /* ---------- state ---------- */
 const N = 20000;
@@ -55,7 +49,6 @@ let curLayout = null;                 // the live histLayout (px/inv) so a drag 
 let draggingHandle = false;           // suppresses click-to-set + hover tooltip during a threshold drag
 let confessSnapshot = null;           // pre-Adopt varState snapshot for the one-shot Undo
 const $ = id => document.getElementById(id);
-let transientImport = false, transientMeta = null, activeSaved = null, returnState = null;
 const estimateExampleButtons = [], cashflowExampleButtons = [];
 function syncExampleButtons(buttons, selected = null){
   for(const b of buttons){
@@ -92,7 +85,7 @@ function renderTabs(){
   if(!compareOn){
     const b = document.createElement('button');
     b.className = 'tab';
-    b.textContent = '⇄ Compare A/B';
+    b.textContent = '⇄ Compare variants';
     b.addEventListener('click', enableCompare);
     holder.appendChild(b);
     return;
@@ -103,7 +96,7 @@ function renderTabs(){
     b.dataset.s = s;
     const dot = document.createElement('span'); dot.className = 'dot';
     b.append(dot, document.createTextNode(s));
-    b.setAttribute('aria-label', 'Edit scenario ' + s);
+    b.setAttribute('aria-label', 'Edit model variant ' + s);
     b.addEventListener('click', () => switchTo(s));
     holder.appendChild(b);
   }
@@ -144,6 +137,11 @@ function computeScenario(snap, scen){
     const ast = parse(tokenize(snap.f.trim()));
     const names = collectVars(ast, []);
     if(!names.length) return null;
+    if(names.some(name => {
+      const st = snap.vars.get(name);
+      return st?.base?.kind === 'gauge' &&
+        (st.base.status === 'needs-restatement' || st.base.status === 'not-used');
+    })) return null;
     const ranges = {}, dists = {};
     for(const n of names){
       const st = snap.vars.get(n);
@@ -184,13 +182,14 @@ function renderCompare(){
   el.appendChild(mk('swA', 'A', lastBy.A.p50));
   el.appendChild(mk('swB', 'B', lastBy.B.p50));
   const pb = document.createElement('span');
-  pb.append(document.createTextNode('P(B > A) = '));
+  pb.append(document.createTextNode('B exceeds A in '));
   const b = document.createElement('b'); b.textContent = p;
   pb.appendChild(b);
   el.appendChild(pb);
   const note = document.createElement('span');
   note.className = 'note';
-  note.textContent = 'Chart: ' + active + ' filled, ' + (active === 'A' ? 'B' : 'A') + ' outlined.';
+  note.textContent = 'Model-variant sensitivity: independently sampled inputs; chart ' + active +
+    ' filled, ' + (active === 'A' ? 'B' : 'A') + ' outlined.';
   el.appendChild(note);
 }
 function threshValue(){
@@ -222,53 +221,46 @@ async function readHash(){
 }
 let currentVarNames = [];
 function packScen(snap){
-  const v = {};
-  for(const [k, st] of snap.vars) v[k] = [st.lo, st.hi, st.dist || 'auto'];
-  const o = {f: snap.f, v};
-  if(snap.thresh) o.t = snap.thresh;
-  return o;
-}
-function runtimeState(){
-  scenStore[active] = snapshot();
-  return compareOn
-    ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
-    : packScen(scenStore.A);
+  return packEstimateScenario(snap);
 }
 function writeHash(){
-  if(!shouldPersist()) return;   // examples stay hash-safe; imports update URL only
-  const state = runtimeState();
-  if(transientImport) return writeHashState(targetHashState(state, transientMeta));
-  if(activeSaved === null){
-    try{ localStorage.setItem('fermi-current', JSON.stringify(state)); }
-    catch(e){ $('err').textContent = 'Could not remember this estimate in this browser.'; $('err').style.display = 'block'; }
-  }
-  if(activeSaved !== null && !compareOn){
-    const list = loadSaved(SAVED_KEY);
-    if(list[activeSaved]){
-      const snap = packScen(scenStore.A);
-      Object.assign(list[activeSaved], snap);
-      if(!storeSaved(SAVED_KEY, list)){
-        $('err').textContent = 'Could not update this saved estimate.'; $('err').style.display = 'block';
-      }
-    }
-  }
-  return writeHashState(targetHashState(state));
+  if(!shouldPersist()) return;   // an auto-loaded example must not rewrite the blank URL until first interaction
+  scenStore[active] = snapshot();
+  const state = compareOn
+    ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
+    : packScen(scenStore.A);
+  return writeHashState(state);
 }
 function flushEstimateHash(){ clearTimeout(hashTimer); return writeHash(); }
 
 /* ---------- variable rows ---------- */
 let varRowsSig = '';
 const sparks = [];   // {canvas, name}
+const receiptFingerprint = receipt => {
+  const r = normalizeReceipt(receipt);
+  return r ? JSON.stringify(r) : '';
+};
+function pendingGaugeNames(varNames = []){
+  const used = new Set(varNames);
+  return [...varState].filter(([name, st]) => st.base?.kind === 'gauge' &&
+    (st.base.status === 'needs-restatement' || (st.base.status === 'not-used' && used.has(name)))).map(([name]) => name);
+}
+function setBase(name, base){
+  const st = varState.get(name);
+  if(!st) return;
+  st.base = normalizeReceipt(base);
+  varRowsSig = '';
+}
 function renderVarRows(varNames){
   $('vars').style.display = varNames.length ? 'block' : 'none';
-  const sigNow = varNames.join('|');
+  const sigNow = varNames.map(name => name + ':' + receiptFingerprint(varState.get(name)?.base)).join('|');
   if(sigNow === varRowsSig){ drawSparks(); return; }   // don't rebuild while typing
   varRowsSig = sigNow;
   sparks.length = 0;
   const holder = $('vrows');
   holder.textContent = '';
   for(const name of varNames){
-    if(!varState.has(name)) varState.set(name, {lo:'', hi:'', dist:'auto'});
+    if(!varState.has(name)) varState.set(name, {lo:'', hi:'', dist:'auto', base:null});
     const st = varState.get(name);
     if(!st.dist) st.dist = 'auto';
     const row = document.createElement('div');
@@ -295,13 +287,59 @@ function renderVarRows(varNames){
       sel.appendChild(o);
     }
     sel.value = st.dist;
+    const base = normalizeReceipt(st.base);
+    let source = null;
+    if(base?.kind !== 'gauge'){
+      source = document.createElement('select');
+      source.className = 'vsource';
+      source.setAttribute('aria-label', name + ' provenance receipt');
+      const sourceOptions = [['', 'Stated here'], ['snapshot', 'Data snapshot'], ['person', "One person's estimate"]];
+      for(const [value, label] of sourceOptions){
+        const o = document.createElement('option'); o.value = value; o.textContent = label; source.appendChild(o);
+      }
+      source.value = base?.kind || '';
+    }
+    let receipt = null;
+    if(base){
+      receipt = document.createElement('div');
+      receipt.className = 'vreceipt';
+      receipt.textContent = receiptLabel(base);
+    }
+    let adopt = null, omit = null;
+    if(base?.kind === 'gauge' && base.status === 'needs-restatement'){
+      adopt = document.createElement('button'); adopt.className = 'adopt vadopt vadopt-adopt'; adopt.type = 'button';
+      adopt.textContent = 'Use as my 90% range';
+      adopt.setAttribute('aria-label', 'Adopt ' + name + ' as my 90% range');
+      adopt.addEventListener('click', () => {
+        setBase(name, {...base, status:'adopted'});
+        lint();
+      });
+      omit = document.createElement('button'); omit.className = 'adopt vadopt vadopt-omit secondary'; omit.type = 'button';
+      omit.textContent = 'Not using this input';
+      omit.setAttribute('aria-label', 'Mark ' + name + ' as not used in this formula');
+      omit.addEventListener('click', () => {
+        setBase(name, {...base, status:'not-used'});
+        lint();
+      });
+    }
     const spark = document.createElement('canvas');
     spark.className = 'spark';
     spark.setAttribute('aria-hidden', 'true');
-    lo.addEventListener('input', () => { st.lo = lo.value; schedule(100); });
-    hi.addEventListener('input', () => { st.hi = hi.value; schedule(100); });
+    const restate = () => {
+      if(st.base?.kind === 'gauge') setBase(name, null);
+    };
+    lo.addEventListener('input', () => { st.lo = lo.value; restate(); schedule(100); });
+    hi.addEventListener('input', () => { st.hi = hi.value; restate(); schedule(100); });
     sel.addEventListener('change', () => { st.dist = sel.value; schedule(50); });
+    if(source) source.addEventListener('change', () => {
+      setBase(name, source.value ? {kind:source.value, label:source.value === 'snapshot' ? 'Author-declared data snapshot' : 'Author-declared estimate'} : null);
+      lint();
+    });
     row.append(nm, lo, dash, hi, sel, spark);
+    if(source) row.appendChild(source);
+    if(receipt) row.appendChild(receipt);
+    if(adopt) row.appendChild(adopt);
+    if(omit) row.appendChild(omit);
     holder.appendChild(row);
     sparks.push({canvas: spark, name});
   }
@@ -399,8 +437,11 @@ function lint(){
   clearConfession();   // any recompute (edit / scenario switch) invalidates a shown confession
   lastBy[active] = null;
   if(!src){
-    renderVarRows([]);
-    showPlaceholder('Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you’d be surprised, but not shocked, to see a value outside them.');
+    const incoming = pendingGaugeNames();
+    renderVarRows(incoming);
+    showPlaceholder(incoming.length
+      ? 'Incoming room inputs need review. A room range is a source, not automatically your 90% belief. Restate or adopt every range, then author the formula you want to estimate.'
+      : 'Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you’d be surprised, but not shocked, to see a value outside them.');
     return;
   }
   let ast;
@@ -412,10 +453,26 @@ function lint(){
   }
   const varNames = collectVars(ast, []);
   currentVarNames = varNames;
-  renderVarRows(varNames);
+  /* “Not using” is only a decision about the prior formula. Bringing that
+     input back reopens its review; it can never authorise a later model. */
+  for(const name of varNames){
+    const st = varState.get(name);
+    if(st?.base?.kind === 'gauge' && st.base.status === 'not-used'){
+      st.base = {...st.base, status:'needs-restatement'};
+      varRowsSig = '';
+    }
+  }
+  renderVarRows([...new Set([...varNames, ...pendingGaugeNames()])]);
   if(!varNames.length){
     const v = evalNode(ast, {});
     showPlaceholder('That’s just arithmetic — it comes to ' + fmt(v) + '. Name a quantity (e.g. attendees) to make it an estimate.');
+    return;
+  }
+  const pending = pendingGaugeNames(varNames);
+  if(pending.length){
+    showPlaceholder('Review needed before simulating: ' + pending.join(', ') +
+      '. A room range is a source, not automatically your 90% belief. Use it as your 90% range or restate it by editing the bounds.');
+    writeHashSafe();
     return;
   }
   const missing = [], ranges = {};
@@ -449,7 +506,8 @@ function lint(){
   const {sens, fullRatio} = computeSensitivity({ast, varNames, ranges, dists},
     {seed: SEEDS[active], p10, p90});
 
-  last = {ast, ranges, dists, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, invalid: N - sorted.length};
+  const bases = Object.fromEntries(varNames.map(name => [name, normalizeReceipt(varState.get(name)?.base)]).filter(([, base]) => base));
+  last = {ast, ranges, dists, bases, varNames, valid: sorted, sorted, p10, p50, p90, sens, fullRatio, invalid: N - sorted.length};
   // pour needs at least one ranged driver AND a finite all-medians point estimate to pour FROM
   // (e.g. a / b with b crossing 0 pins to a 0 divisor → no spout); disable with a reason, never a dead button.
   const meds = {}; for(const n of varNames){ const [lo, hi] = ranges[n]; meds[n] = lo === hi ? lo : distMedian(lo, hi, dists[n]); }
@@ -519,7 +577,8 @@ function renderResults(){
   // rows, compare-mode P(B>A), threshold % — mirrors merit-order's
   // svg!==lastSvg / fermi's own varRowsSig gate, just for this DOM instead
   // of an SVG string.
-  const sigNow = [p10Text, p50Text, p90Text, sayText, spreadText, warnText, cmpSig, sensSig, threshPct].join('¦');
+  const sigNow = [p10Text, p50Text, p90Text, sayText, spreadText, warnText,
+    receiptSummary(r.varNames), cmpSig, sensSig, threshPct].join('¦');
   if(sigNow === resultsSig){
     $('tout').textContent = threshPct;
     drawHist();
@@ -533,6 +592,8 @@ function renderResults(){
   $('p50').textContent = p50Text;
   $('p90').textContent = p90Text;
   paintVerdict($('verdict'), sayText, p50Text);
+  $('provenance').textContent = 'Input receipts: ' + receiptSummary(r.varNames) +
+    '. They describe how each range entered this model, not how certain it is.';
   $('spread').textContent = spreadText;
   const w = $('warn');
   w.textContent = warnText;
@@ -578,6 +639,26 @@ function renderDriverView(){
   const svg = renderDriverTree({...last, scenLabel: compareOn ? active : null},
     {colors: themeColors(), measure});
   if(svg !== lastTreeSvg){ $('driverwrap').innerHTML = svg; lastTreeSvg = svg; }
+}
+
+function receiptSummary(names = currentVarNames){
+  const labels = new Map();
+  for(const name of names){
+    const label = receiptLabel(varState.get(name)?.base);
+    labels.set(label, (labels.get(label) || 0) + 1);
+  }
+  return [...labels].map(([label, count]) => label + (count > 1 ? ' (' + count + ')' : '')).join(' · ');
+}
+function compactReceiptSummary(names = currentVarNames){
+  const groups = new Map();
+  for(const name of names){
+    const base = normalizeReceipt(varState.get(name)?.base);
+    const label = !base ? 'Stated here'
+      : base.kind === 'gauge' ? (base.status === 'adopted' ? 'Gauge adopted' : 'Gauge review needed')
+      : base.kind === 'snapshot' ? 'Data snapshot' : "One person's estimate";
+    groups.set(label, (groups.get(label) || 0) + 1);
+  }
+  return [...groups].map(([label, count]) => label + (count > 1 ? ' (' + count + ')' : '')).join(' · ');
 }
 function applyView(){
   const tree = view === 'tree';
@@ -967,7 +1048,7 @@ $('copy').addEventListener('click', async () => {
   await flushEstimateHash();
   const txt = 'P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' (spread ×' + sig(last.p90 / last.p10, 2) + ')' : '') +
-    ' — ' + $('formula').value + ' — ' + location.href;
+    ' — ' + $('formula').value + ' — Input receipts: ' + receiptSummary(last.varNames) + ' — ' + location.href;
   try{
     await navigator.clipboard.writeText(txt);
     $('copy').textContent = 'Copied';
@@ -992,7 +1073,7 @@ $('copydoc').addEventListener('click', async () => {
   lines.push('Assumptions (90% intervals):');
   for(const name of currentVarNames){
     const st = varState.get(name);
-    if(st) lines.push('- ' + name.replace(/_/g,' ') + ': ' + st.lo + ' – ' + st.hi);
+    if(st) lines.push('- ' + name.replace(/_/g,' ') + ': ' + st.lo + ' – ' + st.hi + ' — ' + receiptLabel(st.base));
   }
   if(last.sens.length > 1){
     const top = last.sens[0];
@@ -1006,8 +1087,8 @@ $('copydoc').addEventListener('click', async () => {
   const pcmp = compareOn ? pBeatsStr() : null;
   if(pcmp !== null){
     lines.push('');
-    lines.push('Scenario A P50 ' + fmt(lastBy.A.p50) + ' vs scenario B P50 ' + fmt(lastBy.B.p50) +
-      ' — P(B > A) = ' + pcmp + '.');
+    lines.push('Model variant A P50 ' + fmt(lastBy.A.p50) + ' vs model variant B P50 ' + fmt(lastBy.B.p50) +
+      ' — independently sampled B outputs exceed A in ' + pcmp + '. This is sensitivity analysis, not a chance state.');
   }
   lines.push('');
   lines.push('_Log-normal fit per 90% range · 20,000 Monte Carlo samples · [live model](' + location.href + ')_');
@@ -1025,7 +1106,7 @@ $('png').addEventListener('click', () => {
   if(!last) return;
   const src = $('hist');
   const C = themeColors();
-  const pad = 24, capH = 46;
+  const pad = 24, capH = 66;
   const w = src.clientWidth, h = 180;
   const c = document.createElement('canvas');
   const scale = 2;
@@ -1043,6 +1124,8 @@ $('png').addEventListener('click', () => {
   ctx.font = '12px ui-monospace, Menlo, monospace';
   ctx.fillText('P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, pad + h + 36);
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('INPUT RECEIPTS: ' + compactReceiptSummary(last.varNames), pad, pad + h + 54);
   c.toBlob(b => download('estimate.png', b), 'image/png');
 });
 
@@ -1050,85 +1133,56 @@ $('png').addEventListener('click', () => {
 const SAVED_KEY = 'fermi-models';
 function renderSaved(){
   const row = $('savedrow');
-  renderSavedDisclosure(row, loadSaved(SAVED_KEY), {
-    activeIndex: activeSaved, noun: 'estimate',
-    onLoad: (m, i) => {
-      if(activeSaved === null && !transientImport) returnState = runtimeState();
-      activateState(m, i); renderSaved();
+  renderSavedChips(row, loadSaved(SAVED_KEY), {
+    title: m => m.f,
+    deleteLabel: m => 'Delete saved model ' + m.name,
+    onLoad: m => {
+      syncExampleButtons(estimateExampleButtons);
+      $('formula').value = m.f;
+      varState.clear();
+      const restored = unpackEstimateScenario(m);
+      for(const [k, state] of restored.vars) varState.set(k, state);
+      threshStr = restored.thresh;
+      $('tin').value = threshStr;
+      varRowsSig = '';
+      lint();
     },
     onDelete: (m, i) => {
-      if(!confirm('Delete saved estimate “' + m.name + '”? This cannot be undone.')) return;
       const l = loadSaved(SAVED_KEY);
       l.splice(i, 1);
-      if(!storeSaved(SAVED_KEY, l)){
-        $('err').textContent = 'Could not delete this saved estimate.'; $('err').style.display = 'block'; return;
-      }
-      const next = savedSelectionAfterDelete(activeSaved, i);
-      if(next.restoreCurrent) activateState(returnState, null);
-      else activeSaved = next.activeIndex;
+      storeSaved(SAVED_KEY, l);
       renderSaved();
     },
-    onSave: saveCurrent,
   });
+  const save = document.createElement('button');
+  save.className = 'chip';
+  save.textContent = '＋ Save current';
+  save.addEventListener('click', () => {
+    ensureFreshEstimate();
+    const f = $('formula').value.trim();
+    if(!f) return;
+    const saved = packEstimateScenario(snapshot());
+    const list = loadSaved(SAVED_KEY);
+    list.push({name: f.length > 26 ? f.slice(0, 24) + '…' : f, ...saved});
+    storeSaved(SAVED_KEY, list);
+    renderSaved();
+  });
+  row.appendChild(save);
 }
 renderSaved();
 
 $('formula').addEventListener('input', () => schedule(180));
 
-function unpackScen(o){
-  const vars = new Map();
-  for(const [k, pair] of Object.entries(o.v || {})){
-    if(Array.isArray(pair)) vars.set(k, {lo:String(pair[0] ?? ''), hi:String(pair[1] ?? ''), dist:pair[2] || 'auto'});
-  }
-  return {f: o.f, vars, thresh: typeof o.t === 'string' ? o.t : ''};
-}
-function applyState(state){
-  if(state && state.a && state.b){
-    compareOn = true;
-    scenStore.A = unpackScen(state.a); scenStore.B = unpackScen(state.b);
-    active = state.on === 'B' ? 'B' : 'A'; loadSnap(scenStore[active]);
-  }else{
-    compareOn = false; active = 'A';
-    scenStore.A = state ? unpackScen(state) : null; scenStore.B = null;
-    loadSnap(scenStore.A);
-  }
-}
-function activateState(state, savedIndex){
-  transientImport = false; transientMeta = null; activeSaved = savedIndex;
-  $('handoffstrip').hidden = true; history.replaceState(null, '', location.pathname);
-  syncExampleButtons(estimateExampleButtons); applyState(state); renderTabs(); lint();
-}
-const rawBoot = await readHash();
-const inbound = fermiImport(rawBoot);
-const boot = rawBoot && Object.prototype.hasOwnProperty.call(rawBoot, 'x') && !inbound ? null : rawBoot;
-let bootRememberFailed = false;
-if(inbound){
-  transientImport = true; transientMeta = inbound.meta;
-  let remembered = null;
-  try{ remembered = JSON.parse(localStorage.getItem('fermi-current') || 'null'); }catch(e){}
-  const hadCurrent = !!cloneEstimateState(remembered);
-  returnState = returnEstimateState(remembered, defaultEstimateState());
-  $('handofftitle').textContent = 'Estimate from Gauge' + (inbound.meta.label ? ' · ' + inbound.meta.label : '');
-  if(!hadCurrent){
-    $('handoffnote').textContent = 'No current estimate was found; returning opens the default example.';
-    $('returncurrent').textContent = 'Open default';
-  }
-  $('handoffstrip').hidden = false;
-  applyState(inbound.state);
+const boot = await readHash();
+if(boot && boot.a && boot.b){
+  compareOn = true;
+  scenStore.A = unpackEstimateScenario(boot.a);
+  scenStore.B = unpackEstimateScenario(boot.b);
+  active = boot.on === 'B' ? 'B' : 'A';
+  loadSnap(scenStore[active]);
 }else if(boot){
-  const adopted = cloneEstimateState(boot);
-  applyState(adopted);
-  if(adopted){
-    try{ localStorage.setItem('fermi-current', JSON.stringify(adopted)); }
-    catch(e){ bootRememberFailed = true; }
-  }
+  loadSnap(unpackEstimateScenario(boot));
 }else{
-  let current = null;
-  try{ current = JSON.parse(localStorage.getItem('fermi-current') || 'null'); }catch(e){}
-  if(current && ((typeof current.f === 'string' && current.v && typeof current.v === 'object') ||
-    (current.a && current.b))){
-    applyState(current);
-  }else{
   // open alive: seed the first example so fermi greets you rendered, not blank.
   // hash-safe — writeHash() no-ops until the first real interaction (shouldPersist).
   autoloadExample(() => {
@@ -1138,48 +1192,9 @@ if(inbound){
     for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist: 'auto'});
     varRowsSig = '';
   });
-  }
 }
 renderTabs();
 lint();
-if(bootRememberFailed){
-  $('err').textContent = 'Could not remember this shared estimate in this browser.'; $('err').style.display = 'block';
-}
-
-function leaveImport(state){
-  activateState(state, null);
-}
-function saveCurrent(){
-  if(transientImport){ saveIncoming(); return; }
-  ensureFreshEstimate();
-  const state = runtimeState();
-  if(compareOn){
-    $('err').textContent = 'Save A or B separately after leaving comparison.'; $('err').style.display = 'block'; return;
-  }
-  if(!state.f.trim()) return;
-  const list = loadSaved(SAVED_KEY), name = state.f.length > 26 ? state.f.slice(0, 24) + '…' : state.f;
-  const item = {name, ...state};
-  if(!storeSaved(SAVED_KEY, [...list, item])){
-    $('err').textContent = 'Could not save this estimate in this browser.'; $('err').style.display = 'block'; return;
-  }
-  if(activeSaved === null) returnState = state;
-  activateState(item, list.length); renderSaved();
-}
-function saveIncoming(){
-  if(!transientImport) return;
-  ensureFreshEstimate();
-  const state = packScen(snapshot()), list = loadSaved(SAVED_KEY);
-  const name = state.f.length > 26 ? state.f.slice(0, 24) + '…' : state.f;
-  const item = {name, ...state};
-  if(!storeSaved(SAVED_KEY, [...list, item])){
-    $('err').textContent = 'Could not save this estimate in this browser.'; $('err').style.display = 'block'; return;
-  }
-  activateState(item, list.length); renderSaved();
-}
-$('saveimport').addEventListener('click', saveIncoming);
-$('returncurrent').addEventListener('click', () => {
-  leaveImport(returnState);
-});
 
 /* ---------- cashflow mode (#13, absorbs #57) ---------- */
 let pageMode = 'est';

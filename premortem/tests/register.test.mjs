@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newEntry, exposure, ranked, staleness, mergeEntries, promote, markdown,
-        serialise, deserialise, exampleDoc, isRisk, isScoreable} from '../register.js';
+        serialise, deserialise, exampleDoc, isRisk, isOpportunity, isScoreable, modeOf} from '../register.js';
 import {canAdvance} from '../wizard.js';
 
 const risk = (text, p, impact) => ({...newEntry(text), p, impact});
@@ -72,6 +72,23 @@ test('markdown carries the honest table', () => {
   assert.match(md, /Launch slips/);
   assert.match(md, /30–50%/);
   assert.match(md, /£k/);
+});
+
+test('pre-parade exports deliberate opportunities without risk arithmetic or a portfolio', () => {
+  const opportunities = [
+    {...newEntry('Keep the old onboarding available', {kind: 'opportunity', essential: true}), actions: [{text: 'Run an A/B cutover', owner: 'Alex', votes: 3}]},
+    {...newEntry('Coach the first cohort', {kind: 'opportunity'}), actions: []},
+    {...newEntry('board fact', {kind: 'fact'}), p: [90, 100], impact: [1, 2]},
+  ];
+  const md = markdown({mode: 'success', title: 'Habitat win', question: 'What did we do?', entries: opportunities}, exposure([], {seed: 1}), new Date());
+  assert.match(md, /Success register/);
+  assert.match(md, /Must make true/);
+  assert.match(md, /Run an A\/B cutover/);
+  assert.ok(!md.includes('Portfolio exposure'));
+  assert.ok(!md.includes('Likelihood'));
+  assert.ok(!md.includes('board fact'));
+  assert.equal(isOpportunity(opportunities[0]), true);
+  assert.equal(modeOf({}), 'risk', 'legacy documents remain premortems');
 });
 
 test('exampleDoc: a framed, fully-scored, rankable first-run register', () => {

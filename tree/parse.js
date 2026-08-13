@@ -102,7 +102,7 @@ export function parse(text){
   model.root = tops.length === 1 ? tops[0]
     : {label: 'Decision', kind: 'leaf', value: null, p: null, children: tops, srcLine: tops[0].srcLine, implicit: true};
 
-  /* post-pass: kinds, rest inference, warnings */
+  /* post-pass: kinds, probability integrity, warnings */
   (function finalise(node){
     if(node.children.length === 0){
       node.kind = 'leaf';
@@ -112,18 +112,20 @@ export function parse(text){
       }
       return;
     }
+    const rest = node.children.filter(c => c.p === 'rest');
+    for(const duplicate of rest.slice(1)){
+      model.warnings.push('line ' + (duplicate.srcLine + 1) + ': second p=rest under "' +
+        node.label + '" — rejected and given p=0');
+      duplicate.p = {lo: 0, hi: 0};
+      duplicate.pRaw = '0';
+    }
     const withP = node.children.filter(c => c.p !== null);
     if(withP.length > 0){
       node.kind = 'chance';
       const withoutP = node.children.filter(c => c.p === null);
-      const hasRest = node.children.some(c => c.p === 'rest');
-      if(withoutP.length === 1 && !hasRest){
-        withoutP[0].p = 'rest';
-      } else {
-        for(const c of withoutP){
-          model.warnings.push('line ' + (c.srcLine + 1) + ': "' + c.label + '" has no p= among probabilistic siblings — given p=0');
-          c.p = {lo: 0, hi: 0};
-        }
+      for(const c of withoutP){
+        model.warnings.push('line ' + (c.srcLine + 1) + ': "' + c.label + '" has no p= among probabilistic siblings — given p=0');
+        c.p = {lo: 0, hi: 0};
       }
     } else {
       node.kind = 'decision';

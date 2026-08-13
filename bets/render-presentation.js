@@ -1,7 +1,7 @@
 /* Fixed 16:9 portfolio-summary render for Copy PNG. It is intentionally a
    deterministic selection, not a compressed claim that all bets are shown. */
 import {esc, txt} from '../assets/svg.js';
-import {measuredLines, presentationSelection} from './layout.js';
+import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
 
 const W = 1920, H = 1080;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
@@ -11,14 +11,56 @@ const sgn = v => (v < 0 ? MINUS : '+') + Math.round(Math.abs(v));
 const rng = r => !r ? '—' : r[0] === r[1] ? num(r[0]) : num(r[0]) + '–' + num(r[1]);
 const pct = r => !r ? '—' : r[0] === r[1] ? r[0] + '%' : r[0] + '–' + r[1] + '%';
 const stakeMid = b => b.stake ? (b.stake[0] + b.stake[1]) / 2 : 0;
+const reading = value => value ? {
+  loss: 'P(LOSES MONEY) ' + Math.round((value.pLoss || 0) * 100) + '%',
+  median: 'MEDIAN OUTCOME ' + sgn(value.p50),
+  range: 'P10 ' + sgn(value.p10) + ' · P90 ' + sgn(value.p90),
+} : {loss: 'Not available', median: 'Add a scoreable bet', range: 'Correct invalid terms'};
+
+function compactIds(records){
+  const nums = records.map(item => item.record.sourceOrder).sort((a, b) => a - b);
+  const spans = [];
+  for(let i = 0; i < nums.length;){
+    let j = i;
+    while(j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
+    const id = n => 'B' + String(n).padStart(2, '0');
+    spans.push(i === j ? id(nums[i]) : id(nums[i]) + '–' + id(nums[j]));
+    i = j + 1;
+  }
+  return spans.join(', ');
+}
+
+function exceptionCopy(exceptions){
+  if(!exceptions.length) return 'NO MATERIAL EXCEPTIONS HIDDEN BY THE SIX-CARD SELECTION';
+  return ['NO KILL', 'P50 LOSS', 'HIGH CONCENTRATION'].map(reason => {
+    const matches = exceptions.filter(item => item.reasons.includes(reason));
+    return matches.length ? reason + ' ' + compactIds(matches) : null;
+  }).filter(Boolean).join(' · ');
+}
+
+function concentrationCopy(selection, sim){
+  const concentration = sim && sim.concentration;
+  if(!concentration) return 'PORTFOLIO CONCENTRATION CLEAR';
+  /* Source lines are the simulation/result join key. Matching that identity
+     prevents an invalid giant or a duplicate visible name from being blamed. */
+  const record = selection.records.find(item => item.rec.scoreable !== false &&
+    item.b.srcLine === concentration.srcLine);
+  return 'PORTFOLIO EXCEPTION · HIGH CONCENTRATION ' + (record ? record.id : concentration.name);
+}
+
+const unscoredCopy = selection => selection.unscored.length
+  ? 'NOT SCORED · ' + selection.unscored.map(record => record.id + ' ' + record.b.name).join(', ')
+  : 'ALL BETS SCORED';
 
 export function renderBetsPresentation(model, sim, ctx = {}){
   const c = ctx.colors, measure = ctx.measure || (s => String(s).length * 14);
   const selection = presentationSelection(model, sim);
-  const pf = sim.portfolio;
-  const pl = Math.round((pf.pLoss || 0) * 100);
-  const totalStake = selection.selected.length || selection.total
-    ? selection.total && model.groups.flatMap(g => g.bets).reduce((n, b) => n + stakeMid(b), 0)
+  const conditions = conditionReadings(sim);
+  const baseline = reading(conditions.baseline.result);
+  const stress = reading(conditions.stress.result);
+  const exceptions = omittedMaterialExceptions(selection);
+  const totalStake = selection.selected.length
+    ? selection.records.filter(record => record.rec.scoreable !== false).reduce((n, record) => n + stakeMid(record.b), 0)
     : 0;
   const parts = [];
 
@@ -28,22 +70,39 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     esc(model.title || 'Bets board') + '</text>');
   parts.push(txt(96, 142, selection.total + ' BETS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' ' + (model.unit || ''),
     18, c.muted, {mono: true, tracking: '0.05em'}));
-  parts.push(txt(1824, 96, 'P(LOSES MONEY) ' + pl + '%', 30, pl >= 50 ? c.err : c.accentInk,
-    {weight: 700, mono: true, anchor: 'end'}));
-  parts.push(txt(1824, 136, 'NET EV ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90),
-    18, c.muted, {mono: true, anchor: 'end'}));
+  const conditionCards = [
+    {x: 1000, title: conditions.baseline.label, copy: baseline, tone: c.accentInk, condition: conditions.baseline.condition},
+    {x: 1420, title: conditions.stress.label, copy: stress,
+      tone: conditions.stress.available && conditions.stress.result.pLoss >= 0.5 ? c.err : c.accentInk,
+      condition: conditions.stress.condition},
+  ];
+  for(const card of conditionCards){
+    parts.push('<rect x="' + card.x + '" y="38" width="394" height="112" fill="' + c.card + '" stroke="' + c.border + '"/>');
+    parts.push(txt(card.x + 18, 61, card.title.toUpperCase(), 12, c.muted,
+      {weight: 700, tracking: '0.08em'}));
+    parts.push(txt(card.x + 18, 91, card.copy.loss.toUpperCase(), 23, card.tone, {weight: 700, mono: true}));
+    parts.push(txt(card.x + 18, 116, card.copy.median + ' · ' + card.copy.range, 14, c.ink, {weight: 600, mono: true}));
+    parts.push(txt(card.x + 18, 138, card.condition, 11.5, c.muted));
+  }
 
-  parts.push('<rect x="96" y="178" width="1728" height="62" fill="' + c.card + '" stroke="' + c.border + '"/>');
+  parts.push('<rect x="96" y="178" width="1728" height="106" fill="' + c.card + '" stroke="' + c.border + '"/>');
   parts.push(txt(120, 205, 'SELECTION · ' + selection.rule.toUpperCase(), 15, c.accentInk,
     {weight: 700, tracking: '0.08em'}));
   parts.push(txt(120, 228, selection.selected.length + ' SHOWN · ' + selection.remainder +
     (selection.remainder === 1 ? ' FURTHER BET IN FULL SVG' : ' FURTHER BETS IN FULL SVG'), 16, c.muted,
     {weight: 700, tracking: '0.04em'}));
+  parts.push(txt(120, 254, 'OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions), 12,
+    exceptions.length ? c.err : c.muted, {weight: 700, tracking: '0.03em'}));
+  const concentration = concentrationCopy(selection, sim);
+  parts.push(txt(120, 276, concentration, 12, sim.concentration ? c.err : c.muted,
+    {weight: 700, tracking: '0.03em'}));
+  parts.push(txt(1800, 276, unscoredCopy(selection), 12, selection.unscored.length ? c.err : c.muted,
+    {weight: 700, tracking: '0.02em', anchor: 'end'}));
 
   const cols = 2, gapX = 34, cardW = (1728 - gapX) / cols, cardH = 226;
   selection.selected.forEach((record, i) => {
     const col = i % cols, row = Math.floor(i / cols);
-    const x = 96 + col * (cardW + gapX), y = 270 + row * (cardH + 18);
+    const x = 96 + col * (cardW + gapX), y = 304 + row * (cardH + 18);
     const b = record.b, e = record.rec.ev;
     parts.push('<rect x="' + x + '" y="' + y + '" width="' + cardW + '" height="' + cardH +
       '" fill="' + c.card + '" stroke="' + (record.rec.audits.length ? c.err : c.border) + '" stroke-width="1.5"/>');
@@ -73,8 +132,13 @@ export function renderBetsPresentation(model, sim, ctx = {}){
 
   parts.push(txt(96, 1040, 'PRESENTATION SUMMARY · FULL DETAIL: DOWNLOAD SVG', 14, c.muted,
     {weight: 700, tracking: '0.1em'}));
-  parts.push(txt(1824, 1040, 'RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 14, c.muted,
+  parts.push(txt(1824, 1040, 'BOTH CONDITION READINGS · RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 14, c.muted,
     {anchor: 'end', tracking: '0.06em'}));
+  const title = esc((model.title || 'Bets board') + ' — decision comparison');
+  const desc = esc(conditions.baseline.label + ': ' + baseline.loss + ', ' + baseline.median + '. ' +
+    conditions.stress.label + ': ' + stress.loss + ', ' + stress.median + '. ' +
+    (exceptions.length ? exceptions.length + ' material exceptions are outside the card selection.' : 'No material exceptions are omitted.'));
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="' +
-    SANS + '">' + parts.join('') + '</svg>';
+    SANS + '" role="img" aria-labelledby="bets-presentation-title bets-presentation-desc"><title id="bets-presentation-title">' +
+    title + '</title><desc id="bets-presentation-desc">' + desc + '</desc>' + parts.join('') + '</svg>';
 }

@@ -34,6 +34,14 @@ test('rail rows are a CLEAN index: rename + cardmenu only; status/lane/note are 
   // title targets exist on EVERY card/row (hero AND rail — every row is renamable)
   assert.equal((svg.match(/data-edit="title"/g) || []).length, allN, 'title targets: hero + rail');
 });
+test('rail rows state conditionality on their own line; long titles cannot hide it', () => {
+  const source = 'style: focus\nNOW\nCore: Gate [bet: pricing]\nNEXT\nCore: ' +
+    'A very long initiative title that will be clipped before it consumes the rail [if pricing]\nLATER\nCore: Fallback [unless pricing]';
+  const svg = renderFocusLive(parse(source), {...ctx, edit:true});
+  assert.ok(svg.includes('if pricing'), 'condition is visible independently of the clipped title');
+  assert.ok(svg.includes('unless pricing'), 'the alternate path is visible too');
+  assert.match(svg, /height="56" fill="transparent"/, 'the edit hit target includes the second line');
+});
 test('EVERY horizon (incl. an empty one) emits a lens header, a data-hdrop band and a +add', () => {
   const m = parse('style: focus\nNOW\nCore: A\nNEXT\nLATER\nGrowth: B');   // NEXT is empty
   const svg = renderFocusLive(m, {...ctx, edit:true});

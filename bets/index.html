@@ -92,7 +92,7 @@
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>
-        <span class="method">4,000 seeded simulations · deterministic · snapshot, then compare to see what changed · the URL carries your portfolio</span>
+        <span class="method">4,000 paired seeded simulations · independent baseline + shared-outcome stress · only realised outcomes are coupled · parameter ranges remain independently sampled</span>
       </div>
     </section>
 </div>
@@ -102,7 +102,7 @@
     <h2>Why state it as bets?</h2>
     <div class="prose">
     <p>An initiative list is a place where claims go to hide. Every line reads as equally certain, nothing on it has a price for being wrong, and nothing on it is ever allowed to die — so the portfolio just grows until a re-org clears it. Restating each line as a bet forces the sentence a roadmap slide never makes you say out loud: "we're staking X at these odds for this payoff, and we fold when Y." A line that can't complete that sentence is the one worth questioning.</p>
-    <p>Every stake, odds and payoff is a 90% range, run through a seeded Monte Carlo pass 4,000 times. That one pass answers two different questions on purpose: the per-bet band asks <em>is this bet sound</em> (expected value from the odds and payoff you gave it, independent of what else is in the portfolio), while the portfolio fan asks <em>what might actually happen</em> (each bet resolves win or lose, summed across the book) — which is why the same numbers can show a healthy median bet next to a portfolio with a real chance of losing money. The audits are the parts a slide usually buries: <strong>NO KILL CRITERION</strong> when nothing says when to fold, <strong>ODDS IMPLY CERTAINTY</strong> when a range is effectively a fact dressed up as a forecast, and <strong>LOSES AT P50</strong> when the median outcome is already a loss.</p>
+    <p>Every stake, odds and payoff is a 90% range, run through 4,000 paired seeded simulations. The per-bet band asks <em>is this bet sound?</em> The two portfolio readings then expose a dependence assumption most plans bury: the <strong>independent baseline</strong> resolves every bet separately; the <strong>shared-outcome stress</strong> couples only realised wins and losses while stake, odds and payoff ranges remain independently sampled. It is a stress, not a forecast or a fake correlation estimate. The audits surface what slides usually hide: <strong>NO KILL CRITERION</strong>, <strong>ODDS IMPLY CERTAINTY</strong>, and <strong>LOSES AT P50</strong>.</p>
     </div>
   </section>
 </div>

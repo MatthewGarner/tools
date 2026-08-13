@@ -212,7 +212,7 @@ export function setSpanStart(text, srcLine, newH, model){
 
 /* Exported so a later validator (the register "lane" cell edit) can reuse the
    same config-key collision list rather than a second, driftable copy. */
-export const CONFIG_KEYS = /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)$/i;
+export const CONFIG_KEYS = /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)$/i;
 
 /* peel the head of a line — the part before ` -- note` / ` -> url` — the same cut
    setSpan uses, so an inserted token/prefix lands in the right place. */

@@ -46,6 +46,158 @@
 .preview [data-kind="outline-question"][data-selected="true"] > text,
 .preview [data-kind="outline-question"]:focus-visible > text{fill:var(--accent-ink)}
 
+/* Paths and Roadmap are adjacent instruments, not interchangeable views. Put
+   the boundary where a new document begins, in prose rather than another
+   control or shared model. */
+.planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
+  margin:16px 0 0;padding:10px 12px;border-left:3px solid var(--accent);
+  background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+.planning-boundary span{color:var(--accent-ink);font-size:9px;font-weight:750;
+  letter-spacing:.13em;text-transform:uppercase}
+.planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.planning-boundary a{color:var(--accent-ink);font-weight:700}
+@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
+
+.paths-viewbar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin:0 0 12px; padding:0 0 10px; border-bottom:1px solid var(--border);
+}
+.paths-viewbar .method{
+  color:var(--muted); font-size:9px; font-weight:750; letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.paths-view-switch{flex:none}
+.paths-projection-jump{
+  display:none; min-height:44px; padding:8px 10px; color:var(--accent-ink);
+  background:color-mix(in srgb,var(--accent) 7%,var(--card)); border:1px solid var(--accent);
+  font:750 10px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif;
+  letter-spacing:.06em; text-transform:uppercase; cursor:pointer;
+}
+.paths-projection-jump:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (max-width:430px){
+  .paths-viewbar{align-items:stretch; flex-direction:column; gap:7px}
+  .paths-view-switch{display:flex; width:100%}
+  .paths-view-switch button{flex:1 1 auto}
+  .paths-projection-jump:not([hidden]){
+    display:flex; align-items:center; justify-content:space-between; width:100%; margin-top:2px;
+  }
+}
+
+/* Possible Plans is a comparison surface; this adjacent ledger is the moment
+   one exact answer set becomes an operational Roadmap. The left answer spine
+   keeps complex worlds scannable while the right receipt makes the basis —
+   including what did not arise — explicit before navigation. */
+.roadmap-projection{
+  margin:16px 0 0; color:var(--ink); background:var(--bg);
+  border:1px solid var(--border); border-top:3px solid var(--accent);
+}
+.roadmap-projection[hidden]{display:none}
+.projection-head{padding:16px 18px 14px; border-bottom:1px solid var(--border)}
+.projection-kicker{
+  margin:0 0 4px; color:var(--accent-ink); font-size:9px; font-weight:750;
+  letter-spacing:.14em; text-transform:uppercase;
+}
+.projection-head h2{
+  margin:0; font-family:Charter,"Bitstream Charter",Georgia,serif;
+  font-size:21px; line-height:1.15;
+}
+.projection-intro{
+  max-width:72ch; margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.45;
+}
+.projection-body{display:grid; grid-template-columns:minmax(250px,.82fr) minmax(0,1.55fr)}
+.projection-body.is-unselected{grid-template-columns:1fr}
+.projection-body.is-unselected .projection-choices{border-right:0}
+.projection-choices{
+  min-width:0; margin:0; padding:14px; border:0; border-right:1px solid var(--border);
+}
+.projection-choices legend{
+  width:100%; margin:0 0 8px; padding:0; color:var(--muted); font-size:9px;
+  font-weight:750; letter-spacing:.11em; text-transform:uppercase;
+}
+.projection-choice{
+  display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px; align-items:start;
+  min-height:44px; padding:10px 9px; border-block:1px solid transparent;
+  cursor:pointer;
+}
+.projection-choice + .projection-choice{border-top-color:var(--border)}
+.projection-choice:has(input:checked){
+  margin-inline:-1px; padding-inline:10px 8px;
+  background:color-mix(in srgb,var(--accent) 7%,var(--card));
+  border-left:2px solid var(--accent);
+}
+.projection-choice[data-available="false"]{cursor:not-allowed; background:var(--card)}
+.projection-choice input{width:16px; height:16px; margin:2px 0 0; accent-color:var(--accent)}
+.projection-choice-copy,.projection-choice-line,.projection-choice-state{display:block; min-width:0}
+.projection-choice-reference{
+  display:block; margin-bottom:2px; color:var(--muted); font-size:8px; font-weight:750;
+  letter-spacing:.1em; line-height:1.35; text-transform:uppercase;
+}
+.projection-choice-line{font-size:11px; font-weight:680; line-height:1.4; overflow-wrap:anywhere}
+.projection-choice-state{margin-top:3px; color:var(--muted); font-size:9px; line-height:1.4}
+.projection-choice[data-available="true"] .projection-choice-state{color:var(--accent-ink)}
+.projection-choice:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:-2px}
+.projection-empty{
+  margin:0; color:var(--muted); font-size:11px; line-height:1.5;
+}
+.projection-scope{
+  margin:12px 4px 0; padding-top:10px; color:var(--muted); border-top:1px solid var(--border);
+  font-size:9px; line-height:1.45;
+}
+.projection-confirmation{min-width:0; padding:16px 18px 18px}
+.projection-confirmation > h3{
+  margin:0 0 14px; font-family:Charter,"Bitstream Charter",Georgia,serif;
+  font-size:18px; line-height:1.2;
+}
+.projection-confirmation > h3:focus{outline:none}
+.projection-ledger{display:grid; grid-template-columns:150px minmax(0,1fr); gap:14px; padding:12px 0}
+.projection-ledger + .projection-ledger{border-top:1px solid var(--border)}
+.projection-ledger h4{
+  margin:2px 0 0; color:var(--muted); font-size:9px; font-weight:750;
+  letter-spacing:.1em; line-height:1.35; text-transform:uppercase;
+}
+.projection-ledger-list{list-style:none; margin:0; padding:0}
+.projection-ledger-list li{min-width:0}
+.projection-ledger-list li + li{margin-top:8px; padding-top:8px; border-top:1px dotted var(--border)}
+.projection-ledger-list strong,.projection-ledger-list span{display:block; overflow-wrap:anywhere}
+.projection-ledger-list strong{font-size:11px; line-height:1.4}
+.projection-ledger-list span,.projection-ledger-empty{margin:2px 0 0; color:var(--muted); font-size:9px; line-height:1.45}
+.projection-assumption{
+  display:grid; grid-template-columns:22px minmax(0,1fr); gap:8px; align-items:start;
+  min-height:44px; cursor:pointer;
+}
+.projection-assumption input{width:18px; height:18px; margin:1px 0 0; accent-color:var(--accent)}
+.projection-assumption:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:3px}
+.projection-foot{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin-top:4px; padding-top:14px; border-top:1px solid var(--border)}
+.projection-separation{flex:1 1 300px; margin:0; color:var(--muted); font-size:10px; line-height:1.45}
+.projection-create{flex:none}
+.projection-message{flex:1 0 100%; margin:0; color:var(--err); font-size:10px; line-height:1.4}
+
+@media (max-width:760px){
+  .projection-body{grid-template-columns:1fr}
+  .projection-choices{border-right:0; border-bottom:1px solid var(--border)}
+}
+@media (max-width:480px){
+  .projection-head,.projection-confirmation{padding-inline:14px}
+  .projection-choices{padding:12px 10px}
+  .projection-ledger{grid-template-columns:1fr; gap:6px}
+  .projection-ledger h4{margin-top:0}
+  .projection-create{width:100%; justify-content:center}
+  .stage > .actions > .touch-undo,.stage > .actions > #copypng,
+  .stage > .actions > .action-disclosure{flex:1 1 calc(33.333% - 7px)}
+  .stage > .actions > .action-disclosure > summary{width:100%; justify-content:center}
+  .stage > .actions > .action-disclosure .action-menu{
+    right:0; left:auto; width:min(220px,calc(100vw - 32px)); min-width:0;
+  }
+  .stage > .actions > .method{flex:1 0 100%}
+}
+@media (pointer:coarse){
+  .projection-choice{min-height:52px}
+  .projection-choice input{width:20px; height:20px}
+  .projection-assumption{min-height:52px; align-items:center}
+  .projection-assumption input{width:22px; height:22px}
+  .projection-create{min-height:44px}
+}
+
 .decision-inspector{
   margin:16px 0 0; padding:16px 18px 18px;
   color:var(--ink); background:var(--bg);

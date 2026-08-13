@@ -157,6 +157,9 @@ function syncViewToggle(){
   $('viewmap').classList.toggle('on', view === 'map');
   $('viewost').setAttribute('aria-selected', String(view === 'ost'));
   $('viewmap').setAttribute('aria-selected', String(view === 'map'));
+  $('viewnote').textContent = view === 'ost'
+    ? 'Discovery lens — trace every solution to the customer opportunity and assumption it relies on.'
+    : 'Delivery lens — shows discovery readiness, not delivery capacity or a decision plan.';
 }
 $('viewost').addEventListener('click', () => setView('ost'));
 $('viewmap').addEventListener('click', () => setView('map'));

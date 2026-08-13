@@ -169,6 +169,18 @@ test('board deck, list mode (many items in one column): the cond tag rides the d
   const svg = renderBoardDeck(m, ctx(), colors);
   assert.doesNotMatch(svg, CAPSULE_TAG, 'list mode never paints an isolated tag capsule');
   assert.match(svg, /LANE0\s+·\s+AT RISK\s+·\s+if reminders/, 'the tag rides the sub-line, dot-joined with lane/status');
+  assert.match(svg, /\+ \d+ more · \d+ conditional/, 'the overflow chip says how many hidden paths are conditional');
+});
+
+test('board deck, card mode: the overflow chip counts hidden conditional work', () => {
+  const doc = 'title: T\nNOW\nCore: Root [bet: reminders]\nNEXT\n' +
+    Array.from({length: 6}, (_, i) => 'Core: Conditional ' + i + ' [if reminders]').join('\n') +
+    '\nLATER\nCore: X';
+  const m = parse(doc);
+  const {listMode} = boardGeometry(m, 792);
+  assert.equal(listMode, false, 'sanity: six cards remain in card mode at this body height');
+  const svg = renderBoardDeck(m, ctx(), colors);
+  assert.match(svg, /\+ \d+ more · \d+ conditional/);
 });
 
 test('board deck: the tag still renders at the NARROWEST card-column ramp (fsN:0) — exports carry every path (F4)', () => {
@@ -231,7 +243,7 @@ test('register: BET/resolved capsules render', () => {
 
 /* ---------- focus ---------- */
 
-test('focus hero: full capsule; LIVE rail degrades to fade-only (no capsule text); DECK rail carries a compact suffix (F4)', () => {
+test('focus hero: full capsule; both LIVE and DECK rails carry a condition line (F4)', () => {
   const doc = 'title: T\nstyle: focus\nNOW\nCore: Ship base [bet: reminders]\nNEXT\nCore: Smart nudges [if reminders]\nLATER\nCore: Later thing';
   const m = parse(doc);
   const deckSvg = renderFocusDeck(m, ctx(), colors);
@@ -239,13 +251,21 @@ test('focus hero: full capsule; LIVE rail degrades to fade-only (no capsule text
   for(const svg of [deckSvg, liveSvg]) assert.ok(svg.includes('bet: reminders'), 'hero carries the capsule');
   assert.ok(deckSvg.includes('Smart nudges'));
   assert.ok(liveSvg.includes('Smart nudges'));
-  // DECK: an export has no card menu to fall back on — the rail row states the
-  // fact as a compact text suffix instead of a capsule (F4, exports-carry-
-  // all-paths). LIVE: unchanged — the card menu carries the info (A5), the
-  // rail stays purely fade-only.
-  assert.ok(deckSvg.includes('>Smart nudges</text>') && deckSvg.includes('> — if reminders</text>'),
-    'deck rail states the condition as a suffix (a separate muted text run, title unaffected)');
-  assert.ok(!liveSvg.includes('if reminders'), 'the live rail row is fade-only — no capsule, no suffix');
+  // Both views state the fact on its own line, so neither a clipped title nor a
+  // detached export can flatten the uncertainty. LIVE stays a clean ranked
+  // index: the extra line is informational, with no new edit target.
+  assert.ok(deckSvg.includes('>Smart nudges</text>') && deckSvg.includes('>if reminders</text>'),
+    'deck rail states the condition on a separate muted line');
+  assert.ok(liveSvg.includes('>Smart nudges</text>') && liveSvg.includes('>if reminders</text>'),
+    'live rail states the condition on a separate muted line');
+});
+
+test('focus deck: a very long rail title cannot hide its condition', () => {
+  const long = 'This exceptionally long initiative title is deliberately wider than the entire focus rail and must clip';
+  const doc = 'title: T\nstyle: focus\nNOW\nCore: Root [bet: reminders]\nNEXT\nCore: ' + long + ' [if reminders]\nLATER\nCore: Later thing';
+  const svg = renderFocusDeck(parse(doc), ctx(), colors);
+  assert.ok(!svg.includes('>' + long + '</text>'), 'sanity: the long title is clipped');
+  assert.ok(svg.includes('>if reminders</text>'), 'the condition remains visible independently of title width');
 });
 
 /* ---------- deck grid (delegates to the chart) ---------- */

@@ -1,4 +1,5 @@
 /* Roadmap DSL → model. No DOM. */
+import {parseProjectionBasis} from '../assets/projection-basis.js';
 export const DEFAULT_HORIZONS = ['Now', 'Next', 'Later'];
 export const STATUS_ALIASES = {
   'done':'done', 'shipped':'done',
@@ -339,20 +340,26 @@ export function roadmapVerdict(model){
   return {fig, line: head + tail};
 }
 
+/* A Paths projection basis is one provenance datum, never a collection of
+   independently recoverable settings. Returning an error for any malformed
+   clause lets parse() discard the WHOLE value instead of accidentally
+   presenting a partial world as the plan's basis. */
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
     lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
-    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane'};
+    style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane', basis:null};
   let currentH = -1;
+  let basisSeen = false, basisInvalid = false, basisWarning = false;
   const preHeader = [];   // line numbers skipped before the first horizon header
   const lines = text.split(/\r?\n/);
   for(let ln = 0; ln < lines.length; ln++){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s*:\s*(.*)$/i);
     if(config){
-      const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
+      const key = config[1].toLowerCase();
+      const val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too (except atomic basis: below)
       /* A settings key and a lane prefix are the same shape (`X: y`), so a lane
          genuinely called "Headline" (or "Date", or "Style") is eaten as config —
          its items vanish from the board and, worse, its text would surface on the
@@ -362,7 +369,28 @@ export function parse(text){
       if(currentH >= 0)
         model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' read as the ' + key +
           ': setting, not an item in a lane called "' + config[1] + '" — settings belong above the first horizon header');
-      if(key === 'title') model.title = val;
+      if(key === 'basis'){
+        if(basisSeen){
+          model.basis = null;
+          basisInvalid = true;
+          if(!basisWarning){
+            model.warnings.push('line ' + (ln+1) + ': duplicate basis: setting — the entire projection basis is ignored; write one complete basis: line');
+            basisWarning = true;
+          }
+        } else {
+          basisSeen = true;
+          /* Unlike ordinary settings, a trailing // is data corruption here:
+             provenance must round-trip exactly, so parse the unstripped value. */
+          const parsed = parseProjectionBasis(config[2].trim(), ln);
+          if(parsed.error){
+            basisInvalid = true;
+            model.basis = null;
+            model.warnings.push('line ' + (ln+1) + ': invalid basis: ' + parsed.error + ' — the entire projection basis is ignored');
+            basisWarning = true;
+          } else model.basis = parsed.value;
+        }
+      }
+      else if(key === 'title') model.title = val;
       else if(key === 'date') model.dateStr = val;
       else if(key === 'headline') model.headline = val;
       /* the diff narrative — a claim about the CHANGE, where headline is a claim
@@ -412,6 +440,7 @@ export function parse(text){
         }
         else model.warnings.push('line ' + (ln+1) + ': horizons needs 2–8 names, or e.g. "quarterly from Q3 2026 x4" — kept ' + model.horizons.join('/'));
       }
+      if(basisInvalid) model.basis = null;
       continue;
     }
 
@@ -430,7 +459,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;

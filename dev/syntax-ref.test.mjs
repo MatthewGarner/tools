@@ -28,10 +28,12 @@ const TOOLS = {
       'NOW', '  Core: Shared work', '  Core: Rides it [if groups]'].join('\n'),
   },
   roadmap: {
-    keys: ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus'],
+    keys: ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group', 'basis'],
     doc: ['title: T', 'date: off', 'headline: A claim', 'story: A change story',
       'horizons: Now, Next, Later', 'wip: 6', 'fade: off', 'palette: ocean',
-      'accent: #C05621', 'style: focus', 'focus: Next', 'NOW', 'Core: A'].join('\n'),
+      'accent: #C05621', 'style: register', 'focus: Next', 'verdict: off', 'group: outcome',
+      'basis: paths "Growth decisions"; answered pricing=yes@2026-08-03',
+      'NOW', 'Core: A'].join('\n'),
   },
   timeline: {
     keys: ['title', 'palette', 'accent', 'today', 'verdict'],
@@ -57,7 +59,7 @@ const TOOLS = {
   tree: {
     keys: ['title', 'currency', 'palette', 'accent', 'verdict'],
     doc: ['title: T', 'currency: £', 'palette: ocean', 'accent: #C05621',
-      'verdict: We bid', 'Bid decision', '  Submit (p=0.5) : 100', '  Walk : 0'].join('\n'),
+      'verdict: We bid', 'Bid decision', '  Submit (p=0.5) : 100', '  Walk (p=rest) : 0'].join('\n'),
   },
   why: {
     keys: ['title', 'palette', 'accent'],

@@ -51,8 +51,8 @@ test('cardMenu field may be a function, omitted when it returns falsy', () => {
 
 test('an opens-row with no matching inline target falls back to the menu trigger itself, never a silent no-op', () => {
   assert.match(src, /if\(t\) open\(t, \{forceInput: true\}\);/);
-  assert.match(src, /else open\(activeEl, \{kind: row\.opens, raw: '', forceInput: false\}\);/,
-    'missing target ⇒ same interaction, anchored at the card-menu trigger, empty raw, no forced text input');
+  assert.match(src, /raw: activeEl\.dataset\[row\.opens \+ 'Raw'\] \|\| ''/,
+    'missing target ⇒ same interaction, anchored at the card menu and prefilled from its field-specific raw');
 });
 
 test('open() lets opts.kind/opts.raw override the element dataset, threaded through every downstream read', () => {
@@ -82,7 +82,7 @@ test('renderPopoverRows handles commit and submenu rows', () => {
 });
 
 test('post-add targeting is exact, waits for the normal render, and never falls back to the DSL', () => {
-  assert.match(src, /function openAt\(target, \{origin = document\.activeElement, onCancel, onMiss, timeout = 500\}/);
+  assert.match(src, /function openAt\(target, \{origin = document\.activeElement, onCancel, onMiss, openAs, timeout = 500\}/);
   assert.match(src, /el\.dataset\.edit !== target\.kind \|\| el\.dataset\.line !== String\(target\.line\)/,
     'kind and source line are exact strings, not normalised numbers');
   assert.match(src, /Object\.entries\(target\.data \|\| \{\}\).*el\.dataset\[key\] === String\(value\)/s,
@@ -93,6 +93,11 @@ test('post-add targeting is exact, waits for the normal render, and never falls 
   assert.match(src, /function announceMiss\(\)/, 'a miss is announced rather than silently falling back');
   assert.match(src, /function focusAt\(target, \{origin = document\.activeElement, onMiss, timeout = 500\}/,
     'pre-entry adds use exact semantic focus without opening a second input');
+});
+
+test('post-add can open a field editor on an exact menu-only anchor', () => {
+  assert.match(src, /open\(hits\[0\], \{\.\.\.\(openAs \|\| \{\}\), forceInput: true, onCancel\}\)/,
+    'openAs overrides kind/raw while the shared helper still forces a precise text input');
 });
 
 test('Escape can cancel a just-created default item through caller-owned source rewrites', () => {

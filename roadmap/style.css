@@ -8,6 +8,14 @@
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
+  margin:16px 0 0;padding:10px 12px;border-left:3px solid var(--accent);
+  background:color-mix(in srgb,var(--accent) 5%,var(--card))}
+.planning-boundary span{color:var(--accent-ink);font-size:9px;font-weight:750;
+  letter-spacing:.13em;text-transform:uppercase}
+.planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.planning-boundary a{color:var(--accent-ink);font-weight:700}
+@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
 select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);border-radius:0;
   background:var(--card);color:var(--ink);font-family:inherit;max-width:210px}
 /* the headline field — the UI half of `headline:`. Given its own labelled row
@@ -96,6 +104,22 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   background:none;border:1px solid transparent;border-radius:0;
   padding:2px 7px;margin:0;cursor:pointer}
 .whatif-chip button:hover,.whatif-chip button:focus-visible{border-color:var(--border);outline:none}
+/* Decision dependency handoff: a quiet semantic strip, not another diagram or
+   toolbar. The accent edge names the dependency; the action remains secondary
+   to the roadmap itself. */
+.conditionality-health{display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;align-items:center;margin-top:10px;padding:11px 12px 11px 14px;
+  border-left:3px solid var(--accent);
+  background:color-mix(in srgb,var(--accent) 5%,var(--card));color:var(--ink)}
+.conditionality-health[hidden]{display:none}
+.conditionality-label{margin:0 0 3px;font-size:10px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+.conditionality-message{margin:0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.conditionality-health .btn{max-width:310px;text-align:left;line-height:1.35}
+@media (max-width:620px){
+  .conditionality-health{grid-template-columns:1fr}
+  .conditionality-health .btn{max-width:none;width:100%;justify-content:center;text-align:center}
+}
 @media (pointer: coarse){
   .whatif-chip{font-size:13px}
   .whatif-chip button{min-height:44px;padding:10px 12px}

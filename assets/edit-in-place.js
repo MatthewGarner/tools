@@ -140,15 +140,14 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
              when the target also carries a spec.custom (e.g. tree's hot-number
              slider intercept) that would otherwise redirect a plain open(). */
           if(t) open(t, {forceInput: true});
-          /* Renderers emit an inline [data-edit] target for a field only when it's
-             already set — an unset value/probability/lane has nothing on the card
-             to anchor to, so `t` is null here on every unset-field row. That must
-             never be a silent no-op (the defect class this whole path guards
-             against): open the SAME interaction anchored at the menu's own trigger
-             instead — its kind is the row's opens kind, raw is empty (nothing
-             authored yet), forceInput stays false so an options/menu kind still
-             opens its picker rather than being forced into a bare text input. */
-          else open(activeEl, {kind: row.opens, raw: '', forceInput: false});
+          /* A menu-only renderer has no inline sibling even when the field IS
+             authored. Card triggers may therefore carry field-specific raw
+             values (`data-label-raw`, `data-value-raw`, etc.); use the one
+             named by the row before falling back to empty for a genuinely
+             unset field. This keeps Rename/Edit prefilled without bringing
+             tiny inline targets back on coarse pointers. */
+          else open(activeEl, {kind: row.opens,
+            raw: activeEl.dataset[row.opens + 'Raw'] || '', forceInput: false});
         } else if(row.submenu){
           const r = b.getBoundingClientRect();        // capture BEFORE close() disposes the button
           close();
@@ -425,14 +424,14 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   /* Wait through the app's ordinary render cadence (normally 120ms debounce +
      rAF). A target is accepted only once, connected, visible, and exact; an
      ambiguous or missing target is a safe failure, never a fallback to the DSL. */
-  function openAt(target, {origin = document.activeElement, onCancel, onMiss, timeout = 500} = {}){
+  function openAt(target, {origin = document.activeElement, onCancel, onMiss, openAs, timeout = 500} = {}){
     if(!target || !target.kind || target.line === undefined || target.line === null) return Promise.resolve(false);
     const started = performance.now();
     return new Promise(resolve => {
       const attempt = () => {
         const hits = [...preview.querySelectorAll('[data-edit]')]
           .filter(el => isVisible(el) && matchesTarget(el, target));
-        if(hits.length === 1){ open(hits[0], {forceInput: true, onCancel}); resolve(true); return; }
+        if(hits.length === 1){ open(hits[0], {...(openAs || {}), forceInput: true, onCancel}); resolve(true); return; }
         if(performance.now() - started < timeout){ requestAnimationFrame(attempt); return; }
         if(origin?.isConnected && typeof origin.focus === 'function') origin.focus({preventScroll: true});
         announceMiss();
