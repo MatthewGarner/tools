@@ -8,6 +8,11 @@ import {parse as mparse} from '../../map/parse.js';
 import {resolve} from '../../map/zones.js';
 import {readout} from '../../map/readout.js';
 import {unpackScen} from '../../fermi/state.js';
+import {tokenize, parse as fparse, collectVars} from '../../fermi/engine.js';
+import {gaugeImport} from '../import-state.js';
+import {fermiImport, cloneEstimateState, returnEstimateState} from '../../fermi/import-state.js';
+import {handoffHref, handoffMeta, validHandoffMeta, withoutHandoffMeta, targetHashState} from '../../assets/handoff.js';
+import {readFileSync} from 'node:fs';
 
 test('slugVar: case, symbols, digit-first, length cap, dedupe', () => {
   const taken = new Set();
@@ -93,4 +98,70 @@ test('gaugeHandoff: nothing flagged → null', () => {
   const m = mparse('preset: assumptions\nWell tested @ 80,20');
   const r = resolve(m);
   assert.equal(gaugeHandoff(m, readout(m, r)), null);
+});
+
+test('handoff metadata is bounded, validated and size-capped', async () => {
+  const meta = handoffMeta('map', 'question-set', 'Habitat\n\u0000assumptions');
+  assert.deepEqual(meta, {v:1, mode:'draft', from:'map', kind:'question-set', label:'Habitat  assumptions'});
+  assert.equal(validHandoffMeta({...meta, from:'evil'}, {from:'map'}), null);
+  assert.equal(await handoffHref('/gauge/', {t:'A :: prob'}, meta, 5), null);
+  assert.match(await handoffHref('/gauge/', {t:'A :: prob'}, meta), /^\/gauge\/#z:/);
+  assert.equal(await handoffHref('https://example.test/', {t:'A'}, meta), null);
+  assert.equal(validHandoffMeta({...meta, v:2}), null);
+  assert.equal(validHandoffMeta({...meta, mode:'sync'}), null);
+  assert.deepEqual(withoutHandoffMeta({t:'edited', x:meta, e:0}), {t:'edited', e:0},
+    'normal target URL writes cannot retain import provenance');
+  assert.deepEqual(targetHashState({t:'edited', x:{bad:true}}, meta), {t:'edited', x:meta},
+    'transient edits keep validated provenance in their reloadable URL');
+});
+
+test('Map → Gauge import requires provenance and target-parseable questions', () => {
+  const x = handoffMeta('map', 'question-set', 'Map title');
+  assert.equal(gaugeImport({t:'title: empty', x}), null);
+  assert.equal(gaugeImport({t:'A :: prob'}), null);
+  assert.equal(gaugeImport({t:'A :: prob', x:{...x, from:'gauge'}}), null);
+  const inbound = gaugeImport({t:'A :: prob', x});
+  assert.equal(inbound.meta.label, 'Map title');
+  assert.equal(gparse(inbound.text).questions[0].text, 'A');
+});
+
+test('Gauge → Fermi import requires provenance and complete target variables', () => {
+  const x = handoffMeta('gauge', 'range-estimate', 'Room ranges');
+  assert.equal(fermiImport({f:'a * b', v:{a:['1','2']}, x}), null);
+  assert.equal(fermiImport({f:'a + )', v:{a:['1','2']}, x}), null);
+  assert.equal(fermiImport({f:'a', v:{a:['1','2']}}), null);
+  const inbound = fermiImport({f:'a * b', v:{a:['1','2'], b:['3','4'], injected:['x','y']}, x});
+  assert.deepEqual(Object.keys(inbound.state.v), ['a','b']);
+});
+
+test('Fermi return snapshot preserves both scenarios without provenance aliases', () => {
+  const x = handoffMeta('gauge', 'range-estimate', 'Room');
+  const original = {a:{f:'a',v:{a:['1','2','auto']},x}, b:{f:'b',v:{b:['3','4','auto']}}, on:'B', x};
+  const saved = cloneEstimateState(original);
+  assert.deepEqual(saved, {a:{f:'a',v:{a:['1','2','auto']}}, b:{f:'b',v:{b:['3','4','auto']}}, on:'B'});
+  original.a.v.a[0] = 'changed';
+  assert.equal(saved.a.v.a[0], '1', 'return snapshot is independent of transient edits');
+});
+
+test('legacy URL-only A/B state is adoptable and missing current falls back safely', () => {
+  const legacy = {a:{f:'a',v:{a:['1','2']}}, b:{f:'b',v:{b:['3','4']}}, on:'B'};
+  assert.deepEqual(returnEstimateState(legacy, {f:'fallback',v:{fallback:['1','1']}}), legacy,
+    'normal URL-only A/B state can become the remembered current');
+  assert.deepEqual(returnEstimateState(null, {f:'fallback',v:{fallback:['1','1','auto']}}),
+    {f:'fallback',v:{fallback:['1','1','auto']}}, 'Return never restores a null/blank estimator');
+});
+
+test('Map labels cannot inject Gauge DSL delimiters or lines', () => {
+  const doc = gaugeHandoff({title:'Habitat\nnames: on'},
+    {flagged:[{item:{label:'Bad :: range weeks\nInjected :: chips A | B'}}]});
+  const back = gparse(doc);
+  assert.equal(back.questions.length, 1);
+  assert.equal(back.questions[0].type, 'prob');
+  assert.equal(back.names, false);
+});
+
+test('Map handoff overflow status is visible, not screen-reader-only', () => {
+  const html = readFileSync(new URL('../../map/index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="handoffstatus"[^>]*role="status"/);
+  assert.doesNotMatch(html.match(/<span[^>]*id="handoffstatus"[^>]*>/)[0], /sr-only/);
 });

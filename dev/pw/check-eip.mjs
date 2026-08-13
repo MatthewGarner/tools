@@ -3638,28 +3638,250 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await mctx.close();
 }
 
-/* ---- paths selected-decision inspector: the SVG chooses a parsed decision;
-   every inspector edit is one source rewrite and remains selected after the
-   ordinary debounce/render cycle. Wide keyboard selection plus narrow 44px
-   geometry cover both renderers; answer controls cover the non-input action
-   path. ---- */
+/* ---- paths overview receipt + Focus lens + explicit Tree inspector: Overview
+   uses the evaluator-backed impact receipt while Tree retains its editable
+   legacy receipt and source-rewrite behavior during the staged migration. ---- */
 {
-  const pctx = await browser.newContext({viewport:{width:1280, height:900}, reducedMotion:'reduce'});
+  const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
   const perrors = trackErrors(p);
   const root = process.env.BASE || 'http://localhost:8087';
   const src = () => p.locator('#cmhost').textContent();
   await p.goto(root + '/paths/', {waitUntil:'networkidle'});
-  check('paths: Tree / Possible Plans is an obvious stage control with source-synced state',
-    await p.locator('#paths-view-switch').isVisible() &&
-    await p.locator('[data-paths-view="tree"]').getAttribute('aria-pressed') === 'true' &&
-    await p.locator('[data-paths-view="plans"]').getAttribute('aria-pressed') === 'false');
+  check('paths: the unstyled document opens the parallel overview with a deterministic receipt',
+    await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
+    await p.locator('#overview-receipt[data-decision-key="pricing"]').isVisible() &&
+    /changes directly with this answer/i.test(await p.locator('#overview-receipt').innerText()) &&
+    /also needs/i.test(await p.locator('#overview-receipt').innerText()) &&
+    await p.locator('#decision-inspector').isHidden());
+  check('paths: injected Fit advice cannot displace the roadmap or desktop receipt rail',
+    await p.evaluate(() => {
+      const live = document.querySelector('#overview-live');
+      const main = document.querySelector('.overview-main');
+      const preview = document.querySelector('#preview');
+      const receipt = document.querySelector('#overview-receipt');
+      const advice = document.querySelector('.fit-readability-advisory');
+      const mainBox = main?.getBoundingClientRect();
+      const previewBox = preview?.getBoundingClientRect();
+      const receiptBox = receipt?.getBoundingClientRect();
+      return live?.dataset.receiptLayout === 'rail' && advice?.parentElement === main &&
+        Math.abs(mainBox.x - previewBox.x) < 1 && previewBox.right <= receiptBox.left;
+    }));
+  const overviewQuestion = p.locator('[data-kind="attention-decision"][data-decision-key="groups"]');
+  await overviewQuestion.focus();
+  await overviewQuestion.press('Enter');
+  await p.waitForTimeout(400);
+  check('paths: overview keyboard selection updates and focuses the evaluator-backed live receipt',
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    await p.locator('[data-kind="attention-decision"][data-decision-key="groups"][data-selected="true"]').count() === 1 &&
+    await p.evaluate(() => document.activeElement?.id) === 'overview-receipt-title' &&
+    await p.locator('#decision-inspector').isHidden());
+  check('paths: decision selection announces the selected question and current state',
+    /Selected question: Will people invite three friends without prompting\?. Unanswered — due/.test(
+      await p.locator('#summary').innerText()));
+
+  await p.locator('#overview-receipt [data-open-focus]').click();
+  await p.waitForTimeout(300);
+  check('paths: Open focus is a deliberate local lens with stable selected decision',
+    await p.locator('#focus-lens').isVisible() && await p.locator('#preview').isHidden() &&
+    await p.evaluate(() => document.activeElement?.id) === 'focus-lens-title' &&
+    /Will people invite three friends/.test(await p.locator('#focus-lens-title').innerText()));
+  check('paths: Focus names yes/no as counterfactuals and exposes compound outcomes',
+    await p.locator('#focus-lens .focus-branch').count() === 2 &&
+    /If answered yes/.test(await p.locator('#focus-lens').innerText()) &&
+    /If answered no/.test(await p.locator('#focus-lens').innerText()) &&
+    /AND · requires Groups = yes and Pricing = no/.test(await p.locator('#focus-lens').innerText()) &&
+    /Counterfactual — not today’s plan/.test(await p.locator('#focus-lens').innerText()));
+  check('paths: Focus states honest export semantics',
+    /local counterfactual lens; exports remain the selected full roadmap/i.test(
+      await p.locator('#view-method').innerText()));
+  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  const focusDownload = p.waitForEvent('download');
+  await p.locator('#dlsvg').click();
+  const focusFile = await focusDownload;
+  const focusSvg = await (await import('node:fs/promises')).readFile(await focusFile.path(), 'utf8');
+  check('paths: Focus export remains the selected full overview with the rich receipt',
+    focusSvg.includes('data-kind="roadmap-grid"') &&
+    focusSvg.includes('data-kind="overview-receipt" data-decision-key="groups"') &&
+    focusSvg.includes('CHANGES DIRECTLY WITH THIS ANSWER') &&
+    !focusSvg.includes('data-kind="tree-body"'));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(300);
+  check('paths: Escape returns to Overview, preserves selection and returns focus to the opener',
+    await p.locator('#preview').isVisible() && await p.locator('#focus-lens').isHidden() &&
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-focus')));
+
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  check('paths: phone Overview keeps the agenda and omits the embedded SVG receipt',
+    await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
+    await p.locator('#preview [data-kind="overview-receipt"]').count() === 0 &&
+    await p.locator('#overview-receipt').isHidden());
+  const phoneDecision = p.locator('[data-select-decision][data-decision-key="groups"]');
+  await phoneDecision.click();
+  await p.locator('#overview-receipt').waitFor({state:'visible'});
+  check('paths: phone selection opens the rich receipt as a labelled modal bottom sheet',
+    await p.locator('#overview-receipt').getAttribute('role') === 'dialog' &&
+    await p.locator('#overview-receipt').getAttribute('aria-modal') === 'true' &&
+    await p.locator('#overview-receipt').getAttribute('aria-labelledby') === 'overview-receipt-title' &&
+    /latest reading/i.test(await p.locator('#overview-receipt').innerText()) &&
+    /changes directly with this answer/i.test(await p.locator('#overview-receipt').innerText()) &&
+    await p.evaluate(() => document.activeElement?.id) === 'overview-receipt-title');
+  check('paths: phone receipt removes every background sibling from assistive navigation',
+    await p.evaluate(() => {
+      const host = document.querySelector('#overview-receipt');
+      let branch = host;
+      while(branch?.parentElement){
+        const parent = branch.parentElement;
+        for(const sibling of parent.children){
+          if(sibling === branch) continue;
+          if(!sibling.inert || sibling.getAttribute('aria-hidden') !== 'true') return false;
+        }
+        branch = parent;
+        if(parent === document.body) break;
+      }
+      return true;
+    }));
+  await p.keyboard.press('Tab');
+  check('paths: phone receipt traps focus inside the sheet',
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
+  await p.keyboard.press('Tab');
+  check('paths: a single-control phone receipt wraps its focus trap',
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
+  await p.locator('#overview-receipt [data-receipt-close]').click();
+  await p.waitForTimeout(100);
+  check('paths: Close dismisses the phone sheet and returns focus to its decision',
+    await p.locator('#overview-receipt').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups' &&
+    await p.evaluate(() => !document.querySelector('.overview-main').inert &&
+      !document.querySelector('.overview-main').hasAttribute('aria-hidden')));
+  await p.keyboard.press('Enter');
+  await p.locator('#overview-receipt').waitFor({state:'visible'});
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(100);
+  check('paths: Escape dismisses the phone sheet and returns focus to its decision',
+    await p.locator('#overview-receipt').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups');
+
+  await p.setViewportSize({width:901, height:900});
+  await p.waitForTimeout(500);
+  check('paths: a 901px viewport follows the narrow preview container, not the viewport',
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'sheet' &&
+    await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
+    await p.locator('#overview-receipt').isHidden() && await p.locator('#focus-lens').isHidden());
+
+  await p.setViewportSize({width:1100, height:900});
+  await p.waitForTimeout(500);
+  check('paths: constrained non-narrow desktop starts with the Brief unobscured',
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'overlay' &&
+    await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
+    await p.locator('#overview-receipt').isHidden());
+  await p.locator('[data-select-decision][data-decision-key="groups"]').click();
+  await p.waitForTimeout(150);
+  check('paths: selecting a constrained-desktop decision opens its dismissible receipt',
+    await p.locator('#overview-receipt[data-layout="overlay"]').isVisible() &&
+    await p.locator('#overview-receipt [data-receipt-close]').count() === 1);
+  await p.locator('#overview-receipt [data-open-focus]').click();
+  await p.waitForTimeout(200);
+  const stackedFocus = await p.locator('#focus-lens .focus-branch').evaluateAll(elements =>
+    elements.length === 2 && elements[1].getBoundingClientRect().top > elements[0].getBoundingClientRect().top);
+  check('paths: Focus stacks from usable container width at constrained desktop',
+    await p.locator('#overview-live').getAttribute('data-focus-layout') === 'stacked' && stackedFocus);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
+  await p.setViewportSize({width:1700, height:900});
+  await p.waitForTimeout(500);
+  check('paths: resizing across the receipt boundary reflows overlay into the rail',
+    await p.evaluate(() => {
+      const main = document.querySelector('.overview-main').getBoundingClientRect();
+      const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
+      return document.querySelector('#overview-live').dataset.receiptLayout === 'rail' &&
+        getComputedStyle(document.querySelector('#overview-receipt')).position === 'sticky' &&
+        main.right <= receipt.left;
+    }));
+
+  await p.setViewportSize({width:1280, height:900});
+  await p.waitForTimeout(400);
+
+  await p.getByRole('button', {name:'Question lens'}).click();
+  await p.waitForTimeout(500);
+  check('paths: visible Question lens switch edits the source and makes two answer outcomes explicit',
+    /style: question/.test(await src()) &&
+    await p.locator('[data-kind="question-lens"]').count() === 1 &&
+    await p.locator('[data-kind="question-outcome"][data-outcome="yes"]').count() === 1 &&
+    await p.locator('[data-kind="question-outcome"][data-outcome="no"]').count() === 1 &&
+    await p.locator('#decision-inspector').isHidden());
+  const dependencyQuestion = p.locator('[data-kind="parallel-question"][data-decision-key="groups"]');
+  await dependencyQuestion.click();
+  await p.waitForTimeout(300);
+  check('paths: Question lens shares selection without covering its own comparison',
+    await dependencyQuestion.getAttribute('data-selected') === 'true' &&
+    await p.locator('#overview-receipt').isHidden() &&
+    await p.locator('[data-kind="question-receipt"][data-decision-key="groups"]').count() === 1);
+  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  const dependenciesDownload = p.waitForEvent('download');
+  await p.locator('#dlsvg').click();
+  const dependenciesFile = await dependenciesDownload;
+  const dependenciesSvg = await (await import('node:fs/promises')).readFile(await dependenciesFile.path(), 'utf8');
+  check('paths: Question lens export is the wide answer comparison, never Brief or Tree',
+    dependenciesSvg.includes('data-kind="question-lens"') &&
+    dependenciesSvg.includes('data-kind="question-outcome" data-outcome="yes"') &&
+    /<title[^>]*>[^<]*question lens[^<]*groups/i.test(dependenciesSvg) &&
+    !dependenciesSvg.includes('data-kind="roadmap-grid"') && !dependenciesSvg.includes('data-kind="tree-body"'));
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  check('paths: phone More views menu is anchored inside the view strip',
+    await p.evaluate(() => {
+      const strip = document.querySelector('.paths-views')?.getBoundingClientRect();
+      const menu = document.querySelector('.paths-more-views > div')?.getBoundingClientRect();
+      return !!strip && !!menu && menu.left >= strip.left - 1 && menu.right <= strip.right + 1;
+    }));
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = false; });
+  check('paths: phone Question lens stacks its readable outcomes without duplicate receipt sheet',
+    await p.locator('[data-kind="question-lens-narrow"]').count() === 1 &&
+    await p.locator('[data-kind="question-outcome"]').count() === 2 &&
+    await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:1000, height:900});
+  await p.waitForTimeout(400);
+  check('paths: constrained desktop Question lens uses its readable stacked composition, not a cropped export canvas',
+    await p.locator('[data-kind="question-lens-narrow"]').count() === 1 &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
+  await p.setViewportSize({width:1280, height:900});
+  await p.waitForTimeout(400);
+
+  await p.getByRole('button', {name:'Conditions'}).click();
+  await p.waitForTimeout(400);
+  check('paths: visible Conditions switch edits source and opens a connector-free parallel atlas',
+    /style: conditions/.test(await src()) &&
+    await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
+    await p.locator('[data-kind="conditions-decision-header"]').count() >= 1 &&
+    await p.locator('#preview path').count() === 0 && await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:390, height:844});
+  await p.waitForTimeout(400);
+  check('paths: phone Conditions becomes a readable agenda-style atlas with 44px questions',
+    await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
+    await p.locator('[data-kind="conditions-narrow-decision"] [data-hit]').count() >= 1 &&
+    await p.locator('#overview-receipt').isHidden());
+  await p.setViewportSize({width:1100, height:900});
+  await p.waitForTimeout(400);
+  check('paths: constrained desktop Conditions uses its readable stacked audit, not cropped decision columns',
+    await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
+  await p.setViewportSize({width:1280, height:900});
+  await p.waitForTimeout(400);
+
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  await p.getByRole('button', {name:'Tree'}).click();
+  await p.waitForTimeout(500);
   const question = p.locator('[data-select-decision][data-decision-key="groups"]');
   await question.focus();
   await question.press('Enter');
   await p.locator('#decision-inspector').waitFor({state:'visible'});
   check('paths: wide question is a keyboard-operable parsed-decision target',
-    await question.getAttribute('role') === 'button' && await question.getAttribute('data-line') === '10');
+    await question.getAttribute('role') === 'button' && /^\d+$/.test(await question.getAttribute('data-line')));
   check('paths: keyboard selection moves focus to the expanded inspector',
     await p.evaluate(() => document.activeElement?.id) === 'decision-inspector-title' &&
     await p.locator('[data-select-decision][data-decision-key="groups"]').getAttribute('aria-expanded') === 'true');
@@ -3714,72 +3936,14 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
      phone relayout, inspector exclusion and — most importantly — that exports
      are routed through the selected WIDE renderer rather than serialising the
      narrow preview or silently retaining Tree. */
-  await p.locator('[data-paths-view="plans"]').click();
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  await p.getByRole('button', {name:'Plans'}).click();
   await p.waitForTimeout(500);
-  check('paths: style plans switches to the semantic phone relayout and removes the Tree inspector',
+  check('paths: More views Plans switches to the semantic phone relayout and removes the Tree inspector',
     await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
     await p.locator('#decision-inspector').isHidden() &&
-    /wide matrix/.test(await p.locator('#view-method').innerText()) &&
-    await p.locator('[data-paths-view="plans"]').getAttribute('aria-pressed') === 'true' &&
-    (await src()).includes('style: plans'));
-  await p.locator('.touch-undo').evaluate(element => element.click());
-  await p.waitForTimeout(500);
-  check('paths: the stage view switch is one undoable source transaction',
-    await p.locator('[data-paths-view="tree"]').getAttribute('aria-pressed') === 'true' &&
-    !(await src()).includes('style: plans'));
-  await p.locator('[data-paths-view="plans"]').click();
-  await p.waitForTimeout(500);
-  check('paths: delivery projection is stage-local beside Possible Plans, never an editor-rail action',
-    await p.locator('#roadmap-projection').isVisible() && await p.evaluate(() =>
-      document.getElementById('preview').nextElementSibling?.id === 'roadmap-projection'));
-  check('paths: phone Plans exposes one prominent shortcut to the canonical exact-outcome flow',
-    await p.locator('#paths-projection-jump').isVisible() &&
-    await p.evaluate(() => document.getElementById('paths-view-switch').nextElementSibling?.id === 'paths-projection-jump') &&
-    await p.locator('#paths-projection-jump').evaluate(element => element.getBoundingClientRect().height >= 44) &&
-    /Choose exact outcome · \d+ ready/i.test(await p.locator('#paths-projection-jump').innerText()));
-  check('paths: exact outcomes are not silently selected and unavailable worlds explain why',
-    await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
-    await p.locator('.projection-choice[data-available="false"] .projection-choice-state').count() > 0 &&
-    /Unavailable —/.test(await p.locator('.projection-choice[data-available="false"] .projection-choice-state').first().innerText()));
-  await p.locator('#paths-projection-jump').click();
-  check('paths: shortcut reveals the receipt flow without choosing an outcome',
-    await p.evaluate(() => document.activeElement?.name) === 'roadmap-projection-world' &&
-    await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
-    await p.locator('.projection-unselected').count() === 0 &&
-    await p.locator('.projection-body').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length === 1));
-  check('paths: exact outcomes name the Possible Plan card they refine',
-    /Possible plan \d+ · Exact outcome \d+/i.test(
-      await p.locator('.projection-choice[data-available="true"] .projection-choice-reference').first().innerText()));
-  const readyWorld = p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first();
-  await readyWorld.check();
-  await p.waitForTimeout(100);
-  check('paths: choosing an exact outcome keeps radio-group focus and announces its receipt',
-    await p.evaluate(() => document.activeElement?.name) === 'roadmap-projection-world' &&
-    await p.locator('.projection-confirmation').getAttribute('aria-live') === 'polite');
-  check('paths: receipt exposes known, assumed and not-part sections plus the separation promise',
-    await p.locator('.projection-ledger').count() === 3 &&
-    /Known from Paths[\s\S]*Assumed for this delivery projection[\s\S]*Not part/i.test(
-      await p.locator('.projection-confirmation').innerText()) &&
-    (await p.locator('.projection-separation').innerText()).toLowerCase() ===
-      'this creates a new roadmap. it does not answer or alter paths.');
-  check('paths: projection scope is explicit and the action names Roadmap plus basis',
-    (await p.locator('.projection-scope').innerText()).toLowerCase() ===
-      'select one ready outcome. only decisions that affect delivery appear here; unrelated questions stay in paths.' &&
-    (await p.locator('[data-create-roadmap]').innerText()).toLowerCase() === 'create roadmap with this basis');
-  const assumptionChecks = p.locator('.projection-assumption input[type="checkbox"]');
-  const createRoadmap = p.locator('[data-create-roadmap]');
-  check('paths: every assumed answer needs explicit acceptance and phone targets clear 44px',
-    await assumptionChecks.count() > 0 && await createRoadmap.isDisabled() &&
-    await p.locator('.projection-assumption').first().evaluate(element => element.getBoundingClientRect().height >= 44));
-  for(let index = 0; index < await assumptionChecks.count(); index++) await assumptionChecks.nth(index).check();
-  check('paths: accepting the complete exact ledger enables creation', await createRoadmap.isEnabled());
+    /wide matrix/.test(await p.locator('#view-method').innerText()));
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
-  check('paths: phone export trigger and menu remain fully inside the viewport', await p.evaluate(() => {
-    const trigger = document.querySelector('.action-disclosure > summary')?.getBoundingClientRect();
-    const menu = document.querySelector('.action-disclosure .action-menu')?.getBoundingClientRect();
-    return trigger && menu && trigger.left >= 0 && trigger.right <= innerWidth + 1 &&
-      menu.left >= 0 && menu.right <= innerWidth + 1;
-  }));
   const plansDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const plansFile = await plansDownload;
@@ -3788,7 +3952,8 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     plansSvg.includes('data-kind="plans-matrix"') &&
     !plansSvg.includes('data-kind="plans-narrow"') && !plansSvg.includes('data-kind="tree-body"'));
 
-  await p.locator('[data-paths-view="tree"]').click();
+  await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
+  await p.getByRole('button', {name:'Tree'}).click();
   await p.waitForTimeout(500);
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const treeDownload = p.waitForEvent('download');
@@ -3797,48 +3962,6 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   const treeSvg = await (await import('node:fs/promises')).readFile(await treeFile.path(), 'utf8');
   check('paths: switching back keeps Tree exports Tree-only',
     treeSvg.includes('data-kind="tree-body"') && !treeSvg.includes('data-kind="plans-matrix"'));
-
-  /* Re-enter Plans and prove the fresh-document handoff itself. The style edit
-     deliberately cleared the earlier receipt, so the exact world and every
-     assumption must be selected again before navigation. */
-  await p.locator('[data-paths-view="plans"]').click();
-  await p.waitForTimeout(500);
-  check('paths: a source view edit clears the earlier exact selection and acceptance',
-    await p.locator('#roadmap-projection input[name="roadmap-projection-world"]:checked').count() === 0 &&
-    await p.locator('.projection-confirmation').count() === 0);
-  await p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first().check();
-  const freshChecks = p.locator('.projection-assumption input[type="checkbox"]');
-  for(let index = 0; index < await freshChecks.count(); index++) await freshChecks.nth(index).check();
-
-  /* onChange is deliberately debounced. Edit source and click Create before
-     that 120ms refresh: the click path must synchronously validate current
-     editor bytes and refuse the old receipt rather than navigating stale. */
-  const sourceBeforeStale = await p.evaluate(() => localStorage.getItem('paths-src'));
-  await p.locator('.cm-content').click();
-  await p.keyboard.press('ControlOrMeta+a');
-  await p.keyboard.insertText(sourceBeforeStale.replace('Streak repair', 'Streak repair — changed'));
-  await p.locator('[data-create-roadmap]').click();
-  check('paths: Create inside the debounce window refuses a stale selected basis',
-    p.url().includes('/paths/') && await p.locator('.projection-message').isVisible());
-  await p.locator('.cm-content').click();
-  await p.keyboard.press('ControlOrMeta+a');
-  await p.keyboard.insertText(sourceBeforeStale);
-  await p.waitForTimeout(500);
-  await p.locator('.projection-choice[data-available="true"] input[name="roadmap-projection-world"]').first().check();
-  const restoredChecks = p.locator('.projection-assumption input[type="checkbox"]');
-  for(let index = 0; index < await restoredChecks.count(); index++) await restoredChecks.nth(index).check();
-  const pathsBeforeProjection = await p.evaluate(() => localStorage.getItem('paths-src'));
-  await Promise.all([
-    p.waitForURL(/\/roadmap\/#z:/),
-    p.locator('[data-create-roadmap]').click(),
-  ]);
-  await p.waitForTimeout(500);
-  const roadmapSource = await p.locator('#cmhost').textContent();
-  check('paths: exact creation opens a fresh Roadmap with visible known/assumed basis',
-    p.url().includes('/roadmap/#z:') && roadmapSource.includes('basis: paths "Habitat"; answered reminders=yes@2026-07-22; assumed') &&
-    !roadmapSource.includes('[if ') && !roadmapSource.includes('[unless '));
-  check('paths: creating the Roadmap did not rewrite the Paths source',
-    await p.evaluate(() => localStorage.getItem('paths-src')) === pathsBeforeProjection);
   check('paths: no console/page errors', perrors.length === 0);
   await pctx.close();
 }

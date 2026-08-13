@@ -1,6 +1,40 @@
 /* Selected-decision receipt: the tree chooses a question; this quiet ledger
    edits its source fields. The accent rule is the visual tether between them. */
 .preview [data-select-decision]{cursor:pointer; outline:none}
+.paths-views{
+  position:relative; display:flex; align-items:center; gap:12px; min-height:44px; margin:0 0 12px;
+  padding-bottom:12px; border-bottom:1px solid var(--border);
+}
+.paths-views-label{
+  color:var(--muted); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+}
+.paths-views .segmented{display:flex; flex-wrap:wrap; gap:0}
+.paths-views .segmented .btn{min-height:36px; border-radius:0}
+.paths-views .segmented .btn + .btn{margin-left:-1px}
+.paths-more-views{margin-left:auto; color:var(--muted); font-size:11px}
+.paths-more-views summary{cursor:pointer}
+.paths-more-views > div{
+  position:absolute; z-index:8; right:0; display:grid; min-width:112px; margin-top:6px;
+  background:var(--bg); border:1px solid var(--border); box-shadow:var(--shadow);
+}
+.paths-more-views{position:relative}
+.paths-more-views button{
+  min-height:36px; padding:7px 11px; color:var(--ink); background:var(--bg); border:0;
+  border-bottom:1px solid var(--border); font:600 11px system-ui,-apple-system,"Segoe UI",sans-serif; text-align:left; cursor:pointer;
+}
+.paths-more-views button:last-child{border-bottom:0}
+.paths-more-views button:hover{color:var(--accent-ink); background:var(--hl)}
+@media (pointer:coarse){
+  .paths-views .segmented .btn,.paths-more-views summary,.paths-more-views button{min-height:44px}
+}
+@media (max-width:520px){
+  .paths-views{align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:8px}
+  .paths-views-label{padding-top:13px}
+  .paths-more-views{position:relative; margin-left:0; padding-top:11px}
+  /* The mobile disclosure is anchored to the view strip, not to its final
+     wrapped trigger. Its left edge therefore never escapes the phone pane. */
+  .paths-more-views > div{left:0; right:auto; width:max-content; min-width:112px; max-width:calc(100vw - 20px)}
+}
 .preview [data-select-decision][data-selected="true"] > polygon,
 .preview [data-select-decision][data-selected="true"] > rect:not([data-hit]){
   stroke:var(--accent-ink); stroke-width:3px;
@@ -265,3 +299,106 @@
   .inspector-value,.inspector-close,.inspector-answer-actions .btn{min-height:44px}
   .inspector-value{font-size:16px}
 }
+
+/* Overview keeps the roadmap as the artefact and uses a read-only impact
+   receipt beside it. At constrained desktop widths the same receipt becomes a
+   drawer over the stage instead of forcing the grid into a phone relayout. */
+.overview-live{position:relative; min-width:0}
+.overview-live > [hidden]{display:none}
+.overview-main{
+  grid-area:roadmap; min-width:0;
+  display:grid; grid-template-areas:"advisory" "preview"; grid-template-columns:minmax(0,1fr);
+}
+.overview-main > .fit-readability-advisory{grid-area:advisory}
+.overview-main > .preview{grid-area:preview; min-width:0}
+.overview-receipt{grid-area:receipt}
+.focus-lens{grid-area:focus}
+.overview-receipt{
+  position:absolute; z-index:4; top:12px; right:12px; width:min(360px,calc(100% - 24px));
+  max-height:calc(100vh - 72px); overflow:auto; box-sizing:border-box;
+  padding:16px 18px 18px; color:var(--ink); background:var(--bg);
+  border:1px solid var(--border); border-left:3px solid var(--accent); box-shadow:var(--shadow);
+}
+.receipt-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px}
+.receipt-close{
+  flex:none; min-width:44px; min-height:44px; padding:8px 0; color:var(--muted);
+  background:none; border:0; font:650 11px system-ui,-apple-system,"Segoe UI",sans-serif;
+  cursor:pointer;
+}
+.receipt-close:hover{color:var(--accent-ink)}
+.receipt-head h2,.focus-head h2{
+  margin:0; overflow-wrap:anywhere; font-family:Charter,"Bitstream Charter",Georgia,serif;
+  font-size:20px; line-height:1.2;
+}
+.receipt-state,.focus-state{
+  margin:6px 0 0; color:var(--muted); font-size:11px; font-weight:650; line-height:1.4;
+}
+.receipt-ledger{
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px;
+  margin:14px 0; padding:12px 0; border-block:1px solid var(--border);
+}
+.receipt-fact{min-width:0}
+.receipt-fact dt,.impact-section h3,.focus-kind h4{
+  margin:0 0 4px; color:var(--muted); font-size:9px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+}
+.receipt-fact dd{margin:0; overflow-wrap:anywhere; font-size:11px; font-weight:600; line-height:1.35}
+.impact-section + .impact-section{margin-top:13px; padding-top:12px; border-top:1px dotted var(--border)}
+.impact-list{list-style:none; margin:0; padding:0}
+.impact-list li{overflow-wrap:anywhere; font-size:10.5px; line-height:1.4}
+.impact-list li + li{margin-top:7px}
+.impact-copy{display:block; font-weight:650}
+.impact-meta{display:block; margin-top:2px; color:var(--muted); font-size:9.5px; line-height:1.4}
+.impact-empty{margin:0; color:var(--muted); font-size:10px; line-height:1.4}
+.receipt-focus{width:100%; justify-content:center; margin-top:16px}
+
+.focus-lens{min-height:560px; padding:20px; color:var(--ink); background:var(--bg); border:1px solid var(--border)}
+.focus-head{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding-bottom:16px; border-bottom:1px solid var(--border)}
+.focus-identity{max-width:72ch}
+.focus-return{flex:none}
+.focus-relations{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px;
+  margin-top:16px;
+}
+.focus-relations .impact-section{
+  margin:0; padding:12px; background:var(--card); border:1px solid var(--border);
+}
+.focus-branches{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:16px}
+.focus-branch{min-width:0; padding:16px; border:1px solid var(--border); border-top:3px solid var(--accent)}
+.focus-branch h3{margin:0; font-size:15px; line-height:1.3}
+.focus-branch-note{margin:4px 0 14px; color:var(--muted); font-size:10px}
+.focus-kind + .focus-kind{margin-top:18px; padding-top:14px; border-top:1px dotted var(--border)}
+.focus-evidence{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:16px}
+.focus-evidence .impact-section{margin:0; padding:12px; background:var(--card); border:1px solid var(--border)}
+.overview-receipt :focus-visible,.focus-lens :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+body.overview-sheet-open{overflow:hidden}
+body.overview-sheet-open::before{
+  content:""; position:fixed; z-index:19; inset:0;
+  background:color-mix(in srgb,var(--ink) 38%,transparent);
+}
+.overview-receipt[data-sheet="true"]{
+  display:block !important; position:fixed; z-index:20; inset:auto 0 0; width:100%;
+  max-height:min(78dvh,680px); overflow:auto; overscroll-behavior:contain;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+  border:0; border-top:3px solid var(--accent); box-shadow:none;
+}
+.overview-receipt[data-sheet="true"] .receipt-identity{max-width:calc(100% - 60px)}
+
+.overview-live[data-view="overview"][data-mode="overview"][data-receipt-layout="rail"]{
+  display:grid; grid-template-columns:minmax(520px,1fr) 350px;
+  grid-template-areas:"roadmap receipt"; align-items:start; gap:16px;
+}
+.overview-live[data-receipt-layout="rail"] .overview-receipt[data-layout="rail"]{
+  position:sticky; top:12px; right:auto; width:350px; max-height:calc(100vh - 48px);
+}
+.overview-live[data-receipt-layout="overlay"] .overview-receipt[data-layout="overlay"]{
+  position:absolute; top:12px; right:12px;
+}
+.overview-live[data-mode="focus"]{display:grid; grid-template-areas:"focus"}
+.overview-live[data-mode="focus"] .overview-main{display:none}
+.overview-live[data-focus-layout="stacked"] .focus-relations,
+.overview-live[data-focus-layout="stacked"] .focus-branches,
+.overview-live[data-focus-layout="stacked"] .focus-evidence{grid-template-columns:1fr}
+.overview-live[data-focus-layout="stacked"] .focus-head{display:grid; grid-template-columns:1fr}
+.overview-live[data-focus-layout="stacked"] .focus-return{justify-self:start}

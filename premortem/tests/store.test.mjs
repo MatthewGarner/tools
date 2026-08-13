@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {makeStore, toLink, fromLink} from '../store.js';
 import {newEntry} from '../register.js';
+import {withoutHandoffMeta} from '../../assets/handoff.js';
 
 const shim = () => {
   const m = new Map();
@@ -141,4 +142,43 @@ test('fromLink defaults a missing kind to risk (legacy/foreign docs stay visible
   // links shared before the compressed format: plain-base64 hashes import forever
   const legacy = '#' + Buffer.from(JSON.stringify(doc)).toString('base64');
   assert.equal((await fromLink(legacy)).title, 'T');
+});
+
+test('fromLink normalises hostile decoded documents before render paths see them', async () => {
+  const hostile = {v: 1, id: {}, title: ['not text'], question: 42, unit: {}, people: Infinity,
+    phase: '<script>', x: {v: 1, mode: 'draft', from: 'timeline', kind: 'risk-register', label: 'Timeline\u0000'}, entries: [
+      {id: {}, text: '<img onerror=1>', kind: '__proto__', p: [90, 10], impact: ['x', 2], actions: 'nope',
+        votes: -8, status: {}, created: 'bad', lastReviewed: null}, null]};
+  const imported = await fromLink(await toLink(hostile));
+  assert.equal(imported.title, '');
+  assert.equal(imported.question, '');
+  assert.equal(imported.phase, 'REGISTER');
+  assert.equal(imported.people, 5);
+  assert.equal(imported.entries.length, 1);
+  assert.equal(imported.entries[0].p, null);
+  assert.equal(imported.entries[0].impact, null);
+  assert.deepEqual(imported.entries[0].actions, []);
+  assert.equal(imported.entries[0].kind, 'risk');
+  assert.equal(imported.entries[0].text, '<img onerror=1>', 'text remains data for escaped renderers');
+  assert.equal(imported.x.label, 'Timeline', 'validated provenance strips controls');
+});
+
+test('fromLink mints selector-safe unique entry ids, keeps missing dates unknown, and caps imported votes to the group', async () => {
+  const hostile = {v: 1, title: 'T', people: 3, entries: [
+    {id: 'x\"][data-id]', text: 'one', actions: [{votes: 99}]},
+    {id: 'x\"][data-id]', text: 'two', actions: [{votes: 99}], created: 'bad', lastReviewed: null},
+  ]};
+  const imported = await fromLink(await toLink(hostile));
+  assert.deepEqual(imported.entries.map(e => e.id), ['imported-1', 'imported-2']);
+  assert.equal(new Set(imported.entries.map(e => e.id)).size, 2);
+  assert.deepEqual(imported.entries.map(e => e.lastReviewed), [null, null]);
+  assert.equal(imported.entries.reduce((n, e) => n + e.actions.reduce((m, a) => m + a.votes, 0), 0), 3);
+});
+
+test('ordinary shared links strip transient handoff provenance', async () => {
+  const doc = {v: 1, id: 'draft', title: 'Imported', entries: [],
+    x: {v: 1, mode: 'draft', from: 'timeline', kind: 'risk-register', label: 'Timeline'}};
+  const shared = await fromLink(await toLink(withoutHandoffMeta(doc)));
+  assert.equal(shared.x, undefined);
+  assert.equal(shared.title, 'Imported');
 });

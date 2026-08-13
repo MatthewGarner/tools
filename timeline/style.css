@@ -11,6 +11,8 @@
   letter-spacing:.13em;text-transform:uppercase;white-space:nowrap}
 .planning-boundary p{flex:1 1 350px;margin:0;color:var(--muted);font-size:12px;line-height:1.45}
 .planning-boundary a{color:var(--accent-ink);font-weight:700}
+.handoffstatus{color:var(--st-risk-ink);font-size:13px;max-width:42ch}
+.handoffstatus:empty{display:none}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
 @media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
 

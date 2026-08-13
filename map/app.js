@@ -5,7 +5,8 @@ import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {renderMapPresentation} from './render-presentation.js';
 import {createEditor} from './editor.js';
-import {readHashState, writeHashState, encodeHash} from '../assets/series.js';
+import {readHashState, writeHashState} from '../assets/series.js';
+import {handoffHref, handoffMeta} from '../assets/handoff.js';
 import {paintKicker} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
@@ -447,7 +448,10 @@ $('togauge').addEventListener('click', async () => {
   if(!model || !ro) return;
   const doc = gaugeHandoff(model, ro);
   if(!doc) return;
-  location.href = '/gauge/#' + await encodeHash({t: doc});
+  const href = await handoffHref('/gauge/', {t: doc},
+    handoffMeta('map', 'question-set', model.title || 'Assumption check'));
+  if(href) location.href = href;
+  else $('handoffstatus').textContent = 'This map is too large to send to Gauge. Remove some flagged items and try again.';
 });
 
 /* ---------- theme ---------- */

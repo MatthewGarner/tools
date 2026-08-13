@@ -4,6 +4,7 @@
    TARGET tool's own store/parse round-trips this in tests. */
 import {mergeBias} from './mergebias.js';
 import {fmtDay} from './parse.js';
+import {handoffMeta} from '../assets/handoff.js';
 
 export function premortemHandoff(model, today){
   const mb = mergeBias(model, today);
@@ -14,5 +15,6 @@ export function premortemHandoff(model, today){
     title,
     question: 'It’s ' + fmtDay(mb.byDate) + ' and ' + title + ' slipped. Why?',
     unit: '£k', people: 5, phase: 'FRAME', entries: [],
+    x: handoffMeta('timeline', 'risk-register', 'Timeline'),
   };
 }

@@ -6,20 +6,23 @@ import {treeProjection} from './tree.js';
 import {treeLayout} from './layout-tree.js';
 import {renderTree, renderOutline} from './render-tree.js';
 import {renderPlans, renderPlansNarrow} from './render-plans.js';
-import {buildRoadmapProjection, deliveryAssignment, inspectRoadmapProjection,
-  projectionAcceptance, roadmapProjectionChoices} from './handoff-roadmap.js';
+import {decisionImpactProjection, overviewProjection} from './overview.js';
+import {renderOverview, renderOverviewNarrow} from './render-overview.js';
+import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
+import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
+import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
 import {verdict} from './verdict.js';
 import {auditableAnswerDraft, decisionEditSurface, resolveSelectedDecision} from './inspector.js';
 import {clearAnswer, clearAnswerBy, clearWhen, kinds as inspectorKinds,
   setAnswerBy, setAnswerRaw, setAssumptionRaw, setOwner, setQuestion, setReading,
-  setSignal, setStyle, setWhen} from './edit-targets.js';
+  setSignal, setWhen} from './edit-targets.js';
 import {applyLineOps, makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
-import {encodeHash, readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
-import {watchNarrowBucket} from '../assets/narrow-width.js';
+import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
+import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
@@ -105,14 +108,122 @@ LATER
   Growth: Group challenges [if groups]`;
 
 const EXAMPLES = [{name:'Habitat', src:HABITAT}];
-let model = null, projection = null, topology = null, lastSvg = '', hashTimer = null;
+let model = null, projection = null, topology = null, overview = null, overviewImpact = null;
+let lastSvg = '', hashTimer = null;
 let urlStateOversized = false, hashAttempt = 0;
 let selectedDecision = null;
+let selectedOverviewDecision = null;
+const expandedOverviewGroups = new Set();
 let focusInspectorAfterRender = false;
-let projectionSource = null, projectionRevision = 0;
-let selectedProjectionKey = null, selectedProjectionAnswers = null, selectedProjectionFingerprint = null;
-let acceptedProjectionAssumptions = new Set(), projectionPanelMessage = '';
-let projectionChoiceCacheModel = null, projectionChoiceCache = [], projectionChoiceProblem = '';
+let focusOverviewReceiptAfterRender = false;
+let focusOverviewReturnAfterRender = false;
+let focusFocusLensAfterRender = false;
+let overviewMode = 'overview';
+let overviewReceiptSheetOpen = false;
+/* A receipt is useful after a person deliberately chooses a question. On a
+   constrained desktop it must not be the thing that first obscures the brief. */
+let overviewReceiptOverlayOpen = false;
+let overviewReceiptReturnKey = null;
+const overviewSheetBackground = new Map();
+
+function isRoadmapStyle(style = model?.style){
+  return style === 'brief' || style === 'question' || style === 'conditions' ||
+    style === 'overview' || style === 'dependencies';
+}
+
+function canonicalRoadmapStyle(style = model?.style){
+  if(style === 'overview') return 'brief';
+  if(style === 'dependencies') return 'question';
+  return style;
+}
+
+function setStyleInSource(style){
+  const text = editor.getText();
+  const next = String(style).toLowerCase();
+  const lines = text.split('\n');
+  const index = lines.findIndex(line => /^\s*style\s*:/i.test(line));
+  if(index >= 0) lines[index] = `style: ${next}`;
+  else lines.unshift(`style: ${next}`, '');
+  editor.setText(lines.join('\n'));
+}
+
+function syncViewControls(){
+  const style = canonicalRoadmapStyle();
+  document.querySelectorAll('[data-paths-view]').forEach(button => {
+    const active = button.dataset.pathsView === style;
+    button.setAttribute('aria-pressed', String(active));
+    button.classList.toggle('primary', active);
+  });
+}
+
+function overviewSurfaceMetrics(){
+  const host = $('overview-live');
+  const surface = host.clientWidth ? host : preview;
+  const width = surface.clientWidth || 0;
+  const narrow = narrowWidth(surface) !== undefined;
+  const receiptLayout = narrow ? 'sheet' : width >= 900 ? 'rail' : 'overlay';
+  return {width, narrow, receiptLayout,
+    previewWidth:receiptLayout === 'rail' ? Math.max(520, width - 366) : width,
+    focusLayout:width >= 760 ? 'split' : 'stacked'};
+}
+
+function receiptMetricsForStyle(metrics = overviewSurfaceMetrics()){
+  const style = canonicalRoadmapStyle();
+  return style === 'question' || style === 'conditions'
+    ? {...metrics, receiptLayout:'none', previewWidth:metrics.width}
+    : metrics;
+}
+
+function overviewReceiptUsesSheet(metrics = overviewSurfaceMetrics()){
+  return isRoadmapStyle() &&
+    (metrics.narrow || matchMedia('(pointer: coarse)').matches);
+}
+
+/* aria-modal alone does not remove the roadmap/editor from a screen reader's
+   virtual cursor. Isolate every sibling on the sheet's ancestry path, while
+   preserving any state the page already owned so closing is lossless. */
+function isolateOverviewSheet(host, active){
+  if(active){
+    if(overviewSheetBackground.size) return;
+    let branch = host;
+    while(branch?.parentElement){
+      const parent = branch.parentElement;
+      for(const sibling of parent.children){
+        if(sibling === branch || !(sibling instanceof HTMLElement)) continue;
+        overviewSheetBackground.set(sibling, {
+          inert:sibling.inert,
+          hadAriaHidden:sibling.hasAttribute('aria-hidden'),
+          ariaHidden:sibling.getAttribute('aria-hidden'),
+        });
+        sibling.inert = true;
+        sibling.setAttribute('aria-hidden', 'true');
+      }
+      branch = parent;
+      if(parent === document.body) break;
+    }
+    return;
+  }
+  for(const [element, state] of overviewSheetBackground){
+    element.inert = state.inert;
+    if(state.hadAriaHidden) element.setAttribute('aria-hidden', state.ariaHidden);
+    else element.removeAttribute('aria-hidden');
+  }
+  overviewSheetBackground.clear();
+}
+
+function setOverviewSheetState(host, active){
+  document.body.classList.toggle('overview-sheet-open', active);
+  if(active){
+    host.dataset.sheet = 'true';
+    host.setAttribute('role', 'dialog');
+    host.setAttribute('aria-modal', 'true');
+  } else {
+    delete host.dataset.sheet;
+    host.removeAttribute('role');
+    host.removeAttribute('aria-modal');
+  }
+  isolateOverviewSheet(host, active);
+}
 
 function colorsFor(current){
   const colors = themeColors();
@@ -138,209 +249,6 @@ function node(tag, className, text){
   return element;
 }
 
-function resetProjectionChoice(){
-  selectedProjectionKey = null;
-  selectedProjectionAnswers = null;
-  selectedProjectionFingerprint = null;
-  acceptedProjectionAssumptions = new Set();
-  projectionPanelMessage = '';
-}
-
-function answerName(key){
-  return model?.decisionByName?.[key]?.name || key;
-}
-
-function answerLabel(key, direction){
-  return `${answerName(key)} — ${direction === 'yes' ? 'Yes' : 'No'}`;
-}
-
-function projectionChoices(){
-  if(projectionChoiceCacheModel === model) return projectionChoiceCache;
-  const rows = [];
-  const planRefs = new Map();
-  projectionChoiceProblem = '';
-  for(const [planIndex, plan] of (projection?.worlds?.plans || []).entries()){
-    for(const assignment of plan.assignments || []){
-      const answers = deliveryAssignment(model, assignment.answers);
-      if(!answers) continue;
-      const inspected = inspectRoadmapProjection(model, todayString, answers);
-      if(!inspected.ok) continue;
-      if(!planRefs.has(inspected.fingerprint)) planRefs.set(inspected.fingerprint, new Set());
-      planRefs.get(inspected.fingerprint).add(planIndex + 1);
-    }
-  }
-  const choices = roadmapProjectionChoices(model, todayString);
-  if(!choices.ok){
-    projectionChoiceProblem = choices.reason;
-  } else for(const [outcomeIndex, assignment] of choices.choices.entries()){
-    const answers = assignment.answers;
-    const key = assignment.assignmentKey;
-    const inspected = assignment.inspected;
-    const exactBasis = inspected.ok
-      ? [...inspected.receipt.known, ...inspected.receipt.assumed]
-      : Object.entries(answers).map(([decisionKey, direction]) => ({key:decisionKey, direction}));
-    const parts = exactBasis.map(entry => answerLabel(entry.key, entry.direction));
-    const refs = [...(planRefs.get(inspected.fingerprint) || [])];
-    const planReference = refs.length === 1 ? `Possible plan ${refs[0]}`
-      : refs.length ? `Possible plans ${refs.join(', ')}` : 'Delivery-only outcome';
-    rows.push({key, answers:{...answers}, inspected,
-      reference:`${planReference} · Exact outcome ${outcomeIndex + 1}`,
-      label:parts.length ? parts.join(' · ') : 'Current answered world'});
-  }
-  projectionChoiceCacheModel = model;
-  projectionChoiceCache = rows;
-  return projectionChoiceCache;
-}
-
-function receiptReason(entry){
-  if(entry.reason?.kind === 'moot'){
-    const host = entry.reason.host || entry.reason.hostKey || 'an earlier decision';
-    const direction = entry.reason.direction ? ` was answered ${entry.reason.direction}` : ' made it unnecessary';
-    return `Did not arise because ${host}${direction}.`;
-  }
-  if(entry.reason?.kind === 'dormant'){
-    const hosts = (entry.reason.waitingFor || []).map(answerName);
-    return hosts.length ? `Not open in this world; it waits for ${hosts.join(', ')}.` : 'Not open in this world.';
-  }
-  return 'Not active in this world.';
-}
-
-function receiptList(title, className, entries, empty, renderer){
-  const section = node('section', `projection-ledger ${className}`);
-  section.appendChild(node('h4', '', title));
-  if(!entries.length){
-    section.appendChild(node('p', 'projection-ledger-empty', empty));
-    return section;
-  }
-  const list = node('ul', 'projection-ledger-list');
-  for(const entry of entries) list.appendChild(renderer(entry));
-  section.appendChild(list);
-  return section;
-}
-
-function renderProjectionPanel(){
-  const host = $('roadmap-projection');
-  if(model?.style !== 'plans'){
-    host.hidden = true;
-    host.replaceChildren();
-    return;
-  }
-  host.hidden = false;
-  host.replaceChildren();
-
-  const head = node('header', 'projection-head');
-  const headCopy = node('div', '');
-  headCopy.appendChild(node('p', 'projection-kicker', 'Delivery projection'));
-  const title = node('h2', '', 'Choose one exact outcome');
-  title.id = 'roadmap-projection-title';
-  title.tabIndex = -1;
-  headCopy.appendChild(title);
-  headCopy.appendChild(node('p', 'projection-intro',
-    'Possible Plans groups matching work shapes. A Roadmap needs one exact set of answers.'));
-  head.appendChild(headCopy);
-  host.appendChild(head);
-
-  const body = node('div', 'projection-body');
-  const choicesHost = node('fieldset', 'projection-choices');
-  choicesHost.appendChild(node('legend', '', 'Exact outcomes'));
-  const choices = projectionChoices();
-  if(!choices.length){
-    choicesHost.appendChild(node('p', 'projection-empty',
-      projectionChoiceProblem || 'No exact outcome is available from the current Paths source.'));
-  } else {
-    for(const choice of choices){
-      const label = node('label', 'projection-choice');
-      label.dataset.available = String(choice.inspected.ok);
-      const radio = node('input', '');
-      radio.type = 'radio';
-      radio.name = 'roadmap-projection-world';
-      radio.value = choice.key;
-      radio.checked = choice.key === selectedProjectionKey;
-      radio.disabled = !choice.inspected.ok;
-      label.appendChild(radio);
-      const copy = node('span', 'projection-choice-copy');
-      copy.appendChild(node('span', 'projection-choice-reference', choice.reference));
-      copy.appendChild(node('span', 'projection-choice-line', choice.label));
-      copy.appendChild(node('span', 'projection-choice-state', choice.inspected.ok
-        ? 'Ready to confirm'
-        : `Unavailable — ${choice.inspected.reason}`));
-      label.appendChild(copy);
-      choicesHost.appendChild(label);
-    }
-  }
-  choicesHost.appendChild(node('p', 'projection-scope',
-    'Select one ready outcome. Only decisions that affect delivery appear here; unrelated questions stay in Paths.'));
-  body.appendChild(choicesHost);
-
-  const selected = choices.find(choice => choice.key === selectedProjectionKey && choice.inspected.ok);
-  if(!selected) body.classList.add('is-unselected');
-  if(selected){
-    const receipt = selected.inspected.receipt;
-    const confirmation = node('section', 'projection-confirmation');
-    confirmation.setAttribute('aria-labelledby', 'projection-confirmation-title');
-    confirmation.setAttribute('aria-live', 'polite');
-    const confirmationTitle = node('h3', '', 'Confirm this delivery basis');
-    confirmationTitle.id = 'projection-confirmation-title';
-    confirmationTitle.tabIndex = -1;
-    confirmation.appendChild(confirmationTitle);
-
-    confirmation.appendChild(receiptList('Known from Paths', 'known', receipt.known,
-      'No active answer is already recorded in Paths.', entry => {
-        const item = node('li', '');
-        item.appendChild(node('strong', '', answerLabel(entry.key, entry.direction)));
-        item.appendChild(node('span', '', `Answered ${entry.date}`));
-        return item;
-      }));
-
-    confirmation.appendChild(receiptList('Assumed for this delivery projection', 'assumed', receipt.assumed,
-      'No assumptions are needed for this outcome.', entry => {
-        const item = node('li', '');
-        const label = node('label', 'projection-assumption');
-        const checkbox = node('input', '');
-        checkbox.type = 'checkbox';
-        checkbox.value = entry.key;
-        checkbox.checked = acceptedProjectionAssumptions.has(entry.key);
-        const wording = node('span', '');
-        wording.appendChild(node('strong', '', answerLabel(entry.key, entry.direction)));
-        wording.appendChild(node('span', '', `Treat as true on ${entry.date} for this projection`));
-        label.appendChild(checkbox);
-        label.appendChild(wording);
-        item.appendChild(label);
-        return item;
-      }));
-
-    confirmation.appendChild(receiptList('Not part', 'omitted', receipt.omitted,
-      'Every relevant decision is active in this outcome.', entry => {
-        const item = node('li', '');
-        item.appendChild(node('strong', '', entry.name));
-        item.appendChild(node('span', '', receiptReason(entry)));
-        return item;
-      }));
-
-    const foot = node('div', 'projection-foot');
-    foot.appendChild(node('p', 'projection-separation',
-      'This creates a new Roadmap. It does not answer or alter Paths.'));
-    if(projectionPanelMessage){
-      const message = node('p', 'projection-message', projectionPanelMessage);
-      message.setAttribute('role', 'status');
-      foot.appendChild(message);
-    }
-    const allAccepted = receipt.assumed.every(entry => acceptedProjectionAssumptions.has(entry.key));
-    const create = node('button', 'btn primary projection-create', 'Create Roadmap with this basis');
-    create.type = 'button';
-    create.dataset.createRoadmap = '';
-    create.disabled = !allAccepted;
-    foot.appendChild(create);
-    confirmation.appendChild(foot);
-    body.appendChild(confirmation);
-  } else if(projectionPanelMessage){
-    const message = node('p', 'projection-message', projectionPanelMessage);
-    message.setAttribute('role', 'status');
-    choicesHost.appendChild(message);
-  }
-  host.appendChild(body);
-}
-
 function editableValue(view, field){
   const row = node('div', 'inspector-field ' + (field.className || ''));
   row.appendChild(node('span', 'inspector-label', field.label));
@@ -353,6 +261,228 @@ function editableValue(view, field){
   if(!field.raw) button.classList.add('empty');
   row.appendChild(button);
   return row;
+}
+
+function clearInspector(){
+  const host = $('decision-inspector');
+  host.hidden = true;
+  host.replaceChildren();
+}
+
+function appendImpactList(host, entries, empty){
+  if(!entries.length){
+    host.appendChild(node('p', 'impact-empty', empty));
+    return;
+  }
+  const list = node('ul', 'impact-list');
+  for(const entry of entries){
+    const item = node('li', '');
+    item.appendChild(node('span', 'impact-copy', entry.sentence));
+    list.appendChild(item);
+  }
+  host.appendChild(list);
+}
+
+function appendImpactSection(host, label, entries, empty = ''){
+  if(!entries.length && !empty) return;
+  const section = node('section', 'impact-section');
+  section.appendChild(node('h3', '', label));
+  appendImpactList(section, entries, empty);
+  host.appendChild(section);
+}
+
+function renderOverviewReceipt(){
+  const host = $('overview-receipt');
+  const metrics = receiptMetricsForStyle();
+  const sheet = overviewReceiptUsesSheet(metrics);
+  const overlay = metrics.receiptLayout === 'overlay';
+  const brief = canonicalRoadmapStyle() === 'brief';
+  if(!sheet){
+    overviewReceiptSheetOpen = false;
+  }
+  if(!brief || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
+      (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
+    if(!isRoadmapStyle() || !overviewImpact){
+      overviewReceiptSheetOpen = false;
+      overviewReceiptReturnKey = null;
+    }
+    host.hidden = true;
+    host.replaceChildren();
+    setOverviewSheetState(host, false);
+    return;
+  }
+  const impact = overviewImpact;
+  const decision = impact.decision;
+  const narrative = impact.narrative;
+  host.hidden = false;
+  host.replaceChildren();
+  host.dataset.decisionKey = impact.key;
+  host.dataset.layout = metrics.receiptLayout;
+  setOverviewSheetState(host, sheet);
+
+  const head = node('div', 'receipt-head');
+  const identity = node('div', 'receipt-identity');
+  identity.appendChild(node('p', 'inspector-kicker',
+    canonicalRoadmapStyle() === 'question' ? 'Focused decision' : 'Selected decision'));
+  const title = node('h2', '', decision.question || decision.name);
+  title.id = 'overview-receipt-title';
+  title.tabIndex = -1;
+  identity.appendChild(title);
+  identity.appendChild(node('p', 'receipt-state', impact.currentState.sentence));
+  head.appendChild(identity);
+  if(sheet || overlay){
+    const close = node('button', 'receipt-close', 'Close');
+    close.type = 'button';
+    close.dataset.receiptClose = '';
+    close.setAttribute('aria-label', `Close decision receipt for ${decision.question || decision.name}`);
+    head.appendChild(close);
+  }
+  host.appendChild(head);
+
+  const ledger = node('dl', 'receipt-ledger');
+  for(const [label, value] of [
+    ['Signal', decision.signal || 'Needs repair'],
+    ['Latest reading', decision.reading || 'No reading recorded'],
+    ['Owner', decision.owner || 'Needs repair'],
+    ['Answer by', decision.answerBy || 'Needs repair'],
+  ]){
+    const row = node('div', 'receipt-fact');
+    row.appendChild(node('dt', '', label));
+    row.appendChild(node('dd', '', value));
+    ledger.appendChild(row);
+  }
+  host.appendChild(ledger);
+
+  appendImpactSection(host, 'Continues while unresolved', narrative.continues,
+    'No continuing authored work is unchanged by this answer.');
+  appendImpactSection(host, 'Changes directly with this answer', narrative.direct,
+    'No simple-condition work changes directly.');
+  appendImpactSection(host, 'Also needs …', narrative.alsoNeeds);
+  appendImpactSection(host, 'Either … can unlock', narrative.eitherCanUnlock);
+  appendImpactSection(host, 'May open / makes irrelevant',
+    [...narrative.mayOpen, ...narrative.makesIrrelevant]);
+  appendImpactSection(host, 'Completed history', narrative.completedHistory);
+  appendImpactSection(host, 'Repair evidence', narrative.repairEvidence);
+
+  let open = null;
+  if(!sheet){
+    open = node('button', 'btn receipt-focus', 'Open focus');
+    open.type = 'button';
+    open.dataset.openFocus = '';
+    open.setAttribute('aria-label', `Open focus for ${decision.question || decision.name}`);
+    host.appendChild(open);
+  }
+  if(focusOverviewReceiptAfterRender){
+    focusOverviewReceiptAfterRender = false;
+    title.focus({preventScroll:true});
+  }
+  if(focusOverviewReturnAfterRender){
+    focusOverviewReturnAfterRender = false;
+    open?.focus({preventScroll:true});
+  }
+}
+
+function focusBranch(direction, branch){
+  const column = node('section', 'focus-branch');
+  column.dataset.direction = direction;
+  column.appendChild(node('h3', '', `If answered ${direction}`));
+  const note = node('p', 'focus-branch-note', 'Counterfactual — not today’s plan.');
+  column.appendChild(note);
+
+  const work = node('div', 'focus-kind');
+  work.appendChild(node('h4', '', 'Work'));
+  if(!branch.work.length) work.appendChild(node('p', 'impact-empty', 'No conditional work changes.'));
+  else {
+    const list = node('ul', 'impact-list focus-work');
+    for(const entry of branch.work){
+      const item = node('li', '');
+      item.appendChild(node('span', 'impact-copy', entry.title));
+      item.appendChild(node('span', 'impact-meta',
+        `${entry.relation} · requires ${entry.requirement} · ${entry.sentence}`));
+      list.appendChild(item);
+    }
+    work.appendChild(list);
+  }
+  column.appendChild(work);
+
+  const decisions = node('div', 'focus-kind');
+  decisions.appendChild(node('h4', '', 'Conditional decisions'));
+  if(!branch.decisions.length) decisions.appendChild(node('p', 'impact-empty', 'No decision availability changes.'));
+  else {
+    const list = node('ul', 'impact-list focus-decisions');
+    for(const entry of branch.decisions){
+      const item = node('li', '');
+      item.appendChild(node('span', 'impact-copy', entry.question));
+      item.appendChild(node('span', 'impact-meta', `${entry.relation} · ${entry.sentence}`));
+      list.appendChild(item);
+    }
+    decisions.appendChild(list);
+  }
+  column.appendChild(decisions);
+  return column;
+}
+
+function renderFocusLens(){
+  const host = $('focus-lens');
+  if(!isRoadmapStyle() || overviewMode !== 'focus' || !overviewImpact){
+    host.hidden = true;
+    host.replaceChildren();
+    return;
+  }
+  const impact = overviewImpact;
+  const narrative = impact.narrative;
+  host.hidden = false;
+  host.replaceChildren();
+
+  const head = node('div', 'focus-head');
+  const identity = node('div', 'focus-identity');
+  identity.appendChild(node('p', 'inspector-kicker', 'Decision focus'));
+  const title = node('h2', '', impact.decision.question || impact.decision.name);
+  title.id = 'focus-lens-title';
+  title.tabIndex = -1;
+  identity.appendChild(title);
+  identity.appendChild(node('p', 'focus-state', impact.currentState.sentence));
+  head.appendChild(identity);
+  const back = node('button', 'btn focus-return',
+    canonicalRoadmapStyle() === 'question' ? 'Return to question lens' : 'Return to brief');
+  back.type = 'button';
+  back.dataset.returnOverview = '';
+  head.appendChild(back);
+  host.appendChild(head);
+
+  const relations = node('div', 'focus-relations');
+  appendImpactSection(relations, 'Also needs …', narrative.alsoNeeds);
+  appendImpactSection(relations, 'Either … can unlock', narrative.eitherCanUnlock);
+  appendImpactSection(relations, 'May open / makes irrelevant',
+    [...narrative.mayOpen, ...narrative.makesIrrelevant]);
+  if(relations.childElementCount) host.appendChild(relations);
+
+  const branches = node('div', 'focus-branches');
+  branches.appendChild(focusBranch('yes', narrative.branches.yes));
+  branches.appendChild(focusBranch('no', narrative.branches.no));
+  host.appendChild(branches);
+
+  const history = node('div', 'focus-evidence');
+  appendImpactSection(history, 'Completed history', narrative.completedHistory);
+  appendImpactSection(history, 'Repair evidence', narrative.repairEvidence);
+  if(history.childElementCount) host.appendChild(history);
+  if(focusFocusLensAfterRender){
+    focusFocusLensAfterRender = false;
+    title.focus({preventScroll:true});
+  }
+}
+
+function renderOverviewSurface(overviewView, metrics = overviewSurfaceMetrics()){
+  const live = $('overview-live');
+  const focusActive = overviewView && overviewMode === 'focus' && !metrics.narrow && overviewImpact;
+  if(overviewMode === 'focus' && !focusActive) overviewMode = 'overview';
+  live.dataset.view = overviewView ? 'overview' : 'other';
+  live.dataset.mode = focusActive ? 'focus' : 'overview';
+  live.dataset.receiptLayout = overviewView ? metrics.receiptLayout : 'none';
+  live.dataset.focusLayout = metrics.focusLayout;
+  preview.hidden = !!focusActive;
+  renderOverviewReceipt();
+  renderFocusLens();
 }
 
 function renderInspector(){
@@ -473,22 +603,49 @@ async function writeHash(){
 
 function doRefresh(){
   const text = editor.getText();
-  if(text !== projectionSource){
-    projectionSource = text;
-    projectionRevision++;
-    resetProjectionChoice();
-  }
   model = parse(text);
+  const style = canonicalRoadmapStyle(model.style);
   projection = project(model, todayString);
   const plansView = model.style === 'plans';
-  topology = plansView ? null : treeProjection(projection);
-  const retained = plansView ? null : resolveSelectedDecision(projection, selectedDecision);
+  const treeView = model.style === 'tree';
+  const briefView = style === 'brief';
+  const questionView = style === 'question';
+  const conditionsView = style === 'conditions';
+  const roadmapView = briefView || questionView || conditionsView;
+  topology = treeView ? treeProjection(projection) : null;
+  overview = roadmapView ? overviewProjection(projection) : null;
+  const retained = treeView ? resolveSelectedDecision(projection, selectedDecision) : null;
   selectedDecision = retained ? {key:retained.key, srcLine:retained.srcLine} : null;
+  const retainedOverview = roadmapView
+    ? resolveSelectedDecision({decisions:overview.decisions}, selectedOverviewDecision)
+    : null;
+  const overviewChoice = retainedOverview || overview?.initialSelection || null;
+  selectedOverviewDecision = overviewChoice
+    ? {key:overviewChoice.key, srcLine:overviewChoice.srcLine} : null;
+  overviewImpact = roadmapView && selectedOverviewDecision
+    ? decisionImpactProjection(model, projection, selectedOverviewDecision.key) : null;
+  if(!roadmapView) overviewMode = 'overview';
   renderWarnings();
   const readout = verdict(projection);
   const counts = `${projection.decisions.length} ${projection.decisions.length === 1 ? 'question' : 'questions'}, ` +
     `${projection.items.length} ${projection.items.length === 1 ? 'item' : 'items'}`;
-  $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}`;
+  const selectedStatus = overviewImpact
+    ? ` Selected question: ${overviewImpact.decision.question || overviewImpact.decision.name}. ${overviewImpact.currentState.sentence}.`
+    : '';
+  $('summary').textContent = `${model.title || 'Untitled paths'}. ${counts}${readout?.line ? `. ${readout.line}` : ''}${selectedStatus}`;
+  const surfaceMetrics = overviewSurfaceMetrics();
+  /* A wide rail is part of the Brief composition. At laptop widths, begin with
+     the roadmap fully visible; a decision click is the deliberate reveal. */
+  if(briefView && surfaceMetrics.receiptLayout === 'overlay' &&
+      overviewReceiptReturnKey == null && !focusOverviewReceiptAfterRender)
+    overviewReceiptOverlayOpen = false;
+  /* Question lens and Conditions include their own explanation in the artefact.
+     Giving them Brief's external receipt would hide the very comparison/matrix
+     they exist to show, especially in a constrained desktop stage. */
+  const overviewMetrics = receiptMetricsForStyle(surfaceMetrics);
+  const live = $('overview-live');
+  live.dataset.receiptLayout = roadmapView ? overviewMetrics.receiptLayout : 'none';
+  live.dataset.focusLayout = overviewMetrics.focusLayout;
 
   if(!model.items.length && !model.decisions.length){
     lastSvg = '';
@@ -496,46 +653,61 @@ function doRefresh(){
       ? 'No paths yet — add a decision or an item under a period.'
       : 'Start typing — or load an example.'}</p>`;
   } else {
-    const width = preview.clientWidth;
+    const width = roadmapView ? overviewMetrics.previewWidth : preview.clientWidth;
     const narrow = width > 0 && width < 520;
+    /* A comparison or conditions audit has a real stacked composition between
+       phone and full-stage width. Letting its 1120px export canvas merely pan
+       here hides the question or columns a person came to inspect. */
+    const stackedLens = (questionView || conditionsView) && width > 0 && width < 720;
     let svg;
     if(plansView){
       svg = narrow
         ? renderPlansNarrow(projection, context(model, {width}))
         : renderPlans(projection, context(model, {width:width || 1160}));
-    } else {
+    } else if(treeView){
       const interactive = {interactive:true, selectedKey:selectedDecision?.key || null};
       svg = narrow
         ? renderOutline(topology, context(model, {width, ...interactive}))
         : renderTree(topology, treeLayout(topology, {width:width || 1160, measure}),
           context(model, interactive));
+    } else if(questionView){
+      const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
+        impact:overviewImpact, showReceipt:false};
+      svg = stackedLens
+        ? renderQuestionLensNarrow(overview, context(model, {width, ...interactive}))
+        : renderQuestionLens(overview, context(model, {width:width || 1160, ...interactive}));
+    } else if(conditionsView){
+      const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
+        impact:overviewImpact, showReceipt:false};
+      svg = stackedLens
+        ? renderConditionsNarrow(overview, context(model, {width, ...interactive}))
+        : renderConditions(overview, context(model, {width:width || 1160, ...interactive}));
+    } else {
+      const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
+        expandedGroups:expandedOverviewGroups, impact:overviewImpact,
+        showReceipt:false};
+      svg = narrow
+        ? renderOverviewNarrow(overview, context(model, {width, ...interactive}))
+        : renderOverview(overview, context(model, {width:width || 1160, ...interactive}));
     }
     if(svg !== lastSvg){ preview.innerHTML = svg; lastSvg = svg; }
   }
 
-  if(plansView){
-    selectedDecision = null;
-    $('decision-inspector').hidden = true;
-    $('decision-inspector').replaceChildren();
-  } else renderInspector();
-  renderProjectionPanel();
-  for(const button of $('paths-view-switch').querySelectorAll('[data-paths-view]')){
-    const active = button.dataset.pathsView === model.style;
-    button.classList.toggle('on', active);
-    button.setAttribute('aria-pressed', String(active));
-  }
-  const projectionJump = $('paths-projection-jump');
-  projectionJump.hidden = !plansView;
-  if(plansView){
-    const ready = projectionChoices().filter(choice => choice.inspected.ok).length;
-    projectionJump.replaceChildren(
-      document.createTextNode(`Choose exact outcome · ${ready} ready `),
-      node('span', '', '↓'));
-    projectionJump.lastElementChild.setAttribute('aria-hidden', 'true');
-  }
-  $('view-method').textContent = plansView
+  renderOverviewSurface(roadmapView, overviewMetrics);
+  syncViewControls();
+  if(treeView) renderInspector();
+  else clearInspector();
+  $('view-method').textContent = roadmapView && overviewMode === 'focus'
+    ? 'Focus is a local counterfactual lens; exports remain the selected full roadmap.'
+    : questionView
+    ? 'Question lens compares what changes under each answer; exports keep the selected decision visible.'
+    : conditionsView
+    ? 'Conditions is the full decision-to-work logic audit; exports preserve the complete matrix.'
+    : plansView
     ? 'The phone view groups work by possible plan; every export remains the wide matrix.'
-    : 'The phone view becomes an outline; every export remains the wide tree.';
+    : treeView
+      ? 'The phone view becomes an outline; every export remains the wide tree.'
+      : 'Brief keeps the shared roadmap and parallel questions together; every export remains the full planning artefact.';
 
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('paths-src', text); }catch(_){ }
@@ -548,23 +720,6 @@ const editor = createEditor({
   parent:$('cmhost'),
   doc:'',
   onChange:debounced(refresh, 120),
-});
-
-$('paths-view-switch').addEventListener('click', event => {
-  const button = event.target.closest?.('[data-paths-view]');
-  if(!button || button.dataset.pathsView === model?.style) return;
-  const ops = setStyle(editor.getText(), button.dataset.pathsView);
-  if(!ops?.length) return;
-  applyLineOps(editor, ops);
-  refresh();
-});
-
-$('paths-projection-jump').addEventListener('click', () => {
-  const panel = $('roadmap-projection');
-  const target = panel.querySelector('.projection-choice[data-available="true"] input') ||
-    panel.querySelector('#roadmap-projection-title');
-  target?.focus({preventScroll:true});
-  panel.scrollIntoView({block:'start', behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
 });
 
 function decisionOps(kind, line, value){
@@ -590,6 +745,21 @@ attachEditInPlace($('decision-inspector'), {
 
 function chooseDecision(target, focusInspector = false){
   const choice = {key:target.dataset.decisionKey, srcLine:Number(target.dataset.line)};
+  if(isRoadmapStyle()){
+    const resolved = resolveSelectedDecision({decisions:overview?.decisions || []}, choice);
+    if(!resolved) return;
+    selectedOverviewDecision = {key:resolved.key, srcLine:resolved.srcLine};
+    overviewMode = 'overview';
+    const sheet = overviewReceiptUsesSheet();
+    overviewReceiptSheetOpen = sheet;
+    overviewReceiptOverlayOpen = true;
+    overviewReceiptReturnKey = sheet || overviewSurfaceMetrics().receiptLayout === 'overlay'
+      ? resolved.key : null;
+    focusOverviewReceiptAfterRender = focusInspector || sheet;
+    lastSvg = '';
+    refresh();
+    return;
+  }
   const resolved = resolveSelectedDecision(projection, choice);
   if(!resolved) return;
   selectedDecision = {key:resolved.key, srcLine:resolved.srcLine};
@@ -598,7 +768,22 @@ function chooseDecision(target, focusInspector = false){
   refresh();
 }
 
+function toggleOverviewGroup(target){
+  if(canonicalRoadmapStyle() !== 'brief') return false;
+  const key = target.closest?.('[data-toggle-decision-group]')?.dataset.stateGroup;
+  if(!key) return false;
+  if(expandedOverviewGroups.has(key)) expandedOverviewGroups.delete(key);
+  else expandedOverviewGroups.add(key);
+  lastSvg = '';
+  refresh();
+  return true;
+}
+
 preview.addEventListener('click', event => {
+  if(toggleOverviewGroup(event.target)){
+    event.preventDefault();
+    return;
+  }
   const target = event.target.closest?.('[data-select-decision]');
   if(!target || !preview.contains(target)) return;
   event.preventDefault();
@@ -606,93 +791,86 @@ preview.addEventListener('click', event => {
 });
 preview.addEventListener('keydown', event => {
   if(event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+  if(toggleOverviewGroup(event.target)){
+    event.preventDefault();
+    return;
+  }
   const target = event.target.closest?.('[data-select-decision]');
   if(!target || !preview.contains(target)) return;
   event.preventDefault();
   chooseDecision(target, true);
 });
 
-$('roadmap-projection').addEventListener('change', event => {
-  const radio = event.target.closest?.('input[name="roadmap-projection-world"]');
-  if(radio){
-    const choice = projectionChoices().find(row => row.key === radio.value && row.inspected.ok);
-    if(!choice) return;
-    selectedProjectionKey = choice.key;
-    selectedProjectionAnswers = choice.answers;
-    selectedProjectionFingerprint = choice.inspected.fingerprint;
-    acceptedProjectionAssumptions = new Set();
-    projectionPanelMessage = '';
-    renderProjectionPanel();
-    /* Rendering the receipt replaces the radio itself. Restore focus to that
-       radio, rather than jumping to a focusless heading: Arrow keys must still
-       compare the exact outcomes as one radio group. The polite receipt region
-       announces the newly revealed basis. */
-    queueMicrotask(() => $('roadmap-projection').querySelector(
-      `input[name="roadmap-projection-world"][value="${CSS.escape(choice.key)}"]`)?.focus());
+$('overview-receipt').addEventListener('click', event => {
+  if(event.target.closest?.('[data-receipt-close]')){
+    closeOverviewReceiptSheet();
     return;
   }
-  const checkbox = event.target.closest?.('.projection-assumption input[type="checkbox"]');
-  if(!checkbox) return;
-  if(checkbox.checked) acceptedProjectionAssumptions.add(checkbox.value);
-  else acceptedProjectionAssumptions.delete(checkbox.value);
-  projectionPanelMessage = '';
-  const chosen = projectionChoices().find(row => row.key === selectedProjectionKey && row.inspected.ok);
-  const complete = chosen?.inspected.receipt.assumed.every(entry => acceptedProjectionAssumptions.has(entry.key));
-  const create = $('roadmap-projection').querySelector('[data-create-roadmap]');
-  if(create) create.disabled = !complete;
+  if(!event.target.closest?.('[data-open-focus]') || !overviewImpact || overviewSurfaceMetrics().narrow) return;
+  overviewMode = 'focus';
+  focusFocusLensAfterRender = true;
+  refresh();
 });
 
-$('roadmap-projection').addEventListener('click', async event => {
-  const create = event.target.closest?.('[data-create-roadmap]');
-  if(!create || create.disabled || !selectedProjectionAnswers) return;
-  const source = editor.getText();
-  const revision = projectionRevision;
-  const answers = {...selectedProjectionAnswers};
-  /* onChange is debounced for 120ms; Create must never rely on the last painted
-     model. Parse and validate the editor's current bytes synchronously here. */
-  const latestModel = parse(source);
-  const inspected = inspectRoadmapProjection(latestModel, todayString, answers);
-  if(!inspected.ok || inspected.assignmentKey !== selectedProjectionKey ||
-     inspected.fingerprint !== selectedProjectionFingerprint){
-    const staleMessage = inspected.ok
-      ? 'Paths changed. Choose the exact outcome again.'
-      : inspected.reason;
-    resetProjectionChoice();
-    projectionPanelMessage = staleMessage;
-    renderProjectionPanel();
+function selectedOverviewOpener(){
+  return [...preview.querySelectorAll('[data-select-decision]')]
+    .find(element => element.dataset.decisionKey === overviewReceiptReturnKey) || null;
+}
+
+function closeOverviewReceiptSheet(){
+  const metrics = overviewSurfaceMetrics();
+  const closingSheet = overviewReceiptSheetOpen;
+  const closingOverlay = metrics.receiptLayout === 'overlay' && overviewReceiptOverlayOpen &&
+    !$('overview-receipt').hidden;
+  if(!closingSheet && !closingOverlay) return false;
+  overviewReceiptReturnKey ||= overviewImpact?.key || null;
+  if(closingSheet) overviewReceiptSheetOpen = false;
+  if(closingOverlay) overviewReceiptOverlayOpen = false;
+  focusOverviewReceiptAfterRender = false;
+  renderOverviewReceipt();
+  requestAnimationFrame(() => {
+    selectedOverviewOpener()?.focus({preventScroll:true});
+    overviewReceiptReturnKey = null;
+  });
+  return true;
+}
+
+$('overview-receipt').addEventListener('keydown', event => {
+  if(event.key !== 'Tab' || !overviewReceiptSheetOpen) return;
+  const focusable = [...event.currentTarget.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+    'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(element => !element.hidden && element.getClientRects().length);
+  if(!focusable.length){
+    event.preventDefault();
     return;
   }
-  if(!inspected.receipt.assumed.every(entry => acceptedProjectionAssumptions.has(entry.key))) return;
-  const confirmation = inspected.receipt.assumed.length ? projectionAcceptance(inspected) : null;
-  const built = buildRoadmapProjection(latestModel, todayString, answers, confirmation);
-  if(!built.ok){
-    projectionPanelMessage = built.reason;
-    renderProjectionPanel();
+  const current = focusable.indexOf(document.activeElement);
+  const next = event.shiftKey
+    ? (current <= 0 ? focusable.length - 1 : current - 1)
+    : (current < 0 || current === focusable.length - 1 ? 0 : current + 1);
+  event.preventDefault();
+  focusable[next].focus();
+});
+
+$('focus-lens').addEventListener('click', event => {
+  if(!event.target.closest?.('[data-return-overview]')) return;
+  overviewMode = 'overview';
+  focusOverviewReturnAfterRender = true;
+  refresh();
+});
+
+document.addEventListener('keydown', event => {
+  if(event.key !== 'Escape') return;
+  if(closeOverviewReceiptSheet()){
+    event.preventDefault();
     return;
   }
-  create.disabled = true;
-  create.textContent = 'Creating…';
-  try{
-    const hash = await encodeHash({t:built.text});
-    if(revision !== projectionRevision || source !== editor.getText() ||
-       inspected.fingerprint !== selectedProjectionFingerprint){
-      resetProjectionChoice();
-      projectionPanelMessage = 'Paths changed while the Roadmap was being prepared. Choose the outcome again.';
-      renderProjectionPanel();
-      return;
-    }
-    if(hash.length >= 6000){
-      projectionPanelMessage = 'This projection is too large for a shareable Roadmap URL. Shorten the Paths title, periods or included work.';
-      renderProjectionPanel();
-      return;
-    }
-    location.href = '/roadmap/#' + hash;
-  } finally {
-    if(document.contains(create)){
-      create.disabled = false;
-      create.textContent = 'Create Roadmap with this basis';
-    }
-  }
+  if(overviewMode !== 'focus') return;
+  event.preventDefault();
+  overviewMode = 'overview';
+  focusOverviewReturnAfterRender = true;
+  refresh();
 });
 
 $('decision-inspector').addEventListener('click', event => {
@@ -759,6 +937,16 @@ function renderSaved(){
 function wideSvg(){
   if(!model || (!model.items.length && !model.decisions.length)) return null;
   if(model.style === 'plans') return renderPlans(projection, context(model, {width:1160}));
+  const style = canonicalRoadmapStyle(model.style);
+  if(style === 'brief') return renderOverview(overview,
+    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
+      impact:overviewImpact}));
+  if(style === 'question') return renderQuestionLens(overview,
+    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
+      impact:overviewImpact}));
+  if(style === 'conditions') return renderConditions(overview,
+    context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
+      impact:overviewImpact}));
   if(!topology) return null;
   const layout = treeLayout(topology, {width:1160, measure});
   return renderTree(topology, layout, context(model));
@@ -772,8 +960,30 @@ wireExports({
 paintKicker($('kicker'), '16', 'The questions inside the plan');
 wireSyntaxTry(document.querySelector('details.syntax'), editor, CONFIG_KEYS);
 
+document.querySelector('.paths-views').addEventListener('click', event => {
+  const button = event.target.closest?.('[data-paths-view]');
+  if(!button) return;
+  event.preventDefault();
+  setStyleInSource(button.dataset.pathsView);
+});
+
 function rerender(){ lastSvg = ''; refresh(); }
 watchNarrowBucket(preview, rerender);
+/* Overview has two more responsive boundaries than the shared narrow renderer:
+   the counterfactual focus changes shape at 760px and the receipt moves into a
+   rail at 900px. Observe the stable outer surface and include its effective
+   preview width in the key, so crossing either boundary (or resizing within a
+   layout) reprojects the SVG at the width it will actually occupy. Height-only
+   ResizeObserver notifications are ignored by the unchanged key. */
+let lastOverviewSurfaceKey = '';
+new ResizeObserver(() => {
+  const metrics = overviewSurfaceMetrics();
+  const key = [metrics.receiptLayout, metrics.focusLayout,
+    Math.round(metrics.previewWidth)].join(':');
+  if(key === lastOverviewSurfaceKey) return;
+  lastOverviewSurfaceKey = key;
+  if(isRoadmapStyle()) rerender();
+}).observe($('overview-live'), {box:'content-box'});
 onThemeChange(rerender);
 
 (async function boot(){

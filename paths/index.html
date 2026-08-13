@@ -28,10 +28,6 @@
     <p class="kicker" id="kicker"></p>
     <h1>Paths</h1>
     <p class="tagline">Plan the work that depends on answers you do not have yet.</p>
-    <aside class="planning-boundary" aria-label="When to use Paths">
-      <span>Decision plan · all outcomes</span>
-      <p>Use Paths when a question can stop, pivot or expand investment. It owns the question, evidence and consequences — not a delivery schedule.</p>
-    </aside>
   </header>
 </div>
 
@@ -52,8 +48,8 @@
         <dd>date the artefact; use <code>date: off</code> to hide it</dd>
         <dt><code data-try="">today: 2026-08-10</code></dt>
         <dd>set the evaluation date instead of using the local date</dd>
-        <dt><code data-try="">style: tree</code> · <code data-try="">style: plans</code></dt>
-        <dd>show the decision tree or compare the distinct possible plans</dd>
+        <dt><code data-try="">style: brief</code> · <code data-try="">style: question</code> · <code data-try="">style: conditions</code></dt>
+        <dd>show the presentation brief (the default), one decision's outcome lens, or the full decision-to-work logic; <code>overview</code> and <code>dependencies</code> remain supported aliases</dd>
         <dt><code data-try="">verdict: off</code></dt>
         <dd>hide the verdict; any other text replaces the generated line</dd>
         <dt><code data-try="">palette: ocean</code></dt>
@@ -96,19 +92,28 @@
   <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
   <section class="stage">
     <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
-    <div class="paths-viewbar">
-      <span class="method" id="paths-view-label">View</span>
-      <div class="segmented paths-view-switch" id="paths-view-switch" role="group"
-        aria-labelledby="paths-view-label">
-        <button type="button" data-paths-view="tree" aria-pressed="true">Tree</button>
-        <button type="button" data-paths-view="plans" aria-pressed="false">Possible Plans</button>
+    <nav class="paths-views" aria-label="Paths view">
+      <span class="paths-views-label">View</span>
+      <div class="segmented" role="group" aria-label="Roadmap view">
+        <button class="btn" type="button" data-paths-view="brief" aria-pressed="false">Brief</button>
+        <button class="btn" type="button" data-paths-view="question" aria-pressed="false">Question lens</button>
+        <button class="btn" type="button" data-paths-view="conditions" aria-pressed="false">Conditions</button>
       </div>
-      <button class="paths-projection-jump" id="paths-projection-jump" type="button"
-        aria-controls="roadmap-projection" hidden>Choose exact outcome <span aria-hidden="true">&#8595;</span></button>
+      <details class="paths-more-views">
+        <summary>More views</summary>
+        <div>
+          <button type="button" data-paths-view="tree">Tree</button>
+          <button type="button" data-paths-view="plans">Plans</button>
+        </div>
+      </details>
+    </nav>
+    <div class="overview-live" id="overview-live">
+      <div class="overview-main">
+        <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      </div>
+      <aside class="overview-receipt" id="overview-receipt" aria-labelledby="overview-receipt-title" hidden></aside>
+      <section class="focus-lens" id="focus-lens" aria-labelledby="focus-lens-title" hidden></section>
     </div>
-    <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-    <section class="roadmap-projection" id="roadmap-projection"
-      aria-labelledby="roadmap-projection-title" hidden></section>
     <section class="decision-inspector" id="decision-inspector"
       aria-labelledby="decision-inspector-title" hidden></section>
     <div class="actions">
@@ -121,7 +126,7 @@
           <button class="btn" id="dlsvg">SVG</button>
         </div>
       </details>
-      <span class="method" id="view-method">The phone view becomes an outline; every export remains the wide tree.</span>
+      <span class="method" id="view-method">The phone view groups work by period; every export remains the full roadmap grid.</span>
     </div>
   </section>
 </div>

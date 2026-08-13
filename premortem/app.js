@@ -9,17 +9,18 @@ import {renderPhase} from './render-wizard.js';
 import {renderBoard} from './render-board.js';
 import {debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
+import {validHandoffMeta, withoutHandoffMeta} from '../assets/handoff.js';
 
 const $ = id => document.getElementById(id);
 const store = makeStore();
 const WRITE_SECS = 120;
 const DELETE_UNDO_MS = 10000;
 
-let doc = null, undoStack = [], reached = new Set(), timer = 0;
+let doc = null, undoStack = [], reached = new Set(), timer = 0, transientImport = false;
 let view = 'wizard', promotingId = null;   // transient UI state (not persisted): 'wizard' | 'board'; id of the card mid-promote
 let pendingDeletion = null;
 const deletionTimers = new Map();   // doc id -> timer handle; one purge timer per tomb, so a second delete's arm can never cancel a first tomb's own expiry
-const saveNow = () => { if(doc) store.save(doc); };
+const saveNow = () => { if(doc && !transientImport) store.save(doc); };
 const save = debounced(saveNow, 300);
 
 function newDoc(mode = 'risk'){
@@ -36,6 +37,11 @@ function render(paint = {}){
   paintKicker($('kicker'), '10', doc && modeOf(doc) === 'success' ? 'Success made deliberately' : 'Failure named in advance');
   $('home').hidden = !home;
   $('workspace').hidden = home;
+  $('importstrip').hidden = home || !transientImport;
+  if(transientImport){
+    const meta = validHandoffMeta(doc?.x, {from: 'timeline', kind: 'risk-register'});
+    $('importsource').textContent = meta ? 'From ' + (meta.label || 'Timeline') : 'From a shared link';
+  }
   if(timer){ clearInterval(timer); timer = 0; }
   if(home){ paintMetrics($('metrics'), '', []); renderHome(); finishPaint(paint); return; }
   paintMetrics($('metrics'), doc.title || 'Untitled premortem', metricCounts(doc));
@@ -258,7 +264,7 @@ function confirmPromote(id){
 
 /* ---------- home ---------- */
 $('newbtn').addEventListener('click', () => {
-  doc = newDoc('risk'); undoStack = []; reached = new Set(); view = 'wizard'; promotingId = null; saveNow();
+  transientImport = false; doc = newDoc('risk'); undoStack = []; reached = new Set(); view = 'wizard'; promotingId = null; saveNow();
   render({focus: '[data-field="title"]', announce: 'New premortem'});
 });
 $('newparade').addEventListener('click', () => {
@@ -266,13 +272,30 @@ $('newparade').addEventListener('click', () => {
   render({focus: '[data-field="title"]', announce: 'New pre-parade'});
 });
 $('homebtn').addEventListener('click', () => {
-  saveNow(); doc = null; undoStack = []; promotingId = null; render({focus: '#home h2', announce: 'Your registers'});
+  saveNow(); transientImport = false; doc = null; undoStack = []; promotingId = null; render({focus: '#home h2', announce: 'Your registers'});
+});
+$('saveimport').addEventListener('click', () => {
+  if(!doc || !transientImport) return;
+  try{
+    const saved = withoutHandoffMeta(doc);   // provenance governs only the transient import, never a normal saved/link state
+    store.save(saved);
+    doc = saved;
+    transientImport = false;
+    render({focus: '#homebtn', announce: (doc.title || 'Untitled premortem') + ' saved as a new register'});
+  }catch(e){
+    finishPaint({focus: '#saveimport', announce: 'Could not save this register. The imported draft is still open.'});
+  }
+});
+$('returnfromimport').addEventListener('click', () => {
+  if(!transientImport) return;
+  transientImport = false; doc = null; undoStack = []; reached = new Set(); promotingId = null;
+  render({focus: '#home h2', announce: 'Returned to your registers. Imported draft was not saved.'});
 });
 $('savedlist').addEventListener('click', e => {
   const open = e.target.closest('[data-open]'), del = e.target.closest('[data-del]');
   if(open){
     const loaded = store.load(open.dataset.open); if(!loaded) return;
-    doc = loaded; undoStack = []; reached = new Set([doc.phase]); view = 'wizard'; promotingId = null;
+    transientImport = false; doc = loaded; undoStack = []; reached = new Set([doc.phase]); view = 'wizard'; promotingId = null;
     render({phaseFocus: true, announce: (doc.title || 'Untitled premortem') + ' opened'});
   } else if(del){
     const tomb = store.trash(del.dataset.del); if(!tomb) return;
@@ -387,7 +410,7 @@ $('phasepanel').addEventListener('click', e => {
     {focus: '[data-act="reviewall"]', announce: 'All ' + (modeOf(doc) === 'success' ? 'opportunities' : 'risks') + ' marked reviewed.'}); }
 });
 async function copyLink(){
-  const link = await toLink(doc);
+  const link = await toLink(withoutHandoffMeta(doc));
   const url = location.origin + location.pathname + (link || '');
   if(!link){ alert('This register is too large for a link — use "Copy as markdown" instead.'); return; }
   try{ await navigator.clipboard.writeText(url); toast('Link copied'); }catch(e){ prompt('Copy this link:', url); }
@@ -423,7 +446,11 @@ $('boardpanel').addEventListener('click', e => {
   if(location.hash.length > 1){
     const imported = await fromLink(location.hash);
     history.replaceState(null, '', location.pathname);
-    if(imported){ doc = imported; reached = new Set([doc.phase || 'REGISTER']); if(!doc.phase) doc.phase = 'REGISTER'; saveNow(); render(); return; }
+    if(imported){
+      transientImport = true; doc = imported; reached = new Set([doc.phase || 'REGISTER']);
+      if(!doc.phase) doc.phase = 'REGISTER';
+      render(); return;
+    }
   }
   const list = store.list();
   if(list.length || pendingDeletion){ doc = null; render(); }

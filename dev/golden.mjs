@@ -882,6 +882,48 @@ for(const [k, src] of Object.entries(docs)){
   variants['signal-noise-collapse-narrow'] = renderCollapse(s, ctxBase.colors, calls, {width: 356});
 }
 
+/* /paths Overview: one fixture deliberately carries parallel active work plus
+   every secondary decision state. The wide export pins the canonical
+   period-by-lane grid and complete state ledger; narrow pins the agenda
+   relayout without changing the underlying work or decision identities. */
+{
+  const {parse:parsePaths} = await import('../paths/parse.js');
+  const {project:projectPaths} = await import('../paths/project.js');
+  const {overviewProjection, decisionImpactProjection} = await import('../paths/overview.js');
+  const {renderOverview, renderOverviewNarrow} = await import('../paths/render-overview.js');
+  const {renderDependencies, renderDependenciesNarrow} = await import('../paths/render-dependencies.js');
+  const {renderQuestionLens, renderQuestionLensNarrow} = await import('../paths/render-question-lens.js');
+  const {renderConditions, renderConditionsNarrow} = await import('../paths/render-conditions.js');
+  const decision = (name, extra = '') => `decision ${name}:\n  question: Does ${name} hold?\n` +
+    `  signal: measurable ${name}\n  reading: current ${name}\n  owner: ${name} owner\n` +
+    `  answer-by: 2026-08-10${extra}\n`;
+  const source = 'title: Parallel Habitat\ndate: 2026-08-11\nverdict: Keep both routes reversible\n' +
+    decision('pricing') + decision('groups', '\n  assume: no 2026-08-11') +
+    decision('settled', '\n  answer: yes 2026-08-10 -- experiment HBT-42') +
+    decision('host', '\n  answer: yes 2026-08-10') + decision('pending') +
+    decision('later-question', '\n  when: pending') + decision('retired-question', '\n  when: not host') +
+    'decision repair:\n  question: Repair this?\n  answer-by: 2026-08-10\n' +
+    'NOW\n  Core: Shared foundation [doing]\n  Growth: Price route [if pricing]\n' +
+    'NEXT\n  Core: Joint route [if pricing and groups]\n  Growth: Either experiment [if pricing or groups]\n' +
+    'LATER\n  Core: Fixed-fee route [unless pricing]\n  Growth: Historical launch [if settled] [done]';
+  const pathsModel = parsePaths(source);
+  const pathsProjected = projectPaths(pathsModel, '2026-08-11');
+  const pathsOverview = overviewProjection(pathsProjected);
+  const impact = decisionImpactProjection(pathsModel, pathsProjected, 'pricing');
+  const pathsCtx = {...ctxBase, selectedKey:'pricing', impact};
+  variants['paths-overview'] = renderOverview(pathsOverview, {...pathsCtx, width:1160});
+  variants['paths-overview-narrow'] = renderOverviewNarrow(pathsOverview, {...pathsCtx, width:390});
+  variants['paths-question'] = renderQuestionLens(pathsOverview, {...pathsCtx, width:1160});
+  variants['paths-question-narrow'] = renderQuestionLensNarrow(pathsOverview, {...pathsCtx, width:390});
+  variants['paths-conditions'] = renderConditions(pathsOverview, {...pathsCtx, width:1160});
+  variants['paths-conditions-narrow'] = renderConditionsNarrow(pathsOverview, {...pathsCtx, width:390});
+  /* Dependencies is deliberately a selected-decision lens rather than an all-at-once
+     graph. Pricing is third in source order here, pinning the focused-anchor behaviour
+     alongside direct, AND, OR and negated work. */
+  variants['paths-dependencies'] = renderDependencies(pathsOverview, {...pathsCtx, width:1160});
+  variants['paths-dependencies-narrow'] = renderDependenciesNarrow(pathsOverview, {...pathsCtx, width:390});
+}
+
 /* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),
    or null if git can't be run. cwd-independent (worktree-safe) — resolves the
    repo root from this file, not process.cwd(). */

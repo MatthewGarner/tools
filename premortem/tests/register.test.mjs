@@ -48,6 +48,7 @@ test('staleness thresholds', () => {
   assert.equal(staleness(at('2026-07-01'), now), 'fresh');
   assert.equal(staleness(at('2026-05-01'), now), 'ageing');
   assert.equal(staleness(at('2026-01-01'), now), 'stale');
+  assert.equal(staleness({lastReviewed: null}, now), 'unknown');
 });
 test('merge absorbs actions and removes src', () => {
   const a = newEntry('a'), b = {...newEntry('b'), actions: [{text: 'act', owner: 'MG', done: false}]};

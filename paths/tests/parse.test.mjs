@@ -51,6 +51,12 @@ test('config in an item position remains config and a decision sub-key is not mi
   assert.ok(model.warnings.some(w => w.code === 'setting-in-item-position'));
 });
 
+test('brief is the default and roadmap aliases plus explicit views remain valid', () => {
+  assert.equal(parse('title: Default view').style, 'brief');
+  for(const style of ['brief', 'question', 'conditions', 'overview', 'dependencies', 'tree', 'plans'])
+    assert.equal(parse(`style: ${style}`).style, style);
+});
+
 test('custom accents accept one safe SVG colour form and reject hostile attribute text', () => {
   assert.equal(parse('accent: #C05621').accent, '#C05621');
   const model = parse('accent: #fff\" onload=\"alert(1)');
