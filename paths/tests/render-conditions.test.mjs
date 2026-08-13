@@ -41,6 +41,16 @@ test('atlas keeps work once in canonical period and lane groups against parallel
   assert.doesNotMatch(svg, /<path\b/);
 });
 
+test('atlas keeps the authored verdict in-plane, including the narrow review surface', () => {
+  const doc = 'verdict: Next action: run the pilot before expanding.\n' + decision('pricing') +
+    'NOW\n  Core: Pilot [if pricing]';
+  for(const svg of [wide(doc), renderConditionsNarrow(view(doc), {colors, measure, width:390})]){
+    assert.match(svg, /CONDITIONS ATLAS/);
+    assert.match(svg, /VERDICT/);
+    assert.match(svg, /Next action: run the pilot before expanding\./);
+  }
+});
+
 test('cells spell out direct YES and NO outcomes and compound ALL and ANY participation', () => {
   const svg = wide(decision('pricing') + decision('groups') + decision('retention') +
     'NOW\n  Core: Yes route [if pricing]\n  Core: No route [unless pricing]\n' +

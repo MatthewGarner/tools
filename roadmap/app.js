@@ -15,7 +15,8 @@ import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
-import {encodeHash, readHashState, writeHashState} from '../assets/series.js';
+import {readHashState, writeHashState} from '../assets/series.js';
+import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion, motionStill} from "../assets/motion.js";
@@ -111,7 +112,7 @@ function makeDiff(model){
 }
 
 /* ---------- refresh loop ---------- */
-let model = null, lastSvg = '', hashTimer = null;
+let model = null, lastSvg = '', hashTimer = null, inboundHandoff = null;
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
@@ -311,7 +312,7 @@ function syncHeadline(m){
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
-  if(shouldPersist()) writeHashState(state);
+  if(shouldPersist()) writeHashState(targetHashState(state, inboundHandoff));
 }
 const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
@@ -411,11 +412,15 @@ $('pathsstarter').addEventListener('click', async () => {
   const button = $('pathsstarter');
   button.disabled = true;
   try{
-    const hash = await encodeHash({t:starter});
+    const returnTo = await handoffReturnHref('/roadmap/',
+      {t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})});
+    const href = returnTo && await handoffHref('/paths/', {t:starter},
+      handoffMeta('roadmap', 'decision-plan', model?.title || 'Roadmap', returnTo));
     /* Text can change during async compression. Refuse a stale navigation;
        the refreshed CTA represents the new eligible source. */
     if(revision !== pathsStarterRevision || starter !== pathsStarter) return;
-    location.href = '/paths/#' + hash;
+    if(href) location.href = href;
+    else $('conditionalitymsg').textContent = 'This Roadmap is too large to send to Paths with a safe return link.';
   } finally {
     button.disabled = false;
   }
@@ -1104,6 +1109,12 @@ watchNarrowBucket(previewEl, rerender);
   const state = await readHashState();
   if(state && typeof state.t === 'string'){
     text = state.t;
+    inboundHandoff = validHandoffMeta(state.x, {from:'paths', kind:'delivery-projection'});
+    if(inboundHandoff?.returnTo){
+      $('handofftitle').textContent = 'Delivery projection from ' + (inboundHandoff.label || 'Paths');
+      $('handoffreturn').href = inboundHandoff.returnTo;
+      $('handoffstrip').hidden = false;
+    }
     if(state.e === 0) ws.setCollapsed(true);
   } else if(location.hash && location.hash.length > 1){
     /* legacy links: hash is the raw base64 source text */

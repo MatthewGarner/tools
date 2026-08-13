@@ -395,6 +395,10 @@ async function initCompose(hash){
   let text = inbound ? inbound.text : (!invalidImport && hash && typeof hash.t === 'string' ? hash.t : '');
   if(inbound){
     $('handofftitle').textContent = 'Draft from Map' + (inbound.meta.label ? ' · ' + inbound.meta.label : '');
+    if(inbound.meta.returnTo){
+      $('returnsource').href = inbound.meta.returnTo;
+      $('returnsource').hidden = false;
+    }
     $('handoffstrip').hidden = false;
   }
   if(hash && hash.e === 0) ws.setCollapsed(true);

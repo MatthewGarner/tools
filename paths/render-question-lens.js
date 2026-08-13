@@ -77,6 +77,10 @@ function titleOf(overview){
   return String(overview?.title || 'Roadmap questions');
 }
 
+function verdictOf(overview){
+  return String(typeof overview?.verdict === 'string' ? overview.verdict : overview?.verdict?.line || '');
+}
+
 function selectedDecision(overview, ctx){
   const key = String(ctx?.selectedKey || ctx?.impact?.key || overview?.initialSelection?.key || '').toLowerCase();
   return (overview?.decisions || []).find(decision => decision.key === key) || ctx?.impact?.decision || null;
@@ -96,11 +100,16 @@ function accessibleHead(overview, decision, impact){
   const affected = impact ? affectedEntries(impact).length : 0;
   const title = `${titleOf(overview)} — question lens${decision ? ` for ${nameOf(decision)}` : ''}`;
   const question = String(decision?.question || nameOf(decision)).replace(/[.?!]+$/, '');
-  const description = decision && !questionIsOpen(decision)
+  const verdict = verdictOf(overview);
+  const verdictPrefix = verdict ? `Verdict: ${verdict}${/[.!?]$/.test(verdict) ? ' ' : '. '}` : '';
+  const prefix = `${verdictPrefix}${decision
+    ? `Selected question ${nameOf(decision)}. Current state: ${decision.currentState?.sentence || 'Unanswered'}. `
+    : ''}`;
+  const description = prefix + (decision && !questionIsOpen(decision)
     ? `${question}. This question is not open yet. ${openingConditionCopy(decision.when)}. Answer outcomes are not compared until that prerequisite is satisfied.`
     : decision
     ? `${question}. If yes and if no are compared across ${affected} affected ${affected === 1 ? 'work item' : 'work items'}. Other questions are parallel, not sequential.`
-    : 'No question is available to compare.';
+    : 'No question is available to compare.');
   return '<title id="paths-question-lens-name">' + esc(title) + '</title>' +
     '<desc id="paths-question-lens-description">' + esc(description) + '</desc>';
 }

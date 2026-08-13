@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/assets/syntax.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/handoff.css">
 <link rel="stylesheet" href="../assets/mobile.css">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -95,6 +96,10 @@
   </aside>
   <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
   <section class="stage">
+    <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
+      <p class="handoff-copy"><strong id="handofftitle">Decision-plan starter from Roadmap</strong><small>This is a separate Paths plan. Edits here do not update Roadmap.</small></p>
+      <div class="handoff-actions"><a class="btn" id="handoffreturn" href="/roadmap/">Return to Roadmap</a></div>
+    </div>
     <p class="sr-only" id="summary" role="status" aria-live="polite" aria-atomic="true"></p>
     <nav class="paths-views" aria-label="Paths view">
       <span class="paths-views-label">View</span>

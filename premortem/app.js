@@ -41,6 +41,8 @@ function render(paint = {}){
   if(transientImport){
     const meta = validHandoffMeta(doc?.x, {from: 'timeline', kind: 'risk-register'});
     $('importsource').textContent = meta ? 'From ' + (meta.label || 'Timeline') : 'From a shared link';
+    $('returntosource').hidden = !meta?.returnTo;
+    if(meta?.returnTo) $('returntosource').href = meta.returnTo;
   }
   if(timer){ clearInterval(timer); timer = 0; }
   if(home){ paintMetrics($('metrics'), '', []); renderHome(); finishPaint(paint); return; }

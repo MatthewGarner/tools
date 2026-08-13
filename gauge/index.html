@@ -68,8 +68,8 @@
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
       <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
-        <p class="handoff-copy"><strong id="handofftitle">Draft from Map</strong><small>Your current Gauge draft is unchanged.</small></p>
-        <div class="handoff-actions"><button class="btn" id="saveimport">Save as new</button><button class="btn" id="returncurrent">Return to current</button></div>
+        <p class="handoff-copy"><strong id="handofftitle">Draft from Map</strong><small>This is a separate Gauge draft. Saving or editing it does not update Map.</small></p>
+        <div class="handoff-actions"><button class="btn" id="saveimport">Save as new</button><a class="btn" id="returnsource" href="/map/" hidden>Return to Map</a><button class="btn" id="returncurrent">Return to current Gauge</button></div>
       </div>
       <div class="viewtoggle segmented" role="tablist">
         <button id="viewform" role="tab" aria-selected="false">Form</button>
@@ -145,7 +145,7 @@
         <button class="btn" id="dlsvg2">SVG</button>
       </div>
     </details>
-    <button class="btn" id="tofermi" hidden title="Open the room's ranges as a review-needed Fermi draft">Draft Fermi inputs</button>
+    <button class="btn" id="tofermi" data-handoff-contract="gauge-to-fermi-review-needed" hidden title="Open the room's ranges as a review-needed Fermi draft">Draft Fermi inputs</button>
     <span class="method" id="fermiDraftNote" hidden>A room range is an elicited assumption, not automatically a calibrated 90% belief. Fermi will ask you to restate or adopt every range before simulating.</span>
     <button class="btn danger" id="cend">End session now</button>
     <span class="method">Ending deletes all responses from the relay immediately — exports keep working</span>

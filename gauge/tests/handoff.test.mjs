@@ -12,6 +12,7 @@ import {tokenize, parse as fparse, collectVars} from '../../fermi/engine.js';
 import {gaugeImport} from '../import-state.js';
 import {handoffHref, handoffMeta, validHandoffMeta, withoutHandoffMeta, targetHashState} from '../../assets/handoff.js';
 import {readFileSync} from 'node:fs';
+import {GAUGE_FERMI_PROVENANCE_STRESS} from '../../dev/semantic-stress.mjs';
 
 test('slugVar: case, symbols, digit-first, length cap, dedupe', () => {
   const taken = new Set();
@@ -60,11 +61,12 @@ test('fermiHandoff: nothing to send → null; large values get suffixes', () => 
   assert.deepEqual(h.v.daily_actives, ['80k', '2M', 'auto']);
 });
 
-test('fermiHandoff: refuses rather than silently losing an oversized source receipt', () => {
-  const tooLong = 'Q'.repeat(181);
-  const model = gparse(tooLong + ' :: range weeks');
-  assert.equal(fermiHandoff(model, sessionStats(model, [{values: [[4, 8]]}])), null);
-  assert.match(fermiHandoffIssue(model), /too long/);
+test('fermiHandoff: refuses rather than silently losing a non-normalizable source receipt', () => {
+  for(const scenario of GAUGE_FERMI_PROVENANCE_STRESS){
+    const model = gparse(scenario.source);
+    assert.equal(fermiHandoff(model, sessionStats(model, [{values: [[4, 8]]}])), null, scenario.id);
+    assert.match(fermiHandoffIssue(model), scenario.issue, scenario.id);
+  }
 });
 
 test('gaugeHandoff: flagged items become prob questions that gauge itself parses', () => {

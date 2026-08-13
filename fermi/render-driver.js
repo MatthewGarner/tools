@@ -151,6 +151,7 @@ export function renderDriverTree(model, ctx){
   const provenanceSummary = nodes.filter(nd => nd.leaf && nd.n.t === 'var')
     .map(nd => nd.n.name.replace(/_/g, ' ') + ': ' + receiptLabel(baseFor(nd.n.name))).join('. ');
   const accessibleSummary = 'What drives the answer: ' + headline +
+    ' Outcome median ' + fmt(p50) + '. P10 ' + fmt(p10) + '. P90 ' + fmt(p90) + '. Spread ' + fullLabel + '.' +
     (provenanceSummary ? ' Assumption sources. ' + provenanceSummary + '.' : '');
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +

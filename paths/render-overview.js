@@ -83,6 +83,10 @@ function titleOf(overview){
   return String(overview?.title || 'Roadmap overview');
 }
 
+function verdictOf(overview){
+  return String(typeof overview?.verdict === 'string' ? overview.verdict : overview?.verdict?.line || '');
+}
+
 function selectedDecision(overview, ctx){
   const key = String(ctx?.selectedKey || overview?.initialSelection?.key || '').toLowerCase();
   return (overview?.decisions || []).find(decision => decision.key === key) || null;
@@ -100,6 +104,8 @@ function accessibleText(overview, selected){
   const parts = [`${periods} ${periods === 1 ? 'period' : 'periods'}`,
     `${lanes} ${lanes === 1 ? 'lane' : 'lanes'}`, `${items} ${items === 1 ? 'item' : 'items'}`,
     `${attention} ${attention === 1 ? 'decision needs' : 'decisions need'} attention`];
+  const verdict = verdictOf(overview).replace(/[.!?]+$/, '');
+  if(verdict) parts.unshift(`Verdict: ${verdict}`);
   if(periods) parts.push(`Periods: ${overview.periods.map(period => period.name).join(', ')}`);
   if(lanes) parts.push(`Lanes: ${overview.lanes.join(', ')}`);
   if(selected) parts.push(`Selected decision ${decisionName(selected)}. ${selected.currentState?.sentence || ''}`);

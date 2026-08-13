@@ -137,7 +137,12 @@ const PAGES = {
      URL/save state, the review-needed Gauge draft gate, semantic export copy and
      taller accessible driver-tree leaves are product correctness, not optional
      decoration. Actual 210k; retain roughly 5k headroom. */
-  'fermi/index.html': 215_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* 215k -> 217k (2026-08-13 semantic-quality foundation): the shared, bounded
+     no-writeback return receipt is part of the review-needed Gauge handoff, and
+     Driver Tree now carries the source-aware semantic description needed by
+     accessible exports. Actual 215.7k; 1.3k headroom keeps those correctness
+     seams eager and avoids loading a second runtime solely to save bytes. */
+  'fermi/index.html': 217_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
@@ -376,7 +381,11 @@ const PAGES = {
   /* gauge 540k -> 546k (unset-edit fix batch): edit-in-place.js's shared
      opens-row fallback lands on every EIP page, gauge included. Actual
      540.4k; preserve ~5.6k headroom. */
-  'gauge/index.html': 561_000, 'timeline/index.html': 560_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
+  /* 560k -> 562k (2026-08-13 semantic-quality foundation): Timeline's target
+     handoff now retains bounded source-local return context and no-writeback
+     semantics. Actual 560.7k; this preserves that navigation correctness with
+     enough headroom for small shared-module changes. */
+  'gauge/index.html': 561_000, 'timeline/index.html': 562_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
@@ -459,7 +468,11 @@ const PAGES = {
      the all-outcomes Brief / Question lens / Conditions renderers and the
      fail-closed exact-world Roadmap projection. These share the evaluator and
      must stay eager for offline export parity. Actual 869.6k; retain ~8k. */
-  'paths/index.html': 878_000,
+  /* 878k -> 881k (2026-08-13 semantic-quality foundation): return-safe
+     Roadmap handoff metadata and selected-decision receipt behaviour are live
+     across the contingency lenses; keeping them eager preserves keyboard,
+     export and offline parity. Actual 878.7k; retain ~2.3k. */
+  'paths/index.html': 881_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

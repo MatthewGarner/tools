@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
 <link rel="stylesheet" href="/assets/about.css">
+<link rel="stylesheet" href="/assets/handoff.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="../assets/mobile.css">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -109,6 +110,10 @@
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
+      <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
+        <p class="handoff-copy"><strong id="handofftitle">Delivery projection from Paths</strong><small>This is a separate Roadmap. Edits here do not update Paths.</small></p>
+        <div class="handoff-actions"><a class="btn" id="handoffreturn" href="/paths/">Return to Paths</a></div>
+      </div>
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
@@ -120,7 +125,7 @@
           <p class="conditionality-label" id="conditionalitylabel">Conditional work</p>
           <p class="conditionality-message" id="conditionalitymsg" aria-live="polite" aria-atomic="true"></p>
         </div>
-        <button class="btn" id="pathsstarter" type="button" hidden>Turn conditional work into a decision-plan starter</button>
+        <button class="btn" id="pathsstarter" data-handoff-contract="roadmap-to-paths-starter" type="button" hidden>Turn conditional work into a decision-plan starter</button>
       </aside>
       <div class="actions">
         <span class="method" id="stylelbl">View and export style:</span>

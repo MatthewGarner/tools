@@ -343,6 +343,15 @@
   letter-spacing:.08em; text-transform:uppercase;
 }
 .receipt-fact dd{margin:0; overflow-wrap:anywhere; font-size:11px; font-weight:600; line-height:1.35}
+.receipt-next{
+  margin:14px 0; padding:10px 11px; color:var(--ink);
+  background:color-mix(in srgb,var(--accent) 7%,var(--card)); border-left:2px solid var(--accent);
+}
+.receipt-next h3{
+  margin:0 0 4px; color:var(--accent-ink); font-size:9px; font-weight:750;
+  letter-spacing:.1em; text-transform:uppercase;
+}
+.receipt-next p{margin:0; overflow-wrap:anywhere; font-size:11px; font-weight:650; line-height:1.4}
 .impact-section + .impact-section{margin-top:13px; padding-top:12px; border-top:1px dotted var(--border)}
 .impact-list{list-style:none; margin:0; padding:0}
 .impact-list li{overflow-wrap:anywhere; font-size:10.5px; line-height:1.4}
@@ -391,6 +400,22 @@ body.overview-sheet-open::before{
 }
 .overview-live[data-receipt-layout="rail"] .overview-receipt[data-layout="rail"]{
   position:sticky; top:12px; right:auto; width:350px; max-height:calc(100vh - 48px);
+}
+.overview-live[data-view="overview"][data-mode="overview"][data-receipt-layout="inline"]{
+  display:grid; grid-template-columns:minmax(0,1fr); grid-template-areas:"receipt" "roadmap"; gap:12px;
+}
+.overview-live[data-receipt-layout="inline"] .overview-receipt[data-layout="inline"]{
+  position:static; width:auto; max-width:none; max-height:none; padding:13px 16px 15px;
+  border-left-width:3px; box-shadow:none;
+}
+.overview-live[data-receipt-layout="inline"] .receipt-head{align-items:center}
+.overview-live[data-receipt-layout="inline"] .receipt-head h2{font-size:18px}
+.overview-live[data-receipt-layout="inline"] .receipt-ledger{
+  grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 14px; margin:12px 0; padding:10px 0;
+}
+.overview-live[data-receipt-layout="inline"] .receipt-next{margin:0 0 12px}
+@media (max-width:860px){
+  .overview-live[data-receipt-layout="inline"] .receipt-ledger{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 .overview-live[data-receipt-layout="overlay"] .overview-receipt[data-layout="overlay"]{
   position:absolute; top:12px; right:12px;

@@ -6,7 +6,7 @@ import {mergeBias} from './mergebias.js';
 import {fmtDay} from './parse.js';
 import {handoffMeta} from '../assets/handoff.js';
 
-export function premortemHandoff(model, today){
+export function premortemHandoff(model, today, returnTo = ''){
   const mb = mergeBias(model, today);
   if(!mb) return null;
   const title = String(model.title || 'the plan').trim();
@@ -15,6 +15,6 @@ export function premortemHandoff(model, today){
     title,
     question: 'It’s ' + fmtDay(mb.byDate) + ' and ' + title + ' slipped. Why?',
     unit: '£k', people: 5, phase: 'FRAME', entries: [],
-    x: handoffMeta('timeline', 'risk-register', 'Timeline'),
+    x: handoffMeta('timeline', 'risk-register', 'Timeline', returnTo),
   };
 }

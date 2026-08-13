@@ -239,7 +239,10 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     const h = currentHandoff();
     if(!h) return;
     const href = await handoffHref('/fermi/', h,
-      handoffMeta('gauge', 'range-estimate', model.title || 'Gauge ranges'));
+      /* Never embed a facilitator key from the live-session URL in a Fermi
+         link that may be copied. The return stays useful without widening
+         access to the source session. */
+      handoffMeta('gauge', 'range-estimate', model.title || 'Gauge ranges', '/gauge/'));
     if(href) location.href = href;
     else $('cstate').textContent = 'This result is too large to open in Fermi. Export it instead.';
   });

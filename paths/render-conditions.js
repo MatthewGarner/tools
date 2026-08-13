@@ -134,12 +134,20 @@ function rootRole(ctx){
     : 'role="img" aria-labelledby="paths-conditions-name paths-conditions-description"';
 }
 
-function accessibleHead(overview){
+function accessibleHead(overview, ctx){
   const conditional = (overview.items || []).filter(item => item.condition).length;
   const title = String(overview.title || 'Roadmap') + ' — conditions atlas';
-  const description = `${overview.items?.length || 0} work items grouped by period and lane against ` +
+  const verdict = String(typeof overview?.verdict === 'string'
+    ? overview.verdict : overview?.verdict?.line || '');
+  const selected = (overview.decisions || []).find(decision => decision.key === ctx?.selectedKey);
+  const selectedSummary = selected
+    ? ` Selected decision ${nameOf(selected)}. Current state: ${decisionState(selected)}.` : '';
+  const verdictPrefix = verdict ? `Verdict: ${verdict}${/[.!?]$/.test(verdict) ? ' ' : '. '}` : '';
+  const description = verdictPrefix +
+    `${overview.items?.length || 0} work items grouped by period and lane against ` +
     `${overview.decisions?.length || 0} parallel decisions. ${conditional} work ` +
-    `${conditional === 1 ? 'item has' : 'items have'} authored conditions. Columns do not imply sequence.`;
+    `${conditional === 1 ? 'item has' : 'items have'} authored conditions. Columns do not imply sequence.` +
+    selectedSummary;
   return '<title id="paths-conditions-name">' + esc(title) + '</title>' +
     '<desc id="paths-conditions-description">' + esc(description) + '</desc>';
 }
@@ -161,6 +169,16 @@ function artifactHeader(overview, width, C, measure, narrow = false){
   if(overview.date && narrow){ svg += txt(pad, y, String(overview.date), 10, C.muted); y += 18; }
   svg += txt(pad, y + 4, 'CONDITIONS ATLAS', 9, C.accentInk, {weight:700, tracking:0.9});
   y += 22;
+  const verdict = String(typeof overview?.verdict === 'string'
+    ? overview.verdict : overview?.verdict?.line || '');
+  if(verdict){
+    svg += txt(pad, y, 'VERDICT', 8, C.muted, {weight:700, tracking:0.8});
+    y += 14;
+    for(const value of wrapped(verdict, width - pad * 2, measure, `700 ${narrow ? 12 : 13}px ${SANS}`)){
+      svg += txt(pad, y, value, narrow ? 12 : 13, C.ink, {weight:700}); y += narrow ? 16 : 17;
+    }
+    y += 4;
+  }
   const thesis = 'Every item once. Read across to see exactly what must be true.';
   for(const value of wrapped(thesis, width - pad * 2, measure, '600 11px ' + SANS)){
     svg += txt(pad, y, value, 11, C.ink, {weight:600}); y += 15;
@@ -366,7 +384,7 @@ export function renderConditions(overview, ctx = {}){
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height +
     '" viewBox="0 0 ' + width + ' ' + height + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
     '" data-min-readable-scale="' + MIN_READABLE_SCALE + '" font-family="' + SANS + '" ' + rootRole(ctx) +
-    '>' + accessibleHead(overview) + rect(0, 0, width, height, C.bg) + head.svg + headers.svg + body +
+    '>' + accessibleHead(overview, ctx) + rect(0, 0, width, height, C.bg) + head.svg + headers.svg + body +
     health.svg + '</svg>';
 }
 
@@ -484,7 +502,7 @@ export function renderConditionsNarrow(overview, ctx = {}){
   const height = Math.ceil(y + NARROW_PAD);
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + r2(width) + '" height="' + r2(height) +
     '" viewBox="0 0 ' + r2(width) + ' ' + r2(height) + '" data-theme="' + (ctx.dark ? 'dark' : 'light') +
-    '" data-layout="stacked" font-family="' + SANS + '" ' + rootRole(ctx) + '>' + accessibleHead(overview) +
+    '" data-layout="stacked" font-family="' + SANS + '" ' + rootRole(ctx) + '>' + accessibleHead(overview, ctx) +
     rect(0, 0, width, height, C.bg) + head.svg + decisions.svg + body + '</svg>';
 }
 

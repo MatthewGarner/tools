@@ -18,6 +18,7 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../asset
 import {effectiveHorizon, cashflowHashState, cashflowTailNote} from './interactions.js';
 import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
   normalizeReceipt, receiptLabel} from './state.js';
+import {targetHashState, validHandoffMeta} from '../assets/handoff.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
@@ -50,6 +51,7 @@ let draggingHandle = false;           // suppresses click-to-set + hover tooltip
 let confessSnapshot = null;           // pre-Adopt varState snapshot for the one-shot Undo
 const $ = id => document.getElementById(id);
 const estimateExampleButtons = [], cashflowExampleButtons = [];
+let inboundHandoff = null;
 function syncExampleButtons(buttons, selected = null){
   for(const b of buttons){
     const on = b.dataset.example === selected;
@@ -229,7 +231,7 @@ function writeHash(){
   const state = compareOn
     ? {a: packScen(scenStore.A), b: packScen(scenStore.B), on: active}
     : packScen(scenStore.A);
-  return writeHashState(state);
+  return writeHashState(targetHashState(state, inboundHandoff));
 }
 function flushEstimateHash(){ clearTimeout(hashTimer); return writeHash(); }
 
@@ -1174,6 +1176,12 @@ renderSaved();
 $('formula').addEventListener('input', () => schedule(180));
 
 const boot = await readHash();
+inboundHandoff = validHandoffMeta(boot?.x, {from:'gauge', kind:'range-estimate'});
+if(inboundHandoff?.returnTo){
+  $('handofftitle').textContent = 'Draft from ' + (inboundHandoff.label || 'Gauge');
+  $('returnsource').href = inboundHandoff.returnTo;
+  $('handoffstrip').hidden = false;
+}
 if(boot && boot.a && boot.b){
   compareOn = true;
   scenStore.A = unpackEstimateScenario(boot.a);

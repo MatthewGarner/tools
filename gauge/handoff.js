@@ -23,15 +23,47 @@ const short = v => {
 };
 const trim = v => String(Math.round(v * 100) / 100);
 
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+
+/* Keep the source-side boundary at least as strict as Fermi's unpacker. A
+   receipt which target normalisation would discard must abort the whole draft:
+   ranges without their provenance look more certain than they are. */
+function receiptText(value, max, field, optional = false){
+  if(value == null && optional) return {value:undefined};
+  if(typeof value !== 'string') return {issue:`its ${field} is not plain text`};
+  const text = value.trim();
+  if(!text) return optional ? {issue:`its ${field} is empty`} : {issue:`its ${field} is empty`};
+  if(text.length > max) return {issue:`its ${field} is too long`};
+  if(CONTROL.test(text)) return {issue:`its ${field} contains control characters`};
+  return {value:text};
+}
+
+function rangeReceipts(model){
+  const ranges = Array.isArray(model?.questions) ? model.questions.filter(q => q?.type === 'range') : [];
+  return ranges.map(question => {
+    const label = receiptText(question.text, 180, 'question');
+    const unit = receiptText(question.unit, 48, 'unit', true);
+    return {question, label, unit, issue:label.issue || unit.issue || ''};
+  });
+}
+
+function receiptIssue(model){
+  const invalid = rangeReceipts(model).find(entry => entry.issue);
+  return invalid ? `Fermi draft unavailable: one range ${invalid.issue}, so its receipt cannot transfer safely.` : '';
+}
+
 export function fermiHandoff(model, stats, delphi = null){
   /* State is deliberately bounded for URL/share safety. Refuse the whole
      transfer rather than preserve ranges while silently shedding their receipt. */
-  if(model.questions.some(q => q.type === 'range' &&
-    (String(q.text || '').trim().length > 180 || String(q.unit || '').trim().length > 48))) return null;
+  const receipts = rangeReceipts(model);
+  if(receipts.some(entry => entry.issue)) return null;
+  const receiptByQuestion = new Map(receipts.map(entry => [entry.question, entry]));
   const taken = new Set();
   const v = {}, p = {};
   model.questions.forEach((q, i) => {
     if(q.type !== 'range') return;
+    const receipt = receiptByQuestion.get(q);
+    if(!receipt) return;
     let lo = null, hi = null;
     const d = delphi && delphi[i];
     const s = stats[i];
@@ -40,10 +72,10 @@ export function fermiHandoff(model, stats, delphi = null){
       if(s && s.pooled && s.n > 0){ lo = s.pooled.lo; hi = s.pooled.hi; }
     }
     if(lo === null || !isFinite(lo) || !isFinite(hi)) return;
-    const name = slugVar(q.text, taken);
+    const name = slugVar(receipt.label.value, taken);
     v[name] = [short(lo), short(hi), 'auto'];
     p[name] = {
-      kind: 'gauge', label: q.text, question: q.text, unit: q.unit || undefined,
+      kind: 'gauge', label: receipt.label.value, question: receipt.label.value, unit: receipt.unit.value,
       round: d ? 2 : 1, responses: d ? d.n : s.n,
       pooling: d ? 'median-endpoints' : 'envelope', status: 'needs-restatement',
     };
@@ -56,7 +88,5 @@ export function fermiHandoff(model, stats, delphi = null){
 
 /** Explain an unavailable handoff without exposing a half-formed target state. */
 export function fermiHandoffIssue(model){
-  const long = model.questions.find(q => q.type === 'range' &&
-    (String(q.text || '').trim().length > 180 || String(q.unit || '').trim().length > 48));
-  return long ? 'Fermi draft unavailable: one range question or unit is too long to preserve its receipt safely.' : '';
+  return receiptIssue(model);
 }

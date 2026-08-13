@@ -16,7 +16,7 @@
    install chromium only (which also trims their apt-deps step). */
 export const SHARDS = [
   {name: 'smoke',         suites: ['smoke.mjs'],                          browsers: 'chromium'},
-  {name: 'eip',           suites: ['check-eip.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium'},
+  {name: 'eip',           suites: ['check-eip.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium'},
   {name: 'mobile-core',   suites: ['mobile.mjs', 'check.mjs', 'pwa.mjs'], browsers: 'chromium'},
   {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs'],           browsers: 'chromium webkit'},
   {name: 'layout-gauge',  suites: ['layout.mjs', 'gauge.mjs'],            browsers: 'chromium'},
@@ -29,7 +29,7 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    balance rationale for the CI shards above. Approximate — for ORDERING only, not
    budgets. dev/ci-shards.test.mjs asserts a hint exists for every verify suite. */
 export const SUITE_SECONDS = {
-  'smoke.mjs': 138, 'check-eip.mjs': 124, 'mobile.mjs': 88, 'motion.mjs': 81,
+  'smoke.mjs': 138, 'check-eip.mjs': 124, 'paths-budget.mjs': 18, 'mobile.mjs': 88, 'motion.mjs': 81,
   'layout.mjs': 77, 'webkit.mjs': 45, 'gauge.mjs': 27, 'check.mjs': 25,
   'pwa.mjs': 19, 'map.mjs': 8, 'case.mjs': 4,
 };

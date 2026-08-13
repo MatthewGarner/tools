@@ -8,6 +8,7 @@ import {createEditor} from './editor.js';
 import {validators, editLabel, editDates, setStatus, setLane, editNote,
   addItemLine, addedItemTarget, removeItemLine} from './edit-targets.js';
 import {readHashState, writeHashState} from '../assets/series.js';
+import {handoffReturnHref} from '../assets/handoff.js';
 import {paintKicker} from '../assets/verdict.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
@@ -218,7 +219,13 @@ wireExports({
    prompt() with the markdown so it's still copyable — wireExports has no
    equivalent fallback, so migrating would lose that behaviour. */
 $('topremortem').addEventListener('click', async () => {
-  const doc = premortemHandoff(model, todayDay());
+  const returnTo = await handoffReturnHref('/timeline/',
+    {t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})});
+  if(!returnTo){
+    $('handoffstatus').textContent = 'This plan is too large to send with a safe return link. Shorten it, then try again.';
+    return;
+  }
+  const doc = premortemHandoff(model, todayDay(), returnTo);
   if(!doc) return;
   $('handoffstatus').textContent = '';
   const link = await premortemLink(doc);   // ignore re-clicks while encoding: same doc, same link

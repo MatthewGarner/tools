@@ -57,6 +57,19 @@ test('unknown, malformed and crafted receipts fail closed to Stated here', () =>
   assert.deepEqual(state.droppedReceipts.sort(), ['ghost', 'x']);
 });
 
+test('target unpack drops non-normalizable Gauge question and unit receipts', () => {
+  for(const [field, value] of [
+    ['question', 'Weeks\u0000to migrate'],
+    ['unit', 'week\u0007s'],
+  ]){
+    const state = unpackScen({f:'x', v:{x:['1', '2', 'auto']}, p:{
+      x:{...gauge, [field]:value},
+    }});
+    assert.equal(state.vars.get('x').base, null, field);
+    assert.deepEqual(state.droppedReceipts, ['x'], field);
+  }
+});
+
 test('receipt maps ignore prototype-pollution keys and receipts for absent variables', () => {
   const raw = JSON.parse('{"__proto__":{"kind":"snapshot","label":"bad"},"x":{"kind":"snapshot","label":"May"},"y":{"kind":"person","label":"No row"}}');
   const {receipts, dropped} = normalizeReceiptMap(raw, ['x']);

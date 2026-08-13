@@ -23,7 +23,8 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {wireExports} from '../assets/exports.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
-import {encodeHash, readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
+import {readHashState, writeHashState, PALETTES, scheme} from '../assets/series.js';
+import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
@@ -111,7 +112,7 @@ LATER
 
 const EXAMPLES = [{name:'Habitat', src:HABITAT}];
 let model = null, projection = null, topology = null, overview = null, overviewImpact = null;
-let lastSvg = '', hashTimer = null;
+let lastSvg = '', hashTimer = null, inboundHandoff = null;
 let urlStateOversized = false, hashAttempt = 0;
 let selectedDecision = null;
 let selectedOverviewDecision = null;
@@ -231,7 +232,7 @@ function renderProjectionPanel(){
     }));
     const foot = node('div', 'projection-foot'); foot.appendChild(node('p', 'projection-separation', 'This creates a new Roadmap. It does not answer or alter Paths.'));
     if(projectionPanelMessage){ const message = node('p', 'projection-message', projectionPanelMessage); message.setAttribute('role', 'status'); foot.appendChild(message); }
-    const create = node('button', 'btn primary projection-create', 'Create Roadmap with this basis'); create.type = 'button'; create.dataset.createRoadmap = '';
+    const create = node('button', 'btn primary projection-create', 'Create Roadmap with this basis'); create.type = 'button'; create.id = 'createroadmap'; create.dataset.createRoadmap = ''; create.dataset.handoffContract = 'paths-to-roadmap-projection';
     create.disabled = !receipt.assumed.every(entry => acceptedProjectionAssumptions.has(entry.key)); foot.appendChild(create); confirmation.appendChild(foot); body.appendChild(confirmation);
   }
   host.appendChild(body);
@@ -280,9 +281,15 @@ function overviewSurfaceMetrics(){
 
 function receiptMetricsForStyle(metrics = overviewSurfaceMetrics()){
   const style = canonicalRoadmapStyle();
-  return style === 'question' || style === 'conditions'
-    ? {...metrics, receiptLayout:'none', previewWidth:metrics.width}
-    : metrics;
+  if(style !== 'question' && style !== 'conditions') return metrics;
+  /* The comparison and condition maps need their full canvas. Reserve a rail
+     only where there is genuinely room; otherwise place a compact docket
+     above the artefact. A phone selection becomes the same accessible sheet
+     as Brief, so it never starts below an off-screen diagram. */
+  const sheet = metrics.narrow || matchMedia('(pointer: coarse)').matches;
+  const receiptLayout = sheet ? 'sheet' : metrics.width >= 1240 ? 'rail' : 'inline';
+  return {...metrics, receiptLayout,
+    previewWidth:receiptLayout === 'rail' ? Math.max(720, metrics.width - 366) : metrics.width};
 }
 
 function overviewReceiptUsesSheet(metrics = overviewSurfaceMetrics()){
@@ -402,16 +409,24 @@ function appendImpactSection(host, label, entries, empty = ''){
   host.appendChild(section);
 }
 
+function nextDecisionAction(decision){
+  const owner = decision.owner ? `${decision.owner} to ` : '';
+  const evidence = decision.signal || 'get the evidence needed to answer this question';
+  const deadline = decision.answerBy ? ` by ${decision.answerBy}` : ' before making a further commitment';
+  return `${owner}${evidence}${deadline}.`;
+}
+
 function renderOverviewReceipt(){
   const host = $('overview-receipt');
   const metrics = receiptMetricsForStyle();
   const sheet = overviewReceiptUsesSheet(metrics);
   const overlay = metrics.receiptLayout === 'overlay';
-  const brief = canonicalRoadmapStyle() === 'brief';
+  const style = canonicalRoadmapStyle();
+  const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions';
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
-  if(!brief || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
+  if(!receiptEligible || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
       (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
     if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
@@ -433,8 +448,7 @@ function renderOverviewReceipt(){
 
   const head = node('div', 'receipt-head');
   const identity = node('div', 'receipt-identity');
-  identity.appendChild(node('p', 'inspector-kicker',
-    canonicalRoadmapStyle() === 'question' ? 'Focused decision' : 'Selected decision'));
+  identity.appendChild(node('p', 'inspector-kicker', 'Selected decision'));
   const title = node('h2', '', decision.question || decision.name);
   title.id = 'overview-receipt-title';
   title.tabIndex = -1;
@@ -463,6 +477,11 @@ function renderOverviewReceipt(){
     ledger.appendChild(row);
   }
   host.appendChild(ledger);
+
+  const next = node('section', 'receipt-next');
+  next.appendChild(node('h3', '', 'Next action'));
+  next.appendChild(node('p', '', nextDecisionAction(decision)));
+  host.appendChild(next);
 
   appendImpactSection(host, 'Continues while unresolved', narrative.continues,
     'No continuing authored work is unchanged by this answer.');
@@ -591,6 +610,7 @@ function renderOverviewSurface(overviewView, metrics = overviewSurfaceMetrics())
   live.dataset.mode = focusActive ? 'focus' : 'overview';
   live.dataset.receiptLayout = overviewView ? metrics.receiptLayout : 'none';
   live.dataset.focusLayout = metrics.focusLayout;
+  live.dataset.style = overviewView ? canonicalRoadmapStyle() : 'other';
   preview.hidden = !!focusActive;
   renderOverviewReceipt();
   renderFocusLens();
@@ -703,7 +723,8 @@ function renderInspector(){
 async function writeHash(){
   if(!shouldPersist()) return;
   const attempt = ++hashAttempt;
-  const ok = await writeHashState({t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})});
+  const ok = await writeHashState(targetHashState(
+    {t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})}, inboundHandoff));
   if(attempt !== hashAttempt) return;
   const oversized = !ok;
   if(oversized !== urlStateOversized){
@@ -881,14 +902,18 @@ $('roadmap-projection').addEventListener('click', async event => {
     inspected.receipt.assumed.length ? projectionAcceptance(inspected) : null);
   if(!built.ok){ projectionPanelMessage = built.reason; renderProjectionPanel(); return; }
   create.disabled = true; create.textContent = 'Creating…';
-  const hash = await encodeHash({t:built.text});
-  if(source !== editor.getText() || hash.length >= 6000){
-    resetProjectionChoice(); projectionPanelMessage = hash.length >= 6000
-      ? 'This projection is too large for a shareable Roadmap URL.'
-      : 'Paths changed while the Roadmap was being prepared. Choose the outcome again.';
+  const returnTo = await handoffReturnHref('/paths/',
+    {t:source, ...(ws.collapsed() ? {e:0} : {})});
+  const href = returnTo && await handoffHref('/roadmap/', {t:built.text},
+    handoffMeta('paths', 'delivery-projection', latest.title || 'Paths', returnTo));
+  if(source !== editor.getText() || !href){
+    const changed = source !== editor.getText();
+    resetProjectionChoice(); projectionPanelMessage = changed
+      ? 'Paths changed while the Roadmap was being prepared. Choose the outcome again.'
+      : 'This projection is too large for a shareable Roadmap URL with a safe return link.';
     renderProjectionPanel(); return;
   }
-  location.href = '/roadmap/#' + hash;
+  location.href = href;
 });
 
 function decisionOps(kind, line, value){
@@ -1158,6 +1183,12 @@ onThemeChange(rerender);
 (async function boot(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
+  inboundHandoff = validHandoffMeta(hash?.x, {from:'roadmap', kind:'decision-plan'});
+  if(inboundHandoff?.returnTo){
+    $('handofftitle').textContent = 'Decision-plan starter from ' + (inboundHandoff.label || 'Roadmap');
+    $('handoffreturn').href = inboundHandoff.returnTo;
+    $('handoffstrip').hidden = false;
+  }
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){
     try{ text = localStorage.getItem('paths-src') || ''; }catch(_){ }
