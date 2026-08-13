@@ -3890,7 +3890,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.evaluate(() => document.activeElement?.id) === 'decision-inspector-title' &&
     await p.locator('[data-select-decision][data-decision-key="groups"]').getAttribute('aria-expanded') === 'true');
   check('paths: selection opens the complete decision receipt',
-    await p.locator('#decision-inspector [data-edit]').count() === 8 &&
+    await p.locator('#decision-inspector [data-edit]').count() === 10 &&
     (await p.locator('#decision-inspector h2').innerText()) === 'groups');
 
   const before = await src();
