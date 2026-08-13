@@ -3816,9 +3816,11 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   const dependencyQuestion = p.locator('[data-kind="parallel-question"][data-decision-key="groups"]');
   await dependencyQuestion.click();
   await p.waitForTimeout(300);
-  check('paths: Question lens shares selection without covering its own comparison',
+  check('paths: Question lens shares selection with a visible current-state receipt',
     await dependencyQuestion.getAttribute('data-selected') === 'true' &&
-    await p.locator('#overview-receipt').isHidden() &&
+    await p.locator('#overview-receipt').isVisible() &&
+    await p.locator('#overview-receipt .receipt-state').count() === 1 &&
+    await p.locator('#overview-receipt .receipt-next').count() === 1 &&
     await p.locator('[data-kind="question-receipt"][data-decision-key="groups"]').count() === 1);
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const dependenciesDownload = p.waitForEvent('download');
@@ -3858,7 +3860,9 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     /style: conditions/.test(await src()) &&
     await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
     await p.locator('[data-kind="conditions-decision-header"]').count() >= 1 &&
-    await p.locator('#preview path').count() === 0 && await p.locator('#overview-receipt').isHidden());
+    await p.locator('#preview path').count() === 0 &&
+    await p.locator('#overview-receipt').isVisible() &&
+    await p.locator('#overview-receipt .receipt-next').count() === 1);
   await p.setViewportSize({width:390, height:844});
   await p.waitForTimeout(400);
   check('paths: phone Conditions becomes a readable agenda-style atlas with 44px questions',
