@@ -472,7 +472,12 @@ const PAGES = {
      Roadmap handoff metadata and selected-decision receipt behaviour are live
      across the contingency lenses; keeping them eager preserves keyboard,
      export and offline parity. Actual 878.7k; retain ~2.3k. */
-  'paths/index.html': 881_000,
+  /* 881k -> 905k (2026-08-13 Learning Agenda): a sixth, eager Paths lens
+     turns the existing decision/evaluator data into a full static or interactive
+     learning docket. Its shared SVG wrapping/palette primitives remove repeated
+     renderer code, but all lenses remain eager for offline and export parity.
+     Actual 894.5k; 10.5k headroom avoids another hair-trigger increase. */
+  'paths/index.html': 905_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

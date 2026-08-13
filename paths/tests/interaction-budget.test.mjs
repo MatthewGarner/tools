@@ -8,6 +8,8 @@ import {decisionImpactProjection, overviewProjection} from '../overview.js';
 import {parse} from '../parse.js';
 import {project} from '../project.js';
 import {renderConditions} from '../render-conditions.js';
+import {learningAgendaProjection} from '../learning-agenda.js';
+import {renderLearningAgenda} from '../render-learning-agenda.js';
 import {renderOverview} from '../render-overview.js';
 import {renderPlans} from '../render-plans.js';
 import {renderQuestionLens} from '../render-question-lens.js';
@@ -27,9 +29,10 @@ function prepare(text){
   const model = parse(text);
   const projection = project(model, TODAY);
   const overview = overviewProjection(projection);
+  const agenda = learningAgendaProjection(model, projection);
   const selectedKey = overview.initialSelection?.key || overview.decisions?.[0]?.key || null;
   const impact = selectedKey ? decisionImpactProjection(model, projection, selectedKey) : null;
-  return {model, projection, overview, selectedKey, impact};
+  return {model, projection, overview, agenda, selectedKey, impact};
 }
 
 function ctx(state, interactive = true){
@@ -42,6 +45,7 @@ function renderLens(state, lens, interactive = true){
   if(lens === 'brief') return renderOverview(state.overview, context);
   if(lens === 'question') return renderQuestionLens(state.overview, context);
   if(lens === 'conditions') return renderConditions(state.overview, context);
+  if(lens === 'agenda') return renderLearningAgenda(state.agenda, context);
   if(lens === 'plans') return renderPlans(state.projection, context);
   if(lens === 'tree'){
     const topology = treeProjection(state.projection);
@@ -68,25 +72,25 @@ test('paths render-compute budget: edited text → reproject → render under 10
   for(const result of results) assertSvg(result.value);
 });
 
-test('paths render-compute budget: construct all five lenses under 200ms', async () => {
+test('paths render-compute budget: construct all six lenses under 200ms', async () => {
   const prepared = PATHS_INTERACTION_CASES.map(entry => ({...entry, state:prepare(entry.text)}));
   const results = await assertInteractionCases({
     name:'paths render-compute all lenses', budgetMs:200, cases:prepared,
-    run:entry => ['brief', 'question', 'conditions', 'plans', 'tree']
+    run:entry => ['brief', 'agenda', 'question', 'conditions', 'plans', 'tree']
       .map(lens => renderLens(entry.state, lens)).join(''),
   });
-  for(const result of results) assert.equal((result.value.match(/<svg/g) || []).length, 5);
+  for(const result of results) assert.equal((result.value.match(/<svg/g) || []).length, 6);
 });
 
-test('paths render-compute budget: construct static exports for all five lenses under 200ms', async () => {
+test('paths render-compute budget: construct static exports for all six lenses under 200ms', async () => {
   const prepared = PATHS_INTERACTION_CASES.map(entry => ({...entry, state:prepare(entry.text)}));
   const results = await assertInteractionCases({
     name:'paths render-compute exports', budgetMs:200, cases:prepared,
-    run:entry => ['brief', 'question', 'conditions', 'plans', 'tree']
+    run:entry => ['brief', 'agenda', 'question', 'conditions', 'plans', 'tree']
       .map(lens => renderLens(entry.state, lens, false)).join(''),
   });
   for(const result of results){
-    assert.equal((result.value.match(/<svg/g) || []).length, 5);
+    assert.equal((result.value.match(/<svg/g) || []).length, 6);
     assert.doesNotMatch(result.value, /role="button"|tabindex="0"|data-edit=/);
   }
 });

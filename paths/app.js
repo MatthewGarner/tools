@@ -7,10 +7,12 @@ import {treeLayout} from './layout-tree.js';
 import {renderTree, renderOutline} from './render-tree.js';
 import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {decisionImpactProjection, overviewProjection} from './overview.js';
+import {learningAgendaNextAction, learningAgendaProjection} from './learning-agenda.js';
 import {renderOverview, renderOverviewNarrow} from './render-overview.js';
 import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
 import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
 import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
+import {renderLearningAgenda, renderLearningAgendaNarrow} from './render-learning-agenda.js';
 import {buildRoadmapProjection, deliveryAssignment, inspectRoadmapProjection,
   projectionAcceptance, roadmapProjectionChoices} from './handoff-roadmap.js';
 import {verdict} from './verdict.js';
@@ -239,7 +241,7 @@ function renderProjectionPanel(){
 }
 
 function isRoadmapStyle(style = model?.style){
-  return style === 'brief' || style === 'question' || style === 'conditions' ||
+  return style === 'brief' || style === 'question' || style === 'conditions' || style === 'agenda' ||
     style === 'overview' || style === 'dependencies';
 }
 
@@ -281,7 +283,7 @@ function overviewSurfaceMetrics(){
 
 function receiptMetricsForStyle(metrics = overviewSurfaceMetrics()){
   const style = canonicalRoadmapStyle();
-  if(style !== 'question' && style !== 'conditions') return metrics;
+  if(style !== 'question' && style !== 'conditions' && style !== 'agenda') return metrics;
   /* The comparison and condition maps need their full canvas. Reserve a rail
      only where there is genuinely room; otherwise place a compact docket
      above the artefact. A phone selection becomes the same accessible sheet
@@ -410,10 +412,14 @@ function appendImpactSection(host, label, entries, empty = ''){
 }
 
 function nextDecisionAction(decision){
-  const owner = decision.owner ? `${decision.owner} to ` : '';
-  const evidence = decision.signal || 'get the evidence needed to answer this question';
-  const deadline = decision.answerBy ? ` by ${decision.answerBy}` : ' before making a further commitment';
-  return `${owner}${evidence}${deadline}.`;
+  if(canonicalRoadmapStyle() === 'agenda') return learningAgendaNextAction(decision);
+  if(decision.repairEvidence?.length)
+    return 'Complete the missing or invalid decision fields before planning the evidence move.';
+  if(decision.availability === 'moot') return 'No learning move is due while this question no longer applies.';
+  if(decision.availability === 'dormant')
+    return `Wait until ${decision.when?.source || 'the opening condition'} makes this question available.`;
+  if(decision.effectiveAnswer) return 'No learning move is due while this answer remains current.';
+  return `Get ${decision.signal} from ${decision.owner} by ${decision.answerBy}.`;
 }
 
 function renderOverviewReceipt(){
@@ -422,7 +428,7 @@ function renderOverviewReceipt(){
   const sheet = overviewReceiptUsesSheet(metrics);
   const overlay = metrics.receiptLayout === 'overlay';
   const style = canonicalRoadmapStyle();
-  const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions';
+  const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions' || style === 'agenda';
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
@@ -453,7 +459,9 @@ function renderOverviewReceipt(){
   title.id = 'overview-receipt-title';
   title.tabIndex = -1;
   identity.appendChild(title);
-  identity.appendChild(node('p', 'receipt-state', impact.currentState.sentence));
+  const agendaState = style === 'agenda'
+    ? overview?.entries?.find(entry => entry.key === decision.key)?.currentState : null;
+  identity.appendChild(node('p', 'receipt-state', (agendaState || impact.currentState).sentence));
   head.appendChild(identity);
   if(sheet || overlay){
     const close = node('button', 'receipt-close', 'Close');
@@ -504,7 +512,7 @@ function renderOverviewReceipt(){
   }
   if(focusOverviewReceiptAfterRender){
     focusOverviewReceiptAfterRender = false;
-    title.focus({preventScroll:true});
+    title.focus({preventScroll:style !== 'agenda'});
   }
   if(focusOverviewReturnAfterRender){
     focusOverviewReturnAfterRender = false;
@@ -573,8 +581,10 @@ function renderFocusLens(){
   identity.appendChild(title);
   identity.appendChild(node('p', 'focus-state', impact.currentState.sentence));
   head.appendChild(identity);
+  const returnLabels = {question:'Return to question lens', conditions:'Return to conditions',
+    agenda:'Return to learning agenda', brief:'Return to brief'};
   const back = node('button', 'btn focus-return',
-    canonicalRoadmapStyle() === 'question' ? 'Return to question lens' : 'Return to brief');
+    returnLabels[canonicalRoadmapStyle()] || 'Return to brief');
   back.type = 'button';
   back.dataset.returnOverview = '';
   head.appendChild(back);
@@ -743,9 +753,11 @@ function doRefresh(){
   const briefView = style === 'brief';
   const questionView = style === 'question';
   const conditionsView = style === 'conditions';
-  const roadmapView = briefView || questionView || conditionsView;
+  const agendaView = style === 'agenda';
+  const roadmapView = briefView || questionView || conditionsView || agendaView;
   topology = treeView ? treeProjection(projection) : null;
-  overview = roadmapView ? overviewProjection(projection) : null;
+  overview = agendaView ? learningAgendaProjection(model, projection)
+    : roadmapView ? overviewProjection(projection) : null;
   const retained = treeView ? resolveSelectedDecision(projection, selectedDecision) : null;
   selectedDecision = retained ? {key:retained.key, srcLine:retained.srcLine} : null;
   const retainedOverview = roadmapView
@@ -814,6 +826,12 @@ function doRefresh(){
       svg = stackedLens
         ? renderConditionsNarrow(overview, context(model, {width, ...interactive}))
         : renderConditions(overview, context(model, {width:width || 1160, ...interactive}));
+    } else if(agendaView){
+      const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
+        impact:overviewImpact, showReceipt:false};
+      svg = narrow
+        ? renderLearningAgendaNarrow(overview, context(model, {width, ...interactive}))
+        : renderLearningAgenda(overview, context(model, {width:width || 1160, ...interactive}));
     } else {
       const interactive = {interactive:true, selectedKey:selectedOverviewDecision?.key || null,
         expandedGroups:expandedOverviewGroups, impact:overviewImpact,
@@ -842,6 +860,8 @@ function doRefresh(){
     ? 'Question lens compares what changes under each answer; exports keep the selected decision visible.'
     : conditionsView
     ? 'Conditions is the full decision-to-work logic audit; exports preserve the complete matrix.'
+    : agendaView
+    ? 'Learning agenda ranks evidence work, not delivery work; exports retain every decision state and authored dependency.'
     : plansView
     ? 'The phone view groups work by possible plan; every export remains the wide matrix.'
     : treeView
@@ -1141,6 +1161,8 @@ function wideSvg(){
   if(style === 'conditions') return renderConditions(overview,
     context(model, {width:1160, selectedKey:selectedOverviewDecision?.key || null,
       impact:overviewImpact}));
+  if(style === 'agenda') return renderLearningAgenda(overview,
+    context(model, {width:1160, selection:false}));
   if(!topology) return null;
   const layout = treeLayout(topology, {width:1160, measure});
   return renderTree(topology, layout, context(model));

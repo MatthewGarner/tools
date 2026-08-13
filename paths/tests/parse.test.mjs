@@ -53,7 +53,7 @@ test('config in an item position remains config and a decision sub-key is not mi
 
 test('brief is the default and roadmap aliases plus explicit views remain valid', () => {
   assert.equal(parse('title: Default view').style, 'brief');
-  for(const style of ['brief', 'question', 'conditions', 'overview', 'dependencies', 'tree', 'plans'])
+  for(const style of ['brief', 'question', 'conditions', 'agenda', 'overview', 'dependencies', 'tree', 'plans'])
     assert.equal(parse(`style: ${style}`).style, style);
 });
 

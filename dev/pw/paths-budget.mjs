@@ -227,6 +227,23 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
     check(`${name} ${view} keeps the selected receipt on-screen`,
       await receipt.isVisible() && /Selected decision/.test(receiptText || '') &&
       /Unanswered/.test(receiptText || '') && /Next action/.test(receiptText || ''));
+    if(view === 'Learning agenda'){
+      const agenda = await qualityPage.evaluate(() => {
+        const svg = document.querySelector('#preview svg');
+        const text = svg?.textContent || '';
+        const selected = svg?.querySelector('[data-kind="agenda-entry"][data-selected="true"]');
+        const receipt = document.querySelector('#overview-receipt');
+        const onScreen = rect => !!rect && rect.top < innerHeight && rect.bottom > 0;
+        return {learningMove:text.includes('NEXT LEARNING MOVE'), evaluation:/EVALUATED 2026-08-13/.test(text),
+          readableState:/unanswered/i.test(selected?.textContent || '') &&
+            /unanswered/i.test(receipt?.textContent || ''),
+          stateSurfaceOnScreen:onScreen(receipt?.getBoundingClientRect()) || onScreen(selected?.getBoundingClientRect())};
+      });
+      check(`${name} Learning agenda visibly states its evaluation basis`, agenda.evaluation);
+      check(`${name} Learning agenda shows a next learning move`, agenda.learningMove);
+      check(`${name} Learning agenda keeps selected current state in the viewport`,
+        agenda.readableState && agenda.stateSurfaceOnScreen);
+    }
     if(capture){
       await qualityPage.screenshot({path:screenshotPath, fullPage:true, animations:'disabled'});
       captured = true;
@@ -245,7 +262,8 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
   }
 
   await selectAndInspect('Question lens', 'question-lens', 'groups', 'Should we continue groups?');
-  await selectAndInspect('Conditions', 'conditions-atlas|conditions-narrow-atlas', 'pricing', 'Should we continue pricing?', true);
+  await selectAndInspect('Learning agenda', 'agenda-section', 'pricing', 'Should we continue pricing?', true);
+  await selectAndInspect('Conditions', 'conditions-atlas|conditions-narrow-atlas', 'pricing', 'Should we continue pricing?');
   const conditions = await visibleArtefactText(qualityPage);
   check(`${name} Conditions visibly renders authored conditionality`, conditions.conditionality);
 
@@ -264,4 +282,4 @@ await runLegibilityCase('dark phone', {...devices['iPhone 13'], colorScheme:'dar
 check('paths app interaction budget leaves no console or page errors', errors.length === 0);
 await page.close();
 await browser.close();
-report('paths-budget', {...tally(results), min:38});
+report('paths-budget', {...tally(results), min:54});

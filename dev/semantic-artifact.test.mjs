@@ -7,6 +7,8 @@ import {decisionImpactProjection, overviewProjection} from '../paths/overview.js
 import {renderOverview, renderOverviewNarrow} from '../paths/render-overview.js';
 import {renderQuestionLens, renderQuestionLensNarrow} from '../paths/render-question-lens.js';
 import {renderConditions, renderConditionsNarrow} from '../paths/render-conditions.js';
+import {learningAgendaProjection} from '../paths/learning-agenda.js';
+import {renderLearningAgenda, renderLearningAgendaNarrow} from '../paths/render-learning-agenda.js';
 import {collectVars, computeSensitivity, parse as parseFermi, simulateModel,
   tokenize} from '../fermi/engine.js';
 import {renderDriverTree} from '../fermi/render-driver.js';
@@ -55,20 +57,22 @@ function pathsFixture(){
   const overview = overviewProjection(projection);
   const selectedKey = 'pricing';
   const impact = decisionImpactProjection(model, projection, selectedKey);
-  return {overview, selectedKey, impact};
+  return {overview, agenda:learningAgendaProjection(model, projection), selectedKey, impact};
 }
 
 const pathsRenderers = [
   ['Brief', renderOverview, renderOverviewNarrow],
   ['Question lens', renderQuestionLens, renderQuestionLensNarrow],
   ['Conditions', renderConditions, renderConditionsNarrow],
+  ['Learning agenda', renderLearningAgenda, renderLearningAgendaNarrow],
 ];
 
 test('Paths visual releases expose verdict, structured state and keyboard selection at desktop and phone widths', () => {
   const fixture = pathsFixture();
   for(const [name, wide, narrow] of pathsRenderers){
     for(const [size, render, width] of [['desktop', wide, 1160], ['phone', narrow, 390]]){
-      const svg = render(fixture.overview, {colors, measure, width, interactive:true,
+      const source = name === 'Learning agenda' ? fixture.agenda : fixture.overview;
+      const svg = render(source, {colors, measure, width, interactive:true,
         selectedKey:fixture.selectedKey, impact:fixture.impact});
       const outline = inspectSemanticArtifact(svg);
       assert.equal(outline.rootRole, 'group', `${name} ${size} is an interactive semantic group`);
@@ -97,7 +101,8 @@ test('Paths static SVG exports keep the semantic outline and remove all live int
   const fixture = pathsFixture();
   for(const [name, wide, narrow] of pathsRenderers){
     for(const [size, render, width] of [['desktop', wide, 1160], ['phone', narrow, 390]]){
-      const svg = render(fixture.overview, {colors, measure, width,
+      const source = name === 'Learning agenda' ? fixture.agenda : fixture.overview;
+      const svg = render(source, {colors, measure, width,
         selectedKey:fixture.selectedKey, impact:fixture.impact});
       const outline = inspectSemanticArtifact(svg);
       assert.equal(outline.rootRole, 'img', `${name} ${size} export is one static image`);

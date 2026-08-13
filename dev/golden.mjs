@@ -894,6 +894,8 @@ for(const [k, src] of Object.entries(docs)){
   const {renderDependencies, renderDependenciesNarrow} = await import('../paths/render-dependencies.js');
   const {renderQuestionLens, renderQuestionLensNarrow} = await import('../paths/render-question-lens.js');
   const {renderConditions, renderConditionsNarrow} = await import('../paths/render-conditions.js');
+  const {learningAgendaProjection} = await import('../paths/learning-agenda.js');
+  const {renderLearningAgenda, renderLearningAgendaNarrow} = await import('../paths/render-learning-agenda.js');
   const decision = (name, extra = '') => `decision ${name}:\n  question: Does ${name} hold?\n` +
     `  signal: measurable ${name}\n  reading: current ${name}\n  owner: ${name} owner\n` +
     `  answer-by: 2026-08-10${extra}\n`;
@@ -917,6 +919,9 @@ for(const [k, src] of Object.entries(docs)){
   variants['paths-question-narrow'] = renderQuestionLensNarrow(pathsOverview, {...pathsCtx, width:390});
   variants['paths-conditions'] = renderConditions(pathsOverview, {...pathsCtx, width:1160});
   variants['paths-conditions-narrow'] = renderConditionsNarrow(pathsOverview, {...pathsCtx, width:390});
+  const pathsAgenda = learningAgendaProjection(pathsModel, pathsProjected);
+  variants['paths-agenda'] = renderLearningAgenda(pathsAgenda, {...pathsCtx, width:1160, selection:false});
+  variants['paths-agenda-narrow'] = renderLearningAgendaNarrow(pathsAgenda, {...pathsCtx, width:390, selection:false});
   /* Dependencies is deliberately a selected-decision lens rather than an all-at-once
      graph. Pricing is third in source order here, pinning the focused-anchor behaviour
      alongside direct, AND, OR and negated work. */

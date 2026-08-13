@@ -27,7 +27,7 @@ function assertClean(out, who){
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
 }
 
-test('paths tree, overview, dependencies, conditions and possible-plan renderers escape a hostile real document', async () => {
+test('paths tree, overview, dependencies, conditions, learning agenda and possible-plan renderers escape a hostile real document', async () => {
   const {parse} = await import('../paths/parse.js');
   const {project} = await import('../paths/project.js');
   const {treeProjection} = await import('../paths/tree.js');
@@ -38,6 +38,8 @@ test('paths tree, overview, dependencies, conditions and possible-plan renderers
   const {renderDependencies, renderDependenciesNarrow} = await import('../paths/render-dependencies.js');
   const {renderQuestionLens, renderQuestionLensNarrow} = await import('../paths/render-question-lens.js');
   const {renderConditions, renderConditionsNarrow} = await import('../paths/render-conditions.js');
+  const {learningAgendaProjection} = await import('../paths/learning-agenda.js');
+  const {renderLearningAgenda, renderLearningAgendaNarrow} = await import('../paths/render-learning-agenda.js');
   const {renderPlans, renderPlansNarrow} = await import('../paths/render-plans.js');
   const safe = value => value.replace(/:/g, ';');
   const doc = 'title: ' + EVIL[0] + '\ndate: 2026-08-10\nverdict: ' + EVIL[5] + '\n' +
@@ -71,6 +73,11 @@ test('paths tree, overview, dependencies, conditions and possible-plan renderers
     'paths-conditions');
   assertClean(renderConditionsNarrow(overview, {...renderCtx, width:360, selectedKey:'choice'}),
     'paths-conditions-narrow');
+  const agenda = learningAgendaProjection(model, projected);
+  assertClean(renderLearningAgenda(agenda, {...renderCtx, width:1100, selectedKey:'choice'}),
+    'paths-learning-agenda');
+  assertClean(renderLearningAgendaNarrow(agenda, {...renderCtx, width:360, selectedKey:'choice'}),
+    'paths-learning-agenda-narrow');
   assertClean(renderPlans(projected, {...renderCtx, width:900}), 'paths-plans');
   assertClean(renderPlansNarrow(projected, {...renderCtx, width:360}), 'paths-plans-narrow');
 });
