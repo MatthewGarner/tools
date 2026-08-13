@@ -1,9 +1,10 @@
 /* Roadmap conditional work -> a fresh Paths decision-plan starter.
    This is intentionally a narrow, reject-by-default handoff. Roadmap knows
-   that a fork exists, but it does not know the question, signal, owner or due
-   date that would make it a Paths decision. The emitted decisions therefore
-   omit all four fields and let Paths' own completion warnings tell the truth. */
-const INTRO = '// Generated from Roadmap conditional work. Complete every decision before using this plan.';
+   that a fork exists, but it does not know the question, signal, learning
+   move, evidence standard, owner or due date that would make it a Paths
+   decision. The emitted decisions therefore omit all six fields and say that
+   both the decision and learning contract remain incomplete. */
+const INTRO = '// Generated from Roadmap conditional work. Complete every decision and its learning contract before using this plan.';
 /* Kept local on purpose: loading the full Paths parser into Roadmap adds ~22KB
    to every visit merely to repeat the target-parser round trip already enforced
    by this module's tests. These are the target's seven stable document keys;

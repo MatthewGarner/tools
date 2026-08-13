@@ -10,6 +10,8 @@ const doc = `decision host:
   question: Is the host open?
   signal: host experiment
   reading: 42%
+  learn: Run the host evidence move
+  enough: Yes at 60%; no below 30%; otherwise stay open
   owner: Core
   answer-by: 2026-09-01
   assume: yes 2026-09-02
@@ -26,7 +28,7 @@ test('selection resolves exact heading identity and follows the same key after l
   const shifted = project(parse('// inserted\n' + doc), '2026-08-20');
   const resolved = resolveSelectedDecision(shifted, {key:'child', srcLine:7});
   assert.equal(resolved.key, 'child');
-  assert.equal(resolved.srcLine, 8);
+  assert.equal(resolved.srcLine, 10);
   assert.equal(resolveSelectedDecision(shifted, {key:'missing', srcLine:7}), null);
   assert.equal(resolveSelectedDecision(null, {key:'child', srcLine:7}), null);
 });
@@ -36,7 +38,8 @@ test('inspector data retains authored source fields and reports active/testable 
   const data = decisionInspectorData(topology.questions.find(question => question.key === 'host'));
   assert.deepEqual(data, {
     key:'host', name:'host', srcLine:0,
-    question:'Is the host open?', signal:'host experiment', reading:'42%', owner:'Core',
+    question:'Is the host open?', signal:'host experiment', reading:'42%',
+    learn:'Run the host evidence move', enough:'Yes at 60%; no below 30%; otherwise stay open', owner:'Core',
     answerBy:'2026-09-01', answer:'', assumption:'yes 2026-09-02', when:'',
     availability:{kind:'active', label:'Available now'},
     testability:{kind:'testable', label:'Testable', missing:[]},
@@ -117,15 +120,15 @@ test('answer action drafts are dated, preserve audit metadata, and never produce
     'no 2026-08-18 target: 20% actual: 22% -- cohort 42');
 });
 
-test('selected inspector edit surface is the app/meta-test contract with eight safe kinds', () => {
+test('selected inspector edit surface is the app/meta-test contract with ten safe kinds', () => {
   const question = treeProjection(project(parse(doc), '2026-08-20')).questions[0];
   const surface = decisionEditSurface(question);
   assert.deepEqual(surface.fields.map(field => field.kind),
-    ['question', 'signal', 'reading', 'owner', 'answer-by', 'assume', 'when', 'answer']);
+    ['question', 'signal', 'reading', 'learn', 'enough', 'owner', 'answer-by', 'assume', 'when', 'answer']);
   const hostile = treeProjection(project(parse(doc.replace('host experiment', 'host & <signal>')),
     '2026-08-20')).questions[0];
   const markup = inspectorEditSurfaceMarkup(hostile);
-  assert.equal((markup.match(/data-edit=/g) || []).length, 8);
+  assert.equal((markup.match(/data-edit=/g) || []).length, 10);
   assert.match(markup, /data-raw="host &amp; &lt;signal&gt;"/);
   assert.doesNotMatch(markup, /data-raw="host & <signal>"/);
   assert.equal(inspectorEditSurfaceMarkup(null), '');

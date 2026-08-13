@@ -9,6 +9,8 @@ const decision = (name, fields = '') => `decision ${name}:
   question: Should ${name} proceed?
   signal: ${name} threshold
   reading: ${name} reading
+  learn: Run the ${name} evidence move
+  enough: Yes above the ${name} threshold; no below it
   owner: ${name} owner
   answer-by: ${/\n  answer-by:/.test(fields) ? fields.match(/\n  answer-by: ([^\n]+)/)[1] : '2026-08-20'}${fields.replace(/\n  answer-by: [^\n]+/, '')}
 `;
@@ -81,12 +83,71 @@ test('Learning Agenda preserves blocked, repair, answered, assumed and moot stat
 test('Learning moves use only the authored evidence contract and never infer an experiment from roadmap work', () => {
   const agenda = fixture();
   const overdue = agenda.active.find(entry => entry.key === 'overdue');
-  assert.equal(overdue.learningMove,
-    'Get overdue threshold from overdue owner by 2026-08-01.');
-  assert.doesNotMatch(agenda.active.map(entry => entry.learningMove).join(' '), /experiment|pilot|test|ship/i);
+  assert.deepEqual(overdue.learningContract, {
+    learn:'Run the overdue evidence move',
+    enough:'Yes above the overdue threshold; no below it',
+    missing:[], complete:true, required:true,
+  });
+  assert.equal(overdue.learningMove, 'Run the overdue evidence move');
+  assert.equal(overdue.evidenceStandard, 'Yes above the overdue threshold; no below it');
   const lonely = agenda.active.find(entry => entry.key === 'lonely');
   assert.equal(lonely.impact.summary,
     'No authored work or downstream decisions depend on this yet.');
+});
+
+test('old documents stay compatible but active questions never receive an inferred learning contract', () => {
+  const text = `decision legacy:
+  question: Should legacy proceed?
+  signal: conversion in the pilot
+  reading: 3 of 10
+  owner: Alex
+  answer-by: 2026-08-20
+NOW
+  Core: Legacy route [if legacy]`;
+  const model = parse(text);
+  assert.equal(model.warnings.length, 0);
+  const agenda = learningAgendaProjection(model, project(model, '2026-08-13'));
+  assert.deepEqual(agenda.active, []);
+  assert.deepEqual(agenda.notReady.map(entry => entry.key), ['legacy']);
+  assert.deepEqual(agenda.notReady[0].learningContract, {
+    learn:null, enough:null, missing:['learn', 'enough'], complete:false, required:true,
+  });
+  assert.equal(agenda.notReady[0].learningMove, null);
+  assert.equal(agenda.notReady[0].evidenceStandard, null);
+  assert.match(agenda.notReady[0].currentState.sentence, /add both .*learn:.*enough:/i);
+  assert.doesNotMatch(agenda.notReady[0].nextAction, /conversion|Alex|2026-08-20/);
+});
+
+test('active Agenda readiness reports exactly which authored contract field is missing', () => {
+  const docs = [
+    [decision('missing-learn').replace('  learn: Run the missing-learn evidence move\n', ''), ['learn'], /add .*learn:/i],
+    [decision('missing-enough').replace('  enough: Yes above the missing-enough threshold; no below it\n', ''), ['enough'], /add .*enough:/i],
+    [decision('missing-both').replace(/^  (?:learn|enough):.*\n/gm, ''), ['learn', 'enough'], /add both .*learn:.*enough:/i],
+  ];
+  for(const [text, missing, sentence] of docs){
+    const model = parse(text);
+    const entry = learningAgendaProjection(model, project(model, '2026-08-13')).notReady[0];
+    assert.deepEqual(entry.learningContract.missing, missing);
+    assert.match(entry.currentState.sentence, sentence);
+  }
+});
+
+test('assumptions remain unanswered and need a complete contract, while dormant, moot and answered lifecycle wins over readiness', () => {
+  const text = `${decision('host', '\n  answer: no 2026-08-10')}
+${decision('gate')}
+${decision('assumed', '\n  answer-by: 2026-08-10\n  assume: yes 2026-08-11').replace(/^  (?:learn|enough):.*\n/gm, '')}
+${decision('dormant', '\n  when: gate').replace(/^  (?:learn|enough):.*\n/gm, '')}
+${decision('moot', '\n  when: host').replace(/^  (?:learn|enough):.*\n/gm, '')}
+${decision('answered-without-contract', '\n  answer: yes 2026-08-10').replace(/^  (?:learn|enough):.*\n/gm, '')}`;
+  const model = parse(text);
+  const agenda = learningAgendaProjection(model, project(model, '2026-08-13'));
+  const assumed = agenda.notReady.find(entry => entry.key === 'assumed');
+  assert.ok(assumed);
+  assert.match(assumed.currentState.sentence, /Still unanswered/i);
+  assert.deepEqual(assumed.learningContract.missing, ['learn', 'enough']);
+  assert.equal(agenda.blocked.find(entry => entry.key === 'dormant').currentState.kind, 'dormant');
+  assert.equal(agenda.settled.find(entry => entry.key === 'moot').currentState.kind, 'moot');
+  assert.equal(agenda.settled.find(entry => entry.key === 'answered-without-contract').currentState.kind, 'answered');
 });
 
 test('Learning Agenda spells out direct, negated, AND, OR and downstream conditional effects from the overview evaluator', () => {
@@ -99,6 +160,72 @@ test('Learning Agenda spells out direct, negated, AND, OR and downstream conditi
   assert.ok(high.impact.shared.some(value => /High either.*either High-reach = yes or Low-reach = yes/.test(value)));
   const gate = agenda.active.find(entry => entry.key === 'gate');
   assert.ok(gate.impact.downstream.some(value => /may open Should blocked proceed\?/i.test(value)));
+});
+
+test('each dossier entry preserves compact evaluator-backed yes and no plan effects', () => {
+  const agenda = fixture();
+  const high = agenda.active.find(entry => entry.key === 'high-reach');
+  const yesWork = Object.fromEntries(high.outcomes.yes.work.map(entry => [entry.title, entry]));
+  const noWork = Object.fromEntries(high.outcomes.no.work.map(entry => [entry.title, entry]));
+  assert.equal(yesWork['High yes'].effect, 'Would be in the plan');
+  assert.equal(noWork['High yes'].effect, 'Would not be pursued');
+  assert.equal(yesWork['High joint'].relation, 'AND');
+  assert.match(yesWork['High joint'].requirement, /High-reach = yes and Gate = yes/);
+  assert.equal(yesWork['High either'].relation, 'OR');
+  assert.equal(high.outcomes.yes.empty, false);
+
+  const gate = agenda.active.find(entry => entry.key === 'gate');
+  assert.ok(gate.outcomes.yes.decisions.some(entry => entry.key === 'blocked' &&
+    /Would be open/.test(entry.effect)));
+  assert.ok(gate.outcomes.no.decisions.some(entry => entry.key === 'blocked' &&
+    /Would (?:not be open yet|no longer apply)/.test(entry.effect)));
+
+  const lonely = agenda.active.find(entry => entry.key === 'lonely');
+  assert.deepEqual(lonely.outcomes.yes.work, []);
+  assert.deepEqual(lonely.outcomes.no.decisions, []);
+  assert.equal(lonely.outcomes.yes.empty, true);
+  assert.match(lonely.outcomes.yes.summary, /No modeled plan or downstream changes/);
+});
+
+test('next action follows opening repair, lifecycle, generic repair, then learning-contract precedence', () => {
+  const text = `${decision('gate')}
+${decision('host', '\n  answer: no 2026-08-10')}
+decision dormant-broken:
+  question: Dormant?
+  owner: Alex
+  answer-by: 2026-08-20
+  when: gate
+decision moot-broken:
+  question: Moot?
+  owner: Alex
+  answer-by: 2026-08-20
+  when: host
+decision answered-broken:
+  question: Answered?
+  owner: Alex
+  answer-by: 2026-08-20
+  answer: yes 2026-08-10
+decision active-broken:
+  question: Active?
+  owner: Alex
+  answer-by: 2026-08-20
+decision opening-broken:
+  question: Opening?
+  owner: Alex
+  answer-by: 2026-08-20
+  when: missing`;
+  const model = parse(text);
+  const agenda = learningAgendaProjection(model, project(model, '2026-08-13'));
+  const byKey = Object.fromEntries(agenda.entries.map(entry => [entry.key, entry]));
+  assert.equal(byKey['dormant-broken'].nextAction, 'Wait until this question opens.');
+  assert.equal(byKey['moot-broken'].nextAction,
+    'No learning move is due while this question no longer applies.');
+  assert.equal(byKey['answered-broken'].nextAction,
+    'No learning move is due while this answer remains current.');
+  assert.equal(byKey['active-broken'].nextAction,
+    'Complete the missing or invalid decision fields before planning the evidence move.');
+  assert.equal(byKey['opening-broken'].nextAction,
+    'Repair the opening condition before planning any learning move.');
 });
 
 test('cyclic and unknown opening conditions are repair-first, never blocked waiting work', () => {

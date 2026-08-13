@@ -87,6 +87,8 @@ export function decisionInspectorData(question){
     question:decision.question || '',
     signal:decision.signal || '',
     reading:decision.reading || '',
+    learn:decision.learn || '',
+    enough:decision.enough || '',
     owner:decision.owner || '',
     answerBy:decision.answerBy || '',
     answer:authoredAnswer?.raw || '',
@@ -104,6 +106,8 @@ const EDIT_FIELDS = [
   {kind:'question', key:'question', label:'Question', fallback:'Add the question', className:'question-field'},
   {kind:'signal', key:'signal', label:'Signal', fallback:'Add evidence'},
   {kind:'reading', key:'reading', label:'Reading', fallback:'Add latest reading'},
+  {kind:'learn', key:'learn', label:'Learning move', fallback:'Add the deliberate learning move'},
+  {kind:'enough', key:'enough', label:'Enough to decide', fallback:'Add the evidence standard'},
   {kind:'owner', key:'owner', label:'Owner', fallback:'Add owner'},
   {kind:'answer-by', key:'answerBy', label:'Answer by', fallback:'Add due date'},
   {kind:'assume', key:'assumption', label:'Assumption', fallback:'No assumption'},
@@ -111,7 +115,7 @@ const EDIT_FIELDS = [
   {kind:'answer', key:'answer', label:'Answer / receipt', fallback:'Not answered — add a dated receipt'},
 ];
 
-/* Single source for the app's eight editable inspector fields and the phone
+/* Single source for the app's ten editable inspector fields and the phone
    meta-test. It can only exist after a real topology question is selected. */
 export function decisionEditSurface(question){
   const view = decisionInspectorData(question);

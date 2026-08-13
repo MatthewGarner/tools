@@ -144,6 +144,10 @@ export const setSignal = (text, srcLine, value) => setTextField(text, srcLine, '
 export const clearSignal = (text, srcLine) => clearField(text, srcLine, 'signal', d => !d.signal);
 export const setReading = (text, srcLine, value) => setTextField(text, srcLine, 'reading', value);
 export const clearReading = (text, srcLine) => clearField(text, srcLine, 'reading', d => !d.reading);
+export const setLearn = (text, srcLine, value) => setTextField(text, srcLine, 'learn', value);
+export const clearLearn = (text, srcLine) => clearField(text, srcLine, 'learn', d => !d.learn);
+export const setEnough = (text, srcLine, value) => setTextField(text, srcLine, 'enough', value);
+export const clearEnough = (text, srcLine) => clearField(text, srcLine, 'enough', d => !d.enough);
 export const setOwner = (text, srcLine, value) => setTextField(text, srcLine, 'owner', value);
 export const clearOwner = (text, srcLine) => clearField(text, srcLine, 'owner', d => !d.owner);
 
@@ -271,6 +275,8 @@ export const validators = {
   question: optionalLine,
   signal: optionalLine,
   reading: optionalLine,
+  learn: optionalLine,
+  enough: optionalLine,
   owner: optionalLine,
   'answer-by': dateOrEmpty,
   when: whenOrEmpty,
@@ -282,6 +288,8 @@ export const kinds = {
   question: {validate:validators.question, placeholder:'What must be true?'},
   signal: {validate:validators.signal, placeholder:'What evidence answers it?'},
   reading: {validate:validators.reading, placeholder:'Current reading'},
+  learn: {validate:validators.learn, placeholder:'Next deliberate learning move'},
+  enough: {validate:validators.enough, placeholder:'What evidence is enough to decide?'},
   owner: {validate:validators.owner, placeholder:'Owner'},
   'answer-by': {validate:validators['answer-by'], placeholder:'YYYY-MM-DD'},
   when: {validate:validators.when, placeholder:'groups and not pricing'},

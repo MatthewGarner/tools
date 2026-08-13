@@ -78,7 +78,10 @@ and `accent:`.
 
 **Decision blocks:** `decision name:` at column zero, with two-space-indented fields.
 `question:`, `signal:`, `owner:` and `answer-by:` describe the question; `reading:` records
-the current evidence. `when:` makes a decision open only under another condition.
+the current evidence. `learn:` authors the next deliberate evidence move and `enough:`
+states what result is sufficient to decide. Both are optional in Paths generally, but an
+active unanswered question needs both to be ready in the Learning Agenda. `when:` makes a
+decision open only under another condition.
 `answer: yes|no [date] [target: value] [actual: value] [-- receipt]` records reality.
 `assume: yes|no YYYY-MM-DD` records a working assumption, which takes effect only after the
 due date and never becomes a known answer.
@@ -108,6 +111,8 @@ decision groups:
 decision pricing:
   question: Will coaches accept a 20% fee?
   signal: signed coaches >= 10
+  learn: Put both offers to 12 coaches using the same blinded script
+  enough: Yes at 8 of 12; no at 3 of 12 or fewer; otherwise keep the question open
   owner: marketplace
   answer-by: 2026-12-15
   assume: yes 2026-12-22

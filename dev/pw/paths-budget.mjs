@@ -167,7 +167,11 @@ checkBudget('paths full-detail SVG export → download', svgExport, {median:800,
  * control, and retain desktop/phone captures for the release review. */
 const qualityText = PATHS_INTERACTION_CASES.find(testCase => testCase.id === 'realistic').text
   .replace('verdict: Keep the shared plan moving while the open questions resolve',
-    'verdict: Next action: run the invitation pilot before expanding coach supply.');
+    'verdict: Next action: run the invitation pilot before expanding coach supply.')
+  .replace('  reading: current pricing reading',
+    '  reading: current pricing reading\n' +
+    '  learn: Put both pricing offers to 20 coaches using the same script\n' +
+    '  enough: Yes at 12 acceptances; no at 6 or fewer; otherwise keep the question open');
 
 async function visibleArtefactText(target){
   return target.evaluate(() => {
@@ -200,6 +204,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
   const phone = contextOptions.isMobile === true;
   let captured = false;
   async function selectAndInspect(view, artefactPattern, key, question, capture = false){
+    let sheetClosedForExport = false;
     await qualityPage.getByRole('button', {name:view}).click();
     await qualityPage.waitForFunction(pattern => new RegExp(pattern).test(
       document.querySelector('#preview svg')?.innerHTML || ''), artefactPattern);
@@ -208,9 +213,13 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
     await decision.focus();
     await qualityPage.keyboard.press('Enter');
     try{
-      await qualityPage.waitForFunction(selectedQuestion =>
-        document.querySelector('#summary')?.textContent.includes(`Selected question: ${selectedQuestion}`) &&
-        !document.querySelector('#overview-receipt')?.hidden, question, {timeout:6000});
+      await qualityPage.waitForFunction(({selectedQuestion, agenda, phone}) => {
+        const summary = document.querySelector('#summary')?.textContent || '';
+        const receipt = document.querySelector('#overview-receipt');
+        const dossier = document.querySelector('#preview svg [data-kind="agenda-dossier"]');
+        return summary.includes(`Selected question: ${selectedQuestion}`) &&
+          (agenda && !phone ? !!dossier : !receipt?.hidden);
+      }, {selectedQuestion:question, agenda:view === 'Learning agenda', phone}, {timeout:6000});
     }catch(error){
       console.error(`Selection diagnostic (${name} / ${view}):`, await qualityPage.evaluate(() => ({
         summary:document.querySelector('#summary')?.textContent,
@@ -221,43 +230,92 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
       throw error;
     }
     const receipt = qualityPage.locator('#overview-receipt');
-    const receiptText = await receipt.textContent();
+    const dossier = qualityPage.locator('#preview svg [data-kind="agenda-dossier"]');
+    const detail = view === 'Learning agenda' && !phone ? dossier : receipt;
+    const receiptText = await detail.textContent();
+    const openedAccessibleSheet = !phone ||
+      await receipt.getAttribute('role') === 'dialog' &&
+      await receipt.getAttribute('aria-modal') === 'true' &&
+      await qualityPage.evaluate(() => document.activeElement?.id === 'overview-receipt-title');
     check(`${name} ${view} keyboard selection announces ${key}`,
       await qualityPage.locator('#summary').textContent().then(text => text.includes(`Selected question: ${question}`) && /Unanswered/.test(text)));
     check(`${name} ${view} keeps the selected receipt on-screen`,
-      await receipt.isVisible() && /Selected decision/.test(receiptText || '') &&
-      /Unanswered/.test(receiptText || '') && /Next action/.test(receiptText || ''));
+      await detail.isVisible() && (view === 'Learning agenda' && !phone || /Selected decision/.test(receiptText || '')) &&
+      /Unanswered/.test(receiptText || '') &&
+      (view === 'Learning agenda' ? /LEARNING CONTRACT/i.test(receiptText || '') : /Next action/.test(receiptText || '')));
     if(view === 'Learning agenda'){
       const agenda = await qualityPage.evaluate(() => {
         const svg = document.querySelector('#preview svg');
         const text = svg?.textContent || '';
-        const selected = svg?.querySelector('[data-kind="agenda-entry"][data-selected="true"]');
+        const selected = svg?.querySelector(
+          '[data-kind="agenda-roster-entry"][data-selected="true"], [data-kind="agenda-dossier"]');
         const receipt = document.querySelector('#overview-receipt');
+        const dossier = svg?.querySelector('[data-kind="agenda-dossier"]');
+        const detail = receipt?.hidden ? dossier : receipt;
         const onScreen = rect => !!rect && rect.top < innerHeight && rect.bottom > 0;
-        return {learningMove:text.includes('NEXT LEARNING MOVE'), evaluation:/EVALUATED 2026-08-13/.test(text),
+        return {learningMove:text.includes('Put both pricing offers to 20 coaches'),
+          evaluation:/EVALUATED 2026-08-13/.test(text) &&
+            /computed from current Paths conditions at the evaluated date; not a delivery commitment/.test(text),
           readableState:/unanswered/i.test(selected?.textContent || '') &&
-            /unanswered/i.test(receipt?.textContent || ''),
-          stateSurfaceOnScreen:onScreen(receipt?.getBoundingClientRect()) || onScreen(selected?.getBoundingClientRect())};
+            /unanswered/i.test(detail?.textContent || ''),
+          stateSurfaceOnScreen:onScreen(detail?.getBoundingClientRect()) || onScreen(selected?.getBoundingClientRect())};
       });
       check(`${name} Learning agenda visibly states its evaluation basis`, agenda.evaluation);
       check(`${name} Learning agenda shows a next learning move`, agenda.learningMove);
       check(`${name} Learning agenda keeps selected current state in the viewport`,
         agenda.readableState && agenda.stateSurfaceOnScreen);
+      const agendaDetailText = await detail.textContent();
+      check(`${name} Learning agenda exposes the authored learning contract`,
+        /Put both pricing offers to 20 coaches/.test(agendaDetailText || '') &&
+        /Yes at 12 acceptances; no at 6 or fewer/.test(agendaDetailText || ''));
+      if(phone){
+        check(`${name} Learning agenda exposes both editable learning-contract fields`,
+          await receipt.locator('[data-edit="learn"]').isVisible() &&
+          await receipt.locator('[data-edit="enough"]').isVisible());
+        await receipt.locator('[data-edit="learn"]').click();
+        const learningInput = qualityPage.locator('.eip-input');
+        check(`${name} Learning agenda opens the authored move for editing`,
+          await learningInput.isVisible() &&
+          await learningInput.inputValue() === 'Put both pricing offers to 20 coaches using the same script');
+        await qualityPage.keyboard.press('Escape');
+      }
+      check(`${name} Learning agenda receipt names both modeled outcome directions`,
+        /IF YES/i.test(agendaDetailText || '') && /IF NO/i.test(agendaDetailText || ''));
+      check(`${name} Learning agenda live summary uses the Agenda current state`,
+        await qualityPage.evaluate(() => {
+          const summary = document.querySelector('#summary')?.textContent || '';
+          const receiptState = document.querySelector('#overview-receipt .receipt-state')?.textContent || '';
+          return receiptState ? summary.includes(receiptState) : /Unanswered/.test(summary);
+        }));
+      const exportMenu = qualityPage.locator('.action-disclosure');
+      if(phone){
+        await receipt.getByRole('button', {name:/Close decision receipt/}).click();
+        await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
+        await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
+        check(`${name} Learning agenda receipt restores focus before export`,
+          await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
+        sheetClosedForExport = true;
+      }
+      await exportMenu.locator('summary').click();
+      check(`${name} Learning agenda offers a scoped PNG and SVG decision receipt`,
+        await qualityPage.locator('#agenda-receipt-png').isVisible() &&
+        await qualityPage.locator('#agenda-receipt-svg').isVisible());
+      await exportMenu.locator('summary').click();
     }
     if(capture){
       await qualityPage.screenshot({path:screenshotPath, fullPage:true, animations:'disabled'});
       captured = true;
     }
     if(phone){
-      check(`${name} ${view} opens an accessible decision sheet`,
-        await receipt.getAttribute('role') === 'dialog' &&
-        await receipt.getAttribute('aria-modal') === 'true' &&
-        await qualityPage.evaluate(() => document.activeElement?.id === 'overview-receipt-title'));
-      await receipt.getByRole('button', {name:/Close decision receipt/}).click();
-      await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
-      await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
+      check(`${name} ${view} opens an accessible decision sheet`, openedAccessibleSheet);
+      if(await receipt.isVisible()){
+        await receipt.getByRole('button', {name:/Close decision receipt/}).click();
+        await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
+      }
+      if(!sheetClosedForExport)
+        await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
       check(`${name} ${view} returns focus to the selected SVG decision`,
-        await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
+        sheetClosedForExport || await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
     }
   }
 
@@ -282,4 +340,4 @@ await runLegibilityCase('dark phone', {...devices['iPhone 13'], colorScheme:'dar
 check('paths app interaction budget leaves no console or page errors', errors.length === 0);
 await page.close();
 await browser.close();
-report('paths-budget', {...tally(results), min:54});
+report('paths-budget', {...tally(results), min:70});

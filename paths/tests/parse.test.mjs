@@ -26,6 +26,28 @@ test('decision fields at four-or-more spaces warn and recover as fields', () => 
   assert.deepEqual(model.warnings.filter(w => w.code === 'odd-indent').map(w => w.line), [2, 3]);
 });
 
+test('learning contracts parse as optional authored text without changing legacy completeness warnings', () => {
+  const model = parse(`decision groups:
+  question: Groups?
+  signal: invites
+  learn: Put both invitations to 12 people using the same script
+  enough: Yes at 8 of 12; no at 3 of 12 or fewer; otherwise keep open
+  owner: growth
+  answer-by: 2026-12-15
+NOW
+  Core: Work [if groups]`);
+  assert.equal(model.decisions[0].learn, 'Put both invitations to 12 people using the same script');
+  assert.equal(model.decisions[0].enough,
+    'Yes at 8 of 12; no at 3 of 12 or fewer; otherwise keep open');
+  assert.deepEqual(model.warnings, []);
+
+  const legacy = parse(complete('legacy'));
+  assert.equal(legacy.decisions[0].learn, null);
+  assert.equal(legacy.decisions[0].enough, null);
+  assert.deepEqual(legacy.warnings.filter(warning => warning.code.startsWith('missing-')), [],
+    'learn/enough are Agenda readiness, not global parser requirements');
+});
+
 test('item token stripping keeps note and later URL, statuses are last-wins, conditions first-wins', () => {
   const model = parse(`${complete('groups')}\n${complete('pricing')}\nNOW\n  Core: Coach x3 [doing] [blocked] [if groups] [if pricing] [planned] -- useful note -> https://example.test/x`);
   const item = model.items[0];

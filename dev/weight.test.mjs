@@ -472,12 +472,14 @@ const PAGES = {
      Roadmap handoff metadata and selected-decision receipt behaviour are live
      across the contingency lenses; keeping them eager preserves keyboard,
      export and offline parity. Actual 878.7k; retain ~2.3k. */
-  /* 881k -> 905k (2026-08-13 Learning Agenda): a sixth, eager Paths lens
-     turns the existing decision/evaluator data into a full static or interactive
-     learning docket. Its shared SVG wrapping/palette primitives remove repeated
-     renderer code, but all lenses remain eager for offline and export parity.
-     Actual 894.5k; 10.5k headroom avoids another hair-trigger increase. */
-  'paths/index.html': 905_000,
+  /* 881k -> 925k (2026-08-13 Learning Agenda dossier): the approved sixth
+     eager Paths lens adds a full, evaluator-backed decision dossier alongside
+     a parallel roster and all-state static export. Its exact authored learning
+     contract and yes/no effects must remain offline and export-ready rather
+     than being a smaller, second model. The scoped decision-receipt export
+     keeps this same complete semantics instead of generating a second model.
+     Actual ~917.8k; retain ~7.2k headroom. */
+  'paths/index.html': 925_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

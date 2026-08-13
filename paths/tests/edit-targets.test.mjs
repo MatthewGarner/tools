@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {
   clearAnswer, clearAnswerBy, clearAssumption, clearOwner, clearQuestion,
-  clearReading, clearSignal, clearWhen, kinds, setAnswer, setAnswerBy,
+  clearEnough, clearLearn, clearReading, clearSignal, clearWhen, kinds, setAnswer, setAnswerBy,
   setAnswerRaw, setAssumption, setAssumptionRaw, setOwner, setQuestion,
-  setReading, setSignal, setStyle, setWhen,
+  setEnough, setLearn, setReading, setSignal, setStyle, setWhen,
   validators,
 } from '../edit-targets.js';
 
@@ -80,6 +80,32 @@ NOW
     '  owner: Growth',
   ]);
   assert.equal(decision(out, 0).reading, '18%');
+});
+
+test('learning contract setters round-trip one-line authored text in canonical order', () => {
+  const doc = `decision groups:
+  question: Groups?
+  signal: retention
+  reading: 18%
+  owner: Growth
+  answer-by: 2026-09-10`;
+  const withLearn = apply(doc, setLearn(doc, 0, 'Interview 12 retained members'));
+  const withEnough = apply(withLearn, setEnough(withLearn, 0, 'Yes at 8 of 12; no at 3 or fewer'));
+  assert.deepEqual(withEnough.split('\n').slice(1), [
+    '  question: Groups?',
+    '  signal: retention',
+    '  reading: 18%',
+    '  learn: Interview 12 retained members',
+    '  enough: Yes at 8 of 12; no at 3 or fewer',
+    '  owner: Growth',
+    '  answer-by: 2026-09-10',
+  ]);
+  assert.equal(decision(withEnough, 0).learn, 'Interview 12 retained members');
+  assert.equal(decision(withEnough, 0).enough, 'Yes at 8 of 12; no at 3 or fewer');
+  assert.equal(setLearn(doc, 0, 'safe\n  answer: yes'), null);
+  assert.equal(setEnough(doc, 0, 'safe // hidden'), null);
+  assert.equal(decision(apply(withEnough, clearLearn(withEnough, 0)), 0).learn, null);
+  assert.equal(decision(apply(withEnough, clearEnough(withEnough, 0)), 0).enough, null);
 });
 
 test('a field-less decision gains its first field directly after its heading without losing comments', () => {
@@ -307,7 +333,7 @@ test('stage view switch writes one exact undoable style operation in the config 
 });
 
 test('validators and kinds accept safe clears and reject values the setters cannot represent', () => {
-  for(const name of ['question', 'signal', 'reading', 'owner']){
+  for(const name of ['question', 'signal', 'reading', 'learn', 'enough', 'owner']){
     assert.equal(validators[name](''), true, name + ' clears');
     assert.equal(validators[name]('one line'), true, name);
     assert.equal(validators[name]('one\n  owner: forged'), false, name);

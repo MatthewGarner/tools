@@ -144,6 +144,8 @@ test('Roadmap to Paths never invents decision fields', () => {
   assert.equal(target.decisions.length, 1);
   assert.deepEqual(target.warnings.map(warning => warning.code),
     ['missing-question', 'missing-signal', 'missing-owner', 'missing-due-date']);
+  assert.equal(target.decisions[0].learn, null);
+  assert.equal(target.decisions[0].enough, null);
 });
 
 test('Paths to Roadmap needs an exact, accepted basis and removes branch syntax', () => {
