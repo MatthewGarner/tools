@@ -46,6 +46,11 @@ try{
   await pageF.waitForSelector('#console:not([hidden])', {timeout: 10000});
   check('facilitator: console mode after start', true);
 
+  /* The console generates the compressed participant URL asynchronously.
+     Waiting on its value—not an incidental button state—keeps this check
+     deterministic on slower CI runners. */
+  await pageF.waitForFunction(() => document.getElementById('joinlink').value.includes('#'),
+    null, {timeout: 10000});
   const joinUrl = await pageF.locator('#joinlink').inputValue();
   check('join link: Copy enables only after the encoded join URL exists',
     joinUrl.length > 20 && await pageF.locator('#copylink').isEnabled());
