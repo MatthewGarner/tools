@@ -116,7 +116,7 @@ for(const theme of ['light', 'dark']){
     await page.locator('#viewreceipt').isEnabled());
   check('proxy(' + theme + '): scoped receipt carries applicable reported context separately',
     await page.locator('[data-kind="selected-theory-receipt"] [data-kind="receipt-reported-pattern"]').count() === 1 &&
-    /NON-CAUSAL CONTEXT/.test(await page.locator('[data-kind="receipt-reported-pattern"]').innerText()));
+    /NON-CAUSAL CONTEXT/.test(await page.locator('[data-kind="receipt-reported-pattern"]').textContent() || ''));
   check('proxy(' + theme + '): scoped receipt export becomes available',
     await page.locator('#receiptsvg').isEnabled() && await page.locator('#receiptpng').isEnabled());
   check('proxy(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
