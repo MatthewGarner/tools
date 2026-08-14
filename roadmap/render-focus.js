@@ -18,10 +18,9 @@ const HERO_W = 1060, HGAP = 60, RAIL_W = 600, HWASH_PAD = 22;
    horizon (an empty Now must not produce an empty hero by default; a doc
    with no focus: key resolves exactly as before the key existed). An
    explicitly named horizon wins even if it's empty — that's the lens doing
-   its job, not a bug. Hero column ~1060px under an accent
-   wash that HUGS the card stack: the stack lays out FIRST (pure geometry),
-   then the wash is sized to its painted extent and emitted before it —
-   content-driven height, never a stretched box. 1 column at <=5 items, 2 at
+   its job, not a bug. Hero column ~1060px has one decisive accent datum;
+   cards, rather than a content-hugging grey wash, carry the surface. This
+   avoids arbitrary field bottoms beside the factual rail. 1 column at <=5 items, 2 at
    >=6 (row-pair equalised). Remaining horizons flatten into a ~600px rail
    of ranked indexes, certainty-faded (gated on model.fade). */
 export function focusHeroIndex(model){
@@ -130,24 +129,23 @@ function focusBodyFn(model, ctx, C){
     s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
     s.push(txt(heroX + HERO_W, y0 + 30, countLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700, tracking: 1}));
 
-    const washY0 = y0 + headerH;
+    const heroCardsY = y0 + headerH;
     let stack;
     if(!heroItems.length){
       stack = {
-        svg: rect(heroX + HWASH_PAD, washY0 + HWASH_PAD, HERO_W - HWASH_PAD * 2, 84, 'none',
+        svg: rect(heroX + HWASH_PAD, heroCardsY + HWASH_PAD, HERO_W - HWASH_PAD * 2, 84, 'none',
           {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}) +
-          txt(heroX + HERO_W / 2, washY0 + HWASH_PAD + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'}),
-        bottom: washY0 + HWASH_PAD + 84,
+          txt(heroX + HERO_W / 2, heroCardsY + HWASH_PAD + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'}),
+        bottom: heroCardsY + HWASH_PAD + 84,
       };
     } else {
-      const availH = Math.max(60, y1 - (washY0 + HWASH_PAD) - HWASH_PAD);
+      const availH = Math.max(60, y1 - (heroCardsY + HWASH_PAD) - HWASH_PAD);
       stack = paintHeroStack(heroItems, {
-        x: heroX + HWASH_PAD, y0: washY0 + HWASH_PAD, w: HERO_W - HWASH_PAD * 2,
+        x: heroX + HWASH_PAD, y0: heroCardsY + HWASH_PAD, w: HERO_W - HWASH_PAD * 2,
         availH, heroName: hs[heroIdx], C, measure, model,
       });
     }
-    const washH = Math.min(y1, stack.bottom + HWASH_PAD) - washY0;
-    s.push(rect(heroX, washY0, HERO_W, Math.max(0, washH), C.accent + '0D', {rx: 16}));
+    s.push(rect(heroX, heroCardsY - 8, HERO_W, 3, C.accent, {rx: 1.5}));
     s.push(stack.svg);
 
     /* rail: every other horizon, flattened into ranked rows, certainty-faded
@@ -474,8 +472,9 @@ export function renderFocusLive(model, ctx){
     hy += 24;
   }
   const heroBottom = hy;
-  // wash behind the hero stack + the band UNDER it
-  s.push(rect(heroX, heroCardsTop - 8, HERO_W, (heroBottom - heroCardsTop) + 12, C.accent + '0D', {rx: 16}));
+  // One accent datum holds the hero against the factual rail; the cards carry
+  // the surface so their field never ends at an arbitrary different height.
+  s.push(rect(heroX, heroCardsTop - 8, HERO_W, 3, C.accent, {rx: 1.5}));
   s.push(band(heroIdx, heroX, HERO_W, heroCardsTop - 8, heroBottom));
   s.push(heroBuf.join(''));
 

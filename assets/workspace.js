@@ -201,7 +201,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     focusArtefact=false;
     workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
-    tab.textContent = c ? 'Source' : 'Hide';
+    tab.textContent = c ? 'Source' : '‹';
     tab.title = (c ? 'Show' : 'Hide') + ' source editor';
     tab.setAttribute('aria-label', (c ? 'Show' : 'Hide') + ' source editor');
     tab.setAttribute('aria-expanded', String(!c));
@@ -213,7 +213,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       focusArtefact=false;
       workspace.classList.remove('focus-artefact');
       const collapsed = workspace.classList.contains('collapsed');
-      tab.textContent=collapsed ? 'Source' : 'Hide';
+      tab.textContent=collapsed ? 'Source' : '‹';
       tab.title=(collapsed ? 'Show' : 'Hide')+' source editor';
       tab.setAttribute('aria-label',(collapsed ? 'Show' : 'Hide')+' source editor');
       tab.setAttribute('aria-expanded',String(!collapsed));
