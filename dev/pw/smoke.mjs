@@ -670,6 +670,7 @@ for(const theme of ['light', 'dark']){
   await page.locator('#reviewp50').click();
   await page.getByRole('button', {name:'Edit formula & ranges'}).click();
   await page.locator('#formula').waitFor({state:'visible'});
+  await page.waitForFunction(() => document.activeElement?.id === 'formula');
   check('fermi(' + theme + '): Edit formula & ranges clears selection and focuses the real authoring input',
     await page.evaluate(() => document.activeElement?.id === 'formula' && document.querySelector('#reviewp50')?.getAttribute('aria-pressed') === 'false'));
   await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click();
