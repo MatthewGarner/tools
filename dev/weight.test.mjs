@@ -372,9 +372,10 @@ const PAGES = {
      with the complete/explicitly-partial fixed-canvas comparison. Copy PNG must
      resolve during its originating click, so this is honest first-load code, not
      a payload that can be deferred. Actual 547.1k; preserve ~5.9k headroom. */
-  /* The same shared joined rail/stage edge reaches Tree. Actual 554414 bytes;
-     retain 186 bytes of documented headroom. */
-  'tree/index.html': 554_600,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
+  /* The same shared joined rail/stage edge reaches Tree. Roadmap's named DSL
+     return path is an optional workspace label, so Tree pays only the tiny
+     shared parameter. Actual 554669 bytes; retain 331 bytes of headroom. */
+  'tree/index.html': 555_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
