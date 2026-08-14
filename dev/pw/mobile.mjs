@@ -206,7 +206,7 @@ for(const [name, url] of AUTOLOAD){
     const m = await page.evaluate(() => {
       const vw = document.documentElement.clientWidth;
       const h1 = document.querySelector('h1');
-      const card = document.querySelector('.card');
+      const card = document.querySelector('.fermi-sheet');
       const hist = document.querySelector('#hist');
       return {vw,
         h1Left: h1 ? h1.getBoundingClientRect().left : -1,
@@ -219,6 +219,7 @@ for(const [name, url] of AUTOLOAD){
       `fermi: card band full-bleeds to the viewport edge (${Math.round(m.card)}/${m.vw} = ${(m.card / m.vw * 100).toFixed(1)}%)`);
     ok(m.hist / m.vw >= 0.90,
       `fermi: histogram surface reclaims >=90% of phone width (${Math.round(m.hist)}/${m.vw} = ${(m.hist / m.vw * 100).toFixed(1)}%)`);
+    await page.getByRole('button', {name:'Edit formula & ranges'}).click();
     const controls = await page.evaluate(() => [...document.querySelectorAll('.vrow input, .vrow select')].map(el => {
       const r = el.getBoundingClientRect();
       return {font: parseFloat(getComputedStyle(el).fontSize), h: r.height};

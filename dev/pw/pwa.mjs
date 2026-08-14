@@ -57,7 +57,7 @@ async function installAndWait(page){
   /* cold offline: no tool page has been visited in this context */
   await ctx.setOffline(true);
   const TOOLS = [
-    ['/fermi/', async p => { await p.getByRole('button', {name: 'Weekly meeting, annual cost'}).click(); await p.waitForTimeout(500); return (await p.locator('#p50').innerText()).length > 0; }],
+    ['/fermi/', async p => { await p.getByRole('button', {name:'Edit formula & ranges'}).click(); await p.getByRole('button', {name: 'Weekly meeting, annual cost'}).click(); await p.waitForTimeout(500); return (await p.locator('#p50').innerText()).length > 0; }],
     ['/rank/', async p => { await p.getByRole('button', {name: 'Ops & infra backlog'}).click(); await p.waitForTimeout(500); return await p.locator('.rankbar').count() === 7; }],
     ['/roadmap/', async p => { await p.getByRole('button', {name: 'Habit app roadmap'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/why/', async p => { await p.getByRole('button', {name: 'Habit retention'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],

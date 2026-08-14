@@ -20,7 +20,8 @@
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/handoff.css">
-<style>  .wrap{max-width:720px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
+<style>  .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;gap:20px}
+  header{max-width:720px}
   h1{
     font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;
     font-size:34px;font-weight:700;letter-spacing:-.03em;margin:0;text-wrap:balance;
@@ -29,6 +30,18 @@
     background:var(--card);border:1px solid var(--border);border-radius:0;
     box-shadow:var(--shadow);padding:22px;
   }
+  .fermi-sheet{display:flex;flex-direction:column;background:var(--card);border-block:1px solid var(--border);box-shadow:var(--shadow)}
+  .model-trace{display:flex;gap:20px;justify-content:space-between;align-items:flex-start;padding:18px 22px;border-bottom:1px solid var(--border)}
+  .trace-copy{min-width:0}.trace-label,.source-kicker,.inspector-kicker{display:block;margin:0 0 7px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  #modeltrace{display:block;white-space:normal;font-size:14px;line-height:1.45;color:var(--ink)}
+  #modelmeta{margin:6px 0 0;font-size:12.5px;color:var(--muted)}
+  .trace-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex:none}.trace-actions .scentabs{margin:0}
+  .trace-actions .pagemode{margin:0}.model-source{padding:18px 22px 22px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--card) 93%,var(--bg))}
+  .source-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.source-head .source-kicker{margin:0}
+  .text-action{border:0;padding:6px 0;background:none;color:var(--accent-ink);font:600 12.5px/1.2 inherit;cursor:pointer}.text-action:hover{text-decoration:underline}
+  .analysis-stage{padding:24px 22px 22px;min-width:0}.analysis-stage .placeholder{margin:0}
+  #results{grid-template-columns:minmax(0,1fr) minmax(220px,270px);gap:28px;align-items:start}
+  .analysis-main{min-width:0}.result-review{border-left:1px solid var(--border);padding-left:20px;min-width:0;position:sticky;top:16px}.result-review h2{margin:0 0 8px;font-size:16px}.result-review p{margin:0;color:var(--muted);font-size:13px;line-height:1.48}.result-review dl{margin:18px 0 0}.result-review dl div{padding:9px 0;border-top:1px solid var(--border)}.result-review dt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.result-review dd{margin:3px 0 0;font-size:13px;line-height:1.4}
   label.field{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;
     text-transform:uppercase;color:var(--muted);margin-bottom:7px}
   .fieldrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;flex-wrap:wrap;gap:8px}
@@ -91,10 +104,11 @@
   #results.is-stale{opacity:.32;filter:grayscale(.5);pointer-events:none}
   @media (prefers-reduced-motion: no-preference){#results{transition:opacity .12s ease}}
   .tiles{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:12px;align-items:end}
-  .tile{min-width:0}
-  .tile .tl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  .tile{min-width:0;border:0;padding:4px 0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;border-bottom:2px solid transparent}
+  .tile:hover,.tile[aria-pressed="true"]{border-color:var(--accent)}
+  .tile .tl{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted);margin-bottom:4px}
-  .tile .tv{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  .tile .tv{display:block;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     font-variant-numeric:tabular-nums;font-weight:600;font-size:26px;line-height:1.15;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tile.mid .tv{font-size:36px}
@@ -179,7 +193,12 @@
   .srow .sp{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;
     color:var(--muted)}
   .method{color:var(--muted);font-size:12.5px}
+  @media (max-width:900px){
+    .model-trace{display:block}.trace-actions{justify-content:flex-start;margin-top:14px}.trace-actions .scentabs{width:100%}
+    #results{grid-template-columns:1fr;gap:18px}.result-review{position:static;border-left:0;border-top:1px solid var(--border);padding:16px 0 0}
+  }
   @media (max-width:560px){
+    .model-trace{padding:16px 12px}.trace-actions #editmodel{width:100%}.model-source,.analysis-stage{padding-inline:12px}.fermi-sheet{margin-inline:-16px}.source-head{margin-bottom:14px}
     .tiles{grid-template-columns:1fr;gap:8px}
     .tile.mid{order:-1}
     .vhead{display:none}
@@ -229,19 +248,22 @@
     <p class="tagline">Back-of-the-envelope arithmetic that's honest about what you don't know. Every input is a range; the answer is a distribution, not a number.</p>
   </header>
 
-  <main>
+  <main class="fermi-sheet" id="fermisheet">
   <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
     <p class="handoff-copy"><strong id="handofftitle">Draft from Gauge</strong><small>This is a separate Fermi model. Adopting, restating or editing a range does not update Gauge.</small></p>
     <div class="handoff-actions"><a class="btn" id="returnsource" href="/gauge/">Return to Gauge</a></div>
   </div>
-  <section class="card">
+  <section class="model-trace" aria-label="Current model">
+    <div class="trace-copy"><span class="trace-label" id="modelkind">Estimate</span><code id="modeltrace">Formula not yet set</code><p id="modelmeta"></p></div>
+    <div class="trace-actions"><div class="scentabs" id="scentabs"></div><div class="pagemode segmented" role="tablist" aria-label="Tool mode">
+      <button id="modeest" class="on" role="tab" aria-selected="true">Estimate</button>
+      <button id="modecf" role="tab" aria-selected="false">Cashflow</button>
+    </div><button class="btn" id="editmodel">Edit formula &amp; ranges</button></div>
+  </section>
+  <section class="model-source" id="modelsource" hidden aria-label="Model authoring">
+    <div class="source-head"><p class="source-kicker">Author</p><button id="returntoreview" class="text-action">Back to estimate</button></div>
     <div class="fieldrow">
       <label class="field" for="formula" id="cardlabel">Formula</label>
-      <div class="scentabs" id="scentabs"></div>
-      <div class="pagemode segmented" role="tablist" aria-label="Tool mode">
-        <button id="modeest" class="on" role="tab" aria-selected="true">Estimate</button>
-        <button id="modecf" role="tab" aria-selected="false">Cashflow</button>
-      </div>
     </div>
     <div id="estinputs">
     <input id="formula" class="mono" spellcheck="false" autocomplete="off"
@@ -283,7 +305,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="analysis-stage">
     <div id="cfresults" hidden>
       <div id="cfwrap"></div>
       <div class="thresh">
@@ -302,12 +324,13 @@
     </div>
     <p class="placeholder" id="ph">Type a formula — each name in it becomes a variable you give a range to. Ranges are 90% intervals: you'd be surprised, but not shocked, to see a value outside them.</p>
     <div id="results">
+      <div class="analysis-main">
       <div id="cmp" class="cmp" style="display:none"></div>
       <div class="metrics" id="metrics" hidden></div>
-      <div class="tiles" aria-live="polite" aria-atomic="true">
-        <div class="tile"><div class="tl">P10 · low</div><div class="tv" id="p10"></div></div>
-        <div class="tile mid"><div class="tl">P50 · best guess</div><div class="tv"><span class="smear" id="p50"></span></div></div>
-        <div class="tile"><div class="tl">P90 · high</div><div class="tv" id="p90"></div></div>
+      <div class="tiles" aria-label="Estimate range">
+        <button class="tile" id="reviewp10" data-result="p10" aria-pressed="false"><span class="tl">P10 · low</span><span class="tv" id="p10"></span></button>
+        <button class="tile mid" id="reviewp50" data-result="p50" aria-pressed="false"><span class="tl">P50 · best guess</span><span class="tv"><span class="smear" id="p50"></span></span></button>
+        <button class="tile" id="reviewp90" data-result="p90" aria-pressed="false"><span class="tl">P90 · high</span><span class="tv" id="p90"></span></button>
       </div>
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <p class="provenance" id="provenance" aria-live="polite" aria-atomic="true"></p>
@@ -344,6 +367,13 @@
         <button id="treesvg" class="btn" hidden>Tree SVG</button>
         <span class="method">Log-normal fit to each 90% range · 20,000 samples</span>
       </div>
+      </div>
+      <aside class="result-review" id="resultreview" aria-live="polite" aria-atomic="true">
+        <p class="inspector-kicker">Model basis</p>
+        <h2 id="resultreviewtitle">Read the estimate</h2>
+        <p id="resultreviewbody">Choose P10, P50 or P90 to inspect that result. The estimate remains a distribution, not a single promise.</p>
+        <dl id="resultreviewfacts"></dl>
+      </aside>
     </div>
   </section>
 

@@ -52,6 +52,91 @@ let confessSnapshot = null;           // pre-Adopt varState snapshot for the one
 const $ = id => document.getElementById(id);
 const estimateExampleButtons = [], cashflowExampleButtons = [];
 let inboundHandoff = null;
+let pageMode = 'est';
+let authorOpen = false;
+let reviewSelection = null;
+
+function updateModelTrace(){
+  const estimate = pageMode === 'est';
+  const formula = ($('formula').value || '').trim();
+  $('modelkind').textContent = estimate ? 'Estimate' : 'Cashflow';
+  $('modeltrace').textContent = estimate
+    ? (formula || 'Formula not yet set')
+    : 'Discounted cashflow over ' + cf.horizon + ' ' + (cf.grain === 'year' ? 'years' : 'months');
+  $('modelmeta').textContent = estimate
+    ? (last ? last.varNames.length + ' ranged input' + (last.varNames.length === 1 ? '' : 's') +
+        ' · ' + compactReceiptSummary(last.varNames) : 'Ranges are 90% intervals, not point promises.')
+    : 'Each period is a 90% net-cashflow range.';
+  $('editmodel').textContent = estimate ? 'Edit formula & ranges' : 'Edit cashflows & assumptions';
+  $('returntoreview').textContent = estimate ? 'Back to estimate' : 'Back to cashflow';
+}
+
+function setAuthorOpen(open, {focus = false} = {}){
+  authorOpen = open;
+  $('modelsource').hidden = !open;
+  $('fermisheet').classList.toggle('is-authoring', open);
+  if(!open){
+    if(focus) $('editmodel').focus();
+    return;
+  }
+  if(focus) requestAnimationFrame(() => {
+    const target = pageMode === 'est' ? $('formula') : document.querySelector('#cfrows input');
+    target?.focus();
+  });
+}
+
+function reviewDetail(){
+  const title = $('resultreviewtitle'), body = $('resultreviewbody'), facts = $('resultreviewfacts');
+  facts.replaceChildren();
+  if($('results').classList.contains('is-stale')){
+    title.textContent = 'Updating estimate';
+    body.textContent = 'The edited model has not yet been recalculated. Previous results are not current.';
+    return;
+  }
+  if(!last){
+    title.textContent = 'Read the estimate';
+    body.textContent = 'Choose P10, P50 or P90 to inspect that result. The estimate remains a distribution, not a single promise.';
+    return;
+  }
+  const selected = reviewSelection;
+  const values = {p10:last.p10, p50:last.p50, p90:last.p90};
+  const names = {p10:'P10 — low case', p50:'P50 — best guess', p90:'P90 — high case'};
+  const explanations = {
+    p10:'Nine of ten simulated outcomes sit above this point.',
+    p50:'Half of simulated outcomes sit above and half below this point.',
+    p90:'Nine of ten simulated outcomes sit below this point.',
+  };
+  title.textContent = selected ? names[selected] : 'Model basis';
+  body.textContent = selected ? explanations[selected] :
+    'Choose P10, P50 or P90 to read one point in the distribution. None is a promise.';
+  const rows = selected ? [['Selected result', fmt(values[selected])], ['Formula', formulaLabel()],
+    ['Interval', fmt(last.p10) + ' to ' + fmt(last.p90)], ['Input receipts', receiptSummary(last.varNames)]] :
+    [['Formula', formulaLabel()], ['Input ranges', last.varNames.length + ' ranged input' + (last.varNames.length === 1 ? '' : 's')],
+      ['Input receipts', receiptSummary(last.varNames)], ['Simulation', N.toLocaleString('en-GB') + ' seeded runs']];
+  for(const [label, value] of rows){
+    const row = document.createElement('div'), term = document.createElement('dt'), description = document.createElement('dd');
+    term.textContent = label; description.textContent = value; row.append(term, description); facts.appendChild(row);
+  }
+}
+
+function clearReviewSelection({focus = false} = {}){
+  const prior = reviewSelection;
+  reviewSelection = null;
+  for(const key of ['p10', 'p50', 'p90']) $('review' + key).setAttribute('aria-pressed', 'false');
+  reviewDetail();
+  if(focus && prior) $('review' + prior).focus();
+}
+
+function selectReviewResult(key, {focus = true} = {}){
+  if(!last || $('results').classList.contains('is-stale')) return;
+  reviewSelection = key;
+  for(const candidate of ['p10', 'p50', 'p90']) $('review' + candidate).setAttribute('aria-pressed', String(candidate === key));
+  reviewDetail();
+  if(focus){
+    $('resultreviewtitle').tabIndex = -1;
+    $('resultreviewtitle').focus();
+  }
+}
 function syncExampleButtons(buttons, selected = null){
   for(const b of buttons){
     const on = b.dataset.example === selected;
@@ -409,6 +494,7 @@ function schedule(ms){
   syncExampleButtons(estimateExampleButtons);
   clearTimeout(timer);
   $('results').classList.add('is-stale');
+  clearReviewSelection();
   timer = setTimeout(() => { timer = null; lint(); }, ms);
 }
 function ensureFreshEstimate(){
@@ -422,18 +508,21 @@ function showPlaceholder(msg){
   $('ph').style.display = 'block';
   $('results').style.display = 'none';
   $('results').classList.remove('is-stale');
+  updateModelTrace();
 }
 function showError(msg){
   $('err').textContent = msg;
   $('err').style.display = 'block';
   // keep the last result on screen but ghost it — the error is the only current truth
   $('results').classList.add('is-stale');
+  updateModelTrace();
 }
 
 function lint(){
   $('err').style.display = 'none';
   const src = $('formula').value.trim();
   last = null;
+  clearReviewSelection();
   // a recompute (any edit / scenario switch) invalidates a running pour + its verdict
   pour.stop(); pourVerdictText = ''; $('pourverdict').textContent = ''; $('replay').disabled = true;
   clearConfession();   // any recompute (edit / scenario switch) invalidates a shown confession
@@ -546,13 +635,15 @@ function metricCounts(r, p50Text){
 function renderResults(){
   const r = last;
   $('ph').style.display = 'none';
-  $('results').style.display = 'block';
+  $('results').style.display = 'grid';
   $('results').classList.remove('is-stale');
 
   const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
   /* outside the resultsSig gate: the formula label can change without moving a
      percentile (a rename, a whitespace edit), and the row must not go stale */
   paintMetrics($('metrics'), formulaLabel(), metricCounts(r, p50Text));
+  updateModelTrace();
+  reviewDetail();
   const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +
     p10Text + ' to ' + p90Text + '.”';
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
@@ -1174,6 +1265,17 @@ function renderSaved(){
 renderSaved();
 
 $('formula').addEventListener('input', () => schedule(180));
+$('editmodel').addEventListener('click', () => setAuthorOpen(true, {focus:true}));
+$('returntoreview').addEventListener('click', () => setAuthorOpen(false, {focus:true}));
+for(const key of ['p10', 'p50', 'p90']){
+  $('review' + key).addEventListener('click', () => selectReviewResult(key));
+}
+document.addEventListener('keydown', event => {
+  if(event.key === 'Escape' && reviewSelection){
+    event.preventDefault();
+    clearReviewSelection({focus:true});
+  }
+});
 
 const boot = await readHash();
 inboundHandoff = validHandoffMeta(boot?.x, {from:'gauge', kind:'range-estimate'});
@@ -1205,7 +1307,6 @@ renderTabs();
 lint();
 
 /* ---------- cashflow mode (#13, absorbs #57) ---------- */
-let pageMode = 'est';
 const cf = {grain: 'year', horizon: 5, rlo: '8', rhi: '12',
   debtOn: false, dscr: '1.30', rd: '6.5', tenor: '', sizingCase: 'central',
   periods: [{lo: '-250k', hi: '-180k'}, {lo: '-40k', hi: '20k'}, {lo: '30k', hi: '90k'}, {lo: '60k', hi: '140k'}]};
@@ -1222,6 +1323,7 @@ let cfResult = null, cfSpec = null, cfSig = '', cfSvg = '', cfTimer = null, cfHa
 
 function setMode(m){
   pageMode = m;
+  clearReviewSelection();
   const est = m === 'est';
   $('modeest').classList.toggle('on', est);
   $('modecf').classList.toggle('on', !est);
@@ -1240,6 +1342,7 @@ function setMode(m){
     renderCfRows();
     cfPaint();
   }
+  updateModelTrace();
 }
 $('modeest').addEventListener('click', () => { if(pageMode !== 'est'){ setMode('est'); writeHashSafe(); } });
 $('modecf').addEventListener('click', () => { if(pageMode !== 'cf'){ setMode('cf'); cfWriteHashSafe(); } });
@@ -1348,6 +1451,7 @@ function cfParse(){
 }
 function cfPaint(){
   if(pageMode !== 'cf') return;
+  updateModelTrace();
   const spec = cfParse();
   if(!spec){
     $('cfwrap').innerHTML = '<p class="placeholder">Waiting on ranges — every period needs two numbers (k / M suffixes fine), and the discount rate two percentages.</p>';

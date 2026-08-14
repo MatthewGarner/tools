@@ -656,6 +656,21 @@ for(const theme of ['light', 'dark']){
   // opens alive on the first example, hash-safe (autoload; no URL write until interaction)
   check('fermi(' + theme + '): opens alive (autoload, hash clean)',
     (await page.locator('#p50').innerText()).trim() !== '—' && (await page.evaluate(() => location.hash)) === '');
+  check('fermi(' + theme + '): review makes the formula route explicit',
+    !(await page.locator('#modelsource').isVisible()) && await page.getByRole('button', {name:'Edit formula & ranges'}).isVisible());
+  check('fermi(' + theme + '): result review selects P50 and Escape restores its selector without a URL write', await (async () => {
+    const before = await page.evaluate(() => location.hash);
+    await page.locator('#reviewp50').click();
+    const selected = await page.locator('#reviewp50').getAttribute('aria-pressed') === 'true' &&
+      await page.evaluate(() => document.activeElement?.id === 'resultreviewtitle');
+    await page.locator('#resultreviewtitle').press('Escape');
+    return selected && await page.locator('#reviewp50').getAttribute('aria-pressed') === 'false' &&
+      await page.evaluate(hash => document.activeElement?.id === 'reviewp50' && location.hash === hash, before);
+  })());
+  await page.getByRole('button', {name:'Edit formula & ranges'}).click();
+  await page.locator('#formula').waitFor({state:'visible'});
+  check('fermi(' + theme + '): Edit formula & ranges focuses the real authoring input',
+    await page.evaluate(() => document.activeElement?.id === 'formula'));
   await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click();
   await page.waitForTimeout(600);
   const p50 = (await page.locator('#p50').innerText()).trim();
@@ -717,6 +732,7 @@ for(const theme of ['light', 'dark']){
     }, state);
     await page.goto(BASE + '/fermi/?smoke=gauge-review' + packed, {waitUntil: 'networkidle'});
     await page.waitForTimeout(500);
+    await page.getByRole('button', {name:'Edit formula & ranges'}).click();
     return !(await page.locator('#results').isVisible()) && /Review needed/.test(await page.locator('#ph').innerText()) &&
       await page.getByRole('button', {name: 'Adopt b as my 90% range'}).isVisible();
   })());
