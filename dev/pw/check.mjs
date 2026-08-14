@@ -132,6 +132,7 @@ await wipPage.close();
     await normalPage.locator('.eip-pop').count() === 0 &&
     await normalPage.getByRole('complementary', {name:'Selected roadmap item'}).isVisible());
   await normalPage.keyboard.press('Escape');
+  await normalPage.waitForTimeout(50);  // receipt restores focus on the next paint
   check('Escape clears item review and restores focus to its card menu',
     await normalPage.locator('#roadmapreceipt').isHidden() &&
     await normalPage.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'More options: One'));
