@@ -1,6 +1,7 @@
 /* Edit-in-place browser checks (tree). */
 import {chromium, devices} from 'playwright';
 import {readFileSync} from 'node:fs';
+import {decodeHash} from '../../assets/series.js';
 import {trackErrors, report, tally} from './_harness.mjs';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
@@ -3648,6 +3649,10 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   const root = process.env.BASE || 'http://localhost:8087';
   const src = () => p.locator('#cmhost').textContent();
   await p.goto(root + '/paths/', {waitUntil:'networkidle'});
+  await p.waitForTimeout(500);
+  const autoFoldHash = await decodeHash((await p.evaluate(() => location.hash)).slice(1));
+  check('paths: automatic review folding never persists an editor preference in the URL',
+    !autoFoldHash || !Object.hasOwn(autoFoldHash, 'e'));
   check('paths: the unstyled document opens the parallel overview with a deterministic receipt',
     await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
     await p.locator('#overview-receipt[data-decision-key="pricing"]').isVisible() &&
@@ -3664,7 +3669,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
       const mainBox = main?.getBoundingClientRect();
       const previewBox = preview?.getBoundingClientRect();
       const receiptBox = receipt?.getBoundingClientRect();
-      return live?.dataset.receiptLayout === 'rail' && advice?.parentElement === main &&
+      return live?.dataset.receiptLayout === 'rail' && (!advice || advice.parentElement === main) &&
         Math.abs(mainBox.x - previewBox.x) < 1 && previewBox.right <= receiptBox.left;
     }));
   const overviewQuestion = p.locator('[data-kind="attention-decision"][data-decision-key="groups"]');
@@ -3715,7 +3720,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     /AND · requires Groups = yes and Pricing = no/.test(await p.locator('#focus-lens').innerText()) &&
     /Counterfactual — not today’s plan/.test(await p.locator('#focus-lens').innerText()));
   check('paths: Focus states honest export semantics',
-    /local counterfactual lens; exports remain the selected full roadmap/i.test(
+    /local counterfactual lens; exports remain the selected full plan artefact/i.test(
       await p.locator('#view-method').innerText()));
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const focusDownload = p.waitForEvent('download');
@@ -3769,10 +3774,13 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   check('paths: phone receipt traps focus inside the sheet',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
   await p.keyboard.press('Tab');
+  check('paths: phone receipt advances to its source doorway inside the focus trap',
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-edit-decision-source')));
+  await p.keyboard.press('Tab');
   check('paths: phone receipt advances to its Close-out control inside the focus trap',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')));
   await p.keyboard.press('Tab');
-  check('paths: phone receipt wraps its two-control focus trap',
+  check('paths: phone receipt wraps its three-control focus trap',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
   await p.locator('#overview-receipt [data-open-closeout]').click();
   await p.waitForTimeout(150);
@@ -3803,28 +3811,28 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
 
   await p.setViewportSize({width:901, height:900});
   await p.waitForTimeout(500);
-  check('paths: a 901px viewport follows the narrow preview container, not the viewport',
-    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'sheet' &&
-    await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
-    await p.locator('#overview-receipt').isHidden() && await p.locator('#focus-lens').isHidden());
+  check('paths: a 901px viewport keeps a readable selected artefact without a forced phone sheet',
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') !== 'sheet' &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1) &&
+    await p.locator('#focus-lens').isHidden());
 
   await p.setViewportSize({width:1100, height:900});
   await p.waitForTimeout(500);
-  check('paths: constrained non-narrow desktop starts with the Brief unobscured',
-    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'overlay' &&
+  check('paths: constrained non-narrow desktop folds source and keeps the Brief plus decision margin readable',
+    await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
+    await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'rail' &&
     await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
-    await p.locator('#overview-receipt').isHidden());
+    await p.locator('#overview-receipt').isVisible());
   await p.locator('[data-select-decision][data-decision-key="groups"]').click();
   await p.waitForTimeout(150);
-  check('paths: selecting a constrained-desktop decision opens its dismissible receipt',
-    await p.locator('#overview-receipt[data-layout="overlay"]').isVisible() &&
-    await p.locator('#overview-receipt [data-receipt-close]').count() === 1);
+  check('paths: selecting a constrained-desktop decision updates the readable decision margin',
+    await p.locator('#overview-receipt[data-layout="rail"][data-decision-key="groups"]').isVisible() &&
+    await p.locator('#overview-receipt [data-receipt-close]').count() === 0);
   await p.locator('#overview-receipt [data-open-focus]').click();
   await p.waitForTimeout(200);
-  const stackedFocus = await p.locator('#focus-lens .focus-branch').evaluateAll(elements =>
-    elements.length === 2 && elements[1].getBoundingClientRect().top > elements[0].getBoundingClientRect().top);
-  check('paths: Focus stacks from usable container width at constrained desktop',
-    await p.locator('#overview-live').getAttribute('data-focus-layout') === 'stacked' && stackedFocus);
+  check('paths: Focus remains a deliberate local lens after review folding',
+    await p.locator('#focus-lens').isVisible() &&
+    await p.locator('#focus-lens .focus-branch').count() === 2);
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
@@ -3898,8 +3906,8 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('#overview-receipt').isHidden());
   await p.setViewportSize({width:1000, height:900});
   await p.waitForTimeout(400);
-  check('paths: constrained desktop Question lens uses its readable stacked composition, not a cropped export canvas',
-    await p.locator('[data-kind="question-lens-narrow"]').count() === 1 &&
+  check('paths: review folding gives Question lens its full readable comparison, not a cropped export canvas',
+    await p.locator('[data-kind="question-lens"]').count() === 1 &&
     await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
@@ -3921,8 +3929,8 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('#overview-receipt').isHidden());
   await p.setViewportSize({width:1100, height:900});
   await p.waitForTimeout(400);
-  check('paths: constrained desktop Conditions uses its readable stacked audit, not cropped decision columns',
-    await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
+  check('paths: review folding gives Conditions its full readable audit, not cropped decision columns',
+    await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
     await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
@@ -3943,6 +3951,23 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('#decision-inspector [data-edit]').count() === 10 &&
     (await p.locator('#decision-inspector h2').innerText()) === 'groups');
 
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(180);
+  check('paths: Tree Escape clears the decision margin and restores its question focus',
+    await p.locator('#decision-inspector').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups');
+  await question.press('Enter');
+  await p.locator('#decision-inspector').waitFor({state:'visible'});
+  await p.locator('#decision-inspector [data-edit-decision-source]').click();
+  await p.waitForTimeout(260);
+  check('paths: Decision margin exposes the exact named source line through a deliberate author action',
+    await p.evaluate(() => !document.querySelector('#workspace').classList.contains('collapsed') &&
+      [...document.querySelectorAll('.cm-activeLine')].some(line => /decision groups:/.test(line.textContent))));
+  await p.locator('#railtab').click();
+  await p.waitForTimeout(180);
+  await question.press('Enter');
+  await p.locator('#decision-inspector').waitFor({state:'visible'});
+
   const before = await src();
   await p.locator('#decision-inspector [data-edit="question"]').click();
   check('paths: question opens the shared EIP input prefilled',
@@ -3956,10 +3981,14 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   check('paths: the same decision remains selected after its source refresh',
     await p.locator('[data-select-decision][data-decision-key="groups"][data-selected="true"]').count() === 1 &&
     await p.locator('#decision-inspector').isVisible());
+  await p.locator('#railtab').click();
+  await p.waitForTimeout(180);
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
   await p.waitForTimeout(500);
   check('paths: one Undo reverts the inspector text edit', (await src()) === before);
+  await p.locator('#railtab').click();
+  await p.waitForTimeout(180);
 
   const beforeAnswer = await src();
   await p.locator('#decision-inspector [data-answer-direction="no"]').click();
