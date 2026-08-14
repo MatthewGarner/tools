@@ -253,6 +253,18 @@ test('roadmap DECK (grid style) escapes hostile titles/notes/lanes via the embed
   assertClean(renderDeck(parse(doc), ctx), 'roadmap-deck-grid');
 });
 
+test('roadmap exhaustive deck pages escape hostile frame and card text in the continuation composition', async () => {
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderDeckPages} = await import('../roadmap/render-deck-pages.js');
+  const doc = 'style: board\ntitle: ' + EVIL[0] + '\nheadline: ' + EVIL[1] +
+    '\nhorizons: ' + EVIL[2] + ', ' + EVIL[3] + ', ' + EVIL[4] + ', ' + EVIL[5] + '\n' +
+    EVIL[2] + '\n' + EVIL[0].replace(/:/g, ';') + ' lane: ' + label(0) + ' -- ' + EVIL[1] + '\n' +
+    EVIL[3] + '\n' + EVIL[2].replace(/:/g, ';') + ' lane: ' + label(2) + ' [risk]\n' +
+    EVIL[4] + '\n' + EVIL[3].replace(/:/g, ';') + ' lane: ' + label(3) + '\n' +
+    EVIL[5] + '\n' + EVIL[4].replace(/:/g, ';') + ' lane: ' + label(4);
+  renderDeckPages(parse(doc), ctx).pages.forEach((svg, i) => assertClean(svg, 'roadmap-deck-pages-' + i));
+});
+
 test('why renderers escape hostile labels in both projections', async () => {
   const {parse} = await import('../why/parse.js');
   const {project} = await import('../why/project.js');

@@ -1080,24 +1080,24 @@ for(const theme of ['light', 'dark']){
 /* ---- roadmap (smoke only; deep suite is check.mjs) ---- */
 {
   const {page, errors} = await freshPage('/roadmap/');
+  const openRoadmapSource = async () => {
+    if(await page.locator('#workspace').evaluate(el => el.classList.contains('collapsed'))){
+      await page.locator('#railtab').click();
+    }
+  };
   await page.getByRole('button', {name: 'Habit app roadmap'}).click();
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
-  /* The flagship is a plain now/next/later doc (no style: line). Guards the
-     2026-07-15 decision: the CHART stays the default working surface — making
-     Board its own live view must NOT change what a plain roadmap renders. The
-     chart carries data-cell drag cells and never data-hdrop (that's the live
-     board/register composition, opt-in via an explicit style:). */
-  check('roadmap: a plain doc (no style:) renders the CHART by default, not board-live',
+  /* A plain now/next/later document is explicitly represented as Grid in the
+     composition bar and in exports. The Grid carries data-cell drag cells and
+     never data-hdrop (Board/Register are explicit source choices). */
+  check('roadmap: a plain doc (no style:) renders Grid by default, not board-live',
     (await page.locator('#preview svg [data-cell]').count()) >= 1 &&
     (await page.locator('#preview svg [data-hdrop]').count()) === 0);
-  // the picker chip reflects the EXPORT style (effectiveStyle), so Board lights on
-  // a plain doc even though the preview is the chart — the deliberate seam.
-  check('roadmap: the Board chip lights on a plain doc (reflects the export style)',
-    await page.locator('#stylepicker [data-style="board"]').evaluate(el => el.classList.contains('on')));
-  // the headline journey (2026-07-15 fix): clicking the lit Board chip on a plain
-  // doc writes style:board and switches the preview from the chart to the live board.
+  check('roadmap: the Grid chip lights on a plain doc (same live and export choice)',
+    await page.locator('#stylepicker [data-style="grid"]').evaluate(el => el.classList.contains('on')));
+  // Choosing Board writes style:board and switches the preview to the live board.
   await page.locator('#stylepicker [data-style="board"]').click();
   await page.waitForTimeout(400);
   check('roadmap: clicking Board on a plain doc switches the preview to the live board',
@@ -1146,6 +1146,7 @@ for(const theme of ['light', 'dark']){
      stays the chart per the Board lesson). Items resolved BY TITLE throughout, the
      suite convention — a line number is a property of the example doc, not a
      stable identity. */
+  await openRoadmapSource();
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.insertText(
@@ -1176,17 +1177,17 @@ for(const theme of ['light', 'dark']){
     /Gamma task/.test(focSvg) && /LATER/.test(focSvg) &&
     !/data-cell/.test(focSvg) && !/data-hdrop/.test(focSvg) && !/data-edit=/.test(focSvg));
 
-  // back to Board (the state the S4 loop below expects as its starting chip)
-  await page.locator('#stylepicker [data-style="board"]').click();
+  // back to Grid (the state the composition loop below expects as its starting chip)
+  await page.locator('#stylepicker [data-style="grid"]').click();
   await page.waitForTimeout(400);
 
-  /* export-style picker (S4): 4 chips, enabled once there's a preview, Board
-     active by default (no style:, no time axis) */
+  /* composition bar: 4 chips, enabled once there's a preview, Grid active on
+     a plain document (no split live/export state). */
   check('roadmap: style picker has 4 chips', await page.locator('#stylepicker [data-style]').count() === 4);
   check('roadmap: style picker enabled once there is something to export',
     await page.locator('#stylepicker [data-style="board"]').isEnabled());
-  check('roadmap: Board is the default active chip',
-    await page.locator('#stylepicker [data-style="board"]').evaluate(el => el.classList.contains('on')));
+  check('roadmap: Grid is the default active chip',
+    await page.locator('#stylepicker [data-style="grid"]').evaluate(el => el.classList.contains('on')));
 
   for(const style of ['focus', 'register', 'grid', 'board']){
     await page.locator('#stylepicker [data-style="' + style + '"]').click();
@@ -1231,6 +1232,7 @@ for(const theme of ['light', 'dark']){
   /* the OTHER direction: edit the doc, the field follows (it is unfocused, so
      syncHeadline actually runs — filling the field and reading it straight back
      would assert nothing) */
+  await openRoadmapSource();
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.insertText('title: T\nheadline: Written in the editor\nNOW\nCore: A');
@@ -1255,14 +1257,15 @@ for(const theme of ['light', 'dark']){
   check('roadmap: with no headline the deck synthesises NOTHING in its place',
     !/carries|list, not a strategy|Nothing on the board/.test(deckSvg.without));
 
-  // clearing the doc leaves nothing to export — the picker follows setActionsEnabled,
-  // same as every other export button in .actions
+  // Clearing the doc disables exports but leaves the above-artifact composition
+  // choice available for the roadmap the person is about to start.
+  await openRoadmapSource();
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Backspace');
   await page.waitForTimeout(400);
-  check('roadmap: style picker disables when the doc has nothing to export',
-    await page.locator('#stylepicker [data-style="board"]').isDisabled());
+  check('roadmap: exports disable but the composition bar stays available on an empty doc',
+    await page.locator('#dlsvg').isDisabled() && await page.locator('#stylepicker [data-style="board"]').isEnabled());
 
   check('roadmap: no console errors', errors.length === 0);
   await page.close();

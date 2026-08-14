@@ -1,7 +1,7 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
-import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips} from '../assets/app-common.js';
+import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {renderDeck, effectiveStyle} from './render-deck.js';
+import {renderDeckPages} from './render-deck-pages.js';
 import {renderRegisterLive} from './render-register.js';
 import {renderBoardLive} from './render-board.js';
 import {renderFocusLive, focusHeroIndex} from './render-focus.js';
@@ -28,6 +28,9 @@ import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
 import {roadmapConditionalityHealth} from './handoff-paths.js';
 import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
+import {exportPages} from './export-pages.js';
+import {resolveBoardWindow, boardCapacityFor} from './board-window.js';
+import {layoutRoadmap} from './layout.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -96,26 +99,44 @@ API rate-limit tiers`},
 /* ---------- snapshots + diff (shared core in assets/snapshots.js) ---------- */
 let snaps = null;   // wired below, after the editor exists
 const flatHorizon = m => m.items.map(it => ({title: it.title, state: String(m.horizons[it.h] ?? '?')}));
+const duplicateTitles = m => {
+  const seen = new Set(), duplicates = new Set();
+  for(const item of m.items){
+    const key = diffItems.norm(item.title);
+    if(seen.has(key)) duplicates.add(key); else seen.add(key);
+  }
+  return duplicates;
+};
 function makeDiff(model){
   const cur = snaps && snaps.current();
   if(!cur) return null;
+  const ambiguous = new Set([...duplicateTitles(cur.model), ...duplicateTitles(model)]);
   const d = diffItems(flatHorizon(cur.model), flatHorizon(model),
     {key: e => e.title, state: e => e.state});
   const added = new Set(d.added.map(e => diffItems.norm(e.title)));
   const badge = it => {
     const k = diffItems.norm(it.title);
+    if(ambiguous.has(k)) return null;
     if(added.has(k)) return {kind: 'new', label: 'New'};
     const mv = d.moved.get(k);
     return mv ? {kind: 'moved', label: 'was ' + mv.from} : null;
   };
-  return {badge, dropped: d.dropped.map(e => e.title), since: cur.label, any: d.any};
+  return {badge, dropped: d.dropped.map(e => e.title), since: cur.label, any: d.any,
+    ambiguous: ambiguous.size ? [...ambiguous] : null};
 }
 
 /* ---------- refresh loop ---------- */
-let model = null, lastSvg = '', hashTimer = null, inboundHandoff = null;
+let model = null, lastSvg = '', hashTimer = null, inboundHandoff = null, boardWindowStart = null, gridStack = false, boardCapacityLast = null;
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
+function shouldGridStack(m){
+  if(!m || (m.style && m.style !== 'grid')) return false;
+  const width = previewEl.getBoundingClientRect().width;
+  if(width < 520) return false;   // the phone bucket already selects the same stack
+  const floor = layoutRoadmap(m, {kind:'native', measure, width}).bounds.minWidth * 0.70;
+  return width > 0 && width < floor;
+}
 /* ---------- what-if preview (A4) ---------- */
 /* Per-bet preview map, view-state only — never text, never hash (spec §3).
    {nameLc: 'won'|'lost'}; multiple entries compose through applyWorld's own
@@ -260,31 +281,30 @@ function renderWarnings(m){
   /* WIP breaches are a view-layer advisory, not parser truth. Never append
      them to `m.warnings`: the strict Paths starter reads the parsed model and
      must not become unavailable merely because this rendering has run. */
+  const comparison = makeDiff(model);
+  const ambiguity = comparison?.ambiguous?.length
+    ? ['Snapshot comparison has duplicate item titles; matching is title-based, so change badges and counts are intentionally withheld for those titles.']
+    : [];
   const warnings = breaches.length
-    ? [...m.warnings, ...breaches, '(Raise or silence with wip: N / wip: off.)']
-    : m.warnings;
+    ? [...m.warnings, ...ambiguity, ...breaches, '(Raise or silence with wip: N / wip: off.)']
+    : [...m.warnings, ...ambiguity];
   renderWarningList(warns, warnings);
 }
-/* export-style picker: active chip reflects the RESOLVED (export) style via
-   effectiveStyle — a quarterly doc with no style: line shows Grid active, not
-   none. DELIBERATE SEAM (2026-07-15, Matt's call): on a plain now/next/later doc
-   effectiveStyle resolves to 'board', so the Board chip lights even though the
-   live PREVIEW is the chart (live compositions render only on an EXPLICIT
-   model.style — see doRefresh). The chip is honest about what Copy PNG hands over;
-   clicking it writes style:board and opts the preview into the live board. */
+/* The composition bar is literal: the highlighted view is what the person is
+   reading and what every export uses. An unstyled document is the familiar Grid
+   working surface, so it resolves to Grid here too — no hidden Board export mode. */
+function selectedStyle(m){ return m.style || 'grid'; }
+function selectedModel(m){ return m.style ? m : {...m, style:'grid'}; }
 function syncStylePicker(m){
-  const active = effectiveStyle(m);
+  const active = selectedStyle(m);
   for(const b of $('stylepicker').querySelectorAll('[data-style]')){
     const on = b.dataset.style === active;
     b.classList.toggle('on', on);
     b.setAttribute('aria-pressed', String(on));   // a SR user hears which style will export
   }
 }
-/* S4 (E10): the By lane/By outcome control lives beside the style picker,
-   visible only when the register is the ACTIVE live view (effectiveStyle
-   covers the exports-only board/focus/grid resolution, but this control is
-   about the live table specifically, so it also checks model.style directly)
-   AND the viewport is wide enough that the register even renders — below the
+/* The Register grouping control lives beside the composition bar only while
+   Register is the active live view and the viewport is wide enough — below the
    520px narrow bucket the preview always falls back to the chart (the
    composition bar's own rule), so a grouping control for a view that isn't
    showing would be noise. */
@@ -309,9 +329,52 @@ function syncHeadline(m){
   const el = $('headline');
   if(document.activeElement !== el && el.value !== m.headline) el.value = m.headline;
 }
+function boardCapacity(m){
+  /* 220px is the Board’s compact but still full-card reading floor. Above it,
+     the live surface earns more horizons; below it, this becomes a window. */
+  return boardCapacityFor(previewEl.getBoundingClientRect().width, m.horizons.length);
+}
+function boardWindowFor(m){
+  const capacity = boardCapacity(m);
+  boardCapacityLast = capacity;
+  const window = resolveBoardWindow(m, boardWindowStart, capacity);
+  boardWindowStart = window.start;
+  return {...window, columnWidth: Math.max(220, Math.floor((Math.max(0, previewEl.getBoundingClientRect().width) - 48 - (window.indices.length - 1) * 24) / window.indices.length))};
+}
+function syncBoardWindow(m, narrow){
+  const host = $('boardwindow');
+  const show = m.style === 'board' && !narrow && boardCapacity(m) < m.horizons.length;
+  host.hidden = !show;
+  if(!show) return;
+  const window = boardWindowFor(m);
+  $('boardprev').disabled = !window.hasPrevious;
+  $('boardnext').disabled = !window.hasNext;
+  $('boardrange').textContent = m.horizons[window.start] + ' – ' + m.horizons[window.end - 1] +
+    ' · ' + (window.start + 1) + '–' + window.end + ' of ' + m.horizons.length;
+  const jump = $('boardjump');
+  const active = document.activeElement === jump;
+  if(!active){
+    jump.textContent = '';
+    m.horizons.forEach((h, i) => {
+      const option = document.createElement('option');
+      option.value = String(i); option.textContent = h;
+      option.selected = i === window.start;
+      jump.appendChild(option);
+    });
+  }
+}
+function setBoardWindowStart(start){
+  if(!model) return;
+  const window = resolveBoardWindow(model, start);
+  if(window.start === boardWindowStart) return;
+  boardWindowStart = window.start;
+  lastSvg = ''; paint.reset(); refresh();
+  clearTimeout(hashTimer); writeHash();
+}
 function writeHash(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
+  if(Number.isInteger(boardWindowStart)) state.b = boardWindowStart;
   if(shouldPersist()) writeHashState(targetHashState(state, inboundHandoff));
 }
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -330,6 +393,10 @@ function doRefresh(){
   renderWarnings(projected);
   syncStylePicker(model);
   syncGroupPicker(model);
+  const liveWidth = renderWidth();
+  const narrow = !!liveWidth && liveWidth < 520;
+  gridStack = shouldGridStack(model);
+  syncBoardWindow(model, narrow);
   syncHeadline(model);
   syncWhatIfChip(model);
   syncConditionalityHealth(model);
@@ -340,13 +407,9 @@ function doRefresh(){
       ? 'No items yet — add lines under a NOW / NEXT / LATER header.'
       : 'Start typing — or load an example.') + '</p>';
   } else {
-    const w = renderWidth();                       // number only <520, else undefined
-    const narrow = !!w && w < 520;
-    /* a live composition previews only when its style is EXPLICITLY set. A plain
-       now/next/later doc resolves to effectiveStyle 'board' for EXPORT, but its
-       live preview stays the chart — the classic working surface — and board-live
-       appears only when the author (or the picker) writes style:board. inBandView
-       below must stay in lockstep with these arms. */
+    const w = liveWidth;                           // number only <520, else undefined
+    /* An unstyled roadmap is Grid, both live and in every export. Other views are
+       explicit source choices made through the composition bar. */
     /* textBets: the TEXT-WORLD bets map (this `model`, unprojected — never
        `projected`'s) — threaded so every renderer's previewableBet() check
        reads the text's truth, not whatever world is currently previewed
@@ -355,12 +418,12 @@ function doRefresh(){
        role/aria-label on a coarse pointer promises a cycle CSS already blocks
        (style.css's pointer-events:none default) and VoiceOver would announce
        an unreachable button; the card menu's What-if… rows stay the coarse path. */
-    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer()};
+    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer(), boardWindow: model.style === 'board' && !narrow ? boardWindowFor(model) : null};
     const svg = narrow ? render(projected, {...liveCtx, width: w})
       : model.style === 'register' ? renderRegisterLive(projected, liveCtx)
       : model.style === 'board' ? renderBoardLive(projected, liveCtx)
       : model.style === 'focus' ? renderFocusLive(projected, liveCtx)
-      : render(projected, {...liveCtx, width: w});
+      : render(projected, {...liveCtx, width: gridStack ? Math.round(previewEl.getBoundingClientRect().width) : w, forceStack: gridStack});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
@@ -383,6 +446,7 @@ function doRefresh(){
   const vv = resolveVerdict(model.verdict, {line: vd ? vd.line : '', fig: vd ? vd.fig : ''});
   paintVerdict($('verdict'), vv.line, vv.fig);
   $('verdict').parentElement.dataset.raw = model.verdict == null ? '' : String(model.verdict);
+  syncDeckActions();
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('roadmap-src', text); }catch(e){}
   clearTimeout(hashTimer);
@@ -395,11 +459,15 @@ const editor = createEditor({
   doc: '',
   onChange: debounced(refresh, 120),
 });
-mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
+mountTouchUndo($('zoomctl').closest('.actions'), editor);   // phones have no ⌘Z (Rule 2)
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
-  preview: $('preview'), zoomHost: $('zoomctl'),
-  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+  preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true,
+  onCollapseChange(_collapsed, {auto = false} = {}){
+    /* Auto-fold is a reading safeguard, not a preference the URL should impose
+       on a collaborator opening the same roadmap. Manual rail choices persist. */
+    if(!auto){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }
+  },
 });
 
 /* Fresh-document handoff: encode the starter with the target tool's ordinary
@@ -684,11 +752,25 @@ function plainStyleSvg(){
   if(model.style === 'focus') return renderFocusLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
   return render(model, base);                                                                        // plain / grid → the chart
 }
-/* Copy PNG goes to the deck (render-deck.js) — a designed 16:9 export, not the
-   raw chart scaled up. dlsvg/dlpng stay the plain style artefact. */
-function deckSvgString(){
+/* A compact source stays a single, style-faithful 16:9 slide. A genuinely dense
+   roadmap has an explicit full-deck path; it does not add a persistent preview
+   button or quietly hand over a partial artefact. */
+function deckSet(){
   if(!model || !model.items.length) return null;
-  return renderDeck(model, {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
+  return renderDeckPages(selectedModel(model), {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
+}
+function deckSvgString(){ return deckSet()?.pages[0] || null; }
+function deckPageCount(){
+  if(!model || !model.items.length) return 0;
+  const dropped = makeDiff(model)?.dropped?.length || 0;
+  return exportPages(selectedModel(model)).pages.length + Math.ceil(dropped / 6);
+}
+function syncDeckActions(){
+  const pages = deckPageCount();
+  const comparison = makeDiff(model);
+  $('copypng').hidden = pages !== 1;
+  $('fullslideexport').hidden = pages <= 1;
+  $('changepreview').hidden = !comparison?.any;
 }
 function slug(){
   return slugify(model.title, 'roadmap');
@@ -699,6 +781,83 @@ wireExports({
   getCopy: () => deckSvgString(),      // Copy PNG hands over the deck-shaped render
   slug,
 });
+
+/* ---------- multi-page 16:9 export ---------- */
+let slidePageIndex = 0, slidePreviewChange = false;
+function renderSlidePage(index){
+  const set = deckSet();
+  if(!set || !set.pages.length) return;
+  slidePageIndex = Math.max(0, Math.min(index, set.pages.length - 1));
+  $('slidecanvas').innerHTML = set.pages[slidePageIndex];
+  $('slideposition').textContent = 'Slide ' + (slidePageIndex + 1) + ' of ' + set.pages.length;
+  $('slideprev').disabled = slidePageIndex === 0;
+  $('slidenext').disabled = slidePageIndex === set.pages.length - 1;
+  $('slidedownload').textContent = set.pages.length === 1
+    ? (slidePreviewChange ? 'Copy comparison PNG' : 'Copy PNG')
+    : 'Download ' + set.pages.length + ' PNGs';
+}
+function openSlidePreview(change = false){
+  if(!change && deckPageCount() <= 1) return;
+  slidePreviewChange = change;
+  $('slidepreviewtitle').textContent = change ? 'Change deck preview' : 'Roadmap slide set';
+  $('slidecopy').textContent = change
+    ? 'This is the exact comparison slide set: current work, change markers, dropped work, and the authored story.'
+    : 'Every horizon and item is included.';
+  renderSlidePage(0);
+  const dialog = $('slidepreviewdialog');
+  if(!dialog.open) dialog.showModal();
+}
+function pngFromSvg(svg){
+  return new Promise((resolve, reject) => {
+    const plan = pngRasterPlan(svg);
+    if(!plan.ok){ reject(new Error(plan.detail)); return; }
+    svgToCanvas(svg, canvas => {
+      try { canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG encoding returned no data.')), 'image/png'); }
+      catch(error){ reject(error); }
+    }, error => reject(new Error(error.detail)));
+  });
+}
+async function downloadSlideSet(){
+  const set = deckSet();
+  if(!set) return;
+  const button = $('slidedownload');
+  if(set.pages.length === 1){
+    const original = button.textContent;
+    if(!navigator.clipboard || !window.ClipboardItem){ button.textContent = 'Clipboard unavailable — use Download'; return; }
+    const plan = pngRasterPlan(set.pages[0]);
+    if(!plan.ok){ button.textContent = 'PNG could not be created'; return; }
+    const png = pngFromSvg(set.pages[0]);
+    try{
+      navigator.clipboard.write([new ClipboardItem({'image/png': png})])
+        .then(() => { button.textContent = 'Copied — paste into your deck'; })
+        .catch(() => { button.textContent = 'Copy blocked — use Download'; })
+        .finally(() => setTimeout(() => { button.textContent = original; }, 1800));
+    }catch(_){
+      button.textContent = 'Copy blocked — use Download';
+      setTimeout(() => { button.textContent = original; }, 1800);
+    }
+    return;
+  }
+  const original = button.textContent;
+  button.disabled = true;
+  try{
+    for(let i = 0; i < set.pages.length; i++){
+      button.textContent = 'Preparing ' + (i + 1) + ' of ' + set.pages.length;
+      download(slug() + '-slide-' + String(i + 1).padStart(2, '0') + '.png', await pngFromSvg(set.pages[i]));
+    }
+    button.textContent = 'Downloaded ' + set.pages.length + ' PNGs';
+  }catch(_){
+    button.textContent = 'Could not prepare slides';
+  }finally{
+    setTimeout(() => { button.textContent = original; button.disabled = false; }, 1800);
+  }
+}
+$('fullslideexport').addEventListener('click', () => openSlidePreview());
+$('changepreview').addEventListener('click', () => openSlidePreview(true));
+$('slideclose').addEventListener('click', () => $('slidepreviewdialog').close());
+$('slideprev').addEventListener('click', () => renderSlidePage(slidePageIndex - 1));
+$('slidenext').addEventListener('click', () => renderSlidePage(slidePageIndex + 1));
+$('slidedownload').addEventListener('click', downloadSlideSet);
 /* clicking a chip COMMITS style: as a text edit (one transaction, one undo
    step, URL-coherent) — the doc stays the only source of truth, the normal
    refresh loop re-syncs the active chip */
@@ -710,6 +869,9 @@ $('stylepicker').addEventListener('click', e => {
   // still fires and coalesces (same doc ⇒ memoised render, no flash).
   if(b){ editor.setText(setStyle(editor.getText(), b.dataset.style)); refresh(); }
 });
+$('boardprev').addEventListener('click', () => setBoardWindowStart(boardWindowStart - 1));
+$('boardnext').addEventListener('click', () => setBoardWindowStart(boardWindowStart + 1));
+$('boardjump').addEventListener('change', e => setBoardWindowStart(Number(e.target.value)));
 /* By lane / By outcome — same one-transaction pattern as the style picker.
    setGroup already clears the line for the default ('lane'), so choosing it
    never writes a noise `group: lane` line into the doc. */
@@ -1102,6 +1264,11 @@ onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
 watchNarrowBucket(previewEl, rerender);
+new ResizeObserver(() => {
+  const next = shouldGridStack(model);
+  const capacityChanged = model?.style === 'board' && boardCapacity(model) !== boardCapacityLast;
+  if(next !== gridStack || capacityChanged){ gridStack = next; rerender(); }
+}).observe(previewEl);
 
 /* ---------- boot: hash > localStorage > empty ---------- */
 (async function(){
@@ -1116,6 +1283,7 @@ watchNarrowBucket(previewEl, rerender);
       $('handoffstrip').hidden = false;
     }
     if(state.e === 0) ws.setCollapsed(true);
+    if(Number.isInteger(state.b)) boardWindowStart = state.b;
   } else if(location.hash && location.hash.length > 1){
     /* legacy links: hash is the raw base64 source text */
     try{ text = decodeURIComponent(escape(atob(location.hash.slice(1)))); }catch(e){}

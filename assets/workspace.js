@@ -43,9 +43,10 @@ export function fitReadabilityDecision({naturalWidth,fitWidth,declaredMinScale})
   return {guard:Number.isFinite(scale)&&scale<minScale,scale,minScale};
 }
 
-export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange}){
+export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange, autoFold = false}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
   let focusArtefact = false;
+  let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
   const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
 
   function svgEl(){ return preview.querySelector('svg'); }
@@ -88,6 +89,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     return Math.round(aspect * foldHeight());
   }
   let fitAdvice = null;
+  function editorFocused(){
+    const el = document.activeElement;
+    return !!(el && el.closest && el.closest('.cm-editor'));
+  }
   function advisory(){
     if(fitAdvice) return fitAdvice;
     const el=document.createElement('div');
@@ -96,7 +101,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     el.setAttribute('role','status');
     el.setAttribute('aria-live','polite');
     const copy=document.createElement('span');
-    copy.textContent='Fit would make this artefact hard to read. It stays at full size and can pan.';
+    copy.textContent='Fit would make this artefact hard to read. Finish the source edit to give the artefact room.';
     const action=document.createElement('button');
     action.type='button';
     action.textContent='Focus artefact';
@@ -127,6 +132,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       const declared=svg.getAttribute('data-min-readable-scale');
       const decision=fitReadabilityDecision({naturalWidth:naturalWidth(svg),fitWidth,declaredMinScale:declared});
       const guard=!matchMedia('(pointer: coarse)').matches&&decision.guard;
+      if(autoFold && guard && !workspace.classList.contains('collapsed') && !focusArtefact && !editorFocused() && manualRail !== false){
+        setCollapsed(true, {auto:true});
+        return;
+      }
       if(guard){w=Math.round(naturalWidth(svg))+'px';mw='none';mi='';}
       else {w='100%';mw=cap?cap+'px':'';mi=cap?'auto':'';}
       showAdvisory(guard&&!focusArtefact&&!workspace.classList.contains('collapsed'));
@@ -186,7 +195,8 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   new MutationObserver(applyZoom).observe(preview, {childList: true});
 
   /* collapse */
-  function setCollapsed(c){
+  function setCollapsed(c, {auto = false} = {}){
+    if(!auto) manualRail = c;
     focusArtefact=false;
     workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
@@ -194,7 +204,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     tab.title = (c ? 'Show' : 'Hide') + ' the editor  [';
     tab.setAttribute('aria-expanded', String(!c));
     applyZoom();                                    // collapsing releases the fold cap (see applyZoom)
-    if(onCollapseChange) onCollapseChange(c);
+    if(onCollapseChange) onCollapseChange(c, {auto});
   }
   function toggleCollapsed(){
     if(focusArtefact){
@@ -216,7 +226,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       toggleCollapsed();
     }
   });
-  setCollapsed(false);
+  setCollapsed(false, {auto:true});
 
   return {
     collapsed: () => workspace.classList.contains('collapsed'),

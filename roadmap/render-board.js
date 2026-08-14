@@ -3,7 +3,7 @@
    export (byte-identical to what shipped) and the LIVE editable view (Task 3).
    Named render-*.js so renderer-coverage forces the live renderer into the
    injection corpus. */
-import {txt, esc, btnAttrs, wash} from '../assets/svg.js';
+import {txt, esc, btnAttrs, wash, wrapText} from '../assets/svg.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, basisBand, basisDesc, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
@@ -310,8 +310,10 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model, hasBets
   const fT = '700 18px ' + SANS, fN = '14px ' + SANS;
   const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
   const tag = hasBets ? cardTag(model, it) : null;
-  const tl = wrapN(it.title, fT, cw - RPAD * 2, 2, measure);
-  const nl = it.note ? wrapN(it.note, fN, cw - RPAD * 2, 2, measure) : [];
+  /* Live cards are an authoring surface, not a fixed slide: full source text
+     wraps and increases the card height rather than becoming an ellipsis. */
+  const tl = wrapText(it.title, fT, cw - RPAD * 2, measure);
+  const nl = it.note ? wrapText(it.note, fN, cw - RPAD * 2, measure) : [];
   const footH = it.lane || it.status || edit ? 26 : 8;
   // reserve the note row's height: a real note, OR (edit only) the "+ note" ghost
   // row emitted below — without this the ghost collides with the lane/status foot.
@@ -385,9 +387,11 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model, hasBets
 export function renderBoardLive(model, ctx){
   const C = paletteColors(model, ctx);
   const {measure, diff = null, edit = false, textBets, coarse} = ctx;
-  const {M, COLW, GAP, RPAD, HEADH} = BOARD_LIVE;
+  const {M, COLW: baseColW, GAP, RPAD, HEADH} = BOARD_LIVE;
+  const COLW = ctx.boardColumnWidth || baseColW;
   const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;
-  const hs = model.horizons, nH = hs.length;
+  const visibleIndices = ctx.boardWindow?.indices || model.horizons.map((_, h) => h);
+  const hs = visibleIndices.map(h => model.horizons[h]), nH = hs.length;
   const W = M * 2 + nH * COLW + (nH - 1) * GAP;
   const laneRank = new Map(model.lanes.map((l, i) => [l, i]));
   const byLane = arr => [...arr].sort((a, b) => (laneRank.get(a.lane) - laneRank.get(b.lane)) || (a.srcLine - b.srcLine));
@@ -413,11 +417,12 @@ export function renderBoardLive(model, ctx){
 
   let maxBottom = colTop;
   for(let h = 0; h < nH; h++){
+    const sourceH = visibleIndices[h];
     const x = M + h * (COLW + GAP);
     s.push(rect(x, y, COLW, HEADH - 8, h === 0 ? C.accent + '0D' : 'none', {rx: 10}));
     s.push(txt(x + RPAD, y + 24, hs[h].toUpperCase(), 14, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.4}));
-    const list = byLane(model.items.filter(i => i.h === h));
-    const activeH = activeCount(model, h);
+    const list = byLane(model.items.filter(i => i.h === sourceH));
+    const activeH = activeCount(model, sourceH);
     const baseLbl = condCountLabel(activeH, condCount(model, h));
     const cntLbl = h === 0 && overWip ? baseLbl + ' · OVER WIP' : baseLbl;
     s.push(txt(x + COLW - RPAD, y + 24, cntLbl, 12, h === 0 && overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
@@ -464,7 +469,7 @@ export function renderBoardLive(model, ctx){
       cy += 26;
     }
     // band UNDER the cards (A2): emitted before groupSvg in the top-level parts
-    if(edit) s.push('<rect data-hdrop="' + h + '" x="' + x + '" y="' + colTop + '" width="' + COLW +
+    if(edit) s.push('<rect data-hdrop="' + sourceH + '" x="' + x + '" y="' + colTop + '" width="' + COLW +
       '" height="' + Math.max(28, cy - colTop) + '" fill="transparent"/>');
     s.push(groupSvg.join(''));
     maxBottom = Math.max(maxBottom, cy);

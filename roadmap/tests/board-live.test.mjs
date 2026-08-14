@@ -61,3 +61,13 @@ test('height is content-driven (no fixed 1080) and width grows with horizon coun
   const h = +renderBoardLive(parse('NOW\nA'), {...ctx, edit: true}).match(/height="(\d+)"/)[1];
   assert.ok(h > 0 && h !== 1080, 'content height, not the slide 1080');
 });
+
+test('long live Board cards retain every title and note word by growing', () => {
+  const long = 'A deliberately long Board title that must retain its final source words rather than quietly becoming an ellipsis';
+  const note = 'The supporting note also stays complete through its final verification detail.';
+  const shortH = +renderBoardLive(parse('style: board\nNOW\nCore: Short'), {...ctx, edit:true}).match(/height="(\d+)"/)[1];
+  const svg = renderBoardLive(parse('style: board\nNOW\nCore: ' + long + ' -- ' + note), {...ctx, edit:true});
+  assert.ok(+svg.match(/height="(\d+)"/)[1] > shortH);
+  for(const word of ['final', 'words', 'verification', 'detail']) assert.match(svg, new RegExp(word));
+  assert.doesNotMatch(svg, /…/);
+});

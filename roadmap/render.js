@@ -397,7 +397,10 @@ export function render(model, ctx){
   const C = paletteHex ? {...ctx.colors, ...scheme(paletteHex, dark)} : ctx.colors;
   const T = TOKENS;
   const NARROW = 520;
-  const isNarrow = !!(ctx.width && ctx.width < NARROW);
+  /* `forceStack` is the desktop reading-floor fallback: it reuses the honest,
+     source-ordered Grid stack rather than shrinking a wide artefact or asking
+     people to pan. It is a composition choice, never an export projection. */
+  const isNarrow = !!(ctx.width && (ctx.width < NARROW || ctx.forceStack));
   if(isNarrow) return renderNarrow(model, ctx, C, T);
   const nH = model.horizons.length;
   const S = slide ? T.slideScale : 1;

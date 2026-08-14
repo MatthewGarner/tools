@@ -300,8 +300,10 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model, hasB
   const titleFont = '700 15px ' + SANS, secFont = '13px ' + SANS, noteFont = '13px ' + SANS;
   const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
   const tag = hasBets ? cardTag(model, it) : null;
-  const tl = wrapN(it.title, titleFont, itemCol.w - RPAD * 2, 2, measure);
-  const nl = noteCol && it.note ? wrapN(it.note, noteFont, noteCol.w - RPAD * 2, 2, measure) : [];
+  /* The live register is a review surface: its rows grow for the whole source
+     title and note instead of silently imposing the deck's two-line limit. */
+  const tl = wrapText(it.title, titleFont, itemCol.w - RPAD * 2, measure);
+  const nl = noteCol && it.note ? wrapText(it.note, noteFont, noteCol.w - RPAD * 2, measure) : [];
   const itemH = tl.length * 19 + (tag ? 22 : 0);
   const rowH = RPAD * 2 + Math.max(itemH, 17, nl.length * 17, it.status ? 22 : 0);
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();

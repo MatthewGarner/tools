@@ -115,6 +115,27 @@
         <div class="handoff-actions"><a class="btn" id="handoffreturn" href="/paths/">Return to Paths</a></div>
       </div>
       <div class="metrics" id="metrics" hidden></div>
+      <div class="composition-bar" aria-label="Roadmap composition">
+        <span class="composition-label" id="stylelbl">View</span>
+        <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">
+          <button data-style="grid" aria-pressed="false">Grid</button>
+          <button data-style="board" aria-pressed="false">Board</button>
+          <button data-style="focus" aria-pressed="false">Focus</button>
+          <button data-style="register" aria-pressed="false">Register</button>
+        </div>
+        <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>
+          <button data-group="lane" aria-pressed="true">By lane</button>
+          <button data-group="outcome" aria-pressed="false">By outcome</button>
+        </div>
+      </div>
+      <div class="actions board-window" id="boardwindow" hidden aria-label="Board horizon window">
+        <span class="method" id="boardwindowlabel">Board horizons</span>
+        <button class="btn" id="boardprev" type="button">Previous</button>
+        <span class="method" id="boardrange" role="status" aria-live="polite"></span>
+        <button class="btn" id="boardnext" type="button">Next</button>
+        <label class="method" for="boardjump">Jump to</label>
+        <select class="ctl" id="boardjump" aria-label="Jump Board window to horizon"></select>
+      </div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
@@ -127,19 +148,6 @@
         </div>
         <button class="btn" id="pathsstarter" data-handoff-contract="roadmap-to-paths-starter" type="button" hidden>Turn conditional work into a decision-plan starter</button>
       </aside>
-      <div class="actions">
-        <span class="method" id="stylelbl">View and export style:</span>
-        <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">
-          <button data-style="board" aria-pressed="false">Board</button>
-          <button data-style="focus" aria-pressed="false">Focus</button>
-          <button data-style="register" aria-pressed="false">Register</button>
-          <button data-style="grid" aria-pressed="false">Grid</button>
-        </div>
-        <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>
-          <button data-group="lane" aria-pressed="true">By lane</button>
-          <button data-group="outcome" aria-pressed="false">By outcome</button>
-        </div>
-      </div>
       <div class="actions">
         <label class="method" for="headline" id="hdllbl">Headline:</label>
         <input class="ctl hdl" id="headline" type="text" autocomplete="off" spellcheck="true"
@@ -155,6 +163,7 @@
             <button class="btn" id="copymd">Copy as markdown</button>
             <button class="btn" id="dlpng">PNG</button>
             <button class="btn" id="dlsvg">SVG</button>
+            <button class="btn" id="fullslideexport" type="button" hidden>Full 16:9 slide set…</button>
           </div>
         </details>
         <details class="action-disclosure history">
@@ -162,10 +171,10 @@
           <div class="action-menu">
             <button class="btn" id="snap">Snapshot</button>
             <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+            <button class="btn" id="changepreview" type="button" hidden>Review change deck…</button>
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>
-        <span class="method">The style picker sets both the view and what every export gives you · Copy PNG hands over the 16:9 deck; PNG/SVG give the style at its own size · on phones you edit on the stack, but exports still give your chosen style · snapshot before each planning cycle to get the "what changed" slide</span>
       </div>
     </section>
 </div>
@@ -184,6 +193,24 @@
   </section>
 </div>
 </main>
+
+<dialog class="slide-set" id="slidepreviewdialog" aria-modal="true" aria-labelledby="slidepreviewtitle">
+  <div class="slide-set-head">
+    <div>
+      <p class="slide-set-kicker">16:9 export</p>
+      <h2 id="slidepreviewtitle">Roadmap slide set</h2>
+    </div>
+    <button class="btn" id="slideclose" type="button">Close</button>
+  </div>
+  <p class="slide-set-copy" id="slidecopy">Every horizon and item is included.</p>
+  <div class="slide-set-art" id="slidecanvas" aria-live="polite" aria-atomic="true"></div>
+  <div class="slide-set-actions">
+    <button class="btn" id="slideprev" type="button">Previous</button>
+    <span class="method" id="slideposition" aria-live="polite"></span>
+    <button class="btn" id="slidenext" type="button">Next</button>
+    <button class="btn primary" id="slidedownload" type="button">Download slide set</button>
+  </div>
+</dialog>
 
 <div class="wrap">
   <footer>

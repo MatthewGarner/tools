@@ -257,8 +257,12 @@ const PAGES = {
      Focus treatment are first-load Roadmap semantics. Why also pays the shared
      renderer/parser through its Roadmap delegation, but remains under its own
      budget. Actual 758.4k; this restores ~6.6k headroom rather than masking a
-     known shipped feature behind a permanently red gate. */
-  'roadmap/index.html': 765_000,
+     known shipped feature behind a permanently red gate.
+     765k -> 800k (2026-08-14 view-system): the exhaustive deck page planner,
+     dense-Board navigation and accessible slide-set preflight stay eager so
+     exports, URL-local view state and offline use share one factual model.
+     Actual 788.0k; 12k headroom covers the complete artefact contract. */
+  'roadmap/index.html': 800_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -357,7 +361,7 @@ const PAGES = {
      with the complete/explicitly-partial fixed-canvas comparison. Copy PNG must
      resolve during its originating click, so this is honest first-load code, not
      a payload that can be deferred. Actual 547.1k; preserve ~5.9k headroom. */
-  'tree/index.html': 553_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom */
+  'tree/index.html': 554_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */

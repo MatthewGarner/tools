@@ -2,7 +2,7 @@
    the rest as a ranked rail. TWO paint passes over the shared model — the DECK
    export (byte-identical) and the LIVE editable view (Task 4). Named render-*.js
    so renderer-coverage forces the live renderer into the injection corpus. */
-import {txt, esc, btnAttrs} from '../assets/svg.js';
+import {txt, esc, btnAttrs, wrapText} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine,
   basisBand, basisDesc} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
@@ -299,8 +299,8 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
   const fT = '700 26px ' + SANS, fN = '16px ' + SANS;
   const b = it.worldState === 'dropped' ? null : badgeOf(it);   // diff badges suppressed on dropped items
   const tag = hasBets ? cardTag(model, it) : null;
-  const tl = wrapN(it.title, fT, w - RPAD * 2, 2, measure);
-  const nl = it.note ? wrapN(it.note, fN, w - RPAD * 2, 2, measure) : [];
+  const tl = wrapText(it.title, fT, w - RPAD * 2, measure);
+  const nl = it.note ? wrapText(it.note, fN, w - RPAD * 2, measure) : [];
   const footH = it.lane || it.status || edit ? 30 : 10;
   // reserve the note row's height: a real note, OR (edit only) the "+ note"
   // ghost row emitted below — mirrors paintBoardCard's noteH reservation so
@@ -390,17 +390,19 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
    value, not the ellipsis. */
 function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit, tag}){
   const condition = tag ? railTagSuffix(tag) : '';
-  const ROWH = condition ? 56 : 36;
   const numeral = String(rank).padStart(2, '0');
   const laneLbl = it.lane ? it.lane.toUpperCase() : '';
   const laneFont = '700 10px ' + SANS;
   const laneW = laneLbl ? measure(laneLbl, laneFont) + laneLbl.length * 0.6 : 0;
   const titleFont = '15px ' + SANS;
   const titleMaxW = Math.max(20, w - 34 - (laneW ? laneW + 14 : 0));
+  const titleLines = wrapText(it.title, titleFont, titleMaxW, measure);
+  const conditionLines = condition ? wrapText(condition, '13px ' + SANS, w - 34, measure) : [];
+  const ROWH = Math.max(36, titleLines.length * 19 + (conditionLines.length ? conditionLines.length * 17 + 4 : 0));
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
   // The rail remains a clean index, but uncertainty is not allowed to vanish
-  // behind the card menu: it gets a quiet, dedicated second line. The title
-  // may clip; the condition is measured independently and remains visible.
+  // behind the card menu: it gets a quiet, dedicated second line. Both grow
+  // with their source text; a live factual rail must not trade meaning for fit.
   const op = stateOpacity(it, 1);   // 1 for a plain row — attribute omitted, byte-identical
   const g = [];
   g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
@@ -408,12 +410,11 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit, tag}){
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
   if(edit) g.push('<rect data-hit="" x="' + x + '" y="' + y + '" width="' + w + '" height="' + ROWH + '" fill="transparent"/>');
   g.push(txt(x, y + 24, numeral, 15, C.muted, {weight: 700}));
-  const display = clip1(it.title, titleFont, titleMaxW, measure);
-  g.push('<text' + (edit ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' +
+  titleLines.forEach((lineText, i) => g.push('<text' + (edit && i === 0 ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' +
     btnAttrs('Rename: ' + it.title) : '') +
-    ' x="' + (x + 34) + '" y="' + (y + 24) + '" font-size="15" fill="' + C.ink + '">' + esc(display) + '</text>');
-  if(condition) g.push(txt(x + 34, y + 44, clip1(condition, '13px ' + SANS, w - 34, measure),
-    13, C.muted, {weight:600}));
+    ' x="' + (x + 34) + '" y="' + (y + 24 + i * 19) + '" font-size="15" fill="' + C.ink + '">' + esc(lineText) + '</text>'));
+  conditionLines.forEach((lineText, i) => g.push(txt(x + 34, y + titleLines.length * 19 + 22 + i * 17, lineText,
+    13, C.muted, {weight:600})));
   if(laneLbl) g.push(txt(x + w, y + 22, laneLbl, 10, C.muted, {anchor: 'end', weight: 700, tracking: 1}));
   g.push('</g>');
   return {svg: g.join(''), h: ROWH};

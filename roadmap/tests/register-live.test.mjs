@@ -84,3 +84,11 @@ test('a hostile title is escaped in every place it appears', () => {
   assert.doesNotMatch(svg, /<script>/);
   assert.doesNotMatch(svg, /<b>n<\/b>/);
 });
+
+test('long live Register titles and notes grow their review row without elision', () => {
+  const title = 'A deliberately long Register title which retains the final accountability words rather than clipping them';
+  const note = 'A supporting review note that remains complete through its final verification detail.';
+  const svg = live('style: register\nNOW\nCore: ' + title + ' -- ' + note);
+  for(const word of ['final', 'accountability', 'verification', 'detail']) assert.match(svg, new RegExp(word));
+  assert.doesNotMatch(svg, /…/);
+});

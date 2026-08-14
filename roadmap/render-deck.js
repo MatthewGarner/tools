@@ -8,15 +8,16 @@
    author's `headline:` standfirst, if they wrote one → body band → footer rule
    + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
    via scheme()), never the style — a style owns STRUCTURE. */
-import {txt} from '../assets/svg.js';
+import {txt, wrapText} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
 import {rect, line, serifGroup, clip1, wrapN, capsule, statusCapsule,
-  SANS, SERIF, r2, capFit, storyLine, basisBand, basisDesc} from './deck-parts.js';
+  SANS, SERIF, r2, capFit, basisBand, basisDesc} from './deck-parts.js';
 import {renderRegisterDeck} from './render-register.js';
 import {renderBoardDeck} from './render-board.js';
 import {renderFocusDeck} from './render-focus.js';
 import {layoutRoadmap} from './layout.js';
+import {roadmapVerdict} from './parse.js';
 export {registerColumns, capFit} from './deck-parts.js';
 export {renderRegisterBody} from './render-register.js';
 export {renderBoardBody, boardGeometry, typeRamp} from './render-board.js';
@@ -50,47 +51,71 @@ export function deckMetrics(model){
    No headline is not a defect: the standfirst is dropped and the body takes the
    band back, so the deck reads as a titled board rather than one with a hole. */
 export function deckFrame(model, ctx, C, bodyFn){
+  const sourceModel = ctx.sourceModel || model;
+  const page = ctx.exportPage || null;
   const {measure} = ctx;
   const s = [];
   s.push(rect(0, 0, W, H, C.bg));
   s.push(rect(M, 64, 56, 5, C.accent, {rx: 2.5}));
-  s.push(serifGroup(txt(M, 124, model.title || 'Roadmap', 38, C.ink, {weight: 700})));
-  const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || ctx.today || '');
-  if(dateLabel) s.push(txt(W - M, 124, dateLabel, 17, C.muted, {anchor: 'end'}));
+  /* The frame is a source artefact: a long title or headline must gain height,
+     not become an ellipsis in the very export that claims to be complete. */
+  const titleLines = wrapText(sourceModel.title || 'Roadmap', '700 38px ' + SERIF, INNER - 390, measure);
+  titleLines.forEach((entry, i) => s.push(serifGroup(txt(M, 124 + i * 42, entry, 38, C.ink, {weight: 700}))));
+  const dateLabel = sourceModel.dateStr === 'off' ? '' : (sourceModel.dateStr || ctx.today || '');
+  if(dateLabel) s.push(txt(W - M, 124, String(dateLabel), 17, C.muted, {anchor: 'end'}));
 
-  const headline = (model.headline || '').trim();
-  let bodyTop = 176;
-  let storyY = 150;
-  const basis = basisBand(model, M, 146, INNER, measure, C);
+  const headline = (sourceModel.headline || '').trim();
+  const frameTop = 146 + Math.max(0, titleLines.length - 1) * 42;
+  let bodyTop = frameTop + 30;
+  const basis = basisBand(sourceModel, M, frameTop, INNER, measure, C);
   if(basis.height){
     s.push(basis.svg);
-    const afterBasis = 146 + basis.height;
+    const afterBasis = frameTop + basis.height;
     bodyTop = afterBasis + 14;
-    storyY = afterBasis;
     if(headline){
-      const vLines = wrapN(headline, '600 22px ' + SERIF, INNER, 2, measure);
+      const vLines = wrapText(headline, '600 22px ' + SERIF, INNER, measure);
       s.push(serifGroup(vLines.map((ln, i) => txt(M, afterBasis + 22 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
       bodyTop = afterBasis + 66 + (vLines.length - 1) * 30;
-      storyY = afterBasis + 34 + (vLines.length - 1) * 30;
     }
   } else if(headline){
-    const vLines = wrapN(headline, '600 22px ' + SERIF, INNER, 2, measure);
-    s.push(serifGroup(vLines.map((ln, i) => txt(M, 170 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
-    bodyTop = 214 + (vLines.length - 1) * 30;
-    storyY = 182 + (vLines.length - 1) * 30;
+    const vLines = wrapText(headline, '600 22px ' + SERIF, INNER, measure);
+    s.push(serifGroup(vLines.map((ln, i) => txt(M, frameTop + 24 + i * 30, ln, 22, C.ink, {weight: 600})).join('')));
+    bodyTop = frameTop + 68 + (vLines.length - 1) * 30;
   }
-  /* the diff narrative rides the FRAME, so every deck style carries it — the
-     export that shows the change must carry the author's line about the change */
-  const st = storyLine(model, ctx.diff || null, M, storyY, INNER, measure, C);
-  if(st.svg){ s.push(st.svg); bodyTop = storyY + st.height + 14; }
+  /* Baseline and story belong to every comparison page. They are separate:
+     an author may quite reasonably have no story, but that must never erase
+     the identity of the baseline from the exported change artefact. */
+  if(ctx.diff?.any){
+    const baseline = wrapText('BASELINE · ' + (ctx.diff.since || 'Selected snapshot'), '700 11px ' + SANS, INNER, measure);
+    baseline.forEach((entry, i) => s.push(txt(M, bodyTop + 11 + i * 15, entry, 11, C.muted, {weight:700, tracking:1.05})));
+    bodyTop += baseline.length * 15 + 6;
+    const story = String(sourceModel.story || '').trim();
+    if(story){
+      const storyLines = wrapText(story, '13px ' + SERIF, INNER, measure);
+      s.push(serifGroup(storyLines.map((entry, i) => txt(M, bodyTop + 13 + i * 18, entry, 13, C.ink)).join('')));
+      bodyTop += storyLines.length * 18 + 8;
+    }
+  }
 
-  s.push(bodyFn(bodyTop, 968));
-  if(ctx.roadmapLayout && ctx.roadmapLayout.selection){
+  /* Verdict is an authored/model fact, not a decorative live-only readout.
+     It gets as many lines as it needs; the body gives space back rather than
+     clipping it or quietly dropping the claim from an exported artefact. */
+  const verdict = roadmapVerdict(sourceModel);
+  const verdictLines = verdict?.line ? wrapText(verdict.line, '600 14px ' + SANS, INNER - 300, measure) : [];
+  const verdictTop = 988 - verdictLines.length * 18;
+  s.push(bodyFn(bodyTop, verdictLines.length ? verdictTop - 18 : 968));
+  if(verdictLines.length){
+    verdictLines.forEach((entry, i) => s.push(txt(M, verdictTop + 14 + i * 18, entry, 14, C.ink, {weight: 600})));
+  }
+  if(page){
+    s.push(txt(W - M, 990, 'PAGE ' + (page.index + 1) + ' OF ' + page.total, 13, C.muted,
+      {anchor: 'end', weight: 700, tracking: 1.1}));
+  } else if(ctx.roadmapLayout && ctx.roadmapLayout.selection){
     s.push(txt(W - M, 990, ctx.roadmapLayout.selection.line, 13, C.muted,
       {anchor: 'end', weight: 700, tracking: 1.1}));
   }
   s.push(line(M, 1002, W - M, 1002, C.border));
-  s.push(txt(M, 1036, deckMetrics(model), 17, C.muted, {weight: 600}));
+  s.push(txt(M, 1036, deckMetrics(sourceModel), 17, C.muted, {weight: 600}));
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' + basisDesc(model) + s.join('') + '</svg>';
 }
@@ -160,10 +185,21 @@ const STYLE_RENDERERS = {
   board: renderBoardDeck, register: renderRegisterDeck, focus: renderFocusDeck, grid: renderGridDeck,
 };
 
-export function renderDeck(model, ctx = {}){
-  const roadmapLayout = layoutRoadmap(model, {kind: 'presentation', measure: ctx.measure, width: W});
+function renderStyledDeck(model, ctx, kind){
+  const roadmapLayout = layoutRoadmap(model, {kind, measure: ctx.measure, width: W});
   const selectedModel = roadmapLayout.model;
   const renderFn = STYLE_RENDERERS[effectiveStyle(selectedModel)] || STYLE_RENDERERS.board;
   const selectedCtx = {...ctx, roadmapLayout};
   return renderFn(selectedModel, selectedCtx, paletteColors(selectedModel, selectedCtx));
+}
+
+export function renderDeck(model, ctx = {}){
+  return renderStyledDeck(model, ctx, 'presentation');
+}
+
+/* A single, complete page may use the established style-specific composition.
+   This is deliberately exported for render-deck-pages only: /why imports the
+   legacy presentation renderer and must not pay for Roadmap's page-set planner. */
+export function renderDeckNative(model, ctx = {}){
+  return renderStyledDeck(model, ctx, 'native');
 }

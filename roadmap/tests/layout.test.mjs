@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {layoutRoadmap, presentationStrip} from '../layout.js';
 import {renderDeck} from '../render-deck.js';
+import {renderDeckPages} from '../render-deck-pages.js';
 
 const measure = text => String(text || '').length * 7;
 const colors = {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',accentInk:'#067',bg:'#f7f8f6',
@@ -54,5 +55,18 @@ test('every fixed deck style carries the same visible selection contract', () =>
     assert.match(svg, /width="1920" height="1080"/);
     assert.ok(svg.includes('SHOWING 3 OF 6 HORIZONS'));
     assert.ok(svg.includes('3 CONTINUE'));
+  }
+});
+
+test('exhaustive deck pages retain full-model metrics and declare every page', () => {
+  for(const style of ['board','register','focus','grid']){
+    const out = renderDeckPages({...many, style}, {measure, colors, today:'2026-08-04'});
+    assert.equal(out.pages.length, 2);
+    assert.equal(out.plan.pages.every(p => p.total === 2), true);
+    assert.equal(out.plan.pages.flatMap(p => p.sourceItemIndices).includes(5), true);
+    assert.match(out.pages[0], /PAGE 1 OF 2/);
+    assert.match(out.pages[1], /PAGE 2 OF 2/);
+    assert.match(out.pages[0], /6 items · 6 horizons/);
+    assert.match(out.pages[1], /6 items · 6 horizons/);
   }
 });

@@ -89,6 +89,15 @@ test('8-column generated view renders wider than 3-column', () => {
   assert.ok(wOf(wide) > wOf(norm));
 });
 
+test('the desktop Grid fallback reuses the source-ordered stack rather than shrinking or panning', () => {
+  const m = parse('horizons: monthly from Jan 2027 x8\nJan 2027\nCore: Runs across the plan x8\nFeb 2027\nGrowth: Second item');
+  const svg = render(m, ctx({width:700, forceStack:true, edit:true}));
+  assert.match(svg, /data-narrow=""/);
+  assert.match(svg, /runs Jan 2027 → Aug 2027/);
+  assert.match(svg, />JAN 2027</);
+  assert.match(svg, />AUG 2027</);
+});
+
 test('palette resolves per theme; accent overrides; names consistent with parse', async () => {
   const {PALETTES} = await import('../render.js');
   const {PALETTE_NAMES} = await import('../parse.js');

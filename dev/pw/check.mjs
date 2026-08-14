@@ -77,6 +77,18 @@ await page.waitForTimeout(400);
 await page.locator('#snapsel').selectOption({index: 1});
 await page.waitForTimeout(400);
 check('compare shows NEW badge', (await page.locator('#preview svg').innerHTML()).includes('>NEW<'));
+check('comparison exposes the Change preflight', await page.locator('#changepreview').isVisible());
+await page.locator('#changepreview').click();
+await page.waitForTimeout(200);
+check('Change preflight opens the actual page-set dialog', await page.locator('#slidepreviewdialog').evaluate(d => d.open) &&
+  await page.locator('#slidepreviewtitle').innerText() === 'Change deck preview');
+const changeAction = await page.locator('#slidedownload').textContent();
+check('Change preflight names its actual one-page or multi-page action', /^(Copy comparison PNG|Download [2-9]\d* PNGs)$/.test(changeAction || ''));
+check('Change preflight is an explicit modal with initial focus', await page.locator('#slidepreviewdialog').getAttribute('aria-modal') === 'true' &&
+  await page.locator('#slideclose').evaluate(el => document.activeElement === el));
+await page.keyboard.press('Escape');
+check('Escape closes Change preflight and restores its trigger focus', await page.locator('#slidepreviewdialog').evaluate(d => !d.open) &&
+  await page.locator('#changepreview').evaluate(el => document.activeElement === el));
 
 // wip warning: load a 7-item NOW doc via URL hash (a plain now/next/later doc
 // renders the chart — board-live is opt-in via an explicit style: line)
@@ -87,6 +99,42 @@ await wipPage.waitForTimeout(400);
 check('WIP warning fires', (await wipPage.locator('#warns').innerText()).includes('Now has 7 items in flight (wip: 6).'));
 check('WIP flag in svg', (await wipPage.locator('#preview svg').innerHTML()).includes('7 ITEMS'));
 await wipPage.close();
+
+/* Board does not have a fixed three-horizon ceiling: it keeps every horizon
+   that fits at the card reading floor, then uses a hash-backed window only at
+   the constrained rail-open width. The controls must target source indices. */
+{
+  const boardDoc = 'title: Board capacity\nstyle: board\nhorizons: A, B, C, D, E\nA\nCore: One\nB\nCore: Two\nC\nCore: Three\nD\nCore: Four\nE\nCore: Five';
+  const boardPage = await browser.newPage({viewport: {width:1440, height:1000}});
+  await boardPage.goto(BASE + '#' + Buffer.from(boardDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
+  await boardPage.waitForTimeout(500);
+  check('dense Board exposes a bounded horizon window when the editor is open', await boardPage.locator('#boardwindow').isVisible());
+  check('bounded Board window carries source-horizon drop targets', await boardPage.locator('#preview svg rect[data-hdrop="2"]').count() === 1);
+  await boardPage.locator('#railtab').click();
+  await boardPage.waitForTimeout(650);
+  check('presentation-width Board restores all five horizons instead of fixing at three',
+    await boardPage.locator('#boardwindow').isHidden() && await boardPage.locator('#preview svg rect[data-hdrop]').count() === 5);
+  check('a compact five-horizon Board keeps the calm one-slide Copy PNG action',
+    await boardPage.locator('#copypng').isVisible() && await boardPage.locator('#fullslideexport').isHidden());
+  await boardPage.close();
+}
+
+/* Continuations are available only by asking for the complete deck from Export,
+   not as permanent toolbar chrome. Eight horizons force a truthful page set. */
+{
+  const fullDoc = 'style: board\nhorizons: A, B, C, D, E, F, G, H\nA\nCore: One\nB\nCore: Two\nC\nCore: Three\nD\nCore: Four\nE\nCore: Five\nF\nCore: Six\nG\nCore: Seven\nH\nCore: Eight';
+  const fullPage = await browser.newPage({viewport: {width:1440, height:1000}});
+  await fullPage.goto(BASE + '#' + Buffer.from(fullDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
+  await fullPage.getByText('Export', {exact:true}).click();
+  check('a complete multi-slide deck is an explicit Export-menu action', await fullPage.locator('#fullslideexport').isVisible());
+  await fullPage.locator('#fullslideexport').click();
+  await fullPage.waitForTimeout(150);
+  check('full deck review opens the actual page set',
+    await fullPage.locator('#slidepreviewdialog').evaluate(d => d.open) &&
+    await fullPage.locator('#slidepreviewtitle').innerText() === 'Roadmap slide set' &&
+    /^Slide 1 of [2-9]\d*$/.test(await fullPage.locator('#slideposition').innerText()));
+  await fullPage.close();
+}
 
 // URL round trip
 const url = page.url();
@@ -104,6 +152,8 @@ check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTM
   (await page2.locator('#preview svg').innerHTML()).includes('#202227'));   /* Swiss Phase 2 scheme bases */
 
 // markdown import round trip
+if(await page2.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))
+  await page2.locator('#railtab').click();
 await page2.getByRole('button', {name: 'Import markdown'}).click();
 await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
@@ -459,7 +509,9 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
    Both properties must hold at once: the bar is grabbable across its whole length,
    AND every column it crosses still accepts a drop. */
 {
-  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  // Six monthly horizons need a genuinely wide canvas: at 1500px the approved
+  // Grid safeguard intentionally stacks them rather than reducing the type floor.
+  const p = await browser.newPage({viewport: {width: 2000, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+a');
