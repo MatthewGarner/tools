@@ -148,6 +148,7 @@ const expandedOverviewGroups = new Set();
 let focusInspectorAfterRender = false;
 let focusOverviewReceiptAfterRender = false;
 let focusOverviewReturnAfterRender = false;
+let focusCloseOutReturnAfterRender = false;
 let focusFocusLensAfterRender = false;
 let overviewMode = 'overview';
 let overviewReceiptSheetOpen = false;
@@ -665,12 +666,11 @@ function renderOverviewReceipt(){
   const style = canonicalRoadmapStyle();
   const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions' ||
     style === 'agenda';
-  const closeoutSheet = sheet && overviewMode === 'closeout';
+  const closeoutDetail = overviewMode === 'closeout' && closeOutEligible(overviewImpact?.decision);
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
   if(!receiptEligible || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
-      (overviewMode === 'closeout' && !closeoutSheet) ||
       (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
     if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
@@ -691,8 +691,8 @@ function renderOverviewReceipt(){
   host.dataset.decisionKey = impact.key;
   host.dataset.layout = metrics.receiptLayout;
   setOverviewSheetState(host, sheet);
-  if(closeoutSheet){
-    renderLearningCloseOutDetail(host, {sheet:true});
+  if(closeoutDetail){
+    renderLearningCloseOutDetail(host, {sheet});
     return;
   }
   delete host.dataset.closeoutDetail;
@@ -787,7 +787,11 @@ function renderOverviewReceipt(){
   }
   if(focusOverviewReturnAfterRender){
     focusOverviewReturnAfterRender = false;
-    (host.querySelector('[data-open-closeout]') || open)?.focus({preventScroll:true});
+    open?.focus({preventScroll:true});
+  }
+  if(focusCloseOutReturnAfterRender){
+    focusCloseOutReturnAfterRender = false;
+    host.querySelector('[data-open-closeout]')?.focus({preventScroll:true});
   }
 }
 
@@ -833,11 +837,6 @@ function focusBranch(direction, branch){
 
 function renderFocusLens(){
   const host = $('focus-lens');
-  if(isRoadmapStyle() && overviewMode === 'closeout' && closeOutEligible(overviewImpact?.decision) && !overviewReceiptUsesSheet()){
-    host.hidden = false;
-    renderLearningCloseOutDetail(host);
-    return;
-  }
   if(!isRoadmapStyle() || overviewMode !== 'focus' || !overviewImpact){
     host.hidden = true;
     host.replaceChildren();
@@ -1397,7 +1396,7 @@ $('overview-receipt').addEventListener('keydown', event => {
 $('focus-lens').addEventListener('click', event => {
   if(event.target.closest?.('[data-return-closeout]')){
     overviewMode = 'overview';
-    focusOverviewReturnAfterRender = true;
+    focusCloseOutReturnAfterRender = true;
     refresh();
     return;
   }
@@ -1413,7 +1412,7 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     overviewMode = 'overview';
     if(overviewReceiptUsesSheet()) renderOverviewReceipt();
-    else { focusOverviewReturnAfterRender = true; refresh(); }
+    else { focusCloseOutReturnAfterRender = true; refresh(); }
     return;
   }
   if(closeOverviewReceiptSheet()){

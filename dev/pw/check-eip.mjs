@@ -3747,7 +3747,10 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   check('paths: phone receipt traps focus inside the sheet',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
   await p.keyboard.press('Tab');
-  check('paths: a single-control phone receipt wraps its focus trap',
+  check('paths: phone receipt advances to its Close-out control inside the focus trap',
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')));
+  await p.keyboard.press('Tab');
+  check('paths: phone receipt wraps its two-control focus trap',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
   await p.locator('#overview-receipt [data-receipt-close]').click();
   await p.waitForTimeout(100);

@@ -19,7 +19,7 @@ test('close-out is entered from and returns to the selected decision receipt on 
   assert.match(app, /dataset\.returnCloseout/);
   assert.match(app, /overviewMode = 'closeout'/);
   assert.match(app, /Return to decision receipt/);
-  assert.match(app, /renderLearningCloseOutDetail\(host, \{sheet:true\}\)/);
+  assert.match(app, /renderLearningCloseOutDetail\(host, \{sheet\}\)/);
   assert.match(css, /\.overview-receipt\[data-closeout-detail="true"\]/);
 });
 
