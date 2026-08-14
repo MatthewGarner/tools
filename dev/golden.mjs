@@ -929,6 +929,31 @@ for(const [k, src] of Object.entries(docs)){
   variants['paths-dependencies-narrow'] = renderDependenciesNarrow(pathsOverview, {...pathsCtx, width:390});
 }
 
+/* /proxy: full Hunt is intentionally unselected; receipt is the separately
+   scoped artefact. Both wide and narrow pin theory/pattern separation. */
+{
+  const {parse:parseProxy} = await import('../proxy/parse.js');
+  const {project:projectProxy} = await import('../proxy/project.js');
+  const {fullHuntProjection} = await import('../proxy/export-projection.js');
+  const {renderHunt, renderHuntNarrow, renderHuntReceipt} = await import('../proxy/render-hunt.js');
+  const source = 'title: Habitat invite pressure\ndate: 2026-08-13\noutcome: Groups retain after week one\n' +
+    'proxy: Invitation rate\naction: Prompt every active member\nmode: optimise\nintended-theory:\n' +
+    '  mechanism: A timely prompt helps a member invite a collaborator who returns\nprotects:\n  - New members retain trust\n' +
+    'failure-theory fatigue:\n  mechanism: Repeated prompts pressure people into low-intent invitations\n' +
+    '  harmed-outcome: New members retain trust\n  guardrail: Seven-day invitee retention\n' +
+    '  basis: reasoned-mechanism\n  support: Support conversations show pressure is felt\n' +
+    '  weaken-with: Matched cohorts show retained invitees do not fall\nreported-pattern:\n' +
+    '  proxy-reading: Invitation rate rose from 11% to 19%\n  outcome: New members retain trust\n' +
+    '  outcome-reading: Seven-day invitee retention fell from 42% to 35%\n' +
+    '  population: New solo members\n  horizon: First seven days\n  comparator: Prior prompt\n  source: Habitat event readout';
+  const model = parseProxy(source);
+  const live = projectProxy(model, 'fatigue');
+  const full = fullHuntProjection(model);
+  variants['proxy-hunt'] = renderHunt(full, {...ctxBase, width:1160, interactive:false});
+  variants['proxy-hunt-narrow'] = renderHuntNarrow(full, {...ctxBase, width:390, interactive:false});
+  variants['proxy-hunt-receipt'] = renderHuntReceipt(live, {...ctxBase, width:900});
+}
+
 /* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),
    or null if git can't be run. cwd-independent (worktree-safe) — resolves the
    repo root from this file, not process.cwd(). */

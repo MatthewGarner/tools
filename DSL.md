@@ -1,6 +1,6 @@
 # The DSL reference
 
-Eleven of the tools in this repo read a small text DSL and render from it. This is one
+Twelve of the tools in this repo read a small text DSL and render from it. This is one
 document you can hand to an LLM so it can author valid input for any of them. Each tool's
 state lives entirely in the URL hash, so whatever the DSL produces is a bookmarkable,
 shareable link — there is no backend and no account.
@@ -9,7 +9,7 @@ The six tools **without** a DSL — `flow`, `rank`, `fermi`, `alarm`, `duel`, `p
 take their input through the UI (sliders, wizards, forms), not text. Don't write DSL for
 them.
 
-Jump to a tool: [paths](#paths) · [roadmap](#roadmap) · [wardley](#wardley) · [bets](#bets) ·
+Jump to a tool: [proxy](#proxy) · [paths](#paths) · [roadmap](#roadmap) · [wardley](#wardley) · [bets](#bets) ·
 [timeline](#timeline) · [map](#map) · [tree](#tree) · [why](#why) · [gauge](#gauge) ·
 [energy/cycles](#energycycles) · [energy/risk](#energyrisk)
 
@@ -17,7 +17,7 @@ Jump to a tool: [paths](#paths) · [roadmap](#roadmap) · [wardley](#wardley) ·
 
 ## Shared conventions
 
-The eleven grammars differ, but they're a family and obey the same rules:
+The twelve grammars differ, but they're a family and obey the same rules:
 
 - **Config is `key: value`, one per line.** Most tools want config lines *before* the first
   content line — `roadmap`, `wardley`, `bets`, `gauge`, `tree` and `why` warn (or re-read
@@ -52,6 +52,7 @@ The eleven grammars differ, but they're a family and obey the same rules:
 | Tool | `title` | `palette` | `accent` | Signature config keys | Signature node syntax |
 |---|---|---|---|---|---|
 | [paths](#paths) | ✓ | ✓ | ✓ | `date` `today` `style` `verdict` | `decision name:` blocks, period headers, then `Lane: Item [status] [if/unless] -- note -> url` |
+| [proxy](#proxy) | ✓ | ✓ | ✓ | `date` `outcome` `proxy` `action` `mode` | intended theory, protected outcomes and up to three failure theories |
 | [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
@@ -64,6 +65,41 @@ The eleven grammars differ, but they're a family and obey the same rules:
 | [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` `verdict` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
 
 \* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet.
+
+---
+
+## proxy
+
+**`/proxy`** — test whether pressure on an operating metric can harm the desired
+outcome or a protected outcome. It records authored theories and reported
+patterns separately; neither proves a causal mechanism.
+
+```dsl tool=proxy
+title: Habitat invite pressure
+date: 2026-08-13
+outcome: Groups retain after week one
+proxy: Invitation rate
+action: Prompt every active member
+mode: optimise
+intended-theory:
+  mechanism: A timely prompt helps a member invite a collaborator who returns
+protects:
+  - New members retain trust
+failure-theory fatigue:
+  mechanism: Repeated prompts pressure people into low-intent invitations
+  harmed-outcome: New members retain trust
+  guardrail: Seven-day invitee retention
+  basis: reasoned-mechanism
+  weaken-with: Matched cohorts show retention does not fall
+reported-pattern:
+  proxy-reading: Invitation rate rose from 11% to 19%
+  outcome-reading: Seven-day invitee retention fell from 42% to 35%
+  outcome: New members retain trust
+  population: New solo members
+  horizon: First seven days
+  comparator: Prior prompt
+  source: Author-entered product reading
+```
 
 ---
 
@@ -85,6 +121,22 @@ decision open only under another condition.
 `answer: yes|no [date] [target: value] [actual: value] [-- receipt]` records reality.
 `assume: yes|no YYYY-MM-DD` records a working assumption, which takes effect only after the
 due date and never becomes a known answer.
+
+**Learning Close-out:** an answered or read decision may contain a nested `close-out:`
+receipt. It is selected detail inside the existing Paths views, not another plan view.
+`basis-kind:` records the stated kind of basis; `carry-forward:` is one of
+`operating-claim`, `scoped-finding`, or `no-carry-forward`; then author `decision-use:`,
+`claim:`, `scope:`, and (when carrying something forward) `review-by:`,
+`reconsider-if:`, and `next-check:`. Append dated `review:` or `retirement:` blocks rather
+than rewriting the original receipt. The result records what the author says may travel; it
+does not certify evidence quality, causal truth, or change the decision, plan, or Roadmap
+projection.
+
+A `review:` appends `prior-claim:`, `prior-scope:`, `new-observation:`, `relation:`
+(`inside-scope` or `outside-scope`), and `reviewed-on:`; an outside-scope review also needs
+`new-scope:`. A `retirement:` appends `reason:` and `retired-on:`. These are six-space
+indented under their event heading, remain in source order, and never replace the prior
+receipt.
 
 **Plan items:** a column-zero period heading opens a section. Its two-space-indented items
 are `Lane: Title [status] [if expression] -- note -> url`. Status is `done`, `doing`, `risk`
@@ -124,6 +176,23 @@ decision reminders:
   answer-by: 2026-12-10
   answer: no 2026-12-10
 
+decision pilot:
+  question: Did the guided setup pilot help solo users return?
+  signal: matched return rate among setup completers vs non-completers
+  reading: Completers returned more often in the pilot cohort
+  owner: growth squad
+  answer-by: 2026-12-15
+  answer: yes 2026-12-15
+  close-out:
+    basis-kind: observation
+    carry-forward: scoped-finding
+    decision-use: Keep the pilot narrow while we check a wider cohort
+    claim: Setup completers returned more often in the pilot
+    scope: New solo users, first session, pilot cohort
+    review-by: 2027-01-31
+    reconsider-if: A matched solo-user reading no longer shows the pattern
+    next-check: Compare an assigned setup variant before wider rollout
+
 decision marketplace:
   when: groups and pricing
   question: Can supply support a January launch?
@@ -139,6 +208,7 @@ LATER
   Growth: Coach pricing [if pricing] [blocked]
   Growth: Marketplace launch [if marketplace]
   Growth: Supply preparation [if groups and pricing]
+  Growth: Pilot follow-up [if pilot]
 ```
 
 ## roadmap

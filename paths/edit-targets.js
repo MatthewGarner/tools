@@ -10,11 +10,16 @@
    never trusted as identity: a render can be stale after another edit, while
    the decision heading remains the one stable target the inspector owns. */
 import {DECISION_FIELDS, isValidDate, parse, parseCondition} from './parse.js';
+import {BASIS_KINDS, CARRY_FORWARD_KINDS, CLOSE_OUT_FIELDS,
+  CLOSE_OUT_FIELD_PROPERTIES} from './learning-closeout.js';
 
 const FIELD_ORDER = new Map(DECISION_FIELDS.map((field, index) => [field, index]));
 const FIELD = /^([a-z-]+)\s*:\s*(.*)$/i;
 const CONFIG = /^(title|date|today|style|verdict|palette|accent)\s*:/i;
 const DIRECTIONS = new Set(['yes', 'no']);
+const CLOSE_OUT_ORDER = new Map(CLOSE_OUT_FIELDS.map((field, index) => [field, index]));
+const CLOSE_OUT_BASIS = new Set(BASIS_KINDS);
+const CLOSE_OUT_CARRY = new Set(CARRY_FORWARD_KINDS);
 
 const cleanLine = value => {
   const text = String(value ?? '').trim();
@@ -124,6 +129,78 @@ function verified(text, srcLine, ops, predicate){
   if(ops === null) return null;
   const decision = parse(applyOps(text, ops)).decisions.find(item => item.srcLine === srcLine);
   return decision && predicate(decision) ? ops : null;
+}
+
+function closeOutInsertLine(block){
+  let end = block.decision.srcLine;
+  for(let line = block.decision.srcLine + 1; line < block.lines.length; line++){
+    const raw = block.lines[line];
+    const content = raw.trim();
+    if(!content || content.startsWith('//')) continue;
+    const indent = /^ */.exec(raw.replace(/^\t+/, tabs => '  '.repeat(tabs.length)))[0].length;
+    if(indent === 0) break;
+    end = line;
+  }
+  return end;
+}
+
+function closeOutFieldOps(text, srcLine, key, value){
+  const block = decisionBlock(text, srcLine);
+  if(!block || !CLOSE_OUT_ORDER.has(key)) return null;
+  const receipt = block.decision.closeOut;
+  const hits = [];
+  if(receipt) for(let line = receipt.srcLine + 1; line < block.lines.length; line++){
+    const raw = block.lines[line], content = raw.trim();
+    if(!content || content.startsWith('//')) continue;
+    const indent = /^ */.exec(raw)[0].length;
+    if(indent <= 2) break;
+    const field = /^ {4}([a-z-]+)\s*:/i.exec(raw);
+    if(field?.[1].toLowerCase() === key) hits.push(line);
+  }
+  if(hits.length){
+    return value ? [
+      {line:hits[0], text:rewriteLine(block.lines[hits[0]], value)},
+      ...hits.slice(1).map(line => ({line, text:null})),
+    ] : hits.map(line => ({line, text:null}));
+  }
+  if(!value) return [];
+  if(!receipt){
+    const line = closeOutInsertLine(block);
+    return [{line, text:block.lines[line] + `\n  close-out:\n    ${key}: ${value}`}];
+  }
+  const later = CLOSE_OUT_FIELDS.find(candidate => CLOSE_OUT_ORDER.get(candidate) > CLOSE_OUT_ORDER.get(key) &&
+    receipt.fieldLines[candidate] != null);
+  if(later){
+    const line = receipt.fieldLines[later] - 1;
+    return [{line, text:`    ${key}: ${value}\n${block.lines[line]}`}];
+  }
+  const earlier = [...CLOSE_OUT_FIELDS].reverse().find(candidate => CLOSE_OUT_ORDER.get(candidate) < CLOSE_OUT_ORDER.get(key) &&
+    receipt.fieldLines[candidate] != null);
+  if(earlier){
+    const line = receipt.fieldLines[earlier] - 1;
+    return [{line, text:block.lines[line] + `\n    ${key}: ${value}`}];
+  }
+  return [{line:receipt.srcLine, text:block.lines[receipt.srcLine] + `\n    ${key}: ${value}`}];
+}
+
+function validCloseOutValue(key, value){
+  const clean = cleanLine(value);
+  if(clean === null) return null;
+  if(!clean) return '';
+  if(key === 'basis-kind') return CLOSE_OUT_BASIS.has(clean.toLowerCase()) ? clean.toLowerCase() : null;
+  if(key === 'carry-forward') return CLOSE_OUT_CARRY.has(clean.toLowerCase()) ? clean.toLowerCase() : null;
+  if(key === 'review-by') return isValidDate(clean) ? clean : null;
+  return clean;
+}
+
+export function setCloseOutField(text, srcLine, key, value){
+  const clean = validCloseOutValue(key, value);
+  if(clean === null) return null;
+  const ops = closeOutFieldOps(text, srcLine, key, clean);
+  return verified(text, srcLine, ops, decision => {
+    const property = CLOSE_OUT_FIELD_PROPERTIES[key];
+    return clean ? decision.closeOut?.[property] === clean : !decision.closeOut?.[property];
+  });
 }
 
 function setTextField(text, srcLine, key, value){
@@ -282,6 +359,14 @@ export const validators = {
   when: whenOrEmpty,
   assume: assumptionOrEmpty,
   answer: answerOrEmpty,
+  'closeout-basis-kind':value => validCloseOutValue('basis-kind', value) !== null,
+  'closeout-carry-forward':value => validCloseOutValue('carry-forward', value) !== null,
+  'closeout-decision-use':value => validCloseOutValue('decision-use', value) !== null,
+  'closeout-claim':value => validCloseOutValue('claim', value) !== null,
+  'closeout-scope':value => validCloseOutValue('scope', value) !== null,
+  'closeout-review-by':value => validCloseOutValue('review-by', value) !== null,
+  'closeout-reconsider-if':value => validCloseOutValue('reconsider-if', value) !== null,
+  'closeout-next-check':value => validCloseOutValue('next-check', value) !== null,
 };
 
 export const kinds = {
@@ -295,4 +380,15 @@ export const kinds = {
   when: {validate:validators.when, placeholder:'groups and not pricing'},
   assume: {validate:validators.assume, placeholder:'yes YYYY-MM-DD'},
   answer: {validate:validators.answer, placeholder:'yes YYYY-MM-DD -- receipt'},
+};
+
+export const closeOutKinds = {
+  'closeout-basis-kind': {validate:validators['closeout-basis-kind'], placeholder:BASIS_KINDS.join(' / ')},
+  'closeout-carry-forward': {validate:validators['closeout-carry-forward'], placeholder:CARRY_FORWARD_KINDS.join(' / ')},
+  'closeout-decision-use': {validate:validators['closeout-decision-use'], placeholder:'How this informs a later decision'},
+  'closeout-claim': {validate:validators['closeout-claim'], placeholder:'What the author says was learned'},
+  'closeout-scope': {validate:validators['closeout-scope'], placeholder:'Population, context and time boundary'},
+  'closeout-review-by': {validate:validators['closeout-review-by'], placeholder:'YYYY-MM-DD'},
+  'closeout-reconsider-if': {validate:validators['closeout-reconsider-if'], placeholder:'What would weaken this statement'},
+  'closeout-next-check': {validate:validators['closeout-next-check'], placeholder:'Next check before wider use'},
 };

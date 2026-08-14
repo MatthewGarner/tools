@@ -19,6 +19,15 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
 
 const TOOLS = {
+  proxy: {
+    keys: ['title', 'date', 'outcome', 'proxy', 'action', 'mode', 'palette', 'accent'],
+    doc: ['title: T', 'date: 2026-08-13', 'outcome: Retention holds', 'proxy: Invitation rate',
+      'action: Ask people to invite friends', 'mode: optimise', 'palette: plum', 'accent: #9D3E78', 'intended-theory:',
+      '  mechanism: A useful invitation connects a collaborator', 'protects:', '  - Trust holds',
+      'failure-theory pressure:', '  mechanism: Prompts create low-intent invites',
+      '  harmed-outcome: Trust holds', '  guardrail: Seven-day retention',
+      '  basis: reasoned-mechanism', '  weaken-with: Matched cohorts retain equally'].join('\n'),
+  },
   paths: {
     keys: ['title', 'date', 'today', 'style', 'verdict', 'palette', 'accent'],
     doc: ['title: T', 'date: off', 'today: 2026-12-22', 'style: brief', 'verdict: off',

@@ -87,6 +87,30 @@
         <dt><code data-try="">  answer: yes 2026-09-12 -- experiment 42</code></dt>
         <dd>close the question with an optional dated receipt</dd>
       </dl>
+      <h4>Learning close-out</h4>
+      <p>Add this nested receipt to a decision with an answer or reading. It records what the author says may travel; it does not certify evidence or causality.</p>
+      <dl>
+        <dt><code>  close-out:</code></dt>
+        <dd>start a selected-decision learning receipt; this does not create another whole-plan view</dd>
+        <dt><code>    basis-kind: observation</code></dt>
+        <dd>choose <code>observation</code>, <code>experiment</code>, <code>judgement</code>, <code>calculation</code> or <code>synthesis</code></dd>
+        <dt><code>    carry-forward: scoped-finding</code></dt>
+        <dd>choose <code>operating-claim</code>, <code>scoped-finding</code> or <code>no-carry-forward</code></dd>
+        <dt><code>    decision-use: keep the pilot narrow</code></dt>
+        <dd>state how this may inform a later decision</dd>
+        <dt><code>    claim: Setup completers returned more often</code></dt>
+        <dd>state the bounded, author-owned finding</dd>
+        <dt><code>    scope: New solo users in the pilot</code></dt>
+        <dd>name the population, context and time boundary</dd>
+        <dt><code>    review-by: 2026-10-31</code></dt>
+        <dd>set when the statement becomes review due</dd>
+        <dt><code>    reconsider-if: The matched pattern reverses</code></dt>
+        <dd>state what would weaken the carry-forward statement</dd>
+        <dt><code>    next-check: Run an assigned variant</code></dt>
+        <dd>name the next check before wider use</dd>
+        <dt><code>    review:</code> / <code>    retirement:</code></dt>
+        <dd>append dated challenge or retirement facts without overwriting the prior receipt</dd>
+      </dl>
       <h4>Work</h4>
       <dl>
         <dt><code data-try="">  Growth: Group challenges [risk] -- needs moderation</code></dt>
@@ -147,6 +171,12 @@
           </button>
           <button class="btn scoped-receipt-export" id="agenda-receipt-png" hidden>
             Selected decision receipt · PNG
+          </button>
+          <button class="btn scoped-receipt-export" id="closeout-receipt-svg" hidden>
+            Selected learning close-out · SVG
+          </button>
+          <button class="btn scoped-receipt-export" id="closeout-receipt-png" hidden>
+            Selected learning close-out · PNG
           </button>
         </div>
       </details>

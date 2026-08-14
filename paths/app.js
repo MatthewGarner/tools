@@ -8,19 +8,21 @@ import {renderTree, renderOutline} from './render-tree.js';
 import {renderPlans, renderPlansNarrow} from './render-plans.js';
 import {decisionImpactProjection, overviewProjection} from './overview.js';
 import {learningAgendaNextAction, learningAgendaProjection} from './learning-agenda.js';
+import {projectLearningCloseOut} from './learning-closeout.js';
 import {renderOverview, renderOverviewNarrow} from './render-overview.js';
 import {renderDependencies, renderDependenciesNarrow} from './render-dependencies.js';
 import {renderQuestionLens, renderQuestionLensNarrow} from './render-question-lens.js';
 import {renderConditions, renderConditionsNarrow} from './render-conditions.js';
 import {renderLearningAgenda, renderLearningAgendaNarrow,
   renderLearningAgendaReceipt} from './render-learning-agenda.js';
+import {renderLearningCloseOut} from './render-learning-closeout.js';
 import {buildRoadmapProjection, deliveryAssignment, inspectRoadmapProjection,
   projectionAcceptance, roadmapProjectionChoices} from './handoff-roadmap.js';
 import {verdict} from './verdict.js';
 import {auditableAnswerDraft, decisionEditSurface, resolveSelectedDecision} from './inspector.js';
 import {clearAnswer, clearAnswerBy, clearWhen, kinds as inspectorKinds,
   setAnswerBy, setAnswerRaw, setAssumptionRaw, setOwner, setQuestion, setReading,
-  setEnough, setLearn, setSignal, setWhen} from './edit-targets.js';
+  setEnough, setLearn, setSignal, setWhen, closeOutKinds, setCloseOutField} from './edit-targets.js';
 import {applyLineOps, makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
@@ -57,8 +59,15 @@ const lang = StreamLanguage.define({
       if(/^decision\s+[a-z0-9-]+\s*:/i.test(line)){
         stream.match(/^\s*decision\s+[a-z0-9-]+\s*:/i); return 'heading';
       }
+      if(/^\s+(close-out|review|retirement)\s*:/i.test(stream.string)){
+        stream.match(/^\s*(close-out|review|retirement)\s*:/i); return 'heading';
+      }
       if(/^\s{2}(question|signal|reading|learn|enough|owner|answer-by|when|assume|answer)\s*:/i.test(stream.string)){
         stream.match(/^\s*(question|signal|reading|learn|enough|owner|answer-by|when|assume|answer)\s*:/i);
+        return 'meta';
+      }
+      if(/^\s{4,}(basis-kind|carry-forward|decision-use|claim|scope|review-by|reconsider-if|next-check|prior-claim|prior-scope|new-observation|new-scope|relation|reviewed-on|reason|retired-on)\s*:/i.test(stream.string)){
+        stream.match(/^\s*(basis-kind|carry-forward|decision-use|claim|scope|review-by|reconsider-if|next-check|prior-claim|prior-scope|new-observation|new-scope|relation|reviewed-on|reason|retired-on)\s*:/i);
         return 'meta';
       }
     }
@@ -87,6 +96,15 @@ decision reminders:
   owner: Core
   answer-by: 2026-07-24
   answer: yes 2026-07-22 -- experiment HBT-42
+  close-out:
+    basis-kind: experiment
+    carry-forward: scoped-finding
+    decision-use: keep adaptive reminders for the tested cohort while the broader rollout stays open
+    claim: adaptive reminders improved week-four retention in the tested cohort
+    scope: opted-in solo users in the four-week reminder experiment
+    review-by: 2026-10-31
+    reconsider-if: a replicated cohort no longer shows the retention lift
+    next-check: compare the next opted-in cohort before widening rollout
 
 decision groups:
   question: Will people invite three friends without prompting?
@@ -281,6 +299,12 @@ function syncViewControls(){
     const scoped = $(id);
     if(scoped) scoped.hidden = !hasReceipt;
   });
+  const decision = overviewImpact?.decision;
+  const hasCloseOut = !!decision && (!!decision.answer?.direction || !!decision.reading);
+  ['closeout-receipt-svg', 'closeout-receipt-png'].forEach(id => {
+    const scoped = $(id);
+    if(scoped) scoped.hidden = !hasCloseOut;
+  });
 }
 
 function overviewSurfaceMetrics(){
@@ -302,7 +326,11 @@ function receiptMetricsForStyle(metrics = overviewSurfaceMetrics()){
      above the artefact. A phone selection becomes the same accessible sheet
      as Brief, so it never starts below an off-screen diagram. */
   const sheet = metrics.narrow || matchMedia('(pointer: coarse)').matches;
-  if(style === 'agenda') return {...metrics, receiptLayout:sheet ? 'sheet' : 'none', previewWidth:metrics.width};
+  if(style === 'agenda'){
+    const receiptLayout = sheet ? 'sheet' : metrics.width >= 1240 ? 'rail' : 'inline';
+    return {...metrics, receiptLayout,
+      previewWidth:receiptLayout === 'rail' ? Math.max(720, metrics.width - 366) : metrics.width};
+  }
   const receiptLayout = sheet ? 'sheet' : metrics.width >= 1240 ? 'rail' : 'inline';
   return {...metrics, receiptLayout,
     previewWidth:receiptLayout === 'rail' ? Math.max(720, metrics.width - 366) : metrics.width};
@@ -372,6 +400,10 @@ function context(current, extra = {}){
 
 function renderWarnings(){
   const warnings = projection ? [...projection.warnings] : [];
+  for(const decision of projection?.decisions || []){
+    const closeOut = projectLearningCloseOut(decision, projection?.today || todayString);
+    if(closeOut?.warnings?.length) warnings.push(...closeOut.warnings);
+  }
   if(urlStateOversized) warnings.push(oversizedUrlWarning());
   renderWarningList($('warns'), warnings.map(warning => warning.message || String(warning)));
 }
@@ -434,6 +466,186 @@ function appendAgendaOutcome(host, direction, outcome){
     `No modeled plan or downstream changes if ${direction}.`);
 }
 
+const closeOutLabel = value => String(value || 'Not stated').replace(/-/g, ' ')
+  .replace(/^./, first => first.toUpperCase());
+
+function closeOutFor(decision){
+  return decision ? projectLearningCloseOut(decision, projection?.today || todayString) : null;
+}
+
+function closeOutEligible(decision){
+  return !!decision && (!!decision.answer?.direction || !!decision.reading);
+}
+
+function closeOutStatusGrid(receipt){
+  const grid = node('dl', 'closeout-status-grid');
+  const facts = receipt ? [
+    ['Record', closeOutLabel(receipt.record)],
+    ['Carry-forward', closeOutLabel(receipt.carryForward)],
+    ['Currency', closeOutLabel(receipt.currency)],
+  ] : [
+    ['Record', 'Not documented'], ['Carry-forward', 'Not stated'], ['Currency', 'Not applicable'],
+  ];
+  for(const [term, description] of facts){
+    const item = node('div', 'closeout-status');
+    item.dataset.fact = term.toLowerCase();
+    item.append(node('dt', '', term), node('dd', '', description));
+    grid.appendChild(item);
+  }
+  return grid;
+}
+
+function closeOutCurrencyCopy(receipt){
+  if(!receipt) return 'No carry-forward statement is documented yet.';
+  if(receipt.currency === 'review-due') return 'The historic receipt remains documented; review it before citing it as current.';
+  if(receipt.currency === 'challenged') return 'A later inside-scope observation challenges this statement; the prior receipt remains visible.';
+  if(receipt.currency === 'retired') return 'This statement is retained as history and should not be cited as current.';
+  return 'The statement is current only within its authored scope and review date.';
+}
+
+function appendCloseOutSummary(host, decision){
+  if(!closeOutEligible(decision)) return;
+  const receipt = closeOutFor(decision);
+  const section = node('section', 'receipt-closeout');
+  const head = node('div', 'receipt-closeout-head');
+  head.appendChild(node('h3', '', 'Learning close-out'));
+  head.appendChild(node('span', 'closeout-currency', receipt ? closeOutLabel(receipt.currency) : 'Not documented'));
+  section.appendChild(head);
+  section.appendChild(closeOutStatusGrid(receipt));
+  section.appendChild(node('p', 'closeout-guidance', closeOutCurrencyCopy(receipt)));
+  section.appendChild(node('p', 'receipt-basis', receipt?.qualifier ||
+    'Document what the author says may carry forward. This does not certify evidence quality or causal truth.'));
+  const open = node('button', 'btn receipt-closeout-open', receipt ? 'Open learning close-out' : 'Document learning close-out');
+  open.type = 'button';
+  open.dataset.openCloseout = '';
+  open.setAttribute('aria-label', `${open.textContent} for ${decision.question || decision.name}`);
+  section.appendChild(open);
+  host.appendChild(section);
+}
+
+function closeOutEditable(decision, field, labelText, fallback){
+  const property = {
+    'basis-kind':'basisKind', 'carry-forward':'carryForward', 'decision-use':'decisionUse', claim:'claim',
+    scope:'scope', 'review-by':'reviewBy', 'reconsider-if':'reconsiderIf', 'next-check':'nextCheck',
+  }[field];
+  return editableValue({srcLine:decision.srcLine}, {
+    kind:`closeout-${field}`, label:labelText, raw:decision.closeOut?.[property] || '', fallback,
+    className:'closeout-edit-field',
+  });
+}
+
+function appendCloseOutHistory(host, receipt){
+  const events = receipt?.events || [
+    ...(receipt?.reviews || []).map(event => ({kind:'review', ...event})),
+    ...(receipt?.retirements || []).map(event => ({kind:'retirement', ...event})),
+  ].sort((left, right) => (left.srcLine ?? 0) - (right.srcLine ?? 0));
+  if(!events.length) return;
+  const section = node('section', 'closeout-history');
+  section.appendChild(node('h3', '', 'Append-only history'));
+  const list = node('ol', 'closeout-history-list');
+  for(const [index, event] of events.entries()){
+    const item = node('li', '');
+    if(event.kind === 'review'){
+      item.appendChild(node('strong', '', `Event ${index + 1} · Review · ${closeOutLabel(event.relation)} · ${closeOutLabel(event.effect)}`));
+      item.appendChild(node('span', '', event.newObservation || 'Observation not complete'));
+      item.appendChild(node('small', '', `Prior claim: ${event.priorClaim || 'Not authored'} · Prior scope: ${event.priorScope || 'Not authored'}`));
+      if(event.newScope) item.appendChild(node('small', '', `New scope: ${event.newScope}`));
+      if(event.reviewedOn) item.appendChild(node('time', '', event.reviewedOn));
+    } else {
+      item.appendChild(node('strong', '', `Event ${index + 1} · Retirement · ${closeOutLabel(event.effect)}`));
+      item.appendChild(node('span', '', event.reason || 'Reason not complete'));
+      if(event.retiredOn) item.appendChild(node('time', '', event.retiredOn));
+    }
+    list.appendChild(item);
+  }
+  section.appendChild(list);
+  host.appendChild(section);
+}
+
+function renderLearningCloseOutDetail(host, {sheet = false} = {}){
+  const decision = overviewImpact?.decision;
+  if(!closeOutEligible(decision)) return false;
+  const receipt = closeOutFor(decision);
+  host.replaceChildren();
+  host.dataset.closeoutDetail = 'true';
+  const head = node('div', 'focus-head closeout-head');
+  const identity = node('div', 'focus-identity');
+  identity.appendChild(node('p', 'inspector-kicker', 'Learning close-out · selected decision'));
+  const title = node('h2', '', decision.question || decision.name);
+  title.id = sheet ? 'overview-receipt-title' : 'focus-lens-title';
+  title.tabIndex = -1;
+  identity.appendChild(title);
+  identity.appendChild(node('p', 'focus-state', decision.answer?.direction
+    ? `Answered ${decision.answer.date || 'without a recorded date'}`
+    : 'Current reading recorded; no answer is asserted here.'));
+  head.appendChild(identity);
+  const back = node('button', 'btn focus-return', 'Return to decision receipt');
+  back.type = 'button';
+  back.dataset.returnCloseout = '';
+  head.appendChild(back);
+  host.appendChild(head);
+
+  host.appendChild(closeOutStatusGrid(receipt));
+  host.appendChild(node('p', 'closeout-guidance', closeOutCurrencyCopy(receipt)));
+  const boundary = node('p', 'closeout-boundary', receipt?.qualifier ||
+    'Author-stated contents; not evidence, causal, or research-quality certification.');
+  boundary.appendChild(document.createTextNode(' Close-out does not alter this answer, the Paths plan, or any Roadmap projection.'));
+  host.appendChild(boundary);
+
+  const truth = node('section', 'closeout-truth');
+  truth.appendChild(node('h3', '', 'Learning contract & current truth'));
+  const truthGrid = node('dl', 'closeout-truth-grid');
+  const facts = [
+    ['Question', decision.question || decision.name],
+    ['Learn', decision.learn || 'No deliberate move authored'],
+    ['Enough', decision.enough || 'No evidence standard authored'],
+    ['Answer', decision.answer?.direction ? `${decision.answer.direction}${decision.answer.date ? ` · ${decision.answer.date}` : ''}` : 'No answer recorded'],
+    ['Latest reading', decision.reading || 'No reading recorded'],
+  ];
+  for(const [term, description] of facts){
+    const item = node('div', ''); item.append(node('dt', '', term), node('dd', '', description)); truthGrid.appendChild(item);
+  }
+  truth.appendChild(truthGrid);
+  host.appendChild(truth);
+
+  const stated = node('section', 'closeout-authoring');
+  stated.appendChild(node('h3', '', 'What is stated'));
+  const statedFields = node('div', 'closeout-edit-grid');
+  statedFields.append(
+    closeOutEditable(decision, 'basis-kind', 'Basis kind', 'Choose observation / experiment / judgement / calculation / synthesis'),
+    closeOutEditable(decision, 'claim', 'Author-stated claim', 'State the bounded finding'),
+    closeOutEditable(decision, 'decision-use', 'Decision use', 'How should this inform a later decision?'),
+  );
+  stated.appendChild(statedFields);
+  host.appendChild(stated);
+
+  const travel = node('section', 'closeout-authoring');
+  travel.appendChild(node('h3', '', 'What may travel forward'));
+  const travelFields = node('div', 'closeout-edit-grid');
+  travelFields.append(
+    closeOutEditable(decision, 'carry-forward', 'Carry-forward', 'Choose operating-claim / scoped-finding / no-carry-forward'),
+    closeOutEditable(decision, 'scope', 'Scope', 'Population, context and time boundary'),
+    closeOutEditable(decision, 'review-by', 'Review by', 'YYYY-MM-DD'),
+  );
+  travel.appendChild(travelFields);
+  host.appendChild(travel);
+
+  const reconsider = node('section', 'closeout-authoring');
+  reconsider.appendChild(node('h3', '', 'When to reconsider'));
+  const reconsiderFields = node('div', 'closeout-edit-grid');
+  reconsiderFields.append(
+    closeOutEditable(decision, 'reconsider-if', 'Trigger', 'What would weaken this statement?'),
+    closeOutEditable(decision, 'next-check', 'Next check', 'What should be checked before wider use?'),
+  );
+  reconsider.appendChild(reconsiderFields);
+  host.appendChild(reconsider);
+  appendCloseOutHistory(host, receipt);
+  host.appendChild(node('p', 'closeout-source-note',
+    'Reviews and retirements are append-only source events in source order. Existing events remain visible here; add a new event in the editor rather than overwriting prior history.'));
+  requestAnimationFrame(() => title.focus({preventScroll:false}));
+  return true;
+}
+
 function nextDecisionAction(decision){
   if(canonicalRoadmapStyle() === 'agenda') return learningAgendaNextAction(decision);
   if(decision.repairEvidence?.length)
@@ -452,11 +664,13 @@ function renderOverviewReceipt(){
   const overlay = metrics.receiptLayout === 'overlay';
   const style = canonicalRoadmapStyle();
   const receiptEligible = style === 'brief' || style === 'question' || style === 'conditions' ||
-    style === 'agenda' && sheet;
+    style === 'agenda';
+  const closeoutSheet = sheet && overviewMode === 'closeout';
   if(!sheet){
     overviewReceiptSheetOpen = false;
   }
   if(!receiptEligible || !isRoadmapStyle() || !overviewImpact || overviewMode === 'focus' ||
+      (overviewMode === 'closeout' && !closeoutSheet) ||
       (sheet && !overviewReceiptSheetOpen) || (overlay && !overviewReceiptOverlayOpen)){
     if(!isRoadmapStyle() || !overviewImpact){
       overviewReceiptSheetOpen = false;
@@ -477,6 +691,11 @@ function renderOverviewReceipt(){
   host.dataset.decisionKey = impact.key;
   host.dataset.layout = metrics.receiptLayout;
   setOverviewSheetState(host, sheet);
+  if(closeoutSheet){
+    renderLearningCloseOutDetail(host, {sheet:true});
+    return;
+  }
+  delete host.dataset.closeoutDetail;
 
   const head = node('div', 'receipt-head');
   const identity = node('div', 'receipt-identity');
@@ -552,6 +771,7 @@ function renderOverviewReceipt(){
     [...narrative.mayOpen, ...narrative.makesIrrelevant]);
   appendImpactSection(host, 'Completed history', narrative.completedHistory);
   appendImpactSection(host, 'Repair evidence', narrative.repairEvidence);
+  appendCloseOutSummary(host, decision);
 
   let open = null;
   if(!sheet){
@@ -567,7 +787,7 @@ function renderOverviewReceipt(){
   }
   if(focusOverviewReturnAfterRender){
     focusOverviewReturnAfterRender = false;
-    open?.focus({preventScroll:true});
+    (host.querySelector('[data-open-closeout]') || open)?.focus({preventScroll:true});
   }
 }
 
@@ -613,11 +833,17 @@ function focusBranch(direction, branch){
 
 function renderFocusLens(){
   const host = $('focus-lens');
+  if(isRoadmapStyle() && overviewMode === 'closeout' && closeOutEligible(overviewImpact?.decision) && !overviewReceiptUsesSheet()){
+    host.hidden = false;
+    renderLearningCloseOutDetail(host);
+    return;
+  }
   if(!isRoadmapStyle() || overviewMode !== 'focus' || !overviewImpact){
     host.hidden = true;
     host.replaceChildren();
     return;
   }
+  delete host.dataset.closeoutDetail;
   const impact = overviewImpact;
   const narrative = impact.narrative;
   host.hidden = false;
@@ -666,13 +892,15 @@ function renderFocusLens(){
 function renderOverviewSurface(overviewView, metrics = overviewSurfaceMetrics()){
   const live = $('overview-live');
   const focusActive = overviewView && overviewMode === 'focus' && !metrics.narrow && overviewImpact;
+  const closeoutActive = overviewView && overviewMode === 'closeout' && !overviewReceiptUsesSheet(metrics) &&
+    closeOutEligible(overviewImpact?.decision);
   if(overviewMode === 'focus' && !focusActive) overviewMode = 'overview';
   live.dataset.view = overviewView ? 'overview' : 'other';
-  live.dataset.mode = focusActive ? 'focus' : 'overview';
+  live.dataset.mode = closeoutActive ? 'closeout' : focusActive ? 'focus' : 'overview';
   live.dataset.receiptLayout = overviewView ? metrics.receiptLayout : 'none';
   live.dataset.focusLayout = metrics.focusLayout;
   live.dataset.style = overviewView ? canonicalRoadmapStyle() : 'other';
-  preview.hidden = !!focusActive;
+  preview.hidden = !!(focusActive || closeoutActive);
   renderOverviewReceipt();
   renderFocusLens();
 }
@@ -827,6 +1055,7 @@ function doRefresh(){
     ? {key:overviewChoice.key, srcLine:overviewChoice.srcLine} : null;
   overviewImpact = roadmapView && selectedOverviewDecision
     ? decisionImpactProjection(model, projection, selectedOverviewDecision.key) : null;
+  if(overviewMode === 'closeout' && !closeOutEligible(overviewImpact?.decision)) overviewMode = 'overview';
   if(!roadmapView) overviewMode = 'overview';
   renderWarnings();
   const readout = verdict(projection);
@@ -915,7 +1144,9 @@ function doRefresh(){
     const ready = projectionChoices().choices.filter(choice => choice.inspected.ok).length;
     projectionJump.textContent = `Choose exact outcome · ${ready} ready`;
   }
-  $('view-method').textContent = roadmapView && overviewMode === 'focus'
+  $('view-method').textContent = roadmapView && overviewMode === 'closeout'
+    ? 'Close-out is scoped to the selected decision; the full plan export remains the originating four-view artefact.'
+    : roadmapView && overviewMode === 'focus'
     ? 'Focus is a local counterfactual lens; exports remain the selected full roadmap.'
     : questionView
     ? 'Question lens compares what changes under each answer; exports keep the selected decision visible.'
@@ -1012,6 +1243,11 @@ function decisionOps(kind, line, value){
   return null;
 }
 
+function closeOutOps(kind, line, value){
+  if(!kind.startsWith('closeout-')) return null;
+  return setCloseOutField(editor.getText(), line, kind.slice('closeout-'.length), value);
+}
+
 attachEditInPlace($('decision-inspector'), {
   kinds:inspectorKinds,
   onCommit(kind, line, _raw, value){
@@ -1021,9 +1257,17 @@ attachEditInPlace($('decision-inspector'), {
 });
 
 attachEditInPlace($('overview-receipt'), {
-  kinds:inspectorKinds,
+  kinds:{...inspectorKinds, ...closeOutKinds},
   onCommit(kind, line, _raw, value){
-    const ops = decisionOps(kind, line, value);
+    const ops = kind.startsWith('closeout-') ? closeOutOps(kind, line, value) : decisionOps(kind, line, value);
+    if(ops?.length) applyLineOps(editor, ops);
+  },
+});
+
+attachEditInPlace($('focus-lens'), {
+  kinds:closeOutKinds,
+  onCommit(kind, line, _raw, value){
+    const ops = closeOutOps(kind, line, value);
     if(ops?.length) applyLineOps(editor, ops);
   },
 });
@@ -1087,6 +1331,18 @@ preview.addEventListener('keydown', event => {
 });
 
 $('overview-receipt').addEventListener('click', event => {
+  if(event.target.closest?.('[data-return-closeout]')){
+    overviewMode = 'overview';
+    renderOverviewReceipt();
+    requestAnimationFrame(() => $('overview-receipt').querySelector('[data-open-closeout]')?.focus());
+    return;
+  }
+  if(event.target.closest?.('[data-open-closeout]') && closeOutEligible(overviewImpact?.decision)){
+    overviewMode = 'closeout';
+    if(overviewReceiptUsesSheet()) renderOverviewReceipt();
+    else refresh();
+    return;
+  }
   if(event.target.closest?.('[data-receipt-close]')){
     closeOverviewReceiptSheet();
     return;
@@ -1139,6 +1395,12 @@ $('overview-receipt').addEventListener('keydown', event => {
 });
 
 $('focus-lens').addEventListener('click', event => {
+  if(event.target.closest?.('[data-return-closeout]')){
+    overviewMode = 'overview';
+    focusOverviewReturnAfterRender = true;
+    refresh();
+    return;
+  }
   if(!event.target.closest?.('[data-return-overview]')) return;
   overviewMode = 'overview';
   focusOverviewReturnAfterRender = true;
@@ -1147,6 +1409,13 @@ $('focus-lens').addEventListener('click', event => {
 
 document.addEventListener('keydown', event => {
   if(event.key !== 'Escape') return;
+  if(overviewMode === 'closeout'){
+    event.preventDefault();
+    overviewMode = 'overview';
+    if(overviewReceiptUsesSheet()) renderOverviewReceipt();
+    else { focusOverviewReturnAfterRender = true; refresh(); }
+    return;
+  }
   if(closeOverviewReceiptSheet()){
     event.preventDefault();
     return;
@@ -1245,6 +1514,13 @@ function selectedAgendaReceiptSvg(){
     context(model, {width:760, selectedKey:selectedOverviewDecision.key}));
 }
 
+function selectedCloseOutReceiptSvg(){
+  const decision = overviewImpact?.decision;
+  if(!closeOutEligible(decision)) return null;
+  return renderLearningCloseOut(model, decision, closeOutFor(decision),
+    context(model, {width:900}));
+}
+
 wireExports({
   buttons:{copypng:$('copypng'), dlpng:$('dlpng'), dlsvg:$('dlsvg')},
   getSvg:wideSvg,
@@ -1287,6 +1563,44 @@ $('agenda-receipt-png').addEventListener('click', () => {
         : flash('Receipt PNG unavailable — download SVG'), 'image/png');
     }catch(_){ flash('Receipt PNG unavailable — download SVG'); }
   }, () => flash('Receipt PNG unavailable — download SVG'));
+});
+
+function selectedCloseOutExport(){
+  const svg = selectedCloseOutReceiptSvg();
+  if(!svg) return null;
+  const decision = overviewImpact?.decision;
+  return {svg, receiptSlug:slugify(
+    `${model?.title || 'paths'} ${decision?.name || decision?.key || 'decision'} learning close-out`,
+    'paths-learning-close-out')};
+}
+
+$('closeout-receipt-svg').addEventListener('click', () => {
+  const output = selectedCloseOutExport();
+  if(output) download(`${output.receiptSlug}.svg`, new Blob([output.svg], {type:'image/svg+xml'}));
+});
+
+$('closeout-receipt-png').addEventListener('click', () => {
+  const output = selectedCloseOutExport();
+  if(!output) return;
+  const button = $('closeout-receipt-png');
+  const label = 'Selected learning close-out · PNG';
+  const plan = pngRasterPlan(output.svg);
+  const flash = message => {
+    button.textContent = message;
+    button.setAttribute('aria-label', message);
+    setTimeout(() => {
+      button.textContent = label;
+      button.setAttribute('aria-label', label);
+    }, 2000);
+  };
+  if(!plan.ok) return flash('Close-out PNG unavailable — download SVG');
+  svgToCanvas(output.svg, canvas => {
+    try {
+      canvas.toBlob(blob => blob
+        ? download(`${output.receiptSlug}.png`, blob)
+        : flash('Close-out PNG unavailable — download SVG'), 'image/png');
+    }catch(_){ flash('Close-out PNG unavailable — download SVG'); }
+  }, () => flash('Close-out PNG unavailable — download SVG'));
 });
 
 paintKicker($('kicker'), '16', 'The questions inside the plan');

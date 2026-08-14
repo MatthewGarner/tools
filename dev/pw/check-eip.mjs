@@ -3822,6 +3822,18 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     await p.locator('#overview-receipt .receipt-state').count() === 1 &&
     await p.locator('#overview-receipt .receipt-next').count() === 1 &&
     await p.locator('[data-kind="question-receipt"][data-decision-key="groups"]').count() === 1);
+  await p.locator('#overview-receipt [data-open-closeout]').click();
+  await p.waitForTimeout(220);
+  check('paths: Close-out stays inside the selected receipt and not a fifth whole-plan view',
+    await p.locator('#overview-live').getAttribute('data-mode') === 'closeout' &&
+    /Learning close-out/i.test(await p.locator('#overview-receipt').innerText()) &&
+    /Author-stated contents/i.test(await p.locator('#overview-receipt').innerText()) &&
+    await p.locator('[data-paths-view="closeout"]').count() === 0);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  check('paths: Close-out returns to its originating four-view receipt',
+    await p.locator('#overview-live').getAttribute('data-mode') !== 'closeout' &&
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible());
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const dependenciesDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();

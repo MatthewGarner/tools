@@ -70,6 +70,7 @@
     {"source": "/bets", "destination": "/bets/", "permanent": false},
     {"source": "/signal-vs-noise", "destination": "/signal-vs-noise/", "permanent": false},
     {"source": "/case", "destination": "/case/", "permanent": false},
-    {"source": "/paths", "destination": "/paths/", "permanent": false}
+    {"source": "/paths", "destination": "/paths/", "permanent": false},
+    {"source": "/proxy", "destination": "/proxy/", "permanent": false}
   ]
 }

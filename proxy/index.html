@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proxy Hunt — test the measure, not the story</title>
+<meta name="description" content="Stress-test whether optimising an operating metric could harm the outcome you want or one you need to protect — without turning co-movement into a causal claim.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔎</text></svg>">
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/syntax.css">
+<link rel="stylesheet" href="/assets/controls.css">
+<link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/about.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../assets/mobile.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/assets/pwa.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="crumb" href="/">← All tools</a>
+    <p class="kicker" id="kicker"></p>
+    <h1>Proxy Hunt</h1>
+    <p class="tagline">Before a metric becomes a target, ask how pushing it could damage the outcome you actually want. Keep the intended story, failure theories, reported readings and causal limits visibly separate.</p>
+  </header>
+</div>
+
+<main>
+<div class="workspace" id="workspace">
+  <aside class="rail">
+    <div class="chips" id="chips"><span class="lead">Try:</span></div>
+    <div id="cmhost" aria-label="Proxy Hunt source editor"></div>
+    <div class="chips saved-row" id="savedrow"></div>
+    <ul id="warns"></ul>
+    <details class="syntax">
+      <summary>Syntax reference</summary>
+      <h4>Hunt</h4>
+      <dl>
+        <dt><code data-try="">title: Habitat invite pressure</code> and <code data-try="">date: 2026-08-13</code></dt>
+        <dd>the authored context and date for this hunt</dd>
+        <dt><code data-try="">outcome: Groups retain after week one</code></dt>
+        <dd>the desired outcome — it is not interchangeable with the proxy</dd>
+        <dt><code data-try="">proxy: Invitation rate</code></dt>
+        <dd>the operating measure under pressure, or monitored as a guardrail</dd>
+        <dt><code data-try="">action: Prompt every active member</code></dt>
+        <dd>the action whose consequences you are testing</dd>
+        <dt><code data-try="">mode: optimise</code> or <code>monitor</code></dt>
+        <dd><code>monitor</code> also needs <code>optimisation-pressure:</code></dd>
+        <dt><code data-try="">palette: ocean</code></dt>
+        <dd>use <code>ocean</code>, <code>slate</code>, <code>ember</code> or <code>plum</code></dd>
+        <dt><code data-try="">accent: #C05621</code></dt>
+        <dd>override the named palette with a 6-digit hex accent</dd>
+      </dl>
+      <h4>Theories</h4>
+      <dl>
+        <dt><code data-try="">intended-theory:</code></dt>
+        <dd>one authored <code>mechanism:</code>; the route is action → mechanism → desired outcome</dd>
+        <dt><code data-try="">protects:</code></dt>
+        <dd>one or more indented <code>- Protected outcome</code> lines</dd>
+        <dt><code data-try="">failure-theory fatigue:</code></dt>
+        <dd>up to three named challenges, each with <code>mechanism:</code>, <code>harmed-outcome:</code>, <code>guardrail:</code>, <code>basis:</code> and <code>weaken-with:</code></dd>
+        <dt><code>basis: reasoned-mechanism</code></dt>
+        <dd>or <code>speculative-concern</code>; neither is evidence certification</dd>
+      </dl>
+      <h4>Reported pattern</h4>
+      <dl>
+        <dt><code data-try="">reported-pattern:</code></dt>
+        <dd>author-entered <code>proxy-reading:</code> and <code>outcome-reading:</code>, plus the named outcome, population, horizon, comparator and source. A pattern never proves the mechanism.</dd>
+        <dt><code>trade-off:</code> and <code>decision-rule:</code></dt>
+        <dd>name an explicit conflict; an empty rule leaves the hunt unresolved</dd>
+      </dl>
+    </details>
+  </aside>
+  <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+  <section class="stage">
+    <div class="selection-tools">
+      <p class="selection-note" id="selectionnote">Select a failure theory to inspect its scoped receipt.</p>
+      <button class="btn" id="viewreceipt" disabled>View selected receipt</button>
+    </div>
+    <div class="metrics" id="metrics" hidden></div>
+    <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
+    <p class="causal-note" id="causalnote" aria-live="polite"></p>
+    <div class="actions">
+      <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
+      <button class="btn primary" id="copypng">Copy full hunt PNG</button>
+      <details class="action-disclosure">
+        <summary class="btn">Export</summary>
+        <div class="action-menu">
+          <span class="export-label">Full hunt · all theories</span>
+          <button class="btn" id="dlpng">Full hunt PNG</button>
+          <button class="btn" id="dlsvg">Full hunt SVG</button>
+          <span class="export-label">Selected theory · scoped receipt</span>
+          <button class="btn" id="receiptpng">Receipt PNG</button>
+          <button class="btn" id="receiptsvg">Receipt SVG</button>
+        </div>
+      </details>
+      <span class="method">Authored theories and reported patterns remain separate · full exports omit the live selection · the URL carries the hunt and selected receipt</span>
+    </div>
+  </section>
+</div>
+
+<div class="wrap">
+  <section class="about">
+    <h2>Why hunt the proxy?</h2>
+    <div class="prose">
+      <p>Operating measures are useful because they move sooner than the outcomes we care about. That same convenience makes them dangerous targets: a team can improve the number by changing behaviour in ways that do not improve the goal — or that quietly damage an outcome the product needs to protect.</p>
+      <p>Proxy Hunt makes the challenge inspectable. The intended route and each failure route contain actions, mechanisms and outcomes only. The proxy and any reported readings sit outside those routes, so a visual connection cannot smuggle in a causal claim. A co-moving pattern can justify investigation; it cannot establish why the outcomes moved.</p>
+      <p>The result is a guardrail decision, not an approval stamp. An unfinished hunt stays visibly unfinished. A speculative concern stays speculative. A reasoned mechanism still says what evidence would weaken it. Use <a href="/gauge/">Gauge</a> to elicit a room’s judgement, <a href="/fermi/">Fermi</a> to test a conditional calculation, and <a href="/paths/">Paths</a> when new knowledge changes what work should happen.</p>
+    </div>
+  </section>
+</div>
+</main>
+
+<div class="wrap">
+  <footer>
+    No accounts, no tracking. The URL carries your hunt — bookmark or share it.<br>
+    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Codex, August 2026.
+  </footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

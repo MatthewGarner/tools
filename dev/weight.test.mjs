@@ -142,7 +142,7 @@ const PAGES = {
      Driver Tree now carries the source-aware semantic description needed by
      accessible exports. Actual 215.7k; 1.3k headroom keeps those correctness
      seams eager and avoids loading a second runtime solely to save bytes. */
-  'fermi/index.html': 217_000, 'rank/index.html': 104_500, /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  'fermi/index.html': 217_000, 'rank/index.html': 106_000, /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
@@ -479,7 +479,19 @@ const PAGES = {
      than being a smaller, second model. The scoped decision-receipt export
      keeps this same complete semantics instead of generating a second model.
      Actual ~917.8k; retain ~7.2k headroom. */
-  'paths/index.html': 925_000,
+  /* 925k -> 980k (2026-08-13 Learning Close-out): the selected-decision
+     receipt reuses the existing evaluator and four-view Paths surface, but adds
+     an authored, append-only close-out projection, scoped semantic export and
+     undoable source edits. They deliberately stay eager: a Close-out opened
+     from any Paths view must preserve the same URL-local state offline. Actual
+     971.7k; 8.3k headroom avoids disguising this complete semantic layer as a
+     lazy second model. */
+  'paths/index.html': 980_000,
+  /* New Instrument 17 (2026-08-13): Proxy Hunt is a standalone parser →
+     projection → SVG surface. The full graph includes CodeMirror, renderer,
+     URL state, full/scoped exports and the common workspace modules; no runtime
+     dependency or lazy data path is introduced. Actual 448.2k; 11.8k headroom. */
+  'proxy/index.html': 460_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

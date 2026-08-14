@@ -27,6 +27,25 @@ function assertClean(out, who){
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
 }
 
+test('proxy hunt separates hostile causal theories, readings and scoped receipts', async () => {
+  const {parse} = await import('../proxy/parse.js');
+  const {project} = await import('../proxy/project.js');
+  const {renderHunt, renderHuntNarrow, renderHuntReceipt} = await import('../proxy/render-hunt.js');
+  const safe = value => value.replace(/:/g, ';');
+  const doc = 'title: ' + EVIL[0] + '\noutcome: ' + safe(EVIL[1]) + '\nproxy: ' + safe(EVIL[2]) +
+    '\naction: ' + safe(EVIL[3]) + '\nmode: optimise\nintended-theory:\n  mechanism: ' + safe(EVIL[4]) +
+    '\nprotects:\n  - ' + safe(EVIL[5]) + '\nfailure-theory harm:\n  mechanism: ' + safe(EVIL[0]) +
+    '\n  harmed-outcome: ' + safe(EVIL[1]) + '\n  guardrail: ' + safe(EVIL[5]) +
+    '\n  basis: reasoned-mechanism\n  weaken-with: ' + safe(EVIL[3]) +
+    '\nreported-pattern:\n  proxy-reading: ' + safe(EVIL[2]) + '\n  outcome: ' + safe(EVIL[1]) +
+    '\n  outcome-reading: ' + safe(EVIL[4]) + '\n  population: ' + safe(EVIL[5]) +
+    '\n  horizon: week one\n  comparator: baseline\n  source: ' + safe(EVIL[0]);
+  const hunt = project(parse(doc), 'harm');
+  assertClean(renderHunt(hunt, {...ctx, width:1100, interactive:true}), 'proxy-hunt');
+  assertClean(renderHuntNarrow(hunt, {...ctx, width:360, interactive:true}), 'proxy-hunt-narrow');
+  assertClean(renderHuntReceipt(hunt, {...ctx, width:900}), 'proxy-hunt-receipt');
+});
+
 test('paths tree, overview, dependencies, conditions, learning agenda and possible-plan renderers escape a hostile real document', async () => {
   const {parse} = await import('../paths/parse.js');
   const {project} = await import('../paths/project.js');
@@ -40,6 +59,8 @@ test('paths tree, overview, dependencies, conditions, learning agenda and possib
   const {renderConditions, renderConditionsNarrow} = await import('../paths/render-conditions.js');
   const {learningAgendaProjection} = await import('../paths/learning-agenda.js');
   const {renderLearningAgenda, renderLearningAgendaNarrow} = await import('../paths/render-learning-agenda.js');
+  const {renderLearningCloseOut} = await import('../paths/render-learning-closeout.js');
+  const {projectLearningCloseOut} = await import('../paths/learning-closeout.js');
   const {renderPlans, renderPlansNarrow} = await import('../paths/render-plans.js');
   const safe = value => value.replace(/:/g, ';');
   const doc = 'title: ' + EVIL[0] + '\ndate: 2026-08-10\nverdict: ' + EVIL[5] + '\n' +
@@ -78,6 +99,12 @@ test('paths tree, overview, dependencies, conditions, learning agenda and possib
     'paths-learning-agenda');
   assertClean(renderLearningAgendaNarrow(agenda, {...renderCtx, width:360, selectedKey:'choice'}),
     'paths-learning-agenda-narrow');
+  const closeOut = projectLearningCloseOut({...model.decisions[0], closeOut:{
+    basisKind:'observation', carryForward:'scoped-finding', decisionUse:EVIL[0], claim:EVIL[1],
+    scope:EVIL[2], reviewBy:'2026-09-01', reconsiderIf:EVIL[3], nextCheck:EVIL[4], reviews:[], retirements:[], srcLine:1,
+  }}, '2026-08-10');
+  assertClean(renderLearningCloseOut(model, model.decisions[0], closeOut, {...renderCtx, width:900}),
+    'paths-learning-close-out');
   assertClean(renderPlans(projected, {...renderCtx, width:900}), 'paths-plans');
   assertClean(renderPlansNarrow(projected, {...renderCtx, width:360}), 'paths-plans-narrow');
 });

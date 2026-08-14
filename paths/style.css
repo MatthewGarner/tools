@@ -28,7 +28,10 @@
   margin-top:5px; padding-top:12px; border-top:1px solid var(--border);
   color:var(--accent-ink); font-weight:700;
 }
-@media (pointer:coarse){
+/* The four Paths views and their disclosure share the stage's compact action
+   language. Their local 36px rule is intentional on desktop, but must not win
+   over the touch floor at a phone width with a fine pointer. */
+@media (max-width:520px), (pointer:coarse){
   .paths-views .segmented .btn,.paths-more-views summary,.paths-more-views button{min-height:44px}
 }
 @media (max-width:520px){
@@ -376,6 +379,30 @@
 .impact-meta{display:block; margin-top:2px; color:var(--muted); font-size:9.5px; line-height:1.4}
 .impact-empty{margin:0; color:var(--muted); font-size:10px; line-height:1.4}
 .receipt-focus{width:100%; justify-content:center; margin-top:16px}
+.receipt-closeout{
+  margin-top:16px; padding-top:14px; border-top:1px solid var(--border);
+}
+.receipt-closeout-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px}
+.receipt-closeout-head h3,.closeout-truth h3,.closeout-authoring h3,.closeout-history h3{
+  margin:0; font-size:11px; font-weight:760; letter-spacing:.02em;
+}
+.closeout-currency{
+  padding:4px 7px; color:var(--accent-ink); background:color-mix(in srgb,var(--accent) 9%,var(--card));
+  border:1px solid color-mix(in srgb,var(--accent) 42%,var(--border));
+  font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+}
+.closeout-status-grid{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:0;
+}
+.closeout-status{
+  min-width:0; padding:9px 10px; background:var(--card); border:1px solid var(--border);
+}
+.closeout-status dt{
+  margin:0 0 5px; color:var(--muted); font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+}
+.closeout-status dd{margin:0; overflow-wrap:anywhere; font-size:10px; font-weight:720; line-height:1.3}
+.closeout-guidance{margin:9px 0 0; color:var(--ink); font-size:10px; font-weight:650; line-height:1.4}
+.receipt-closeout-open{width:100%; justify-content:center; margin-top:12px}
 
 .focus-lens{min-height:560px; padding:20px; color:var(--ink); background:var(--bg); border:1px solid var(--border)}
 .focus-head{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; padding-bottom:16px; border-bottom:1px solid var(--border)}
@@ -439,10 +466,70 @@ body.overview-sheet-open::before{
 .overview-live[data-receipt-layout="overlay"] .overview-receipt[data-layout="overlay"]{
   position:absolute; top:12px; right:12px;
 }
-.overview-live[data-mode="focus"]{display:grid; grid-template-areas:"focus"}
-.overview-live[data-mode="focus"] .overview-main{display:none}
+.overview-live[data-mode="focus"],.overview-live[data-mode="closeout"]{display:grid; grid-template-areas:"focus"}
+.overview-live[data-mode="focus"] .overview-main,.overview-live[data-mode="closeout"] .overview-main{display:none}
 .overview-live[data-focus-layout="stacked"] .focus-relations,
 .overview-live[data-focus-layout="stacked"] .focus-branches,
 .overview-live[data-focus-layout="stacked"] .focus-evidence{grid-template-columns:1fr}
 .overview-live[data-focus-layout="stacked"] .focus-head{display:grid; grid-template-columns:1fr}
 .overview-live[data-focus-layout="stacked"] .focus-return{justify-self:start}
+
+.focus-lens[data-closeout-detail="true"],.overview-receipt[data-closeout-detail="true"]{
+  --closeout-wash:color-mix(in srgb,var(--accent) 6%,var(--card));
+}
+.focus-lens[data-closeout-detail="true"]{padding:24px; min-height:0}
+.closeout-head{padding-bottom:18px}
+.closeout-boundary{
+  margin:14px 0 0; padding:11px 13px; color:var(--muted); background:var(--closeout-wash);
+  border-left:2px solid var(--accent); font-size:10px; font-weight:600; line-height:1.5;
+}
+.closeout-truth,.closeout-authoring,.closeout-history{
+  margin-top:14px; padding:16px; background:var(--card); border:1px solid var(--border);
+}
+.closeout-truth h3,.closeout-authoring h3,.closeout-history h3{
+  margin-bottom:13px; color:var(--accent-ink); font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+}
+.closeout-truth-grid{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px 20px; margin:0;
+}
+.closeout-truth-grid div{min-width:0}
+.closeout-truth-grid dt{
+  margin:0 0 4px; color:var(--muted); font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+}
+.closeout-truth-grid dd{margin:0; overflow-wrap:anywhere; font-size:11px; font-weight:620; line-height:1.4}
+.closeout-edit-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.closeout-edit-grid .inspector-field{min-width:0; margin:0}
+.closeout-edit-grid .inspector-value{
+  width:100%; min-height:52px; padding:10px; text-align:left; background:var(--bg); border:1px solid var(--border);
+  font-size:11px; line-height:1.4;
+}
+.closeout-edit-grid .inspector-value:hover{border-color:var(--accent)}
+.closeout-history-list{list-style:none; margin:0; padding:0}
+.closeout-history-list li{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 14px; padding:10px 0}
+.closeout-history-list li + li{border-top:1px dotted var(--border)}
+.closeout-history-list strong,.closeout-history-list span{font-size:10px; line-height:1.4}
+.closeout-history-list span{grid-column:1}
+.closeout-history-list small{grid-column:1; color:var(--muted); font-size:9px}
+.closeout-history-list time{grid-column:2; grid-row:1; color:var(--muted); font-size:9px}
+.closeout-source-note{
+  margin:14px 0 0; color:var(--muted); font-size:9px; font-weight:600; line-height:1.45;
+}
+
+@media (max-width:760px){
+  .closeout-edit-grid,.closeout-truth-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){
+  /* The selected receipt is a phone sheet at this width. Keep the route into
+     its close-out detail comfortably reachable even when a fine pointer is
+     reported by an emulator. */
+  .receipt-closeout-open{min-height:44px}
+  .closeout-status-grid,.closeout-edit-grid,.closeout-truth-grid{grid-template-columns:1fr}
+  .overview-receipt[data-closeout-detail="true"]{max-height:min(88dvh,760px)}
+  .overview-receipt[data-closeout-detail="true"] .focus-head{display:grid; grid-template-columns:1fr}
+  .overview-receipt[data-closeout-detail="true"] .focus-return{justify-self:start}
+  .closeout-truth,.closeout-authoring,.closeout-history{padding:13px}
+}
+@media (pointer:coarse){
+  .receipt-closeout-open,.focus-return,.closeout-edit-grid .inspector-value{min-height:44px}
+  .closeout-edit-grid .inspector-value{font-size:16px}
+}

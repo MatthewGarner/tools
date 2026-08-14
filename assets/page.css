@@ -84,8 +84,8 @@ footer a:hover{color:var(--brand-text)}
   padding: 4px 8px; margin: 2px 0 0; cursor: pointer; min-height: 28px}
 .vcopy:hover, .vcopy:focus-visible{border-color: var(--border); color: var(--ink); outline: none}
 .verdict-block[hidden] + .vcopy{display: none}
-@media (pointer: coarse){ .vcopy{min-height: 44px; padding: 10px 12px} }
-@media (pointer: coarse){
+@media (max-width: 520px), (pointer: coarse){ .vcopy{min-height: 44px; padding: 10px 12px} }
+@media (max-width: 520px), (pointer: coarse){
   .action-disclosure > summary{min-height:44px}
   .action-menu .btn,.action-menu .ctl{min-height:44px}
 }

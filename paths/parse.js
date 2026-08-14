@@ -1,5 +1,11 @@
 /* /paths DSL -> parsed model. Pure; no DOM and no clock. */
 
+import {
+  BASIS_KINDS, CARRY_FORWARD_KINDS, CLOSE_OUT_FIELDS, CLOSE_OUT_FIELD_PROPERTIES,
+  REVIEW_FIELDS, REVIEW_FIELD_PROPERTIES, REVIEW_RELATIONS,
+  RETIREMENT_FIELDS, RETIREMENT_FIELD_PROPERTIES,
+} from './learning-closeout.js';
+
 export const CONFIG_KEYS = ['title', 'date', 'today', 'style', 'verdict', 'palette', 'accent'];
 export const DECISION_FIELDS = [
   'question', 'signal', 'reading', 'learn', 'enough', 'owner', 'answer-by', 'when', 'assume', 'answer',
@@ -9,6 +15,12 @@ export const STATUSES = ['done', 'doing', 'risk', 'blocked'];
 const CONFIG = new Set(CONFIG_KEYS);
 const FIELDS = new Set(DECISION_FIELDS);
 const STATUS = new Set(STATUSES);
+const CLOSE_OUT_FIELD_SET = new Set(CLOSE_OUT_FIELDS);
+const BASIS_KIND_SET = new Set(BASIS_KINDS);
+const CARRY_FORWARD_KIND_SET = new Set(CARRY_FORWARD_KINDS);
+const REVIEW_FIELD_SET = new Set(REVIEW_FIELDS);
+const REVIEW_RELATION_SET = new Set(REVIEW_RELATIONS);
+const RETIREMENT_FIELD_SET = new Set(RETIREMENT_FIELDS);
 
 const quote = value => `"${value}"`;
 
@@ -140,6 +152,99 @@ function parseAssumption(raw, decision, line, add){
     return null;
   }
   return {direction:m[1].toLowerCase(), date:m[2], srcLine:line - 1, raw};
+}
+
+function newCloseOut(srcLine){
+  return {srcLine, basisKind:null, carryForward:null, decisionUse:null, claim:null, scope:null,
+    reviewBy:null, reconsiderIf:null, nextCheck:null, fieldLines:{}, reviews:[], retirements:[]};
+}
+
+function newReview(srcLine){
+  return {srcLine, priorClaim:null, priorScope:null, newObservation:null, newScope:null, relation:null,
+    reviewedOn:null, fieldLines:{}};
+}
+
+function newRetirement(srcLine){
+  return {srcLine, reason:null, retiredOn:null, fieldLines:{}};
+}
+
+function parseCloseOutField(content, line, decision, add){
+  const field = /^([a-z-]+)\s*:\s*(.*)$/i.exec(content);
+  if(!field){
+    add('parse', 'malformed-close-out-field', line, decision.key,
+      `line ${line}: ${quote(content)} cannot be read as a close-out field — use "field: value"; line ignored`);
+    return;
+  }
+  const key = field[1].toLowerCase(), value = field[2].trim(), closeOut = decision.closeOut;
+  if(key === 'currency'){
+    add('parse', 'unsupported-close-out-currency', line, `${decision.key}:currency`,
+      `line ${line}: close-out currency ${quote(value)} is derived, not authored — use "review-by:", append an inside-scope "review:" or append a "retirement:" event; field ignored`);
+    return;
+  }
+  if(!CLOSE_OUT_FIELD_SET.has(key)){
+    add('parse', 'unknown-close-out-field', line, `${decision.key}:${key}`,
+      `line ${line}: unknown close-out field ${quote(key + ':')} — field ignored; use basis-kind / carry-forward / decision-use / claim / scope / review-by / reconsider-if / next-check`);
+    return;
+  }
+  if(Object.prototype.hasOwnProperty.call(closeOut.fieldLines, key)){
+    add('parse', 'duplicate-close-out-field', line, `${decision.key}:${key}`,
+      `line ${line}: second ${quote(key + ':')} close-out field ignored — the value on line ${closeOut.fieldLines[key]} is kept; keep one ${quote(key + ':')} field`);
+    return;
+  }
+  closeOut.fieldLines[key] = line;
+  const property = CLOSE_OUT_FIELD_PROPERTIES[key];
+  if(key === 'basis-kind'){
+    const normalized = value.toLowerCase();
+    if(BASIS_KIND_SET.has(normalized)) closeOut.basisKind = normalized;
+    else add('parse', 'invalid-close-out-basis-kind', line, decision.key,
+      `line ${line}: basis-kind ${quote(value)} is not valid — use observation / experiment / judgement / calculation / synthesis; basis ignored`);
+  } else if(key === 'carry-forward'){
+    const normalized = value.toLowerCase();
+    if(CARRY_FORWARD_KIND_SET.has(normalized)) closeOut.carryForward = normalized;
+    else add('parse', 'invalid-close-out-carry-forward', line, decision.key,
+      `line ${line}: carry-forward ${quote(value)} is not valid — use operating-claim / scoped-finding / no-carry-forward; declaration ignored`);
+  } else if(key === 'review-by'){
+    if(isValidDate(value)) closeOut.reviewBy = value;
+    else add('parse', 'invalid-close-out-review-date', line, decision.key,
+      `line ${line}: review-by ${quote(value)} is not a valid date — use YYYY-MM-DD; review date ignored`);
+  } else closeOut[property] = value;
+}
+
+function parseEventField(content, line, decision, event, kind, add){
+  const field = /^([a-z-]+)\s*:\s*(.*)$/i.exec(content);
+  const fields = kind === 'review' ? REVIEW_FIELD_SET : RETIREMENT_FIELD_SET;
+  const properties = kind === 'review' ? REVIEW_FIELD_PROPERTIES : RETIREMENT_FIELD_PROPERTIES;
+  if(!field){
+    add('parse', `malformed-close-out-${kind}-field`, line, decision.key,
+      `line ${line}: ${quote(content)} cannot be read as a ${kind} field — use "field: value"; line ignored`);
+    return;
+  }
+  const key = field[1].toLowerCase(), value = field[2].trim();
+  if(!fields.has(key)){
+    const allowed = kind === 'review'
+      ? 'prior-claim / prior-scope / new-observation / new-scope / relation / reviewed-on'
+      : 'reason / retired-on';
+    add('parse', `unknown-close-out-${kind}-field`, line, `${decision.key}:${key}`,
+      `line ${line}: unknown ${kind} field ${quote(key + ':')} — field ignored; use ${allowed}`);
+    return;
+  }
+  if(Object.prototype.hasOwnProperty.call(event.fieldLines, key)){
+    add('parse', `duplicate-close-out-${kind}-field`, line, `${decision.key}:${event.srcLine}:${key}`,
+      `line ${line}: second ${quote(key + ':')} ${kind} field ignored — the value on line ${event.fieldLines[key]} is kept`);
+    return;
+  }
+  event.fieldLines[key] = line;
+  const property = properties[key];
+  if(key === 'relation'){
+    const normalized = value.toLowerCase();
+    if(REVIEW_RELATION_SET.has(normalized)) event.relation = normalized;
+    else add('parse', 'invalid-close-out-review-relation', line, decision.key,
+      `line ${line}: relation ${quote(value)} is not valid — use inside-scope or outside-scope; relation ignored`);
+  } else if(key === 'reviewed-on' || key === 'retired-on'){
+    if(isValidDate(value)) event[property] = value;
+    else add('parse', `invalid-close-out-${kind}-date`, line, decision.key,
+      `line ${line}: ${key} ${quote(value)} is not a valid date — use YYYY-MM-DD; date ignored`);
+  } else event[property] = value;
 }
 
 function addCondition(raw, line, add, kind){
@@ -336,6 +441,15 @@ export function parse(text){
       add('parse', 'odd-indent', lineNo, 'indent',
         `line ${lineNo}: decision field is indented by ${indent} spaces — read as 2 spaces; use 2 spaces`);
       indent = 2;
+    } else if(indent >= 5 && indent !== 6 &&
+      (block?.type === 'close-out-review' || block?.type === 'close-out-retirement')){
+      add('parse', 'odd-indent', lineNo, 'indent',
+        `line ${lineNo}: ${block.type === 'close-out-review' ? 'review' : 'retirement'} field is indented by ${indent} spaces — read as 6 spaces; use 6 spaces`);
+      indent = 6;
+    } else if(indent > 4 && block?.type === 'close-out'){
+      add('parse', 'odd-indent', lineNo, 'indent',
+        `line ${lineNo}: close-out field is indented by ${indent} spaces — read as 4 spaces; use 4 spaces`);
+      indent = 4;
     }
     let content = physical.trim();
     content = content.replace(/(^|\s)\/\/.*$/, '').trim();
@@ -383,7 +497,7 @@ export function parse(text){
       if(header){
         const decision = {name:header[1], key:header[1].toLowerCase(), srcLine:index,
           question:null, signal:null, reading:null, learn:null, enough:null, owner:null, answerBy:null,
-          when:null, assumption:null, answer:null, answers:[], fieldLines:{}, cycle:false};
+          when:null, assumption:null, answer:null, answers:[], closeOut:null, fieldLines:{}, cycle:false};
         model.decisions.push(decision); block = {type:'decision', decision};
         continue;
       }
@@ -417,10 +531,69 @@ export function parse(text){
       continue;
     }
 
-    if(block?.type === 'decision'){
+    const activeDecision = block?.type === 'decision' || block?.type === 'close-out' ||
+      block?.type === 'close-out-review' || block?.type === 'close-out-retirement'
+      ? block.decision : null;
+    if(activeDecision){
+      const closeOutHeading = /^close-out\s*:\s*(.*)$/i.exec(content);
+      if(indent === 2 && closeOutHeading){
+        const value = closeOutHeading[1].trim();
+        if(value){
+          add('parse', 'invalid-close-out-heading', lineNo, activeDecision.key,
+            `line ${lineNo}: "close-out:" opens a nested receipt and cannot have a value — ${quote(value)} ignored; put fields on lines indented by 4 spaces`);
+        }
+        if(activeDecision.closeOut){
+          add('parse', 'duplicate-close-out', lineNo, activeDecision.key,
+            `line ${lineNo}: decision ${quote(activeDecision.name)} already has a close-out on line ${activeDecision.closeOut.srcLine + 1} — first receipt kept; keep one "close-out:" block`);
+        } else activeDecision.closeOut = newCloseOut(index);
+        block = {type:'close-out', decision:activeDecision};
+        continue;
+      }
+      const eventKind = block.type === 'close-out-review' ? 'review'
+        : block.type === 'close-out-retirement' ? 'retirement' : null;
+      if(eventKind && indent >= 6){
+        parseEventField(content, lineNo, activeDecision, block.event, eventKind, add);
+        continue;
+      }
+      if(eventKind && indent === 4){
+        const child = /^([a-z-]+)\s*:/i.exec(content)?.[1]?.toLowerCase();
+        const childFields = eventKind === 'review' ? REVIEW_FIELD_SET : RETIREMENT_FIELD_SET;
+        if(child && childFields.has(child)){
+          add('parse', `close-out-${eventKind}-field-indent`, lineNo,
+            `${activeDecision.key}:${block.event.srcLine}:${child}`,
+            `line ${lineNo}: ${eventKind} field ${quote(child + ':')} is indented by 4 spaces — read inside "${eventKind}:"; use 6 spaces`);
+          parseEventField(content, lineNo, activeDecision, block.event, eventKind, add);
+          continue;
+        }
+      }
+      const eventHeading = indent === 4 ? /^(review|retirement)\s*:\s*(.*)$/i.exec(content) : null;
+      if(eventHeading){
+        const kind = eventHeading[1].toLowerCase(), value = eventHeading[2].trim();
+        if(value) add('parse', `invalid-close-out-${kind}-heading`, lineNo, activeDecision.key,
+          `line ${lineNo}: "${kind}:" opens an append-only event and cannot have a value — ${quote(value)} ignored; put fields on lines indented by 6 spaces`);
+        const event = kind === 'review' ? newReview(index) : newRetirement(index);
+        if(kind === 'review') activeDecision.closeOut.reviews.push(event);
+        else activeDecision.closeOut.retirements.push(event);
+        block = {type:`close-out-${kind}`, decision:activeDecision, event};
+        continue;
+      }
+      if((block.type === 'close-out' || eventKind) && indent === 4){
+        parseCloseOutField(content, lineNo, activeDecision, add);
+        block = {type:'close-out', decision:activeDecision};
+        continue;
+      }
+      if((block.type === 'close-out' || eventKind) && indent === 2){
+        const nested = /^([a-z-]+)\s*:/i.exec(content)?.[1]?.toLowerCase();
+        if(nested && (CLOSE_OUT_FIELD_SET.has(nested) || nested === 'currency')){
+          add('parse', 'close-out-field-indent', lineNo, `${activeDecision.key}:${nested}`,
+            `line ${lineNo}: close-out field ${quote(nested + ':')} is indented by 2 spaces — read inside "close-out:"; use 4 spaces`);
+          parseCloseOutField(content, lineNo, activeDecision, add);
+          continue;
+        }
+      }
       const field = /^([a-z-]+)\s*:\s*(.*)$/i.exec(content);
       if(field){
-        const key = field[1].toLowerCase(), value = field[2].trim(), decision = block.decision;
+        const key = field[1].toLowerCase(), value = field[2].trim(), decision = activeDecision;
         if(!FIELDS.has(key)){
           add('parse', 'unknown-decision-field', lineNo, key,
             `line ${lineNo}: unknown decision field ${quote(key + ':')} — field ignored; use question / signal / reading / learn / enough / owner / answer-by / when / assume / answer`);

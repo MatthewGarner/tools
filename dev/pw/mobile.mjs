@@ -22,7 +22,7 @@ const ALL_NAMES = new Set(ALL.map(([n]) => n));
 // autoload check). NB canvas-output tools (fermi, frequency) also autoload but
 // draw to <canvas> — the SVG-presence check below can't see them, so they're out.
 const AUTOLOAD_NAMES = new Set(['roadmap', 'tree', 'why', 'map', 'wardley', 'bets', 'cycles', 'risk',
-  'gauge', 'timeline', 'signal-vs-noise', 'case', 'paths']);
+  'gauge', 'timeline', 'signal-vs-noise', 'case', 'paths', 'proxy']);
 const AUTOLOAD = ALL.filter(([n]) => AUTOLOAD_NAMES.has(n));
 
 let pass = 0, fail = 0;
@@ -270,6 +270,7 @@ for(const [n] of PREMODULE) ok(ALL_NAMES.has(n), `PREMODULE metadata "${n}" is a
 // still overflows (e.g. an oversized SVG or a fixed-width table row).
 const CONTAINERS = [
   ['paths', T + '/paths/', ['#preview']],   // <520 swaps the tree for the outline relayout
+  ['proxy', T + '/proxy/', ['#preview']],
   ['cycles', E + '/cycles/', ['#preview']],
   ['risk', E + '/risk/', ['#preview']],
   ['merit-order', E + '/merit-order/', ['#chartwrap']],
@@ -1105,6 +1106,38 @@ for(const [name, url, chip] of WIDENED){
   await page.waitForTimeout(400);
   ok(await page.locator('.eip-pop').count() === 0, 'why: Remove branch row is clickable and closes the popover');
   await page.close();
+}
+
+// Toolbar targets are often reviewed in a 390px desktop-resize as well as on a
+// real phone. A fine-pointer viewport must retain the same 44px floor once a
+// tool crosses its narrow layout breakpoint: Proxy Hunt's examples/save/zoom/
+// export controls and Paths' shared action/view controls otherwise regress to
+// the compact desktop measurements even though they are being used as a phone.
+{
+  const nctx = await browser.newContext({viewport: {width:390, height:844}, reducedMotion:'reduce'});
+  const targetsFor = name => name === 'paths'
+    ? ['#chips .chip', '#savedrow .chip', '#zoomctl button', '#copypng',
+      '.action-disclosure > summary', '[data-paths-view]', '.paths-more-views > summary']
+    : ['#chips .chip', '#savedrow .chip', '#zoomctl button', '#copypng',
+      '.action-disclosure > summary'];
+  for(const name of ['proxy', 'paths']){
+    const page = await nctx.newPage();
+    await page.goto(T + '/' + name + '/', {waitUntil:'networkidle'}).catch(()=>{});
+    await page.waitForTimeout(650);
+    const targets = await page.evaluate(selectors => selectors.map(selector => {
+      const els = [...document.querySelectorAll(selector)].filter(el => el.offsetParent !== null);
+      return {selector, count: els.length, heights: els.map(el => el.getBoundingClientRect().height)};
+    }), targetsFor(name));
+    const missing = targets.filter(target => !target.count).map(target => target.selector);
+    const undersized = targets.flatMap(target => target.heights
+      .filter(height => height < 44).map(height => target.selector + ':' + Math.round(height)));
+    ok(!missing.length && !undersized.length,
+      `${name}: narrow fine-pointer examples, save and shared toolbar controls are >=44px` +
+      `${missing.length ? ' (missing ' + missing.join(', ') + ')' : ''}` +
+      `${undersized.length ? ' (undersized ' + undersized.join(', ') + ')' : ''}`);
+    await page.close();
+  }
+  await nctx.close();
 }
 
 await browser.close();

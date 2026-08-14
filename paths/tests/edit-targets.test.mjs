@@ -6,7 +6,7 @@ import {
   clearEnough, clearLearn, clearReading, clearSignal, clearWhen, kinds, setAnswer, setAnswerBy,
   setAnswerRaw, setAssumption, setAssumptionRaw, setOwner, setQuestion,
   setEnough, setLearn, setReading, setSignal, setStyle, setWhen,
-  validators,
+  setCloseOutField, closeOutKinds, validators,
 } from '../edit-targets.js';
 
 const DOC = `title: Habitat paths
@@ -41,6 +41,41 @@ function apply(text, ops){
 }
 
 const decision = (text, line = 1) => parse(text).decisions.find(item => item.srcLine === line);
+
+test('learning close-out edits create and update nested canonical source without mutating the answer', () => {
+  const doc = `decision setup:\n  question: Does setup help?\n  reading: A directional pattern\n  answer: yes 2026-08-13 -- pilot review\nNOW\n  Core: Keep pilot narrow [if setup]`;
+  const fields = [
+    ['basis-kind', 'observation'], ['carry-forward', 'scoped-finding'],
+    ['decision-use', 'Inform a later rollout decision'], ['claim', 'Setup completers returned more often'],
+    ['scope', 'New solo users in the pilot'], ['review-by', '2026-10-31'],
+    ['reconsider-if', 'The matched pattern reverses'], ['next-check', 'Run an assigned variant'],
+  ];
+  let changed = doc;
+  for(const [field, value] of fields) changed = apply(changed, setCloseOutField(changed, 0, field, value));
+  const parsed = decision(changed, 0);
+  assert.equal(parsed.answer.direction, 'yes');
+  assert.equal(parsed.closeOut.basisKind, 'observation');
+  assert.equal(parsed.closeOut.carryForward, 'scoped-finding');
+  assert.equal(parsed.closeOut.nextCheck, 'Run an assigned variant');
+  assert.equal((changed.match(/^  close-out:/gm) || []).length, 1);
+  assert.equal((changed.match(/^    claim:/gm) || []).length, 1);
+
+  changed = apply(changed, setCloseOutField(changed, 0, 'claim', 'A narrower authored finding'));
+  assert.equal(decision(changed, 0).closeOut.claim, 'A narrower authored finding');
+  assert.equal(setCloseOutField(changed, 0, 'review-by', '31/10/2026'), null);
+  assert.equal(setCloseOutField(changed, 0, 'basis-kind', 'causal-proof'), null);
+  assert.equal(setCloseOutField(changed, 0, 'claim', 'safe\n    currency: certified'), null);
+  assert.ok(closeOutKinds['closeout-claim']);
+});
+
+test('learning close-out edit normalises duplicate base fields without touching append-only event facts', () => {
+  const doc = `decision setup:\n  reading: A result\n  close-out:\n    basis-kind: observation\n    carry-forward: scoped-finding\n    decision-use: informs later\n    claim: First claim\n    claim: Shadow claim\n    scope: Pilot users\n    review-by: 2026-10-31\n    reconsider-if: The pattern reverses\n    next-check: Assigned variant\n    review:\n      prior-claim: First claim\n      prior-scope: Pilot users\n      new-observation: Pattern reversed\n      relation: inside-scope\n      reviewed-on: 2026-11-02`;
+  const changed = apply(doc, setCloseOutField(doc, 0, 'claim', 'Canonical claim'));
+  assert.equal((changed.match(/^    claim:/gm) || []).length, 1);
+  assert.equal(decision(changed, 0).closeOut.claim, 'Canonical claim');
+  assert.match(changed, /^      prior-claim: First claim$/m);
+  assert.equal(decision(changed, 0).closeOut.reviews.length, 1);
+});
 
 test('text setters rewrite only their parsed decision and preserve indentation and inline comment', () => {
   const out = apply(DOC, setQuestion(DOC, 1, 'Do groups create durable value?'));

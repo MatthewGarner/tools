@@ -96,6 +96,34 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
+/* ---- proxy hunt: selected theory and full/scoped export scopes ---- */
+for(const theme of ['light', 'dark']){
+  const {page, errors} = await freshPage('/proxy/', theme);
+  await page.waitForTimeout(700);
+  const theory = page.locator('[data-select-theory][data-theory-id]').first();
+  await theory.focus();
+  await theory.press('Enter');
+  await page.waitForTimeout(180);
+  check('proxy(' + theme + '): full hunt renders intended and failure theories separately',
+    await page.locator('#preview [data-kind="intended-route"]').count() === 1 &&
+    await page.locator('#preview [data-kind="failure-theory"]').count() >= 1);
+  check('proxy(' + theme + '): keyboard selection has visible state and causal limitation',
+    await page.locator('[data-select-theory][data-selected="true"]').count() === 1 &&
+    /SELECTED/.test(await page.locator('#preview').innerText()) &&
+    /Causal limit/i.test(await page.locator('.causal-note').innerText()));
+  check('proxy(' + theme + '): selection moves focus to its reachable scoped receipt',
+    await page.evaluate(() => document.activeElement?.dataset?.kind) === 'selected-theory-receipt' &&
+    await page.locator('#viewreceipt').isEnabled());
+  check('proxy(' + theme + '): scoped receipt carries applicable reported context separately',
+    await page.locator('[data-kind="selected-theory-receipt"] [data-kind="receipt-reported-pattern"]').count() === 1 &&
+    /NON-CAUSAL CONTEXT/.test(await page.locator('[data-kind="receipt-reported-pattern"]').innerText()));
+  check('proxy(' + theme + '): scoped receipt export becomes available',
+    await page.locator('#receiptsvg').isEnabled() && await page.locator('#receiptpng').isEnabled());
+  check('proxy(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
+  check('proxy(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/energy/cycles/', theme);
   await page.getByRole('button', {name: 'Wexcombe base case'}).click();

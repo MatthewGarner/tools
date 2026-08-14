@@ -45,7 +45,12 @@
 .segmented button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
 /* overflow:hidden on the group clips an outset ring — inset it instead */
 .segmented button:focus-visible{outline:2px solid var(--data);outline-offset:-3px}
-@media (pointer: coarse){
+/* A phone-sized window can still report a fine pointer (desktop responsive
+   testing, an external pointing device, and a few embedded webviews). Treat
+   either condition as touch-scale territory: controls remain compact on the
+   desktop, but never become precision targets once the layout has crossed its
+   narrow breakpoint. */
+@media (max-width: 520px), (pointer: coarse){
   .segmented button{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 }
 @media (prefers-reduced-motion: no-preference){
@@ -57,7 +62,7 @@
 [hidden]{display:none!important}
 
 /* fingers get full-size controls */
-@media (pointer: coarse){
+@media (max-width: 520px), (pointer: coarse){
   .chip,.btn{min-height:44px;display:inline-flex;align-items:center}
   /* iOS Safari zooms the page whenever a focused field is under 16px. Hold every
      editable field at the threshold so tapping a value never triggers a zoom-and-pinch.
@@ -94,3 +99,6 @@
 .savedchip button:hover{color:var(--accent-ink)}
 .savedchip .chipdel{padding:4px 10px 4px 4px;color:var(--muted)}
 .savedchip .chipdel:hover{color:var(--err)}
+@media (max-width: 520px), (pointer: coarse){
+  .savedchip button{min-height:44px;display:inline-flex;align-items:center}
+}
