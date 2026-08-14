@@ -8,11 +8,19 @@
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.composition-bar{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;
-  margin:0 0 12px;padding:10px 0 11px;border-bottom:1px solid var(--border)}
+.stage-head{display:flex;align-items:end;gap:12px 20px;flex-wrap:wrap;
+  margin:26px 0 12px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
+.stage-head .metrics{flex:1 1 360px;min-width:0;margin:0;padding:0;border:0}
+.workspace.collapsed .stage-head,.workspace.focus-artefact .stage-head{margin-top:12px;padding-left:44px}
+.composition-bar{display:flex;align-items:center;gap:10px 16px;flex:0 1 auto;flex-wrap:wrap;
+  margin:0;padding:0;border:0}
 .composition-label{color:var(--accent-ink);font-size:10px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
 .composition-bar #grouppicker{margin-left:auto}
-@media (max-width:720px){.composition-bar #grouppicker{margin-left:0;flex-basis:100%}}
+@media (max-width:720px){
+  .stage-head{display:block;margin-top:18px}
+  .stage-head .metrics{margin:0 0 10px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
+  .composition-bar #grouppicker{margin-left:0;flex-basis:100%}
+}
 .narrow-composition-note{display:none;margin:0;flex-basis:100%;color:var(--muted);font-size:12px;line-height:1.4}
 @media (max-width:900px){.narrow-composition-note{display:block}}
 .planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;

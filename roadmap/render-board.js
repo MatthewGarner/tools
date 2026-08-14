@@ -9,16 +9,9 @@ import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, 
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel, splitColumnZones} from './cond-parts.js';
 
-/* E1 (S3): the zone half's wash tint + label ink, shared by both boards —
-   if-so rides the done family, if-not the blocked family, both already
-   validated as status pill fill/ink pairs elsewhere in this codebase. Wash
-   alpha is the same very-low '0D' (~5%) suffix render-board.js already uses
-   for the first-horizon column wash, just tinted by outcome instead of the
-   accent. Label ink re-uses the pill's own contrast-boosted ink token — at
-   this alpha the backdrop barely moves, so ink/backdrop contrast stays
-   effectively ink/page-background contrast, checked >=4.5:1 in both themes
-   against the real tokens.css light/dark values (numbers in the commit
-   message that shipped this). */
+/* E1 (S3): conditional groups use a labelled rule, not a content-height wash.
+   The outcome ink still reuses the validated status pairs, while the rule keeps
+   group structure explicit without creating a coloured pool around cards. */
 function zoneTint(half, C){
   return half === 'if' ? [C.status.done, C.statusInk.done] : [C.status.blocked, C.statusInk.blocked];
 }
@@ -118,13 +111,6 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
   const heights = cards.map(c => c.h + (headerAt.has(c.it) ? HEADER_H : 0));
   const shown = capFit(heights, availH, 14, 54); // cap + chip
 
-  // group boundaries (indices into `cards`) that start a header, so a header
-  // knows where its group's shown cards end (next header, or the column end)
-  const boundaryIdx = [];
-  cards.forEach((c, i) => { if(headerAt.has(c.it)) boundaryIdx.push(i); });
-  boundaryIdx.push(cards.length);
-  const groupEndFor = i => boundaryIdx[boundaryIdx.indexOf(i) + 1];
-
   const s = [];
   let cy = cy0;
   const capsuleWidth = label => measure(label, '700 11px ' + SANS) + 16;
@@ -132,11 +118,8 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
     const c = cards[i], {it} = c;
     const header = headerAt.get(it);
     if(header){
-      const groupEnd = Math.min(groupEndFor(i), shown);
-      let gh = 0;
-      for(let j = i; j < groupEnd; j++) gh += cards[j].h + (j > i ? 14 : 0);
-      s.push(rect(cx - 6, cy, cw + 12, HEADER_H + gh + 6, header.tint + '0D', {rx: 12}));
-      s.push(txt(cx, cy + 17, header.label, 11, header.ink, {weight: 700, tracking: 0.6}));
+      s.push(line(cx, cy + 9, cx + 14, cy + 9, header.tint, 2));
+      s.push(txt(cx + 22, cy + 14, header.label, 11, header.ink, {weight: 700, tracking: 0.6}));
       cy += HEADER_H;
     }
     // dropped's own treatment wins over the flag border — reality already
@@ -419,7 +402,6 @@ export function renderBoardLive(model, ctx){
   for(let h = 0; h < nH; h++){
     const sourceH = visibleIndices[h];
     const x = M + h * (COLW + GAP);
-    s.push(rect(x, y, COLW, HEADH - 8, h === 0 ? C.accent + '0D' : 'none', {rx: 10}));
     s.push(txt(x + RPAD, y + 24, hs[h].toUpperCase(), 14, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.4}));
     const list = byLane(model.items.filter(i => i.h === sourceH));
     const activeH = activeCount(model, sourceH);
@@ -434,25 +416,23 @@ export function renderBoardLive(model, ctx){
       groupSvg.push(card.svg);
       cy += card.h + 12;
     };
-    /* E1 (S3): live flow first (byLane, untouched), then each open non-cycle
-       bet's if-so/if-not groups — uncapped, so no capFit/header-boundary
-       bookkeeping is needed here (unlike the deck's card ladder): the wash
-       simply spans from its own header down to wherever `cy` lands after
-       painting every member of that half. */
+    /* E1 (S3): live flow first, then each conditional group. The header rule
+       names the branch; unlike the former wash, it never inherits a card
+       stack's accidental height. */
     const {live, zones} = splitColumnZones(model, list);
     for(const it of live) paintCard(it);
     for(const {bet, ifItems, unlessItems} of zones){
       for(const [half, items] of [['if', ifItems], ['unless', unlessItems]]){
         if(!items.length) continue;
         const [tint, ink] = zoneTint(half, C);
-        const washTop = cy;
-        const headerSvg = txt(x + RPAD, washTop + 18, zoneLabel(bet, half), 11, ink, {weight: 700, tracking: 0.6});
+        const headerTop = cy;
+        const headerSvg = line(x + RPAD, headerTop + 9, x + RPAD + 14, headerTop + 9, tint, 2) +
+          txt(x + RPAD + 22, headerTop + 14, zoneLabel(bet, half), 11, ink, {weight: 700, tracking: 0.6});
         cy += 26;
         const before = groupSvg.length;
         for(const it of items) paintCard(it);
-        const painted = groupSvg.splice(before);   // pull out the just-painted cards to reorder wash-first
-        const washH = (cy - 6) - washTop;
-        groupSvg.push(rect(x - 8, washTop, COLW + 16, washH, tint + '0D', {rx: 12}), headerSvg, ...painted);
+        const painted = groupSvg.splice(before);
+        groupSvg.push(headerSvg, ...painted);
       }
     }
     if(!list.length){

@@ -94,12 +94,38 @@ function chunkItems(items, unitLimit){
   return groups.length ? groups : [[]];
 }
 
+/* Focus is a reading composition, not a pager. When a true overflow occurs,
+   share small cards between adjacent frames so the continuation remains a
+   considered artefact instead of an orphan hero. Whole items stay in source
+   order; an indivisible large item still earns the room it needs. */
+function rebalanceFocusChunks(groups){
+  const balanced = groups.map(group => [...group]);
+  for(let index = balanced.length - 1; index > 0; index--){
+    const previous = balanced[index - 1], current = balanced[index];
+    let previousUnits = previous.reduce((sum, item) => sum + itemUnits(item), 0);
+    let currentUnits = current.reduce((sum, item) => sum + itemUnits(item), 0);
+    while(previous.length > 1){
+      const units = itemUnits(previous.at(-1));
+      if(previousUnits - units < currentUnits + units) break;
+      current.unshift(previous.pop());
+      previousUnits -= units;
+      currentUnits += units;
+    }
+  }
+  return balanced;
+}
+
 export function exportPages(model, {
   horizonsPerPage = EXPORT_HORIZONS_PER_PAGE,
   pageUnits,
   style = model.style || 'grid',
 } = {}){
-  const perPage = Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
+  /* Focus's single hero plus factual rail is expressly made for a broad
+     horizon set: keep every horizon together until actual work density earns
+     a continuation. Splitting a sparse eight-horizon review after five made
+     two mostly empty slides and weakened the selected composition. */
+  const perPage = style === 'focus' ? Math.max(1, model.horizons.length) :
+    Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
   /* Focus has one deliberately generous hero; it earns a continuation before
      twelve short cards quietly turn it into a list. Grid reserves rows for
      span geometry. Board/Register retain the general twelve-unit budget. */
@@ -110,7 +136,9 @@ export function exportPages(model, {
     const start = indices[0], end = indices.at(-1);
     const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end))
       .filter(Boolean).flatMap(splitLongItem);
-    return chunkItems(items, unitLimit).map((pageItems, part) => ({
+    const itemGroups = chunkItems(items, unitLimit);
+    const pageGroups = style === 'focus' ? rebalanceFocusChunks(itemGroups) : itemGroups;
+    return pageGroups.map((pageItems, part) => ({
       start,
       end,
       part,

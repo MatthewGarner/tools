@@ -223,6 +223,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     setCollapsed(!workspace.classList.contains('collapsed'));
   }
   tab.addEventListener('click', toggleCollapsed);
+  tab.setAttribute('aria-controls', 'cmhost');
   window.addEventListener('keydown', e => {
     if(e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey){
       const el = document.activeElement;

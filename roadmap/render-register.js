@@ -2,7 +2,7 @@
    model (deck-parts.js) — the DECK export (fixed 1920 frame, byte-identical to
    what shipped) and the LIVE editable view (Task 4). Named render-*.js so
    renderer-coverage forces the live renderer into the injection corpus. */
-import {txt, wrapText, tint, esc, btnAttrs} from '../assets/svg.js';
+import {txt, wrapText, esc, btnAttrs} from '../assets/svg.js';
 import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine,
   basisBand, basisDesc} from './deck-parts.js';
@@ -102,10 +102,11 @@ function registerBodyFn(model, ctx, C){
       }
       const {it, b, tag, tl, nl, hLines} = r;
       const rowSvg = [];
-      // dropped's treatment wins over the flag wash — reality already answered
-      const wash = it.worldState === 'dropped' ? null : it.status === 'blocked' ? C.status.blocked + '33'
-        : it.status === 'risk' ? tint(C.status.risk) : null;
-      if(wash) rowSvg.push(rect(REGISTER_GEOM.M, ry, REGISTER_GEOM.INNER, r.h, wash));
+      // Status stays supporting detail: a local edge plus its existing capsule,
+      // never a content-height RAG row field.
+      const statusEdge = it.worldState === 'dropped' ? null :
+        (it.status === 'blocked' || it.status === 'risk' ? C.status[it.status] : null);
+      if(statusEdge) rowSvg.push(rect(REGISTER_GEOM.M, ry, 3, r.h, statusEdge));
       let ty = ry + RPAD + 13;
       tl.forEach((ln, li) => {
         rowSvg.push(txt(itemCol.x + RPAD, ty, ln, 15, C.ink, {weight: 700}));
@@ -312,10 +313,11 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model, hasB
   g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
     (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  // dropped's treatment wins over the flag wash
-  const wash = it.worldState === 'dropped' ? null :
-    it.status === 'blocked' ? C.status.blocked + '33' : it.status === 'risk' ? tint(C.status.risk) : null;
-  if(wash) g.push(rect(cols[0].x, ry, cols[cols.length - 1].x + cols[cols.length - 1].w - cols[0].x, rowH, wash));
+  // Status stays supporting detail: a local edge plus its existing capsule,
+  // never a content-height RAG row field.
+  const statusEdge = it.worldState === 'dropped' ? null :
+    (it.status === 'blocked' || it.status === 'risk' ? C.status[it.status] : null);
+  if(statusEdge) g.push(rect(cols[0].x, ry, 3, rowH, statusEdge));
   if(edit) g.push('<rect data-hit="" x="' + cols[0].x + '" y="' + ry + '" width="' +
     (cols[cols.length - 1].x + cols[cols.length - 1].w - cols[0].x) + '" height="' + rowH + '" fill="transparent"/>');
   /* item / title */

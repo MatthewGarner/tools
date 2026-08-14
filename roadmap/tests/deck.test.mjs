@@ -474,11 +474,12 @@ test('register diff: a NEW item gets a capsule after its title; a moved item get
   assert.match(body, /font-style="italic"[^>]*>was Next</);
 });
 
-test('register: at-risk rows are washed, blocked rows washed harder (a distinct, stronger fill)', () => {
+test('register: at-risk and blocked rows carry a local status edge, never a RAG wash', () => {
   const model = parse('title: T\nNOW\nCore: risky [risk]\nCore: stuck [blocked]\nCore: fine\nNEXT\nCore: x\nLATER\nCore: y');
   const body = renderRegisterBody(model, ctx, 214, 968);
-  assert.match(body, /fill="#9A6A001F"/, 'at-risk wash is the standard 12% tint');
-  assert.match(body, /fill="#B3403A33"/, 'blocked wash is stronger than the at-risk tint');
+  assert.match(body, /<rect[^>]*width="3"[^>]*fill="#9A6A00"/, 'at-risk carries a compact status edge');
+  assert.match(body, /<rect[^>]*width="3"[^>]*fill="#B3403A"/, 'blocked carries a compact status edge');
+  assert.doesNotMatch(body, /fill="#B3403A33"/, 'blocked must not turn the complete row into a coloured field');
 });
 
 /* ==================================================================

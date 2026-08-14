@@ -661,16 +661,16 @@ test('E1: an empty half-zone never paints — a bet with only [if] members in th
   }
 });
 
-test('E1: the zone wash/label carry no data-edit/data-line/data-key/data-whatif — only the cards inside do', () => {
+test('E1: the zone rule/label carry no data-edit/data-line/data-key/data-whatif — only the cards inside do', () => {
   const m = parse(TWO_BET_DOC);
   const svg = renderBoardLive(m, ctx({edit: true}));
   const i = svg.indexOf('reminders · if so');
   assert.ok(i !== -1, 'sanity: the zone renders');
-  // walk back to the wash <rect> immediately preceding this header's <text>
-  const rectStart = svg.lastIndexOf('<rect', i);
-  const chunk = svg.slice(rectStart, svg.indexOf('</text>', i) + '</text>'.length);
+  // Walk back to the compact rule immediately preceding this header's text.
+  const lineStart = svg.lastIndexOf('<line', i);
+  const chunk = svg.slice(lineStart, svg.indexOf('</text>', i) + '</text>'.length);
   assert.ok(!chunk.includes('data-edit') && !chunk.includes('data-line') &&
-    !chunk.includes('data-key') && !chunk.includes('data-whatif'), 'wash+label carry no edit/whatif markup: ' + chunk);
+    !chunk.includes('data-key') && !chunk.includes('data-whatif'), 'rule+label carry no edit/whatif markup: ' + chunk);
 });
 
 test('E1: board live still emits a data-hdrop band spanning under everything in a zoned column', () => {

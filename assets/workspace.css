@@ -18,9 +18,12 @@
   grid-template-columns: var(--workspace-rail-width) minmax(0, 1fr);
   position: relative;
   align-items: stretch;
-  max-width: var(--page-max);
+  box-sizing:border-box;
+  width:calc(100% - var(--page-gutter) * 2);
+  max-width:calc(var(--page-max) - var(--page-gutter) * 2);
   margin: 28px auto 0;
-  padding: 0 var(--page-gutter);
+  padding:0;
+  background:var(--card);
 }
 @media (prefers-reduced-motion: no-preference){
   .workspace{transition: grid-template-columns .28s cubic-bezier(.2,.8,.2,1)}
@@ -28,21 +31,16 @@
   .stage .preview svg{transition: width .28s cubic-bezier(.2,.8,.2,1)}
 }
 .workspace.collapsed,.workspace.focus-artefact{grid-template-columns:0px minmax(0,1fr)}
+.workspace.collapsed::before,.workspace.focus-artefact::before{
+  content:'';position:absolute;z-index:1;inset:0 auto 0 0;width:1px;background:var(--border);pointer-events:none;
+}
 .rail{
-  min-width: 0; overflow: hidden;
-  background: var(--card); border: 1px solid var(--border); border-right:0; border-radius:0;
-  box-shadow: var(--shadow); padding: 18px;
-  max-height: calc(100vh - 48px); overflow-y: auto;
+  min-width:0;overflow:hidden;background:transparent;border:0;border-right:1px solid var(--border);border-radius:0;box-shadow:none;padding:18px;
+  overflow-y:visible;
 }
-/* Load-grace: #cmhost is empty until CodeMirror mounts (~55ms after first paint),
-   then jumps to .cm-editor's min-height and shoves the about band — the single
-   biggest measured load shift on every DSL tool. Reserve the same height the
-   editor will occupy (every tool pins .cm-editor to 440px, 280px under 900px). */
+/* Reserve editor height to avoid load shift. */
 #cmhost{min-height: 440px}
-.workspace.collapsed .rail,.workspace.focus-artefact .rail{
-  opacity: 0; visibility: hidden; padding-left: 0; padding-right: 0;
-  border-color: transparent; box-shadow: none; pointer-events: none;
-}
+.workspace.collapsed .rail,.workspace.focus-artefact .rail{opacity:0;visibility:hidden;padding-left:0;padding-right:0;border-color:transparent;pointer-events:none}
 /* indent/outdent buttons for indented DSLs — fingers have no Tab key.
    Hidden wherever a keyboard is likely; shown for coarse pointers. */
 .cm-indentbar{display: none}
@@ -55,25 +53,26 @@
 }
 
 .railtab{
-  position:absolute; z-index:4; top:0; left:var(--workspace-rail-width);
-  width:44px; min-height:44px; margin:0; padding:0; transform:translateX(-50%);
-  border:0; border-radius:0; background:transparent; color:var(--muted); cursor:pointer;
-  font-size:0; line-height:1; letter-spacing:0; opacity:.28;
+  position:absolute;z-index:4;top:56px;left:var(--workspace-rail-width);width:44px;min-height:44px;margin:0;padding:0;transform:translateX(-50%);
+  border:0;border-radius:0;background:transparent;color:var(--muted);cursor:pointer;font-size:0;line-height:1;letter-spacing:0;opacity:.48;
 }
 .railtab::after{content:'‹';font:400 22px/1 Arial,sans-serif}
 .workspace:hover .railtab,.railtab:hover,.railtab:focus-visible{opacity:1}
 .railtab:hover{color:var(--accent-ink)}
+.railtab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;color:var(--accent-ink)}
 .workspace.collapsed .railtab,.workspace.focus-artefact .railtab{
-  left:0; width:64px; transform:none; border-right:1px solid var(--border); border-bottom:1px solid var(--border);
-  background:var(--card); color:var(--accent-ink); font:700 10px/1 inherit; letter-spacing:.11em;
-  text-transform:uppercase; padding:0 6px; opacity:1;
+  top:44px;left:0;width:44px;transform:none;border:0;background:transparent;color:var(--accent-ink);font:700 0/1 inherit;letter-spacing:0;padding:0;opacity:.72;
 }
-.workspace.collapsed .railtab::after,.workspace.focus-artefact .railtab::after{content:none}
-.railtab:focus-visible{outline: 2px solid var(--accent); outline-offset: 2px}
+.workspace.collapsed .railtab::before,.workspace.focus-artefact .railtab::before{
+  content:'';position:absolute;left:0;top:12px;width:2px;height:20px;background:var(--accent);
+}
+.workspace.collapsed .railtab::after,.workspace.focus-artefact .railtab::after{
+  content:'›';position:relative;font:400 22px/1 Arial,sans-serif;
+}
 .stage{
   min-width: 0;
-  background: var(--card); border: 1px solid var(--border); border-radius:0;
-  box-shadow: var(--shadow); padding: 18px;
+  background:transparent; border:0; border-radius:0;
+  box-shadow:none; padding:18px;
 }
 .stage .preview{overflow: auto}
 .fit-readability-advisory{
@@ -137,11 +136,11 @@
 .about{margin: 56px 0 0}
 footer{margin: 48px 0 8px}
 @media (max-width: 900px){
-  .workspace{display: flex; flex-direction: column; gap: 16px; margin-top: 20px}
+  .workspace{display:flex; flex-direction:column; gap:16px; width:auto; max-width:var(--page-max); margin-top:20px; background:transparent}
   .rail{width: auto; max-height: none; overflow: visible; opacity: 1 !important;
-    padding: 18px !important; border-color: var(--border) !important; border-right:1px solid var(--border) !important}
+    padding:18px !important;background:var(--card);border:1px solid var(--border) !important}
   #cmhost{min-height: 280px}   /* matches the tools' narrow .cm-editor height */
-  .stage{ order: -1; }   /* phones are for viewing: diagram above the editor */
+  .stage{order:-1;background:var(--card);border:1px solid var(--border)} /* phones are for viewing: diagram above the editor */
   .rail{ order: 0; }
   /* indent/outdent buttons for indented DSLs — fingers have no Tab key.
    Hidden wherever a keyboard is likely; shown for coarse pointers. */

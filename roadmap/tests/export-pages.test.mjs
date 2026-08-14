@@ -116,15 +116,37 @@ test('a one-page selected view is still exhaustive, never a legacy clipped deck'
 });
 
 test('every selected view retains its own exhaustive composition across a page set', () => {
-  const source = ['horizons: quarterly from Q1 2026 x8', ...Array.from({length:8}, (_, i) =>
-    `Q${i + 1} 2026\nCore: Work ${i + 1}`)].join('\n');
+  const horizons = Array.from({length:8}, (_, i) => 'Horizon ' + (i + 1));
+  const source = [`horizons: ${horizons.join(', ')}`, ...horizons.map((horizon, i) =>
+    `${horizon}\nCore: Work ${i + 1}`)].join('\n');
   const expected = {grid:'GRID', board:'BOARD', focus:'FOCUS', register:'REGISTER'};
   for(const [style, label] of Object.entries(expected)){
     const out = renderDeckPages(parse(`style: ${style}\n${source}`), {colors, measure, today:'2026-08-14'});
-    assert.ok(out.pages.length > 1, style + ' needs an explicit page set');
+    assert.equal(out.pages.length, style === 'focus' ? 1 : 2,
+      style + ' keeps its selected composition at a readable density');
     assert.ok(out.pages.every(page => page.includes(label + ' · COMPLETE READING SET')), style + ' preserves its composition');
     assert.doesNotMatch(out.pages.join(''), /…|\+ \d+ more/);
   }
+});
+
+test('Focus balances a real continuation and does not print empty horizon rails', () => {
+  const horizons = ['One','Two','Three','Four','Five','Six','Seven','Eight'];
+  const entries = horizons.flatMap((horizon, index) => [
+    horizon,
+    'Core: Work ' + (index + 1),
+    ...(index === horizons.length - 1 ? ['Core: Work 9'] : []),
+  ]);
+  const out = renderDeckPages(parse(`style: focus\nhorizons: ${horizons.join(', ')}\n${entries.join('\n')}`), {
+    colors, measure, today:'2026-08-14',
+  });
+  assert.equal(out.pages.length, 2);
+  assert.match(out.pages[0], /Work 5/);
+  assert.match(out.pages[1], /Work 6/);
+  assert.match(out.pages[1], /Work 9/);
+  for(const empty of ['ONE','TWO','THREE','FOUR'])
+    assert.doesNotMatch(out.pages[1], new RegExp('>' + empty + '</text>'));
+  for(const populated of ['SIX','SEVEN','EIGHT'])
+    assert.match(out.pages[1], new RegExp('>' + populated + '</text>'));
 });
 
 test('an exceptionally long source note becomes bounded, explicit item continuations', () => {

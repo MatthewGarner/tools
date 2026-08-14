@@ -137,9 +137,10 @@ function exhaustiveFocusBody(model, ctx, C){
     const source = ctx.sourceModel || model;
     const hero = Math.max(0, model.horizons.findIndex((_, h) => model.items.some(item => item.h === h)));
     const heroW = Math.round(INNER * .62), railX = M + heroW + 32, railW = INNER - heroW - 32;
-    const s = [rect(M, y0, heroW, Math.max(0, y1-y0), C.accent + '0D', {rx:0, stroke:C.border, sw:1})];
-    s.push(txt(M + 18, y0 + 28, model.horizons[hero].toUpperCase(), 13, C.accentInk, {weight:700, tracking:1.3}));
-    let hy = y0 + 48;
+    const s = [line(M, y0 + 26, M + 56, y0 + 26, C.accent, 3)];
+    s.push(txt(M + 68, y0 + 30, 'FOCUS', 9, C.accentInk, {weight:700, tracking:1.3}));
+    s.push(txt(M, y0 + 54, model.horizons[hero].toUpperCase(), 13, C.accentInk, {weight:700, tracking:1.3}));
+    let hy = y0 + 74;
     for(const item of model.items.filter(item => item.h === hero)){
       const lines = pageCardLines(source, item, heroW - 56, ctx.measure);
       s.push(rect(M + 16, hy, heroW - 32, lines.height, C.card, {rx:0, stroke:C.border, sw:1}));
@@ -150,8 +151,9 @@ function exhaustiveFocusBody(model, ctx, C){
       hy += lines.height + 12;
     }
     let ry = y0;
-    for(let h = 0; h < model.horizons.length; h++){
-      if(h === hero) continue;
+    const populatedHorizons = model.horizons.map((_, h) => h)
+      .filter(h => h !== hero && model.items.some(item => item.h === h));
+    for(const h of populatedHorizons){
       s.push(txt(railX, ry + 20, model.horizons[h].toUpperCase(), 12, C.muted, {weight:700, tracking:1.2}));
       ry += 30;
       for(const item of model.items.filter(item => item.h === h)){

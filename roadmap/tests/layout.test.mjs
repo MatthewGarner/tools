@@ -61,12 +61,13 @@ test('every fixed deck style carries the same visible selection contract', () =>
 test('exhaustive deck pages retain full-model metrics and declare every page', () => {
   for(const style of ['board','register','focus','grid']){
     const out = renderDeckPages({...many, style}, {measure, colors, today:'2026-08-04'});
-    assert.equal(out.pages.length, 2);
-    assert.equal(out.plan.pages.every(p => p.total === 2), true);
+    assert.equal(out.pages.length, style === 'focus' ? 1 : 2);
+    assert.equal(out.plan.pages.every(p => p.total === out.pages.length), true);
     assert.equal(out.plan.pages.flatMap(p => p.sourceItemIndices).includes(5), true);
-    assert.match(out.pages[0], /PAGE 1 OF 2/);
-    assert.match(out.pages[1], /PAGE 2 OF 2/);
+    assert.match(out.pages[0], new RegExp('PAGE 1 OF ' + out.pages.length));
+    if(style === 'focus') assert.doesNotMatch(out.pages[0], /PAGE 2 OF/);
+    else assert.match(out.pages[1], /PAGE 2 OF 2/);
     assert.match(out.pages[0], /6 items · 6 horizons/);
-    assert.match(out.pages[1], /6 items · 6 horizons/);
+    if(style !== 'focus') assert.match(out.pages[1], /6 items · 6 horizons/);
   }
 });

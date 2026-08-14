@@ -440,7 +440,7 @@ const PAGES = {
      exact default-add focus and the narrow editable discount field. Actual
      494.2k; retain ~6.8k. */
   'energy/cycles/index.html': 514_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 509k, ~5k headroom */   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
-  'energy/frequency/index.html': 108_000, 'energy/merit-order/index.html': 156_000,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4% */
+  'energy/frequency/index.html': 108_000, 'energy/merit-order/index.html': 156_200,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
      block) and app.js gained a small popover focus-trap import + keydown
