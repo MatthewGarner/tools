@@ -165,7 +165,9 @@ checkBudget('paths full-detail SVG export → download', svgExport, {median:800,
 /* This is deliberately a user-readable check, not a renderer-unit proxy: we
  * load a dense plan in the actual app, use its view toggle and SVG keyboard
  * control, and retain desktop/phone captures for the release review. */
+const QUALITY_TODAY = '2026-08-13';
 const qualityText = PATHS_INTERACTION_CASES.find(testCase => testCase.id === 'realistic').text
+  .replace('date: 2026-08-11', `date: 2026-08-11\ntoday: ${QUALITY_TODAY}`)
   .replace('verdict: Keep the shared plan moving while the open questions resolve',
     'verdict: Next action: run the invitation pilot before expanding coach supply.')
   .replace('  reading: current pricing reading',
@@ -244,7 +246,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
       /Unanswered/.test(receiptText || '') &&
       (view === 'Learning agenda' ? /LEARNING CONTRACT/i.test(receiptText || '') : /Next action/.test(receiptText || '')));
     if(view === 'Learning agenda'){
-      const agenda = await qualityPage.evaluate(() => {
+      const agenda = await qualityPage.evaluate(expectedToday => {
         const svg = document.querySelector('#preview svg');
         const text = svg?.textContent || '';
         const selected = svg?.querySelector(
@@ -254,12 +256,12 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
         const detail = receipt?.hidden ? dossier : receipt;
         const onScreen = rect => !!rect && rect.top < innerHeight && rect.bottom > 0;
         return {learningMove:text.includes('Put both pricing offers to 20 coaches'),
-          evaluation:/EVALUATED 2026-08-13/.test(text) &&
+          evaluation:text.includes(`EVALUATED ${expectedToday}`) &&
             /computed from current Paths conditions at the evaluated date; not a delivery commitment/.test(text),
           readableState:/unanswered/i.test(selected?.textContent || '') &&
             /unanswered/i.test(detail?.textContent || ''),
           stateSurfaceOnScreen:onScreen(detail?.getBoundingClientRect()) || onScreen(selected?.getBoundingClientRect())};
-      });
+      }, QUALITY_TODAY);
       check(`${name} Learning agenda visibly states its evaluation basis`, agenda.evaluation);
       check(`${name} Learning agenda shows a next learning move`, agenda.learningMove);
       check(`${name} Learning agenda keeps selected current state in the viewport`,
