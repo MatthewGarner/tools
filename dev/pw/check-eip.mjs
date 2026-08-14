@@ -893,7 +893,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   /* the flagship example declares a bet, so every card carries Condition… */
   check('roadmap: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Remove item');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Inspect item|Remove item');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -1580,7 +1580,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   check('register: the card menu offers a Lane… row',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit note…|Status…|Lane…|Move to…|Runs until…|Remove item');
+      'Rename…|Edit note…|Status…|Lane…|Move to…|Runs until…|Inspect item|Remove item');
   await p.locator('.eip-pop button', {hasText: 'Lane…'}).click();
   await p.waitForTimeout(200);
   check('register: Lane… opens the lane input prefilled with the current lane',
@@ -1916,7 +1916,7 @@ check('no console/page errors', errors.length === 0);
   await tapCardMenu(p, box, line);
   await p.waitForTimeout(200);
   check('roadmap: the Lane… row does not appear on a chart (now/next/later) doc',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Remove item');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Inspect item|Remove item');
 
   check('roadmap: no console/page errors (chart Lane… absence)', errs.length === 0);
   await p.close();
