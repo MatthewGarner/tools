@@ -142,7 +142,11 @@ const PAGES = {
      Driver Tree now carries the source-aware semantic description needed by
      accessible exports. Actual 215.7k; 1.3k headroom keeps those correctness
      seams eager and avoids loading a second runtime solely to save bytes. */
-  'fermi/index.html': 217_000, 'rank/index.html': 106_000, /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* 217k -> 235k (2026-08-15 review-first Fermi): the single-sheet model trace,
+     textual percentile receipt and explicit author return replace a competing
+     input card; their a11y/focus state stays eager so an offline model is never
+     reduced to chart pixels. Actual 225.4k; ~9.6k headroom. */
+  'fermi/index.html': 235_000, 'rank/index.html': 106_000, /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
