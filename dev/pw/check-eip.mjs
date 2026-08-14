@@ -3752,6 +3752,18 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await p.keyboard.press('Tab');
   check('paths: phone receipt wraps its two-control focus trap',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
+  await p.locator('#overview-receipt [data-open-closeout]').click();
+  await p.waitForTimeout(150);
+  check('paths: phone Close-out remains the selected receipt sheet',
+    await p.locator('#overview-live').getAttribute('data-mode') === 'overview' &&
+    await p.locator('#overview-receipt[data-closeout-detail="true"]').isVisible() &&
+    /Learning close-out/i.test(await p.locator('#overview-receipt').innerText()));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  check('paths: phone Escape returns from Close-out to its receipt opener',
+    await p.locator('#overview-receipt[data-closeout-detail="true"]').count() === 0 &&
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')));
   await p.locator('#overview-receipt [data-receipt-close]').click();
   await p.waitForTimeout(100);
   check('paths: Close dismisses the phone sheet and returns focus to its decision',
@@ -3836,7 +3848,8 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   await p.waitForTimeout(150);
   check('paths: Close-out returns to its originating four-view receipt',
     await p.locator('#overview-live').getAttribute('data-mode') !== 'closeout' &&
-    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible());
+    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')));
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const dependenciesDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();

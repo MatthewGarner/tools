@@ -1411,8 +1411,9 @@ document.addEventListener('keydown', event => {
   if(overviewMode === 'closeout'){
     event.preventDefault();
     overviewMode = 'overview';
+    focusCloseOutReturnAfterRender = true;
     if(overviewReceiptUsesSheet()) renderOverviewReceipt();
-    else { focusCloseOutReturnAfterRender = true; refresh(); }
+    else refresh();
     return;
   }
   if(closeOverviewReceiptSheet()){
