@@ -920,6 +920,9 @@ for(const [name, url, chip] of WIDENED){
   const chipOn = await page.evaluate(() =>
     !!document.querySelector('#stylepicker [data-style="register"].on'));
   ok(chipOn, 'roadmap: Register chip stays active on a phone (the doc is still a register)');
+  const narrowTruth = await page.locator('#narrowcomposition').innerText();
+  ok(narrowTruth === 'Editing uses the shared Grid stack. Register remains selected for exports.',
+    'roadmap: phone says plainly that Grid stack edits while Register stays selected for export');
 
   // (2) THE MOBILE-EXPORT EXCEPTION (Matt's explicit requirement): Download SVG
   // exports the REGISTER TABLE, not the chart the preview is showing. Read the
@@ -937,6 +940,31 @@ for(const [name, url, chip] of WIDENED){
     'roadmap: phone register export is the table, not the chart (no data-cell)');
   await page.close();
   await rctx.close();
+}
+
+// The shared authoring stack is not an iOS-only compromise. Pixel 7 receives
+// the same honest fallback and keeps the selected composition for export.
+{
+  const doc = 'title: Habitat — Product Roadmap\nstyle: board\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders\nLATER\nCore: Accountability circles';
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t:doc}))), 'binary').toString('base64');
+  const pctx = await browser.newContext({...devices['Pixel 7'], reducedMotion:'reduce'});
+  const page = await pctx.newPage();
+  await page.goto(T + '/roadmap/#' + hash, {waitUntil:'networkidle'}).catch(()=>{});
+  await page.waitForTimeout(700);
+  const state = await page.evaluate(() => ({
+    lines: document.querySelectorAll('#preview svg g[data-line]').length,
+    hdrop: document.querySelectorAll('#preview svg [data-hdrop]').length,
+    active: !!document.querySelector('#stylepicker [data-style="board"].on'),
+    width: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    note: document.getElementById('narrowcomposition')?.textContent?.trim(),
+  }));
+  ok(state.lines > 0 && state.hdrop === 0, 'roadmap: Pixel 7 uses the shared Grid editing stack, not a miniature Board');
+  ok(state.active && state.note === 'Editing uses the shared Grid stack. Board remains selected for exports.',
+    'roadmap: Pixel 7 states the selected Board export honestly');
+  ok(state.scrollWidth <= state.width + 1, `roadmap: Pixel 7 shared stack has no page h-scroll (${state.scrollWidth} <= ${state.width})`);
+  await page.close();
+  await pctx.close();
 }
 
 // roadmap FOCUS phone fallback + the mobile-export exception: on a phone-width

@@ -108,8 +108,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     action.addEventListener('click',()=>{
       focusArtefact=true;
       workspace.classList.add('focus-artefact');
-      tab.textContent='›';
-      tab.title='Show the editor  [';
+      tab.textContent='Source';
+      tab.title='Show source editor';
+      tab.setAttribute('aria-label','Show source editor');
       tab.setAttribute('aria-expanded','false');
       applyZoom();
     });
@@ -200,8 +201,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     focusArtefact=false;
     workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
-    tab.textContent = c ? '›' : '‹';
-    tab.title = (c ? 'Show' : 'Hide') + ' the editor  [';
+    tab.textContent = c ? 'Source' : 'Hide';
+    tab.title = (c ? 'Show' : 'Hide') + ' source editor';
+    tab.setAttribute('aria-label', (c ? 'Show' : 'Hide') + ' source editor');
     tab.setAttribute('aria-expanded', String(!c));
     applyZoom();                                    // collapsing releases the fold cap (see applyZoom)
     if(onCollapseChange) onCollapseChange(c, {auto});
@@ -210,9 +212,11 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     if(focusArtefact){
       focusArtefact=false;
       workspace.classList.remove('focus-artefact');
-      tab.textContent=workspace.classList.contains('collapsed')?'›':'‹';
-      tab.title=(workspace.classList.contains('collapsed')?'Show':'Hide')+' the editor  [';
-      tab.setAttribute('aria-expanded',String(!workspace.classList.contains('collapsed')));
+      const collapsed = workspace.classList.contains('collapsed');
+      tab.textContent=collapsed ? 'Source' : 'Hide';
+      tab.title=(collapsed ? 'Show' : 'Hide')+' source editor';
+      tab.setAttribute('aria-label',(collapsed ? 'Show' : 'Hide')+' source editor');
+      tab.setAttribute('aria-expanded',String(!collapsed));
       applyZoom();
       return;
     }

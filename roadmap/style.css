@@ -9,10 +9,12 @@
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .composition-bar{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;
-  margin:14px 0 12px;padding:10px 0 11px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  margin:0 0 12px;padding:10px 0 11px;border-bottom:1px solid var(--border)}
 .composition-label{color:var(--accent-ink);font-size:10px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
 .composition-bar #grouppicker{margin-left:auto}
 @media (max-width:720px){.composition-bar #grouppicker{margin-left:0;flex-basis:100%}}
+.narrow-composition-note{display:none;margin:0;flex-basis:100%;color:var(--muted);font-size:12px;line-height:1.4}
+@media (max-width:900px){.narrow-composition-note{display:block}}
 .planning-boundary{display:flex;align-items:baseline;gap:10px 16px;flex-wrap:wrap;
   margin:16px 0 0;padding:10px 12px;border-left:3px solid var(--accent);
   background:color-mix(in srgb,var(--accent) 5%,var(--card))}
@@ -24,6 +26,19 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);border-radius:0;
   background:var(--card);color:var(--ink);font-family:inherit;max-width:210px}
 .board-window[hidden]{display:none}
+.board-window{gap:6px;min-height:44px;padding-block:2px}
+.board-window #boardwindowlabel{color:var(--accent-ink);font-size:10px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
+.board-window #boardrange{min-width:5.5em;text-align:center;font-variant-numeric:tabular-nums}
+.board-window #boardjump{max-width:150px}
+.board-step{min-width:32px;padding-inline:10px;font-size:19px;line-height:1}
+.board-step:disabled{border-color:transparent;background:transparent;opacity:.35}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Roadmap's action row sits immediately above the explanatory prose. Its
+   treated Export menu therefore opens into the utility area, never over the
+   editorial reading column below. */
+.actions .action-disclosure:not(.history) .action-menu{top:auto;bottom:calc(100% + 6px)}
+.action-menu-label{margin:2px 7px 5px;padding:0 0 6px;border-bottom:1px solid var(--border);
+  color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
 /* the headline field — the UI half of `headline:`. Given its own labelled row
    (2026-07-31): wedged between the style chips and the zoom control it inherited
    the chips' label, and once it held text nothing said what it was. 16px floor on

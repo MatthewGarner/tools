@@ -261,8 +261,12 @@ const PAGES = {
      765k -> 800k (2026-08-14 view-system): the exhaustive deck page planner,
      dense-Board navigation and accessible slide-set preflight stay eager so
      exports, URL-local view state and offline use share one factual model.
-     Actual 788.0k; 12k headroom covers the complete artefact contract. */
-  'roadmap/index.html': 800_000,
+     Actual 788.0k; 12k headroom covers the complete artefact contract.
+     800k -> 808k (2026-08-14 remediation): bounded source-item continuation
+     pages keep arbitrarily long titles and notes exhaustive at the existing
+     type floor, rather than hiding text or adding a second export model.
+     Actual 802.8k; retain ~5.2k meaningful headroom. */
+  'roadmap/index.html': 808_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -388,8 +392,12 @@ const PAGES = {
   /* 560k -> 562k (2026-08-13 semantic-quality foundation): Timeline's target
      handoff now retains bounded source-local return context and no-writeback
      semantics. Actual 560.7k; this preserves that navigation correctness with
-     enough headroom for small shared-module changes. */
-  'gauge/index.html': 561_000, 'timeline/index.html': 562_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
+     enough headroom for small shared-module changes.
+     562k -> 563k (2026-08-14 Roadmap remediation): the shared workspace Source
+     control now remains named and truthful when leaving focused-artefact mode.
+     Timeline imports that same workspace module; actual 562.0k, retain a real
+     ~1k guardrail rather than stripping the accessibility fix. */
+  'gauge/index.html': 561_000, 'timeline/index.html': 563_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */

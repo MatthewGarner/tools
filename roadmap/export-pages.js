@@ -7,6 +7,12 @@
    deck begins only when five horizons or genuinely wordy/dense work demand it. */
 export const EXPORT_HORIZONS_PER_PAGE = 5;
 export const EXPORT_PAGE_UNITS = 12;
+/* A single source item can be much longer than a slide. These are deliberately
+   below the narrowest Board column's comfortable line budget, so a fragment
+   stays readable at the established type floor. Continuation pages repeat the
+   item's factual identity rather than reducing type or writing an ellipsis. */
+const TITLE_FRAGMENT_CHARS = 280;
+const NOTE_FRAGMENT_CHARS = 420;
 
 function chunkIndices(total, size){
   const out = [];
@@ -35,11 +41,44 @@ function pageItem(item, sourceIndex, start, end){
   };
 }
 
+function wordFragments(text, limit){
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if(!words.length) return [];
+  const out = []; let current = '';
+  for(const word of words){
+    const candidate = current ? current + ' ' + word : word;
+    if(current && candidate.length > limit){ out.push(current); current = word; }
+    else current = candidate;
+  }
+  if(current) out.push(current);
+  return out;
+}
+
+/* Preserve arbitrarily long source text as a sequence of explicit card
+   fragments. The source item index stays stable on every fragment, which keeps
+   coverage and snapshot semantics honest while giving the renderer a bounded
+   geometry to lay out. */
+function splitLongItem(item){
+  const titles = wordFragments(item.title, TITLE_FRAGMENT_CHARS);
+  const notes = wordFragments(item.note, NOTE_FRAGMENT_CHARS);
+  const count = Math.max(1, titles.length, notes.length);
+  if(count === 1) return [item];
+  return Array.from({length:count}, (_, index) => ({...item, export:{...item.export,
+    fragment:{
+      title: titles[index] || item.title,
+      note: notes[index] || '',
+      index,
+      total: count,
+    },
+  }}));
+}
+
 /* A long title/note earns more room rather than smaller type or an ellipsis.
    This is deliberately conservative: the renderer still wraps the real text,
    while the planner prevents six wordy cards landing on one fixed slide. */
 function itemUnits(item){
-  const text = [item.title, item.note, item.lane, item.status, item.condition].filter(Boolean).join(' ');
+  const fragment = item.export?.fragment;
+  const text = [fragment?.title ?? item.title, fragment?.note ?? item.note, item.lane, item.status, item.condition].filter(Boolean).join(' ');
   return Math.max(1, Math.ceil(text.length / 110));
 }
 
@@ -57,14 +96,20 @@ function chunkItems(items, unitLimit){
 
 export function exportPages(model, {
   horizonsPerPage = EXPORT_HORIZONS_PER_PAGE,
-  pageUnits = EXPORT_PAGE_UNITS,
+  pageUnits,
+  style = model.style || 'grid',
 } = {}){
   const perPage = Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
-  const unitLimit = Math.max(1, Math.floor(pageUnits) || EXPORT_PAGE_UNITS);
+  /* Focus has one deliberately generous hero; it earns a continuation before
+     twelve short cards quietly turn it into a list. Grid reserves rows for
+     span geometry. Board/Register retain the general twelve-unit budget. */
+  const styleFloor = style === 'focus' ? 8 : EXPORT_PAGE_UNITS;
+  const unitLimit = Math.max(1, Math.floor(pageUnits) || styleFloor);
   const chunks = chunkIndices(model.horizons.length, perPage);
   const drafts = chunks.flatMap(indices => {
     const start = indices[0], end = indices.at(-1);
-    const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end)).filter(Boolean);
+    const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end))
+      .filter(Boolean).flatMap(splitLongItem);
     return chunkItems(items, unitLimit).map((pageItems, part) => ({
       start,
       end,

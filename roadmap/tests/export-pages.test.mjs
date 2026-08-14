@@ -104,3 +104,45 @@ test('long frame copy gains wrapped height rather than an ellipsis', () => {
   assert.equal(out.pages[0].includes('…'), false);
   for(const word of ['final', 'words', 'completely', 'readable', 'quietly', 'short']) assert.match(out.pages[0], new RegExp(word));
 });
+
+test('a one-page selected view is still exhaustive, never a legacy clipped deck', () => {
+  const title = 'A board title deliberately longer than the old one-line deck allowance so every authored word must remain present';
+  const note = 'A supporting note long enough to prove the old native deck cannot quietly choose the clipped fast path.';
+  const out = renderDeckPages(parse(`style: board\nNOW\nCore: ${title} -- ${note}`), {colors, measure, today:'2026-08-14'});
+  assert.equal(out.pages.length, 1);
+  assert.doesNotMatch(out.pages[0], /…|\+ \d+ more/);
+  for(const word of ['deliberately', 'authored', 'supporting', 'quietly', 'clipped']) assert.match(out.pages[0], new RegExp(word));
+  assert.match(out.pages[0], /BOARD · COMPLETE READING SET/);
+});
+
+test('every selected view retains its own exhaustive composition across a page set', () => {
+  const source = ['horizons: quarterly from Q1 2026 x8', ...Array.from({length:8}, (_, i) =>
+    `Q${i + 1} 2026\nCore: Work ${i + 1}`)].join('\n');
+  const expected = {grid:'GRID', board:'BOARD', focus:'FOCUS', register:'REGISTER'};
+  for(const [style, label] of Object.entries(expected)){
+    const out = renderDeckPages(parse(`style: ${style}\n${source}`), {colors, measure, today:'2026-08-14'});
+    assert.ok(out.pages.length > 1, style + ' needs an explicit page set');
+    assert.ok(out.pages.every(page => page.includes(label + ' · COMPLETE READING SET')), style + ' preserves its composition');
+    assert.doesNotMatch(out.pages.join(''), /…|\+ \d+ more/);
+  }
+});
+
+test('an exceptionally long source note becomes bounded, explicit item continuations', () => {
+  const markers = Array.from({length:240}, (_, i) => 'marker' + String(i + 1).padStart(3, '0'));
+  const out = renderDeckPages(parse(`style: board
+NOW
+Core: Durable initiative -- ${markers.join(' ')}`), {colors, measure, today:'2026-08-14'});
+  assert.ok(out.pages.length > 1, 'long source text earns pages, not smaller type');
+  const all = out.pages.join('');
+  for(const marker of markers) assert.match(all, new RegExp(marker));
+  assert.match(all, /ITEM PART 2 OF/);
+  assert.doesNotMatch(all, /…|\+ \d+ more/);
+  /* y=984 is the resolved verdict, y=990 the page marker and y=1036 the
+     factual metrics footer. Any other text below the body band would prove a
+     card crossed into the footer. */
+  for(const page of out.pages){
+    const low = [...page.matchAll(/<text[^>]* y="([\d.]+)"[^>]*>/g)]
+      .map(match => Number(match[1])).filter(y => y > 968);
+    assert.ok(low.every(y => y === 984 || y === 990 || y === 1036), 'body text stays above the factual footer: ' + low.join(', '));
+  }
+});

@@ -108,7 +108,7 @@
         </dl>
       </details>
     </aside>
-    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <button class="railtab" id="railtab" aria-label="Show source editor">Source</button>
     <section class="stage">
       <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
         <p class="handoff-copy"><strong id="handofftitle">Delivery projection from Paths</strong><small>This is a separate Roadmap. Edits here do not update Paths.</small></p>
@@ -123,18 +123,19 @@
           <button data-style="focus" aria-pressed="false">Focus</button>
           <button data-style="register" aria-pressed="false">Register</button>
         </div>
+        <p class="narrow-composition-note" id="narrowcomposition" aria-live="polite" hidden></p>
         <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>
           <button data-group="lane" aria-pressed="true">By lane</button>
           <button data-group="outcome" aria-pressed="false">By outcome</button>
         </div>
       </div>
       <div class="actions board-window" id="boardwindow" hidden aria-label="Board horizon window">
-        <span class="method" id="boardwindowlabel">Board horizons</span>
-        <button class="btn" id="boardprev" type="button">Previous</button>
+        <span class="method" id="boardwindowlabel">Board</span>
+        <button class="btn board-step" id="boardprev" type="button" aria-label="Previous Board horizons" title="Previous Board horizons">‹</button>
         <span class="method" id="boardrange" role="status" aria-live="polite"></span>
-        <button class="btn" id="boardnext" type="button">Next</button>
-        <label class="method" for="boardjump">Jump to</label>
+        <label class="sr-only" for="boardjump">Choose Board horizon window</label>
         <select class="ctl" id="boardjump" aria-label="Jump Board window to horizon"></select>
+        <button class="btn board-step" id="boardnext" type="button" aria-label="Next Board horizons" title="Next Board horizons">›</button>
       </div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
@@ -160,10 +161,11 @@
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="copymd">Copy as markdown</button>
-            <button class="btn" id="dlpng">PNG</button>
-            <button class="btn" id="dlsvg">SVG</button>
-            <button class="btn" id="fullslideexport" type="button" hidden>Full 16:9 slide set…</button>
+            <p class="action-menu-label">Full-detail artefact</p>
+            <button class="btn" id="dlpng">Full-detail PNG</button>
+            <button class="btn" id="dlsvg">Editable SVG</button>
+            <button class="btn" id="copymd">Copy source as Markdown</button>
+            <button class="btn" id="fullslideexport" type="button" hidden>Review 16:9 slide set…</button>
           </div>
         </details>
         <details class="action-disclosure history">

@@ -83,8 +83,14 @@ await page.waitForTimeout(200);
 check('Change preflight opens the actual page-set dialog', await page.locator('#slidepreviewdialog').evaluate(d => d.open) &&
   await page.locator('#slidepreviewtitle').innerText() === 'Change deck preview');
 const changeAction = await page.locator('#slidedownload').textContent();
-check('Change preflight names its actual one-page or multi-page action', /^(Copy comparison PNG|Download [2-9]\d* PNGs)$/.test(changeAction || ''));
+check('Change preflight names its actual one-page or multi-page action', /^(Copy comparison PNG|Download [2-9]\d*-slide PNG set)$/.test(changeAction || ''));
 check('Change preflight is an explicit modal with initial focus', await page.locator('#slidepreviewdialog').getAttribute('aria-modal') === 'true' &&
+  await page.locator('#slideclose').evaluate(el => document.activeElement === el));
+await page.keyboard.press('Shift+Tab');
+check('Change preflight keeps backward tab focus inside its dialog',
+  await page.locator('#slidepreviewdialog').evaluate(dialog => dialog.contains(document.activeElement)));
+await page.keyboard.press('Tab');
+check('Change preflight cycles tab focus back to its close control',
   await page.locator('#slideclose').evaluate(el => document.activeElement === el));
 await page.keyboard.press('Escape');
 check('Escape closes Change preflight and restores its trigger focus', await page.locator('#slidepreviewdialog').evaluate(d => !d.open) &&
@@ -104,6 +110,17 @@ await wipPage.close();
    that fits at the card reading floor, then uses a hash-backed window only at
    the constrained rail-open width. The controls must target source indices. */
 {
+  const normalDoc = 'title: Normal Board\nstyle: board\nNOW\nCore: One\nNEXT\nCore: Two\nLATER\nCore: Three';
+  const normalPage = await browser.newPage({viewport: {width:1440, height:1000}});
+  await normalPage.goto(BASE + '#' + Buffer.from(normalDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
+  await normalPage.waitForTimeout(450);
+  check('a normal three-horizon Board never becomes a two-horizon carousel',
+    await normalPage.locator('#boardwindow').isHidden() && await normalPage.locator('#preview svg rect[data-hdrop]').count() === 3);
+  if(!(await normalPage.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))) await normalPage.locator('#railtab').click();
+  const sourceTab = await normalPage.locator('#railtab').evaluate(el => ({text:el.textContent.trim(), rect:el.getBoundingClientRect().toJSON()}));
+  check('collapsed source returns through a named 44px Source control', sourceTab.text.toUpperCase() === 'SOURCE' && sourceTab.rect.width >= 44 && sourceTab.rect.height >= 44);
+  await normalPage.close();
+
   const boardDoc = 'title: Board capacity\nstyle: board\nhorizons: A, B, C, D, E\nA\nCore: One\nB\nCore: Two\nC\nCore: Three\nD\nCore: Four\nE\nCore: Five';
   const boardPage = await browser.newPage({viewport: {width:1440, height:1000}});
   await boardPage.goto(BASE + '#' + Buffer.from(boardDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
@@ -126,6 +143,15 @@ await wipPage.close();
   const fullPage = await browser.newPage({viewport: {width:1440, height:1000}});
   await fullPage.goto(BASE + '#' + Buffer.from(fullDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
   await fullPage.getByText('Export', {exact:true}).click();
+  const exportMenu = await fullPage.locator('.action-disclosure:not(.history) .action-menu').evaluate(menu => {
+    const summary = menu.parentElement.querySelector('summary').getBoundingClientRect();
+    const rect = menu.getBoundingClientRect();
+    return {text: menu.textContent, opensAbove: rect.bottom <= summary.top};
+  });
+  const exportText = exportMenu.text.toUpperCase();
+  check('Export distinguishes full-detail source artefacts and keeps its menu out of the editorial copy',
+    /FULL-DETAIL ARTEFACT/.test(exportText) && /FULL-DETAIL PNG/.test(exportText) &&
+    /EDITABLE SVG/.test(exportText) && /COPY SOURCE AS MARKDOWN/.test(exportText) && exportMenu.opensAbove);
   check('a complete multi-slide deck is an explicit Export-menu action', await fullPage.locator('#fullslideexport').isVisible());
   await fullPage.locator('#fullslideexport').click();
   await fullPage.waitForTimeout(150);

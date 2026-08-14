@@ -302,6 +302,13 @@ function syncStylePicker(m){
     b.classList.toggle('on', on);
     b.setAttribute('aria-pressed', String(on));   // a SR user hears which style will export
   }
+  const narrowNote = $('narrowcomposition');
+  if(narrowNote){
+    const name = selectedStyle(m).replace(/^./, c => c.toUpperCase());
+    const width = renderWidth();
+    narrowNote.hidden = !(width && width < 520);
+    narrowNote.textContent = 'Editing uses the shared Grid stack. ' + name + ' remains selected for exports.';
+  }
 }
 /* The Register grouping control lives beside the composition bar only while
    Register is the active live view and the viewport is wide enough — below the
@@ -332,6 +339,9 @@ function syncHeadline(m){
 function boardCapacity(m){
   /* 220px is the Board’s compact but still full-card reading floor. Above it,
      the live surface earns more horizons; below it, this becomes a window. */
+  /* Now/Next/Later is the default reading model, not dense scale. Reclaim the
+     rail rather than hiding a third of a normal roadmap behind navigation. */
+  if(m.horizons.length <= 3) return m.horizons.length;
   return boardCapacityFor(previewEl.getBoundingClientRect().width, m.horizons.length);
 }
 function boardWindowFor(m){
@@ -365,7 +375,7 @@ function syncBoardWindow(m, narrow){
 }
 function setBoardWindowStart(start){
   if(!model) return;
-  const window = resolveBoardWindow(model, start);
+  const window = resolveBoardWindow(model, start, boardCapacity(model));
   if(window.start === boardWindowStart) return;
   boardWindowStart = window.start;
   lastSvg = ''; paint.reset(); refresh();
@@ -794,7 +804,7 @@ function renderSlidePage(index){
   $('slidenext').disabled = slidePageIndex === set.pages.length - 1;
   $('slidedownload').textContent = set.pages.length === 1
     ? (slidePreviewChange ? 'Copy comparison PNG' : 'Copy PNG')
-    : 'Download ' + set.pages.length + ' PNGs';
+    : 'Download ' + set.pages.length + '-slide PNG set';
 }
 function openSlidePreview(change = false){
   if(!change && deckPageCount() <= 1) return;
@@ -858,6 +868,19 @@ $('slideclose').addEventListener('click', () => $('slidepreviewdialog').close())
 $('slideprev').addEventListener('click', () => renderSlidePage(slidePageIndex - 1));
 $('slidenext').addEventListener('click', () => renderSlidePage(slidePageIndex + 1));
 $('slidedownload').addEventListener('click', downloadSlideSet);
+/* Native modal focus handling is not consistent across every embedded browser
+   surface. Keep the small export dialog self-contained: a backwards Tab from
+   Close lands on the last enabled action, and a forward Tab returns to Close. */
+$('slidepreviewdialog').addEventListener('keydown', event => {
+  if(event.key !== 'Tab') return;
+  const dialog = $('slidepreviewdialog');
+  const controls = [...dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(control => !control.hidden && control.getClientRects().length);
+  if(!controls.length) return;
+  const first = controls[0], last = controls.at(-1), active = document.activeElement;
+  if(event.shiftKey && active === first){ event.preventDefault(); last.focus(); }
+  else if(!event.shiftKey && active === last){ event.preventDefault(); first.focus(); }
+});
 /* clicking a chip COMMITS style: as a text edit (one transaction, one undo
    step, URL-coherent) — the doc stays the only source of truth, the normal
    refresh loop re-syncs the active chip */
