@@ -265,8 +265,12 @@ const PAGES = {
      800k -> 808k (2026-08-14 remediation): bounded source-item continuation
      pages keep arbitrarily long titles and notes exhaustive at the existing
      type floor, rather than hiding text or adding a second export model.
-     Actual 802.8k; retain ~5.2k meaningful headroom. */
-  'roadmap/index.html': 808_000,
+     Actual 802.8k; retain ~5.2k meaningful headroom.
+     808k -> 822k (2026-08-14 focused item review): source-safe selection,
+     a textual receipt and keyboard restoration remain eager so the review
+     surface cannot diverge from the URL-owned artefact. Actual 816.5k;
+     retain ~5.5k meaningful headroom. */
+  'roadmap/index.html': 822_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
