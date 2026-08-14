@@ -667,10 +667,11 @@ for(const theme of ['light', 'dark']){
     return selected && await page.locator('#reviewp50').getAttribute('aria-pressed') === 'false' &&
       await page.evaluate(hash => document.activeElement?.id === 'reviewp50' && location.hash === hash, before);
   })());
+  await page.locator('#reviewp50').click();
   await page.getByRole('button', {name:'Edit formula & ranges'}).click();
   await page.locator('#formula').waitFor({state:'visible'});
-  check('fermi(' + theme + '): Edit formula & ranges focuses the real authoring input',
-    await page.evaluate(() => document.activeElement?.id === 'formula'));
+  check('fermi(' + theme + '): Edit formula & ranges clears selection and focuses the real authoring input',
+    await page.evaluate(() => document.activeElement?.id === 'formula' && document.querySelector('#reviewp50')?.getAttribute('aria-pressed') === 'false'));
   await page.getByRole('button', {name: 'Weekly meeting, annual cost'}).click();
   await page.waitForTimeout(600);
   const p50 = (await page.locator('#p50').innerText()).trim();

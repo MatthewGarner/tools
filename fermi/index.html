@@ -33,15 +33,15 @@
   .fermi-sheet{display:flex;flex-direction:column;background:var(--card);border-block:1px solid var(--border);box-shadow:var(--shadow)}
   .model-trace{display:flex;gap:20px;justify-content:space-between;align-items:flex-start;padding:18px 22px;border-bottom:1px solid var(--border)}
   .trace-copy{min-width:0}.trace-label,.source-kicker,.inspector-kicker{display:block;margin:0 0 7px;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
-  #modeltrace{display:block;white-space:normal;font-size:14px;line-height:1.45;color:var(--ink)}
-  #modelmeta{margin:6px 0 0;font-size:12.5px;color:var(--muted)}
+  #modeltrace{display:block;white-space:normal;overflow-wrap:anywhere;font-size:14px;line-height:1.45;color:var(--ink)}
+  #modelmeta{margin:6px 0 0;overflow-wrap:anywhere;font-size:12.5px;color:var(--muted)}
   .trace-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex:none}.trace-actions .scentabs{margin:0}
   .trace-actions .pagemode{margin:0}.model-source{padding:18px 22px 22px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--card) 93%,var(--bg))}
   .source-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.source-head .source-kicker{margin:0}
   .text-action{border:0;padding:6px 0;background:none;color:var(--accent-ink);font:600 12.5px/1.2 inherit;cursor:pointer}.text-action:hover{text-decoration:underline}
   .analysis-stage{padding:24px 22px 22px;min-width:0}.analysis-stage .placeholder{margin:0}
   #results{grid-template-columns:minmax(0,1fr) minmax(220px,270px);gap:28px;align-items:start}
-  .analysis-main{min-width:0}.result-review{border-left:1px solid var(--border);padding-left:20px;min-width:0;position:sticky;top:16px}.result-review h2{margin:0 0 8px;font-size:16px}.result-review p{margin:0;color:var(--muted);font-size:13px;line-height:1.48}.result-review dl{margin:18px 0 0}.result-review dl div{padding:9px 0;border-top:1px solid var(--border)}.result-review dt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.result-review dd{margin:3px 0 0;font-size:13px;line-height:1.4}
+  .analysis-main{min-width:0}.result-review{border-left:1px solid var(--border);padding-left:20px;min-width:0}.result-review h2{margin:0 0 8px;font-size:16px}.result-review p{margin:0;color:var(--muted);font-size:13px;line-height:1.48}.result-review dl{margin:18px 0 0}.result-review dl div{padding:9px 0;border-top:1px solid var(--border)}.result-review dt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.result-review dd{margin:3px 0 0;overflow-wrap:anywhere;font-size:13px;line-height:1.4}
   label.field{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;
     text-transform:uppercase;color:var(--muted);margin-bottom:7px}
   .fieldrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;flex-wrap:wrap;gap:8px}
@@ -193,27 +193,26 @@
   .srow .sp{font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;
     color:var(--muted)}
   .method{color:var(--muted);font-size:12.5px}
-  @media (max-width:900px){
+  @media (max-width:1020px){
     .model-trace{display:block}.trace-actions{justify-content:flex-start;margin-top:14px}.trace-actions .scentabs{width:100%}
     #results{grid-template-columns:1fr;gap:18px}.result-review{position:static;border-left:0;border-top:1px solid var(--border);padding:16px 0 0}
+  }
+  @media (max-width:700px){
+    .vhead{display:none}
+    .vrow{grid-template-columns:1fr 80px 8px 80px;
+      grid-template-areas:"n lo d hi" "sel sel sp sp" "src src src src" "receipt receipt receipt receipt" "adopt adopt adopt adopt" "omit omit omit omit"}
+    .vrow .vname{grid-area:n}.vrow .vlo{grid-area:lo}.vrow .vdash{grid-area:d}.vrow .vhi{grid-area:hi}
+    .vrow select{grid-area:sel;width:auto;justify-self:start}.vrow .spark{grid-area:sp;justify-self:end}
+    .vrow .vsource{grid-area:src;width:100%;font-size:16px!important}.vrow .vreceipt{grid-area:receipt;margin:0}
+    .vrow .vadopt-adopt{grid-area:adopt}.vrow .vadopt-omit{grid-area:omit}
+  }
+  @media (max-width:640px){
+    .fermi-sheet{margin-inline:-16px;border-inline:none}.model-source,.analysis-stage{padding-inline:12px}
   }
   @media (max-width:560px){
     .model-trace{padding:16px 12px}.trace-actions #editmodel{width:100%}.model-source,.analysis-stage{padding-inline:12px}.fermi-sheet{margin-inline:-16px}.source-head{margin-bottom:14px}
     .tiles{grid-template-columns:1fr;gap:8px}
     .tile.mid{order:-1}
-    .vhead{display:none}
-    .vrow{grid-template-columns:1fr 80px 8px 80px;
-      grid-template-areas:"n lo d hi" "sel sel sp sp" "src src src src" "receipt receipt receipt receipt" "adopt adopt adopt adopt" "omit omit omit omit"}
-    .vrow .vname{grid-area:n}
-    .vrow .vlo{grid-area:lo}
-    .vrow .vdash{grid-area:d}
-    .vrow .vhi{grid-area:hi}
-    .vrow select{grid-area:sel;width:auto;justify-self:start}
-    .vrow .spark{grid-area:sp;justify-self:end}
-    .vrow .vsource{grid-area:src;width:100%;font-size:16px!important}
-    .vrow .vreceipt{grid-area:receipt;margin:0}
-    .vrow .vadopt-adopt{grid-area:adopt}
-    .vrow .vadopt-omit{grid-area:omit}
     .srow{grid-template-columns:minmax(0,100px) 1fr 80px}
   }
   @media (prefers-reduced-motion: no-preference){
@@ -223,7 +222,7 @@
   /* fingers get full-size controls */
   @media (pointer: coarse){
     /* fingers need 44px: the segmented toggles and fit-selects predated this and were 29–33px */
-    .tab,.savedchip button{min-height:44px;display:inline-flex;align-items:center}
+    .tab,.savedchip button,.text-action{min-height:44px;display:inline-flex;align-items:center}
     .vrow select,.vrow input,#tin,#cftin{min-height:44px;font-size:16px}
     .adopt{min-height:44px;padding:8px 16px}
   }

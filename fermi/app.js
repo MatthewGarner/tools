@@ -72,6 +72,7 @@ function updateModelTrace(){
 }
 
 function setAuthorOpen(open, {focus = false} = {}){
+  if(open) clearReviewSelection();
   authorOpen = open;
   $('modelsource').hidden = !open;
   $('fermisheet').classList.toggle('is-authoring', open);
@@ -968,8 +969,13 @@ function drawHist(hoverIdx){
     writeHashSafe();
     runConfession();
   });
-  // I-2: Escape dissolves the confession (ghosts + verdict), writing nothing
-  document.addEventListener('keydown', e => { if(e.key === 'Escape' && lastConfess) clearConfession(); });
+  // Escape dissolves the confession only from its own threshold interaction;
+  // a selected percentile owns Escape while its textual review has focus.
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && lastConfess && $('threshrow').contains(document.activeElement)){
+      e.preventDefault(); clearConfession();
+    }
+  });
 })();
 const confessDebounced = debounced(runConfession, 500);   // I3: the typed path must not solve per keystroke
 $('tin').addEventListener('input', () => {
@@ -1271,7 +1277,9 @@ for(const key of ['p10', 'p50', 'p90']){
   $('review' + key).addEventListener('click', () => selectReviewResult(key));
 }
 document.addEventListener('keydown', event => {
-  if(event.key === 'Escape' && reviewSelection){
+  const focus = document.activeElement;
+  const inReview = $('resultreview').contains(focus) || ['reviewp10', 'reviewp50', 'reviewp90'].includes(focus?.id);
+  if(event.key === 'Escape' && reviewSelection && inReview){
     event.preventDefault();
     clearReviewSelection({focus:true});
   }
