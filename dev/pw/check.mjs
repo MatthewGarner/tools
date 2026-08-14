@@ -118,7 +118,32 @@ await wipPage.close();
     await normalPage.locator('#boardwindow').isHidden() && await normalPage.locator('#preview svg rect[data-hdrop]').count() === 3);
   if(!(await normalPage.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))) await normalPage.locator('#railtab').click();
   const sourceTab = await normalPage.locator('#railtab').evaluate(el => ({text:el.textContent.trim(), rect:el.getBoundingClientRect().toJSON()}));
-  check('collapsed source returns through a named 44px Source control', sourceTab.text.toUpperCase() === 'SOURCE' && sourceTab.rect.width >= 44 && sourceTab.rect.height >= 44);
+  check('collapsed source returns through a named 44px DSL control', sourceTab.text === 'Edit source (DSL)' && sourceTab.rect.width >= 44 && sourceTab.rect.height >= 44);
+  await normalPage.getByRole('button', {name:'More options: One'}).click();
+  await normalPage.getByRole('menuitem', {name:'Inspect item'}).click();
+  await normalPage.waitForTimeout(120);
+  check('item review selects one card and exposes a textual receipt',
+    await normalPage.locator('[data-inspected="true"]').count() === 1 &&
+    await normalPage.getByRole('complementary', {name:'Selected roadmap item'}).isVisible() &&
+    (await normalPage.getByRole('complementary', {name:'Selected roadmap item'}).innerText()).includes('One'));
+  await normalPage.getByRole('button', {name:'More options: One'}).click();
+  await normalPage.keyboard.press('Escape');
+  check('Escape closes an item menu before it can clear the open review',
+    await normalPage.locator('.eip-pop').count() === 0 &&
+    await normalPage.getByRole('complementary', {name:'Selected roadmap item'}).isVisible());
+  await normalPage.keyboard.press('Escape');
+  check('Escape clears item review and restores focus to its card menu',
+    await normalPage.locator('#roadmapreceipt').isHidden() &&
+    await normalPage.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'More options: One'));
+  await normalPage.getByRole('button', {name:'More options: One'}).click();
+  await normalPage.getByRole('menuitem', {name:'Inspect item'}).click();
+  await normalPage.locator('#railtab').click();
+  await normalPage.locator('.cm-content').click();
+  await normalPage.keyboard.press('ControlOrMeta+Home');
+  await normalPage.keyboard.insertText('// source revision\n');
+  await normalPage.waitForTimeout(350);
+  check('a source revision clears review rather than retargeting a shifted line',
+    await normalPage.locator('#roadmapreceipt').isHidden() && await normalPage.locator('[data-inspected="true"]').count() === 0);
   await normalPage.close();
 
   const boardDoc = 'title: Board capacity\nstyle: board\nhorizons: A, B, C, D, E\nA\nCore: One\nB\nCore: Two\nC\nCore: Three\nD\nCore: Four\nE\nCore: Five';
@@ -785,4 +810,4 @@ check('no stray console/page errors', errors.length === 0);   // was folded into
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
 await browser.close();
-report('check', {...tally(results), min: 48});   // ~90% of the current 54 (was 8, stale since the suite's early days)
+report('check', {...tally(results), min: 52});   // ~90% of the current 58 (was 8, stale since the suite's early days)

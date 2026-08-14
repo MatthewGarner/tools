@@ -43,7 +43,8 @@ export function fitReadabilityDecision({naturalWidth,fitWidth,declaredMinScale})
   return {guard:Number.isFinite(scale)&&scale<minScale,scale,minScale};
 }
 
-export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange, autoFold = false}){
+export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange, autoFold = false,
+  collapsedLabel = 'Source', collapsedAriaLabel = 'Show source editor'}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
   let focusArtefact = false;
   let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
@@ -108,9 +109,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     action.addEventListener('click',()=>{
       focusArtefact=true;
       workspace.classList.add('focus-artefact');
-      tab.textContent='Source';
-      tab.title='Show source editor';
-      tab.setAttribute('aria-label','Show source editor');
+      tab.textContent=collapsedLabel;
+      tab.title=collapsedAriaLabel;
+      tab.setAttribute('aria-label',collapsedAriaLabel);
       tab.setAttribute('aria-expanded','false');
       applyZoom();
     });
@@ -201,9 +202,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     focusArtefact=false;
     workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
-    tab.textContent = c ? 'Source' : '‹';
-    tab.title = (c ? 'Show' : 'Hide') + ' source editor';
-    tab.setAttribute('aria-label', (c ? 'Show' : 'Hide') + ' source editor');
+    tab.textContent = c ? collapsedLabel : '‹';
+    tab.title = c ? collapsedAriaLabel : 'Hide source editor';
+    tab.setAttribute('aria-label', c ? collapsedAriaLabel : 'Hide source editor');
     tab.setAttribute('aria-expanded', String(!c));
     applyZoom();                                    // collapsing releases the fold cap (see applyZoom)
     if(onCollapseChange) onCollapseChange(c, {auto});
@@ -213,9 +214,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       focusArtefact=false;
       workspace.classList.remove('focus-artefact');
       const collapsed = workspace.classList.contains('collapsed');
-      tab.textContent=collapsed ? 'Source' : '‹';
-      tab.title=(collapsed ? 'Show' : 'Hide')+' source editor';
-      tab.setAttribute('aria-label',(collapsed ? 'Show' : 'Hide')+' source editor');
+      tab.textContent=collapsed ? collapsedLabel : '‹';
+      tab.title=collapsed ? collapsedAriaLabel : 'Hide source editor';
+      tab.setAttribute('aria-label',collapsed ? collapsedAriaLabel : 'Hide source editor');
       tab.setAttribute('aria-expanded',String(!collapsed));
       applyZoom();
       return;

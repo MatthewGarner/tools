@@ -31,6 +31,7 @@ import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
 import {exportPages} from './export-pages.js';
 import {resolveBoardWindow, boardCapacityFor} from './board-window.js';
 import {layoutRoadmap} from './layout.js';
+import {inspectionFacts, inspectionIdentity} from './inspect-item.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -127,6 +128,7 @@ function makeDiff(model){
 
 /* ---------- refresh loop ---------- */
 let model = null, lastSvg = '', hashTimer = null, inboundHandoff = null, boardWindowStart = null, gridStack = false, boardCapacityLast = null;
+let inspectedIdentity = null, inspectOpener = null, inspectionSource = null;
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
@@ -290,6 +292,102 @@ function renderWarnings(m){
     : [...m.warnings, ...ambiguity];
   renderWarningList(warns, warnings);
 }
+function inspectionOpenerEl(){
+  if(!inspectOpener) return null;
+  return [...previewEl.querySelectorAll('[data-edit="cardmenu"]')]
+    .find(el => +el.dataset.line === inspectOpener.srcLine) || null;
+}
+function syncInspectionMark(){
+  for(const el of previewEl.querySelectorAll('[data-edit="cardmenu"]')){
+    const selected = !!inspectedIdentity && +el.dataset.line === inspectedIdentity.srcLine;
+    el.classList.toggle('is-inspected', selected);
+    if(selected){
+      el.setAttribute('data-inspected', 'true');
+      el.setAttribute('aria-describedby', 'roadmapreceipt-selected-state');
+    }else{
+      el.removeAttribute('data-inspected');
+      el.removeAttribute('aria-describedby');
+    }
+  }
+}
+function clearInspection({restoreFocus = false} = {}){
+  const opener = inspectionOpenerEl();
+  const wasMargin = $('workspace').classList.contains('review-margin');
+  inspectedIdentity = null;
+  inspectOpener = null;
+  inspectionSource = null;
+  const host = $('roadmapreceipt');
+  $('workspace').classList.remove('review-margin');
+  host.hidden = true;
+  host.replaceChildren();
+  syncInspectionMark();
+  if(restoreFocus) requestAnimationFrame(() => opener?.focus({preventScroll:wasMargin}));
+}
+function renderInspection(m, {focus = false} = {}){
+  const facts = inspectionFacts(m, inspectedIdentity);
+  if(!facts){
+    if(inspectedIdentity) clearInspection();
+    return false;
+  }
+  const host = $('roadmapreceipt');
+  host.hidden = false;
+  /* A margin receipt is valuable beside a normal three-horizon artefact. Wider
+     horizon sets keep their full reading width and receive the same receipt in
+     normal document flow instead of an accidental third pane. */
+  $('workspace').classList.toggle('review-margin', m.horizons.length <= 3);
+  host.replaceChildren();
+  const head = document.createElement('div');
+  head.className = 'receipt-head';
+  const identity = document.createElement('div');
+  const kicker = document.createElement('p');
+  kicker.className = 'inspector-kicker';
+  kicker.textContent = 'Item review';
+  const title = document.createElement('h2');
+  title.id = 'roadmapreceipt-title';
+  title.tabIndex = -1;
+  title.textContent = facts.title;
+  identity.append(kicker, title);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn';
+  close.dataset.closeRoadmapReceipt = '';
+  close.textContent = 'Close';
+  close.setAttribute('aria-label', 'Close item review for ' + facts.title);
+  head.append(identity, close);
+  const list = document.createElement('dl');
+  list.className = 'receipt-ledger';
+  for(const [label, value] of facts.facts){
+    const row = document.createElement('div');
+    const term = document.createElement('dt'); term.textContent = label;
+    const description = document.createElement('dd'); description.textContent = value;
+    row.append(term, description); list.appendChild(row);
+  }
+  host.append(head, list);
+  if(facts.note){
+    const note = document.createElement('p');
+    note.className = 'receipt-basis';
+    note.textContent = facts.note;
+    host.appendChild(note);
+  }
+  const summary = document.createElement('p');
+  summary.className = 'sr-only';
+  summary.id = 'roadmapreceipt-selected-state';
+  summary.setAttribute('role', 'status');
+  summary.setAttribute('aria-live', 'polite');
+  summary.textContent = facts.summary;
+  host.appendChild(summary);
+  if(focus) requestAnimationFrame(() => title.focus({preventScroll:false}));
+  syncInspectionMark();
+  return true;
+}
+function inspectItem(srcLine){
+  const item = model?.items.find(entry => entry.srcLine === srcLine);
+  if(!item) return;
+  inspectedIdentity = inspectionIdentity(item);
+  inspectOpener = inspectedIdentity;
+  inspectionSource = editor.getText();
+  renderInspection(whatIfNames().length ? applyWorld(model, whatIf) : model, {focus:true});
+}
 /* The composition bar is literal: the highlighted view is what the person is
    reading and what every export uses. An unstyled document is the familiar Grid
    working surface, so it resolves to Grid here too — no hidden Board export mode. */
@@ -390,6 +488,10 @@ function writeHash(){
 const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
   const text = editor.getText();
+  /* Card menus are source-line based. A textual revision can shift those lines,
+     so review is deliberately transient rather than silently attaching itself
+     to whichever item now occupies the old line. */
+  if(inspectedIdentity && inspectionSource !== text) clearInspection();
   model = parse(text);
   pruneWhatIf(model);   // survives ordinary typing; drops on resolve/rename/gone (spec §3)
   /* the SAME projected model feeds every live view, the verdict, the metrics
@@ -410,6 +512,7 @@ function doRefresh(){
   syncHeadline(model);
   syncWhatIfChip(model);
   syncConditionalityHealth(model);
+  renderInspection(projected);
   const pv = $('preview');
   if(!model.items.length){
     lastSvg = ''; paint.reset();
@@ -445,6 +548,7 @@ function doRefresh(){
       lastSvg = svg;
       flipNext = false;
     }
+    syncInspectionMark();
   }
   restoreWhatIfFocus(pv);
   /* the header/verdict anatomy rides this same loop — both painters bail out
@@ -473,6 +577,8 @@ mountTouchUndo($('zoomctl').closest('.actions'), editor);   // phones have no �
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true,
+  collapsedLabel: 'Edit source (DSL)',
+  collapsedAriaLabel: 'Edit source (DSL)',
   onCollapseChange(_collapsed, {auto = false} = {}){
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */
@@ -611,6 +717,7 @@ function itemMenu(m, srcLine, whatIfMap){
     rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
+  rows.push({label: 'Inspect item', commit: {kind: 'inspect', line: srcLine, oldRaw: '', value: ''}});
   rows.push({label: 'Remove item', action: true, danger: true});
   return rows;
 }
@@ -629,6 +736,7 @@ attachEditInPlace($('preview'), {
     story: {validate: v => !v.trim().startsWith('//')},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
+    if(kind === 'inspect'){ inspectItem(lineNo); return; }
     if(kind === 'headline'){ editor.setText(setHeadline(editor.getText(), newValue)); return; }
     if(kind === 'story'){ editor.setText(setStory(editor.getText(), newValue)); return; }
     if(kind === 'additem'){
@@ -918,6 +1026,9 @@ const commitHeadline = debounced(commitHeadlineNow, 400);
 $('headline').addEventListener('input', commitHeadline);
 $('headline').addEventListener('blur', commitHeadlineNow);
 $('headline').addEventListener('keydown', e => { if(e.key === 'Enter') commitHeadlineNow(); });
+$('roadmapreceipt').addEventListener('click', event => {
+  if(event.target.closest?.('[data-close-roadmap-receipt]')) clearInspection({restoreFocus:true});
+});
 /* copymd keeps its inline handler: label is 'Copy as markdown' / 'Copied', not
    wireExports' literal 'Copy as markdown' revert — kept for the different flash copy. */
 $('copymd').addEventListener('click', async () => {
@@ -1216,7 +1327,14 @@ window.addEventListener('pointerup', e => {
   editor.setText(r.text);   // one transaction → one undo step
 });
 window.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && (drag.armed || drag.edge)) endDrag();
+  if(e.key !== 'Escape') return;
+  if(e.defaultPrevented) return;
+  if(!document.querySelector('.eip-input,.eip-pop') && inspectedIdentity){
+    e.preventDefault();
+    clearInspection({restoreFocus:true});
+    return;
+  }
+  if(drag.armed || drag.edge) endDrag();
 });
 /* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
    ghost + dropline instead of stranding them until the next pointerup */

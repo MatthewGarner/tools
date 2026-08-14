@@ -8,10 +8,17 @@
 #cmhost .cm-editor{min-height:440px}
 .stage .preview{--reserve-ar: 902 / 576}   /* load-grace: default example's viewBox — see workspace.css */
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Roadmap has a single working sheet: source and artefact share one plane, with
+   the divider doing all the separation work. This is deliberately local; other
+   workspace tools have their own visual contracts. */
+@media (min-width:901px){
+  .workspace{border:0;background:var(--card)}
+  .workspace .rail,.workspace .stage{background:transparent;box-shadow:none}
+}
 .stage-head{display:flex;align-items:end;gap:12px 20px;flex-wrap:wrap;
   margin:26px 0 12px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
 .stage-head .metrics{flex:1 1 360px;min-width:0;margin:0;padding:0;border:0}
-.workspace.collapsed .stage-head,.workspace.focus-artefact .stage-head{margin-top:12px;padding-left:44px}
+.workspace.collapsed .stage-head,.workspace.focus-artefact .stage-head{margin-top:12px;padding-left:142px}
 .composition-bar{display:flex;align-items:center;gap:10px 16px;flex:0 1 auto;flex-wrap:wrap;
   margin:0;padding:0;border:0}
 .composition-label{color:var(--accent-ink);font-size:10px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
@@ -41,6 +48,59 @@ select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);borde
 .board-step{min-width:32px;padding-inline:10px;font-size:19px;line-height:1}
 .board-step:disabled{border-color:transparent;background:transparent;opacity:.35}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* The shared rail tab is icon-only elsewhere. Roadmap's collapsed state needs a
+   named return path because its source is an explicit authoring mode, not a
+   decorative side panel. */
+.workspace.collapsed .railtab,.workspace.focus-artefact .railtab{
+  top:12px;left:18px;width:auto;min-height:44px;padding:10px 10px 10px 13px;
+  border:0;border-left:2px solid var(--accent);background:transparent;
+  color:var(--ink);font:700 10px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  letter-spacing:.1em;text-transform:uppercase;opacity:1;
+}
+.workspace.collapsed .railtab::before,.workspace.focus-artefact .railtab::before{content:none}
+.workspace.collapsed .railtab::after,.workspace.focus-artefact .railtab::after{content:none}
+/* The editor remains a grid item when its column closes. Zero its block
+   contribution as well as its width: a hidden CodeMirror document must not
+   leave a phantom page-length rail behind the reading artefact. */
+.workspace.collapsed .rail,.workspace.focus-artefact .rail{
+  align-self:start;min-height:0;max-height:0;height:0;overflow:hidden;
+}
+/* Keep utility controls in a single, quiet trailing band after the verdict.
+   The top rule states a new interaction zone without making another card. */
+.roadmap-utilities{margin-top:28px;padding-top:14px;border-top:1px solid var(--border)}
+.roadmap-utilities .actions{margin-top:0}
+.roadmap-utilities .actions + .actions{margin-top:10px}
+.roadmap-utilities .method{font-size:11px}
+/* Empty by default. When an item inspection flow supplies content, desktop gives
+   it a contextual margin; narrow layouts return it to normal document flow. */
+.roadmap-receipt{color:var(--ink);background:transparent;border-left:2px solid var(--accent);
+  padding:16px 18px;box-shadow:none}
+.receipt-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.inspector-kicker{margin:0;color:var(--accent-ink);font-size:9px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
+.receipt-head h2{margin:4px 0 0;font-family:Charter,Georgia,serif;font-size:21px;line-height:1.08}
+#roadmapreceipt-title:focus{outline:0}
+.receipt-head .btn{min-height:32px;padding:7px 10px}
+.receipt-ledger{margin:18px 0 0;border-top:1px solid var(--border)}
+.receipt-ledger > div{display:grid;grid-template-columns:82px minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.receipt-ledger dt{color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
+.receipt-ledger dd{margin:0;font-size:13px;font-weight:650;line-height:1.3}
+.receipt-basis{margin:16px 0 0;padding-top:14px;border-top:2px solid var(--ink);font-size:13px;line-height:1.45}
+@media (min-width:1180px){
+  .stage{position:relative}
+  /* The receipt joins the right margin only after the reader has reclaimed the
+     source rail. An open source editor keeps the roadmap at its proven floor
+     and receives the receipt below it instead of a squeezed three-pane desk. */
+  .workspace.review-margin.collapsed .stage:has(.roadmap-receipt:not([hidden])),
+  .workspace.review-margin.focus-artefact .stage:has(.roadmap-receipt:not([hidden])){padding-right:356px}
+  .workspace.review-margin.collapsed .roadmap-receipt:not([hidden]),
+  .workspace.review-margin.focus-artefact .roadmap-receipt:not([hidden]){position:absolute;z-index:3;top:126px;right:18px;width:320px;
+    max-height:calc(100vh - 144px);overflow:auto}
+}
+.preview svg [data-edit="cardmenu"].is-inspected > rect[data-hit]{fill:color-mix(in srgb,var(--accent) 8%,var(--card));stroke:var(--accent);stroke-width:2px}
+@media (max-width:900px){
+  .workspace.collapsed .stage-head,.workspace.focus-artefact .stage-head{padding-left:0}
+  .roadmap-utilities{margin-top:22px}
+}
 /* Roadmap's action row sits immediately above the explanatory prose. Its
    treated Export menu therefore opens into the utility area, never over the
    editorial reading column below. */

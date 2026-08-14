@@ -108,7 +108,7 @@
         </dl>
       </details>
     </aside>
-    <button class="railtab" id="railtab" aria-label="Show source editor">Source</button>
+    <button class="railtab" id="railtab" aria-label="Edit source (DSL)">Edit source (DSL)</button>
     <section class="stage">
       <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
         <p class="handoff-copy"><strong id="handofftitle">Delivery projection from Paths</strong><small>This is a separate Roadmap. Edits here do not update Paths.</small></p>
@@ -151,35 +151,39 @@
         </div>
         <button class="btn" id="pathsstarter" data-handoff-contract="roadmap-to-paths-starter" type="button" hidden>Turn conditional work into a decision-plan starter</button>
       </aside>
-      <div class="actions">
-        <label class="method" for="headline" id="hdllbl">Headline:</label>
-        <input class="ctl hdl" id="headline" type="text" autocomplete="off" spellcheck="true"
-               placeholder="Your call, not the tool's — appears on every export"
-               aria-label="Headline (writes the headline: line, and appears on every export)">
-      </div>
-      <div class="actions">
-        <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn primary" id="copypng">Copy PNG</button>
-        <details class="action-disclosure">
-          <summary class="btn">Export</summary>
-          <div class="action-menu">
-            <p class="action-menu-label">Full-detail artefact</p>
-            <button class="btn" id="dlpng">Full-detail PNG</button>
-            <button class="btn" id="dlsvg">Editable SVG</button>
-            <button class="btn" id="copymd">Copy source as Markdown</button>
-            <button class="btn" id="fullslideexport" type="button" hidden>Review 16:9 slide set…</button>
-          </div>
-        </details>
-        <details class="action-disclosure history">
-          <summary class="btn">History</summary>
-          <div class="action-menu">
-            <button class="btn" id="snap">Snapshot</button>
-            <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
-            <button class="btn" id="changepreview" type="button" hidden>Review change deck…</button>
-            <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
-          </div>
-        </details>
-      </div>
+      <!-- Empty until an explicit card-menu review; hidden keeps the default artefact uninterrupted. -->
+      <aside class="roadmap-receipt" id="roadmapreceipt" aria-label="Selected roadmap item" hidden></aside>
+      <section class="roadmap-utilities" aria-label="Roadmap utilities">
+        <div class="actions">
+          <label class="method" for="headline" id="hdllbl">Headline:</label>
+          <input class="ctl hdl" id="headline" type="text" autocomplete="off" spellcheck="true"
+                 placeholder="Your call, not the tool's — appears on every export"
+                 aria-label="Headline (writes the headline: line, and appears on every export)">
+        </div>
+        <div class="actions">
+          <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
+          <button class="btn" id="copypng">Copy PNG</button>
+          <details class="action-disclosure">
+            <summary class="btn">Export</summary>
+            <div class="action-menu">
+              <p class="action-menu-label">Full-detail artefact</p>
+              <button class="btn" id="dlpng">Full-detail PNG</button>
+              <button class="btn" id="dlsvg">Editable SVG</button>
+              <button class="btn" id="copymd">Copy source as Markdown</button>
+              <button class="btn" id="fullslideexport" type="button" hidden>Review 16:9 slide set…</button>
+            </div>
+          </details>
+          <details class="action-disclosure history">
+            <summary class="btn">History</summary>
+            <div class="action-menu">
+              <button class="btn" id="snap">Snapshot</button>
+              <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+              <button class="btn" id="changepreview" type="button" hidden>Review change deck…</button>
+              <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
+            </div>
+          </details>
+        </div>
+      </section>
     </section>
 </div>
 
