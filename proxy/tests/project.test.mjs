@@ -269,3 +269,29 @@ test('missing core fields take precedence over theory rhetoric', () => {
     limit: 'The mechanism is an authored hypothesis, not proof of causal effect.',
   });
 });
+
+test('an author-stated verdict remains separate from computed safety gates', () => {
+  const claimed = 'Approved for rollout — keep monitoring 2 protected outcomes.';
+  const cases = [
+    source({basis: 'speculative-concern'}),
+    source().replace('mode: optimise', 'mode: monitor'),
+    source({extra: 'trade-off: Group creation versus qualified retention'}),
+    source().replace('  guardrail: Qualified group retention after seven days\n', ''),
+  ];
+  for(const text of cases){
+    const p = project(parse(`${text}\nverdict: ${claimed}`));
+    assert.deepEqual(p.authoredVerdict, {line: claimed, fig: '2'});
+    assert.equal(p.verdict.authoritative, false);
+    assert.notEqual(p.verdict.line, claimed);
+    assert.match(p.verdict.limit, /authored hypothesis, not proof of causal effect/i);
+  }
+});
+
+test('blank or off suppresses only the author-stated verdict', () => {
+  for(const value of ['', 'off', 'OFF']){
+    const p = project(parse(`${source()}\nverdict: ${value}`));
+    assert.equal(p.authoredVerdict, null);
+    assert.equal(p.verdict.authoritative, true);
+    assert.match(p.verdict.line, /Do not optimise Invitation rate alone/);
+  }
+});

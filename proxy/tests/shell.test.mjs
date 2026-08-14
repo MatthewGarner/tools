@@ -32,3 +32,13 @@ test('shell keeps causal caveats visible outside the SVG and supports keyboard s
   assert.match(app, /scrollIntoView/);
   assert.match(app, /focusReceiptAfter:true/);
 });
+
+test('shell documents and wires the author-stated verdict without replacing the computed review state', () => {
+  const shell = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(shell, /verdict: Keep the measure paired with the guardrail/);
+  assert.match(shell, /authorverdict/);
+  assert.match(app, /Author-stated verdict/);
+  assert.match(app, /verdictMenuRows/);
+  assert.match(app, /REVIEW state/i);
+});

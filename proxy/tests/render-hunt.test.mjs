@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {project} from '../project.js';
 import {renderHunt, renderHuntNarrow, renderHuntReceipt} from '../render-hunt.js';
+import {fullHuntProjection} from '../export-projection.js';
 
 const measure = text => String(text).length * 7;
 const colors = {bg:'#FBFBFA', card:'#F4F4F1', ink:'#111111', muted:'#6B6B68',
@@ -222,10 +223,33 @@ test('every receipt carries its causal limitation even with no reported pattern'
   }
 });
 
+test('an author-stated verdict is labelled, hunt-level, and never replaces review state', () => {
+  const claimed = 'Proceed with caution for 2 cohorts.';
+  const incomplete = project(parse(`${source({basis:'speculative-concern'})}\nverdict: ${claimed}`));
+  const full = fullHuntProjection(parse(`${source({basis:'speculative-concern'})}\nverdict: ${claimed}`));
+  for(const svg of [
+    renderHunt(incomplete, context({width:1180})),
+    renderHuntNarrow(incomplete, context({width:390})),
+    renderHuntReceipt(incomplete, context({width:520})),
+    renderHunt(full, context({width:1180})),
+  ]){
+    const copy = visibleText(svg);
+    assert.match(copy, /REVIEW STATE.*TOOL-DERIVED/i);
+    assert.match(copy, /Stress-test(?: it)? before making this a target/i);
+    assert.match(copy, /AUTHOR-STATED VERDICT.*HUNT-LEVEL/i);
+    assert.match(copy, /Proceed with caution for 2 cohorts/i);
+    assert.match(copy, /mechanism is an authored hypothesis, not proof of causal effect/i);
+  }
+  const receipt = visibleText(renderHuntReceipt(incomplete, context({width:520})));
+  assert.match(receipt, /NOT A THEORY CONCLUSION/i);
+  assert.equal(full.verdict.authoritative, false);
+  assert.match(full.verdict.line, /At least one failure theory is speculative/i);
+});
+
 test('hostile authored text is escaped and every renderer emits strict finite SVG', () => {
   const hostile = '<script>alert("x")</script> & \'quoted\' ' + 'X'.repeat(140);
   const hunt = project(parse(source().replace('Group invitations', hostile)
-    .replace('High-invite cohorts have lower return', hostile)));
+    .replace('High-invite cohorts have lower return', hostile) + `\nverdict: ${hostile}`));
   const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
   for(const svg of [renderHunt(hunt, context({width:1180})),
     renderHuntNarrow(hunt, context({width:320})), renderHuntReceipt(hunt, context({width:390}))]){

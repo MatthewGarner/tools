@@ -32,6 +32,7 @@ test('proxy hunt separates hostile causal theories, readings and scoped receipts
   const {project} = await import('../proxy/project.js');
   const {renderHunt, renderHuntNarrow, renderHuntReceipt} = await import('../proxy/render-hunt.js');
   const safe = value => value.replace(/:/g, ';');
+  const hostileVerdict = safe(EVIL.join(' '));
   const doc = 'title: ' + EVIL[0] + '\noutcome: ' + safe(EVIL[1]) + '\nproxy: ' + safe(EVIL[2]) +
     '\naction: ' + safe(EVIL[3]) + '\nmode: optimise\nintended-theory:\n  mechanism: ' + safe(EVIL[4]) +
     '\nprotects:\n  - ' + safe(EVIL[5]) + '\nfailure-theory harm:\n  mechanism: ' + safe(EVIL[0]) +
@@ -39,8 +40,13 @@ test('proxy hunt separates hostile causal theories, readings and scoped receipts
     '\n  basis: reasoned-mechanism\n  weaken-with: ' + safe(EVIL[3]) +
     '\nreported-pattern:\n  proxy-reading: ' + safe(EVIL[2]) + '\n  outcome: ' + safe(EVIL[1]) +
     '\n  outcome-reading: ' + safe(EVIL[4]) + '\n  population: ' + safe(EVIL[5]) +
-    '\n  horizon: week one\n  comparator: baseline\n  source: ' + safe(EVIL[0]);
-  const hunt = project(parse(doc), 'harm');
+    '\n  horizon: week one\n  comparator: baseline\n  source: ' + safe(EVIL[0]) +
+    '\nverdict: ' + hostileVerdict;
+  const model = parse(doc);
+  assert.equal(model.verdict, hostileVerdict, 'proxy: hostile verdict reached the top-level raw model');
+  const hunt = project(model, 'harm');
+  assert.equal(hunt.authoredVerdict?.line, hostileVerdict,
+    'proxy: hostile verdict reached the separate author-stated projection');
   assertClean(renderHunt(hunt, {...ctx, width:1100, interactive:true}), 'proxy-hunt');
   assertClean(renderHuntNarrow(hunt, {...ctx, width:360, interactive:true}), 'proxy-hunt-narrow');
   assertClean(renderHuntReceipt(hunt, {...ctx, width:900}), 'proxy-hunt-receipt');

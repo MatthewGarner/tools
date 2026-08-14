@@ -298,18 +298,23 @@ function semanticHead(hunt, suffix = 'Proxy Hunt'){
     `${theory.id}: ${theory.route?.mechanism || 'mechanism not authored'}; status ${theory.registerLabel}.`).join(' ');
   const pattern = hunt.reportedPattern ? ` ${hunt.reportedPattern.caveat} ${hunt.reportedPattern.mechanismStatement}` : '';
   const causalLimit = hunt.selectedReceipt?.causalLimitation || hunt.verdict?.limit || '';
-  const description = `Verdict: ${hunt.verdict?.line || 'Unavailable'}. ` +
+  const authored = hunt.authoredVerdict?.line
+    ? ` Author-stated verdict (hunt-level annotation, not a theory conclusion): ${hunt.authoredVerdict.line}.`
+    : '';
+  const description = `Tool-derived review state: ${hunt.verdict?.line || 'Unavailable'}. ` +
     `Intended theory: ${hunt.intendedRoute?.action || 'action not authored'}; ${hunt.intendedRoute?.mechanism || 'mechanism not authored'}; ` +
     `${hunt.intendedRoute?.outcome || 'outcome not authored'}. Failure theories: ${theorySummary || 'challenge not yet articulated.'} ` +
-    `Causal limit: ${causalLimit}${pattern}`;
+    `Causal limit: ${causalLimit}.${authored}${pattern}`;
   return `<title id="proxy-hunt-name">${esc(`${hunt.title || suffix} — ${suffix}`)}</title>` +
     `<desc id="proxy-hunt-description">${esc(description)}</desc>`;
 }
 
-function header(hunt, x, y, width, C, measure, narrow){
+function header(hunt, x, y, width, C, measure, narrow, {authoredScope = 'HUNT-LEVEL'} = {}){
   const titleLines = textLines(hunt.title || 'Proxy Hunt', width, measure, narrow ? 22 : 25, 700);
   const verdictLines = textLines(hunt.verdict?.line || 'No verdict available.', width, measure, narrow ? 16 : 18, 750);
   const limitLines = hunt.verdict?.limit ? textLines(hunt.verdict.limit, width, measure, 10, 650) : [];
+  const authoredLines = hunt.authoredVerdict?.line
+    ? textLines(hunt.authoredVerdict.line, width, measure, narrow ? 14 : 15, 700) : [];
   const dateLines = textLines(`AUTHORED DATE · ${hunt.date || 'NOT STATED'}`, Math.min(240, width * .42),
     measure, 8, 750);
   const status = hunt.status === 'ready' ? 'review ready' : hunt.status;
@@ -320,10 +325,18 @@ function header(hunt, x, y, width, C, measure, narrow){
   let cursor = y + Math.max(39, 15 + dateLines.length * 12);
   svg += drawLines(titleLines, x, cursor, narrow ? 22 : 25, C.ink,
     {weight:700, lineHeight:narrow ? 29 : 32}); cursor += titleLines.length * (narrow ? 29 : 32) + 9;
+  svg += txt(x, cursor + 7, 'REVIEW STATE · TOOL-DERIVED', 8, C.muted, {weight:800, tracking:.8}); cursor += 20;
   svg += drawLines(verdictLines, x, cursor, narrow ? 16 : 18, C.ink,
     {weight:750, lineHeight:narrow ? 22 : 25}); cursor += verdictLines.length * (narrow ? 22 : 25);
   if(limitLines.length){ cursor += 6; svg += drawLines(limitLines, x, cursor, 10, C.muted, {weight:650, lineHeight:14});
     cursor += limitLines.length * 14; }
+  if(authoredLines.length){
+    cursor += 13;
+    svg += txt(x, cursor + 7, `AUTHOR-STATED VERDICT · ${authoredScope}`, 8, C.accentInk,
+      {weight:800, tracking:.75}); cursor += 20;
+    svg += drawLines(authoredLines, x, cursor, narrow ? 14 : 15, C.ink,
+      {weight:700, lineHeight:narrow ? 20 : 22}); cursor += authoredLines.length * (narrow ? 20 : 22);
+  }
   return {height:cursor - y, svg};
 }
 
@@ -476,14 +489,17 @@ export function renderHuntReceipt(hunt, ctx = {}){
   const width = Math.max(300, Math.round(ctx.width || 520)), pad = 20, content = width - pad * 2;
   const narrow = width < 440;
   let y = 24;
-  const head = header(hunt, pad, y, content, C, measure, narrow); y += head.height + 18;
+  const head = header(hunt, pad, y, content, C, measure, narrow,
+    {authoredScope:'HUNT-LEVEL · NOT A THEORY CONCLUSION'}); y += head.height + 18;
   const target = targetBand(hunt, pad, y, content, C, measure, narrow); y += target.height + 18;
   const receipt = receiptPanel(hunt.selectedReceipt, pad, y, content, C, measure,
     {narrow, label:'FAILURE THEORY RECEIPT · SCOPED'}); y += receipt.height + 24;
   const height = y;
   const title = `${hunt.title || 'Proxy Hunt'} — selected failure theory receipt`;
   const description = `Scoped receipt for ${hunt.selectedReceipt?.id || 'no selected theory'}. ` +
-    `${hunt.verdict?.line || ''} Causal limit: ${hunt.selectedReceipt?.causalLimitation || hunt.verdict?.limit || ''}`;
+    `Tool-derived review state: ${hunt.verdict?.line || ''}. ` +
+    `${hunt.authoredVerdict?.line ? `Author-stated hunt-level annotation, not a theory conclusion: ${hunt.authoredVerdict.line}. ` : ''}` +
+    `Causal limit: ${hunt.selectedReceipt?.causalLimitation || hunt.verdict?.limit || ''}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" ` +
     `font-family="${SANS}" role="img" aria-labelledby="proxy-hunt-receipt-name proxy-hunt-receipt-description">` +
     `<title id="proxy-hunt-receipt-name">${esc(title)}</title><desc id="proxy-hunt-receipt-description">${esc(description)}</desc>` +

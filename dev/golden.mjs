@@ -937,7 +937,8 @@ for(const [k, src] of Object.entries(docs)){
   const {fullHuntProjection} = await import('../proxy/export-projection.js');
   const {renderHunt, renderHuntNarrow, renderHuntReceipt} = await import('../proxy/render-hunt.js');
   const source = 'title: Habitat invite pressure\ndate: 2026-08-13\noutcome: Groups retain after week one\n' +
-    'proxy: Invitation rate\naction: Prompt every active member\nmode: optimise\nintended-theory:\n' +
+    'proxy: Invitation rate\naction: Prompt every active member\nmode: optimise\n' +
+    'verdict: Keep invitation rate paired with seven-day invitee retention while this concern is tested.\nintended-theory:\n' +
     '  mechanism: A timely prompt helps a member invite a collaborator who returns\nprotects:\n  - New members retain trust\n' +
     'failure-theory fatigue:\n  mechanism: Repeated prompts pressure people into low-intent invitations\n' +
     '  harmed-outcome: New members retain trust\n  guardrail: Seven-day invitee retention\n' +

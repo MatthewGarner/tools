@@ -270,6 +270,23 @@ test('named palettes and custom accents use suite-standard validation', () => {
   assert.ok(invalid.warnings.some(w => w.includes('accent wants a 6-digit hex')));
 });
 
+test('stores a top-level authored verdict raw while blank and off stay distinct from absence', () => {
+  const stated = parse(`${COMPLETE}\nverdict: Keep invitation rate paired with qualified retention.`);
+  assert.equal(stated.verdict, 'Keep invitation rate paired with qualified retention.');
+  assert.equal(stated.srcLines.verdict, 29);
+
+  const blank = parse(`${COMPLETE}\nverdict:`);
+  const off = parse(`${COMPLETE}\nverdict: off`);
+  const absent = parse(COMPLETE);
+  assert.equal(blank.verdict, '');
+  assert.equal(off.verdict, 'off');
+  assert.equal(absent.verdict, null);
+
+  const laterWins = parse(`${COMPLETE}\nverdict: First line\nverdict: Later line`);
+  assert.equal(laterWins.verdict, 'Later line');
+  assert.match(laterWins.warnings.at(-1), /later value used/i);
+});
+
 test('reported patterns must identify their desired or protected outcome when several are declared', () => {
   const twoOutcomes = COMPLETE
     .replace('  outcome: Qualified groups retained after seven days\n', '')

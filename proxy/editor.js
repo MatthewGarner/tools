@@ -1,7 +1,7 @@
 /* Proxy Hunt DSL highlighting on the shared CodeMirror core. */
 import {makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 
-const TOP = /^(title|date|outcome|proxy|action|mode|optimisation-pressure|trade-off|decision-rule|palette|accent)\s*:/i;
+const TOP = /^(title|date|outcome|proxy|action|mode|optimisation-pressure|trade-off|decision-rule|verdict|palette|accent)\s*:/i;
 const BLOCK = /^(intended-theory|protects|failure-theory(?:\s+[^:]+)?|reported-pattern)\s*:/i;
 const CHILD = /^\s{2}(mechanism|harmed-outcome|guardrail|basis|support|weaken-with|proxy-reading|outcome-reading|protected-outcome-reading|outcome|population|horizon|comparator|source)\s*:/i;
 

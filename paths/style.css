@@ -467,7 +467,9 @@ body.overview-sheet-open::before{
   position:absolute; top:12px; right:12px;
 }
 .overview-live[data-mode="focus"]{display:grid; grid-template-areas:"focus"}
-.overview-live[data-mode="closeout"]{display:grid; grid-template-areas:"receipt"}
+.overview-live[data-mode="closeout"]{
+  display:grid; grid-template-columns:minmax(0,1fr); grid-template-areas:"receipt";
+}
 .overview-live[data-mode="focus"] .overview-main,.overview-live[data-mode="closeout"] .overview-main{display:none}
 .overview-live[data-focus-layout="stacked"] .focus-relations,
 .overview-live[data-focus-layout="stacked"] .focus-branches,
@@ -480,6 +482,12 @@ body.overview-sheet-open::before{
 }
 .overview-receipt[data-closeout-detail="true"]:not([data-sheet="true"]){
   position:static; width:auto; max-width:none; max-height:none; padding:24px;
+}
+/* Close-out is the focused detail for one selection, not Brief's compact rail.
+   Keep this selector more specific than the rail rule so a desktop return can
+   faithfully restore the originating Brief composition afterwards. */
+.overview-live[data-mode="closeout"] .overview-receipt[data-closeout-detail="true"]:not([data-sheet="true"]){
+  position:static; width:auto; max-width:none; max-height:none;
 }
 .focus-lens[data-closeout-detail="true"]{padding:24px; min-height:0}
 .closeout-head{padding-bottom:18px}

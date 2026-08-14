@@ -78,3 +78,11 @@ test('full hunt preserves missing core context before aggregate counts', () => {
   assert.match(full.verdict.line, /1 failure theory is fully stated/);
   assert.equal(full.selectedReceipt, null);
 });
+
+test('full export retains an author-stated hunt annotation without changing aggregate safety', () => {
+  const full = fullHuntProjection(parse(`${MONITOR_HUNT}\nverdict: Share this as a monitored trial.`));
+  assert.deepEqual(full.authoredVerdict, {line: 'Share this as a monitored trial.', fig: ''});
+  assert.equal(full.verdict.authoritative, false);
+  assert.equal(full.selectedReceipt, null);
+  assert.match(full.verdict.line, /No scoped receipt is selected in this full-hunt view/);
+});

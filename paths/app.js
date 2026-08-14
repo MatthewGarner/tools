@@ -1332,8 +1332,11 @@ preview.addEventListener('keydown', event => {
 $('overview-receipt').addEventListener('click', event => {
   if(event.target.closest?.('[data-return-closeout]')){
     overviewMode = 'overview';
-    renderOverviewReceipt();
-    requestAnimationFrame(() => $('overview-receipt').querySelector('[data-open-closeout]')?.focus());
+    focusCloseOutReturnAfterRender = true;
+    /* Re-render the surface, not just the receipt. On desktop Close-out replaces
+       the roadmap with a full-width selected-decision layer; its return must
+       restore Brief's rail and roadmap together. */
+    refresh();
     return;
   }
   if(event.target.closest?.('[data-open-closeout]') && closeOutEligible(overviewImpact?.decision)){

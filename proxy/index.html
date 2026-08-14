@@ -53,6 +53,8 @@
         <dd>the action whose consequences you are testing</dd>
         <dt><code data-try="">mode: optimise</code> or <code>monitor</code></dt>
         <dd><code>monitor</code> also needs <code>optimisation-pressure:</code></dd>
+        <dt><code data-try="">verdict: Keep the measure paired with the guardrail</code></dt>
+        <dd>an author-stated hunt-level note for a shared artefact; it never replaces the tool-derived review state or causal limit. Use <code>verdict: off</code> to suppress only this note.</dd>
         <dt><code data-try="">palette: ocean</code></dt>
         <dd>use <code>ocean</code>, <code>slate</code>, <code>ember</code> or <code>plum</code></dd>
         <dt><code data-try="">accent: #C05621</code></dt>
@@ -87,6 +89,11 @@
     <div class="metrics" id="metrics" hidden></div>
     <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
     <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
+    <div class="author-verdict-wrap">
+      <div class="verdict-block author-verdict" id="authorverdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" data-verdictedit-raw="" tabindex="0" role="button" aria-label="Author-stated verdict — edit, copy, or switch it off"></div>
+      <button class="btn author-verdict-add" id="authorverdictadd" type="button" data-edit="verdict" data-line="-1" data-raw="" data-verdictedit-raw="">Add author-stated verdict</button>
+      <p class="author-verdict-boundary" id="authorverdictboundary" hidden>This hunt-level statement is author-stated. It does not change the review state, theory completion, causal limitation, or export scope.</p>
+    </div>
     <p class="causal-note" id="causalnote" aria-live="polite"></p>
     <div class="actions">
       <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>

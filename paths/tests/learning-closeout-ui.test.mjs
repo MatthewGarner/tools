@@ -21,6 +21,9 @@ test('close-out is entered from and returns to the selected decision receipt on 
   assert.match(app, /Return to decision receipt/);
   assert.match(app, /renderLearningCloseOutDetail\(host, \{sheet\}\)/);
   assert.match(css, /\.overview-receipt\[data-closeout-detail="true"\]/);
+  assert.match(css, /\.overview-live\[data-mode="closeout"\]\{\s*display:grid; grid-template-columns:minmax\(0,1fr\);/);
+  assert.match(css, /\.overview-live\[data-mode="closeout"\] \.overview-receipt\[data-closeout-detail="true"\]/);
+  assert.match(app, /focusCloseOutReturnAfterRender = true;[\s\S]*?refresh\(\);/);
 });
 
 test('the close-out action keeps a 44px target in the narrow receipt sheet', () => {

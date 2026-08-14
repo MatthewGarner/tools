@@ -15,6 +15,8 @@ import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {attachEditInPlace} from '../assets/edit-in-place.js';
+import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 
 const $ = id => document.getElementById(id);
@@ -24,6 +26,7 @@ wireCopyVerdict($('verdict'));
 let model = null, hunt = null, selectedTheoryId = null, lastSvg = '', hashTimer = null;
 const preview = $('preview');
 const CAUSAL_LIMIT = 'The mechanism is an authored hypothesis, not proof of causal effect.';
+const CONFIG_RE = /^(title|date|outcome|proxy|action|mode|optimisation-pressure|trade-off|decision-rule|verdict|palette|accent)\s*:/i;
 
 function theoryCount(){ return hunt?.failureTheories?.length || 0; }
 function readyCount(){ return (hunt?.failureTheories || []).filter(theory => theory.status === 'ready').length; }
@@ -56,6 +59,7 @@ function renderChrome(){
   if(!hunt){
     paintMetrics($('metrics'), '', []);
     paintVerdict($('verdict'), '', '');
+    paintAuthorVerdict();
     $('causalnote').textContent = '';
     $('viewreceipt').disabled = true;
     return;
@@ -70,11 +74,43 @@ function renderChrome(){
     pattern,
   ]);
   paintVerdict($('verdict'), hunt.verdict?.line || '', '');
+  const toolKicker = $('verdict').querySelector('.vkick');
+  if(toolKicker) toolKicker.textContent = 'Review state · tool-derived';
+  paintAuthorVerdict();
   $('causalnote').textContent = `Causal limit — ${hunt.selectedReceipt?.causalLimitation || hunt.verdict?.limit || CAUSAL_LIMIT}`;
   $('selectionnote').textContent = hunt.selectedReceipt
     ? `Selected: ${hunt.selectedReceipt.id}. The receipt is scoped to this failure theory; the full hunt export shows every theory without a selected row.`
     : 'Select a failure theory to inspect its scoped receipt.';
   $('viewreceipt').disabled = !hunt.selectedReceipt;
+}
+
+/* This is deliberately a second surface: an authored note can travel with a
+   shared hunt, but cannot repaint or suppress the computed review state. */
+function paintAuthorVerdict(){
+  const raw = model?.verdict;
+  const authored = hunt?.authoredVerdict || null;
+  const statement = $('authorverdict');
+  const add = $('authorverdictadd');
+  const boundary = $('authorverdictboundary');
+  for(const target of [statement, add]){
+    target.dataset.raw = raw == null ? '' : String(raw);
+    target.dataset.verdicteditRaw = raw == null ? '' : String(raw);
+  }
+  if(authored){
+    paintVerdict(statement, authored.line, authored.fig);
+    const kicker = statement.querySelector('.vkick');
+    if(kicker) kicker.textContent = 'Author-stated verdict · hunt-level';
+    statement.hidden = false;
+    add.hidden = true;
+    boundary.hidden = false;
+    return;
+  }
+  statement.hidden = true;
+  boundary.hidden = true;
+  add.hidden = false;
+  add.textContent = raw != null && (!String(raw).trim() || String(raw).trim().toLowerCase() === 'off')
+    ? 'Author-stated verdict: off'
+    : 'Add author-stated verdict';
 }
 
 function doRefresh(){
@@ -108,6 +144,22 @@ mountTouchUndo(document.querySelector('.stage .actions'), editor);
 const ws = initWorkspace({
   workspace:$('workspace'), tab:$('railtab'), preview, zoomHost:$('zoomctl'),
   onCollapseChange(){ scheduleHash(100); },
+});
+
+attachEditInPlace(document.querySelector('.stage'), {
+  kinds: {
+    verdict: {menu: () => verdictMenuRows(model && model.verdict)},
+    verdictedit: {validate: validVerdictInput,
+      placeholder: () => hunt?.verdict?.line || ''},
+  },
+  onCommit(kind, _line, _raw, newValue){
+    handleVerdictCommit(kind, newValue, {
+      getText: () => editor.getText(),
+      setText: text => editor.setText(text),
+      configRe: CONFIG_RE,
+      getLine: () => hunt?.authoredVerdict?.line || hunt?.verdict?.line || '',
+    });
+  },
 });
 
 function focusReceipt(){
@@ -195,7 +247,7 @@ $('receiptpng').addEventListener('click', () => {
 renderSaved();
 wireSyntaxTry(document.querySelector('details.syntax'), editor,
   ['title', 'date', 'outcome', 'proxy', 'action', 'mode', 'optimisation-pressure', 'trade-off', 'decision-rule',
-    'palette', 'accent']);
+    'verdict', 'palette', 'accent']);
 
 (async function boot(){
   const hash = await readHashState();

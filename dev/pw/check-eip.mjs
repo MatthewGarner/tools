@@ -3680,6 +3680,28 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     /Selected question: Will people invite three friends without prompting\?. Unanswered — due/.test(
       await p.locator('#summary').innerText()));
 
+  await p.locator('#overview-receipt [data-open-closeout]').click();
+  await p.waitForTimeout(250);
+  check('paths: Brief desktop Close-out is a full selected-decision layer, not the receipt rail',
+    await p.evaluate(() => {
+      const live = document.querySelector('#overview-live').getBoundingClientRect();
+      const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
+      const host = document.querySelector('#overview-live');
+      return host.dataset.mode === 'closeout' && receipt.width >= live.width - 1 &&
+        getComputedStyle(document.querySelector('#overview-receipt')).position === 'static';
+    }));
+  await p.locator('#overview-receipt [data-return-closeout]').click();
+  await p.waitForTimeout(250);
+  check('paths: returning from Brief Close-out restores the roadmap and its normal receipt rail',
+    await p.evaluate(() => {
+      const host = document.querySelector('#overview-live');
+      const main = document.querySelector('.overview-main').getBoundingClientRect();
+      const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
+      return host.dataset.mode === 'overview' && !document.querySelector('#preview').hidden &&
+        getComputedStyle(document.querySelector('#overview-receipt')).position === 'sticky' &&
+        main.right <= receipt.left && document.activeElement?.hasAttribute('data-open-closeout');
+    }));
+
   await p.locator('#overview-receipt [data-open-focus]').click();
   await p.waitForTimeout(300);
   check('paths: Open focus is a deliberate local lens with stable selected decision',

@@ -1,11 +1,22 @@
 /* /proxy authored model → causal-guardrail projection. Pure; no DOM.
    Routes intentionally omit the proxy: it is a measurement, not a causal step. */
 
+import {firstFigure} from '../assets/verdict.js';
+
 const PATTERN_FIELDS = ['proxyReading', 'outcomeReading', 'population',
   'horizon', 'comparator', 'source'];
 const CAUSAL_LIMIT = 'The mechanism is an authored hypothesis, not proof of causal effect.';
 
 const nonAuthoritative = (line, limit = CAUSAL_LIMIT) => ({authoritative: false, line, limit});
+
+/* An author-stated verdict is an annotation beside the computed review state,
+   never its replacement. Blank/off deliberately suppress only this line. */
+function authoredVerdict(raw){
+  if(raw == null) return null;
+  const line = String(raw).trim();
+  if(!line || line.toLowerCase() === 'off') return null;
+  return {line, fig:firstFigure(line)};
+}
 
 function patternProjection(pattern){
   if(!pattern) return null;
@@ -144,5 +155,6 @@ export function project(model, selectedTheoryId = null){
     } : null,
   };
   projection.verdict = selectedVerdict(model, selected, pattern, coreComplete, status);
+  projection.authoredVerdict = authoredVerdict(model?.verdict);
   return projection;
 }

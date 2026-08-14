@@ -21,6 +21,7 @@ const TOP_FIELDS = new Map([
   ['optimisation-pressure', 'optimisationPressure'],
   ['trade-off', 'tradeOff'],
   ['decision-rule', 'decisionRule'],
+  ['verdict', 'verdict'],
   ['palette', 'palette'],
   ['accent', 'accent'],
 ]);
@@ -58,7 +59,7 @@ const stripComment = value => value.replace(/\s+\/\/.*$/, '').trim();
 function emptyModel(){
   return {
     title: '', date: '', outcome: '', proxy: '', action: '', mode: 'optimise',
-    optimisationPressure: '', tradeOff: '', decisionRule: '',
+    optimisationPressure: '', tradeOff: '', decisionRule: '', verdict: null,
     palette: 'ocean', accent: null,
     intendedTheory: null, protectedOutcomes: [], failureTheories: [],
     reportedPattern: null, warnings: [], srcLines: {}, rejected: false,
@@ -112,10 +113,14 @@ export function parse(input){
   };
 
   const setTop = (sourceKey, targetKey, rawValue, ln) => {
-    if(seenTop.has(targetKey)){
+    /* Verdict follows the shared authored-verdict convention: the last line
+       wins, so the menu-first editor can safely rewrite its effective line.
+       Other top-level fields deliberately remain first-wins. */
+    if(seenTop.has(targetKey) && targetKey !== 'verdict'){
       warn(ln, `${sourceKey} is already declared — second value ignored`);
       return;
     }
+    if(seenTop.has(targetKey)) warn(ln, `${sourceKey} is already declared — later value used`);
     seenTop.add(targetKey);
     const value = readValue(rawValue, sourceKey, ln);
     model.srcLines[targetKey] = ln;

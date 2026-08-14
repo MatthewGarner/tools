@@ -119,6 +119,16 @@ for(const theme of ['light', 'dark']){
     /NON-CAUSAL CONTEXT/.test(await page.locator('[data-kind="receipt-reported-pattern"]').textContent() || ''));
   check('proxy(' + theme + '): scoped receipt export becomes available',
     await page.locator('#receiptsvg').isEnabled() && await page.locator('#receiptpng').isEnabled());
+  const derivedBeforeAuthorEdit = await page.locator('#verdict').innerText();
+  await page.locator('#authorverdict').click();
+  await page.locator('.eip-pop button', {hasText: 'Edit the line…'}).click();
+  await page.locator('.eip-input').fill('Author says: keep this hunt paired with its guardrail.');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(350);
+  check('proxy(' + theme + '): author-stated verdict menu edits URL-local source without replacing review state',
+    (await page.evaluate(() => localStorage.getItem('proxy-src') || '')).includes('verdict: Author says: keep this hunt paired with its guardrail.') &&
+    /AUTHOR-STATED VERDICT[\s\S]*Author says: keep this hunt paired with its guardrail/i.test(await page.locator('#authorverdict').innerText()) &&
+    (await page.locator('#verdict').innerText()) === derivedBeforeAuthorEdit);
   check('proxy(' + theme + '): SVG decodes as XML', await svgDecodes(page, '#preview svg'));
   check('proxy(' + theme + '): no console errors', errors.length === 0);
   await page.close();

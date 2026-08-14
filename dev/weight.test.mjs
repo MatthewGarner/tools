@@ -491,7 +491,12 @@ const PAGES = {
      projection → SVG surface. The full graph includes CodeMirror, renderer,
      URL state, full/scoped exports and the common workspace modules; no runtime
      dependency or lazy data path is introduced. Actual 448.2k; 11.8k headroom. */
-  'proxy/index.html': 460_000,
+  /* 460k -> 500k (2026-08-14 authored sharing statement): the Proxy-specific
+     author-stated verdict is intentionally a menu-first, undoable CodeMirror
+     edit in the stage chrome. It imports the shared edit-in-place/menu helpers
+     so the annotation remains URL-local and accessible on phone rather than
+     becoming an untracked DOM field. Actual 492.1k; 7.9k headroom. */
+  'proxy/index.html': 500_000,
 };
 
 if(process.env.WEIGHT_DEBUG){

@@ -7,6 +7,7 @@ outcome: Groups retain after the first week
 proxy: Invitation rate
 action: Prompt every active member to invite friends
 mode: optimise
+verdict: Keep invitation rate paired with qualified group retention while the concern is tested.
 
 intended-theory:
   mechanism: Relevant friends join established groups

@@ -232,6 +232,8 @@ try{
     await cf.waitForTimeout(400);
     await cf.locator('#startbtn').click();
     await cf.waitForSelector('#console:not([hidden])', {timeout: 10000});
+    await cf.waitForFunction(() => document.getElementById('joinlink').value.includes('#'),
+      null, {timeout: 10000});
     const cJoin = await cf.locator('#joinlink').inputValue();
     check('chips: session composed and started', true);
 
