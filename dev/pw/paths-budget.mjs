@@ -39,7 +39,14 @@ async function load(text, target = page){
 }
 
 async function appendItem(marker){
+  /* Paths opens in Review so the finished artefact is legible first. Budget
+   * edits are author work: enter that mode deliberately, as a real user does. */
+  const workspace = page.locator('#workspace');
+  if(await workspace.evaluate(element => element.classList.contains('collapsed'))){
+    await page.locator('#railtab').click();
+  }
   const editor = page.locator('.cm-content');
+  await editor.waitFor({state:'visible'});
   await editor.click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.press('Enter');
@@ -242,7 +249,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
     check(`${name} ${view} keyboard selection announces ${key}`,
       await qualityPage.locator('#summary').textContent().then(text => text.includes(`Selected question: ${question}`) && /Unanswered/.test(text)));
     check(`${name} ${view} keeps the selected receipt on-screen`,
-      await detail.isVisible() && (view === 'Learning agenda' && !phone || /Selected decision/.test(receiptText || '')) &&
+      await detail.isVisible() && (view === 'Learning agenda' && !phone || /Decision margin/.test(receiptText || '')) &&
       /Unanswered/.test(receiptText || '') &&
       (view === 'Learning agenda' ? /LEARNING CONTRACT/i.test(receiptText || '') : /Next action/.test(receiptText || '')));
     if(view === 'Learning agenda'){
@@ -290,10 +297,15 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
           return receiptState ? summary.includes(receiptState) : /Unanswered/.test(summary);
         }));
       const exportMenu = qualityPage.locator('.action-disclosure');
-      if(phone){
-        await receipt.getByRole('button', {name:/Close decision receipt/}).click();
+      /* The review receipt is a real reading layer, including at constrained
+       * desktop widths. Dismiss it before exercising the global export menu. */
+      const closeReceipt = receipt.getByRole('button', {name:/Close decision receipt/});
+      if(await closeReceipt.count() && await closeReceipt.isVisible()){
+        await closeReceipt.click();
         await qualityPage.waitForFunction(() => document.querySelector('#overview-receipt')?.hidden);
         await qualityPage.waitForFunction(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key);
+      }
+      if(phone){
         check(`${name} Learning agenda receipt restores focus before export`,
           await qualityPage.evaluate(selectedKey => document.activeElement?.dataset?.decisionKey === selectedKey, key));
         sheetClosedForExport = true;
