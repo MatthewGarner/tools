@@ -38,7 +38,11 @@ check('note edit commits through the artefact', (await doc()).includes('// decis
 /* ---- keyboard-only flow: Tab reaches a real edit target (proves the
    tabindex wiring, not just a coded focus() call), Enter opens it exactly
    as a click would, typing + Enter commits. ---- */
-await page.locator('body').click();
+/* Clicking body does not reliably move DOM focus in headless Chromium: it can
+   leave the prior in-artifact control active, making the subsequent 40 Tab
+   presses test an arbitrary point in the focus order. Blur deliberately so
+   this remains a real keyboard traversal from the document, not a focus(). */
+await page.evaluate(() => document.activeElement?.blur());
 await page.keyboard.press('Escape');
 let tabbedTo = null;
 for(let i = 0; i < 40; i++){
