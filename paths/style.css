@@ -309,7 +309,7 @@
   .inspector-arm + .inspector-arm{border-left:0; border-top:1px solid var(--border)}
 }
 @media (pointer:coarse){
-  .inspector-value,.inspector-close,.inspector-answer-actions .btn{min-height:44px}
+  .inspector-value,.inspector-close,.inspector-answer-actions .btn,.receipt-edit-source{min-height:44px}
   .inspector-value{font-size:16px}
 }
 
@@ -343,6 +343,7 @@
   margin:0; overflow-wrap:anywhere; font-family:Charter,"Bitstream Charter",Georgia,serif;
   font-size:20px; line-height:1.2;
 }
+.receipt-head h2:focus{outline:none}
 .receipt-state,.focus-state{
   margin:6px 0 0; color:var(--muted); font-size:11px; font-weight:650; line-height:1.4;
 }
@@ -356,6 +357,17 @@
   letter-spacing:.08em; text-transform:uppercase;
 }
 .receipt-fact dd{margin:0; overflow-wrap:anywhere; font-size:11px; font-weight:600; line-height:1.35}
+.receipt-provenance{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; margin:12px 0 0;
+  padding-top:10px; color:var(--muted); border-top:1px solid var(--border);
+  font-size:9px; font-weight:700; letter-spacing:.06em; line-height:1.35; text-transform:uppercase;
+}
+.receipt-edit-source{
+  flex:none; min-height:32px; padding:4px 0; color:var(--accent-ink); background:none; border:0;
+  font:750 10px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:.04em; cursor:pointer;
+}
+.receipt-edit-source:hover{text-decoration:underline}
+.receipt-edit-source:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .receipt-next{
   margin:14px 0; padding:10px 11px; color:var(--ink);
   background:color-mix(in srgb,var(--accent) 7%,var(--card)); border-left:2px solid var(--accent);
@@ -462,6 +474,8 @@ body.overview-sheet-open::before{
 }
 @media (max-width:520px){
   .inspector-contract-fields,.receipt-contract-fields{grid-template-columns:1fr}
+  .receipt-provenance{align-items:flex-start; flex-direction:column}
+  .receipt-edit-source{min-height:44px}
 }
 .overview-live[data-receipt-layout="overlay"] .overview-receipt[data-layout="overlay"]{
   position:absolute; top:12px; right:12px;

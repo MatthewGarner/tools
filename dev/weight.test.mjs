@@ -508,7 +508,12 @@ const PAGES = {
      from any Paths view must preserve the same URL-local state offline. Actual
      971.7k; 8.3k headroom avoids disguising this complete semantic layer as a
      lazy second model. */
-  'paths/index.html': 980_000,
+  /* 980k -> 990k (2026-08-14 Decision Margin): the review-first Paths surface
+     adds a source-line provenance/action contract, URL-neutral reader folding,
+     and stable Tree return handling. These stay eager with the existing
+     CodeMirror/evaluator graph so author handoff works offline without a
+     second, lossy review model. Actual 981.1k; ~8.9k headroom. */
+  'paths/index.html': 990_000,
   /* New Instrument 17 (2026-08-13): Proxy Hunt is a standalone parser →
      projection → SVG surface. The full graph includes CodeMirror, renderer,
      URL state, full/scoped exports and the common workspace modules; no runtime

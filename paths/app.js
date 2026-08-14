@@ -156,6 +156,8 @@ let overviewReceiptSheetOpen = false;
    constrained desktop it must not be the thing that first obscures the brief. */
 let overviewReceiptOverlayOpen = false;
 let overviewReceiptReturnKey = null;
+let treeInspectorReturnKey = null;
+let sourceAutoFolded = false;
 const overviewSheetBackground = new Map();
 /* Plans compares grouped work shapes. A delivery Roadmap needs one exact world;
    keep its selection separately from the visual view state and re-inspect it
@@ -699,7 +701,7 @@ function renderOverviewReceipt(){
 
   const head = node('div', 'receipt-head');
   const identity = node('div', 'receipt-identity');
-  identity.appendChild(node('p', 'inspector-kicker', 'Selected decision'));
+  identity.appendChild(node('p', 'inspector-kicker', 'Decision margin'));
   const title = node('h2', '', decision.question || decision.name);
   title.id = 'overview-receipt-title';
   title.tabIndex = -1;
@@ -731,6 +733,14 @@ function renderOverviewReceipt(){
     ledger.appendChild(row);
   }
   host.appendChild(ledger);
+  const provenance = node('div', 'receipt-provenance');
+  provenance.appendChild(node('span', '', `Plan source · decision ${decision.key} · line ${decision.srcLine + 1}`));
+  const editSource = node('button', 'receipt-edit-source', 'Edit in source');
+  editSource.type = 'button';
+  editSource.dataset.editDecisionSource = '';
+  editSource.setAttribute('aria-label', `Edit ${decision.question || decision.name} in plan source`);
+  provenance.appendChild(editSource);
+  host.appendChild(provenance);
 
   const nextAction = nextDecisionAction(agendaEntry || decision);
   if(agendaEntry){
@@ -929,7 +939,7 @@ function renderInspector(){
 
   const head = node('div', 'inspector-head');
   const identity = node('div', 'inspector-identity');
-  identity.appendChild(node('p', 'inspector-kicker', 'Decision receipt'));
+  identity.appendChild(node('p', 'inspector-kicker', 'Decision margin'));
   const title = node('h2', '', view.name);
   title.id = 'decision-inspector-title';
   title.tabIndex = -1;
@@ -988,6 +998,15 @@ function renderInspector(){
   }
   host.appendChild(arms);
 
+  const provenance = node('div', 'receipt-provenance');
+  provenance.appendChild(node('span', '', `Plan source · decision ${resolved.key} · line ${resolved.srcLine + 1}`));
+  const editSource = node('button', 'receipt-edit-source', 'Edit in source');
+  editSource.type = 'button';
+  editSource.dataset.editDecisionSource = '';
+  editSource.setAttribute('aria-label', `Edit ${view.name} in plan source`);
+  provenance.appendChild(editSource);
+  host.appendChild(provenance);
+
   const answer = node('div', 'inspector-answer');
   answer.appendChild(editableValue(view, editField('answer')));
   const controls = node('div', 'inspector-answer-actions');
@@ -1020,7 +1039,7 @@ async function writeHash(){
   if(!shouldPersist()) return;
   const attempt = ++hashAttempt;
   const ok = await writeHashState(targetHashState(
-    {t:editor.getText(), ...(ws.collapsed() ? {e:0} : {})}, inboundHandoff));
+    {t:editor.getText(), ...(ws.collapsed() && !sourceAutoFolded ? {e:0} : {})}, inboundHandoff));
   if(attempt !== hashAttempt) return;
   const oversized = !ok;
   if(oversized !== urlStateOversized){
@@ -1146,7 +1165,7 @@ function doRefresh(){
   $('view-method').textContent = roadmapView && overviewMode === 'closeout'
     ? 'Close-out is scoped to the selected decision; the full plan export remains the originating four-view artefact.'
     : roadmapView && overviewMode === 'focus'
-    ? 'Focus is a local counterfactual lens; exports remain the selected full roadmap.'
+    ? 'Focus is a local counterfactual lens; exports remain the selected full plan artefact.'
     : questionView
     ? 'Question lens compares what changes under each answer; exports keep the selected decision visible.'
     : conditionsView
@@ -1291,6 +1310,7 @@ function chooseDecision(target, focusInspector = false){
   const resolved = resolveSelectedDecision(projection, choice);
   if(!resolved) return;
   selectedDecision = {key:resolved.key, srcLine:resolved.srcLine};
+  treeInspectorReturnKey = resolved.key;
   focusInspectorAfterRender = focusInspector;
   lastSvg = '';
   refresh();
@@ -1330,6 +1350,10 @@ preview.addEventListener('keydown', event => {
 });
 
 $('overview-receipt').addEventListener('click', event => {
+  if(event.target.closest?.('[data-edit-decision-source]')){
+    editDecisionSource(overviewImpact?.decision, {closeReceipt:true});
+    return;
+  }
   if(event.target.closest?.('[data-return-closeout]')){
     overviewMode = 'overview';
     focusCloseOutReturnAfterRender = true;
@@ -1411,6 +1435,7 @@ $('focus-lens').addEventListener('click', event => {
 
 document.addEventListener('keydown', event => {
   if(event.key !== 'Escape') return;
+  if(event.target.closest?.('.eip-input,.eip-pop')) return;
   if(overviewMode === 'closeout'){
     event.preventDefault();
     overviewMode = 'overview';
@@ -1423,18 +1448,36 @@ document.addEventListener('keydown', event => {
     event.preventDefault();
     return;
   }
-  if(overviewMode !== 'focus') return;
-  event.preventDefault();
-  overviewMode = 'overview';
-  focusOverviewReturnAfterRender = true;
-  refresh();
+  if(overviewMode === 'focus'){
+    event.preventDefault();
+    overviewMode = 'overview';
+    focusOverviewReturnAfterRender = true;
+    refresh();
+    return;
+  }
+  if(!$('decision-inspector').hidden){
+    event.preventDefault();
+    const returnKey = treeInspectorReturnKey;
+    selectedDecision = null;
+    treeInspectorReturnKey = null;
+    lastSvg = '';
+    refresh();
+    requestAnimationFrame(() => selectedTreeOpener(returnKey)?.focus({preventScroll:true}));
+  }
 });
 
 $('decision-inspector').addEventListener('click', event => {
+  if(event.target.closest?.('[data-edit-decision-source]')){
+    editDecisionSource(resolveSelectedDecision(projection, selectedDecision), {closeInspector:true});
+    return;
+  }
   if(event.target.closest?.('[data-inspector-close]')){
+    const returnKey = treeInspectorReturnKey;
     selectedDecision = null;
+    treeInspectorReturnKey = null;
     lastSvg = '';
     refresh();
+    requestAnimationFrame(() => selectedTreeOpener(returnKey)?.focus({preventScroll:true}));
     return;
   }
   const direction = event.target.closest?.('[data-answer-direction]')?.dataset.answerDirection;
@@ -1457,10 +1500,52 @@ $('decision-inspector').addEventListener('click', event => {
   const ops = clearAnswer(editor.getText(), resolved.srcLine);
   if(ops?.length) applyLineOps(editor, ops);
 });
+
+function selectedTreeOpener(key = treeInspectorReturnKey){
+  return [...preview.querySelectorAll('[data-select-decision]')]
+    .find(element => element.dataset.decisionKey === key) || null;
+}
+
+function editDecisionSource(decision, {closeReceipt = false, closeInspector = false} = {}){
+  if(!decision || !ws) return;
+  if(closeReceipt){
+    overviewReceiptSheetOpen = false;
+    overviewReceiptOverlayOpen = false;
+    renderOverviewReceipt();
+  }
+  if(closeInspector){
+    selectedDecision = null;
+    treeInspectorReturnKey = null;
+    lastSvg = '';
+    refresh();
+  }
+  ws.setCollapsed(false);
+  /* This action begins from a real button activation. Claim the authoring
+     control while that gesture is still live; deferred focus alone is ignored
+     by Safari after a collapsing rail has repainted. */
+  editor.view.contentDOM.focus({preventScroll:true});
+  requestAnimationFrame(() => {
+    const lineNumber = Math.min(editor.view.state.doc.lines, Math.max(1, Number(decision.srcLine) + 1));
+    const line = editor.view.state.doc.line(lineNumber);
+    editor.view.dispatch({selection:{anchor:line.from}, scrollIntoView:true});
+    /* Opening the rail changes its width over a short CSS transition. Defer the
+       focus until the reveal is usable: otherwise WebKit can keep focus on the
+       vanished review control even though the source line was selected. */
+    setTimeout(() => editor.view.contentDOM.focus({preventScroll:true}), 180);
+  });
+}
 mountTouchUndo(document.querySelector('.stage .actions'), editor);
 const ws = initWorkspace({
   workspace:$('workspace'), tab:$('railtab'), preview, zoomHost:$('zoomctl'),
-  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+  autoFold:true,
+  collapsedLabel:'Edit plan source',
+  collapsedAriaLabel:'Edit Paths plan source',
+  onCollapseChange(_collapsed, {auto}){
+    sourceAutoFolded = !!(auto && _collapsed);
+    if(auto) return;
+    sourceAutoFolded = false;
+    clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100);
+  },
 });
 
 exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src));
