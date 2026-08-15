@@ -511,6 +511,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Edit tree source'}).click();
   await p.getByRole('button', {name: 'Habit retention'}).click();
   await p.waitForTimeout(500);
   /* Status owns one canonical hit target. The visible label is no longer also
@@ -559,7 +560,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   check('why: solution card tap opens the menu with base rows + one row per assumption, in order',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-    'Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
+    'Inspect…|Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -661,7 +662,7 @@ check('no console/page errors', errors.length === 0);
   await tapCard(12);   // "Habit templates library [shipped]" — no assumption children
   await p.waitForTimeout(200);
   check('why: a zero-assumption solution shows exactly the four base rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Status…|＋ Add assumption|Remove branch');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Status…|＋ Add assumption|Remove branch');
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
@@ -682,7 +683,7 @@ check('no console/page errors', errors.length === 0);
   await tapCard(1);   // outcome: "Improve 90-day retention"
   await p.waitForTimeout(200);
   check('why: outcome card menu carries only real actions',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add opportunity|Remove branch');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add opportunity|Remove branch');
   await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
   await p.waitForTimeout(600);
   const tOutAdd = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -720,7 +721,7 @@ check('no console/page errors', errors.length === 0);
   await tapCard(16);   // opportunity leaf "Progress feels invisible" — no children, safe to remove alone
   await p.waitForTimeout(200);
   check('why: opportunity card menu carries no dead Status action',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add solution|Remove branch');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add solution|Remove branch');
   await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await p.waitForTimeout(600);
   const tOppRemove = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -758,6 +759,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Edit tree source'}).click();
   await p.getByRole('button', {name: 'Habit retention'}).click();
   await p.waitForTimeout(500);
   await p.locator('#viewmap').click();
@@ -781,7 +783,7 @@ check('no console/page errors', errors.length === 0);
   await tapCard(5);
   await p.waitForTimeout(200);
   check('why map: card body tap opens the menu with exactly Rename/Remove',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Remove branch');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Remove branch');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
@@ -820,7 +822,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   check('why map: switching back to OST still opens the full cardmenu-solution menu',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-    'Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
+    'Inspect…|Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
@@ -2047,6 +2049,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
+  await p.getByRole('button', {name: 'Edit map source'}).click();
   await p.getByRole('button', {name: 'Assumption map'}).click();
   await p.waitForTimeout(600);
 
@@ -2058,11 +2061,17 @@ check('no console/page errors', errors.length === 0);
      left padding strip instead (card padding is 8px; x+4 clears any glyph). */
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   const tapCard = async line => {
+    if(await p.locator('.cm-content').isVisible()){
+      await p.getByRole('button', {name: 'Hide source editor'}).click();
+      await p.waitForTimeout(100);
+    }
     const box = await cardBody(line).boundingBox();
     await p.mouse.click(box.x + 4, box.y + box.height / 2);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
   const undo = async () => {
+    if(!(await p.locator('.cm-content').isVisible()))
+      await p.getByRole('button', {name: 'Edit map source'}).click();
     await p.locator('.cm-content').click();
     await p.keyboard.press('ControlOrMeta+z');
     await p.waitForTimeout(500);
@@ -2071,8 +2080,43 @@ check('no console/page errors', errors.length === 0);
   await tapCard(3);
   await p.waitForTimeout(200);
   check('map: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Move…|Remove');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Inspect…|Move…|Remove');
 
+  /* Review-first selection is deliberately a menu action, not an accidental
+     edit. Its receipt must be closable, escapeable, and able to hand the
+     reader straight to the authored source without changing that source. */
+  await p.locator('.eip-pop button', {hasText: 'Inspect…'}).click();
+  await p.waitForTimeout(200);
+  check('map: Inspect opens the textual decision receipt beside the artefact',
+    !(await p.locator('#margin').isHidden()) &&
+    await p.locator('#margin').getByRole('heading', {name: 'Users will log habits daily'}).count() === 1);
+  await p.locator('#margin button', {hasText: 'Close'}).click();
+  await p.waitForTimeout(150);
+  check('map: closing the receipt restores focus to the originating menu target',
+    await p.evaluate(() => document.activeElement?.dataset.edit === 'cardmenu' && document.activeElement?.dataset.line === '3'));
+
+  await tapCard(3);
+  await p.waitForTimeout(150);
+  await p.locator('.eip-pop button', {hasText: 'Inspect…'}).click();
+  await p.waitForTimeout(150);
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  check('map: Escape closes the receipt and restores its menu focus',
+    await p.locator('#margin').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.edit === 'cardmenu' && document.activeElement?.dataset.line === '3'));
+
+  await tapCard(3);
+  await p.waitForTimeout(150);
+  await p.locator('.eip-pop button', {hasText: 'Inspect…'}).click();
+  await p.waitForTimeout(150);
+  await p.locator('#margin button', {hasText: 'Edit source'}).click();
+  await p.waitForTimeout(150);
+  check('map: receipt source handoff clears selection and focuses the DSL line',
+    await p.locator('#margin').isHidden() &&
+    await p.evaluate(() => document.activeElement?.closest('.cm-editor') && !document.getElementById('workspace').classList.contains('collapsed')));
+
+  await tapCard(3);
+  await p.waitForTimeout(150);
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
   check('map: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Users will log habits daily');
@@ -2143,7 +2187,7 @@ check('no console/page errors', errors.length === 0);
   await p.mouse.click(trayBox.x + 4, trayBox.y + trayBox.height / 2);
   await p.waitForTimeout(200);
   check('map: tray card menu offers only reachable actions, including Place on map…',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Place on map…|Remove');
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Inspect…|Place on map…|Remove');
   await p.locator('.eip-pop button', {hasText: 'Place on map…'}).click();
   await p.waitForTimeout(250);
   await p.mouse.click(plane0.x + plane0.width * 0.6, plane0.y + plane0.height * 0.3);
@@ -2180,6 +2224,7 @@ check('no console/page errors', errors.length === 0);
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Edit map source'}).click();
   await mpage.getByRole('button', {name: 'Assumption map'}).click();
   await mpage.waitForTimeout(600);
 
@@ -2250,6 +2295,7 @@ check('no console/page errors', errors.length === 0);
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+  await mpage.getByRole('button', {name: 'Edit tree source'}).click();
   await mpage.getByRole('button', {name: 'Habit retention'}).click();
   await mpage.waitForTimeout(600);
 
@@ -2326,7 +2372,13 @@ check('no console/page errors', errors.length === 0);
   const wpage = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const werrors = trackErrors(wpage);
   await wpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
+  await wpage.getByRole('button', {name: 'Edit landscape source'}).click();
   await wpage.waitForTimeout(500);
+  const focusWardleySource = async () => {
+    if(!(await wpage.locator('.cm-content').isVisible()))
+      await wpage.getByRole('button', {name: 'Edit landscape source'}).click();
+    await wpage.locator('.cm-content').click();
+  };
 
   // name edit commits to the editor text and every edge mention
   await wpage.locator('text[data-edit="name"]', {hasText: 'User DB'}).first().click();
@@ -2355,6 +2407,7 @@ check('no console/page errors', errors.length === 0);
   await wpage.waitForTimeout(500);
   const wsrc3 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: drag writes @ 0.NN', /Habit builder @ 0\.\d+/.test(wsrc3));
+  await focusWardleySource();
   await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(400);
   const wsrc4 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
@@ -2396,7 +2449,7 @@ check('no console/page errors', errors.length === 0);
   await wpage.locator('[data-edit="componentmenu"][data-raw="Cache"]').first().click();
   await wpage.waitForTimeout(200);
   check('wardley: component menu shows Needs… then the danger row',
-    (await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Needs…|Remove component');
+    (await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Needs…|Inspect…|Remove component');
   await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
   await wpage.waitForTimeout(500);
   const wsrc8 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
@@ -2405,7 +2458,7 @@ check('no console/page errors', errors.length === 0);
 
   // CM keymaps need focus first (this section's existing pattern); ONE undo
   // must round-trip the whole removal (applyLineOps' single-dispatch proof)
-  await wpage.locator('.cm-content').click();
+  await focusWardleySource();
   await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(500);
   const wsrc9 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
@@ -3232,6 +3285,7 @@ insure: premium 6 attach 65 limit 30`;
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Edit tree source'}).click();
     await p.getByRole('button', {name: 'Habit retention'}).click();
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -3283,6 +3337,7 @@ insure: premium 6 attach 65 limit 30`;
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Edit tree source'}).click();
     await p.getByRole('button', {name: 'Habit retention'}).click();
     await p.waitForTimeout(700);
     const inCm = () => p.evaluate(() => !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.cm-editor')));
@@ -3309,6 +3364,7 @@ insure: premium 6 attach 65 limit 30`;
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/map/'), {waitUntil: 'networkidle'});
+    await p.getByRole('button', {name: 'Edit map source'}).click();
     await p.getByRole('button', {name: 'Assumption map'}).click();
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('map-src'));

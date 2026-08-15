@@ -32,6 +32,7 @@ export function cardMenuRows(item, hasFieldTarget = false){
   if(hasFieldTarget)
     rows.push({label: 'Edit field…', opens: 'field'});
   rows.push(
+    {label: 'Inspect…', action: true},
     {label: item.x != null ? 'Move…' : 'Place on map…', action: true},
     {label: 'Remove', action: true, danger: true},
   );

@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/assets/motion.css">
 <link rel="stylesheet" href="/assets/controls.css">
 <link rel="stylesheet" href="/assets/workspace.css">
+<link rel="stylesheet" href="/assets/mapping-workspace.css">
 <link rel="stylesheet" href="/assets/about.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="../assets/mobile.css">
@@ -34,7 +35,7 @@
 </div>
 
 <main>
-<div class="workspace" id="workspace">
+<div class="workspace mapping-workspace" id="workspace">
     <aside class="rail">
       <div class="chips" id="chips"><span class="lead">Try:</span></div>
       <div id="cmhost" aria-label="Tree source editor"></div>
@@ -62,7 +63,7 @@
         </dl>
       </details>
     </aside>
-    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
+    <button class="railtab" id="railtab" aria-label="Edit tree source">Edit tree source</button>
     <section class="stage">
       <div class="viewtoggle segmented" role="tablist">
         <button id="viewost" class="on" role="tab" aria-selected="true">OST</button>
@@ -70,8 +71,8 @@
       </div>
       <p class="viewnote" id="viewnote">Discovery lens — trace every solution to the customer opportunity and assumption it relies on.</p>
       <div class="metrics" id="metrics" hidden></div>
-      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
-      <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
+      <div class="review-region"><div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div><section class="decision-margin" id="margin" aria-live="polite" hidden></section></div>
+      <div class="verdict-block review-verdict" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="copypng">Copy PNG</button>

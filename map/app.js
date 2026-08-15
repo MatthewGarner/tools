@@ -1,13 +1,13 @@
 /* State, refresh loop, saved maps, exports, edit-in-place, drag, boot. */
 import {parse} from './parse.js';
-import {resolve} from './zones.js';
+import {resolve, zoneFor} from './zones.js';
 import {readout, toMarkdown} from './readout.js';
 import {render} from './render.js';
 import {renderMapPresentation} from './render-presentation.js';
 import {createEditor} from './editor.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref} from '../assets/handoff.js';
-import {paintKicker} from '../assets/verdict.js';
+import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -108,6 +108,27 @@ Press coverage flops @ 50,25
 /* ---------- refresh loop ---------- */
 let model = null, resolved = null, ro = null;
 let lastSvg = '', hashTimer = null;
+let inspected = null;
+function clearInspection({restore=false} = {}){
+  const origin=inspected && inspected.origin;
+  inspected = null; $('margin').hidden = true; $('margin').replaceChildren();
+  $('margin').parentElement.classList.remove('has-margin');
+  for(const el of $('preview').querySelectorAll('.is-inspected')) el.classList.remove('is-inspected');
+  if(restore && origin && origin.isConnected) origin.focus();
+}
+function inspectItem(line, origin){
+  const item = model && model.items.find(i => i.srcLine === line); if(!item || placing) return;
+  clearInspection(); inspected = {line,origin};
+  for(const el of $('preview').querySelectorAll('[data-line="' + line + '"]')) el.classList.add('is-inspected');
+  const zone = item.x == null ? null : zoneFor(resolved, item.x, item.y);
+  const entry = zone && ro.zones.find(x => x.zone.id === zone.id);
+  const margin=$('margin'), k=document.createElement('p'), h=document.createElement('h2'), dl=document.createElement('dl');
+  k.className='margin-kicker';k.textContent='DECISION MARGIN';h.id='margin-title';margin.setAttribute('aria-labelledby',h.id);h.tabIndex=-1;h.textContent=item.label;
+  const facts=[['Source','Line '+(line+1)],['Position',item.x==null?'Unplaced':item.x+', '+item.y],['Zone',zone?zone.name:'—'],...(entry&&entry.advice?[['Next action',entry.advice]]:[]),...item.fields.map(f=>[f.key,f.val])];
+  for(const [key,value] of facts){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;dl.append(dt,dd);}
+  const a=document.createElement('div'), edit=document.createElement('button'), close=document.createElement('button');a.className='margin-actions';edit.className=close.className='btn';edit.textContent='Edit source';close.textContent='Close';
+  edit.addEventListener('click',()=>{clearInspection();ws.setCollapsed(false);const l=editor.view.state.doc.line(line+1);editor.view.dispatch({selection:{anchor:l.from},scrollIntoView:true});editor.view.focus();});close.addEventListener('click',()=>clearInspection({restore:true}));a.append(edit,close);margin.replaceChildren(k,h,dl,a);margin.hidden=false;margin.parentElement.classList.add('has-margin');h.focus();
+}
 
 function renderWarnings(){
   renderWarningList($('warns'), [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])]);
@@ -127,6 +148,7 @@ function activeRender(intent = 'live'){
   return render(model, resolved, ro, ctx, intent === 'live' ? currentDiff() : null);
 }
 function doRefresh(){
+  clearInspection();
   /* any re-parse invalidates an armed Move…/Place placement: its line number
      may be stale (a keyboard-only user can Tab into the editor and edit lines
      above without the pointerdown that normally disarms). The placement's own
@@ -148,6 +170,7 @@ function doRefresh(){
     paint(svg, REVEAL); lastSvg = svg;
   }
   renderWarnings();
+  paintMetrics($('metrics'), model && model.items.length ? (model.title || 'Map') : '', ro ? ro.counts.filter(Boolean) : []);
   setActionsEnabled(!!lastSvg);
   $('togauge').hidden = !gaugeHandoff(model, ro);
   try{ if(shouldPersist()) localStorage.setItem('map-src', text); }catch(e){}
@@ -163,7 +186,7 @@ const editor = createEditor({
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   const state = {t: editor.getText()};
-  if(ws.collapsed()) state.e = 0;
+  state.e = ws.collapsed() ? 0 : 1;
   if(shouldPersist()) writeHashState(state);
 }
 snaps = wireSnapshots({
@@ -179,7 +202,8 @@ snaps = wireSnapshots({
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
-  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }, initialCollapsed: true,
+  collapsedLabel: 'Edit map source', collapsedAriaLabel: 'Edit map source', expandedLabel: 'Hide map source',
 });
 watchNarrowBucket($('preview'), () => { lastSvg = ''; paint.reset(); refresh(); });
 
@@ -206,6 +230,7 @@ attachEditInPlace($('preview'), {
       configRe: /^(preset|title|palette|accent|x|y|zones|verdict)\s*:|^zone\s+[^:]+:/i,
       getLine: () => ro ? ro.verdict : '',
     })) return;
+    if(newValue === '✖Inspect…'){ inspectItem(lineNo, el); return; }
     if(newValue === '✖Move…' || newValue === '✖Place on map…'){
       armPlace(lineNo);
       return;
@@ -359,8 +384,10 @@ window.addEventListener('pointerup', e => {
 });
 window.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
-    if(drag.armed) endDrag();
-    if(placing) disarmPlace();
+    if(e.defaultPrevented) return;
+    if(drag.armed){ endDrag(); return; }
+    if(placing){ disarmPlace(); return; }
+    clearInspection({restore:true});
   }
 });
 /* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
@@ -404,7 +431,7 @@ function disarmPlace(){
 function armPlace(line){
   const item = model && model.items.find(i => i.srcLine === line);
   if(!item) return;
-  disarmPlace();
+  disarmPlace(); clearInspection();
   const hint = document.createElement('div');
   hint.className = 'placehint';
   hint.setAttribute('role', 'status');   // AT hears the armed state
@@ -467,7 +494,7 @@ onThemeChange(rerender);
 (async function(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
-  if(hash && hash.e === 0) ws.setCollapsed(true);
+  if(hash && hash.e === 1) ws.setCollapsed(false);
   if(!text){
     try{ text = localStorage.getItem('map-src') || ''; }catch(e){}
   }

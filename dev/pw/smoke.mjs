@@ -828,6 +828,7 @@ for(const theme of ['light', 'dark']){
 /* ---- why ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/why/', theme);
+  await page.getByRole('button', {name: 'Edit tree source'}).click();
   await page.getByRole('button', {name: 'Habit retention'}).click();
   await page.waitForTimeout(600);
   check('why(' + theme + '): OST view renders', await page.locator('#preview svg').count() === 1);
@@ -864,6 +865,7 @@ for(const theme of ['light', 'dark']){
 /* ---- map ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/map/', theme);
+  await page.getByRole('button', {name: 'Edit map source'}).click();
   await page.getByRole('button', {name: 'Assumption map'}).click();
   await page.waitForTimeout(600);
   check('map(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
@@ -1022,6 +1024,7 @@ for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/wardley/', theme);
   await page.waitForTimeout(500);
   check('wardley(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
+  await page.getByRole('button', {name: 'Edit landscape source'}).click();
   await page.getByRole('button', {name: 'Habitat platform'}).click();
   await page.waitForTimeout(600);
   const svg = await page.locator('#preview svg').innerHTML();

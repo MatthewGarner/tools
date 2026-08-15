@@ -10,18 +10,18 @@ function harness(){
 }
 
 test('fieldless item menu contains only actions with rendered targets', () => {
-  assert.deepEqual(labels(cardMenuRows({x: null, fields: []}, false)), ['Rename…', 'Place on map…', 'Remove']);
-  assert.deepEqual(labels(cardMenuRows({x: 20, fields: []}, false)), ['Rename…', 'Move…', 'Remove']);
+  assert.deepEqual(labels(cardMenuRows({x: null, fields: []}, false)), ['Rename…', 'Inspect…', 'Place on map…', 'Remove']);
+  assert.deepEqual(labels(cardMenuRows({x: 20, fields: []}, false)), ['Rename…', 'Inspect…', 'Move…', 'Remove']);
 });
 
 test('field menu appears when the renderer has a field target', () => {
   assert.deepEqual(labels(cardMenuRows({x: 20, fields: [{key: 'owner', val: 'Jo'}]}, true)),
-    ['Rename…', 'Edit field…', 'Move…', 'Remove']);
+    ['Rename…', 'Edit field…', 'Inspect…', 'Move…', 'Remove']);
 });
 
 test('menu omits Edit field when a crowded readout did not render that target', () => {
   assert.deepEqual(labels(cardMenuRows({x: 20, fields: [{key: 'owner', val: 'Jo'}]}, false)),
-    ['Rename…', 'Move…', 'Remove']);
+    ['Rename…', 'Inspect…', 'Move…', 'Remove']);
   assert.deepEqual(cardMenuRows(null, false), []);
 });
 

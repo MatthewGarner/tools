@@ -344,7 +344,10 @@ const PAGES = {
   /* Shared workspace’s joined rail/stage edge replaces the old gutter for every
      DSL surface, including Why. Actual 716110 bytes; retain a small 90-byte
      allowance rather than making this common visual correction an untracked overage. */
-  'why/index.html': 716_200,   // +cond-parts.js's betChain (S5/E6, 2026-08-10): 699216 bytes
+  /* 716.2k -> 730k (2026-08-15 Mapping family): Why now shares the lightweight
+     review-margin stylesheet with Map and Wardley, keeping its causal artefact
+     readable in review without adding a runtime dependency. Actual 722.6k. */
+  'why/index.html': 730_000,
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
@@ -383,7 +386,9 @@ const PAGES = {
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
-  'map/index.html': 538_000,   /* 531k->538k (2026-08-13 planning routing): the guarded Map→Gauge prior handoff is first-load because availability must track the rendered map. Actual 532.0k; retain a real budget guard. */
+  /* 538k -> 550k (2026-08-15 Mapping family): Map now includes the shared
+     review-margin treatment for source-owned spatial inspection. Actual 542.8k. */
+  'map/index.html': 550_000,
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -411,14 +416,16 @@ const PAGES = {
      control now remains named and truthful when leaving focused-artefact mode.
      Timeline imports that same workspace module; actual 562.0k, retain a real
      ~1k guardrail rather than stripping the accessibility fix. */
-  'gauge/index.html': 561_000, 'timeline/index.html': 563_000,   /* 546k->561k (2026-08-13 provenance): Gauge now carries the review-needed Fermi provenance receipt plus prior handoff safety; actual 555.0k, leaving a useful guardrail. */
+  'gauge/index.html': 561_000, 'timeline/index.html': 564_000,   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
   /* wardley 512k -> 518k (unset-edit fix batch): edit-in-place.js's shared
      opens-row fallback lands on every EIP page, wardley included. Actual
      512.5k; preserve ~5.5k headroom. */
-  'wardley/index.html': 518_000,   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 506.9k, ~5k headroom */   /* 474k->477k 2026-08-02 fig-arrival + settle bytes */   /* 468k->474k 2026-08-02 verdict-eip bytes */   /* 480k->468k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 465.1k */
+  /* 518k -> 530k (2026-08-15 Mapping family): Wardley's review margin adds
+     source-owned inspection while retaining the native strategic landscape. Actual 523.4k. */
+  'wardley/index.html': 530_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),

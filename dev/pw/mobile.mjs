@@ -175,6 +175,7 @@ for(const [name, url] of AUTOLOAD){
   if(!loaded){ ok(false, 'wardley: width-reclaim page loads'); }
   else {
     await page.waitForTimeout(900);
+    await page.getByRole('button', {name: 'Edit landscape source'}).click();
     const m = await page.evaluate(() => {
       const vw = document.documentElement.clientWidth;
       const svg = document.querySelector('.stage .preview svg');
@@ -596,6 +597,7 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
+  if(name === 'why') await page.getByRole('button', {name: 'Edit tree source'}).click();
   const b = page.getByRole('button', {name: chip});
   if(await b.count()) await b.click();
   await page.waitForTimeout(600);
@@ -1020,6 +1022,7 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
+  await page.getByRole('button', {name: 'Edit tree source'}).click();
   const chip = page.getByRole('button', {name: 'Habit retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1098,6 +1101,7 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
+  await page.getByRole('button', {name: 'Edit tree source'}).click();
   const chip = page.getByRole('button', {name: 'Habit retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1109,7 +1113,7 @@ for(const [name, url, chip] of WIDENED){
   await page.waitForTimeout(300);
 
   const rowTexts = await page.locator('.eip-pop button').allInnerTexts();
-  ok(rowTexts.length === 6, `why: solution menu shows base rows + one per assumption on phone (${rowTexts.length})`);
+  ok(rowTexts.length === 7, `why: solution menu shows Inspect, base rows + one per assumption on phone (${rowTexts.length})`);
 
   const vw = await page.evaluate(() => window.innerWidth);
   const vh = await page.evaluate(() => window.innerHeight);

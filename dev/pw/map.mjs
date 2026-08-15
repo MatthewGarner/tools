@@ -27,6 +27,7 @@ const dragTo = async (sel, fx, fy) => {
 };
 
 /* ---- drag a placed card: @ x,y rewrites ---- */
+await page.getByRole('button', {name: 'Edit map source'}).click();
 await page.getByRole('button', {name: 'Assumption map'}).click();
 await page.waitForTimeout(600);
 const before = await doc();

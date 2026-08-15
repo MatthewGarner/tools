@@ -1,0 +1,39 @@
+/* Mapping family: a field to read, with source deliberately secondary. */
+.mapping-workspace{background:transparent}
+.mapping-workspace .rail,.mapping-workspace .stage{box-shadow:none}
+.mapping-workspace.collapsed .railtab,.mapping-workspace.focus-artefact .railtab{left:12px;width:auto;min-width:44px;padding-left:12px;transform:none;font-family:inherit;font-size:12px;font-weight:600;line-height:1.2;letter-spacing:0;color:var(--accent-ink);opacity:1}
+.mapping-workspace.collapsed .railtab::after,.mapping-workspace.focus-artefact .railtab::after{content:''}
+.mapping-workspace.collapsed .railtab::before,.mapping-workspace.focus-artefact .railtab::before{left:0}
+.mapping-workspace .stage{padding:22px 24px}
+.mapping-workspace .rail{padding:18px 20px}
+.mapping-workspace .review-region{display:block}
+.mapping-workspace.collapsed .review-region.has-margin{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,280px);gap:22px;align-items:start}
+.mapping-workspace .review-region .preview{grid-column:1}
+.mapping-workspace .review-region .decision-margin{grid-column:2;margin:0;padding-top:8px}
+.mapping-workspace .actions{margin-top:18px;padding-top:12px;border-top:1px solid var(--border)}
+.mapping-workspace .actions .primary{background:transparent;color:var(--ink);border-color:var(--border)}
+.mapping-workspace .review-verdict{margin:16px 0 0;padding:13px 0 0;border-top:2px solid var(--ink)}
+.mapping-workspace .decision-margin{margin:14px 0 0;padding:4px 0 2px 14px;border-left:2px solid var(--accent);max-width:58ch}
+.mapping-workspace .decision-margin[hidden]{display:none}
+.mapping-workspace .decision-margin .margin-kicker{margin:0 0 5px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.12em}
+.mapping-workspace .decision-margin h2{margin:0 0 10px;font:700 18px/1.2 "Helvetica Neue",Helvetica,sans-serif}
+.mapping-workspace .decision-margin dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 12px;margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.mapping-workspace .decision-margin dt{color:var(--ink);font-weight:600}.mapping-workspace .decision-margin dd{margin:0}
+.mapping-workspace .margin-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.mapping-workspace #preview svg .is-inspected rect,.mapping-workspace #preview svg .is-inspected polygon,.mapping-workspace #preview svg .is-inspected circle{stroke:var(--accent)!important;stroke-width:2.25!important;fill:color-mix(in srgb,var(--accent) 11%,var(--card))!important}
+.mapping-workspace #preview svg .is-inspected text{font-weight:700}
+@media (max-width:900px){
+  .mapping-workspace .stage{padding:18px 14px!important}
+  .mapping-workspace .review-region,.mapping-workspace.collapsed .review-region.has-margin{display:block}
+  .mapping-workspace .review-region .decision-margin{margin:14px 0 0}
+  .mapping-workspace .rail{margin-top:0}
+  .mapping-workspace .rail{order:1}
+  .mapping-workspace .railtab{order:0}
+  .mapping-workspace.collapsed .rail{display:none}
+  .mapping-workspace .railtab{display:inline-flex;position:static;transform:none;width:auto;min-height:44px;margin:0 0 12px;opacity:1;font-family:inherit;font-size:13px;font-weight:600;line-height:1.2;letter-spacing:0;color:var(--accent-ink)}
+  .mapping-workspace.collapsed .railtab,.mapping-workspace.focus-artefact .railtab{font-family:inherit;font-size:13px;font-weight:600;line-height:1.2;letter-spacing:0}
+  .mapping-workspace .railtab::before{content:'';display:inline-block;width:2px;height:20px;margin-right:9px;background:var(--accent)}
+  .mapping-workspace .railtab::after{content:''}
+  .mapping-workspace:not(.collapsed) .railtab{margin:0 0 0 10px}
+  .mapping-workspace:not(.collapsed) .railtab::before{display:none}
+}

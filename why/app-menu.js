@@ -15,6 +15,7 @@ const findNode = (node, srcLine) =>
    clicked card's srcLine. */
 export function solutionMenu(model, srcLine){
   const base = [
+    {label: 'Inspect…', action: true},
     {label: 'Rename…', opens: 'label'},
     {label: 'Status…', opens: 'status'},
     {label: '＋ Add assumption', action: true},

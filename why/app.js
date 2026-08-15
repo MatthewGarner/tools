@@ -66,6 +66,20 @@ outcome: Grow referral revenue
 /* ---------- refresh loop ---------- */
 let model = null, projection = null, view = 'ost';
 let lastSvg = '', hashTimer = null;
+let inspected = null;
+function findNode(line, nodes = model ? model.outcomes : [], trail = []){
+  for(const node of nodes){ const next=[...trail,node]; if(node.srcLine===line) return {node,trail:next}; const hit=findNode(line,node.children||[],next); if(hit) return hit; }
+  return null;
+}
+function clearInspection({restore=false} = {}){ const origin=inspected&&inspected.origin; inspected=null; $('margin').hidden=true; $('margin').replaceChildren(); $('margin').parentElement.classList.remove('has-margin'); for(const el of $('preview').querySelectorAll('.is-inspected')) el.classList.remove('is-inspected'); if(restore&&origin&&origin.isConnected) origin.focus(); }
+function inspectNode(line, origin){
+  const hit=findNode(line); if(!hit) return; clearInspection(); inspected={line,origin};
+  for(const el of $('preview').querySelectorAll('[data-line="'+line+'"]')) el.classList.add('is-inspected');
+  const {node,trail}=hit, m=$('margin'),k=document.createElement('p'),h=document.createElement('h2'),dl=document.createElement('dl');k.className='margin-kicker';k.textContent='DECISION MARGIN';h.id='margin-title';m.setAttribute('aria-labelledby',h.id);h.tabIndex=-1;h.textContent=node.label;
+  const route=trail.map(n=>n.label).join(' → '), children=(node.children||[]).reduce((a,n)=>(a[n.kind]=(a[n.kind]||0)+1,a),{}), support=node.kind==='solution'?(node.children||[]).filter(n=>n.kind==='assumption').map(n=>n.status).join(', ')||'No assumptions recorded':Object.entries(children).map(([k,n])=>n+' '+k+(n===1?'':'s')).join(' · ')||'No child claims';
+  for(const [a,b] of [['Source','Line '+(line+1)],['Chain',route],['Kind',node.kind],['Status',node.status||'—'],[node.kind==='solution'?'Assumptions':'Connected claims',support],['Lens',view==='ost'?'Discovery tree':'Derived readiness — not a delivery plan']]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b;dl.append(dt,dd);}
+  const actions=document.createElement('div'),edit=document.createElement('button'),close=document.createElement('button');actions.className='margin-actions';edit.className=close.className='btn';edit.textContent='Edit source';close.textContent='Close';edit.addEventListener('click',()=>{clearInspection();ws.setCollapsed(false);const l=editor.view.state.doc.line(line+1);editor.view.dispatch({selection:{anchor:l.from},scrollIntoView:true});editor.view.focus();});close.addEventListener('click',()=>clearInspection({restore:true}));actions.append(edit,close);m.replaceChildren(k,h,dl,actions);m.hidden=false;m.parentElement.classList.add('has-margin');h.focus();
+}
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(){
@@ -90,6 +104,7 @@ function activeRender(intent = 'native', edit = false){
   return view === 'ost' ? renderOst(model, projection, ctx, currentDiff()) : renderMap(model, projection, ctx);
 }
 function doRefresh(){
+  clearInspection();
   const text = editor.getText();
   model = parse(text);
   const pv = $('preview');
@@ -126,7 +141,7 @@ const editor = createEditor({
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
 function writeHash(){
   const state = {t: editor.getText(), v: view};
-  if(ws.collapsed()) state.e = 0;
+  state.e = ws.collapsed() ? 0 : 1;
   if(shouldPersist()) writeHashState(state);
 }
 snaps = wireSnapshots({
@@ -142,11 +157,13 @@ snaps = wireSnapshots({
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
-  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }, initialCollapsed:true,
+  collapsedLabel:'Edit tree source', collapsedAriaLabel:'Edit tree source', expandedLabel:'Hide tree source',
 });
 
 /* ---------- view toggle ---------- */
 function setView(v){
+  clearInspection();
   view = v;
   syncViewToggle();
   lastSvg = ''; paint.reset();
@@ -163,6 +180,11 @@ function syncViewToggle(){
 }
 $('viewost').addEventListener('click', () => setView('ost'));
 $('viewmap').addEventListener('click', () => setView('map'));
+document.querySelector('.viewtoggle').addEventListener('keydown', e => {
+  const keys=['ArrowLeft','ArrowRight','Home','End']; if(!keys.includes(e.key)) return;
+  e.preventDefault(); const next=e.key==='ArrowLeft'||e.key==='Home' ? $('viewost') : $('viewmap'); next.focus(); next.click();
+});
+window.addEventListener('keydown', e => { if(e.key==='Escape' && !e.defaultPrevented && !document.activeElement.closest('.cm-editor')) clearInspection({restore:true}); });
 
 const whyEip = attachEditInPlace($('preview'), {
   kinds: {
@@ -173,10 +195,12 @@ const whyEip = attachEditInPlace($('preview'), {
     /* Outcomes and opportunities have no status field. Keep their menus honest:
        a menu row must either open a real target or make a real source change. */
     'cardmenu-outcome': {menu: [
+      {label: 'Inspect…', action: true},
       {label: 'Rename…', opens: 'label'}, {label: '＋ Add opportunity', action: true},
       {label: 'Remove branch', action: true, danger: true},
     ]},
     'cardmenu-opportunity': {menu: [
+      {label: 'Inspect…', action: true},
       {label: 'Rename…', opens: 'label'}, {label: '＋ Add solution', action: true},
       {label: 'Remove branch', action: true, danger: true},
     ]},
@@ -192,6 +216,7 @@ const whyEip = attachEditInPlace($('preview'), {
        and adding a child node from a projected roadmap position is out of
        scope here. */
     cardmenu: {menu: [
+      {label: 'Inspect…', action: true},
       {label: 'Rename…', opens: 'title'},
       {label: 'Remove branch', action: true, danger: true},
     ]},
@@ -199,6 +224,7 @@ const whyEip = attachEditInPlace($('preview'), {
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
     if(kind.startsWith('cardmenu')){
+      if(newValue === '✖Inspect…'){ inspectNode(lineNo, el); return; }
       if(newValue.startsWith('✖＋ Add')){
         const r = childLineFor(editor.getText(), lineNo);
         if(!r) return;
@@ -283,7 +309,7 @@ watchNarrowBucket(previewEl, rerender);
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
   if(hash && (hash.v === 'map' || hash.v === 'ost')) view = hash.v;
-  if(hash && hash.e === 0) ws.setCollapsed(true);
+  if(hash && hash.e === 1) ws.setCollapsed(false);
   if(!text){
     try{ text = localStorage.getItem('why-src') || ''; }catch(e){}
   }

@@ -44,7 +44,7 @@ export function fitReadabilityDecision({naturalWidth,fitWidth,declaredMinScale})
 }
 
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange, autoFold = false,
-  collapsedLabel = 'Source', collapsedAriaLabel = 'Show source editor'}){
+  collapsedLabel = 'Source', collapsedAriaLabel = 'Show source editor', expandedLabel = '‹', initialCollapsed = false}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
   let focusArtefact = false;
   let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
@@ -202,7 +202,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     focusArtefact=false;
     workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
-    tab.textContent = c ? collapsedLabel : '‹';
+    tab.textContent = c ? collapsedLabel : expandedLabel;
     tab.title = c ? collapsedAriaLabel : 'Hide source editor';
     tab.setAttribute('aria-label', c ? collapsedAriaLabel : 'Hide source editor');
     tab.setAttribute('aria-expanded', String(!c));
@@ -214,7 +214,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       focusArtefact=false;
       workspace.classList.remove('focus-artefact');
       const collapsed = workspace.classList.contains('collapsed');
-      tab.textContent=collapsed ? collapsedLabel : '‹';
+      tab.textContent=collapsed ? collapsedLabel : expandedLabel;
       tab.title=collapsed ? collapsedAriaLabel : 'Hide source editor';
       tab.setAttribute('aria-label',collapsed ? collapsedAriaLabel : 'Hide source editor');
       tab.setAttribute('aria-expanded',String(!collapsed));
@@ -232,7 +232,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       toggleCollapsed();
     }
   });
-  setCollapsed(false, {auto:true});
+  setCollapsed(initialCollapsed, {auto:true});
 
   return {
     collapsed: () => workspace.classList.contains('collapsed'),

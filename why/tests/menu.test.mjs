@@ -54,11 +54,11 @@ test('solutionMenu: every ASSUMPTION_CYCLE state is offered as a submenu commit 
 test('solutionMenu: a solution with no assumptions returns exactly the base rows', () => {
   const model = parse('Grow\n  Opp\n    Sol');
   const rows = solutionMenu(model, findSrcLine(model, 'Sol'));
-  assert.deepEqual(rows.map(r => r.label), ['Rename…', 'Status…', '＋ Add assumption', 'Remove branch']);
+  assert.deepEqual(rows.map(r => r.label), ['Inspect…', 'Rename…', 'Status…', '＋ Add assumption', 'Remove branch']);
 });
 
 test('solutionMenu: an unknown srcLine (e.g. -1) returns the base rows, no throw', () => {
   const model = parse('Grow\n  Opp\n    Sol\n      ? A');
   const rows = solutionMenu(model, 999);
-  assert.deepEqual(rows.map(r => r.label), ['Rename…', 'Status…', '＋ Add assumption', 'Remove branch']);
+  assert.deepEqual(rows.map(r => r.label), ['Inspect…', 'Rename…', 'Status…', '＋ Add assumption', 'Remove branch']);
 });

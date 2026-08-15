@@ -60,6 +60,23 @@ Storefront -> Hosting`},
 
 let model = null, layout = null, lastSvg = '', hashTimer = null;
 let snaps = null;
+let inspected = null;
+function clearInspection({restore=false} = {}){
+  const origin=inspected && inspected.origin;
+  inspected=null; $('margin').hidden=true; $('margin').replaceChildren();
+  $('margin').parentElement.classList.remove('has-margin');
+  for(const el of $('preview').querySelectorAll('.is-inspected')) el.classList.remove('is-inspected');
+  if(restore && origin && origin.isConnected) origin.focus();
+}
+function inspectComponent(line, origin){
+  const node=layout && layout.nodes.find(n=>n.srcLine===line); if(!node) return;
+  clearInspection(); inspected={line,origin};
+  for(const el of $('preview').querySelectorAll('[data-line="'+line+'"]')) el.classList.add('is-inspected');
+  const key=node.name.toLowerCase(), needs=model.edges.filter(e=>e.from===key).map(e=>e.to).join(', ')||'—', neededBy=model.edges.filter(e=>e.to===key).map(e=>e.from).join(', ')||'—';
+  const m=$('margin'),k=document.createElement('p'),h=document.createElement('h2'),dl=document.createElement('dl');k.className='margin-kicker';k.textContent='DECISION MARGIN';h.id='margin-title';m.setAttribute('aria-labelledby',h.id);h.tabIndex=-1;h.textContent=node.name;
+  for(const [a,b] of [['Source','Line '+(line+1)],['Evolution',node.stage || (node.x == null ? 'Unplaced' : Math.round(node.x*100)+'%')],['Needs',needs],['Needed by',neededBy]]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b;dl.append(dt,dd);}
+  const actions=document.createElement('div'),edit=document.createElement('button'),close=document.createElement('button');actions.className='margin-actions';edit.className=close.className='btn';edit.textContent='Edit source';close.textContent='Close';edit.addEventListener('click',()=>{clearInspection();ws.setCollapsed(false);const l=editor.view.state.doc.line(line+1);editor.view.dispatch({selection:{anchor:l.from},scrollIntoView:true});editor.view.focus();});close.addEventListener('click',()=>clearInspection({restore:true}));actions.append(edit,close);m.replaceChildren(k,h,dl,actions);m.hidden=false;m.parentElement.classList.add('has-margin');h.focus();
+}
 
 /* validated 2026-07-10 (dataviz validate_palette, ordinal mode, both themes):
    one-hue evolution ramp accent → ink at t = 0, ⅓, ⅔, 1.
@@ -94,6 +111,7 @@ function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
 }
 function doRefresh(){
+  clearInspection();
   const text = editor.getText();
   model = parse(text);
   const pv = $('preview');
@@ -128,7 +146,7 @@ mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones h
 function writeHash(){
   if(!shouldPersist()) return;
   const state = {t: editor.getText()};
-  if(ws.collapsed()) state.e = 0;
+  state.e = ws.collapsed() ? 0 : 1;
   writeHashState(state);
 }
 snaps = wireSnapshots({
@@ -143,7 +161,8 @@ snaps = wireSnapshots({
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
-  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
+  onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }, initialCollapsed:true,
+  collapsedLabel:'Edit landscape source', collapsedAriaLabel:'Edit landscape source', expandedLabel:'Hide landscape source',
 });
 
 /* narrow-bucket resize: re-render only when the bucket flips (cycles' pattern) */
@@ -180,7 +199,7 @@ function componentMenuRows(el){
     on: model.edges.some(e => e.from === fk && e.to === c.name.toLowerCase()),
     commit: {kind: 'needs', line, oldRaw: from, value: c.name},
   }))});
-  rows.push({label: 'Remove component', action: true, danger: true});
+  rows.push({label: 'Inspect…', action: true}, {label: 'Remove component', action: true, danger: true});
   return rows;
 }
 const eip = attachEditInPlace($('preview'), {
@@ -203,6 +222,7 @@ const eip = attachEditInPlace($('preview'), {
       return;
     }
     if(kind === 'componentmenu'){
+      if(newValue === '✖Inspect…'){ inspectComponent(lineNo, el); return; }
       if(newValue === '✖Remove component')
         applyLineOps(editor, removeComponent(editor.getText(), lineNo, el.dataset.raw));
       return;
@@ -255,6 +275,7 @@ $('preview').addEventListener('pointerdown', e => {
   dragClick.clear();
   const g = e.target.closest && e.target.closest('#preview svg g[data-drag="evo"]');
   if(!g || e.button !== 0 || !model) return;
+  clearInspection();
   e.preventDefault();
   const track = g.hasAttribute('data-strip') ? g.querySelector('[data-track]') : null;
   const dot = track ? g.querySelector('[data-dot]') : null;
@@ -346,10 +367,9 @@ $('preview').addEventListener('lostpointercapture', e => {
   }
 });
 window.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && drag.armed){
-    dragClick.clear(drag.armed.pointerId);
-    dragEnd();
-  }
+  if(e.key !== 'Escape' || e.defaultPrevented) return;
+  if(drag.armed){ dragClick.clear(drag.armed.pointerId); dragEnd(); }
+  else clearInspection({restore:true});
 });
 $('preview').addEventListener('click', e => {
   const g = e.target.closest && e.target.closest('#preview svg g[data-drag="evo"]');
@@ -405,7 +425,7 @@ paintKicker($('kicker'), '09', 'The landscape as text');
 (async function(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
-  if(hash && hash.e === 0) ws.setCollapsed(true);
+  if(hash && hash.e === 1) ws.setCollapsed(false);
   if(!text){
     try{ text = localStorage.getItem('wardley-src') || ''; }catch(e){}
   }
