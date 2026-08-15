@@ -8,7 +8,7 @@ import {roadmapConditionalityHealth, roadmapToPathsStarter} from '../handoff-pat
 const warningCodes = model => model.warnings.map(w => w.code);
 
 test('a canonical Roadmap becomes an explicitly incomplete Paths starter', () => {
-  const source = parseRoadmap(`title: Habitat
+  const source = parseRoadmap(`title: Lantern
 horizons: Now, Next, Later
 Now
 Discovery: Price pilot [bet: Pricing] -- Test willingness -> https://example.test/pilot
@@ -24,7 +24,7 @@ Growth: Shared foundations`);
   assert.ok(text);
   assert.equal(text.split('\n')[0],
     '// Generated from Roadmap conditional work. Complete every decision and its learning contract before using this plan.');
-  assert.equal(text.split('\n')[1], 'title: Habitat — decision-plan starter');
+  assert.equal(text.split('\n')[1], 'title: Lantern — decision-plan starter');
   assert.ok(text.indexOf('decision Pricing:') < text.indexOf('decision Groups:'),
     'decision declarations retain source occurrence order');
   assert.match(text, /Now\n  Discovery: Price pilot -- Test willingness -> https:\/\/example\.test\/pilot/);
@@ -32,7 +32,7 @@ Growth: Shared foundations`);
   assert.match(text, /  Growth: Fixed-fee trial \[unless Pricing\]/);
 
   const target = parsePaths(text);
-  assert.equal(target.title, 'Habitat — decision-plan starter');
+  assert.equal(target.title, 'Lantern — decision-plan starter');
   assert.deepEqual(warningCodes(target), [
     'missing-question', 'missing-signal', 'missing-owner', 'missing-due-date',
     'missing-question', 'missing-signal', 'missing-owner', 'missing-due-date',
@@ -67,15 +67,15 @@ Core: Work [if x]`);
 });
 
 test('an unsafe source title is refused rather than omitted or truncated', () => {
-  const source = parseRoadmap(`title: Habitat
+  const source = parseRoadmap(`title: Lantern
 Now
 Core: Probe [bet: x]
 Next
 Core: Work [if x]`);
-  source.title = 'Habitat // concealed suffix';
+  source.title = 'Lantern // concealed suffix';
   assert.equal(roadmapToPathsStarter(source), null);
 
-  source.title = 'Habitat\tforged';
+  source.title = 'Lantern\tforged';
   assert.equal(roadmapToPathsStarter(source), null);
 });
 

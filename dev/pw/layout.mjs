@@ -9,13 +9,13 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 const TOOLS = [
   {path: '/tree/', chip: 'Bid or no bid'},
-  {path: '/why/', chip: 'Habit retention', source: 'Edit tree source'},
-  {path: '/roadmap/', chip: 'Habit app roadmap'},
+  {path: '/why/', chip: 'Reading retention', source: 'Edit tree source'},
+  {path: '/roadmap/', chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme'},
-  {path: '/wardley/', chip: 'Habitat platform', source: 'Edit landscape source'},
-  {path: '/bets/', chip: 'Habitat portfolio'},
+  {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
+  {path: '/bets/', chip: 'Lantern portfolio'},
   {path: '/energy/risk/', chip: 'Route to market'},
   {path: '/energy/cycles/', chip: 'Wexcombe base case'},
 ];

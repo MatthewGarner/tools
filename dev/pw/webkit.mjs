@@ -84,8 +84,8 @@ for(const theme of ['light', 'dark']){
     const state = await page.evaluate(() => ({
       canonical: location.pathname === '/paths/',
       editor: !!document.querySelector('#cmhost .cm-editor'),
-      example: document.getElementById('chips')?.textContent.includes('Habitat'),
-      preview: document.querySelector('#preview svg')?.textContent.includes('Habitat'),
+      example: document.getElementById('chips')?.textContent.includes('Lantern'),
+      preview: document.querySelector('#preview svg')?.textContent.includes('Lantern'),
     }));
     ok(state.canonical, 'paths (webkit): bare direct URL redirects to the canonical trailing slash');
     ok(state.editor && state.example && state.preview,

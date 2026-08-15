@@ -37,6 +37,7 @@ import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {paintKicker} from '../assets/verdict.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const preview = $('preview');
@@ -85,7 +86,7 @@ const createEditor = makeEditor({lang, indentBar:true, highlights:[
   {tag:t.meta, color:'var(--muted)', fontWeight:'600'},
 ]});
 
-const HABITAT = `title: Habitat
+const LANTERN = `title: Lantern
 
 decision reminders:
   question: Do adaptive reminders improve week-four retention?
@@ -95,7 +96,7 @@ decision reminders:
   enough: Yes at +5 percentage points or more; no at +1 or less; otherwise keep the question open
   owner: Core
   answer-by: 2026-07-24
-  answer: yes 2026-07-22 -- experiment HBT-42
+  answer: yes 2026-07-22 -- experiment LTN-42
   close-out:
     basis-kind: experiment
     carry-forward: scoped-finding
@@ -116,29 +117,29 @@ decision groups:
   answer-by: 2026-09-15
 
 decision pricing:
-  question: Will coaches accept a revenue share?
-  signal: accepted offers in the coach pilot
+  question: Will publishers accept a revenue share?
+  signal: accepted offers in the publisher pilot
   reading: 3 of 10 accepted
-  learn: Put the revenue-share offer to 20 coaches using the same script
+  learn: Put the revenue-share offer to 20 publishers using the same script
   enough: Yes at 12 acceptances or more; no at 6 or fewer; otherwise keep the question open
-  owner: Marketplace
+  owner: Storefront
   answer-by: 2026-08-01
   assume: no 2026-08-02
 
 NOW
-  Core: Streak repair [done]
+  Core: Resume position fix [done]
   Core: Adaptive reminder rollout [doing] [if reminders]
   Growth: Friend invite prompt [risk] [if groups]
 
 NEXT
   Platform: Group moderation [blocked] [if groups and not pricing]
-  Marketplace: Fixed-fee coach pilot [if not pricing]
+  Storefront: Fixed-fee publisher pilot [if not pricing]
 
 LATER
   Core: Weekly digest [unless reminders]
-  Growth: Group challenges [if groups]`;
+  Growth: Club challenges [if groups]`;
 
-const EXAMPLES = [{name:'Habitat', src:HABITAT}];
+const EXAMPLES = [{name:'Lantern', src:LANTERN}];
 let model = null, projection = null, topology = null, overview = null, overviewImpact = null;
 let lastSvg = '', hashTimer = null, inboundHandoff = null;
 let urlStateOversized = false, hashAttempt = 0;
@@ -1549,7 +1550,7 @@ const ws = initWorkspace({
   },
 });
 
-exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src));
+exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src), {start: {src: STARTER}});
 
 const SAVED_KEY = 'paths-saved';
 function renderSaved(){
@@ -1736,7 +1737,7 @@ onThemeChange(rerender);
   }
   renderSaved();
   if(text) editor.setText(text);
-  else if(!autoloadExample(() => editor.setText(HABITAT))) refresh();
+  else if(!autoloadExample(() => editor.setText(LANTERN))) refresh();
 })();
 
-export {HABITAT};
+export {LANTERN};

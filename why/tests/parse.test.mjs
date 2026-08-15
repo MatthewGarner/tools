@@ -5,13 +5,13 @@ import {parse} from '../parse.js';
 const SPEC = [
   'title: Q3 retention',
   'outcome: Improve 90-day retention',
-  '  Users forget mid-afternoon habits',
+  '  Readers lose their place between sessions',
   '    Users don\'t open the app at work',
-  '      Smart reminders [testing]',
+  '      Reading reminders [testing]',
   '        ? users want to be interrupted [testing]',
-  '        ? habit time is detectable [holds]',
-  '    Streak freeze [delivering]',
-  '  Habits feel like chores',
+  '        ? reading time is detectable [holds]',
+  '    Resume where you left off [delivering]',
+  '  Choosing the next book is work',
 ].join('\n');
 
 test('spec tree parses with inferred kinds', () => {

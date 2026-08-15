@@ -62,13 +62,13 @@ test('REGISTER orders by exposure, marks staleness, escapes text', () => {
 test('board splits entries into Facts / Assumptions / Beliefs by kind', () => {
   const doc = {entries: [
     kinded('gravity is real', 'fact'),
-    kinded('users want habit tracking', 'assumption'),
+    kinded('users want reading', 'assumption'),
     kinded('growth will be organic', 'belief'),
     kinded('a genuine risk', 'risk'),
   ]};
   const h = renderBoard(doc, new Date());
   assert.match(h, /gravity is real/);
-  assert.match(h, /users want habit tracking/);
+  assert.match(h, /users want reading/);
   assert.match(h, /growth will be organic/);
   assert.ok(!h.includes('a genuine risk'), 'risks live in the register, not the board');
 });
@@ -149,7 +149,7 @@ test('COLLECT and SCORE list risks only, not board items', () => {
 
 test('pre-parade renders opportunity language and no likelihood/impact score controls', () => {
   const e = kinded('Keep the old onboarding reversible', 'opportunity', {essential: true, actions: [{text: 'Run an A/B cutover', owner: 'Alex', votes: 2}]});
-  const doc = {mode: 'success', title: 'Habitat win', question: 'What did we do?', unit: '£k', phase: 'SCORE', entries: [e, kinded('board belief', 'belief')]};
+  const doc = {mode: 'success', title: 'Lantern win', question: 'What did we do?', unit: '£k', phase: 'SCORE', entries: [e, kinded('board belief', 'belief')]};
   const score = renderPhase(doc, new Date());
   assert.match(score, /Must make true/);
   assert.ok(!score.includes('likelihood'));

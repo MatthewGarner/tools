@@ -22,6 +22,7 @@ import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {validators as eipValidators, applies as eipApplies, SOLUTION_STATUSES, ASSUMPTION_CYCLE, subtreeRange, childLineFor} from './edit-targets.js';
 import {solutionMenu} from './app-menu.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -30,30 +31,30 @@ wireCopyVerdict($('verdict'));
 
 
 const EXAMPLES = [
-  {name: 'Habit retention', src:
+  {name: 'Reading retention', src:
 `title: Q3 — 90-day retention
 outcome: Improve 90-day retention
 
-  Users forget mid-afternoon habits
-    Users don't open the app at work
-      Smart reminders [testing]
-        ? users want to be interrupted at work [testing]
-        ? habit time is detectable [holds]
-    Streak freeze [delivering]
-      ? streak anxiety drives churn [holds]
+  Readers lose their place between sessions
+    Readers don't open the app on a commute
+      Reading reminders [testing]
+        ? readers want a nudge mid-commute [testing]
+        ? reading time is detectable [holds]
+    Resume where you left off [delivering]
+      ? abandoned books drive churn [holds]
 
-  Habits feel like chores
-    Habit templates library [shipped]
-    Accountability circles [candidate]
-      ? users will invite friends
+  Choosing the next book is work
+    Curated shelves [shipped]
+    Book clubs [candidate]
+      ? readers will invite friends
 
   Progress feels invisible
 `},
   {name: 'Two outcomes', src:
 `title: H2 product bets
 outcome: Improve 90-day retention
-  Users forget mid-afternoon habits
-    Smart reminders [testing]
+  Readers lose their place between sessions
+    Reading reminders [testing]
       ? users want interruptions
 outcome: Grow referral revenue
   Sharing feels braggy
@@ -256,7 +257,7 @@ const whyEip = attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- saved ---------- */
 const SAVED_KEY = 'why-saved';

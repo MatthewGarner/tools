@@ -21,7 +21,7 @@ const colors = {
   accent:'#1F4FD8', accentInk:'#1A44C2', err:'#B3403A',
 };
 const VERDICT = 'Keep the shared foundation moving while pricing remains reversible.';
-const pathsSource = `title: Habitat learning plan
+const pathsSource = `title: Lantern learning plan
 date: 2026-08-13
 verdict: ${VERDICT}
 decision pricing:

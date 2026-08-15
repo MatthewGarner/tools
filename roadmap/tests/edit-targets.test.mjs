@@ -11,8 +11,8 @@ import {setLane, addNote, addStatus, ensureHorizonHeader} from '../edit-targets.
 import {resolveBet, setCondition, clearCondition} from '../edit-targets.js';
 
 test('title rewrite keeps lane, status, note, link', () => {
-  assert.equal(applies.title('Core: Streak freeze [doing] -- top request -> https://x', 'Streak freeze', 'Streak shield'),
-               'Core: Streak shield [doing] -- top request -> https://x');
+  assert.equal(applies.title('Core: Resume where you left off [doing] -- top request -> https://x', 'Resume where you left off', 'Resume shield'),
+               'Core: Resume shield [doing] -- top request -> https://x');
 });
 test('note rewrite touches only the note', () => {
   assert.equal(applies.note('Core: Freeze [doing] -- top request', 'top request', 'most-wanted fix'),
@@ -26,23 +26,23 @@ test('validators reject structure-breakers', () => {
   assert.ok(validators.note('fine') && !validators.note('a -- b'));
 });
 
-const DOC = `title: Habitat — Product Roadmap
+const DOC = `title: Lantern — Product Roadmap
 horizons: Now, Next, Later
 
 NOW
-Core: Streak freeze [doing] -- the fix
+Core: Resume where you left off [doing] -- the fix
 Growth: Referral flow [risk]
 
 NEXT
-Core: Smart reminders
-Platform: Full offline mode
+Core: Reading reminders
+Platform: Offline downloads
 
 LATER
-Growth: Coach marketplace`;
+Growth: Publisher storefront`;
 
 test('addItemLine lands at the end of the horizon section, lane-prefixed', () => {
   const {afterLine} = addItemLine(DOC, 'Growth', 'NEXT');
-  assert.equal(afterLine, 9);           // after "Platform: Full offline mode"
+  assert.equal(afterLine, 9);           // after "Platform: Offline downloads"
 });
 
 test('addItemLine into an empty horizon inserts after its header', () => {
@@ -59,10 +59,10 @@ test('removeItemLine accepts only item lines', () => {
 
 /* moveHorizon — the card-menu "Move to…" row (phone replacement for drag) */
 test('moveHorizon: round-trips through the parser under the target horizon', () => {
-  const text = moveHorizon(DOC, 4, 'Next');   // srcLine 4 = "Core: Streak freeze [doing] -- the fix"
+  const text = moveHorizon(DOC, 4, 'Next');   // srcLine 4 = "Core: Resume where you left off [doing] -- the fix"
   assert.ok(text);
   const m = parse(text);
-  const moved = m.items.find(i => i.title === 'Streak freeze');
+  const moved = m.items.find(i => i.title === 'Resume where you left off');
   assert.equal(m.horizons[moved.h], 'Next');
   assert.equal(moved.lane, 'Core');
   assert.equal(moved.status, 'doing');
@@ -73,7 +73,7 @@ test('moveHorizon: is case-insensitive on the target horizon name', () => {
   const text = moveHorizon(DOC, 4, 'later');
   assert.ok(text);
   const m = parse(text);
-  const moved = m.items.find(i => i.title === 'Streak freeze');
+  const moved = m.items.find(i => i.title === 'Resume where you left off');
   assert.equal(m.horizons[moved.h], 'Later');
 });
 
@@ -180,7 +180,7 @@ const SPAN_DOC = 'horizons: quarterly from Q3 2026 x4\n' +   // line 0
             'Q3 2026\n' +                                // line 1
             'Core: Sync engine rewrite [doing] x2\n' +   // line 2
             'Q4 2026\n' +                                // line 3
-            'Core: Smart reminders\n';                   // line 4
+            'Core: Reading reminders\n';                   // line 4
 
 test('setSpan rewrites an existing token in place, keeping status and note', () => {
   const out = setSpan(SPAN_DOC, 2, 3);
@@ -190,7 +190,7 @@ test('setSpan rewrites an existing token in place, keeping status and note', () 
 
 test('setSpan ADDS a token to a plain item — this is how a card becomes a bar', () => {
   const out = setSpan(SPAN_DOC, 4, 2);
-  assert.match(out, /^Core: Smart reminders x2$/m);
+  assert.match(out, /^Core: Reading reminders x2$/m);
 });
 
 test('setSpan(1) REMOVES the token — a 1-column item carries none', () => {

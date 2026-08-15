@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
+import {EXAMPLES} from '../examples.js';
 import {resolve} from '../zones.js';
 import {readout} from '../readout.js';
 import {render, nudge} from '../render.js';
@@ -220,21 +221,11 @@ function anyOverlap(rects){
 }
 
 test('card hit rects never overlap on the default first-run example (EXAMPLES[0])', () => {
-  /* verbatim EXAMPLES[0] "Assumption map" from map/app.js — the content
-     autoloadExample() loads for a brand-new user. nudge() only separates the
-     visible capsules; the hit-rect height cap is what keeps taps unambiguous. */
-  const src = `preset: assumptions
-title: Habitat — launch assumptions
-
-Users will log habits daily @ 30,90 :: test: watch 5 onboarding sessions
-Streak anxiety drives churn @ 75,80 :: note: held in Q2 interviews
-Users want social features @ 20,55 :: test: fake-door invite flow
-Push reminders feel caring, not naggy @ 35,75
-People will pay for coaching @ 15,85
-Habit templates save setup time @ 80,45
-App-store reviews drive installs @ 55,25
-Legal sign-off on health claims
-`;
+  /* the REAL EXAMPLES[0], imported — not a copy. autoloadExample() puts this in front of
+     every brand-new user, and a copy of it here once drifted from the app, so this check
+     passed on text nobody ever saw. nudge() only separates the visible capsules; the
+     hit-rect height cap is what keeps taps unambiguous. */
+  const src = EXAMPLES[0].src;
   for(const extra of [{edit: true}, {edit: true, slide: true}]){
     const rects = hitRects(run(src, extra));
     assert.equal(rects.length, 8, 'seven placed cards + the unplaced tray item get hit rects');
@@ -259,7 +250,7 @@ test('crowded stack: hit-rect heights cap to the neighbour gap, no overlap; floo
 /* ---------- Swiss 6b: metrics row + verdict block ---------- */
 
 test('metrics row: model title then readout.js counts, uppercase and letterspaced', () => {
-  const svg = run('preset: assumptions\ntitle: Habitat bets\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
+  const svg = run('preset: assumptions\ntitle: Lantern bets\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
   assert.match(svg, /font-weight="500" letter-spacing="1\.8" fill="#667">3 OF 4 PLACED · 2 ZONES OCCUPIED · 2 FLAGGED</);
   assert.match(svg, /letter-spacing="1\.8"/);
 });

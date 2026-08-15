@@ -21,6 +21,7 @@ import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/worksp
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const todayDay = () => Math.floor(Date.now() / 86400000);
@@ -28,7 +29,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const EXAMPLES = [
   {name: 'App launch programme', src:
-`title: Habitat 2.0 — launch programme
+`title: Lantern 2.0 — the road to store day
 App: Feature freeze 2026-08-14 .. 2026-08-28
 App: Beta cut 2026-09 .. 2026-10
 App: Store review passed 2026-10 .. 2026-11 [risk] // review times vary wildly
@@ -200,7 +201,7 @@ const eip = attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- exports ---------- */
 function svgString(intent){

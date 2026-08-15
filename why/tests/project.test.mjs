@@ -8,15 +8,15 @@ const labels = arr => arr.map(x => x.node.label);
 test('column derivation: delivering→NOW, testing→NEXT, unaddressed opportunity→LATER', () => {
   const m = parse([
     'outcome: Retention',
-    '  Forgetting habits',
-    '    Smart reminders [testing]',
-    '    Streak freeze [delivering]',
-    '  Habits feel like chores',
+    '  Losing your place',
+    '    Reading reminders [testing]',
+    '    Resume where you left off [delivering]',
+    '  Choosing the next book is work',
   ].join('\n'));
   const p = project(m);
-  assert.deepEqual(labels(p.now), ['Streak freeze']);
-  assert.deepEqual(labels(p.next), ['Smart reminders']);
-  assert.deepEqual(labels(p.later), ['Habits feel like chores']);
+  assert.deepEqual(labels(p.now), ['Resume where you left off']);
+  assert.deepEqual(labels(p.next), ['Reading reminders']);
+  assert.deepEqual(labels(p.later), ['Choosing the next book is work']);
 });
 
 test('candidates do not rescue an opportunity from LATER', () => {

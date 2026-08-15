@@ -26,7 +26,7 @@ const decision = (name, fields = '') => {
 
 function agenda(extra = ''){
   const text = `style: agenda
-title: Habitat evidence plan
+title: Lantern evidence plan
 date: 2026-08-13
 verdict: Learn before making the expansion irreversible.
 ${decision('pricing', '\n  answer-by: 2026-08-01')}${decision('groups')}${decision('expansion', '\n  when: pricing and groups')}${decision('answered', '\n  answer: no 2026-08-10')}${decision('assumed', '\n  answer-by: 2026-08-10\n  assume: yes 2026-08-11')}decision broken:

@@ -32,7 +32,7 @@ await page.getByRole('button', {name: 'Assumption map'}).click();
 await page.waitForTimeout(600);
 const before = await doc();
 check('baseline: card at 30,90', before.includes('@ 30,90'));
-await dragTo('#preview svg g[data-line="3"]', 0.8, 0.3);   // "Users will log habits daily"
+await dragTo('#preview svg g[data-line="3"]', 0.8, 0.3);   // "Readers finish the first book they start"
 const after = await doc();
 const m = after.split('\n')[3].match(/@ (\d+),(\d+)/);
 check('drag: line rewrote @ x,y', !!m && !after.includes('@ 30,90'));
@@ -49,7 +49,7 @@ check('undo: original position restored', (await doc()).includes('@ 30,90'));
 check('tray: unplaced card present', await page.locator('#preview svg g[data-tray]').count() === 1);
 await dragTo('#preview svg g[data-tray]', 0.5, 0.5);
 const placed = await doc();
-check('tray: line gained a position', /Legal sign-off on health claims @ (4\d|5\d),(4\d|5\d)/.test(placed));
+check('tray: line gained a position', /Legal sign-off on publisher licensing @ (4\d|5\d),(4\d|5\d)/.test(placed));
 check('tray: tray emptied', await page.locator('#preview svg g[data-tray]').count() === 0);
 
 /* ---- zone rename via edit-in-place (preset cell → insert path) ---- */
@@ -77,11 +77,11 @@ await axisX.scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await axisX.click();
 await page.waitForTimeout(200);
-await page.locator('.eip-input').fill('Regulatory pressure');
+await page.locator('.eip-input').fill('Licensing pressure');
 await page.keyboard.press('Enter');
 await page.waitForTimeout(500);
 check('axis rename: label rewritten, end labels kept',
-  (await doc()).includes('x: Regulatory pressure (light → strict)'));
+  (await doc()).includes('x: Licensing pressure (loose → strict)'));
 
 /* ---- add item from the ghost, remove from the × ---- */
 await page.getByRole('button', {name: 'Assumption map'}).click();

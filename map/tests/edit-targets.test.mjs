@@ -23,8 +23,8 @@ test('setPosition inserts before :: when unplaced but fielded; @ in a field valu
 test('setPosition is comment-aware: @ inside a trailing // note is not the position', () => {
   assert.equal(setPosition('Legal sign-off // was @ 10,10 last week', 62, 41),
     'Legal sign-off @ 62,41 // was @ 10,10 last week');
-  assert.equal(setPosition('Streak anxiety @ 30,40 // note @ 10,10', 55, 60),
-    'Streak anxiety @ 55,60 // note @ 10,10');
+  assert.equal(setPosition('Abandoned books @ 30,40 // note @ 10,10', 55, 60),
+    'Abandoned books @ 55,60 // note @ 10,10');
   assert.equal(setPosition('A @ 1,2 :: test: x // c @ 9,9', 50, 50),
     'A @ 50,50 :: test: x // c @ 9,9');
 });
@@ -58,8 +58,8 @@ test('setPosition leaves comment-only and config lines alone (degeneration guard
 test('setPosition round-trips through the real parser: coords land, label+fields survive', () => {
   const lines = [
     'Legal sign-off',
-    'Users will log habits daily @ 30,90 :: test: watch 5 onboarding sessions',
-    'Streak anxiety drives churn @ 75,80 :: note: held in Q2 interviews // from research',
+    'Readers finish the first book they start @ 30,90 :: test: watch 5 onboarding sessions',
+    'Abandoned books drive churn @ 75,80 :: note: held in Q2 interviews // from research',
     'Email launch :: note: ping me @ standup',
   ];
   for(const line of lines){
@@ -76,7 +76,7 @@ test('setPosition round-trips through the real parser: coords land, label+fields
 });
 
 test('setPosition applied twice equals once with the later coords', () => {
-  const line = 'Habit templates save setup time @ 80,45 :: owner: Sam // keep';
+  const line = 'Curated shelves save setup time @ 80,45 :: owner: Sam // keep';
   assert.equal(setPosition(setPosition(line, 10, 20), 70, 5), setPosition(line, 70, 5));
 });
 

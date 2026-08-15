@@ -14,14 +14,14 @@ const ctx = {
 
 const OLD = `outcome: Improve retention
   Users forget to log
-    Smart reminders [testing]
+    Reading reminders [testing]
       ? users want nudges [testing]
-  Streaks feel punishing
-    Streak freeze [testing]`;
+  Recommendations feel random
+    Resume where you left off [testing]`;
 
 const NEW = `outcome: Improve retention
   Users forget to log
-    Smart reminders [delivering]
+    Reading reminders [delivering]
       ? users want nudges [broken]
   Users lose progress on holiday
     Vacation mode [candidate]`;
@@ -29,15 +29,15 @@ const NEW = `outcome: Improve retention
 test('flatten keys nodes by kind|label with status as state', () => {
   const f = flattenWhy(parse(OLD));
   assert.equal(f.length, 6);
-  assert.ok(f.some(e => e.key === 'solution|Smart reminders' && e.state === 'testing'));
+  assert.ok(f.some(e => e.key === 'solution|Reading reminders' && e.state === 'testing'));
 });
 
 test('diff: added branch, solution move, broken assumption, dropped branch', () => {
   const d = whyDiff(parse(OLD), parse(NEW));
   assert.ok(d.added.some(e => e.label === 'Vacation mode'));
-  assert.ok(d.moved.get('solution|smart reminders').to === 'delivering');
+  assert.ok(d.moved.get('solution|reading reminders').to === 'delivering');
   assert.ok(d.moved.get('assumption|users want nudges').to === 'broken');
-  assert.ok(d.dropped.some(e => e.label === 'Streak freeze'));
+  assert.ok(d.dropped.some(e => e.label === 'Resume where you left off'));
   assert.equal(d.any, true);
 });
 
@@ -45,9 +45,9 @@ test('narrative reads like a discovery review', () => {
   const n = whyNarrative(whyDiff(parse(OLD), parse(NEW)), 'last sprint');
   assert.match(n, /^Since last sprint: /);
   assert.match(n, /1 opportunity \+ 1 solution added/);
-  assert.match(n, /Smart reminders testing → delivering/);
+  assert.match(n, /Reading reminders testing → delivering/);
   assert.match(n, /1 assumption broken/);
-  assert.match(n, /2 branches dropped/);   // Streaks feel punishing + Streak freeze
+  assert.match(n, /2 branches dropped/);   // Recommendations feel random + Resume where you left off
 });
 
 test('no changes → says so', () => {
@@ -63,7 +63,7 @@ test('view: NEW badge on added cards, was-status on moved solutions, none on ass
   assert.deepEqual(v.badge(vacation), {kind: 'new', label: 'NEW'});
   const reminders = m.outcomes[0].children[0].children[0];
   assert.deepEqual(v.badge(reminders), {kind: 'moved', label: 'was testing'});
-  assert.ok(v.dropped.includes('Streak freeze'));
+  assert.ok(v.dropped.includes('Resume where you left off'));
 });
 
 test('renderOst with diff: narrative, NEW pill, was-status pill, dropped strip', () => {

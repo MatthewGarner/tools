@@ -75,7 +75,7 @@ outcome or a protected outcome. It records authored theories and reported
 patterns separately; neither proves a causal mechanism.
 
 ```dsl tool=proxy
-title: Habitat invite pressure
+title: Lantern invite pressure
 date: 2026-08-13
 outcome: Groups retain after week one
 proxy: Invitation rate
@@ -144,7 +144,7 @@ or `blocked`; expressions use one uniform `and` or `or`, with optional `not`. `[
 is an alias for `[if not x]`.
 
 ```dsl tool=paths
-title: Habitat — winter paths
+title: Lantern — winter paths
 date: 2026-12-22
 today: 2026-12-22
 style: tree
@@ -153,7 +153,7 @@ palette: ocean
 accent: #C05621
 
 decision groups:
-  question: Do people add at least three friends to a habit without prompting?
+  question: Do people invite at least three friends to a book club without prompting?
   signal: invites per user >= 3
   reading: 3.4 in the winter cohort
   owner: growth squad
@@ -161,11 +161,11 @@ decision groups:
   answer: yes 2026-12-15 target: 3 actual: 3.4 -- winter cohort
 
 decision pricing:
-  question: Will coaches accept a 20% fee?
-  signal: signed coaches >= 10
-  learn: Put both offers to 12 coaches using the same blinded script
+  question: Will publishers accept a 20% fee?
+  signal: signed publishers >= 10
+  learn: Put both offers to 12 publishers using the same blinded script
   enough: Yes at 8 of 12; no at 3 of 12 or fewer; otherwise keep the question open
-  owner: marketplace
+  owner: storefront
   answer-by: 2026-12-15
   assume: yes 2026-12-22
 
@@ -193,20 +193,20 @@ decision pilot:
     reconsider-if: A matched solo-user reading no longer shows the pattern
     next-check: Compare an assigned setup variant before wider rollout
 
-decision marketplace:
+decision storefront:
   when: groups and pricing
   question: Can supply support a January launch?
-  signal: available coaches >= 20
-  owner: marketplace
+  signal: available publishers >= 20
+  owner: storefront
   answer-by: 2027-01-20
 
 NOW
-  Core: Streak repair [doing]
-  Growth: Group challenges [if groups] [done]
+  Core: Resume position fix [doing]
+  Growth: Club challenges [if groups] [done]
 LATER
   Core: Reminder fallback [unless reminders] [risk]
-  Growth: Coach pricing [if pricing] [blocked]
-  Growth: Marketplace launch [if marketplace]
+  Growth: Publisher pricing [if pricing] [blocked]
+  Growth: Storefront launch [if storefront]
   Growth: Supply preparation [if groups and pricing]
   Growth: Pilot follow-up [if pilot]
 ```
@@ -431,10 +431,10 @@ isn't `key: value`; more than ~40 items (crowding).
 
 ```dsl tool=map
 title: Assumptions
-verdict: Test the streak claim first
+verdict: Test the churn claim first
 preset: assumptions
-Users log daily @ 30,90
-Streak drives retention @ 75,80 :: note: from interviews
+Readers finish what they start @ 30,90
+Abandoned books drive churn @ 75,80 :: note: from interviews
 ```
 
 ## tree
@@ -493,9 +493,9 @@ not under a solution; a solution nested under a solution.
 ```dsl tool=why
 title: Retention
 outcome: Improve 30-day retention
-  Users forget mid-afternoon habits
-    Smart reminders [testing]
-      ? users want reminders [holds]
+  Readers lose their place between sessions
+    Reading reminders [testing]
+      ? readers want reminders [holds]
 ```
 
 ## gauge

@@ -9,7 +9,7 @@ import {parse, parseDate} from '../parse.js';
 import {toLink, fromLink} from '../../premortem/store.js';
 
 const today = parseDate('2026-08-01');
-const MERGE_DOC = ['title: Habitat 2.0 launch',
+const MERGE_DOC = ['title: Lantern 2.0 launch',
   'App: Beta cut 2026-09 .. 2026-10',
   'App: Store review 2026-10 .. 2026-11',
   'Marketing: Campaign 2026-10 .. 2026-12',
@@ -18,8 +18,8 @@ const MERGE_DOC = ['title: Habitat 2.0 launch',
 test('builder: a merge-risk plan yields a framed premortem doc', () => {
   const doc = premortemHandoff(parse(MERGE_DOC), today);
   assert.ok(doc, 'non-null on a mergeable plan');
-  assert.equal(doc.title, 'Habitat 2.0 launch');
-  assert.match(doc.question, /^It’s .*2026 and Habitat 2\.0 launch slipped\. Why\?$/);
+  assert.equal(doc.title, 'Lantern 2.0 launch');
+  assert.match(doc.question, /^It’s .*2026 and Lantern 2\.0 launch slipped\. Why\?$/);
   assert.equal(doc.phase, 'FRAME');
   assert.deepEqual(doc.entries, []);
   assert.deepEqual(doc.x, {v: 1, mode: 'draft', from: 'timeline', label: 'Timeline', kind: 'risk-register'});
@@ -51,7 +51,7 @@ test('import remains separate until explicitly saved under its minted id', async
   store.save(imported);
   assert.equal(store.list().length, 2, 'Save as new adds a separate register');
   assert.equal(store.load('current').title, 'Existing register');
-  assert.equal(store.load(imported.id).title, 'Habitat 2.0 launch');
+  assert.equal(store.load(imported.id).title, 'Lantern 2.0 launch');
   store.save(withoutHandoffMeta(imported));
   assert.equal(store.load(imported.id).x, undefined, 'promotion removes transient provenance');
 });

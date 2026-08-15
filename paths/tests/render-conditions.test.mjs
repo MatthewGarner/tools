@@ -24,7 +24,7 @@ function wide(doc, extra = {}){
 }
 
 test('atlas keeps work once in canonical period and lane groups against parallel decisions', () => {
-  const svg = wide('title: Habitat choices\ndate: 2026-08-11\n' + decision('pricing') + decision('groups') +
+  const svg = wide('title: Lantern choices\ndate: 2026-08-11\n' + decision('pricing') + decision('groups') +
     'NOW\n  Core: Shared\n  Growth: Price route [if pricing]\n' +
     'LATER\n  Core: Joint route [if pricing and groups]\n  Growth: Alternative [unless pricing]');
 

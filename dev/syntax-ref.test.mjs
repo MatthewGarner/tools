@@ -73,7 +73,7 @@ const TOOLS = {
   why: {
     keys: ['title', 'palette', 'accent'],
     doc: ['title: T', 'palette: ocean', 'accent: #C05621',
-      'outcome: Retention holds', '  Streaks drive habit', '    Streak engine [testing]'].join('\n'),
+      'outcome: Retention holds', '  Recommendations drive returns', '    Recommendations [testing]'].join('\n'),
   },
   gauge: {
     keys: ['title', 'names', 'palette', 'accent', 'verdict'],

@@ -86,7 +86,7 @@ test('castVote pool counts risk actions only, not board items', () => {
 
 test('pre-parade gates opportunities and an explicit must-make-true commitment, never risk scores', () => {
   const opportunity = {...newEntry('Keep the onboarding reversible', {kind: 'opportunity'}), p: [40, 60], impact: [1, 2]};
-  const doc = {mode: 'success', phase: 'COLLECT', title: 'Habitat', question: 'Why did it win?', entries: [opportunity]};
+  const doc = {mode: 'success', phase: 'COLLECT', title: 'Lantern', question: 'Why did it win?', entries: [opportunity]};
   assert.equal(canAdvance(doc).ok, true);
   assert.equal(canAdvance({...doc, phase: 'SCORE'}).ok, false, 'numeric ranges do not manufacture a commitment');
   assert.equal(canAdvance({...doc, phase: 'SCORE', entries: [{...opportunity, essential: true}]}).ok, true);

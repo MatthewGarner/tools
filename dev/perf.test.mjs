@@ -187,7 +187,7 @@ test('alarm: classify + gate-layout of 1000 dots under 60ms', async () => {
 test('bets: parse + 4,000-run simulate of the example portfolio under 50ms', async () => {
   const {parse} = await import('../bets/parse.js');
   const {simulate} = await import('../bets/engine.js');
-  const doc = `title: Habitat — Q3 bet portfolio
+  const doc = `title: Lantern — Q3 bet portfolio
 unit: £k
 
 Growth bets
@@ -198,9 +198,9 @@ Growth bets
 
 Platform bets
   Sync engine rewrite: stake 150, odds 90-98%, payoff 180-260
-  Coach marketplace pilot: stake 60, odds 15-25%, payoff 250-450
-    kill: Fewer than 20 coaches onboarded by 2026-10-01
-  Wearables integration: stake 60, odds 30-40%, payoff 150-280
+  Publisher storefront pilot: stake 60, odds 15-25%, payoff 250-450
+    kill: Fewer than 20 publishers onboarded by 2026-10-01
+  E-reader sync: stake 60, odds 30-40%, payoff 150-280
     kill: No retail partner signed by 2026-11-01`;
   await timed(50, () => simulate(parse(doc)));
 });

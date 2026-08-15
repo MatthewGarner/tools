@@ -16,6 +16,7 @@ import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../../assets/verdict-edit.js';
 import {paintKicker, paintMetrics, paintVerdict} from '../../assets/verdict.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -259,7 +260,7 @@ const riskEip = attachEditInPlace($('preview'), {
 });
 
 /* chips */
-exampleChips($('chips'), EXAMPLES, ex => { focusIdx = null; editor.setText(ex.src); });
+exampleChips($('chips'), EXAMPLES, ex => { focusIdx = null; editor.setText(ex.src); }, {start: {src: STARTER}});
 
 /* ---------- exports ---------- */
 const isoToday = () => new Date().toISOString().slice(0, 10);

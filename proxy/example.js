@@ -63,13 +63,13 @@ failure-theory shallow-setup:
 
 export const TRADE_OFF_HUNT = `title: Notification trade-off
 date: 2026-08-13
-outcome: People return to their active habits
+outcome: People return to books they started
 proxy: Reminder open rate
-action: Increase reminder frequency for inactive habits
+action: Increase reminder frequency for stalled books
 mode: optimise
 
 intended-theory:
-  mechanism: More timely reminders help people resume a lapsed habit
+  mechanism: More timely reminders help people resume a stalled book
 
 protects:
   - Notification trust

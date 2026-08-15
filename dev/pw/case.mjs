@@ -69,9 +69,9 @@ const afterUndo = await doc();
 check('undo restores the exact prior source', afterUndo === beforeKeyboardEdit && afterUndo !== afterKeyboardEdit);
 
 /* ---- add-note e2e: the ghost "+ note" affordance on an exhibit with no
-   note yet creates a real "// note" line — "Habitat 2.0 launch"'s Revenue
+   note yet creates a real "// note" line — "Lantern 2.0 launch"'s Revenue
    model row is the one exhibit with no note across either example. ---- */
-await page.getByRole('button', {name: 'Habitat 2.0 launch'}).click();
+await page.getByRole('button', {name: 'Lantern 2.0 launch'}).click();
 await page.waitForTimeout(500);
 const addNoteTarget = page.locator('#preview svg [data-edit="note"][data-raw=""]').first();
 check('a "+ note" ghost target exists for an exhibit with no note', await addNoteTarget.count() === 1);

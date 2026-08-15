@@ -2,33 +2,33 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, STAGES} from '../parse.js';
 
-const DOC = `title: Habitat platform
-anchor: Habit tracking
+const DOC = `title: Lantern platform
+anchor: Reading
 
 // the platform
-Streak engine @ custom
-User DB @ 0.83
+Recommendations @ custom
+Catalogue DB @ 0.83
 Push gateway
 
-Habit tracking -> Streak engine -> User DB
-Streak engine -> Push gateway`;
+Reading -> Recommendations -> Catalogue DB
+Recommendations -> Push gateway`;
 
 test('config + anchor + components + chained edges parse', () => {
   const m = parse(DOC);
-  assert.equal(m.title, 'Habitat platform');
-  assert.deepEqual(m.anchors, [{name: 'Habit tracking', srcLine: 1}]);
-  const streak = m.components.get('streak engine');
-  assert.equal(streak.name, 'Streak engine');
-  assert.equal(streak.x, 0.375);                 // custom midpoint
-  assert.equal(streak.stage, 'custom');
-  assert.equal(streak.ghost, false);
-  assert.equal(streak.srcLine, 4);
-  assert.equal(m.components.get('user db').x, 0.83);
-  assert.equal(m.components.get('user db').stage, null);
+  assert.equal(m.title, 'Lantern platform');
+  assert.deepEqual(m.anchors, [{name: 'Reading', srcLine: 1}]);
+  const rec = m.components.get('recommendations');
+  assert.equal(rec.name, 'Recommendations');
+  assert.equal(rec.x, 0.375);                 // custom midpoint
+  assert.equal(rec.stage, 'custom');
+  assert.equal(rec.ghost, false);
+  assert.equal(rec.srcLine, 4);
+  assert.equal(m.components.get('catalogue db').x, 0.83);
+  assert.equal(m.components.get('catalogue db').stage, null);
   assert.deepEqual(m.edges, [
-    {from: 'habit tracking', to: 'streak engine', srcLine: 8},
-    {from: 'streak engine', to: 'user db', srcLine: 8},
-    {from: 'streak engine', to: 'push gateway', srcLine: 9},
+    {from: 'reading', to: 'recommendations', srcLine: 8},
+    {from: 'recommendations', to: 'catalogue db', srcLine: 8},
+    {from: 'recommendations', to: 'push gateway', srcLine: 9},
   ]);
   assert.equal(m.warnings.length, 1);            // only the bare Push gateway
 });
@@ -84,9 +84,9 @@ test('numeric position outside 0–1 clamps with a warning', () => {
 });
 
 test('edges match case-insensitively; display name preserved', () => {
-  const m = parse('anchor: A\nStreak Engine @ custom\nA -> streak engine');
-  assert.equal(m.components.get('streak engine').name, 'Streak Engine');
-  assert.deepEqual(m.edges[0], {from: 'a', to: 'streak engine', srcLine: 2});
+  const m = parse('anchor: A\nBook Clubs @ custom\nA -> book clubs');
+  assert.equal(m.components.get('book clubs').name, 'Book Clubs');
+  assert.deepEqual(m.edges[0], {from: 'a', to: 'book clubs', srcLine: 2});
 });
 
 test('self-edges and empty segments warn and are skipped', () => {

@@ -24,6 +24,7 @@ import {renderSavedDisclosure, savedSelectionAfterDelete} from '../assets/handof
 import {gaugeImport} from './import-state.js';
 import {targetHashState} from '../assets/handoff.js';
 import {esc} from '../assets/svg.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -48,7 +49,7 @@ Daily actives a month after launch :: range users
 Beta cohort renews :: prob`},
   {name: 'Confidence auction', src:
 `title: Feature bets
-Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish
+Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish
 How confident are we in the estimate? :: prob`},
   {name: 'What does “likely” mean?', src:
 `title: What does “likely” mean here?
@@ -306,7 +307,7 @@ async function initCompose(hash){
   wireFormEvents($('preview'));
 
   /* examples */
-  exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+  exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
   function leaveImport(text){
     transient = false;

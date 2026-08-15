@@ -512,7 +512,7 @@ check('no console/page errors', errors.length === 0);
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Edit tree source'}).click();
-  await p.getByRole('button', {name: 'Habit retention'}).click();
+  await p.getByRole('button', {name: 'Reading retention'}).click();
   await p.waitForTimeout(500);
   /* Status owns one canonical hit target. The visible label is no longer also
      an edit target, so exercise the actual SVG affordance rather than relying
@@ -523,7 +523,7 @@ check('no console/page errors', errors.length === 0);
   await p.locator('.eip-pop button', {hasText: 'delivering'}).click();
   await p.waitForTimeout(600);
   const t1 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: popover commit rewrites tag', t1.includes('Smart reminders [delivering]'));
+  check('why: popover commit rewrites tag', t1.includes('Reading reminders [delivering]'));
   const a0 = await p.locator('[data-edit="astatus"][data-raw="untested"]').first();
   await a0.click();
   await p.waitForTimeout(600);
@@ -532,7 +532,7 @@ check('no console/page errors', errors.length === 0);
 
   /* ---- card menu: tap the card BODY (the invisible-fill data-hit rect, which
      IS the card rect itself here — why is a drop-in, no wrapper <g>) opens
-     Rename/Status/Add/Remove. "Smart reminders" (srcLine 5, a solution) carries
+     Rename/Status/Add/Remove. "Reading reminders" (srcLine 5, a solution) carries
      both a label and a status pill so every row is live; each action gets its
      own round trip: commit, assert, ONE Meta+z, assert full revert back to the
      pre-menu baseline before the next action starts clean. ---- */
@@ -551,8 +551,8 @@ check('no console/page errors', errors.length === 0);
     await p.waitForTimeout(500);
   };
 
-  /* "Smart reminders" (srcLine 5) carries two assumptions (srcLine 6 "users
-     want to be interrupted at work" [testing], srcLine 7 "habit time is
+  /* "Reading reminders" (srcLine 5) carries two assumptions (srcLine 6 "readers
+     want a nudge mid-commute" [testing], srcLine 7 "reading time is
      detectable" [holds]) — the dynamic solutionMenu composer inserts one
      submenu row per assumption, in source order, between ＋ Add assumption
      and Remove branch. */
@@ -560,16 +560,16 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   check('why: solution card tap opens the menu with base rows + one row per assumption, in order',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-    'Inspect…|Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
+    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch');
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
-  check('why: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Smart reminders');
+  check('why: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Reading reminders');
   await p.locator('.eip-input').fill('Smart nudges');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
   const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: menu Rename commits the new label', tRename.includes('Smart nudges') && !tRename.includes('Smart reminders'));
+  check('why: menu Rename commits the new label', tRename.includes('Smart nudges') && !tRename.includes('Reading reminders'));
   await undo();
   check('why: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
@@ -581,7 +581,7 @@ check('no console/page errors', errors.length === 0);
   await p.locator('.eip-pop button', {hasText: 'shipped'}).click();   // current is 'delivering' (set above) — pick a distinct value so this is a real commit
   await p.waitForTimeout(600);
   const tStatus = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: menu Status pick commits the new status', tStatus.includes('Smart reminders [shipped]'));
+  check('why: menu Status pick commits the new status', tStatus.includes('Reading reminders [shipped]'));
   await undo();
   check('why: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
@@ -626,7 +626,7 @@ check('no console/page errors', errors.length === 0);
      solution's line must stay untouched. ---- */
   await tapCard(5);
   await p.waitForTimeout(200);
-  await p.locator('.eip-pop button', {hasText: 'users want to be interrupted at work'}).click();
+  await p.locator('.eip-pop button', {hasText: 'readers want a nudge mid-commute'}).click();
   await p.waitForTimeout(200);
   check('why: assumption sub-popover lists the four cycle states plus a danger Remove',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken|Remove assumption');
@@ -638,28 +638,28 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const tAstatus = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why: picking a different state rewrites the ASSUMPTION line',
-    tAstatus.includes('? users want to be interrupted at work [holds]'));
+    tAstatus.includes('? readers want a nudge mid-commute [holds]'));
   check("why: the solution's own line is untouched by the assumption edit",
-    /Smart reminders \[\w+\]/.test(tAstatus) && tAstatus.match(/Smart reminders \[(\w+)\]/)[1] ===
-    baseline.match(/Smart reminders \[(\w+)\]/)[1]);
+    /Reading reminders \[\w+\]/.test(tAstatus) && tAstatus.match(/Reading reminders \[(\w+)\]/)[1] ===
+    baseline.match(/Reading reminders \[(\w+)\]/)[1]);
   await undo();
   check('why: one undo restores the pre-status baseline (assumption)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(5);
   await p.waitForTimeout(200);
-  await p.locator('.eip-pop button', {hasText: 'users want to be interrupted at work'}).click();
+  await p.locator('.eip-pop button', {hasText: 'readers want a nudge mid-commute'}).click();
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove assumption'}).click();
   await p.waitForTimeout(600);
   const tRemoveA = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why: Remove assumption drops just that assumption line',
-    !tRemoveA.includes('users want to be interrupted at work') &&
-    tRemoveA.includes('habit time is detectable') && tRemoveA.includes('Smart reminders'));
+    !tRemoveA.includes('readers want a nudge mid-commute') &&
+    tRemoveA.includes('reading time is detectable') && tRemoveA.includes('Reading reminders'));
   await undo();
   check('why: one undo restores the removed assumption', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   /* zero-assumption solution: exactly the four base rows (no submenu rows) */
-  await tapCard(12);   // "Habit templates library [shipped]" — no assumption children
+  await tapCard(12);   // "Curated shelves [shipped]" — no assumption children
   await p.waitForTimeout(200);
   check('why: a zero-assumption solution shows exactly the four base rows',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Status…|＋ Add assumption|Remove branch');
@@ -672,7 +672,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why: menu Remove branch drops the solution (and its assumptions)',
-    !tRemove.includes('Smart reminders') && !tRemove.includes('users want to be interrupted at work'));
+    !tRemove.includes('Reading reminders') && !tRemove.includes('readers want a nudge mid-commute'));
   await undo();
   check('why: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
@@ -748,10 +748,10 @@ check('no console/page errors', errors.length === 0);
    startsWith('cardmenu') so the bare kind's ✖-sentinels reach the same
    subtree-removal path OST uses (keyed on data-line = e.node.srcLine, which
    render-map.js sets from the underlying why node — same source line
-   numbering as the OST view). "Smart reminders" (srcLine 5) lands in the
-   NEXT column since it's [testing]; "Streak freeze" is [delivering] → NOW.
+   numbering as the OST view). "Reading reminders" (srcLine 5) lands in the
+   NEXT column since it's [testing]; "Resume where you left off" is [delivering] → NOW.
    Both are real (non-ghost) cards; the LATER-column ghost chips
-   ("Habits feel like chores", "Progress feels invisible") render with no
+   ("Choosing the next book is work", "Progress feels invisible") render with no
    data-edit="cardmenu" at all (render.js skips it for c.it.ghost) so they
    can't open a menu — not exercised here, that's the renderer's own
    contract, not this fix's. ---- */
@@ -760,7 +760,7 @@ check('no console/page errors', errors.length === 0);
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Edit tree source'}).click();
-  await p.getByRole('button', {name: 'Habit retention'}).click();
+  await p.getByRole('button', {name: 'Reading retention'}).click();
   await p.waitForTimeout(500);
   await p.locator('#viewmap').click();
   await p.waitForTimeout(500);
@@ -787,12 +787,12 @@ check('no console/page errors', errors.length === 0);
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
-  check('why map: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Smart reminders');
+  check('why map: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Reading reminders');
   await p.locator('.eip-input').fill('Smart nudges');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
   const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why map: menu Rename commits the new title', tRename.includes('Smart nudges') && !tRename.includes('Smart reminders'));
+  check('why map: menu Rename commits the new title', tRename.includes('Smart nudges') && !tRename.includes('Reading reminders'));
   await undo();
   check('why map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
@@ -802,7 +802,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
   check('why map: menu Remove branch drops the solution (and its assumptions)',
-    !tRemove.includes('Smart reminders') && !tRemove.includes('users want to be interrupted at work'));
+    !tRemove.includes('Reading reminders') && !tRemove.includes('readers want a nudge mid-commute'));
   await undo();
   check('why map: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
@@ -812,7 +812,7 @@ check('no console/page errors', errors.length === 0);
      dynamic Rename/Status/Add/assumptions/Remove set (the OST block above
      already exercises each row end to end; this just proves the two views
      coexist on one page load without one clobbering the other). Nothing in
-     this map-view block permanently mutated "Smart reminders"'s two
+     this map-view block permanently mutated "Reading reminders"'s two
      assumptions, so both submenu rows still show their original statuses. */
   await p.locator('#viewost').click();
   await p.waitForTimeout(500);
@@ -822,7 +822,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   check('why map: switching back to OST still opens the full cardmenu-solution menu',
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-    'Inspect…|Rename…|Status…|＋ Add assumption|? users want to be interrupted at work · testing|? habit time is detectable · holds|Remove branch');
+    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch');
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
@@ -835,19 +835,19 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.waitForTimeout(500);
   /* The flagship is a plain now/next/later doc → the CHART, whose own markup
      this block exercises (the lane×horizon cell-ghost additem, the cell drag,
      a card menu with no Lane… row). Board's edit/drag coverage lives in the
      dedicated board blocks elsewhere in this file. */
-  await p.locator('[data-edit="title"]', {hasText: 'Streak freeze'}).first().click();
+  await p.locator('[data-edit="title"]', {hasText: 'Resume where you left off'}).first().click();
   await p.waitForTimeout(200);
-  await p.locator('.eip-input').fill('Streak shield');
+  await p.locator('.eip-input').fill('Resume shield');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
   const t = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: title rename lands', t.includes('Streak shield [doing]'));
+  check('roadmap: title rename lands', t.includes('Resume shield [doing]'));
   await p.locator('[data-edit="status"][data-raw="risk"]').first().click();
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'blocked'}).click();
@@ -865,7 +865,7 @@ check('no console/page errors', errors.length === 0);
   check('roadmap: cell ghost adds a lane-prefixed item', t3.includes('Growth: EIP suite added'));
 
   /* ---- card menu: tap the card BODY (the invisible data-hit rect, not a
-     field) opens the menu; "Streak shield" carries both a note and a status so
+     field) opens the menu; "Resume shield" carries both a note and a status so
      the Edit-note/Status rows aren't vacuous. Each action gets its own round
      trip: commit, assert, ONE Meta+z, assert full revert back to the pre-menu
      baseline before the next action starts clean.
@@ -892,7 +892,7 @@ check('no console/page errors', errors.length === 0);
     await p.waitForTimeout(500);
   };
 
-  await tapCard("Streak shield");
+  await tapCard("Resume shield");
   await p.waitForTimeout(200);
   /* the flagship example declares a bet, so every card carries Condition… */
   check('roadmap: card body tap opens the menu with the expected rows',
@@ -900,16 +900,16 @@ check('no console/page errors', errors.length === 0);
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
-  check('roadmap: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Streak shield');
-  await p.locator('.eip-input').fill('Streak anchor');
+  check('roadmap: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Resume shield');
+  await p.locator('.eip-input').fill('Resume anchor');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
   const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: menu Rename commits the new title', tRename.includes('Streak anchor [doing]') && !tRename.includes('Streak shield'));
+  check('roadmap: menu Rename commits the new title', tRename.includes('Resume anchor [doing]') && !tRename.includes('Resume shield'));
   await undo();
   check('roadmap: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await tapCard("Streak shield");
+  await tapCard("Resume shield");
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.waitForTimeout(200);
@@ -917,7 +917,7 @@ check('no console/page errors', errors.length === 0);
   await p.locator('.eip-pop button', {hasText: 'blocked'}).click();
   await p.waitForTimeout(600);
   const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: menu Status pick commits the new status', tStatus.includes('Streak shield [blocked]'));
+  check('roadmap: menu Status pick commits the new status', tStatus.includes('Resume shield [blocked]'));
   await undo();
   check('roadmap: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
@@ -925,7 +925,7 @@ check('no console/page errors', errors.length === 0);
      marked `on`); picking a different one is the phone replacement for
      dragging the card across columns — same undo/round-trip contract as
      every other menu row. */
-  await tapCard("Streak shield");
+  await tapCard("Resume shield");
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
   await p.waitForTimeout(200);
@@ -937,16 +937,16 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: Move to… Next relocates the item into the NEXT section',
-    tMove.indexOf('Streak shield [doing]') > tMove.indexOf('NEXT') && tMove.indexOf('NEXT') > tMove.indexOf('NOW'));
+    tMove.indexOf('Resume shield [doing]') > tMove.indexOf('NEXT') && tMove.indexOf('NEXT') > tMove.indexOf('NOW'));
   await undo();
   check('roadmap: one undo restores the pre-move baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  await tapCard("Streak shield");
+  await tapCard("Resume shield");
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: menu Remove drops the card', !tRemove.includes('Streak shield'));
+  check('roadmap: menu Remove drops the card', !tRemove.includes('Resume shield'));
   await undo();
   check('roadmap: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
@@ -984,7 +984,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.waitForTimeout(500);
 
   const title = 'Home-screen widget gallery';   // NEXT/Growth: shipped with no status, no note
@@ -1987,7 +1987,7 @@ check('no console/page errors', errors.length === 0);
   const mpage = await mctx.newPage();
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await mpage.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await mpage.getByRole('button', {name: 'Reading app roadmap'}).click();
   await mpage.waitForTimeout(600);
 
   /* coarse menu-first redirect: tap the CENTRE of the title text itself — a
@@ -2000,7 +2000,7 @@ check('no console/page errors', errors.length === 0);
      block above: pinning the shipped example's line numbers makes this suite a
      hostage of that example's content. */
   const mLine = await mpage.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: 'Streak freeze'}).first().getAttribute('data-line');
+    .filter({hasText: 'Resume where you left off'}).first().getAttribute('data-line');
   {
     const titleField = mpage.locator('#preview svg [data-edit="title"][data-line="' + mLine + '"]').first();
     await titleField.scrollIntoViewIfNeeded();
@@ -2034,11 +2034,11 @@ check('no console/page errors', errors.length === 0);
   check('roadmap narrow: a touch INTO the input does not dismiss it (away-listener leak)',
     await mpage.locator('.eip-input').count() === 1);
 
-  await mpage.locator('.eip-input').fill('Streak point');
+  await mpage.locator('.eip-input').fill('Resume point');
   await mpage.keyboard.press('Enter');
   await mpage.waitForTimeout(600);
   check('roadmap narrow: commit lands after the away-tap proof',
-    (await mpage.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Streak point [doing]'));
+    (await mpage.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Resume point [doing]'));
   check('roadmap narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
@@ -2053,7 +2053,7 @@ check('no console/page errors', errors.length === 0);
   await p.getByRole('button', {name: 'Assumption map'}).click();
   await p.waitForTimeout(600);
 
-  /* "Users will log habits daily" (srcLine 3) carries a `test:` field so the
+  /* "Readers finish the first book they start" (srcLine 3) carries a `test:` field so the
      Edit-field row isn't vacuous. Unlike roadmap, map's data-hit rect is snug
      around the capsule (same width as the label) — its geometric CENTRE
      lands on a glyph, which both fails Playwright's actionability check and
@@ -2089,7 +2089,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(200);
   check('map: Inspect opens the textual decision receipt beside the artefact',
     !(await p.locator('#margin').isHidden()) &&
-    await p.locator('#margin').getByRole('heading', {name: 'Users will log habits daily'}).count() === 1);
+    await p.locator('#margin').getByRole('heading', {name: 'Readers finish the first book they start'}).count() === 1);
   await p.locator('#margin button', {hasText: 'Close'}).click();
   await p.waitForTimeout(150);
   check('map: closing the receipt restores focus to the originating menu target',
@@ -2119,12 +2119,12 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(150);
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
   await p.waitForTimeout(200);
-  check('map: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Users will log habits daily');
-  await p.locator('.eip-input').fill('Users log habits nightly');
+  check('map: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Readers finish the first book they start');
+  await p.locator('.eip-input').fill('Readers finish what they start each night');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
   const tRename = await p.evaluate(() => localStorage.getItem('map-src'));
-  check('map: menu Rename commits the new label', tRename.includes('Users log habits nightly') && !tRename.includes('Users will log habits daily'));
+  check('map: menu Rename commits the new label', tRename.includes('Readers finish what they start each night') && !tRename.includes('Readers finish the first book they start'));
   await undo();
   check('map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
 
@@ -2146,7 +2146,7 @@ check('no console/page errors', errors.length === 0);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('map-src'));
-  check('map: menu Remove drops the card', !tRemove.includes('Users will log habits daily'));
+  check('map: menu Remove drops the card', !tRemove.includes('Readers finish the first book they start'));
   await undo();
   check('map: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
 
@@ -2163,7 +2163,7 @@ check('no console/page errors', errors.length === 0);
   await p.mouse.click(plane0.x + plane0.width * 0.25, plane0.y + plane0.height * 0.25);
   await p.waitForTimeout(600);
   check('map: the place-tap writes @ 25,75 as one text edit',
-    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Users will log habits daily @ 25,75'));
+    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Readers finish the first book they start @ 25,75'));
   check('map: placement disarms after the tap', await p.locator('.placehint').count() === 0);
   await undo();
   check('map: one undo restores the pre-move baseline',
@@ -2193,12 +2193,12 @@ check('no console/page errors', errors.length === 0);
   await p.mouse.click(plane0.x + plane0.width * 0.6, plane0.y + plane0.height * 0.3);
   await p.waitForTimeout(600);
   check('map: placing the tray item writes @ 60,70 (leaves the tray)',
-    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Legal sign-off on health claims @ 60,70'));
+    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Legal sign-off on publisher licensing @ 60,70'));
   await undo();
   check('map: one undo restores the pre-place baseline',
     (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
 
-  /* real mouse drag: "Streak anxiety drives churn" (@ 75,80) dropped near
+  /* real mouse drag: "Abandoned books drive churn" (@ 75,80) dropped near
      the plane centre rewrites its position and must NOT open a card menu */
   const plane = await p.locator('#preview svg rect[data-plane]').boundingBox();
   const dragSrc = await cardBody(4).boundingBox();
@@ -2211,7 +2211,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(500);
   const tDrag = await p.evaluate(() => localStorage.getItem('map-src'));
   check('map: real drag moves the card (position rewritten)',
-    /Streak anxiety drives churn @ \d+,\d+/.test(tDrag) && !tDrag.includes('Streak anxiety drives churn @ 75,80'));
+    /Abandoned books drive churn @ \d+,\d+/.test(tDrag) && !tDrag.includes('Abandoned books drive churn @ 75,80'));
   check('map: drag does not open the card menu', await p.locator('.eip-pop').count() === 0);
 
   check('map: no console/page errors', errs.length === 0);
@@ -2280,11 +2280,11 @@ check('no console/page errors', errors.length === 0);
   check('map narrow: a touch INTO the input does not dismiss it (away-listener leak)',
     await mpage.locator('.eip-input').count() === 1);
 
-  await mpage.locator('.eip-input').fill('Habit logging cools off');
+  await mpage.locator('.eip-input').fill('Reading sessions get shorter');
   await mpage.keyboard.press('Enter');
   await mpage.waitForTimeout(600);
   check('map narrow: commit lands after the away-tap proof',
-    (await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Habit logging cools off'));
+    (await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Reading sessions get shorter'));
   check('map narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
@@ -2296,10 +2296,10 @@ check('no console/page errors', errors.length === 0);
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await mpage.getByRole('button', {name: 'Edit tree source'}).click();
-  await mpage.getByRole('button', {name: 'Habit retention'}).click();
+  await mpage.getByRole('button', {name: 'Reading retention'}).click();
   await mpage.waitForTimeout(600);
 
-  /* "Smart reminders" (srcLine 5) is a solution card: tap its LABEL text
+  /* "Reading reminders" (srcLine 5) is a solution card: tap its LABEL text
      (a [data-edit="label"] field that shares the card's own srcLine — unlike
      its assumption rows, which are authored on THEIR OWN line and correctly
      stay direct, same as map's readout panel). The label sits fully inside
@@ -2381,24 +2381,24 @@ check('no console/page errors', errors.length === 0);
   };
 
   // name edit commits to the editor text and every edge mention
-  await wpage.locator('text[data-edit="name"]', {hasText: 'User DB'}).first().click();
+  await wpage.locator('text[data-edit="name"]', {hasText: 'Catalogue DB'}).first().click();
   await wpage.waitForTimeout(200);
-  check('wardley: name editor opens prefilled', await wpage.locator('.eip-input').inputValue() === 'User DB');
+  check('wardley: name editor opens prefilled', await wpage.locator('.eip-input').inputValue() === 'Catalogue DB');
   await wpage.locator('.eip-input').fill('Postgres');
   await wpage.keyboard.press('Enter');
   await wpage.waitForTimeout(500);
   const wsrc = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
-  check('wardley: rename hits declaration + edges', wsrc.includes('Postgres @ commodity') && wsrc.includes('-> Postgres') && !wsrc.includes('User DB'));
+  check('wardley: rename hits declaration + edges', wsrc.includes('Postgres @ commodity') && wsrc.includes('-> Postgres') && !wsrc.includes('Catalogue DB'));
 
   // stage cycle: click the pill rect steps custom -> product
   // the text element covers the pill centre (that's the name target) — cycle stage from the capsule's edge
   await wpage.locator('rect[data-edit="stage"][data-raw="custom"]').first().click({position: {x: 8, y: 13}});
   await wpage.waitForTimeout(400);
   const wsrc2 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
-  check('wardley: stage cycle writes the next stage word', wsrc2.includes('Streak engine @ product'));
+  check('wardley: stage cycle writes the next stage word', wsrc2.includes('Recommendations @ product'));
 
   // real mouse drag writes a numeric position; Cmd+Z restores it
-  const pill = wpage.locator('#preview svg g[data-drag="evo"]', {hasText: 'Habit builder'}).first();
+  const pill = wpage.locator('#preview svg g[data-drag="evo"]', {hasText: 'Library'}).first();
   const box = await pill.boundingBox();
   await wpage.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await wpage.mouse.down();
@@ -2406,15 +2406,15 @@ check('no console/page errors', errors.length === 0);
   await wpage.mouse.up();
   await wpage.waitForTimeout(500);
   const wsrc3 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
-  check('wardley: drag writes @ 0.NN', /Habit builder @ 0\.\d+/.test(wsrc3));
+  check('wardley: drag writes @ 0.NN', /Library @ 0\.\d+/.test(wsrc3));
   await focusWardleySource();
   await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(400);
   const wsrc4 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
-  check('wardley: Cmd+Z undoes the drag', wsrc4.includes('Habit builder @ product'));
+  check('wardley: Cmd+Z undoes the drag', wsrc4.includes('Library @ product'));
 
   // vertical drag leaves the text untouched
-  const pill2 = wpage.locator('#preview svg g[data-drag="evo"]', {hasText: 'Streak engine'}).first();
+  const pill2 = wpage.locator('#preview svg g[data-drag="evo"]', {hasText: 'Recommendations'}).first();
   const box2 = await pill2.boundingBox();
   await wpage.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
   await wpage.mouse.down();
@@ -2464,20 +2464,20 @@ check('no console/page errors', errors.length === 0);
   const wsrc9 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
   check('wardley: one undo restores the full pre-removal text (applyLineOps one history event)', wsrc9 === wsrc7);
 
-  // remove a LINKED component (Streak engine sits in two chains) — this is the
+  // remove a LINKED component (Recommendations sits in two chains) — this is the
   // multi-op removal (declaration delete + edge splices/deletes) that
   // applyLineOps exists for; the earlier Cache remove was single-op
-  await wpage.locator('[data-edit="componentmenu"][data-raw="Streak engine"]').first().click();
+  await wpage.locator('[data-edit="componentmenu"][data-raw="Recommendations"]').first().click();
   await wpage.waitForTimeout(200);
   await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
   await wpage.waitForTimeout(500);
   const wsrc10 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
-  check('wardley: linked remove splices the chains (no -> Streak engine, no Streak engine ->, no declaration)',
-    !/->\s*streak engine|streak engine\s*->|streak engine\s*@/i.test(wsrc10));
-  // the 3-chain "… -> Habit builder -> Streak engine -> <end>" must splice to
-  // "… -> Habit builder -> <end>" — endpoint name is whatever earlier steps
+  check('wardley: linked remove splices the chains (no -> Recommendations, no Recommendations ->, no declaration)',
+    !/->\s*recommendations|recommendations\s*->|recommendations\s*@/i.test(wsrc10));
+  // the 3-chain "… -> Library -> Recommendations -> <end>" must splice to
+  // "… -> Library -> <end>" — endpoint name is whatever earlier steps
   // renamed it to, so assert the join, not the name
-  check('wardley: the 3-chain kept its ends after the splice', /habit tracking\s*->\s*habit builder\s*->\s*\S/i.test(wsrc10));
+  check('wardley: the 3-chain kept its ends after the splice', /reading\s*->\s*library\s*->\s*\S/i.test(wsrc10));
   await wpage.locator('.cm-content').click();
   await wpage.keyboard.press('ControlOrMeta+z');
   await wpage.waitForTimeout(500);
@@ -2539,11 +2539,11 @@ check('no console/page errors', errors.length === 0);
   /* ---- mobile-input wardley stage: EDGES become phone-editable. The ⋯ menu
      grows a Needs… submenu — every OTHER component as a marked toggle row
      (on = "this -> that" exists); a tap toggles the edge via addEdge/removeEdge,
-     the chain-splitting rewrite. State here is the pristine Habitat example
+     the chain-splitting rewrite. State here is the pristine Lantern example
      (the Inbox add/place/remove round-tripped). ---- */
   const wSrc = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
-  // open Habit builder's ⋯ → the menu carries Needs… above the danger Remove
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Habit builder"]').first());
+  // open Library's ⋯ → the menu carries Needs… above the danger Remove
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
   await mpage.waitForTimeout(200);
   check('wardley needs: the ⋯ menu shows the Needs… row',
     await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
@@ -2553,26 +2553,26 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(200);
   check('wardley needs: checklist lists every OTHER component (anchor + self absent)',
     await mpage.locator('.eip-pop button').count() === 6 &&
-    await mpage.locator('.eip-pop button', {hasText: 'Habit builder'}).count() === 0 &&
-    await mpage.locator('.eip-pop button', {hasText: 'Habit tracking'}).count() === 0);
+    await mpage.locator('.eip-pop button', {hasText: 'Library'}).count() === 0 &&
+    await mpage.locator('.eip-pop button', {hasText: 'Reading'}).count() === 0);
   check('wardley needs: exactly the existing deps are marked on',
     (await mpage.locator('.eip-pop button.on').allInnerTexts()).sort().join('|') ===
-    'Notification service|Streak engine');
+    'Notification service|Recommendations');
   check('wardley needs: opening menu + checklist commits NOTHING (no silent commit)',
     (await wSrc()) === msrc3);
   check('wardley needs: no page h-scroll with the checklist open', await mpage.evaluate(() =>
     document.documentElement.scrollWidth <= innerWidth + 1));
 
-  // toggle OFF the MID-CHAIN pair: Habit builder -> Streak engine sits in the
-  // middle of "Habit tracking -> Habit builder -> Streak engine -> User DB" —
+  // toggle OFF the MID-CHAIN pair: Library -> Recommendations sits in the
+  // middle of "Reading -> Library -> Recommendations -> Catalogue DB" —
   // the split must leave both halves as their own chains
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Streak engine'}));
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Recommendations'}));
   await mpage.waitForTimeout(600);
   const wsrc1 = await wSrc();
   check('wardley needs: mid-chain toggle OFF splits the chain into two 2-node chains',
-    /^Habit tracking -> Habit builder$/m.test(wsrc1) &&
-    /^Streak engine -> User DB$/m.test(wsrc1) &&
-    !/Habit builder\s*->\s*Streak engine/.test(wsrc1));
+    /^Reading -> Library$/m.test(wsrc1) &&
+    /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
+    !/Library\s*->\s*Recommendations/.test(wsrc1));
   check('wardley needs: the map redraws with one fewer dependency',
     await mpage.locator('#preview svg text', {hasText: '8 dependencies'}).count() === 1);
   check('wardley needs: coarse toggle does NOT focus the editor', await mpage.evaluate(() =>
@@ -2582,16 +2582,16 @@ check('no console/page errors', errors.length === 0);
   check('wardley needs: ONE ↶ Undo restores the split chain (single dispatch)',
     (await wSrc()) === msrc3);
 
-  // toggle ON: Social feed gains "needs User DB" — a fresh 2-node line appends
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Social feed"]').first());
+  // toggle ON: Book clubs gains "needs Catalogue DB" — a fresh 2-node line appends
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
   await mpage.waitForTimeout(200);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
   await mpage.waitForTimeout(200);
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'User DB'}));
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
   await mpage.waitForTimeout(600);
   const wsrc2 = await wSrc();
   check('wardley needs: toggle ON appends the edge as its own line',
-    /^Social feed -> User DB$/m.test(wsrc2));
+    /^Book clubs -> Catalogue DB$/m.test(wsrc2));
   check('wardley needs: the map redraws with the new dependency counted',
     await mpage.locator('#preview svg text', {hasText: '10 dependencies'}).count() === 1);
 
@@ -2601,13 +2601,13 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(800);
   check('wardley needs: the wide map draws the added edge (10 arrows)',
     await mpage.locator('#preview svg .edge').count() === 10);
-  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Social feed"]').first());
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
   await mpage.waitForTimeout(200);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
   await mpage.waitForTimeout(200);
   check('wardley needs: wide checklist marks the just-added dep on',
-    await mpage.locator('.eip-pop button.on', {hasText: 'User DB'}).count() === 1);
-  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'User DB'}));
+    await mpage.locator('.eip-pop button.on', {hasText: 'Catalogue DB'}).count() === 1);
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
   await mpage.waitForTimeout(600);
   check('wardley needs: wide toggle OFF deletes the whole single-edge line (back to baseline)',
     (await wSrc()) === msrc3 &&
@@ -2716,7 +2716,7 @@ check('no console/page errors', errors.length === 0);
      round-trip contract as the timeline pilot block above: commit, assert,
      ONE touch-Undo, assert full revert before the next action. ---- */
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-  await mpage.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await mpage.getByRole('button', {name: 'Lantern portfolio'}).click();
   await mpage.waitForTimeout(800);
   const btNarrow = await mpage.evaluate(() => ({
     narrow: !!document.querySelector('#preview svg [data-narrow]'),
@@ -3114,7 +3114,7 @@ insure: premium 6 attach 65 limit 30`;
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await p.getByRole('button', {name: 'Lantern portfolio'}).click();
   await p.waitForTimeout(500);
   const baseline = await p.evaluate(() => localStorage.getItem('bets-src'));
   const undo = async () => {
@@ -3241,7 +3241,7 @@ insure: premium 6 attach 65 limit 30`;
   const dp = await browser.newPage({viewport: {width: 420, height: 900}});
   const derrs = trackErrors(dp);
   await dp.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
-  await dp.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await dp.getByRole('button', {name: 'Lantern portfolio'}).click();
   await dp.waitForTimeout(600);
   check('bets desktop-narrow: a fine-pointer narrow viewport still relayouts (data-narrow)',
     await dp.evaluate(() => !!document.querySelector('#preview svg [data-narrow]')));
@@ -3286,7 +3286,7 @@ insure: premium 6 attach 65 limit 30`;
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
     await p.getByRole('button', {name: 'Edit tree source'}).click();
-    await p.getByRole('button', {name: 'Habit retention'}).click();
+    await p.getByRole('button', {name: 'Reading retention'}).click();
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
     await settledTap(p, p.locator('[data-edit="astatus"][data-raw="testing"]').first());
@@ -3302,7 +3302,7 @@ insure: premium 6 attach 65 limit 30`;
     await p.waitForTimeout(700);
     const picked = await p.evaluate(() => localStorage.getItem('why-src'));
     check('phone why: picking commits EXACTLY the picked value (not "next in cycle")',
-      picked.includes('? users want to be interrupted at work [holds]'));
+      picked.includes('? readers want a nudge mid-commute [holds]'));
     /* Rule 2: the touch Undo button reverts through the editor's history */
     await settledTap(p, p.locator('.actions .touch-undo'));
     await p.waitForTimeout(600);
@@ -3338,7 +3338,7 @@ insure: premium 6 attach 65 limit 30`;
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
     await p.getByRole('button', {name: 'Edit tree source'}).click();
-    await p.getByRole('button', {name: 'Habit retention'}).click();
+    await p.getByRole('button', {name: 'Reading retention'}).click();
     await p.waitForTimeout(700);
     const inCm = () => p.evaluate(() => !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.cm-editor')));
     await sliverTap(p, p.locator('#preview svg rect[data-edit^="cardmenu"][data-hit]').first());
@@ -3417,7 +3417,7 @@ insure: premium 6 attach 65 limit 30`;
     const expY = Math.round((1 - (tapY - plane.y) / plane.height) * 100);
     await p.touchscreen.tap(tapX, tapY);
     await p.waitForTimeout(700);
-    const mPlaced = (await p.evaluate(() => localStorage.getItem('map-src'))).match(/Users will log habits daily @ (\d+),(\d+)/);
+    const mPlaced = (await p.evaluate(() => localStorage.getItem('map-src'))).match(/Readers finish the first book they start @ (\d+),(\d+)/);
     check('phone map: the place-tap writes @ x,y within ±2 of the tapped point',
       mPlaced && Math.abs(+mPlaced[1] - expX) <= 2 && Math.abs(+mPlaced[2] - expY) <= 2);
     check('phone map: placement disarms after the tap', await p.locator('.placehint').count() === 0);
@@ -3456,7 +3456,7 @@ insure: premium 6 attach 65 limit 30`;
     const p = await mctx.newPage();
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-    await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+    await p.getByRole('button', {name: 'Reading app roadmap'}).click();
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
     await sliverTap(p, p.locator('#preview svg g[data-edit="cardmenu"] rect[data-hit]').first());
@@ -3566,7 +3566,7 @@ names: off
 
 We ship the referral loop :: prob
 Weeks to migrate billing :: range weeks
-Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
+Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   const gEnc = t => Buffer.from(JSON.stringify({t}), 'utf8').toString('base64');
   const gSrc = () => mpage.evaluate(() => localStorage.getItem('gauge-src'));
   const gTap = async sel => {
@@ -3635,18 +3635,18 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
   // --- chip options: add (one-tap), rename, remove (coarse danger confirm) ---
   await gTap('[data-edit="addopt"][data-line="5"]');
   check('gauge: ＋ Add option one-taps a 4th option (no popover)',
-    /:: chips Streak overhaul \| Social feed \| Onboarding polish \| Option D$/m.test(await gSrc()) &&
+    /:: chips Offline downloads \| Book clubs \| Onboarding polish \| Option D$/m.test(await gSrc()) &&
     await mpage.locator('.eip-pop').count() === 0);
   check('gauge: coarse add-option opts OUT of editor focus', !(await inCm()));
   await gUndo();
   check('gauge: one Undo removes the added option', (await gSrc()) === gBase);
 
   await gTap('[data-edit="opt"][data-line="5"][data-opt="0"]');
-  check('gauge: chip option opens prefilled with its label', await mpage.locator('.eip-input').inputValue() === 'Streak overhaul');
-  await mpage.locator('.eip-input').fill('Streak v2');
+  check('gauge: chip option opens prefilled with its label', await mpage.locator('.eip-input').inputValue() === 'Offline downloads');
+  await mpage.locator('.eip-input').fill('Resume v2');
   await mpage.keyboard.press('Enter');
   await mpage.waitForTimeout(400);
-  check('gauge: option rename rewrites just that option', /:: chips Streak v2 \| Social feed \| Onboarding polish$/m.test(await gSrc()));
+  check('gauge: option rename rewrites just that option', /:: chips Resume v2 \| Book clubs \| Onboarding polish$/m.test(await gSrc()));
   await gUndo();
   check('gauge: one Undo reverts the option rename', (await gSrc()) === gBase);
 
@@ -3657,7 +3657,7 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
     (await gSrc()) === gBase);
   await mpage.locator('.eip-pop button.danger').click();
   await mpage.waitForTimeout(400);
-  check('gauge: confirming drops that option', /:: chips Streak overhaul \| Onboarding polish$/m.test(await gSrc()));
+  check('gauge: confirming drops that option', /:: chips Offline downloads \| Onboarding polish$/m.test(await gSrc()));
   await gUndo();
   check('gauge: one Undo restores the removed option', (await gSrc()) === gBase);
 

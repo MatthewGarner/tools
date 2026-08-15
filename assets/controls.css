@@ -91,6 +91,9 @@
    cascade-override. */
 .chips .lead{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted)}
+/* on-ramp chip: opens the row, accented so it reads as the way in (why: app-common.js) */
+.chip.start{border-color:var(--accent);color:var(--accent-ink)}
+.chip.start:hover{background:var(--accent);color:var(--bg)}
 #warns{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--err)}
 .savedchip{display:inline-flex;align-items:stretch;border:1px solid var(--border);
   border-radius:0;overflow:hidden}

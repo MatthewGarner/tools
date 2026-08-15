@@ -497,7 +497,7 @@ export function renderMap(model, layout, ctx, opts = {}){
   let planeH = Math.max(layout.h + keyH, compareInfo ? compareInfo.maxY + 64 : 0);
   /* edit chrome only: the add-zones form one row below the LOWEST pill in the
      whole plane (collision nudges push bottom-row pills down, so a fixed
-     y collides — User DB in the default example). Grow the plane to fit, only
+     y collides — Catalogue DB in the default example). Grow the plane to fit, only
      under edit → the no-edit goldens/exports stay byte-identical. */
   let zoneY = 0;
   if(opts.edit){

@@ -5,11 +5,11 @@ import {isValidDate, parse, parseCondition} from '../parse.js';
 const complete = (name, extra = '') => `decision ${name}:\n  question: ${name}?\n  signal: signal\n  owner: owner\n  answer-by: 2026-12-15${extra}`;
 
 test('state machine keeps decision blocks across blanks and switches cleanly into periods', () => {
-  const model = parse(`title: Habitat\n\ndecision groups:\n  question: Groups?\n\n  signal: invites\n  owner: growth\n  answer-by: 2026-12-15\nNOW\n  Core: Streak repair [if groups]`);
-  assert.equal(model.title, 'Habitat');
+  const model = parse(`title: Lantern\n\ndecision groups:\n  question: Groups?\n\n  signal: invites\n  owner: growth\n  answer-by: 2026-12-15\nNOW\n  Core: Resume position fix [if groups]`);
+  assert.equal(model.title, 'Lantern');
   assert.equal(model.decisions[0].signal, 'invites');
   assert.equal(model.periods[0].name, 'NOW');
-  assert.equal(model.items[0].title, 'Streak repair');
+  assert.equal(model.items[0].title, 'Resume position fix');
   assert.deepEqual(model.warnings, []);
 });
 

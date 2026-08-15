@@ -14,13 +14,13 @@ const ctx = {
 const mapLayout = (model, intent = 'native') => layoutMap(model, {measure: ctx.measure, intent, geom: GEOM});
 
 
-const SRC = `title: Habitat platform
-anchor: Habit tracking
-Streak engine @ custom
-User DB @ 0.83
+const SRC = `title: Lantern platform
+anchor: Reading
+Recommendations @ custom
+Catalogue DB @ 0.83
 Push gateway
-Habit tracking -> Streak engine -> User DB
-Streak engine -> Push gateway`;
+Reading -> Recommendations -> Catalogue DB
+Recommendations -> Push gateway`;
 
 const draw = (src = SRC, opts = {}, c = ctx) => {
   const m = parse(src);
@@ -43,7 +43,7 @@ function wellFormed(svg){
 test('board: flat plane, stage labels under the axis, axis micros, metrics, readout', () => {
   const s = draw();
   assert.match(s, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="1200"/);
-  assert.ok(s.includes('Habitat platform'));
+  assert.ok(s.includes('Lantern platform'));
   assert.ok(s.includes('3 components'));                  // header metrics line
   assert.equal((s.match(/fill="[^"]{7}14"/g) || []).length, 0, 'no terrain washes left');
   /* every stage name is a centred uppercase micro with ABSOLUTE tracking */
@@ -91,16 +91,16 @@ test('edges draw behind pills; cycle edges dashed', () => {
 });
 
 test('compare: arrow for moved, NEW ring, dropped ghost, counted headline', () => {
-  const prev = parse(`anchor: Habit tracking
-Streak engine @ 0.30
+  const prev = parse(`anchor: Reading
+Recommendations @ 0.30
 Old thing @ product
-Habit tracking -> Streak engine
-Habit tracking -> Old thing`);
-  const cur = parse(`anchor: Habit tracking
-Streak engine @ 0.55
+Reading -> Recommendations
+Reading -> Old thing`);
+  const cur = parse(`anchor: Reading
+Recommendations @ 0.55
 Fresh thing @ genesis
-Habit tracking -> Streak engine
-Habit tracking -> Fresh thing`);
+Reading -> Recommendations
+Reading -> Fresh thing`);
   const s = renderMap(cur, mapLayout(cur), ctx, {compare: {prev, label: 'March'}});
   assert.ok(s.includes('Since March: 1 drifted right · 1 new · 1 dropped'));
   assert.match(s, /class="drift-arrow"/);
@@ -122,7 +122,7 @@ test('markdown groups by stage, lists ghosts, carries the live link', async () =
   const {toMarkdown} = await import('../render.js');
   const m = parse(SRC);
   const md = toMarkdown(m, mapLayout(m), 'https://example.com/#z');
-  assert.match(md, /\*\*custom\*\*: Streak engine/);
+  assert.match(md, /\*\*custom\*\*: Recommendations/);
   assert.match(md, /unplaced: Push gateway/);
   assert.match(md, /example\.com/);
   assert.match(md, /3 dependencies/);
@@ -212,7 +212,7 @@ test('narrow: depth-grouped cards with evolution strips, no wide plane', () => {
   const s = draw(SRC, {}, narrowCtx);
   assert.ok(s.includes('data-track=""'));                          // per-card strip track
   assert.equal((s.match(/data-drag="evo"/g) || []).length, 3);     // every component draggable
-  assert.ok(s.includes('needs Streak engine'));                    // needs-lines replace edges
+  assert.ok(s.includes('needs Recommendations'));                    // needs-lines replace edges
   assert.ok(!s.includes('GENESIS'));                               // no wide terrain labels
   assert.match(s, /width="390"/);
   assert.match(s, /map|discovery|execution|load-bearing/);         // readout still present
@@ -278,7 +278,7 @@ test('edit+compare: add-zones clear the compare ghost pills too', () => {
 });
 test('add-zones sit as one row below the lowest pill in a crowded column', () => {
   // two commodity components at the same x → collision spread nudges one down;
-  // a fixed-y zone used to collide with it (User DB in the default example)
+  // a fixed-y zone used to collide with it (Catalogue DB in the default example)
   const doc = 'anchor: N\nAlpha @ 0.85\nBravo @ 0.85\nN -> Alpha\nN -> Bravo';
   const s = draw(doc, {edit: true});
   const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>＋<\/text>/g)].map(m => +m[1]);
@@ -335,7 +335,7 @@ test('dependency loops are called out inside the map as well as the readout', ()
 });
 
 test('presentation is a fixed dependency-spine slide with an explicit rule and remainder', () => {
-  const src=`title: Habitat landscape
+  const src=`title: Lantern landscape
 anchor: Need
 Experience @ genesis
 App @ product
@@ -359,5 +359,5 @@ test('narrow cards carry the same stable IDs and full labels as wide keys', () =
   const model=parse(SRC),layout=mapLayout(model,'live-narrow');
   const svg=renderMap(model,layout,narrowCtx,{intent:'live-narrow'});
   assert.ok(svg.includes('W01')&&svg.includes('W03'));
-  assert.ok(svg.includes('Streak engine')&&svg.includes('Push gateway'));
+  assert.ok(svg.includes('Recommendations')&&svg.includes('Push gateway'));
 });

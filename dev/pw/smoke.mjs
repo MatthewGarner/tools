@@ -434,7 +434,7 @@ for(const theme of ['light', 'dark']){
   await page.reload(); await page.waitForTimeout(300);
   await page.click('#newbtn'); await page.waitForTimeout(200);
   // FRAME → fill → next
-  await page.fill('[data-field="title"]', 'Habitat launch');
+  await page.fill('[data-field="title"]', 'Lantern launch');
   await page.fill('[data-field="question"]', 'We failed. Why?');
   await page.click('#next'); await page.waitForTimeout(150);
   await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(150);   // WRITE → COLLECT
@@ -468,7 +468,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(350);
   await page.reload(); await page.waitForTimeout(250);
   await page.click('#newparade'); await page.waitForTimeout(120);
-  await page.fill('[data-field="title"]', 'Habitat breakthrough');
+  await page.fill('[data-field="title"]', 'Lantern breakthrough');
   await page.fill('[data-field="question"]', 'It is a runaway success. What did we do?');
   await page.click('#next'); await page.waitForTimeout(100);
   await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(100);
@@ -855,7 +855,7 @@ for(const theme of ['light', 'dark']){
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/why/', theme);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
-  await page.getByRole('button', {name: 'Habit retention'}).click();
+  await page.getByRole('button', {name: 'Reading retention'}).click();
   await page.waitForTimeout(600);
   check('why(' + theme + '): OST view renders', await page.locator('#preview svg').count() === 1);
   const ost = await page.locator('#preview svg').innerHTML();
@@ -864,7 +864,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   const map = await page.locator('#preview svg').innerHTML();
   check('why(' + theme + '): delivery lens derives columns without claiming an operating roadmap',
-    map.includes('NOW') && map.includes('Streak freeze') &&
+    map.includes('NOW') && map.includes('Resume where you left off') &&
     (await page.locator('#viewnote').textContent()).includes('not delivery capacity or a decision plan'));
   check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
   check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
@@ -1061,10 +1061,10 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(500);
   check('wardley(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
   await page.getByRole('button', {name: 'Edit landscape source'}).click();
-  await page.getByRole('button', {name: 'Habitat platform'}).click();
+  await page.getByRole('button', {name: 'Lantern platform'}).click();
   await page.waitForTimeout(600);
   const svg = await page.locator('#preview svg').innerHTML();
-  check('wardley(' + theme + '): anchors + stage columns render', svg.includes('Habit tracking') && svg.includes('commodity'));
+  check('wardley(' + theme + '): anchors + stage columns render', svg.includes('Reading') && svg.includes('commodity'));
   check('wardley(' + theme + '): ghost renders dashed', /Analytics pipeline/.test(svg) && /stroke-dasharray/.test(svg));
   check('wardley(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('wardley(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
@@ -1077,7 +1077,7 @@ for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/bets/', theme);
   await page.waitForTimeout(500);
   check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
-  await page.getByRole('button', {name: 'Habitat portfolio'}).click();
+  await page.getByRole('button', {name: 'Lantern portfolio'}).click();
   await page.waitForTimeout(600);
   const svg = await page.locator('#preview svg').innerHTML();
   check('bets(' + theme + '): board renders the ledger', svg.includes('Referral flow v2') && svg.includes('PORTFOLIO'));
@@ -1142,7 +1142,7 @@ for(const theme of ['light', 'dark']){
       await page.locator('#railtab').click();
     }
   };
-  await page.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await page.getByRole('button', {name: 'Reading app roadmap'}).click();
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
@@ -1186,7 +1186,7 @@ for(const theme of ['light', 'dark']){
     (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
     (await page.locator('#preview svg [data-edit="cardmenu"]').count()) >= 1);
   check('roadmap: Board card resolved by title carries data-edit=cardmenu',
-    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Streak freeze'}).count()) >= 1);
+    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Resume where you left off'}).count()) >= 1);
   // WYSIWYG export: Download SVG from Board view yields the live board artefact, not the chart
   const [brd] = await Promise.all([
     page.waitForEvent('download', {timeout: 8000}),
@@ -1194,7 +1194,7 @@ for(const theme of ['light', 'dark']){
   ]);
   const brdSvg = readFileSync(await brd.path(), 'utf8');
   check('roadmap: Download SVG in Board view exports the live board (card + column content, no chart data-cell, no edit markup)',
-    /Streak freeze/.test(brdSvg) && /NOW/.test(brdSvg) &&
+    /Resume where you left off/.test(brdSvg) && /NOW/.test(brdSvg) &&
     !/data-cell/.test(brdSvg) && !/data-hdrop/.test(brdSvg) && !/data-edit=/.test(brdSvg));
   await page.waitForTimeout(300);
 
@@ -1350,6 +1350,51 @@ for(const theme of ['light', 'dark']){
   await page2.close();
 }
 
+/* ---- "Start your own": every DSL tool's on-ramp chip ----
+   Each tool autoloads an example, so the starter is the only way to reach a frame
+   that is yours. Clicking it must replace the example, render, and warn about
+   nothing — dev/starter.test.mjs proves the text parses clean, this proves the
+   chip is actually wired and reaches the screen. */
+for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your programme'],
+    ['/wardley/', 'Your landscape'], ['/map/', 'Your assumptions'], ['/why/', 'Your outcome'],
+    ['/tree/', 'Your decision'], ['/bets/', 'Your bets'], ['/paths/', 'Your plan'],
+    ['/proxy/', 'Your hunt'], ['/gauge/', 'Your session'], ['/case/', 'Your case'],
+    ['/energy/cycles/', 'Your cycle budget'], ['/energy/risk/', 'Your route to market']]){
+  const {page, errors} = await freshPage(tool);
+  await page.waitForTimeout(500);
+  /* half these tools open with the source rail collapsed (the chips live in it) */
+  if(!await page.locator('#chips').isVisible()) await page.locator('#railtab').click();
+  await page.waitForTimeout(300);
+  const chip = page.getByRole('button', {name: 'Start your own'});
+  check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);
+  await chip.click();
+  /* energy's engines settle off-thread — poll rather than guess a sleep */
+  await page.waitForFunction(m => (document.querySelector('#preview svg')?.textContent || '').includes(m),
+    marker, {timeout: 12000}).catch(() => {});
+  const svg = await page.locator('#preview svg').innerHTML().catch(() => '');
+  check(tool + ' start: the starter renders', svg.includes(marker));
+  check(tool + ' start: the starter raises no warnings',
+    (await page.locator('#warns li').count()) === 0);
+  check(tool + ' start: no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* rank's grid is a table, not an SVG, and its chip row is hand-rolled — same
+   on-ramp, checked in its own shape. */
+{
+  const {page, errors} = await freshPage('/rank/');
+  await page.waitForTimeout(500);
+  const chip = page.getByRole('button', {name: 'Start your own'});
+  check('/rank/ start: the chip is present and opens the row', await chip.count() === 1);
+  await chip.click();
+  await page.waitForTimeout(600);
+  const rows = await page.locator('#rows').innerHTML();
+  check('/rank/ start: the starter grid replaces the example',
+    rows.includes('Your first initiative') && !rows.includes('Resume position'));
+  check('/rank/ start: no console errors', errors.length === 0);
+  await page.close();
+}
+
 console.log(results.join('\n'));
 await browser.close();
-report('smoke', {...tally(results), min: 150});
+report('smoke', {...tally(results), min: 200});

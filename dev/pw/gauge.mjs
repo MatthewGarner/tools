@@ -281,7 +281,7 @@ try{
       await page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Submitted'));
       return {page, errs};
     }
-    /* stated = Streak overhaul (2 first choices), conviction = Social feed (165 chips) */
+    /* stated = Offline downloads (2 first choices), conviction = Book clubs (165 chips) */
     const cA = await chipsParticipant([40, 30, 30]);
     const cB = await chipsParticipant([45, 35, 20]);
     const cC = await chipsParticipant([0, 100, 0]);

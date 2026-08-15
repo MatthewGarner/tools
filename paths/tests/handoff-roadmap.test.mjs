@@ -20,7 +20,7 @@ test('assignment keys are canonical and reject malformed maps', () => {
 });
 
 test('a non-first assignment inside a merged Possible Plan becomes its own exact Roadmap', () => {
-  const source = doc(`title: Habitat\npalette: plum\naccent: #445566\n${decision('x')}\n${decision('y')}`, {
+  const source = doc(`title: Lantern\npalette: plum\naccent: #445566\n${decision('x')}\n${decision('y')}`, {
     now:'  Core: Shared',
     next:'  Growth: Either route [risk] [if x or y] -- Preserve this note -> https://example.test/either',
     later:'  Growth: Neither route [if not x and not y]',
@@ -42,13 +42,13 @@ test('a non-first assignment inside a merged Possible Plan becomes its own exact
   assert.equal(built.ok, true);
   assert.doesNotMatch(built.text, /\[(?:if|unless)\b|\[bet:/i);
   const target = parseRoadmap(built.text);
-  assert.equal(target.title, 'Habitat — delivery projection');
+  assert.equal(target.title, 'Lantern — delivery projection');
   assert.equal(target.dateStr, '2026-08-12');
   assert.equal(target.wip, 0);
   assert.equal(target.palette, 'plum');
   assert.equal(target.accent, '#445566');
   assert.deepEqual(target.basis, {
-    source:'Habitat', answered:[], assumed:[
+    source:'Lantern', answered:[], assumed:[
       {key:'x', direction:'no', date:'2026-08-12'},
       {key:'y', direction:'yes', date:'2026-08-12'},
     ], srcLine:3,

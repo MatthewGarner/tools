@@ -18,6 +18,7 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../asset
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 paintKicker($('kicker'), '17', 'Test the measure, not the story');
@@ -197,7 +198,7 @@ $('viewreceipt').addEventListener('click', focusReceipt);
 watchNarrowBucket(preview, () => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 onThemeChange(() => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 
-exampleChips($('chips'), EXAMPLES, example => { selectedTheoryId = null; editor.setText(example.src); });
+exampleChips($('chips'), EXAMPLES, example => { selectedTheoryId = null; editor.setText(example.src); }, {start: {src: STARTER}});
 const SAVED_KEY = 'proxy-saved';
 function renderSaved(){
   const host = $('savedrow');

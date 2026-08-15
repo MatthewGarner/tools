@@ -4,9 +4,9 @@ import {parse} from '../parse.js';
 import {roadmapToMarkdown, markdownToRoadmapDsl} from '../markdown.js';
 
 test('markdown export keeps the established plain-roadmap shape', () => {
-  const model = parse('title: Habitat\nheadline: Learn first\nNOW\nCore: Probe [doing] -- Talk to users\nNEXT\nCore: Ship');
+  const model = parse('title: Lantern\nheadline: Learn first\nNOW\nCore: Probe [doing] -- Talk to users\nNEXT\nCore: Ship');
   assert.equal(roadmapToMarkdown(model, {href: 'https://tools.example/roadmap/#x'}),
-    '## Habitat\n\n_Learn first_\n\n### Now\n\n- **Core:** Probe _(in progress)_ — Talk to users\n\n### Next\n\n- **Core:** Ship\n\n_[Live roadmap](https://tools.example/roadmap/#x)_');
+    '## Lantern\n\n_Learn first_\n\n### Now\n\n- **Core:** Probe _(in progress)_ — Talk to users\n\n### Next\n\n- **Core:** Ship\n\n_[Live roadmap](https://tools.example/roadmap/#x)_');
 });
 
 test('markdown round-trips basis, generated horizons, conditional work, declared spans and safe links', () => {

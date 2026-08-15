@@ -16,12 +16,12 @@ const ctx = (extra = {}) => ({
 const DOC = [
   'title: Q3 retention',
   'outcome: Improve 90-day retention',
-  '  Users forget mid-afternoon habits',
-  '    Smart reminders [testing]',
+  '  Readers lose their place between sessions',
+  '    Reading reminders [testing]',
   '      ? users want to be interrupted',
-  '    Streak freeze [delivering]',
+  '    Resume where you left off [delivering]',
   '      ? freezes reduce churn [holds]',
-  '  Habits feel like chores',
+  '  Choosing the next book is work',
   '  Orphan feature [delivering]',
 ].join('\n');
 const run = (renderer, doc = DOC, extra = {}) => {
@@ -34,11 +34,11 @@ test('map view: outcome band, opportunity lanes, ghost chip, audit badges', () =
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
   assert.ok(svg.includes('IMPROVE 90-DAY RETENTION'), 'outcome band header');
-  assert.ok(svg.includes('Streak freeze'));
-  assert.ok(svg.includes('HABITS FEEL'), 'unaddressed opportunity is a lane');
+  assert.ok(svg.includes('Resume where you left off'));
+  assert.ok(svg.includes('CHOOSING THE NEXT'), 'unaddressed opportunity is a lane');
   assert.ok(svg.includes('no committed solution yet'), 'ghost chip instead of repeated title');
   assert.ok(svg.includes('stroke-dasharray'), 'ghost card dashed');
-  assert.ok(svg.includes('UNTESTED BET'), 'smart reminders flagged');
+  assert.ok(svg.includes('UNTESTED BET'), 'reading reminders flagged');
   assert.ok(svg.includes('NO WHY'), 'orphan flagged');
 });
 
@@ -180,8 +180,8 @@ test('map view: golden fixture (no broken assumptions) is byte-identical to the 
       brand:'#E2231A', brandText:'#D62015'},
     measure: (t) => t.length * 7,
   };
-  const doc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Smart reminders [testing]\n      ? wanted\n' +
-    '    Streak freeze [delivering]\n      ? works [holds]\n  Chores feeling\n  Orphan [delivering]';
+  const doc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n      ? wanted\n' +
+    '    Resume where you left off [delivering]\n      ? works [holds]\n  Choosing is work\n  Orphan [delivering]';
   const m = parse(doc);
   const pr = project(m);
   const svg = renderMap(m, pr, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');

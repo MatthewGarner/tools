@@ -5,26 +5,26 @@ import {renderFocusLive} from '../render-focus.js';
 
 const measure = (s, f) => (s ? s.length : 0) * ((/(\d+)px/.exec(f) || [])[1] || 12) * 0.55;
 const ctx = {colors: {bg:'#fff', ink:'#111', muted:'#666', border:'#ccc', card:'#fff', accent:'#c05621', err:'#c00', status:{risk:'#c05621', blocked:'#c00', doing:'#2b6'}, statusInk:{risk:'#a03', blocked:'#900'}}, measure, dark:false, today:'2026-07-04'};
-const doc = 'title: Habitat\nstyle: focus\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
+const doc = 'title: Lantern\nstyle: focus\nNOW\nCore: Resume where you left off [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront';
 
 test('edit:false emits ZERO edit markup (export/golden path)', () => {
   const svg = renderFocusLive(parse(doc), {...ctx, edit:false});
   for(const a of ['data-edit','data-hit','data-hdrop','data-menu','data-key','data-lens'])
     assert.ok(!svg.includes(a), 'edit:false must not emit ' + a);
-  assert.ok(svg.includes('Streak freeze'));
+  assert.ok(svg.includes('Resume where you left off'));
 });
 test('hero cards carry FULL edit targets (title/note/status/lane)', () => {
   const m = parse(doc);
   const svg = renderFocusLive(m, {...ctx, edit:true});
-  const it = m.items.find(i => i.title === 'Streak freeze');
+  const it = m.items.find(i => i.title === 'Resume where you left off');
   assert.ok(svg.includes('data-edit="cardmenu" data-line="' + it.srcLine + '"'));
-  assert.ok(/data-edit="title" data-line="\d+" data-raw="Streak freeze"/.test(svg));
+  assert.ok(/data-edit="title" data-line="\d+" data-raw="Resume where you left off"/.test(svg));
   assert.ok(/data-edit="lane"/.test(svg) && /data-edit="status"/.test(svg));
 });
 test('rail rows are a CLEAN index: rename + cardmenu only; status/lane/note are HERO-only', () => {
   const m = parse(doc);
   const svg = renderFocusLive(m, {...ctx, edit:true});
-  assert.ok(svg.includes('data-key="smart reminders"'));                 // rail row is a cardmenu group
+  assert.ok(svg.includes('data-key="reading reminders"'));                 // rail row is a cardmenu group
   const heroN = m.items.filter(i => i.h === 0).length;                   // NOW is the hero
   const allN = m.items.length;
   // status + lane + note targets are HERO-only (one per hero card, set or ghost); the rail has NONE
@@ -70,11 +70,11 @@ test('bands painted BEFORE their content (z-order: under, clicks reach cards)', 
   assert.ok(svg.indexOf('data-hdrop="0"') < svg.indexOf('data-edit="cardmenu"'));
 });
 test('compare: HERO gets BOTH new and moved badges; the RAIL stays diff-clean', () => {
-  const m = parse(doc);   // hero=NOW (Streak freeze, Referral flow); rail=Smart reminders(NEXT), Coach marketplace(LATER)
+  const m = parse(doc);   // hero=NOW (Resume where you left off, Referral flow); rail=Reading reminders(NEXT), Publisher storefront(LATER)
   const diff = {since: 'Q1', dropped: ['Legacy import'], badge: it =>
-    it.title === 'Streak freeze'  ? {kind:'new',   label:'NEW'} :
+    it.title === 'Resume where you left off'  ? {kind:'new',   label:'NEW'} :
     it.title === 'Referral flow'  ? {kind:'moved', label:'was Next'} :   // HERO moved → must render
-    it.title === 'Smart reminders'? {kind:'moved', label:'was Later'} :  // RAIL moved → must NOT render
+    it.title === 'Reading reminders'? {kind:'moved', label:'was Later'} :  // RAIL moved → must NOT render
     null};
   const svg = renderFocusLive(m, {...ctx, edit:true, diff});
   assert.ok(/NEW/.test(svg), 'hero new badge');

@@ -121,17 +121,17 @@ const FLOORS = {
 
 /* ---- house-example docs (trimmed from each tool's first example chip) ---- */
 const DOCS = {
-  roadmap: 'title: Habitat — Product Roadmap\nhorizons: Now, Next, Later\n\nNOW\nCore: Streak freeze [doing] -- the top-requested fix\nGrowth: Referral flow [risk]\n\nNEXT\nCore: Smart reminders',
-  timeline: 'title: Habitat 2.0 — launch programme\nApp: Feature freeze 2026-08-14 .. 2026-08-28\nApp: Store review passed 2026-10 .. 2026-11 [risk] // review times vary\nMarketing: Landing page live 2026-08-21 [done]\nLaunch day 2026-11 .. 2027-01',
-  why: 'title: Q3 — 90-day retention\noutcome: Improve 90-day retention\n\n  Users forget mid-afternoon habits\n    Smart reminders [testing]\n      ? users want to be interrupted at work [testing]\n    Streak freeze [delivering]',
+  roadmap: 'title: Lantern — Product Roadmap\nhorizons: Now, Next, Later\n\nNOW\nCore: Resume where you left off [doing] -- the top-requested fix\nGrowth: Referral flow [risk]\n\nNEXT\nCore: Reading reminders',
+  timeline: 'title: Lantern 2.0 — launch programme\nApp: Feature freeze 2026-08-14 .. 2026-08-28\nApp: Store review passed 2026-10 .. 2026-11 [risk] // review times vary\nMarketing: Landing page live 2026-08-21 [done]\nLaunch day 2026-11 .. 2027-01',
+  why: 'title: Q3 — 90-day retention\noutcome: Improve 90-day retention\n\n  Readers lose their place between sessions\n    Reading reminders [testing]\n      ? readers want a nudge mid-commute [testing]\n    Resume where you left off [delivering]',
   tree: 'title: Bid for the Acme contract\ncurrency: £\n\nBid decision\n  Submit bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0',
-  map: 'preset: assumptions\ntitle: Habitat — launch assumptions\n\nUsers will log habits daily @ 30,90 :: test: watch 5 onboarding sessions\nStreak anxiety drives churn @ 75,80 :: note: held in Q2 interviews\nLegal sign-off on health claims',
-  bets: 'title: Habitat — Q3 bet portfolio\nunit: £k\n\nGrowth bets\n  Referral flow v2: stake 80, odds 40-60%, payoff 300-500\n    kill: Signups per referral stay under 0.3 by 2026-09-15\n  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300',
+  map: 'preset: assumptions\ntitle: Lantern — launch assumptions\n\nReaders finish the first book they start @ 30,90 :: test: watch 5 onboarding sessions\nAbandoned books drive churn @ 75,80 :: note: held in Q2 interviews\nLegal sign-off on publisher licensing',
+  bets: 'title: Lantern — Q3 bet portfolio\nunit: £k\n\nGrowth bets\n  Referral flow v2: stake 80, odds 40-60%, payoff 300-500\n    kill: Signups per referral stay under 0.3 by 2026-09-15\n  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300',
   case: 'title: Wexcombe augmentation\nquestion: Augment in 2029, or run the fleet down?\nstatus: open\n\nMoney: Augment NPV model -> /fermi/#x // the £ case\nDelivery: Plan of record -> /timeline/#y',
-  gauge: 'title: Q3 commitment review\nnames: off\n\nWe ship the referral loop :: prob\nWeeks to migrate billing :: range weeks\nPick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish',
-  paths: 'title: Habitat paths\ndecision groups:\n  question: Will groups retain?\n  signal: week-four retention\n  reading: 18%\n  owner: Growth\n  answer-by: 2026-09-10\n  assume: yes 2026-09-11\n  answer: yes 2026-09-08 -- cohort G-42\nNOW\n  Growth: Invite prompt [doing] [if groups]\n  Growth: Manual fallback [blocked] [unless groups]',
-  proxy: 'title: Habitat invite pressure\noutcome: Groups retain after week one\nproxy: Invitation rate\naction: Prompt active members\nmode: optimise\nverdict: Keep this hunt paired with its guardrail',
-  wardley: 'title: Habitat platform\nanchor: Habit tracking\n\nHabit builder @ product\nStreak engine @ custom\nUser DB @ commodity\n\nHabit tracking -> Habit builder -> Streak engine -> User DB',
+  gauge: 'title: Q3 commitment review\nnames: off\n\nWe ship the referral loop :: prob\nWeeks to migrate billing :: range weeks\nPick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish',
+  paths: 'title: Lantern paths\ndecision groups:\n  question: Will groups retain?\n  signal: week-four retention\n  reading: 18%\n  owner: Growth\n  answer-by: 2026-09-10\n  assume: yes 2026-09-11\n  answer: yes 2026-09-08 -- cohort G-42\nNOW\n  Growth: Invite prompt [doing] [if groups]\n  Growth: Manual fallback [blocked] [unless groups]',
+  proxy: 'title: Lantern invite pressure\noutcome: Groups retain after week one\nproxy: Invitation rate\naction: Prompt active members\nmode: optimise\nverdict: Keep this hunt paired with its guardrail',
+  wardley: 'title: Lantern platform\nanchor: Reading\n\nLibrary @ product\nRecommendations @ custom\nCatalogue DB @ commodity\n\nReading -> Library -> Recommendations -> Catalogue DB',
   'energy/cycles': 'title: Cycle budget — Wexcombe 100MW/2h\nbattery: 100MW / 200MWh\nspread: 35..85\ncharge: 15..45\nsecond: 35..60%\ndrift: -4..0 %/yr\nrte: 86..90%\nfade: 0.006..0.012 %/cycle\ncalendar: 1.0..1.8 %/yr\ncycles: 6000 over 15yr\naugment: 120..180 £/kWh\ndiscount: 7..10%',
   'energy/risk': 'title: Route to market — Wexcombe 100MW/2h\nmerchant: 60..180\n\nfloor: 70 share 60% fee 5\ntoll: 95\ninsure: premium 6 attach 65 limit 30',
 };

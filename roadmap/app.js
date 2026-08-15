@@ -32,6 +32,7 @@ import {exportPages} from './export-pages.js';
 import {resolveBoardWindow, boardCapacityFor} from './board-window.js';
 import {layoutRoadmap} from './layout.js';
 import {inspectionFacts, inspectionIdentity} from './inspect-item.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -40,28 +41,28 @@ wireCopyVerdict($('verdict'));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
-  {name:'Habit app roadmap', src:
-`title: Habitat — Product Roadmap
-headline: Retention first — everything in Now defends the streak
+  {name:'Reading app roadmap', src:
+`title: Lantern — Product Roadmap
+headline: Retention first — everything in Now keeps readers reading
 horizons: Now, Next, Later
 
 NOW
-Core: Streak freeze [doing] -- the top-requested fix for streak anxiety
-Core: Habit templates library [doing]
+Core: Resume where you left off [doing] -- the top-requested fix for a lost place
+Core: Curated shelves [doing]
 Growth: Referral flow [risk] -- waiting on app-store review
 Platform: Sync engine rewrite -- conflicts are the #1 support driver
 
 NEXT
-Core: Smart reminders [bet: reminders] -- learn each habit's natural time of day
+Core: Reading reminders [bet: reminders] -- learn each reader's natural time of day
 Growth: Home-screen widget gallery
-Platform: Full offline mode
+Platform: Offline downloads
 
 LATER
 Core: Reminder personalisation [if reminders]
 Core: Digest emails [unless reminders] -- the fallback nudge channel
-Core: Accountability circles -- small groups, shared streaks
-Growth: Coach marketplace
-Platform: Wearables integration`},
+Core: Book clubs -- small groups, shared shelves
+Growth: Publisher storefront
+Platform: E-reader sync`},
   {name:'Quarterly view', src:
 `title: Platform Delivery Plan
 horizons: quarterly from Q3 2026 x4
@@ -69,18 +70,18 @@ wip: 3
 
 Q3 2026
 Infra: Sync engine rewrite [doing] x2
-App: Habit templates library [done]
+App: Curated shelves [done]
 
 Q4 2026
-Infra: Full offline mode
-App: Smart reminders
+Infra: Offline downloads
+App: Reading reminders
 
 Q1 2027
-App: Accountability circles
-Infra: Wearables integration
+App: Book clubs
+Infra: E-reader sync
 
 Q2 2027
-App: Coach marketplace`},
+App: Publisher storefront`},
   {name:'Simple (no lanes)', src:
 `title: Team roadmap
 
@@ -844,7 +845,7 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
 });
 
 /* ---------- example + import chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 {
   const b = document.createElement('button');
   b.className = 'chip';

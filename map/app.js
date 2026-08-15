@@ -24,86 +24,12 @@ import {mapDiff, mapDiffView} from './diff.js';
 import {gaugeHandoff} from './handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {cardMenuRows, createPostDragClickGuard} from './interactions.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 
-const EXAMPLES = [
-  {name: 'Assumption map', src:
-`preset: assumptions
-title: Habitat — launch assumptions
-
-Users will log habits daily @ 30,90 :: test: watch 5 onboarding sessions
-Streak anxiety drives churn @ 75,80 :: note: held in Q2 interviews
-Users want social features @ 20,55 :: test: fake-door invite flow
-Push reminders feel caring, not naggy @ 35,75
-People will pay for coaching @ 15,85
-Habit templates save setup time @ 80,45
-App-store reviews drive installs @ 55,25
-Legal sign-off on health claims
-`},
-  {name: 'Stakeholder grid', src:
-`preset: stakeholders
-title: Habitat 2.0 launch
-
-Head of Product @ 85,90 :: attitude: champion
-Finance director @ 30,85 :: attitude: sceptical
-Support team lead @ 80,40
-Data-privacy officer @ 40,75
-App-store contact @ 55,30
-Beta community @ 90,20 :: note: loud, low power, high goodwill
-`},
-  {name: 'Futures matrix', src:
-`preset: futures
-title: Habitat — 2030 worlds
-x: Regulation of wellness apps (light → strict)
-y: AI coaching acceptance (novelty → normal)
-zone 1,2: Wild garden
-zone 2,2: Certified coaches
-zone 1,1: Gadget drawer
-zone 2,1: Checkbox wellness
-
-Insurers subsidise habit apps @ 75,80
-Big-tech habit platform launches @ 30,70
-Data-portability law passes @ 80,30
-Backlash against streak mechanics @ 25,25
-GP surgeries prescribe apps @ 70,65
-`},
-  {name: 'Skills coverage', src:
-`preset: skills
-title: Platform team — skills coverage
-
-Payments integration @ 20,90 :: owner: Priya
-Release pipeline @ 30,80 :: owner: Sam :: backup: Jo
-Data migrations @ 15,70
-Mobile build signing @ 40,85 :: owner: Jo
-Design system @ 65,55
-Customer analytics @ 70,40
-Copywriting @ 85,25
-`},
-  {name: 'RAG honesty', src:
-`preset: rag
-title: Q3 programme — status honesty check
-
-Billing revamp @ 25,30 :: reported: green
-Mobile app parity @ 40,35 :: reported: amber
-Onboarding funnel @ 75,70 :: reported: green
-Data platform @ 30,60 :: reported: green
-Partner API @ 80,30 :: reported: red
-Help centre @ 60,75 :: reported: green
-`},
-  {name: 'Risk grid', src:
-`preset: risk
-title: Habitat 2.0 — launch risks
-
-Payment migration slips @ 60,85 :: owner: platform team
-App review rejection @ 35,90 :: mitigation: pre-review with store contact
-Coach marketplace supply thin @ 70,60
-Notification fatigue backlash @ 55,45
-iOS beta crash spike @ 25,70
-Press coverage flops @ 50,25
-`},
-];
+import {EXAMPLES} from './examples.js';
 
 /* ---------- refresh loop ---------- */
 let model = null, resolved = null, ro = null;
@@ -268,7 +194,7 @@ attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- saved ---------- */
 const SAVED_KEY = 'map-saved';

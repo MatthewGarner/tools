@@ -42,7 +42,7 @@ const colors = {card:'#fff', border:'#ddd', ink:'#222', muted:'#667', accent:'#0
   err:'#b33', status:{done:'#1D7A3E',doing:'#0C7FAE',risk:'#9A6A00',blocked:'#B3403A'},
   statusInk:{done:'#1D7A3E',doing:'#0C7FAE',risk:'#9A6A00',blocked:'#B3403A'}, accentInk:'#08c'};
 const live = (src, extra = {}) => renderRegisterLive(parse(src), {colors, measure, edit: true, ...extra});
-const DOC = 'title: Plan\nstyle: register\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\n';
+const DOC = 'title: Plan\nstyle: register\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\nGrowth: Referral flow\nNEXT\nCore: Reading reminders\n';
 
 test('renders a root svg with the title in the light frame', () => {
   assert.match(live(DOC), /^<svg[^>]*width="\d+"[^>]*height="\d+"/);

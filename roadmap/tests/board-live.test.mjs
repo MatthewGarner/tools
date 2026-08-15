@@ -10,22 +10,22 @@ const measure = (s, f) => (s ? s.length : 0) * (parseInt((String(f).match(/(\d+)
 const ctx = {colors: {bg: '#fff', ink: '#111', muted: '#666', border: '#ccc', card: '#fff', accent: '#c05621',
   err: '#c00', status: {risk: '#c05621', blocked: '#c00', doing: '#2b6'}, statusInk: {risk: '#a03', blocked: '#900'}},
   measure, dark: false, today: '2026-07-04'};
-const doc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
+const doc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- ship first\nGrowth: Widget gallery\nNEXT\nLATER\nCore: Publisher storefront';
 
 test('edit:false emits ZERO edit markup (the export/golden path)', () => {
   const svg = renderBoardLive(parse(doc), {...ctx, edit: false});
   for(const attr of ['data-edit', 'data-hit', 'data-hdrop', 'data-menu', 'data-key'])
     assert.ok(!svg.includes(attr), 'edit:false must not emit ' + attr);
-  assert.ok(svg.includes('Streak freeze'));           // still renders the content
+  assert.ok(svg.includes('Resume where you left off'));           // still renders the content
 });
 
 test('edit:true emits a cardmenu group with data-line + data-key per item', () => {
   const m = parse(doc);
   const svg = renderBoardLive(m, {...ctx, edit: true});
-  const it = m.items.find(i => i.title === 'Streak freeze');
+  const it = m.items.find(i => i.title === 'Resume where you left off');
   assert.ok(svg.includes('data-edit="cardmenu" data-line="' + it.srcLine + '"'));
-  assert.ok(svg.includes('data-key="streak freeze"'));
-  assert.ok(/data-edit="title" data-line="\d+" data-raw="Streak freeze"/.test(svg));
+  assert.ok(svg.includes('data-key="resume where you left off"'));
+  assert.ok(/data-edit="title" data-line="\d+" data-raw="Resume where you left off"/.test(svg));
 });
 
 test('edit:true emits a data-hdrop band per horizon and a +add per column', () => {

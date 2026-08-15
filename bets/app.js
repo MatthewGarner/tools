@@ -25,14 +25,15 @@ import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
-  {name: 'Habitat portfolio', src:
-`title: Habitat — Q3 bet portfolio
+  {name: 'Lantern portfolio', src:
+`title: Lantern — Q3 bet portfolio
 unit: £k
 
 Growth bets
@@ -43,9 +44,9 @@ Growth bets
 
 Platform bets
   Sync engine rewrite: stake 150, odds 90-98%, payoff 180-260
-  Coach marketplace pilot: stake 60, odds 15-25%, payoff 250-450
-    kill: Fewer than 20 coaches onboarded by 2026-10-01
-  Wearables integration: stake 60, odds 30-40%, payoff 150-280
+  Publisher storefront pilot: stake 60, odds 15-25%, payoff 250-450
+    kill: Fewer than 20 publishers onboarded by 2026-10-01
+  E-reader sync: stake 60, odds 30-40%, payoff 150-280
     kill: No retail partner signed by 2026-11-01`},
   {name: 'Quick gut check', src:
 `title: Quick gut check
@@ -316,7 +317,7 @@ const eip = attachEditInPlace($('preview'), {
 });
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- saved portfolios ---------- */
 const SAVED_KEY = 'bets-saved';

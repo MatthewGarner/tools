@@ -16,6 +16,7 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($('preview'));
@@ -37,15 +38,15 @@ Money: Board options -> /tree/#eyJ2IjoxfQ // priced routes, incl. do-nothing
 Decision: Outcome plan -> /paths/#eyJ2IjoxfQ // every decision and outcome remains visible
 Delivery: Timing forecast -> /timeline/#eyJ2IjoxfQ // P50–P90 dates
 Risk: Premortem register -> /premortem/#eyJ2IjoxfQ // the failure modes, scored`},
-  {name: 'Habitat 2.0 launch', src:
-`title: Habitat 2.0 launch
-question: Ship in March, or hold for the streak engine?
+  {name: 'Lantern 2.0 launch', src:
+`title: Lantern 2.0 launch
+question: Ship in March, or hold for the recommendations engine?
 status: decided
-verdict: We ship March — the streak engine rides the 2nd release
+verdict: We ship March — the recommendations engine rides the 2nd release
 
 Money: Revenue model -> /fermi/#eyJ2IjoxfQ
 Decision: Outcome plan -> /paths/#eyJ2IjoxfQ // all outcomes, including holding launch
-Delivery: Chosen-outcome roadmap -> /roadmap/#z:TY3BagJBDEB_JcxdWLcgMiJYitCTHizUw1ziTtDYNTMkWUXEfxcPCz0_3nuP4CEGZ-8pwjce2NEhU89X0jtULWfqnIskyegUoW3a2aSZT6ZtkgMaW4SKfjJIYbSPWm5-gkwdGxexFBaAYjdSylCVO5bj8k62GlvNxwLQbLhQfstDtaWU1f_TZvub5KsoRdi5Ev6BUkXWJJv1_mdEnxmr85VA6cKSSUFL35fBw_MF // one exact outcome; receipt shown below
+Delivery: Chosen-outcome roadmap -> /roadmap/#z:TY5BawJBDEb_Spi7sF2hlBFBEW_FQim0h7mMO1FT1mRIslop_nfZw4L39773_QcPMTh5jxHeMzsqQ8GeLqg3qCq_2DkJJy7ZMULbtK-z5m320ibeZyOLULOfDFKY7KPK1U9QsCMjYUthAZntiooFqlJHfFze0FbTVjNfQDYbzlhGeai2ZFk9l3Yf34k3ohjhE0cQqhiNv-BAf4l325-vCViXXJ0uCIpn4oIKKn0vg4f7Aw // one exact outcome; receipt shown below
 Delivery: Launch forecast -> /timeline/#eyJ2IjoxfQ // P50–P90 merge-risk dates
 Risk: Launch premortem -> /premortem/#eyJ2IjoxfQ`},
 ];
@@ -185,7 +186,7 @@ wireExports({
 onThemeChange(() => { lastSvg = ''; paint.reset(); refresh(); });
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 wireSyntaxTry(document.querySelector('details.syntax'), editor,
   ['title', 'question', 'status', 'verdict', 'palette', 'accent']);

@@ -16,14 +16,14 @@ const ctxBase = {
   measure: (t) => t.length * 7,
 };
 const docs = {
-  lanes: 'title: T\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- note here\nGrowth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]',
+  lanes: 'title: T\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- note here\nGrowth: Referral flow [risk]\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done]',
   nolanes: 'date: 2026-07-04\nNOW\nplain item\nNEXT\nanother much longer item title that wraps across lines for sure definitely',
   quarterly: 'title: Q\ndate: 2026-07-04\nhorizons: quarterly from Q3 2026 x5\nwip: off\nfade: off\nQ3 2026\nA: one\nQ1 2027\nB: two',
 };
 const basisDoc = 'title: Growth delivery\ndate: 2026-08-12\n' +
   'basis: paths "Growth decisions"; answered pricing=yes@2026-08-03, retention=no@2026-08-09; assumed groups=no@2026-08-12\n' +
   'headline: Keep shared work moving while the open choice resolves.\n' +
-  'NOW\nCore: Repair the streak [doing]\nNEXT\nGrowth: Improve invitations\nLATER\nCore: Deepen retention';
+  'NOW\nCore: Fix resume position [doing]\nNEXT\nGrowth: Improve invitations\nLATER\nCore: Deepen retention';
 const variants = {};
 for(const [k, src] of Object.entries(docs)){
   const m = parse(src);
@@ -33,7 +33,7 @@ for(const [k, src] of Object.entries(docs)){
 {
   const m = parse(docs.lanes);
   variants['lanes-diff'] = render(m, {...ctxBase, diff: {
-    badge: it => it.title === 'Smart reminders' ? {kind:'new', label:'New'} :
+    badge: it => it.title === 'Reading reminders' ? {kind:'new', label:'New'} :
                  it.title === 'Referral flow' ? {kind:'moved', label:'was Next'} : null,
     dropped: ['old thing one', 'old thing two', 'old thing three'],
     since: '2026-06-01', any: true,
@@ -50,7 +50,7 @@ for(const [k, src] of Object.entries(docs)){
      standfirst and pushes the board down; without one it must be absent. */
   const storyDoc = 'story: We chose depth over breadth this cycle\n' + hlDoc;
   const storyDiff = {
-    badge: it => it.title === 'Smart reminders' ? {kind: 'new', label: 'New'} : null,
+    badge: it => it.title === 'Reading reminders' ? {kind: 'new', label: 'New'} : null,
     dropped: ['old thing one'], since: '2026-06-01', any: true,
   };
   variants['roadmap-story'] = render(parse(storyDoc), {...ctxBase, diff: storyDiff});
@@ -59,7 +59,7 @@ for(const [k, src] of Object.entries(docs)){
   variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
   variants['roadmap-narrow-diff'] = render(m, {...ctxBase, edit: true, width: 360, diff: {
-    badge: it => it.title === 'Smart reminders' ? {kind:'new', label:'New'} :
+    badge: it => it.title === 'Reading reminders' ? {kind:'new', label:'New'} :
                  it.title === 'Referral flow' ? {kind:'moved', label:'was Next'} : null,
     dropped: ['old thing one', 'old thing two', 'old thing three'],
     since: '2026-06-01', any: true,
@@ -77,10 +77,10 @@ for(const [k, src] of Object.entries(docs)){
   const spanDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
     'horizons: monthly from Jul 2026 x6\nwip: 4\n' +
     'Jul 2026\nPlatform: Sync engine rewrite [doing] x6 -- conflicts are the #1 support driver\n' +
-    'Platform: Habit templates library [done]\nPlatform: Streak freeze [doing] x2\n' +
+    'Platform: Curated shelves [done]\nPlatform: Resume where you left off [doing] x2\n' +
     'Aug 2026\nPlatform: Referral flow [risk] x3 -- waiting on app-store review\n' +
     'Platform: Widget gallery\n' +
-    'Sep 2026\nPlatform: Accountability circles x2\nPlatform: Coach marketplace\n';
+    'Sep 2026\nPlatform: Book clubs x2\nPlatform: Publisher storefront\n';
   const spanModel = parse(spanDoc);
   variants['roadmap-spans'] = render(spanModel, {...ctxBase});
   variants['roadmap-spans-slide'] = render(spanModel, {...ctxBase, slide: true});
@@ -89,7 +89,7 @@ for(const [k, src] of Object.entries(docs)){
     'horizons: quarterly from Q3 2026 x4\nwip: 4\n' +
     'Q3 2026\nInfra: Data platform rebuild x6 -- runs well past this board\n' +
     'Infra: Sync engine rewrite [doing] x4\n' +
-    'Q4 2026\nApp: Smart reminders x2\n';
+    'Q4 2026\nApp: Reading reminders x2\n';
   variants['roadmap-spans-edge'] = render(parse(spanEdgeDoc), {...ctxBase});
 
   /* the phone span layout: a span is a LABEL in its start section, plus every
@@ -134,17 +134,17 @@ for(const [k, src] of Object.entries(docs)){
     '\nNEXT\nCore: placeholder\nLATER\nCore: placeholder';
   variants['deck-board-list'] = renderDeck(parse(listDoc), {...ctxBase});
 
-  const wipDoc = 'title: Habitat board\ndate: 2026-07-04\nwip: 2\nNOW\n' +
-    'Core: Streak freeze\nCore: Widget gallery\nGrowth: Referral loop\nNEXT\nCore: Coach marketplace';
+  const wipDoc = 'title: Lantern board\ndate: 2026-07-04\nwip: 2\nNOW\n' +
+    'Core: Resume where you left off\nCore: Widget gallery\nGrowth: Referral loop\nNEXT\nCore: Publisher storefront';
   variants['deck-board-wip'] = renderDeck(parse(wipDoc), {...ctxBase});
 
-  const emptyColDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze\nNEXT\nLATER\nGrowth: Coach marketplace';
+  const emptyColDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off\nNEXT\nLATER\nGrowth: Publisher storefront';
   variants['deck-board-empty'] = renderDeck(parse(emptyColDoc), {...ctxBase});
 
-  const boardDiffDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\n' +
-    'Core: Streak freeze [doing] -- ship first\nGrowth: Widget gallery\nNEXT\nCore: Coach marketplace';
+  const boardDiffDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\n' +
+    'Core: Resume where you left off [doing] -- ship first\nGrowth: Widget gallery\nNEXT\nCore: Publisher storefront';
   const boardDiff = {
-    since: 'Q1', badge: it => it.title === 'Streak freeze' ? {kind: 'new', label: 'NEW'}
+    since: 'Q1', badge: it => it.title === 'Resume where you left off' ? {kind: 'new', label: 'NEW'}
       : it.title === 'Widget gallery' ? {kind: 'moved', label: 'was Next'} : null,
     dropped: ['Legacy import'],
   };
@@ -156,14 +156,14 @@ for(const [k, src] of Object.entries(docs)){
      band it pushes down) stays pinned; the others prove the no-headline frame. */
   const registerDoc = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\n' +
     'headline: We are consolidating — three bets, no more\nNOW\n' +
-    'Core: Streak freeze [doing] -- shipping soon\n' +
+    'Core: Resume where you left off [doing] -- shipping soon\n' +
     'Growth: Referral flow [risk] -- needs legal review\n' +
     'Platform: Billing migration [blocked] -- waiting on vendor\n' +
-    'NEXT\nCore: Smart reminders\nGrowth: Onboarding v2\n' +
-    'LATER\nGrowth: Coach marketplace [done]';
+    'NEXT\nCore: Reading reminders\nGrowth: Onboarding v2\n' +
+    'LATER\nGrowth: Publisher storefront [done]';
   const registerDiff = {
     any: true, since: '2026-06-01',
-    badge: it => it.title === 'Smart reminders' ? {kind: 'new', label: 'New'} :
+    badge: it => it.title === 'Reading reminders' ? {kind: 'new', label: 'New'} :
                  it.title === 'Referral flow' ? {kind: 'moved', label: 'was Next'} : null,
     dropped: ['old thing one', 'old thing two', 'old thing three'],
   };
@@ -174,8 +174,8 @@ for(const [k, src] of Object.entries(docs)){
      no diff, dropped-column redistribution, the 8-horizon type ramp — BEFORE the
      refactor, so "IDENTICAL" actually guards the export path. */
   const regPlain = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\n' +
-    'NOW\nCore: Streak freeze [doing] -- shipping soon\nGrowth: Referral flow [risk]\n' +
-    'NEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done] -- eventually';
+    'NOW\nCore: Resume where you left off [doing] -- shipping soon\nGrowth: Referral flow [risk]\n' +
+    'NEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done] -- eventually';
   variants['deck-register'] = renderDeck(parse(regPlain), {...ctxBase});
   /* laneless AND status-less AND note-less → LANE/STATUS/NOTE columns all drop */
   const regDrop = 'title: Bare\nstyle: register\ndate: 2026-07-04\nNOW\nAlpha\nBeta\nNEXT\nGamma';
@@ -198,19 +198,19 @@ for(const [k, src] of Object.entries(docs)){
     'LATER\nCore: Later horizon item';
   variants['deck-focus'] = renderDeck(parse(focusDoc), {...ctxBase});
 
-  const focusEmptyDoc = 'title: Habitat roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nNEXT\nCore: Smart reminders\nCore: Widget gallery\nLATER\nGrowth: Coach marketplace';
+  const focusEmptyDoc = 'title: Lantern roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nNEXT\nCore: Reading reminders\nCore: Widget gallery\nLATER\nGrowth: Publisher storefront';
   variants['deck-focus-empty'] = renderDeck(parse(focusEmptyDoc), {...ctxBase});
 
-  const focus2colDoc = 'title: Habitat roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
-    'Core: Streak freeze\nCore: Habit templates\nGrowth: Referral flow\nGrowth: Widget gallery\nPlatform: Sync rewrite\nPlatform: Offline mode\nNEXT\nCore: Smart reminders';
+  const focus2colDoc = 'title: Lantern roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
+    'Core: Resume where you left off\nCore: Curated shelves\nGrowth: Referral flow\nGrowth: Widget gallery\nPlatform: Sync rewrite\nPlatform: Offline downloads\nNEXT\nCore: Reading reminders';
   variants['deck-focus-2col'] = renderDeck(parse(focus2colDoc), {...ctxBase});
 
-  const focusDiffDoc = 'title: Habitat roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing]\nGrowth: Referral flow\nNEXT\nCore: Smart reminders';
+  const focusDiffDoc = 'title: Lantern roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing]\nGrowth: Referral flow\nNEXT\nCore: Reading reminders';
   variants['deck-focus-diff'] = renderDeck(parse(focusDiffDoc), {...ctxBase, diff: {since: 'Q1', dropped: ['Legacy import', 'Old onboarding']}});
 
   /* focus: config key — proves the lens overrides the default first-non-empty
      pick on the deck too (heroes LATER, not NOW, even though NOW has items). */
-  const focusKeyDoc = 'title: Habitat roadmap\nstyle: focus\nfocus: Later\ndate: 2026-07-04\nNOW\nCore: Streak freeze\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
+  const focusKeyDoc = 'title: Lantern roadmap\nstyle: focus\nfocus: Later\ndate: 2026-07-04\nNOW\nCore: Resume where you left off\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront';
   variants['deck-focus-keyed'] = renderDeck(parse(focusKeyDoc), {...ctxBase});   // heroes LATER, not NOW
 
   /* GRID: a quarterly (time-axis) doc — style: grid is also the DEFAULT here
@@ -224,7 +224,7 @@ for(const [k, src] of Object.entries(docs)){
      edit-only affordances, which dev/injection.test.mjs exercises instead. */
   const {renderRegisterLive} = await import('../roadmap/render-register.js');
   const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
-    'Growth: Referral flow [risk]\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace [done]';
+    'Growth: Referral flow [risk]\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done]';
   variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
   variants['register-live-basis'] = renderRegisterLive(parse(basisDoc), {...ctxBase});
   /* the AUTHORED standfirst on the live artefacts (2026-07-31). `headline:` used
@@ -275,8 +275,8 @@ for(const [k, src] of Object.entries(docs)){
      light frame, one section per horizon) rather than the edit-only
      affordances, which dev/injection.test.mjs exercises instead. */
   const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const boardLiveDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\n' +
-    'Growth: Widget gallery\nNEXT\nLATER\nCore: Coach marketplace';
+  const boardLiveDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- ship first\n' +
+    'Growth: Widget gallery\nNEXT\nLATER\nCore: Publisher storefront';
   variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
   variants['board-live-basis'] = renderBoardLive(parse(basisDoc), {...ctxBase});
   variants['board-live-headline'] = renderBoardLive(parse('headline: We are consolidating — three bets, no more\n' + boardLiveDoc), {...ctxBase});
@@ -290,10 +290,10 @@ for(const [k, src] of Object.entries(docs)){
      label markup, the live-flow-then-zones order, and the empty-half
      omission all in one golden. edit:false, matching every other board-live
      golden's export-path convention. */
-  const zonesDoc = 'title: Habitat board\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing]\nCore: Ship reminders [bet: reminders]\n' +
+  const zonesDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing]\nCore: Ship reminders [bet: reminders]\n' +
     'Core: Ship digest [bet: digest]\nNEXT\nCore: Widget gallery\n' +
     'Core: Smart nudges [if reminders]\nCore: Manual outreach [unless reminders]\n' +
-    'Core: Digest follow-up [if digest]\nLATER\nCore: Coach marketplace';
+    'Core: Digest follow-up [if digest]\nLATER\nCore: Publisher storefront';
   variants['board-live-zones'] = renderBoardLive(parse(zonesDoc), {...ctxBase});
 
   /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
@@ -302,7 +302,7 @@ for(const [k, src] of Object.entries(docs)){
      frame, the hero zone + ranked rail) rather than the edit-only
      affordances, which dev/injection.test.mjs exercises instead. */
   const {renderFocusLive} = await import('../roadmap/render-focus.js');
-  const focusLiveDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Streak freeze [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Smart reminders\nLATER\nGrowth: Coach marketplace';
+  const focusLiveDoc = 'title: Lantern\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront';
   variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
   variants['focus-live-basis'] = renderFocusLive(parse(basisDoc), {...ctxBase});
   variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
@@ -312,9 +312,9 @@ for(const [k, src] of Object.entries(docs)){
      capsule text, the +22 card height, and the strip's absence from every
      other card on the same doc. edit:false, matching every other focus-live
      golden's export-path convention. */
-  const hingesDoc = 'title: Habitat\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
+  const hingesDoc = 'title: Lantern\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
     'Core: Root milestone [bet: root won]\nCore: Gate check [bet: gate] [if root]\n' +
-    'Core: Send digest [if gate]\nNEXT\nGrowth: Referral flow\nLATER\nGrowth: Coach marketplace';
+    'Core: Send digest [if gate]\nNEXT\nGrowth: Referral flow\nLATER\nGrowth: Publisher storefront';
   variants['focus-live-hinges'] = renderFocusLive(parse(hingesDoc), {...ctxBase});
 }
 
@@ -344,13 +344,13 @@ for(const [k, src] of Object.entries(docs)){
   const {project} = await import('../why/project.js');
   const {renderOst} = await import('../why/render-ost.js');
   const {renderMap} = await import('../why/render-map.js');
-  const doc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Smart reminders [testing]\n      ? wanted\n    Streak freeze [delivering]\n      ? works [holds]\n  Chores feeling\n  Orphan [delivering]';
+  const doc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n      ? wanted\n    Resume where you left off [delivering]\n      ? works [holds]\n  Choosing is work\n  Orphan [delivering]';
   const m = wparse(doc);
   const pr = project(m);
   const norm = s => s.replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
   variants['why-ost'] = norm(renderOst(m, pr, {...ctxBase}));
   const {whyDiff, whyDiffView} = await import('../why/diff.js');
-  const oldDoc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Smart reminders [candidate]\n      ? wanted\n  Chores feeling\n    Old idea [parked]';
+  const oldDoc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [candidate]\n      ? wanted\n  Choosing is work\n    Old idea [parked]';
   const wd = whyDiffView(whyDiff(wparse(oldDoc), m), 'SNAP');
   variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
@@ -373,8 +373,8 @@ for(const [k, src] of Object.entries(docs)){
      hid the dropped-band-header regression (a lone laneGroup still reads fine
      without a heading) — two outcomes prove the fix actually distinguishes
      which lanes belong to which outcome on a phone. */
-  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Users forget mid-afternoon habits\n' +
-    '    Smart reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
+  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Readers lose their place between sessions\n' +
+    '    Reading reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
     '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
     '  No reason to invite others\n';
   const mm = wparse(multiDoc);
@@ -384,7 +384,7 @@ for(const [k, src] of Object.entries(docs)){
   /* deep-tree fixture (#4-5 levels of freely-nesting opportunities down to a
      solution): proves the depth clamp — depths 3, 4 and 5 all share the
      depth-3 indent/card width instead of collapsing or running off-screen. */
-  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Users forget mid-afternoon habits\n' +
+  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Readers lose their place between sessions\n' +
     '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
     '          Smart batching [testing]\n            ? batching preserves timing';
   const dm = wparse(deepDoc);
@@ -394,7 +394,7 @@ for(const [k, src] of Object.entries(docs)){
   /* Gate B: a committed solution with a broken assumption — the map view's
      at-risk ghost (dashed + BROKEN ASSUMPTION badge, still fully editable).
      Otherwise unreachable by the fixtures above, all of which stay healthy. */
-  const brokenDoc = 'title: T\noutcome: Retention\n  Forgetting habits\n    Shaky reminders [delivering]\n      ? habit sticks [broken]';
+  const brokenDoc = 'title: T\noutcome: Retention\n  Losing your place\n    Shaky reminders [delivering]\n      ? reading sticks [broken]';
   const bm = wparse(brokenDoc);
   const bpr = project(bm);
   variants['why-map-broken'] = norm(renderMap(bm, bpr, {...ctxBase, edit: true}));
@@ -460,7 +460,7 @@ for(const [k, src] of Object.entries(docs)){
   const agree = [{values: [[4, 8]]}, {values: [[5, 9]]}, {values: [[3, 7]]}];
   const m2 = gparse('Weeks :: range weeks');
   variants['gauge-overlay-agree'] = grender(m2, gstats(m2, agree), {...ctxBase});
-  const mc = gparse('title: Feature bets\nnames: on\nPick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish');
+  const mc = gparse('title: Feature bets\nnames: on\nPick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish');
   const cresp = [{values: [[50, 30, 20]], name: 'Ana'}, {values: [[45, 35, 20]], name: 'Ben'},
     {values: [[40, 35, 25]], name: 'Cy'}, {values: [[0, 100, 0]], name: 'Di'}];
   variants['gauge-overlay-chips'] = grender(mc, gstats(mc, cresp), {...ctxBase});
@@ -718,10 +718,10 @@ for(const [k, src] of Object.entries(docs)){
   const cGhost = context(cparse(cdoc + '\nUnlinked thing -> https://example.com/x'));
   variants['case-ghost'] = crender(cGhost, cctx);
   variants['case-narrow'] = crender(cm, {...cctx, width: 390});
-  const cProjection = context(cparse('title: Habitat delivery projection\nstatus: open\n' +
+  const cProjection = context(cparse('title: Lantern delivery projection\nstatus: open\n' +
     'Delivery: Chosen outcome -> /roadmap/#x'));
   cProjection.exhibits[0].planning = {kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
-    basis:{source:'Habitat growth decisions',
+    basis:{source:'Lantern growth decisions',
       known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
       assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]}};
   variants['case-projection'] = crender(cProjection, cctx);
@@ -732,12 +732,12 @@ for(const [k, src] of Object.entries(docs)){
   const {parse: wparse} = await import('../wardley/parse.js');
   const {layoutMap} = await import('../wardley/layout.js');
   const {renderMap: wrender, mapReadout} = await import('../wardley/render.js');
-  const wdoc = 'title: Habitat platform\nanchor: Habit tracking\n' +
-    'Streak engine @ custom\nNotification service @ product\nUser DB @ commodity\nPush gateway\n' +
-    'Habit tracking -> Streak engine -> Notification service -> Push gateway\nStreak engine -> User DB';
-  const wPrev = wdoc.replace('Streak engine @ custom', 'Streak engine @ 0.30')
-    .replace('\nUser DB @ commodity', '\nUser DB @ commodity\nOld cache @ product')
-    .replace('Streak engine -> User DB', 'Streak engine -> User DB\nStreak engine -> Old cache');
+  const wdoc = 'title: Lantern platform\nanchor: Reading\n' +
+    'Recommendations @ custom\nNotification service @ product\nCatalogue DB @ commodity\nPush gateway\n' +
+    'Reading -> Recommendations -> Notification service -> Push gateway\nRecommendations -> Catalogue DB';
+  const wPrev = wdoc.replace('Recommendations @ custom', 'Recommendations @ 0.30')
+    .replace('\nCatalogue DB @ commodity', '\nCatalogue DB @ commodity\nOld cache @ product')
+    .replace('Recommendations -> Catalogue DB', 'Recommendations -> Catalogue DB\nRecommendations -> Old cache');
   const wctx = {...ctxBase, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
   const wm = wparse(wdoc);
   variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
@@ -823,13 +823,13 @@ for(const [k, src] of Object.entries(docs)){
   const {treeLayout} = await import('../paths/layout-tree.js');
   const {renderTree, renderOutline} = await import('../paths/render-tree.js');
   const {renderPlans, renderPlansNarrow} = await import('../paths/render-plans.js');
-  const pathsDoc = 'title: Habitat decision paths\ndate: 2026-08-11\nverdict: Keep the rollout reversible while groups remains open\n' +
+  const pathsDoc = 'title: Lantern decision paths\ndate: 2026-08-11\nverdict: Keep the rollout reversible while groups remains open\n' +
     'decision reminders:\n  question: Do adaptive reminders improve week-four retention?\n' +
     '  signal: week-four retention\n  reading: +6 percentage points\n  owner: Core\n' +
     '  answer-by: 2026-07-24\n  answer: yes 2026-07-22 -- experiment HBT-42\n' +
     'decision groups:\n  question: Will people invite three friends without prompting?\n' +
     '  signal: invites per active user\n  reading: 2.4\n  owner: Growth\n  answer-by: 2026-09-15\n' +
-    'NOW\n  Core: Streak repair [done]\n  Core: Adaptive reminder rollout [doing] [if reminders] -- staged release\n' +
+    'NOW\n  Core: Resume position fix [done]\n  Core: Adaptive reminder rollout [doing] [if reminders] -- staged release\n' +
     '  Core: Manual reminder fallback [unless reminders]\n' +
     'NEXT\n  Growth: Friend invite prompt [risk] [if groups]\n' +
     '  Platform: Moderation controls [blocked] [if groups and reminders] -- privacy review\n' +
@@ -841,7 +841,7 @@ for(const [k, src] of Object.entries(docs)){
     treeLayout(pathsTree, {width:1160, measure:ctxBase.measure}), pathsCtx);
   variants['paths-outline-narrow'] = renderOutline(pathsTree, {...pathsCtx, width:390});
   const plansProjected = projectPaths(parsePaths(pathsDoc.replace(
-    'title: Habitat decision paths', 'style: plans\ntitle: Habitat possible plans')), '2026-08-11');
+    'title: Lantern decision paths', 'style: plans\ntitle: Lantern possible plans')), '2026-08-11');
   const plansCtx = {...ctxBase, today:'2026-08-11', projection:plansProjected};
   variants['paths-plans'] = renderPlans(plansProjected, {...plansCtx, width:1160});
   variants['paths-plans-narrow'] = renderPlansNarrow(plansProjected, {...plansCtx, width:390});
@@ -899,7 +899,7 @@ for(const [k, src] of Object.entries(docs)){
   const decision = (name, extra = '') => `decision ${name}:\n  question: Does ${name} hold?\n` +
     `  signal: measurable ${name}\n  reading: current ${name}\n  owner: ${name} owner\n` +
     `  answer-by: 2026-08-10${extra}\n`;
-  const source = 'title: Parallel Habitat\ndate: 2026-08-11\nverdict: Keep both routes reversible\n' +
+  const source = 'title: Parallel Lantern\ndate: 2026-08-11\nverdict: Keep both routes reversible\n' +
     decision('pricing') + decision('groups', '\n  assume: no 2026-08-11') +
     decision('settled', '\n  answer: yes 2026-08-10 -- experiment HBT-42') +
     decision('host', '\n  answer: yes 2026-08-10') + decision('pending') +
@@ -936,7 +936,7 @@ for(const [k, src] of Object.entries(docs)){
   const {project:projectProxy} = await import('../proxy/project.js');
   const {fullHuntProjection} = await import('../proxy/export-projection.js');
   const {renderHunt, renderHuntNarrow, renderHuntReceipt} = await import('../proxy/render-hunt.js');
-  const source = 'title: Habitat invite pressure\ndate: 2026-08-13\noutcome: Groups retain after week one\n' +
+  const source = 'title: Lantern invite pressure\ndate: 2026-08-13\noutcome: Groups retain after week one\n' +
     'proxy: Invitation rate\naction: Prompt every active member\nmode: optimise\n' +
     'verdict: Keep invitation rate paired with seven-day invitee retention while this concern is tested.\nintended-theory:\n' +
     '  mechanism: A timely prompt helps a member invite a collaborator who returns\nprotects:\n  - New members retain trust\n' +
@@ -946,7 +946,7 @@ for(const [k, src] of Object.entries(docs)){
     '  weaken-with: Matched cohorts show retained invitees do not fall\nreported-pattern:\n' +
     '  proxy-reading: Invitation rate rose from 11% to 19%\n  outcome: New members retain trust\n' +
     '  outcome-reading: Seven-day invitee retention fell from 42% to 35%\n' +
-    '  population: New solo members\n  horizon: First seven days\n  comparator: Prior prompt\n  source: Habitat event readout';
+    '  population: New solo members\n  horizon: First seven days\n  comparator: Prior prompt\n  source: Lantern event readout';
   const model = parseProxy(source);
   const live = projectProxy(model, 'fatigue');
   const full = fullHuntProjection(model);
