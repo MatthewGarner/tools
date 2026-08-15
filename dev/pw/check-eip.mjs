@@ -528,7 +528,7 @@ check('no console/page errors', errors.length === 0);
   await a0.click();
   await p.waitForTimeout(600);
   const t2 = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why: assumption cycles untested→testing', t2.includes('? users will invite friends [testing]'));
+  check('why: assumption cycles untested→testing', t2.includes('? readers will invite friends [testing]'));
 
   /* ---- card menu: tap the card BODY (the invisible-fill data-hit rect, which
      IS the card rect itself here — why is a drop-in, no wrapper <g>) opens

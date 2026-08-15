@@ -859,7 +859,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(600);
   check('why(' + theme + '): OST view renders', await page.locator('#preview svg').count() === 1);
   const ost = await page.locator('#preview svg').innerHTML();
-  check('why(' + theme + '): assumptions in cards', ost.includes('? users will invite friends'));
+  check('why(' + theme + '): assumptions in cards', ost.includes('? readers will invite friends'));
   await page.locator('#viewmap').click();
   await page.waitForTimeout(500);
   const map = await page.locator('#preview svg').innerHTML();
