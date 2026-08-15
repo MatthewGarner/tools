@@ -38,7 +38,7 @@
       <button class="chip" data-preset="vendor-claim" aria-pressed="false">Vendor claim</button>
       <button class="chip" data-preset="screening" aria-pressed="false">Screening classic</button>
       <button class="chip" data-preset="capacity-test" aria-pressed="false">Capacity test</button>
-      <span class="claim-slot"><button class="chip ghost" id="claimBtn" aria-haspopup="dialog" aria-expanded="false">Pin a claim…</button></span>
+      <span class="claim-slot"><button class="btn primary chip ghost" id="claimBtn" aria-haspopup="dialog" aria-expanded="false">Pin a claim…</button></span>
       <span class="chip claimed" id="claimChip" hidden></span>
     </div>
 
@@ -63,7 +63,7 @@
     <p class="cardintro">Filled dots are real issues, rings are benign. They stream through the gate: over the threshold rings the <b>alarm</b>, under it stays <b>quiet</b>. Watch the alarm bin — at a low base rate it fills with rings.</p>
     <div id="gatewrap"><canvas id="gate" aria-label="1,000 cases flowing through the detector into alarm and quiet bins"></canvas></div>
     <div class="actions">
-      <button class="btn primary" id="replay">Replay</button>
+      <button class="btn" id="replay">Replay</button>
       <span class="method" id="animnote"></span>
     </div>
   </div>
@@ -74,7 +74,7 @@
     <p class="verdict-fine" id="verdictFine"></p>
     <div id="boxwrap"></div>
     <div class="actions">
-      <button class="btn primary" id="copypng">Copy PNG</button>
+      <button class="btn" id="copypng">Copy PNG</button>
       <details class="action-disclosure">
         <summary class="btn">Export</summary>
         <div class="action-menu">

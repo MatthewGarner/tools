@@ -12,6 +12,14 @@ header{display:flex;flex-direction:column;gap:2px}
 #stage [data-act]{cursor:pointer}
 #stage [data-act]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
+/* The loop is the exercise's actual structure, so it stays visible without
+   becoming a second set of instructions. The current phase earns the weight. */
+.learning-trace{display:flex;align-items:center;gap:0;list-style:none;margin:0 0 14px;padding:0;
+  color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.learning-trace li{display:flex;align-items:center;white-space:nowrap}
+.learning-trace li:not(:last-child)::after{content:'→';margin:0 8px;color:var(--border);font-size:13px;font-weight:400}
+.learning-trace .is-current{color:var(--accent)}
+
 /* the commit toolbar */
 .toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
 .note{color:var(--muted);font-size:13px;max-width:52ch}
@@ -39,9 +47,19 @@ header{display:flex;flex-direction:column;gap:2px}
   border:1px solid color-mix(in srgb,var(--err) 35%,var(--border));
   color:var(--err);border-radius:0;padding:3px 11px;font-size:12px;font-weight:600}
 
-/* collapse — the wrong-lessons "flip" line above the replay controls */
-.lessons{font-size:14px;line-height:1.55;color:var(--ink);margin:0 0 16px;max-width:70ch}
+/* Collapse receipt: the personal correction belongs directly beneath the
+   artefact that proves it, rather than in a competing conclusion card. */
+.receipt{border-top:1px solid var(--border);margin-top:18px;padding-top:14px;max-width:70ch}
+.receipt-kicker{margin:0 0 4px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.receipt h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.2;margin:0 0 8px}
+.lessons{font-size:14px;line-height:1.55;color:var(--ink);margin:0;max-width:70ch}
 .lessons s{color:var(--muted);text-decoration-color:var(--err)}
+
+/* Actions after the verdict are deliberately a utility band: available, but
+   quieter than the conclusion above it. */
+.utility-band{border-top:1px solid var(--border);padding:2px 4px 0}
+.utility-band .toolbar{margin-top:12px}
+.utility-band .actions{margin-top:10px}
 
 @media (pointer:coarse){
   .btn{min-height:44px;display:inline-flex;align-items:center}
@@ -54,4 +72,7 @@ header{display:flex;flex-direction:column;gap:2px}
    sheets (side borders + radius dropped, top/bottom hairlines kept). */
 @media (max-width:640px){
   .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+  .learning-trace{font-size:9px;letter-spacing:.07em}
+  .learning-trace li:not(:last-child)::after{margin-inline:5px}
+  .utility-band{padding-inline:0}
 }

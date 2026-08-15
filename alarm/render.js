@@ -93,6 +93,7 @@ export function renderBox(counts, c){
     '<div class="fq-cell fq-' + kind + '"><b>' + n + '</b><span>' + esc(label) + '</span></div>';
   const chip = (label, val) => '<span class="cap"><i>' + esc(label) + '</i> ' + val + '</span>';
   return '<div class="fqbox">' +
+    '<p class="fq-label">This seeded 1,000-case draw</p>' +
     '<div class="fq-grid" role="table" aria-label="Outcomes per 1,000">' +
       cell(tp, 'true alarms', 'tp') + cell(fn, 'missed', 'fn') +
       cell(fp, 'false alarms', 'fp') + cell(tn, 'correctly quiet', 'tn') +

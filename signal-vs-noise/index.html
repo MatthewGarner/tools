@@ -33,7 +33,18 @@
 
   <section class="card">
     <div class="metrics" id="metrics"></div>
+    <ol class="learning-trace" id="learningTrace" aria-label="Learning loop">
+      <li data-step="observe">Observe</li>
+      <li data-step="choose">Choose</li>
+      <li data-step="reveal">Reveal</li>
+      <li data-step="repeat">Repeat</li>
+    </ol>
     <div id="stage" tabindex="-1"></div>
+    <section class="receipt" id="receipt" hidden aria-labelledby="receipt-title">
+      <p class="receipt-kicker">Your learning receipt</p>
+      <h2 id="receipt-title">What this run taught you</h2>
+      <p class="lessons" id="lessons"></p>
+    </section>
     <div id="reveal" hidden></div>
     <p id="phaseStatus" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
     <div class="toolbar" id="controls">
@@ -42,10 +53,9 @@
     </div>
   </section>
 
-  <section class="card" id="endcard" hidden>
-    <p class="lessons" id="lessons"></p>
+  <section class="utility-band" id="endcard" hidden aria-label="Replay and export">
     <div class="toolbar">
-      <button class="btn primary" id="again">Play again — new team</button>
+      <button class="btn" id="again">Play again — new team</button>
       <label class="rangelab">Noise <input type="range" id="noise" min="2" max="6" step="1" value="3" aria-label="Noise level"></label>
     </div>
     <div class="actions">

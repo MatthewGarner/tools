@@ -13,12 +13,16 @@ import {transitionCue} from './interaction.js';
 
 const $ = id => document.getElementById(id);
 const stage = $('stage'), reveal = $('reveal'), nextBtn = $('next'), hint = $('hint'),
-      controls = $('controls'), endcard = $('endcard'), lessonsEl = $('lessons'),
-      phaseStatus = $('phaseStatus');
+      controls = $('controls'), endcard = $('endcard'), receipt = $('receipt'),
+      lessonsEl = $('lessons'), learningTrace = $('learningTrace'), phaseStatus = $('phaseStatus');
 
 let seed = AUTHORED_SEED, params = {}, calls = [], turn = 0, phase = 'play', lessons = [];
+const coarsePointer = matchMedia('(pointer: coarse)');
 let cols = 3;   // grid columns; a ResizeObserver flips 3→2→1 on a container bucket (narrow relayout)
-const colsFor = w => w && w < 430 ? 1 : w && w < 620 ? 2 : 3;   // portrait phones (incl. large) → 1 touch-sized col
+// A 2/3-column SVG grid is legible but cannot give every embedded decision a
+// 44px finger target. Coarse input always gets the deliberately roomy one-column
+// version; fine pointers retain the compact desktop comparison.
+const colsFor = w => coarsePointer.matches ? 1 : w && w < 430 ? 1 : w && w < 620 ? 2 : 3;
 
 const scenario = () => makeScenario(seed, params);
 const dedupe = cs => [...new Map(cs.map(c => [c.person + ':' + c.quarter, c])).values()];
@@ -61,14 +65,17 @@ function startPlay(newSeed){
   renderTransition();
 }
 
-function toggleCall(p, q, act){
+function toggleCall(p, q, act, focusAct = act){
   if(phase !== 'play' || q !== turn) return;
   const same = c => c.person === p && c.quarter === q;
   const has = calls.some(same);
   if(act === 'talk' && !has) calls = [...calls, {person: p, quarter: q}];
   else if(act === 'leave' && has) calls = calls.filter(c => !same(c));
   else return;
-  render();
+  render({focusAction: {person: p, quarter: q, act: focusAct}});
+  phaseStatus.textContent = scenario().names[p] + ': ' +
+    (act === 'talk' ? 'Investigate selected' : 'Leave as is selected') +
+    ' for quarter ' + (q + 1) + '.';
 }
 
 stage.addEventListener('click', e => {
@@ -76,9 +83,16 @@ stage.addEventListener('click', e => {
   if(g) toggleCall(+g.dataset.person, +g.dataset.quarter, g.dataset.act);
 });
 stage.addEventListener('keydown', e => {
-  if(e.key !== 'Enter' && e.key !== ' ') return;
   const g = e.target.closest && e.target.closest('[data-act]');
-  if(g){ e.preventDefault(); toggleCall(+g.dataset.person, +g.dataset.quarter, g.dataset.act); }
+  if(!g) return;
+  if(e.key === 'Enter' || e.key === ' '){
+    e.preventDefault();
+    toggleCall(+g.dataset.person, +g.dataset.quarter, g.dataset.act);
+  } else if(['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)){
+    e.preventDefault();
+    const act = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? 'talk' : 'leave';
+    toggleCall(+g.dataset.person, +g.dataset.quarter, act, act);
+  }
 });
 
 nextBtn.addEventListener('click', () => {
@@ -135,16 +149,28 @@ function markdown(){
   ].join('\n');
 }
 
+function paintLearningTrace(){
+  const step = phase === 'reveal' ? 'reveal'
+    : phase === 'done' || turn > 0 ? 'repeat'
+    : calls.some(c => c.quarter === turn) ? 'choose' : 'observe';
+  for(const item of learningTrace.querySelectorAll('[data-step]')){
+    const current = item.dataset.step === step;
+    item.classList.toggle('is-current', current);
+    if(current) item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
+  }
+}
+
 /* ---------- render ---------- */
-function render(){
+function render({focusAction = null} = {}){
   const s = scenario(), C = themeColors();
-  const activeAction = stage.contains(document.activeElement)
+  const activeAction = !focusAction && stage.contains(document.activeElement)
     ? document.activeElement.closest?.('[data-act]') : null;
-  const restoreAction = activeAction ? {
+  const restoreAction = focusAction || (activeAction ? {
     person: activeAction.dataset.person,
     quarter: activeAction.dataset.quarter,
     act: activeAction.dataset.act,
-  } : null;
+  } : null);
   /* Swiss 6b: the VERDICT is drawn inside the collapse artefact (one per page),
      so the page carries the kicker + this metrics row. Every count is the run's
      own — the scenario's shape and the calls you have actually made. */
@@ -152,15 +178,16 @@ function render(){
     s.quarters + ' quarters', s.people + ' people',
     calls.length + (calls.length === 1 ? ' call made' : ' calls made'),
   ]);
+  paintLearningTrace();
   if(phase === 'done'){
     stage.innerHTML = renderCollapse(s, C, calls, {width: stage.clientWidth || 760});   // narrow/wide derived from width
 
-    reveal.hidden = true; controls.hidden = true; endcard.hidden = false;
+    reveal.hidden = true; controls.hidden = true; receipt.hidden = false; endcard.hidden = false;
     lessonsEl.innerHTML = lessonsLine();
     return;
   }
   stage.innerHTML = renderGrid(s, C, {turn, calls, cols, width: stage.clientWidth || 760});
-  endcard.hidden = true; controls.hidden = false;
+  receipt.hidden = true; endcard.hidden = true; controls.hidden = false;
   reveal.hidden = phase !== 'reveal';
   hint.hidden = phase === 'reveal';
   nextBtn.textContent = phase === 'reveal' ? 'Go to quarter ' + (turn + 2) + ' →'
@@ -204,6 +231,10 @@ const onResize = debounced(() => {
   if(next !== cols || Math.abs(w - lastW) > 8){ cols = next; lastW = w; render(); }
 }, 100);
 new ResizeObserver(onResize).observe(stage);
+coarsePointer.addEventListener?.('change', () => {
+  cols = colsFor(stage.clientWidth);
+  render();
+});
 
 paintKicker($('kicker'), '15', 'The luck you mistook for management');
 wireCopyTap(stage, () => phase === 'done' ? verdict(scenario(), calls).line : '');

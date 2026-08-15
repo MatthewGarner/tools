@@ -613,6 +613,9 @@ for(const theme of ['light', 'dark']){
   const before = (await page.locator('#verdictAlarm').innerText()).trim();
   check('alarm(' + theme + '): verdict quotes an alarm fraction',
     /in \d+ alarms|No alarms|Every alarm/.test(before));
+  check('alarm(' + theme + '): labels model expectation separately from the seeded observation',
+    /Model expectation/i.test(await page.locator('#verdictFine').innerText()) &&
+    /This seeded 1,000-case draw/i.test(await page.locator('#boxwrap').innerText()));
   await page.locator('#threshold').evaluate(e => { e.value = '0.2'; e.dispatchEvent(new Event('input', {bubbles: true})); });
   await page.waitForTimeout(300);
   const after = (await page.locator('#verdictAlarm').innerText()).trim();
@@ -1009,7 +1012,11 @@ for(const theme of ['light', 'dark']){
   check('flow(' + theme + '): batch U-curve renders', await page.locator('#batchwrap svg').count() === 1);
   const batchSvg = await page.locator('#batchwrap svg').innerHTML();
   check('flow(' + theme + '): batch verdict names the economic batch', /Economic batch/.test(batchSvg));
+  /* the optional lessons are one-at-a-time tabpanels, so a control only exists
+     to the user once its lens is chosen — drive the tab, then the control */
+  const lens = async name => { await page.locator('#lens-' + name).click(); await page.waitForTimeout(120); };
   check('flow(' + theme + '): triage renders with a pile', await (async () => {
+    await lens('triage');
     await page.locator('#backlog').fill('20');
     await page.waitForTimeout(500);
     const t = await page.locator('#triagewrap svg').innerHTML();
@@ -1018,6 +1025,7 @@ for(const theme of ['light', 'dark']){
   check('flow(' + theme + '): triage drain framing on an overloaded pile',
     /pile|clears|never/i.test(await page.locator('#triagewrap svg').innerHTML()));
   check('flow(' + theme + '): expedite card names the waiting trade', await (async () => {
+    await lens('expedite');
     await page.locator('#expedite').fill('1');
     await page.waitForTimeout(500);
     const e = await page.locator('#expeditewrap svg').innerHTML();
@@ -1029,6 +1037,7 @@ for(const theme of ['light', 'dark']){
   })());
   check('flow(' + theme + '): dependent dice can be re-rolled without losing its artifact', await (async () => {
     const before = await page.locator('#dicewrap svg').innerHTML();
+    await lens('dice');
     await page.getByRole('button', {name: 'Roll again'}).click();
     await page.waitForTimeout(250);
     const after = await page.locator('#dicewrap svg').innerHTML();

@@ -70,7 +70,8 @@ function doRefresh(){
   const v = verdicts(counts, p);
   paintVerdict($('verdictAlarm'), v.alarm, v.alarmFig);
   $('verdictMiss').textContent = v.miss;
-  $('verdictFine').textContent = v.fine;
+  $('verdictFine').textContent = 'Model expectation — ' + v.fine.replace(/^Expected:\s*/i, '') +
+    '. The seeded draw below can differ slightly.';
   paintMetrics($('metrics'), settingLabel(), metricCounts(p));
 
   // build layout + draw the settled frame immediately (numbers never wait on animation)

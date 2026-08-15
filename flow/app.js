@@ -18,6 +18,30 @@ const NO_LIMIT = 40;                       // the slider's top position (21) mea
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const readoutPaint = mountMotion($('verdictwrap'));   // reveal: the wait-time curve draws on first load
 wireCopyTap($('verdictwrap'), () => lastResult ? readoutVerdictParts(lastResult).line : '');
+const lensTabs = [...document.querySelectorAll('[data-flow-lens]')];
+const lensPanels = new Map(lensTabs.map(tab => [tab.dataset.flowLens, $(tab.getAttribute('aria-controls'))]));
+let activeLens = 'triage';
+
+function selectLens(next, focus = false){
+  activeLens = next;
+  for(const tab of lensTabs){
+    const selected = tab.dataset.flowLens === next;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    tab.classList.toggle('primary', selected);
+    lensPanels.get(tab.dataset.flowLens).hidden = !selected;
+    if(selected && focus) tab.focus({preventScroll: true});
+  }
+}
+lensTabs.forEach(tab => tab.addEventListener('click', () => selectLens(tab.dataset.flowLens)));
+$('lens-chooser').addEventListener('keydown', e => {
+  if(!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  const from = lensTabs.findIndex(tab => tab.dataset.flowLens === activeLens);
+  const to = e.key === 'Home' ? 0 : e.key === 'End' ? lensTabs.length - 1
+    : (from + (e.key === 'ArrowRight' ? 1 : -1) + lensTabs.length) % lensTabs.length;
+  selectLens(lensTabs[to].dataset.flowLens, true);
+});
 
 paintKicker($('kicker'), '14', 'Queues, not effort');
 
@@ -54,6 +78,16 @@ function econParams(){
   };
 }
 
+function coreTransfer(result, p, knee){
+  if(result.backlogSlopePerWeek > 0.5)
+    return 'Next experiment: lower intake below about ' + result.throughputPerWeek.toFixed(1) +
+      ' items/week before adjusting WIP; this queue is growing faster than it can finish.';
+  if(p.wipLimit === knee)
+    return 'Next experiment: hold WIP at ' + knee + ' and make one item smaller; compare waiting time before adding people.';
+  return 'Next experiment: hold demand steady and move WIP toward ' + knee +
+    '; compare waiting time with this run before changing team size.';
+}
+
 function syncOutputs(){
   const p = params();
   $('demandout').textContent = p.demandPerWeek + '/week';
@@ -87,6 +121,7 @@ function doRefresh(){
   /* the LIVE paint carries the tap-to-copy mark; lastSvg (exports) stays clean */
   readoutPaint(renderReadout(result, lastSweep, lastKnee, p, {...ctx, copyTap: true}), REVEAL);
   lastSvg = svg;
+  $('core-transfer').textContent = coreTransfer(result, p, lastKnee);
   /* Swiss 6b: the VERDICT lives inside the readout SVG (one per page); the page
      carries the kicker + this metrics row, painted from the same params/result
      the artefact renders from, on the existing debounced/rAF refresh. */

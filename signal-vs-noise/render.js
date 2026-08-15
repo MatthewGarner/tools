@@ -31,11 +31,8 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, w
   // cards neither shrink below 230 nor bloat past 360 (grid then centers under the wrap).
   const cardW = (cols === 1 || width == null) ? 230
     : Math.round(Math.max(230, Math.min(360, (width - PAD * 2 - gap * (cols - 1)) / cols)));
-  // one-column phones scale this ~274-wide SVG up to the container (iPhone 13
-  // stage ≈348 ⇒ ×1.27; Pixel 7 ≈372 ⇒ ×1.36), so a 38px button clears the 44px
-  // coarse-pointer target on both gate devices (38×1.27 ≈ 48px). (Landscape phones
-  // / tablets can land in cols 2–3 where the 16px SVG buttons fall short of 44px —
-  // a known limit beyond the two-device bar; app.js keeps portrait phones in cols 1.)
+  // The coarse-pointer one-column layout scales this ~274-wide SVG up to its
+  // container, so its 38px SVG button clears the 44px CSS-pixel target minimum.
   const btnH = cols === 1 ? 38 : 16, cardH = cols === 1 ? 134 : 96;
   const W = PAD * 2 + cols * cardW + gap * (cols - 1);
   const rows = Math.ceil(s.people / cols);
@@ -77,19 +74,32 @@ export function renderGrid(s, c, {turn = s.quarters - 1, calls = [], cols = 3, w
     // act / hold targets for THIS quarter (app wires the clicks via data-*)
     const bt = cy + cardH - btnH - 6, bw = (cardW - 22 - 6) / 2;
     const on = acted.has(p + ':' + turn);
+    parts.push('<g role="radiogroup" aria-label="Decision for ' + esc(s.names[p]) + ', quarter ' + (turn + 1) + '">');
     parts.push(btn(cx + 11, bt, bw, btnH, 'talk', p, turn, on, c));
-    parts.push(btn(cx + 11 + bw + 6, bt, bw, btnH, 'leave', p, turn, false, c));
+    // radio state and visual emphasis are separate: leave is the checked option
+    // whenever you haven't called, but only INVESTIGATE ever wears the err fill —
+    // red means "you acted on this one", never "you have done nothing yet".
+    parts.push(btn(cx + 11 + bw + 6, bt, bw, btnH, 'leave', p, turn, false, c, !on));
+    parts.push('</g>');
   }
-  return svg(W, HT, c, parts.join(''), 'Signal vs noise — quarter ' + (turn + 1));
+  return interactiveSvg(W, HT, c, parts.join(''), 'Signal vs noise — quarter ' + (turn + 1));
 }
 
-function btn(x, y, w, h, act, person, quarter, on, c){
-  const label = act === 'talk' ? 'TALK TO THEM' : 'LEAVE IT';
+function btn(x, y, w, h, act, person, quarter, on, c, checked = on){
+  const label = act === 'talk' ? 'INVESTIGATE' : 'LEAVE AS IS';
   const fill = on ? c.err : c.card, stroke = on ? c.err : c.border, ink = on ? c.card : c.muted;
   const fs = h >= 28 ? 10 : 9;
-  return '<g data-act="' + act + '" data-person="' + person + '" data-quarter="' + quarter + '" role="button" tabindex="0">' +
+  return '<g data-act="' + act + '" data-person="' + person + '" data-quarter="' + quarter + '" role="radio" aria-checked="' + checked + '" aria-label="' + label + '" tabindex="0">' +
     '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + h + '" rx="0" fill="' + fill +
     '" stroke="' + stroke + '"/>' + txt(x + w / 2, y + h / 2 + 3.4, label, fs, ink, {weight: 600, tracking: 0.8, anchor: 'middle'}) + '</g>';
+}
+
+/* The play grid has real keyboard decisions inside it, so it must not carry
+   role=img: that makes an accessibility-tree leaf and hides its radio children. */
+function interactiveSvg(W, H, c, inner, label){
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + Math.round(H) +
+    '" viewBox="0 0 ' + W + ' ' + Math.round(H) + '" font-family="' + SANS + '" role="group" aria-label="' + esc(label) + '">' +
+    '<rect width="' + W + '" height="' + Math.round(H) + '" fill="' + c.bg + '"/>' + inner + '</svg>';
 }
 
 /* ---------- the collapse / verdict artefact ---------- */
