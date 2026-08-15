@@ -1540,6 +1540,7 @@ const ws = initWorkspace({
   autoFold:true,
   collapsedLabel:'Edit plan source',
   collapsedAriaLabel:'Edit Paths plan source',
+  expandedLabel:'Hide plan source',
   onCollapseChange(_collapsed, {auto}){
     sourceAutoFolded = !!(auto && _collapsed);
     if(auto) return;

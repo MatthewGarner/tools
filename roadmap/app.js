@@ -577,8 +577,9 @@ mountTouchUndo($('zoomctl').closest('.actions'), editor);   // phones have no ‚å
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true,
-  collapsedLabel: 'Edit source (DSL)',
-  collapsedAriaLabel: 'Edit source (DSL)',
+  collapsedLabel: 'Edit roadmap source',
+  collapsedAriaLabel: 'Edit roadmap source',
+  expandedLabel: 'Hide roadmap source',
   onCollapseChange(_collapsed, {auto = false} = {}){
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */

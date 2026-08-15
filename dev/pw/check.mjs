@@ -118,7 +118,7 @@ await wipPage.close();
     await normalPage.locator('#boardwindow').isHidden() && await normalPage.locator('#preview svg rect[data-hdrop]').count() === 3);
   if(!(await normalPage.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))) await normalPage.locator('#railtab').click();
   const sourceTab = await normalPage.locator('#railtab').evaluate(el => ({text:el.textContent.trim(), rect:el.getBoundingClientRect().toJSON()}));
-  check('collapsed source returns through a named 44px DSL control', sourceTab.text === 'Edit source (DSL)' && sourceTab.rect.width >= 44 && sourceTab.rect.height >= 44);
+  check('collapsed source returns through a named 44px DSL control', sourceTab.text === 'Edit roadmap source' && sourceTab.rect.width >= 44 && sourceTab.rect.height >= 44);
   await normalPage.getByRole('button', {name:'More options: One'}).click();
   await normalPage.getByRole('menuitem', {name:'Inspect item'}).click();
   await normalPage.waitForTimeout(120);
