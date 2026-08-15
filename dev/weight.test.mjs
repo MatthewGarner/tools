@@ -416,7 +416,12 @@ const PAGES = {
      control now remains named and truthful when leaving focused-artefact mode.
      Timeline imports that same workspace module; actual 562.0k, retain a real
      ~1k guardrail rather than stripping the accessibility fix. */
-  'gauge/index.html': 561_000, 'timeline/index.html': 564_000,   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
+  /* gauge 561k -> 570k (2026-08-15 workshop review): the revealed-room surface
+     now keeps a screen-reader reading receipt, a compact discussion queue, an
+     explicit author route, and focus-safe session feedback. They share the live
+     SVG statistics rather than creating a second model; actual 565.6k leaves a
+     4.4k guardrail. */
+  'gauge/index.html': 570_000, 'timeline/index.html': 564_000,   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */

@@ -3582,6 +3582,9 @@ Pick the Q3 bet :: chips Streak overhaul | Social feed | Onboarding polish`;
 
   await mpage.goto(BASEU + '/gauge/#' + gEnc(GDOC), {waitUntil: 'networkidle'});
   await mpage.waitForTimeout(500);
+  // Narrow mode stacks the visible question source below the artefact; the
+  // collapsed desktop trigger is deliberately absent to avoid a duplicate path.
+  if(await mpage.locator('#railtab').isVisible()) await mpage.locator('#railtab').click();
   await mpage.locator('#viewform').click();     // compose boots in reveal view
   await mpage.waitForTimeout(500);
   const gBase = await gSrc();

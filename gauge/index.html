@@ -71,9 +71,10 @@
         <p class="handoff-copy"><strong id="handofftitle">Draft from Map</strong><small>This is a separate Gauge draft. Saving or editing it does not update Map.</small></p>
         <div class="handoff-actions"><button class="btn" id="saveimport">Save as new</button><a class="btn" id="returnsource" href="/map/" hidden>Return to Map</a><button class="btn" id="returncurrent">Return to current Gauge</button></div>
       </div>
-      <div class="viewtoggle segmented" role="tablist">
-        <button id="viewform" role="tab" aria-selected="false">Form</button>
-        <button id="viewreveal" class="on" role="tab" aria-selected="true">Sample reveal</button>
+      <div class="workshop-state" aria-label="Facilitator · authoring questions">Facilitator · authoring questions</div>
+      <div class="viewtoggle segmented" role="group" aria-label="Composer view">
+        <button id="viewform" aria-pressed="false">Compose questions</button>
+        <button id="viewreveal" class="on" aria-pressed="true">Sample reveal</button>
       </div>
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
@@ -100,6 +101,7 @@
 
 <div id="participant" class="wrap narrow" hidden>
   <h2 class="stitle" id="ptitle"></h2>
+  <p class="workshop-state">Participant · private response</p>
   <p class="pintro">Answer privately — nobody sees your numbers until the facilitator reveals everyone's at once. You can edit your answers until then.</p>
   <div id="pform"></div>
   <p class="errline" id="perr" hidden></p>
@@ -114,6 +116,8 @@
 
 <div id="console" class="wrap narrow" hidden>
   <h2 class="stitle" id="ctitle"></h2>
+  <p class="workshop-state" id="crole">Facilitator · gathering</p>
+  <p class="statusline" id="csessionstatus" role="status" aria-live="polite"></p>
   <div class="card sharebox">
     <p class="sharelabel">Join link — drop it in the meeting chat</p>
     <div class="linkrow">
@@ -124,7 +128,7 @@
   </div>
   <p class="statusline" id="ccount" aria-live="polite">Waiting for responses…</p>
   <ul class="qcounts" id="cquestions"></ul>
-  <div class="actions">
+  <div class="actions" id="crevealactions">
     <button class="btn primary" id="creveal">Reveal to the room</button>
     <span class="method" id="cstate"></span>
   </div>
@@ -147,6 +151,8 @@
     </details>
     <button class="btn" id="tofermi" data-handoff-contract="gauge-to-fermi-review-needed" hidden title="Open the room's ranges as a review-needed Fermi draft">Draft Fermi inputs</button>
     <span class="method" id="fermiDraftNote" hidden>A room range is an elicited assumption, not automatically a calibrated 90% belief. Fermi will ask you to restate or adopt every range before simulating.</span>
+  </div>
+  <div class="session-end" id="cendarea" hidden>
     <button class="btn danger" id="cend">End session now</button>
     <span class="method">Ending deletes all responses from the relay immediately — exports keep working</span>
   </div>

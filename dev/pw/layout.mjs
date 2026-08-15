@@ -12,7 +12,7 @@ const TOOLS = [
   {path: '/why/', chip: 'Habit retention', source: 'Edit tree source'},
   {path: '/roadmap/', chip: 'Habit app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
-  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal'},   // SVG lives in the reveal view
+  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme'},
   {path: '/wardley/', chip: 'Habitat platform', source: 'Edit landscape source'},
   {path: '/bets/', chip: 'Habitat portfolio'},
@@ -20,7 +20,7 @@ const TOOLS = [
   {path: '/energy/cycles/', chip: 'Wexcombe base case'},
 ];
 
-for(const {path, chip, view, source} of TOOLS){
+for(const {path, chip, view, source, narrowTab = !!source} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -82,7 +82,7 @@ for(const {path, chip, view, source} of TOOLS){
   await page.setViewportSize({width: 800, height: 900});
   await page.waitForTimeout(300);
   check(path + ' narrow: rail stacks with an appropriate source control', await page.locator('.rail').isVisible() &&
-    (source ? await page.locator('#railtab').isVisible() : !(await page.locator('#railtab').isVisible())));
+    (narrowTab ? await page.locator('#railtab').isVisible() : !(await page.locator('#railtab').isVisible())));
   check(path + ' no console/page errors', errors.length === 0);
   await page.close();
 }

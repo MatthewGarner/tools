@@ -32,6 +32,7 @@ main{display:flex;flex-direction:column;gap:20px}
 
 /* FAB board — Facts / Assumptions / Beliefs, three columns onto the same doc */
 .board{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.board-sheet{padding:2px 0 0}
 .bcol{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bcolh{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:15px;margin:0}
 .bcolhint{color:var(--muted);font-size:12px;margin:0;min-height:2.6em}
@@ -145,6 +146,9 @@ select{font:inherit;font-size:16px;min-height:44px;color:var(--ink);background:v
 .actcount{font-size:10.5px;color:var(--muted);margin-left:6px}
 .unscored{color:var(--muted);font-style:italic}
 .registernote{max-width:68ch;margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.register-conclusion{max-width:70ch;margin:0 0 12px;padding:10px 0;border-block:1px solid var(--border);font-size:15px;font-weight:600;color:var(--ink)}
+.register-conclusion span{display:block;margin-bottom:4px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.promotion-seam{margin:0 0 12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--muted)}
 .commitpill,.supportpill{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid var(--accent-ink);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 13%,transparent)}
 .supportpill{border-style:dashed;border-color:var(--muted);color:var(--muted);background:transparent}
 .portfolio{font-size:15px;margin:18px 0 0;max-width:70ch;padding-top:14px;border-top:1px solid var(--border)}
@@ -202,6 +206,8 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
   .btn,.lexbtn{min-height:44px;display:inline-flex;align-items:center}
   .phaserail button{min-height:44px}
   .bcdel{width:44px;height:44px;font-size:20px}
+  input[type=number]{min-height:44px}
+  .badd{min-height:44px}
 }
 
 /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):

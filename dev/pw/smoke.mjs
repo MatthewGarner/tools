@@ -498,9 +498,18 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(400);
   await page.click('[data-view="board"]'); await page.waitForTimeout(150);
   check('premortem board(' + theme + '): three FAB columns', await page.locator('.bcol').count() === 3);
+  check('premortem board(' + theme + '): its views explain workshop, working board, and kept register',
+    /run workshop/i.test(await page.locator('#viewtoggle [data-view="wizard"]').innerText()) &&
+    /working board/i.test(await page.locator('#viewtoggle [data-view="board"]').innerText()) &&
+    /risk register/i.test(await page.locator('#viewtoggle [data-view="register"]').innerText()));
   await page.fill('[data-add-kind="assumption"]', 'Onboarding completes on 3G');
   await page.press('[data-add-kind="assumption"]', 'Enter'); await page.waitForTimeout(150);
   await page.locator('.bcard').filter({hasText: 'Onboarding'}).locator('[data-promote]').click(); await page.waitForTimeout(150);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(100);
+  check('premortem board(' + theme + '): Escape cancels promotion and restores the originating action',
+    await page.locator('.bcard.promoting').count() === 0 &&
+    await page.locator('.bcard').filter({hasText: 'Onboarding'}).locator('[data-promote]').evaluate(el => document.activeElement === el));
+  await page.locator('.bcard').filter({hasText: 'Onboarding'}).locator('[data-promote]').click(); await page.waitForTimeout(100);
   const card = page.locator('.bcard.promoting');
   await card.locator('[data-promotep="lo"]').fill('30');
   await card.locator('[data-promotep="hi"]').fill('60');
@@ -510,7 +519,7 @@ for(const theme of ['light', 'dark']){
   check('premortem board(' + theme + '): promote lands on the register', /* innerText is the RENDERED text, and the shared .segmented control
        uppercases its labels (Swiss 6c) — compare case-insensitively so a
        future casing decision is a design change, not a suite break. */
-    (await page.locator('.vtseg.on').innerText()).trim().toLowerCase() === 'register');
+    (await page.locator('.vtseg.on').innerText()).trim().toLowerCase() === 'risk register');
   check('premortem board(' + theme + '): promoted risk is a register row', (await page.locator('.register').innerText()).includes('Onboarding completes on 3G'));
   check('premortem board(' + theme + '): no console errors', errors.length === 0);
   await page.close();
@@ -529,6 +538,20 @@ for(const theme of ['light', 'dark']){
   }))); await page.waitForTimeout(80);
   check('duel(' + theme + '): arrows typed in an input never choose a duel',
     pairBeforeInputArrow === await page.locator('#duelwrap').innerText());
+  await page.locator('#undo').focus();
+  const pairBeforeUtilityArrow = await page.locator('#duelwrap').innerText();
+  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(80);
+  check('duel(' + theme + '): arrows on utilities never cast an accidental vote',
+    pairBeforeUtilityArrow === await page.locator('#duelwrap').innerText());
+  await page.locator('#duelwrap [data-pick]').first().focus();
+  await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(80);
+  check('duel(' + theme + '): arrows only choose from a focused contender and restore focus to the next contender',
+    await page.locator('#duelwrap [data-pick]').count() === 2 &&
+    await page.locator('#duelwrap [data-pick]').first().evaluate(el => document.activeElement === el));
+  check('duel(' + theme + '): the recorded choice is announced without adding an activity feed',
+    /chosen over .*Next comparison ready/.test(await page.locator('#duelstatus').innerText()));
+  check('duel(' + theme + '): unlooped order occupies the complete review sheet',
+    await page.locator('.readcols').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length === 1));
   for(let i = 0; i < 4; i++){
     if(await page.locator('#duelwrap [data-pick]').count() < 2) break;
     await page.locator('#duelwrap [data-pick]').first().click();
@@ -900,6 +923,7 @@ for(const theme of ['light', 'dark']){
     await page.locator('#togauge').click();
     await page.waitForTimeout(800);
     if(!page.url().includes('/gauge/')) return false;
+    await page.locator('#railtab').click();
     await page.locator('#viewform').click(); // gauge opens on the reveal now; the form carries the handed-off questions
     await page.waitForTimeout(300);
     const qs = await page.locator('#preview .gform .q').count();
@@ -939,6 +963,7 @@ for(const theme of ['light', 'dark']){
   await page.waitForTimeout(600);
   // New default: opens alive on the sample reveal of the first example (hash-safe autoload).
   check('gauge(' + theme + '): opens alive on the sample reveal', await page.locator('#viewreveal.on').count() === 1 && await page.locator('#preview svg').count() === 1);
+  await page.locator('#railtab').click();
   await page.getByRole('button', {name: 'Q3 commitment review'}).click();
   await page.locator('#viewform').click();
   await page.waitForTimeout(600);
@@ -963,7 +988,9 @@ for(const theme of ['light', 'dark']){
   check('gauge(' + theme + '): sample reveal renders SVG', await page.locator('#preview svg').count() === 1);
   check('gauge(' + theme + '): overlay svg decodes as an image', await svgDecodes(page, '#preview svg'));
   const svg = await page.locator('#preview svg').innerHTML();
-  check('gauge(' + theme + '): headline present', /median|agreement|Split room|wider than/i.test(svg));
+  check('gauge(' + theme + '): sample reveal keeps a compact textual reading receipt',
+    await page.locator('#preview [data-result-receipt]').count() === 1 &&
+    await page.locator('#preview .receipt-disclosure summary').count() === 1);
   check('gauge(' + theme + '): privacy line present', (await page.locator('footer').innerText()).includes('only numbers'));
   check('gauge(' + theme + '): no console errors', errors.length === 0);
   await page.close();

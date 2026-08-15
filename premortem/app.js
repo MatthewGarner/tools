@@ -10,6 +10,7 @@ import {renderBoard} from './render-board.js';
 import {debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {validHandoffMeta, withoutHandoffMeta} from '../assets/handoff.js';
+import {esc} from '../assets/svg.js';
 
 const $ = id => document.getElementById(id);
 const store = makeStore();
@@ -17,7 +18,7 @@ const WRITE_SECS = 120;
 const DELETE_UNDO_MS = 10000;
 
 let doc = null, undoStack = [], reached = new Set(), timer = 0, transientImport = false;
-let view = 'wizard', promotingId = null;   // transient UI state (not persisted): 'wizard' | 'board'; id of the card mid-promote
+let view = 'wizard', promotingId = null, promotionNote = '';   // transient UI state (not persisted)
 let pendingDeletion = null;
 const deletionTimers = new Map();   // doc id -> timer handle; one purge timer per tomb, so a second delete's arm can never cancel a first tomb's own expiry
 const saveNow = () => { if(doc && !transientImport) store.save(doc); };
@@ -66,7 +67,8 @@ function render(paint = {}){
   const reg = view === 'register';
   $('phaserail').hidden = reg;
   $('navbar').hidden = reg;
-  if(reg){ $('phasepanel').innerHTML = renderPhase({...doc, phase: 'REGISTER'}, new Date()); finishPaint(paint); return; }
+  if(reg){ $('phasepanel').innerHTML = (promotionNote ? '<p class="promotion-seam">' + promotionNote + '</p>' : '') +
+    renderPhase({...doc, phase: 'REGISTER'}, new Date()); finishPaint(paint); return; }
   reached.add(doc.phase);
   renderRail();
   $('phasepanel').innerHTML = renderPhase(doc, new Date());
@@ -116,7 +118,8 @@ function metricCounts(d){
 function renderToggle(){
   const seg = (k, label) => '<button class="vtseg' + (view === k ? ' on' : '') +
     '" data-view="' + k + '" aria-pressed="' + (view === k) + '">' + label + '</button>';
-  $('viewtoggle').innerHTML = seg('wizard', 'Wizard') + seg('board', 'Board') + seg('register', 'Register');
+  const register = modeOf(doc) === 'success' ? 'Success register' : 'Risk register';
+  $('viewtoggle').innerHTML = seg('wizard', 'Run workshop') + seg('board', 'Working board') + seg('register', register);
 }
 function renderRail(){
   const cur = PHASES.indexOf(doc.phase);
@@ -224,6 +227,13 @@ boardPanel.addEventListener('input', e => {
   if(d.conf){ setRange(entry(d.id), 'p', d.conf, e.target.value); save(); }   // confidence-it-holds → e.p (flips on promote)
 });
 boardPanel.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && promotingId){
+    const id = promotingId;
+    e.preventDefault();
+    promotingId = null;
+    render({focus: '[data-promote="' + id + '"]', announce: 'Promotion cancelled.'});
+    return;
+  }
   if(e.target.dataset.addKind && e.key === 'Enter'){
     const v = e.target.value.trim(), kind = e.target.dataset.addKind;
     if(v) mutate(() => { doc.entries.push(newEntry(v, {kind})); });
@@ -245,6 +255,7 @@ boardPanel.addEventListener('click', e => {
 function confirmPromote(id){
   if(modeOf(doc) === 'success'){
     promotingId = null; view = 'register';
+    promotionNote = 'Working board → success register · ' + esc(entry(id).text) + ' was promoted.';
     mutate(() => { doc.entries = doc.entries.map(x => x.id === id ? promoteOpportunity(x) : x); },
       {phaseFocus: true, announce: 'Opportunity added to success register'});
     return;
@@ -260,6 +271,7 @@ function confirmPromote(id){
     return;
   }
   promotingId = null; view = 'register';                            // land on the register so they see it arrive
+  promotionNote = 'Working board → risk register · ' + esc(entry(id).text) + ' was promoted.';
   mutate(() => { doc.entries = doc.entries.map(x => x.id === id ? promote(x, p, impact) : x); },
     {phaseFocus: true, announce: 'Risk added to register'});
 }

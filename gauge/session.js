@@ -13,6 +13,7 @@ import {encodeHash} from '../assets/series.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {schemaFingerprint, draftKey, encodeDraft, decodeDraft} from './draft.js';
 import {tryClipboardWrite, requestLock} from './safety.js';
+import {esc} from '../assets/svg.js';
 
 const ENDED = 'This session has ended — sessions live 24 hours.';
 
@@ -22,7 +23,25 @@ const ENDED = 'This session has ended — sessions live 24 hours.';
    session surfaces: gauge's verdict is drawn inside the exported artefact
    (render-overlay's svgVerdict block), and the contract is ONE display verdict
    per page — an HTML .verdict-block here would be the same finding twice. */
-const setHead = (el, v) => { if(el) el.textContent = v.line; };
+const setHead = el => { if(el) el.textContent = ''; };
+const resultReceipt = (stats, delphi = null) => '<section class="result-receipt" data-result-receipt aria-label="Text result summary"><ol>' +
+  stats.map((s, i) => {
+    const d = delphi?.[i];
+    const state = d ? d.headline : s.headline;
+    const n = d ? d.n : s.n;
+    return '<li><strong>' + esc(s.question.text) + '</strong><span>' + n + ' response' + (n === 1 ? '' : 's') + ' · ' + esc(state) + '</span></li>';
+  }).join('') + '</ol></section>';
+const discussionQueue = (stats, delphi = null) => {
+  const discuss = stats.map((s, i) => ({s, i, d: delphi?.[i]})).filter(({s}) => s.discuss);
+  const lead = discuss[0];
+  const copy = lead ? 'Choose the discussion order before opening round 2.' : 'The room is aligned enough to commit or close the session.';
+  return '<p class="discussion-queue"><span>Discussion queue</span> ' + discuss.length + ' question' +
+    (discuss.length === 1 ? '' : 's') + ' need discussion · ' + esc(copy) + '</p>';
+};
+const paintResult = (el, svg, stats, delphi = null) => {
+  el.innerHTML = svg + discussionQueue(stats, delphi) + '<details class="receipt-disclosure"><summary>Reading receipt · ' +
+    stats.length + ' questions</summary>' + resultReceipt(stats, delphi) + '</details>';
+};
 /* Honest console counts: the responses actually in (the same max the overlay
    header prints), the questions asked, and which round is on screen. */
 const consoleCounts = (model, stats, delphi) => {
@@ -34,8 +53,8 @@ const consoleCounts = (model, stats, delphi) => {
 };
 const showOverlay = (el, headEl, model, responses, ctx, metEl) => {
   const stats = sessionStats(model, responses);
-  el.innerHTML = renderOverlay(model, stats, ctx(), {width: narrowWidth(el)});
-  setHead(headEl, resolveVerdict(model.verdict, verdictOf(stats)));
+  paintResult(el, renderOverlay(model, stats, ctx(), {width: narrowWidth(el)}), stats);
+  setHead(headEl);
   if(metEl) paintMetrics(metEl, model.title || 'Gauge session', consoleCounts(model, stats, false));
 };
 /* width only on screen (narrowWidth of the host element) — export paths omit it */
@@ -43,7 +62,7 @@ const delphiSvg = (model, r1, r2, ctx, width) =>
   renderOverlay(model, sessionStats(model, mergeFinal(r1, r2)), ctx(),
     {delphi: delphiStats(model, r1, r2), round1: sessionStats(model, r1), width});
 const setDelphiHead = (headEl, model, r1, r2, metEl) => {
-  setHead(headEl, resolveVerdict(model.verdict, delphiVerdictOf(delphiStats(model, r1, r2))));
+  setHead(headEl);
   if(metEl) paintMetrics(metEl, model.title || 'Gauge session',
     consoleCounts(model, sessionStats(model, mergeFinal(r1, r2)), true));
 };
@@ -51,6 +70,7 @@ const delphiMd = (model, r1, r2) =>
   markdownSummary(model, sessionStats(model, mergeFinal(r1, r2)), delphiStats(model, r1, r2));
 const slugOf = model => ((model.title || 'gauge')).toLowerCase()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const sessionStatus = ($, text) => { $('csessionstatus').textContent = text; };
 
 export function initConsole({model, text, relay, ctx, $, id, key}){
   $('ctitle').textContent = model.title || 'Gauge session';
@@ -91,6 +111,9 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
 
   function renderCounts(data){
     $('ccount').textContent = countLabel(round, data);
+    if(!(responses2 || (round === 1 && responses)))
+      $('crole').textContent = 'Facilitator · gathering' + (round === 2 ? ' · round 2' : '') +
+        ' · ' + (round === 2 ? (data.count2 || 0) : (data.count || 0)) + ' responses';
     const answered = round === 2 ? data.answered2 : data.answered;
     (answered || []).forEach((n, i) => { if(counters[i]) counters[i].textContent = String(n); });
   }
@@ -99,12 +122,17 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     poll.stop();
     $('creveal').disabled = true;
     $('creveal').textContent = 'Revealed — responses locked';
-    $('cstate').textContent = '';
+    $('crevealactions').hidden = true;
+    sessionStatus($, '');
     $('cquestions').hidden = true;
+    $('ccount').hidden = true;
     showOverlay($('coverlay'), $('chead'), model, responses, ctx, $('cmetrics'));
     $('cexports').hidden = false;
     $('cround2wrap').hidden = false;
+    $('cendarea').hidden = false;
+    $('crole').textContent = 'Facilitator · round 1 · ' + Math.max(0, ...sessionStats(model, responses).map(s => s.n)) + ' responses · revealed and locked';
     refreshHandoff();
+    requestAnimationFrame(() => { $('coverlay').tabIndex = -1; $('coverlay').focus(); });
   }
   function showResults2(r1resp, r2resp){
     responses = r1resp;
@@ -112,11 +140,18 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     if(poll2) poll2.stop();
     $('creveal').disabled = true;
     $('creveal').textContent = 'Round 2 revealed — locked';
-    $('cstate').textContent = '';
+    $('crevealactions').hidden = true;
+    sessionStatus($, '');
     $('cquestions').hidden = true;
-    $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay')));
+    $('ccount').hidden = true;
+    const ds = delphiStats(model, responses, responses2);
+    paintResult($('coverlay'), delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay'))),
+      sessionStats(model, mergeFinal(responses, responses2)), ds);
     setDelphiHead($('chead'), model, responses, responses2, $('cmetrics'));
     refreshHandoff();
+    $('cendarea').hidden = false;
+    $('crole').textContent = 'Facilitator · round 2 · ' + Math.max(0, ...sessionStats(model, mergeFinal(responses, responses2)).map(s => s.n)) + ' responses · revealed and locked';
+    requestAnimationFrame(() => { $('coverlay').tabIndex = -1; $('coverlay').focus(); });
   }
 
   const mkPoll = () => startPoll({
@@ -131,7 +166,7 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
         $('creveal').disabled = true;
         return false;
       }
-      $('cstate').textContent = '';
+        sessionStatus($, '');
       if(round === 1 && r.data.round === 2){
         /* console reloaded mid-round-2: restore state from the relay */
         round = 2;
@@ -139,7 +174,10 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
         if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx, $('cmetrics'));
         $('cexports').hidden = false;
         $('cround2wrap').hidden = true;
+        $('cendarea').hidden = false;
         $('cquestions').hidden = false;
+        $('ccount').hidden = false;
+        $('crevealactions').hidden = false;
         $('creveal').disabled = false;
         $('creveal').textContent = 'Reveal round 2';
       }
@@ -151,7 +189,7 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
       if(r.data.revealed){ showResults(r.data.responses); return false; }   // stop at reveal
       return true;
     },
-    onError(){ $('cstate').textContent = 'reconnecting…'; },
+    onError(){ sessionStatus($, 'Reconnecting…'); },
   });
   const poll = mkPoll();
   /* Reveal, round transition and deletion all mutate the same relay session.
@@ -179,7 +217,7 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     const r = attempt.value;
     if(!r.ok){
       $('creveal').textContent = label;
-      $('cstate').textContent = r.status === 404 ? ENDED : "Couldn't reveal — try again.";
+      sessionStatus($, r.status === 404 ? ENDED : "Couldn't reveal — try again.");
       return;
     }
     renderCounts(r.data);
@@ -207,16 +245,19 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     if(!r.ok){
       r2Armed = false;
       $('cround2').textContent = 'Open a second round (Delphi)';
-      $('cstate').textContent = r.status === 404 ? ENDED : "Couldn't open round 2 — try again.";
+      sessionStatus($, r.status === 404 ? ENDED : "Couldn't open round 2 — try again.");
       return;
     }
     round = 2;
     $('cround2wrap').hidden = true;
+    $('crole').textContent = 'Facilitator · gathering · round 2';
     $('cquestions').hidden = false;
+    $('ccount').hidden = false;
     counters.forEach(b => { b.textContent = '0'; });
     $('ccount').textContent = 'Round 2 open — tell the room to revise and resubmit.';
     $('creveal').disabled = false;
     $('creveal').textContent = 'Reveal round 2';
+    $('crevealactions').hidden = false;
     poll2 = mkPoll();
   });
 
@@ -244,7 +285,7 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
          access to the source session. */
       handoffMeta('gauge', 'range-estimate', model.title || 'Gauge ranges', '/gauge/'));
     if(href) location.href = href;
-    else $('cstate').textContent = 'This result is too large to open in Fermi. Export it instead.';
+    else sessionStatus($, 'This result is too large to open in Fermi. Export it instead.');
   });
 
   wireExports({
@@ -275,16 +316,20 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     if(!r.ok && r.status !== 404){
       endArmed = false;
       $('cend').textContent = 'End session now';
-      $('cstate').textContent = "Couldn't end the session — try again.";
+      sessionStatus($, "Couldn't end the session — try again.");
       return;
     }
     $('cend').disabled = true;
     $('cend').textContent = 'Session ended';
-    $('cstate').textContent = 'Responses deleted from the relay — exports still work from this tab.';
+    sessionStatus($, 'Responses deleted from the relay — exports still work from this tab.');
   });
 
   const repaint = () => {
-    if(responses2) $('coverlay').innerHTML = delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay')));
+    if(responses2){
+      const ds = delphiStats(model, responses, responses2);
+      paintResult($('coverlay'), delphiSvg(model, responses, responses2, ctx, narrowWidth($('coverlay'))),
+        sessionStats(model, mergeFinal(responses, responses2)), ds);
+    }
     else if(responses) showOverlay($('coverlay'), $('chead'), model, responses, ctx, $('cmetrics'));
   };
   onThemeChange(repaint);
@@ -461,7 +506,9 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
       lastDelphi = {r1: r.data.responses, r2: r.data.responses2};
       lastResponses = null;
       say('');
-      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx, narrowWidth($('presult')));
+      const ds = delphiStats(model, lastDelphi.r1, lastDelphi.r2);
+      paintResult($('presult'), delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx, narrowWidth($('presult'))),
+        sessionStats(model, mergeFinal(lastDelphi.r1, lastDelphi.r2)), ds);
       setDelphiHead($('phead'), model, lastDelphi.r1, lastDelphi.r2);
       return;
     }
@@ -475,7 +522,9 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
 
   const repaint = () => {
     if(lastDelphi){
-      $('presult').innerHTML = delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx, narrowWidth($('presult')));
+      const ds = delphiStats(model, lastDelphi.r1, lastDelphi.r2);
+      paintResult($('presult'), delphiSvg(model, lastDelphi.r1, lastDelphi.r2, ctx, narrowWidth($('presult'))),
+        sessionStats(model, mergeFinal(lastDelphi.r1, lastDelphi.r2)), ds);
       setDelphiHead($('phead'), model, lastDelphi.r1, lastDelphi.r2);
     }
     else if(lastResponses) showOverlay($('presult'), $('phead'), model, lastResponses, ctx);

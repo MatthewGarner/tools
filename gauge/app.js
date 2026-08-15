@@ -23,6 +23,7 @@ import {loadSaved, storeSaved} from '../assets/saved-items.js';
 import {renderSavedDisclosure, savedSelectionAfterDelete} from '../assets/handoff-ui.js';
 import {gaugeImport} from './import-state.js';
 import {targetHashState} from '../assets/handoff.js';
+import {esc} from '../assets/svg.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
@@ -101,6 +102,11 @@ export function wireFormEvents(root){
 /* Compose-stage metrics, read straight off the parsed model so they move with the
    editor: how many questions, of which kinds, and whether answers carry names. */
 const TYPE_WORD = {prob: 'probability', range: 'quantity', chips: 'confidence auction'};
+const sampleReceipt = stats => '<details class="receipt-disclosure"><summary>Reading receipt · ' +
+  stats.length + ' questions</summary><section class="result-receipt" data-result-receipt aria-label="Sample reading receipt"><ol>' +
+  stats.map(s => '<li><strong>' + esc(s.question.text) + '</strong><span>' + s.n + ' response' +
+    (s.n === 1 ? '' : 's') + ' · ' + esc(s.headline) + '</span></li>').join('') +
+  '</ol></section></details>';
 function composeCounts(model){
   const qs = model.questions, by = new Map();
   for(const q of qs) by.set(q.type, (by.get(q.type) || 0) + 1);
@@ -232,6 +238,7 @@ async function initCompose(hash){
   const ws = initWorkspace({
     workspace: $('workspace'), tab: $('railtab'),
     preview: $('preview'), zoomHost: $('zoomctl'),
+    initialCollapsed: true, collapsedLabel: 'Edit questions', collapsedAriaLabel: 'Edit questions', expandedLabel: 'Hide questions',
     onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
   });
 
@@ -248,7 +255,7 @@ async function initCompose(hash){
     const text = editor.getText();
     model = parse(text);
     const pv = $('preview');
-    let out, head = '';
+    let out;
     if(!model.questions.length){
       out = '<p class="placeholder">' + (text.trim()
         ? 'No questions yet — write one like “Weeks to migrate billing :: range weeks”.'
@@ -258,11 +265,10 @@ async function initCompose(hash){
     } else {
       const stats = sessionStats(model, sampleResponses(model));
       // the PREVIEW carries the narrow width (<520 ⇒ phone relayout); exports never do
-      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv), edit: true});
-      head = resolveVerdict(model.verdict, {line: verdict(stats), fig: ''}).line;
+      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv), edit: true}) + sampleReceipt(stats);
     }
     paint(out, REVEAL); lastOut = out;
-    $('revealhead').textContent = head;
+    $('revealhead').textContent = '';
     paintMetrics($('metrics'), model.questions.length ? (model.title || 'Gauge session') : '',
       model.questions.length ? composeCounts(model) : []);
     renderWarnings();
@@ -290,8 +296,8 @@ async function initCompose(hash){
     view = v;
     $('viewform').classList.toggle('on', v === 'form');
     $('viewreveal').classList.toggle('on', v === 'reveal');
-    $('viewform').setAttribute('aria-selected', String(v === 'form'));
-    $('viewreveal').setAttribute('aria-selected', String(v === 'reveal'));
+    $('viewform').setAttribute('aria-pressed', String(v === 'form'));
+    $('viewreveal').setAttribute('aria-pressed', String(v === 'reveal'));
     lastOut = '';
     refresh();
   }

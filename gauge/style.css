@@ -18,9 +18,16 @@
 .statusline.err{color:var(--err)}
 .headline{color:var(--accent-ink);font-size:14.5px;font-weight:600;margin:10px 0 0}
 .headline:empty{display:none}
+.workshop-state{margin:8px 0 12px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase}
 /* Form / Sample reveal — the shared .segmented control (Swiss 6c); only the
    gap to the artefact below is gauge's own. */
 .viewtoggle{margin-bottom:12px}
+/* Gauge opens on the room artefact; this is the unmistakable route back to the
+   authored questions, not an anonymous chevron borrowed from the generic rail. */
+#workspace.collapsed .railtab{top:28px;left:0;min-width:118px;width:auto;padding:0 10px 0 14px;
+  border:1px solid var(--border);background:var(--bg);font:700 10.5px/1 inherit;letter-spacing:.08em;text-transform:uppercase}
+#workspace.collapsed .railtab::before{top:11px}
+#workspace.collapsed .railtab::after{display:none}
 
 /* ---- the form (participant + compose preview) ---- */
 .formpreview{max-width:var(--w-form)}
@@ -78,6 +85,19 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .qcounts b{color:var(--ink);font-variant-numeric:tabular-nums}
 #coverlay,#presult{margin-top:18px}
 #coverlay svg,#presult svg{max-width:100%;height:auto}
+.result-receipt{margin:0;padding:14px 0 0;border-top:1px solid var(--border)}
+.result-receipt .receipt-kicker{margin:0 0 8px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.result-receipt ol{margin:0;padding:0;list-style:none}
+.result-receipt li{display:grid;grid-template-columns:minmax(11ch, .8fr) 2fr;gap:12px;padding:9px 0;border-top:1px solid color-mix(in srgb,var(--border) 70%,transparent);font-size:13px}
+.result-receipt li span{color:var(--muted)}
+.discussion-queue{margin:14px 0 0;padding:10px 0;border-top:1px solid var(--border);font-size:13.5px;color:var(--muted)}
+.discussion-queue span{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--ink)}
+.receipt-disclosure{margin-top:4px;color:var(--muted);font-size:12.5px}
+.receipt-disclosure summary{cursor:pointer;padding:8px 0;font-weight:600}
+.receipt-disclosure[open] summary{color:var(--ink)}
+.session-end{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:26px;padding-top:14px;border-top:1px solid var(--border)}
+.session-end[hidden]{display:none}
+@media(max-width:560px){.result-receipt li{grid-template-columns:1fr;gap:3px}}
 
 .about code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }

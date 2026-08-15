@@ -40,6 +40,7 @@ try{
   const pageF = await (await browser.newContext()).newPage();
   const errF = watchErrors(pageF);
   await pageF.goto(BASE + '/gauge/', {waitUntil: 'networkidle'});
+  await pageF.locator('#railtab').click();
   await pageF.getByRole('button', {name: 'Q3 commitment review'}).click();
   await pageF.waitForTimeout(400);
   await pageF.locator('#startbtn').click();
@@ -106,6 +107,15 @@ try{
   await pageF.waitForSelector('#coverlay svg', {timeout: 10000});
   const overlay = await pageF.locator('#coverlay svg').innerHTML();
   check('facilitator: overlay has a headline', /median|Split room|agreement|wider than/i.test(overlay));
+  check('facilitator: reveal carries a static textual receipt for every question',
+    await pageF.locator('#coverlay [data-result-receipt]').count() === 1 &&
+    await pageF.locator('#coverlay [data-result-receipt] li').count() === 3);
+  check('facilitator: SVG is the sole visible verdict (the status line does not repeat it)',
+    (await pageF.locator('#chead').innerText()).trim() === '');
+  await pageF.waitForFunction(() => document.activeElement === document.getElementById('coverlay'));
+  check('facilitator: reveal moves focus to the visible result and leaves a compact reading route',
+    await pageF.locator('#coverlay').evaluate(el => document.activeElement === el) &&
+    await pageF.locator('#coverlay .receipt-disclosure summary').count() === 1);
   check('facilitator: exports offered', await pageF.locator('#cexports').isVisible());
 
   /* actually click the exports — the quoted-font-stack bug (fixed 2026-07-06) made
@@ -129,6 +139,8 @@ try{
   await B.page.locator('#pview').click();
   await B.page.waitForSelector('#presult svg', {timeout: 5000});
   check('participant: results pulled on demand', true);
+  check('participant: revealed result includes the same textual receipt',
+    await B.page.locator('#presult [data-result-receipt]').count() === 1);
 
   await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
@@ -213,6 +225,9 @@ try{
   await pageF.locator('#cend').click();
   await pageF.waitForFunction(() => document.getElementById('cend').textContent === 'Session ended');
   check('facilitator: end session deletes relay entry', true);
+  check('facilitator: end confirmation remains visible after the reveal action is removed',
+    await pageF.locator('#csessionstatus').isVisible() &&
+    /Responses deleted/.test(await pageF.locator('#csessionstatus').innerText()));
   await A.page.locator('#pview').click();
   await A.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('ended'));
   check('participant: view after end says session ended', true);
@@ -228,6 +243,7 @@ try{
     const cf = await (await browser.newContext()).newPage();
     const errCF = watchErrors(cf);
     await cf.goto(BASE + '/gauge/', {waitUntil: 'networkidle'});
+    await cf.locator('#railtab').click();
     await cf.getByRole('button', {name: 'Confidence auction'}).click();
     await cf.waitForTimeout(400);
     await cf.locator('#startbtn').click();

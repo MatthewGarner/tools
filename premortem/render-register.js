@@ -13,6 +13,12 @@ export function renderRegister(doc, exp, now = new Date()){
   const port = exp.portfolio || {p50: 0, p10: 0, p90: 0};
   const stale = staleCount(risks, now);
   const maxP90 = Math.max(1, ...rows.filter(isScoreable).map(e => (exp.get(e.id) || {}).p90 || 0));
+  const lead = rows.find(isScoreable);
+  const leadExposure = lead ? (exp.get(lead.id) || {}).p50 : null;
+  const review = lead
+    ? 'Review first: ' + esc(lead.text) + ' carries the highest median exposure' +
+      (leadExposure == null ? '.' : ' (' + fmt(leadExposure) + u + ').')
+    : 'No risk has a complete likelihood and impact range yet.';
 
   const body = rows.map((e, i) => {
     const sc = isScoreable(e);
@@ -39,6 +45,7 @@ export function renderRegister(doc, exp, now = new Date()){
 
   return '<div class="reghead" role="heading" aria-level="2" tabindex="-1"><span class="regplane">Risk register</span>' +
     (doc.title ? '<span class="regsubject">' + esc(doc.title) + '</span>' : '') + '</div>' +
+    '<p class="register-conclusion"><span>Review first</span>' + review + '</p>' +
     '<div class="registerwrap"><table class="register"><thead><tr>' +
     '<th></th><th>Risk</th><th>Exposure' + u + '</th><th>Likely</th><th>Status</th><th>Age</th></tr></thead>' +
     '<tbody>' + body + '</tbody></table></div>' +

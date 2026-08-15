@@ -51,6 +51,7 @@ function render(){
   ]);
   $('orderwrap').innerHTML = renderOrder(state);
   $('loopcol').hidden = ls.length === 0;
+  $('orderwrap').closest('.readcols').classList.toggle('solo', ls.length === 0);
   $('loopwrap').innerHTML = renderLoops(state);
   writeHash();
 }
@@ -90,9 +91,8 @@ $('duelwrap').addEventListener('click', e => {
   const btn = e.target.closest('[data-pick]');
   if(!btn || !curPair) return;
   const w = +btn.dataset.pick;
-  state.duels.push({a: curPair[0], b: curPair[1], w});
-  state.finished = false;
-  render();
+  const position = [...$('duelwrap').querySelectorAll('.pickcard')].indexOf(btn);
+  pick(w, position);
 });
 $('undo').addEventListener('click', () => {
   for(let i = state.duels.length - 1; i >= 0; i--){ if(!state.duels[i].sup){ state.duels.splice(i, 1); break; } }
@@ -101,14 +101,30 @@ $('undo').addEventListener('click', () => {
 $('finish').addEventListener('click', () => { state.finished = true; render(); });
 $('keep').addEventListener('click', () => { state.finished = false; render(); });
 
-/* keyboard: ← / → pick the left / right card while a duel is showing */
+/* keyboard: ← / → only pick from the contender that owns focus.  Utility
+   controls share this card, so a document-wide shortcut would turn a casual
+   arrow on Undo/Copy into a silent vote. */
 document.addEventListener('keydown', e => {
   if(e.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
-  if(!curPair || $('duelcard').hidden) return;
-  if(e.key === 'ArrowLeft'){ e.preventDefault(); pick(curPair[0]); }
-  else if(e.key === 'ArrowRight'){ e.preventDefault(); pick(curPair[1]); }
+  const card = e.target.closest?.('.pickcard[data-pick]');
+  if(!card || !curPair) return;
+  const position = [...$('duelwrap').querySelectorAll('.pickcard')].indexOf(card);
+  if(e.key === 'ArrowLeft'){ e.preventDefault(); pick(curPair[0], position); }
+  else if(e.key === 'ArrowRight'){ e.preventDefault(); pick(curPair[1], position); }
 });
-function pick(w){ state.duels.push({a: curPair[0], b: curPair[1], w}); state.finished = false; render(); }
+function pick(w, position = null){
+  const loser = curPair[0] === w ? curPair[1] : curPair[0];
+  const receipt = state.items[w] + ' chosen over ' + state.items[loser] + '. Next comparison ready.';
+  state.duels.push({a: curPair[0], b: curPair[1], w});
+  state.finished = false;
+  render();
+  $('duelstatus').textContent = receipt;
+  if(position === null) return;
+  requestAnimationFrame(() => {
+    const cards = $('duelwrap').querySelectorAll('.pickcard');
+    (cards[position] || cards[0])?.focus();
+  });
+}
 
 /* ---------- tag + re-duel (delegated on the loop column) ---------- */
 $('loopwrap').addEventListener('click', e => {
@@ -133,7 +149,15 @@ function openTagEdit(btn){
     }
     render();
   };
-  input.addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); commit(); } else if(ev.key === 'Escape') render(); });
+  input.addEventListener('keydown', ev => {
+    if(ev.key === 'Enter'){ ev.preventDefault(); commit(); }
+    else if(ev.key === 'Escape'){
+      ev.preventDefault();
+      render();
+      requestAnimationFrame(() =>
+        $('loopwrap').querySelector('.tagbtn[data-w="' + w + '"][data-l="' + l + '"]')?.focus());
+    }
+  });
   input.addEventListener('blur', commit);
 }
 function reduelLoop(li){

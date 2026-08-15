@@ -63,7 +63,7 @@ async function installAndWait(page){
     ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await p.getByRole('button', {name: 'Habit retention'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await p.getByRole('button', {name: 'Assumption map'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/gauge/', async p => { await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await p.waitForTimeout(600); return await p.locator('#verdictwrap svg').count() === 1; }],
     ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await p.getByRole('button', {name: 'Habitat platform'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
