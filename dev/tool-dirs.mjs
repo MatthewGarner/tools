@@ -28,6 +28,31 @@ export const INSTRUMENTS = {
   fermi: '11', gauge: '12', alarm: '13', flow: '14', 'signal-vs-noise': '15', paths: '16', proxy: '17',
 };
 
+/* The four real families (2026-08-15 assessment) — grouped by interaction
+   mechanism and audience, not by subject matter. Two names inherited from
+   the earlier "five family" pass because they were already right: Teaching
+   (fixed-concept demonstrations — you explore someone else's mechanism, not
+   your own situation) and Workshop (the artefact is built FROM other people;
+   the point is a reveal). The other three original names — Planning,
+   Mapping, Analysis — didn't correspond to a visual split: Planning and
+   Mapping share one shell (workspace.css: rail + stage, edit-in-place,
+   collapse-to-read) and differ only in subject matter, so they're one family
+   here (document); Analysis was a mixed bag — Fermi and Rank share a
+   ruler/form shell with no text source (calculator), while Tree and Bets
+   were always document-family tools that happened to get filed elsewhere.
+   A "family" here is a claim about mechanism, not about workflow order —
+   home/index.html's separate planning-route nav (paths→roadmap→timeline→
+   case) is a sequencing aid for four document-family tools, not a rival
+   taxonomy; both can name the same tools for different reasons.
+   dev/families.test.mjs asserts every TOOL_DIRS entry (BINDERS included) is
+   classified exactly once. */
+export const FAMILIES = {
+  document: ['roadmap', 'timeline', 'bets', 'map', 'tree', 'why', 'wardley', 'case', 'paths', 'proxy'],
+  calculator: ['fermi', 'rank'],
+  teaching: ['alarm', 'flow', 'signal-vs-noise'],
+  workshop: ['duel', 'gauge', 'premortem'],
+};
+
 /* Single source of truth for the energy-origin tool directories (energy/<dir>/).
    Before this existed the count/list was hand-copied per suite (smoke.mjs's
    "five tool cards" check, pwa.mjs's cache.match chain) — add a new energy tool
