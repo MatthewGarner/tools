@@ -569,6 +569,7 @@ for(const es of END_STATES){
   await page.click('#newparade');
   await page.fill('[data-field="title"]', 'Habitat phone breakthrough');
   await page.fill('[data-field="question"]', 'Why did it win?');
+  await page.waitForFunction(() => !document.querySelector('#next').disabled);
   await page.click('#next'); await page.click('[data-act="skiptimer"]');
   await page.fill('[data-add="entry"]', 'Keep the old onboarding reversible'); await page.press('[data-add="entry"]', 'Enter');
   await page.click('#next'); await page.click('#next');
