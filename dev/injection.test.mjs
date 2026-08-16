@@ -27,13 +27,21 @@ const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
    because several renderers uppercase their labels; a case-sensitive first cut of this
    check mis-flagged why-map-narrow, which escapes correctly. */
 const SURVIVES = [/alert\(1\)/i, /gnp\.exe/i, /onmouseover/i, /onerror/i, /quoted/i,
-  /&lt;script/i, /\]\]&gt;/i, / item \d/i];
+  /&lt;script/i, /\]\]&gt;/i];
+/* NB no / item \d/ marker: label() appends " item N" AFTER the hostile text, so it
+   is the one fragment that survives a renderer dropping the payload entirely — a
+   label truncated to fit a cell would keep "…&gt; item 3" and prove nothing. */
 
 /* Renderers whose output carries NO user-supplied text — calculators and teaching
    tools drawing numbers and fixed labels, so a hostile string has nowhere to land.
-   Established by dumping all 128 assertClean outputs (2026-08-16): these are the only
-   ones with no surviving marker, and no name listed here ALSO has a call that does
-   carry one, so opting them out cannot mask a real check. */
+   Established by dumping all 128 assertClean outputs (2026-08-16) and reading each
+   of the four renderers, not just their fixtures.
+
+   Asserted in the NEGATIVE rather than skipped, the `pilot` pattern from
+   dev/phone-edit.test.mjs: if one of these ever grows a free-text field, hostile
+   text starts reaching its output and this FAILS, demanding the name be pruned.
+   A bare early return would instead let that tool's coverage lapse silently into
+   exactly the proves-nothing state this check exists to end. */
 const TEXTLESS = new Set(['frequency', 'fermi-cashflow', 'fermi-cashflow-debt',
   'flow-readout', 'flow-expedite', 'flow-dice', 'alarm-dist', 'alarm-box']);
 
@@ -44,8 +52,12 @@ function assertClean(out, who){
   /* Everything above passes against the EMPTY STRING — not hypothetically: the cycles
      verdict fixture rendered '' and passed here until 2026-08-16. Escaping is only
      proven if the hostile text actually SURVIVED rather than vanishing. */
-  if(TEXTLESS.has(who)) return;
-  assert.ok(SURVIVES.some(re => re.test(out)),
+  const reached = SURVIVES.some(re => re.test(out));
+  if(TEXTLESS.has(who))
+    return assert.ok(!reached, who + ' is listed TEXTLESS but hostile text now reaches ' +
+      'its output — the renderer has gained a free-text surface, so remove it from the ' +
+      'set and let the real assertion run');
+  assert.ok(reached,
     who + ': no hostile text reached the output (length ' + out.length + ') — the ' +
     'renderer dropped it instead of escaping it, so this corpus proves nothing here');
 }
@@ -54,8 +66,9 @@ test('the survival markers are still derivable from the EVIL corpus', async () =
   const {esc} = await import('../assets/svg.js');
   /* Both renditions: some markers ride through untouched (gnp.exe), others only exist
      once escaped (&lt;script). A marker matching NEITHER has drifted away from the
-     corpus, and every survival assertion using it would pass vacuously. */
-  const corpus = EVIL.join(' ') + ' ' + esc(EVIL.join(' ')) + ' item 0';
+     corpus, and every survival assertion using it would pass vacuously. Built from
+     EVIL alone — nothing hand-typed, or the check could satisfy itself. */
+  const corpus = EVIL.join(' ') + ' ' + esc(EVIL.join(' '));
   for(const re of SURVIVES)
     assert.match(corpus, re, 'marker ' + re + ' is no longer reachable from EVIL');
 });
@@ -635,9 +648,10 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
 
 /* ---------- authored verdicts (2026-07-31, roadmap joined 2026-08-09) ----------
    `verdict: <text>` is a NEW path for author-supplied text straight into an SVG
-   text node, on eight tools at once. It is exactly the shape of string that has
-   broken exports twice before, so every tool that accepts the key gets the
-   corpus run through it. One test, eight renderers, no per-tool memory needed. */
+   text node. It is exactly the shape of string that has broken exports twice
+   before, so every tool that renders the key gets the corpus run through it.
+   SEVEN renderers, not eight: roadmap left in 2026-08-16 because its authored
+   verdict never reaches SVG at all — see the note at the foot of this test. */
 test('every tool accepting verdict: escapes a hostile authored line', async () => {
   const evil = EVIL.join(' ');   // one line carrying every hostile shape at once
   const v = 'verdict: ' + evil.replace(/\n/g, ' ') + '\n';
@@ -691,7 +705,7 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
   /* roadmap is deliberately absent from this block. Its authored `verdict:` never
      reaches an SVG renderer at all: render.js carries no verdict code, and the deck's
      roadmapVerdict() (parse.js:282) is the DERIVED line, which never reads
-     model.verdict. The authored line is painted into the DOM by app.js:561 →
+     model.verdict. The authored line is painted into the DOM by app.js:562 →
      paintVerdict, which builds every run with textContent/createElement and contains
      no innerHTML — so there is nothing for an SVG corpus to prove here. Removed
      2026-08-16, having previously asserted against output carrying no hostile text at
