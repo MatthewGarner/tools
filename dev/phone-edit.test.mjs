@@ -8,7 +8,11 @@
    one), and the edit surface is asserted against a per-tool floor:
 
    - kinds: at least this many DISTINCT data-edit kinds (>= — a ratchet
-     against regression, raised as the mobile-input paradigm rolls out);
+     against regression, raised as the mobile-input paradigm rolls out).
+     EVERY FLOOR SITS AT ITS MEASURED VALUE. A `>=` floor with slack is not a
+     ratchet: six of these carried 1-2 kinds of headroom (measured 2026-08-16),
+     so timeline could silently lose TWO whole edit kinds and still pass. When
+     a tool gains a kind, raise its floor in the same commit;
    - menu: where true, the artefact must carry data-menu (the coarse-pointer
      card-menu entry point in assets/edit-in-place.js);
    - pilot: a KNOWN GAP, asserted with === so the moment the tool gains a
@@ -56,17 +60,17 @@ function eipTools(){
 
 /* ---- per-tool floors (measured 2026-07-16, the Stage 0 baseline) ---- */
 const FLOORS = {
-  roadmap:   {kinds: 5, menu: true},
+  roadmap:   {kinds: 6, menu: true},
   why:       {kinds: 7, menu: true},
   /* Tree's live-narrow coarse surface deliberately removes the three tiny
      inline field kinds. Its root/decision/chance/leaf menus plus verdict
      remain, and each menu carries field-specific raw values for its rows. */
-  tree:      {kinds: 5, menu: true},
+  tree:      {kinds: 6, menu: true},
   /* map (mobile-input stage, 2026-07-16): Move…/Place on map… landed as a
      cardmenu ROW and the tray gained the same cardmenu kind — no NEW data-edit
      kind, so the floor honestly stays at 6 (additem, axis, cardmenu, field,
      label, removeitem). The behaviour is gated in dev/pw/check-eip.mjs. */
-  map:       {kinds: 6, menu: true},
+  map:       {kinds: 8, menu: true},
   /* bets (mobile-input stage, 2026-07-16): the narrow board's structure surface
      landed — name (rename) + addbet/addgroup capsules join the unconditional
      stake/odds/payoff/kill cells and the per-card data-menu: 8 distinct kinds. */
@@ -74,14 +78,14 @@ const FLOORS = {
   /* case (binder, 2026-08-02): label + note + question inputs, plus the shared
      verdict menu/verdictedit pair — 5 kinds. No per-card ⋯ data-menu (the gauge
      precedent): every edit has a direct visible affordance on the row itself. */
-  case:      {kinds: 5, menu: false},
+  case:      {kinds: 6, menu: false},
   /* wardley's tap menu is its own componentmenu KIND (a card menu: Needs…
      edge-toggle submenu + Remove), not the data-menu redirect attribute —
      menu:false is accurate, not a gap. The Needs… rows (mobile-input stage,
      2026-07-16) are menu rows built from the model in app.js, not data-edit
      targets, so the floor honestly stays at 4 (additem, anchor, componentmenu,
      name/stage mix per width); the behaviour is gated in dev/pw/check-eip.mjs. */
-  wardley:   {kinds: 4, menu: false},
+  wardley:   {kinds: 6, menu: false},
   /* cycles (mobile-input tail, 2026-07-17): the num pills stay directly editable
      AND each band gains a top-right ⋯ card menu (data-menu cardmenu) exposing the
      optional-key structure — add/remove charge/second/drift/discount/augment. The
@@ -98,7 +102,7 @@ const FLOORS = {
      routing targets emit 7 distinct kinds (additem, cardmenu, dates, label, note,
      setlane, status). The floor ratchets up here; menu:true asserts the card-menu
      entry point survives. */
-  timeline:  {kinds: 7, menu: true},
+  timeline:  {kinds: 9, menu: true},
   /* gauge (mobile-input tail, LAST stage, 2026-07-17): the compose FORM is HTML,
      not an SVG diagram — attachEditInPlace is surface-agnostic, so the participant
      form gains authoring chrome: qtext/qtype/removeq per head, unit on ranges,
@@ -112,7 +116,7 @@ const FLOORS = {
      topology question, then the HTML receipt exposes all eight decision fields.
      The driver selects `groups` from treeProjection before serialising the exact
      field contract app.js consumes; a static page shell cannot satisfy this. */
-  paths:     {kinds: 8, menu: false},
+  paths:     {kinds: 10, menu: false},
   /* Proxy's one source edit is the hunt-level author-stated verdict. It lives
      in stage chrome rather than the explanatory SVG, so smoke.mjs exercises
      the real menu; this keeps that phone surface in the shared floor registry. */
@@ -121,7 +125,7 @@ const FLOORS = {
 
 /* ---- house-example docs (trimmed from each tool's first example chip) ---- */
 const DOCS = {
-  roadmap: 'title: Lantern — Product Roadmap\nhorizons: Now, Next, Later\n\nNOW\nCore: Resume where you left off [doing] -- the top-requested fix\nGrowth: Referral flow [risk]\n\nNEXT\nCore: Reading reminders',
+  roadmap: 'title: Lantern — Product Roadmap\nheadline: Retention first — everything in Now keeps readers reading\nhorizons: Now, Next, Later\n\nNOW\nCore: Resume where you left off [doing] -- the top-requested fix\nGrowth: Referral flow [risk]\n\nNEXT\nCore: Reading reminders',
   timeline: 'title: Lantern 2.0 — launch programme\nApp: Feature freeze 2026-08-14 .. 2026-08-28\nApp: Store review passed 2026-10 .. 2026-11 [risk] // review times vary\nMarketing: Landing page live 2026-08-21 [done]\nLaunch day 2026-11 .. 2027-01',
   why: 'title: Q3 — 90-day retention\noutcome: Improve 90-day retention\n\n  Readers lose their place between sessions\n    Reading reminders [testing]\n      ? readers want a nudge mid-commute [testing]\n    Resume where you left off [delivering]',
   tree: 'title: Bid for the Acme contract\ncurrency: £\n\nBid decision\n  Submit bid: -150k\n    Outcome\n      Win (p=0.3-0.45): 2M to 5M\n      Lose (p=rest): 0\n  No bid: 0',
