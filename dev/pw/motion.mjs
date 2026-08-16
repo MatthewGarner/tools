@@ -300,4 +300,4 @@ check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} t
 
 for(const r of results) console.log(r);
 await browser.close();
-report('motion', {...tally(results), min: 150});   // ~90% of the current 167 (was 60, stale since before the what-if motion cases)
+report('motion', {...tally(results), min: 150});   // ~90% of the 166 measured 2026-08-16 (was 60, stale since before the what-if motion cases)

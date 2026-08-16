@@ -14,6 +14,14 @@ const CASES = [
   ['wardley', '../wardley/parse.js', d => d],
   ['energy/cycles', '../energy/cycles/parse.js', d => d],
   ['energy/risk', '../energy/risk/parse.js', d => d],
+  /* Added 2026-08-16. The list had been hand-kept since 2026-08-02 and had
+     silently missed every parser that gained `verdict:` after it was written —
+     four of eleven. All four already conformed, so this is coverage, not repair;
+     the assertion below is what stops the list drifting a second time. */
+  ['case', '../case/parse.js', d => d],
+  ['paths', '../paths/parse.js', d => d],
+  ['proxy', '../proxy/parse.js', d => d],
+  ['roadmap', '../roadmap/parse.js', d => d],
 ];
 
 test('verdict: values drop trailing comments but keep URLs, in every parser', async () => {
@@ -26,6 +34,31 @@ test('verdict: values drop trailing comments but keep URLs, in every parser', as
     assert.equal(url.verdict, 'See https://example.com/plan',
       name + ': a URL was split at its //: ' + JSON.stringify(url.verdict));
   }
+});
+
+/* Coverage, so CASES cannot drift again. Membership is decided by BEHAVIOUR —
+   feed every parser a bare `verdict:` line and see whether it keeps the value —
+   rather than by grepping for the key, which would count a parser that merely
+   mentions the word. A parser that cannot parse the line at all is not a verdict
+   parser and is reported only if it also claims to be one. */
+test('every parser that accepts verdict: is covered by CASES', async () => {
+  const {TOOL_DIRS, ENERGY_TOOL_DIRS} = await import('./tool-dirs.mjs');
+  const dirs = [...TOOL_DIRS, ...ENERGY_TOOL_DIRS.map(d => 'energy/' + d)];
+  const listed = new Set(CASES.map(([name]) => name));
+  const accepts = [];
+  for(const dir of dirs){
+    let model;
+    try { ({parse: model} = await import('../' + dir + '/parse.js')); }
+    catch { continue; }                      // no parser: calculators, teaching tools
+    let out;
+    try { out = model('verdict: Ship it'); } catch { continue; }
+    if(out && out.verdict === 'Ship it') accepts.push(dir);
+  }
+  const missing = accepts.filter(d => !listed.has(d));
+  assert.deepEqual(missing, [], 'these parsers accept verdict: but are not in CASES, so the ' +
+    'convention is unasserted for them: ' + missing.join(' '));
+  const stale = [...listed].filter(d => !accepts.includes(d));
+  assert.deepEqual(stale, [], 'CASES lists parsers that no longer accept verdict:: ' + stale.join(' '));
 });
 
 test('roadmap headline/story follow the same convention', async () => {

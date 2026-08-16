@@ -1208,4 +1208,7 @@ for(const [name, url, chip] of WIDENED){
 }
 
 await browser.close();
-report('mobile', {pass, fail, min: ALL.length * 3});   // ≥3 checks/tool; catches a crash or empty derived list
+/* Two floors, whichever is higher. The per-tool expression keeps rising as tools are
+   added; the absolute is ~90% of the 398 measured 2026-08-16. Alone, the expression was
+   69 against 398 actual — 83% of this suite could have stopped running silently. */
+report('mobile', {pass, fail, min: Math.max(ALL.length * 3, 358)});

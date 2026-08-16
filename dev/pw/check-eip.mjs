@@ -4110,4 +4110,4 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
 
 console.log(results.join('\n'));
 await browser.close();
-report('check-eip', {...tally(results), min: 480});   // ~90% of the current 536 (was 100, stale since well before this file's growth)
+report('check-eip', {...tally(results), min: 537});   // ~90% of 597 measured 2026-08-16; the old 480 was ~90% of 536 and the suite has grown since

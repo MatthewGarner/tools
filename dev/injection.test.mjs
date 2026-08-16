@@ -21,11 +21,57 @@ const ctx = {
   measure: t => t.length * 7, today: 20640,
 };
 const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
+/* Fragments of EVIL that survive escaping unchanged — &lt; and &quot; rewrite the
+   punctuation around them, but these runs come through intact, so at least one has
+   to reach the output of any renderer that draws user text. Matched case-insensitively
+   because several renderers uppercase their labels; a case-sensitive first cut of this
+   check mis-flagged why-map-narrow, which escapes correctly. */
+const SURVIVES = [/alert\(1\)/i, /gnp\.exe/i, /onmouseover/i, /onerror/i, /quoted/i,
+  /&lt;script/i, /\]\]&gt;/i];
+/* NB no / item \d/ marker: label() appends " item N" AFTER the hostile text, so it
+   is the one fragment that survives a renderer dropping the payload entirely — a
+   label truncated to fit a cell would keep "…&gt; item 3" and prove nothing. */
+
+/* Renderers whose output carries NO user-supplied text — calculators and teaching
+   tools drawing numbers and fixed labels, so a hostile string has nowhere to land.
+   Established by dumping all 128 assertClean outputs (2026-08-16) and reading each
+   of the four renderers, not just their fixtures.
+
+   Asserted in the NEGATIVE rather than skipped, the `pilot` pattern from
+   dev/phone-edit.test.mjs: if one of these ever grows a free-text field, hostile
+   text starts reaching its output and this FAILS, demanding the name be pruned.
+   A bare early return would instead let that tool's coverage lapse silently into
+   exactly the proves-nothing state this check exists to end. */
+const TEXTLESS = new Set(['frequency', 'fermi-cashflow', 'fermi-cashflow-debt',
+  'flow-readout', 'flow-expedite', 'flow-dice', 'alarm-dist', 'alarm-box']);
+
 function assertClean(out, who){
   assert.ok(!/<script/i.test(out.replace(/&lt;script/gi, '')), who + ': raw <script> leaked');
   for(const tag of out.match(/<[^!/][^>]*>/g) || [])
     assert.match(tag, TAG, who + ': malformed tag ' + tag.slice(0, 120));
+  /* Everything above passes against the EMPTY STRING — not hypothetically: the cycles
+     verdict fixture rendered '' and passed here until 2026-08-16. Escaping is only
+     proven if the hostile text actually SURVIVED rather than vanishing. */
+  const reached = SURVIVES.some(re => re.test(out));
+  if(TEXTLESS.has(who))
+    return assert.ok(!reached, who + ' is listed TEXTLESS but hostile text now reaches ' +
+      'its output — the renderer has gained a free-text surface, so remove it from the ' +
+      'set and let the real assertion run');
+  assert.ok(reached,
+    who + ': no hostile text reached the output (length ' + out.length + ') — the ' +
+    'renderer dropped it instead of escaping it, so this corpus proves nothing here');
 }
+
+test('the survival markers are still derivable from the EVIL corpus', async () => {
+  const {esc} = await import('../assets/svg.js');
+  /* Both renditions: some markers ride through untouched (gnp.exe), others only exist
+     once escaped (&lt;script). A marker matching NEITHER has drifted away from the
+     corpus, and every survival assertion using it would pass vacuously. Built from
+     EVIL alone — nothing hand-typed, or the check could satisfy itself. */
+  const corpus = EVIL.join(' ') + ' ' + esc(EVIL.join(' '));
+  for(const re of SURVIVES)
+    assert.match(corpus, re, 'marker ' + re + ' is no longer reachable from EVIL');
+});
 
 test('proxy hunt separates hostile causal theories, readings and scoped receipts', async () => {
   const {parse} = await import('../proxy/parse.js');
@@ -602,9 +648,10 @@ test('premortem wizard + register + board renderers escape hostile risk text (HT
 
 /* ---------- authored verdicts (2026-07-31, roadmap joined 2026-08-09) ----------
    `verdict: <text>` is a NEW path for author-supplied text straight into an SVG
-   text node, on eight tools at once. It is exactly the shape of string that has
-   broken exports twice before, so every tool that accepts the key gets the
-   corpus run through it. One test, eight renderers, no per-tool memory needed. */
+   text node. It is exactly the shape of string that has broken exports twice
+   before, so every tool that renders the key gets the corpus run through it.
+   SEVEN renderers, not eight: roadmap left in 2026-08-16 because its authored
+   verdict never reaches SVG at all — see the note at the foot of this test. */
 test('every tool accepting verdict: escapes a hostile authored line', async () => {
   const evil = EVIL.join(' ');   // one line carrying every hostile shape at once
   const v = 'verdict: ' + evil.replace(/\n/g, ' ') + '\n';
@@ -643,7 +690,10 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
   const {parse: cparse} = await import('../energy/cycles/parse.js');
   const {simulate: csimulate} = await import('../energy/cycles/engine.js');
   const {render: crender} = await import('../energy/cycles/render.js');
-  const cm = cparse(v + 'battery: 100MW / 200MWh\nspread: 40..90\ncycles: 5000 over 15yr\nfade: 2..3\nrte: 85..88');
+  /* `calendar:` is REQUIRED (energy/cycles/parse.js) — without it the model is
+     incomplete, the engine returns null and render.js returns ''. This fixture omitted
+     it, so the assertion below ran against an empty string and proved nothing. */
+  const cm = cparse(v + 'battery: 100MW / 200MWh\nspread: 40..90\ncycles: 5000 over 15yr\nfade: 2..3\nrte: 85..88\ncalendar: 1.0..1.8');
   assertClean(crender(cm, csimulate(cm), ctx), 'cycles verdict:');
 
   const {parse: rparse} = await import('../energy/risk/parse.js');
@@ -652,10 +702,15 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
   const rm = rparse(v + 'merchant: 40..90\nfloor: 55');
   assertClean(rrender(rm, rsimulate(rm), ctx), 'risk verdict:');
 
-  const {parse: rdparse} = await import('../roadmap/parse.js');
-  const {render: rdrender} = await import('../roadmap/render.js');
-  const rdm = rdparse(v + 'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders');
-  assertClean(rdrender(rdm, ctx), 'roadmap verdict:');
+  /* roadmap is deliberately absent from this block. Its authored `verdict:` never
+     reaches an SVG renderer at all: render.js carries no verdict code, and the deck's
+     roadmapVerdict() (parse.js:282) is the DERIVED line, which never reads
+     model.verdict. The authored line is painted into the DOM by app.js:562 →
+     paintVerdict, which builds every run with textContent/createElement and contains
+     no innerHTML — so there is nothing for an SVG corpus to prove here. Removed
+     2026-08-16, having previously asserted against output carrying no hostile text at
+     all. (Unrelated product note: the exported deck therefore shows the derived
+     verdict even when the author wrote one.) */
 });
 
 /* `headline:` reached only the deck until 2026-07-31 and `story:` is new — two

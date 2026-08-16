@@ -17,6 +17,11 @@ const STANDARD = {
   'flow/index.html': ['copypng', 'copydoc', 'dlpng', 'dlsvg'],
   'gauge/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'map/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
+  /* paths + proxy added 2026-08-16 — both already conformed; the list had simply
+     been hand-kept and never caught up with the two newest tools. The coverage
+     assertion below is what stops that recurring. */
+  'paths/index.html': ['copypng', 'dlpng', 'dlsvg'],
+  'proxy/index.html': ['copypng', 'dlpng', 'dlsvg'],
   'roadmap/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'signal-vs-noise/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'timeline/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
@@ -66,4 +71,25 @@ test('snapshot controls live together in a native History disclosure', () => {
       assert.ok(at > summaryAt && at < endAt, `${path}: ${id} is not inside History`);
     }
   }
+});
+
+/* Coverage, so STANDARD cannot silently fall behind the tool list again — it had
+   missed paths and proxy since they shipped. Membership is decided by the page
+   itself: any tool page offering the primary Copy PNG must declare its export
+   hierarchy here. fermi is the one page with no bare `copypng` — its cashflow
+   surface uses cfcopypng — so it is covered by `special` above and not required
+   here. Tools with EXTRA surfaces (flow's batch/triage rows, gauge's second row)
+   appear in both: their bare copypng below, their prefixed rows in `special`. */
+test('every page with a primary Copy PNG declares its export hierarchy', async () => {
+  const {TOOL_DIRS, ENERGY_TOOL_DIRS} = await import('./tool-dirs.mjs');
+  const dirs = [...TOOL_DIRS, ...ENERGY_TOOL_DIRS.map(d => 'energy/' + d)];
+  const offers = dirs.filter(dir => {
+    try { return read(dir + '/index.html').includes('id="copypng"'); }
+    catch { return false; }
+  }).map(dir => dir + '/index.html');
+  const missing = offers.filter(p => !(p in STANDARD));
+  assert.deepEqual(missing, [], 'these pages offer Copy PNG but declare no export hierarchy: ' +
+    missing.join(' '));
+  const stale = Object.keys(STANDARD).filter(p => !offers.includes(p));
+  assert.deepEqual(stale, [], 'STANDARD lists pages that no longer offer Copy PNG: ' + stale.join(' '));
 });

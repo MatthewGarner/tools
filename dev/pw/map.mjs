@@ -100,4 +100,4 @@ check('suite: no console errors', errors.length === 0);
 if(errors.length) results.push(...errors.slice(0, 3));
 console.log(results.join('\n'));
 await browser.close();
-report('map', {...tally(results), min: 6});
+report('map', {...tally(results), min: 12});   // ~90% of 14 measured 2026-08-16

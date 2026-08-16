@@ -9,9 +9,15 @@ const check = (n, ok) => out.push((ok ? 'PASS ' : 'FAIL ') + n);
 /* Soft: a served public doc is untidy, not harmful — report, never fail the check. */
 const note = (n, ok) => out.push((ok ? 'NOTE ' : 'WARN ') + n);
 
+/* A substring test passed `script-src 'self' 'unsafe-inline'` — the exact loosening it
+   was meant to catch (dev/headers.test.mjs pins the served value; this checks what
+   production actually returns). */
+const scriptSrcIsSelf = csp => (csp || '').split(';').map(d => d.trim())
+  .find(d => d.startsWith('script-src')) === "script-src 'self'";
+
 const home = await fetch(BASE + '/');
 check('homepage 200', home.status === 200);
-check('CSP header present', (home.headers.get('content-security-policy') || '').includes("script-src 'self'"));
+check('CSP script-src is exactly self', scriptSrcIsSelf(home.headers.get('content-security-policy')));
 check('nosniff', home.headers.get('x-content-type-options') === 'nosniff');
 check('sw.js served', (await fetch(BASE + '/sw.js')).status === 200);
 check('manifest served', (await fetch(BASE + '/manifest.webmanifest')).status === 200);
@@ -35,7 +41,7 @@ const EBASE = 'https://energy.matthewgarner.me';
 try{
   const eh = await fetch(EBASE + '/');
   check('energy homepage 200', eh.status === 200);
-  check('energy CSP header', (eh.headers.get('content-security-policy') || '').includes("script-src 'self'"));
+  check('energy CSP script-src is exactly self', scriptSrcIsSelf(eh.headers.get('content-security-policy')));
   check('energy sw.js served', (await fetch(EBASE + '/sw.js')).status === 200);
   const em = await (await fetch(EBASE + '/manifest.webmanifest')).json();
   check('energy manifest is the energy app', em.short_name === 'Energy tools');
