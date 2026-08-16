@@ -16,6 +16,30 @@ export function trackErrors(page){
   return errors;
 }
 
+/* Empty paint attributes in the LIVE DOM — `fill=""` / `stroke=""`.
+
+   getComputedStyle().getPropertyValue() returns '' for a token that doesn't exist,
+   with no throw and no warning, and themeColors() feeds those values straight into
+   ctx.colors for every renderer. So a renamed or dropped design token blanks the
+   paint on every mark, in the browser only: dev/golden.mjs renders with invented
+   colours rather than tokens, so the goldens stay byte-identical, and the node-side
+   dev/tokens.test.mjs can only catch the shapes its regexes recognise — a review
+   demonstrated it can be made blind by one extra level of indirection.
+
+   This is the backstop that does not care HOW the token went missing. Returns the
+   offending elements so a failure names them. */
+export async function emptyPaint(page){
+  return page.evaluate(() => {
+    const out = [];
+    for(const el of document.querySelectorAll('svg [fill], svg [stroke], svg[fill], svg[stroke]'))
+      for(const attr of ['fill', 'stroke']){
+        const v = el.getAttribute(attr);
+        if(v !== null && v.trim() === '') out.push(el.tagName + '[' + attr + ']');
+      }
+    return out;
+  });
+}
+
 /* PASS/FAIL counts from a results array (raw error lines that are neither are
    ignored). */
 export function tally(results){
