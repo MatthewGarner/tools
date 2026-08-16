@@ -41,18 +41,38 @@ function shippedJs(dir = ROOT, out = []){
   return out;
 }
 
+/* The body of a function, by balancing braces from its declaration. Cheaper than
+   a parser and exact enough here; indexOf('\n}') would end the body early at any
+   nested block that happens to close at column 0. */
+function functionBody(src, decl){
+  const at = src.indexOf(decl);
+  if(at < 0) return '';
+  let i = src.indexOf('{', at), depth = 0;
+  for(let j = i; j < src.length; j++){
+    if(src[j] === '{') depth++;
+    else if(src[j] === '}' && --depth === 0) return src.slice(i, j);
+  }
+  return '';
+}
+
 /* Tokens read from the DOCUMENT's computed style. Two shapes in the wild:
-   themeColors() aliases getPropertyValue to `g` and calls g('--card'), while
-   fermi/roadmap call getPropertyValue('--accent2'/'--accent') directly. */
+   fermi/roadmap call getPropertyValue('--accent2'/'--accent') directly, while
+   themeColors() aliases getPropertyValue to a local and calls it per field.
+
+   Inside themeColors the extraction takes EVERY token-name literal in the body
+   rather than matching the alias's call shape. Matching `g(` — the obvious
+   version, and the one written first — couples this test to an identifier name:
+   one extra level of indirection (`const g2 = g; … g2('--muted')`) drops a token
+   from the read set with nothing failing, and the count backstop below has too
+   little margin to notice a single loss. Over-covering is the safe direction: a
+   token named in the body but not read would only demand it exist. */
 function tokensReadAtRuntime(){
   const found = new Set();
   for(const file of shippedJs()){
     const src = readFileSync(file, 'utf8');
-    for(const m of src.matchAll(/getPropertyValue\(\s*'(--[a-z0-9-]+)'\s*\)/g)) found.add(m[1]);
-    const at = src.indexOf('export function themeColors');
-    if(at < 0) continue;
-    const body = src.slice(at, src.indexOf('\n}', at));
-    for(const m of body.matchAll(/g\(\s*'(--[a-z0-9-]+)'\s*\)/g)) found.add(m[1]);
+    for(const m of src.matchAll(/getPropertyValue\(\s*['"](--[a-z0-9-]+)['"]\s*\)/g)) found.add(m[1]);
+    const body = functionBody(src, 'export function themeColors');
+    for(const m of body.matchAll(/['"](--[a-z0-9-]+)['"]/g)) found.add(m[1]);
   }
   return found;
 }
@@ -72,11 +92,16 @@ function themeBlocks(file, n){
 
 test('every token the shipped JS reads is declared in all four tokens.css theme blocks', () => {
   const read = [...tokensReadAtRuntime()].sort();
+  /* Backstop only — it catches a gross extraction failure (themeColors renamed or
+     moved), not a single dropped token, which is why the extraction above is written
+     not to drop one in the first place. */
   assert.ok(read.length >= 20, 'expected the runtime read set to be found; got ' + read.length +
     ' — the extraction above has drifted from how themeColors() is written');
   const blocks = themeBlocks('assets/tokens.css', 10);
   assert.equal(blocks.length, 4, 'tokens.css should carry exactly four theme blocks ' +
-    '(:root light, the dark @media, and both [data-theme] overrides); found ' + blocks.length);
+    '(:root light, the dark @media, and both [data-theme] overrides); found ' + blocks.length +
+    '. If the sheet still looks right, check for a BRACE PAIR inside a comment — the flat ' +
+    'regex above matches it as its own block and strands the real declarations');
   for(const block of blocks){
     const missing = read.filter(t => !block.tokens.has(t));
     assert.deepEqual(missing, [], block.sel + ' does not declare ' + missing.join(' ') +
