@@ -9,7 +9,7 @@ import {
   setCloseOutField, closeOutKinds, validators,
 } from '../edit-targets.js';
 
-const DOC = `title: Habitat paths
+const DOC = `title: Lantern paths
 decision groups:
   question: Will groups retain?   // primary question
   signal: week-four retention
@@ -360,7 +360,7 @@ test('stage view switch writes one exact undoable style operation in the config 
   assert.equal(inserted.startsWith('style: plans\ndecision groups:'), true);
   assert.equal(parse(inserted).style, 'plans');
 
-  const configured = 'title: Habitat\nstyle: tree\npalette: plum\nNOW\n  Core: Work';
+  const configured = 'title: Lantern\nstyle: tree\npalette: plum\nNOW\n  Core: Work';
   const ops = setStyle(configured, 'plans');
   assert.deepEqual(ops, [{line:1, text:'style: plans'}]);
   assert.equal(parse(apply(configured, ops)).style, 'plans');

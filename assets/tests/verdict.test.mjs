@@ -44,10 +44,10 @@ test('countsLine joins with the middot and drops empties', () => {
 });
 
 test('svgMetrics: 700 ink title, 500 muted counts after a held 3-space gap, uppercased', () => {
-  const s = svgMetrics({x: 36, y: 38, model: 'Habitat — launch plan',
+  const s = svgMetrics({x: 36, y: 38, model: 'Lantern — launch plan',
     counts: ['7 milestones', '3 lanes'], ink: C.ink, muted: C.muted, font: FONT});
   assert.match(s, /font-size="10" font-weight="700" letter-spacing="1.8" fill="#111111"/);
-  assert.match(s, /HABITAT — LAUNCH PLAN/);
+  assert.match(s, /LANTERN — LAUNCH PLAN/);
   assert.match(s, /<tspan fill="#6B6B68" font-weight="500">   7 MILESTONES · 3 LANES<\/tspan>/);
   assert.equal(svgMetrics({x: 0, y: 0, model: '', counts: [], ...C, font: FONT}), '');
 });

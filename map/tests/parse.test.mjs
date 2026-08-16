@@ -134,25 +134,25 @@ test('@ followed by plain words is left alone', () => {
    difference between an absent key and a cleared one, lives once in
    assets/verdict.js (resolveVerdict) so seven parsers cannot drift on it. */
 test('verdict: is stored raw, and an absent key stays null', () => {
-  assert.equal(parse(`Users log habits daily @ 30,90`).verdict, null);
+  assert.equal(parse(`Readers finish what they start @ 30,90`).verdict, null);
   assert.equal(parse(`verdict: We ship in March
-Users log habits daily @ 30,90`).verdict, 'We ship in March');
+Readers finish what they start @ 30,90`).verdict, 'We ship in March');
 });
 
 test('verdict: off is stored verbatim — suppression is the resolver\'s call, not the parser\'s', () => {
   assert.equal(parse(`verdict: off
-Users log habits daily @ 30,90`).verdict, 'off');
+Readers finish what they start @ 30,90`).verdict, 'off');
   assert.equal(parse(`verdict: OFF
-Users log habits daily @ 30,90`).verdict, 'OFF');
+Readers finish what they start @ 30,90`).verdict, 'OFF');
 });
 
 test('verdict: an emptied value is NOT the same as an absent key', () => {
   assert.equal(parse(`verdict:
-Users log habits daily @ 30,90`).verdict, '');
+Readers finish what they start @ 30,90`).verdict, '');
 });
 
 test('verdict: a line merely STARTING with off is authored text, not suppression', () => {
   assert.equal(parse(`verdict: Off the back of Q3 we hold the date
-Users log habits daily @ 30,90`).verdict,
+Readers finish what they start @ 30,90`).verdict,
     'Off the back of Q3 we hold the date');
 });

@@ -16,8 +16,8 @@ import {setHeadline, setStyle} from '../edit-targets.js';
 /* ---------------- parse ---------------- */
 
 test('headline: is a config key, kept verbatim', () => {
-  assert.equal(parse('headline: Retention first — everything in Now defends the streak\nNOW\nCore: A').headline,
-    'Retention first — everything in Now defends the streak');
+  assert.equal(parse('headline: Retention first — everything in Now keeps readers reading\nNOW\nCore: A').headline,
+    'Retention first — everything in Now keeps readers reading');
 });
 
 test('no headline: line means an EMPTY headline, not a generated one', () => {
@@ -153,9 +153,9 @@ const hctx = {
     statusInk: {done: '#1C753C', doing: '#0B709A', risk: '#8E6200', blocked: '#B3403A'}},
   measure: t => t.length * 7, today: '2026-07-31',
 };
-const HL = 'Retention first — everything in Now defends the streak';
+const HL = 'Retention first — everything in Now keeps readers reading';
 const DOC = style => (style ? 'style: ' + style + '\n' : '') +
-  'title: T\nheadline: ' + HL + '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+  'title: T\nheadline: ' + HL + '\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
 
 test('standfirst: the shared block is empty for an absent headline, and reserves no space', () => {
   const none = standfirst({headline: ''}, 32, 34, 900, hctx.measure, hctx.colors);
@@ -186,7 +186,7 @@ test('the focus export carries the authored standfirst', () => {
 });
 
 test('no headline means no standfirst and no reserved gap in any renderer', () => {
-  const bare = 'title: T\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+  const bare = 'title: T\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
   for(const [name, fn, style] of [['chart', render, ''], ['board', renderBoardLive, 'board'],
                                   ['register', renderRegisterLive, 'register'], ['focus', renderFocusLive, 'focus']]){
     const withHl = fn(parse(DOC(style)), hctx);
@@ -220,11 +220,11 @@ test('the standfirst appears exactly once per export', () => {
    to catch. */
 const DIFF = {
   any: true, since: 'JUNE PACK',
-  badge: it => it.title === 'Smart reminders' ? {kind: 'new', label: 'New'} : null,
+  badge: it => it.title === 'Reading reminders' ? {kind: 'new', label: 'New'} : null,
   dropped: ['Old thing'],
 };
 const STORY = 'We chose depth over breadth this cycle';
-const sdoc = (extra = '') => 'title: T\n' + extra + 'NOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+const sdoc = (extra = '') => 'title: T\n' + extra + 'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
 
 test('story: is a config key, kept verbatim', () => {
   assert.equal(parse(sdoc('story: ' + STORY + '\n')).story, STORY);
@@ -242,7 +242,7 @@ test('story: shows ONLY when a comparison is active — it is a claim about a di
 
 test('story: reaches every artefact that carries a diff', () => {
   const m = s => parse('style: ' + s + '\n' + 'story: ' + STORY + '\n' +
-    'NOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders');
+    'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders');
   for(const [name, fn, style] of [['board', renderBoardLive, 'board'],
                                   ['register', renderRegisterLive, 'register'],
                                   ['focus', renderFocusLive, 'focus']]){
@@ -254,7 +254,7 @@ test('story: reaches every artefact that carries a diff', () => {
 
 test('story: and headline: are different claims and can coexist', () => {
   const m = parse('title: T\nheadline: ' + HL + '\nstory: ' + STORY +
-    '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders');
+    '\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders');
   const out = render(m, {...hctx, diff: DIFF});
   assert.ok(out.includes('Retention first'), 'the headline is about the plan');
   assert.ok(out.includes('depth over breadth'), 'the story is about the change');

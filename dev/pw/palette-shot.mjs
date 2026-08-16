@@ -1,19 +1,19 @@
-/* Screenshot the habit example in each palette (light theme). */
+/* Screenshot the house example in each palette (light theme). */
 import {chromium} from 'playwright';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
-const doc = (p) => `title: Habitat — ${p} palette
+const doc = (p) => `title: Lantern — ${p} palette
 palette: ${p}
 
 NOW
-Core: Streak freeze [doing] -- top-requested fix
+Core: Resume where you left off [doing] -- top-requested fix
 Growth: Referral flow [risk]
 
 NEXT
-Core: Smart reminders
+Core: Reading reminders
 
 LATER
-Growth: Coach marketplace [done]`;
+Growth: Publisher storefront [done]`;
 
 const browser = await chromium.launch();
 const page = await browser.newPage({viewport: {width: 1200, height: 700}});

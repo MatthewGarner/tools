@@ -19,7 +19,7 @@ const realisticDecisions = [
   decision('positioning', '\n  when: retention'),
 ].join('\n');
 
-const realisticText = `title: Habitat choices
+const realisticText = `title: Lantern choices
 date: 2026-08-11
 verdict: Keep the shared plan moving while the open questions resolve
 ${realisticDecisions}

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {applies, validators} from '../edit-targets.js';
 
 test('status rewrite replaces the tag anywhere on the line', () => {
-  assert.equal(applies.status('    Smart reminders [testing]', 'testing', 'delivering'),
-               '    Smart reminders [delivering]');
+  assert.equal(applies.status('    Reading reminders [testing]', 'testing', 'delivering'),
+               '    Reading reminders [delivering]');
 });
 test('status rewrite appends when untagged (default-untested assumptions)', () => {
   assert.equal(applies.status('      ? users will invite friends', 'untested', 'testing'),
@@ -26,12 +26,12 @@ import {subtreeRange, childLineFor} from '../edit-targets.js';
 
 const DOC = [
   'outcome: Improve retention',        // 0
-  '  Users forget habits',             // 1
-  '    Smart reminders [testing]',     // 2
+  '  Readers lose their place',             // 1
+  '    Reading reminders [testing]',     // 2
   '      ? users tolerate pings',      // 3
   '',                                  // 4
-  '    Streak freeze [delivering]',    // 5
-  '  Habits feel like chores',         // 6
+  '    Resume where you left off [delivering]',    // 5
+  '  Choosing the next book is work',         // 6
 ].join('\n');
 
 test('subtreeRange: solution spans its assumptions, skipping inner blanks', () => {

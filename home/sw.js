@@ -6,7 +6,7 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-9fc13646cf';
+const CACHE = 'tools-8b3b11882a';
 const PRECACHE = [
   '/',
   '/alarm/',
@@ -66,6 +66,7 @@ const PRECACHE = [
   '/bets/render-presentation.js',
   '/bets/render-quadrant.js',
   '/bets/render.js',
+  '/bets/starter.js',
   '/bets/style.css',
   '/case/',
   '/case/app.js',
@@ -74,6 +75,7 @@ const PRECACHE = [
   '/case/parse.js',
   '/case/planning-context.js',
   '/case/render.js',
+  '/case/starter.js',
   '/duel/',
   '/duel/app.js',
   '/duel/engine.js',
@@ -115,6 +117,7 @@ const PRECACHE = [
   '/gauge/render-overlay.js',
   '/gauge/safety.js',
   '/gauge/session.js',
+  '/gauge/starter.js',
   '/gauge/style.css',
   '/manifest.webmanifest',
   '/map/',
@@ -122,6 +125,7 @@ const PRECACHE = [
   '/map/diff.js',
   '/map/edit-targets.js',
   '/map/editor.js',
+  '/map/examples.js',
   '/map/handoff.js',
   '/map/interactions.js',
   '/map/layout.js',
@@ -130,6 +134,7 @@ const PRECACHE = [
   '/map/readout.js',
   '/map/render-presentation.js',
   '/map/render.js',
+  '/map/starter.js',
   '/map/style.css',
   '/map/zones.js',
   '/paths/',
@@ -154,6 +159,7 @@ const PRECACHE = [
   '/paths/render-plans.js',
   '/paths/render-question-lens.js',
   '/paths/render-tree.js',
+  '/paths/starter.js',
   '/paths/style.css',
   '/paths/tree.js',
   '/paths/verdict.js',
@@ -174,11 +180,13 @@ const PRECACHE = [
   '/proxy/parse.js',
   '/proxy/project.js',
   '/proxy/render-hunt.js',
+  '/proxy/starter.js',
   '/proxy/style.css',
   '/rank/',
   '/rank/app.js',
   '/rank/engine.js',
   '/rank/examples.js',
+  '/rank/starter.js',
   '/roadmap/',
   '/roadmap/app.js',
   '/roadmap/board-window.js',
@@ -202,6 +210,7 @@ const PRECACHE = [
   '/roadmap/render-focus.js',
   '/roadmap/render-register.js',
   '/roadmap/render.js',
+  '/roadmap/starter.js',
   '/roadmap/style.css',
   '/roadmap/text-parts.js',
   '/roadmap/vendor/codemirror.js',
@@ -223,6 +232,7 @@ const PRECACHE = [
   '/timeline/motion-spec.js',
   '/timeline/parse.js',
   '/timeline/render.js',
+  '/timeline/starter.js',
   '/timeline/style.css',
   '/tree/',
   '/tree/app.js',
@@ -236,6 +246,7 @@ const PRECACHE = [
   '/tree/parse.js',
   '/tree/render-density.js',
   '/tree/render.js',
+  '/tree/starter.js',
   '/tree/style.css',
   '/wardley/',
   '/wardley/app.js',
@@ -246,6 +257,7 @@ const PRECACHE = [
   '/wardley/motion-spec.js',
   '/wardley/parse.js',
   '/wardley/render.js',
+  '/wardley/starter.js',
   '/wardley/style.css',
   '/why/',
   '/why/app-menu.js',
@@ -259,6 +271,7 @@ const PRECACHE = [
   '/why/render-map.js',
   '/why/render-ost.js',
   '/why/render-presentation.js',
+  '/why/starter.js',
   '/why/style.css'
 ];
 

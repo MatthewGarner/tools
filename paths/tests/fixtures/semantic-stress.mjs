@@ -9,7 +9,7 @@ const decision = (name, fields = '') => `decision ${name}:
   answer-by: 2026-08-10${fields}`;
 
 const document = (head, work = '  Growth: Expansion [if price]') =>
-  `title: Habitat
+  `title: Lantern
 ${head}
 Now
   Core: Foundation
@@ -90,7 +90,7 @@ export const PATHS_SEMANTIC_STRESS = Object.freeze([
   {
     id: 'oversized',
     meaning: 'A projection that cannot show its basis in the target refuses without truncating provenance.',
-    text: document(decision('price'), '  Growth: Expansion [if price]').replace('title: Habitat', 'title: ' + 'H'.repeat(81)),
+    text: document(decision('price'), '  Growth: Expansion [if price]').replace('title: Lantern', 'title: ' + 'H'.repeat(81)),
     answers: {price:'yes'}, refusal: 'unsafe-source-title',
   },
 ]);

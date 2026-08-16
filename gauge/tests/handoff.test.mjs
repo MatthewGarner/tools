@@ -70,10 +70,10 @@ test('fermiHandoff: refuses rather than silently losing a non-normalizable sourc
 });
 
 test('gaugeHandoff: flagged items become prob questions that gauge itself parses', () => {
-  const m = mparse('preset: assumptions\ntitle: Habitat — launch assumptions\nUsers will log daily @ 20,80\nSafe thing @ 80,20\nRisky pay claim @ 30,90');
+  const m = mparse('preset: assumptions\ntitle: Lantern — launch assumptions\nUsers will log daily @ 20,80\nSafe thing @ 80,20\nRisky pay claim @ 30,90');
   const r = resolve(m);
   const doc = gaugeHandoff(m, readout(m, r));
-  assert.ok(doc.includes('title: Habitat — launch assumptions — room prior'));
+  assert.ok(doc.includes('title: Lantern — launch assumptions — room prior'));
   assert.ok(doc.includes('does not replace a test'));
   const back = gparse(doc);
   assert.equal(back.questions.length, 2);              // the two test-first flags
@@ -102,8 +102,8 @@ test('gaugeHandoff: nothing flagged → null', () => {
 });
 
 test('handoff metadata is bounded, validated and size-capped', async () => {
-  const meta = handoffMeta('map', 'question-set', 'Habitat\n\u0000assumptions');
-  assert.deepEqual(meta, {v:1, mode:'draft', from:'map', kind:'question-set', label:'Habitat  assumptions'});
+  const meta = handoffMeta('map', 'question-set', 'Lantern\n\u0000assumptions');
+  assert.deepEqual(meta, {v:1, mode:'draft', from:'map', kind:'question-set', label:'Lantern  assumptions'});
   assert.equal(validHandoffMeta({...meta, from:'evil'}, {from:'map'}), null);
   assert.equal(await handoffHref('/gauge/', {t:'A :: prob'}, meta, 5), null);
   assert.match(await handoffHref('/gauge/', {t:'A :: prob'}, meta), /^\/gauge\/#z:/);
@@ -127,7 +127,7 @@ test('Map → Gauge import requires provenance and target-parseable questions', 
 });
 
 test('Map labels cannot inject Gauge DSL delimiters or lines', () => {
-  const doc = gaugeHandoff({preset:'assumptions', title:'Habitat\nnames: on'},
+  const doc = gaugeHandoff({preset:'assumptions', title:'Lantern\nnames: on'},
     {flagged:[{item:{label:'Bad :: range weeks\nInjected :: chips A | B'}}]});
   const back = gparse(doc);
   assert.equal(back.questions.length, 1);

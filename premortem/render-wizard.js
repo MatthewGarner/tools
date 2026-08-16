@@ -27,11 +27,11 @@ export function renderPhase(doc, now = new Date()){
 function frame(doc){
   if(success(doc)) return '<div class="phase" data-phase="FRAME"><h2>Frame the success</h2>' +
     '<p class="phint">Imagine the future success is already real. Name the effort and ask what you deliberately did to make it happen.</p>' +
-    '<label class="fl">The effort<input type="text" data-field="title" value="' + esc(doc.title || '') + '" placeholder="Habitat 2.0 launch"></label>' +
+    '<label class="fl">The effort<input type="text" data-field="title" value="' + esc(doc.title || '') + '" placeholder="Lantern 2.0 launch"></label>' +
     '<label class="fl">The pre-parade question<input type="text" data-field="question" value="' + esc(doc.question || '') + '" placeholder="It\'s launch + 90 days and this was a runaway success. What did we do?"></label></div>';
   return '<div class="phase" data-phase="FRAME"><h2>Frame the failure</h2>' +
     '<p class="phint">It\'s a few months from now and this shipped badly. Name it, and the question you\'ll put to the room.</p>' +
-    '<label class="fl">The effort<input type="text" data-field="title" value="' + esc(doc.title || '') + '" placeholder="Habitat 2.0 launch"></label>' +
+    '<label class="fl">The effort<input type="text" data-field="title" value="' + esc(doc.title || '') + '" placeholder="Lantern 2.0 launch"></label>' +
     '<label class="fl">The premortem question<input type="text" data-field="question" value="' + esc(doc.question || '') + '" placeholder="It\'s launch + 90 days and we failed. Why?"></label></div>';
 }
 function write(doc){

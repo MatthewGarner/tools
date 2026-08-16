@@ -68,7 +68,7 @@ test('serialise round-trips and versions', () => {
 });
 test('markdown carries the honest table', () => {
   const rs = [risk('Launch slips', [30, 50], [100, 300])];
-  const md = markdown({title: 'Habitat launch', unit: '£k', entries: rs}, exposure(rs, {seed: 1}), new Date());
+  const md = markdown({title: 'Lantern launch', unit: '£k', entries: rs}, exposure(rs, {seed: 1}), new Date());
   assert.match(md, /Launch slips/);
   assert.match(md, /30–50%/);
   assert.match(md, /£k/);
@@ -80,7 +80,7 @@ test('pre-parade exports deliberate opportunities without risk arithmetic or a p
     {...newEntry('Coach the first cohort', {kind: 'opportunity'}), actions: []},
     {...newEntry('board fact', {kind: 'fact'}), p: [90, 100], impact: [1, 2]},
   ];
-  const md = markdown({mode: 'success', title: 'Habitat win', question: 'What did we do?', entries: opportunities}, exposure([], {seed: 1}), new Date());
+  const md = markdown({mode: 'success', title: 'Lantern win', question: 'What did we do?', entries: opportunities}, exposure([], {seed: 1}), new Date());
   assert.match(md, /Success register/);
   assert.match(md, /Must make true/);
   assert.match(md, /Run an A\/B cutover/);

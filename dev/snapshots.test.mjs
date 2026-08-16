@@ -23,8 +23,8 @@ test('identical lists → nothing, any false', () => {
 });
 
 test('keys normalise case and whitespace exactly like roadmap did', () => {
-  const d = diffItems([{title: '  Streak   Freeze ', state: 'x'}],
-    [{title: 'streak freeze', state: 'x'}], {key: K, state: S});
+  const d = diffItems([{title: '  Book   Clubs ', state: 'x'}],
+    [{title: 'book clubs', state: 'x'}], {key: K, state: S});
   assert.equal(d.any, false);
 });
 

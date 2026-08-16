@@ -354,7 +354,7 @@ for(const [name, url, selectors] of CONTAINERS){
   const page = await ctx.newPage();
   await page.goto(T + '/bets/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(600);
-  const chip = page.getByRole('button', {name: 'Habitat portfolio'});
+  const chip = page.getByRole('button', {name: 'Lantern portfolio'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
   await page.getByRole('button', {name: 'Quadrant'}).click();
@@ -512,7 +512,7 @@ for(const es of END_STATES){
   const page = await pctx.newPage();
   await page.goto(T + '/premortem/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(500);
-  await page.fill('[data-field="title"]', 'Habitat phone launch');
+  await page.fill('[data-field="title"]', 'Lantern phone launch');
   await page.fill('[data-field="question"]', 'It flopped. Why?');
   await page.click('#next'); await page.waitForTimeout(120);
   await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(120);
@@ -567,7 +567,7 @@ for(const es of END_STATES){
   await page.waitForTimeout(350);
   await page.reload(); await page.waitForTimeout(220);
   await page.click('#newparade');
-  await page.fill('[data-field="title"]', 'Habitat phone breakthrough');
+  await page.fill('[data-field="title"]', 'Lantern phone breakthrough');
   await page.fill('[data-field="question"]', 'Why did it win?');
   await page.waitForFunction(() => !document.querySelector('#next').disabled);
   await page.click('#next'); await page.click('[data-act="skiptimer"]');
@@ -588,11 +588,11 @@ for(const es of END_STATES){
 // intersect — a thumb must be able to land on exactly one card. Measures
 // [data-hit] (the tap target), NOT the [data-edit] group bbox — the map
 // group's bbox unions its leader line, which would mask a too-small hit rect.
-const WIDENED = [['roadmap', T + '/roadmap/', 'Habit app roadmap'],
+const WIDENED = [['roadmap', T + '/roadmap/', 'Reading app roadmap'],
                  ['map', T + '/map/', 'Assumption map'],
-                 ['why', T + '/why/', 'Habit retention'],
+                 ['why', T + '/why/', 'Reading retention'],
                  ['tree', T + '/tree/', 'Bid or no bid'],
-                 ['bets', T + '/bets/', 'Habitat portfolio']];
+                 ['bets', T + '/bets/', 'Lantern portfolio']];
 
 for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
@@ -788,7 +788,7 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
-  const chip = page.getByRole('button', {name: 'Habit app roadmap'});
+  const chip = page.getByRole('button', {name: 'Reading app roadmap'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
 
@@ -798,7 +798,7 @@ for(const [name, url, chip] of WIDENED){
   // The card is found by its TITLE: its srcLine belongs to the shipped example,
   // and hard-coding it made this suite break when that example gained a line.
   const cardLine = await page.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: 'Streak freeze'}).first().getAttribute('data-line');
+    .filter({hasText: 'Resume where you left off'}).first().getAttribute('data-line');
   const touchAction = await page.evaluate(line => {
     const g = document.querySelector('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"]');
     return g ? getComputedStyle(g).touchAction : null;
@@ -836,7 +836,7 @@ for(const [name, url, chip] of WIDENED){
   await page.locator('.eip-pop button', {hasText: 'Next'}).click();
   await page.waitForTimeout(600);
   const moved = await page.evaluate(() => localStorage.getItem('roadmap-src'));
-  ok(moved.includes('Streak freeze') && moved.indexOf('Streak freeze') > moved.indexOf('NEXT') &&
+  ok(moved.includes('Resume where you left off') && moved.indexOf('Resume where you left off') > moved.indexOf('NEXT') &&
     moved.indexOf('NEXT') > moved.indexOf('NOW'),
     'roadmap: Move to… relocates the card into a different horizon on a coarse pointer');
   await page.close();
@@ -895,9 +895,9 @@ for(const [name, url, chip] of WIDENED){
 // the REGISTER, because export is keyed off effectiveStyle, not the rendered
 // preview (the whole point of routing exports through plainStyleSvg).
 {
-  const doc = 'title: Habitat — Product Roadmap\nstyle: register\nhorizons: Now, Next, Later\n\n' +
-    'NOW\nCore: Streak freeze [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
-    'NEXT\nCore: Smart reminders\n\nLATER\nCore: Accountability circles';
+  const doc = 'title: Lantern — Product Roadmap\nstyle: register\nhorizons: Now, Next, Later\n\n' +
+    'NOW\nCore: Resume where you left off [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
+    'NEXT\nCore: Reading reminders\n\nLATER\nCore: Book clubs';
   const seed = {t: doc};
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
   // fresh context (explicit acceptDownloads) so the Download SVG blob is captured
@@ -949,7 +949,7 @@ for(const [name, url, chip] of WIDENED){
 // The shared authoring stack is not an iOS-only compromise. Pixel 7 receives
 // the same honest fallback and keeps the selected composition for export.
 {
-  const doc = 'title: Habitat — Product Roadmap\nstyle: board\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders\nLATER\nCore: Accountability circles';
+  const doc = 'title: Lantern — Product Roadmap\nstyle: board\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders\nLATER\nCore: Book clubs';
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t:doc}))), 'binary').toString('base64');
   const pctx = await browser.newContext({...devices['Pixel 7'], reducedMotion:'reduce'});
   const page = await pctx.newPage();
@@ -977,9 +977,9 @@ for(const [name, url, chip] of WIDENED){
 // FOCUS artefact — export is keyed off the explicit model.style, not the
 // rendered preview (plainStyleSvg, viewport-independent).
 {
-  const doc = 'title: Habitat — Product Roadmap\nstyle: focus\nhorizons: Now, Next, Later\n\n' +
-    'NOW\nCore: Streak freeze [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
-    'NEXT\nCore: Smart reminders\n\nLATER\nCore: Accountability circles';
+  const doc = 'title: Lantern — Product Roadmap\nstyle: focus\nhorizons: Now, Next, Later\n\n' +
+    'NOW\nCore: Resume where you left off [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
+    'NEXT\nCore: Reading reminders\n\nLATER\nCore: Book clubs';
   const seed = {t: doc};
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
   const fctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce', acceptDownloads: true});
@@ -1006,7 +1006,7 @@ for(const [name, url, chip] of WIDENED){
   await page.getByText('Export', {exact: true}).click();
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlsvg')]);
   const svg = await readFile(await dl.path(), 'utf8');
-  ok(svg.includes('Streak freeze') && !svg.includes('data-cell'),
+  ok(svg.includes('Resume where you left off') && !svg.includes('data-cell'),
     'roadmap: phone Download SVG exports the live focus artefact (hero content), not the chart stack');
   ok(!svg.includes('data-edit') && !svg.includes('data-hdrop'),
     'roadmap: phone focus export is the plain artefact (no edit markup)');
@@ -1024,7 +1024,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
-  const chip = page.getByRole('button', {name: 'Habit retention'});
+  const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
   const stack = await page.evaluate(() => {
@@ -1045,7 +1045,7 @@ for(const [name, url, chip] of WIDENED){
 // the hash-state boot path (the reliable way to seed an exact fixture,
 // vs. fighting CodeMirror's literal-space indentation over keyboard.type).
 {
-  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Users forget mid-afternoon habits\n' +
+  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Readers lose their place between sessions\n' +
     '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
     '          Smart batching [testing]\n            ? batching preserves timing';
   const seed = {t: deepDoc, v: 'ost'};
@@ -1077,8 +1077,8 @@ for(const [name, url, chip] of WIDENED){
 // outcome. A two-outcome tree must show BOTH accent/serif band headings in
 // the narrow map view; this assertion fails against the pre-fix renderer.
 {
-  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Users forget mid-afternoon habits\n' +
-    '    Smart reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
+  const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Readers lose their place between sessions\n' +
+    '    Reading reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
     '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
     '  No reason to invite others\n';
   const seed = {t: multiDoc, v: 'map'};
@@ -1092,8 +1092,8 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
-// why: solution card-menu overflow reachability (coarse). "Smart reminders"
-// (srcLine 5, the default "Habit retention" example) carries two assumptions,
+// why: solution card-menu overflow reachability (coarse). "Reading reminders"
+// (srcLine 5, the default "Reading retention" example) carries two assumptions,
 // so its dynamic solutionMenu shows six rows — assert the LAST one (Remove
 // branch) still renders reachable and clickable within the viewport (the
 // .eip-pop max-height/overflow-y rule), and that the per-assumption
@@ -1103,7 +1103,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
-  const chip = page.getByRole('button', {name: 'Habit retention'});
+  const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
   const cardBody = page.locator('#preview svg rect[data-edit^="cardmenu-solution"][data-line="5"][data-hit]');
@@ -1125,7 +1125,7 @@ for(const [name, url, chip] of WIDENED){
     'why: last row (Remove branch) is horizontally within the viewport');
 
   // sub-popover: tap an assumption row, check the four states + danger Remove render finger-size
-  await page.locator('.eip-pop button', {hasText: 'users want to be interrupted at work'}).click();
+  await page.locator('.eip-pop button', {hasText: 'readers want a nudge mid-commute'}).click();
   await page.waitForTimeout(300);
   const subHeights = await page.locator('.eip-pop button').evaluateAll(els => els.map(el => el.getBoundingClientRect().height));
   ok(subHeights.length === 5, `why: assumption sub-popover shows 4 states + Remove assumption on phone (${subHeights.length})`);
@@ -1172,6 +1172,39 @@ for(const [name, url, chip] of WIDENED){
     await page.close();
   }
   await nctx.close();
+}
+
+/* ---- "Start your own" on a phone (2026-08-15) ----
+   Every tool autoloads an example, so on a phone the starter is the only route to a
+   document that is yours. The chip lives inside the source rail, which is collapsed on
+   most tools at this width — so this checks it is REACHABLE (open the rail, chip visible),
+   a real 44px target, and that tapping it actually swaps the artefact. */
+{
+  const sctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
+  for(const [name, marker] of [['roadmap', 'Your roadmap'], ['wardley', 'Your landscape'],
+      ['why', 'Your outcome'], ['rank', 'Your first initiative']]){
+    const page = await sctx.newPage();
+    await page.goto(T + '/' + name + '/', {waitUntil: 'networkidle'}).catch(() => {});
+    await page.waitForTimeout(650);
+    if(!await page.locator('#chips').isVisible().catch(() => false)){
+      await page.locator('#railtab').click().catch(() => {});
+      await page.waitForTimeout(400);
+    }
+    const chip = page.getByRole('button', {name: 'Start your own'});
+    const box = await chip.count() ? await chip.boundingBox() : null;
+    ok(!!box && box.height >= 44,
+      `${name}: phone "Start your own" is reachable and >=44px${box ? ' (' + Math.round(box.height) + 'px)' : ' (missing)'}`);
+    if(box){
+      await chip.click();
+      await page.waitForTimeout(800);
+      const shown = name === 'rank'
+        ? await page.locator('#rows').innerHTML().catch(() => '')
+        : await page.locator('#preview svg').innerHTML().catch(() => '');
+      ok(shown.includes(marker), `${name}: phone starter replaces the example`);
+    }
+    await page.close();
+  }
+  await sctx.close();
 }
 
 await browser.close();

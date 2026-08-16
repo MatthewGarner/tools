@@ -16,7 +16,7 @@ const decision = (name, fields = '') => `decision ${name}:\n  question: Should w
   `  answer-by: 2026-08-20${fields}\n`;
 
 function fixture(extra = ''){
-  const doc = 'title: Habitat choices\ndate: 2026-08-11\n' +
+  const doc = 'title: Lantern choices\ndate: 2026-08-11\n' +
     decision('pricing', '\n  assume: yes 2026-08-01') + decision('groups') + decision('retention') +
     decision('expansion', '\n  when: pricing and groups') +
     'NOW\n  Core: Shared foundation\n  Growth: Revenue offer [if pricing]\n' +

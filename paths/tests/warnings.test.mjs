@@ -24,8 +24,8 @@ test('every parse warning has its owning phase, exact source line and dedupe key
   one(model, 'odd-indent', 2, 'parse', 'line 2: item is indented by 3 spaces — read as 2 spaces; use 2 spaces');
   model = parse('decision groups:\n    question: q');
   one(model, 'odd-indent', 2, 'parse', 'line 2: decision field is indented by 4 spaces — read as 2 spaces; use 2 spaces');
-  model = parse('title: x\ndate: off\ntoday: 2026-08-10\n  Core: Streak repair');
-  one(model, 'item-before-period', 4, 'parse', 'line 4: "Core: Streak repair" appears before any period — kept in the first period, "Now"; add a period heading above it');
+  model = parse('title: x\ndate: off\ntoday: 2026-08-10\n  Core: Resume position fix');
+  one(model, 'item-before-period', 4, 'parse', 'line 4: "Core: Resume position fix" appears before any period — kept in the first period, "Now"; add a period heading above it');
 
   model = parse('decision groups:\n  question: q\n  signal: s\n  owner: o\n  answer-by: 2026-12-15\n  measure: x');
   one(model, 'unknown-decision-field', 6, 'parse', 'line 6: unknown decision field "measure:" — field ignored; use question / signal / reading / learn / enough / owner / answer-by / when / assume / answer');
@@ -138,8 +138,8 @@ test('every project warning has its owning phase, exact source line and dedupe k
   one(model, 'answer-dormant', 12, 'project', 'line 12: the answer for "pricing" is kept, but is not used until this question opens');
   model = evaluate(parse(`${complete('groups', '\n  answer: no')}\n${complete('pricing', '\n  when: groups\n  answer: yes')}\nNOW\n  Core: A [if pricing]`), '2026-12-22');
   one(model, 'answer-moot', 13, 'project', 'line 13: the answer for "pricing" is kept, but is not used — Pricing did not apply because Groups was no; remove the answer if it is no longer useful');
-  model = evaluate(parse(`${complete('groups', '\n  answer: no')}\nNOW\n  Core: Group challenges [if groups] [done]`), '2026-12-22');
-  one(model, 'done-false-condition', 8, 'project', 'line 8: completed item "Group challenges" is labelled "Not needed" — kept because "[done]" records work already finished; remove the condition if the item was unconditional');
+  model = evaluate(parse(`${complete('groups', '\n  answer: no')}\nNOW\n  Core: Club challenges [if groups] [done]`), '2026-12-22');
+  one(model, 'done-false-condition', 8, 'project', 'line 8: completed item "Club challenges" is labelled "Not needed" — kept because "[done]" records work already finished; remove the condition if the item was unconditional');
 
   const blocks = Array.from({length:7}, (_, i) => complete(`q${i}`));
   model = enumeratePlans(parse(`${blocks.join('\n')}\nNOW\n  Core: A [if q0]`), '2026-12-22');

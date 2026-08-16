@@ -19,6 +19,7 @@ import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace, cardMenu} from '../assets/edit-in-place.js';
 import {setVerdictText, verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, applies, subtreeRange, childLineFor, applyExplore, hasIncomingProb} from './edit-targets.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const preview = $('preview');
@@ -531,7 +532,7 @@ const treeEip = attachEditInPlace(preview, {
 });
 
 /* ---------- chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- saved trees ---------- */
 const SAVED_KEY = 'tree-saved';

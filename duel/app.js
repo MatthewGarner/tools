@@ -8,7 +8,7 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../asset
 
 const $ = id => document.getElementById(id);
 const EXAMPLE = {q: 'Which should we build first?',
-  items: ['Streak freeze', 'Habit templates', 'Smart reminders', 'Accountability circles', 'Progress cards']};
+  items: ['Resume position', 'Curated shelves', 'Reading reminders', 'Book clubs', 'Progress cards']};
 
 let state = {q: '', items: [], duels: [], finished: false};
 let curPair = null;
@@ -192,7 +192,7 @@ function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = m
 /* ---------- examples ---------- */
 const ex = document.createElement('button');
 ex.className = 'chip';
-ex.textContent = 'Habit app features';
+ex.textContent = 'Reading app features';
 ex.addEventListener('click', () => { $('question').value = EXAMPLE.q; $('items').value = EXAMPLE.items.join('\n'); $('setupwarn').hidden = true; });
 $('examples').appendChild(ex);
 

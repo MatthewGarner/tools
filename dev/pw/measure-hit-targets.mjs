@@ -6,8 +6,8 @@ import {chromium, devices} from 'playwright';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const CHIP = {
-  roadmap: 'Habit app roadmap', map: 'Assumption map', tree: 'Bid or no bid',
-  why: 'Habit retention', wardley: 'Habitat platform', timeline: 'App launch programme',
+  roadmap: 'Reading app roadmap', map: 'Assumption map', tree: 'Bid or no bid',
+  why: 'Reading retention', wardley: 'Lantern platform', timeline: 'App launch programme',
 };
 const tools = process.argv.slice(2).length ? process.argv.slice(2) : ['roadmap', 'map', 'tree', 'why'];
 

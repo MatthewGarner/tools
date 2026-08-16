@@ -28,7 +28,7 @@ await page.goto(BASE, {waitUntil: 'networkidle'});
 check('page loads with editor mounted', await page.locator('.cm-editor').count() === 1);
 
 // load example via chip
-await page.getByRole('button', {name: 'Habit app roadmap'}).click();
+await page.getByRole('button', {name: 'Reading app roadmap'}).click();
 await page.waitForTimeout(300);
 check('example renders SVG preview', await page.locator('#preview svg').count() === 1);
 check('swimlanes render', (await page.locator('#preview svg text', {hasText: 'Growth'}).count()) >= 1);
@@ -215,17 +215,17 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   impSvg.includes('Imported Plan') && impSvg.includes('if signal') &&
   impSvg.includes('href="https://example.test/item"'));
 
-// drag-and-drop: drag "Full offline mode" (NEXT/Platform) into LATER/Platform.
+// drag-and-drop: drag "Offline downloads" (NEXT/Platform) into LATER/Platform.
 // The flagship doc is a plain now/next/later roadmap → the CHART, whose drag is
 // the lane×horizon cell gesture (data-cell) — distinct from the horizon-band
 // drag register/board share below.
 {
   const dragPage = await browser.newPage({viewport: DRAG_VIEWPORT});
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
-  await dragPage.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
   await dragPage.waitForTimeout(400);
   const textBefore = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
-  const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Full offline mode'});
+  const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Offline downloads'});
   const cell = dragPage.locator('#preview svg rect[data-cell="2|Platform"]');
   const from = await card.boundingBox();
   const to = await cell.boundingBox();
@@ -238,7 +238,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   await dragPage.waitForTimeout(500);
   const textAfter = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   const laterIdx = textAfter.split('\n').findIndex(l => l.trim() === 'LATER');
-  const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Full offline mode'));
+  const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Offline downloads'));
   check('drag moves line under LATER in the text', movedIdx > laterIdx && laterIdx > 0);
   check('drag changed the doc', textAfter !== textBefore);
   check('no text selected after drag', (await dragPage.evaluate(() => window.getSelection().toString())) === '');
@@ -262,7 +262,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
      the drop is a silent no-op, so the register block gets the extra height. */
   const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height + 160}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Habit app roadmap'}).click();
+  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.waitForTimeout(400);
   await p.getByRole('button', {name: 'Register'}).click();
   await p.waitForTimeout(400);
@@ -274,8 +274,8 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
      is a silent no-op, not a failure. Start the gesture from the top. */
   await p.evaluate(() => window.scrollTo(0, 0));
   await p.waitForTimeout(150);
-  // "Smart reminders" starts under NEXT — drag it onto NOW's band (data-hdrop="0")
-  const hit = await rowOf('Smart reminders').locator('rect[data-hit]').boundingBox();
+  // "Reading reminders" starts under NEXT — drag it onto NOW's band (data-hdrop="0")
+  const hit = await rowOf('Reading reminders').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();
   check('register drag endpoints are both on screen', dragBoxesVisible(p, hit, band));
   await p.mouse.move(hit.x + 8, hit.y + 4);
@@ -286,7 +286,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const nowIdx = tMove.split('\n').findIndex(l => l.trim() === 'NOW');
   const nextIdx = tMove.split('\n').findIndex(l => l.trim() === 'NEXT');
-  const movedIdx = tMove.split('\n').findIndex(l => l.includes('Smart reminders'));
+  const movedIdx = tMove.split('\n').findIndex(l => l.includes('Reading reminders'));
   check('register: dragging a row onto a horizon band moves it under that horizon',
     movedIdx > nowIdx && movedIdx < nextIdx);
   check('register: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
@@ -601,7 +601,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
-    'Core: Sync engine rewrite [doing] x2\nCore: Smart reminders\n');
+    'Core: Sync engine rewrite [doing] x2\nCore: Reading reminders\n');
   await p.waitForTimeout(700);
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
@@ -618,7 +618,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   check('roadmap: right-edge drag widens the span (x2 -> x3)',
     /Sync engine rewrite \[doing\] x3/.test(src));
 
-  const plain = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Smart reminders'});
+  const plain = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Reading reminders'});
   const plainLine = await plain.first().getAttribute('data-line');
   const plainEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + plainLine + '"]');
   const plainBox = await plainEdge.boundingBox();
@@ -629,8 +629,8 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.mouse.up();
   await p.waitForTimeout(500);
   src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  check('roadmap: a plain card\'s right edge creates a span (Smart reminders -> x2)',
-    /Smart reminders x2/.test(src));
+  check('roadmap: a plain card\'s right edge creates a span (Reading reminders -> x2)',
+    /Reading reminders x2/.test(src));
   await p.close();
 }
 {
@@ -735,7 +735,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
 {
   const p = await browser.newPage({viewport: {width: 1280, height: 1000}, reducedMotion: 'reduce'});
   const handoffErrors = trackErrors(p);
-  const source = `title: Habitat
+  const source = `title: Lantern
 horizons: Now, Next, Later
 wip: 1
 Now
@@ -763,7 +763,7 @@ Growth: Shared foundations`;
   const target = await p.evaluate(() => localStorage.getItem('paths-src'));
   const sourceAfter = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap -> paths: action opens a fresh codec-seeded Paths URL',
-    p.url().includes('/paths/#z:') && target?.includes('title: Habitat — decision-plan starter'));
+    p.url().includes('/paths/#z:') && target?.includes('title: Lantern — decision-plan starter'));
   check('roadmap -> paths: generated starter omits invented decision evidence',
     target?.includes('decision Pricing:') && !/^\s{2}(question|signal|owner|answer-by):/m.test(target));
   check('roadmap -> paths: Paths keeps its four truthful completion warnings',
@@ -776,7 +776,7 @@ Growth: Shared foundations`;
 {
   const p = await browser.newPage({viewport: {width: 390, height: 844}, reducedMotion: 'reduce'});
   const handoffErrors = trackErrors(p);
-  const safe = `title: Habitat
+  const safe = `title: Lantern
 Now
 Core: Probe [bet: x]
 Next
@@ -789,7 +789,7 @@ Core: Conditional work [if x]`;
   check('roadmap -> paths: 390px action stays legible with a 44px touch target',
     await action.isVisible() && box && box.height >= 44 && dimensions.scroll <= dimensions.width + 1);
 
-  const unsafe = `title: Habitat
+  const unsafe = `title: Lantern
 Now
 Core: Probe [bet: x]
 Next

@@ -50,10 +50,10 @@ test('Paths and Timeline roles never decode or inspect member state', async () =
 
 test('a valid Roadmap basis enriches the claim with exact known and assumed ledgers', async () => {
   const text = [
-    'title: Habitat delivery projection',
-    'basis: paths "Habitat growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12, retention=yes@2026-08-12',
+    'title: Lantern delivery projection',
+    'basis: paths "Lantern growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12, retention=yes@2026-08-12',
     'NOW',
-    'Core: Streak repair',
+    'Core: Resume position fix',
   ].join('\n');
   const context = await inspectPlanningContext('/roadmap/#state', {decode: async hash => {
     assert.equal(hash, 'state');
@@ -62,7 +62,7 @@ test('a valid Roadmap basis enriches the claim with exact known and assumed ledg
   assert.deepEqual(context, {
     kind:'roadmap', role:'Delivery projection', scope:'One exact Paths outcome',
     basis:{
-      source:'Habitat growth decisions',
+      source:'Lantern growth decisions',
       known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
       assumed:[
         {key:'groups', direction:'no', date:'2026-08-12'},

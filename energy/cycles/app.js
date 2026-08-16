@@ -17,6 +17,7 @@ import {attachEditInPlace} from '../../assets/edit-in-place.js';
 import {paintKicker, paintMetrics, paintVerdict, resolveVerdict} from '../../assets/verdict.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../../assets/verdict-edit.js';
 import {createPreviewRevisionGuard} from './interaction-state.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const stageEl = $('preview');
@@ -413,7 +414,7 @@ previewEip = attachEditInPlace($('preview'), {
 });
 
 /* chips */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- exports ---------- */
 const isoToday = () => new Date().toISOString().slice(0, 10);

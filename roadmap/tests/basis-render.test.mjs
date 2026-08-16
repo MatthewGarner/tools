@@ -19,7 +19,7 @@ const DOC = [
   'basis: paths "Growth & retention"; answered pricing=yes@2026-08-03, retention=no@2026-08-09; assumed groups=no@2026-08-12',
   'headline: Keep shared work moving while the open choices resolve.',
   'NOW',
-  'Core: Repair the streak',
+  'Core: Fix resume position',
   'NEXT',
   'Core: Improve invitations',
   'LATER',

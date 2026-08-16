@@ -8,10 +8,10 @@ import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
 
 const DOC = `title: T
 anchor: Need
-Streak engine @ custom
-User DB @ 0.83
-Need -> Streak engine -> User DB
-streak engine -> Need2`;
+Recommendations @ custom
+Catalogue DB @ 0.83
+Need -> Recommendations -> Catalogue DB
+recommendations -> Need2`;
 
 const apply = (text, edits) => {
   const lines = text.split('\n');
@@ -20,34 +20,34 @@ const apply = (text, edits) => {
 };
 
 test('renameComponent rewrites the declaration and every edge mention', () => {
-  const edits = renameComponent(DOC, 2, 'Streak engine', 'Habit engine');
+  const edits = renameComponent(DOC, 2, 'Recommendations', 'Library engine');
   assert.equal(edits.length, 3);                       // decl + 2 edge lines
   const out = apply(DOC, edits);
   const m = parse(out);
-  assert.ok(m.components.has('habit engine'));
-  assert.ok(!m.components.has('streak engine'));
-  assert.equal(m.edges.filter(e => e.from === 'habit engine' || e.to === 'habit engine').length, 3);
+  assert.ok(m.components.has('library engine'));
+  assert.ok(!m.components.has('recommendations'));
+  assert.equal(m.edges.filter(e => e.from === 'library engine' || e.to === 'library engine').length, 3);
 });
 
 test('renameAnchor rewrites the anchor line and edge mentions', () => {
-  const edits = renameAnchor(DOC, 1, 'Need', 'Habit tracking');
+  const edits = renameAnchor(DOC, 1, 'Need', 'Reading');
   const out = apply(DOC, edits);
   const m = parse(out);
-  assert.equal(m.anchors[0].name, 'Habit tracking');
-  assert.ok(m.edges.some(e => e.from === 'habit tracking'));
+  assert.equal(m.anchors[0].name, 'Reading');
+  assert.ok(m.edges.some(e => e.from === 'reading'));
 });
 
 test('cycleStage writes the stage word', () => {
   const edits = cycleStage(DOC, 2, 'product');
-  assert.deepEqual(edits, [{line: 2, text: 'Streak engine @ product'}]);
+  assert.deepEqual(edits, [{line: 2, text: 'Recommendations @ product'}]);
   const m = parse(apply(DOC, edits));
-  assert.equal(m.components.get('streak engine').x, 0.625);
-  assert.equal(m.components.get('streak engine').stage, 'product');
+  assert.equal(m.components.get('recommendations').x, 0.625);
+  assert.equal(m.components.get('recommendations').stage, 'product');
 });
 
 test('dragRewrite: numeric replaces the stage word', () => {
   const edits = dragRewrite(DOC, 2, 0.6234);
-  assert.deepEqual(edits, [{line: 2, text: 'Streak engine @ 0.62'}]);
+  assert.deepEqual(edits, [{line: 2, text: 'Recommendations @ 0.62'}]);
 });
 
 test('dragRewrite: bare ghost gains a position and stops being a ghost', () => {
@@ -59,12 +59,12 @@ test('dragRewrite: bare ghost gains a position and stops being a ghost', () => {
 });
 
 test('dragRewrite clamps outside 0–1', () => {
-  assert.deepEqual(dragRewrite(DOC, 3, 1.7), [{line: 3, text: 'User DB @ 1'}]);
-  assert.deepEqual(dragRewrite(DOC, 3, -0.4), [{line: 3, text: 'User DB @ 0'}]);
+  assert.deepEqual(dragRewrite(DOC, 3, 1.7), [{line: 3, text: 'Catalogue DB @ 1'}]);
+  assert.deepEqual(dragRewrite(DOC, 3, -0.4), [{line: 3, text: 'Catalogue DB @ 0'}]);
 });
 
 test('name validator rejects structure characters and empties', () => {
-  assert.ok(kinds.name.validate('Habit engine'));
+  assert.ok(kinds.name.validate('Library engine'));
   assert.ok(!kinds.name.validate(''));
   assert.ok(!kinds.name.validate('a -> b'));
   assert.ok(!kinds.name.validate('a @ b'));
@@ -91,24 +91,24 @@ test('cycleStage and rename preserve trailing comments', () => {
   assert.equal(out[0].text, 'Core @ custom   // core bet');
 });
 
-const HABITAT = `title: Habitat platform
-anchor: Habit tracking
+const LANTERN = `title: Lantern platform
+anchor: Reading
 
-Habit builder @ product
-Streak engine @ custom
+Library @ product
+Recommendations @ custom
 Analytics pipeline    // no position yet
 
-Habit tracking -> Habit builder -> Streak engine
-Streak engine -> Analytics pipeline`;
+Reading -> Library -> Recommendations
+Recommendations -> Analytics pipeline`;
 
 test('addComponent inserts after the last declaration BEFORE the edge block', () => {
-  const r = addComponent(HABITAT, 'Cache', 'commodity');
+  const r = addComponent(LANTERN, 'Cache', 'commodity');
   assert.equal(r.newLine, 'Cache @ commodity');
   assert.equal(r.afterLine, 5);                       // the Analytics pipeline line
   assert.equal(r.select, 'Cache');
 });
 test('addComponent: no stage → bare ghost line', () => {
-  assert.equal(addComponent(HABITAT, 'Cache', null).newLine, 'Cache');
+  assert.equal(addComponent(LANTERN, 'Cache', null).newLine, 'Cache');
 });
 test('addComponent: edge-auto-created ghosts (edge srcLines) never count as declarations', () => {
   const doc = 'anchor: A\nA -> Mystery';
@@ -122,17 +122,17 @@ test('addComponent: empty doc → line 0', () => {
 });
 
 test('addedComponentTarget preserves wardley\'s 0-based line and exact name', () => {
-  const add = addComponent(HABITAT, 'Cache', 'commodity');
+  const add = addComponent(LANTERN, 'Cache', 'commodity');
   assert.deepEqual(addedComponentTarget(add, ' Cache '),
     {kind: 'name', line: add.afterLine + 1, data: {raw: 'Cache'}});
 });
 test('removeComponent: declaration deleted, 3-chain spliced, 2-chain line deleted', () => {
-  const ops = removeComponent(HABITAT, 4, 'Streak engine');
-  const lines = HABITAT.split('\n');
+  const ops = removeComponent(LANTERN, 4, 'Recommendations');
+  const lines = LANTERN.split('\n');
   const del = ops.filter(o => o.text === null).map(o => o.line).sort();
-  assert.deepEqual(del, [4, 8]);                      // declaration + "Streak engine -> Analytics pipeline"
+  assert.deepEqual(del, [4, 8]);                      // declaration + "Recommendations -> Analytics pipeline"
   const spliced = ops.find(o => o.line === 7);
-  assert.equal(spliced.text, 'Habit tracking -> Habit builder');
+  assert.equal(spliced.text, 'Reading -> Library');
 });
 test('removeComponent: A -> B -> A collapses the self-edge it would create', () => {
   const doc = 'anchor: N\nA @ custom\nB @ custom\nN -> A\nA -> B -> A';
@@ -194,9 +194,9 @@ test('a declaration whose COMMENT contains an arrow is still a declaration', () 
 test('renaming an edge-created ghost emits ONE op on its line (no duplicate → no throw)', () => {
   // the ghost "Data store" is declared BY the edge, so its srcLine is the edge
   // line; a separate declaration op would be a duplicate applyLineOps rejects
-  const doc = 'anchor: Need\nNeed -> Streak engine -> Data store';
+  const doc = 'anchor: Need\nNeed -> Recommendations -> Data store';
   const out = renameComponent(doc, 1, 'Data store', 'DB');
-  assert.deepEqual(out, [{line: 1, text: 'Need -> Streak engine -> DB'}]);
+  assert.deepEqual(out, [{line: 1, text: 'Need -> Recommendations -> DB'}]);
   // applyLineOps must accept it (would throw on a duplicate line op)
   const st = EditorState.create({doc});
   assert.doesNotThrow(() => st.update({changes: lineOpsChanges(st, out)}));
@@ -219,14 +219,14 @@ const addApplied = (text, r) => {
 };
 
 test('addEdge appends "from -> to" after the last non-blank line', () => {
-  const r = addEdge(HABITAT, 'Habit builder', 'Analytics pipeline');
-  assert.deepEqual(r, {afterLine: 8, newLine: 'Habit builder -> Analytics pipeline'});
-  const m = parse(addApplied(HABITAT, r));
-  assert.ok(m.edges.some(e => e.from === 'habit builder' && e.to === 'analytics pipeline'));
+  const r = addEdge(LANTERN, 'Library', 'Analytics pipeline');
+  assert.deepEqual(r, {afterLine: 8, newLine: 'Library -> Analytics pipeline'});
+  const m = parse(addApplied(LANTERN, r));
+  assert.ok(m.edges.some(e => e.from === 'library' && e.to === 'analytics pipeline'));
 });
 test('addEdge round-trips clean: edge count +1, no new warnings, no new components', () => {
-  const before = parse(HABITAT);
-  const m = parse(addApplied(HABITAT, addEdge(HABITAT, 'Habit builder', 'Analytics pipeline')));
+  const before = parse(LANTERN);
+  const m = parse(addApplied(LANTERN, addEdge(LANTERN, 'Library', 'Analytics pipeline')));
   assert.equal(m.edges.length, before.edges.length + 1);
   assert.equal(m.warnings.length, before.warnings.length);
   assert.equal(m.components.size, before.components.size);
@@ -236,24 +236,24 @@ test('addEdge skips trailing blank lines when placing the new line', () => {
   assert.equal(addEdge(doc, 'B', 'C').afterLine, 2);
 });
 test('addEdge is a no-op when the pair already exists (even mid-chain — duplicates count twice)', () => {
-  assert.equal(addEdge(HABITAT, 'Habit tracking', 'Habit builder'), null);
-  assert.equal(addEdge(HABITAT, 'habit TRACKING', 'HABIT builder'), null);   // case-insensitive
+  assert.equal(addEdge(LANTERN, 'Reading', 'Library'), null);
+  assert.equal(addEdge(LANTERN, 'reading', 'LIBRARY'), null);   // case-insensitive
 });
 test('addEdge: reverse direction is independent — B->A adds even when A->B exists', () => {
-  const r = addEdge(HABITAT, 'Streak engine', 'Habit builder');
-  assert.equal(r.newLine, 'Streak engine -> Habit builder');
+  const r = addEdge(LANTERN, 'Recommendations', 'Library');
+  assert.equal(r.newLine, 'Recommendations -> Library');
 });
 test('addEdge: the anchor is a valid FROM end', () => {
-  const r = addEdge(HABITAT, 'Habit tracking', 'Streak engine');
-  assert.equal(r.newLine, 'Habit tracking -> Streak engine');
+  const r = addEdge(LANTERN, 'Reading', 'Recommendations');
+  assert.equal(r.newLine, 'Reading -> Recommendations');
 });
 test('addEdge no-ops on self, empties and unknown names (degeneration-proof)', () => {
-  assert.equal(addEdge(HABITAT, 'Habit builder', 'Habit builder'), null);
-  assert.equal(addEdge(HABITAT, 'Habit builder', 'habit BUILDER'), null);
-  assert.equal(addEdge(HABITAT, '', 'Habit builder'), null);
-  assert.equal(addEdge(HABITAT, 'Habit builder', '  '), null);
-  assert.equal(addEdge(HABITAT, 'Nope', 'Habit builder'), null);
-  assert.equal(addEdge(HABITAT, 'Habit builder', 'Nope'), null);
+  assert.equal(addEdge(LANTERN, 'Library', 'Library'), null);
+  assert.equal(addEdge(LANTERN, 'Library', 'LIBRARY'), null);
+  assert.equal(addEdge(LANTERN, '', 'Library'), null);
+  assert.equal(addEdge(LANTERN, 'Library', '  '), null);
+  assert.equal(addEdge(LANTERN, 'Nope', 'Library'), null);
+  assert.equal(addEdge(LANTERN, 'Library', 'Nope'), null);
 });
 test('addEdge refuses a name the edge line cannot carry (anchor literally named "a -> b")', () => {
   // `anchor: a -> b` is a legal anchor whose NAME contains an arrow — written
@@ -324,10 +324,10 @@ test('removeEdge matches through a malformed empty segment the way the parser do
   assert.deepEqual(removeEdge(doc, 'A', 'B'), [{line: 2, text: null}]);
 });
 test('removeEdge whole-flow on the house example: mid-chain split, siblings untouched', () => {
-  const ops = removeEdge(HABITAT, 'Habit builder', 'Streak engine');
-  const m = parse(applyOps(HABITAT, ops));
-  assert.ok(!m.edges.some(e => e.from === 'habit builder' && e.to === 'streak engine'));
-  assert.ok(m.edges.some(e => e.from === 'habit tracking' && e.to === 'habit builder'));
-  assert.ok(m.edges.some(e => e.from === 'streak engine' && e.to === 'analytics pipeline'));
-  assert.equal(m.components.size, parse(HABITAT).components.size);   // nobody became a ghost casualty
+  const ops = removeEdge(LANTERN, 'Library', 'Recommendations');
+  const m = parse(applyOps(LANTERN, ops));
+  assert.ok(!m.edges.some(e => e.from === 'library' && e.to === 'recommendations'));
+  assert.ok(m.edges.some(e => e.from === 'reading' && e.to === 'library'));
+  assert.ok(m.edges.some(e => e.from === 'recommendations' && e.to === 'analytics pipeline'));
+  assert.equal(m.components.size, parse(LANTERN).components.size);   // nobody became a ghost casualty
 });

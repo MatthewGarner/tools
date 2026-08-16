@@ -115,6 +115,21 @@ rather than shrink below legibility. Below a narrow width, a tool re-lays-out ra
 than merely scaling down, with the exports pinned to the wide artefact. Every
 animation respects `prefers-reduced-motion`.
 
+Within that one shared grammar, tools split into four families by interaction
+mechanism and audience — not by subject matter, and not the same axis as a
+workflow route (home's Paths → Roadmap → Timeline → Case nav sequences four
+*document* tools for one use case; it doesn't compete with this split). A
+**document** tool is text that becomes an artefact — a rail to write in, a
+stage to read the result, edit-in-place, collapse-to-read; most tools are
+this. A **calculator** has no text source at all — a formula or a weight
+goes in, a number or a ranked list comes out immediately. A **teaching**
+tool is a fixed-concept demonstration: you explore someone else's mechanism
+(a base rate, a signal threshold) by dragging sliders, not your own
+situation. A **workshop** tool builds its artefact from other people, and
+the point is a reveal. The membership list lives once, in
+`dev/tool-dirs.mjs`'s `FAMILIES`, guarded by a test that every tool is
+classified exactly once — this file names the split, not the set.
+
 ## How correctness is enforced
 
 The standard here *is* the checks — the suites are the trade for having no error

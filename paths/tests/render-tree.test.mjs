@@ -47,14 +47,14 @@ const decisionBlock = (name, extra = '') =>
 
 test('interactive wide questions are named keyboard buttons carrying stable parsed identity', () => {
   const svg = renderInteractiveDoc(decisionBlock('groups') +
-    'LATER\n  Growth: Group challenges [if groups]', {selectedKey:'groups'});
+    'LATER\n  Growth: Club challenges [if groups]', {selectedKey:'groups'});
   assert.match(svg, /role="group" aria-labelledby="paths-tree-name paths-tree-description"/);
   assert.match(svg, /data-kind="question" data-select-decision="" data-decision-key="groups" data-line="0" data-selected="true" aria-expanded="true" aria-controls="decision-inspector" tabindex="0" role="button" aria-label="Inspect question groups — 7 days overdue"/);
 });
 
 test('interactive collapsed breadcrumbs retain a 44px hit target and answer-labelled button', () => {
   const svg = renderInteractiveDoc(decisionBlock('groups', '  answer: yes 2026-12-10\n') +
-    'LATER\n  Growth: Group challenges [if groups]', {width:1});
+    'LATER\n  Growth: Club challenges [if groups]', {width:1});
   assert.match(svg, /data-kind="breadcrumb" data-select-decision="" data-decision-key="groups"/);
   assert.match(svg, /aria-label="Inspect question groups — Answer: yes"/);
   assert.match(svg, /<rect data-hit=""[^>]*height="44" fill="transparent"/);
@@ -62,14 +62,14 @@ test('interactive collapsed breadcrumbs retain a 44px hit target and answer-labe
 
 test('interactive narrow questions are full-row 44px keyboard targets with selected state', () => {
   const svg = renderInteractiveDoc(decisionBlock('groups') +
-    'LATER\n  Growth: Group challenges [if groups]',
+    'LATER\n  Growth: Club challenges [if groups]',
   {width:390, narrow:true, selectedKey:'groups'});
   assert.match(svg, /data-kind="outline-question" data-select-decision="" data-decision-key="groups" data-line="0" data-selected="true" aria-expanded="true" aria-controls="decision-inspector" tabindex="0" role="button"/);
   assert.match(svg, /<rect data-hit=""[^>]*height="44" fill="transparent"/);
 });
 
 test('export renderers remain non-interactive images with no selection attributes', () => {
-  const doc = decisionBlock('groups') + 'LATER\n  Growth: Group challenges [if groups]';
+  const doc = decisionBlock('groups') + 'LATER\n  Growth: Club challenges [if groups]';
   for(const svg of [renderDoc(doc), outlineDoc(doc)]){
     assert.match(svg, /role="img"/);
     assert.doesNotMatch(svg, /data-select-decision|data-selected|tabindex="0"/);
@@ -79,27 +79,27 @@ test('export renderers remain non-interactive images with no selection attribute
 /* ---------- item states, each on a document that genuinely produces it ---------- */
 
 test('an unconditional item reads Included', () => {
-  const svg = renderDoc('today: 2026-12-01\nNOW\n  Core: Streak repair');
+  const svg = renderDoc('today: 2026-12-01\nNOW\n  Core: Resume position fix');
   assert.match(svg, /Included/);
 });
 
 test('an open question with no assumption leaves its items Waiting for that question, by name', () => {
   const svg = renderDoc('today: 2026-12-01\n' + decisionBlock('groups') +
-    'LATER\n  Growth: Group challenges [if groups]', '2026-12-01');
+    'LATER\n  Growth: Club challenges [if groups]', '2026-12-01');
   assert.match(svg, /Waiting for groups/);
   assert.doesNotMatch(svg, /Following an assumed/);
 });
 
 test('an in-force assumption reads Following an assumed yes, never Waiting', () => {
   const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: yes 2026-12-22\n') +
-    'LATER\n  Growth: Group challenges [if groups]');
+    'LATER\n  Growth: Club challenges [if groups]');
   assert.match(svg, /Following an assumed yes/);
   assert.doesNotMatch(svg, /Waiting for groups/);
 });
 
 test('an assumed no is distinguished from an assumed yes', () => {
   const svg = renderDoc('today: 2026-12-22\n' + decisionBlock('groups', '  assume: no 2026-12-22\n') +
-    'LATER\n  Growth: Group challenges [if groups]');
+    'LATER\n  Growth: Club challenges [if groups]');
   assert.match(svg, /Following an assumed no/);
   assert.doesNotMatch(svg, /Following an assumed yes/);
 });
@@ -212,7 +212,7 @@ test('a question is labelled with its NAME and state, never its question sentenc
   const doc = 'today: 2026-12-01\ndecision groups:\n' +
     '  question: Do people add three friends without prompting?\n' +
     '  signal: invites per user >= 3\n  owner: growth squad\n  answer-by: 2026-12-15\n' +
-    'LATER\n  Growth: Group challenges [if groups]';
+    'LATER\n  Growth: Club challenges [if groups]';
   const svg = renderDoc(doc, '2026-12-01');
   assert.match(svg, />groups</, 'the diamond carries the short name');
   assert.doesNotMatch(svg, /Do people add three friends/,
@@ -422,16 +422,16 @@ function outlineDoc(doc, today = '2026-12-22', width = 360){
 }
 
 test('a real wide export is a complete named artefact with frame, regions, metrics, and generated verdict', () => {
-  const doc = 'title: Habitat paths\ndate: 2026-12-02\n' + decisionBlock('groups') +
-    'NOW\n  Core: Shared repair\nLATER\n  Growth: Group challenges [if groups]';
+  const doc = 'title: Lantern paths\ndate: 2026-12-02\n' + decisionBlock('groups') +
+    'NOW\n  Core: Shared repair\nLATER\n  Growth: Club challenges [if groups]';
   const svg = renderDoc(doc, '2026-12-01');
   assert.match(svg, /role="img" aria-labelledby="paths-tree-name paths-tree-description"/);
-  assert.match(svg, /<title id="paths-tree-name">Habitat paths — decision tree<\/title>/);
+  assert.match(svg, /<title id="paths-tree-name">Lantern paths — decision tree<\/title>/);
   assert.match(svg, /<desc id="paths-tree-description">Dated 2026-12-02\. 1 question, 2 items, 2 possible plans\./);
   assert.match(svg, /Questions: groups: Open/);
   assert.match(svg, /Work: 1 included, 1 waiting/);
   assert.match(svg, /Tree boundary: 2 possible plans remain/);
-  for(const text of ['Habitat paths', '2026-12-02', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
+  for(const text of ['Lantern paths', '2026-12-02', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
     'SHARED WORK · IN EVERY PLAN', 'QUESTION PATHS · CHANGES WITH ANSWERS',
     'One of two items depends on the groups answer']) assert.match(svg, new RegExp(text));
   assert.match(svg, /data-kind="artifact-verdict"/);
@@ -471,12 +471,12 @@ test('the projected date and authored verdict contract survive wide export and n
 });
 
 test('the narrow outline keeps the complete context as a genuine relayout', () => {
-  const svg = outlineDoc('title: Habitat mobile\ndate: 2026-12-04\n' + decisionBlock('groups') +
-    'NOW\n  Core: Shared repair\nLATER\n  Growth: Group challenges [if groups]', '2026-12-01', 320);
-  for(const text of ['Habitat mobile', '2026-12-04', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
+  const svg = outlineDoc('title: Lantern mobile\ndate: 2026-12-04\n' + decisionBlock('groups') +
+    'NOW\n  Core: Shared repair\nLATER\n  Growth: Club challenges [if groups]', '2026-12-01', 320);
+  for(const text of ['Lantern mobile', '2026-12-04', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
     'SHARED WORK · IN EVERY PLAN', 'QUESTION PATHS · CHANGES WITH ANSWERS', 'VERDICT'])
     assert.match(svg, new RegExp(text));
-  assert.match(svg, /<title id="paths-tree-name">Habitat mobile — outline<\/title>/);
+  assert.match(svg, /<title id="paths-tree-name">Lantern mobile — outline<\/title>/);
   assert.equal(Number(/width="([\d.]+)"/.exec(svg)[1]), 320);
 });
 
@@ -508,9 +508,9 @@ test('long unspaced title and verdict tokens are clipped inside wide and narrow 
 
 test('the outline stacks shared work, then each question with its arms', () => {
   const svg = outlineDoc('today: 2026-12-01\n' + decisionBlock('groups') +
-    'NOW\n  Core: Streak repair\nLATER\n  Growth: Challenges [if groups]\n  Core: Solo [if not groups]', '2026-12-01');
+    'NOW\n  Core: Resume position fix\nLATER\n  Growth: Challenges [if groups]\n  Core: Solo [if not groups]', '2026-12-01');
   assert.match(svg, /SHARED WORK/);
-  assert.match(svg, /Streak repair/);
+  assert.match(svg, /Resume position fix/);
   assert.match(svg, /If so/);
   assert.match(svg, /If not/);
   assert.match(svg, /Waiting for groups/);

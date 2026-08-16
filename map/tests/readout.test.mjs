@@ -67,9 +67,9 @@ test('anonymous cells appear only when occupied; named zones always listed', () 
 });
 
 test('markdown export: title, verdict, per-zone lists, unplaced, flags', () => {
-  const {m, ro} = run('preset: assumptions\ntitle: Habitat bets\nA @ 20,80\nB');
+  const {m, ro} = run('preset: assumptions\ntitle: Lantern bets\nA @ 20,80\nB');
   const md = toMarkdown(ro, m);
-  assert.ok(md.startsWith('## Habitat bets'));
+  assert.ok(md.startsWith('## Lantern bets'));
   assert.ok(md.includes('**test first** (1)'));
   assert.ok(md.includes('- A'));
   assert.ok(md.includes('**Unplaced** (1)'));

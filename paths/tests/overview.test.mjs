@@ -9,7 +9,7 @@ const decision = (name, fields = '') => `decision ${name}:\n  question: ${name}?
   /\n  answer-by:/.test(fields) ? '' : '\n  answer-by: 2026-08-10'}${fields}`;
 
 test('overview keeps independent decisions parallel and places every item once by authored period and lane', () => {
-  const model = parse(`title: Parallel Habitat
+  const model = parse(`title: Parallel Lantern
 date: 2026-08-09
 verdict: Hold both routes open
 ${decision('pricing', '\n  answer-by: 2026-08-01')}
@@ -23,7 +23,7 @@ LATER
   Growth: Either [if pricing or groups]`);
   const overview = overviewProjection(project(model, '2026-08-11'));
 
-  assert.equal(overview.title, 'Parallel Habitat');
+  assert.equal(overview.title, 'Parallel Lantern');
   assert.equal(overview.date, '2026-08-09');
   assert.deepEqual(overview.verdict, {line:'Hold both routes open', fig:''});
   assert.deepEqual(overview.periods.map(period => period.name), ['NOW', 'LATER']);

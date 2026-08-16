@@ -146,14 +146,14 @@ const PAGES = {
      textual percentile receipt and explicit author return replace a competing
      input card; their a11y/focus state stays eager so an offline model is never
      reduced to chart pixels. Actual 225.4k; ~9.6k headroom. */
-  'fermi/index.html': 235_000, 'rank/index.html': 106_000, /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  'fermi/index.html': 235_000, 'rank/index.html': 107_500, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
   /* 116k -> 122k (2026-08-04 interaction reliability): the visibility-gated
      queue animation runtime, export/hash flush and preset state semantics are
      first-load correctness code. Actual 116.9k; retain about 5k headroom. */
-  'flow/index.html': 144_000,   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+  'flow/index.html': 146_000,   /* 144k->146k 2026-08-15 start-your-own: the shared on-ramp chip (assets/app-common.js exampleChips + .chip.start in controls.css) — flow carries no starter of its own, it just pays for shared code. NB the 2026-08-13 note below claimed ~6k headroom; flow had already grown to 143.7k (313 bytes slack) before this change, so that figure was stale. Actual 144.5k; ~1.5k headroom. */   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   /* 102k -> 108k (2026-08-04 interaction reliability): keyboard threshold
      policy, pointer lifecycle cleanup, selected-preset state and dialog focus
      restoration are first-load interaction correctness. Actual 103.1k; leave
@@ -382,7 +382,7 @@ const PAGES = {
   /* The same shared joined rail/stage edge reaches Tree. Roadmap's named DSL
      return path is an optional workspace label, so Tree pays only the tiny
      shared parameter. Actual 554669 bytes; retain 331 bytes of headroom. */
-  'tree/index.html': 555_000,   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
+  'tree/index.html': 557_000,   /* 555k->557k 2026-08-15 start-your-own: tree/starter.js plus the shared on-ramp chip (exampleChips + .chip.start). Actual 556.0k. */   /* 491k->497k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 531.1k, ~5k headroom. 553k->554k 2026-08-14: Roadmap’s shared workspace guard keeps an active editor visible before reclaiming artefact space; Tree shares the tiny module. Actual 553.4k. */
   /* 497k -> 507k (2026-08-04 interaction reliability): Map's reachable-menu
      derivation and scoped drag click guard prevent dead field actions and
      stale suppression. Actual 500.8k; retain ~6k headroom. */
@@ -421,7 +421,7 @@ const PAGES = {
      explicit author route, and focus-safe session feedback. They share the live
      SVG statistics rather than creating a second model; actual 565.6k leaves a
      4.4k guardrail. */
-  'gauge/index.html': 570_000, 'timeline/index.html': 564_000,   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
+  'gauge/index.html': 570_000, 'timeline/index.html': 566_000,   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */
@@ -461,7 +461,7 @@ const PAGES = {
      exact default-add focus and the narrow editable discount field. Actual
      494.2k; retain ~6.8k. */
   'energy/cycles/index.html': 514_000,   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 509k, ~5k headroom */   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
-  'energy/frequency/index.html': 108_000, 'energy/merit-order/index.html': 156_200,   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
+  'energy/frequency/index.html': 108_000, 'energy/merit-order/index.html': 157_500,   /* 156.2k->157.5k 2026-08-15 start-your-own: merit-order carries no starter, it just pays for the shared chip bytes; its own 138-byte tripwire (below) left no room for them. Actual 156.8k. */   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
      block) and app.js gained a small popover focus-trap import + keydown

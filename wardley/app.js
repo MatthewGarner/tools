@@ -20,29 +20,30 @@ import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {paintKicker, paintMetrics} from '../assets/verdict.js';
 import {makeDragClickGuard} from './drag-click-guard.js';
+import {STARTER} from './starter.js';
 
 const $ = id => document.getElementById(id);
 const paint = mountMotion($("preview"));
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const EXAMPLES = [
-  {name: 'Habitat platform', src:
-`title: Habitat platform
-anchor: Habit tracking
+  {name: 'Lantern platform', src:
+`title: Lantern platform
+anchor: Reading
 
-Habit builder @ product
-Streak engine @ custom
-Social feed @ genesis
+Library @ product
+Recommendations @ custom
+Book clubs @ genesis
 Notification service @ product
-User DB @ commodity
+Catalogue DB @ commodity
 Push gateway @ commodity
 Analytics pipeline    // no position yet
 
-Habit tracking -> Habit builder -> Streak engine -> User DB
-Habit builder -> Notification service -> Push gateway
-Habit tracking -> Social feed -> Notification service
-Social feed -> Analytics pipeline
-Social feed -> Streak engine`},
+Reading -> Library -> Recommendations -> Catalogue DB
+Library -> Notification service -> Push gateway
+Reading -> Book clubs -> Notification service
+Book clubs -> Analytics pipeline
+Book clubs -> Recommendations`},
   {name: 'Online tea shop', src:
 `title: Online tea shop
 anchor: Thirsty customer
@@ -119,7 +120,7 @@ function doRefresh(){
     layout = null;
     lastSvg = ''; paint.reset();
     pv.innerHTML = '<p class="placeholder">' + (text.trim()
-      ? 'No components yet — write one like “Streak engine @ custom”.'
+      ? 'No components yet — write one like “Recommendations @ custom”.'
       : 'Start typing — or load an example.') + '</p>';
     paintMetrics($('metrics'), '', []);
   } else {
@@ -379,7 +380,7 @@ $('preview').addEventListener('click', e => {
 }, true);
 
 /* ---------- example chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src));
+exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function svgString(intent){

@@ -25,12 +25,12 @@ function wide(doc, extra = {}){
 }
 
 test('wide overview renders the canonical period by lane grid and each item exactly once', () => {
-  const svg = wide('title: Habitat parallel roadmap\ndate: 2026-08-09\nverdict: Keep both routes open\n' + decision('pricing') + decision('groups') +
+  const svg = wide('title: Lantern parallel roadmap\ndate: 2026-08-09\nverdict: Keep both routes open\n' + decision('pricing') + decision('groups') +
     'NOW\n  Core: Shared\n  Growth: Price route [if pricing]\n' +
     'LATER\n  Core: Joint route [if pricing and groups]\n  Growth: Alternative [unless pricing]');
 
   assert.match(svg, /data-kind="roadmap-grid"/);
-  assert.match(svg, /<title id="paths-overview-name">Habitat parallel roadmap<\/title>/);
+  assert.match(svg, /<title id="paths-overview-name">Lantern parallel roadmap<\/title>/);
   assert.match(svg, /data-kind="overview-verdict"/);
   assert.match(svg, /Keep both routes open/);
   assert.match(svg, />2026-08-09<\/text>/);

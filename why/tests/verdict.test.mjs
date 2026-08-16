@@ -23,8 +23,8 @@ test('no outcomes → no verdict at all', () => {
 test('tier 1 — a broken assumption under a committed solution', () => {
   const r = v(`outcome: O
   Users churn at 30 days
-    Streak freeze [delivering]
-      ? streak anxiety drives churn [broken]`);
+    Resume where you left off [delivering]
+      ? abandoned books drive churn [broken]`);
   assert.equal(r.fig, '1 of 1');
   assert.equal(r.line, '1 of 1 committed solution rests on a broken assumption — the tree already says this will not work.');
   figIsInLine(r);
@@ -57,9 +57,9 @@ test('tier 2 — committed work with no opportunity above it', () => {
 test('tier 3 — untested bets', () => {
   const r = v(`outcome: O
   Users forget mid-afternoon
-    Smart reminders [testing]
-    Streak freeze [delivering]
-      ? streak anxiety drives churn [holds]`);
+    Reading reminders [testing]
+    Resume where you left off [delivering]
+      ? abandoned books drive churn [holds]`);
   assert.equal(r.fig, '1 of 2');
   assert.equal(r.line, '1 of 2 committed solutions is an untested bet — the commitment ran ahead of the discovery.');
   figIsInLine(r);
@@ -119,8 +119,8 @@ test('tier 5 — plural, and a shipped solution still counts as cover', () => {
 
 test('tier 6 — solutions hanging straight off an outcome, with no need named', () => {
   const r = v(`outcome: O
-  Habit templates [candidate]
-  Coach marketplace [parked]`);
+  Curated shelves [candidate]
+  Publisher storefront [parked]`);
   assert.equal(r.fig, '2 solutions');
   assert.equal(r.line, "2 solutions hang straight off an outcome — the tree records what you'll build, never why.");
   figIsInLine(r);
@@ -128,7 +128,7 @@ test('tier 6 — solutions hanging straight off an outcome, with no need named',
 
 test('tier 6 — the singular reading', () => {
   const r = v(`outcome: O
-  Habit templates [candidate]`);
+  Curated shelves [candidate]`);
   assert.equal(r.line, "1 solution hangs straight off an outcome — the tree records what you'll build, never why.");
 });
 

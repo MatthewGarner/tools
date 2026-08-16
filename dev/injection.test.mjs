@@ -654,7 +654,7 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
 
   const {parse: rdparse} = await import('../roadmap/parse.js');
   const {render: rdrender} = await import('../roadmap/render.js');
-  const rdm = rdparse(v + 'NOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders');
+  const rdm = rdparse(v + 'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders');
   assertClean(rdrender(rdm, ctx), 'roadmap verdict:');
 });
 
@@ -671,7 +671,7 @@ test('roadmap escapes a hostile headline and story on every artefact', async () 
   const diff = {any: true, since: EVIL[1], badge: () => null, dropped: [EVIL[2]]};
   const doc = style => (style ? 'style: ' + style + '\n' : '') +
     'title: T\nheadline: ' + evil + '\nstory: ' + evil +
-    '\nNOW\nCore: Streak freeze [doing]\nNEXT\nCore: Smart reminders';
+    '\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
   assertClean(render(parse(doc()), {...ctx, diff}), 'roadmap headline+story');
   assertClean(render(parse(doc()), {...ctx, diff, width: 360}), 'roadmap headline+story narrow');
   assertClean(renderBoardLive(parse(doc('board')), {...ctx, diff}), 'board headline+story');

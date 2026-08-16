@@ -3,6 +3,7 @@ import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy,
 import {readHashState, writeHashState, fmt} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
+import {STARTER} from './starter.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 
 /* ---------- state ---------- */
@@ -512,18 +513,26 @@ $('pastego').addEventListener('click', () => {
   }
   schedule(50);
 });
+const loadItems = (items, k) => {
+  state.items = items.map(r => ({name:r[0], s:r.slice(1, 4), e:r[4]}));
+  syncCapacity(k);
+  renderRows();
+  schedule(50);
+};
 for(const ex of EXAMPLES){
   const b = document.createElement('button');
   b.className = 'chip';
   b.textContent = ex.name;
-  b.addEventListener('click', () => {
-    state.items = ex.items.map(r => ({name:r[0], s:r.slice(1, 4), e:r[4]}));
-    syncCapacity(ex.k);
-    renderRows();
-    schedule(50);
-  });
+  b.addEventListener('click', () => loadItems(ex.items, ex.k));
   $('chips').appendChild(b);
 }
+/* the on-ramp, ahead of the "Try:" lead: rank opens on a full example and the only
+   other route to your own list was deleting five rows one at a time. */
+const startBtn = document.createElement('button');
+startBtn.className = 'chip start';
+startBtn.textContent = 'Start your own';
+startBtn.addEventListener('click', () => loadItems(STARTER.items, STARTER.k));
+$('chips').insertBefore(startBtn, $('chips').firstChild);
 
 if(await readHash()){ syncCapacity(); $('ww').value = state.ww; $('sw').value = state.sw; renderOrderDiff(); }
 else {

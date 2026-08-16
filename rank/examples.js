@@ -15,14 +15,14 @@ export const DEFAULT_EFFORT = {name: 'Effort', w: 1};
 
 // Each item: [name, Value, Time criticality, Risk reduction, Effort] (scores 1–10).
 // EXAMPLES[0] is BOTH the first chip and the first-load seed, so what you land on is
-// a real, quotable prioritisation — Habitat (the house example) feature backlog with a
+// a real, quotable prioritisation — Lantern (the house example) feature backlog with a
 // settled top two and a genuine knife-edge for the third slot.
 export const EXAMPLES = [
-  {name: 'Habitat feature backlog', k: 3, items: [
-    ['Streak recovery',      8, 8, 6, 4],   // robust #1
-    ['Smart reminders',      7, 6, 5, 4],   // robust #2
+  {name: 'Lantern feature backlog', k: 3, items: [
+    ['Resume position',      8, 8, 6, 4],   // robust #1
+    ['Reading reminders',    7, 6, 5, 4],   // robust #2
     ['Home widget',          9, 3, 5, 5],   // knife-edge for the 3rd slot (Value-leaning)
-    ['Friend challenges',    5, 9, 4, 5],   // knife-edge for the 3rd slot (Time-leaning)
+    ['Club challenges',      5, 9, 4, 5],   // knife-edge for the 3rd slot (Time-leaning)
     ['Onboarding redesign',  4, 3, 6, 7],   // robust last
   ]},
   {name: 'Ops & infra backlog', k: 3, items: [

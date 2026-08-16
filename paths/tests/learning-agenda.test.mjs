@@ -15,7 +15,7 @@ const decision = (name, fields = '') => `decision ${name}:
   answer-by: ${/\n  answer-by:/.test(fields) ? fields.match(/\n  answer-by: ([^\n]+)/)[1] : '2026-08-20'}${fields.replace(/\n  answer-by: [^\n]+/, '')}
 `;
 
-const source = `title: Habitat learning agenda
+const source = `title: Lantern learning agenda
 verdict: Keep reversible work moving while the evidence arrives.
 ${decision('overdue', '\n  answer-by: 2026-08-01')}${decision('high-reach')}${decision('low-reach')}${decision('lonely')}${decision('gate')}${decision('host', '\n  answer: yes 2026-08-10')}${decision('blocked', '\n  when: gate and host')}decision held-broken:
   question: Is held evidence ready?

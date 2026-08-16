@@ -113,7 +113,7 @@ test('a single pre-header line keeps the per-line message without a fake ellipsi
 });
 
 test('config key missing its colon gets a did-you-mean', () => {
-  const m = parse('title Habitat\nNOW\nItem');
+  const m = parse('title Lantern\nNOW\nItem');
   assert.ok(m.warnings.some(w => w.includes('did you mean "title:"')));
   assert.ok(!m.warnings.some(w => w.includes('before any horizon header')));
 });

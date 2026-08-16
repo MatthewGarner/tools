@@ -179,7 +179,7 @@ const qualityText = PATHS_INTERACTION_CASES.find(testCase => testCase.id === 're
     'verdict: Next action: run the invitation pilot before expanding coach supply.')
   .replace('  reading: current pricing reading',
     '  reading: current pricing reading\n' +
-    '  learn: Put both pricing offers to 20 coaches using the same script\n' +
+    '  learn: Put both pricing offers to 20 publishers using the same script\n' +
     '  enough: Yes at 12 acceptances; no at 6 or fewer; otherwise keep the question open');
 
 async function visibleArtefactText(target){
@@ -262,7 +262,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
         const dossier = svg?.querySelector('[data-kind="agenda-dossier"]');
         const detail = receipt?.hidden ? dossier : receipt;
         const onScreen = rect => !!rect && rect.top < innerHeight && rect.bottom > 0;
-        return {learningMove:text.includes('Put both pricing offers to 20 coaches'),
+        return {learningMove:text.includes('Put both pricing offers to 20 publishers'),
           evaluation:text.includes(`EVALUATED ${expectedToday}`) &&
             /computed from current Paths conditions at the evaluated date; not a delivery commitment/.test(text),
           readableState:/unanswered/i.test(selected?.textContent || '') &&
@@ -275,7 +275,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
         agenda.readableState && agenda.stateSurfaceOnScreen);
       const agendaDetailText = await detail.textContent();
       check(`${name} Learning agenda exposes the authored learning contract`,
-        /Put both pricing offers to 20 coaches/.test(agendaDetailText || '') &&
+        /Put both pricing offers to 20 publishers/.test(agendaDetailText || '') &&
         /Yes at 12 acceptances; no at 6 or fewer/.test(agendaDetailText || ''));
       if(phone){
         check(`${name} Learning agenda exposes both editable learning-contract fields`,
@@ -285,7 +285,7 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
         const learningInput = qualityPage.locator('.eip-input');
         check(`${name} Learning agenda opens the authored move for editing`,
           await learningInput.isVisible() &&
-          await learningInput.inputValue() === 'Put both pricing offers to 20 coaches using the same script');
+          await learningInput.inputValue() === 'Put both pricing offers to 20 publishers using the same script');
         await qualityPage.keyboard.press('Escape');
       }
       check(`${name} Learning agenda receipt names both modeled outcome directions`,

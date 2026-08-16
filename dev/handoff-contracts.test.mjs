@@ -131,7 +131,7 @@ test('Gauge to Fermi lands review-needed, with no invented formula', () => {
 });
 
 test('Timeline to Premortem is a separate, target-codec draft', async () => {
-  const source = parseTimeline('title: Habitat launch\nApp: Cut 2026-09 .. 2026-10\nMarketing: Review 2026-10 .. 2026-11');
+  const source = parseTimeline('title: Lantern launch\nApp: Cut 2026-09 .. 2026-10\nMarketing: Review 2026-10 .. 2026-11');
   const draft = premortemHandoff(source, parseDate('2026-08-01'));
   const target = await fromLink(await toLink(draft));
   assert.equal(target.id === 'handoff', false);
@@ -139,7 +139,7 @@ test('Timeline to Premortem is a separate, target-codec draft', async () => {
 });
 
 test('Roadmap to Paths never invents decision fields', () => {
-  const source = parseRoadmap('title: Habitat\nNow\nCore: Pilot [bet: price]\nNext\nCore: Expansion [if price]');
+  const source = parseRoadmap('title: Lantern\nNow\nCore: Pilot [bet: price]\nNext\nCore: Expansion [if price]');
   const target = parsePaths(roadmapToPathsStarter(source));
   assert.equal(target.decisions.length, 1);
   assert.deepEqual(target.warnings.map(warning => warning.code),
@@ -149,7 +149,7 @@ test('Roadmap to Paths never invents decision fields', () => {
 });
 
 test('Paths to Roadmap needs an exact, accepted basis and removes branch syntax', () => {
-  const source = parsePaths(`title: Habitat\ndecision price:\n  question: Is price viable?\n  signal: pilot\n  owner: Alex\n  answer-by: 2026-08-10\nNow\n  Core: Foundation\nNext\n  Growth: Expansion [if price]`);
+  const source = parsePaths(`title: Lantern\ndecision price:\n  question: Is price viable?\n  signal: pilot\n  owner: Alex\n  answer-by: 2026-08-10\nNow\n  Core: Foundation\nNext\n  Growth: Expansion [if price]`);
   const inspected = inspectRoadmapProjection(source, '2026-08-12', {price:'yes'});
   assert.equal(inspected.ok, true);
   assert.equal(buildRoadmapProjection(source, '2026-08-12', {price:'yes'}).code, 'assumptions-not-accepted');
