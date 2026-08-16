@@ -994,8 +994,10 @@ for(const [k, src] of Object.entries(docs)){
   const {parse: wp} = await import('../why/parse.js');
   const {renderWhyPresentation} = await import('../why/render-presentation.js');
   const wdoc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n    Resume where you left off [delivering]\n  Choosing is work';
-  variants['why-presentation'] = renderWhyPresentation(wp(wdoc), {...ctxBase})
-    .replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+  /* No date normaliser here, unlike the other why fixtures: ctxBase sets no `today`,
+     and render-presentation emits String(ctx.today || '') — so there is no date to strip.
+     A .replace() was written here first and did nothing. */
+  variants['why-presentation'] = renderWhyPresentation(wp(wdoc), {...ctxBase});
 
   const {renderDeckPages} = await import('../roadmap/render-deck-pages.js');
   /* Six horizons x five lanes — deliberately past the one-page threshold, so the

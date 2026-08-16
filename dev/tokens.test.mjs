@@ -100,8 +100,10 @@ test('every token the shipped JS reads is declared in all four tokens.css theme 
   const blocks = themeBlocks('assets/tokens.css', 10);
   assert.equal(blocks.length, 4, 'tokens.css should carry exactly four theme blocks ' +
     '(:root light, the dark @media, and both [data-theme] overrides); found ' + blocks.length +
-    '. If the sheet still looks right, check for a BRACE PAIR inside a comment — the flat ' +
-    'regex above matches it as its own block and strands the real declarations');
+    '. If the sheet still looks right, the flat regex above has been confused by nesting ' +
+    'or braces it cannot model — a new at-rule block (@supports) re-declaring the token ' +
+    'set counts as an extra block, and a brace PAIR inside a comment matches as its own ' +
+    'and strands the real declarations. Both fail loudly here rather than passing.');
   for(const block of blocks){
     const missing = read.filter(t => !block.tokens.has(t));
     assert.deepEqual(missing, [], block.sel + ' does not declare ' + missing.join(' ') +
