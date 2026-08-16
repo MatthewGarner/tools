@@ -18,9 +18,25 @@ const TOOLS = [
   {path: '/bets/', chip: 'Lantern portfolio'},
   {path: '/energy/risk/', chip: 'Route to market'},
   {path: '/energy/cycles/', chip: 'Wexcombe base case'},
+  /* Added 2026-08-16. All three import assets/workspace.js and have done since they
+     shipped; this list had never caught up, so the rail/collapse/zoom behaviour of
+     three tools — paths the largest page in the suite — was never exercised.
+
+     case and proxy open with the rail EXPANDED (their railtab reads "Hide source
+     editor"), so neither needs a source trigger. paths opens COLLAPSED and its railtab
+     is labelled "Edit Paths plan source", so it takes the gauge shape: a source
+     trigger, but narrowTab:false, because at 800px its rail stacks visibly while the
+     tab itself is hidden.
+
+     Every one of those facts was measured against the running page. A first attempt
+     guessed the label; a second removed the trigger entirely on the strength of a
+     visibility probe that used offsetParent and reported the opposite of the truth. */
+  {path: '/case/', chip: 'Wexcombe augmentation'},
+  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, widthGap: true},
+  {path: '/proxy/', chip: 'Two theories'},
 ];
 
-for(const {path, chip, view, source, narrowTab = !!source} of TOOLS){
+for(const {path, chip, view, source, widthGap = false, narrowTab = !!source} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -40,9 +56,23 @@ for(const {path, chip, view, source, narrowTab = !!source} of TOOLS){
      becomes smaller than its authored size. In that case it deliberately pans
      at both rail widths rather than growing; every other board should expand. */
   const minReadable = +(await page.locator('#preview svg').getAttribute('data-min-readable-scale') || 0);
-  check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
-    after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));
-  check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
+  if(widthGap){
+    /* KNOWN GAP, asserted with === so it fails the moment paths is fixed — the honest
+       ratchet this file already uses for `pilot`, not a relaxed threshold.
+       Every other workspace tool reclaims the collapsed rail's width and lands at
+       1624-1875px; paths goes 1100 -> ~1270 and stops, so on a wide screen it leaves
+       roughly a fifth of the viewport unused. Found 2026-08-16, the first time paths
+       was ever run through this suite. It is a product defect, not a test one:
+       paths/render-overview.js:371 does take ctx.width, so the artefact is capped
+       somewhere between the pane and the renderer. Raised separately; when it grows
+       like its siblings, delete `widthGap` and these two checks become the real ones. */
+    check(path + ' KNOWN GAP: does not reclaim collapsed width (' + Math.round(before) + '→' + Math.round(after) + ')',
+      after <= before * 1.2 && after <= 1500);
+  } else {
+    check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
+      after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));
+    check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
+  }
 
   /* URL round-trip of collapsed state */
   await page.waitForTimeout(300);
@@ -141,6 +171,22 @@ for(const [label, viewport, minFill] of [
   }
 }
 
+/* Coverage: workspace behaviour is a promise made by every tool that imports the
+   shared module, so membership is derived from the imports rather than remembered.
+   The list had sat at 10 of 13 since case, paths and proxy shipped. */
+{
+  const {readFileSync, existsSync} = await import('node:fs');
+  const {TOOL_DIRS, ENERGY_TOOL_DIRS} = await import('../tool-dirs.mjs');
+  const all = [...TOOL_DIRS, ...ENERGY_TOOL_DIRS.map(d => 'energy/' + d)];
+  const uses = all.filter(d => {
+    const p = new URL('../../' + d + '/app.js', import.meta.url);
+    return existsSync(p) && readFileSync(p, 'utf8').includes('assets/workspace.js');
+  });
+  const missing = uses.filter(d => !TOOLS.some(t => t.path === '/' + d + '/'));
+  check('layout covers every workspace tool' + (missing.length ? ' — missing ' + missing.join(' ') : ''),
+    missing.length === 0);
+}
+
 console.log(results.join('\n'));
 await browser.close();
-report('layout', {...tally(results), min: 145});   // ~90% of 162 measured 2026-08-16 (was 60 — 63% could vanish)
+report('layout', {...tally(results), min: 189});   // ~90% of 210 measured 2026-08-16 (case/paths/proxy added; was 60 — 63% could vanish)

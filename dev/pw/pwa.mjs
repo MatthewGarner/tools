@@ -8,7 +8,7 @@
 import {chromium, devices} from 'playwright';
 import {report, tally} from './_harness.mjs';
 import {spawn} from 'node:child_process';
-import {ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
@@ -72,7 +72,24 @@ async function installAndWait(page){
     ['/duel/', async p => { await p.locator('#start').click(); await p.waitForTimeout(400); return await p.locator('#duelwrap [data-pick]').count() === 2; }],
     ['/premortem/', async p => { await p.waitForTimeout(500); return await p.locator('#phasepanel [data-field="title"]').count() === 1; }],
     ['/proxy/', async p => { await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    /* Added 2026-08-16 — the sweep had covered 15 of 18 TOOL_DIRS since these three
+       shipped, and paths is the largest page in the suite. The coverage assertion
+       below is what stops it falling behind a fourth time. */
+    ['/signal-vs-noise/', async p => { await p.waitForTimeout(600); return await p.locator('svg').count() >= 1; }],
+    ['/case/', async p => { await p.getByRole('button', {name: 'Wexcombe augmentation'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    /* paths keeps its rail collapsed, so the chip row is in the DOM but not clickable
+       until the railtab is opened — the same shape smoke.mjs handles for wardley/map. */
+    ['/paths/', async p => { await p.waitForTimeout(600); if(!await p.locator('#chips').isVisible()) await p.locator('#railtab').click(); await p.locator('#chips').waitFor({state: 'visible', timeout: 5000}); await p.getByRole('button', {name: 'Lantern', exact: true}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
   ];
+  /* Coverage: the offline promise is "every tool works after one online open", so a
+     tool missing from this list is an unkept promise, not a gap in a test. Derived
+     from tool-dirs.mjs rather than remembered — the list had sat at 15 of 18 since
+     signal-vs-noise, case and paths shipped. */
+  {
+    const missing = TOOL_DIRS.filter(d => !TOOLS.some(([path]) => path === '/' + d + '/'));
+    check('cold-offline sweep covers every tool' + (missing.length ? ' — missing ' + missing.join(' ') : ''),
+      missing.length === 0);
+  }
   for(const [path, probe] of TOOLS){
     const p = await ctx.newPage();
     let ok = false;
@@ -172,4 +189,4 @@ async function installAndWait(page){
 console.log(results.join('\n'));
 esrv && esrv.kill();
 await browser.close();
-report('pwa', {...tally(results), min: 25});   // ~90% of 28 measured 2026-08-16
+report('pwa', {...tally(results), min: 28});   // ~90% of 32 measured 2026-08-16 (signal-vs-noise, case, paths added)
