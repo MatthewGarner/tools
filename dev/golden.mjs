@@ -955,6 +955,59 @@ for(const [k, src] of Object.entries(docs)){
   variants['proxy-hunt-receipt'] = renderHuntReceipt(live, {...ctxBase, width:900});
 }
 
+/* Presentation + page-set renderers (added 2026-08-16). These five were the only
+   SVG-emitting renderers with no golden at all — every refactor touching them was
+   unverifiable, which is the one job this corpus exists to do.
+
+   The gap was smaller than it first looked. Ten renderers are unreachable from this
+   file, but five of those emit HTML, not SVG (duel/render, gauge/render-form and all
+   three premortem renderers) — an SVG corpus was never their gate; injection.test.mjs
+   covers them as HTML surfaces. tree/render-density looked unreachable to a scan of
+   import specifiers but is fully covered through the tree/render.js facade.
+
+   renderDeckPages returns {plan, pages} rather than one string, so each page is
+   pinned separately — the composition is the thing that breaks, so page count matters
+   as much as page content, and a lost page shows up as a missing file.
+
+   paths/render-learning-closeout is the one SVG renderer still left out: its third
+   argument comes from closeOutFor(), a private function inside the DOM-bound
+   paths/app.js. Goldening it would mean hand-copying that logic here — the drifting
+   -duplicate trap this repo has already been bitten by. It needs the function
+   extracted first; noted rather than faked. */
+{
+  const {parse: bparse} = await import('../bets/parse.js');
+  const {simulate: bsim} = await import('../bets/engine.js');
+  const {renderBetsPresentation} = await import('../bets/render-presentation.js');
+  const bdoc = 'title: Q3 bets\nunit: £k\n\nGrowth\n  Referral loop: stake 80, odds 40-60%, payoff 300-500\n    kill: signups per referral under 0.3 by 2026-09-15\n  Paid push: stake 220, odds 15-25%, payoff 150-300\nPlatform\n  Sync rewrite: stake 140, odds 55-70%, payoff 200-420';
+  const bm = bparse(bdoc);
+  variants['bets-presentation'] = renderBetsPresentation(bm, bsim(bm, {seed: 7}), {...ctxBase});
+
+  const {parse: mp} = await import('../map/parse.js');
+  const {resolve: mz} = await import('../map/zones.js');
+  const {readout: mro} = await import('../map/readout.js');
+  const {renderMapPresentation} = await import('../map/render-presentation.js');
+  const mdoc = 'preset: assumptions\ntitle: Launch assumptions\n\nReaders finish the first book @ 30,90 :: test: watch 5 sessions\nAbandoned books drive churn @ 75,80\nReaders pay for clubs @ 60,35';
+  const mm = mp(mdoc);
+  const mres = mz(mm);
+  variants['map-presentation'] = renderMapPresentation(mm, mres, mro(mm, mres), {...ctxBase});
+
+  const {parse: wp} = await import('../why/parse.js');
+  const {renderWhyPresentation} = await import('../why/render-presentation.js');
+  const wdoc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n    Resume where you left off [delivering]\n  Choosing is work';
+  variants['why-presentation'] = renderWhyPresentation(wp(wdoc), {...ctxBase})
+    .replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+
+  const {renderDeckPages} = await import('../roadmap/render-deck-pages.js');
+  /* Six horizons x five lanes — deliberately past the one-page threshold, so the
+     CONTINUATION composition is pinned (four pages). A three-horizon doc renders a
+     single page and would leave the thing most likely to break untested. */
+  const rdoc = 'style: board\ntitle: Roadmap\nhorizons: ' + ['Q1','Q2','Q3','Q4','Q5','Q6'].join(', ') + '\n\n' +
+    ['Q1','Q2','Q3','Q4','Q5','Q6'].map(h => h + '\n' +
+      [1,2,3,4,5].map(i => 'Lane' + i + ': Item ' + h + '-' + i).join('\n')).join('\n\n');
+  const deck = renderDeckPages(parse(rdoc), {...ctxBase});
+  deck.pages.forEach((page, i) => { variants['roadmap-deck-pages-' + i] = page; });
+}
+
 /* filenames under dev/golden with uncommitted changes (modified/deleted/untracked),
    or null if git can't be run. cwd-independent (worktree-safe) — resolves the
    repo root from this file, not process.cwd(). */
