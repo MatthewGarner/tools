@@ -811,4 +811,4 @@ check('no stray console/page errors', errors.length === 0);   // was folded into
 console.log(results.join('\n'));
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no console/page errors');
 await browser.close();
-report('check', {...tally(results), min: 52});   // ~90% of the current 58 (was 8, stale since the suite's early days)
+report('check', {...tally(results), min: 77});   // ~90% of 86 measured 2026-08-16; the old 52 was ~90% of 58 and the suite has grown since

@@ -252,4 +252,6 @@ for(const theme of ['light', 'dark']){
 }
 await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
-report('webkit', {pass, fail, min: TOOLS.length * 2});   // ≥1 check/tool/theme; catches a crash or empty derived list
+/* As mobile: the per-tool expression rises with the tool list, the absolute is ~90% of
+   the 274 measured 2026-08-16. Alone it was 50 against 274 actual — 82% slack. */
+report('webkit', {pass, fail, min: Math.max(TOOLS.length * 2, 246)});

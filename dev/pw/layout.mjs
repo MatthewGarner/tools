@@ -143,4 +143,4 @@ for(const [label, viewport, minFill] of [
 
 console.log(results.join('\n'));
 await browser.close();
-report('layout', {...tally(results), min: 60});
+report('layout', {...tally(results), min: 145});   // ~90% of 162 measured 2026-08-16 (was 60 — 63% could vanish)

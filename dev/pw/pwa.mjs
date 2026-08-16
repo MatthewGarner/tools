@@ -172,4 +172,4 @@ async function installAndWait(page){
 console.log(results.join('\n'));
 esrv && esrv.kill();
 await browser.close();
-report('pwa', {...tally(results), min: 12});
+report('pwa', {...tally(results), min: 25});   // ~90% of 28 measured 2026-08-16

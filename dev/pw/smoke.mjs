@@ -1397,4 +1397,4 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 
 console.log(results.join('\n'));
 await browser.close();
-report('smoke', {...tally(results), min: 200});
+report('smoke', {...tally(results), min: 496});   // ~90% of 552 measured 2026-08-16 (was 200 — 64% could vanish silently)

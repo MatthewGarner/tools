@@ -319,4 +319,4 @@ try{
   server.kill();
 }
 console.log(results.join('\n'));
-report('gauge', {...tally(results), min: 20});
+report('gauge', {...tally(results), min: 46});   // ~90% of 52 measured 2026-08-16 (was 20 — 62% could vanish)

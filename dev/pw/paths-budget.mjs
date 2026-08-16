@@ -354,4 +354,4 @@ await runLegibilityCase('dark phone', {...devices['iPhone 13'], colorScheme:'dar
 check('paths app interaction budget leaves no console or page errors', errors.length === 0);
 await page.close();
 await browser.close();
-report('paths-budget', {...tally(results), min:70});
+report('paths-budget', {...tally(results), min: 99});   // ~90% of 110 measured 2026-08-16
