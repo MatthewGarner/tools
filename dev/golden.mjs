@@ -137,6 +137,15 @@ for(const [k, src] of Object.entries(docs)){
   const wipDoc = 'title: Lantern board\ndate: 2026-07-04\nwip: 2\nNOW\n' +
     'Core: Resume where you left off\nCore: Widget gallery\nGrowth: Referral loop\nNEXT\nCore: Publisher storefront';
   variants['deck-board-wip'] = renderDeck(parse(wipDoc), {...ctxBase});
+  /* `verdict:` (2026-08-17): the deck export used to ignore the authored line
+     and always print the derived one — the one deck-export bug the other
+     tools (tree/map/gauge) didn't share. wipDoc already forces a derived WIP-
+     breach verdict, so it's the same fixture that proves REPLACEMENT (off
+     drops the band, authored text replaces the WIP sentence) rather than
+     just presence. */
+  variants['deck-board-verdict-off'] = renderDeck(parse('verdict: off\n' + wipDoc), {...ctxBase});
+  variants['deck-board-verdict-authored'] = renderDeck(
+    parse('verdict: We ship the reader experience first\n' + wipDoc), {...ctxBase});
 
   const emptyColDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off\nNEXT\nLATER\nGrowth: Publisher storefront';
   variants['deck-board-empty'] = renderDeck(parse(emptyColDoc), {...ctxBase});
