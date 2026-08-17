@@ -70,15 +70,35 @@ function killServers(){ for(const c of servers) try{ process.kill(-c.pid, 'SIGTE
 process.on('exit', killServers);
 for(const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { killServers(); process.exit(sig === 'SIGINT' ? 130 : 143); });
 
-const results = [];
+const gateT0 = Date.now();
+const results = [];   // [name, code, secs?]
 let failed = false;
 async function step(name, fn){
   if(failed) return;   // stop-on-first-failure, like the && chain
   console.log('\n\x1b[1m▶ ' + name + '\x1b[0m');
+  const t0 = Date.now();
   const code = await fn();
-  results.push([name, code]);
+  const secs = Math.round((Date.now() - t0) / 1000);
+  results.push([name, code, secs]);
   if(code) failed = true;
+  return secs;
 }
+/* Compare a measured suite time against its SUITE_SECONDS hint. A NOTE only —
+   never touches `failed` or the exit code — because hardware varies and a hard
+   assertion here would flake across machines (the reason CLAUDE.md's rule 4 rules
+   out a node test for hint accuracy too). Threshold ~1.75x either way: loose
+   enough that normal machine variance stays quiet, tight enough to catch the
+   class of staleness that shipped 2026-08-17 (a suite reporting HALF its measured
+   time, and a wrong longest-first ordering as a result). */
+function driftNote(suiteFile, secs){
+  const hint = SUITE_SECONDS[suiteFile];
+  if(typeof hint !== 'number' || hint <= 0) return;
+  const ratio = secs / hint;
+  if(ratio > 1.75 || ratio < 1 / 1.75)
+    console.log('\x1b[33m[gate] NOTE: ' + suiteFile + ' took ' + secs + 's, SUITE_SECONDS hints ' + hint +
+      's (' + ratio.toFixed(2) + 'x) — the hint may be stale (dev/pw/shards.mjs). Does not affect the gate result.\x1b[0m');
+}
+const mmss = s => (s >= 60 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's' : s + 's');
 /* work-stealing pool over the flat verify suites (NOT the CI shards — a static
    split load-balances worse on one machine). Longest-first by SUITE_SECONDS;
    runs ALL to completion (no early-abort, no killing in-flight siblings — that
@@ -87,6 +107,7 @@ async function step(name, fn){
 async function poolRun(suites, n, env){
   const queue = [...suites].sort((a, b) => (SUITE_SECONDS[b] || 60) - (SUITE_SECONDS[a] || 60));
   const codes = new Map();
+  const timings = new Map();
   const worker = async () => {
     for(;;){
       const suite = queue.shift();
@@ -99,11 +120,13 @@ async function poolRun(suites, n, env){
         (code ? '\x1b[31mFAIL' : '\x1b[32mPASS') + '\x1b[0m ──');
       process.stdout.write(out.trimEnd() + '\n');
       codes.set(suite, code);
+      timings.set(suite, secs);
+      driftNote(suite, secs);   // parallel-path wall-clock is noisier (N suites share cores) — note, don't gate on it
       if(code) failed = true;
     }
   };
   await Promise.all(Array.from({length: Math.min(n, suites.length)}, worker));
-  for(const s of suites) results.push(['pw ' + s, codes.get(s) ?? 1]);
+  for(const s of suites) results.push(['pw ' + s, codes.get(s) ?? 1, timings.get(s)]);
 }
 
 try{
@@ -137,10 +160,16 @@ try{
     const suites = verify.split('&&').map(s => s.trim().replace(/^node\s+/, ''));
     const env = {...process.env, BASE: 'http://localhost:' + TP, EBASE: 'http://localhost:' + EP, EPORT: String(EP)};
     if(JOBS <= 1){
-      for(const suite of suites) await step('pw ' + suite, () => run('node', [suite], {cwd: HERE, env}));
+      for(const suite of suites){
+        const secs = await step('pw ' + suite, () => run('node', [suite], {cwd: HERE, env}));
+        if(typeof secs === 'number') driftNote(suite, secs);
+      }
     } else {
       const n = Math.min(JOBS, suites.length);
-      if(JOBS > 5) console.log('\x1b[33m[gate] --jobs ' + JOBS + ': smoke (~138s) is the floor — >5 buys little and risks flake under load; 4 is the sweet spot.\x1b[0m');
+      /* The floor is the LONGEST SINGLE suite — no amount of parallelism beats it.
+         That is check-eip (~314s), not smoke (~197s): the old advice here named smoke
+         on hints that were stale by 2.5x (fixed 2026-08-17). */
+      if(JOBS > 5) console.log('\x1b[33m[gate] --jobs ' + JOBS + ': check-eip (~314s) is the floor — >5 buys little and risks flake under load.\x1b[0m');
       console.log('\n\x1b[1m▶ browser chain — PARALLEL (' + n + ' jobs, longest-first)\x1b[0m');
       await poolRun(suites, n, env);   // runs ALL to completion; sets `failed` on any red
     }
@@ -150,7 +179,12 @@ try{
 }
 
 console.log('\n\x1b[1m── gate summary' + (JOBS > 1 ? ' (PARALLEL, ' + JOBS + ' jobs)' : '') + ' ──\x1b[0m');
-for(const [name, code] of results) console.log((code ? '\x1b[31mFAIL\x1b[0m' : '\x1b[32mPASS\x1b[0m') + '  ' + name);
+for(const [name, code, secs] of results)
+  console.log((code ? '\x1b[31mFAIL\x1b[0m' : '\x1b[32mPASS\x1b[0m') + '  ' + name +
+    (typeof secs === 'number' ? '  (' + mmss(secs) + ')' : ''));
+const wallSecs = Math.round((Date.now() - gateT0) / 1000);
+console.log('\x1b[1mtotal wall-clock: ' + mmss(wallSecs) + '\x1b[0m' +
+  (JOBS > 1 ? '  (parallel — sum of per-suite times will exceed this)' : ''));
 if(failed && JOBS > 1) console.log('\x1b[33mNote: a parallel run can flake under load — re-run any FAILed suite serially (cd dev/pw && node <suite>) to confirm before trusting the red.\x1b[0m');
 console.log(failed ? '\n\x1b[31mGATE FAILED\x1b[0m' : '\n\x1b[32mGATE PASSED\x1b[0m — safe to merge');
 process.exit(failed ? 1 : 0);

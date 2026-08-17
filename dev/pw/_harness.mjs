@@ -66,9 +66,20 @@ export function tally(results){
    that ran far fewer than usual almost certainly crashed or drew an empty
    driving list (the 'PASS=0 FAIL=0 looks green' trap that CLAUDE.md warns about
    but nothing enforced) — fail loud instead of a silent exit 0. Every verify
-   suite ends with this so the exit convention lives in one place. */
+   suite ends with this so the exit convention lives in one place.
+
+   Also the ONE place every suite ends (2026-08-17), so it's the one place that
+   can measure the suite's own wall-clock time without every suite file having to
+   do it — `process.uptime()` is the age of THIS node process, and each suite runs
+   as its own `node suite.mjs` child (see run.mjs / CI), so it's the suite's real
+   elapsed time, not a shared clock. The timing is APPENDED to the existing PASS/FAIL
+   prefix, never inserted before or into it — checked nothing parses that text (only
+   exit codes are read downstream: run.mjs reads `code` from spawn, CI does
+   `node "$s" || exit 1`), but keeping the prefix byte-identical costs nothing and
+   protects any future parser too. */
 export function report(name, {pass, fail, min}){
-  console.log(`\n${name}: ${pass} PASS, ${fail} FAIL (floor ${min})`);
+  const elapsed = Math.round(process.uptime());
+  console.log(`\n${name}: ${pass} PASS, ${fail} FAIL (floor ${min}) in ${elapsed}s`);
   if(pass + fail < min){
     console.log(`FAIL ${name}: only ${pass + fail} checks ran (floor ${min}) — suite likely crashed or a driving list was empty`);
     process.exit(1);
