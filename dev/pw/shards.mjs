@@ -62,12 +62,21 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
      eip 387s · mobile-core 298s · smoke 236s · layout-gauge 229s · motion-webkit 176s
    eip was CI's critical path — see the SHARDS rebalance below and its comment.
 
-   CONFIRMED after the rebalance (run 32030096080, same workflow, clean checkout):
+   CONFIRMED after the first rebalance (run 32030096080):
      eip 342s · motion-webkit 298s · mobile-core 284s · smoke 238s · layout-gauge 233s
-   CI's critical path fell 387s → 342s and the spread flattened from 211s to 109s. The
-   three small suites cost motion-webkit more in CI (+122s) than their local seconds
-   predicted (+42s), because CI hardware runs everything ~2x slower — the ranks
-   transferred, the absolute numbers did not, which is exactly what these hints claim. */
+   CI's critical path fell 387s → 342s. Then after check-eip's sleep conversion and the
+   second repack (run 32053909016):
+     motion-webkit 269s · eip 241s · mobile-core 233s · smoke 230s · layout-gauge 219s
+   387s → 269s in total, a 30% cut, spread down from 211s to 50s.
+
+   One honest correction to the paragraph above: the ranks did NOT fully transfer the
+   second time. Locally eip (212s) is the ceiling; in CI motion-webkit is, at 269s,
+   because it now carries SIX suites and CI pays a fixed per-suite startup (browser
+   launch, first paint) that local seconds don't capture — a shard's CI cost is its
+   suite time PLUS a per-suite tax, so packing many small suites into one shard is
+   worth less than the arithmetic suggests. Any further repack should move a small
+   suite OFF motion-webkit, not onto it. Diminishing returns from here: the remaining
+   spread is 50s. */
 export const SUITE_SECONDS = {
   'smoke.mjs': 197, 'check-eip.mjs': 212, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 158, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 47,
