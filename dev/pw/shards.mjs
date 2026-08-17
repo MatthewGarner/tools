@@ -58,7 +58,14 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    this is the actual CI-balance rationale, kept here because it's the only
    place SHARDS' composition is explained:
      eip 387s · mobile-core 298s · smoke 236s · layout-gauge 229s · motion-webkit 176s
-   eip was CI's critical path — see the SHARDS rebalance below and its comment. */
+   eip was CI's critical path — see the SHARDS rebalance below and its comment.
+
+   CONFIRMED after the rebalance (run 32030096080, same workflow, clean checkout):
+     eip 342s · motion-webkit 298s · mobile-core 284s · smoke 238s · layout-gauge 233s
+   CI's critical path fell 387s → 342s and the spread flattened from 211s to 109s. The
+   three small suites cost motion-webkit more in CI (+122s) than their local seconds
+   predicted (+42s), because CI hardware runs everything ~2x slower — the ranks
+   transferred, the absolute numbers did not, which is exactly what these hints claim. */
 export const SUITE_SECONDS = {
   'smoke.mjs': 197, 'check-eip.mjs': 314, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 158, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 47,

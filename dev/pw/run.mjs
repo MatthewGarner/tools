@@ -167,9 +167,22 @@ try{
     } else {
       const n = Math.min(JOBS, suites.length);
       /* The floor is the LONGEST SINGLE suite — no amount of parallelism beats it.
-         That is check-eip (~314s), not smoke (~197s): the old advice here named smoke
-         on hints that were stale by 2.5x (fixed 2026-08-17). */
-      if(JOBS > 5) console.log('\x1b[33m[gate] --jobs ' + JOBS + ': check-eip (~314s) is the floor — >5 buys little and risks flake under load.\x1b[0m');
+         That is check-eip (~312s), not smoke (~195s): the old advice here named smoke
+         on hints that were stale by 2.5x, and recommended 4 jobs on the same bad
+         numbers (both fixed 2026-08-17).
+
+         MEASURED on this machine (8GB/8 cores), same commit, all 13 suites green each
+         time: serial 18m39s · --jobs 2 9m30s (1.96x) · --jobs 3 6m30s (2.87x). Per-suite
+         times were unchanged in both parallel runs (within 3s), so 2 and 3 cost nothing
+         in reliability. What moves is MEMORY, not CPU: swap went 1.5G of 3G at 2 jobs to
+         2.6G of 3G at 3. That is why 3 is the ceiling here and 4 is not recommended — a
+         prior session recorded --jobs being OOM-killed on this box, which is consistent.
+         3 also gets within 7% of its own arithmetic best (365s), so there is little left
+         to win: 4 jobs could only reach check-eip's 312s floor, ~1 minute better, for
+         real OOM risk. On a machine with more RAM, raise it. */
+      if(JOBS > 3) console.log('\x1b[33m[gate] --jobs ' + JOBS + ': measured on 8GB/8 cores, 3 is the ceiling ' +
+        '(swap 2.6G of 3G at 3 jobs; 6m30s vs 9m30s at 2). check-eip (~312s) is the hard floor, so >3 buys ~1 minute ' +
+        'at OOM risk. Fine on a bigger machine — this is a note, not a limit.\x1b[0m');
       console.log('\n\x1b[1m▶ browser chain — PARALLEL (' + n + ' jobs, longest-first)\x1b[0m');
       await poolRun(suites, n, env);   // runs ALL to completion; sets `failed` on any red
     }
