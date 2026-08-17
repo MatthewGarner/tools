@@ -53,6 +53,43 @@ export function pickExample(list, name){
   return found;
 }
 
+/* Poll `fn` until it returns truthy. Returns the last value — NEVER throws on
+   timeout — so a stuck condition reports as the caller's own clean FAIL instead of
+   crashing the suite. (Learned the hard way: boundingBox() on a locator matching
+   nothing rejects after the full timeout and takes the whole suite with it.) A
+   mid-poll rejection from `fn` itself (the exact boundingBox case) is swallowed
+   the same way a falsy value is — just keep polling — so a target that doesn't
+   exist YET behaves the same as a target that returns null. */
+export async function until(fn, {timeout = 4000, step = 25} = {}) {
+  const deadline = Date.now() + timeout;
+  let last;
+  for (;;) {
+    try {
+      last = await fn();
+      if (last) return last;
+    } catch { /* not ready yet — keep polling, same as a falsy value */ }
+    if (Date.now() >= deadline) return last;
+    await new Promise(r => setTimeout(r, step));
+  }
+}
+
+/* Poll `read()` until `ok(value)` or timeout; return the LAST value read either
+   way, so the caller's existing check(...) line stays byte-identical — a
+   conversion changes only the WAIT, never the assertion. Same never-throws
+   contract as `until`. */
+export async function untilValue(read, ok, {timeout = 4000, step = 25} = {}) {
+  const deadline = Date.now() + timeout;
+  let last;
+  for (;;) {
+    try {
+      last = await read();
+      if (await ok(last)) return last;
+    } catch { /* not ready yet — keep polling */ }
+    if (Date.now() >= deadline) return last;
+    await new Promise(r => setTimeout(r, step));
+  }
+}
+
 /* PASS/FAIL counts from a results array (raw error lines that are neither are
    ignored). */
 export function tally(results){

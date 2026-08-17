@@ -2,7 +2,7 @@
 import {chromium, devices} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {decodeHash} from '../../assets/series.js';
-import {trackErrors, report, tally} from './_harness.mjs';
+import {trackErrors, report, tally, until, untilValue} from './_harness.mjs';
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/tree/';
 const browser = await chromium.launch();
 const page = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
@@ -63,12 +63,11 @@ const rec0 = (await page.locator('#preview svg').innerHTML()).includes('Submit b
    loadBearing() never marks hot (a "rest" share is never a real, draggable range) — a stable,
    always-non-hot target regardless of which numbers happen to be load-bearing in this fixture. */
 await page.locator('[data-edit="prob"][data-raw="rest"]').first().click();
-await page.waitForTimeout(200);
-check('overlay opens prefilled', await page.locator('.eip-input').inputValue() === 'rest');
+check('overlay opens prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === 'rest')));
 await page.locator('.eip-input').fill('0.5');
 await page.keyboard.press('Enter');
-await page.waitForTimeout(600);
-const after = await page.evaluate(() => localStorage.getItem('tree-src'));
+const after = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    after => (after.includes('(p=0.5)') && !after.includes('(p=rest)')));
 check('editor text updated', after.includes('(p=0.5)') && !after.includes('(p=rest)'));
 const svg = await page.locator('#preview svg').innerHTML();
 check('recommendation recomputes (Submit bid still leads on these numbers)',
@@ -82,11 +81,9 @@ check('one undo reverts the edit', await (async () => {
 
 // invalid input shakes and stays open
 await page.locator('[data-edit="prob"][data-raw="rest"]').first().click();
-await page.waitForTimeout(200);
 await page.locator('.eip-input').fill('7');
 await page.keyboard.press('Enter');
-await page.waitForTimeout(200);
-check('invalid input stays open with .invalid', await page.locator('.eip-input.invalid').count() === 1);
+check('invalid input stays open with .invalid', await until(async () => (await page.locator('.eip-input.invalid').count() === 1)));
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 check('escape closes', await page.locator('.eip-input').count() === 0);
@@ -101,13 +98,10 @@ check('tree: a hot number binds the persistent slider instead', await page.locat
 
 // label edit
 await page.locator('[data-edit="label"]', {hasText: 'No bid'}).click();
-await page.waitForTimeout(200);
 await page.locator('.eip-input').fill('Walk away');
 await page.keyboard.press('Enter');
-await page.waitForTimeout(600);
-check('label rename lands in text and diagram',
-  (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Walk away') &&
-  (await page.locator('#preview svg').innerHTML()).includes('Walk away'));
+check('label rename lands in text and diagram', await until(async () => ((await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Walk away') &&
+  (await page.locator('#preview svg').innerHTML()).includes('Walk away'))));
 
 /* card menu: tap a node marker (the invisible >=44px data-hit rect, not the
    ~7px visible mark) → menu → Rename/Edit value or probability/Add/Remove
@@ -142,47 +136,38 @@ check('label rename lands in text and diagram',
 
   // decision node ("Submit bid", srcLine 4): Rename, Edit value, Add option, Remove branch
   await tapMarker(4);
-  await page.waitForTimeout(200);
-  // (B3) "Submit bid" has its own payoff but no probability of its own — exploreRowsFor (I-3)
-  // appends "Explore payoff…" only; no "Edit probability…"/"Explore success odds…" rows.
-  check('tree: decision marker tap opens the menu with the expected rows',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|Explore payoff…|＋ Add option|Remove branch');
+  check('tree: decision marker tap opens the menu with the expected rows', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|Explore payoff…|＋ Add option|Remove branch')));
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await page.waitForTimeout(200);
-  check('tree: decision menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Submit bid');
+  check('tree: decision menu Rename opens the label input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === 'Submit bid')));
   await page.locator('.eip-input').fill('Place bid');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(600);
-  const tRename = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tRename = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tRename => (tRename.includes('Place bid: -150k') && !tRename.includes('Submit bid: -150k')));
   check('tree: decision menu Rename commits the new label', tRename.includes('Place bid: -150k') && !tRename.includes('Submit bid: -150k'));
   await undo();
   check('tree: one undo restores the pre-rename baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   await tapMarker(4);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button', {hasText: 'Edit value…'}).click();
-  await page.waitForTimeout(200);
-  check('tree: decision menu Edit value opens the value input prefilled', await page.locator('.eip-input').inputValue() === '-150k');
+  check('tree: decision menu Edit value opens the value input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === '-150k')));
   await page.locator('.eip-input').fill('-200k');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(600);
-  const tValue = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tValue = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tValue => (tValue.includes('Submit bid: -200k')));
   check('tree: decision menu Edit value commits the new value', tValue.includes('Submit bid: -200k'));
   await undo();
   check('tree: one undo restores the pre-value baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   await tapMarker(4);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
-  await page.waitForTimeout(600);
-  const tAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tAdd = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tAdd => (tAdd.includes('New option: 0')));
   check('tree: decision menu Add option inserts a new option line', tAdd.includes('New option: 0'));
   await undo();
   check('tree: one undo restores the pre-add baseline (decision)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   await tapMarker(4);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await page.waitForTimeout(600);
   const tDecRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
@@ -195,18 +180,14 @@ check('label rename lands in text and diagram',
   // decision-kind, so "Edit probability…" is omitted outright (Part 2, the
   // unset-edit fix batch) — Rename and Remove branch still work.
   await tapMarker(5);
-  await page.waitForTimeout(200);
-  check('tree: chance marker tap opens the menu WITHOUT Edit probability… (its parent is decision-kind, not chance)',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add outcome|Remove branch');
+  check('tree: chance marker tap opens the menu WITHOUT Edit probability… (its parent is decision-kind, not chance)', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|＋ Add outcome|Remove branch')));
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await page.waitForTimeout(200);
-  check('tree: chance menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Outcome');
+  check('tree: chance menu Rename opens the label input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === 'Outcome')));
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
 
   await tapMarker(5);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await page.waitForTimeout(600);
   const tChanceRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
@@ -216,49 +197,39 @@ check('label rename lands in text and diagram',
 
   // leaf node ("Win", srcLine 6): Rename, Edit value, Add outcome, Remove — every row live
   await tapMarker(6);
-  await page.waitForTimeout(200);
-  // (B3) "Win" carries both its own probability and payoff — exploreRowsFor (I-3) fills the
-  // leaf-p hole ("Edit probability…", since this menu's field slot is already "Edit value…")
-  // and appends both Explore rows.
-  check('tree: leaf marker tap opens the menu with the expected rows',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit value…|Edit probability…|Explore success odds…|Explore payoff…|＋ Add outcome|Remove');
+  check('tree: leaf marker tap opens the menu with the expected rows', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') ===
+      'Rename…|Edit value…|Edit probability…|Explore success odds…|Explore payoff…|＋ Add outcome|Remove')));
 
   await page.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await page.waitForTimeout(200);
-  check('tree: leaf menu Rename opens the label input prefilled', await page.locator('.eip-input').inputValue() === 'Win');
+  check('tree: leaf menu Rename opens the label input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === 'Win')));
   await page.locator('.eip-input').fill('Won');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(600);
-  const tLeafRename = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tLeafRename = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tLeafRename => (tLeafRename.includes('Won (p=0.3-0.45)') && !tLeafRename.includes('Win (p=0.3-0.45)')));
   check('tree: leaf menu Rename commits the new label', tLeafRename.includes('Won (p=0.3-0.45)') && !tLeafRename.includes('Win (p=0.3-0.45)'));
   await undo();
   check('tree: one undo restores the pre-rename baseline (leaf)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   await tapMarker(6);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button', {hasText: 'Edit value…'}).click();
-  await page.waitForTimeout(200);
-  check('tree: leaf menu Edit value opens the value input prefilled', await page.locator('.eip-input').inputValue() === '2M to 5M');
+  check('tree: leaf menu Edit value opens the value input prefilled', await until(async () => (await page.locator('.eip-input').inputValue() === '2M to 5M')));
   await page.locator('.eip-input').fill('3M to 6M');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(600);
-  const tLeafValue = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tLeafValue = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tLeafValue => (tLeafValue.includes('Win (p=0.3-0.45): 3M to 6M')));
   check('tree: leaf menu Edit value commits the new value', tLeafValue.includes('Win (p=0.3-0.45): 3M to 6M'));
   await undo();
   check('tree: one undo restores the pre-value baseline (leaf)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   await tapMarker(6);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
-  await page.waitForTimeout(600);
-  const tLeafAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tLeafAdd = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tLeafAdd => (tLeafAdd.includes('New outcome')));
   check('tree: leaf menu Add outcome grows a first child under the leaf', tLeafAdd.includes('New outcome'));
   await undo();
   check('tree: one undo restores the pre-add baseline (leaf)', (await page.evaluate(() => localStorage.getItem('tree-src'))) === t0);
 
   await tapMarker(6);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
   await page.waitForTimeout(600);
   const tLeafRemove = await page.evaluate(() => localStorage.getItem('tree-src'));
@@ -287,14 +258,8 @@ check('label rename lands in text and diagram',
   {
     const box = await page.locator('#preview svg [data-edit="value"][data-line="8"]').boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForTimeout(200);
-    /* "No bid: 0" is itself load-bearing on this fixture (its scale-aware point-value track
-       reaches the flip against "Submit bid" well inside its extent) — so the tap correctly
-       BINDS THE SLIDER, same as any other hot number (mirrors the hot-prob assertions above),
-       never the text popover or the card menu. */
-    check('tree: tapping the bare "0" value binds the persistent slider (it is load-bearing), not the value editor',
-      await page.locator('.eip-pop').count() === 0 && await page.locator('.eip-input').count() === 0 &&
-      await page.locator('#explorebar').isVisible());
+    check('tree: tapping the bare "0" value binds the persistent slider (it is load-bearing), not the value editor', await until(async () => (await page.locator('.eip-pop').count() === 0 && await page.locator('.eip-input').count() === 0 &&
+      await page.locator('#explorebar').isVisible())));
     check('tree: the bound slider carries a real min/max track for this value', await page.evaluate(() => {
       const r = document.getElementById('exploreRange');
       return isFinite(parseFloat(r.min)) && isFinite(parseFloat(r.max)) && parseFloat(r.max) > parseFloat(r.min);
@@ -313,15 +278,13 @@ check('label rename lands in text and diagram',
      label's noun tracks the root's kind (decision → option, chance/leaf →
      outcome), matching what childLineFor actually inserts. */
   await tapMarker(3);
-  await page.waitForTimeout(200);
-  check('tree: decision-root marker tap opens an Add-only menu (exactly "＋ Add option", no Rename/Edit/Remove)',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
+  check('tree: decision-root marker tap opens an Add-only menu (exactly "＋ Add option", no Rename/Edit/Remove)', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option')));
   check('tree: root menu offers no Remove (whole-tree deletion hazard closed)',
     await page.locator('.eip-pop button.danger').count() === 0);
 
   await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
-  await page.waitForTimeout(600);
-  const tRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tRootAdd = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tRootAdd => (tRootAdd === t0 + '\n  New option: 0'));
   check('tree: decision-root menu Add option appends a new top-level option after the whole subtree',
     tRootAdd === t0 + '\n  New option: 0');
   await undo();
@@ -329,11 +292,8 @@ check('label rename lands in text and diagram',
 
   // a non-root node still gets its full menu — the root change is scoped to the root only
   await tapMarker(4);
-  await page.waitForTimeout(200);
-  check('tree: a non-root (decision) marker still opens its full unchanged menu',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|Explore payoff…|＋ Add option|Remove branch');
+  check('tree: a non-root (decision) marker still opens its full unchanged menu', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit value…|Explore payoff…|＋ Add option|Remove branch')));
   await page.keyboard.press('Escape');
-  await page.waitForTimeout(200);
 
   /* non-decision root: a FRESH single-line root ("Just a number: 5") parses as
      LEAF-kind — this is the primary mobile build-a-tree starting point. Its
@@ -344,22 +304,21 @@ check('label rename lands in text and diagram',
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Delete');
   await page.keyboard.type('Just a number: 5');
-  await page.waitForTimeout(700);
-  const tLeafRoot = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tLeafRoot = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    async tLeafRoot => (tLeafRoot === 'Just a number: 5' &&
+    (await page.locator('#preview svg g[data-edit="cardmenu-root-leaf"][data-line="0"]').count()) === 1));
   check('tree: fresh single-line root really is a leaf-kind root at line 0',
     tLeafRoot === 'Just a number: 5' &&
     (await page.locator('#preview svg g[data-edit="cardmenu-root-leaf"][data-line="0"]').count()) === 1);
 
   await tapMarker(0);
-  await page.waitForTimeout(200);
-  check('tree: leaf-root marker tap opens an Add-only menu reading exactly "＋ Add outcome" (not "option")',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add outcome');
+  check('tree: leaf-root marker tap opens an Add-only menu reading exactly "＋ Add outcome" (not "option")', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add outcome')));
   check('tree: leaf-root menu offers no Remove',
     await page.locator('.eip-pop button.danger').count() === 0);
 
   await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
-  await page.waitForTimeout(600);
-  const tLeafRootAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tLeafRootAdd = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tLeafRootAdd => (tLeafRootAdd === tLeafRoot + '\n  New outcome (p=rest): 0'));
   check('tree: leaf-root menu Add outcome inserts an OUTCOME line (label matches insertion)',
     tLeafRootAdd === tLeafRoot + '\n  New outcome (p=rest): 0');
   await undo();
@@ -371,16 +330,11 @@ check('label rename lands in text and diagram',
      when a rename follows it immediately (wave 2A: insertAndSelect now tags
      its dispatch so it can never merge into a preceding edit). */
   await tapMarker(0);
-  await page.waitForTimeout(200);
   await page.locator('.eip-pop button', {hasText: 'Add outcome'}).click();
-  await page.waitForTimeout(500);
-  check('tree: Add outcome opens the fresh inline label field, prefilled',
-    (await page.locator('.eip-input').inputValue()).includes('New outcome'));
+  check('tree: Add outcome opens the fresh inline label field, prefilled', await until(async () => ((await page.locator('.eip-input').inputValue()).includes('New outcome'))));
   await page.locator('.eip-input').fill('Renamed outcome');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(600);
-  check('tree: Enter commits the renamed outcome label',
-    (await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Renamed outcome'));
+  check('tree: Enter commits the renamed outcome label', await until(async () => ((await page.evaluate(() => localStorage.getItem('tree-src'))).includes('Renamed outcome'))));
   await undo();
   await undo();
   check('tree: two undo steps restore the pre-add baseline (leaf root, rename then creation)',
@@ -396,22 +350,21 @@ check('label rename lands in text and diagram',
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Delete');
   await page.keyboard.type('Option A (p=0.5): 10\nOption B (p=rest): 20');
-  await page.waitForTimeout(700);
-  const tImplicit = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tImplicit = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    async tImplicit => (tImplicit === 'Option A (p=0.5): 10\nOption B (p=rest): 20' &&
+    (await page.locator('#preview svg g[data-edit="cardmenu-root-decision"][data-line="-1"]').count()) === 1));
   check('tree: two (p=…) tops parse to an implicit chance root, but its menu kind is pinned to root-decision at line -1',
     tImplicit === 'Option A (p=0.5): 10\nOption B (p=rest): 20' &&
     (await page.locator('#preview svg g[data-edit="cardmenu-root-decision"][data-line="-1"]').count()) === 1);
 
   await tapMarker(-1);
-  await page.waitForTimeout(200);
-  check('tree: implicit-root marker tap opens an Add-only menu reading exactly "＋ Add option" (NOT outcome, despite the chance kind)',
-    (await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option');
+  check('tree: implicit-root marker tap opens an Add-only menu reading exactly "＋ Add option" (NOT outcome, despite the chance kind)', await until(async () => ((await page.locator('.eip-pop button').allInnerTexts()).join('|') === '＋ Add option')));
   check('tree: implicit-root menu offers no Remove',
     await page.locator('.eip-pop button.danger').count() === 0);
 
   await page.locator('.eip-pop button', {hasText: 'Add option'}).click();
-  await page.waitForTimeout(600);
-  const tImplicitAdd = await page.evaluate(() => localStorage.getItem('tree-src'));
+  const tImplicitAdd = await untilValue(() => page.evaluate(() => localStorage.getItem('tree-src')),
+    tImplicitAdd => (tImplicitAdd === tImplicit + '\nNew option: 0'));
   check('tree: implicit-root menu Add option inserts an OPTION line (label matches childLineFor(-1) insertion)',
     tImplicitAdd === tImplicit + '\nNew option: 0');
   await undo();
@@ -447,21 +400,17 @@ check('no console/page errors', errors.length === 0);
 
   const box = await p.locator('#preview svg g[data-edit^="cardmenu-"][data-line="' + line + '"] rect[data-hit]').boundingBox();
   await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Edit value…'}).click();
-  await p.waitForTimeout(200);
-  check('tree: Edit value… on a valueless decision node opens an EMPTY input (not silence)',
-    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  check('tree: Edit value… on a valueless decision node opens an EMPTY input (not silence)', await until(async () => (await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '')));
   await p.locator('.eip-input').fill('8k');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const after = await p.evaluate(() => localStorage.getItem('tree-src'));
+  const after = await untilValue(() => p.evaluate(() => localStorage.getItem('tree-src')),
+    after => (after.includes('Branch A: 8k') && !after.includes('Branch B: 8k')));
   check('tree: commit appends the value annotation, keeping the rest of the line intact',
     after.includes('Branch A: 8k') && !after.includes('Branch B: 8k'));
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
-  check('tree: one undo reverts the value-set edit', (await p.evaluate(() => localStorage.getItem('tree-src'))) === before);
+  check('tree: one undo reverts the value-set edit', await until(async () => ((await p.evaluate(() => localStorage.getItem('tree-src'))) === before)));
   check('tree valueless-decision: no console/page errors', errs.length === 0);
   await p.close();
 }
@@ -489,19 +438,16 @@ check('no console/page errors', errors.length === 0);
   check('tree: the parse-defaulted sibling already carries an inline prob target with an empty raw',
     await p.locator('#preview svg [data-edit="prob"][data-line="2"][data-raw=""]').count() === 1);
   await p.locator('#preview svg [data-edit="prob"][data-line="2"]').click();
-  await p.waitForTimeout(200);
-  check('tree: clicking it opens the plain input, prefilled empty (not the slider, not silence)',
-    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  check('tree: clicking it opens the plain input, prefilled empty (not the slider, not silence)', await until(async () => (await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '')));
   await p.locator('.eip-input').fill('0.25');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const after = await p.evaluate(() => localStorage.getItem('tree-src'));
+  const after = await untilValue(() => p.evaluate(() => localStorage.getItem('tree-src')),
+    after => (after.includes('Note: sub label (p=0.25): 20')));
   check('tree: the annotation lands right before the TRUE value colon — the label’s own colon is untouched',
     after.includes('Note: sub label (p=0.25): 20'));
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
-  check('tree: one undo reverts the prob-set edit', (await p.evaluate(() => localStorage.getItem('tree-src'))) === before);
+  check('tree: one undo reverts the prob-set edit', await until(async () => ((await p.evaluate(() => localStorage.getItem('tree-src'))) === before)));
   check('tree prob set-when-unset (inline): no console/page errors', errs.length === 0);
   await p.close();
 }
@@ -513,22 +459,27 @@ check('no console/page errors', errors.length === 0);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Edit tree source'}).click();
   await p.getByRole('button', {name: 'Reading retention'}).click();
-  await p.waitForTimeout(500);
   /* Status owns one canonical hit target. The visible label is no longer also
      an edit target, so exercise the actual SVG affordance rather than relying
      on a particular element type. */
   await p.locator('[data-edit="status"][data-raw="testing"]').first().click();
-  await p.waitForTimeout(200);
-  check('why: status popover opens', await p.locator('.eip-pop').count() === 1);
+  check('why: status popover opens', await until(async () => (await p.locator('.eip-pop').count() === 1)));
   await p.locator('.eip-pop button', {hasText: 'delivering'}).click();
-  await p.waitForTimeout(600);
-  const t1 = await p.evaluate(() => localStorage.getItem('why-src'));
+  const t1 = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    t1 => (t1.includes('Reading reminders [delivering]')));
   check('why: popover commit rewrites tag', t1.includes('Reading reminders [delivering]'));
   const a0 = await p.locator('[data-edit="astatus"][data-raw="untested"]').first();
   await a0.click();
-  await p.waitForTimeout(600);
-  const t2 = await p.evaluate(() => localStorage.getItem('why-src'));
+  const t2 = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    t2 => (t2.includes('? readers will invite friends [testing]')));
   check('why: assumption cycles untested→testing', t2.includes('? readers will invite friends [testing]'));
+  /* two setup edits landed back to back with no undo between them (t1, t2) — CodeMirror's
+     history groups same-source edits dispatched within its newGroupDelay (500ms) into ONE
+     undo step. `baseline` below is captured AFTER both; without a real gap here, the first
+     round-trip edit below could merge backward into t2 (or t1+t2), and one undo would revert
+     past `baseline`. Fast polling closed the natural gap the old fixed sleeps used to leave —
+     restore it explicitly rather than relying on incidental Playwright latency. */
+  await p.waitForTimeout(550);
 
   /* ---- card menu: tap the card BODY (the invisible-fill data-hit rect, which
      IS the card rect itself here — why is a drop-in, no wrapper <g>) opens
@@ -557,39 +508,33 @@ check('no console/page errors', errors.length === 0);
      submenu row per assumption, in source order, between ＋ Add assumption
      and Remove branch. */
   await tapCard(5);
-  await p.waitForTimeout(200);
-  check('why: solution card tap opens the menu with base rows + one row per assumption, in order',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch');
+  check('why: solution card tap opens the menu with base rows + one row per assumption, in order', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch')));
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await p.waitForTimeout(200);
-  check('why: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Reading reminders');
+  check('why: menu Rename opens the label input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Reading reminders')));
   await p.locator('.eip-input').fill('Smart nudges');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    tRename => (tRename.includes('Smart nudges') && !tRename.includes('Reading reminders')));
   check('why: menu Rename commits the new label', tRename.includes('Smart nudges') && !tRename.includes('Reading reminders'));
   await undo();
   check('why: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(5);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
-  await p.waitForTimeout(200);
-  check('why: menu Status opens the status options popover', await p.locator('.eip-pop button', {hasText: 'delivering'}).count() === 1);
+  check('why: menu Status opens the status options popover', await until(async () => (await p.locator('.eip-pop button', {hasText: 'delivering'}).count() === 1)));
   await p.locator('.eip-pop button', {hasText: 'shipped'}).click();   // current is 'delivering' (set above) — pick a distinct value so this is a real commit
-  await p.waitForTimeout(600);
-  const tStatus = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    tStatus => (tStatus.includes('Reading reminders [shipped]')));
   check('why: menu Status pick commits the new status', tStatus.includes('Reading reminders [shipped]'));
   await undo();
   check('why: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(5);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Add assumption'}).click();
-  await p.waitForTimeout(600);
-  const tAdd = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tAdd = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    tAdd => (tAdd.includes('New assumption')));
   check('why: menu Add assumption inserts a new assumption line', tAdd.includes('New assumption'));
   await undo();
   check('why: one undo restores the pre-add baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
@@ -599,10 +544,8 @@ check('no console/page errors', errors.length === 0);
      top of the existing Tab trap + Escape-to-close. Read-only — commits
      nothing, closes via Escape. ---- */
   await tapCard(5);
-  await p.waitForTimeout(200);
-  check('why: card menu popover carries role=menu with menuitem rows',
-    (await p.locator('.eip-pop').getAttribute('role')) === 'menu' &&
-    (await p.locator('.eip-pop button').first().getAttribute('role')) === 'menuitem');
+  check('why: card menu popover carries role=menu with menuitem rows', await until(async () => ((await p.locator('.eip-pop').getAttribute('role')) === 'menu' &&
+    (await p.locator('.eip-pop button').first().getAttribute('role')) === 'menuitem')));
   const menuLabels = await p.locator('.eip-pop button').allInnerTexts();
   const focusedLabel = () => p.evaluate(() => document.activeElement && document.activeElement.textContent);
   check('why: menu opens with focus on the first row', (await focusedLabel()) === menuLabels[0]);
@@ -627,16 +570,14 @@ check('no console/page errors', errors.length === 0);
   await tapCard(5);
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'readers want a nudge mid-commute'}).click();
-  await p.waitForTimeout(200);
-  check('why: assumption sub-popover lists the four cycle states plus a danger Remove',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken|Remove assumption');
+  check('why: assumption sub-popover lists the four cycle states plus a danger Remove', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken|Remove assumption')));
   check('why: assumption sub-popover marks the current status with .on',
     (await p.locator('.eip-pop button.on').innerText()) === 'testing');
   check('why: only one state is marked current', await p.locator('.eip-pop button.on').count() === 1);
 
   await p.locator('.eip-pop button', {hasText: 'holds'}).click();
-  await p.waitForTimeout(600);
-  const tAstatus = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tAstatus = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    tAstatus => (tAstatus.includes('? readers want a nudge mid-commute [holds]')));
   check('why: picking a different state rewrites the ASSUMPTION line',
     tAstatus.includes('? readers want a nudge mid-commute [holds]'));
   check("why: the solution's own line is untouched by the assumption edit",
@@ -648,10 +589,10 @@ check('no console/page errors', errors.length === 0);
   await tapCard(5);
   await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'readers want a nudge mid-commute'}).click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove assumption'}).click();
-  await p.waitForTimeout(600);
-  const tRemoveA = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tRemoveA = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    tRemoveA => (!tRemoveA.includes('readers want a nudge mid-commute') &&
+    tRemoveA.includes('reading time is detectable') && tRemoveA.includes('Reading reminders')));
   check('why: Remove assumption drops just that assumption line',
     !tRemoveA.includes('readers want a nudge mid-commute') &&
     tRemoveA.includes('reading time is detectable') && tRemoveA.includes('Reading reminders'));
@@ -660,14 +601,11 @@ check('no console/page errors', errors.length === 0);
 
   /* zero-assumption solution: exactly the four base rows (no submenu rows) */
   await tapCard(12);   // "Curated shelves [shipped]" — no assumption children
-  await p.waitForTimeout(200);
-  check('why: a zero-assumption solution shows exactly the four base rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Status…|＋ Add assumption|Remove branch');
+  check('why: a zero-assumption solution shows exactly the four base rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Status…|＋ Add assumption|Remove branch')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
   await tapCard(5);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -681,37 +619,31 @@ check('no console/page errors', errors.length === 0);
      the NEW label inside the artefact (not the DSL); Escape removes that exact
      untouched default. ---- */
   await tapCard(1);   // outcome: "Improve 90-day retention"
-  await p.waitForTimeout(200);
-  check('why: outcome card menu carries only real actions',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add opportunity|Remove branch');
+  check('why: outcome card menu carries only real actions', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add opportunity|Remove branch')));
   await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
-  await p.waitForTimeout(600);
-  const tOutAdd = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tOutAdd = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    async tOutAdd => (tOutAdd.includes('New opportunity') && await p.locator('.eip-input').inputValue() === 'New opportunity' &&
+    !(await p.evaluate(() => !!document.activeElement?.closest('.cm-editor')))));
   check('why: outcome Add opens the fresh inline artifact field, not the DSL',
     tOutAdd.includes('New opportunity') && await p.locator('.eip-input').inputValue() === 'New opportunity' &&
     !(await p.evaluate(() => !!document.activeElement?.closest('.cm-editor'))));
-  await p.keyboard.press('Escape'); await p.waitForTimeout(600);
-  check('why: Escape cancels the untouched default opportunity',
-    (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
-  await tapCard(1); await p.waitForTimeout(200);
+  await p.keyboard.press('Escape'); check('why: Escape cancels the untouched default opportunity', await until(async () => ((await p.evaluate(() => localStorage.getItem('why-src'))) === baseline)));
+  await tapCard(1);
   await p.locator('.eip-pop button', {hasText: 'Add opportunity'}).click();
-  await p.waitForTimeout(500);
   await p.locator('.eip-input').fill('Retention value is unclear');
-  await p.keyboard.press('Enter'); await p.waitForTimeout(600);
-  check('why: Enter commits the in-place opportunity name',
-    (await p.evaluate(() => localStorage.getItem('why-src'))).includes('Retention value is unclear'));
+  await p.keyboard.press('Enter'); check('why: Enter commits the in-place opportunity name', await until(async () => ((await p.evaluate(() => localStorage.getItem('why-src'))).includes('Retention value is unclear'))));
   await undo();   // ONE undo: reverts the rename, the add itself remains
   /* hash coherence: after add → rename → undo, location.hash (400ms debounce)
      must decode to a model that round-trips this exact source — a fresh page
      loading that same URL should land on the identical document, not the
      stale pre-undo (or pre-add) state. */
-  await p.waitForTimeout(500);
-  const afterAddUndo = await p.evaluate(() => localStorage.getItem('why-src'));
+  const afterAddUndo = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    afterAddUndo => (hashDoc === afterAddUndo && afterAddUndo !== baseline));
   const hrefAfterAddUndo = await p.evaluate(() => location.href);
   const hashPage = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await hashPage.goto(hrefAfterAddUndo);
-  await hashPage.waitForTimeout(500);
-  const hashDoc = await hashPage.evaluate(() => localStorage.getItem('why-src'));
+  const hashDoc = await untilValue(() => hashPage.evaluate(() => localStorage.getItem('why-src')),
+    hashDoc => (hashDoc === afterAddUndo && afterAddUndo !== baseline));
   check('why: location.hash after add→rename→undo decodes a model that round-trips the source',
     hashDoc === afterAddUndo && afterAddUndo !== baseline);
   await hashPage.close();
@@ -719,9 +651,7 @@ check('no console/page errors', errors.length === 0);
   check('why: two undo steps restore the named add (rename, then creation)', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(16);   // opportunity leaf "Progress feels invisible" — no children, safe to remove alone
-  await p.waitForTimeout(200);
-  check('why: opportunity card menu carries no dead Status action',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add solution|Remove branch');
+  check('why: opportunity card menu carries no dead Status action', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add solution|Remove branch')));
   await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await p.waitForTimeout(600);
   const tOppRemove = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -761,7 +691,6 @@ check('no console/page errors', errors.length === 0);
   await p.goto(BASE.replace('/tree/', '/why/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Edit tree source'}).click();
   await p.getByRole('button', {name: 'Reading retention'}).click();
-  await p.waitForTimeout(500);
   await p.locator('#viewmap').click();
   await p.waitForTimeout(500);
 
@@ -781,23 +710,19 @@ check('no console/page errors', errors.length === 0);
   };
 
   await tapCard(5);
-  await p.waitForTimeout(200);
-  check('why map: card body tap opens the menu with exactly Rename/Remove',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Remove branch');
+  check('why map: card body tap opens the menu with exactly Rename/Remove', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Remove branch')));
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await p.waitForTimeout(200);
-  check('why map: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Reading reminders');
+  check('why map: menu Rename opens the title input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Reading reminders')));
   await p.locator('.eip-input').fill('Smart nudges');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('why-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    tRename => (tRename.includes('Smart nudges') && !tRename.includes('Reading reminders')));
   check('why map: menu Rename commits the new title', tRename.includes('Smart nudges') && !tRename.includes('Reading reminders'));
   await undo();
   check('why map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(5);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
@@ -819,10 +744,8 @@ check('no console/page errors', errors.length === 0);
   const ostCardBody = p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="5"][data-hit]');
   const ostBox = await ostCardBody.boundingBox();
   await p.mouse.click(ostBox.x + 8, ostBox.y + 4);
-  await p.waitForTimeout(200);
-  check('why map: switching back to OST still opens the full cardmenu-solution menu',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch');
+  check('why map: switching back to OST still opens the full cardmenu-solution menu', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
@@ -842,27 +765,30 @@ check('no console/page errors', errors.length === 0);
      a card menu with no Lane… row). Board's edit/drag coverage lives in the
      dedicated board blocks elsewhere in this file. */
   await p.locator('[data-edit="title"]', {hasText: 'Resume where you left off'}).first().click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Resume shield');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const t = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const t = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    t => (t.includes('Resume shield [doing]')));
   check('roadmap: title rename lands', t.includes('Resume shield [doing]'));
   await p.locator('[data-edit="status"][data-raw="risk"]').first().click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'blocked'}).click();
-  await p.waitForTimeout(600);
-  const t2 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const t2 = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    t2 => (t2.includes('[blocked]')));
   check('roadmap: status popover rewrites tag', t2.includes('[blocked]'));
 
   /* add via the cell ghost */
   await p.locator('[data-edit="additem"][data-lane="Growth"][data-col="Next"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('EIP suite added');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const t3 = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const t3 = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    t3 => (t3.includes('Growth: EIP suite added')));
   check('roadmap: cell ghost adds a lane-prefixed item', t3.includes('Growth: EIP suite added'));
+  /* three setup edits (t, t2, t3) landed back to back with no undo between them —
+     CodeMirror groups same-source edits dispatched within its newGroupDelay (500ms)
+     into ONE undo step. `baseline` below is captured after all three; without a real
+     gap here the first round-trip edit could merge backward past it (see the why
+     block's identical fix above for the mechanism). */
+  await p.waitForTimeout(550);
 
   /* ---- card menu: tap the card BODY (the invisible data-hit rect, not a
      field) opens the menu; "Resume shield" carries both a note and a status so
@@ -893,30 +819,24 @@ check('no console/page errors', errors.length === 0);
   };
 
   await tapCard("Resume shield");
-  await p.waitForTimeout(200);
-  /* the flagship example declares a bet, so every card carries Condition… */
-  check('roadmap: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Inspect item|Remove item');
+  check('roadmap: card body tap opens the menu with the expected rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Inspect item|Remove item')));
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: menu Rename opens the title input prefilled', await p.locator('.eip-input').inputValue() === 'Resume shield');
+  check('roadmap: menu Rename opens the title input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Resume shield')));
   await p.locator('.eip-input').fill('Resume anchor');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tRename => (tRename.includes('Resume anchor [doing]') && !tRename.includes('Resume shield')));
   check('roadmap: menu Rename commits the new title', tRename.includes('Resume anchor [doing]') && !tRename.includes('Resume shield'));
   await undo();
   check('roadmap: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   await tapCard("Resume shield");
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: menu Status opens the status options popover', await p.locator('.eip-pop button', {hasText: 'blocked'}).count() === 1);
+  check('roadmap: menu Status opens the status options popover', await until(async () => (await p.locator('.eip-pop button', {hasText: 'blocked'}).count() === 1)));
   await p.locator('.eip-pop button', {hasText: 'blocked'}).click();
-  await p.waitForTimeout(600);
-  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tStatus => (tStatus.includes('Resume shield [blocked]')));
   check('roadmap: menu Status pick commits the new status', tStatus.includes('Resume shield [blocked]'));
   await undo();
   check('roadmap: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
@@ -926,23 +846,19 @@ check('no console/page errors', errors.length === 0);
      dragging the card across columns — same undo/round-trip contract as
      every other menu row. */
   await tapCard("Resume shield");
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Move to… submenu lists the model’s horizons',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Now|Next|Later');
+  check('roadmap: Move to… submenu lists the model’s horizons', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Now|Next|Later')));
   check('roadmap: Move to… marks the item’s current horizon',
     (await p.locator('.eip-pop button.on').innerText()) === 'Now');
   await p.locator('.eip-pop button', {hasText: 'Next'}).click();
-  await p.waitForTimeout(600);
-  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tMove = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tMove => (tMove.indexOf('Resume shield [doing]') > tMove.indexOf('NEXT') && tMove.indexOf('NEXT') > tMove.indexOf('NOW')));
   check('roadmap: Move to… Next relocates the item into the NEXT section',
     tMove.indexOf('Resume shield [doing]') > tMove.indexOf('NEXT') && tMove.indexOf('NEXT') > tMove.indexOf('NOW'));
   await undo();
   check('roadmap: one undo restores the pre-move baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   await tapCard("Resume shield");
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove item'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -962,8 +878,8 @@ check('no console/page errors', errors.length === 0);
     await p.mouse.move(dragSrc.x + (dragDst.x + dragDst.width / 2 - dragSrc.x) * i / 8,
       dragSrc.y + (dragDst.y + dragDst.height / 2 - dragSrc.y) * i / 8);
   await p.mouse.up();
-  await p.waitForTimeout(600);
-  const tDrag = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tDrag = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tDrag => (tDrag.indexOf('Sync engine rewrite') > tDrag.indexOf('NEXT')));
   check('roadmap: real drag moves the card into the NEXT section',
     tDrag.indexOf('Sync engine rewrite') > tDrag.indexOf('NEXT'));
   check('roadmap: drag does not open the card menu', await p.locator('.eip-pop').count() === 0);
@@ -1009,14 +925,11 @@ check('no console/page errors', errors.length === 0);
 
   // (a) Status… — must open the real options picker, never silence
   await tapCard(title);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Status… on an unset item opens the status picker (not silence)',
-    await p.locator('.eip-pop button', {hasText: 'doing'}).count() === 1);
+  check('roadmap: Status… on an unset item opens the status picker (not silence)', await until(async () => (await p.locator('.eip-pop button', {hasText: 'doing'}).count() === 1)));
   await p.locator('.eip-pop button', {hasText: 'doing'}).click();
-  await p.waitForTimeout(600);
-  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tStatus => (tStatus.includes(title + ' [doing]')));
   check('roadmap: picking a status writes the bracket tag onto the item’s own line',
     tStatus.includes(title + ' [doing]'));
   await undo();
@@ -1024,15 +937,12 @@ check('no console/page errors', errors.length === 0);
 
   // (b) Edit note… — must open an empty input, never silence
   await tapCard(title);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Edit note…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Edit note… on an unset item opens an EMPTY input (not silence)',
-    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  check('roadmap: Edit note… on an unset item opens an EMPTY input (not silence)', await until(async () => (await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '')));
   await p.locator('.eip-input').fill('now shipping in beta');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tNote => (tNote.includes(title + ' -- now shipping in beta')));
   check('roadmap: the typed note lands as " -- note" on the item’s own line',
     tNote.includes(title + ' -- now shipping in beta'));
   await undo();
@@ -1072,24 +982,17 @@ check('no console/page errors', errors.length === 0);
   };
 
   await tapCard('Sync engine rewrite');
-  await p.waitForTimeout(200);
-  check('roadmap: the card menu offers Runs until… on a time axis',
-    await p.locator('.eip-pop button', {hasText: 'Runs until…'}).count() === 1);
+  check('roadmap: the card menu offers Runs until… on a time axis', await until(async () => (await p.locator('.eip-pop button', {hasText: 'Runs until…'}).count() === 1)));
 
   await p.locator('.eip-pop button', {hasText: 'Runs until…'}).click();
-  await p.waitForTimeout(200);
-  /* the item runs Q3 2026 -> Q4 2026 (x2): the submenu lists Q3 2026, Q4 2026,
-     Q1 2027, Q2 2027 (its own start through the board's last column), with
-     Q4 2026 (the current end) marked `on`. */
-  check('roadmap: Runs until… lists this item’s start column through the board’s last',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Q3 2026|Q4 2026|Q1 2027|Q2 2027');
+  check('roadmap: Runs until… lists this item’s start column through the board’s last', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Q3 2026|Q4 2026|Q1 2027|Q2 2027')));
   check('roadmap: Runs until… marks the current end',
     (await p.locator('.eip-pop button.on').innerText()) === 'Q4 2026');
 
   // pick the THIRD column (Q1 2027) — commits x3
   await p.locator('.eip-pop button', {hasText: 'Q1 2027'}).click();
-  await p.waitForTimeout(600);
-  const src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const src = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    src => (/Sync engine rewrite \[doing\] x3/.test(src)));
   check('roadmap: Runs until… picking the third column commits x3 into the source',
     /Sync engine rewrite \[doing\] x3/.test(src));
 
@@ -1103,14 +1006,13 @@ check('no console/page errors', errors.length === 0);
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: Big programme x6\n');
   await p.waitForTimeout(700);
   await tapCard('Big programme');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Runs until…'}).click();
   await p.waitForTimeout(200);
   check('roadmap: an off-board span marks NO row as current (its true end is not on the list)',
     await p.locator('.eip-pop button.on').count() === 0);
   await p.locator('.eip-pop button', {hasText: 'Q2 2027'}).click();   // the last visible column
-  await p.waitForTimeout(600);
-  const offSrc = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const offSrc = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    offSrc => (/Big programme x4/.test(offSrc)));
   check('roadmap: picking the last visible column on an off-board span is an explicit choice (x4), not a silent truncation of x6',
     /Big programme x4/.test(offSrc));
 
@@ -1162,33 +1064,31 @@ check('no console/page errors', errors.length === 0);
 
   // ---- Resolve… ----
   await tapCard('Ship reminders');
-  await p.waitForTimeout(200);
-  check('roadmap: a bet item’s menu offers Resolve… but no "unresolve" while unresolved',
-    (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 1);
+  check('roadmap: a bet item’s menu offers Resolve… but no "unresolve" while unresolved', await until(async () => ((await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 1)));
   await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Resolve… submenu lists paid off/didn\'t pay off, no reopen row yet',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === "paid off|didn't pay off");
+  check('roadmap: Resolve… submenu lists paid off/didn\'t pay off, no reopen row yet', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === "paid off|didn't pay off")));
   await p.locator('.eip-pop button', {hasText: /^paid off$/}).click();
-  await p.waitForTimeout(600);
-  const tWon = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tWon = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tWon => (tWon.includes('[bet: reminders won]')));
   check('roadmap: Resolve… paid off writes the resolution onto the [bet: …] token',
     tWon.includes('[bet: reminders won]'));
   const svgWon = await p.locator('#preview svg').innerHTML();
   const plainWon = svgWon.replace(/<[^>]+>/g, ' ');
   check('roadmap: resolving paid off drops the [unless] fallback and the board says so',
     /not needed\s*—\s*reminders paid off/.test(plainWon) && plainWon.includes('Fallback plan'));
+  /* the "paid off" edit above and "reopen" below are TWO edits with no undo between
+     them, and the check just below expects TWO SEPARATE undos to unwind them — so
+     they must land in two distinct CodeMirror undo groups, not merge into one (see
+     the why/roadmap-setup fixes above for the newGroupDelay mechanism). */
+  await p.waitForTimeout(550);
 
   await tapCard('Ship reminders');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Resolve… on a resolved bet offers paid off (marked on)/didn\'t pay off/reopen',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === "paid off|didn't pay off|reopen" &&
-    (await p.locator('.eip-pop button.on').innerText()) === 'paid off');
+  check('roadmap: Resolve… on a resolved bet offers paid off (marked on)/didn\'t pay off/reopen', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === "paid off|didn't pay off|reopen" &&
+    (await p.locator('.eip-pop button.on').innerText()) === 'paid off')));
   await p.locator('.eip-pop button', {hasText: 'reopen'}).click();
-  await p.waitForTimeout(600);
-  const tUnresolved = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tUnresolved = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tUnresolved => (tUnresolved.includes('[bet: reminders]') && !tUnresolved.includes('won')));
   check('roadmap: Resolve… unresolve clears the outcome, keeping the bare declaration',
     tUnresolved.includes('[bet: reminders]') && !tUnresolved.includes('won'));
   await undo(); await undo();
@@ -1196,15 +1096,12 @@ check('no console/page errors', errors.length === 0);
 
   // ---- What-if… (view-state only — the text must never change) ----
   await tapCard('Ship reminders');
-  await p.waitForTimeout(200);
-  check('roadmap: an unresolved bet item’s menu offers the two What if… rows plus clear preview',
-    (await p.locator('.eip-pop button', {hasText: 'What if:'}).allInnerTexts()).join('|') ===
+  check('roadmap: an unresolved bet item’s menu offers the two What if… rows plus clear preview', await until(async () => ((await p.locator('.eip-pop button', {hasText: 'What if:'}).allInnerTexts()).join('|') ===
     "What if: it pays off|What if: it doesn't" &&
-    (await p.locator('.eip-pop button', {hasText: 'clear preview'}).count()) === 1);
+    (await p.locator('.eip-pop button', {hasText: 'clear preview'}).count()) === 1)));
   await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).click();
   await p.waitForTimeout(400);
-  check('roadmap: What if: it pays off does NOT touch the source text',
-    (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+  check('roadmap: What if: it pays off does NOT touch the source text', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
   check('roadmap: What if: it pays off shows the preview chip',
     !(await p.locator('#whatifchip').isHidden()) &&
     (await p.locator('#whatifchip').innerText()).includes('reminders') &&
@@ -1215,41 +1112,35 @@ check('no console/page errors', errors.length === 0);
     /not needed\s*—\s*reminders paid off/.test(plainPreview) && plainPreview.includes('Fallback plan'));
 
   await tapCard('Ship reminders');
-  await p.waitForTimeout(200);
-  check('roadmap: the "pays off" row now reads on',
-    (await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).getAttribute('class') || '').includes('on'));
+  check('roadmap: the "pays off" row now reads on', await until(async () => ((await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).getAttribute('class') || '').includes('on'))));
   await p.locator('.eip-pop button', {hasText: 'clear preview'}).click();
   await p.waitForTimeout(400);
-  check('roadmap: clear preview hides the chip and restores the text world',
-    await p.locator('#whatifchip').isHidden());
+  check('roadmap: clear preview hides the chip and restores the text world', await p.locator('#whatifchip').isHidden());
   check('roadmap: no source text ever changed across the what-if flow',
     (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- Condition… ----
   await tapCard('Unrelated item');
-  await p.waitForTimeout(200);
-  check('roadmap: a non-bet item’s menu offers Condition… (≥1 bet declared)',
-    (await p.locator('.eip-pop button', {hasText: 'Condition…'}).count()) === 1);
+  check('roadmap: a non-bet item’s menu offers Condition… (≥1 bet declared)', await until(async () => ((await p.locator('.eip-pop button', {hasText: 'Condition…'}).count()) === 1)));
   await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Condition… lists if/unless for the declared bet, no clear row yet',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'if reminders|unless reminders');
+  check('roadmap: Condition… lists if/unless for the declared bet, no clear row yet', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'if reminders|unless reminders')));
   await p.locator('.eip-pop button', {hasText: 'if reminders'}).click();
-  await p.waitForTimeout(600);
-  const tCond = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tCond = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tCond => (tCond.includes('Unrelated item [if reminders]')));
   check('roadmap: picking "if reminders" writes the condition token onto the item’s own line',
     tCond.includes('Unrelated item [if reminders]'));
+  /* tCond and tClear below are two edits with no undo between them, and the checks
+     after tClear expect TWO SEPARATE undos to unwind them one at a time — same
+     newGroupDelay hazard as the resolve/reopen pair above. */
+  await p.waitForTimeout(550);
 
   await tapCard('Unrelated item');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap: Condition… now marks "if reminders" on and offers "clear condition"',
-    (await p.locator('.eip-pop button.on').innerText()) === 'if reminders' &&
-    (await p.locator('.eip-pop button', {hasText: 'clear condition'}).count()) === 1);
+  check('roadmap: Condition… now marks "if reminders" on and offers "clear condition"', await until(async () => ((await p.locator('.eip-pop button.on').innerText()) === 'if reminders' &&
+    (await p.locator('.eip-pop button', {hasText: 'clear condition'}).count()) === 1)));
   await p.locator('.eip-pop button', {hasText: 'clear condition'}).click();
-  await p.waitForTimeout(600);
-  const tClear = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tClear = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tClear => (tClear.includes('Unrelated item\n') || /Unrelated item\s*$/m.test(tClear)));
   check('roadmap: clear condition removes the token', tClear.includes('Unrelated item\n') || /Unrelated item\s*$/m.test(tClear));
   await undo();
   check('roadmap: one undo restores the just-cleared condition', (await p.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Unrelated item [if reminders]'));
@@ -1297,7 +1188,6 @@ check('no console/page errors', errors.length === 0);
   // states the true unresolved fork (both branch tags), never the preview's
   // dropped-looking world. ----
   await tapCard('Ship reminders');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'What if: it pays off'}).click();
   await p.waitForTimeout(400);
   check('exports-ignore-preview: the chip confirms a preview really is active first',
@@ -1314,19 +1204,14 @@ check('no console/page errors', errors.length === 0);
   check('exports-ignore-preview: the downloaded SVG carries no preview-only dropped state',
     !exportedSvg.includes('not needed —'));
   await p.locator('details:has(summary:text("Export"))').first().locator('summary').click();   // close it — it sits over the canvas at this viewport
-  await p.waitForTimeout(150);
-
-  // ---- (b) the chip contract: role=status, the fixed copy, multi-preview
-  // listing, and the reset button actually clearing EVERY armed preview. ----
-  check('chip: role="status" so a world flip is announced to assistive tech',
-    (await p.locator('#whatifchip').getAttribute('role')) === 'status');
+  check('chip: role="status" so a world flip is announced to assistive tech', await until(async () => ((await p.locator('#whatifchip').getAttribute('role')) === 'status')));
   check('chip: carries the fixed "exports show all paths" reassurance',
     (await p.locator('#whatifchip').innerText()).includes('exports show all paths'));
   await tapCard('Second bet');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: "What if: it doesn't"}).click();
-  await p.waitForTimeout(400);
-  const chipText = await p.locator('#whatifchip').innerText();
+  const chipText = await untilValue(() => p.locator('#whatifchip').innerText(),
+    chipText => (chipText.includes('reminders') && chipText.includes('pays off') &&
+    chipText.includes('launch') && chipText.includes("doesn't pay off")));
   check('chip: lists every armed preview, not just the most recent',
     chipText.includes('reminders') && chipText.includes('pays off') &&
     chipText.includes('launch') && chipText.includes("doesn't pay off"));
@@ -1354,21 +1239,15 @@ check('no console/page errors', errors.length === 0);
   check('keyboard: the what-if rect is the focused element after Tab-equivalent focus',
     await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(400);
-  check('keyboard Enter #1: cycles to "pays off" and the chip says so',
-    (await p.locator('#whatifchip').innerText()).includes('pays off'));
+  check('keyboard Enter #1: cycles to "pays off" and the chip says so', await until(async () => ((await p.locator('#whatifchip').innerText()).includes('pays off'))));
   check('keyboard Enter #1: focus survived the repaint, still on the SAME rect (no re-tab)',
     await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(400);
-  check('keyboard Enter #2: cycles to "doesn\'t pay off"',
-    (await p.locator('#whatifchip').innerText()).includes("doesn't pay off"));
+  check('keyboard Enter #2: cycles to "doesn\'t pay off"', await until(async () => ((await p.locator('#whatifchip').innerText()).includes("doesn't pay off"))));
   check('keyboard Enter #2: focus still on the same rect',
     await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(400);
-  check('keyboard Enter #3: cycles back to cleared (chip hides, or drops "reminders" from its listing)',
-    (await p.locator('#whatifchip').isHidden()) || !(await p.locator('#whatifchip').innerText()).includes('reminders'));
+  check('keyboard Enter #3: cycles back to cleared (chip hides, or drops "reminders" from its listing)', await until(async () => ((await p.locator('#whatifchip').isHidden()) || !(await p.locator('#whatifchip').innerText()).includes('reminders'))));
   check('keyboard Enter #3: focus still on the same rect after a full cycle, no Tab needed at any step',
     await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-whatif')) === 'reminders');
 
@@ -1386,7 +1265,6 @@ check('no console/page errors', errors.length === 0);
   check('menu negative: zero bets declared → no Resolve… row either',
     (await p.locator('.eip-pop button', {hasText: 'Resolve…'}).count()) === 0);
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(150);
 
   // a doc WITH a bet, but tapping the item that carries neither bet nor
   // cond of its own → Resolve…/What-if… absent (those are bet-item-only),
@@ -1459,11 +1337,10 @@ check('no console/page errors', errors.length === 0);
 
   // ---- rename via the title cell ----
   await p.locator('[data-edit="title"]', {hasText: 'Rename target'}).first().click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Renamed OK');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tRename => (tRename.includes('Core: Renamed OK') && !tRename.includes('Rename target')));
   check('register: title-cell rename lands in the source',
     tRename.includes('Core: Renamed OK') && !tRename.includes('Rename target'));
   await undo();
@@ -1471,22 +1348,20 @@ check('no console/page errors', errors.length === 0);
 
   // ---- add a lane to a laneless row (setLane) ----
   await rowOf('Lane-less target').locator('[data-edit="lane"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Growth');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tLane = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tLane => (tLane.includes('Growth: Lane-less target')));
   check('register: lane-cell edit adds "Lane: " to a laneless row', tLane.includes('Growth: Lane-less target'));
   await undo();
   check('register: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- add a note to a note-less row (addNote) ----
   await rowOf('Note-less target').locator('[data-edit="note"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('first note');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tNote => (tNote.includes('Core: Note-less target -- first note')));
   check('register: note-cell edit adds " -- " to a note-less row', tNote.includes('Core: Note-less target -- first note'));
   await undo();
   check('register: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
@@ -1495,11 +1370,10 @@ check('no console/page errors', errors.length === 0);
   // the token (A1's regression guard — the bug it guards against would have
   // produced "Spanning target -- keeps span x2", silently destroying the span) ----
   await rowOf('Spanning target').locator('[data-edit="note"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('keeps span');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tSpanNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tSpanNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tSpanNote => (/Core: Spanning target x2 -- keeps span/.test(tSpanNote)));
   check('register: note on a spanning row lands AFTER xN, preserving the span (A1 regression guard)',
     /Core: Spanning target x2 -- keeps span/.test(tSpanNote));
   await undo();
@@ -1507,24 +1381,20 @@ check('no console/page errors', errors.length === 0);
 
   // ---- set a status on a status-less row (addStatus) ----
   await rowOf('Status-less target').locator('[data-edit="status"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
-  await p.waitForTimeout(600);
-  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tStatus => (tStatus.includes('Core: Status-less target [risk]')));
   check('register: status-cell pick adds "[status]" to a status-less row', tStatus.includes('Core: Status-less target [risk]'));
   await undo();
   check('register: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- change horizon via the row menu "Move to…" ----
   await tapCard('Rename target');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
-  await p.waitForTimeout(200);
-  check('register: Move to… submenu lists the model’s horizons',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Q3 2026|Q4 2026|Q1 2027|Q2 2027');
+  check('register: Move to… submenu lists the model’s horizons', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Q3 2026|Q4 2026|Q1 2027|Q2 2027')));
   await p.locator('.eip-pop button', {hasText: 'Q4 2026'}).click();
-  await p.waitForTimeout(600);
-  const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tMove = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tMove => (tMove.indexOf('Rename target') > tMove.indexOf('Q4 2026') && tMove.indexOf('Q4 2026') > tMove.indexOf('Q3 2026')));
   check('register: Move to… relocates the row into the target horizon',
     tMove.indexOf('Rename target') > tMove.indexOf('Q4 2026') && tMove.indexOf('Q4 2026') > tMove.indexOf('Q3 2026'));
   await undo();
@@ -1540,12 +1410,10 @@ check('no console/page errors', errors.length === 0);
   check('register: baseline is restored and Q1 2027 has no literal header yet',
     preMoveEmpty === baseline && !preMoveEmpty.includes('Q1 2027'));
   await tapCard('Rename target');
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move to…'}).click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Q1 2027'}).click();
-  await p.waitForTimeout(600);
-  const tMoveEmpty = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tMoveEmpty = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tMoveEmpty => (/Q1 2027\s*\nCore: Rename target/.test(tMoveEmpty)));
   check('register: Move to… a headerless horizon creates the header and relocates the row (not a silent no-op)',
     /Q1 2027\s*\nCore: Rename target/.test(tMoveEmpty));
   const movedRow = await rowOf('Rename target').innerHTML();
@@ -1563,11 +1431,10 @@ check('no console/page errors', errors.length === 0);
   check('register: baseline is restored and the target horizon has no literal header yet',
     preAdd === baseline && !preAdd.includes('Q1 2027'));
   await p.locator('[data-edit="additem"][data-col="Q1 2027"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('New headerless item');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tAdd = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tAdd => (/Q1 2027\s*\nNew headerless item/.test(tAdd)));
   check('register: the missing header is created and the item lands right after it',
     /Q1 2027\s*\nNew headerless item/.test(tAdd));
   const addedRow = await rowOf('New headerless item').innerHTML();
@@ -1580,18 +1447,14 @@ check('no console/page errors', errors.length === 0);
   // ---- the Lane… menu row (A10): register only, reachable via the row menu
   // for coarse pointers that reroute in-card field taps ----
   await tapCard('Rename target');
-  await p.waitForTimeout(200);
-  check('register: the card menu offers a Lane… row',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit note…|Status…|Lane…|Move to…|Runs until…|Inspect item|Remove item');
+  check('register: the card menu offers a Lane… row', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+      'Rename…|Edit note…|Status…|Lane…|Move to…|Runs until…|Inspect item|Remove item')));
   await p.locator('.eip-pop button', {hasText: 'Lane…'}).click();
-  await p.waitForTimeout(200);
-  check('register: Lane… opens the lane input prefilled with the current lane',
-    await p.locator('.eip-input').inputValue() === 'Core');
+  check('register: Lane… opens the lane input prefilled with the current lane', await until(async () => (await p.locator('.eip-input').inputValue() === 'Core')));
   await p.locator('.eip-input').fill('Ops');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tMenuLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tMenuLane = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tMenuLane => (tMenuLane.includes('Ops: Rename target') && !tMenuLane.includes('Core: Rename target')));
   check('register: Lane… commits the new lane',
     tMenuLane.includes('Ops: Rename target') && !tMenuLane.includes('Core: Rename target'));
   await undo();
@@ -1644,11 +1507,10 @@ check('no console/page errors', errors.length === 0);
 
   // ---- rename via the card's title field ----
   await p.locator('[data-edit="title"]', {hasText: 'Rename target'}).first().click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Renamed OK');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tRename => (tRename.includes('Core: Renamed OK') && !tRename.includes('Rename target')));
   check('board: title edit lands in the source',
     tRename.includes('Core: Renamed OK') && !tRename.includes('Rename target'));
   await undo();
@@ -1656,32 +1518,29 @@ check('no console/page errors', errors.length === 0);
 
   // ---- the lane tag on a laneless card (setLane) ----
   await rowOf('Lane-less target').locator('[data-edit="lane"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Growth');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tLane = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tLane => (tLane.includes('Growth: Lane-less target')));
   check('board: lane-tag edit adds "Lane: " to a laneless card', tLane.includes('Growth: Lane-less target'));
   await undo();
   check('board: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- "+ note" on a note-less card (addNote) ----
   await rowOf('Note-less target').locator('[data-edit="note"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('first note');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tNote => (tNote.includes('Core: Note-less target -- first note')));
   check('board: "+ note" adds " -- " to a note-less card', tNote.includes('Core: Note-less target -- first note'));
   await undo();
   check('board: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- "+ status" on a status-less card (addStatus) ----
   await rowOf('Status-less target').locator('[data-edit="status"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
-  await p.waitForTimeout(600);
-  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tStatus => (tStatus.includes('Core: Status-less target [risk]')));
   check('board: "+ status" adds "[status]" to a status-less card', tStatus.includes('Core: Status-less target [risk]'));
   await undo();
   check('board: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
@@ -1695,11 +1554,10 @@ check('no console/page errors', errors.length === 0);
   check('board: baseline is restored and Later has no literal header yet',
     preAdd === baseline && !preAdd.includes('Later'));
   await p.locator('[data-edit="additem"][data-col="Later"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('New headerless card');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tAdd = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tAdd => (/Later\s*\nNew headerless card/.test(tAdd)));
   check('board: the missing Later header is created and the item lands right after it',
     /Later\s*\nNew headerless card/.test(tAdd));
   check('board: the new item renders as a card, filed under Later (not lost)',
@@ -1766,11 +1624,10 @@ check('no console/page errors', errors.length === 0);
 
   // ---- rename via the hero card's title ----
   await p.locator('[data-edit="title"]', {hasText: 'Hero rename target'}).first().click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Hero renamed OK');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tRename => (tRename.includes('Core: Hero renamed OK') && !tRename.includes('Hero rename target')));
   check('focus hero: title-cell rename lands in the source',
     tRename.includes('Core: Hero renamed OK') && !tRename.includes('Hero rename target'));
   await undo();
@@ -1778,32 +1635,29 @@ check('no console/page errors', errors.length === 0);
 
   // ---- tap the hero card's lane tag → set a lane (setLane) ----
   await cardOf('Lane-less hero target').locator('[data-edit="lane"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Growth');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tLane = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tLane = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tLane => (tLane.includes('Growth: Lane-less hero target')));
   check('focus hero: lane-tag edit adds "Lane: " to a laneless hero card', tLane.includes('Growth: Lane-less hero target'));
   await undo();
   check('focus hero: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- "+ note" on a note-less hero card (addNote) ----
   await cardOf('Note-less hero target').locator('[data-edit="note"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('first note');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tNote = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tNote => (tNote.includes('Core: Note-less hero target -- first note')));
   check('focus hero: "+ note" adds " -- " to a note-less hero card', tNote.includes('Core: Note-less hero target -- first note'));
   await undo();
   check('focus hero: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- "+ status" on a status-less hero card (addStatus) ----
   await cardOf('Status-less hero target').locator('[data-edit="status"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
-  await p.waitForTimeout(600);
-  const tStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tStatus => (tStatus.includes('Core: Status-less hero target [risk]')));
   check('focus hero: "+ status" adds "[status]" to a status-less hero card', tStatus.includes('Core: Status-less hero target [risk]'));
   await undo();
   check('focus hero: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
@@ -1812,11 +1666,10 @@ check('no console/page errors', errors.length === 0);
 
   // ---- rename via the rail row's title ----
   await p.locator('[data-edit="title"]', {hasText: 'Rail rename target'}).first().click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('Rail renamed OK');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRailRename = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tRailRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tRailRename => (tRailRename.includes('Core: Rail renamed OK') && !tRailRename.includes('Rail rename target')));
   check('focus rail: title-cell rename lands in the source',
     tRailRename.includes('Core: Rail renamed OK') && !tRailRename.includes('Rail rename target'));
   await undo();
@@ -1833,16 +1686,12 @@ check('no console/page errors', errors.length === 0);
 
   // ---- the rail row's card menu → Status… submenu → "At risk" (the submenu commit path) ----
   await tapCard('Rail status target');
-  await p.waitForTimeout(200);
-  check('focus rail: the card menu offers a Status… submenu row (no inline status target to open)',
-    (await p.locator('.eip-pop button').allInnerTexts()).includes('Status…'));
+  check('focus rail: the card menu offers a Status… submenu row (no inline status target to open)', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).includes('Status…'))));
   await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
-  await p.waitForTimeout(200);
-  check('focus rail: the Status… submenu lists the four statuses by their labels',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Done|In progress|At risk|Blocked');
+  check('focus rail: the Status… submenu lists the four statuses by their labels', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Done|In progress|At risk|Blocked')));
   await p.locator('.eip-pop button', {hasText: 'At risk'}).click();
-  await p.waitForTimeout(600);
-  const tRailStatus = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tRailStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tRailStatus => (tRailStatus.includes('Core: Rail status target [risk]')));
   check('focus rail: Status… → At risk commits "[risk]" onto the rail item\'s own line (submenu commit path)',
     tRailStatus.includes('Core: Rail status target [risk]'));
   await undo();
@@ -1855,8 +1704,8 @@ check('no console/page errors', errors.length === 0);
   // that a rail row never carries) ----
   check('focus lens: baseline has no focus: key yet', !baseline.includes('focus:'));
   await p.locator('[data-lens="Q4 2026"]').click();
-  await p.waitForTimeout(600);
-  const tLens = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tLens = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tLens => (/focus:\s*Q4 2026/.test(tLens)));
   check('focus lens: clicking a rail header writes focus: <horizon>', /focus:\s*Q4 2026/.test(tLens));
   check('focus lens: the newly-focused horizon\'s items render as hero cards (gain a note edit target)',
     (await cardOf('Rail rename target').locator('[data-edit="note"]').count()) === 1);
@@ -1866,8 +1715,8 @@ check('no console/page errors', errors.length === 0);
   // ---- keyboard path: focus (Tab-equivalent) a rail header, then press Enter — same commit ----
   await p.locator('[data-lens="Q1 2027"]').focus();
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tLensKb = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tLensKb = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tLensKb => (/focus:\s*Q1 2027/.test(tLensKb)));
   check('focus lens: Enter on a focused rail header also commits focus: (keyboard path)',
     /focus:\s*Q1 2027/.test(tLensKb));
   await undo();
@@ -1880,11 +1729,10 @@ check('no console/page errors', errors.length === 0);
   check('focus rail: baseline is restored and Q2 2027 has no literal header yet',
     preAdd === baseline && !preAdd.includes('Q2 2027'));
   await p.locator('[data-edit="additem"][data-col="Q2 2027"]').click();
-  await p.waitForTimeout(200);
   await p.locator('.eip-input').fill('New headerless rail item');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tAdd = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const tAdd = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    tAdd => (/Q2 2027\s*\nNew headerless rail item/.test(tAdd)));
   check('focus rail: the missing Q2 2027 header is created and the item lands right after it',
     /Q2 2027\s*\nNew headerless rail item/.test(tAdd));
   check('focus rail: the new item renders as a rail row, filed under Q2 2027 (not lost)',
@@ -1917,9 +1765,7 @@ check('no console/page errors', errors.length === 0);
     .filter({hasText: 'Ship it'}).first().getAttribute('data-line');
   const box = await p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]').boundingBox();
   await tapCardMenu(p, box, line);
-  await p.waitForTimeout(200);
-  check('roadmap: the Lane… row does not appear on a chart (now/next/later) doc',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Inspect item|Remove item');
+  check('roadmap: the Lane… row does not appear on a chart (now/next/later) doc', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Move to…|Inspect item|Remove item')));
 
   check('roadmap: no console/page errors (chart Lane… absence)', errs.length === 0);
   await p.close();
@@ -1956,24 +1802,19 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(300);
   const cardBox = await cardLocator.boundingBox();
   await tapCardMenu(p, cardBox, line);
-  await p.waitForTimeout(200);
-  check('roadmap narrow-register: the menu still offers Lane… (the MODEL is register-styled)',
-    await p.locator('.eip-pop button', {hasText: 'Lane…'}).count() === 1);
+  check('roadmap narrow-register: the menu still offers Lane… (the MODEL is register-styled)', await until(async () => (await p.locator('.eip-pop button', {hasText: 'Lane…'}).count() === 1)));
 
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   await p.locator('.eip-pop button', {hasText: 'Lane…'}).click();
-  await p.waitForTimeout(200);
-  check('roadmap narrow-register: Lane… opens an EMPTY input (not silence)',
-    await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '');
+  check('roadmap narrow-register: Lane… opens an EMPTY input (not silence)', await until(async () => (await p.locator('.eip-input').count() === 1 && await p.locator('.eip-input').inputValue() === '')));
   await p.locator('.eip-input').fill('Core');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const after = await p.evaluate(() => localStorage.getItem('roadmap-src'));
+  const after = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    after => (/^Core: Ship it$/m.test(after)));
   check('roadmap narrow-register: commit sets the "Lane: " prefix on the item’s own line', /^Core: Ship it$/m.test(after));
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
-  check('roadmap narrow-register: one undo reverts the lane-set edit', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+  check('roadmap narrow-register: one undo reverts the lane-set edit', await until(async () => ((await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline)));
 
   check('roadmap narrow-register: no console/page errors', errs.length === 0);
   await mctx.close();
@@ -2007,9 +1848,7 @@ check('no console/page errors', errors.length === 0);
     await mpage.waitForTimeout(300);
     const titleBox = await titleField.boundingBox();
     await mpage.mouse.click(titleBox.x + titleBox.width / 2, titleBox.y + titleBox.height / 2);
-    await mpage.waitForTimeout(200);
-    check('roadmap: coarse title-field tap opens the menu, not the title editor',
-      await mpage.locator('.eip-pop').count() === 1);
+    check('roadmap: coarse title-field tap opens the menu, not the title editor', await until(async () => (await mpage.locator('.eip-pop').count() === 1)));
     await mpage.keyboard.press('Escape');
     await mpage.waitForTimeout(200);
   }
@@ -2022,23 +1861,17 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(300);
   const mCardBox = await mCardBody.boundingBox();
   await mpage.mouse.click(mCardBox.x + 8, mCardBox.y + 4);
-  await mpage.waitForTimeout(200);
-  check('roadmap narrow: tap opens the card menu', await mpage.locator('.eip-pop').count() === 1);
+  check('roadmap narrow: tap opens the card menu', await until(async () => (await mpage.locator('.eip-pop').count() === 1)));
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Rename…'}));
-  await mpage.waitForTimeout(200);
-  check('roadmap narrow: menu Rename opens the input', await mpage.locator('.eip-input').count() === 1);
+  check('roadmap narrow: menu Rename opens the input', await until(async () => (await mpage.locator('.eip-input').count() === 1)));
 
   const ib = await mpage.locator('.eip-input').boundingBox();
   await mpage.touchscreen.tap(ib.x + ib.width / 2, ib.y + ib.height / 2);
-  await mpage.waitForTimeout(300);
-  check('roadmap narrow: a touch INTO the input does not dismiss it (away-listener leak)',
-    await mpage.locator('.eip-input').count() === 1);
+  check('roadmap narrow: a touch INTO the input does not dismiss it (away-listener leak)', await until(async () => (await mpage.locator('.eip-input').count() === 1)));
 
   await mpage.locator('.eip-input').fill('Resume point');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('roadmap narrow: commit lands after the away-tap proof',
-    (await mpage.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Resume point [doing]'));
+  check('roadmap narrow: commit lands after the away-tap proof', await until(async () => ((await mpage.evaluate(() => localStorage.getItem('roadmap-src'))).includes('Resume point [doing]'))));
   check('roadmap narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
@@ -2078,71 +1911,52 @@ check('no console/page errors', errors.length === 0);
   };
 
   await tapCard(3);
-  await p.waitForTimeout(200);
-  check('map: card body tap opens the menu with the expected rows',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Inspect…|Move…|Remove');
+  check('map: card body tap opens the menu with the expected rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Inspect…|Move…|Remove')));
 
   /* Review-first selection is deliberately a menu action, not an accidental
      edit. Its receipt must be closable, escapeable, and able to hand the
      reader straight to the authored source without changing that source. */
   await p.locator('.eip-pop button', {hasText: 'Inspect…'}).click();
-  await p.waitForTimeout(200);
-  check('map: Inspect opens the textual decision receipt beside the artefact',
-    !(await p.locator('#margin').isHidden()) &&
-    await p.locator('#margin').getByRole('heading', {name: 'Readers finish the first book they start'}).count() === 1);
+  check('map: Inspect opens the textual decision receipt beside the artefact', await until(async () => (!(await p.locator('#margin').isHidden()) &&
+    await p.locator('#margin').getByRole('heading', {name: 'Readers finish the first book they start'}).count() === 1)));
   await p.locator('#margin button', {hasText: 'Close'}).click();
-  await p.waitForTimeout(150);
-  check('map: closing the receipt restores focus to the originating menu target',
-    await p.evaluate(() => document.activeElement?.dataset.edit === 'cardmenu' && document.activeElement?.dataset.line === '3'));
+  check('map: closing the receipt restores focus to the originating menu target', await until(async () => (await p.evaluate(() => document.activeElement?.dataset.edit === 'cardmenu' && document.activeElement?.dataset.line === '3'))));
 
   await tapCard(3);
-  await p.waitForTimeout(150);
   await p.locator('.eip-pop button', {hasText: 'Inspect…'}).click();
-  await p.waitForTimeout(150);
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(150);
-  check('map: Escape closes the receipt and restores its menu focus',
-    await p.locator('#margin').isHidden() &&
-    await p.evaluate(() => document.activeElement?.dataset.edit === 'cardmenu' && document.activeElement?.dataset.line === '3'));
+  check('map: Escape closes the receipt and restores its menu focus', await until(async () => (await p.locator('#margin').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.edit === 'cardmenu' && document.activeElement?.dataset.line === '3'))));
 
   await tapCard(3);
-  await p.waitForTimeout(150);
   await p.locator('.eip-pop button', {hasText: 'Inspect…'}).click();
-  await p.waitForTimeout(150);
   await p.locator('#margin button', {hasText: 'Edit source'}).click();
-  await p.waitForTimeout(150);
-  check('map: receipt source handoff clears selection and focuses the DSL line',
-    await p.locator('#margin').isHidden() &&
-    await p.evaluate(() => document.activeElement?.closest('.cm-editor') && !document.getElementById('workspace').classList.contains('collapsed')));
+  check('map: receipt source handoff clears selection and focuses the DSL line', await until(async () => (await p.locator('#margin').isHidden() &&
+    await p.evaluate(() => document.activeElement?.closest('.cm-editor') && !document.getElementById('workspace').classList.contains('collapsed')))));
 
   await tapCard(3);
-  await p.waitForTimeout(150);
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await p.waitForTimeout(200);
-  check('map: menu Rename opens the label input prefilled', await p.locator('.eip-input').inputValue() === 'Readers finish the first book they start');
+  check('map: menu Rename opens the label input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Readers finish the first book they start')));
   await p.locator('.eip-input').fill('Readers finish what they start each night');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tRename = await p.evaluate(() => localStorage.getItem('map-src'));
+  const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('map-src')),
+    tRename => (tRename.includes('Readers finish what they start each night') && !tRename.includes('Readers finish the first book they start')));
   check('map: menu Rename commits the new label', tRename.includes('Readers finish what they start each night') && !tRename.includes('Readers finish the first book they start'));
   await undo();
   check('map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
 
   await tapCard(3);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Edit field…'}).click();
-  await p.waitForTimeout(200);
-  check('map: menu Edit field opens the field input prefilled', await p.locator('.eip-input').inputValue() === 'watch 5 onboarding sessions');
+  check('map: menu Edit field opens the field input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'watch 5 onboarding sessions')));
   await p.locator('.eip-input').fill('watch 8 onboarding sessions');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tField = await p.evaluate(() => localStorage.getItem('map-src'));
+  const tField = await untilValue(() => p.evaluate(() => localStorage.getItem('map-src')),
+    tField => (tField.includes('test: watch 8 onboarding sessions')));
   check('map: menu Edit field commits the new value', tField.includes('test: watch 8 onboarding sessions'));
   await undo();
   check('map: one undo restores the pre-field baseline', (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
 
   await tapCard(3);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('map-src'));
@@ -2153,17 +1967,12 @@ check('no console/page errors', errors.length === 0);
   /* Move…: the menu row arms a one-shot tap-the-plane placement (built for
      coarse pointers, but not gated — it works with a mouse too) */
   await tapCard(3);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
-  await p.waitForTimeout(250);
-  check('map: Move… arms the placement hint and commits nothing',
-    await p.locator('.placehint').count() === 1 &&
-    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+  check('map: Move… arms the placement hint and commits nothing', await until(async () => (await p.locator('.placehint').count() === 1 &&
+    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
   const plane0 = await p.locator('#preview svg rect[data-plane]').boundingBox();
   await p.mouse.click(plane0.x + plane0.width * 0.25, plane0.y + plane0.height * 0.25);
-  await p.waitForTimeout(600);
-  check('map: the place-tap writes @ 25,75 as one text edit',
-    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Readers finish the first book they start @ 25,75'));
+  check('map: the place-tap writes @ 25,75 as one text edit', await until(async () => ((await p.evaluate(() => localStorage.getItem('map-src'))).includes('Readers finish the first book they start @ 25,75'))));
   check('map: placement disarms after the tap', await p.locator('.placehint').count() === 0);
   await undo();
   check('map: one undo restores the pre-move baseline',
@@ -2171,29 +1980,29 @@ check('no console/page errors', errors.length === 0);
 
   /* an off-plane tap cancels the armed placement without a write */
   await tapCard(3);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
-  await p.waitForTimeout(250);
+  /* Prove the placement ARMED before the off-plane tap, or the cancel check below is
+     vacuous: "no .placehint + storage unchanged" is ALSO the pre-arm state, and
+     mouse.click at raw coordinates auto-waits for nothing (unlike a locator click),
+     so a tap landing before the placement UI attached would satisfy it having
+     cancelled nothing. This replaces a bare waitForTimeout(250) that the conversion
+     dropped — asserting the precondition beats sleeping through it. The phone
+     equivalent below already does this via the .placehint .btn box. */
+  check('map: Move… armed the placement before the off-plane tap',
+    await until(async () => await p.locator('.placehint').count() === 1));
   await p.mouse.click(plane0.x + plane0.width / 2, plane0.y - 40);
-  await p.waitForTimeout(400);
-  check('map: an off-plane tap cancels the placement, nothing written',
-    await p.locator('.placehint').count() === 0 &&
-    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+  check('map: an off-plane tap cancels the placement, nothing written', await until(async () => (await p.locator('.placehint').count() === 0 &&
+    (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
 
   /* tray items get the same menu with Place on map… — the unplaced item's
      only non-drag placement path */
   const trayHit = p.locator('#preview svg g[data-tray] rect[data-hit]');
   const trayBox = await trayHit.boundingBox();
   await p.mouse.click(trayBox.x + 4, trayBox.y + trayBox.height / 2);
-  await p.waitForTimeout(200);
-  check('map: tray card menu offers only reachable actions, including Place on map…',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Inspect…|Place on map…|Remove');
+  check('map: tray card menu offers only reachable actions, including Place on map…', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Inspect…|Place on map…|Remove')));
   await p.locator('.eip-pop button', {hasText: 'Place on map…'}).click();
-  await p.waitForTimeout(250);
   await p.mouse.click(plane0.x + plane0.width * 0.6, plane0.y + plane0.height * 0.3);
-  await p.waitForTimeout(600);
-  check('map: placing the tray item writes @ 60,70 (leaves the tray)',
-    (await p.evaluate(() => localStorage.getItem('map-src'))).includes('Legal sign-off on publisher licensing @ 60,70'));
+  check('map: placing the tray item writes @ 60,70 (leaves the tray)', await until(async () => ((await p.evaluate(() => localStorage.getItem('map-src'))).includes('Legal sign-off on publisher licensing @ 60,70'))));
   await undo();
   check('map: one undo restores the pre-place baseline',
     (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
@@ -2208,8 +2017,8 @@ check('no console/page errors', errors.length === 0);
   for(let i = 1; i <= 8; i++)
     await p.mouse.move(dragSrc.x + (tx - dragSrc.x) * i / 8, dragSrc.y + (ty - dragSrc.y) * i / 8);
   await p.mouse.up();
-  await p.waitForTimeout(500);
-  const tDrag = await p.evaluate(() => localStorage.getItem('map-src'));
+  const tDrag = await untilValue(() => p.evaluate(() => localStorage.getItem('map-src')),
+    tDrag => (/Abandoned books drive churn @ \d+,\d+/.test(tDrag) && !tDrag.includes('Abandoned books drive churn @ 75,80')));
   check('map: real drag moves the card (position rewritten)',
     /Abandoned books drive churn @ \d+,\d+/.test(tDrag) && !tDrag.includes('Abandoned books drive churn @ 75,80'));
   check('map: drag does not open the card menu', await p.locator('.eip-pop').count() === 0);
@@ -2237,9 +2046,7 @@ check('no console/page errors', errors.length === 0);
     await mpage.waitForTimeout(300);
     const labelBox = await labelField.boundingBox();
     await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
-    await mpage.waitForTimeout(200);
-    check('map: coarse label-field tap opens the menu, not the label editor',
-      await mpage.locator('.eip-pop').count() === 1);
+    check('map: coarse label-field tap opens the menu, not the label editor', await until(async () => (await mpage.locator('.eip-pop').count() === 1)));
     await mpage.keyboard.press('Escape');
     await mpage.waitForTimeout(200);
   }
@@ -2253,9 +2060,7 @@ check('no console/page errors', errors.length === 0);
     await mpage.waitForTimeout(300);
     const roBox = await roField.boundingBox();
     await mpage.mouse.click(roBox.x + roBox.width / 2, roBox.y + roBox.height / 2);
-    await mpage.waitForTimeout(200);
-    check('map: coarse readout field tap opens the value editor, not the menu',
-      await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1);
+    check('map: coarse readout field tap opens the value editor, not the menu', await until(async () => (await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1)));
     await mpage.keyboard.press('Escape');
     await mpage.waitForTimeout(200);
   }
@@ -2268,23 +2073,17 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(300);
   const mCardBox = await mCardBody.boundingBox();
   await mpage.mouse.click(mCardBox.x + 4, mCardBox.y + mCardBox.height / 2);
-  await mpage.waitForTimeout(200);
-  check('map narrow: tap opens the card menu', await mpage.locator('.eip-pop').count() === 1);
+  check('map narrow: tap opens the card menu', await until(async () => (await mpage.locator('.eip-pop').count() === 1)));
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Rename…'}));
-  await mpage.waitForTimeout(200);
-  check('map narrow: menu Rename opens the input', await mpage.locator('.eip-input').count() === 1);
+  check('map narrow: menu Rename opens the input', await until(async () => (await mpage.locator('.eip-input').count() === 1)));
 
   const ib = await mpage.locator('.eip-input').boundingBox();
   await mpage.touchscreen.tap(ib.x + ib.width / 2, ib.y + ib.height / 2);
-  await mpage.waitForTimeout(300);
-  check('map narrow: a touch INTO the input does not dismiss it (away-listener leak)',
-    await mpage.locator('.eip-input').count() === 1);
+  check('map narrow: a touch INTO the input does not dismiss it (away-listener leak)', await until(async () => (await mpage.locator('.eip-input').count() === 1)));
 
   await mpage.locator('.eip-input').fill('Reading sessions get shorter');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('map narrow: commit lands after the away-tap proof',
-    (await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Reading sessions get shorter'));
+  check('map narrow: commit lands after the away-tap proof', await until(async () => ((await mpage.evaluate(() => localStorage.getItem('map-src'))).includes('Reading sessions get shorter'))));
   check('map narrow: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
@@ -2310,9 +2109,7 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(300);
   const labelBox = await labelField.boundingBox();
   await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
-  await mpage.waitForTimeout(200);
-  check('why: coarse label-field tap opens the menu, not the label editor',
-    await mpage.locator('.eip-pop').count() === 1);
+  check('why: coarse label-field tap opens the menu, not the label editor', await until(async () => (await mpage.locator('.eip-pop').count() === 1)));
   await mpage.keyboard.press('Escape');
   await mpage.waitForTimeout(200);
   check('why narrow: no console/page errors', merrors.length === 0);
@@ -2328,18 +2125,16 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(600);
   const before = await p.evaluate(() => localStorage.getItem('risk-src'));
   await p.locator('[data-field="level"]').first().click();
-  await p.waitForTimeout(200);
-  check('risk: overlay opens prefilled', await p.locator('.eip-input').inputValue() === '70');
+  check('risk: overlay opens prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === '70')));
   await p.locator('.eip-input').fill('90');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const after = await p.evaluate(() => localStorage.getItem('risk-src'));
+  const after = await untilValue(() => p.evaluate(() => localStorage.getItem('risk-src')),
+    after => (after.includes('floor: 90') && !after.includes('floor: 70')));
   check('risk: floor level rewrite lands', after.includes('floor: 90') && !after.includes('floor: 70'));
   check('risk: diagram re-rendered', (await p.locator('#preview svg').innerHTML()).includes('Floor 90'));
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
-  check('risk: one undo reverts', (await p.evaluate(() => localStorage.getItem('risk-src'))) === before);
+  check('risk: one undo reverts', await until(async () => ((await p.evaluate(() => localStorage.getItem('risk-src'))) === before)));
   check('risk: no console/page errors', errs.length === 0);
   await p.close();
 }
@@ -2353,16 +2148,13 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(1000);
   const before = await p.evaluate(() => localStorage.getItem('cycles-src'));
   await p.locator('[data-field="budget"]').first().click();
-  await p.waitForTimeout(200);
-  check('cycles: overlay prefilled', await p.locator('.eip-input').inputValue() === '6000');
+  check('cycles: overlay prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === '6000')));
   await p.locator('.eip-input').fill('3000');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(1000);
-  check('cycles: budget rewrite lands', (await p.evaluate(() => localStorage.getItem('cycles-src'))).includes('cycles: 3000 over 15yr'));
+  check('cycles: budget rewrite lands', await until(async () => ((await p.evaluate(() => localStorage.getItem('cycles-src'))).includes('cycles: 3000 over 15yr'))));
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(700);
-  check('cycles: one undo reverts', (await p.evaluate(() => localStorage.getItem('cycles-src'))) === before);
+  check('cycles: one undo reverts', await until(async () => ((await p.evaluate(() => localStorage.getItem('cycles-src'))) === before)));
   check('cycles: no console/page errors', errs.length === 0);
   await p.close();
 }
@@ -2382,19 +2174,18 @@ check('no console/page errors', errors.length === 0);
 
   // name edit commits to the editor text and every edge mention
   await wpage.locator('text[data-edit="name"]', {hasText: 'Catalogue DB'}).first().click();
-  await wpage.waitForTimeout(200);
-  check('wardley: name editor opens prefilled', await wpage.locator('.eip-input').inputValue() === 'Catalogue DB');
+  check('wardley: name editor opens prefilled', await until(async () => (await wpage.locator('.eip-input').inputValue() === 'Catalogue DB')));
   await wpage.locator('.eip-input').fill('Postgres');
   await wpage.keyboard.press('Enter');
-  await wpage.waitForTimeout(500);
-  const wsrc = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc => (wsrc.includes('Postgres @ commodity') && wsrc.includes('-> Postgres') && !wsrc.includes('Catalogue DB')));
   check('wardley: rename hits declaration + edges', wsrc.includes('Postgres @ commodity') && wsrc.includes('-> Postgres') && !wsrc.includes('Catalogue DB'));
 
   // stage cycle: click the pill rect steps custom -> product
   // the text element covers the pill centre (that's the name target) — cycle stage from the capsule's edge
   await wpage.locator('rect[data-edit="stage"][data-raw="custom"]').first().click({position: {x: 8, y: 13}});
-  await wpage.waitForTimeout(400);
-  const wsrc2 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc2 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc2 => (wsrc2.includes('Recommendations @ product')));
   check('wardley: stage cycle writes the next stage word', wsrc2.includes('Recommendations @ product'));
 
   // real mouse drag writes a numeric position; Cmd+Z restores it
@@ -2404,13 +2195,13 @@ check('no console/page errors', errors.length === 0);
   await wpage.mouse.down();
   await wpage.mouse.move(box.x + box.width / 2 - 180, box.y + box.height / 2, {steps: 8});
   await wpage.mouse.up();
-  await wpage.waitForTimeout(500);
-  const wsrc3 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc3 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc3 => (/Library @ 0\.\d+/.test(wsrc3)));
   check('wardley: drag writes @ 0.NN', /Library @ 0\.\d+/.test(wsrc3));
   await focusWardleySource();
   await wpage.keyboard.press('ControlOrMeta+z');
-  await wpage.waitForTimeout(400);
-  const wsrc4 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc4 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc4 => (wsrc4.includes('Library @ product')));
   check('wardley: Cmd+Z undoes the drag', wsrc4.includes('Library @ product'));
 
   // vertical drag leaves the text untouched
@@ -2420,14 +2211,13 @@ check('no console/page errors', errors.length === 0);
   await wpage.mouse.down();
   await wpage.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2 + 140, {steps: 6});
   await wpage.mouse.up();
-  await wpage.waitForTimeout(400);
-  const wsrc5 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc5 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc5 => (wsrc5 === wsrc4));
   check('wardley: vertical drag is a no-op on the text', wsrc5 === wsrc4);
 
   // add zone: tap the CUSTOM stage's ghost "+" → eip-input opens empty → type Cache → Enter
   await wpage.locator('[data-edit="additem"][data-stage="custom"]').first().click();
-  await wpage.waitForTimeout(200);
-  check('wardley: add zone opens the eip-input', await wpage.locator('.eip-input').count() === 1);
+  check('wardley: add zone opens the eip-input', await until(async () => (await wpage.locator('.eip-input').count() === 1)));
   await wpage.locator('.eip-input').fill('Cache');
   await wpage.keyboard.press('Enter');
   await wpage.waitForTimeout(500);
@@ -2447,9 +2237,7 @@ check('no console/page errors', errors.length === 0);
 
   // component menu: tap Cache's ⋯ → danger row removes the declaration + any edge mentions
   await wpage.locator('[data-edit="componentmenu"][data-raw="Cache"]').first().click();
-  await wpage.waitForTimeout(200);
-  check('wardley: component menu shows Needs… then the danger row',
-    (await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Needs…|Inspect…|Remove component');
+  check('wardley: component menu shows Needs… then the danger row', await until(async () => ((await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Needs…|Inspect…|Remove component')));
   await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
   await wpage.waitForTimeout(500);
   const wsrc8 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
@@ -2460,8 +2248,8 @@ check('no console/page errors', errors.length === 0);
   // must round-trip the whole removal (applyLineOps' single-dispatch proof)
   await focusWardleySource();
   await wpage.keyboard.press('ControlOrMeta+z');
-  await wpage.waitForTimeout(500);
-  const wsrc9 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc9 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc9 => (wsrc9 === wsrc7));
   check('wardley: one undo restores the full pre-removal text (applyLineOps one history event)', wsrc9 === wsrc7);
 
   // remove a LINKED component (Recommendations sits in two chains) — this is the
@@ -2480,9 +2268,7 @@ check('no console/page errors', errors.length === 0);
   check('wardley: the 3-chain kept its ends after the splice', /reading\s*->\s*library\s*->\s*\S/i.test(wsrc10));
   await wpage.locator('.cm-content').click();
   await wpage.keyboard.press('ControlOrMeta+z');
-  await wpage.waitForTimeout(500);
-  check('wardley: one undo restores the multi-op removal (single dispatch)',
-    (await wpage.evaluate(() => localStorage.getItem('wardley-src'))) === wsrc9);
+  check('wardley: one undo restores the multi-op removal (single dispatch)', await until(async () => ((await wpage.evaluate(() => localStorage.getItem('wardley-src'))) === wsrc9)));
 
   // narrow: a TAP on the ghost's strip places it, comment kept before //
   await wpage.setViewportSize({width: 430, height: 900});
@@ -2490,8 +2276,8 @@ check('no console/page errors', errors.length === 0);
   const ghostTrack = wpage.locator('#preview svg g[data-strip=""]', {has: wpage.locator('circle[stroke-dasharray]')}).first().locator('[data-track]');
   const gb = await ghostTrack.boundingBox();
   await wpage.mouse.click(gb.x + gb.width * 0.6, gb.y + 4);
-  await wpage.waitForTimeout(500);
-  const wsrc6 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const wsrc6 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
+    wsrc6 => (/Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6)));
   check('wardley: tap-to-place writes @ before the trailing comment', /Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6));
   check('wardley: no console/page errors', werrors.length === 0);
   await wpage.close();
@@ -2509,11 +2295,10 @@ check('no console/page errors', errors.length === 0);
 
   // tap the "+ Add component" card (no data-stage on narrow) → type Inbox → Enter
   await settledTap(mpage, mpage.locator('[data-edit="additem"]').first());
-  await mpage.waitForTimeout(200);
   await mpage.locator('.eip-input').fill('Inbox');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  const msrc = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const msrc = await untilValue(() => mpage.evaluate(() => localStorage.getItem('wardley-src')),
+    msrc => (/^Inbox$/m.test(msrc)));
   check('wardley narrow: add-card inserts Inbox as an unplaced ghost (no stage)', /^Inbox$/m.test(msrc));
   check('wardley narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
@@ -2524,8 +2309,8 @@ check('no console/page errors', errors.length === 0);
   await mpage.waitForTimeout(300);
   const itb = await inboxTrack.boundingBox();
   await mpage.mouse.click(itb.x + itb.width * 0.7, itb.y + itb.height / 2);
-  await mpage.waitForTimeout(600);
-  const msrc2 = await mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const msrc2 = await untilValue(() => mpage.evaluate(() => localStorage.getItem('wardley-src')),
+    msrc2 => (/Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2)));
   check('wardley narrow: tap-to-place at ~70% writes @ 0.68-0.71', /Inbox @ 0\.(6[89]|7[01]?)\b/.test(msrc2));
 
   // remove Inbox via the card's ⋯ menu
@@ -2544,17 +2329,13 @@ check('no console/page errors', errors.length === 0);
   const wSrc = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
   // open Library's ⋯ → the menu carries Needs… above the danger Remove
   await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
-  await mpage.waitForTimeout(200);
-  check('wardley needs: the ⋯ menu shows the Needs… row',
-    await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
-    await mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).count() === 1);
+  check('wardley needs: the ⋯ menu shows the Needs… row', await until(async () => (await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
+    await mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).count() === 1)));
   // open the checklist: 6 other components, existing deps marked, anchor + self absent
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
-  await mpage.waitForTimeout(200);
-  check('wardley needs: checklist lists every OTHER component (anchor + self absent)',
-    await mpage.locator('.eip-pop button').count() === 6 &&
+  check('wardley needs: checklist lists every OTHER component (anchor + self absent)', await until(async () => (await mpage.locator('.eip-pop button').count() === 6 &&
     await mpage.locator('.eip-pop button', {hasText: 'Library'}).count() === 0 &&
-    await mpage.locator('.eip-pop button', {hasText: 'Reading'}).count() === 0);
+    await mpage.locator('.eip-pop button', {hasText: 'Reading'}).count() === 0)));
   check('wardley needs: exactly the existing deps are marked on',
     (await mpage.locator('.eip-pop button.on').allInnerTexts()).sort().join('|') ===
     'Notification service|Recommendations');
@@ -2567,8 +2348,10 @@ check('no console/page errors', errors.length === 0);
   // middle of "Reading -> Library -> Recommendations -> Catalogue DB" —
   // the split must leave both halves as their own chains
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Recommendations'}));
-  await mpage.waitForTimeout(600);
-  const wsrc1 = await wSrc();
+  const wsrc1 = await untilValue(() => wSrc(),
+    wsrc1 => (/^Reading -> Library$/m.test(wsrc1) &&
+    /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
+    !/Library\s*->\s*Recommendations/.test(wsrc1)));
   check('wardley needs: mid-chain toggle OFF splits the chain into two 2-node chains',
     /^Reading -> Library$/m.test(wsrc1) &&
     /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
@@ -2578,9 +2361,7 @@ check('no console/page errors', errors.length === 0);
   check('wardley needs: coarse toggle does NOT focus the editor', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
   await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
-  await mpage.waitForTimeout(600);
-  check('wardley needs: ONE ↶ Undo restores the split chain (single dispatch)',
-    (await wSrc()) === msrc3);
+  check('wardley needs: ONE ↶ Undo restores the split chain (single dispatch)', await until(async () => ((await wSrc()) === msrc3)));
 
   // toggle ON: Book clubs gains "needs Catalogue DB" — a fresh 2-node line appends
   await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
@@ -2588,8 +2369,8 @@ check('no console/page errors', errors.length === 0);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
   await mpage.waitForTimeout(200);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
-  await mpage.waitForTimeout(600);
-  const wsrc2 = await wSrc();
+  const wsrc2 = await untilValue(() => wSrc(),
+    wsrc2 => (/^Book clubs -> Catalogue DB$/m.test(wsrc2)));
   check('wardley needs: toggle ON appends the edge as its own line',
     /^Book clubs -> Catalogue DB$/m.test(wsrc2));
   check('wardley needs: the map redraws with the new dependency counted',
@@ -2598,20 +2379,14 @@ check('no console/page errors', errors.length === 0);
   // WIDE map, still coarse (tablet-shaped): the added edge is a drawn arrow,
   // and the same menu path removes it — the single-edge-line case in browser
   await mpage.setViewportSize({width: 1194, height: 834});
-  await mpage.waitForTimeout(800);
-  check('wardley needs: the wide map draws the added edge (10 arrows)',
-    await mpage.locator('#preview svg .edge').count() === 10);
+  check('wardley needs: the wide map draws the added edge (10 arrows)', await until(async () => (await mpage.locator('#preview svg .edge').count() === 10)));
   await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Book clubs"]').first());
   await mpage.waitForTimeout(200);
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
-  await mpage.waitForTimeout(200);
-  check('wardley needs: wide checklist marks the just-added dep on',
-    await mpage.locator('.eip-pop button.on', {hasText: 'Catalogue DB'}).count() === 1);
+  check('wardley needs: wide checklist marks the just-added dep on', await until(async () => (await mpage.locator('.eip-pop button.on', {hasText: 'Catalogue DB'}).count() === 1)));
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Catalogue DB'}));
-  await mpage.waitForTimeout(600);
-  check('wardley needs: wide toggle OFF deletes the whole single-edge line (back to baseline)',
-    (await wSrc()) === msrc3 &&
-    await mpage.locator('#preview svg .edge').count() === 9);
+  check('wardley needs: wide toggle OFF deletes the whole single-edge line (back to baseline)', await until(async () => ((await wSrc()) === msrc3 &&
+    await mpage.locator('#preview svg .edge').count() === 9)));
   await mpage.setViewportSize({width: 390, height: 844});   // back to phone for the blocks below
   await mpage.waitForTimeout(600);
   check('wardley narrow: no console/page errors', merrors.length === 0);
@@ -2625,12 +2400,19 @@ check('no console/page errors', errors.length === 0);
      action starts clean. ---- */
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/', {waitUntil: 'networkidle'});
   await mpage.getByRole('button', {name: 'App launch programme'}).click();
+  /* This settle stays a sleep. The poll that replaced it waited for the narrow
+     relayout to RENDER, which happens before the example's text reaches
+     localStorage through the editor's debounce — so the baseline below captured
+     the PREVIOUS document, and every "commits NOTHING" and one-Undo check that
+     compares against it failed. Same class as tlTapCard's box: the poll's
+     condition was true earlier than the state the assertions depend on. */
   await mpage.waitForTimeout(800);
-  const tlNarrow = await mpage.evaluate(() => {
+  const tlNarrow = await untilValue(() => mpage.evaluate(() => {
     const svg = document.querySelector('#preview svg');
     return {narrow: !!(svg && svg.hasAttribute('data-narrow')),
       menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length};
-  });
+  }),
+    tlNarrow => (tlNarrow.narrow));
   check('timeline narrow: the phone preview is the narrow relayout (data-narrow)', tlNarrow.narrow);
   check('timeline narrow: every milestone row is now a data-menu cardmenu (the pilot landed)', tlNarrow.menus === 7);
 
@@ -2638,6 +2420,14 @@ check('no console/page errors', errors.length === 0);
   const tlTapCard = async line => {
     const h = tlHit(line);
     await h.scrollIntoViewIfNeeded();
+    /* This sleep stays. A box that EXISTS is not a box that has STOPPED MOVING:
+       scrollIntoViewIfNeeded returns before the scroll settles, so polling for the
+       box's existence succeeds immediately at stale coordinates and the raw
+       mouse.click below lands on a neighbouring card — which commits an edit, breaks
+       "a coarse card tap commits NOTHING", and corrupts the baseline every following
+       Undo check compares against. Cost 11 failures during the 2026-08-17 conversion:
+       the poll's condition was already true before the action, the one case the
+       conversion rules say to leave alone. */
     await mpage.waitForTimeout(300);
     const b = await h.boundingBox();
     await mpage.mouse.click(b.x + 24, b.y + b.height / 2);   // left of the diamonds — the title/sub band
@@ -2660,37 +2450,28 @@ check('no console/page errors', errors.length === 0);
 
   // Status… → marked picker (none/done/risk); pick risk — a real rewrite, no bare-tap step
   await mpage.locator('.eip-pop button', {hasText: 'Status…'}).click();
-  await mpage.waitForTimeout(250);
-  check('timeline narrow: Status… opens a marked picker (none current), not a blind step',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
-    (await mpage.locator('.eip-pop button.on').innerText()) === 'none');
+  check('timeline narrow: Status… opens a marked picker (none current), not a blind step', await until(async () => ((await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
+    (await mpage.locator('.eip-pop button.on').innerText()) === 'none')));
   await mpage.locator('.eip-pop button', {hasText: 'risk'}).click();
-  await mpage.waitForTimeout(600);
-  check('timeline narrow: Status pick commits [risk]', /App: Feature freeze [^\n]*\[risk\]/.test(await tlSrc()));
+  check('timeline narrow: Status pick commits [risk]', await until(async () => (/App: Feature freeze [^\n]*\[risk\]/.test(await tlSrc()))));
   await tlUndo();
   check('timeline narrow: one Undo reverts the status', (await tlSrc()) === tlBase);
 
   // Lane… → submenu (existing lanes + New lane…); pick Marketing → rewrites the prefix
   await tlTapCard(1);
   await mpage.locator('.eip-pop button', {hasText: 'Lane…'}).click();
-  await mpage.waitForTimeout(250);
-  check('timeline narrow: Lane… lists the model’s lanes (current marked) + New lane…',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'App|Marketing|Compliance|New lane…' &&
-    (await mpage.locator('.eip-pop button.on').innerText()) === 'App');
+  check('timeline narrow: Lane… lists the model’s lanes (current marked) + New lane…', await until(async () => ((await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'App|Marketing|Compliance|New lane…' &&
+    (await mpage.locator('.eip-pop button.on').innerText()) === 'App')));
   await mpage.locator('.eip-pop button', {hasText: 'Marketing'}).click();
-  await mpage.waitForTimeout(600);
-  check('timeline narrow: Lane… pick rewrites the lane prefix', /^Marketing: Feature freeze\b/m.test(await tlSrc()));
+  check('timeline narrow: Lane… pick rewrites the lane prefix', await until(async () => (/^Marketing: Feature freeze\b/m.test(await tlSrc()))));
   await tlUndo();
   check('timeline narrow: one Undo reverts the lane', (await tlSrc()) === tlBase);
 
   // ＋ Add to App capsule → inserts a lane-prefixed milestone; coarse add opts OUT of editor focus
   await settledTap(mpage, mpage.locator('#preview svg g[data-edit="additem"][data-lane="App"]'));
-  await mpage.waitForTimeout(200);
   await mpage.locator('.eip-input').fill('Pen test');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('timeline narrow: ＋ Add to App inserts a lane-prefixed dated milestone',
-    /^App: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(await tlSrc()));
+  check('timeline narrow: ＋ Add to App inserts a lane-prefixed dated milestone', await until(async () => (/^App: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(await tlSrc()))));
   check('timeline narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
   await tlUndo();
@@ -2717,13 +2498,14 @@ check('no console/page errors', errors.length === 0);
      ONE touch-Undo, assert full revert before the next action. ---- */
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
   await mpage.getByRole('button', {name: 'Lantern portfolio'}).click();
-  await mpage.waitForTimeout(800);
-  const btNarrow = await mpage.evaluate(() => ({
+  await mpage.waitForTimeout(800);   // stays — see the timeline block: render precedes the localStorage write
+  const btNarrow = await untilValue(() => mpage.evaluate(() => ({
     narrow: !!document.querySelector('#preview svg [data-narrow]'),
     menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length,
     addbets: document.querySelectorAll('#preview svg [data-edit="addbet"]').length,
     addgroups: document.querySelectorAll('#preview svg [data-edit="addgroup"]').length,
-  }));
+  })),
+    btNarrow => (btNarrow.narrow));
   check('bets narrow: the phone preview is the narrow relayout (data-narrow)', btNarrow.narrow);
   check('bets narrow: every bet card is a data-menu cardmenu', btNarrow.menus === 5);
   check('bets narrow: a ＋ Add bet capsule per group + one ＋ Add group at the foot',
@@ -2733,7 +2515,7 @@ check('no console/page errors', errors.length === 0);
   const btTapCard = async line => {
     const h = btHit(line);
     await h.scrollIntoViewIfNeeded();
-    await mpage.waitForTimeout(300);
+    await mpage.waitForTimeout(300);   // stays — see tlTapCard: existence is not stability
     const b = await h.boundingBox();
     await mpage.mouse.click(b.x + 10, b.y + 6);   // the card's top padding sliver
     await mpage.waitForTimeout(300);
@@ -2751,26 +2533,19 @@ check('no console/page errors', errors.length === 0);
 
   // Rename… routes to the name target's input, prefilled; commit rewrites only the name
   await mpage.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await mpage.waitForTimeout(250);
-  check('bets narrow: Rename… opens prefilled with the bet name',
-    await mpage.locator('.eip-input').inputValue() === 'Referral flow v2');
+  check('bets narrow: Rename… opens prefilled with the bet name', await until(async () => (await mpage.locator('.eip-input').inputValue() === 'Referral flow v2')));
   await mpage.locator('.eip-input').fill('Referral spine');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('bets narrow: Rename commits — attrs survive the rewrite',
-    /^  Referral spine: stake 80, odds 40-60%, payoff 300-500$/m.test(await btSrc()));
+  check('bets narrow: Rename commits — attrs survive the rewrite', await until(async () => (/^  Referral spine: stake 80, odds 40-60%, payoff 300-500$/m.test(await btSrc()))));
   await tlUndo();
   check('bets narrow: one Undo reverts the rename', (await btSrc()) === btBase);
 
   // ＋ Add bet into Growth bets (the capsule carries the GROUP's srcLine, 4):
   // lands after the group's last bet block, typed name replaces the placeholder
   await settledTap(mpage, mpage.locator('#preview svg g[data-edit="addbet"][data-line="4"]'));
-  await mpage.waitForTimeout(200);
   await mpage.locator('.eip-input').fill('Pen test');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('bets narrow: ＋ Add bet inserts a parseable placeholder into the group',
-    (await btSrc()).split(/\r?\n/)[8] === '  Pen test: stake 50, odds 40-60%, payoff 100-200');
+  check('bets narrow: ＋ Add bet inserts a parseable placeholder into the group', await until(async () => ((await btSrc()).split(/\r?\n/)[8] === '  Pen test: stake 50, odds 40-60%, payoff 100-200')));
   check('bets narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
   check('bets narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
@@ -2783,11 +2558,9 @@ check('no console/page errors', errors.length === 0);
 
   // ＋ Add group closes the board
   await settledTap(mpage, mpage.locator('#preview svg g[data-edit="addgroup"]'));
-  await mpage.waitForTimeout(200);
   await mpage.locator('.eip-input').fill('Ops bets');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('bets narrow: ＋ Add group appends a heading at the foot', /\nOps bets\s*$/.test(await btSrc()));
+  check('bets narrow: ＋ Add group appends a heading at the foot', await until(async () => (/\nOps bets\s*$/.test(await btSrc()))));
   await tlUndo();
   check('bets narrow: one Undo removes the added group', (await btSrc()) === btBase);
 
@@ -2804,11 +2577,9 @@ check('no console/page errors', errors.length === 0);
   // a value edit still works through the menu (the stage didn't regress values)
   await btTapCard(5);
   await mpage.locator('.eip-pop button', {hasText: 'Edit odds…'}).click();
-  await mpage.waitForTimeout(250);
   await mpage.locator('.eip-input').fill('35-55');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(600);
-  check('bets narrow: menu value edit still commits', (await btSrc()).includes('odds 35-55%'));
+  check('bets narrow: menu value edit still commits', await until(async () => ((await btSrc()).includes('odds 35-55%'))));
   await tlUndo();
   check('bets narrow: one Undo reverts the value edit', (await btSrc()) === btBase);
 
@@ -3001,8 +2772,7 @@ insure: premium 6 attach 65 limit 30`;
   await rkBtn('Rename…');
   await mpage.locator('.eip-input').fill('Fixed PPA');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(400);
-  check('risk narrow: Rename writes the quoted label', /^toll: 95 "Fixed PPA"$/m.test(await rkSrc()));
+  check('risk narrow: Rename writes the quoted label', await until(async () => (/^toll: 95 "Fixed PPA"$/m.test(await rkSrc()))));
   await rkUndo();
   check('risk narrow: one Undo reverts the rename', (await rkSrc()) === rkBase);
 
@@ -3023,11 +2793,9 @@ insure: premium 6 attach 65 limit 30`;
   check('risk narrow: default add opens the fresh in-artifact label, never CodeMirror',
     await mpage.locator('.eip-input').count() === 1 && !(await mpage.evaluate(() =>
       document.activeElement?.closest('.cm-editor'))));
-  await mpage.keyboard.press('Escape'); await mpage.waitForTimeout(500);
-  check('risk narrow: Escape cancels the untouched added leg', (await rkSrc()) === rkBase);
+  await mpage.keyboard.press('Escape'); check('risk narrow: Escape cancels the untouched added leg', await until(async () => ((await rkSrc()) === rkBase)));
   await rkTap('[data-edit="addleg"]'); await rkBtn('Insure');
-  await mpage.locator('.eip-input').fill('Named cover'); await mpage.keyboard.press('Enter'); await mpage.waitForTimeout(400);
-  check('risk narrow: naming the new leg is a second, in-artifact edit', /insure: premium 6 attach 66 "Named cover"$/m.test(await rkSrc()));
+  await mpage.locator('.eip-input').fill('Named cover'); await mpage.keyboard.press('Enter'); check('risk narrow: naming the new leg is a second, in-artifact edit', await until(async () => (/insure: premium 6 attach 66 "Named cover"$/m.test(await rkSrc()))));
   await rkUndo(); await rkUndo();
   check('risk narrow: two Undos revert named creation (name, then leg)', (await rkSrc()) === rkBase);
 
@@ -3061,14 +2829,10 @@ insure: premium 6 attach 65 limit 30`;
     g.scrollIntoView({block: 'center'}); const r = g.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; });
   await mpage.waitForTimeout(150);
   await mpage.mouse.click(pt.x, pt.y);
-  await mpage.waitForTimeout(300);
-  check('risk append-fix: the absent-share pill opens an input (prefilled 100)',
-    await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === '100');
+  check('risk append-fix: the absent-share pill opens an input (prefilled 100)', await until(async () => (await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === '100')));
   await mpage.locator('.eip-input').fill('75');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(400);
-  check('risk append-fix: editing an absent share now WRITES it (was a silent no-op)',
-    /^floor: 70 share 75%$/m.test(await mpage.evaluate(() => localStorage.getItem('risk-src'))));
+  check('risk append-fix: editing an absent share now WRITES it (was a silent no-op)', await until(async () => (/^floor: 70 share 75%$/m.test(await mpage.evaluate(() => localStorage.getItem('risk-src'))))));
   check('risk append-fix: no console/page errors', merrors.length === 0);
   await mctx.close();
 }
@@ -3093,12 +2857,11 @@ insure: premium 6 attach 65 limit 30`;
   await p.waitForTimeout(300);
   const gridAddBox = await gridAdd.boundingBox();
   await p.mouse.click(gridAddBox.x + gridAddBox.width / 2, gridAddBox.y + gridAddBox.height / 2);
-  await p.waitForTimeout(200);
-  check('timeline: lane zone opens the eip-input empty', await p.locator('.eip-input').inputValue() === '');
+  check('timeline: lane zone opens the eip-input empty', await until(async () => (await p.locator('.eip-input').inputValue() === '')));
   await p.locator('.eip-input').fill('Pen test');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const t = await p.evaluate(() => localStorage.getItem('timeline-src'));
+  const t = await untilValue(() => p.evaluate(() => localStorage.getItem('timeline-src')),
+    t => (/^Grid: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(t)));
   check('timeline: lane add writes a lane-prefixed dated placeholder, typed value in',
     /^Grid: Pen test \d{4}-\d{2} \.\. \d{4}-\d{2}$/m.test(t));
   check('timeline: no console/page errors', errs.length === 0);
@@ -3125,12 +2888,11 @@ insure: premium 6 attach 65 limit 30`;
 
   // direct odds edit on "Referral flow v2" (srcLine 5): commits + re-renders
   await p.locator('[data-edit="odds"][data-line="5"]').click();
-  await p.waitForTimeout(200);
-  check('bets: odds cell opens prefilled', await p.locator('.eip-input').inputValue() === '40–60%');
+  check('bets: odds cell opens prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === '40–60%')));
   await p.locator('.eip-input').fill('35-55');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tOdds = await p.evaluate(() => localStorage.getItem('bets-src'));
+  const tOdds = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
+    tOdds => (tOdds.includes('odds 35-55%') && !tOdds.includes('odds 40-60%')));
   check('bets: odds edit commits to the editor text', tOdds.includes('odds 35-55%') && !tOdds.includes('odds 40-60%'));
   check('bets: board re-renders the new odds', (await p.locator('#preview svg').innerHTML()).includes('35–55%'));
   await undo();
@@ -3138,8 +2900,7 @@ insure: premium 6 attach 65 limit 30`;
 
   // direct kill edit on the same bet's kill child (srcLine 6): an empty value REMOVES the line
   await p.locator('[data-edit="kill"][data-line="6"]').click();
-  await p.waitForTimeout(200);
-  check('bets: kill field opens prefilled', await p.locator('.eip-input').inputValue() === 'Signups per referral stay under 0.3 by 2026-09-15');
+  check('bets: kill field opens prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Signups per referral stay under 0.3 by 2026-09-15')));
   await p.locator('.eip-input').fill('');
   await p.keyboard.press('Enter');
   await p.waitForTimeout(600);
@@ -3157,49 +2918,39 @@ insure: premium 6 attach 65 limit 30`;
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   await tapCard(7);
-  await p.waitForTimeout(200);
-  check('bets: card menu shows the six rows (Rename + values + dynamic kill + Remove)',
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
-      'Rename…|Edit stake…|Edit odds…|Edit payoff…|Edit kill criterion…|Remove bet');
+  check('bets: card menu shows the six rows (Rename + values + dynamic kill + Remove)', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+      'Rename…|Edit stake…|Edit odds…|Edit payoff…|Edit kill criterion…|Remove bet')));
 
   // Rename… routes to the wide ledger's (edit-gated) name target
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  await p.waitForTimeout(200);
-  check('bets: menu Rename opens the name input prefilled',
-    await p.locator('.eip-input').inputValue() === 'Paid acquisition push');
+  check('bets: menu Rename opens the name input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Paid acquisition push')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
   await tapCard(7);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Edit stake…'}).click();
-  await p.waitForTimeout(200);
-  check('bets: menu Edit stake opens the stake input prefilled', await p.locator('.eip-input').inputValue() === '220');
+  check('bets: menu Edit stake opens the stake input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === '220')));
   await p.locator('.eip-input').fill('200');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(600);
-  const tStake = await p.evaluate(() => localStorage.getItem('bets-src'));
+  const tStake = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
+    tStake => (tStake.includes('stake 200,') && !tStake.includes('stake 220,')));
   check('bets: menu Edit stake commits the new value', tStake.includes('stake 200,') && !tStake.includes('stake 220,'));
   await undo();
   check('bets: one undo restores the pre-menu-edit baseline', (await p.evaluate(() => localStorage.getItem('bets-src'))) === baseline);
 
   // menu Edit kill criterion… re-opens the EXISTING kill field for a bet that has one
   await tapCard(7);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Edit kill criterion…'}).click();
-  await p.waitForTimeout(200);
-  check('bets: menu Edit kill criterion reopens the existing kill field',
-    await p.locator('.eip-input').inputValue() === 'CAC exceeds £40 for two consecutive months');
+  check('bets: menu Edit kill criterion reopens the existing kill field', await until(async () => (await p.locator('.eip-input').inputValue() === 'CAC exceeds £40 for two consecutive months')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
   // menu Add kill criterion… on a bare bet ("Sync engine rewrite", srcLine 11 —
   // NO KILL CRITERION today, so the label flips) inserts a fresh child line
   await tapCard(11);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Add kill criterion…'}).click();
-  await p.waitForTimeout(400);
-  const tNewKill = await p.evaluate(() => localStorage.getItem('bets-src'));
+  const tNewKill = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
+    tNewKill => (tNewKill.split(/\r?\n/).includes('    kill: reason')));
   check('bets: menu Kill criterion on a bare bet inserts a fresh kill child line',
     tNewKill.split(/\r?\n/).includes('    kill: reason'));
   await undo();
@@ -3212,15 +2963,14 @@ insure: premium 6 attach 65 limit 30`;
      forward removeLine would have left sitting on the undo stack for Ctrl+Z
      to reverse). ---- */
   await tapCard(11);
-  await p.waitForTimeout(200);
   await p.locator('.eip-pop button', {hasText: 'Add kill criterion…'}).click();
-  await p.waitForTimeout(400);
-  const midInsert = await p.evaluate(() => localStorage.getItem('bets-src'));
+  const midInsert = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
+    midInsert => (midInsert.split(/\r?\n/).includes('    kill: reason')));
   check('bets: kill default-insert lands the placeholder before Escape',
     midInsert.split(/\r?\n/).includes('    kill: reason'));
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(400);
-  const afterEscape = await p.evaluate(() => localStorage.getItem('bets-src'));
+  const afterEscape = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
+    afterEscape => (afterEscape === baseline));
   check('bets: Escape on the kill default-insert restores the exact baseline', afterEscape === baseline);
   await undo();
   const afterSubsequentUndo = await p.evaluate(() => localStorage.getItem('bets-src'));
@@ -3242,15 +2992,12 @@ insure: premium 6 attach 65 limit 30`;
   const derrs = trackErrors(dp);
   await dp.goto((process.env.BASE || 'http://localhost:8087') + '/bets/', {waitUntil: 'networkidle'});
   await dp.getByRole('button', {name: 'Lantern portfolio'}).click();
-  await dp.waitForTimeout(600);
-  check('bets desktop-narrow: a fine-pointer narrow viewport still relayouts (data-narrow)',
-    await dp.evaluate(() => !!document.querySelector('#preview svg [data-narrow]')));
+  check('bets desktop-narrow: a fine-pointer narrow viewport still relayouts (data-narrow)', await until(async () => (await dp.evaluate(() => !!document.querySelector('#preview svg [data-narrow]')))));
   await dp.locator('#preview svg g[data-edit="addbet"][data-line="4"]').click();
-  await dp.waitForTimeout(200);
   await dp.locator('.eip-input').fill('Fine pointer add');
   await dp.keyboard.press('Enter');
-  await dp.waitForTimeout(600);
-  const dAfter = await dp.evaluate(() => localStorage.getItem('bets-src'));
+  const dAfter = await untilValue(() => dp.evaluate(() => localStorage.getItem('bets-src')),
+    dAfter => (dAfter.split(/\r?\n/).some(l => l.trim() === 'Fine pointer add: stake 50, odds 40-60%, payoff 100-200')));
   check('bets desktop-narrow: ＋ Add bet (mouse click, no touch) inserts a parseable placeholder',
     dAfter.split(/\r?\n/).some(l => l.trim() === 'Fine pointer add: stake 50, odds 40-60%, payoff 100-200'));
   check('bets desktop-narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
@@ -3290,40 +3037,32 @@ insure: premium 6 attach 65 limit 30`;
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
     await settledTap(p, p.locator('[data-edit="astatus"][data-raw="testing"]').first());
-    await p.waitForTimeout(250);
-    check('phone why: astatus tap opens the cycle popover — no instant commit',
-      await p.locator('.eip-pop').count() === 1);
+    check('phone why: astatus tap opens the cycle popover — no instant commit', await until(async () => (await p.locator('.eip-pop').count() === 1)));
     check('phone why: doc text UNCHANGED while the popover is open',
       (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
     check('phone why: popover lists the four states with the current one marked',
       (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken' &&
       (await p.locator('.eip-pop button.on').innerText()) === 'testing');
     await p.locator('.eip-pop button', {hasText: 'holds'}).click();
-    await p.waitForTimeout(700);
-    const picked = await p.evaluate(() => localStorage.getItem('why-src'));
+    const picked = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
+    picked => (picked.includes('? readers want a nudge mid-commute [holds]')));
     check('phone why: picking commits EXACTLY the picked value (not "next in cycle")',
       picked.includes('? readers want a nudge mid-commute [holds]'));
     /* Rule 2: the touch Undo button reverts through the editor's history */
     await settledTap(p, p.locator('.actions .touch-undo'));
-    await p.waitForTimeout(600);
-    check('phone why: ↶ Undo reverts the popover commit',
-      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+    check('phone why: ↶ Undo reverts the popover commit', await until(async () => ((await p.evaluate(() => localStorage.getItem('why-src'))) === baseline)));
     /* the data-menu redirect still wins where a menu sibling covers the tap */
     await sliverTap(p, p.locator('#preview svg rect[data-edit^="cardmenu"][data-hit]').first());
-    await p.waitForTimeout(250);
-    check('phone why: card-body tap opens exactly ONE menu popover (redirect wins, nothing double-fires)',
-      await p.locator('.eip-pop').count() === 1 &&
-      await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1);
+    check('phone why: card-body tap opens exactly ONE menu popover (redirect wins, nothing double-fires)', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
+      await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1)));
     check('phone why: menu open commits nothing',
       (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
     /* away-dismiss: a pointerdown anywhere outside the popover closes it.
        Synthetic on body — a coordinate tap risks hitting the crumb link or
        another [data-edit] target, and a locator click scroll-closes first. */
     await p.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})));
-    await p.waitForTimeout(250);
-    check('phone why: away pointerdown dismisses the popover without a commit',
-      await p.locator('.eip-pop').count() === 0 &&
-      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+    check('phone why: away pointerdown dismisses the popover without a commit', await until(async () => (await p.locator('.eip-pop').count() === 0 &&
+      (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline)));
     check('phone why: no console/page errors', errs.length === 0);
     await p.close();
   }
@@ -3342,7 +3081,6 @@ insure: premium 6 attach 65 limit 30`;
     await p.waitForTimeout(700);
     const inCm = () => p.evaluate(() => !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.cm-editor')));
     await sliverTap(p, p.locator('#preview svg rect[data-edit^="cardmenu"][data-hit]').first());
-    await p.waitForTimeout(250);
     await p.locator('.eip-pop button', {hasText: /Add/}).first().click();
     await p.waitForTimeout(600);
     check('phone why: coarse add-from-diagram does NOT focus the DSL editor (no soft-keyboard jump)', !(await inCm()));
@@ -3369,22 +3107,19 @@ insure: premium 6 attach 65 limit 30`;
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
     await settledTap(p, p.locator('[data-edit="removeitem"]').first());
-    await p.waitForTimeout(250);
-    check('phone map: × tap redirects to the card MENU (not a silent removal, not a bare × confirm)',
-      await p.locator('.eip-pop').count() === 1 &&
+    check('phone map: × tap redirects to the card MENU (not a silent removal, not a bare × confirm)', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
       await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1 &&
-      await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).count() === 1);
+      await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).count() === 1)));
     check('phone map: doc text UNCHANGED while the menu is open',
       (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
     await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).click();
-    await p.waitForTimeout(700);
-    const removed = await p.evaluate(() => localStorage.getItem('map-src'));
+    const removed = await untilValue(() => p.evaluate(() => localStorage.getItem('map-src')),
+    removed => (removed !== baseline &&
+      removed.split('\n').length === baseline.split('\n').length - 1));
     check('phone map: the menu Remove commits the removal', removed !== baseline &&
       removed.split('\n').length === baseline.split('\n').length - 1);
     await settledTap(p, p.locator('.actions .touch-undo'));
-    await p.waitForTimeout(600);
-    check('phone map: ↶ Undo restores the removed line',
-      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+    check('phone map: ↶ Undo restores the removed line', await until(async () => ((await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
 
     /* Move… (mobile-input map stage): the card menu arms a ONE-SHOT
        tap-the-plane placement — the coarse repositioning path (the fine drag
@@ -3396,15 +3131,11 @@ insure: premium 6 attach 65 limit 30`;
     await p.waitForTimeout(300);
     const mBox = await mHit.boundingBox();
     await p.mouse.click(mBox.x + 4, mBox.y + mBox.height / 2);
-    await p.waitForTimeout(250);
-    check('phone map: the card menu offers Move…',
-      await p.locator('.eip-pop button', {hasText: 'Move…'}).count() === 1);
+    check('phone map: the card menu offers Move…', await until(async () => (await p.locator('.eip-pop button', {hasText: 'Move…'}).count() === 1)));
     await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
-    await p.waitForTimeout(300);
-    check('phone map: Move… arms the hint (with a Cancel), commits nothing',
-      await p.locator('.placehint').count() === 1 &&
+    check('phone map: Move… arms the hint (with a Cancel), commits nothing', await until(async () => (await p.locator('.placehint').count() === 1 &&
       await p.locator('.placehint .btn', {hasText: 'Cancel'}).count() === 1 &&
-      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
     /* tap a point inside plane ∩ preview clip ∩ viewport (the plane is wider
        than the phone; only the visible part is tappable, as for a real thumb) */
     const plane = await p.locator('#preview svg rect[data-plane]').boundingBox();
@@ -3426,25 +3157,20 @@ insure: premium 6 attach 65 limit 30`;
     check('phone map: no page h-scroll while placing',
       await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await settledTap(p, p.locator('.actions .touch-undo'));
-    await p.waitForTimeout(600);
-    check('phone map: ↶ Undo reverts the placement',
-      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+    check('phone map: ↶ Undo reverts the placement', await until(async () => ((await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
 
     /* the armed state is escapable (no silent trap): Cancel disarms, no write */
     await mHit.scrollIntoViewIfNeeded();
     await p.waitForTimeout(300);
     const mBox2 = await mHit.boundingBox();
     await p.mouse.click(mBox2.x + 4, mBox2.y + mBox2.height / 2);
-    await p.waitForTimeout(250);
     await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
-    await p.waitForTimeout(300);
-    const cBox = await p.locator('.placehint .btn').boundingBox();
+    const cBox = await untilValue(() => p.locator('.placehint .btn').boundingBox(),
+    cBox => (cBox.height >= 44));
     check('phone map: the hint Cancel is a >=44px target', cBox.height >= 44);
     await p.touchscreen.tap(cBox.x + cBox.width / 2, cBox.y + cBox.height / 2);
-    await p.waitForTimeout(300);
-    check('phone map: Cancel disarms without a write',
-      await p.locator('.placehint').count() === 0 &&
-      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline);
+    check('phone map: Cancel disarms without a write', await until(async () => (await p.locator('.placehint').count() === 0 &&
+      (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
 
     check('phone map: no console/page errors', errs.length === 0);
     await p.close();
@@ -3457,13 +3183,19 @@ insure: premium 6 attach 65 limit 30`;
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
     await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+    /* This 700ms settle stays a sleep. Twice now a poll has been put here and twice it
+       broke: it must cover the example's text reaching localStorage through the
+       editor's debounce AND the narrow chart re-rendering its tap targets, and no
+       cheap predicate covers both — polling the source for two equal reads returns
+       during the pre-write window, so the baseline captures the PREVIOUS document and
+       every check comparing against it fails. The confused predicate this replaced
+       (a copy of the check below, requiring a popover not yet opened) only worked by
+       accident, because running out its 4000ms ceiling happened to wait long enough. */
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
     await sliverTap(p, p.locator('#preview svg g[data-edit="cardmenu"] rect[data-hit]').first());
-    await p.waitForTimeout(250);
-    check('phone roadmap: narrow-chart card tap opens the menu, commits nothing',
-      await p.locator('.eip-pop').count() === 1 &&
-      (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
+    check('phone roadmap: narrow-chart card tap opens the menu, commits nothing', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
+      (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline)));
     await p.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})));
     await p.waitForTimeout(250);
     check('phone roadmap: no console/page errors', errs.length === 0);
@@ -3504,22 +3236,21 @@ insure: premium 6 attach 65 limit 30`;
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/timeline/'), {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'App launch programme'}).click();
+  /* 700ms settle stays — see the roadmap tablet block above for why no poll works
+     here (debounced write + narrow re-render, and the old predicate only "worked" by
+     exhausting its ceiling). */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('timeline-src'));
   await settledTap(p, p.locator('[data-edit="status"]').first());
-  await p.waitForTimeout(400);
-  check('tablet timeline: a coarse status tap opens the marked picker — NO silent step',
-    await p.locator('.eip-pop').count() === 1 &&
+  check('tablet timeline: a coarse status tap opens the marked picker — NO silent step', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
-    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline)));
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
-  await p.waitForTimeout(600);
-  const stepped = await p.evaluate(() => localStorage.getItem('timeline-src'));
+  const stepped = await untilValue(() => p.evaluate(() => localStorage.getItem('timeline-src')),
+    stepped => (stepped !== baseline && /\[risk\]/.test(stepped)));
   check('tablet timeline: picking a status commits it (no blind step)', stepped !== baseline && /\[risk\]/.test(stepped));
   await settledTap(p, p.locator('.actions .touch-undo'));
-  await p.waitForTimeout(600);
-  check('tablet timeline: ↶ Undo reverts the picked status',
-    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
+  check('tablet timeline: ↶ Undo reverts the picked status', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline)));
 
   /* the standalone ['×'] cycle popover (Rule 1's remove branch): timeline has NO
      card menu, so its × removeitem has no data-menu sibling — the redirect can't
@@ -3527,20 +3258,14 @@ insure: premium 6 attach 65 limit 30`;
      one-row danger confirm, commit NOTHING until confirmed, then remove on tap. */
   const base2 = await p.evaluate(() => localStorage.getItem('timeline-src'));
   await settledTap(p, p.locator('[data-edit="removeitem"]').first());
-  await p.waitForTimeout(300);
-  check('tablet timeline: × tap opens a one-row danger confirm (cycle-popover fallback, no menu sibling)',
-    await p.locator('.eip-pop button.danger').count() === 1 &&
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove');
+  check('tablet timeline: × tap opens a one-row danger confirm (cycle-popover fallback, no menu sibling)', await until(async () => (await p.locator('.eip-pop button.danger').count() === 1 &&
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove')));
   check('tablet timeline: doc UNCHANGED while the × confirm is open — no silent removal',
     (await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2);
   await p.locator('.eip-pop button.danger').click();
-  await p.waitForTimeout(600);
-  check('tablet timeline: confirming × removes the milestone line',
-    (await p.evaluate(() => localStorage.getItem('timeline-src'))) !== base2);
+  check('tablet timeline: confirming × removes the milestone line', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) !== base2)));
   await settledTap(p, p.locator('.actions .touch-undo'));
-  await p.waitForTimeout(600);
-  check('tablet timeline: ↶ Undo restores the removed milestone',
-    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2);
+  check('tablet timeline: ↶ Undo restores the removed milestone', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2)));
 
   check('tablet timeline: no console/page errors', errs.length === 0);
   await p.close();
@@ -3586,8 +3311,9 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   // collapsed desktop trigger is deliberately absent to avoid a duplicate path.
   if(await mpage.locator('#railtab').isVisible()) await mpage.locator('#railtab').click();
   await mpage.locator('#viewform').click();     // compose boots in reveal view
-  await mpage.waitForTimeout(500);
-  const gBase = await gSrc();
+  const gBase = await untilValue(() => gSrc(),
+    async gBase => (gBase === GDOC &&
+    await mpage.locator('.formpreview .gform [data-edit]').count() > 0));
   check('gauge: the compose form is the editable authoring surface', gBase === GDOC &&
     await mpage.locator('.formpreview .gform [data-edit]').count() > 0);
   check('gauge: no per-card ⋯ menu (every edit is a direct target)',
@@ -3599,14 +3325,11 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   const eipFs = await mpage.evaluate(() => { const i = document.querySelector('.eip-input'); return i ? parseFloat(getComputedStyle(i).fontSize) : 0; });
   check('gauge: shared .eip-input is ≥16px on coarse (no iOS zoom — assets/workspace.css)', eipFs >= 16);
   await mpage.keyboard.press('Escape');
-  await mpage.waitForTimeout(200);
-  check('gauge: Escaping the qtext editor commits nothing', (await gSrc()) === gBase);
+  check('gauge: Escaping the qtext editor commits nothing', await until(async () => ((await gSrc()) === gBase)));
   await gTap('[data-edit="qtext"][data-line="3"]');
   await mpage.locator('.eip-input').fill('Ship the loop by Q3');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(400);
-  check('gauge: qtext edit rewrites the text, keeps the kind tail',
-    /^Ship the loop by Q3 :: prob$/m.test(await gSrc()));
+  check('gauge: qtext edit rewrites the text, keeps the kind tail', await until(async () => (/^Ship the loop by Q3 :: prob$/m.test(await gSrc()))));
   check('gauge: a coarse text edit does NOT focus the DSL editor', !(await inCm()));
   await gUndo();
   check('gauge: one Undo reverts the qtext edit', (await gSrc()) === gBase);
@@ -3627,8 +3350,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('gauge: unit pill opens prefilled with the current unit', await mpage.locator('.eip-input').inputValue() === 'weeks');
   await mpage.locator('.eip-input').fill('months');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(400);
-  check('gauge: unit edit rewrites the range tail', /^Weeks to migrate billing :: range months$/m.test(await gSrc()));
+  check('gauge: unit edit rewrites the range tail', await until(async () => (/^Weeks to migrate billing :: range months$/m.test(await gSrc()))));
   await gUndo();
   check('gauge: one Undo reverts the unit edit', (await gSrc()) === gBase);
 
@@ -3645,8 +3367,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('gauge: chip option opens prefilled with its label', await mpage.locator('.eip-input').inputValue() === 'Offline downloads');
   await mpage.locator('.eip-input').fill('Resume v2');
   await mpage.keyboard.press('Enter');
-  await mpage.waitForTimeout(400);
-  check('gauge: option rename rewrites just that option', /:: chips Resume v2 \| Book clubs \| Onboarding polish$/m.test(await gSrc()));
+  check('gauge: option rename rewrites just that option', await until(async () => (/:: chips Resume v2 \| Book clubs \| Onboarding polish$/m.test(await gSrc()))));
   await gUndo();
   check('gauge: one Undo reverts the option rename', (await gSrc()) === gBase);
 
@@ -3656,8 +3377,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
     (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove' &&
     (await gSrc()) === gBase);
   await mpage.locator('.eip-pop button.danger').click();
-  await mpage.waitForTimeout(400);
-  check('gauge: confirming drops that option', /:: chips Offline downloads \| Onboarding polish$/m.test(await gSrc()));
+  check('gauge: confirming drops that option', await until(async () => (/:: chips Offline downloads \| Onboarding polish$/m.test(await gSrc()))));
   await gUndo();
   check('gauge: one Undo restores the removed option', (await gSrc()) === gBase);
 
@@ -3671,12 +3391,9 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
     /\nNew question :: chips Option A \| Option B$/.test(await gSrc()));
   check('gauge: default question opens its fresh in-artifact name field, not CodeMirror',
     await mpage.locator('.eip-input').count() === 1 && !(await inCm()));
-  await mpage.keyboard.press('Escape'); await mpage.waitForTimeout(500);
-  check('gauge: Escape cancels the untouched new question', (await gSrc()) === gBase);
+  await mpage.keyboard.press('Escape'); check('gauge: Escape cancels the untouched new question', await until(async () => ((await gSrc()) === gBase)));
   await gTap('[data-edit="addq"]'); await gBtn('Chips');
-  await mpage.locator('.eip-input').fill('Where should we invest?'); await mpage.keyboard.press('Enter'); await mpage.waitForTimeout(400);
-  check('gauge: naming the new question is a second in-artifact edit',
-    /\nWhere should we invest\? :: chips Option A \| Option B$/.test(await gSrc()));
+  await mpage.locator('.eip-input').fill('Where should we invest?'); await mpage.keyboard.press('Enter'); check('gauge: naming the new question is a second in-artifact edit', await until(async () => (/\nWhere should we invest\? :: chips Option A \| Option B$/.test(await gSrc()))));
   await gUndo(); await gUndo();
   check('gauge: two Undos revert named question creation (name, then question)', (await gSrc()) === gBase);
 
@@ -3734,44 +3451,36 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   const overviewQuestion = p.locator('[data-kind="attention-decision"][data-decision-key="groups"]');
   await overviewQuestion.focus();
   await overviewQuestion.press('Enter');
-  await p.waitForTimeout(400);
-  check('paths: overview keyboard selection updates and focuses the evaluator-backed live receipt',
-    await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
+  check('paths: overview keyboard selection updates and focuses the evaluator-backed live receipt', await until(async () => (await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
     await p.locator('[data-kind="attention-decision"][data-decision-key="groups"][data-selected="true"]').count() === 1 &&
     await p.evaluate(() => document.activeElement?.id) === 'overview-receipt-title' &&
-    await p.locator('#decision-inspector').isHidden());
+    await p.locator('#decision-inspector').isHidden())));
   check('paths: decision selection announces the selected question and current state',
     /Selected question: Will people invite three friends without prompting\?. Unanswered — due/.test(
       await p.locator('#summary').innerText()));
 
   await p.locator('#overview-receipt [data-open-closeout]').click();
-  await p.waitForTimeout(250);
-  check('paths: Brief desktop Close-out is a full selected-decision layer, not the receipt rail',
-    await p.evaluate(() => {
+  check('paths: Brief desktop Close-out is a full selected-decision layer, not the receipt rail', await until(async () => (await p.evaluate(() => {
       const live = document.querySelector('#overview-live').getBoundingClientRect();
       const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
       const host = document.querySelector('#overview-live');
       return host.dataset.mode === 'closeout' && receipt.width >= live.width - 1 &&
         getComputedStyle(document.querySelector('#overview-receipt')).position === 'static';
-    }));
+    }))));
   await p.locator('#overview-receipt [data-return-closeout]').click();
-  await p.waitForTimeout(250);
-  check('paths: returning from Brief Close-out restores the roadmap and its normal receipt rail',
-    await p.evaluate(() => {
+  check('paths: returning from Brief Close-out restores the roadmap and its normal receipt rail', await until(async () => (await p.evaluate(() => {
       const host = document.querySelector('#overview-live');
       const main = document.querySelector('.overview-main').getBoundingClientRect();
       const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
       return host.dataset.mode === 'overview' && !document.querySelector('#preview').hidden &&
         getComputedStyle(document.querySelector('#overview-receipt')).position === 'sticky' &&
         main.right <= receipt.left && document.activeElement?.hasAttribute('data-open-closeout');
-    }));
+    }))));
 
   await p.locator('#overview-receipt [data-open-focus]').click();
-  await p.waitForTimeout(300);
-  check('paths: Open focus is a deliberate local lens with stable selected decision',
-    await p.locator('#focus-lens').isVisible() && await p.locator('#preview').isHidden() &&
+  check('paths: Open focus is a deliberate local lens with stable selected decision', await until(async () => (await p.locator('#focus-lens').isVisible() && await p.locator('#preview').isHidden() &&
     await p.evaluate(() => document.activeElement?.id) === 'focus-lens-title' &&
-    /Will people invite three friends/.test(await p.locator('#focus-lens-title').innerText()));
+    /Will people invite three friends/.test(await p.locator('#focus-lens-title').innerText()))));
   check('paths: Focus names yes/no as counterfactuals and exposes compound outcomes',
     await p.locator('#focus-lens .focus-branch').count() === 2 &&
     /If answered yes/.test(await p.locator('#focus-lens').innerText()) &&
@@ -3792,18 +3501,14 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
     focusSvg.includes('CHANGES DIRECTLY WITH THIS ANSWER') &&
     !focusSvg.includes('data-kind="tree-body"'));
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(300);
-  check('paths: Escape returns to Overview, preserves selection and returns focus to the opener',
-    await p.locator('#preview').isVisible() && await p.locator('#focus-lens').isHidden() &&
+  check('paths: Escape returns to Overview, preserves selection and returns focus to the opener', await until(async () => (await p.locator('#preview').isVisible() && await p.locator('#focus-lens').isHidden() &&
     await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
-    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-focus')));
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-focus')))));
 
   await p.setViewportSize({width:390, height:844});
-  await p.waitForTimeout(400);
-  check('paths: phone Overview keeps the agenda and omits the embedded SVG receipt',
-    await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
+  check('paths: phone Overview keeps the agenda and omits the embedded SVG receipt', await until(async () => (await p.locator('[data-kind="roadmap-agenda"]').count() === 1 &&
     await p.locator('#preview [data-kind="overview-receipt"]').count() === 0 &&
-    await p.locator('#overview-receipt').isHidden());
+    await p.locator('#overview-receipt').isHidden())));
   const phoneDecision = p.locator('[data-select-decision][data-decision-key="groups"]');
   await phoneDecision.click();
   await p.locator('#overview-receipt').waitFor({state:'visible'});
@@ -3842,103 +3547,78 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('paths: phone receipt wraps its three-control focus trap',
     await p.evaluate(() => document.activeElement?.hasAttribute('data-receipt-close')));
   await p.locator('#overview-receipt [data-open-closeout]').click();
-  await p.waitForTimeout(150);
-  check('paths: phone Close-out remains the selected receipt sheet',
-    await p.locator('#overview-live').getAttribute('data-mode') === 'overview' &&
+  check('paths: phone Close-out remains the selected receipt sheet', await until(async () => (await p.locator('#overview-live').getAttribute('data-mode') === 'overview' &&
     await p.locator('#overview-receipt[data-closeout-detail="true"]').isVisible() &&
-    /Learning close-out/i.test(await p.locator('#overview-receipt').innerText()));
+    /Learning close-out/i.test(await p.locator('#overview-receipt').innerText()))));
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(150);
-  check('paths: phone Escape returns from Close-out to its receipt opener',
-    await p.locator('#overview-receipt[data-closeout-detail="true"]').count() === 0 &&
+  check('paths: phone Escape returns from Close-out to its receipt opener', await until(async () => (await p.locator('#overview-receipt[data-closeout-detail="true"]').count() === 0 &&
     await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
-    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')));
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')))));
   await p.locator('#overview-receipt [data-receipt-close]').click();
-  await p.waitForTimeout(100);
-  check('paths: Close dismisses the phone sheet and returns focus to its decision',
-    await p.locator('#overview-receipt').isHidden() &&
+  check('paths: Close dismisses the phone sheet and returns focus to its decision', await until(async () => (await p.locator('#overview-receipt').isHidden() &&
     await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups' &&
     await p.evaluate(() => !document.querySelector('.overview-main').inert &&
-      !document.querySelector('.overview-main').hasAttribute('aria-hidden')));
+      !document.querySelector('.overview-main').hasAttribute('aria-hidden')))));
   await p.keyboard.press('Enter');
   await p.locator('#overview-receipt').waitFor({state:'visible'});
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(100);
-  check('paths: Escape dismisses the phone sheet and returns focus to its decision',
-    await p.locator('#overview-receipt').isHidden() &&
-    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups');
+  check('paths: Escape dismisses the phone sheet and returns focus to its decision', await until(async () => (await p.locator('#overview-receipt').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups')));
 
   await p.setViewportSize({width:901, height:900});
-  await p.waitForTimeout(500);
-  check('paths: a 901px viewport keeps a readable selected artefact without a forced phone sheet',
-    await p.locator('#overview-live').getAttribute('data-receipt-layout') !== 'sheet' &&
+  check('paths: a 901px viewport keeps a readable selected artefact without a forced phone sheet', await until(async () => (await p.locator('#overview-live').getAttribute('data-receipt-layout') !== 'sheet' &&
     await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1) &&
-    await p.locator('#focus-lens').isHidden());
+    await p.locator('#focus-lens').isHidden())));
 
   await p.setViewportSize({width:1100, height:900});
-  await p.waitForTimeout(500);
-  check('paths: constrained non-narrow desktop folds source and keeps the Brief plus decision margin readable',
-    await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
+  check('paths: constrained non-narrow desktop folds source and keeps the Brief plus decision margin readable', await until(async () => (await p.locator('#workspace').evaluate(el => el.classList.contains('collapsed')) &&
     await p.locator('#overview-live').getAttribute('data-receipt-layout') === 'rail' &&
     await p.locator('[data-kind="roadmap-grid"]').count() === 1 &&
-    await p.locator('#overview-receipt').isVisible());
+    await p.locator('#overview-receipt').isVisible())));
   await p.locator('[data-select-decision][data-decision-key="groups"]').click();
   await p.waitForTimeout(150);
   check('paths: selecting a constrained-desktop decision updates the readable decision margin',
     await p.locator('#overview-receipt[data-layout="rail"][data-decision-key="groups"]').isVisible() &&
     await p.locator('#overview-receipt [data-receipt-close]').count() === 0);
   await p.locator('#overview-receipt [data-open-focus]').click();
-  await p.waitForTimeout(200);
-  check('paths: Focus remains a deliberate local lens after review folding',
-    await p.locator('#focus-lens').isVisible() &&
-    await p.locator('#focus-lens .focus-branch').count() === 2);
+  check('paths: Focus remains a deliberate local lens after review folding', await until(async () => (await p.locator('#focus-lens').isVisible() &&
+    await p.locator('#focus-lens .focus-branch').count() === 2)));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
   await p.setViewportSize({width:1700, height:900});
-  await p.waitForTimeout(500);
-  check('paths: resizing across the receipt boundary reflows overlay into the rail',
-    await p.evaluate(() => {
+  check('paths: resizing across the receipt boundary reflows overlay into the rail', await until(async () => (await p.evaluate(() => {
       const main = document.querySelector('.overview-main').getBoundingClientRect();
       const receipt = document.querySelector('#overview-receipt').getBoundingClientRect();
       return document.querySelector('#overview-live').dataset.receiptLayout === 'rail' &&
         getComputedStyle(document.querySelector('#overview-receipt')).position === 'sticky' &&
         main.right <= receipt.left;
-    }));
+    }))));
 
   await p.setViewportSize({width:1280, height:900});
-  await p.waitForTimeout(400);
 
   await p.getByRole('button', {name:'Question lens'}).click();
-  await p.waitForTimeout(500);
-  check('paths: visible Question lens switch edits the source and makes two answer outcomes explicit',
-    /style: question/.test(await src()) &&
+  check('paths: visible Question lens switch edits the source and makes two answer outcomes explicit', await until(async () => (/style: question/.test(await src()) &&
     await p.locator('[data-kind="question-lens"]').count() === 1 &&
     await p.locator('[data-kind="question-outcome"][data-outcome="yes"]').count() === 1 &&
     await p.locator('[data-kind="question-outcome"][data-outcome="no"]').count() === 1 &&
-    await p.locator('#decision-inspector').isHidden());
+    await p.locator('#decision-inspector').isHidden())));
   const dependencyQuestion = p.locator('[data-kind="parallel-question"][data-decision-key="groups"]');
   await dependencyQuestion.click();
-  await p.waitForTimeout(300);
-  check('paths: Question lens shares selection with a visible current-state receipt',
-    await dependencyQuestion.getAttribute('data-selected') === 'true' &&
+  check('paths: Question lens shares selection with a visible current-state receipt', await until(async () => (await dependencyQuestion.getAttribute('data-selected') === 'true' &&
     await p.locator('#overview-receipt').isVisible() &&
     await p.locator('#overview-receipt .receipt-state').count() === 1 &&
     await p.locator('#overview-receipt .receipt-next').count() === 1 &&
-    await p.locator('[data-kind="question-receipt"][data-decision-key="groups"]').count() === 1);
+    await p.locator('[data-kind="question-receipt"][data-decision-key="groups"]').count() === 1)));
   await p.locator('#overview-receipt [data-open-closeout]').click();
-  await p.waitForTimeout(220);
-  check('paths: Close-out stays inside the selected receipt and not a fifth whole-plan view',
-    await p.locator('#overview-live').getAttribute('data-mode') === 'closeout' &&
+  check('paths: Close-out stays inside the selected receipt and not a fifth whole-plan view', await until(async () => (await p.locator('#overview-live').getAttribute('data-mode') === 'closeout' &&
     /Learning close-out/i.test(await p.locator('#overview-receipt').innerText()) &&
     /Author-stated contents/i.test(await p.locator('#overview-receipt').innerText()) &&
-    await p.locator('[data-paths-view="closeout"]').count() === 0);
+    await p.locator('[data-paths-view="closeout"]').count() === 0)));
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(150);
-  check('paths: Close-out returns to its originating four-view receipt',
-    await p.locator('#overview-live').getAttribute('data-mode') !== 'closeout' &&
+  check('paths: Close-out returns to its originating four-view receipt', await until(async () => (await p.locator('#overview-live').getAttribute('data-mode') !== 'closeout' &&
     await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
-    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')));
+    await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')))));
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const dependenciesDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
@@ -3964,33 +3644,24 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
     await p.locator('[data-kind="question-outcome"]').count() === 2 &&
     await p.locator('#overview-receipt').isHidden());
   await p.setViewportSize({width:1000, height:900});
-  await p.waitForTimeout(400);
-  check('paths: review folding gives Question lens its full readable comparison, not a cropped export canvas',
-    await p.locator('[data-kind="question-lens"]').count() === 1 &&
-    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
+  check('paths: review folding gives Question lens its full readable comparison, not a cropped export canvas', await until(async () => (await p.locator('[data-kind="question-lens"]').count() === 1 &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1))));
   await p.setViewportSize({width:1280, height:900});
-  await p.waitForTimeout(400);
 
   await p.getByRole('button', {name:'Conditions'}).click();
-  await p.waitForTimeout(400);
-  check('paths: visible Conditions switch edits source and opens a connector-free parallel atlas',
-    /style: conditions/.test(await src()) &&
+  check('paths: visible Conditions switch edits source and opens a connector-free parallel atlas', await until(async () => (/style: conditions/.test(await src()) &&
     await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
     await p.locator('[data-kind="conditions-decision-header"]').count() >= 1 &&
     await p.locator('#preview path').count() === 0 &&
     await p.locator('#overview-receipt').isVisible() &&
-    await p.locator('#overview-receipt .receipt-next').count() === 1);
+    await p.locator('#overview-receipt .receipt-next').count() === 1)));
   await p.setViewportSize({width:390, height:844});
-  await p.waitForTimeout(400);
-  check('paths: phone Conditions becomes a readable agenda-style atlas with 44px questions',
-    await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
+  check('paths: phone Conditions becomes a readable agenda-style atlas with 44px questions', await until(async () => (await p.locator('[data-kind="conditions-narrow-atlas"]').count() === 1 &&
     await p.locator('[data-kind="conditions-narrow-decision"] [data-hit]').count() >= 1 &&
-    await p.locator('#overview-receipt').isHidden());
+    await p.locator('#overview-receipt').isHidden())));
   await p.setViewportSize({width:1100, height:900});
-  await p.waitForTimeout(400);
-  check('paths: review folding gives Conditions its full readable audit, not cropped decision columns',
-    await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
-    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1));
+  check('paths: review folding gives Conditions its full readable audit, not cropped decision columns', await until(async () => (await p.locator('[data-kind="conditions-atlas"]').count() === 1 &&
+    await p.locator('#preview svg').evaluate(svg => svg.scrollWidth <= svg.clientWidth + 1))));
   await p.setViewportSize({width:1280, height:900});
   await p.waitForTimeout(400);
 
@@ -4011,19 +3682,14 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
     (await p.locator('#decision-inspector h2').innerText()) === 'groups');
 
   await p.keyboard.press('Escape');
-  await p.waitForTimeout(180);
-  check('paths: Tree Escape clears the decision margin and restores its question focus',
-    await p.locator('#decision-inspector').isHidden() &&
-    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups');
+  check('paths: Tree Escape clears the decision margin and restores its question focus', await until(async () => (await p.locator('#decision-inspector').isHidden() &&
+    await p.evaluate(() => document.activeElement?.dataset.decisionKey) === 'groups')));
   await question.press('Enter');
   await p.locator('#decision-inspector').waitFor({state:'visible'});
   await p.locator('#decision-inspector [data-edit-decision-source]').click();
-  await p.waitForTimeout(260);
-  check('paths: Decision margin exposes the exact named source line through a deliberate author action',
-    await p.evaluate(() => !document.querySelector('#workspace').classList.contains('collapsed') &&
-      [...document.querySelectorAll('.cm-activeLine')].some(line => /decision groups:/.test(line.textContent))));
+  check('paths: Decision margin exposes the exact named source line through a deliberate author action', await until(async () => (await p.evaluate(() => !document.querySelector('#workspace').classList.contains('collapsed') &&
+      [...document.querySelectorAll('.cm-activeLine')].some(line => /decision groups:/.test(line.textContent))))));
   await p.locator('#railtab').click();
-  await p.waitForTimeout(180);
   await question.press('Enter');
   await p.locator('#decision-inspector').waitFor({state:'visible'});
 
@@ -4033,39 +3699,37 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
     await p.locator('.eip-input').inputValue() === 'Will people invite three friends without prompting?');
   await p.locator('.eip-input').fill('Will people invite four friends?');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(500);
-  check('paths: inspector edit rewrites source and refreshes the receipt',
-    (await src()).includes('question: Will people invite four friends?') &&
-    (await p.locator('#decision-inspector [data-edit="question"]').innerText()) === 'Will people invite four friends?');
+  check('paths: inspector edit rewrites source and refreshes the receipt', await until(async () => ((await src()).includes('question: Will people invite four friends?') &&
+    (await p.locator('#decision-inspector [data-edit="question"]').innerText()) === 'Will people invite four friends?')));
   check('paths: the same decision remains selected after its source refresh',
     await p.locator('[data-select-decision][data-decision-key="groups"][data-selected="true"]').count() === 1 &&
     await p.locator('#decision-inspector').isVisible());
   await p.locator('#railtab').click();
-  await p.waitForTimeout(180);
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
-  check('paths: one Undo reverts the inspector text edit', (await src()) === before);
+  check('paths: one Undo reverts the inspector text edit', await until(async () => ((await src()) === before)));
   await p.locator('#railtab').click();
-  await p.waitForTimeout(180);
-
-  const beforeAnswer = await src();
+  /* Wait for src to SETTLE — two consecutive equal reads — and nothing more. This
+     predicate was originally a copy of the check() below, which also tests
+     `.eip-input`'s draft text; but `.eip-input` does not exist until the
+     [data-answer-direction="no"] click on the NEXT line, and inputValue() on a
+     zero-match locator does not fail fast — it blocks for the full 30s action
+     timeout, which untilValue's try/catch then swallowed. The check still passed, so
+     the only symptom was ~30s of dead time per run inside a conversion whose entire
+     point is to remove dead time. */
+  const beforeAnswer = await untilValue(() => src(), async v => (await src()) === v);
   await p.locator('#decision-inspector [data-answer-direction="no"]').click();
   check('paths: Answer no opens an auditable dated draft and writes nothing yet',
     (await src()) === beforeAnswer && /^no \d{4}-\d{2}-\d{2} -- $/.test(await p.locator('.eip-input').inputValue()));
   await p.locator('.eip-input').fill('no 2026-08-11 -- experiment G-42');
   await p.keyboard.press('Enter');
-  await p.waitForTimeout(500);
-  check('paths: confirming the dated receipt writes no bare answer',
-    (await src()).includes('  answer: no 2026-08-11 -- experiment G-42') &&
-    await p.locator('#decision-inspector [data-answer-direction="no"]').getAttribute('aria-pressed') === 'true');
+  check('paths: confirming the dated receipt writes no bare answer', await until(async () => ((await src()).includes('  answer: no 2026-08-11 -- experiment G-42') &&
+    await p.locator('#decision-inspector [data-answer-direction="no"]').getAttribute('aria-pressed') === 'true')));
   check('paths: inspector arms show real affected work and explicit empty state',
     await p.locator('#decision-inspector .inspector-arm').count() === 2 &&
     /if so[\s\S]*friend invite prompt[\s\S]*if not/i.test(await p.locator('#decision-inspector .inspector-arms').innerText()));
   await p.locator('#decision-inspector [data-clear-answer]').click();
-  await p.waitForTimeout(500);
-  check('paths: Clear answer removes the authored answer without losing selection',
-    !(await src()).includes('  answer: no') && await p.locator('#decision-inspector').isVisible());
+  check('paths: Clear answer removes the authored answer without losing selection', await until(async () => (!(await src()).includes('  answer: no') && await p.locator('#decision-inspector').isVisible())));
 
   await p.setViewportSize({width:390, height:844});
   await p.waitForTimeout(400);
@@ -4080,11 +3744,9 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
      narrow preview or silently retaining Tree. */
   await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
   await p.getByRole('button', {name:'Plans'}).click();
-  await p.waitForTimeout(500);
-  check('paths: More views Plans switches to the semantic phone relayout and removes the Tree inspector',
-    await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
+  check('paths: More views Plans switches to the semantic phone relayout and removes the Tree inspector', await until(async () => (await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
     await p.locator('#decision-inspector').isHidden() &&
-    /wide matrix/.test(await p.locator('#view-method').innerText()));
+    /wide matrix/.test(await p.locator('#view-method').innerText()))));
   await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
   const plansDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();

@@ -11,25 +11,27 @@
    load-balances worse than a pool on one machine.)
 
    Balanced by MEASURED suite time (see SUITE_SECONDS). **check-eip is the critical
-   path at 314s** — not smoke, as this comment claimed until 2026-08-17 on hints that
-   had gone stale by ~2.5x. Since no shard containing check-eip can finish sooner than
-   check-eip does, giving it a shard of its own is provably the best packing available:
-   it puts the ceiling at 314s, and every other shard sits under that (mobile-core 241,
-   smoke 197, layout-gauge 189, motion-webkit 154). That is why the three small suites
-   that used to ride with check-eip now ride with motion+webkit instead — they were the
-   only reason its shard ran 356s.
+   path** — not smoke, as this comment claimed until 2026-08-17 on hints that had gone
+   stale by ~2.5x. The packing rule follows from that: no shard containing check-eip can
+   finish sooner than check-eip does, so giving it a shard of its own puts the ceiling
+   at exactly its own runtime, which is the best any packing can do.
+
+     eip 212 · motion-webkit 201 · smoke 197 · mobile-core 194 · layout-gauge 189
+
+   A 23s spread, ceiling 212s. Two moves got there on 2026-08-17, in one day: first the
+   three small suites (paths-budget, map, case) came off check-eip's shard, which was
+   the only reason it ran 356s; then check-eip's fixed sleeps were converted to
+   condition polling and it fell 314s → 212s, which made mobile-core the new ceiling at
+   241s, so check.mjs (47s) moved off it too.
 
    Only the motion+webkit shard needs the real WebKit engine; the rest install chromium
-   only (which also trims their apt-deps step). The three small suites moved onto it are
-   chromium-only, which costs that shard no extra install — webkit is already there.
-
-   NB when check-eip's fixed-sleep cost comes down (its 314s is ~85% waitForTimeout
-   sleeping), mobile-core at 241s becomes the ceiling and this wants repacking again. */
+   only (which also trims their apt-deps step). Everything moved onto it is
+   chromium-only, so it costs that shard no extra install — webkit is already there. */
 export const SHARDS = [
   {name: 'smoke',         suites: ['smoke.mjs'],                          browsers: 'chromium'},
   {name: 'eip',           suites: ['check-eip.mjs'],                      browsers: 'chromium'},
-  {name: 'mobile-core',   suites: ['mobile.mjs', 'check.mjs', 'pwa.mjs'], browsers: 'chromium'},
-  {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium webkit'},
+  {name: 'mobile-core',   suites: ['mobile.mjs', 'pwa.mjs'],             browsers: 'chromium'},
+  {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs', 'check.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium webkit'},
   {name: 'layout-gauge',  suites: ['layout.mjs', 'gauge.mjs', 'signal.mjs'], browsers: 'chromium'},
 ];
 
@@ -47,11 +49,11 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    past the note's own ±1.75x threshold — the note tells you when.
    dev/ci-shards.test.mjs asserts a hint exists for every verify suite.
 
-   The two numbers that were actively WRONG before 2026-08-17 (not just stale):
-   smoke was hinted as the long pole (138s) when check-eip was always the real
-   one — measured local reality is smoke 197s, check-eip 314s, so the OLD hints
-   had them in the wrong rank order, which made `--jobs`'s longest-first pool
-   start the wrong suite first.
+   The rank was actively WRONG before 2026-08-17, not just stale: smoke was hinted as
+   the long pole (138s) when check-eip was always the real one (measured 314s that
+   morning, 212s after its sleeps were converted the same day). The OLD hints had the
+   two in the wrong order, which made `--jobs`'s longest-first pool start the wrong
+   suite first.
 
    Separately, REAL CI shard totals (run 32015876950, ubuntu-latest, includes
    ~40-60s of fixed per-shard setup: checkout, cache, playwright install) —
@@ -67,7 +69,7 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    predicted (+42s), because CI hardware runs everything ~2x slower — the ranks
    transferred, the absolute numbers did not, which is exactly what these hints claim. */
 export const SUITE_SECONDS = {
-  'smoke.mjs': 197, 'check-eip.mjs': 314, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
+  'smoke.mjs': 197, 'check-eip.mjs': 212, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 158, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 47,
   'pwa.mjs': 24, 'signal.mjs': 4, 'map.mjs': 9, 'case.mjs': 5,
 };
