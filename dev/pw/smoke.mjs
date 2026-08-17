@@ -4,7 +4,10 @@
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS} from '../tool-dirs.mjs';
-import {trackErrors, report, tally} from './_harness.mjs';
+import {trackErrors, report, tally, emptyPaint, pickExample} from './_harness.mjs';
+import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
+
+const OPS_INFRA_BACKLOG = pickExample(RANK_EXAMPLES, 'Ops & infra backlog');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -407,17 +410,31 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
-/* ---- every tool links home ---- */
+/* ---- every tool links home, and paints every mark ----
+   Was one boolean over the whole list with a `break`, labelled "all thirteen tools"
+   while iterating TOOL_DIRS (18) — so eighteen tools shared a single check and a
+   single failure message that named none of them. Now one check per tool, so a
+   failure names which one.
+
+   The same sweep is where the empty-paint backstop rides: these pages are already
+   being loaded, so asserting no mark carries fill=""/stroke="" costs a settle and an
+   evaluate rather than a second pass over every tool. See emptyPaint() for why a
+   node-side token check cannot be the only guard. */
 {
   const tools = TOOL_DIRS;
   const {page, errors} = await freshPage('/' + tools[0] + '/');
-  let allOk = true;
   for(const t of tools){
     await page.goto(BASE + '/' + t + '/', {waitUntil: 'domcontentloaded'});
     const crumb = page.locator('a.crumb');
-    if(await crumb.count() !== 1 || await crumb.getAttribute('href') !== '/'){ allOk = false; break; }
+    check(t + ': carries the home crumb',
+      await crumb.count() === 1 && await crumb.getAttribute('href') === '/');
+    await page.waitForTimeout(450);          // autoload renders through debounce + rAF
+    if(await page.locator('svg').count()){
+      const blank = await emptyPaint(page);
+      check(t + ': no blank fill/stroke in the live SVG' +
+        (blank.length ? ' — ' + blank.slice(0, 4).join(' ') : ''), blank.length === 0);
+    }
   }
-  check('all thirteen tools carry the home crumb', allOk);
   await page.close();
 }
 
@@ -796,13 +813,15 @@ for(const theme of ['light', 'dark']){
 /* ---- rank ---- */
 for(const theme of ['light', 'dark']){
   const {page, errors} = await freshPage('/rank/', theme);
-  await page.getByRole('button', {name: 'Ops & infra backlog'}).click();
+  await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
   await page.waitForTimeout(600);
   const rows = await page.locator('#rows tr').count();
-  check('rank(' + theme + '): table renders rows (' + rows + ')', rows === 7);   // the bug that shipped
+  check('rank(' + theme + '): table renders rows (' + rows + ')',
+    rows === OPS_INFRA_BACKLOG.items.length);   // the bug that shipped
   const verdict = (await page.locator('#verdict').innerText()).trim();
   check('rank(' + theme + '): verdict present', verdict.length > 20);
-  check('rank(' + theme + '): rank bars render', await page.locator('.rankbar').count() === 7);
+  check('rank(' + theme + '): rank bars render',
+    await page.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length);
   const flip = (await page.locator('#flipline').innerText()).trim();
   check('rank(' + theme + '): flip verdict present', /weight|flips first place/i.test(flip));
   check('rank(' + theme + '): order diff names the movers', await (async () => {
@@ -1397,4 +1416,4 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 
 console.log(results.join('\n'));
 await browser.close();
-report('smoke', {...tally(results), min: 496});   // ~90% of 552 measured 2026-08-16 (was 200 — 64% could vanish silently)
+report('smoke', {...tally(results), min: 524});   // ~90% of 583 measured 2026-08-16 (the home-crumb sweep became per-tool and gained the blank-paint check)

@@ -16,6 +16,43 @@ export function trackErrors(page){
   return errors;
 }
 
+/* Empty paint attributes in the LIVE DOM — `fill=""` / `stroke=""`.
+
+   getComputedStyle().getPropertyValue() returns '' for a token that doesn't exist,
+   with no throw and no warning, and themeColors() feeds those values straight into
+   ctx.colors for every renderer. So a renamed or dropped design token blanks the
+   paint on every mark, in the browser only: dev/golden.mjs renders with invented
+   colours rather than tokens, so the goldens stay byte-identical, and the node-side
+   dev/tokens.test.mjs can only catch the shapes its regexes recognise — a review
+   demonstrated it can be made blind by one extra level of indirection.
+
+   This is the backstop that does not care HOW the token went missing. Returns the
+   offending elements so a failure names them. */
+export async function emptyPaint(page){
+  return page.evaluate(() => {
+    const out = [];
+    for(const el of document.querySelectorAll('svg [fill], svg [stroke], svg[fill], svg[stroke]'))
+      for(const attr of ['fill', 'stroke']){
+        const v = el.getAttribute(attr);
+        if(v !== null && v.trim() === '') out.push(el.tagName + '[' + attr + ']');
+      }
+    return out;
+  });
+}
+
+/* Look an example up by name rather than by array index. An index (EXAMPLES[1])
+   silently rebinds to the wrong example the moment the source list is reordered —
+   the exact staleness class this exists to close off (2026-08-15: a stale example
+   name/content literal in a suite failed as a mystery Playwright timeout, which
+   reads like flake, not a rename). Throws loud and immediately, naming what was
+   asked for and what's actually on offer, so a suite fails at lookup time with a
+   clear message instead of timing out waiting for a button that no longer exists. */
+export function pickExample(list, name){
+  const found = list.find(e => e.name === name);
+  if(!found) throw new Error(`pickExample: no example named '${name}' — available: ${list.map(e => e.name).join(', ')}`);
+  return found;
+}
+
 /* PASS/FAIL counts from a results array (raw error lines that are neither are
    ignored). */
 export function tally(results){

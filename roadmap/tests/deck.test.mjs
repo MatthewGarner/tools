@@ -631,3 +631,53 @@ test('grid containment: an empty board does not crash', () => {
   const svg = renderDeck(model, ctx);
   assert.match(svg, /^<svg/);
 });
+
+/* ==================================================================
+   `verdict:` on the deck export — the export must honour the AUTHORED
+   line, same contract as tree/map/gauge (resolveVerdict), not silently
+   substitute the derived one (2026-08-17).
+   ================================================================== */
+
+const wipBreachDoc = 'title: T\ndate: 2026-07-14\nwip: 2\nNOW\n' +
+  'Core: Alpha [risk]\nCore: Beta\nCore: Gamma';
+
+test('verdict: an authored line prints verbatim on the deck, and the derived line does not', () => {
+  const model = parse('verdict: The board renews the lease before the fit-out starts\n' + wipBreachDoc);
+  assert.equal(model.verdict, 'The board renews the lease before the fit-out starts');
+  const svg = renderDeck(model, ctx);
+  assert.match(svg, />The board renews the lease before the fit-out starts</);
+  assert.doesNotMatch(svg, /the WIP limit is the first thing this plan breaks/,
+    'the authored line must REPLACE the derived one, not sit alongside it');
+});
+
+test('verdict: off drops the verdict band from the deck entirely', () => {
+  const model = parse('verdict: off\n' + wipBreachDoc);
+  assert.equal(model.verdict, 'off');
+  const svg = renderDeck(model, ctx);
+  assert.doesNotMatch(svg, /the WIP limit is the first thing this plan breaks/,
+    'no derived verdict text should print when the author switched it off');
+  assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
+});
+
+/* The multi-page slide set reaches the same deckFrame, but with ctx.sourceModel
+   set from render-deck-pages.js — the one path where the authored line could
+   still have been lost, and the one the tests above don't touch. The control
+   assertion (no `verdict:` ⇒ the derived sentence prints) is inside the test
+   on purpose: without it, a page set that rendered no verdict at all would
+   pass the two assertions that matter. */
+test('verdict: the page set honours the authored line, not the derived one', async () => {
+  const {renderDeckPages} = await import('../render-deck-pages.js');
+  const doc = 'title: T\ndate: 2026-07-14\nwip: 2\nNOW\n' +
+    'Core: Alpha\nCore: Beta\nCore: Gamma\nNEXT\nCore: Delta';
+  const derived = /the WIP limit is the first thing this plan breaks/;
+  const pagesOf = src => renderDeckPages(parse(src), ctx).pages.join('\n');
+
+  assert.match(pagesOf(doc), derived, 'control: the derived line prints when nothing is authored');
+
+  const authored = 'We ship the reader experience first';
+  const authoredPages = pagesOf('verdict: ' + authored + '\n' + doc);
+  assert.ok(authoredPages.includes(authored), 'the authored line must reach the page set');
+  assert.doesNotMatch(authoredPages, derived);
+
+  assert.doesNotMatch(pagesOf('verdict: off\n' + doc), derived);
+});

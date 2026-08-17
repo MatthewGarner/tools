@@ -137,6 +137,15 @@ for(const [k, src] of Object.entries(docs)){
   const wipDoc = 'title: Lantern board\ndate: 2026-07-04\nwip: 2\nNOW\n' +
     'Core: Resume where you left off\nCore: Widget gallery\nGrowth: Referral loop\nNEXT\nCore: Publisher storefront';
   variants['deck-board-wip'] = renderDeck(parse(wipDoc), {...ctxBase});
+  /* `verdict:` (2026-08-17): the deck export used to ignore the authored line
+     and always print the derived one — the one deck-export bug the other
+     tools (tree/map/gauge) didn't share. wipDoc already forces a derived WIP-
+     breach verdict, so it's the same fixture that proves REPLACEMENT (off
+     drops the band, authored text replaces the WIP sentence) rather than
+     just presence. */
+  variants['deck-board-verdict-off'] = renderDeck(parse('verdict: off\n' + wipDoc), {...ctxBase});
+  variants['deck-board-verdict-authored'] = renderDeck(
+    parse('verdict: We ship the reader experience first\n' + wipDoc), {...ctxBase});
 
   const emptyColDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off\nNEXT\nLATER\nGrowth: Publisher storefront';
   variants['deck-board-empty'] = renderDeck(parse(emptyColDoc), {...ctxBase});
@@ -969,11 +978,12 @@ for(const [k, src] of Object.entries(docs)){
    pinned separately — the composition is the thing that breaks, so page count matters
    as much as page content, and a lost page shows up as a missing file.
 
-   paths/render-learning-closeout is the one SVG renderer still left out: its third
-   argument comes from closeOutFor(), a private function inside the DOM-bound
-   paths/app.js. Goldening it would mean hand-copying that logic here — the drifting
-   -duplicate trap this repo has already been bitten by. It needs the function
-   extracted first; noted rather than faked. */
+   paths/render-learning-closeout was left out on 2026-08-16 as "needs closeOutFor()
+   extracted from the DOM-bound app.js first". That was wrong, and checking rather than
+   repeating it took one grep: closeOutFor is a two-line wrapper around
+   projectLearningCloseOut, which paths/learning-closeout.js already exports and which
+   has no DOM reference at all. The wrapper only supplies `today`, so the golden passes
+   a fixed date and calls the projector directly. No product change was needed. */
 {
   const {parse: bparse} = await import('../bets/parse.js');
   const {simulate: bsim} = await import('../bets/engine.js');
@@ -998,6 +1008,29 @@ for(const [k, src] of Object.entries(docs)){
      and render-presentation emits String(ctx.today || '') — so there is no date to strip.
      A .replace() was written here first and did nothing. */
   variants['why-presentation'] = renderWhyPresentation(wp(wdoc), {...ctxBase});
+
+  /* The close-out receipt: an answered decision carrying a nested `close-out:` block.
+     `today` is injected (never Date.now()) so the elapsed/review-by wording is fixed. */
+  const {parse: pp} = await import('../paths/parse.js');
+  const {projectLearningCloseOut} = await import('../paths/learning-closeout.js');
+  const {renderLearningCloseOut, renderLearningCloseOutNarrow} =
+    await import('../paths/render-learning-closeout.js');
+  const pdoc = 'title: Lantern routes\ndate: 2026-08-11\n' +
+    'decision groups:\n  question: Do book clubs retain?\n  signal: week-four retention\n' +
+    '  reading: 18%\n  owner: Growth\n  answer-by: 2026-09-10\n' +
+    '  answer: yes 2026-09-08 -- cohort G-42\n' +
+    '  close-out:\n    basis-kind: observation\n    carry-forward: scoped-finding\n' +
+    '    decision-use: informs the Q4 route\n    claim: Clubs hold week-four retention\n' +
+    '    scope: Pilot readers\n    review-by: 2026-10-31\n' +
+    '    reconsider-if: The pattern reverses\n    next-check: Assigned variant\n' +
+    'NOW\n  Growth: Invite prompt [doing] [if groups]';
+  const pmodel = pp(pdoc);
+  const pdec = pmodel.decisions[0];
+  const preceipt = projectLearningCloseOut(pdec, '2026-09-20');
+  variants['paths-learning-closeout'] =
+    renderLearningCloseOut(pmodel, pdec, preceipt, {...ctxBase, width: 1160});
+  variants['paths-learning-closeout-narrow'] =
+    renderLearningCloseOutNarrow(pmodel, pdec, preceipt, {...ctxBase, width: 390});
 
   const {renderDeckPages} = await import('../roadmap/render-deck-pages.js');
   /* Six horizons x five lanes — deliberately past the one-page threshold, so the

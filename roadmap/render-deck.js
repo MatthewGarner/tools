@@ -18,6 +18,7 @@ import {renderBoardDeck} from './render-board.js';
 import {renderFocusDeck} from './render-focus.js';
 import {layoutRoadmap} from './layout.js';
 import {roadmapVerdict} from './parse.js';
+import {resolveVerdict} from '../assets/verdict.js';
 export {registerColumns, capFit} from './deck-parts.js';
 export {renderRegisterBody} from './render-register.js';
 export {renderBoardBody, boardGeometry, typeRamp} from './render-board.js';
@@ -100,7 +101,7 @@ export function deckFrame(model, ctx, C, bodyFn){
   /* Verdict is an authored/model fact, not a decorative live-only readout.
      It gets as many lines as it needs; the body gives space back rather than
      clipping it or quietly dropping the claim from an exported artefact. */
-  const verdict = roadmapVerdict(sourceModel);
+  const verdict = resolveVerdict(sourceModel.verdict, roadmapVerdict(sourceModel));
   const verdictLines = verdict?.line ? wrapText(verdict.line, '600 14px ' + SANS, INNER - 300, measure) : [];
   const verdictTop = 988 - verdictLines.length * 18;
   s.push(bodyFn(bodyTop, verdictLines.length ? verdictTop - 18 : 968));
