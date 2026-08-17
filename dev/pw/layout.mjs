@@ -35,11 +35,11 @@ const TOOLS = [
      guessed the label; a second removed the trigger entirely on the strength of a
      visibility probe that used offsetParent and reported the opposite of the truth. */
   {path: '/case/', chip: 'Wexcombe augmentation'},
-  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, widthGap: true},
+  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true},
   {path: '/proxy/', chip: TWO_THEORIES.name},
 ];
 
-for(const {path, chip, view, source, widthGap = false, narrowTab = !!source} of TOOLS){
+for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -59,18 +59,31 @@ for(const {path, chip, view, source, widthGap = false, narrowTab = !!source} of 
      becomes smaller than its authored size. In that case it deliberately pans
      at both rail widths rather than growing; every other board should expand. */
   const minReadable = +(await page.locator('#preview svg').getAttribute('data-min-readable-scale') || 0);
-  if(widthGap){
-    /* KNOWN GAP, asserted with === so it fails the moment paths is fixed — the honest
-       ratchet this file already uses for `pilot`, not a relaxed threshold.
-       Every other workspace tool reclaims the collapsed rail's width and lands at
-       1624-1875px; paths goes 1100 -> ~1270 and stops, so on a wide screen it leaves
-       roughly a fifth of the viewport unused. Found 2026-08-16, the first time paths
-       was ever run through this suite. It is a product defect, not a test one:
-       paths/render-overview.js:371 does take ctx.width, so the artefact is capped
-       somewhere between the pane and the renderer. Raised separately; when it grows
-       like its siblings, delete `widthGap` and these two checks become the real ones. */
-    check(path + ' KNOWN GAP: does not reclaim collapsed width (' + Math.round(before) + '→' + Math.round(after) + ')',
-      after <= before * 1.2 && after <= 1500);
+  if(receiptColumn){
+    /* Brief lays its artefact and the selected-decision receipt out as SIBLING grid
+       columns, so this tool alone reaches a smaller svg than the 1624-1875px the
+       others do. That was recorded here on 2026-08-16 as a KNOWN GAP said to be
+       "capped somewhere between the pane and the renderer"; measuring it on
+       2026-08-17 showed the opposite, and Matt reviewed the result and accepts the
+       layout. At a 1720px viewport, collapsed: svg 1270 = stage 1270 EXACTLY, with a
+       350px receipt and a 16px gap making up the 1636px /proxy/ reaches with no
+       second panel. Nothing is clamped — app.js:336's `metrics.width - 366` is that
+       same 350 + 16, and app.js:1090 says the wide rail is part of the composition.
+
+       So the invariant is not a threshold, it is the arithmetic: the artefact fills
+       its own stage, and artefact + receipt reach the width a sibling reaches. Both
+       sides are measured live, so a regression that shrank the artefact without
+       giving the width to the receipt (or vice versa) fails here. */
+    const stageW = (await page.locator('#preview').boundingBox()).width;
+    /* count() first: boundingBox() on a locator that matches nothing waits out the
+       full timeout and rejects, which would CRASH the suite where a vanished receipt
+       should read as a clean FAIL. */
+    const receipt = page.locator('.overview-receipt').first();
+    const receiptBox = await receipt.count() ? await receipt.boundingBox() : null;
+    check(path + ' artefact fills its stage beside the receipt (svg ' + Math.round(after) +
+      ' = stage ' + Math.round(stageW) + ')', Math.abs(after - stageW) < 12);
+    check(path + ' artefact + receipt reach a sibling\'s width (' + Math.round(after) + ' + ' +
+      Math.round(receiptBox?.width || 0) + ')', !!receiptBox && after + receiptBox.width > 1500);
   } else {
     check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
       after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));
