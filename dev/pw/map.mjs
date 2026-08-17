@@ -1,9 +1,21 @@
 /* Map deep suite: real mouse drag writes @ x,y; tray placement; zone-rename
    edit-in-place (insert path); undo restores. */
 import {chromium} from 'playwright';
-import {trackErrors, report, tally} from './_harness.mjs';
+import {trackErrors, report, tally, pickExample} from './_harness.mjs';
+import {EXAMPLES} from '../../map/examples.js';
+import {parse} from '../../map/parse.js';
 
 const BASE = process.env.BASE || 'http://localhost:8087';
+const ASSUMPTION_MAP = pickExample(EXAMPLES, 'Assumption map');
+const STAKEHOLDER_GRID = pickExample(EXAMPLES, 'Stakeholder grid');
+const FUTURES_MATRIX = pickExample(EXAMPLES, 'Futures matrix');
+
+/* The tray item is the one line with no @ position — found via the REAL parser
+   rather than retyped, so an edit to the example's doc text propagates instead
+   of leaving a stale regex behind. */
+const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const trayItem = parse(ASSUMPTION_MAP.src).items.find(it => it.x === null);
+const trayPlacedRe = new RegExp(escapeRegex(trayItem.label) + ' @ (4\\d|5\\d),(4\\d|5\\d)');
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
@@ -28,7 +40,7 @@ const dragTo = async (sel, fx, fy) => {
 
 /* ---- drag a placed card: @ x,y rewrites ---- */
 await page.getByRole('button', {name: 'Edit map source'}).click();
-await page.getByRole('button', {name: 'Assumption map'}).click();
+await page.getByRole('button', {name: ASSUMPTION_MAP.name}).click();
 await page.waitForTimeout(600);
 const before = await doc();
 check('baseline: card at 30,90', before.includes('@ 30,90'));
@@ -49,11 +61,11 @@ check('undo: original position restored', (await doc()).includes('@ 30,90'));
 check('tray: unplaced card present', await page.locator('#preview svg g[data-tray]').count() === 1);
 await dragTo('#preview svg g[data-tray]', 0.5, 0.5);
 const placed = await doc();
-check('tray: line gained a position', /Legal sign-off on publisher licensing @ (4\d|5\d),(4\d|5\d)/.test(placed));
+check('tray: line gained a position', trayPlacedRe.test(placed));
 check('tray: tray emptied', await page.locator('#preview svg g[data-tray]').count() === 0);
 
 /* ---- zone rename via edit-in-place (preset cell → insert path) ---- */
-await page.getByRole('button', {name: 'Stakeholder grid'}).click();
+await page.getByRole('button', {name: STAKEHOLDER_GRID.name}).click();
 await page.waitForTimeout(600);
 await page.locator('#preview svg [data-edit="zonename"][data-zone="c:2,2"]').click();
 await page.waitForTimeout(200);
@@ -66,7 +78,7 @@ check('zone rename: label re-rendered',
   (await page.locator('#preview svg').innerHTML()).includes('INNER CIRCLE'));
 
 /* ---- axis rename preserves end labels ---- */
-await page.getByRole('button', {name: 'Futures matrix'}).click();
+await page.getByRole('button', {name: FUTURES_MATRIX.name}).click();
 await page.waitForTimeout(600);
 /* the x-axis label sits low enough to need a scroll; do it explicitly and
    settle before clicking — locator.click()'s built-in scroll-then-click can
@@ -84,7 +96,7 @@ check('axis rename: label rewritten, end labels kept',
   (await doc()).includes('x: Licensing pressure (loose → strict)'));
 
 /* ---- add item from the ghost, remove from the × ---- */
-await page.getByRole('button', {name: 'Assumption map'}).click();
+await page.getByRole('button', {name: ASSUMPTION_MAP.name}).click();
 await page.waitForTimeout(600);
 await page.locator('[data-edit="additem"]').click();
 await page.waitForTimeout(200);

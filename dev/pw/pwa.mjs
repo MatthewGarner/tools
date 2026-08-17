@@ -6,9 +6,12 @@
    to :8089 via the EPORT env knob — reused if already alive, e.g. another
    suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
-import {report, tally} from './_harness.mjs';
+import {report, tally, pickExample} from './_harness.mjs';
 import {spawn} from 'node:child_process';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
+import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
+
+const OPS_INFRA_BACKLOG = pickExample(RANK_EXAMPLES, 'Ops & infra backlog');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const EPORT = process.env.EPORT || 8089;     // knob so the self-spawned energy origin can
@@ -58,7 +61,7 @@ async function installAndWait(page){
   await ctx.setOffline(true);
   const TOOLS = [
     ['/fermi/', async p => { await p.getByRole('button', {name:'Edit formula & ranges'}).click(); await p.getByRole('button', {name: 'Weekly meeting, annual cost'}).click(); await p.waitForTimeout(500); return (await p.locator('#p50').innerText()).length > 0; }],
-    ['/rank/', async p => { await p.getByRole('button', {name: 'Ops & infra backlog'}).click(); await p.waitForTimeout(500); return await p.locator('.rankbar').count() === 7; }],
+    ['/rank/', async p => { await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await p.waitForTimeout(500); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
     ['/roadmap/', async p => { await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await p.getByRole('button', {name: 'Reading retention'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],

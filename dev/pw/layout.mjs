@@ -1,6 +1,9 @@
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
 import {chromium, devices} from 'playwright';
-import {trackErrors, report, tally} from './_harness.mjs';
+import {trackErrors, report, tally, pickExample} from './_harness.mjs';
+import {EXAMPLES as PROXY_EXAMPLES} from '../../proxy/example.js';
+
+const TWO_THEORIES = pickExample(PROXY_EXAMPLES, 'Two theories');
 
 const BASE = process.env.BASE || 'http://localhost:8087';
 const browser = await chromium.launch();
@@ -33,7 +36,7 @@ const TOOLS = [
      visibility probe that used offsetParent and reported the opposite of the truth. */
   {path: '/case/', chip: 'Wexcombe augmentation'},
   {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, widthGap: true},
-  {path: '/proxy/', chip: 'Two theories'},
+  {path: '/proxy/', chip: TWO_THEORIES.name},
 ];
 
 for(const {path, chip, view, source, widthGap = false, narrowTab = !!source} of TOOLS){

@@ -40,6 +40,19 @@ export async function emptyPaint(page){
   });
 }
 
+/* Look an example up by name rather than by array index. An index (EXAMPLES[1])
+   silently rebinds to the wrong example the moment the source list is reordered —
+   the exact staleness class this exists to close off (2026-08-15: a stale example
+   name/content literal in a suite failed as a mystery Playwright timeout, which
+   reads like flake, not a rename). Throws loud and immediately, naming what was
+   asked for and what's actually on offer, so a suite fails at lookup time with a
+   clear message instead of timing out waiting for a button that no longer exists. */
+export function pickExample(list, name){
+  const found = list.find(e => e.name === name);
+  if(!found) throw new Error(`pickExample: no example named '${name}' — available: ${list.map(e => e.name).join(', ')}`);
+  return found;
+}
+
 /* PASS/FAIL counts from a results array (raw error lines that are neither are
    ignored). */
 export function tally(results){
