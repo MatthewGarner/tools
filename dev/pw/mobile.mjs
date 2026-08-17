@@ -509,7 +509,7 @@ for(const es of END_STATES){
    Wait for the precondition instead of hoping — deterministic, and faster than the
    fixed waitForTimeout padding it also replaces. */
 const nextStep = async page => {
-  await page.waitForFunction(() => !document.querySelector('#next').disabled);
+  await page.waitForFunction(() => document.querySelector('#next') && !document.querySelector('#next').disabled);
   await page.click('#next');
 };
 

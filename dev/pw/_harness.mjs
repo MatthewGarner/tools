@@ -53,41 +53,72 @@ export function pickExample(list, name){
   return found;
 }
 
-/* Poll `fn` until it returns truthy. Returns the last value — NEVER throws on
-   timeout — so a stuck condition reports as the caller's own clean FAIL instead of
-   crashing the suite. (Learned the hard way: boundingBox() on a locator matching
-   nothing rejects after the full timeout and takes the whole suite with it.) A
-   mid-poll rejection from `fn` itself (the exact boundingBox case) is swallowed
-   the same way a falsy value is — just keep polling — so a target that doesn't
-   exist YET behaves the same as a target that returns null. */
-export async function until(fn, {timeout = 4000, step = 25} = {}) {
-  const deadline = Date.now() + timeout;
-  let last;
-  for (;;) {
-    try {
-      last = await fn();
-      if (last) return last;
-    } catch { /* not ready yet — keep polling, same as a falsy value */ }
-    if (Date.now() >= deadline) return last;
-    await new Promise(r => setTimeout(r, step));
-  }
+/* Condition polling for the browser suites, replacing fixed waitForTimeout padding.
+
+   `until(fn)` polls until fn() is truthy; `untilValue(read, ok)` polls read() until
+   ok(value) holds and returns the LAST value read either way, so a conversion changes
+   only the WAIT and leaves the caller's check(...) byte-identical.
+
+   Three properties, each of which cost something to learn (2026-08-17):
+
+   1. TIMEOUT RETURNS, it does not throw — a stuck condition becomes the caller's own
+      clean FAIL rather than an anonymous crash. EXCEPT when no call ever completed:
+      then the last error is rethrown, because returning undefined there just moves the
+      crash to the caller's next property access and throws away the only diagnostic.
+      A predicate referencing a `const` declared below it threw TDZ on every iteration,
+      was swallowed, and read as a silent 4-second sleep that never tested anything.
+   2. A THROW IS TREATED AS "not ready yet" — a target that does not exist YET behaves
+      like one that returns null. That is deliberate and must stay: reads such as
+      (await getItem()).includes(...) throw a real TypeError before the first write and
+      resolve moments later, so erroring on the first throw would break working sites.
+      Rule 1 is what stops that leniency hiding a permanent fault.
+   3. THE DEADLINE IS RACED, not merely checked between calls. Playwright's own action
+      timeout is 30s and many locator reads (inputValue, innerText, boundingBox…) block
+      that long on a zero match, so a deadline tested only after `await fn()` is a floor,
+      not a ceiling: one such call turns a 4s budget into 30s. That shipped once already. */
+const POLL_TIMED_OUT = Symbol('poll-timed-out');
+
+async function raceDeadline(promise, ms){
+  let timer;
+  const guard = new Promise(resolve => { timer = setTimeout(() => resolve(POLL_TIMED_OUT), ms); });
+  try { return await Promise.race([promise, guard]); }
+  finally { clearTimeout(timer); }
 }
 
-/* Poll `read()` until `ok(value)` or timeout; return the LAST value read either
-   way, so the caller's existing check(...) line stays byte-identical — a
-   conversion changes only the WAIT, never the assertion. Same never-throws
-   contract as `until`. */
-export async function untilValue(read, ok, {timeout = 4000, step = 25} = {}) {
-  const deadline = Date.now() + timeout;
-  let last;
-  for (;;) {
+async function poll(step, deadline, attempt){
+  let last, lastError, everCompleted = false;
+  for(;;){
+    const left = deadline - Date.now();
+    if(left <= 0) break;
+    /* the racer may abandon this call; keep a catch on it so a late rejection
+       cannot surface as an unhandled rejection and kill the process */
+    const call = Promise.resolve().then(attempt);
+    call.catch(() => {});
     try {
-      last = await read();
-      if (await ok(last)) return last;
-    } catch { /* not ready yet — keep polling */ }
-    if (Date.now() >= deadline) return last;
-    await new Promise(r => setTimeout(r, step));
+      const outcome = await raceDeadline(call, left);
+      if(outcome === POLL_TIMED_OUT) break;          // the budget went inside one call
+      everCompleted = true;
+      last = outcome.value;
+      if(outcome.done) return last;
+    } catch(err){ lastError = err; }                 // not ready yet — see property 2
+    await new Promise(r => setTimeout(r, Math.min(step, Math.max(0, deadline - Date.now()))));
   }
+  if(!everCompleted && lastError) throw lastError;   // see property 1
+  return last;
+}
+
+export function until(fn, {timeout = 4000, step = 25} = {}){
+  return poll(step, Date.now() + timeout, async () => {
+    const value = await fn();
+    return {value, done: !!value};
+  });
+}
+
+export function untilValue(read, ok, {timeout = 4000, step = 25} = {}){
+  return poll(step, Date.now() + timeout, async () => {
+    const value = await read();
+    return {value, done: !!(await ok(value))};
+  });
 }
 
 /* PASS/FAIL counts from a results array (raw error lines that are neither are

@@ -32,7 +32,7 @@ test('every sharded suite file exists', () => {
 test('SUITE_SECONDS has a duration hint for every verify suite (the --jobs pool schedules longest-first)', () => {
   for(const s of verifySuites)
     assert.ok(typeof SUITE_SECONDS[s] === 'number', 'dev/pw/shards.mjs SUITE_SECONDS is missing a hint for ' + s +
-      ' — add its approx CI seconds so the local --jobs pool orders it');
+      ' — add its approx LOCAL seconds so the local --jobs pool orders it');
   for(const k of Object.keys(SUITE_SECONDS))
     assert.ok(verifySuites.includes(k), 'SUITE_SECONDS names a non-suite: ' + k);
 });

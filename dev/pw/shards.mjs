@@ -10,11 +10,14 @@
    only to order longest-first. (Don't wire --jobs to SHARDS: a static 5-way split
    load-balances worse than a pool on one machine.)
 
-   Balanced by MEASURED suite time (see SUITE_SECONDS). **check-eip is the critical
-   path** — not smoke, as this comment claimed until 2026-08-17 on hints that had gone
-   stale by ~2.5x. The packing rule follows from that: no shard containing check-eip can
-   finish sooner than check-eip does, so giving it a shard of its own puts the ceiling
-   at exactly its own runtime, which is the best any packing can do.
+   Balanced by MEASURED suite time (see SUITE_SECONDS). **check-eip is the longest
+   single suite** — not smoke, as this comment claimed until 2026-08-17 on hints that had
+   gone stale by ~2.5x. The packing rule follows: no shard containing check-eip finishes
+   sooner than check-eip does, so giving it a shard of its own puts the ceiling at its
+   own runtime — optimal AGAINST THESE LOCAL SECONDS. It is not optimal in CI, and the
+   numbers at the bottom of this file say so: CI pays a fixed per-suite startup that
+   local seconds don't model, which is why motion-webkit (six suites) is CI's real
+   ceiling. Treat the packing as a good heuristic, not a proof.
 
      eip 212 · motion-webkit 201 · smoke 197 · mobile-core 194 · layout-gauge 189
 
@@ -37,9 +40,11 @@ export const SHARDS = [
 
 export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
 
-/* Measured LOCAL wall-clock per suite (seconds), keyed by suite file — from a
-   full `npm run gate` serial run on this machine, 2026-08-17 (dev/pw/run.mjs's
-   `report()`-line timing; see the git history around that date for the raw log).
+/* Measured LOCAL wall-clock per suite (seconds), keyed by suite file — from a full
+   serial `npm run gate` on this machine, 2026-08-17, with check-eip's entry re-measured
+   later the same day after its sleep conversion (314s → 212s). So the table is one run
+   plus one deliberate correction, not a single snapshot; the others sit within ~1s of
+   both runs.
    ORDERING-ONLY hints for the local `run.mjs --jobs` pool (longest-first
    scheduling) and for `run.mjs`'s drift note (±1.75x) — NOT a budget, and NOT the
    same number as CI wall-clock (CI runs on different, usually slower, hardware,

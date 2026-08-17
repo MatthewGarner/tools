@@ -4,9 +4,10 @@
    Ports default 8087/8089; `--ports TOOLS ENERGY` overrides for parallel sessions.
    8091 is rejected — gauge.mjs spawns its own relay there.
    `--jobs N` (default 1 = serial) runs the browser suites in a pool of N; `--jobs`
-   alone → 4 (the sweet spot). Parallel fails SAFE — confirm any red serially.
+   alone → 3 (see the measurement note below). Parallel fails SAFE — confirm any red
+   serially.
    Usage: node dev/pw/run.mjs [--ports 8087 8089] [--jobs N]
-   (via npm: npm run gate -- --jobs 4) */
+   (via npm: npm run gate -- --jobs 3) */
 import {spawn} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -31,7 +32,7 @@ const ji = process.argv.indexOf('--jobs');
 let JOBS = 1;
 if(ji >= 0){
   const n = process.argv[ji + 1];
-  JOBS = (n && /^\d+$/.test(n)) ? Number(n) : 4;   // bare `--jobs` → 4 (the measured sweet spot)
+  JOBS = (n && /^\d+$/.test(n)) ? Number(n) : 3;   // bare `--jobs` → 3; the note below warns above it
   if(JOBS < 1){ console.error('--jobs must be >= 1'); process.exit(2); }
 }
 
@@ -90,9 +91,15 @@ async function step(name, fn){
    enough that normal machine variance stays quiet, tight enough to catch the
    class of staleness that shipped 2026-08-17 (a suite reporting HALF its measured
    time, and a wrong longest-first ordering as a result). */
-function driftNote(suiteFile, secs){
+function driftNote(suiteFile, secs, suiteFailed){
   const hint = SUITE_SECONDS[suiteFile];
   if(typeof hint !== 'number' || hint <= 0) return;
+  /* A ±1.75x band on a 4-second suite trips on ordinary jitter (signal 4s, case 5s,
+     map 9s), and a note that cries wolf is one people learn to skip — which is the
+     one thing this must not become. Below 20s the absolute drift is too small to act
+     on anyway. Nor does a FAILED suite need a "hint may be stale" line beside its
+     real failure: a suite that died early is fast for a reason. */
+  if(secs < 20 || hint < 20 || suiteFailed) return;
   const ratio = secs / hint;
   if(ratio > 1.75 || ratio < 1 / 1.75)
     console.log('\x1b[33m[gate] NOTE: ' + suiteFile + ' took ' + secs + 's, SUITE_SECONDS hints ' + hint +
@@ -121,7 +128,7 @@ async function poolRun(suites, n, env){
       process.stdout.write(out.trimEnd() + '\n');
       codes.set(suite, code);
       timings.set(suite, secs);
-      driftNote(suite, secs);   // parallel-path wall-clock is noisier (N suites share cores) — note, don't gate on it
+      driftNote(suite, secs, !!code);   // parallel-path wall-clock is noisier (N suites share cores) — note, don't gate on it
       if(code) failed = true;
     }
   };
@@ -162,27 +169,31 @@ try{
     if(JOBS <= 1){
       for(const suite of suites){
         const secs = await step('pw ' + suite, () => run('node', [suite], {cwd: HERE, env}));
-        if(typeof secs === 'number') driftNote(suite, secs);
+        if(typeof secs === 'number') driftNote(suite, secs, failed);
       }
     } else {
       const n = Math.min(JOBS, suites.length);
       /* The floor is the LONGEST SINGLE suite — no amount of parallelism beats it.
-         That is check-eip (~312s), not smoke (~195s): the old advice here named smoke
-         on hints that were stale by 2.5x, and recommended 4 jobs on the same bad
-         numbers (both fixed 2026-08-17).
+         That is check-eip, not smoke: the advice here named smoke on hints that were
+         stale by 2.5x, and recommended 4 jobs on the same bad numbers (fixed 2026-08-17).
 
-         MEASURED on this machine (8GB/8 cores), same commit, all 13 suites green each
-         time: serial 18m39s · --jobs 2 9m30s (1.96x) · --jobs 3 6m30s (2.87x). Per-suite
-         times were unchanged in both parallel runs (within 3s), so 2 and 3 cost nothing
-         in reliability. What moves is MEMORY, not CPU: swap went 1.5G of 3G at 2 jobs to
-         2.6G of 3G at 3. That is why 3 is the ceiling here and 4 is not recommended — a
-         prior session recorded --jobs being OOM-killed on this box, which is consistent.
-         3 also gets within 7% of its own arithmetic best (365s), so there is little left
-         to win: 4 jobs could only reach check-eip's 312s floor, ~1 minute better, for
-         real OOM risk. On a machine with more RAM, raise it. */
-      if(JOBS > 3) console.log('\x1b[33m[gate] --jobs ' + JOBS + ': measured on 8GB/8 cores, 3 is the ceiling ' +
-        '(swap 2.6G of 3G at 3 jobs; 6m30s vs 9m30s at 2). check-eip (~312s) is the hard floor, so >3 buys ~1 minute ' +
-        'at OOM risk. Fine on a bigger machine — this is a note, not a limit.\x1b[0m');
+         MEASURED on this machine (8GB/8 cores), all 13 suites green each time:
+         serial 18m39s · --jobs 2 9m30s (1.96x) · --jobs 3 6m30s (2.87x), with per-suite
+         times unchanged in both parallel runs (within 3s) — so 2 and 3 cost nothing in
+         reliability. Those three runs PREDATE check-eip's sleep conversion the same day
+         (314s → 212s), so treat them as the shape, not the current clock: serial is now
+         16m57s and the suite sum 993s.
+
+         The cap at 3 is a MEMORY judgement, not an arithmetic one — and the arithmetic
+         has since changed sides, which is worth stating rather than quietly keeping the
+         old conclusion. Swap ran 1.5G of 3G at 2 jobs and 2.6G of 3G at 3; a prior
+         session had --jobs 4 OOM-killed on this box. Post-conversion, 4 jobs would NOT
+         be floor-bound (993/4 = 248s against a 212s floor), so it does have headroom —
+         untested, because 3 already left only 434MB of swap free. On a machine with more
+         RAM, raise it. */
+      if(JOBS > 3) console.log('\x1b[33m[gate] --jobs ' + JOBS + ': on 8GB/8 cores, 3 was the measured ceiling ' +
+        '(swap 2.6G of 3G at 3 jobs; --jobs 4 was OOM-killed here in an earlier session). Post-conversion, >3 does have ' +
+        'arithmetic headroom (993s over 4 lanes vs check-eip\'s ~212s floor) — but it is untested. A note, not a limit.\x1b[0m');
       console.log('\n\x1b[1m▶ browser chain — PARALLEL (' + n + ' jobs, longest-first)\x1b[0m');
       await poolRun(suites, n, env);   // runs ALL to completion; sets `failed` on any red
     }

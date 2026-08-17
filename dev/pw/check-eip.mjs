@@ -479,7 +479,7 @@ check('no console/page errors', errors.length === 0);
      round-trip edit below could merge backward into t2 (or t1+t2), and one undo would revert
      past `baseline`. Fast polling closed the natural gap the old fixed sleeps used to leave —
      restore it explicitly rather than relying on incidental Playwright latency. */
-  await p.waitForTimeout(550);
+  await p.waitForTimeout(700);
 
   /* ---- card menu: tap the card BODY (the invisible-fill data-hit rect, which
      IS the card rect itself here — why is a drop-in, no wrapper <g>) opens
@@ -637,8 +637,24 @@ check('no console/page errors', errors.length === 0);
      must decode to a model that round-trips this exact source — a fresh page
      loading that same URL should land on the identical document, not the
      stale pre-undo (or pre-add) state. */
+  /* Poll only for what is knowable HERE: the source has settled away from baseline.
+     This predicate used to also reference hashDoc, which is const-declared four lines
+     BELOW — so every iteration threw a TDZ ReferenceError that untilValue's catch
+     swallowed, and the "wait" was a silent 4s run to the ceiling that never evaluated
+     its condition once. The hashDoc comparison belongs to the check() below, which
+     still makes it. */
   const afterAddUndo = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
-    afterAddUndo => (hashDoc === afterAddUndo && afterAddUndo !== baseline));
+    v => v !== baseline);
+  /* This 700ms SLEEP stays, and no poll replaces it. The precondition is location.hash
+     having been rewritten behind its own 400ms debounce (see the comment above), and
+     every cheap predicate for that is already true before the debounce fires: two equal
+     href reads agree instantly precisely BECAUSE the rewrite has not started, which
+     hands the fresh page below a stale hash and fails this check for the wrong reason
+     (tried, and it failed exactly that way). The predicate that used to sit here
+     referenced a const declared four lines below it, threw TDZ every iteration, and was
+     swallowed by untilValue's catch — so this wait was an accidental 4s ceiling run all
+     along. 700ms is the honest version of it. */
+  await p.waitForTimeout(700);
   const hrefAfterAddUndo = await p.evaluate(() => location.href);
   const hashPage = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await hashPage.goto(hrefAfterAddUndo);
@@ -788,7 +804,7 @@ check('no console/page errors', errors.length === 0);
      into ONE undo step. `baseline` below is captured after all three; without a real
      gap here the first round-trip edit could merge backward past it (see the why
      block's identical fix above for the mechanism). */
-  await p.waitForTimeout(550);
+  await p.waitForTimeout(700);
 
   /* ---- card menu: tap the card BODY (the invisible data-hit rect, not a
      field) opens the menu; "Resume shield" carries both a note and a status so
@@ -1080,7 +1096,7 @@ check('no console/page errors', errors.length === 0);
      them, and the check just below expects TWO SEPARATE undos to unwind them — so
      they must land in two distinct CodeMirror undo groups, not merge into one (see
      the why/roadmap-setup fixes above for the newGroupDelay mechanism). */
-  await p.waitForTimeout(550);
+  await p.waitForTimeout(700);
 
   await tapCard('Ship reminders');
   await p.locator('.eip-pop button', {hasText: 'Resolve…'}).click();
@@ -1132,7 +1148,7 @@ check('no console/page errors', errors.length === 0);
   /* tCond and tClear below are two edits with no undo between them, and the checks
      after tClear expect TWO SEPARATE undos to unwind them one at a time — same
      newGroupDelay hazard as the resolve/reopen pair above. */
-  await p.waitForTimeout(550);
+  await p.waitForTimeout(700);
 
   await tapCard('Unrelated item');
   await p.locator('.eip-pop button', {hasText: 'Condition…'}).click();
@@ -1968,6 +1984,8 @@ check('no console/page errors', errors.length === 0);
      coarse pointers, but not gated — it works with a mouse too) */
   await tapCard(3);
   await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('map: Move… arms the placement hint and commits nothing', await until(async () => (await p.locator('.placehint').count() === 1 &&
     (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
   const plane0 = await p.locator('#preview svg rect[data-plane]').boundingBox();
@@ -1991,6 +2009,8 @@ check('no console/page errors', errors.length === 0);
   check('map: Move… armed the placement before the off-plane tap',
     await until(async () => await p.locator('.placehint').count() === 1));
   await p.mouse.click(plane0.x + plane0.width / 2, plane0.y - 40);
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('map: an off-plane tap cancels the placement, nothing written', await until(async () => (await p.locator('.placehint').count() === 0 &&
     (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
 
@@ -2339,6 +2359,8 @@ check('no console/page errors', errors.length === 0);
   check('wardley needs: exactly the existing deps are marked on',
     (await mpage.locator('.eip-pop button.on').allInnerTexts()).sort().join('|') ===
     'Notification service|Recommendations');
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('wardley needs: opening menu + checklist commits NOTHING (no silent commit)',
     (await wSrc()) === msrc3);
   check('wardley needs: no page h-scroll with the checklist open', await mpage.evaluate(() =>
@@ -2412,7 +2434,9 @@ check('no console/page errors', errors.length === 0);
     return {narrow: !!(svg && svg.hasAttribute('data-narrow')),
       menus: document.querySelectorAll('#preview svg g[data-edit="cardmenu"][data-menu]').length};
   }),
-    tlNarrow => (tlNarrow.narrow));
+    /* poll for the FULL assertion, not just `narrow`: data-narrow can land before the
+       cardmenu groups do, and the counts below are read from this same snapshot. */
+    tlNarrow => (tlNarrow.narrow && tlNarrow.menus === 7));
   check('timeline narrow: the phone preview is the narrow relayout (data-narrow)', tlNarrow.narrow);
   check('timeline narrow: every milestone row is now a data-menu cardmenu (the pilot landed)', tlNarrow.menus === 7);
 
@@ -2445,6 +2469,8 @@ check('no console/page errors', errors.length === 0);
   check('timeline narrow: milestone tap opens the card menu with the expected rows (one popover)',
     (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Status…|Lane…|Add note…|Remove milestone' &&
     await mpage.locator('.eip-pop').count() === 1);
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('timeline narrow: a coarse card tap commits NOTHING on its own (menu-first, no silent step)',
     (await tlSrc()) === tlBase);
 
@@ -2505,7 +2531,9 @@ check('no console/page errors', errors.length === 0);
     addbets: document.querySelectorAll('#preview svg [data-edit="addbet"]').length,
     addgroups: document.querySelectorAll('#preview svg [data-edit="addgroup"]').length,
   })),
-    btNarrow => (btNarrow.narrow));
+    /* poll for the FULL assertion — see the timeline block: data-narrow can precede
+       the cardmenus, and menus/addbets/addgroups are read from this snapshot. */
+    btNarrow => (btNarrow.narrow && btNarrow.menus === 5 && btNarrow.addbets === 2 && btNarrow.addgroups === 1));
   check('bets narrow: the phone preview is the narrow relayout (data-narrow)', btNarrow.narrow);
   check('bets narrow: every bet card is a data-menu cardmenu', btNarrow.menus === 5);
   check('bets narrow: a ＋ Add bet capsule per group + one ＋ Add group at the foot',
@@ -2529,6 +2557,8 @@ check('no console/page errors', errors.length === 0);
     (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') ===
       'Rename…|Edit stake…|Edit odds…|Edit payoff…|Edit kill criterion…|Remove bet' &&
     await mpage.locator('.eip-pop').count() === 1);
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('bets narrow: a coarse card tap commits NOTHING on its own (menu-first)', (await btSrc()) === btBase);
 
   // Rename… routes to the name target's input, prefilled; commit rewrites only the name
@@ -2654,6 +2684,8 @@ check('no console/page errors', errors.length === 0);
   check('cycles narrow: second ⋯ opens exactly Remove second cycle (one popover)',
     (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove second cycle' &&
     await mpage.locator('.eip-pop').count() === 1);
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('cycles narrow: opening the ⋯ menu commits nothing (menu-first)', (await cySrc()) === cyBase);
   await mpage.locator('.eip-pop button.danger', {hasText: 'Remove second cycle'}).click();
   await mpage.waitForTimeout(500);
@@ -2755,6 +2787,8 @@ insure: premium 6 attach 65 limit 30`;
   await rkTap('[data-edit="cardmenu"][data-kind="insure"] [data-hit]');
   check('risk narrow: insure ⋯ shows Rename / Remove limit / Remove structure',
     (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Remove limit|Remove structure');
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('risk narrow: opening the ⋯ menu commits nothing', (await rkSrc()) === rkBase);
   await rkBtn('Remove limit');
   check('risk narrow: Remove limit strips the limit clause', /^insure: premium 6 attach 65$/m.test(await rkSrc()));
@@ -3055,6 +3089,8 @@ insure: premium 6 attach 65 limit 30`;
     await sliverTap(p, p.locator('#preview svg rect[data-edit^="cardmenu"][data-hit]').first());
     check('phone why: card-body tap opens exactly ONE menu popover (redirect wins, nothing double-fires)', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
       await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1)));
+    /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+    await new Promise(r => setTimeout(r, 250));
     check('phone why: menu open commits nothing',
       (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
     /* away-dismiss: a pointerdown anywhere outside the popover closes it.
@@ -3133,6 +3169,8 @@ insure: premium 6 attach 65 limit 30`;
     await p.mouse.click(mBox.x + 4, mBox.y + mBox.height / 2);
     check('phone map: the card menu offers Move…', await until(async () => (await p.locator('.eip-pop button', {hasText: 'Move…'}).count() === 1)));
     await p.locator('.eip-pop button', {hasText: 'Move…'}).click();
+    /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+    await new Promise(r => setTimeout(r, 250));
     check('phone map: Move… arms the hint (with a Cancel), commits nothing', await until(async () => (await p.locator('.placehint').count() === 1 &&
       await p.locator('.placehint .btn', {hasText: 'Cancel'}).count() === 1 &&
       (await p.evaluate(() => localStorage.getItem('map-src'))) === baseline)));
@@ -3194,6 +3232,8 @@ insure: premium 6 attach 65 limit 30`;
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
     await sliverTap(p, p.locator('#preview svg g[data-edit="cardmenu"] rect[data-hit]').first());
+    /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+    await new Promise(r => setTimeout(r, 250));
     check('phone roadmap: narrow-chart card tap opens the menu, commits nothing', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
       (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline)));
     await p.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true})));
@@ -3339,6 +3379,8 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('gauge: qtype opens a prob/range/chips picker with prob marked',
     (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'prob|range|chips' &&
     (await mpage.locator('.eip-pop button.on').innerText()) === 'prob');
+  /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
+  await new Promise(r => setTimeout(r, 250));
   check('gauge: opening the type picker commits nothing (menu-first)', (await gSrc()) === gBase);
   await gBtn('range');
   check('gauge: →range supplies a placeholder unit', /^We ship the referral loop :: range units$/m.test(await gSrc()));
@@ -3717,7 +3759,11 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
      timeout, which untilValue's try/catch then swallowed. The check still passed, so
      the only symptom was ~30s of dead time per run inside a conversion whose entire
      point is to remove dead time. */
-  const beforeAnswer = await untilValue(() => src(), async v => (await src()) === v);
+  /* A plain read, deliberately. The preceding check already polled this source to a
+     known state, so there is nothing left to settle — and the "two consecutive equal
+     reads" idiom would be a no-op here anyway: two reads agree instantly whenever a
+     pending write has not STARTED, which is the very case a settle is meant to cover. */
+  const beforeAnswer = await src();
   await p.locator('#decision-inspector [data-answer-direction="no"]').click();
   check('paths: Answer no opens an auditable dated draft and writes nothing yet',
     (await src()) === beforeAnswer && /^no \d{4}-\d{2}-\d{2} -- $/.test(await p.locator('.eip-input').inputValue()));
@@ -3772,4 +3818,4 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
 
 console.log(results.join('\n'));
 await browser.close();
-report('check-eip', {...tally(results), min: 537});   // ~90% of 597 measured 2026-08-16; the old 480 was ~90% of 536 and the suite has grown since
+report('check-eip', {...tally(results), min: 537});   // ~90% of 598 measured 2026-08-16; the old 480 was ~90% of 536 and the suite has grown since
