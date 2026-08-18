@@ -19,8 +19,19 @@
    local seconds don't model, which is why motion-webkit (six suites) is CI's real
    ceiling. Treat the packing as a good heuristic, not a proof.
 
-     eip 212 · motion-webkit 201 · smoke 197 · mobile-core 194 · layout-gauge 189
+     eip 190 · mobile-core 185 · motion-webkit 178 · smoke 149 · layout-gauge 125
 
+   Ceiling 190s (2026-08-18, after Batch C). The ceiling suite is unchanged — eip is
+   still the longest and is a single suite, so no packing can put the ceiling below
+   its own runtime and none is attempted. The spread widened to 65s because the
+   shrinking landed unevenly (layout 158→94, smoke 197→149); the obvious next move,
+   if CI's balance is ever re-measured, is check.mjs off motion-webkit and onto
+   layout-gauge (178/125 → 148/155), which also follows this file's own advice to
+   move small suites OFF that shard rather than onto it. Not done here: it is a
+   CI-balance change and nothing in this round measured CI.
+
+   The pre-Batch-C figures, for the record:
+     eip 212 · motion-webkit 201 · smoke 197 · mobile-core 194 · layout-gauge 189
    A 23s spread, ceiling 212s. Two moves got there on 2026-08-17, in one day: first the
    three small suites (paths-budget, map, case) came off check-eip's shard, which was
    the only reason it ran 356s; then check-eip's fixed sleeps were converted to
@@ -48,8 +59,12 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    ORDERING-ONLY hints for the local `run.mjs --jobs` pool (longest-first
    scheduling) and for `run.mjs`'s drift note (±1.75x) — NOT a budget, and NOT the
    same number as CI wall-clock (CI runs on different, usually slower, hardware,
-   though check-eip.mjs is mostly immune: 269s of its total is pure
-   waitForTimeout sleeping, which is wall-clock, not CPU-bound). Update these by
+   check-eip.mjs used to be
+   largely immune because most of its time was pure waitForTimeout sleeping, which is
+   wall-clock rather than CPU-bound; after the 2026-08-17 and 2026-08-18 conversions
+   its literal sleeps static-sum to ~64s of a 190s run, so it is not immune any more.
+   The figure this comment carried, 269s, described a suite its own table put at 212s
+   and was a pre-conversion number). Update these by
    re-running the gate and reading its per-suite timings whenever they drift
    past the note's own ±1.75x threshold — the note tells you when.
    dev/ci-shards.test.mjs asserts a hint exists for every verify suite.
@@ -83,9 +98,9 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    suite OFF motion-webkit, not onto it. Diminishing returns from here: the remaining
    spread is 50s. */
 export const SUITE_SECONDS = {
-  'smoke.mjs': 197, 'check-eip.mjs': 212, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
-  'layout.mjs': 158, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 47,
-  'pwa.mjs': 24, 'signal.mjs': 4, 'map.mjs': 9, 'case.mjs': 5,
+  'smoke.mjs': 149, 'check-eip.mjs': 190, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
+  'layout.mjs': 94, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
+  'pwa.mjs': 15, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,
 };
 
 /* `node shards.mjs --json` → the GitHub Actions matrix (single line on stdout).
