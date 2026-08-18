@@ -46,6 +46,50 @@ async function svgDecodes(page, selector){
    fires once that promise resolves, so the label IS the proof — a decode failure
    lands on 'Copy blocked' instead. This is the decode gap that silently killed
    exports twice, now watched on the button that inherited it. */
+/* Selector-free decode, for the both-themes sweep (review, 2026-08-18). Moving the
+   deep flows to one theme took 26 dark `SVG decodes as XML` / `Copy PNG` assertions
+   across 15 tools with them, and nothing else in the repo could see that class:
+   svgDecodes/copyPngWorks live only in this file, dev/golden.js renders with
+   invented colours so svg-wellformed cannot reach a real dark palette, and
+   webkit.mjs's both-theme sweep asserts overflow and fonts, not decode. Renderers
+   branch on ctx.dark only to choose colour VALUES — which is why the other 167
+   removals really were duplicates, and why these were not: an XML-invalid value
+   emitted only by the dark palette renders fine inline and kills the export.
+
+   Picks the largest SVG by rendered area rather than a per-tool selector, so the
+   sweep stays self-extending (the deep flows carry the selectors; this must not).
+   Decoding EVERY svg would be wrong: page-chrome icons are written inline in HTML
+   and often omit xmlns, which a data: URI requires — they would fail for a reason
+   that is not a defect. An artefact comes from a renderer and always carries it.
+
+   WHAT THIS DOES NOT CATCH, measured rather than assumed: a bare boolean attribute.
+   The svg reached the DOM through innerHTML, so the HTML parser has already
+   normalised `data-mc` to `data-mc=""` before outerHTML re-serialises it — probed
+   both ways, a bare attribute still decodes true. That class belongs to
+   svg-wellformed.test.mjs's golden scan, which is why a render path with NO golden
+   (every narrow/phone branch today) has no well-formedness witness at all. The
+   class this DOES catch is the one that shipped twice: a double-quoted font name
+   inside a double-quoted attribute, which survives HTML parsing as a mangled
+   attribute NAME and is invalid XML (probed: real artefact true, mutant false). */
+async function artefactDecodes(page){
+  return page.evaluate(async () => {
+    let best = null, bestArea = 0;
+    for(const el of document.querySelectorAll('svg')){
+      const r = el.getBoundingClientRect(), area = r.width * r.height;
+      if(area > bestArea){ bestArea = area; best = el; }
+    }
+    if(!best) return true;                      // nothing painted is the sibling check's business, not this one
+    const svg = best.outerHTML;
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(true);
+      img.onerror = () => res(false);
+      setTimeout(() => res(false), 3000);
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+  });
+}
+
 async function copyPngWorks(page){
   try{
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -446,9 +490,13 @@ for(const theme of FLOW_THEMES){
    evaluate rather than a second pass over every tool. See emptyPaint() for why a
    node-side token check cannot be the only guard. */
 {
-  /* Both origins, both themes (2026-08-18) — this sweep is where the dark axis
-     lives now that the deep flows run once. Energy pages climb to '../' rather than
-     rooting at '/', so the expected crumb travels with the path. */
+  /* Every tool, both themes (2026-08-18) — this sweep is where the dark axis lives
+     now that the deep flows run once. Energy pages climb to '../' rather than
+     rooting at '/', so the expected crumb travels with the path.
+
+     NB these are energy PATHS served through the tools origin's fallback rewrites,
+     not the energy ORIGIN: this file never reads EBASE/EPORT (checked). pwa.mjs and
+     mobile.mjs are what exercise the real second origin. */
   const PAGES = [...TOOL_DIRS.map(d => ['/' + d + '/', '/']),
                  ...ENERGY_TOOL_DIRS.map(d => ['/energy/' + d + '/', '../'])];
   const paintedInLight = new Map();
@@ -477,6 +525,9 @@ for(const theme of FLOW_THEMES){
         const blank = await emptyPaint(page);
         check(path + '(' + theme + '): no blank fill/stroke in the live SVG' +
           (blank.length ? ' — ' + blank.slice(0, 4).join(' ') : ''), blank.length === 0);
+        /* Both themes: light gives the tools whose deep flow never decoded their
+           artefact a first witness, dark restores the 26 this reduction dropped. */
+        check(path + '(' + theme + '): its artefact decodes as XML', await artefactDecodes(page));
       }
       check(path + '(' + theme + '): boots with a clean console', errors.length === errorsBefore);
     }
@@ -1462,4 +1513,4 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 
 console.log(results.join('\n'));
 await browser.close();
-report('smoke', {...tally(results), min: 430});   // ~90% of 478 measured 2026-08-18 (was 524 of 583; deep flows run once, the per-tool sweep gained a dark pass on both origins)
+report('smoke', {...tally(results), min: 461});   // ~90% of 512 measured 2026-08-18 (478 after the Batch C trim; +34 when the review restored the artefact-decode probe to both themes)

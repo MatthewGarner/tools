@@ -20,7 +20,7 @@ compatibility; a plain static server no longer exercises what production ships.
 node dev/serve.mjs 8087                 # tools origin
 node dev/serve.mjs 8089 --origin=energy # energy origin
 
-# then, from dev/pw — the full gate (all nine suites):
+# then, from dev/pw — the whole chain (npm run verify IS the list; don't count here):
 npm run verify
 # or a single suite:
 node smoke.mjs

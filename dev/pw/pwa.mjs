@@ -43,7 +43,6 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
    before the click and the wait would do nothing at all. */
 const persisted = (p, key) => until(() => p.evaluate(k => localStorage.getItem(k), key));
 const shown = (p, sel) => until(() => p.locator(sel).count());
-const said = (p, sel) => until(() => p.locator(sel).innerText().then(t => t.trim().length > 0));
 
 async function installAndWait(page){
   await page.goto(BASE + '/', {waitUntil: 'networkidle'});
