@@ -501,6 +501,18 @@ for(const es of END_STATES){
   await page.close();
 }
 
+/* premortem's Next is disabled until the current step's precondition is met (a
+   field committed, entries added, a checkbox ticked), and those commits are async.
+   A bare click('#next') therefore races the enabling: Playwright auto-waits for
+   enabled and then TIMES OUT, which is exactly how CI failed twice on 2026-08-17
+   (mobile.mjs:572, :575) on slower runners while the same suite passed locally.
+   Wait for the precondition instead of hoping — deterministic, and faster than the
+   fixed waitForTimeout padding it also replaces. */
+const nextStep = async page => {
+  await page.waitForFunction(() => document.querySelector('#next') && !document.querySelector('#next').disabled);
+  await page.click('#next');
+};
+
 // premortem register-phase walk: the register is behind the wizard, so drive a
 // fresh doc to a populated REGISTER on a phone and prove the dense table's own
 // horizontal scroll stays inside .registerwrap and never blows out the page body
@@ -514,21 +526,21 @@ for(const es of END_STATES){
   await page.waitForTimeout(500);
   await page.fill('[data-field="title"]', 'Lantern phone launch');
   await page.fill('[data-field="question"]', 'It flopped. Why?');
-  await page.click('#next'); await page.waitForTimeout(120);
+  await nextStep(page); await page.waitForTimeout(120);
   await page.click('[data-act="skiptimer"]'); await page.waitForTimeout(120);
   for(const t of ['Sign-up too slow on 3G', 'Push permission denied', 'Costs overshoot']){
     await page.fill('[data-add="entry"]', t); await page.press('[data-add="entry"]', 'Enter'); await page.waitForTimeout(80);
   }
-  await page.click('#next'); await page.waitForTimeout(100);   // CLUSTER
-  await page.click('#next'); await page.waitForTimeout(100);   // SCORE
+  await nextStep(page); await page.waitForTimeout(100);   // CLUSTER
+  await nextStep(page); await page.waitForTimeout(100);   // SCORE
   await page.locator('.scrow').first().locator('[data-p="lo"]').fill('30');
   await page.locator('.scrow').first().locator('[data-p="hi"]').fill('60');
   await page.locator('.scrow').first().locator('[data-impact="lo"]').fill('100');
   await page.locator('.scrow').first().locator('[data-impact="hi"]').fill('400');
   await page.waitForTimeout(120);
-  await page.click('#next'); await page.waitForTimeout(100);   // ACTIONS
-  await page.click('#next'); await page.waitForTimeout(100);   // VOTE
-  await page.click('#next'); await page.waitForTimeout(250);   // REGISTER
+  await nextStep(page); await page.waitForTimeout(100);   // ACTIONS
+  await nextStep(page); await page.waitForTimeout(100);   // VOTE
+  await nextStep(page); await page.waitForTimeout(250);   // REGISTER
   const vw = await page.evaluate(() => document.documentElement.clientWidth);
   const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
   ok(docSW <= vw + 1, `premortem: register phase — no page-level h-scroll (${docSW} <= ${vw})`);
@@ -569,14 +581,13 @@ for(const es of END_STATES){
   await page.click('#newparade');
   await page.fill('[data-field="title"]', 'Lantern phone breakthrough');
   await page.fill('[data-field="question"]', 'Why did it win?');
-  await page.waitForFunction(() => !document.querySelector('#next').disabled);
-  await page.click('#next'); await page.click('[data-act="skiptimer"]');
+  await nextStep(page); await page.click('[data-act="skiptimer"]');
   await page.fill('[data-add="entry"]', 'Keep the old onboarding reversible'); await page.press('[data-add="entry"]', 'Enter');
-  await page.click('#next'); await page.click('#next');
+  await nextStep(page); await nextStep(page);
   const widths = await page.locator('[data-essential]').evaluateAll(nodes => nodes.map(n => ({w: n.getBoundingClientRect().width, h: n.closest('label').getBoundingClientRect().height})));
   ok(widths.length === 1 && widths[0].h >= 44, 'pre-parade: must-make-true control is a 44px phone target');
   ok(await page.locator('[data-p]').count() === 0 && await page.locator('[data-impact]').count() === 0, 'pre-parade: phone commit step has no pseudo-numeric score');
-  await page.check('[data-essential]'); await page.click('#next'); await page.click('#next'); await page.click('#next');
+  await page.check('[data-essential]'); await nextStep(page); await nextStep(page); await nextStep(page);
   const vp = await page.evaluate(() => ({sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth, text: document.querySelector('#phasepanel').innerText}));
   ok(vp.sw <= vp.vw + 1, 'pre-parade: success register has no phone page overflow');
   ok(vp.text.toLowerCase().includes('success register') && !vp.text.includes('Portfolio exposure'), 'pre-parade: phone register retains the no-forecast receipt');
