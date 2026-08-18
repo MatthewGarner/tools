@@ -14,6 +14,27 @@ const check = (name, ok) => {
   if(!ok) console.error(result); // keep actionable failures visible in long CI logs
 };
 
+/* ONE undo, waited for by condition rather than by 500ms — 2026-08-18.
+
+   Eleven blocks defined this same three-line shape and 67 call sites each paid a
+   flat half-second for it, which is ~34s of the suite that caps every parallel run.
+
+   The wait is "the doc has LEFT the state the edit put it in", never "the doc has
+   arrived at the baseline": arrival is exactly what the check() after every call
+   asserts, so polling for it would be polling the assertion. An undo writes the
+   whole document in one setItem, so there is no intermediate value to catch — the
+   write this poll observes IS the write the assertion then reads.
+
+   A stuck undo therefore costs 4s and fails the caller's own check by name, rather
+   than passing on a doc that never moved. */
+async function undoStep(pg, key, focus){
+  if(focus) await focus();
+  const was = await pg.evaluate(k => localStorage.getItem(k), key);
+  await pg.locator('.cm-content').click();
+  await pg.keyboard.press('ControlOrMeta+z');
+  await untilValue(() => pg.evaluate(k => localStorage.getItem(k), key), v => v !== was);
+}
+
 /* Mobile-emulated contexts: locator.click() scrolls-then-clicks as one step, and a
    trailing scroll-settle event can still land AFTER the click dispatches — racing
    edit-in-place's own scroll-closes-the-popover guard shut before we ever act on it.
@@ -73,9 +94,7 @@ const svg = await page.locator('#preview svg').innerHTML();
 check('recommendation recomputes (Submit bid still leads on these numbers)',
   svg.includes('VERDICT') && /VERDICT[\s\S]{0,400}Choose Submit bid/.test(svg));
 check('one undo reverts the edit', await (async () => {
-  await page.locator('.cm-content').click();
-  await page.keyboard.press('ControlOrMeta+z');
-  await page.waitForTimeout(500);
+  await undoStep(page, 'tree-src');
   return (await page.evaluate(() => localStorage.getItem('tree-src'))) === before;
 })());
 
@@ -128,11 +147,7 @@ check('label rename lands in text and diagram', await until(async () => ((await 
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   };
   const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
-  const undo = async () => {
-    await page.locator('.cm-content').click();
-    await page.keyboard.press('ControlOrMeta+z');
-    await page.waitForTimeout(500);
-  };
+  const undo = () => undoStep(page, 'tree-src');
 
   // decision node ("Submit bid", srcLine 4): Rename, Edit value, Add option, Remove branch
   await tapMarker(4);
@@ -496,11 +511,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'why-src');
 
   /* "Reading reminders" (srcLine 5) carries two assumptions (srcLine 6 "readers
      want a nudge mid-commute" [testing], srcLine 7 "reading time is
@@ -719,11 +730,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'why-src');
 
   await tapCard(5);
   check('why map: card body tap opens the menu with exactly Rename/Remove', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Remove branch')));
@@ -828,11 +835,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'roadmap-src');
 
   await tapCard("Resume shield");
   check('roadmap: card body tap opens the menu with the expected rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Inspect item|Remove item')));
@@ -933,11 +936,7 @@ check('no console/page errors', errors.length === 0);
     (await p.locator('#preview svg [data-edit="note"][data-line="' + line + '"]').count()) === 0);
 
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'roadmap-src');
 
   // (a) Status… — must open the real options picker, never silence
   await tapCard(title);
@@ -1072,11 +1071,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'roadmap-src');
 
   // ---- Resolve… ----
   await tapCard('Ship reminders');
@@ -1344,11 +1339,7 @@ check('no console/page errors', errors.length === 0);
     const box = await rowOf(title).locator('rect[data-hit]').boundingBox();
     await tapCardMenu(p, box);
   };
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'roadmap-src');
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the title cell ----
@@ -1514,11 +1505,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(700);
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'roadmap-src');
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the card's title field ----
@@ -1629,11 +1616,7 @@ check('no console/page errors', errors.length === 0);
     const box = await cardOf(title).locator('rect[data-hit]').boundingBox();
     await tapCardMenu(p, box);
   };
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'roadmap-src');
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ================= HERO: full inline edit targets =================
@@ -1918,13 +1901,10 @@ check('no console/page errors', errors.length === 0);
     await p.mouse.click(box.x + 4, box.y + box.height / 2);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
-  const undo = async () => {
+  const undo = () => undoStep(p, 'map-src', async () => {
     if(!(await p.locator('.cm-content').isVisible()))
       await p.getByRole('button', {name: 'Edit map source'}).click();
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  });
 
   await tapCard(3);
   check('map: card body tap opens the menu with the expected rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit field…|Inspect…|Move…|Remove')));
@@ -2914,11 +2894,7 @@ insure: premium 6 attach 65 limit 30`;
   await p.getByRole('button', {name: 'Lantern portfolio'}).click();
   await p.waitForTimeout(500);
   const baseline = await p.evaluate(() => localStorage.getItem('bets-src'));
-  const undo = async () => {
-    await p.locator('.cm-content').click();
-    await p.keyboard.press('ControlOrMeta+z');
-    await p.waitForTimeout(500);
-  };
+  const undo = () => undoStep(p, 'bets-src');
 
   // direct odds edit on "Referral flow v2" (srcLine 5): commits + re-renders
   await p.locator('[data-edit="odds"][data-line="5"]').click();

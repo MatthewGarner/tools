@@ -10,12 +10,31 @@ const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
+/* `deep` marks the four tools that walk the WHOLE workspace contract. The other
+   nine keep only the parts that can differ per tool (2026-08-18).
+
+   The reasoning, because the reduction is the risk: rail collapse, the URL
+   round-trip of the collapsed flag, the `[` keymap and the four zoom endpoints are
+   assets/workspace.js's behaviour, identical in every importer — thirteen
+   repetitions of it bought one shared module tested thirteen times, at 52 page
+   loads and 1.3 checks/second, the worst cost-per-unique-thing in the chain.
+   What is NOT shared is the per-tool SHAPE, so the deep four are chosen to differ
+   in exactly those dimensions: tree (no source trigger, plain width), gauge (a
+   source trigger AND a view trigger, tab hidden when narrow), case (opens with the
+   rail already expanded), paths (its artefact shares the stage with a receipt
+   column, the one tool whose width invariant is arithmetic rather than a floor).
+
+   The narrow-stacking check stays on ALL thirteen deliberately. `narrowTab` is
+   real per-tool markup, not shared behaviour, and its TRUE branch belongs only to
+   why/map/wardley — all three in the reduced set. Every deep tool is narrowTab
+   false, so trimming it would have left that branch with no witness anywhere in
+   the chain (checked: `#railtab` appears in no other suite's assertions). */
 const TOOLS = [
-  {path: '/tree/', chip: 'Bid or no bid'},
+  {path: '/tree/', chip: 'Bid or no bid', deep: true},
   {path: '/why/', chip: 'Reading retention', source: 'Edit tree source'},
   {path: '/roadmap/', chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
-  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false},   // Narrow stacks the visible question source; no duplicate trigger.
+  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme'},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   {path: '/bets/', chip: 'Lantern portfolio'},
@@ -34,12 +53,21 @@ const TOOLS = [
      Every one of those facts was measured against the running page. A first attempt
      guessed the label; a second removed the trigger entirely on the strength of a
      visibility probe that used offsetParent and reported the opposite of the truth. */
-  {path: '/case/', chip: 'Wexcombe augmentation'},
-  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true},
+  {path: '/case/', chip: 'Wexcombe augmentation', deep: true},
+  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true, deep: true},
   {path: '/proxy/', chip: TWO_THEORIES.name},
 ];
 
-for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source} of TOOLS){
+/* Runs for every tool, deep or not: `narrowTab` is per-tool markup rather than
+   shared-module behaviour, and its true branch lives only in the reduced set. */
+async function narrowStacks(page, path, narrowTab){
+  await page.setViewportSize({width: 800, height: 900});
+  await page.waitForTimeout(300);
+  check(path + ' narrow: rail stacks with an appropriate source control', await page.locator('.rail').isVisible() &&
+    (narrowTab ? await page.locator('#railtab').isVisible() : !(await page.locator('#railtab').isVisible())));
+}
+
+for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source, deep = false} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -87,7 +115,24 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   } else {
     check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
       after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));
-    check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
+    if(deep) check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
+  }
+
+  /* The shared-module walk (URL round-trip, `[` keymap, four zoom endpoints) runs
+     on the deep four only — see the TOOLS comment. Everything a tool can differ in
+     has already run above, and the narrow-stacking check below runs for all. */
+  if(!deep){
+    /* narrowStacks asserts the rail is VISIBLE once stacked, so it needs the rail
+       open — the deep path reaches it after `[` has reopened it. Reopening here is
+       what the first version of this reduction got wrong: it ran the check straight
+       off the collapse and failed all ten shallow tools. 600ms clears the rail's
+       0.28s reopen transition, the same margin the `[` check below uses. */
+    await page.locator('#railtab').click();
+    await page.waitForTimeout(600);
+    await narrowStacks(page, path, narrowTab);
+    check(path + ' no console/page errors', errors.length === 0);
+    await page.close();
+    continue;
   }
 
   /* URL round-trip of collapsed state */
@@ -125,10 +170,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   check(path + ' Fit restores', Math.abs((await svgW()) - fitW) < 8);
 
   /* narrow stacking */
-  await page.setViewportSize({width: 800, height: 900});
-  await page.waitForTimeout(300);
-  check(path + ' narrow: rail stacks with an appropriate source control', await page.locator('.rail').isVisible() &&
-    (narrowTab ? await page.locator('#railtab').isVisible() : !(await page.locator('#railtab').isVisible())));
+  await narrowStacks(page, path, narrowTab);
   check(path + ' no console/page errors', errors.length === 0);
   await page.close();
 }
@@ -203,6 +245,25 @@ for(const [label, viewport, minFill] of [
     missing.length === 0);
 }
 
+/* Coverage of the REDUCTION itself (2026-08-18). The list above is derived and
+   guarded; the deep SET is hand-picked, so it is now the thing that can rot — mark
+   one more tool shallow and a whole shape silently stops being walked. This asserts
+   that the four still differ in every dimension the deep walk branches on: a source
+   trigger present AND absent, a view trigger, and a receipt column present AND
+   absent. (narrowTab is deliberately not here — narrowStacks runs for all thirteen,
+   so the walk no longer branches on it.) */
+{
+  const deepSet = TOOLS.filter(t => t.deep);
+  const both = (label, f) => deepSet.some(f) && deepSet.some(t => !f(t)) ? null : label;
+  const gaps = [
+    both('a source trigger present and absent', t => !!t.source),
+    both('a receipt column present and absent', t => !!t.receiptColumn),
+    deepSet.some(t => !!t.view) ? null : 'a view trigger',
+  ].filter(Boolean);
+  check('the deep walk still covers every shape it branches on' +
+    (gaps.length ? ' — missing ' + gaps.join('; ') : ''), gaps.length === 0);
+}
+
 console.log(results.join('\n'));
 await browser.close();
-report('layout', {...tally(results), min: 189});   // ~90% of 210 measured 2026-08-16 (case/paths/proxy added; was 60 — 63% could vanish)
+report('layout', {...tally(results), min: 134});   // ~90% of 149 measured 2026-08-18 (was 189 of 211; the shared-module walk narrowed to the deep four)
