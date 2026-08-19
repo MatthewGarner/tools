@@ -6,7 +6,7 @@
    to :8089 via the EPORT env knob — reused if already alive, e.g. another
    suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
-import {report, tally, pickExample} from './_harness.mjs';
+import {report, tally, pickExample, until} from './_harness.mjs';
 import {spawn} from 'node:child_process';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
@@ -31,6 +31,18 @@ if(!alive){
 const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
+
+/* What these probes mean to prove is that the tool's OWN flow ran offline — and for
+   the DSL tools that is directly observable rather than guessable. The first-run
+   autoload renders under assets/mobile.js's persistence suppression, so `<tool>-src`
+   stays NULL until a genuine interaction; the chip click is that interaction, and
+   app.js persists in the same tick it paints. So storage turning non-null means this
+   click's refresh has run.
+   Polling the rendered `#preview svg` instead would be the "already true before the
+   action" trap: eleven of these tools autoload an artefact, so the svg is on screen
+   before the click and the wait would do nothing at all. */
+const persisted = (p, key) => until(() => p.evaluate(k => localStorage.getItem(k), key));
+const shown = (p, sel) => until(() => p.locator(sel).count());
 
 async function installAndWait(page){
   await page.goto(BASE + '/', {waitUntil: 'networkidle'});
@@ -60,29 +72,44 @@ async function installAndWait(page){
   /* cold offline: no tool page has been visited in this context */
   await ctx.setOffline(true);
   const TOOLS = [
-    ['/fermi/', async p => { await p.getByRole('button', {name:'Edit formula & ranges'}).click(); await p.getByRole('button', {name: 'Weekly meeting, annual cost'}).click(); await p.waitForTimeout(500); return (await p.locator('#p50').innerText()).length > 0; }],
-    ['/rank/', async p => { await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await p.waitForTimeout(500); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
-    ['/roadmap/', async p => { await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await p.getByRole('button', {name: 'Reading retention'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await p.getByRole('button', {name: 'Assumption map'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/flow/', async p => { await p.waitForTimeout(600); return await p.locator('#verdictwrap svg').count() === 1; }],
-    ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await p.getByRole('button', {name: 'Lantern platform'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/bets/', async p => { await p.getByRole('button', {name: 'Lantern portfolio'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
-    ['/alarm/', async p => { await p.waitForTimeout(600); return await p.locator('#distwrap svg').count() === 1 && await p.locator('#gate').evaluate(c => c.width > 100); }],
-    ['/duel/', async p => { await p.locator('#start').click(); await p.waitForTimeout(400); return await p.locator('#duelwrap [data-pick]').count() === 2; }],
-    ['/premortem/', async p => { await p.waitForTimeout(500); return await p.locator('#phasepanel [data-field="title"]').count() === 1; }],
-    ['/proxy/', async p => { await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    /* fermi has no source key; its P50 reads an em dash until the model actually
+       runs, so "no longer the placeholder" is the honest wait for a computed result */
+    ['/fermi/', async p => { await p.getByRole('button', {name:'Edit formula & ranges'}).click(); await p.getByRole('button', {name: 'Weekly meeting, annual cost'}).click(); await until(() => p.locator('#p50').innerText().then(t => t.trim().length > 0 && t.trim() !== '—')); return (await p.locator('#p50').innerText()).length > 0; }],
+    /* rank has no source key and DOES autoload a table, so ".rankbar exists" is
+       already true before the click — measured: 5 bars on screen against this
+       example's 7. Waiting for the count to CHANGE is the precondition; the check
+       then asserts what it changed TO. (Should a future example edit make the two
+       counts equal, this degrades to a 4s wait and a correct pass — never a false
+       green.) */
+    ['/rank/', async p => { const was = await p.locator('.rankbar').count(); await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await until(() => p.locator('.rankbar').count().then(n => n !== was)); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
+    ['/roadmap/', async p => { await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await persisted(p, 'gauge-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/flow/', async p => { await shown(p, '#verdictwrap svg'); return await p.locator('#verdictwrap svg').count() === 1; }],
+    ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await p.getByRole('button', {name: 'Lantern platform'}).click(); await persisted(p, 'wardley-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/bets/', async p => { await p.getByRole('button', {name: 'Lantern portfolio'}).click(); await persisted(p, 'bets-src'); return await p.locator('#preview svg').count() === 1; }],
+    /* the gate canvas is sized by the first paint, so width>100 is false until it runs */
+    ['/alarm/', async p => { await until(() => p.locator('#gate').evaluate(c => c.width > 100)); return await p.locator('#distwrap svg').count() === 1 && await p.locator('#gate').evaluate(c => c.width > 100); }],
+    ['/duel/', async p => { await p.locator('#start').click(); await shown(p, '#duelwrap [data-pick]'); return await p.locator('#duelwrap [data-pick]').count() === 2; }],
+    ['/premortem/', async p => { await shown(p, '#phasepanel [data-field="title"]'); return await p.locator('#phasepanel [data-field="title"]').count() === 1; }],
+    ['/proxy/', async p => { await shown(p, '#preview svg'); return await p.locator('#preview svg').count() === 1; }],
     /* Added 2026-08-16 — the sweep had covered 15 of 18 TOOL_DIRS since these three
        shipped, and paths is the largest page in the suite. The coverage assertion
        below is what stops it falling behind a fourth time. */
-    ['/signal-vs-noise/', async p => { await p.waitForTimeout(600); return await p.locator('svg').count() >= 1; }],
-    ['/case/', async p => { await p.getByRole('button', {name: 'Wexcombe augmentation'}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+    ['/signal-vs-noise/', async p => { await shown(p, 'svg'); return await p.locator('svg').count() >= 1; }],
+    ['/case/', async p => { await p.getByRole('button', {name: 'Wexcombe augmentation'}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
     /* paths keeps its rail collapsed, so the chip row is in the DOM but not clickable
-       until the railtab is opened — the same shape smoke.mjs handles for wardley/map. */
-    ['/paths/', async p => { await p.waitForTimeout(600); if(!await p.locator('#chips').isVisible()) await p.locator('#railtab').click(); await p.locator('#chips').waitFor({state: 'visible', timeout: 5000}); await p.getByRole('button', {name: 'Lantern', exact: true}).click(); await p.waitForTimeout(500); return await p.locator('#preview svg').count() === 1; }],
+       until the railtab is opened — the same shape smoke.mjs handles for wardley/map.
+       KEPT SLEEP (2026-08-18): the branch below turns on isVisible(), and during the
+       rail's collapse animation that probe reports the OPPOSITE of the truth — it
+       answered "visible", the railtab was never clicked, and the chip click then spent
+       Playwright's full 30s timeout being told "element is not stable" / "not visible".
+       Waiting for the element to be attached is not waiting for the layout to settle,
+       and settled-ness is what this branch reads. The post-click wait below IS a poll. */
+    ['/paths/', async p => { await p.waitForTimeout(600); if(!await p.locator('#chips').isVisible()) await p.locator('#railtab').click(); await p.locator('#chips').waitFor({state: 'visible', timeout: 5000}); await p.getByRole('button', {name: 'Lantern', exact: true}).click(); await persisted(p, 'paths-src'); return await p.locator('#preview svg').count() === 1; }],
   ];
   /* Coverage: the offline promise is "every tool works after one online open", so a
      tool missing from this list is an unkept promise, not a gap in a test. Derived
@@ -116,7 +143,7 @@ async function installAndWait(page){
   check('Pixel 7: landing offline after install', await page.locator('a.tool').count() >= 9);
   const p2 = await ctx.newPage();
   await p2.goto(BASE + '/gauge/', {waitUntil: 'domcontentloaded'});
-  await p2.waitForTimeout(500); // gauge autoloads the first example onto the sample reveal
+  await shown(p2, '#preview svg'); // gauge autoloads the first example onto the sample reveal
   check('Pixel 7: gauge compose cold offline', await p2.locator('#preview svg').count() === 1);
   await ctx.close();
 }

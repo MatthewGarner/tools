@@ -1,7 +1,28 @@
 import {chromium} from 'playwright';
-import {trackErrors, report, tally} from './_harness.mjs';
+import {trackErrors, report, tally, until, untilValue} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
+
+/* Condition polling replaces fixed padding throughout this suite (2026-08-18).
+   Three shapes cover nearly every wait here, and each is FALSE before the action
+   it follows — the property that separates a wait from a decoration:
+
+   roadmapSrc(pg)   the doc as the assertions read it. roadmap's doRefresh paints
+                    and THEN persists in the same tick, so storage carrying a doc
+                    means that doc is already on screen. It is also NULL until the
+                    first genuine interaction (assets/mobile.js suppresses the
+                    first-run autoload's writes), which is what makes "storage is
+                    non-null" a real signal that a chip click's own refresh ran —
+                    where "#preview svg exists" is already true from the autoload.
+   changed(pg,was)  the doc has left a known state. Used after drags and undos,
+                    where WHERE it lands is exactly what the check asserts, so
+                    polling for the landing would be polling the assertion.
+   rendered(pg,sel) a selector that matches nothing until the paint under test. */
+const roadmapSrc = pg => pg.evaluate(() => localStorage.getItem('roadmap-src'));
+const seeded = pg => until(() => roadmapSrc(pg));
+const changed = (pg, was) => untilValue(() => roadmapSrc(pg), v => v !== was);
+const holds = (pg, read) => until(() => read(pg));
+const rendered = (pg, sel) => until(() => pg.locator(sel).count());
 const browser = await chromium.launch();
 /* A drag whose endpoints are not both inside the viewport is a SILENT no-op:
    the app resolves its drop target with document.elementsFromPoint, which is
@@ -29,7 +50,7 @@ check('page loads with editor mounted', await page.locator('.cm-editor').count()
 
 // load example via chip
 await page.getByRole('button', {name: 'Reading app roadmap'}).click();
-await page.waitForTimeout(300);
+await seeded(page);
 check('example renders SVG preview', await page.locator('#preview svg').count() === 1);
 check('swimlanes render', (await page.locator('#preview svg text', {hasText: 'Growth'}).count()) >= 1);
 
@@ -42,7 +63,7 @@ await page.locator('.cm-content').click();
 await page.keyboard.press('Meta+ArrowDown'); // end of doc
 await page.keyboard.press('Enter');
 await page.keyboard.type('Platform: Parity check item [risk]');
-await page.waitForTimeout(400);
+await until(() => page.locator('#preview svg').innerHTML().then(h => h.includes('Parity check item')));
 check('typed item appears in preview', (await page.locator('#preview svg').innerHTML()).includes('Parity check item'));
 
 // typing latency: time 20 keystrokes
@@ -51,18 +72,19 @@ await page.keyboard.type(' plus some more typed text here', {delay: 0});
 const typed = Date.now() - t0;
 check('30 chars typed in ' + typed + 'ms (<1500ms)', typed < 1500);
 
-// Alt+ArrowUp moves line (wait out the debounce so the baseline is current)
-await page.waitForTimeout(400);
+// Alt+ArrowUp moves line (wait out the debounce so the baseline is current —
+// the flush is observable: the typed tail reaching storage IS the debounce done)
+await until(() => roadmapSrc(page).then(s => (s || '').includes('plus some more typed text here')));
 const before = await page.evaluate(() => localStorage.getItem('roadmap-src'));
 await page.keyboard.press('Alt+ArrowUp');
-await page.waitForTimeout(400);
+await changed(page, before);
 const after = await page.evaluate(() => localStorage.getItem('roadmap-src'));
 check('Alt+ArrowUp moves the line', before !== after);
 
 // undo works — ControlOrMeta so it's Cmd on macOS (local) and Ctrl on Linux (CI);
 // CodeMirror binds undo to the OS modifier, so a hardcoded Meta fails on Linux
 await page.keyboard.press('ControlOrMeta+z');
-await page.waitForTimeout(400);
+await changed(page, after);
 const undone = await page.evaluate(() => localStorage.getItem('roadmap-src'));
 check('Cmd+Z undoes', undone === before);
 
@@ -73,13 +95,13 @@ await page.locator('.cm-content').click();
 await page.keyboard.press('Meta+ArrowDown');
 await page.keyboard.press('Enter');
 await page.keyboard.type('Core: Brand new initiative');
-await page.waitForTimeout(400);
+await until(() => roadmapSrc(page).then(s => (s || '').includes('Brand new initiative')));
 await page.locator('#snapsel').selectOption({index: 1});
-await page.waitForTimeout(400);
+await until(() => page.locator('#preview svg').innerHTML().then(h => h.includes('>NEW<')));
 check('compare shows NEW badge', (await page.locator('#preview svg').innerHTML()).includes('>NEW<'));
 check('comparison exposes the Change preflight', await page.locator('#changepreview').isVisible());
 await page.locator('#changepreview').click();
-await page.waitForTimeout(200);
+await holds(page, p => p.locator('#slidepreviewdialog').evaluate(d => d.open));
 check('Change preflight opens the actual page-set dialog', await page.locator('#slidepreviewdialog').evaluate(d => d.open) &&
   await page.locator('#slidepreviewtitle').innerText() === 'Change deck preview');
 const changeAction = await page.locator('#slidedownload').textContent();
@@ -101,7 +123,7 @@ check('Escape closes Change preflight and restores its trigger focus', await pag
 const wipDoc = 'NOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).join('\n') + '\nNEXT\nx';
 const wipPage = await browser.newPage();
 await wipPage.goto(BASE + '#' + Buffer.from(wipDoc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
-await wipPage.waitForTimeout(400);
+await rendered(wipPage, '#warns li');
 check('WIP warning fires', (await wipPage.locator('#warns').innerText()).includes('Now has 7 items in flight (wip: 6).'));
 check('WIP flag in svg', (await wipPage.locator('#preview svg').innerHTML()).includes('7 ITEMS'));
 await wipPage.close();
@@ -113,7 +135,7 @@ await wipPage.close();
   const normalDoc = 'title: Normal Board\nstyle: board\nNOW\nCore: One\nNEXT\nCore: Two\nLATER\nCore: Three';
   const normalPage = await browser.newPage({viewport: {width:1440, height:1000}});
   await normalPage.goto(BASE + '#' + Buffer.from(normalDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
-  await normalPage.waitForTimeout(450);
+  await rendered(normalPage, '#preview svg rect[data-hdrop]');
   check('a normal three-horizon Board never becomes a two-horizon carousel',
     await normalPage.locator('#boardwindow').isHidden() && await normalPage.locator('#preview svg rect[data-hdrop]').count() === 3);
   if(!(await normalPage.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))) await normalPage.locator('#railtab').click();
@@ -121,7 +143,7 @@ await wipPage.close();
   check('collapsed source returns through a named 44px DSL control', sourceTab.text === 'Edit roadmap source' && sourceTab.rect.width >= 44 && sourceTab.rect.height >= 44);
   await normalPage.getByRole('button', {name:'More options: One'}).click();
   await normalPage.getByRole('menuitem', {name:'Inspect item'}).click();
-  await normalPage.waitForTimeout(120);
+  await rendered(normalPage, '[data-inspected="true"]');
   check('item review selects one card and exposes a textual receipt',
     await normalPage.locator('[data-inspected="true"]').count() === 1 &&
     await normalPage.getByRole('complementary', {name:'Selected roadmap item'}).isVisible() &&
@@ -142,6 +164,10 @@ await wipPage.close();
   await normalPage.locator('.cm-content').click();
   await normalPage.keyboard.press('ControlOrMeta+Home');
   await normalPage.keyboard.insertText('// source revision\n');
+  /* KEPT SLEEP: both halves of the check below assert an ABSENCE (the receipt is
+     hidden, no card is inspected). A poll on an absence is satisfied by a state
+     that has not changed yet, so it would pass before the revision was processed
+     and prove nothing. Time is the only honest wait for "nothing came back". */
   await normalPage.waitForTimeout(350);
   check('a source revision clears review rather than retargeting a shifted line',
     await normalPage.locator('#roadmapreceipt').isHidden() && await normalPage.locator('[data-inspected="true"]').count() === 0);
@@ -150,11 +176,13 @@ await wipPage.close();
   const boardDoc = 'title: Board capacity\nstyle: board\nhorizons: A, B, C, D, E\nA\nCore: One\nB\nCore: Two\nC\nCore: Three\nD\nCore: Four\nE\nCore: Five';
   const boardPage = await browser.newPage({viewport: {width:1440, height:1000}});
   await boardPage.goto(BASE + '#' + Buffer.from(boardDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
-  await boardPage.waitForTimeout(500);
+  await holds(boardPage, p => p.locator('#boardwindow').isVisible());
   check('dense Board exposes a bounded horizon window when the editor is open', await boardPage.locator('#boardwindow').isVisible());
   check('bounded Board window carries source-horizon drop targets', await boardPage.locator('#preview svg rect[data-hdrop="2"]').count() === 1);
   await boardPage.locator('#railtab').click();
-  await boardPage.waitForTimeout(650);
+  /* the windowed board shows fewer than five bands; reaching five is the relayout
+     having happened, and it is false right up until it does */
+  await until(() => boardPage.locator('#preview svg rect[data-hdrop]').count().then(n => n === 5));
   check('presentation-width Board restores all five horizons instead of fixing at three',
     await boardPage.locator('#boardwindow').isHidden() && await boardPage.locator('#preview svg rect[data-hdrop]').count() === 5);
   check('a compact five-horizon Board keeps the calm one-slide Copy PNG action',
@@ -180,7 +208,7 @@ await wipPage.close();
     /EDITABLE SVG/.test(exportText) && /COPY SOURCE AS MARKDOWN/.test(exportText) && exportMenu.opensAbove);
   check('a complete multi-slide deck is an explicit Export-menu action', await fullPage.locator('#fullslideexport').isVisible());
   await fullPage.locator('#fullslideexport').click();
-  await fullPage.waitForTimeout(150);
+  await holds(fullPage, p => p.locator('#slidepreviewdialog').evaluate(d => d.open));
   check('full deck review opens the actual page set',
     await fullPage.locator('#slidepreviewdialog').evaluate(d => d.open) &&
     await fullPage.locator('#slidepreviewtitle').innerText() === 'Roadmap slide set' &&
@@ -192,13 +220,16 @@ await wipPage.close();
 const url = page.url();
 const page2 = await browser.newPage();
 await page2.goto(url, {waitUntil: 'networkidle'});
-await page2.waitForTimeout(400);
+await until(() => page2.locator('#preview svg').innerHTML().then(h => h.includes('Brand new initiative')).catch(() => false));
 check('URL round-trips into second tab', (await page2.locator('#preview svg').count()) === 1 &&
   (await page2.locator('#preview svg').innerHTML()).includes('Brand new initiative'));
 
 // dark theme renders
 await page2.emulateMedia({colorScheme: 'dark'});
-await page2.waitForTimeout(400);
+/* the light artefact is on screen until onThemeChange repaints, so "a dark scheme
+   base is in the markup" is precisely false-then-true across this repaint */
+await until(() => page2.locator('#preview svg').innerHTML()
+  .then(h => h.includes('#181a20') || h.includes('#202227')));
 /* ocean scheme dark surfaces (derived in render.scheme) */
 check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#181a20') ||
   (await page2.locator('#preview svg').innerHTML()).includes('#202227'));   /* Swiss Phase 2 scheme bases */
@@ -209,7 +240,7 @@ if(await page2.locator('#workspace').evaluate(el => el.classList.contains('colla
 await page2.getByRole('button', {name: 'Import markdown'}).click();
 await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
-await page2.waitForTimeout(400);
+await until(() => page2.locator('#preview svg').innerHTML().then(h => h.includes('Imported item')));
 const impSvg = await page2.locator('#preview svg').innerHTML();
 check('markdown import renders with conditionality and safe link', impSvg.includes('Imported item') &&
   impSvg.includes('Imported Plan') && impSvg.includes('if signal') &&
@@ -223,7 +254,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const dragPage = await browser.newPage({viewport: DRAG_VIEWPORT});
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
   await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
-  await dragPage.waitForTimeout(400);
+  await seeded(dragPage);
   const textBefore = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Offline downloads'});
   const cell = dragPage.locator('#preview svg rect[data-cell="2|Platform"]');
@@ -235,7 +266,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   await dragPage.mouse.down();
   await dragPage.mouse.move(to.x + to.width/2, to.y + to.height/2, {steps: 12});
   await dragPage.mouse.up();
-  await dragPage.waitForTimeout(500);
+  await changed(dragPage, textBefore);
   const textAfter = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   const laterIdx = textAfter.split('\n').findIndex(l => l.trim() === 'LATER');
   const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Offline downloads'));
@@ -245,7 +276,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   // one undo restores the pre-drag doc (ControlOrMeta: Cmd on macOS, Ctrl on Linux/CI)
   await dragPage.locator('.cm-content').click();
   await dragPage.keyboard.press('ControlOrMeta+z');
-  await dragPage.waitForTimeout(500);
+  await changed(dragPage, textAfter);
   const textUndone = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   check('Cmd+Z undoes the drag', textUndone === textBefore);
   await dragPage.close();
@@ -263,8 +294,11 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height + 160}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
   await p.getByRole('button', {name: 'Reading app roadmap'}).click();
-  await p.waitForTimeout(400);
+  await seeded(p);
   await p.getByRole('button', {name: 'Register'}).click();
+  /* KEPT SLEEP: the drag below measures boundingBoxes, so the register relayout
+     must be AT REST, not merely started. Polling for the first cardmenu to exist
+     returned mid-relayout and the drop landed on the wrong band. */
   await p.waitForTimeout(400);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
@@ -273,6 +307,9 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
      focus), which puts the drag endpoints above the fold — and an off-screen drop
      is a silent no-op, not a failure. Start the gesture from the top. */
   await p.evaluate(() => window.scrollTo(0, 0));
+  /* KEPT SLEEP: the boxes read below must be measured AFTER the scroll comes to
+     rest. A box that exists is not a box that has stopped moving — polling for
+     one is how the 2026-08-17 round landed clicks on neighbouring cards. */
   await p.waitForTimeout(150);
   // "Reading reminders" starts under NEXT — drag it onto NOW's band (data-hdrop="0")
   const hit = await rowOf('Reading reminders').locator('rect[data-hit]').boundingBox();
@@ -282,7 +319,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   await p.mouse.down();
   await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, baseline);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const nowIdx = tMove.split('\n').findIndex(l => l.trim() === 'NOW');
   const nextIdx = tMove.split('\n').findIndex(l => l.trim() === 'NEXT');
@@ -292,7 +329,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   check('register: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
+  await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register: one undo restores the pre-drag baseline', tUndo === baseline);
   await p.close();
@@ -314,6 +351,13 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
     '\n' +
     'Q3 2026\n' +
     'Core: Drag into the void\n');
+  /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a settle. Changes made
+     within newGroupDelay (500ms) of each other merge into ONE undo step, and this
+     block asserts that ONE undo restores exactly this baseline. Polling the render
+     instead (which is genuinely faster and was tried) let the drop merge with this
+     setup insert, so undo reverted both and the baseline check went red. The
+     history stack's shape is not observable from the page, so time is the only
+     honest wait for it. */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register (headerless): baseline has no literal Q1 2027 header yet', !baseline.includes('Q1 2027'));
@@ -325,13 +369,13 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   await p.mouse.down();
   await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, baseline);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register (headerless): the drop creates the header and relocates the row (A4, not a silent no-op)',
     /Q1 2027\s*\nCore: Drag into the void/.test(tMove));
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
+  await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register (headerless): one undo removes BOTH the synthesised header and the move (one transaction)',
     tUndo === baseline);
@@ -362,6 +406,13 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
     '\n' +
     'LATER\n' +
     'Core: Existing later item\n');
+  /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a settle. Changes made
+     within newGroupDelay (500ms) of each other merge into ONE undo step, and this
+     block asserts that ONE undo restores exactly this baseline. Polling the render
+     instead (which is genuinely faster and was tried) let the drop merge with this
+     setup insert, so undo reverted both and the baseline check went red. The
+     history stack's shape is not observable from the page, so time is the only
+     honest wait for it. */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
@@ -372,7 +423,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   await p.mouse.down();
   await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, baseline);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const lines = tMove.split('\n');
   const nextIdx = lines.findIndex(l => l.trim() === 'NEXT');
@@ -384,7 +435,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   check('board: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
+  await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('board: one undo restores the pre-drag baseline', tUndo === baseline);
   await p.close();
@@ -422,6 +473,13 @@ const focusDragDoc =
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(focusDragDoc);
+  /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a settle. Changes made
+     within newGroupDelay (500ms) of each other merge into ONE undo step, and this
+     block asserts that ONE undo restores exactly this baseline. Polling the render
+     instead (which is genuinely faster and was tried) let the drop merge with this
+     setup insert, so undo reverted both and the baseline check went red. The
+     history stack's shape is not observable from the page, so time is the only
+     honest wait for it. */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
@@ -432,7 +490,7 @@ const focusDragDoc =
   await p.mouse.down();
   await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, baseline);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const lines = tMove.split('\n');
   const q3Idx = lines.findIndex(l => l.trim() === 'Q3 2026');
@@ -444,7 +502,7 @@ const focusDragDoc =
   check('focus: no text selected after the promote drag', (await p.evaluate(() => window.getSelection().toString())) === '');
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
+  await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('focus: one undo restores the pre-drag baseline (promote)', tUndo === baseline);
   await p.close();
@@ -459,6 +517,13 @@ const focusDragDoc =
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(focusDragDoc);
+  /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a settle. Changes made
+     within newGroupDelay (500ms) of each other merge into ONE undo step, and this
+     block asserts that ONE undo restores exactly this baseline. Polling the render
+     instead (which is genuinely faster and was tried) let the drop merge with this
+     setup insert, so undo reverted both and the baseline check went red. The
+     history stack's shape is not observable from the page, so time is the only
+     honest wait for it. */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
@@ -469,7 +534,7 @@ const focusDragDoc =
   await p.mouse.down();
   await p.mouse.move(band.x + band.width / 2, band.y + band.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, baseline);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const lines = tMove.split('\n');
   const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
@@ -481,7 +546,7 @@ const focusDragDoc =
   check('focus: no text selected after the demote drag', (await p.evaluate(() => window.getSelection().toString())) === '');
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
+  await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('focus: one undo restores the pre-drag baseline (demote)', tUndo === baseline);
   await p.close();
@@ -500,6 +565,13 @@ const focusDragDoc =
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(focusDragDoc);
+  /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a settle. Changes made
+     within newGroupDelay (500ms) of each other merge into ONE undo step, and this
+     block asserts that ONE undo restores exactly this baseline. Polling the render
+     instead (which is genuinely faster and was tried) let the drop merge with this
+     setup insert, so undo reverted both and the baseline check went red. The
+     history stack's shape is not observable from the page, so time is the only
+     honest wait for it. */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
@@ -510,7 +582,7 @@ const focusDragDoc =
   await p.mouse.down();
   await p.mouse.move(header.x + header.width / 2, header.y + header.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, baseline);
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const lines = tMove.split('\n');
   const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
@@ -520,7 +592,7 @@ const focusDragDoc =
     movedIdx > q4Idx && movedIdx < q1Idx);
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+z');
-  await p.waitForTimeout(500);
+  await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('focus: one undo restores the pre-drag baseline (drop-over-header)', tUndo === baseline);
   await p.close();
@@ -538,7 +610,10 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
     '\nLATER\n' + Array.from({length: 50}, (_, i) => 'Lane' + (i % 5) + ': Later item ' + i).join('\n');
   const p = await browser.newPage({viewport: DRAG_VIEWPORT});
   await p.goto(BASE + '#' + Buffer.from(doc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
-  await p.waitForTimeout(600);
+  /* this is a BENCHMARK: the keystroke below must be timed against a settled
+     150-item board, not race its first paint. All 150 cards being on screen is
+     that, exactly, and it is false until the render completes. */
+  await until(() => p.locator('#preview svg g[data-line]').count().then(n => n >= 150));
   const ms = await p.evaluate(() => new Promise(res => {
     const pv = document.getElementById('preview');
     const t0 = performance.now();
@@ -569,7 +644,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: monthly from Jul 2026 x6\nJul 2026\nA: Long bar one x4\nA: Short\n');
-  await p.waitForTimeout(700);
+  await rendered(p, '#preview svg rect[data-cell="3|A"]');
   const probe = await p.evaluate(() => [0, 1, 2, 3].map(h => {
     const cell = document.querySelector('#preview svg rect[data-cell="' + h + '|A"]');
     if(!cell) return {h, card: false, drop: false};
@@ -602,18 +677,19 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
     'Core: Sync engine rewrite [doing] x2\nCore: Reading reminders\n');
-  await p.waitForTimeout(700);
+  await until(() => roadmapSrc(p).then(v => (v || '').includes('Reading reminders')));
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
   const barLine = await bar.first().getAttribute('data-line');
   const rEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + barLine + '"]');
   const edgeBox = await rEdge.boundingBox();
   const q1Cell = await p.locator('#preview svg rect[data-cell="2|Core"]').boundingBox();   // Q1 2027
+  const preWiden = await roadmapSrc(p);
   await p.mouse.move(edgeBox.x + edgeBox.width / 2, edgeBox.y + edgeBox.height / 2);
   await p.mouse.down();
   await p.mouse.move(q1Cell.x + q1Cell.width / 2, q1Cell.y + q1Cell.height / 2, {steps: 10});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, preWiden);
   let src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: right-edge drag widens the span (x2 -> x3)',
     /Sync engine rewrite \[doing\] x3/.test(src));
@@ -623,11 +699,12 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   const plainEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + plainLine + '"]');
   const plainBox = await plainEdge.boundingBox();
   const q4Cell = await p.locator('#preview svg rect[data-cell="1|Core"]').boundingBox();   // Q4 2026
+  const preSpan = await roadmapSrc(p);
   await p.mouse.move(plainBox.x + plainBox.width / 2, plainBox.y + plainBox.height / 2);
   await p.mouse.down();
   await p.mouse.move(q4Cell.x + q4Cell.width / 2, q4Cell.y + q4Cell.height / 2, {steps: 10});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, preSpan);
   src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap: a plain card\'s right edge creates a span (Reading reminders -> x2)',
     /Reading reminders x2/.test(src));
@@ -643,18 +720,19 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\nQ4 2026\n' +
     'Core: Long haul project [doing] x2\n');
-  await p.waitForTimeout(700);
+  await until(() => roadmapSrc(p).then(v => (v || '').includes('Long haul project')));
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Long haul project'});
   const barLine = await bar.first().getAttribute('data-line');
   const lEdge = p.locator('#preview svg rect[data-span-edge="l"][data-line="' + barLine + '"]');
   const edgeBox = await lEdge.boundingBox();
   const q3Cell = await p.locator('#preview svg rect[data-cell="0|Core"]').boundingBox();   // Q3 2026
+  const preLengthen = await roadmapSrc(p);
   await p.mouse.move(edgeBox.x + edgeBox.width / 2, edgeBox.y + edgeBox.height / 2);
   await p.mouse.down();
   await p.mouse.move(q3Cell.x + q3Cell.width / 2, q3Cell.y + q3Cell.height / 2, {steps: 10});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, preLengthen);
   const src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const lines = src.split('\n');
   const q4Idx = lines.findIndex(l => l.trim() === 'Q4 2026');
@@ -675,16 +753,17 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
     'Core: Sync engine rewrite [doing] x2\nQ1 2027\n');
-  await p.waitForTimeout(700);
+  await until(() => roadmapSrc(p).then(v => (v || '').includes('Sync engine rewrite')));
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
   const box = await bar.first().boundingBox();
   const q1Cell = await p.locator('#preview svg rect[data-cell="2|Core"]').boundingBox();   // Q1 2027
+  const preMove = await roadmapSrc(p);
   await p.mouse.move(box.x + box.width / 2, box.y + 10);   // grab well clear of either edge handle
   await p.mouse.down();
   await p.mouse.move(q1Cell.x + q1Cell.width / 2, q1Cell.y + q1Cell.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, preMove);
   const src = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const lines = src.split('\n');
   const q1Idx = lines.findIndex(l => l.trim() === 'Q1 2027');
@@ -707,7 +786,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
     'Core: Dropped rider [if gate] -- should still drag\nCore: Other item\nLATER\nCore: Third item';
   const hash = Buffer.from(droppedDoc, 'utf8').toString('base64');
   await p.goto(BASE + '#' + hash, {waitUntil: 'networkidle'});
-  await p.waitForTimeout(400);
+  await seeded(p);
   const textBefore = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const card = p.locator('#preview svg g[data-line]', {hasText: 'Dropped rider'});
   const cell = p.locator('#preview svg rect[data-cell="2|Core"]');   // LATER/Core
@@ -718,7 +797,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.mouse.down();
   await p.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {steps: 12});
   await p.mouse.up();
-  await p.waitForTimeout(500);
+  await changed(p, textBefore);
   const textAfter = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const laterIdx = textAfter.split('\n').findIndex(l => l.trim() === 'LATER');
   const movedIdx = textAfter.split('\n').findIndex(l => l.includes('Dropped rider'));
@@ -747,7 +826,7 @@ Later
 Growth: Shared foundations`;
   const hash = Buffer.from(source, 'utf8').toString('base64');
   await p.goto(BASE + '#' + hash, {waitUntil: 'networkidle'});
-  await p.waitForTimeout(400);
+  await seeded(p);
   const health = p.locator('#conditionality');
   const action = p.getByRole('button', {name: 'Turn conditional work into a decision-plan starter'});
   check('roadmap -> paths: direct conditional-work health is explicit',
@@ -759,7 +838,7 @@ Growth: Shared foundations`;
   const sourceBefore = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   await action.click();
   await p.waitForURL(/\/paths\/#z:/);
-  await p.waitForTimeout(400);
+  await until(() => p.evaluate(() => localStorage.getItem('paths-src')));
   const target = await p.evaluate(() => localStorage.getItem('paths-src'));
   const sourceAfter = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('roadmap -> paths: action opens a fresh codec-seeded Paths URL',
@@ -782,7 +861,7 @@ Core: Probe [bet: x]
 Next
 Core: Conditional work [if x]`;
   await p.goto(BASE + '#' + Buffer.from(safe, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
-  await p.waitForTimeout(400);
+  await seeded(p);
   const action = p.getByRole('button', {name: 'Turn conditional work into a decision-plan starter'});
   const box = await action.boundingBox();
   const dimensions = await p.evaluate(() => ({scroll:document.documentElement.scrollWidth, width:innerWidth}));
@@ -797,7 +876,10 @@ Core: Already underway [doing] [if x]`;
   await p.locator('.cm-content').click();
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.insertText(unsafe);
-  await p.waitForTimeout(500);
+  /* the health line REWORDS when the starter stops being safe; waiting for the new
+     wording is what makes the isHidden() negative below land after the repaint */
+  await until(() => p.locator('#conditionalitymsg').innerText()
+    .then(t => t.includes('cannot be converted automatically')));
   check('roadmap -> paths: health remains visible when a truthful starter is unavailable',
     await p.locator('#conditionality').isVisible() &&
     (await p.locator('#conditionalitymsg').innerText()) ===

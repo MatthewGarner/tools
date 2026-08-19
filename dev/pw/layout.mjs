@@ -10,12 +10,51 @@ const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
+/* `deep` marks the three tools that walk the WHOLE workspace contract. The other
+   ten keep only the parts that can differ per tool (2026-08-18).
+
+   The reasoning, because the reduction is the risk: the `[` keymap and the four
+   zoom endpoints are assets/workspace.js's behaviour, identical in every importer
+   (initWorkspace owns both) — thirteen repetitions of them bought one shared module
+   tested thirteen times, at 52 page loads and 1.3 checks/second, the worst
+   cost-per-unique-thing in the chain. What is NOT shared is the per-tool SHAPE, so
+   the deep set is chosen to differ in exactly those dimensions: tree (no source
+   trigger, plain width), gauge (a source trigger AND a view trigger, tab hidden
+   when narrow), paths (its artefact shares the stage with a receipt column, the one
+   tool whose width invariant is arithmetic rather than a floor).
+
+   TWO checks the first version of this reduction moved here and should not have,
+   both restored to all thirteen (review, 2026-08-18):
+
+   - The URL round-trip of the collapsed flag was justified as shared-module
+     behaviour. It is not: workspace.js writes no hash at all (five exports, none
+     touching location), and each app.js carries its OWN serialisation, in two
+     divergent conventions — why/map/wardley write `state.e = ws.collapsed() ? 0 : 1`
+     while the other ten write `if(ws.collapsed()) state.e = 0`. Every deep tool is
+     the second convention, so trimming it left the first with no witness anywhere.
+     Per-tool code gets a per-tool check.
+   - The desktop width floor is a per-tool invariant, not a shared one — /paths/'s
+     receipt-column branch exists precisely because width varies. Gating it on the
+     deep set left /timeline/ with no upper-width bound at all: it is the one tool
+     that takes the physical-size-floor branch below, which any unchanged width
+     satisfies, so a regression capping it at 700px would have passed everything.
+
+   `case` was in the deep set and is not any more: it is declared identically to
+   `tree` on every dimension the walk branches on (no source, no view, no receipt),
+   so it walked the shared module a fourth time and bought nothing. The coverage
+   guard at the foot of this file could not see that — see its comment.
+
+   The narrow-stacking check stays on ALL thirteen deliberately. `narrowTab` is
+   real per-tool markup, not shared behaviour, and its TRUE branch belongs only to
+   why/map/wardley — all three in the reduced set. Every deep tool is narrowTab
+   false, so trimming it would have left that branch with no witness anywhere in
+   the chain (checked: `#railtab` appears in no other suite's assertions). */
 const TOOLS = [
-  {path: '/tree/', chip: 'Bid or no bid'},
+  {path: '/tree/', chip: 'Bid or no bid', deep: true},
   {path: '/why/', chip: 'Reading retention', source: 'Edit tree source'},
   {path: '/roadmap/', chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
-  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false},   // Narrow stacks the visible question source; no duplicate trigger.
+  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme'},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   {path: '/bets/', chip: 'Lantern portfolio'},
@@ -35,11 +74,20 @@ const TOOLS = [
      guessed the label; a second removed the trigger entirely on the strength of a
      visibility probe that used offsetParent and reported the opposite of the truth. */
   {path: '/case/', chip: 'Wexcombe augmentation'},
-  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true},
+  {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true, deep: true},
   {path: '/proxy/', chip: TWO_THEORIES.name},
 ];
 
-for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source} of TOOLS){
+/* Runs for every tool, deep or not: `narrowTab` is per-tool markup rather than
+   shared-module behaviour, and its true branch lives only in the reduced set. */
+async function narrowStacks(page, path, narrowTab){
+  await page.setViewportSize({width: 800, height: 900});
+  await page.waitForTimeout(300);
+  check(path + ' narrow: rail stacks with an appropriate source control', await page.locator('.rail').isVisible() &&
+    (narrowTab ? await page.locator('#railtab').isVisible() : !(await page.locator('#railtab').isVisible())));
+}
+
+for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source, deep = false} of TOOLS){
   const page = await browser.newPage({viewport: {width: 1720, height: 1000}});
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
@@ -90,14 +138,34 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
     check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
   }
 
-  /* URL round-trip of collapsed state */
+  /* URL round-trip of the collapsed flag — ALL thirteen, because the serialisation
+     lives in each app.js and comes in two conventions. See the TOOLS comment. */
   await page.waitForTimeout(300);
-  const url = page.url();
-  const p2 = await browser.newPage({viewport: {width: 1720, height: 1000}});
-  await p2.goto(url, {waitUntil: 'networkidle'});
-  await p2.waitForTimeout(600);
-  check(path + ' collapsed state round-trips', !(await p2.locator('.rail').isVisible()));
-  await p2.close();
+  {
+    const url = page.url();
+    const p2 = await browser.newPage({viewport: {width: 1720, height: 1000}});
+    await p2.goto(url, {waitUntil: 'networkidle'});
+    await p2.waitForTimeout(600);
+    check(path + ' collapsed state round-trips', !(await p2.locator('.rail').isVisible()));
+    await p2.close();
+  }
+
+  /* The shared-module walk (the `[` keymap and four zoom endpoints) runs on the
+     deep set only — see the TOOLS comment. Everything a tool can differ in has
+     already run above, and the narrow-stacking check below runs for all. */
+  if(!deep){
+    /* narrowStacks asserts the rail is VISIBLE once stacked, so it needs the rail
+       open — the deep path reaches it after `[` has reopened it. Reopening here is
+       what the first version of this reduction got wrong: it ran the check straight
+       off the collapse and failed all ten shallow tools. 600ms clears the rail's
+       0.28s reopen transition, the same margin the `[` check below uses. */
+    await page.locator('#railtab').click();
+    await page.waitForTimeout(600);
+    await narrowStacks(page, path, narrowTab);
+    check(path + ' no console/page errors', errors.length === 0);
+    await page.close();
+    continue;
+  }
 
   /* keyboard toggle. 600ms (was 300) clears the rail's 0.28s reopen visibility
      transition with margin — 300ms lost the race under CI parallel load and flaked
@@ -125,10 +193,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   check(path + ' Fit restores', Math.abs((await svgW()) - fitW) < 8);
 
   /* narrow stacking */
-  await page.setViewportSize({width: 800, height: 900});
-  await page.waitForTimeout(300);
-  check(path + ' narrow: rail stacks with an appropriate source control', await page.locator('.rail').isVisible() &&
-    (narrowTab ? await page.locator('#railtab').isVisible() : !(await page.locator('#railtab').isVisible())));
+  await narrowStacks(page, path, narrowTab);
   check(path + ' no console/page errors', errors.length === 0);
   await page.close();
 }
@@ -203,6 +268,35 @@ for(const [label, viewport, minFill] of [
     missing.length === 0);
 }
 
+/* Coverage of the REDUCTION itself (2026-08-18). The list above is derived and
+   guarded; the deep SET is hand-picked, so it is now the thing that can rot — mark
+   one more tool shallow and a whole shape silently stops being walked. This asserts
+   that the deep set still differs in every dimension the deep walk branches on: a
+   source trigger present AND absent, a view trigger, and a receipt column present
+   AND absent. (narrowTab is deliberately not here — narrowStacks runs for all
+   thirteen, so the walk no longer branches on it.)
+
+   KNOWN LIMIT, and it has already bitten once (review, 2026-08-18): this guard sees
+   only DECLARED fields, and they are literals in the same array rather than derived
+   from the product — so it is strictly weaker than its sibling above, which reads
+   app.js's imports. It cannot notice a tool whose claimed distinction was never
+   declared. That is exactly how `case` sat in the deep set justified by "opens with
+   the rail already expanded": an undeclared property, and one `tree` shares, so the
+   guard read the two as identical and stayed green while a fourth tool walked the
+   shared module for nothing. Adding a tool here means declaring what makes it
+   different, or it is not different. */
+{
+  const deepSet = TOOLS.filter(t => t.deep);
+  const both = (label, f) => deepSet.some(f) && deepSet.some(t => !f(t)) ? null : label;
+  const gaps = [
+    both('a source trigger present and absent', t => !!t.source),
+    both('a receipt column present and absent', t => !!t.receiptColumn),
+    deepSet.some(t => !!t.view) ? null : 'a view trigger',
+  ].filter(Boolean);
+  check('the deep walk still covers every shape it branches on' +
+    (gaps.length ? ' — missing ' + gaps.join('; ') : ''), gaps.length === 0);
+}
+
 console.log(results.join('\n'));
 await browser.close();
-report('layout', {...tally(results), min: 189});   // ~90% of 210 measured 2026-08-16 (case/paths/proxy added; was 60 — 63% could vanish)
+report('layout', {...tally(results), min: 146});   // ~90% of 162 measured 2026-08-18 (was 189 of 211; the shared-module walk narrowed to the deep three, and the review restored the round-trip and width floor to all thirteen)

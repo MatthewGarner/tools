@@ -19,8 +19,23 @@
    local seconds don't model, which is why motion-webkit (six suites) is CI's real
    ceiling. Treat the packing as a good heuristic, not a proof.
 
-     eip 212 · motion-webkit 201 · smoke 197 · mobile-core 194 · layout-gauge 189
+     eip 208 · mobile-core 185 · motion-webkit 178 · smoke 147 · layout-gauge 134
 
+   Ceiling 208s (2026-08-18, after Batch C and the review's corrections). The ceiling
+   suite is unchanged — eip is still the longest and is a single suite, so no packing
+   can put the ceiling below its own runtime and none is attempted. eip is 208s rather
+   than the 190s Batch C briefly reported: that speedup came from converting undoStep's
+   CodeMirror history-group boundary to a poll, which CI proved wrong (see the helper's
+   comment in check-eip.mjs) and which is reverted. The LOCAL spread is 74s, because
+   the shrinking landed unevenly (layout 158→103, smoke 197→147) while the ceiling
+   went back up; the obvious next move, if CI's balance is ever re-measured, is
+   check.mjs off motion-webkit and onto layout-gauge (178/134 → 148/164), which also
+   follows this file's own advice to
+   move small suites OFF that shard rather than onto it. Not done here: it is a
+   CI-balance change and nothing in this round measured CI.
+
+   The pre-Batch-C figures, for the record:
+     eip 212 · motion-webkit 201 · smoke 197 · mobile-core 194 · layout-gauge 189
    A 23s spread, ceiling 212s. Two moves got there on 2026-08-17, in one day: first the
    three small suites (paths-budget, map, case) came off check-eip's shard, which was
    the only reason it ran 356s; then check-eip's fixed sleeps were converted to
@@ -40,16 +55,21 @@ export const SHARDS = [
 
 export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
 
-/* Measured LOCAL wall-clock per suite (seconds), keyed by suite file — from a full
-   serial `npm run gate` on this machine, 2026-08-17, with check-eip's entry re-measured
-   later the same day after its sleep conversion (314s → 212s). So the table is one run
-   plus one deliberate correction, not a single snapshot; the others sit within ~1s of
-   both runs.
+/* Measured LOCAL wall-clock per suite (seconds), keyed by suite file. Provenance is
+   two dated passes, not one snapshot: the 2026-08-17 serial `npm run gate` (with
+   check-eip re-measured later that day after its sleep conversion, 314s → 212s),
+   then 2026-08-18's Batch C re-measuring the seven suites it changed (smoke, layout,
+   check-eip, check, pwa, map, case). Untouched suites keep their 08-17 values and sat
+   within ~1s across both runs.
    ORDERING-ONLY hints for the local `run.mjs --jobs` pool (longest-first
    scheduling) and for `run.mjs`'s drift note (±1.75x) — NOT a budget, and NOT the
-   same number as CI wall-clock (CI runs on different, usually slower, hardware,
-   though check-eip.mjs is mostly immune: 269s of its total is pure
-   waitForTimeout sleeping, which is wall-clock, not CPU-bound). Update these by
+   same number as CI wall-clock (CI runs on different, usually slower,
+   hardware). check-eip.mjs used to be largely immune to that, because most of its
+   time was pure waitForTimeout sleeping, which is wall-clock rather than CPU-bound;
+   after the 2026-08-17 and 2026-08-18 conversions its literal sleeps static-sum to
+   ~97s of a 208s run, so it is not immune any more. The figure this comment carried,
+   269s, described a suite its own table put at 212s and was a pre-conversion number.
+   Update these by
    re-running the gate and reading its per-suite timings whenever they drift
    past the note's own ±1.75x threshold — the note tells you when.
    dev/ci-shards.test.mjs asserts a hint exists for every verify suite.
@@ -75,17 +95,20 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    387s → 269s in total, a 30% cut, spread down from 211s to 50s.
 
    One honest correction to the paragraph above: the ranks did NOT fully transfer the
-   second time. Locally eip (212s) is the ceiling; in CI motion-webkit is, at 269s,
+   second time. Locally eip is the ceiling (212s then, 190s after Batch C — still the
+   longest single suite, so the local ceiling moved but did not change hands); in CI
+   motion-webkit is, at 269s,
    because it now carries SIX suites and CI pays a fixed per-suite startup (browser
    launch, first paint) that local seconds don't capture — a shard's CI cost is its
    suite time PLUS a per-suite tax, so packing many small suites into one shard is
    worth less than the arithmetic suggests. Any further repack should move a small
    suite OFF motion-webkit, not onto it. Diminishing returns from here: the remaining
-   spread is 50s. */
+   CI spread is 50s (the 56s figure at the top of this file is LOCAL — different
+   machines, different numbers, and they are not comparable). */
 export const SUITE_SECONDS = {
-  'smoke.mjs': 197, 'check-eip.mjs': 212, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
-  'layout.mjs': 158, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 47,
-  'pwa.mjs': 24, 'signal.mjs': 4, 'map.mjs': 9, 'case.mjs': 5,
+  'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
+  'layout.mjs': 103, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
+  'pwa.mjs': 15, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,
 };
 
 /* `node shards.mjs --json` → the GitHub Actions matrix (single line on stdout).

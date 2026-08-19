@@ -3,11 +3,15 @@
      node tests (3 globs) → golden verify → spawn both origins → browser chain → teardown.
    Ports default 8087/8089; `--ports TOOLS ENERGY` overrides for parallel sessions.
    8091 is rejected — gauge.mjs spawns its own relay there.
-   `--jobs N` (default 1 = serial) runs the browser suites in a pool of N; `--jobs`
-   alone → 3 (see the measurement note below). Parallel fails SAFE — confirm any red
-   serially.
+   `--jobs N` runs the browser suites in a pool of N. **DEFAULT 3** (Matt, 2026-08-18)
+   — `--jobs 1` is the serial path when you need it. Parallel fails SAFE: it never
+   yields a false green, so a red costs one cheap serial re-run of that suite (the
+   summary prints the command). The default flipped because the pool is not only
+   ~2.5x faster but STRICTLY more informative: serial stops at the first failure, so
+   a bad change surfaces one problem per run, while the pool runs every suite to
+   completion and shows all the damage at once.
    Usage: node dev/pw/run.mjs [--ports 8087 8089] [--jobs N]
-   (via npm: npm run gate -- --jobs 3) */
+   (via npm: npm run gate  ·  serial: npm run gate -- --jobs 1) */
 import {spawn} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -25,11 +29,16 @@ if([TP, EP].includes(8091)){ console.error('8091 is reserved (gauge spawns its o
 
 /* --jobs N runs the browser suites in a work-stealing pool of N against the SAME
    server pair (suites reuse the env servers; gauge is self-contained on :8091).
-   Default 1 = today's exact serial, stop-on-first behaviour (the canonical gate).
-   N>1 runs ALL suites to completion and can flake under CPU contention — it fails
-   SAFE (spurious red, never false green): re-run a FAILed suite serially to confirm. */
+   DEFAULT 3 since 2026-08-18. N>1 runs ALL suites to completion and can flake under
+   CPU contention — it fails SAFE (spurious red, never false green): re-run a FAILed
+   suite serially to confirm, which the summary tells you to do.
+   `--jobs 1` is the serial, stop-on-first path, and is what you re-run a red under.
+   3 is the ceiling on this machine and the ceiling is MEMORY, not cores: swap ran
+   1.5G of 3G at 2 jobs and 2.6G of 3G at 3, on 8GB/8 cores, and an earlier session
+   OOM-killed at 4. Per-suite times were unchanged (within 3s) at both 2 and 3, so
+   the parallelism costs nothing in reliability up to there. */
 const ji = process.argv.indexOf('--jobs');
-let JOBS = 1;
+let JOBS = 3;   // the default gate is the pool; --jobs 1 is serial. See the header.
 if(ji >= 0){
   const n = process.argv[ji + 1];
   JOBS = (n && /^\d+$/.test(n)) ? Number(n) : 3;   // bare `--jobs` → 3; the note below warns above it

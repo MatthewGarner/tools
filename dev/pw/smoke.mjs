@@ -46,6 +46,50 @@ async function svgDecodes(page, selector){
    fires once that promise resolves, so the label IS the proof — a decode failure
    lands on 'Copy blocked' instead. This is the decode gap that silently killed
    exports twice, now watched on the button that inherited it. */
+/* Selector-free decode, for the both-themes sweep (review, 2026-08-18). Moving the
+   deep flows to one theme took 26 dark `SVG decodes as XML` / `Copy PNG` assertions
+   across 15 tools with them, and nothing else in the repo could see that class:
+   svgDecodes/copyPngWorks live only in this file, dev/golden.js renders with
+   invented colours so svg-wellformed cannot reach a real dark palette, and
+   webkit.mjs's both-theme sweep asserts overflow and fonts, not decode. Renderers
+   branch on ctx.dark only to choose colour VALUES — which is why the other 167
+   removals really were duplicates, and why these were not: an XML-invalid value
+   emitted only by the dark palette renders fine inline and kills the export.
+
+   Picks the largest SVG by rendered area rather than a per-tool selector, so the
+   sweep stays self-extending (the deep flows carry the selectors; this must not).
+   Decoding EVERY svg would be wrong: page-chrome icons are written inline in HTML
+   and often omit xmlns, which a data: URI requires — they would fail for a reason
+   that is not a defect. An artefact comes from a renderer and always carries it.
+
+   WHAT THIS DOES NOT CATCH, measured rather than assumed: a bare boolean attribute.
+   The svg reached the DOM through innerHTML, so the HTML parser has already
+   normalised `data-mc` to `data-mc=""` before outerHTML re-serialises it — probed
+   both ways, a bare attribute still decodes true. That class belongs to
+   svg-wellformed.test.mjs's golden scan, which is why a render path with NO golden
+   (every narrow/phone branch today) has no well-formedness witness at all. The
+   class this DOES catch is the one that shipped twice: a double-quoted font name
+   inside a double-quoted attribute, which survives HTML parsing as a mangled
+   attribute NAME and is invalid XML (probed: real artefact true, mutant false). */
+async function artefactDecodes(page){
+  return page.evaluate(async () => {
+    let best = null, bestArea = 0;
+    for(const el of document.querySelectorAll('svg')){
+      const r = el.getBoundingClientRect(), area = r.width * r.height;
+      if(area > bestArea){ bestArea = area; best = el; }
+    }
+    if(!best) return true;                      // nothing painted is the sibling check's business, not this one
+    const svg = best.outerHTML;
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => res(true);
+      img.onerror = () => res(false);
+      setTimeout(() => res(false), 3000);
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+  });
+}
+
 async function copyPngWorks(page){
   try{
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -59,6 +103,31 @@ async function copyPngWorks(page){
     return true;
   }catch(e){ return false; }
 }
+
+/* Deep behavioural flows run under ONE theme (2026-08-18).
+
+   193 of this suite's 279 check sites used to run twice, under light and dark, and
+   the suite owned no assertion that could tell the two apart: its only two colour
+   checks accept either theme's hex by regex ((#D62015|#FF4B3E)), and its only
+   getComputedStyle calls read grid-columns and display. So the second pass re-ran
+   whole multi-step flows to prove "no console error under the other palette" — and
+   nothing else. ~80-90s of a 993s chain.
+
+   The dark axis is NOT deleted. It moves to the per-tool sweep further down, which
+   now loads every tool on BOTH origins in BOTH themes and asserts, per tool and per
+   theme: the page boots clean, no mark carries an empty fill/stroke, and — the
+   assertion this suite genuinely lacked — an artefact that renders in light still
+   renders in dark. That is a theme-DISCRIMINATING check, which none of the 193
+   duplicated sites were.
+
+   What is no longer witnessed: a console error that appears only under dark AND
+   only part-way through a multi-step interaction. Boot-time console cleanliness per
+   tool per theme is covered here and again, in a different engine, by webkit.mjs,
+   which sweeps every tool on both origins in both themes for page errors and CSP
+   violations.
+
+   One name, so restoring both themes is a one-word edit rather than 22. */
+const FLOW_THEMES = ['light'];
 
 /* ---- landing ---- */
 {
@@ -85,7 +154,7 @@ async function copyPngWorks(page){
   check('energy landing: no console errors', errors.length === 0);
   await page.close();
 }
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/risk/', theme);
   await page.getByRole('button', {name: 'Route to market'}).click();
   await page.waitForTimeout(600);
@@ -100,7 +169,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- proxy hunt: selected theory and full/scoped export scopes ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/proxy/', theme);
   await page.waitForTimeout(700);
   const theory = page.locator('[data-select-theory][data-theory-id]').first();
@@ -137,7 +206,7 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/cycles/', theme);
   await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1000);
@@ -325,7 +394,7 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/frequency/', theme);
   await page.getByRole('button', {name: 'Battery stack'}).click();
   await page.waitForTimeout(2500);
@@ -338,7 +407,7 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/merit-order/', theme);
   await page.getByRole('button', {name: 'Gas spike'}).click();
   await page.waitForTimeout(1200);
@@ -386,7 +455,7 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/intraday/', theme);
   check('intraday(' + theme + '): stack renders', await page.locator('#stackwrap svg').count() === 1);
   check('intraday(' + theme + '): price shape renders', await page.locator('#pricewrap svg').count() === 1);
@@ -421,25 +490,53 @@ for(const theme of ['light', 'dark']){
    evaluate rather than a second pass over every tool. See emptyPaint() for why a
    node-side token check cannot be the only guard. */
 {
-  const tools = TOOL_DIRS;
-  const {page, errors} = await freshPage('/' + tools[0] + '/');
-  for(const t of tools){
-    await page.goto(BASE + '/' + t + '/', {waitUntil: 'domcontentloaded'});
-    const crumb = page.locator('a.crumb');
-    check(t + ': carries the home crumb',
-      await crumb.count() === 1 && await crumb.getAttribute('href') === '/');
-    await page.waitForTimeout(450);          // autoload renders through debounce + rAF
-    if(await page.locator('svg').count()){
-      const blank = await emptyPaint(page);
-      check(t + ': no blank fill/stroke in the live SVG' +
-        (blank.length ? ' — ' + blank.slice(0, 4).join(' ') : ''), blank.length === 0);
+  /* Every tool, both themes (2026-08-18) — this sweep is where the dark axis lives
+     now that the deep flows run once. Energy pages climb to '../' rather than
+     rooting at '/', so the expected crumb travels with the path.
+
+     NB these are energy PATHS served through the tools origin's fallback rewrites,
+     not the energy ORIGIN: this file never reads EBASE/EPORT (checked). pwa.mjs and
+     mobile.mjs are what exercise the real second origin. */
+  const PAGES = [...TOOL_DIRS.map(d => ['/' + d + '/', '/']),
+                 ...ENERGY_TOOL_DIRS.map(d => ['/energy/' + d + '/', '../'])];
+  const paintedInLight = new Map();
+  for(const theme of ['light', 'dark']){
+    const {page, errors} = await freshPage(PAGES[0][0], theme);
+    for(const [path, home] of PAGES){
+      const errorsBefore = errors.length;
+      await page.goto(BASE + path, {waitUntil: 'domcontentloaded'});
+      if(theme === 'light'){        // the crumb is markup, and markup does not have a theme
+        const crumb = page.locator('a.crumb');
+        check(path + ': carries the home crumb',
+          await crumb.count() === 1 && await crumb.getAttribute('href') === home);
+      }
+      await page.waitForTimeout(450);          // autoload renders through debounce + rAF
+      const svgs = await page.locator('svg').count();
+      if(theme === 'light') paintedInLight.set(path, svgs);
+      /* THE theme-discriminating assertion this suite never had: a dropped or
+         renamed DARK token blanks every mark in production, and until now every
+         check that could have seen it either ran in light only (emptyPaint) or
+         accepted both palettes' hexes by regex. A tool that paints an artefact in
+         one theme must paint one in the other — asserted only where light proved
+         there is an artefact to lose, so canvas-output tools are not accused. */
+      else if(paintedInLight.get(path) > 0)
+        check(path + '(dark): still renders its artefact under the other palette (' + svgs + ' svg)', svgs > 0);
+      if(svgs){
+        const blank = await emptyPaint(page);
+        check(path + '(' + theme + '): no blank fill/stroke in the live SVG' +
+          (blank.length ? ' — ' + blank.slice(0, 4).join(' ') : ''), blank.length === 0);
+        /* Both themes: light gives the tools whose deep flow never decoded their
+           artefact a first witness, dark restores the 26 this reduction dropped. */
+        check(path + '(' + theme + '): its artefact decodes as XML', await artefactDecodes(page));
+      }
+      check(path + '(' + theme + '): boots with a clean console', errors.length === errorsBefore);
     }
+    await page.close();
   }
-  await page.close();
 }
 
 /* ---- premortem (fresh context each time — localStorage-backed, no cross-run state) ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(400);
   check('premortem(' + theme + '): first-run seeds the framed example (no premature nag)',
@@ -480,7 +577,7 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 /* ---- pre-parade: inverse planning without invented success arithmetic ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(350);
   await page.reload(); await page.waitForTimeout(250);
@@ -510,7 +607,7 @@ for(const theme of ['light', 'dark']){
   await page.close();
 }
 /* ---- premortem FAB board (Stage 2): three columns, promote → register ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/premortem/', theme);
   await page.waitForTimeout(400);
   await page.click('[data-view="board"]'); await page.waitForTimeout(150);
@@ -543,7 +640,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- duel (pairwise showdown) ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/duel/', theme);
   await page.waitForTimeout(400);
   await page.locator('#start').click();          // starts on the prefilled example
@@ -621,7 +718,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- alarm (base-rate playground) ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/alarm/', theme);
   await page.waitForTimeout(500);
   check('alarm(' + theme + '): distribution renders', await page.locator('#distwrap svg').count() === 1);
@@ -675,7 +772,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- signal vs noise: state changes must tell users where they landed ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/signal-vs-noise/', theme);
   await page.waitForTimeout(250);
   await page.locator('#next').click();
@@ -693,7 +790,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- fermi ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/fermi/', theme);
   await page.waitForTimeout(500);
   // opens alive on the first example, hash-safe (autoload; no URL write until interaction)
@@ -811,7 +908,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- rank ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/rank/', theme);
   await page.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click();
   await page.waitForTimeout(600);
@@ -844,7 +941,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- tree ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/tree/', theme);
   await page.getByRole('button', {name: 'Bid or no bid'}).click();
   await page.waitForTimeout(600);
@@ -871,7 +968,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- why ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/why/', theme);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
   await page.getByRole('button', {name: 'Reading retention'}).click();
@@ -908,7 +1005,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- map ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/map/', theme);
   await page.getByRole('button', {name: 'Edit map source'}).click();
   await page.getByRole('button', {name: 'Assumption map'}).click();
@@ -980,7 +1077,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- gauge (solo mode; the relay flow lives in gauge.mjs) ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/gauge/', theme);
   await page.waitForTimeout(600);
   // New default: opens alive on the sample reveal of the first example (hash-safe autoload).
@@ -1019,7 +1116,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- flow ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/flow/', theme);
   await page.getByRole('button', {name: 'Overloaded team'}).click();
   await page.waitForTimeout(700);
@@ -1075,7 +1172,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- wardley ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/wardley/', theme);
   await page.waitForTimeout(500);
   check('wardley(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
@@ -1092,7 +1189,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- bets ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/bets/', theme);
   await page.waitForTimeout(500);
   check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
@@ -1123,7 +1220,7 @@ for(const theme of ['light', 'dark']){
 }
 
 /* ---- timeline ---- */
-for(const theme of ['light', 'dark']){
+for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/timeline/', theme);
   await page.waitForTimeout(500);
   check('timeline(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
@@ -1416,4 +1513,4 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
 
 console.log(results.join('\n'));
 await browser.close();
-report('smoke', {...tally(results), min: 524});   // ~90% of 583 measured 2026-08-16 (the home-crumb sweep became per-tool and gained the blank-paint check)
+report('smoke', {...tally(results), min: 461});   // ~90% of 512 measured 2026-08-18 (478 after the Batch C trim; +34 when the review restored the artefact-decode probe to both themes)
