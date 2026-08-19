@@ -19,14 +19,18 @@
    local seconds don't model, which is why motion-webkit (six suites) is CI's real
    ceiling. Treat the packing as a good heuristic, not a proof.
 
-     eip 190 · mobile-core 185 · motion-webkit 178 · smoke 147 · layout-gauge 134
+     eip 208 · mobile-core 185 · motion-webkit 178 · smoke 147 · layout-gauge 134
 
-   Ceiling 190s (2026-08-18, after Batch C). The ceiling suite is unchanged — eip is
-   still the longest and is a single suite, so no packing can put the ceiling below
-   its own runtime and none is attempted. The LOCAL spread widened to 56s because the
-   shrinking landed unevenly (layout 158→103, smoke 197→147); the obvious next move,
-   if CI's balance is ever re-measured, is check.mjs off motion-webkit and onto
-   layout-gauge (178/134 → 148/164), which also follows this file's own advice to
+   Ceiling 208s (2026-08-18, after Batch C and the review's corrections). The ceiling
+   suite is unchanged — eip is still the longest and is a single suite, so no packing
+   can put the ceiling below its own runtime and none is attempted. eip is 208s rather
+   than the 190s Batch C briefly reported: that speedup came from converting undoStep's
+   CodeMirror history-group boundary to a poll, which CI proved wrong (see the helper's
+   comment in check-eip.mjs) and which is reverted. The LOCAL spread is 74s, because
+   the shrinking landed unevenly (layout 158→103, smoke 197→147) while the ceiling
+   went back up; the obvious next move, if CI's balance is ever re-measured, is
+   check.mjs off motion-webkit and onto layout-gauge (178/134 → 148/164), which also
+   follows this file's own advice to
    move small suites OFF that shard rather than onto it. Not done here: it is a
    CI-balance change and nothing in this round measured CI.
 
@@ -63,7 +67,7 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    hardware). check-eip.mjs used to be largely immune to that, because most of its
    time was pure waitForTimeout sleeping, which is wall-clock rather than CPU-bound;
    after the 2026-08-17 and 2026-08-18 conversions its literal sleeps static-sum to
-   ~64s of a 190s run, so it is not immune any more. The figure this comment carried,
+   ~97s of a 208s run, so it is not immune any more. The figure this comment carried,
    269s, described a suite its own table put at 212s and was a pre-conversion number.
    Update these by
    re-running the gate and reading its per-suite timings whenever they drift
@@ -102,7 +106,7 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    CI spread is 50s (the 56s figure at the top of this file is LOCAL — different
    machines, different numbers, and they are not comparable). */
 export const SUITE_SECONDS = {
-  'smoke.mjs': 147, 'check-eip.mjs': 190, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
+  'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 103, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
   'pwa.mjs': 15, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,
 };

@@ -27,12 +27,36 @@ const check = (name, ok) => {
 
    A stuck undo therefore costs 4s and fails the caller's own check by name, rather
    than passing on a doc that never moved. */
-async function undoStep(pg, key, focus){
+/* One shape for the thirteen copies this replaced. The dedup was worth having; the
+   SPEEDUP that came with it was not, and is withdrawn here.
+
+   The trailing 500ms is NOT a settle and must never be converted to a poll: it is
+   CodeMirror's newGroupDelay boundary. Without it the next edit merges into the
+   undo's history group, so a LATER single undo pops more than the test expects and
+   lands somewhere other than the baseline it compares against. Replacing it with
+   `untilValue(v => v !== was)` returns after the ~120ms write debounce — four times
+   too early — which passed locally twice AND passed a full 13-suite gate, then
+   failed on CI: `bets: Escape on the kill default-insert restores the exact
+   baseline`, 597 PASS / 1 FAIL, run 32203358738. Slower hardware widened the window.
+   check-eip is the one suite neither the author nor the review re-ran, and this is
+   what was hiding in it. Cost of honesty: ~190s → ~212s.
+
+   There is NO storage poll here, and adding one is the second thing CI rejected.
+   The review suggested reading a `was` baseline after the click as a free hardening;
+   it is not free. Any await between the .cm-content click and Ctrl+Z is a page
+   round-trip, and that click can commit an open edit-in-place input — give the
+   commit time to land and Ctrl+Z pops the BLUR-COMMIT instead of the edit under
+   test. Fast and serial, the round-trip is too quick to matter; loaded or on CI it
+   is not. Measured: with the poll, `bets: Escape on the kill default-insert restores
+   the exact baseline` failed on CI (isolated shard) and on both local 3-lane runs,
+   while main passed 598/0 under the identical load. Without it, this helper is
+   behaviourally identical to the thirteen copies it replaced — a pure dedup, which
+   is all it was ever worth. */
+async function undoStep(pg, focus){
   if(focus) await focus();
-  const was = await pg.evaluate(k => localStorage.getItem(k), key);
   await pg.locator('.cm-content').click();
   await pg.keyboard.press('ControlOrMeta+z');
-  await untilValue(() => pg.evaluate(k => localStorage.getItem(k), key), v => v !== was);
+  await pg.waitForTimeout(500);
 }
 
 /* Mobile-emulated contexts: locator.click() scrolls-then-clicks as one step, and a
@@ -94,7 +118,7 @@ const svg = await page.locator('#preview svg').innerHTML();
 check('recommendation recomputes (Submit bid still leads on these numbers)',
   svg.includes('VERDICT') && /VERDICT[\s\S]{0,400}Choose Submit bid/.test(svg));
 check('one undo reverts the edit', await (async () => {
-  await undoStep(page, 'tree-src');
+  await undoStep(page);
   return (await page.evaluate(() => localStorage.getItem('tree-src'))) === before;
 })());
 
@@ -147,7 +171,7 @@ check('label rename lands in text and diagram', await until(async () => ((await 
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   };
   const t0 = await page.evaluate(() => localStorage.getItem('tree-src'));
-  const undo = () => undoStep(page, 'tree-src');
+  const undo = () => undoStep(page);
 
   // decision node ("Submit bid", srcLine 4): Rename, Edit value, Add option, Remove branch
   await tapMarker(4);
@@ -511,7 +535,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
-  const undo = () => undoStep(p, 'why-src');
+  const undo = () => undoStep(p);
 
   /* "Reading reminders" (srcLine 5) carries two assumptions (srcLine 6 "readers
      want a nudge mid-commute" [testing], srcLine 7 "reading time is
@@ -730,7 +754,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
-  const undo = () => undoStep(p, 'why-src');
+  const undo = () => undoStep(p);
 
   await tapCard(5);
   check('why map: card body tap opens the menu with exactly Rename/Remove', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Remove branch')));
@@ -835,7 +859,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = () => undoStep(p, 'roadmap-src');
+  const undo = () => undoStep(p);
 
   await tapCard("Resume shield");
   check('roadmap: card body tap opens the menu with the expected rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Inspect item|Remove item')));
@@ -936,7 +960,7 @@ check('no console/page errors', errors.length === 0);
     (await p.locator('#preview svg [data-edit="note"][data-line="' + line + '"]').count()) === 0);
 
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = () => undoStep(p, 'roadmap-src');
+  const undo = () => undoStep(p);
 
   // (a) Status… — must open the real options picker, never silence
   await tapCard(title);
@@ -1071,7 +1095,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = () => undoStep(p, 'roadmap-src');
+  const undo = () => undoStep(p);
 
   // ---- Resolve… ----
   await tapCard('Ship reminders');
@@ -1339,7 +1363,7 @@ check('no console/page errors', errors.length === 0);
     const box = await rowOf(title).locator('rect[data-hit]').boundingBox();
     await tapCardMenu(p, box);
   };
-  const undo = () => undoStep(p, 'roadmap-src');
+  const undo = () => undoStep(p);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the title cell ----
@@ -1505,7 +1529,7 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(700);
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
-  const undo = () => undoStep(p, 'roadmap-src');
+  const undo = () => undoStep(p);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the card's title field ----
@@ -1616,7 +1640,7 @@ check('no console/page errors', errors.length === 0);
     const box = await cardOf(title).locator('rect[data-hit]').boundingBox();
     await tapCardMenu(p, box);
   };
-  const undo = () => undoStep(p, 'roadmap-src');
+  const undo = () => undoStep(p);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ================= HERO: full inline edit targets =================
@@ -1901,7 +1925,7 @@ check('no console/page errors', errors.length === 0);
     await p.mouse.click(box.x + 4, box.y + box.height / 2);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
-  const undo = () => undoStep(p, 'map-src', async () => {
+  const undo = () => undoStep(p, async () => {
     if(!(await p.locator('.cm-content').isVisible()))
       await p.getByRole('button', {name: 'Edit map source'}).click();
   });
@@ -2894,7 +2918,7 @@ insure: premium 6 attach 65 limit 30`;
   await p.getByRole('button', {name: 'Lantern portfolio'}).click();
   await p.waitForTimeout(500);
   const baseline = await p.evaluate(() => localStorage.getItem('bets-src'));
-  const undo = () => undoStep(p, 'bets-src');
+  const undo = () => undoStep(p);
 
   // direct odds edit on "Referral flow v2" (srcLine 5): commits + re-renders
   await p.locator('[data-edit="odds"][data-line="5"]').click();
