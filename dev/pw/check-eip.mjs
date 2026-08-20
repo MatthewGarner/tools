@@ -3002,6 +3002,13 @@ insure: premium 6 attach 65 limit 30`;
     midInsert => (midInsert.split(/\r?\n/).includes('    kill: reason')));
   check('bets: kill default-insert lands the placeholder before Escape',
     midInsert.split(/\r?\n/).includes('    kill: reason'));
+  /* The source write and openAt() are deliberately separate phases: the latter
+     waits for the debounced render to expose the fresh kill target. Storage can
+     therefore contain the placeholder before the input exists, especially when
+     parallel suites delay rAF. Escape is an input contract, so synchronize on
+     that input instead of racing it from the earlier source-write witness. */
+  check('bets: kill default-insert opens its cancellable input before Escape',
+    await until(async () => (await p.locator('.eip-input').inputValue() === 'reason')));
   await p.keyboard.press('Escape');
   const afterEscape = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
     afterEscape => (afterEscape === baseline));
@@ -3035,10 +3042,10 @@ insure: premium 6 attach 65 limit 30`;
   check('bets desktop-narrow: ＋ Add bet (mouse click, no touch) inserts a parseable placeholder',
     dAfter.split(/\r?\n/).some(l => l.trim() === 'Fine pointer add: stake 50, odds 40-60%, payoff 100-200'));
   check('bets desktop-narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
-    await dp.evaluate(() => {
+    await until(() => dp.evaluate(() => {
       const el = document.activeElement;
       return !!el && el.dataset && el.dataset.edit === 'name' && el.dataset.raw === 'Fine pointer add';
-    }));
+    })));
   check('bets desktop-narrow: no console/page errors', derrs.length === 0);
   await dp.close();
 }
