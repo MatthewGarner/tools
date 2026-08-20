@@ -505,6 +505,7 @@ test('merit-order renderer stays clean (hostile catalogue labels/family reach da
 test('intraday renderer stays clean (hostile catalogue labels reach changeovers + verdict)', async () => {
   const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
   const {renderDay} = await import('../energy/intraday/render-day.js');
+  const {renderDayStackExport} = await import('../energy/intraday/render-export.js');
   const {MERIT_PALETTE} = await import('../energy/merit-order/render.js');
   const hostileCat = [
     {key: 'a', label: EVIL[0], family: 'other', installed: 30, bid: {kind: 'fixed', cost: 5}},
@@ -516,6 +517,11 @@ test('intraday renderer stays clean (hostile catalogue labels reach changeovers 
      colors: {ink: '#000000', muted: '#666666', accent: '#C05621', grid: '#eeeeee', card: '#ffffff'}},
     {forExport: true});
   assertClean(svg, 'intraday');
+  assertClean(renderDayStackExport({
+    result: runDay(p, hostileCat), params: p, hour: 12, catalogue: hostileCat,
+    date: '20 Aug 2026', palette: MERIT_PALETTE.light, measure: ctx.measure,
+    colors: {bg: '#f7f8f6', card: '#ffffff', border: '#dddddd', ink: '#000000', muted: '#666666', accent: '#C05621', grid: '#eeeeee'},
+  }), 'intraday-export');
 });
 
 test('case renderer escapes hostile titles/labels/notes/lanes', async () => {

@@ -1,6 +1,6 @@
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
 import {chromium, devices} from 'playwright';
-import {trackErrors, report, tally, pickExample} from './_harness.mjs';
+import {trackErrors, report, tally, pickExample, until} from './_harness.mjs';
 import {EXAMPLES as PROXY_EXAMPLES} from '../../proxy/example.js';
 
 const TWO_THEORIES = pickExample(PROXY_EXAMPLES, 'Two theories');
@@ -55,11 +55,11 @@ const TOOLS = [
   {path: '/roadmap/', chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
-  {path: '/timeline/', chip: 'App launch programme'},
+  {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false, reader: true},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   {path: '/bets/', chip: 'Lantern portfolio'},
-  {path: '/energy/risk/', chip: 'Route to market'},
-  {path: '/energy/cycles/', chip: 'Wexcombe base case'},
+  {path: '/energy/risk/', chip: 'Route to market', source: 'Show source editor', narrowTab: false, reader: true},
+  {path: '/energy/cycles/', chip: 'Wexcombe base case', source: 'Show source editor', narrowTab: false, reader: true},
   /* Added 2026-08-16. All three import assets/workspace.js and have done since they
      shipped; this list had never caught up, so the rail/collapse/zoom behaviour of
      three tools — paths the largest page in the suite — was never exercised.
@@ -75,8 +75,127 @@ const TOOLS = [
      visibility probe that used offsetParent and reported the opposite of the truth. */
   {path: '/case/', chip: 'Wexcombe augmentation'},
   {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true, deep: true},
-  {path: '/proxy/', chip: TWO_THEORIES.name},
+  {path: '/proxy/', chip: TWO_THEORIES.name, source: 'Show source editor', narrowTab: false, reader: true},
 ];
+
+/* Reader-first workspaces are a new, deliberately transient arrival state. The
+   ordinary shared-module walk below opens the source and exercises its historic
+   collapse/zoom contract; this dedicated pass protects what that old walk cannot:
+   arrive on the whole artefact, retain a shareable URL, then return to a real
+   CodeMirror authoring surface without the reader reclaiming the rail. */
+for(const {path, reader} of TOOLS.filter(t => t.reader)){
+  const page = await browser.newPage({viewport: {width:1440, height:900}, reducedMotion:'reduce'});
+  const errors = trackErrors(page);
+  await page.addInitScript(() => {
+    window.__readerArrivalStates = [];
+    const watch = () => {
+      const ws = document.getElementById('workspace');
+      if(!ws || ws.dataset.readerWatched) return;
+      ws.dataset.readerWatched = 'true';
+      const note = () => window.__readerArrivalStates.push(ws.dataset.workspaceView || 'unset');
+      new MutationObserver(note).observe(ws, {attributes:true, attributeFilter:['class', 'data-workspace-view']});
+      note();
+    };
+    watch();
+    new MutationObserver(watch).observe(document, {childList:true, subtree:true});
+  });
+  await page.goto(BASE + path, {waitUntil:'networkidle'});
+  const ready = await until(() => page.evaluate(() => {
+    const ws = document.getElementById('workspace'), svg = document.querySelector('#preview svg');
+    return !!(ws?.dataset.workspaceView === 'reading' && svg?.getBoundingClientRect().width);
+  }));
+  await page.waitForTimeout(350);       // clears the intentional rail transition before measuring its final state
+  const arrival = await page.evaluate(() => {
+    const ws = document.getElementById('workspace');
+    const svg = document.querySelector('#preview svg');
+    const preview = document.getElementById('preview');
+    const tab = document.getElementById('railtab');
+    const advisory = document.querySelector('.fit-readability-advisory');
+    const s = svg?.getBoundingClientRect(), p = preview?.getBoundingClientRect();
+    return {state:ws?.dataset.workspaceView, rail:document.querySelector('.rail')?.getBoundingClientRect(),
+      svg:s && {left:s.left, right:s.right, width:s.width}, preview:p && {left:p.left, right:p.right},
+      hash:location.hash, tabLabel:tab?.getAttribute('aria-label'), tabExpanded:tab?.getAttribute('aria-expanded'),
+      tabControls:tab?.getAttribute('aria-controls'), advisory:!!advisory && !advisory.hidden,
+      transitions:window.__readerArrivalStates || []};
+  });
+  check(path + ' reader: waits for a complete guarded artefact', ready);
+  check(path + ' reader: opens on the artefact, not a collapsed rail', arrival.state === 'reading' && arrival.rail?.width <= 1);
+  check(path + ' reader: preserves the full SVG in a reader pane', !!arrival.svg && !!arrival.preview &&
+    arrival.svg.width >= arrival.preview.right - arrival.preview.left - 1);
+  check(path + ' reader: exposes Show source editor without an advisory', arrival.tabLabel === 'Show source editor' &&
+    arrival.tabExpanded === 'false' && arrival.tabControls === 'cmhost' && !arrival.advisory);
+  check(path + ' reader: never persists a collapse or flashes one at arrival', arrival.hash === '' &&
+    !arrival.transitions.includes('collapsed'));
+  if(!ready){
+    check(path + ' reader: exposes an operable source return', false);
+    check(path + ' reader: no console/page errors' + (errors.length ? ' — ' + errors.slice(0, 2).join(' | ') : ''), errors.length === 0);
+    await page.close();
+    continue;
+  }
+  await page.getByRole('button', {name:'Show source editor'}).click();
+  const editorFocused = await until(() => page.evaluate(() => document.activeElement?.classList.contains('cm-content')));
+  const before = await page.locator('.cm-content').textContent();
+  await page.locator('.cm-content').press('End');
+  await page.locator('.cm-content').press(' ');
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForTimeout(600);
+  const after = await page.locator('.cm-content').textContent();
+  const authoring = await page.evaluate(async () => {
+    const {readHashState} = await import('/assets/series.js');
+    return {state:document.getElementById('workspace')?.dataset.workspaceView,
+      hash:await readHashState(), rail:document.querySelector('.rail')?.getBoundingClientRect().width || 0};
+  });
+  check(path + ' reader: Show source editor moves focus into CodeMirror', editorFocused);
+  check(path + ' reader: edit/undo remains expanded and leaves no e=0', before === after && authoring.state === 'expanded' &&
+    authoring.rail > 0 && authoring.hash?.e !== 0);
+  await page.locator('#railtab').click();
+  await page.waitForTimeout(500);
+  const explicitCollapseURL = page.url();
+  const p2 = await browser.newPage({viewport: {width:1440, height:900}, reducedMotion:'reduce'});
+  await p2.addInitScript(() => {
+    window.__incomingReaderStates = [];
+    const watch = () => {
+      const ws = document.getElementById('workspace');
+      if(!ws || ws.dataset.incomingReaderWatched) return;
+      ws.dataset.incomingReaderWatched = 'true';
+      const note = () => window.__incomingReaderStates.push(ws.dataset.workspaceView || 'unset');
+      new MutationObserver(note).observe(ws, {attributes:true, attributeFilter:['class', 'data-workspace-view']});
+      note();
+    };
+    watch();
+    new MutationObserver(watch).observe(document, {childList:true, subtree:true});
+  });
+  await p2.goto(explicitCollapseURL, {waitUntil:'networkidle'});
+  await p2.waitForTimeout(450);
+  const explicit = await p2.evaluate(async () => {
+    const {readHashState} = await import('/assets/series.js');
+    return {state:document.getElementById('workspace')?.dataset.workspaceView,
+      rail:document.querySelector('.rail')?.getBoundingClientRect().width || 0, hash:await readHashState(),
+      transitions:window.__incomingReaderStates || []};
+  });
+  check(path + ' reader: an explicit e=0 wins without a reader flash', explicit.state === 'collapsed' && explicit.rail <= 1 &&
+    explicit.hash?.e === 0 && !explicit.transitions.includes('reading'));
+  await p2.close();
+  check(path + ' reader: no console/page errors' + (errors.length ? ' — ' + errors.slice(0, 2).join(' | ') : ''), errors.length === 0);
+  await page.close();
+}
+
+/* Fine-pointer windows can be narrowed after arriving in reading mode. The
+   stacked layout has no rail tab, so it must restore source rather than leave it
+   hidden by a stale presentation state. One shared workspace instance proves the
+   responsive transition; initial coarse arrivals are covered below for all four. */
+{
+  const page = await browser.newPage({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
+  await page.goto(BASE + '/timeline/', {waitUntil:'networkidle'});
+  await until(() => page.evaluate(() => document.getElementById('workspace')?.dataset.workspaceView === 'reading'));
+  await page.setViewportSize({width:800, height:900});
+  await page.waitForTimeout(350);
+  const stacked = await page.evaluate(() => ({state:document.getElementById('workspace')?.dataset.workspaceView,
+    rail:document.querySelector('.rail')?.getBoundingClientRect().width || 0,
+    tab:document.getElementById('railtab') && getComputedStyle(document.getElementById('railtab')).display}));
+  check('reader fine-pointer resize: stacked layout restores the source rail', stacked.state === 'expanded' && stacked.rail > 0 && stacked.tab === 'none');
+  await page.close();
+}
 
 /* Runs for every tool, deep or not: `narrowTab` is per-tool markup rather than
    shared-module behaviour, and its true branch lives only in the reduced set. */
@@ -216,6 +335,31 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   const after = await page.evaluate(() => localStorage.getItem('tree-src'));
   check('/tree/ coarse: indent/outdent buttons edit the text', mid !== before && after === before);
   await ctx.close();
+}
+
+/* A phone already gives source its own card below the artefact. Reader-first is
+   therefore desktop presentation, not a second mobile mode. */
+{
+  for(const device of ['iPhone 13', 'Pixel 7']){
+    const ctx = await browser.newContext({...devices[device], colorScheme:'light', reducedMotion:'reduce'});
+    for(const {path} of TOOLS.filter(t => t.reader)){
+      const page = await ctx.newPage();
+      await page.goto(BASE + path, {waitUntil:'networkidle'});
+      await page.waitForTimeout(450);
+      const mobile = await page.evaluate(() => {
+        const ws = document.getElementById('workspace'), rail = document.querySelector('.rail');
+        const pv = document.getElementById('preview'), de = document.documentElement, tab = document.getElementById('railtab');
+        return {state:ws?.dataset.workspaceView, railVisible:!!rail && getComputedStyle(rail).visibility !== 'hidden',
+          sourceBelow:!!rail && !!pv && rail.getBoundingClientRect().top >= pv.getBoundingClientRect().bottom - 1,
+          readerControlVisible:!!tab && getComputedStyle(tab).display !== 'none', noOverflow:de.scrollWidth <= innerWidth + 1};
+      });
+      check(path + ' ' + device + ': remains source-below, not reader mode',
+        mobile.state === 'expanded' && mobile.railVisible && mobile.sourceBelow && !mobile.readerControlVisible);
+      check(path + ' ' + device + ': has no document horizontal overflow', mobile.noOverflow);
+      await page.close();
+    }
+    await ctx.close();
+  }
 }
 
 /* ---- Fit fits the fold, but never at the cost of legibility (2026-07-13) ----

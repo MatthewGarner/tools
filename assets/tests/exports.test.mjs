@@ -55,6 +55,19 @@ test('export buttons expose native versus presentation semantics accessibly', as
   assert.equal(buttons.dlpng['aria-live'], 'polite');
 });
 
+test('a tool may name a specific Copy PNG handoff without changing shared defaults', async () => {
+  const {wireExports} = await import('../exports.js');
+  const button = {
+    textContent: 'Copy PNG', addEventListener() {},
+    setAttribute(name, value){ this[name] = value; },
+  };
+  wireExports({buttons: {copypng: button}, getSvg: () => null, slug: () => 'x',
+    labels: {copypng: 'Copy PNG — day + stack summary'},
+    descriptions: {copypng: 'Copy PNG — day + stack summary'}});
+  assert.equal(button.textContent, 'Copy PNG — day + stack summary');
+  assert.equal(button['aria-label'], 'Copy PNG — day + stack summary');
+});
+
 test('Download PNG reports an over-budget native artboard without constructing a canvas', async () => {
   const {wireExports} = await import('../exports.js');
   const handlers = {};

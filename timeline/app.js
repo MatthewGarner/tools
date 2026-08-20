@@ -114,6 +114,8 @@ snaps = wireSnapshots({
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  initialReading: 'when-guarded',
+  focusEditor: () => editor.view.focus(),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 const paint = mountMotion($('preview'));   // reveal on load, zoom-scaled FLIP on edit

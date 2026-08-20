@@ -43,6 +43,11 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
    before the click and the wait would do nothing at all. */
 const persisted = (p, key) => until(() => p.evaluate(k => localStorage.getItem(k), key));
 const shown = (p, sel) => until(() => p.locator(sel).count());
+async function showSourceIfReading(page, timeout = 5000){
+  const source = page.getByRole('button', {name: 'Show source editor'});
+  await source.waitFor({state: 'visible', timeout}).catch(() => {});
+  if(await source.isVisible()) await source.click();
+}
 
 async function installAndWait(page){
   await page.goto(BASE + '/', {waitUntil: 'networkidle'});
@@ -88,7 +93,7 @@ async function installAndWait(page){
     ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await persisted(p, 'gauge-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await shown(p, '#verdictwrap svg'); return await p.locator('#verdictwrap svg').count() === 1; }],
-    ['/timeline/', async p => { await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/timeline/', async p => { await showSourceIfReading(p); await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await p.getByRole('button', {name: 'Lantern platform'}).click(); await persisted(p, 'wardley-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/bets/', async p => { await p.getByRole('button', {name: 'Lantern portfolio'}).click(); await persisted(p, 'bets-src'); return await p.locator('#preview svg').count() === 1; }],
     /* the gate canvas is sized by the first paint, so width>100 is false until it runs */
@@ -167,6 +172,7 @@ async function installAndWait(page){
   let ok = false;
   try{
     await p2.goto(EBASE + '/risk/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await showSourceIfReading(p2);
     await p2.getByRole('button', {name: 'Route to market'}).click();
     await p2.waitForTimeout(600);
     ok = await p2.locator('#preview svg').count() === 1;
@@ -177,6 +183,7 @@ async function installAndWait(page){
   let ok2 = false;
   try{
     await p3.goto(EBASE + '/cycles/', {waitUntil: 'domcontentloaded', timeout: 8000});
+    await showSourceIfReading(p3);
     await p3.getByRole('button', {name: 'Wexcombe base case'}).click();
     await p3.waitForTimeout(1000);
     ok2 = await p3.locator('#preview svg').count() === 1;

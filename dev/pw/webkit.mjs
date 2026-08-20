@@ -250,6 +250,84 @@ for(const theme of ['light', 'dark']){
   await page.close();
   await ctx.close();
 }
+/* Reader-first is a fine-pointer arrival state. Safari must agree with Blink on
+   its explicit return route and must not turn a shared model into e=0. */
+for(const theme of ['light', 'dark']){
+  const ctx = await browser.newContext({viewport:{width:1440, height:900}, hasTouch:false, isMobile:false,
+    colorScheme:theme, reducedMotion:'reduce'});
+  for(const [base, path, name] of [[T, '/timeline/', 'timeline'], [E, '/risk/', 'risk'], [E, '/cycles/', 'cycles'], [T, '/proxy/', 'proxy']]){
+    const page = await ctx.newPage();
+    const errs = [], csp = [];
+    page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
+    page.on('console', m => { if(m.type() === 'error'){ const t = m.text();
+      (/Content Security Policy|violates/.test(t) ? csp : errs).push(t.slice(0, 120)); } });
+    try{
+      /* Service workers can keep Safari's network-idle accounting alive after a
+         fully rendered local page. The assertion below is stronger for this flow:
+         it waits for the actual reader state and SVG rather than an unrelated
+         connection to go quiet. */
+      await page.goto(base + path, {waitUntil:'domcontentloaded', timeout:20000});
+      await page.waitForFunction(() => {
+        const ws = document.getElementById('workspace'), svg = document.querySelector('#preview svg');
+        return ws?.dataset.workspaceView === 'reading' && !!svg?.getBoundingClientRect().width;
+      }, {timeout:7000});
+      await page.waitForTimeout(350);
+      const arrival = await page.evaluate(() => ({state:document.getElementById('workspace')?.dataset.workspaceView,
+        rail:document.querySelector('.rail')?.getBoundingClientRect().width || 0,
+        label:document.getElementById('railtab')?.getAttribute('aria-label'), hash:location.hash}));
+      ok(arrival.state === 'reading' && arrival.rail <= 1 && arrival.label === 'Show source editor' && !arrival.hash,
+        `${name} (webkit ${theme}): arrives in the reader without a persisted collapse`);
+      await page.getByRole('button', {name:'Show source editor'}).click();
+      await page.waitForTimeout(350);
+      const editor = await page.evaluate(async () => {
+        const {readHashState} = await import('/assets/series.js');
+        return {focus:document.activeElement?.classList.contains('cm-content'),
+          state:document.getElementById('workspace')?.dataset.workspaceView, hash:await readHashState()};
+      });
+      ok(editor.focus && editor.state === 'expanded' && editor.hash?.e !== 0,
+        `${name} (webkit ${theme}): returns focus to source without e=0`);
+      ok(errs.length === 0, `${name} (webkit ${theme}): reader has no page errors` + (errs.length ? ' — ' + errs[0] : ''));
+      ok(csp.length === 0, `${name} (webkit ${theme}): reader has no CSP violations` + (csp.length ? ' — ' + csp[0] : ''));
+    }catch(e){
+      ok(false, `${name} (webkit ${theme}): reader flow — ` + String(e).split('\n')[0]);
+    }
+    await page.close();
+  }
+  await ctx.close();
+}
+/* Frequency is Canvas live but exports SVG. Run the real action and native
+   image decode in Safari's engine so the two media do not only agree on Blink. */
+{
+  const ctx = await browser.newContext({viewport:{width:1200, height:820}, reducedMotion:'reduce'});
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
+  try{
+    await page.addInitScript(() => {
+      const make = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = blob => { window.__frequencyExportBlob = blob; return make(blob); };
+    });
+    await page.goto(E + '/frequency/', {waitUntil:'networkidle', timeout:20000});
+    // These are the actual export controls; stable ids avoid a broad role
+    // query accidentally waiting on an off-screen SVG label in Safari.
+    await page.locator('#presets [data-preset="stack"]').click();
+    await page.locator('details.action-disclosure > summary').click();
+    await page.locator('#dlsvg').click();
+    const svg = await page.evaluate(() => window.__frequencyExportBlob?.text());
+    const decoded = await page.evaluate(async source => new Promise(resolve => {
+      const image = new Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false);
+      image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source || '');
+    }), svg);
+    ok(typeof svg === 'string' && svg.includes('50 Hz') && svg.includes('48.8 Hz — load shed') && svg.includes('same grid, no battery'),
+      'frequency (webkit): SVG action carries the live scene labels');
+    ok(decoded, 'frequency (webkit): SVG action natively decodes for PNG export');
+    ok(errs.length === 0, 'frequency (webkit): export action has no page errors' + (errs.length ? ' — ' + errs[0] : ''));
+  }catch(e){
+    ok(false, 'frequency (webkit): export action — ' + String(e).split('\n')[0]);
+  }
+  await page.close();
+  await ctx.close();
+}
 await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
 /* As mobile: the per-tool expression rises with the tool list, the absolute is ~90% of

@@ -51,7 +51,8 @@ let rafId = 0, debTimer = null, hashTimer = null;
 const stageEl = $('preview');
 function renderWidth(){ return narrowWidth(stageEl); }
 function ctx(slide, forExport = false){
-  return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth()};
+  return {colors: themeColors(), measure, slide, dark: isDark(), width: forExport ? undefined : renderWidth(),
+    readerFloor: forExport ? null : .75};
 }
 function activeRender(slide, edit = false, forExport = false){
   return render(model, sim, ctx(slide, forExport), {edit, focus: focusIdx});
@@ -111,6 +112,8 @@ function writeHash(){
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  initialReading: 'when-guarded',
+  focusEditor: () => editor.view.focus(),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 

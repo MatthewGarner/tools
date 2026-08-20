@@ -2,7 +2,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {simulate, verdict} from '../engine.js';
-import {renderTrace, toMarkdown} from '../render.js';
+import {renderTrace, renderTraceScene, toMarkdown} from '../render.js';
+import {buildTraceScene} from '../scene.js';
 
 const ctx = {
   colors: {card:'#fff', border:'#ddd', ink:'#111', muted:'#666', accent:'#C05621', bg:'#f7f8f6', err:'#b00', track:'#eee'},
@@ -35,6 +36,17 @@ test('renderTrace: no XML hazards (bare booleans / double-quoted font in double-
   const TAG = /^<[a-zA-Z][\w:-]*((\s+[\w:-]+=("[^"<]*"|'[^'<]*'))*)\s*\/?>$/;
   for(const tag of svg.match(/<[^!/][^>]*>/g) || []){
     assert.match(tag, TAG, 'malformed tag: ' + tag.slice(0, 150));
+  }
+});
+
+test('renderTraceScene uses the full canonical teaching set with partial and dark contexts', () => {
+  const scene = buildTraceScene(r, {trip:1.8, eSync:90});
+  for(const colors of [{accent:'#C05621'}, {bg:'#151515', ink:'#f6f4ef', muted:'#b9b6ae', accent:'#E06A2E', err:'#ff6b57'}]){
+    const svg = renderTraceScene(scene, {colors});
+    assert.ok(!svg.includes('undefined'), 'fallback colours complete a partial context');
+    assert.match(svg, />50 Hz<.*>48\.8 Hz — load shed</s);
+    assert.match(svg, /stroke-dasharray='5 4'/, 'threshold remains distinct from whole-Hz grid');
+    assert.match(svg, />49</, 'whole-Hz grid labels reach the SVG');
   }
 });
 

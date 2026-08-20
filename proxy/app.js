@@ -144,6 +144,8 @@ const editor = createEditor({parent:$('cmhost'), doc:'', onChange:debounced(refr
 mountTouchUndo(document.querySelector('.stage .actions'), editor);
 const ws = initWorkspace({
   workspace:$('workspace'), tab:$('railtab'), preview, zoomHost:$('zoomctl'),
+  initialReading:'when-guarded',
+  focusEditor:() => editor.view.focus(),
   onCollapseChange(){ scheduleHash(100); },
 });
 

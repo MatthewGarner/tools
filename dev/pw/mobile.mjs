@@ -576,8 +576,14 @@ const nextStep = async page => {
   const pctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const page = await pctx.newPage();
   await page.goto(T + '/premortem/', {waitUntil: 'networkidle'}).catch(()=>{});
-  await page.waitForTimeout(350);
-  await page.reload(); await page.waitForTimeout(220);
+  /* A fresh context boots into the example register. Return through the app's
+     own Registers action rather than reloading and hoping its async boot has
+     reached the saved-register home within a fixed delay. In CI that race
+     occasionally let the frame fields receive values before the new
+     pre-parade state was settled, leaving Next disabled forever. */
+  await page.locator('#homebtn').waitFor({state: 'visible'});
+  await page.click('#homebtn');
+  await page.locator('#home:not([hidden])').waitFor({state: 'visible'});
   await page.click('#newparade');
   await page.fill('[data-field="title"]', 'Lantern phone breakthrough');
   await page.fill('[data-field="question"]', 'Why did it win?');

@@ -55,6 +55,7 @@ const EXCLUDED = {
   'bets/render-presentation.js': 'Presentation export is intentionally fixed at 1920x1080.',
   'duel/render.js': 'Renderer emits HTML, not SVG.',
   'energy/frequency/render.js': 'SVG export is intentionally fixed wide; the responsive live trace is canvas.',
+  'energy/intraday/render-export.js': 'Composite day-and-stack export is intentionally a fixed 1200px artboard.',
   'fermi/render-cashflow.js': 'Calculator SVG is intentionally wide/pannable and has no narrow branch.',
   'fermi/render-driver.js': 'Calculator SVG is intentionally wide/pannable and has no narrow branch.',
   'flow/render.js': 'Readout SVG has one fixed composition and no width-aware narrow branch.',
