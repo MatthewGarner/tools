@@ -29,7 +29,7 @@ const TOOLS = [
 let pass = 0, fail = 0;
 const ok = (c, m) => { if(c){ pass++; console.log('PASS', m); } else { fail++; console.log('FAIL', m); } };
 
-const browser = await webkit.launch();
+let browser = await webkit.launch();
 console.log('real WebKit', browser.version(), '\n');
 
 for(const theme of ['light', 'dark']){
@@ -250,6 +250,12 @@ for(const theme of ['light', 'dark']){
   await page.close();
   await ctx.close();
 }
+/* A long colour-matrix run can leave WebKit slow to accept a new navigation.
+   Reader-first flows need a fresh engine so this suite proves the product
+   interaction rather than inheriting that test-runner lifetime cost. */
+await browser.close();
+browser = await webkit.launch();
+
 /* Reader-first is a fine-pointer arrival state. Safari must agree with Blink on
    its explicit return route and must not turn a shared model into e=0. */
 for(const theme of ['light', 'dark']){

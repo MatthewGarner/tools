@@ -906,11 +906,9 @@ for(const [name, url, chip] of WIDENED){
   await page.close();
 }
 
-// roadmap register phone fallback + the mobile-export exception (Task 8): on a
-// phone-width `style: register` doc the preview falls back to the chart's narrow
-// STACK — the register table can't fit a phone — but Download SVG still exports
-// the REGISTER, because export is keyed off effectiveStyle, not the rendered
-// preview (the whole point of routing exports through plainStyleSvg).
+// Roadmap Register remains Register on a phone. Its compact live table keeps
+// the horizon bands and editing semantics; Download SVG remains the fuller
+// presentation artifact for the selected view.
 {
   const doc = 'title: Lantern — Product Roadmap\nstyle: register\nhorizons: Now, Next, Later\n\n' +
     'NOW\nCore: Resume where you left off [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
@@ -923,32 +921,23 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
 
-  // (1) FALLBACK: the preview is the chart's narrow STACK (g[data-line] cards),
-  // NOT the live register (whose edit-mode drop bands are data-hdrop). A7: the
-  // narrow chart emits no data-cell, so anchor on g[data-line] present +
-  // [data-hdrop] absent (the live register would carry the bands; the stack won't).
+  // (1) LIVE REGISTER: cards remain grouped by horizon and retain their drop
+  // bands; a generic Grid fallback would have no data-hdrop bands.
   const fb = await page.evaluate(() => ({
     lines: document.querySelectorAll('#preview svg g[data-line]').length,
     hdrop: document.querySelectorAll('#preview svg [data-hdrop]').length,
   }));
-  ok(fb.lines > 0, `roadmap: register on a phone falls back to the chart stack (${fb.lines} g[data-line] cards)`);
-  ok(fb.hdrop === 0, 'roadmap: register phone fallback is the chart, not the live register (no data-hdrop bands)');
+  ok(fb.lines > 0, `roadmap: Register retains its phone rows (${fb.lines} g[data-line] cards)`);
+  ok(fb.hdrop > 0, 'roadmap: Register phone view retains live horizon bands');
   const vw = await page.evaluate(() => document.documentElement.clientWidth);
   const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
-  ok(docSW <= vw + 1, `roadmap: register phone fallback — no page-level h-scroll (${docSW} <= ${vw})`);
-  // the Register chip still reflects the RESOLVED style (syncStylePicker) even
-  // though the preview shows the stack — the doc is still a register doc.
+  ok(docSW <= vw + 1, `roadmap: Register phone view — no page-level h-scroll (${docSW} <= ${vw})`);
   const chipOn = await page.evaluate(() =>
     !!document.querySelector('#stylepicker [data-style="register"].on'));
   ok(chipOn, 'roadmap: Register chip stays active on a phone (the doc is still a register)');
-  const narrowTruth = await page.locator('#narrowcomposition').innerText();
-  ok(narrowTruth === 'Editing uses the shared Grid stack. Register remains selected for exports.',
-    'roadmap: phone says plainly that Grid stack edits while Register stays selected for export');
 
-  // (2) THE MOBILE-EXPORT EXCEPTION (Matt's explicit requirement): Download SVG
-  // exports the REGISTER TABLE, not the chart the preview is showing. Read the
-  // downloaded blob and assert the register header (ITEM/HORIZON) is present and
-  // no data-cell (which would mean the chart leaked into the export).
+  // (2) Download SVG is the selected Register presentation artifact. Read the
+  // blob and assert its table header and absence of Grid cells.
   await page.getByText('Export', {exact: true}).click();
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
@@ -963,8 +952,7 @@ for(const [name, url, chip] of WIDENED){
   await rctx.close();
 }
 
-// The shared authoring stack is not an iOS-only compromise. Pixel 7 receives
-// the same honest fallback and keeps the selected composition for export.
+// Pixel 7 receives the same dedicated Board view with its selected composition.
 {
   const doc = 'title: Lantern — Product Roadmap\nstyle: board\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders\nLATER\nCore: Book clubs';
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify({t:doc}))), 'binary').toString('base64');
@@ -978,21 +966,16 @@ for(const [name, url, chip] of WIDENED){
     active: !!document.querySelector('#stylepicker [data-style="board"].on'),
     width: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
-    note: document.getElementById('narrowcomposition')?.textContent?.trim(),
   }));
-  ok(state.lines > 0 && state.hdrop === 0, 'roadmap: Pixel 7 uses the shared Grid editing stack, not a miniature Board');
-  ok(state.active && state.note === 'Editing uses the shared Grid stack. Board remains selected for exports.',
-    'roadmap: Pixel 7 states the selected Board export honestly');
-  ok(state.scrollWidth <= state.width + 1, `roadmap: Pixel 7 shared stack has no page h-scroll (${state.scrollWidth} <= ${state.width})`);
+  ok(state.lines > 0 && state.hdrop > 0, 'roadmap: Pixel 7 retains the live Board horizon bands');
+  ok(state.active, 'roadmap: Pixel 7 keeps Board selected');
+  ok(state.scrollWidth <= state.width + 1, `roadmap: Pixel 7 Board has no page h-scroll (${state.scrollWidth} <= ${state.width})`);
   await page.close();
   await pctx.close();
 }
 
-// roadmap FOCUS phone fallback + the mobile-export exception: on a phone-width
-// `style: focus` doc the preview falls back to the chart's narrow STACK (the
-// hero+rail lens can't fit a phone), but Download SVG still exports the live
-// FOCUS artefact — export is keyed off the explicit model.style, not the
-// rendered preview (plainStyleSvg, viewport-independent).
+// Roadmap Focus also preserves its phone-specific live lens, while Download SVG
+// exports the full presentation artifact for the selected view.
 {
   const doc = 'title: Lantern — Product Roadmap\nstyle: focus\nhorizons: Now, Next, Later\n\n' +
     'NOW\nCore: Resume where you left off [doing] -- top-requested\nGrowth: Referral flow [risk]\n\n' +
@@ -1003,23 +986,21 @@ for(const [name, url, chip] of WIDENED){
   const page = await fctx.newPage();
   await page.goto(T + '/roadmap/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
-  // FALLBACK: the chart's narrow stack (g[data-line] cards), NOT the live focus
-  // lens (whose edit-mode markup is data-hdrop bands + data-lens headers).
+  // LIVE FOCUS: its horizon bands and lens headers remain present on phone.
   const fb = await page.evaluate(() => ({
     lines: document.querySelectorAll('#preview svg g[data-line]').length,
     hdrop: document.querySelectorAll('#preview svg [data-hdrop]').length,
     lens: document.querySelectorAll('#preview svg [data-lens]').length,
   }));
-  ok(fb.lines > 0, `roadmap: focus on a phone falls back to the chart stack (${fb.lines} g[data-line] cards)`);
-  ok(fb.hdrop === 0 && fb.lens === 0, 'roadmap: focus phone fallback is the chart, not the live lens (no data-hdrop/data-lens)');
+  ok(fb.lines > 0, `roadmap: Focus retains its phone rows (${fb.lines} g[data-line] cards)`);
+  ok(fb.hdrop > 0 && fb.lens > 0, 'roadmap: Focus phone view retains live bands and lens headers');
   const vw = await page.evaluate(() => document.documentElement.clientWidth);
   const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
-  ok(docSW <= vw + 1, `roadmap: focus phone fallback — no page-level h-scroll (${docSW} <= ${vw})`);
+  ok(docSW <= vw + 1, `roadmap: Focus phone view — no page-level h-scroll (${docSW} <= ${vw})`);
   const chipOn = await page.evaluate(() => !!document.querySelector('#stylepicker [data-style="focus"].on'));
   ok(chipOn, 'roadmap: Focus chip stays active on a phone (the doc is still a focus doc)');
-  // THE MOBILE-EXPORT EXCEPTION: Download SVG exports the live FOCUS artefact
-  // (hero content), not the chart the preview shows — and carries no chart
-  // data-cell and no edit markup (edit:false export path).
+  // Download SVG exports the plain Focus artifact (hero content) and carries no
+  // editing markup.
   await page.getByText('Export', {exact: true}).click();
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlsvg')]);
   const svg = await readFile(await dl.path(), 'utf8');

@@ -53,11 +53,30 @@ const check = (name, ok) => {
    behaviourally identical to the thirteen copies it replaced — a pure dedup, which
    is all it was ever worth. */
 async function undoStep(pg, focus){
-  if(focus) await focus();
-  await pg.locator('.cm-content').click();
+  const focused = focus && await focus();
+  if(!focused) await pg.locator('.cm-content').click();
   await pg.keyboard.press('ControlOrMeta+z');
   await pg.waitForTimeout(500);
 }
+
+/* Roadmap deliberately folds its source while the reading surface has room to
+   breathe. Tests that return to source must use the same visible control as an
+   author, rather than force a click on an intentionally hidden editor. */
+async function focusRoadmapSource(pg){
+  const source = pg.locator('.cm-content');
+  if(!(await source.isVisible())){
+    await pg.locator('#railtab').click();
+    await source.waitFor({state: 'visible'});
+  }
+  await source.click({force:true});
+  return true;
+}
+
+/* Card titles can wrap in the final layouts, so their rendered text is not a
+   stable selector. `data-raw` is the authored identity exposed for the edit
+   target; use it to find the card independently of its line breaks. */
+const roadmapCard = (pg, title) => pg.locator(
+  '#preview svg g[data-edit="cardmenu"]:has([data-edit="title"][data-raw="' + title + '"])').first();
 
 /* Mobile-emulated contexts: locator.click() scrolls-then-clicks as one step, and a
    trailing scroll-settle event can still land AFTER the click dispatches — racing
@@ -847,8 +866,7 @@ check('no console/page errors', errors.length === 0);
      property of the shipped example, and pinning it here means any edit to that
      example (adding `headline:` did exactly this) breaks the suite for reasons
      that have nothing to do with edit-in-place. ---- */
-  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: title}).first().getAttribute('data-line');
+  const lineOfCard = async title => roadmapCard(p, title).getAttribute('data-line');
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   /* tap the top-left padding sliver, not the rect centre: the card paints its
      title/note/status text over the hit rect, and Playwright's default .click()
@@ -859,7 +877,7 @@ check('no console/page errors', errors.length === 0);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = () => undoStep(p);
+  const undo = () => undoStep(p, () => focusRoadmapSource(p));
 
   await tapCard("Resume shield");
   check('roadmap: card body tap opens the menu with the expected rows', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Edit note…|Status…|Condition…|Move to…|Inspect item|Remove item')));
@@ -909,17 +927,28 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('roadmap: one undo restores the removed card', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
+  /* Start the drag proof from the complete fixture again. The menu cases above
+     deliberately exercise a sequence of text transactions; drag only needs the
+     chart's own lane×horizon geometry, so it should not inherit their layout
+     history. */
+  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
+    t => (t.includes('Platform: Sync engine rewrite') && t.includes('Growth: Home-screen widget gallery')));
+  await until(async () => (await roadmapCard(p, 'Resume where you left off').count()) === 1);
+
   /* real mouse drag: "Sync engine rewrite" (Platform/Now) dropped into
      Platform/Next moves it (byte-preserved line, relocated after the NEXT
      header) and must NOT leave a card menu open (proves suppressClick).
-     Resolved by title, not by srcLine — see lineOfCard above. */
+  Resolved by title, not by srcLine — see lineOfCard above. */
   const dragSrc = await cardBody(await lineOfCard('Sync engine rewrite')).boundingBox();
   const dragDst = await p.locator('#preview svg rect[data-cell="1|Platform"]').boundingBox();
-  await p.mouse.move(dragSrc.x + dragSrc.width / 2, dragSrc.y + dragSrc.height / 2);
+  const dragStart = {x: dragSrc.x + dragSrc.width / 2, y: dragSrc.y + 10};
+  const dragEnd = {x: dragDst.x + dragDst.width / 2, y: dragDst.y + dragDst.height / 2};
+  await p.mouse.move(dragStart.x, dragStart.y);
   await p.mouse.down();
   for(let i = 1; i <= 8; i++)
-    await p.mouse.move(dragSrc.x + (dragDst.x + dragDst.width / 2 - dragSrc.x) * i / 8,
-      dragSrc.y + (dragDst.y + dragDst.height / 2 - dragSrc.y) * i / 8);
+    await p.mouse.move(dragStart.x + (dragEnd.x - dragStart.x) * i / 8,
+      dragStart.y + (dragEnd.y - dragStart.y) * i / 8);
   await p.mouse.up();
   const tDrag = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tDrag => (tDrag.indexOf('Sync engine rewrite') > tDrag.indexOf('NEXT')));
@@ -947,8 +976,8 @@ check('no console/page errors', errors.length === 0);
   await p.waitForTimeout(500);
 
   const title = 'Home-screen widget gallery';   // NEXT/Growth: shipped with no status, no note
-  const lineOfCard = async t => p.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: t}).first().getAttribute('data-line');
+  const lineOfCard = async t => p.locator('#preview svg [data-edit="title"][data-raw="' + t + '"]')
+    .first().getAttribute('data-line');
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   const tapCard = async t => {
     const line = await lineOfCard(t);
@@ -960,7 +989,7 @@ check('no console/page errors', errors.length === 0);
     (await p.locator('#preview svg [data-edit="note"][data-line="' + line + '"]').count()) === 0);
 
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = () => undoStep(p);
+  const undo = () => undoStep(p, () => focusRoadmapSource(p));
 
   // (a) Status… — must open the real options picker, never silence
   await tapCard(title);
@@ -1001,15 +1030,14 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
     'Core: Sync engine rewrite [doing] x2\n');
   await p.waitForTimeout(700);
 
-  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: title}).first().getAttribute('data-line');
+  const lineOfCard = async title => roadmapCard(p, title).getAttribute('data-line');
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   /* the top-left padding sliver the other blocks tap is INSIDE the left-edge
      span handle on a spanning card (Task 8's data-span-edge rects paint last,
@@ -1039,7 +1067,7 @@ check('no console/page errors', errors.length === 0);
      marked current — an `on` row is still clickable, and tapping the row the menu
      itself calls "current" would commit the last visible column as the end and
      silently shorten the work. x6 on a 4-column board must not become x4. */
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\nCore: Big programme x6\n');
@@ -1056,7 +1084,7 @@ check('no console/page errors', errors.length === 0);
     /Big programme x4/.test(offSrc));
 
   // now/next/later doc: NOT a time axis — the row must not appear at all
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('NOW\nCore: Sync engine rewrite [doing]\n');
@@ -1079,7 +1107,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\n' +
@@ -1087,15 +1115,14 @@ check('no console/page errors', errors.length === 0);
     'NEXT\nCore: Depends on it [if reminders]\n');
   await p.waitForTimeout(700);
 
-  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: title}).first().getAttribute('data-line');
+  const lineOfCard = async title => roadmapCard(p, title).getAttribute('data-line');
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   const tapCard = async title => {
     const line = await lineOfCard(title);
     await tapCardMenu(p, await cardBody(line).boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
-  const undo = () => undoStep(p);
+  const undo = () => undoStep(p, () => focusRoadmapSource(p));
 
   // ---- Resolve… ----
   await tapCard('Ship reminders');
@@ -1198,7 +1225,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\n' +
@@ -1207,8 +1234,7 @@ check('no console/page errors', errors.length === 0);
     'Core: Launch rider [if launch]\n');
   await p.waitForTimeout(700);
 
-  const lineOfCard = async title => p.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: title}).first().getAttribute('data-line');
+  const lineOfCard = async title => roadmapCard(p, title).getAttribute('data-line');
   const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   const tapCard = async title => {
     const line = await lineOfCard(title);
@@ -1288,7 +1314,7 @@ check('no console/page errors', errors.length === 0);
 
   // ---- (d) menu negatives ----
   // no bets declared anywhere → no Condition… row on ANY item.
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('NOW\nCore: Plain item\nNEXT\nCore: Another one\n');
@@ -1304,7 +1330,7 @@ check('no console/page errors', errors.length === 0);
   // a doc WITH a bet, but tapping the item that carries neither bet nor
   // cond of its own → Resolve…/What-if… absent (those are bet-item-only),
   // Condition… present (≥1 bet exists elsewhere to condition on).
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('NOW\nCore: Ship reminders [bet: reminders]\nGrowth: Plain neighbour\n');
@@ -1337,7 +1363,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(
@@ -1355,7 +1381,7 @@ check('no console/page errors', errors.length === 0);
     'Q4 2026\n');
   await p.waitForTimeout(700);
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => roadmapCard(p, title);
   /* tap the top-left padding sliver, not the rect centre: the row paints its
      title/lane/status/note text over the hit rect, and a centred click can
      land on that text instead (same fix the chart block above uses). */
@@ -1363,7 +1389,7 @@ check('no console/page errors', errors.length === 0);
     const box = await rowOf(title).locator('rect[data-hit]').boundingBox();
     await tapCardMenu(p, box);
   };
-  const undo = () => undoStep(p);
+  const undo = () => undoStep(p, () => focusRoadmapSource(p));
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the title cell ----
@@ -1387,20 +1413,22 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('register: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  // ---- add a note to a note-less row (addNote) ----
-  await rowOf('Note-less target').locator('[data-edit="note"]').click();
+  // ---- add a note through the quiet row menu (addNote) ----
+  await tapCard('Note-less target');
+  await p.locator('.eip-pop button', {hasText: 'Edit note…'}).click();
   await p.locator('.eip-input').fill('first note');
   await p.keyboard.press('Enter');
   const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tNote => (tNote.includes('Core: Note-less target -- first note')));
-  check('register: note-cell edit adds " -- " to a note-less row', tNote.includes('Core: Note-less target -- first note'));
+  check('register: Edit note… adds " -- " to a note-less row', tNote.includes('Core: Note-less target -- first note'));
   await undo();
   check('register: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
   // ---- add a note to a row carrying an xN span: the note must land AFTER
   // the token (A1's regression guard — the bug it guards against would have
   // produced "Spanning target -- keeps span x2", silently destroying the span) ----
-  await rowOf('Spanning target').locator('[data-edit="note"]').click();
+  await tapCard('Spanning target');
+  await p.locator('.eip-pop button', {hasText: 'Edit note…'}).click();
   await p.locator('.eip-input').fill('keeps span');
   await p.keyboard.press('Enter');
   const tSpanNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
@@ -1410,12 +1438,13 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('register: one undo restores the pre-span-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  // ---- set a status on a status-less row (addStatus) ----
-  await rowOf('Status-less target').locator('[data-edit="status"]').click();
+  // ---- set a status through the quiet row menu (addStatus) ----
+  await tapCard('Status-less target');
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
   const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tStatus => (tStatus.includes('Core: Status-less target [risk]')));
-  check('register: status-cell pick adds "[status]" to a status-less row', tStatus.includes('Core: Status-less target [risk]'));
+  check('register: Status… adds "[status]" to a status-less row', tStatus.includes('Core: Status-less target [risk]'));
   await undo();
   check('register: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
@@ -1495,7 +1524,7 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
-/* ---- roadmap: BOARD — inline card edits (title/lane/note/status) and the
+/* ---- roadmap: BOARD — direct title/lane edits plus quiet menu note/status edits and the
    +add-into-an-EMPTY-HEADERLESS-column path (ensureHorizonHeader), mirroring
    the register block above onto the board's own card markup: paintBoardCard
    emits the same data-edit targets (title/note/lane/status/additem) inside
@@ -1511,7 +1540,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(
@@ -1528,8 +1557,12 @@ check('no console/page errors', errors.length === 0);
     'Core: Existing next item\n');
   await p.waitForTimeout(700);
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
-  const undo = () => undoStep(p);
+  const rowOf = title => roadmapCard(p, title);
+  const tapCard = async title => {
+    const box = await rowOf(title).locator('rect[data-hit]').boundingBox();
+    await tapCardMenu(p, box);
+  };
+  const undo = () => undoStep(p, () => focusRoadmapSource(p));
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the card's title field ----
@@ -1553,22 +1586,24 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('board: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  // ---- "+ note" on a note-less card (addNote) ----
-  await rowOf('Note-less target').locator('[data-edit="note"]').click();
+  // ---- Edit note… keeps an empty card free of ghost controls (addNote) ----
+  await tapCard('Note-less target');
+  await p.locator('.eip-pop button', {hasText: 'Edit note…'}).click();
   await p.locator('.eip-input').fill('first note');
   await p.keyboard.press('Enter');
   const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tNote => (tNote.includes('Core: Note-less target -- first note')));
-  check('board: "+ note" adds " -- " to a note-less card', tNote.includes('Core: Note-less target -- first note'));
+  check('board: Edit note… adds " -- " to a note-less card', tNote.includes('Core: Note-less target -- first note'));
   await undo();
   check('board: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  // ---- "+ status" on a status-less card (addStatus) ----
-  await rowOf('Status-less target').locator('[data-edit="status"]').click();
+  // ---- Status… keeps an empty card free of ghost controls (addStatus) ----
+  await tapCard('Status-less target');
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
   const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tStatus => (tStatus.includes('Core: Status-less target [risk]')));
-  check('board: "+ status" adds "[status]" to a status-less card', tStatus.includes('Core: Status-less target [risk]'));
+  check('board: Status… adds "[status]" to a status-less card', tStatus.includes('Core: Status-less target [risk]'));
   await undo();
   check('board: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
@@ -1614,7 +1649,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(
@@ -1635,12 +1670,12 @@ check('no console/page errors', errors.length === 0);
     'Q1 2027\n');
   await p.waitForTimeout(700);
 
-  const cardOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const cardOf = title => roadmapCard(p, title);
   const tapCard = async title => {
     const box = await cardOf(title).locator('rect[data-hit]').boundingBox();
     await tapCardMenu(p, box);
   };
-  const undo = () => undoStep(p);
+  const undo = () => undoStep(p, () => focusRoadmapSource(p));
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ================= HERO: full inline edit targets =================
@@ -1666,22 +1701,24 @@ check('no console/page errors', errors.length === 0);
   await undo();
   check('focus hero: one undo restores the pre-lane baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  // ---- "+ note" on a note-less hero card (addNote) ----
-  await cardOf('Note-less hero target').locator('[data-edit="note"]').click();
+  // ---- Edit note… keeps an empty hero free of ghost controls (addNote) ----
+  await tapCard('Note-less hero target');
+  await p.locator('.eip-pop button', {hasText: 'Edit note…'}).click();
   await p.locator('.eip-input').fill('first note');
   await p.keyboard.press('Enter');
   const tNote = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tNote => (tNote.includes('Core: Note-less hero target -- first note')));
-  check('focus hero: "+ note" adds " -- " to a note-less hero card', tNote.includes('Core: Note-less hero target -- first note'));
+  check('focus hero: Edit note… adds " -- " to a note-less hero card', tNote.includes('Core: Note-less hero target -- first note'));
   await undo();
   check('focus hero: one undo restores the pre-note baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
-  // ---- "+ status" on a status-less hero card (addStatus) ----
-  await cardOf('Status-less hero target').locator('[data-edit="status"]').click();
+  // ---- Status… keeps an empty hero free of ghost controls (addStatus) ----
+  await tapCard('Status-less hero target');
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
   const tStatus = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     tStatus => (tStatus.includes('Core: Status-less hero target [risk]')));
-  check('focus hero: "+ status" adds "[status]" to a status-less hero card', tStatus.includes('Core: Status-less hero target [risk]'));
+  check('focus hero: Status… adds "[status]" to a status-less hero card', tStatus.includes('Core: Status-less hero target [risk]'));
   await undo();
   check('focus hero: one undo restores the pre-status baseline', (await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline);
 
@@ -1778,7 +1815,7 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('NOW\nCore: Ship it\n');
@@ -1794,22 +1831,15 @@ check('no console/page errors', errors.length === 0);
   await p.close();
 }
 
-/* ---- roadmap: Lane… on a style:register doc rendered as the CHART at
-   NARROW width (the unset-edit fix batch, Part 1) — doRefresh always
-   renders the chart below the narrow breakpoint regardless of model.style
-   (register/board/focus docs on phones hit this too — roadmap/app.js:
-   `narrow ? render(...) : model.style === 'register' ? ...`), but itemMenu
-   still offers Lane… because the MODEL itself is register-styled. The chart
-   has no data-edit="lane" target at all, so the row used to resolve to
-   nothing; it now falls back to an empty input anchored at the card menu
-   and commits through setLane (roadmap/edit-targets.js), same rewrite the
-   wide register table's own lane cell would use. ---- */
+/* ---- roadmap: narrow Register preserves its own editing surface. It no
+   longer falls back to the generic chart: its lane target remains real, while
+   the card menu provides the same action for a concise resting artifact. ---- */
 {
   const mctx = await browser.newContext({...devices['iPhone 13'], reducedMotion: 'reduce'});
   const p = await mctx.newPage();
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('style: register\n\nNOW\nShip it\n');
@@ -1817,8 +1847,8 @@ check('no console/page errors', errors.length === 0);
 
   const line = await p.locator('#preview svg g[data-edit="cardmenu"]')
     .filter({hasText: 'Ship it'}).first().getAttribute('data-line');
-  check('roadmap narrow-register: the chart renders no inline lane target for this item',
-    (await p.locator('#preview svg [data-edit="lane"][data-line="' + line + '"]').count()) === 0);
+  check('roadmap narrow-register: the Register row retains its inline lane target',
+    (await p.locator('#preview svg [data-edit="lane"][data-line="' + line + '"]').count()) === 1);
 
   const cardLocator = p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
   await cardLocator.scrollIntoViewIfNeeded();
@@ -1835,7 +1865,7 @@ check('no console/page errors', errors.length === 0);
   const after = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     after => (/^Core: Ship it$/m.test(after)));
   check('roadmap narrow-register: commit sets the "Lane: " prefix on the item’s own line', /^Core: Ship it$/m.test(after));
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   check('roadmap narrow-register: one undo reverts the lane-set edit', await until(async () => ((await p.evaluate(() => localStorage.getItem('roadmap-src'))) === baseline)));
 

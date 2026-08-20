@@ -144,9 +144,11 @@ for(const [tool, path, container, draws] of ROLLOUT){
     await page.evaluate(() => window.__motionProbe.traceStarts >= 1));
   check(tool + ': reveal plays in view (.mo-go)', await hasGo(page, container));
   await page.waitForTimeout(1100);
-  // no top-level SVG child is stuck at opacity 0 (a reveal that never completed)
+  // no meaningful top-level SVG child is stuck at opacity 0 (a reveal that
+  // never completed). Roadmap's deliberately dormant add controls are quiet
+  // until hover/focus, so they are not part of the rendered reading artifact.
   const stuck = await page.evaluate(s => { const svg = document.querySelector(s + ' svg');
-    return svg ? [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length : 0; }, container);
+    return svg ? [...svg.children].filter(e => !e.matches('[data-add-control]') && +getComputedStyle(e).opacity < 0.01).length : 0; }, container);
   check(tool + ': nothing stuck hidden after settle', stuck === 0);
   check(tool + ': no console errors', errors.length === 0);
   await page.close();
@@ -169,7 +171,7 @@ for(const [tool, path, container, draws] of ROLLOUT){
 const hiddenKids = (page, sel) => page.evaluate(s => {
   const svg = document.querySelector(s + ' svg');
   if(!svg) return -1;
-  const dark = [...svg.children].filter(e => +getComputedStyle(e).opacity < 0.01).length;
+  const dark = [...svg.children].filter(e => !e.matches('[data-add-control]') && +getComputedStyle(e).opacity < 0.01).length;
   return dark + svg.querySelectorAll('.mo-draw').length;
 }, sel);
 const onScreen = (page, sel) => page.$eval(sel, el => {

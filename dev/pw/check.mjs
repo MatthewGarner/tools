@@ -21,6 +21,21 @@ const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 const roadmapSrc = pg => pg.evaluate(() => localStorage.getItem('roadmap-src'));
 const seeded = pg => until(() => roadmapSrc(pg));
 const changed = (pg, was) => untilValue(() => roadmapSrc(pg), v => v !== was);
+/* A dense Roadmap may correctly enter its reader layout after an inline edit.
+   Undo remains a source operation: use the visible named return route first,
+   then focus the actual CodeMirror surface. This tests the authoring contract
+   a person has, rather than trying to click a deliberately hidden editor. */
+async function focusRoadmapSource(pg){
+  const source = pg.locator('.cm-content');
+  if(!(await source.isVisible())){
+    await pg.locator('#railtab').click();
+    await source.waitFor({state:'visible'});
+  }
+  /* The rail is visibly back, but its expanding grid column can briefly sit
+     beneath the stage during the CSS transition. Keep the source click in the
+     same undo turn without making the browser wait on that decorative overlap. */
+  await source.click({force:true});
+}
 const holds = (pg, read) => until(() => read(pg));
 const rendered = (pg, sel) => until(() => pg.locator(sel).count());
 const browser = await chromium.launch();
@@ -59,7 +74,7 @@ const hlCount = await page.locator('.cm-editor [class*="ͼ"]').count();
 check('syntax highlighting active (' + hlCount + ' styled spans)', hlCount > 5);
 
 // type at end: add an item, preview updates
-await page.locator('.cm-content').click();
+await focusRoadmapSource(page);
 await page.keyboard.press('Meta+ArrowDown'); // end of doc
 await page.keyboard.press('Enter');
 await page.keyboard.type('Platform: Parity check item [risk]');
@@ -91,7 +106,7 @@ check('Cmd+Z undoes', undone === before);
 // snapshot + compare shows badges
 await page.getByText('History', {exact: true}).click();
 await page.getByRole('button', {name: 'Snapshot'}).click();
-await page.locator('.cm-content').click();
+await focusRoadmapSource(page);
 await page.keyboard.press('Meta+ArrowDown');
 await page.keyboard.press('Enter');
 await page.keyboard.type('Core: Brand new initiative');
@@ -160,8 +175,7 @@ await wipPage.close();
     await normalPage.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'More options: One'));
   await normalPage.getByRole('button', {name:'More options: One'}).click();
   await normalPage.getByRole('menuitem', {name:'Inspect item'}).click();
-  await normalPage.locator('#railtab').click();
-  await normalPage.locator('.cm-content').click();
+  await focusRoadmapSource(normalPage);
   await normalPage.keyboard.press('ControlOrMeta+Home');
   await normalPage.keyboard.insertText('// source revision\n');
   /* KEPT SLEEP: both halves of the check below assert an ABSENCE (the receipt is
@@ -281,7 +295,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   check('drag changed the doc', textAfter !== textBefore);
   check('no text selected after drag', (await dragPage.evaluate(() => window.getSelection().toString())) === '');
   // one undo restores the pre-drag doc (ControlOrMeta: Cmd on macOS, Ctrl on Linux/CI)
-  await dragPage.locator('.cm-content').click();
+  await focusRoadmapSource(dragPage);
   await dragPage.keyboard.press('ControlOrMeta+z');
   await changed(dragPage, textAfter);
   const textUndone = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -334,7 +348,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   check('register: dragging a row onto a horizon band moves it under that horizon',
     movedIdx > nowIdx && movedIdx < nextIdx);
   check('register: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -348,7 +362,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(
@@ -380,7 +394,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const tMove = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register (headerless): the drop creates the header and relocates the row (A4, not a silent no-op)',
     /Q1 2027\s*\nCore: Drag into the void/.test(tMove));
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -397,7 +411,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(
@@ -440,7 +454,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
     movedIdx > nextIdx && movedIdx < laterIdx);
   check('board: the moved card keeps its own lane', lines[movedIdx].trim() === 'Growth: Draggable card');
   check('board: no text selected after the drag', (await p.evaluate(() => window.getSelection().toString())) === '');
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -476,7 +490,7 @@ const focusDragDoc =
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(focusDragDoc);
@@ -507,7 +521,7 @@ const focusDragDoc =
     movedIdx > q3Idx && movedIdx < q4Idx);
   check('focus: the promoted card keeps its own lane', lines[movedIdx].trim() === 'Ops: Rail card to promote');
   check('focus: no text selected after the promote drag', (await p.evaluate(() => window.getSelection().toString())) === '');
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -520,7 +534,7 @@ const focusDragDoc =
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(focusDragDoc);
@@ -551,7 +565,7 @@ const focusDragDoc =
     movedIdx > q4Idx && movedIdx < q1Idx);
   check('focus: the demoted card keeps its own lane', lines[movedIdx].trim() === 'Growth: Hero card B');
   check('focus: no text selected after the demote drag', (await p.evaluate(() => window.getSelection().toString())) === '');
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -568,7 +582,7 @@ const focusDragDoc =
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText(focusDragDoc);
@@ -597,7 +611,7 @@ const focusDragDoc =
   const movedIdx = lines.findIndex(l => l.includes('Hero card A'));
   check('focus: dropping a card OVER a rail HEADER still lands in that section (hbandAt digs through the lens rect to the band)',
     movedIdx > q4Idx && movedIdx < q1Idx);
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+z');
   await changed(p, tMove);
   const tUndo = await p.evaluate(() => localStorage.getItem('roadmap-src'));
@@ -647,7 +661,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   // Grid safeguard intentionally stacks them rather than reducing the type floor.
   const p = await browser.newPage({viewport: {width: 2000, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: monthly from Jul 2026 x6\nJul 2026\nA: Long bar one x4\nA: Short\n');
@@ -679,7 +693,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
      the right handle from a 1-column card, so this path has no other test. */
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
@@ -722,7 +736,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
      the item (Q4-start x2 becomes Q3-start x3; the end, Q1 2027, is untouched) */
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\nQ4 2026\n' +
@@ -755,7 +769,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
      line, so duration is preserved for free */
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: quarterly from Q3 2026 x4\nQ3 2026\n' +
@@ -880,7 +894,7 @@ Now
 Core: Probe [bet: x]
 Next
 Core: Already underway [doing] [if x]`;
-  await p.locator('.cm-content').click();
+  await focusRoadmapSource(p);
   await p.keyboard.press('ControlOrMeta+a');
   await p.keyboard.insertText(unsafe);
   /* the health line REWORDS when the starter stops being safe; waiting for the new

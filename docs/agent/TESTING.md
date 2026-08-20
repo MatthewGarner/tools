@@ -19,3 +19,11 @@ that temporal dependency or configuration beside the delay.
 Start with the focused test. Run `npm run test:node` for changed pure modules, and
 run `npm run gate` before merge. Do not weaken assertions or retry a failure to make
 a flake disappear; reproduce it serially and classify the cause.
+
+## Editorial interfaces
+
+Editorial live views deliberately keep unneeded controls quiet at rest. Exercise the
+visible menu or named return route, not a hidden empty field. Identify wrapped SVG
+content by authored semantic data rather than its visual line breaks, and assert each
+phone view's own reading purpose instead of expecting a desktop fallback. Motion
+checks must likewise exclude controls intentionally dormant until hover or focus.
