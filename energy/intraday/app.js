@@ -15,7 +15,9 @@
      re-renders on any >8px change, not just the <520 flip. */
 import {runDay, hourStack, DAY_DEFAULTS} from './day.js';
 import {renderDay, buildDayVerdictParts} from './render-day.js';
+import {renderDayStackExport} from './render-export.js';
 import {renderStack, MERIT_PALETTE} from '../merit-order/render.js';
+import {GB_TODAY} from '../merit-order/technologies.js';
 import {encodeDayState, decodeDayState} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';
@@ -285,12 +287,27 @@ async function boot(){
     }
   });
 
+  const exportSnapshot = () => ({
+    result,
+    params: {...p},
+    hour,
+    catalogue: GB_TODAY,
+    date: new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}),
+    colors: {...themeColors()},
+    palette: palette(),
+    measure,
+  });
+  const getCompositeExport = () => renderDayStackExport(exportSnapshot());
   wireExports({
-    getSvg: () => renderDay(result, p,
-      {width: 900, height: 420, colors: themeColors(), palette: palette(), measure,
-       today: new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'})},
-      {forExport: true}),
-    slug: () => 'intraday',
+    getSvg: getCompositeExport,
+    getCopy: getCompositeExport,
+    slug: () => 'intraday-day-stack',
+    labels: {copypng: 'Copy PNG — day + stack summary'},
+    descriptions: {
+      copypng: 'Copy PNG — day + stack summary',
+      dlpng: 'Download day + stack PNG — available within the raster limit',
+      dlsvg: 'Download day + stack SVG — exhaustive at any supported size',
+    },
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   });
   onThemeChange(refresh);

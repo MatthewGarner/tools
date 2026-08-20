@@ -15,6 +15,8 @@ const svg = (opts = {}) => { const m = parse(DOC); return render(m, simulate(m),
 test('renders one row per structure + merchant on a shared axis', () => {
   const out = svg();
   assert.ok(out.startsWith('<svg'));
+  assert.ok(render(parse(DOC), simulate(parse(DOC)), {...ctx, readerFloor:.75}).includes("data-min-readable-scale='0.75'"),
+    'risk keeps 16px authoring labels above its 75% reader floor');
   assert.ok(out.includes('Merchant') && out.includes('Floor 70 / 60%') &&
             out.includes('Toll 95') && out.includes('Insure @65'));
   assert.ok(out.includes('£k/MW/yr'));

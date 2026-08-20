@@ -101,7 +101,8 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const H = TOP + rowsTotal + ADDLEG + AXIS + (vLines.length ? 40 + vLines.length * 24 + 24 : 24);
 
   parts.push('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'' + W + '\' height=\'' + H +
-    '\' viewBox=\'0 0 ' + W + ' ' + H + '\' font-family=\'' + FONT + '\'>');
+    '\' viewBox=\'0 0 ' + W + ' ' + H + '\'' + (ctx.readerFloor ? ' data-min-readable-scale=\'' + ctx.readerFloor + '\'' : '') +
+    ' font-family=\'' + FONT + '\'>');
   parts.push('<rect width=\'' + W + '\' height=\'' + H + '\' fill=\'' + C.bg + '\'/>');
   if(showTitle){
     parts.push('<rect x=\'48\' y=\'' + (isNarrow ? 14 : 34) + '\' width=\'34\' height=\'4\' fill=\'' + accent + '\'/>');

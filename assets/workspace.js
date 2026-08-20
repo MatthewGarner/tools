@@ -43,10 +43,25 @@ export function fitReadabilityDecision({naturalWidth,fitWidth,declaredMinScale})
   return {guard:Number.isFinite(scale)&&scale<minScale,scale,minScale};
 }
 
+export function readingEligibility({pointerCoarse, workspaceWide = true, initialCollapsed, guarded, manualOverride = false}){
+  return !pointerCoarse && workspaceWide && !initialCollapsed && !manualOverride && !!guarded;
+}
+
+/* Keep the transient presentation state distinct from the persisted rail state.
+   This is deliberately pure: an automatic reader decision can never be
+   `collapsed`, so it has no route to an app's onCollapseChange/hash writer. */
+export function initialReadingState(options){
+  if(options.initialCollapsed) return 'collapsed';
+  return readingEligibility(options) ? 'reading' : 'expanded';
+}
+
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange, autoFold = false,
-  collapsedLabel = 'Source', collapsedAriaLabel = 'Show source editor', expandedLabel = '‹', initialCollapsed = false}){
+  collapsedLabel = 'Source', collapsedAriaLabel = 'Show source editor', expandedLabel = '‹', initialCollapsed = false,
+  initialReading = false, focusEditor = null}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
-  let focusArtefact = false;
+  let reading = false;
+  let readingResolved = initialReading !== 'when-guarded';
+  let readingOverride = false;
   let manualRail = null;   // null = reader safeguard may fold; explicit choice wins
   const MIN_ZOOM = 0.5, MAX_ZOOM = 3;
 
@@ -81,11 +96,10 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   /* border-box, NOT clientWidth: a scrollbar appearing inside the pane changes
      clientWidth, which would feed back into the cap and let it oscillate */
   const paneWidth = () => preview.getBoundingClientRect().width;
-  function fitCap(svg){
-    if(workspace.classList.contains('collapsed') || focusArtefact) return 0; // collapse = "give it room"
+  function fitCap(svg, {pane = paneWidth(), forExpanded = false} = {}){
+    if(workspace.classList.contains('collapsed') || (!forExpanded && (reading || workspace.classList.contains('reading-pending')))) return 0; // collapse = "give it room"
     const vb = svg.viewBox.baseVal;
     const aspect = (vb && vb.height) ? vb.width / vb.height : 0;
-    const pane = paneWidth();
     if(!aspect || pane < WIDE) return 0;
     return Math.round(aspect * foldHeight());
   }
@@ -102,18 +116,15 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     el.setAttribute('role','status');
     el.setAttribute('aria-live','polite');
     const copy=document.createElement('span');
-    copy.textContent='Fit would make this artefact hard to read. Finish the source edit to give the artefact room.';
+    copy.textContent=initialReading === 'when-guarded'
+      ? 'This artefact is wider than the authoring view.'
+      : 'Fit would make this artefact hard to read. Finish the source edit to give the artefact room.';
     const action=document.createElement('button');
     action.type='button';
-    action.textContent='Focus artefact';
+    action.textContent='Open reading view';
     action.addEventListener('click',()=>{
-      focusArtefact=true;
-      workspace.classList.add('focus-artefact');
-      tab.textContent=collapsedLabel;
-      tab.title=collapsedAriaLabel;
-      tab.setAttribute('aria-label',collapsedAriaLabel);
-      tab.setAttribute('aria-expanded','false');
-      applyZoom();
+      readingOverride=true;
+      setReading(true);
     });
     el.append(copy,action);
     preview.parentNode.insertBefore(el,preview);
@@ -134,13 +145,13 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       const declared=svg.getAttribute('data-min-readable-scale');
       const decision=fitReadabilityDecision({naturalWidth:naturalWidth(svg),fitWidth,declaredMinScale:declared});
       const guard=!matchMedia('(pointer: coarse)').matches&&decision.guard;
-      if(autoFold && guard && !workspace.classList.contains('collapsed') && !focusArtefact && !editorFocused() && manualRail !== false){
+      if(!initialReading && autoFold && guard && !workspace.classList.contains('collapsed') && !reading && !editorFocused() && manualRail !== false){
         setCollapsed(true, {auto:true});
         return;
       }
       if(guard){w=Math.round(naturalWidth(svg))+'px';mw='none';mi='';}
       else {w='100%';mw=cap?cap+'px':'';mi=cap?'auto':'';}
-      showAdvisory(guard&&!focusArtefact&&!workspace.classList.contains('collapsed'));
+      showAdvisory(guard&&!reading&&!workspace.classList.contains('collapsed'));
     } else {
       w = Math.round(naturalWidth(svg) * zoom) + 'px'; mw = 'none'; mi = '';
       showAdvisory(false);
@@ -156,8 +167,16 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
      Both live for the page's lifetime by design: initWorkspace runs exactly once per
      page (gauge's sits inside a one-shot boot()), so there is nothing to tear down —
      and a destroy() no caller invokes would be dead API, not hygiene. */
-  new ResizeObserver(applyZoom).observe(preview);
-  addEventListener('resize', applyZoom);
+  const reconcileLayout = () => {
+    /* A fine-pointer browser can be narrowed into the stacked/mobile workspace
+       without a reload. That layout hides the rail tab, so leave presentation
+       mode rather than stranding the source behind it. This is not a collapse and
+       therefore remains URL-neutral. */
+    if(reading && !gridWorkspace()) setReading(false, {automatic:true});
+    else applyZoom();
+  };
+  new ResizeObserver(reconcileLayout).observe(preview);
+  addEventListener('resize', reconcileLayout);
   function setZoom(z){
     if(typeof z === 'number') z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
     zoom = z;
@@ -194,14 +213,66 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   setZoom(matchMedia('(pointer: coarse)').matches ? 1 : 'fit');
 
   /* re-apply zoom whenever the app re-renders the preview */
-  new MutationObserver(applyZoom).observe(preview, {childList: true});
+  let renderEpoch = 0;
+  let readingFrame = 0;
+  const gridWorkspace = () => getComputedStyle(workspace).display === 'grid';
+  function resolveInitialReading(epoch, svg){
+    if(readingResolved || readingOverride || !svg || !svg.isConnected || epoch !== renderEpoch) return;
+    const rect = svg.getBoundingClientRect();
+    if(!rect.width || !rect.height){
+      readingFrame = requestAnimationFrame(() => resolveInitialReading(epoch, svg));
+      return;
+    }
+    const railWidth = parseFloat(getComputedStyle(workspace).getPropertyValue('--workspace-rail-width')) || 420;
+    const pane = paneWidth();
+    /* `reading-pending` has already expanded #preview to the full reader pane.
+       Back out the rail once to recover the ordinary authoring width that the
+       guard must judge; `pane` is not the pre-pending stage width here. */
+    const expandedPane = Math.max(0, pane - railWidth);
+    const cap = fitCap(svg, {pane:expandedPane, forExpanded:true});
+    const fitWidth = cap ? Math.min(expandedPane, cap) : expandedPane;
+    const decision = fitReadabilityDecision({naturalWidth:naturalWidth(svg), fitWidth,
+      declaredMinScale:svg.getAttribute('data-min-readable-scale')});
+    readingResolved = true;
+    workspace.classList.remove('reading-pending');
+    const next = initialReadingState({pointerCoarse:matchMedia('(pointer: coarse)').matches,
+      workspaceWide:gridWorkspace(), initialCollapsed:workspace.classList.contains('collapsed'),
+      guarded:decision.guard, manualOverride:readingOverride});
+    if(next === 'reading') setReading(true, {automatic:true});
+    else applyZoom();
+  }
+  new MutationObserver(() => {
+    renderEpoch++;
+    applyZoom();
+    if(initialReading === 'when-guarded' && !readingResolved && !readingOverride){
+      const epoch = renderEpoch, svg = svgEl();
+      if(!svg) return; // Empty/invalid documents retain their visible source rail.
+      if(readingFrame) cancelAnimationFrame(readingFrame);
+      readingFrame = requestAnimationFrame(() => resolveInitialReading(epoch, svg));
+    }
+  }).observe(preview, {childList: true});
+
+  function setReading(open, {automatic = false} = {}){
+    if(!automatic){ readingOverride=true; readingResolved=true; }
+    reading=!!open;
+    workspace.classList.toggle('focus-artefact', reading);
+    workspace.dataset.workspaceView = reading ? 'reading' : 'expanded';
+    tab.textContent = reading ? collapsedAriaLabel : expandedLabel;
+    tab.title = reading ? collapsedAriaLabel : 'Hide source editor';
+    tab.setAttribute('aria-label', reading ? collapsedAriaLabel : 'Hide source editor');
+    tab.setAttribute('aria-expanded', String(!reading));
+    applyZoom();
+    if(!reading && !automatic && typeof focusEditor === 'function') requestAnimationFrame(() => focusEditor());
+  }
 
   /* collapse */
   function setCollapsed(c, {auto = false} = {}){
-    if(!auto) manualRail = c;
-    focusArtefact=false;
+    if(!auto){ manualRail = c; readingOverride=true; readingResolved=true; }
+    reading=false;
+    workspace.classList.remove('reading-pending');
     workspace.classList.remove('focus-artefact');
     workspace.classList.toggle('collapsed', c);
+    workspace.dataset.workspaceView = c ? 'collapsed' : 'expanded';
     tab.textContent = c ? collapsedLabel : expandedLabel;
     tab.title = c ? collapsedAriaLabel : 'Hide source editor';
     tab.setAttribute('aria-label', c ? collapsedAriaLabel : 'Hide source editor');
@@ -210,15 +281,8 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     if(onCollapseChange) onCollapseChange(c, {auto});
   }
   function toggleCollapsed(){
-    if(focusArtefact){
-      focusArtefact=false;
-      workspace.classList.remove('focus-artefact');
-      const collapsed = workspace.classList.contains('collapsed');
-      tab.textContent=collapsed ? collapsedLabel : expandedLabel;
-      tab.title=collapsed ? collapsedAriaLabel : 'Hide source editor';
-      tab.setAttribute('aria-label',collapsed ? collapsedAriaLabel : 'Hide source editor');
-      tab.setAttribute('aria-expanded',String(!collapsed));
-      applyZoom();
+    if(reading){
+      setReading(false);
       return;
     }
     setCollapsed(!workspace.classList.contains('collapsed'));
@@ -233,9 +297,15 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
     }
   });
   setCollapsed(initialCollapsed, {auto:true});
+  if(initialReading === 'when-guarded' && !initialCollapsed && !matchMedia('(pointer: coarse)').matches && gridWorkspace()){
+    workspace.classList.add('reading-pending');
+    workspace.dataset.workspaceView = 'pending';
+  }
 
   return {
     collapsed: () => workspace.classList.contains('collapsed'),
+    reading: () => reading,
+    readingPending: () => workspace.classList.contains('reading-pending'),
     setCollapsed,
     applyZoom,                          // run synchronously post-swap so a FLIP reads final-scale rects
     scale: () => {                      // MEASURED effective scale (fit has no numeric zoom)

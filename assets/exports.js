@@ -28,7 +28,7 @@ const describe = (btn, description) => {
   }
 };
 
-export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug}){
+export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels = {}, descriptions = {}}){
   const flash = (btn, msg, revert) => {
     btn.textContent = msg;
     if(btn.setAttribute) btn.setAttribute('aria-label', msg);
@@ -37,12 +37,14 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug}){
       if(btn.setAttribute) btn.setAttribute('aria-label', buttonDescriptions.get(btn) || revert);
     }, 2000);
   };
-  describe(buttons.copypng, getCopy
+  const copyLabel = labels.copypng || 'Copy PNG';
+  if(buttons.copypng && labels.copypng) buttons.copypng.textContent = copyLabel;
+  describe(buttons.copypng, descriptions.copypng || (getCopy
     ? 'Copy PNG — presentation summary'
-    : 'Copy PNG — full-detail artefact');
-  describe(buttons.copymd, 'Copy full-detail artefact as markdown');
-  describe(buttons.dlpng, 'Download full-detail PNG — available within the raster limit');
-  describe(buttons.dlsvg, 'Download full-detail SVG — exhaustive at any supported size');
+    : 'Copy PNG — full-detail artefact'));
+  describe(buttons.copymd, descriptions.copymd || 'Copy full-detail artefact as markdown');
+  describe(buttons.dlpng, descriptions.dlpng || 'Download full-detail PNG — available within the raster limit');
+  describe(buttons.dlsvg, descriptions.dlsvg || 'Download full-detail SVG — exhaustive at any supported size');
   if(buttons.dlsvg) buttons.dlsvg.addEventListener('click', () => {
     const svg = getSvg();
     if(svg) download(slug() + '.svg', new Blob([svg], {type: 'image/svg+xml'}));
@@ -66,7 +68,7 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug}){
   if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
     const svg = (getCopy || getSvg)();
     if(!svg) return;
-    const revert = buttonText(buttons.copypng, 'Copy PNG');
+    const revert = buttonText(buttons.copypng, copyLabel);
     if(!navigator.clipboard || !window.ClipboardItem)
       return flash(buttons.copypng, 'Clipboard unavailable — use Download', revert);
     const plan = pngRasterPlan(svg);

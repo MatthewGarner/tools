@@ -714,13 +714,20 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
   const {renderDay} = await import('../energy/intraday/render-day.js');
+  const {renderDayStackExport} = await import('../energy/intraday/render-export.js');
   const {MERIT_PALETTE} = await import('../energy/merit-order/render.js');
+  const {GB_TODAY} = await import('../energy/merit-order/technologies.js');
   const ictx = {width: 900, height: 420, palette: MERIT_PALETTE.light,
     colors: {ink: '#1b2733', muted: '#66727e', accent: '#C05621', grid: '#e3e7ea', card: '#ffffff'}};
+  const exportCtx = {...ictx, colors: {...ictx.colors, bg: '#f5f2ed'}, measure: t => t.length * 7};
   const pFleet = {...DAY_DEFAULTS, fleetGW: 6};
   variants['intraday-raw'] = renderDay(runDay(DAY_DEFAULTS), DAY_DEFAULTS, ictx, {forExport: true});
   variants['intraday-fleet'] = renderDay(runDay(pFleet), pFleet, ictx, {forExport: true});
   variants['intraday-fleet-narrow'] = renderDay(runDay(pFleet), pFleet, {...ictx, width: 360}, {forExport: true});
+  for(const [kind, params] of [['raw', DAY_DEFAULTS], ['fleet', pFleet]]) for(const hour of [0, 12, 23])
+    variants[`intraday-day-stack-${kind}-h${hour}`] = renderDayStackExport({
+      result: runDay(params), params, hour, catalogue: GB_TODAY, date: '20 Aug 2026', ...exportCtx,
+    });
 }
 
 /* /case fixtures (typographic cover → deterministic) */
