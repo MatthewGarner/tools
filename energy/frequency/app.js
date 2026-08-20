@@ -1,8 +1,10 @@
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
-import {simulate, verdict, verdictFigure, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS, F0} from './engine.js';
-import {renderTrace, toMarkdown} from './render.js';
+import {simulate, verdict, verdictFigure, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS} from './engine.js';
+import {renderTraceScene, toMarkdown} from './render.js';
+import {buildTraceScene} from './scene.js';
+import {paintTraceScene} from './canvas.js';
 import {PRESETS, paramsFromControls} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange} from '../../assets/app-common.js';
@@ -17,7 +19,7 @@ async function boot(){
   const IDS = ['inertia', 'trip', 'dr', 'dm', 'dc', 'gfm'];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let lastSvg = '', rafId = 0, inputRaf = 0, hashTimer = null, resizeRaf = 0;
-  let lastResult = null, lastParams = null;
+  let lastResult = null, lastParams = null, lastScene = null;
 
   // hot-path DOM queries: both node lists are static (fixed markup, no
   // dynamically added/removed sliders or preset chips) — cache once at
@@ -50,14 +52,15 @@ async function boot(){
     syncOutputs(v);
     const p = paramsFromControls(v);
     const result = simulate(p);
-    lastResult = result; lastParams = p;
+    lastResult = result; lastParams = p; lastScene = buildTraceScene(result, p);
     // readout tiles
     $('t-rocof').textContent = result.rocof.toFixed(2) + ' Hz/s';
     $('t-nadir').textContent = result.nadir.f.toFixed(2) + ' Hz';
     $('t-tnadir').textContent = result.nadir.t.toFixed(1) + ' s';
     $('t-settle').textContent = result.settle.toFixed(2) + ' Hz';
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
-    paintVerdict($('verdict'), verdict(result, p), verdictFigure(result));
+    const verdictCopy = verdict(result, p);
+    paintVerdict($('verdict'), verdictCopy, verdictFigure(result));
     /* metrics: the three numbers that decide the fall — what was lost, what
        inertia is left to resist it, and how much fast response is contracted.
        Counts only (no model title): the grid here is the sliders, not a document. */
@@ -92,124 +95,37 @@ async function boot(){
     } else {
       $('deltas').textContent = '';
     }
-    lastSvg = renderTrace(result, p, {colors: themeColors(), measure});
+    lastSvg = renderTraceScene(lastScene, {colors: themeColors(), measure}, {ariaLabel: verdictCopy, footer: verdictCopy});
     const still = traceMotionMode({reduced: reducedMotion.matches, hidden: document.hidden, animate}) === 'still';
-    drawCanvas(result, p, still ? Infinity : 0, still);   // Infinity = draw fully at once
+    drawCanvas(lastScene, still ? Infinity : 0, still);   // Infinity = draw fully at once
     clearTimeout(hashTimer);
     hashTimer = setTimeout(() => writeHashState({
       i: v.inertia, tr: v.trip, dr: v.dr, dm: v.dm, dc: v.dc, g: v.gfm}), 400);
   }
 
-  const CANVAS_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-
-  /* Animate the fall: reveal the trace up to a moving time cursor.
-     Annotation set mirrors render.js's renderTrace — keep the two consistent. */
-  function drawCanvas(result, p, fromTime, immediate = false){
+  /* Animate only the primary trace. Scene construction (including the one
+     counterfactual) happened in refresh; each frame merely maps that scene. */
+  function drawCanvas(scene, fromTime, immediate = false){
     cancelAnimationFrame(rafId);
     const cv = $('trace'), dpr = devicePixelRatio || 1;
     const w = cv.clientWidth, h = cv.clientHeight;
+    if(w <= 64 || h <= 38) return;
     cv.width = w * dpr; cv.height = h * dpr;
     const g = cv.getContext('2d'); g.scale(dpr, dpr);
-    const C = themeColors();
-    const tEnd = result.t[result.t.length - 1];
-    // no-battery counterfactual: only meaningful when a battery is actually active
-    const ghost = (p.drMw > 0 || p.dmMw > 0 || p.dcMw > 0 || p.eGfm > 0)
-      ? simulate({...p, drMw: 0, dmMw: 0, dcMw: 0, eGfm: 0}) : null;
-    // tighter range: 48.8 UFLS always shows with margin; shallow nadirs fill the space;
-    // extend to include the ghost's (deeper) dip when present
-    const lowNadir = ghost ? Math.min(result.nadir.f, ghost.nadir.f) : result.nadir.f;
-    const fMin = Math.min(lowNadir - 0.4, 48.5), fMax = 50.3;
-    const x0 = 48, x1 = w - 16, y0 = 14, y1 = h - 24;
-    const sx = t => x0 + (t / tEnd) * (x1 - x0);
-    const sy = f => y0 + (1 - (f - fMin) / (fMax - fMin)) * (y1 - y0);
     const start = performance.now();
-    const DURATION = 2200;   // ms to play the ~30 s fall
-
     const frame = now => {
-      const cursor = fromTime === Infinity ? tEnd : ((now - start) / DURATION) * tEnd;
-      g.clearRect(0, 0, w, h);
-
-      // normal band 49.8-50.2 Hz, subtly tinted
-      g.globalAlpha = 0.06; g.fillStyle = C.accent;
-      g.fillRect(x0, sy(50.2), x1 - x0, sy(49.8) - sy(50.2));
-      // sub-48.8 Hz load-shedding zone — the danger floor, washed red
-      g.globalAlpha = 0.09; g.fillStyle = C.err;
-      g.fillRect(x0, sy(48.8), x1 - x0, y1 - sy(48.8));
-      g.globalAlpha = 1;
-
-      // whole-Hz gridlines (50 solid, others faint) + right-aligned left-margin labels
-      g.font = '11px ' + CANVAS_FONT; g.textAlign = 'right'; g.textBaseline = 'middle';
-      g.lineWidth = 1;
-      for(let fi = Math.floor(fMax); fi >= Math.ceil(fMin); fi--){
-        g.strokeStyle = C.muted;
-        g.globalAlpha = fi === 50 ? 1 : 0.3;
-        g.beginPath(); g.moveTo(x0, sy(fi)); g.lineTo(x1, sy(fi)); g.stroke();
-        g.globalAlpha = 1;
-        g.fillStyle = C.muted;
-        g.fillText(String(fi), x0 - 6, sy(fi));
-      }
-      // right-edge "50 Hz" label on the nominal line
-      g.textBaseline = 'alphabetic';
-      g.fillStyle = C.muted;
-      g.fillText('50 Hz', x1, sy(50) - 6);
-
-      // UFLS line + label
-      g.strokeStyle = C.err; g.setLineDash([5, 4]);
-      g.beginPath(); g.moveTo(x0, sy(48.8)); g.lineTo(x1, sy(48.8)); g.stroke();
-      g.setLineDash([]);
-      g.fillStyle = C.err;
-      g.fillText('48.8 Hz — load shed', x1, sy(48.8) - 6);
-
-      // ghost: no-battery counterfactual, drawn behind the main trace, static (not animated)
-      if(ghost){
-        g.globalAlpha = 0.55; g.strokeStyle = C.muted; g.lineWidth = 2; g.setLineDash([6, 4]);
-        g.beginPath();
-        for(let i = 0; i < ghost.t.length; i++){
-          const x = sx(ghost.t[i]), y = sy(ghost.f[i]);
-          i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-        }
-        g.stroke();
-        g.setLineDash([]); g.globalAlpha = 1;
-        g.fillStyle = C.muted; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-        g.fillText('same grid, no battery', sx(ghost.nadir.t), sy(ghost.nadir.f) - 8);
-      }
-
-      // trace up to the cursor
-      g.strokeStyle = C.accent; g.lineWidth = 2.5; g.beginPath();
-      for(let i = 0; i < result.t.length && result.t[i] <= cursor; i++){
-        const x = sx(result.t[i]), y = sy(result.f[i]);
-        i === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
-      }
-      g.stroke();
-
-      // nadir marker: only once the cursor has passed it
-      if(cursor >= result.nadir.t){
-        g.fillStyle = C.ink;
-        g.beginPath(); g.arc(sx(result.nadir.t), sy(result.nadir.f), 4, 0, Math.PI * 2); g.fill();
-        g.textAlign = 'center';
-        g.fillText(`nadir ${result.nadir.f.toFixed(2)} Hz`, sx(result.nadir.t), sy(result.nadir.f) + 18);
-      }
-
-      // RoCoF: the initial fall rate, a dashed tangent peeling off the trace at t=0
-      if(result.rocof > 0.01){
-        const tRc = Math.min(Math.min(1.0, F0 - fMin - 0.2) / result.rocof, tEnd * 0.32);
-        const fRc = F0 - result.rocof * tRc;
-        g.strokeStyle = C.ink; g.lineWidth = 1.5; g.setLineDash([4, 3]);
-        g.beginPath(); g.moveTo(sx(0), sy(F0)); g.lineTo(sx(tRc), sy(fRc)); g.stroke();
-        g.setLineDash([]);
-        g.fillStyle = C.ink; g.textAlign = 'left';
-        g.fillText(`RoCoF ${result.rocof.toFixed(2)} Hz/s`, sx(tRc) + 8, sy(fRc) + 4);
-      }
-
-      // x-axis
-      g.fillStyle = C.muted;
-      g.textAlign = 'left'; g.fillText('0 s', x0, h - 6);
-      g.textAlign = 'right'; g.fillText(`${Math.round(tEnd)} s`, x1, h - 6);
-
-      if(cursor < tEnd) rafId = requestAnimationFrame(frame);
+      const cursor = fromTime === Infinity ? scene.time.end : ((now - start) / 2200) * scene.time.end;
+      paintTraceScene(scene, g, w, h, cursor, themeColors());
+      if(cursor < scene.time.end) rafId = requestAnimationFrame(frame);
     };
     if(immediate) frame(performance.now());
-    else rafId = requestAnimationFrame(frame);
+    else {
+      /* Establish the explanatory frame before relying on the next browser
+         tick. Under a busy tab, a delayed first rAF must not skip straight
+         from controls to an already-complete incident. */
+      paintTraceScene(scene, g, w, h, 0, themeColors());
+      rafId = requestAnimationFrame(frame);
+    }
   }
 
   // wiring
@@ -257,16 +173,15 @@ async function boot(){
   addEventListener('resize', () => {
     if(!lastResult) return;
     if(resizeRaf) cancelAnimationFrame(resizeRaf);
-    resizeRaf = requestAnimationFrame(() => { resizeRaf = 0; drawCanvas(lastResult, lastParams, Infinity, true); });
+    resizeRaf = requestAnimationFrame(() => { resizeRaf = 0; drawCanvas(lastScene, Infinity, true); });
   });
   reducedMotion.addEventListener('change', () => {
     if(resizeRaf){ cancelAnimationFrame(resizeRaf); resizeRaf = 0; }
-    if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true);
+    if(lastScene) drawCanvas(lastScene, Infinity, true);
   });
   document.addEventListener('visibilitychange', () => {
     if(document.hidden) cancelAnimationFrame(rafId);
-    else if(inputRaf){ cancelAnimationFrame(inputRaf); inputRaf = 0; refresh(false); }
-    else if(lastResult) drawCanvas(lastResult, lastParams, Infinity, true);
+    else { if(inputRaf){ cancelAnimationFrame(inputRaf); inputRaf = 0; } refresh(false); }
   });
 
   // restore state from the URL, else default (guard s.dr/s.dm for older links

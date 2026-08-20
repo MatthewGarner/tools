@@ -295,6 +295,39 @@ for(const theme of ['light', 'dark']){
   }
   await ctx.close();
 }
+/* Frequency is Canvas live but exports SVG. Run the real action and native
+   image decode in Safari's engine so the two media do not only agree on Blink. */
+{
+  const ctx = await browser.newContext({viewport:{width:1200, height:820}, reducedMotion:'reduce'});
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
+  try{
+    await page.addInitScript(() => {
+      const make = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = blob => { window.__frequencyExportBlob = blob; return make(blob); };
+    });
+    await page.goto(E + '/frequency/', {waitUntil:'networkidle', timeout:20000});
+    // These are the actual export controls; stable ids avoid a broad role
+    // query accidentally waiting on an off-screen SVG label in Safari.
+    await page.locator('#presets [data-preset="stack"]').click();
+    await page.locator('details.action-disclosure > summary').click();
+    await page.locator('#dlsvg').click();
+    const svg = await page.evaluate(() => window.__frequencyExportBlob?.text());
+    const decoded = await page.evaluate(async source => new Promise(resolve => {
+      const image = new Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false);
+      image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source || '');
+    }), svg);
+    ok(typeof svg === 'string' && svg.includes('50 Hz') && svg.includes('48.8 Hz — load shed') && svg.includes('same grid, no battery'),
+      'frequency (webkit): SVG action carries the live scene labels');
+    ok(decoded, 'frequency (webkit): SVG action natively decodes for PNG export');
+    ok(errs.length === 0, 'frequency (webkit): export action has no page errors' + (errs.length ? ' — ' + errs[0] : ''));
+  }catch(e){
+    ok(false, 'frequency (webkit): export action — ' + String(e).split('\n')[0]);
+  }
+  await page.close();
+  await ctx.close();
+}
 await browser.close();
 if(SHOTS) console.log('  (shots: ' + SHOTS + ')');
 /* As mobile: the per-tool expression rises with the tool list, the absolute is ~90% of

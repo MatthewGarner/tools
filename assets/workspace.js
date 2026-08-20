@@ -223,7 +223,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
       readingFrame = requestAnimationFrame(() => resolveInitialReading(epoch, svg));
       return;
     }
-    const railWidth = parseFloat(getComputedStyle(workspace).getPropertyValue('--workspace-rail-width')) || 420;
+    const railWidth = 420;
     const pane = paneWidth();
     /* `reading-pending` has already expanded #preview to the full reader pane.
        Back out the rail once to recover the ordinary authoring width that the

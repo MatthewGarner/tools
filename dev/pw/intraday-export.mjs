@@ -11,6 +11,8 @@ const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 async function downloadBytes(page, selector){
+  const disclosure = page.locator('details.action-disclosure');
+  if(!(await disclosure.evaluate(el => el.open))) await disclosure.locator('summary').click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.locator(selector).click(),

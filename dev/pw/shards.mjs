@@ -50,7 +50,7 @@ export const SHARDS = [
   {name: 'eip',           suites: ['check-eip.mjs'],                      browsers: 'chromium'},
   {name: 'mobile-core',   suites: ['mobile.mjs', 'pwa.mjs'],             browsers: 'chromium'},
   {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs', 'check.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium webkit'},
-  {name: 'layout-gauge',  suites: ['layout.mjs', 'gauge.mjs', 'signal.mjs'], browsers: 'chromium'},
+  {name: 'layout-gauge',  suites: ['layout.mjs', 'gauge.mjs', 'signal.mjs', 'intraday-export.mjs', 'frequency.mjs'], browsers: 'chromium'},
 ];
 
 export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
@@ -109,6 +109,7 @@ export const SUITE_SECONDS = {
   'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 103, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
   'pwa.mjs': 15, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,
+  'intraday-export.mjs': 24, 'frequency.mjs': 10,
 };
 
 /* `node shards.mjs --json` → the GitHub Actions matrix (single line on stdout).

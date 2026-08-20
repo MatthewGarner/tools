@@ -2145,6 +2145,9 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/risk/', {waitUntil: 'networkidle'});
+  const source = p.getByRole('button', {name: 'Show source editor'});
+  await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
+  if(await source.isVisible()) await source.click();
   await p.getByRole('button', {name: 'Route to market'}).click();
   await p.waitForTimeout(600);
   const before = await p.evaluate(() => localStorage.getItem('risk-src'));
@@ -2168,6 +2171,9 @@ check('no console/page errors', errors.length === 0);
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
   await p.goto((process.env.BASE || 'http://localhost:8087') + '/energy/cycles/', {waitUntil: 'networkidle'});
+  const source = p.getByRole('button', {name: 'Show source editor'});
+  await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
+  if(await source.isVisible()) await source.click();
   await p.getByRole('button', {name: 'Wexcombe base case'}).click();
   await p.waitForTimeout(1000);
   const before = await p.evaluate(() => localStorage.getItem('cycles-src'));
@@ -2641,6 +2647,9 @@ check('no console/page errors', errors.length === 0);
   const merrors = trackErrors(mpage);
   const BASEU = (process.env.BASE || 'http://localhost:8087');
   await mpage.goto(BASEU + '/energy/cycles/', {waitUntil: 'networkidle'});
+  const source = mpage.getByRole('button', {name: 'Show source editor'});
+  await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
+  if(await source.isVisible()) await source.click();
   await mpage.getByRole('button', {name: 'Wexcombe base case'}).click();
   await mpage.waitForTimeout(900);
   const cySrc = () => mpage.evaluate(() => localStorage.getItem('cycles-src'));
@@ -3002,6 +3011,12 @@ insure: premium 6 attach 65 limit 30`;
     midInsert => (midInsert.split(/\r?\n/).includes('    kill: reason')));
   check('bets: kill default-insert lands the placeholder before Escape',
     midInsert.split(/\r?\n/).includes('    kill: reason'));
+  /* Persistence is deliberately earlier than the visual refresh: the 120ms
+     source debounce writes localStorage in doRefresh(), while openAt() claims
+     the freshly-rendered target on the following frame. Escaping between those
+     events closes the menu rather than cancelling the default insert. Wait for
+     the actual field the interaction promises before exercising Escape. */
+  await p.locator('.eip-input').waitFor({state: 'visible'});
   await p.keyboard.press('Escape');
   const afterEscape = await untilValue(() => p.evaluate(() => localStorage.getItem('bets-src')),
     afterEscape => (afterEscape === baseline));

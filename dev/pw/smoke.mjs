@@ -21,6 +21,15 @@ async function freshPage(path, theme = 'light'){
   return {page, errors};
 }
 
+async function showSourceIfReading(page){
+  const source = page.getByRole('button', {name: 'Show source editor'});
+  // The guarded reader state resolves after the first real artefact, not page
+  // navigation. Wait for that transition instead of racing a chip that is
+  // about to move behind the source rail.
+  await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
+  if(await source.isVisible()) await source.click();
+}
+
 /* The PNG-export path decodes the SVG string as an <img>; invalid XML (e.g. a
    double quote inside an attribute) renders fine inline but kills exports —
    the 2026-07-06 gauge/fermi bug. Decode-check the rendered SVG per tool. */
@@ -156,6 +165,7 @@ const FLOW_THEMES = ['light'];
 }
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/risk/', theme);
+  await showSourceIfReading(page);
   await page.getByRole('button', {name: 'Route to market'}).click();
   await page.waitForTimeout(600);
   check('risk(' + theme + '): diagram renders', await page.locator('#preview svg').count() === 1);
@@ -208,6 +218,7 @@ for(const theme of FLOW_THEMES){
 
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/cycles/', theme);
+  await showSourceIfReading(page);
   await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1000);
   check('cycles(' + theme + '): three bands render', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
@@ -222,6 +233,7 @@ for(const theme of FLOW_THEMES){
    must NOT re-run the ~472ms Monte Carlo; only a sim-input edit should). */
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  await showSourceIfReading(page);
   await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
@@ -264,6 +276,7 @@ for(const theme of FLOW_THEMES){
    race against). */
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
   await page.getByRole('button', {name: 'Wexcombe base case'}).click();
@@ -292,6 +305,7 @@ for(const theme of FLOW_THEMES){
    structurally impossible — this test is where that's proven. */
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
   await page.getByRole('button', {name: 'Wexcombe base case'}).click();
@@ -325,6 +339,7 @@ for(const theme of FLOW_THEMES){
    and kills the (healthy, respawned) worker; with the fix nothing fires. */
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
   const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
 
@@ -361,6 +376,7 @@ for(const theme of FLOW_THEMES){
    can't commit lastKey=null. */
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
+  await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
   const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
 
@@ -1222,6 +1238,7 @@ for(const theme of FLOW_THEMES){
 /* ---- timeline ---- */
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/timeline/', theme);
+  await showSourceIfReading(page);
   await page.waitForTimeout(500);
   check('timeline(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
   await page.getByRole('button', {name: 'App launch programme'}).click();
