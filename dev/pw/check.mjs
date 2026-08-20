@@ -255,6 +255,13 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
   await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
   await seeded(dragPage);
+  /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a render settle.
+     The source change made by the example chip must be more than newGroupDelay
+     (500ms) old before this drag starts: otherwise both changes can form one undo
+     group, and one Cmd+Z truthfully jumps past the pre-drag baseline. A storage
+     poll only proves the chip rendered (~120ms); it cannot prove the history
+     boundary. CI run 32361775529 exposed this after the 2026-08-18 poll refactor. */
+  await dragPage.waitForTimeout(700);
   const textBefore = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Offline downloads'});
   const cell = dragPage.locator('#preview svg rect[data-cell="2|Platform"]');
