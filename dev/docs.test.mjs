@@ -22,7 +22,17 @@ import {join, dirname} from 'node:path';
 const ROOT = new URL('..', import.meta.url).pathname;
 
 /* docs to scan: [repo-relative doc path]. Committed docs only. */
-const DOCS = ['ARCHITECTURE.md', 'README.md', 'energy/README.md'];
+const DOCS = [
+  'AGENTS.md',
+  'CLAUDE.md',
+  'ARCHITECTURE.md',
+  'README.md',
+  'energy/README.md',
+  'docs/agent/TESTING.md',
+  'docs/agent/VISUAL.md',
+  'docs/agent/RELEASE.md',
+  'docs/agent/NEW_TOOL.md',
+];
 
 /* Tokens that survive the filter but are intentionally not real files.
    Each entry needs a reason. Empty today. */

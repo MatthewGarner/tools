@@ -1,7 +1,11 @@
 .vercel
 docs
+!docs/
+docs/*
+!docs/agent/
+!docs/agent/*.md
 docs/superpowers/
-CLAUDE.md
+AGENTS.local.md
 design-qa.md
 parity-*.png
 .bar/
