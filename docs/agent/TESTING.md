@@ -13,6 +13,9 @@ generic retry. A negative assertion must first be shown true after the action th
 supposed to change it. Use a known-positive check before treating a tool's silence as
 absence.
 
+A bounded delay is valid only where elapsed time changes the asserted contract; name
+that temporal dependency or configuration beside the delay.
+
 Start with the focused test. Run `npm run test:node` for changed pure modules, and
 run `npm run gate` before merge. Do not weaken assertions or retry a failure to make
 a flake disappear; reproduce it serially and classify the cause.

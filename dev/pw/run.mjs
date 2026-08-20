@@ -95,8 +95,7 @@ async function step(name, fn){
 }
 /* Compare a measured suite time against its SUITE_SECONDS hint. A NOTE only —
    never touches `failed` or the exit code — because hardware varies and a hard
-   assertion here would flake across machines (the reason CLAUDE.md's rule 4 rules
-   out a node test for hint accuracy too). Threshold ~1.75x either way: loose
+   assertion would flake across machines. Threshold ~1.75x either way: loose
    enough that normal machine variance stays quiet, tight enough to catch the
    class of staleness that shipped 2026-08-17 (a suite reporting HALF its measured
    time, and a wrong longest-first ordering as a result). */

@@ -27,7 +27,7 @@ node smoke.mjs
 BASE=<url> node smoke.mjs               # or against a preview deploy
 ```
 
-`npm run verify` is the single source for "the full suite" (also referenced by
-CLAUDE.md) — add a new suite there, not to a prose list. Suites read `BASE`
+`npm run verify` is the single source for "the full suite" — add a new suite there,
+not to a prose list. Suites read `BASE`
 (tools origin) and `EBASE`/`EPORT` (energy origin) env knobs; defaults are
 :8087 / :8089.

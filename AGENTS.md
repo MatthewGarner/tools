@@ -13,6 +13,9 @@ working standards.
   services. Use fictional or generic examples.
 - Text is the model. Preserve the parse → project → render → app boundary; rendered
   interactions must dispatch undoable text edits rather than mutate DOM state.
+- Add or update a tool `CONTEXT.md` only when a plausible semantic misreading would
+  survive ordinary reading of its parser, UI, and tests. Record meaning, boundaries,
+  and handoffs—not file inventories, commands, or change history.
 - Keep stable concepts in `ARCHITECTURE.md` and `DSL.md`; mutable inventories,
   routes, and gate behaviour belong in their executable sources.
 

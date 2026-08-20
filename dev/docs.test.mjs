@@ -1,7 +1,7 @@
-/* Meta-test: every repo-relative file path named in a COMMITTED doc must exist.
-   CLAUDE.md is deliberately NOT scanned — it's gitignored and absent on CI's clean
-   checkout, so scanning it would break CI. Same self-enforcing spirit as
-   dev/renderer-coverage.test.mjs: a doc can't quietly rot past a rename.
+/* Meta-test: every repo-relative file path named in a committed doc must exist.
+   The stable core documents are named below; tracked docs/agent leaves are discovered
+   from Git so a new guide cannot quietly escape this check. Same self-enforcing spirit
+   as dev/renderer-coverage.test.mjs: a doc can't quietly rot past a rename.
 
    Extraction rule (tuned so the docs' own prose doesn't false-positive): consider
    only backtick-quoted tokens and relative markdown-link targets; require a '/';
@@ -17,22 +17,22 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import {join, dirname} from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
-/* docs to scan: [repo-relative doc path]. Committed docs only. */
-const DOCS = [
+/* Stable core docs plus tracked, self-discovered agent-guide leaves. */
+const CORE_DOCS = [
   'AGENTS.md',
   'CLAUDE.md',
   'ARCHITECTURE.md',
   'README.md',
   'energy/README.md',
-  'docs/agent/TESTING.md',
-  'docs/agent/VISUAL.md',
-  'docs/agent/RELEASE.md',
-  'docs/agent/NEW_TOOL.md',
 ];
+const AGENT_DOCS = execFileSync('git', ['ls-files', 'docs/agent'], {cwd: ROOT, encoding: 'utf8'})
+  .split('\n').filter(path => path.endsWith('.md'));
+const DOCS = [...CORE_DOCS, ...AGENT_DOCS];
 
 /* Tokens that survive the filter but are intentionally not real files.
    Each entry needs a reason. Empty today. */

@@ -132,8 +132,8 @@ export function tally(results){
 
 /* Print the summary line and exit. `min` is a FLOOR on real checks run: a suite
    that ran far fewer than usual almost certainly crashed or drew an empty
-   driving list (the 'PASS=0 FAIL=0 looks green' trap that CLAUDE.md warns about
-   but nothing enforced) — fail loud instead of a silent exit 0. Every verify
+   driving list (the 'PASS=0 FAIL=0 looks green' trap) — fail loud instead of a
+   silent exit 0. Every verify
    suite ends with this so the exit convention lives in one place.
 
    Also the ONE place every suite ends (2026-08-17), so it's the one place that

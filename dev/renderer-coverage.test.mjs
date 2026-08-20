@@ -1,8 +1,7 @@
 /* Meta-test: every SVG renderer on disk must be exercised by dev/injection.test.mjs.
-   CLAUDE.md states the invariant in prose ("every renderer must pass
-   dev/injection.test.mjs — new renderers get added to its corpus loop"); this makes
-   it self-enforcing. Discovers renderers via top-level render(dot)js files, plus
-   nested energy/<tool>/render(dot)js ones, under the repo root, reads
+   This makes the invariant self-enforcing: it discovers renderers via top-level
+   render(dot)js files, plus nested energy/<tool>/render(dot)js ones, under the repo
+   root, reads
    injection.test.mjs as source text, and fails naming any renderer file that isn't
    reached by an import(...)/from '...' specifier there. */
 import {test} from 'node:test';

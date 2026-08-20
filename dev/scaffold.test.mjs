@@ -1,9 +1,8 @@
-/* Scaffold-parity gate: every tool page must carry the PWA head block. CLAUDE.md
-   states this in prose ("new pages copy the PWA head block") after a tool once
-   shipped without it (unstyled, the "wardley shipped unstyled" class of bug) —
-   this makes the invariant self-enforcing at node-test time instead of relying
-   on a Playwright pass to catch it. Reference shape: timeline/index.html for the
-   tools origin, energy/merit-order/index.html for the energy origin (own
+/* Scaffold-parity gate: every tool page must carry the PWA head block. A page once
+   shipped without it (the "wardley shipped unstyled" class of bug), so this makes the
+   invariant self-enforcing at node-test time instead of relying on a Playwright pass
+   to catch it. Reference shape: timeline/index.html for the tools origin,
+   energy/merit-order/index.html for the energy origin (own
    manifest link, apple-touch-icon, ../ prefixed on energy). Kept to what's
    genuinely required of every tool — not over-fit to any one tool's extras. */
 import {test} from 'node:test';
