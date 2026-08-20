@@ -2583,10 +2583,10 @@ check('no console/page errors', errors.length === 0);
   check('bets narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
   check('bets narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
-    await mpage.evaluate(() => {
+    await until(() => mpage.evaluate(() => {
       const el = document.activeElement;
       return !!el && el.dataset && el.dataset.edit === 'name' && el.dataset.raw === 'Pen test';
-    }));
+    })));
   await tlUndo();
   check('bets narrow: one Undo removes the added bet', (await btSrc()) === btBase);
 
