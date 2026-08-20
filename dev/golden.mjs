@@ -345,6 +345,14 @@ for(const [k, src] of Object.entries(docs)){
   const mAuth = tparse('verdict: We bid, and we bid high\n' + bid);
   variants['tree-verdict-authored'] = trender(mAuth, evaluate(mAuth), {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
 
+  /* The actual phone path: width-aware memo layout, editable, and coarse-pointer
+     menu-only rows. This is deliberately not a scaled native export. It pins the
+     narrow padding/indent geometry and the edit-only Monte Carlo attributes that
+     previously had no XML golden witness. */
+  variants['tree-bid-narrow'] = trender(m, r, {
+    ...ctxBase, intent: 'live-narrow', width: 390, edit: true, coarse: true,
+  }).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
+
 }
 
 /* /why fixtures (dates normalised) */
@@ -440,6 +448,14 @@ for(const [k, src] of Object.entries(docs)){
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
   variants['map-verdict-off'] = mk('verdict: off\n' + mdocs['map-assumptions']);
   variants['map-verdict-authored'] = mk('verdict: We test A before anything else\n' + mdocs['map-assumptions']);
+
+  /* A small direct-label map does not exercise Map's narrow branch: only the
+     exhaustive keyed layout moves its source-order register from beside the
+     plane to below it. Ten collocated items are the smallest deterministic
+     fixture that selects that composition; edit:true matches the live preview. */
+  variants['map-dense-narrow'] = mk('preset: assumptions\ntitle: Dense assumptions\n' +
+    Array.from({length: 10}, (_, i) => 'Assumption ' + (i + 1) + ' @ 50,50').join('\n'),
+    {width: 390, edit: true});
 
   const pm = mparse(mdocs['map-assumptions']);
   const pr = mresolve(pm);
