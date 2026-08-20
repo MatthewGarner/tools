@@ -4,7 +4,7 @@
    render.js stays the working chart; the deck lives here. Named render-*.js
    so renderer-coverage.test.mjs FORCES this into the injection corpus.
 
-   1920×1080, one shared frame (accent rule → Charter title → date → the
+   1920×1080, one shared frame (ink rule → Charter title → date → the
    author's `headline:` standfirst, if they wrote one → body band → footer rule
    + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
    via scheme()), never the style — a style owns STRUCTURE. */
@@ -43,7 +43,7 @@ export function deckMetrics(model){
 }
 
 
-/* Shared frame: accent rule -> Charter title -> date -> the AUTHORED headline
+/* Shared frame: ink rule -> Charter title -> date -> the AUTHORED headline
    standfirst (wrapped to <=2 lines, budgeting the body band down when it wraps)
    -> body -> footer rule -> metrics. `today` is INJECTED via ctx (no `new Date()`
    here): printed when model.dateStr is null, suppressed entirely on the
@@ -57,7 +57,6 @@ export function deckFrame(model, ctx, C, bodyFn){
   const {measure} = ctx;
   const s = [];
   s.push(rect(0, 0, W, H, C.bg));
-  s.push(rect(M, 64, 56, 5, C.accent, {rx: 2.5}));
   /* The frame is a source artefact: a long title or headline must gain height,
      not become an ellipsis in the very export that claims to be complete. */
   const titleLines = wrapText(sourceModel.title || 'Roadmap', '700 38px ' + SERIF, INNER - 390, measure);

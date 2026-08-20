@@ -18,7 +18,10 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 .stage-head{display:flex;align-items:end;gap:12px 20px;flex-wrap:wrap;
   margin:26px 0 12px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
 .stage-head .metrics{flex:1 1 360px;min-width:0;margin:0;padding:0;border:0}
-.workspace.collapsed .stage-head,.workspace.focus-artefact .stage-head{margin-top:12px;padding-left:142px}
+/* The named source return is useful in a reading state, but it must never
+   visually run into the roadmap identity beside it. Reserve its full label
+   plus a deliberate gutter, not the old icon-sized allowance. */
+.workspace.collapsed .stage-head,.workspace.focus-artefact .stage-head{margin-top:12px;padding-left:168px}
 .composition-bar{display:flex;align-items:center;gap:10px 16px;flex:0 1 auto;flex-wrap:wrap;
   margin:0;padding:0;border:0}
 .composition-label{color:var(--accent-ink);font-size:10px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
@@ -47,6 +50,10 @@ select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);borde
 .board-window #boardjump{max-width:150px}
 .board-step{min-width:32px;padding-inline:10px;font-size:19px;line-height:1}
 .board-step:disabled{border-color:transparent;background:transparent;opacity:.35}
+.preview [data-edit="cardmenu"] [data-empty-control]{opacity:0}
+.preview [data-edit="cardmenu"]:hover [data-empty-control],.preview [data-empty-control]:focus{opacity:.6}
+.preview [data-add-control]{opacity:0}
+.preview [data-add-control]:hover,.preview [data-add-control]:focus-within{opacity:.6}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 /* The shared rail tab is icon-only elsewhere. Roadmap's collapsed state needs a
    named return path because its source is an explicit authoring mode, not a

@@ -3,7 +3,7 @@
    export (byte-identical) and the LIVE editable view (Task 4). Named render-*.js
    so renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, esc, btnAttrs, wrapText} from '../assets/svg.js';
-import {rect, line, clip1, wrapN, capFit, capsule, statusCapsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine,
+import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, serifGroup, SANS, standfirst, storyLine,
   basisBand, basisDesc} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, M} from './render-deck.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
@@ -18,7 +18,7 @@ const HERO_W = 1060, HGAP = 60, RAIL_W = 600, HWASH_PAD = 22;
    horizon (an empty Now must not produce an empty hero by default; a doc
    with no focus: key resolves exactly as before the key existed). An
    explicitly named horizon wins even if it's empty — that's the lens doing
-   its job, not a bug. Hero column ~1060px has one decisive accent datum;
+   its job, not a bug. Hero column ~1060px has one decisive typographic datum;
    cards, rather than a content-hugging grey wash, carry the surface. This
    avoids arbitrary field bottoms beside the factual rail. 1 column at <=5 items, 2 at
    >=6 (row-pair equalised). Remaining horizons flatten into a ~600px rail
@@ -52,7 +52,11 @@ function paintHeroCard(c, x, y, w, C, measure){
   // dropped's treatment wins over the flag border
   const flag = c.it.worldState === 'dropped' ? null :
     c.it.status === 'risk' ? C.status.risk : c.it.status === 'blocked' ? C.status.blocked : null;
-  s.push(rect(x, y, w, c.h, C.card, {rx: 14, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
+  /* Focus earns scale, not another stack of framed cards. Like Board, hero work is
+     a sequence of ruled slips; only an actual risk gets a local status edge. */
+  s.push(rect(x, y, w, c.h, 'none', {rx: 0}));
+  if(flag) s.push(rect(x, y, 3, c.h, flag, {rx: 0}));
+  s.push(line(x, y + c.h, x + w, y + c.h, C.border, 1, 0.8));
   if(c.it.lane){
     const laneLbl = c.it.lane.toUpperCase();
     const lw = measure(laneLbl, '700 11px ' + SANS) + laneLbl.length * 0.6;
@@ -66,7 +70,8 @@ function paintHeroCard(c, x, y, w, C, measure){
   }
   for(const ln of c.tl){ s.push(txt(x + PAD, ty, ln, 26, C.ink, {weight: 700})); ty += 32; }
   if(c.nl.length){ ty += 4; for(const ln of c.nl){ s.push(txt(x + PAD, ty, ln, 16, C.muted)); ty += 21; } }
-  if(c.it.status) s.push(statusCapsule(x + PAD, y + c.h - PAD - 22, c.it.status, C, measure).svg);
+  if(c.it.status) s.push(txt(x + PAD, y + c.h - PAD, STATUS_LABEL[c.it.status].toUpperCase(), 11,
+    C.statusInk[c.it.status] || C.status[c.it.status], {weight:700, tracking:1.1}));
   return s.join('');
 }
 
@@ -94,7 +99,7 @@ function paintHeroStack(list, {x, y0, w, availH, heroName, C, measure, model}){
     cy += h + rowGap;
   }
   if(shown < rows.length){
-    s.push(rect(x, cy, w, 40, 'none', {rx: 20, stroke: C.border, sw: 1, dash: '4 4'}));
+    s.push(rect(x, cy, w, 40, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));
     const hiddenItems = rows.slice(shown).reduce((a, r) => a + r.length, 0);
     s.push(txt(x + 18, cy + 26, '+ ' + hiddenItems + ' more in ' + heroName, 14, C.muted, {weight: 600}));
     cy += 40;
@@ -126,7 +131,7 @@ function focusBodyFn(model, ctx, C){
     const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
     const countLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip
       : condCountLabel(heroActive, condCount(model, heroIdx));
-    s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
+    s.push(txt(heroX, y0 + 30, hs[heroIdx].toUpperCase(), 16, C.ink, {weight: 700, tracking: 1.6}));
     s.push(txt(heroX + HERO_W, y0 + 30, countLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700, tracking: 1}));
 
     const heroCardsY = y0 + headerH;
@@ -134,7 +139,7 @@ function focusBodyFn(model, ctx, C){
     if(!heroItems.length){
       stack = {
         svg: rect(heroX + HWASH_PAD, heroCardsY + HWASH_PAD, HERO_W - HWASH_PAD * 2, 84, 'none',
-          {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}) +
+          {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}) +
           txt(heroX + HERO_W / 2, heroCardsY + HWASH_PAD + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'}),
         bottom: heroCardsY + HWASH_PAD + 84,
       };
@@ -145,7 +150,6 @@ function focusBodyFn(model, ctx, C){
         availH, heroName: hs[heroIdx], C, measure, model,
       });
     }
-    s.push(rect(heroX, heroCardsY - 8, HERO_W, 3, C.accent, {rx: 1.5}));
     s.push(stack.svg);
 
     /* rail: every other horizon, flattened into ranked rows, certainty-faded
@@ -300,9 +304,8 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
   const tl = wrapText(it.title, fT, w - RPAD * 2, measure);
   const nl = it.note ? wrapText(it.note, fN, w - RPAD * 2, measure) : [];
   const footH = it.lane || it.status || edit ? 30 : 10;
-  // reserve the note row's height: a real note, OR (edit only) the "+ note"
-  // ghost row emitted below — mirrors paintBoardCard's noteH reservation so
-  // the ghost never collides with the lane/status foot.
+  // Reserve a quiet reveal row for the real add-note control: it only appears
+  // while the editor is directly engaging with this item, never as resting UI.
   const noteH = nl.length ? nl.length * 21 + 6 : (edit ? 21 : 0);
   const tagH = tag ? 30 : 0;   // unified with deck layoutHeroCard + board live paintBoardCard (F5) —
   // EXCEPT for height: a LIVE cond-card is 22px TALLER than its deck twin
@@ -322,8 +325,9 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
   g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
     (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  g.push(rect(x, y, w, h, C.card, {rx: 14, stroke: flag || C.border,
-    sw: flag ? 1.5 : 1, dash: it.worldState === 'cond' ? '3 3' : null}));
+  g.push(rect(x, y, w, h, 'none', {rx: 0}));
+  if(flag) g.push(rect(x, y, 3, h, flag, {rx: 0}));
+  g.push(line(x, y + h, x + w, y + h, C.border, 1, 0.8));
   let whatifRect = null;   // sibling of the card's <g>, pushed after it closes
   if(tag){
     const [tcol, tink] = tagColors(tag, C);
@@ -346,8 +350,8 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
       ' x="' + (x + RPAD) + '" y="' + ty + '" font-size="16" fill="' + C.muted + '">' + esc(ln) + '</text>');
     ty += 21;
   }); } else if(edit){
-    g.push('<text data-edit="note" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + ty +
-      '" font-size="14" fill="' + C.muted + '" opacity="0.55"' + btnAttrs('Add note: ' + it.title) + '>+ note</text>');
+    g.push('<text data-empty-control="" data-edit="note" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + ty +
+      '" font-size="14" fill="' + C.muted + '" opacity="0"' + btnAttrs('Add note: ' + it.title) + '>+ note</text>');
     ty += 21;
   }
   const fy = y + hBody - RPAD;
@@ -357,18 +361,18 @@ function paintFocusHeroCard(it, x, y, w, {C, measure, edit, badgeOf, model, hasB
       btnAttrs('Edit lane: ' + it.title) : '') + ' x="' + (x + RPAD) + '" y="' + (fy - 2) +
       '" font-size="12" font-weight="700" letter-spacing="1.2" fill="' + C.muted + '">' + esc(it.lane.toUpperCase()) + '</text>');
   } else if(edit){
-    g.push('<text data-edit="lane" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + (fy - 2) +
-      '" font-size="12" fill="' + C.muted + '" opacity="0.55"' + btnAttrs('Add lane: ' + it.title) + '>+ lane</text>');
+    g.push('<text data-empty-control="" data-edit="lane" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + (fy - 2) +
+      '" font-size="12" fill="' + C.muted + '" opacity="0"' + btnAttrs('Add lane: ' + it.title) + '>+ lane</text>');
   }
-  // status capsule (edit target even when empty)
+  // Status is factual text, not another coloured surface.
   if(it.status){
-    const capW = measure(STATUS_LABEL[it.status].toUpperCase(), '600 12px ' + SANS) + 18;
-    const cap = statusCapsule(x + w - RPAD - capW, fy - 16, it.status, C, measure).svg;
-    g.push(edit ? '<g data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' +
-      btnAttrs('Change status: ' + it.title) + '>' + cap + '</g>' : cap);
+    g.push('<text' + (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' +
+      btnAttrs('Change status: ' + it.title) : '') + ' x="' + (x + w - RPAD) + '" y="' + (fy - 2) +
+      '" text-anchor="end" font-size="12" font-weight="700" letter-spacing="1.1" fill="' +
+      (C.statusInk[it.status] || C.status[it.status]) + '">' + esc(STATUS_LABEL[it.status].toUpperCase()) + '</text>');
   } else if(edit){
-    g.push('<text data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' + (x + w - RPAD) + '" y="' + (fy - 2) +
-      '" font-size="12" fill="' + C.muted + '" opacity="0.55" text-anchor="end"' + btnAttrs('Set status: ' + it.title) + '>+ status</text>');
+    g.push('<text data-empty-control="" data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' + (x + w - RPAD) + '" y="' + (fy - 2) +
+      '" font-size="12" fill="' + C.muted + '" opacity="0" text-anchor="end"' + btnAttrs('Set status: ' + it.title) + '>+ status</text>');
   }
   if(b){
     g.push(b.kind === 'new'
@@ -421,24 +425,37 @@ function paintFocusRailRow(it, rank, x, y, w, {C, measure, edit, tag}){
 export function renderFocusLive(model, ctx){
   const C = paletteColors(model, ctx);
   const {measure, diff = null, edit = false, textBets, coarse} = ctx;
-  const {M, HERO_W, HGAP, RAIL_W, RPAD, HEADH} = FOCUS_LIVE;
+  const {M, HERO_W: baseHeroW, HGAP: baseGap, RAIL_W: baseRailW, RPAD, HEADH} = FOCUS_LIVE;
   const badgeOf = it => diff && diff.badge ? diff.badge(it) : null;   // HERO only — never wired to rail rows
   const hs = model.horizons, nH = hs.length;
   const heroIdx = focusHeroIndex(model);
   const hasBets = anyBet(model);   // hoisted (F6) — was recomputed per hero card
-  const W = M * 2 + HERO_W + HGAP + RAIL_W;
-  const heroX = M, railX = M + HERO_W + HGAP;
+  /* A phone preserves the Focus lens rather than falling through to Grid:
+     its hero occupies the full measure and the ranked rail follows below. */
+  const vertical = Number.isFinite(ctx.width) && ctx.width < 520;
+  const W = vertical ? ctx.width : M * 2 + baseHeroW + baseGap + baseRailW;
+  const HERO_W = vertical ? W - M * 2 : baseHeroW;
+  const HGAP = vertical ? 0 : baseGap;
+  const RAIL_W = vertical ? HERO_W : baseRailW;
+  const heroX = M, railX = vertical ? M : M + HERO_W + HGAP;
   const inH = h => model.items.filter(i => i.h === h).sort((a, b) => a.srcLine - b.srcLine);
-  const addRow = (x, w, h, cy) => edit ? ('<g opacity="0.75"><rect x="' + x + '" y="' + cy + '" width="' + w + '" height="26" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+  const addRow = (x, w, h, cy) => edit ? ('<g data-add-control="" opacity="0"><rect x="' + x + '" y="' + cy + '" width="' + w + '" height="26" rx="0" fill="transparent"/>' +
     '<text data-edit="additem" data-lane="" data-col="' + esc(hs[h]) + '" data-line="-1" data-raw="" x="' + (x + 12) + '" y="' + (cy + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' + btnAttrs('Add item to ' + hs[h]) + '>＋ ADD TO ' + esc(hs[h].toUpperCase()) + '</text></g>') : '';
   const band = (h, x, w, top, bot) => edit ? ('<rect data-hdrop="' + h + '" x="' + x + '" y="' + top + '" width="' + w + '" height="' + Math.max(28, bot - top) + '" fill="transparent"/>') : '';
 
   const s = [];
-  let y = 34;
-  s.push(serifGroup(txt(M, y, model.title || 'Roadmap', 22, C.ink, {weight: 700})));
+  let y = vertical ? 30 : 34;
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
-  if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
-  y += 22;
+  if(vertical){
+    const titleLines = wrapText(model.title || 'Roadmap', '700 20px ' + SANS, W - M * 2, measure);
+    titleLines.forEach((lineText, i) => s.push(serifGroup(txt(M, y + i * 24, lineText, 20, C.ink, {weight:700}))));
+    y += titleLines.length * 24;
+    if(dateLabel){ s.push(txt(M, y, dateLabel, 11, C.muted)); y += 18; }
+  } else {
+    s.push(serifGroup(txt(M, y, model.title || 'Roadmap', 22, C.ink, {weight: 700})));
+    if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
+    y += 22;
+  }
   const basis = basisBand(model, M, y, W - M * 2, measure, C);
   if(basis.height){ s.push(basis.svg); y += basis.height; }
   const sfF = standfirst(model, M, y, W - M * 2, measure, C, !!ctx.edit);   // the authored standfirst
@@ -453,7 +470,7 @@ export function renderFocusLive(model, ctx){
   const overWip = heroIdx === 0 && model.wip > 0 && heroActive > model.wip;
   const heroLbl = overWip ? heroActive + ' — OVER WIP ' + model.wip
     : condCountLabel(heroActive, condCount(model, heroIdx));
-  s.push(txt(heroX, zoneTop + 22, hs[heroIdx].toUpperCase(), 16, C.accent, {weight: 700, tracking: 1.6}));
+  s.push(txt(heroX, zoneTop + 22, hs[heroIdx].toUpperCase(), 16, C.ink, {weight: 700, tracking: 1.6}));
   s.push(txt(heroX + HERO_W, zoneTop + 22, heroLbl, 13, overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
   const heroCardsTop = zoneTop + HEADH;
   const heroBuf = [];
@@ -461,7 +478,7 @@ export function renderFocusLive(model, ctx){
   if(heroItems.length){
     for(const it of heroItems){ const c = paintFocusHeroCard(it, heroX + RPAD, hy, HERO_W - RPAD * 2, {C, measure, edit, badgeOf, model, hasBets, textBets, coarse}); heroBuf.push(c.svg); hy += c.h + 14; }
   } else {
-    heroBuf.push(rect(heroX + RPAD, hy, HERO_W - RPAD * 2, 84, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
+    heroBuf.push(rect(heroX + RPAD, hy, HERO_W - RPAD * 2, 84, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));
     heroBuf.push(txt(heroX + HERO_W / 2, hy + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'})); hy += 84 + 14;
   }
   if(edit){ heroBuf.push(addRow(heroX + RPAD, HERO_W - RPAD * 2, heroIdx, hy)); hy += 26; }
@@ -472,14 +489,11 @@ export function renderFocusLive(model, ctx){
     hy += 24;
   }
   const heroBottom = hy;
-  // One accent datum holds the hero against the factual rail; the cards carry
-  // the surface so their field never ends at an arbitrary different height.
-  s.push(rect(heroX, heroCardsTop - 8, HERO_W, 3, C.accent, {rx: 1.5}));
   s.push(band(heroIdx, heroX, HERO_W, heroCardsTop - 8, heroBottom));
   s.push(heroBuf.join(''));
 
   // ---- RAIL zone (EVERY other horizon, empty ones INCLUDED — each is a lens + drop + add) ----
-  let ry = zoneTop, rank = 0;
+  let ry = vertical ? heroBottom + 24 : zoneTop, rank = 0;
   for(let h = 0; h < nH; h++){
     if(h === heroIdx) continue;
     const list = inH(h);
@@ -510,7 +524,7 @@ export function renderFocusLive(model, ctx){
   s.push(line(M, bottom, W - M, bottom, C.border));
   s.push(txt(M, bottom + 22, deckMetrics(model), 13, C.muted, {weight: 600}));
   const H = Math.round(bottom + 38);
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
+  return '<svg xmlns="http://www.w3.org/2000/svg"' + (vertical ? ' data-focus-layout="vertical"' : '') + ' width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' +
     basisDesc(model) + '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + s.join('') + '</svg>';
 }

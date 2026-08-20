@@ -13,15 +13,30 @@ const colors = {
 const ctx = {colors, measure};
 const Q = 'title: T\ndate: 2026-07-04\nhorizons: quarterly from Q3 2026 x4\n';
 
-test('a spanning item prints its range, on-board ends need no year (the columns supply it)', () => {
+test('an on-board span expresses its run through width, not a duplicated date label', () => {
   const svg = render(parse(Q + 'Q3 2026\nCore: Sync engine rewrite x2'), ctx);
-  assert.match(svg, />Q3 – Q4</);
+  assert.doesNotMatch(svg, />Q3 – Q4</);
+});
+
+test('a spanning item keeps duration in its width, without a second decorative ruler', () => {
+  const svg = render(parse(Q + 'Q3 2026\nCore: Sync engine rewrite [risk] x2'), ctx);
+  const hit = svg.match(/<rect data-hit=""[^>]*width="([^"]+)"/);
+  assert.ok(hit && Number(hit[1]) > 400, 'the commitment itself occupies both horizon widths');
+  assert.doesNotMatch(svg, /data-span-ruler=""/, 'a parallel rule above the label duplicates the span itself');
+});
+
+test('the minimalist Grid carries each commitment as an unmarked occupancy band', () => {
+  const svg = render(parse(Q + 'Q3 2026\nCore: Sync engine rewrite x2'), ctx);
+  assert.doesNotMatch(svg, /data-grid-lane=/, 'empty time stays blank rather than becoming a field');
+  assert.doesNotMatch(svg, /data-grid-trace=""|data-grid-origin=""/, 'time needs no added line notation');
+  assert.match(svg, /<rect data-hit=""[^>]*fill-opacity="0\.08"/, 'a single quiet band makes occupancy visible');
+  assert.doesNotMatch(svg, /<rect data-hit=""[^>]*stroke=/, 'ordinary Grid work must not become an outlined card');
 });
 
 test('an OFF-BOARD end prints the YEAR — "Q4" alone would read as Q4 2026, which is on this board', () => {
   const svg = render(parse(Q + 'Q3 2026\nCore: Data platform rebuild x6'), ctx);
-  assert.match(svg, />Q3 – Q4 2027 ›</, 'the true end, unambiguous, with the cut marker');
-  assert.doesNotMatch(svg, />Q3 – Q4 ›</, 'the ambiguous form the prototype produced');
+  assert.match(svg, />CONTINUES TO Q4 2027 ›</, 'the true end, unambiguous, with the cut marker');
+  assert.doesNotMatch(svg, />CONTINUES TO Q4 ›</, 'the ambiguous form the prototype produced');
 });
 
 test('an off-board item gets a dashed cut edge; an on-board one does not', () => {
@@ -31,20 +46,7 @@ test('an off-board item gets a dashed cut edge; an on-board one does not', () =>
   assert.doesNotMatch(on, /stroke-dasharray="3 3"/);
 });
 
-test('the left cap takes the status colour', () => {
-  const svg = render(parse(Q + 'Q3 2026\nCore: Sync engine rewrite [risk] x2'), ctx);
-  assert.match(svg, new RegExp('<rect[^>]*fill="' + colors.status.risk + '"[^>]*opacity="1\\.00"'));
-});
-
-test('a STATUS-LESS cap is muted grey, never the accent — an accent cap fakes an IN PROGRESS pill', () => {
-  /* in light theme the accent and the doing status are the same hex; a status-less
-     item wearing an accent cap claims a status it does not have */
-  const svg = render(parse(Q + 'Q3 2026\nCore: No status here x2'), ctx);
-  assert.match(svg, new RegExp('<rect[^>]*fill="' + colors.muted + '"'));
-  assert.doesNotMatch(svg, new RegExp('<rect[^>]*fill="' + colors.accent + '"[^>]*opacity="0\\.55"'));
-});
-
-test('a 1-column item gets NO cap and NO range label (it is just a card)', () => {
+test('a 1-column item gets no range label (it is just a commitment)', () => {
   const svg = render(parse(Q + 'Q3 2026\nCore: Plain thing'), ctx);
   assert.doesNotMatch(svg, /–/, 'no range label');
 });

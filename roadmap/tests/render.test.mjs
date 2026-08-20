@@ -35,7 +35,8 @@ test('confidence fade on later columns; fade: off disables', () => {
   const faded = parse('NOW\na\nNEXT\nb\nLATER\nc');
   assert.ok(render(faded, ctx()).includes('opacity="0.65"'));
   const flat = parse('fade: off\nNOW\na\nNEXT\nb\nLATER\nc');
-  assert.ok(!render(flat, ctx()).includes('opacity="0.'));
+  assert.doesNotMatch(render(flat, ctx()), /data-edit="cardmenu"[^>]*opacity="0\./,
+    'certainty fade must not dim commitments when disabled');
 });
 
 test('WIP overload flag renders on first column', () => {
@@ -104,14 +105,16 @@ test('palette resolves per theme; accent overrides; names consistent with parse'
   assert.deepEqual(Object.keys(PALETTES).sort(), [...PALETTE_NAMES].sort());
   const m = parse('palette: ember\nNOW\nA: x\nNEXT\nB: y');
   const emberSvg = render(m, ctx());
-  assert.ok(emberSvg.includes('#B04E1E'), 'ember light in header bar');   // Swiss Phase 2: ember-light retuned for 4.5:1 text on the new paper
-  assert.ok(emberSvg.includes('#f7f2ef') && emberSvg.includes('#f3f1ed'),
-    'palette washes background and tints cards');
+  assert.ok(emberSvg.includes('#f7f2ef'),
+    'palette changes the paper even when the minimalist Grid has no card surfaces');
   assert.ok(!emberSvg.includes('#f7f8f6'), 'ctx bg fully replaced');
-  assert.ok(render(m, ctx({dark: true})).includes('#E06A2E'), 'ember dark variant');
+  const emberDark = render(m, ctx({dark: true}));
+  const oceanDark = render(parse('NOW\nA: x\nNEXT\nB: y'), ctx({dark: true}));
+  assert.notEqual(emberDark, oceanDark, 'ember has its own dark derived paper scheme');
   const m2 = parse('accent: #123ABC\npalette: plum\nNOW\nA: x\nNEXT\nB: y');
   const svg2 = render(m2, ctx());
-  assert.ok(svg2.includes('#123ABC') && !svg2.includes('#9D3E78'), 'accent beats palette');
+  const plumSvg = render(parse('palette: plum\nNOW\nA: x\nNEXT\nB: y'), ctx());
+  assert.notEqual(svg2, plumSvg, 'accent beats palette through the whole derived paper scheme');
 });
 
 test('unknown palette warns and keeps ocean', () => {

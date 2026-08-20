@@ -108,7 +108,7 @@ test('height: +22 gated exactly to a cond hero card, tagH held constant', () => 
   // flipping worldState to 'cond' and adding the strip.
   const base = 'title: T\nstyle: focus\nNOW\nCore: Twin [bet: gate]\nNEXT\nCore: Root holder [bet: root]';
   const cond = 'title: T\nstyle: focus\nNOW\nCore: Twin [bet: gate] [if root]\nNEXT\nCore: Root holder [bet: root]';
-  const hOf = svg => +/<rect x="\d+" y="[\d.]+" width="[\d.]+" height="([\d.]+)" fill="[^"]*" rx="14"/.exec(svg)[1];
+  const hOf = svg => +/<rect x="\d+" y="[\d.]+" width="[\d.]+" height="([\d.]+)" fill="[^"]*" rx="0"/.exec(svg)[1];
   const hBase = hOf(renderFocusLive(parse(base), ctx()));
   const hCond = hOf(renderFocusLive(parse(cond), ctx()));
   assert.equal(hCond - hBase, 22);

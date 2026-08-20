@@ -62,15 +62,18 @@ test('a bet-free doc: condCount is 0 everywhere', () => {
 
 /* ---------- label split on renderers ---------- */
 
-test('board (deck + live) count label splits into "F + M conditional" when cond items exist', () => {
+test('board (deck + live) count label stays a single factual total when conditional work exists', () => {
   const m = parse(FORK_DOC);
   const deckSvg = renderBoardDeck(m, ctx(), colors);
   const liveSvg = renderBoardLive(m, ctx({edit: true}));
   // NOW: 1 active, 0 cond -> plain "1"
   assert.ok(deckSvg.includes('>1<'), 'NOW column stays plain (no cond items there)');
-  // NEXT: 2 active, both cond -> "0 + 2 conditional"
-  assert.ok(deckSvg.includes('0 + 2 conditional'), deckSvg.match(/>[^<]*conditional[^<]*</)?.[0]);
-  assert.ok(liveSvg.includes('0 + 2 conditional'));
+  // NEXT: 2 active, both conditional — their branch is explicit in the
+  // ledger; the header is deliberately not an arithmetic expression.
+  assert.ok(deckSvg.includes('>2<'));
+  assert.ok(liveSvg.includes('>2<'));
+  assert.ok(!deckSvg.includes('0 + 2 conditional'));
+  assert.ok(!liveSvg.includes('0 + 2 conditional'));
 });
 
 test('focus (deck + live) hero count splits when the hero horizon carries cond items', () => {
@@ -118,7 +121,7 @@ test('OVER WIP fires from the FULL activeCount even when the settled share (F) a
   const m = parse('wip: 1\nNOW\nCore: A [bet: x]\nCore: Rider [if x]\nNEXT\nCore: Other');
   const deckSvg = renderBoardDeck(m, ctx(), colors);
   assert.ok(deckSvg.includes('OVER WIP'), 'the breach still fires (full count, not the settled share)');
-  assert.ok(deckSvg.includes('1 + 1 conditional · OVER WIP'), 'the split survives inside the over-wip label');
+  assert.ok(deckSvg.includes('2 · OVER WIP'), 'the factual total survives inside the over-wip label');
 });
 
 /* ---------- register per-horizon headers ---------- */

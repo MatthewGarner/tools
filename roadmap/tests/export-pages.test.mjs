@@ -9,6 +9,31 @@ const colors = {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',
   statusInk:{done:'#1C753C',doing:'#0B709A',risk:'#8E6200',blocked:'#B3403A'}};
 const measure = text => String(text || '').length * 7;
 
+/* This is the app's normal Reading roadmap, held here as an export
+   composition fixture. It is complex enough to exercise notes, statuses,
+   decisions and three lanes, but must still present as one 16:9 artefact. */
+const READING_APP = `title: Lantern — Product Roadmap
+headline: Retention first — everything in Now keeps readers reading
+horizons: Now, Next, Later
+
+NOW
+Core: Resume where you left off [doing] -- the top-requested fix for a lost place
+Core: Curated shelves [doing]
+Growth: Referral flow [risk] -- waiting on app-store review
+Platform: Sync engine rewrite -- conflicts are the #1 support driver
+
+NEXT
+Core: Reading reminders [bet: reminders] -- learn each reader's natural time of day
+Growth: Home-screen widget gallery
+Platform: Offline downloads
+
+LATER
+Core: Reminder personalisation [if reminders]
+Core: Digest emails [unless reminders] -- the fallback nudge channel
+Core: Book clubs -- small groups, shared shelves
+Growth: Publisher storefront
+Platform: E-reader sync`;
+
 const many = parse(`horizons: monthly from Jan 2026 x5
 Feb 2026
 Core: Runs across the first boundary x3
@@ -27,6 +52,19 @@ test('a typical five-horizon roadmap remains one complete 16:9 slide', () => {
   const plan = exportPages(many);
   assert.equal(plan.pages.length, 1);
   assert.equal(exportPageCoverage(plan).complete, true);
+});
+
+test('the default Reading roadmap is one deliberate Copy-PNG artefact in every selected view', () => {
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const out = renderDeckPages(parse('style: ' + style + '\n' + READING_APP), {colors, measure, today:'2026-08-14'});
+    assert.equal(out.pages.length, 1, style + ' does not strand ordinary work on a sparse continuation');
+    assert.equal(out.plan.pages[0].sourceItemIndices.length, 12, style + ' keeps all source work on its considered page');
+    const page = out.pages[0];
+    assert.match(page, /E-reader sync/);
+    assert.doesNotMatch(page, /<rect x="100" y="64" width="56"/, 'the shared frame adds no decorative mark');
+  }
+  const grid = renderDeckPages(parse('style: grid\n' + READING_APP), {colors, measure, today:'2026-08-14'}).pages[0];
+  assert.equal((grid.match(/>CORE<\/text>/g) || []).length, 1, 'Grid states each lane once in its rail, not inside every band');
 });
 
 test('a span crossing a page boundary is explicit on both page projections', () => {
@@ -78,8 +116,22 @@ Core: N`);
     assert.match(all, new RegExp(fragment));
   assert.doesNotMatch(all, /\+ \d+ more/);
   assert.match(all, /IF CHOICE/);
-  assert.match(all, /RUNS Jan 2026 — Mar 2026/);
+  assert.doesNotMatch(all, /RUNS Jan 2026 — Mar 2026/, 'Grid width already carries an on-page run');
   assert.match(all, /Complete delivery plan/);
+});
+
+test('Copy-PNG creates continuation pages before dense Grid or Board body text can cross its footer', () => {
+  const items = Array.from({length:12}, (_, i) =>
+    'Core: Initiative ' + (i + 1) + ' with enough words to take two measured lines in a narrow export column').join('\n');
+  for(const style of ['grid', 'board']){
+    const out = renderDeckPages(parse('style: ' + style + '\nNOW\n' + items), {colors, measure, today:'2026-08-14'});
+    assert.ok(out.pages.length > 1, style + ' splits ordinary dense work before it can overflow');
+    for(const page of out.pages){
+      const ys = [...page.matchAll(/<text[^>]*\sy="([0-9.]+)"[^>]*>Initiative/g)].map(match => +match[1]);
+      assert.ok(ys.length > 0, style + ' retains visible source work on every continuation');
+      assert.ok(Math.max(...ys) < 900, style + ' source body remains well above the frame footer');
+    }
+  }
 });
 
 test('comparison page sets include dropped work as an explicit page', () => {
@@ -115,6 +167,22 @@ test('a one-page selected view is still exhaustive, never a legacy clipped deck'
   assert.match(out.pages[0], /BOARD · COMPLETE READING SET/);
 });
 
+test('Copy-PNG page-set output shares Grid bands and Board ledger rows with live views', () => {
+  const source = `horizons: quarterly from Q3 2026 x3
+Q3 2026
+Core: A durable initiative [doing] x2
+Q4 2026
+Growth: A second commitment`;
+  const grid = renderDeckPages(parse('style: grid\n' + source), {colors, measure, today:'2026-08-14'}).pages[0];
+  const board = renderDeckPages(parse('style: board\n' + source), {colors, measure, today:'2026-08-14'}).pages[0];
+  for(const page of [grid, board]){
+    assert.doesNotMatch(page, /fill="#08c0D"/, 'no legacy accent-tinted horizon boxes');
+    assert.doesNotMatch(page, /<rect[^>]*stroke=/, 'ordinary commitments are not outlined cards');
+  }
+  assert.match(grid, /fill="#222" fill-opacity="0\.08"/, 'Grid exports its neutral occupancy bands');
+  assert.match(board, /stroke-width="1" opacity="0\.7"/, 'Board exports ruled ledger rows');
+});
+
 test('every selected view retains its own exhaustive composition across a page set', () => {
   const horizons = Array.from({length:8}, (_, i) => 'Horizon ' + (i + 1));
   const source = [`horizons: ${horizons.join(', ')}`, ...horizons.map((horizon, i) =>
@@ -133,19 +201,19 @@ test('Focus balances a real continuation and does not print empty horizon rails'
   const horizons = ['One','Two','Three','Four','Five','Six','Seven','Eight'];
   const entries = horizons.flatMap((horizon, index) => [
     horizon,
-    'Core: Work ' + (index + 1),
-    ...(index === horizons.length - 1 ? ['Core: Work 9'] : []),
+    'Core: Work ' + (index * 2 + 1),
+    'Core: Work ' + (index * 2 + 2),
   ]);
   const out = renderDeckPages(parse(`style: focus\nhorizons: ${horizons.join(', ')}\n${entries.join('\n')}`), {
     colors, measure, today:'2026-08-14',
   });
   assert.equal(out.pages.length, 2);
-  assert.match(out.pages[0], /Work 5/);
-  assert.match(out.pages[1], /Work 6/);
+  assert.match(out.pages[0], /Work 8/);
   assert.match(out.pages[1], /Work 9/);
+  assert.match(out.pages[1], /Work 16/);
   for(const empty of ['ONE','TWO','THREE','FOUR'])
     assert.doesNotMatch(out.pages[1], new RegExp('>' + empty + '</text>'));
-  for(const populated of ['SIX','SEVEN','EIGHT'])
+  for(const populated of ['FIVE','SIX','SEVEN','EIGHT'])
     assert.match(out.pages[1], new RegExp('>' + populated + '</text>'));
 });
 

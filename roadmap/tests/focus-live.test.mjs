@@ -21,6 +21,12 @@ test('hero cards carry FULL edit targets (title/note/status/lane)', () => {
   assert.ok(/data-edit="title" data-line="\d+" data-raw="Resume where you left off"/.test(svg));
   assert.ok(/data-edit="lane"/.test(svg) && /data-edit="status"/.test(svg));
 });
+test('empty Focus fields remain real targets but stay out of the resting composition', () => {
+  const svg = renderFocusLive(parse('style: focus\nNOW\nA bare commitment'), {...ctx, edit:true});
+  assert.match(svg, /data-empty-control=""[^>]*opacity="0"[^>]*>\+ note/);
+  assert.match(svg, /data-empty-control=""[^>]*opacity="0"[^>]*>\+ lane/);
+  assert.match(svg, /data-empty-control=""[^>]*opacity="0"[^>]*>\+ status/);
+});
 test('rail rows are a CLEAN index: rename + cardmenu only; status/lane/note are HERO-only', () => {
   const m = parse(doc);
   const svg = renderFocusLive(m, {...ctx, edit:true});
@@ -85,4 +91,11 @@ test('compare: HERO gets BOTH new and moved badges; the RAIL stays diff-clean', 
 test('content-driven height (not the slide 1080)', () => {
   const h = +renderFocusLive(parse('style: focus\nNOW\nCore: A'), {...ctx, edit:true}).match(/height="(\d+)"/)[1];
   assert.ok(h > 0 && h !== 1080);
+});
+
+test('a phone Focus keeps its hero-and-rail identity as a vertical lens', () => {
+  const svg = renderFocusLive(parse(doc), {...ctx, edit:true, width:360});
+  assert.match(svg, /data-focus-layout="vertical"/);
+  assert.match(svg, /width="360"/);
+  assert.ok(svg.includes('data-lens="Next"'), 'the next horizon remains a focusable rail section');
 });

@@ -63,21 +63,29 @@ const titleKey = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
    string for a single card at the given top-left (x, cy). Shared by the wide nested-
    loop layout below and (a later narrow layout) at stacked coordinates. */
 function drawCard(c, x, cy, colW, fadeOp, edit, st){
-  const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, coarse} = st;
+  const {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, titleBaseline, coarse, minimalist} = st;
   const opacity = stateOpacity(c.it, fadeOp);   // dropped/cond override the certainty fade outright, never multiply it
   const s = [];
   s.push('<g' + (c.it.ghost ? '' : ' data-edit="cardmenu"') + ' data-line="' + c.it.srcLine +
     '" data-key="' + esc(titleKey(c.it.title)) + '" opacity="' + opacity.toFixed(2) + '"' +
     (c.it.ghost ? '' : btnAttrs('More options: ' + c.it.title)) +
     (edit && !c.it.ghost ? ' data-menu=""' : '') + '>');
+  /* An unresolved condition is already named by its capsule.  On the Roadmap
+     Grid it remains part of the same physical occupancy field, rather than
+     acquiring a decorative dotted perimeter. Why's at-risk/ghost vocabulary
+     still keeps its explicit outline. */
+  const outlined = c.it.ghost || c.it.atRisk || (!minimalist && c.it.worldState === 'cond');
+  const occupancyBand = minimalist && !c.it.ghost && !c.it.atRisk;
+  /* Grid's only filled form is the occupancy band. Its x/width is the committed
+     run; its fixed track height is the planning rhythm. There is no lane wash,
+     card perimeter, cap, or trace competing with that one fact. */
   s.push('<rect' + (c.it.ghost ? '' : ' data-hit=""') + ' x="' + x + '" y="' + cy + '" width="' + colW + '" height="' + c.cardH +
-    '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : C.card) +
-    '" stroke="' + C.border + '" stroke-width="1"' +
-    /* cond keeps its full card fill and edit markup — dashed border ONLY,
-       never the ghost treatment (which strips data-edit/data-hit/menus).
-       atRisk (why's render-map only) reuses the same dashed mechanic for its
-       own at-risk-ghost vocabulary — still never ghost, stays fully editable. */
-    ((c.it.ghost || c.it.worldState === 'cond' || c.it.atRisk) ? ' stroke-dasharray="3 3"' : '') + '/>');
+    '" rx="' + T.cardRadius + '" fill="' + (c.it.ghost ? 'none' : (occupancyBand ? C.ink : C.card)) + '"' +
+    (occupancyBand ? ' fill-opacity="0.08"' : '') +
+    ((!minimalist || outlined) ? ' stroke="' + C.border + '" stroke-width="1"' : '') +
+    /* Dashed geometry belongs only to true absence/risk states, never an
+       unresolved conditional commitment. */
+    (outlined ? ' stroke-dasharray="3 3"' : '') + '/>');
   /* top-anchored cursor: each block advances by its budgeted height */
   let cursor = cy + cardPadY;
   let whatifRect = null;   // sibling of the <g>, appended after it closes — see cond-parts.js
@@ -111,7 +119,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     const titleEip = (!c.it.ghost && ed.title !== false && li2 === 0)
       ? ' data-edit="title" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.title) +
         '"' + btnAttrs('Rename: ' + c.it.title) : '';
-    s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + T.titleBaseline*S) + '" font-size="' + fsTitle +
+    s.push('<text' + titleEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + titleBaseline*S) + '" font-size="' + fsTitle +
       '" font-weight="' + (c.it.ghost ? '400" font-style="italic' : '600') +
       '" fill="' + (c.it.ghost ? C.muted : C.ink) + '">' + esc(line) +
       (c.it.url && lastLine ? ' <tspan font-size="' + 9*S + '" font-weight="600" fill="' + C.accent + '">↗</tspan>' : '') +
@@ -123,7 +131,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     const noteEip = (noteIndex === 0 && c.it.note && (c.it.edit || {}).note !== false)
       ? ' data-edit="note" data-line="' + c.it.srcLine + '" data-raw="' + esc(c.it.note) +
         '"' + btnAttrs('Edit note: ' + c.it.title) : '';
-    s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (T.titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
+    s.push('<text' + noteEip + ' x="' + (x + cardPadX) + '" y="' + (cursor + (titleBaseline - T.noteRaise)*S) + '" font-size="' + fsNote +
       '" fill="' + C.muted + '">' + esc(line) + '</text>');
     cursor += lhNote;
   }
@@ -131,8 +139,14 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
     const stEip = (c.it.edit || {}).status !== false
       ? '<g data-edit="status" data-line="' + c.it.srcLine + '" data-raw="' + c.it.status +
         '"' + btnAttrs('Cycle status: ' + c.it.title) + '>' : '<g>';
-    s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
-      STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
+    if(minimalist){
+      s.push(stEip + '<text x="' + (x + cardPadX) + '" y="' + (cy + c.cardH - cardPadY - 5*S) +
+        '" font-size="' + T.pillSize*S + '" font-weight="700" letter-spacing="' + T.pillTracking +
+        '" fill="' + C.statusInk[c.it.status] + '">' + esc(STATUS_LABEL[c.it.status].toUpperCase()) + '</text></g>');
+    } else {
+      s.push(stEip + capsule(x + cardPadX, cy + c.cardH - cardPadY - T.pillH*S,
+        STATUS_LABEL[c.it.status].toUpperCase(), C.status[c.it.status], C.statusInk[c.it.status]).svg + '</g>');
+    }
   }
   s.push('</g>');
   if(whatifRect) s.push(whatifRect);
@@ -148,7 +162,7 @@ function drawCard(c, x, cy, colW, fadeOp, edit, st){
    card menu and edit-in-place need no app-side routing change. Exports
    never set ctx.width, so this path is preview-only (mirrors wardley's
    renderNarrow: an early-return, fully self-contained pass).
-   laneGroups (why's map view rides this): the wide path's accent/serif band
+   laneGroups (why's map view rides this): the wide path's serif outcome band
    header reappears here too, once per horizon section before the group's
    first lane — mirrors how the lane sub-label itself already repeats per
    horizon. Models without laneGroups (plain roadmap) render exactly as
@@ -159,11 +173,17 @@ function renderNarrow(model, ctx, C, T){
   const W = ctx.width;
   const PAD = T.pad;
   const nH = model.horizons.length;
+  /* Why projects into this renderer with laneGroups. Its outcome map is a distinct
+     established artefact, so the Roadmap-only minimalist language must not leak. */
+  const minimalist = !model.laneGroups;
   const hasLanes = model.lanes.some(l => l);
   const colW = W - PAD * 2;
-  const cardPadX = T.cardPadX, cardPadY = T.cardPadY, cardGap = T.cardGap;
-  const fsTitle = T.cardTitleSize, fsNote = T.noteSize;
-  const lhTitle = T.cardTitleLh, lhNote = T.noteLh;
+  const cardPadX = minimalist ? T.cardPadX + 2 : T.cardPadX;
+  const cardPadY = minimalist ? T.cardPadY + 2 : T.cardPadY;
+  const cardGap = minimalist ? T.cardGap + 4 : T.cardGap;
+  const fsTitle = minimalist ? 16 : T.cardTitleSize, fsNote = T.noteSize;
+  const lhTitle = minimalist ? 22 : T.cardTitleLh, lhNote = T.noteLh;
+  const titleBaseline = minimalist ? 15 : T.titleBaseline;
   const titleFont = '600 ' + fsTitle + 'px ' + F.body;
   const noteFont = fsNote + 'px ' + F.body;
   const innerW = colW - cardPadX * 2;
@@ -192,8 +212,12 @@ function renderNarrow(model, ctx, C, T){
       ...(it.note ? wrapText(it.note, noteFont, innerW, measure) : []),
       ...(runLine ? wrapText(runLine, noteFont, innerW, measure) : []),
     ];
-    const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
+    const contentH = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH : 0) + (badge ? T.badgeH : 0) + (tag ? T.badgeH : 0);
+    /* The roadmap's base unit is intentionally content-independent. A single
+       short title gets the same visual dignity as a status-bearing commitment;
+       authored detail is the only reason a plane may grow beyond the module. */
+    const h = minimalist ? Math.max(56, contentH) : contentH;
     cells[it.lane][it.h].push({it, lines, noteLines, badge, tag, whatif, cardH: h});
   }
 
@@ -210,7 +234,7 @@ function renderNarrow(model, ctx, C, T){
       w: pw,
     };
   };
-  const cardStyle = {T, S: 1, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, coarse: !!ctx.coarse};
+  const cardStyle = {T, S: 1, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, titleBaseline, coarse: !!ctx.coarse, minimalist};
 
   const s = [];
   let y = 24;
@@ -265,7 +289,8 @@ function renderNarrow(model, ctx, C, T){
   }
 
   model.horizons.forEach((hName, h) => {
-    /* horizon header + full-width accent bar */
+    /* A time scale is structural, not branded: lead with ink, let later
+       horizons recede into a hairline. The state pills retain the only colour. */
     s.push('<text x="' + PAD + '" y="' + (y + 12) + '" font-size="13" font-weight="700" letter-spacing="' +
       T.colHeadTracking + '" fill="' + C.ink + '">' + esc(hName.toUpperCase()) + '</text>');
     if(h === 0 && overWip && !anySpan){
@@ -277,7 +302,11 @@ function renderNarrow(model, ctx, C, T){
         '" font-weight="600" fill="' + C.err + '">' + condLabel(firstColCount, condCount(model, 0), true) + ' ITEMS</text>');
     }
     y += 20;
-    s.push('<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="3" rx="1.5" fill="' + C.accent + '"/>');
+    if(minimalist){
+      s.push('<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="' + (h === 0 ? 2 : 1) + '" fill="' + (h === 0 ? C.ink : C.border) + '"/>');
+    } else {
+      s.push('<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="3" rx="1.5" fill="' + C.accent + '"/>');
+    }
     y += 16;
 
     /* confidence fade: certainty decreases toward the horizon (unchanged formula) */
@@ -285,11 +314,11 @@ function renderNarrow(model, ctx, C, T){
     for(const lane of model.lanes){
       if(groupAtLane.has(lane)){
         s.push('<text x="' + PAD + '" y="' + (y + 11) + '" font-family=\'' + F.serif +
-          '\' font-size="14" font-weight="700" fill="' + C.accent + '">' +
+          '\' font-size="14" font-weight="700" fill="' + (minimalist ? C.ink : C.accent) + '">' +
           esc(groupAtLane.get(lane).toUpperCase()) + '</text>');
         y += 18;
         s.push('<line x1="' + PAD + '" y1="' + y + '" x2="' + (W - PAD) + '" y2="' + y +
-          '" stroke="' + C.accent + '" stroke-width="1" opacity="0.5"/>');
+          '" stroke="' + (minimalist ? C.border : C.accent) + '" stroke-width="1" opacity="' + (minimalist ? '0.8' : '0.5') + '"/>');
         y += 10;
       }
       if(hasLanes && lane){
@@ -302,15 +331,15 @@ function renderNarrow(model, ctx, C, T){
         y += c.cardH + cardGap;
       }
       if(edit){
-        s.push(editTarget(
+        s.push('<g data-add-control="" opacity="0">' + editTarget(
           '<rect x="' + PAD + '" y="' + y + '" width="' + colW + '" height="' + addH +
-            '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="3 4"/>' +
+            '" rx="0" fill="transparent"/>' +
             '<text x="' + (PAD + colW/2) + '" y="' + (y + addH/2 + 4) +
             '" text-anchor="middle" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '">＋ ADD' +
             (lane ? ' TO ' + esc(lane.toUpperCase()) : '') + '</text>',
           {x: PAD, y, w: colW, h: addH, bg: C.bg},
           {kind: 'additem', line: -1, raw: '', extra: 'data-lane="' + esc(lane) + '" data-col="' + esc(hName) + '"',
-            label: 'Add item to ' + (lane || 'roadmap') + ' ' + hName}));
+            label: 'Add item to ' + (lane || 'roadmap') + ' ' + hName}) + '</g>');
         y += addH;
       }
       y += 14;   // gap after a lane group (or the single implicit lane)
@@ -403,6 +432,9 @@ export function render(model, ctx){
   const isNarrow = !!(ctx.width && (ctx.width < NARROW || ctx.forceStack));
   if(isNarrow) return renderNarrow(model, ctx, C, T);
   const nH = model.horizons.length;
+  /* Why projects into this renderer with laneGroups. Its outcome map is a distinct
+     established artefact, so the Roadmap-only minimalist language must not leak. */
+  const minimalist = !model.laneGroups;
   const S = slide ? T.slideScale : 1;
   const PAD = T.pad*S;
   const hasLaneRail = model.lanes.some(l => l) || (model.laneGroups && model.laneGroups.length);
@@ -410,9 +442,12 @@ export function render(model, ctx){
   const GAP = T.colGap*S;
   const colW = (nH <= 4 ? T.colWNarrow : T.colWWide) * S;
   const W = Math.round(PAD*2 + LANE_W + nH*colW + (nH-1)*GAP);
-  const cardPadX = T.cardPadX*S, cardPadY = T.cardPadY*S, cardGap = T.cardGap*S;
-  const fsTitle = T.cardTitleSize*S, fsNote = T.noteSize*S;
-  const lhTitle = T.cardTitleLh*S, lhNote = T.noteLh*S;
+  const cardPadX = (minimalist ? T.cardPadX + 2 : T.cardPadX)*S;
+  const cardPadY = (minimalist ? T.cardPadY + 2 : T.cardPadY)*S;
+  const cardGap = (minimalist ? T.cardGap + 4 : T.cardGap)*S;
+  const fsTitle = (minimalist ? 16 : T.cardTitleSize)*S, fsNote = T.noteSize*S;
+  const lhTitle = (minimalist ? 22 : T.cardTitleLh)*S, lhNote = T.noteLh*S;
+  const titleBaseline = minimalist ? 15 : T.titleBaseline;
   const titleFont = '600 ' + fsTitle + 'px ' + F.body;
   const noteFont = fsNote + 'px ' + F.body;
 
@@ -431,8 +466,9 @@ export function render(model, ctx){
     const iw = w - cardPadX*2;
     const lines = wrapText(it.title, titleFont, iw, measure);
     const noteLines = it.note ? wrapText(it.note, noteFont, iw, measure) : [];
-    const h = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
+    const contentH = cardPadY*2 + lines.length*lhTitle + noteLines.length*lhNote +
       (it.status ? T.statusH*S : 0) + (badge ? T.badgeH*S : 0) + (tag ? T.badgeH*S : 0);
+    const h = minimalist ? Math.max(56*S, contentH) : contentH;
     laneList[it.lane].push({it, lines, noteLines, badge, tag, whatif, cardH: h, h0: it.h, h1: it.h + span - 1, span, w});
   }
 
@@ -576,7 +612,7 @@ export function render(model, ctx){
   const overWip = model.wip > 0 && firstColCount > model.wip;
   for(let h = 0; h < nH; h++){
     s.push('<text x="' + colX(h) + '" y="' + (headerH + T.colHeadTextY*S) +
-      '" font-size="' + T.colHeadSize*S + '" font-weight="600" letter-spacing="' + T.colHeadTracking + '" fill="' + C.muted + '">' +
+      '" font-size="' + T.colHeadSize*S + '" font-weight="' + (minimalist && h === 0 ? '700' : '600') + '" letter-spacing="' + T.colHeadTracking + '" fill="' + (minimalist && h === 0 ? C.ink : C.muted) + '">' +
       esc(model.horizons[h].toUpperCase()) + '</text>');
     if(h === 0 && overWip && !anySpan){    // the historical first-column flag
       s.push('<text x="' + (colX(0) + colW) + '" y="' + (headerH + T.colHeadTextY*S) +
@@ -598,8 +634,16 @@ export function render(model, ctx){
           '"' + (over ? '' : ' opacity="0.7"') + '>' + (over ? '· ' + lbl + ' ACTIVE' : '· ' + lbl) + '</text>');
       }
     }
-    s.push('<rect x="' + colX(h) + '" y="' + (headerH + T.colHeadBarY*S) + '" width="' + T.colHeadBarW*S +
-      '" height="' + T.colHeadBarH*S + '" rx="' + (T.colHeadBarH*S/2) + '" fill="' + C.accent + '"/>');
+    if(minimalist){
+      /* Time is a quiet ruler, not a second status system. The leading horizon earns
+         weight through ink and line weight; cobalt stays reserved for actual state. */
+      s.push('<line data-time-ruler="" x1="' + colX(h) + '" y1="' + (headerH + T.colHeadBarY*S + 1.5*S) +
+        '" x2="' + (colX(h) + colW) + '" y2="' + (headerH + T.colHeadBarY*S + 1.5*S) +
+        '" stroke="' + (h === 0 ? C.ink : C.border) + '" stroke-width="' + (h === 0 ? 2*S : 1) + '"/>');
+    } else {
+      s.push('<rect x="' + colX(h) + '" y="' + (headerH + T.colHeadBarY*S) + '" width="' + T.colHeadBarW*S +
+        '" height="' + T.colHeadBarH*S + '" rx="' + (T.colHeadBarH*S/2) + '" fill="' + C.accent + '"/>');
+    }
   }
 
   /* capsule pill: tinted fill, coloured label; used by cards, badges, and the legend */
@@ -618,47 +662,37 @@ export function render(model, ctx){
   };
 
   /* shared context drawCard needs — same across every card in this render */
-  const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, coarse: !!ctx.coarse};
+  const cardStyle = {T, S, C, capsule, cardPadX, cardPadY, fsTitle, fsNote, lhTitle, lhNote, titleBaseline, coarse: !!ctx.coarse, minimalist};
 
-  const shortCol = name => String(name).split(' ')[0].toUpperCase();
   /* On-board ends drop the year — the column headers supply it. An OFF-board end
      must keep it: on a Q3 2026–Q2 2027 board, a bare "Q4" reads as Q4 2026, which
      is ON the board, so the label would claim a 2-column span for a bar painted 4
      columns wide. */
-  const rangeLabel = c => shortCol(model.horizons[c.h0]) + ' – ' +
-    (c.it.spanEnd ? c.it.spanEnd.toUpperCase() + ' ›' : shortCol(model.horizons[c.h1]));
+  const continuesLabel = c => 'CONTINUES TO ' + c.it.spanEnd.toUpperCase() + ' ›';
 
   /* A spanning item is the SAME SPECIES as a card, drawn wider — drawCard at the
      span's width — so wrap, note, status pill, badge, URL, the data-edit targets
      and the card menu all behave exactly as they do for a 1-column card. A slim
      "beam" was prototyped and rejected: it drops the note and clips long titles,
      and in a tool whose content is the text, that is disqualifying.
-     The cap/range-label/cut-edge decoration is split out from the handles below:
+     Only an off-board continuation earns an explicit label/cut-edge:
      a 1-column card gets NO decoration (it is just a card) but DOES still get
      its right-edge handle — that is how a plain card BECOMES a span by mouse —
      so the early return here must skip the decoration only, never the handles. */
   function drawSpanDecoration(c, x, cy, fadeOp){
-    if(c.span === 1 && !c.it.spanEnd) return '';
-    /* duration cue: a slim left cap in the status colour — MUTED when the item has
-       no status (in light theme the accent is the same hex as the doing status, so
-       an accent cap would fake an IN PROGRESS pill) */
-    const capCol = c.it.status ? C.status[c.it.status] : C.muted;
-    const capOp = (c.it.status ? 1 : 0.55) * fadeOp;
+    if(!c.it.spanEnd) return '';
     const svg = [];
-    svg.push('<rect x="' + (x + 1.5) + '" y="' + (cy + 4*S) + '" width="' + 3*S +
-      '" height="' + (c.cardH - 8*S) + '" rx="' + 1.5*S + '" fill="' + capCol +
-      '" opacity="' + capOp.toFixed(2) + '"/>');
+    /* An on-board band needs no duplicate date text; the width is its run. Past
+       the board, however, text distinguishes continuation from a clipped export. */
     svg.push('<text x="' + (x + c.w - cardPadX) + '" y="' + (cy + c.cardH - cardPadY + 2*S) +
-      '" text-anchor="end" font-size="' + 9*S + '" font-weight="600" letter-spacing="0.8" fill="' + C.muted +
-      '" opacity="' + fadeOp.toFixed(2) + '">' + esc(rangeLabel(c)) + '</text>');
-    if(c.it.spanEnd){
-      /* runs past the board: a dashed cut edge, drawn over a bg-coloured line so it
-         reads as a cut rather than a border */
-      svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
-        '" stroke="' + C.bg + '" stroke-width="2"/>');
-      svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
-        '" stroke="' + C.muted + '" stroke-width="1.2" stroke-dasharray="3 3" opacity="' + fadeOp.toFixed(2) + '"/>');
-    }
+      '" text-anchor="end" font-size="' + 9*S + '" font-weight="700" letter-spacing="1" fill="' + C.muted +
+      '" opacity="' + fadeOp.toFixed(2) + '">' + esc(continuesLabel(c)) + '</text>');
+    /* runs past the board: a dashed cut edge, drawn over a bg-coloured line so it
+       reads as a cut rather than a perimeter */
+    svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
+      '" stroke="' + C.bg + '" stroke-width="2"/>');
+    svg.push('<line x1="' + (x + c.w) + '" y1="' + (cy + 3*S) + '" x2="' + (x + c.w) + '" y2="' + (cy + c.cardH - 3*S) +
+      '" stroke="' + C.muted + '" stroke-width="1.2" stroke-dasharray="3 3" opacity="' + fadeOp.toFixed(2) + '"/>');
     return svg.join('');
   }
 
@@ -669,7 +703,7 @@ export function render(model, ctx){
      card becomes a span by mouse. Preview-only: edit2 is false for every export
      and every golden, so `compare` cannot see these rects. */
   function drawSpanItem(c, x, cy, fadeOp, edit2){
-    // the decoration (cap + range label) rides the SAME single-strongest-state
+    // the range label rides the SAME single-strongest-state
     // opacity as the card itself, so a dropped/conditioned span reads coherently
     const svg = [drawCard(c, x, cy, c.w, fadeOp, edit2, cardStyle),
                  drawSpanDecoration(c, x, cy, stateOpacity(c.it, fadeOp))];
@@ -700,23 +734,43 @@ export function render(model, ctx){
       const firstY = top - group.height + 17*S;
       group.lines.forEach((line, i) => s.push('<text data-outcome-index="' + esc(group.label) + '" x="' + PAD +
         '" y="' + (firstY + i*16*S) + '" font-family=\'' + F.serif + '\' font-size="' + 13*S +
-        '" font-weight="700" fill="' + C.accent + '">' + esc(line) + '</text>'));
+        '" font-weight="700" fill="' + (minimalist ? C.ink : C.accent) + '">' + esc(line) + '</text>'));
       s.push('<line x1="' + PAD + '" y1="' + (top - T.laneSepInset*S) + '" x2="' + (W - PAD) + '" y2="' + (top - T.laneSepInset*S) +
-        '" stroke="' + C.accent + '" stroke-width="1" opacity="0.5"/>');
+        '" stroke="' + (minimalist ? C.border : C.accent) + '" stroke-width="1" opacity="' + (minimalist ? '0.8' : '0.5') + '"/>');
     } else if(li > 0){
       s.push('<line x1="' + PAD + '" y1="' + (top - T.laneSepInset*S) + '" x2="' + (W - PAD) + '" y2="' + (top - T.laneSepInset*S) +
         '" stroke="' + C.border + '" stroke-width="1" opacity="0.55"/>');
     }
     if(lane){
-      const laneLines = wrapText(lane.toUpperCase(), '600 ' + T.laneSize*S + 'px ' + F.body, LANE_W - 22*S, measure);
+      const laneWeight = minimalist ? '700' : (anySpan ? '700' : '600');
+      const laneTracking = minimalist ? T.laneTracking + 0.2 : (anySpan ? T.laneTracking + 0.2 : T.laneTracking);
+      const laneFill = minimalist ? C.ink : (anySpan ? C.ink : C.muted);
+      const laneLines = wrapText(lane.toUpperCase(), laneWeight + ' ' + T.laneSize*S + 'px ' + F.body, LANE_W - 22*S, measure);
       laneLines.forEach((l, i) => {
         s.push('<text x="' + PAD + '" y="' + (top + T.laneTextY*S + i*T.laneLh*S) +
-          '" font-size="' + T.laneSize*S + '" font-weight="600" letter-spacing="' + T.laneTracking + '" fill="' + C.muted + '">' + esc(l) + '</text>');
+          '" font-size="' + T.laneSize*S + '" font-weight="' + laneWeight + '" letter-spacing="' + laneTracking + '" fill="' + laneFill + '">' + esc(l) + '</text>');
       });
     }
     const {at, rowH, depth, yTrack} = lanePack[lane];
     const list = laneList[lane];
     const laneH = (laneTops[li + 1] !== undefined ? laneTops[li + 1] : y) - top;
+    /* Why's outcome map retains its own lane field. Roadmap Grid has only the
+       horizon ruler above and occupancy bands below—blank time stays blank. */
+    if(!minimalist && anySpan){
+      const fieldX = colX(0);
+      const fieldW = W - PAD - fieldX;
+      s.push('<rect data-grid-lane="' + esc(lane) + '" x="' + fieldX + '" y="' + top +
+        '" width="' + fieldW + '" height="' + laneH + '" fill="' + C.card + '" opacity="0.42"/>');
+      s.push('<line data-grid-rail="" x1="' + (fieldX - GAP/2) + '" y1="' + top +
+        '" x2="' + (fieldX - GAP/2) + '" y2="' + (top + laneH) + '" stroke="' + C.ink +
+        '" stroke-width="1" opacity="0.22"/>');
+      for(let h = 1; h < nH; h++){
+        const guideX = colX(h) - GAP/2;
+        s.push('<line data-grid-separator="' + h + '" x1="' + guideX + '" y1="' + top +
+          '" x2="' + guideX + '" y2="' + (top + laneH) + '" stroke="' + C.border +
+          '" stroke-width="1" opacity="0.9"/>');
+      }
+    }
     const cellRect = h => '<rect data-cell="' + h + '|' + esc(lane) + '" x="' + colX(h) + '" y="' + top +
       '" width="' + colW + '" height="' + laneH + '" fill="transparent"/>';
     /* A spanning card is drawn at its START column but paints across the ones after
@@ -747,9 +801,9 @@ export function render(model, ctx){
       const cy = yTrack[depth[h] + 1];
       if(edit){
         const gw = 44*S, gh = 15*S;
-        s.push('<g data-add="1" opacity="0.75">' +
+        s.push('<g data-add="1" data-add-control="" opacity="0">' +
           '<rect x="' + colX(h) + '" y="' + cy + '" width="' + gw + '" height="' + gh +
-          '" rx="0" fill="none" stroke="' + C.border + '" stroke-dasharray="2 3"/>' +
+          '" rx="0" fill="transparent"/>' +
           '<text data-edit="additem" data-lane="' + esc(lane) + '" data-col="' + esc(model.horizons[h]) +
           '" data-line="-1" data-raw="" x="' + (colX(h) + 8*S) + '" y="' + (cy + gh - 4*S) +
           '" font-size="' + 9*S + '" font-weight="700" letter-spacing=".08em" fill="' + C.muted +

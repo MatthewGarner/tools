@@ -145,8 +145,8 @@ test('chart: a moot bet\'s own item shows "never ran" and its [if] rider drops t
 /* ---------- board ---------- */
 
 /* card mode's tag is a real capsule() — a rx="0" rect immediately followed
-   by its own <text>label</text>; list mode's tag rides the dot-joined
-   sub-line as plain text, no capsule rect at all. The two fixtures below
+   by its own <text>label</text>; list mode's tag rides the factual sub-line
+   while status holds a separate, right-aligned semantic position. The two fixtures below
    are sized to actually LAND in each mode (render-board.js's boardGeometry
    flips to list mode once >25% of a column's items would be hidden at the
    card ramp's worst-case height — read at test-write time, not asserted
@@ -168,7 +168,8 @@ test('board deck, list mode (many items in one column): the cond tag rides the d
   assert.ok(listMode, 'sanity: this fixture really does flip to list mode');
   const svg = renderBoardDeck(m, ctx(), colors);
   assert.doesNotMatch(svg, CAPSULE_TAG, 'list mode never paints an isolated tag capsule');
-  assert.match(svg, /LANE0\s+·\s+AT RISK\s+·\s+if reminders/, 'the tag rides the sub-line, dot-joined with lane/status');
+  assert.match(svg, /LANE0\s+·\s+if reminders/, 'the tag rides the factual sub-line');
+  assert.match(svg, /text-anchor="end"[^>]*>AT RISK<\/text>/, 'status retains its own right-aligned semantic position');
   assert.match(svg, /\+ \d+ more · \d+ conditional/, 'the overflow chip says how many hidden paths are conditional');
 });
 

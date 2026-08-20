@@ -86,7 +86,7 @@ export function basisBand(model, x, y, innerW, measure, colors, scale = 1){
   const h = firstH + ruleGap + secondH + bottom;
   const parts = [
     '<line x1="' + x + '" y1="' + y + '" x2="' + x + '" y2="' + (y + h - bottom) +
-      '" stroke="' + colors.accent + '" stroke-width="' + (3 * scale) + '"/>',
+      '" stroke="' + colors.ink + '" stroke-width="' + (2 * scale) + '"/>',
   ];
   firstLines.forEach((ln, i) => parts.push(txt(textX, y + labelSize + i * labelLh, ln,
     labelSize, colors.muted, {weight:700, tracking:1.05 * scale})));

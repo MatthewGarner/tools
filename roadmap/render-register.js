@@ -3,13 +3,13 @@
    what shipped) and the LIVE editable view (Task 4). Named render-*.js so
    renderer-coverage forces the live renderer into the injection corpus. */
 import {txt, wrapText, esc, btnAttrs} from '../assets/svg.js';
-import {rect, line, clip1, wrapN, capsule, statusCapsule, badgeCapsule, italTxt, serifGroup,
+import {rect, line, clip1, wrapN, capsule, badgeCapsule, italTxt, serifGroup,
   registerColumns, registerColumnsLive, registerRows, spanRange, SANS, SERIF, REGISTER_GEOM, capFit, standfirst, storyLine,
   basisBand, basisDesc} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics} from './render-deck.js';
 import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel,
-  registerOutcomeGroups, outcomeSectionTint} from './cond-parts.js';
-import {activeCount, condCount} from './parse.js';
+  registerOutcomeGroups} from './cond-parts.js';
+import {activeCount, condCount, STATUS_LABEL} from './parse.js';
 
 function registerBodyFn(model, ctx, C){
   return (y0, y1) => {
@@ -94,9 +94,8 @@ function registerBodyFn(model, ctx, C){
     let ry = y0 + headH;
     for(const r of laidRows.slice(0, shown)){
       if(r.header){
-        const [tint, ink] = outcomeSectionTint(r.header.kind, C);
-        s.push(line(REGISTER_GEOM.M, ry, REGISTER_GEOM.W - REGISTER_GEOM.M, ry, tint, 2));
-        s.push(txt(REGISTER_GEOM.M, ry + 20, r.header.label.toUpperCase() + ' — ' + r.header.count, 11, ink, {weight: 700, tracking: 1.6}));
+        s.push(line(REGISTER_GEOM.M, ry, REGISTER_GEOM.W - REGISTER_GEOM.M, ry, C.border, 1));
+        s.push(txt(REGISTER_GEOM.M, ry + 20, r.header.label.toUpperCase() + ' — ' + r.header.count, 11, C.muted, {weight: 700, tracking: 1.6}));
         ry += r.h;
         continue;
       }
@@ -131,7 +130,8 @@ function registerBodyFn(model, ctx, C){
         });
       }
       if(stCol && it.status)
-        rowSvg.push(statusCapsule(stCol.x + RPAD, ry + (r.h - 22) / 2, it.status, C, measure).svg);
+        rowSvg.push(txt(stCol.x + RPAD, ry + (r.h + 8) / 2, STATUS_LABEL[it.status].toUpperCase(), 11,
+          C.statusInk[it.status] || C.status[it.status], {weight:700, tracking:1.05}));
       if(noteCol && nl.length){
         let ny = ry + RPAD + 13;
         for(const ln of nl){ rowSvg.push(txt(noteCol.x + RPAD, ny, ln, 13, C.muted)); ny += 17; }
@@ -197,8 +197,107 @@ function colsAt(model, M, INNER){
   return base.map(c => ({...c, x: M + (c.x - REGISTER_GEOM.M) * scale, w: c.w * scale}));
 }
 
+/* Phone Register is a review log, not a squeezed desktop table. It keeps every
+   accountable fact in one ruled record: work first, then horizon/lane/run and
+   status. This is deliberately distinct from Grid's time stack and Board's
+   horizon columns while preserving the same source-line edit targets. */
+function renderRegisterNarrow(model, ctx, C){
+  const {measure, edit = false, today, diff = null} = ctx;
+  const W = ctx.width, M = 16, inner = W - M * 2;
+  const s = [], bands = [];
+  let y = 30;
+  const titleLines = wrapText(model.title || 'Roadmap', '700 20px ' + SANS, inner, measure);
+  titleLines.forEach((lineText, i) => s.push(serifGroup(txt(M, y + i * 24, lineText, 20, C.ink, {weight:700}))));
+  y += titleLines.length * 24;
+  const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof today === 'string' ? today : ''));
+  if(dateLabel){ s.push(txt(M, y, dateLabel, 11, C.muted)); y += 18; }
+  else y += 4;
+  const basis = basisBand(model, M, y, inner, measure, C);
+  if(basis.height){ s.push(basis.svg); y += basis.height; }
+  const standfirstCopy = standfirst(model, M, y, inner, measure, C, edit);
+  if(standfirstCopy.height){ s.push(standfirstCopy.svg); y += standfirstCopy.height; }
+  const story = storyLine(model, diff, M, y, inner, measure, C, edit);
+  if(story.height){ s.push(story.svg); y += story.height; }
+  s.push(txt(M, y + 13, 'REGISTER · ACCOUNTABLE REVIEW', 10, C.muted, {weight:700, tracking:1.25}));
+  y += 26;
+  const rows = registerRows(model);
+  const outcomeMode = model.group === 'outcome';
+  const groups = outcomeMode
+    ? registerOutcomeGroups(model, rows).map(group => ({label:group.label, kind:group.kind, items:group.items, horizon:null}))
+    : model.horizons.map((horizon, h) => ({label:horizon, kind:null, items:rows.filter(it => it.h === h), horizon:h}));
+  for(let index = 0; index < groups.length; index++){
+    const group = groups[index];
+    const groupTop = y;
+    const leading = index === 0;
+    s.push(txt(M, y + 14, group.label.toUpperCase(), 12, leading ? C.ink : C.muted, {weight:700, tracking:1.35}));
+    s.push(txt(W - M, y + 14, String(group.items.length), 11, C.muted, {anchor:'end', weight:700}));
+    s.push(line(M, y + 22, W - M, y + 22, leading ? C.ink : C.border, leading ? 1.5 : 1, .85));
+    y += 30;
+    for(const it of group.items){
+      const titleLines = wrapText(it.title, '700 16px ' + SANS, inner, measure);
+      const range = spanRange(model, it);
+      const status = it.status ? STATUS_LABEL[it.status].toUpperCase() : '';
+      const statusW = status ? measure(status, '700 10px ' + SANS) + 14 : 0;
+      const laneLines = it.lane ? wrapText(it.lane.toUpperCase(), '700 10px ' + SANS, Math.max(80, inner - statusW), measure) : [];
+      const condition = it.cond ? (it.cond.when === 'unless' ? 'UNLESS ' : 'IF ') + String(it.cond.name).toUpperCase() : '';
+      const fact = [range ? range.toUpperCase() : '', condition].filter(Boolean).join(' · ');
+      const factLines = fact ? wrapText(fact, '700 10px ' + SANS, Math.max(80, inner - statusW), measure) : [];
+      const noteLines = it.note ? wrapText(it.note, '13px ' + SANS, inner, measure) : [];
+      const laneSlots = laneLines.length || (edit ? 1 : 0);
+      const rowH = 12 + titleLines.length * 20 + noteLines.length * 17 + Math.max(1, laneSlots + factLines.length, status ? 1 : 0) * 14 + 12;
+      const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
+      const g = ['<g' + (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' + btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>'];
+      if(edit) g.push('<rect data-hit="" x="' + M + '" y="' + y + '" width="' + inner + '" height="' + rowH + '" fill="transparent"/>');
+      let ty = y + 12 + 15;
+      titleLines.forEach((lineText, i) => {
+        g.push('<text' + (edit && i === 0 ? ' data-edit="title" data-line="' + it.srcLine + '" data-raw="' + esc(it.title) + '"' + btnAttrs('Rename: ' + it.title) : '') +
+          ' x="' + M + '" y="' + ty + '" font-size="16" font-weight="700" fill="' + C.ink + '">' + esc(lineText) + '</text>');
+        ty += 20;
+      });
+      noteLines.forEach((lineText, i) => {
+        g.push('<text' + (edit && i === 0 ? ' data-edit="note" data-line="' + it.srcLine + '" data-raw="' + esc(it.note) + '"' + btnAttrs('Edit note: ' + it.title) : '') +
+          ' x="' + M + '" y="' + ty + '" font-size="13" fill="' + C.muted + '">' + esc(lineText) + '</text>');
+        ty += 17;
+      });
+      const fy = y + rowH - 12;
+      let metaY = fy - (laneSlots + factLines.length - 1) * 14;
+      if(laneLines.length){
+        laneLines.forEach((lineText, i) => {
+          g.push('<text' + (edit && i === 0 ? ' data-edit="lane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '"' + btnAttrs('Edit lane: ' + it.title) : '') +
+            ' x="' + M + '" y="' + metaY + '" font-size="10" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '">' + esc(lineText) + '</text>');
+          metaY += 14;
+        });
+      } else if(edit) {
+        g.push('<text data-empty-control="" data-edit="lane" data-line="' + it.srcLine + '" data-raw="" x="' + M + '" y="' + metaY + '" font-size="10" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '" opacity="0"' + btnAttrs('Add lane: ' + it.title) + '>SET LANE</text>');
+        metaY += 14;
+      }
+      factLines.forEach(lineText => { g.push('<text x="' + M + '" y="' + metaY + '" font-size="10" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '">' + esc(lineText) + '</text>'); metaY += 14; });
+      if(status){
+        g.push('<text' + (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' + btnAttrs('Change status: ' + it.title) : '') +
+          ' x="' + (W - M) + '" y="' + fy + '" text-anchor="end" font-size="10" font-weight="700" letter-spacing="1.05" fill="' + (C.statusInk[it.status] || C.status[it.status]) + '">' + esc(status) + '</text>');
+      } else if(edit) {
+        g.push('<text data-empty-control="" data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' + (W - M) + '" y="' + fy + '" text-anchor="end" font-size="10" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '" opacity="0"' + btnAttrs('Set status: ' + it.title) + '>＋ STATUS</text>');
+      }
+      g.push('</g>', line(M, y + rowH, W - M, y + rowH, C.border, 1, .6));
+      s.push(g.join(''));
+      y += rowH + 8;
+    }
+    if(edit && !outcomeMode){
+      s.push('<g data-add-control="" opacity="0"><rect x="' + M + '" y="' + y + '" width="' + inner + '" height="26" fill="transparent"/><text data-edit="additem" data-lane="" data-col="' + esc(group.label) + '" data-line="-1" data-raw="" x="' + M + '" y="' + (y + 17) + '" font-size="10" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '"' + btnAttrs('Add item to ' + group.label) + '>＋ ADD</text></g>');
+      y += 26;
+    }
+    if(edit && !outcomeMode) bands.push('<rect data-hdrop="' + group.horizon + '" x="' + M + '" y="' + groupTop + '" width="' + inner + '" height="' + Math.max(28, y - groupTop) + '" fill="transparent"/>');
+    y += 10;
+  }
+  if(diff?.dropped?.length) s.push(txt(M, y + 14, 'DROPPED SINCE ' + (diff.since || '') + ' · ' + diff.dropped.join(' · '), 11, C.muted, {strike:true}));
+  const H = Math.round(y + 30);
+  return '<svg xmlns="http://www.w3.org/2000/svg" data-register-layout="phone" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" font-family=\'' + SANS + '\'>' +
+    basisDesc(model) + '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' + bands.join('') + s.join('') + '</svg>';
+}
+
 export function renderRegisterLive(model, ctx){
   const C = paletteColors(model, ctx);
+  if(Number.isFinite(ctx.width) && ctx.width < 520) return renderRegisterNarrow(model, ctx, C);
   const {measure, diff = null, edit = false, textBets, coarse} = ctx;
   const M = 24, W = LIVE_W, INNER = W - M * 2, RPAD = 12;
   const cols = colsAt(model, M, INNER);
@@ -238,9 +337,8 @@ export function renderRegisterLive(model, ctx){
      lane/menu — is untouched, since paintRow itself doesn't change). */
   if(model.group === 'outcome'){
     for(const g of registerOutcomeGroups(model, rows)){
-      const [tint, ink] = outcomeSectionTint(g.kind, C);
-      s.push(line(M, y, W - M, y, tint, 2));
-      s.push(txt(M, y + 20, g.label.toUpperCase() + ' — ' + g.items.length, 11, ink, {weight: 700, tracking: 1.6}));
+      s.push(line(M, y, W - M, y, C.border, 1));
+      s.push(txt(M, y + 20, g.label.toUpperCase() + ' — ' + g.items.length, 11, C.muted, {weight: 700, tracking: 1.6}));
       y += 28;
       for(const it of g.items) y += paintRow(s, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
       y += 10;
@@ -265,8 +363,7 @@ export function renderRegisterLive(model, ctx){
       }
       for(const it of byH(h)) y += paintRow(groupSvg, it, y, {cols, C, measure, RPAD, badgeOf, edit, model, hasBets, textBets, coarse});
       if(edit){
-        groupSvg.push('<g opacity="0.75"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="none" stroke="' +
-          C.border + '" stroke-dasharray="2 3"/>' +
+        groupSvg.push('<g data-add-control="" opacity="0"><rect x="' + M + '" y="' + y + '" width="' + INNER + '" height="26" rx="0" fill="transparent"/>' +
           '<text data-edit="additem" data-lane="" data-col="' + esc(model.horizons[h]) + '" data-line="-1" data-raw="" x="' +
           (M + 12) + '" y="' + (y + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' +
           btnAttrs('Add item to ' + model.horizons[h]) + '>＋ ADD TO ' + esc(model.horizons[h].toUpperCase()) + '</text></g>');
@@ -347,8 +444,8 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model, hasB
   /* status (edit target even when empty → addStatus) */
   if(stCol){
     if(it.status) g.push(statusWithTarget(stCol, ry + (rowH - 22) / 2, it, RPAD, C, measure, edit));
-    else if(edit) g.push('<text data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' +
-      (stCol.x + RPAD) + '" y="' + (ry + RPAD + 13) + '" font-size="13" fill="' + C.muted + '" opacity="0.6"' +
+    else if(edit) g.push('<text data-empty-control="" data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' +
+      (stCol.x + RPAD) + '" y="' + (ry + RPAD + 13) + '" font-size="13" fill="' + C.muted + '" opacity="0"' +
       btnAttrs('Set status') + '>+ status</text>');
   }
   /* note (edit target even when empty → addNote) */
@@ -361,8 +458,8 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model, hasB
           ' x="' + (noteCol.x + RPAD) + '" y="' + ny + '" font-size="13" fill="' + C.muted + '">' + esc(ln) + '</text>');
         ny += 17;
       });
-    } else if(edit) g.push('<text data-edit="note" data-line="' + it.srcLine + '" data-raw="" x="' +
-      (noteCol.x + RPAD) + '" y="' + (ry + RPAD + 13) + '" font-size="13" fill="' + C.muted + '" opacity="0.6"' +
+    } else if(edit) g.push('<text data-empty-control="" data-edit="note" data-line="' + it.srcLine + '" data-raw="" x="' +
+      (noteCol.x + RPAD) + '" y="' + (ry + RPAD + 13) + '" font-size="13" fill="' + C.muted + '" opacity="0"' +
       btnAttrs('Add note') + '>+ note</text>');
   }
   if(b && b.kind === 'new') g.push(badgeCapsule(itemCol.x + itemCol.w - RPAD - 44, ry + RPAD, b, C, measure).svg);
@@ -373,20 +470,20 @@ function paintRow(s, it, ry, {cols, C, measure, RPAD, badgeOf, edit, model, hasB
   return rowH;
 }
 
-/* A cell that shows `value` (clipped to one line) when present, or an
-   "+ addLabel" ghost prompt when absent — either way, in edit mode, a real
-   data-edit target with a keyboard/AT-accessible name (A5: not just the
-   empty ones). */
+/* A cell that shows `value` (clipped to one line) when present, or a real,
+   hover-revealed add target when absent. It remains keyboard-accessible, but
+   it never turns a resting review table into a field checklist. */
 function cellText(colObj, y, value, kind, srcLine, fill, font, RPAD, measure, edit, addLabel, editLabel){
   if(value) return '<text' + (edit ? ' data-edit="' + kind + '" data-line="' + srcLine + '" data-raw="' + esc(value) + '"' +
     btnAttrs(editLabel) : '') +
     ' x="' + (colObj.x + RPAD) + '" y="' + y + '" font-size="13" fill="' + fill + '">' +
     esc(clip1(value, font, colObj.w - RPAD * 2, measure)) + '</text>';
-  return edit ? '<text data-edit="' + kind + '" data-line="' + srcLine + '" data-raw="" x="' + (colObj.x + RPAD) +
-    '" y="' + y + '" font-size="13" fill="' + fill + '" opacity="0.6"' + btnAttrs(addLabel) + '>' + esc(addLabel) + '</text>' : '';
+  return edit ? '<text data-empty-control="" data-edit="' + kind + '" data-line="' + srcLine + '" data-raw="" x="' + (colObj.x + RPAD) +
+    '" y="' + y + '" font-size="13" fill="' + fill + '" opacity="0"' + btnAttrs(addLabel) + '>' + esc(addLabel) + '</text>' : '';
 }
 function statusWithTarget(colObj, y, it, RPAD, C, measure, edit){
-  const cap = statusCapsule(colObj.x + RPAD, y, it.status, C, measure).svg;
-  return edit ? '<g data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' +
-    btnAttrs('Change status: ' + it.title) + '>' + cap + '</g>' : cap;
+  return '<text' + (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' +
+    btnAttrs('Change status: ' + it.title) : '') + ' x="' + (colObj.x + RPAD) + '" y="' + (y + 15) +
+    '" font-size="11" font-weight="700" letter-spacing="1.05" fill="' + (C.statusInk[it.status] || C.status[it.status]) + '">' +
+    esc(STATUS_LABEL[it.status].toUpperCase()) + '</text>';
 }

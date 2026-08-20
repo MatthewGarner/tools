@@ -323,10 +323,7 @@ test('no headline: the body starts HIGHER — the deck has no hole where a stand
   const doc = 'title: T\ndate: 2026-07-14\nNOW\nCore: A\nNEXT\nCore: B';
   const bare = renderDeck(parse(doc), ctx);
   const withH = renderDeck(parse('headline: Something to say\n' + doc), ctx);
-  const topOf = svg => {
-    const m = svg.match(/<rect x="100" y="([\d.]+)"/g).map(s => +s.match(/y="([\d.]+)"/)[1]);
-    return Math.min(...m.filter(y => y > 130));   // first body element under the header
-  };
+  const topOf = svg => +svg.match(/<text x="[\d.]+" y="([\d.]+)"[^>]*>NOW<\/text>/)[1];
   assert.ok(topOf(bare) < topOf(withH),
     'body top ' + topOf(bare) + ' should sit above ' + topOf(withH) + ' when there is no standfirst');
 });
@@ -521,8 +518,8 @@ test('focus containment: an over-WIP 8-item hero (2-column, row-pair equalised) 
     'Core: Item number ' + i + (i % 3 === 0 ? ' -- a short note' : '')).join('\n');
   const model = parse('title: T\ndate: 2026-07-14\nwip: 6\nNOW\n' + items + '\nNEXT\nCore: x\nLATER\nCore: y');
   const body = assertBodyContained(renderFocusBody, model, 214, 968, {}, 'focus 8-item hero');
-  assert.match(body, /<rect[^>]*width="1060" height="3" fill="#[0-9a-fA-F]{6}"[^>]*rx="1\.5"/,
-    'the hero should retain its palette-agnostic accent datum without a content-hugging wash');
+  assert.match(body, />Item number 0</,
+    'the hero preserves its highest-ranked content without needing a decorative focus bracket');
 });
 
 test('focus containment: 30 items in the hero (forces the overflow chip) never overruns the body', () => {

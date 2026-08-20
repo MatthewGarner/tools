@@ -273,8 +273,14 @@ const PAGES = {
      808k -> 822k (2026-08-14 focused item review): source-safe selection,
      a textual receipt and keyboard restoration remain eager so the review
      surface cannot diverge from the URL-owned artefact. Actual 816.5k;
-     retain ~5.5k meaningful headroom. */
-  'roadmap/index.html': 830_000,
+     retain ~5.5k meaningful headroom.
+     830k -> 850k (2026-08-20 visual system): first-class live phone
+     renderers for Board, Focus and Register, plus the exhaustive presentation
+     reflow and geometry-aware continuation planner, replace Grid-only mobile
+     and obsolete export fallbacks. They stay eager so live editing and Copy
+     PNG share the same source-local model. Actual 843.9k; retain ~6.1k
+     headroom. */
+  'roadmap/index.html': 850_000,
   /* 2026-08-09 adversarial-review fix batch (F1-F8): activeCount
      routing for WIP counts, previewableBet's TEXT-WORLD bets contract (+ ctx.textBets threading in
      app.js/render*.js), the setWhatIf/restoreWhatIfFocus keyboard-focus-survives-repaint fix, the
@@ -346,8 +352,13 @@ const PAGES = {
      allowance rather than making this common visual correction an untracked overage. */
   /* 716.2k -> 730k (2026-08-15 Mapping family): Why now shares the lightweight
      review-margin stylesheet with Map and Wardley, keeping its causal artefact
-     readable in review without adding a runtime dependency. Actual 722.6k. */
-  'why/index.html': 730_000,
+     readable in review without adding a runtime dependency. Actual 722.6k.
+     730k -> 750k (2026-08-20 Roadmap visual system): Why deliberately imports
+     Roadmap's shared parser/rendering for its delivery lens. The first-class
+     phone views and exhaustive presentation reflow therefore remain part of
+     its eager, offline dependency surface too. Actual 742.0k; retain ~8k
+     headroom rather than treating that honest delegation as unexplained creep. */
+  'why/index.html': 750_000,
   /* 2026-08-09 adversarial-review fix batch: why pays render.js's
      activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
      (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */

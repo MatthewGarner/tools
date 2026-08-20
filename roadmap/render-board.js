@@ -1,19 +1,19 @@
-/* The board composition: horizons as columns, first washed with the accent,
+/* The board composition: horizons as columns, first lightly washed in ink,
    lane as a tag (no rail). TWO paint passes over the shared model — the DECK
    export (byte-identical to what shipped) and the LIVE editable view (Task 3).
    Named render-*.js so renderer-coverage forces the live renderer into the
    injection corpus. */
-import {txt, esc, btnAttrs, wash, wrapText} from '../assets/svg.js';
-import {STATUS_LABEL, activeCount, condCount} from './parse.js';
-import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, statusCapsule, serifGroup, standfirst, storyLine, basisBand, basisDesc, SANS} from './deck-parts.js';
+import {txt, esc, btnAttrs, wrapText} from '../assets/svg.js';
+import {STATUS_LABEL, activeCount} from './parse.js';
+import {rect, line, clip1, wrapN, capFit, capsule, badgeCapsule, serifGroup, standfirst, storyLine, basisBand, basisDesc, SANS} from './deck-parts.js';
 import {deckFrame, paletteColors, deckMetrics, W, M} from './render-deck.js';
-import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, condCountLabel, splitColumnZones} from './cond-parts.js';
+import {anyBet, cardTag, tagColors, stateOpacity, previewableBet, whatifHitRect, splitColumnZones} from './cond-parts.js';
 
-/* E1 (S3): conditional groups use a labelled rule, not a content-height wash.
-   The outcome ink still reuses the validated status pairs, while the rule keeps
-   group structure explicit without creating a coloured pool around cards. */
-function zoneTint(half, C){
-  return half === 'if' ? [C.status.done, C.statusInk.done] : [C.status.blocked, C.statusInk.blocked];
+/* Conditionality is a structural fact, not a second status system.  A quiet
+   rule and precise language make the fork legible without competing with the
+   one place colour has meaning: a commitment's status. */
+function zoneTint(_half, C){
+  return [C.border, C.muted];
 }
 function zoneLabel(bet, half){
   return bet.display + (half === 'if' ? ' · if so' : ' · if not');
@@ -99,8 +99,12 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
     const tag = showTag ? cardTag(model, it) : null;
     const tl = wrapN(it.title, fT, cw - ramp.pad * 2, titleLines, measure);
     const nl = it.note && noteLines ? wrapN(it.note, fN, cw - ramp.pad * 2, noteLines, measure) : [];
-    const foot = it.lane || it.status ? 30 : 6;
-    return {it, b, tag, tl, nl,
+    const start = model.horizons[it.h] || '';
+    const end = it.spanEnd || model.horizons[Math.min(model.horizons.length - 1, it.h + Math.max(1, it.span || 1) - 1)] || start;
+    const run = (it.span || 1) > 1 || it.spanEnd ? 'RUNS ' + start.toUpperCase() + ' – ' + end.toUpperCase() : '';
+    const detail = [it.lane ? it.lane.toUpperCase() : '', run].filter(Boolean).join(' · ');
+    const foot = detail || it.status ? 30 : 6;
+    return {it, b, tag, tl, nl, detail,
       h: ramp.pad * 2 + (b ? 30 : 0) + (tag ? 30 : 0) + tl.length * (ramp.fsT + 5) + nl.length * (ramp.fsN + 6) + foot};
   });
   const sumH = cards => cards.reduce((a, c) => a + c.h + (headerAt.has(c.it) ? HEADER_H : 0), 0) +
@@ -113,7 +117,6 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
 
   const s = [];
   let cy = cy0;
-  const capsuleWidth = label => measure(label, '700 11px ' + SANS) + 16;
   for(let i = 0; i < shown; i++){
     const c = cards[i], {it} = c;
     const header = headerAt.get(it);
@@ -122,12 +125,10 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
       s.push(txt(cx + 22, cy + 14, header.label, 11, header.ink, {weight: 700, tracking: 0.6}));
       cy += HEADER_H;
     }
-    // dropped's own treatment wins over the flag border — reality already
-    // answered, so a resolved-away risk must not still read as live trouble
-    const flag = it.worldState === 'dropped' ? null :
-      it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
     s.push('<g opacity="' + stateOpacity(it, fadeOp).toFixed(2) + '">');
-    s.push(rect(cx, cy, cw, c.h, C.card, {rx: 12, stroke: flag || C.border, sw: flag ? 1.5 : 1}));
+    /* Export shares live Board's commitment-ledger primitive: an open row and
+       one closing rule. The horizon owns the whitespace; work does not sit in a
+       second matrix of pale card surfaces. */
     let ty = cy + ramp.pad;
     if(c.tag){ const [tcol, tink] = tagColors(c.tag, C); s.push(capsule(cx + ramp.pad, ty - 4, c.tag.label, tcol, tink, measure).svg); ty += 30; }
     if(c.b){ s.push(badgeCapsule(cx + ramp.pad, ty - 4, c.b, C, measure).svg); ty += 30; }
@@ -135,22 +136,20 @@ function paintCardColumn(list, {cx, cy0, cw, availH, ramp, fadeOp, badgeOf, C, m
     for(const ln of c.tl){ s.push(txt(cx + ramp.pad, ty, ln, ramp.fsT, C.ink, {weight: 700})); ty += ramp.fsT + 5; }
     for(const ln of c.nl){ s.push(txt(cx + ramp.pad, ty, ln, ramp.fsN, C.muted)); ty += ramp.fsN + 6; }
     const fy = cy + c.h - ramp.pad - 6;
-    if(it.lane) s.push(txt(cx + ramp.pad, fy + 4, it.lane.toUpperCase(), 11, C.muted, {weight: 700, tracking: 1.2}));
+    if(c.detail) s.push(txt(cx + ramp.pad, fy + 4, c.detail, 10.5, C.muted, {weight: 700, tracking: 1.05}));
     if(it.status){
-      const capW = measure(STATUS_LABEL[it.status].toUpperCase(), '600 12px ' + SANS) +
-        STATUS_LABEL[it.status].length * 0.6 + 18;
-      const laneW = it.lane ? capsuleWidth(it.lane.toUpperCase()) : 0;
-      if(laneW + capW <= cw - ramp.pad * 2 + 8)
-        s.push(statusCapsule(cx + cw - ramp.pad - capW, fy - 12, it.status, C, measure).svg);
+      s.push(txt(cx + cw - ramp.pad, fy + 4, STATUS_LABEL[it.status].toUpperCase(), 10.5,
+        C.statusInk[it.status] || C.status[it.status], {anchor: 'end', weight: 700, tracking: 1.05}));
     }
     s.push('</g>');
+    s.push(line(cx, cy + c.h, cx + cw, cy + c.h, C.border, 1, 0.7));
     cy += c.h + 14;
   }
   if(shown < cards.length){
     const hidden = cards.slice(shown);
     const conditional = hidden.filter(c => c.it.worldState === 'cond').length;
     const overflow = '+ ' + hidden.length + ' more' + (conditional ? ' · ' + conditional + ' conditional' : '');
-    s.push(rect(cx, cy, cw, 40, 'none', {rx: 20, stroke: C.border, sw: 1, dash: '4 4'}));
+    s.push(rect(cx, cy, cw, 40, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));
     s.push(txt(cx + 18, cy + 26, overflow, 14, C.muted, {weight: 600}));
   }
   return {svg: s.join(''), shown, total: cards.length};
@@ -170,27 +169,26 @@ function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure, model})
   const hasBets = anyBet(model);
   const rows = list.map(it => {
     const tag = hasBets ? cardTag(model, it) : null;
-    // list-mode rows are the dense fallback — the tag rides the sub-line,
-    // before the note, truncated with everything else via the same clip1
-    const sub = [it.lane ? it.lane.toUpperCase() : '',
-      it.status ? STATUS_LABEL[it.status].toUpperCase() : '', tag ? tag.label : '',
+    /* Dense mode is a compressed ledger, not a different card component: title,
+       factual detail, status at the right, then the same closing rule. */
+    const end = it.spanEnd || model.horizons[Math.min(model.horizons.length - 1, it.h + Math.max(1, it.span || 1) - 1)] || model.horizons[it.h];
+    const run = (it.span || 1) > 1 || it.spanEnd ? 'RUNS ' + model.horizons[it.h].toUpperCase() + ' – ' + end.toUpperCase() : '';
+    const sub = [it.lane ? it.lane.toUpperCase() : '', run, tag ? tag.label : '',
       it.note || ''].filter(Boolean).join('  ·  ');
-    return {it, sub, h: sub ? 56 : 38};
+    return {it, sub, status: it.status ? STATUS_LABEL[it.status].toUpperCase() : '', h: sub || it.status ? 56 : 38};
   });
   const shown = capFit(rows.map(r => r.h), availH, 0, 48);
 
   const s = [];
   let ry = cy0;
   for(const r of rows.slice(0, shown)){
-    const {it, sub} = r;
-    // dropped's treatment wins over the flag border
-    const flag = it.worldState !== 'dropped' && (it.status === 'risk' || it.status === 'blocked');
+    const {it, sub, status} = r;
     s.push('<g opacity="' + stateOpacity(it, fadeOp).toFixed(2) + '">');
-    if(flag) s.push(rect(cx, ry + 2, 3, sub ? 44 : 28, C.status[it.status], {rx: 1.5}));
-    const tx = cx + (flag ? 14 : 0);
-    s.push(txt(tx, ry + 18, clip1(it.title, '600 17px ' + SANS, cw - (flag ? 14 : 0), measure), 17, C.ink, {weight: 600}));
-    if(sub) s.push(txt(tx, ry + 38, clip1(sub, '12.5px ' + SANS, cw - (flag ? 14 : 0), measure), 12.5,
-      flag ? C.statusInk[it.status] : C.muted, {tracking: 0.3}));
+    const statusW = status ? measure(status, '700 10px ' + SANS) + 14 : 0;
+    s.push(txt(cx, ry + 18, clip1(it.title, '600 17px ' + SANS, cw - (sub ? 0 : statusW), measure), 17, C.ink, {weight: 600}));
+    if(sub) s.push(txt(cx, ry + 38, clip1(sub, '12.5px ' + SANS, cw - statusW, measure), 12.5, C.muted, {tracking: 0.3}));
+    if(status) s.push(txt(cx + cw, ry + (sub ? 38 : 18), status, 10,
+      C.statusInk[it.status] || C.status[it.status], {anchor:'end', weight:700, tracking:1}));
     s.push('</g>');
     ry += r.h;
     s.push(line(cx, ry - 12, cx + cw, ry - 12, C.border, 1, 0.55));
@@ -199,14 +197,14 @@ function paintListColumn(list, {cx, cy0, cw, fadeOp, availH, C, measure, model})
     const hidden = rows.slice(shown);
     const conditional = hidden.filter(r => r.it.worldState === 'cond').length;
     const overflow = '+ ' + hidden.length + ' more' + (conditional ? ' · ' + conditional + ' conditional' : '');
-    s.push(rect(cx, ry, cw, 40, 'none', {rx: 20, stroke: C.border, sw: 1, dash: '4 4'}));
+    s.push(rect(cx, ry, cw, 40, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));
     s.push(txt(cx + 18, ry + 26, overflow, 14, C.muted, {weight: 600}));
   }
   return {svg: s.join(''), shown, total: rows.length};
 }
 
 /* BOARD body: horizons as columns (lane rides as a tag, no rail), first
-   horizon washed with the accent, in-plane letterspaced label + count per
+   horizon distinguished in ink, in-plane letterspaced label + count per
    column, certainty fade (gated to model.fade), the overflow ladder above.
    Returns (y0, y1) -> svg so deckFrame can budget the band around a 1- or
    2-line standfirst wrap. */
@@ -227,21 +225,26 @@ function boardBodyFn(model, ctx, C){
     const s = [];
     for(let h = 0; h < nH; h++){
       const x = M + h * (colW + gap);
-      s.push(rect(x, y0, colW, zoneH, h === 0 ? wash(C.accent, '0D') : wash(C.ink, '05'), {rx: 14}));
-      s.push(txt(x + 20, y0 + 34, hs[h].toUpperCase(), 15, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.6}));
+      s.push(txt(x + 20, y0 + 34, hs[h].toUpperCase(), 15, h === 0 ? C.ink : C.muted, {weight: 700, tracking: 1.6}));
       const list = byLane(inH(h));
       /* label shows the ACTIVE count (matching the overWip flag) — dropped
          items are still painted in `list` below, just not counted. */
       const activeH = activeCount(model, h);
-      const baseLbl = condCountLabel(activeH, condCount(model, h));
+      /* A commitment count should be read at a glance. Conditionality is
+         already explicit in the grouped ledger below; arithmetic in the
+         column head makes the total slower to find. */
+      const baseLbl = String(activeH);
       const countLbl = h === 0 && overWip ? baseLbl + ' · OVER WIP' : baseLbl;
       s.push(txt(x + colW - 20, y0 + 34, countLbl, 13, h === 0 && overWip ? C.err : C.muted,
         {anchor: 'end', weight: 700, tracking: 1}));
+      /* The Board reads commitment by horizon: ink gives the leading column
+         authority, while status colour remains local to the work itself. */
+      s.push(line(x, y0 + 46, x + colW, y0 + 46, C.border, 1, 0.9));
+      if(h === 0) s.push(line(x, y0 + 46, x + 20, y0 + 46, C.ink, 2));
 
       const cx = x + 16, cw = colW - 32;
       if(!list.length){
-        s.push(rect(cx, y0 + headH, cw, 84, 'none', {rx: 12, stroke: C.border, sw: 1, dash: '4 4'}));
-        s.push(txt(cx + cw / 2, y0 + headH + 48, 'Nothing scheduled', 14, C.muted, {anchor: 'middle'}));
+        s.push(txt(cx, y0 + headH + 24, 'Nothing scheduled', 14, C.muted));
         continue;
       }
       const fadeOp = model.fade && nH > 1 ? 1 - (h / (nH - 1)) * 0.35 : 1;
@@ -297,24 +300,31 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model, hasBets
      wraps and increases the card height rather than becoming an ellipsis. */
   const tl = wrapText(it.title, fT, cw - RPAD * 2, measure);
   const nl = it.note ? wrapText(it.note, fN, cw - RPAD * 2, measure) : [];
-  const footH = it.lane || it.status || edit ? 26 : 8;
-  // reserve the note row's height: a real note, OR (edit only) the "+ note" ghost
-  // row emitted below — without this the ghost collides with the lane/status foot.
-  // edit:false with no note reserves nothing, so the export/golden path is unchanged.
-  const noteH = nl.length ? nl.length * 19 + 4 : (edit ? 19 : 0);
+  const start = model.horizons[it.h] || '';
+  const end = it.spanEnd || model.horizons[Math.min(model.horizons.length - 1, it.h + Math.max(1, it.span || 1) - 1)] || start;
+  const run = (it.span || 1) > 1 || it.spanEnd ? 'RUNS ' + start.toUpperCase() + ' – ' + end.toUpperCase() : '';
+  const statusW = it.status ? measure(STATUS_LABEL[it.status].toUpperCase(), '700 10.5px ' + SANS) + 14 : 0;
+  /* The lane is an authoring field; the run is an inert fact.  Keep them in
+     separate lines so an unlaned spanning item never turns its visible run
+     into a false "Edit lane" target. */
+  const detailW = Math.max(60, cw - RPAD * 2 - statusW);
+  const laneLines = it.lane ? wrapText(it.lane.toUpperCase(), '700 10.5px ' + SANS, detailW, measure) : [];
+  const runLines = run ? wrapText(run, '700 10.5px ' + SANS, detailW, measure) : [];
+  const laneSlots = laneLines.length || (edit ? 1 : 0);
+  const detailN = laneSlots + runLines.length;
+  const footH = detailN || it.status ? Math.max(1, detailN) * 14 + 8 : 8;
+  const noteH = nl.length ? nl.length * 19 + 4 : 0;
   const tagH = tag ? 30 : 0;
-  const h = RPAD * 2 + tagH + tl.length * 24 + noteH + footH;
+  const h = RPAD + tagH + tl.length * 24 + noteH + footH + 12;
   const key = it.title.toLowerCase().replace(/\s+/g, ' ').trim();
-  // dropped's treatment wins over the flag border
-  const flag = it.worldState === 'dropped' ? null :
-    it.status === 'risk' ? C.status.risk : it.status === 'blocked' ? C.status.blocked : null;
   const op = stateOpacity(it, 1);   // 1 for a plain item — no attribute added, byte-identical
   const g = [];
   g.push('<g' + (op < 1 ? ' opacity="' + op.toFixed(2) + '"' : '') +
     (edit ? ' data-edit="cardmenu" data-line="' + it.srcLine + '" data-key="' + esc(key) + '"' +
     btnAttrs('More options: ' + it.title) + ' data-menu=""' : '') + '>');
-  g.push(rect(x, y, cw, h, C.card, {rx: 12, stroke: flag || C.border,
-    sw: flag ? 1.5 : 1, dash: it.worldState === 'cond' ? '3 3' : null}));
+  /* Board is a commitment ledger, not a rack of cards. A row is defined by
+     its factual line and the hairline that closes it; the background remains
+     open so the horizon, rather than a component surface, owns the space. */
   let whatifRect = null;   // sibling of the card's <g>, pushed after it closes
   if(tag){
     const [tcol, tink] = tagColors(tag, C);
@@ -336,35 +346,40 @@ function paintBoardCard(it, x, y, cw, {C, measure, edit, badgeOf, model, hasBets
       btnAttrs('Edit note: ' + it.title) : '') +
       ' x="' + (x + RPAD) + '" y="' + ty + '" font-size="14" fill="' + C.muted + '">' + esc(ln) + '</text>');
     ty += 19;
-  }); } else if(edit){
-    g.push('<text data-edit="note" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + ty +
-      '" font-size="13" fill="' + C.muted + '" opacity="0.55"' + btnAttrs('Add note') + '>+ note</text>');
-    ty += 19;
-  }
+  }); }
   const fy = y + h - RPAD;
-  // lane tag (edit target even when empty)
-  if(it.lane){
-    g.push('<text' + (edit ? ' data-edit="lane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '"' +
-      btnAttrs('Edit lane: ' + it.title) : '') + ' x="' + (x + RPAD) + '" y="' + (fy - 2) +
-      '" font-size="11" font-weight="700" letter-spacing="1.2" fill="' + C.muted + '">' + esc(it.lane.toUpperCase()) + '</text>');
+  let detailY = fy - 2 - Math.max(0, detailN - 1) * 14;
+  if(laneLines.length){
+    laneLines.forEach((lineText, i) => {
+      g.push('<text' + (edit && i === 0 ? ' data-edit="lane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '"' +
+        btnAttrs('Edit lane: ' + it.title) : '') + ' x="' + (x + RPAD) + '" y="' + detailY +
+        '" font-size="10.5" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '">' + esc(lineText) + '</text>');
+      detailY += 14;
+    });
   } else if(edit){
-    g.push('<text data-edit="lane" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + (fy - 2) +
-      '" font-size="11" fill="' + C.muted + '" opacity="0.55"' + btnAttrs('Add lane: ' + it.title) + '>+ lane</text>');
+    g.push('<text data-empty-control="" data-edit="lane" data-line="' + it.srcLine + '" data-raw="" x="' + (x + RPAD) + '" y="' + detailY +
+      '" font-size="10.5" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '" opacity="0"' + btnAttrs('Add lane: ' + it.title) + '>SET LANE</text>');
+    detailY += 14;
   }
-  // status capsule (edit target even when empty)
+  runLines.forEach(lineText => {
+    g.push('<text x="' + (x + RPAD) + '" y="' + detailY + '" font-size="10.5" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '">' + esc(lineText) + '</text>');
+    detailY += 14;
+  });
+  // Status is text, not another coloured shape. The hue remains reserved for this
+  // single semantic fact and spans still stay explicit in the ledger detail.
   if(it.status){
-    const capW = measure(STATUS_LABEL[it.status].toUpperCase(), '600 12px ' + SANS) + 18;
-    const cap = statusCapsule(x + cw - RPAD - capW, fy - 14, it.status, C, measure).svg;
-    g.push(edit ? '<g data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' +
-      btnAttrs('Change status: ' + it.title) + '>' + cap + '</g>' : cap);
+    g.push('<text' + (edit ? ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status) + '"' +
+      btnAttrs('Change status: ' + it.title) : '') + ' x="' + (x + cw - RPAD) + '" y="' + (fy - 2) +
+      '" text-anchor="end" font-size="10.5" font-weight="700" letter-spacing="1.05" fill="' + (C.statusInk[it.status] || C.status[it.status]) + '">' +
+      esc(STATUS_LABEL[it.status].toUpperCase()) + '</text>');
   } else if(edit){
-    g.push('<text data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' + (x + cw - RPAD) + '" y="' + (fy - 2) +
-      '" font-size="11" fill="' + C.muted + '" opacity="0.55" text-anchor="end"' + btnAttrs('Set status: ' + it.title) + '>+ status</text>');
+    g.push('<text data-empty-control="" data-edit="status" data-line="' + it.srcLine + '" data-raw="" x="' + (x + cw - RPAD) + '" y="' + (fy - 2) +
+      '" text-anchor="end" font-size="10.5" font-weight="700" letter-spacing="1.05" fill="' + C.muted + '" opacity="0"' + btnAttrs('Set status: ' + it.title) + '>SET STATUS</text>');
   }
   if(b && b.kind === 'new') g.push(badgeCapsule(x + RPAD, y - 10, b, C, measure).svg);
   g.push('</g>');
   if(whatifRect) g.push(whatifRect);
-  return {svg: g.join(''), h};
+  return {svg: g.join('') + line(x, y + h, x + cw, y + h, C.border, 1, 0.7), h};
 }
 
 export function renderBoardLive(model, ctx){
@@ -382,14 +397,22 @@ export function renderBoardLive(model, ctx){
   const hasBets = anyBet(model);   // hoisted (F6) — was recomputed per card
 
   const s = [];
-  let y = 34;
-  s.push(serifGroup(txt(M, y, model.title || 'Roadmap', 22, C.ink, {weight: 700})));
+  const compact = W < 520;
+  let y = compact ? 30 : 34;
   /* ctx.today guarded to string-only (wardley/render.js + energy/intraday's
      render-day.js do the same) — a non-string ctx.today (e.g. the shared
      injection-test ctx's numeric placeholder) must never reach esc(). */
   const dateLabel = model.dateStr === 'off' ? '' : (model.dateStr || (typeof ctx.today === 'string' ? ctx.today : ''));
-  if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
-  y += 22;
+  if(compact){
+    const titleLines = wrapText(model.title || 'Roadmap', '700 20px ' + SANS, W - M * 2, measure);
+    titleLines.forEach((lineText, i) => s.push(serifGroup(txt(M, y + i * 24, lineText, 20, C.ink, {weight:700}))));
+    y += titleLines.length * 24;
+    if(dateLabel){ s.push(txt(M, y, dateLabel, 11, C.muted)); y += 18; }
+  } else {
+    s.push(serifGroup(txt(M, y, model.title || 'Roadmap', 22, C.ink, {weight: 700})));
+    if(dateLabel) s.push(txt(W - M, y, dateLabel, 12, C.muted, {anchor: 'end'}));
+    y += 22;
+  }
   const basis = basisBand(model, M, y, W - M * 2, measure, C);
   if(basis.height){ s.push(basis.svg); y += basis.height; }
   const sf = standfirst(model, M, y, W - M * 2, measure, C, !!ctx.edit);   // the authored standfirst
@@ -402,12 +425,18 @@ export function renderBoardLive(model, ctx){
   for(let h = 0; h < nH; h++){
     const sourceH = visibleIndices[h];
     const x = M + h * (COLW + GAP);
-    s.push(txt(x + RPAD, y + 24, hs[h].toUpperCase(), 14, h === 0 ? C.accent : C.muted, {weight: 700, tracking: 1.4}));
+    s.push(txt(x + RPAD, y + 24, hs[h].toUpperCase(), 14, h === 0 ? C.ink : C.muted, {weight: 700, tracking: 1.4}));
     const list = byLane(model.items.filter(i => i.h === sourceH));
     const activeH = activeCount(model, sourceH);
-    const baseLbl = condCountLabel(activeH, condCount(model, h));
-    const cntLbl = h === 0 && overWip ? baseLbl + ' · OVER WIP' : baseLbl;
-    s.push(txt(x + COLW - RPAD, y + 24, cntLbl, 12, h === 0 && overWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
+    /* `h` is the visible column position; the window can start midway
+       through the roadmap, so factual counts must always follow sourceH. */
+    const isOverWip = sourceH === 0 && overWip;
+    /* Keep the header as the factual total; conditional work declares itself
+       in its own ruled branch instead of turning the count into an equation. */
+    const baseLbl = String(activeH);
+    const cntLbl = isOverWip ? baseLbl + ' · OVER WIP' : baseLbl;
+    s.push(txt(x + COLW - RPAD, y + 24, cntLbl, 12, isOverWip ? C.err : C.muted, {anchor: 'end', weight: 700}));
+    s.push(line(x, y + 31, x + COLW, y + 31, C.border, 1, 0.9));
 
     const groupSvg = [];
     let cy = colTop;
@@ -436,16 +465,14 @@ export function renderBoardLive(model, ctx){
       }
     }
     if(!list.length){
-      groupSvg.push(rect(x, colTop, COLW, 70, 'none', {rx: 0, stroke: C.border, sw: 1, dash: '4 4'}));
-      groupSvg.push(txt(x + COLW / 2, colTop + 40, 'Nothing scheduled', 13, C.muted, {anchor: 'middle'}));
-      cy = colTop + 70 + 12;
+      groupSvg.push(txt(x + RPAD, colTop + 20, 'Nothing scheduled', 13, C.muted));
+      cy = colTop + 42;
     }
     if(edit){
-      groupSvg.push('<g opacity="0.75"><rect x="' + x + '" y="' + cy + '" width="' + COLW + '" height="26" rx="0" fill="none" stroke="' +
-        C.border + '" stroke-dasharray="2 3"/>' +
+      groupSvg.push('<g data-add-control="" opacity="0"><rect x="' + x + '" y="' + cy + '" width="' + COLW + '" height="26" rx="0" fill="transparent"/>' +
         '<text data-edit="additem" data-lane="" data-col="' + esc(hs[h]) + '" data-line="-1" data-raw="" x="' + (x + 12) +
         '" y="' + (cy + 17) + '" font-size="10" font-weight="700" letter-spacing=".08em" fill="' + C.muted + '"' +
-        btnAttrs('Add item to ' + hs[h]) + '>＋ ADD TO ' + esc(hs[h].toUpperCase()) + '</text></g>');
+        btnAttrs('Add item to ' + hs[h]) + '>＋ ADD</text></g>');
       cy += 26;
     }
     // band UNDER the cards (A2): emitted before groupSvg in the top-level parts

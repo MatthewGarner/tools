@@ -403,17 +403,14 @@ function syncStylePicker(m){
   }
   const narrowNote = $('narrowcomposition');
   if(narrowNote){
-    const name = selectedStyle(m).replace(/^./, c => c.toUpperCase());
-    const width = renderWidth();
-    narrowNote.hidden = !(width && width < 520);
-    narrowNote.textContent = 'Editing uses the shared Grid stack. ' + name + ' remains selected for exports.';
+    /* Named views now have their own phone composition; the old “fallback to
+       Grid” disclaimer would contradict the artefact in front of the reader. */
+    narrowNote.hidden = true;
   }
 }
-/* The Register grouping control lives beside the composition bar only while
-   Register is the active live view and the viewport is wide enough — below the
-   520px narrow bucket the preview always falls back to the chart (the
-   composition bar's own rule), so a grouping control for a view that isn't
-   showing would be noise. */
+/* The Register grouping control remains desktop-only to protect the narrow
+   authoring toolbar. Phone Register still honours `group: outcome`; this only
+   limits where the lens is switched, never what the selected lens renders. */
 function syncGroupPicker(m){
   const el = $('grouppicker');
   const w = renderWidth();                 // number only <520, else undefined
@@ -436,6 +433,7 @@ function syncHeadline(m){
   if(document.activeElement !== el && el.value !== m.headline) el.value = m.headline;
 }
 function boardCapacity(m){
+  if(renderWidth() < 520) return 1;
   /* 220px is the Board’s compact but still full-card reading floor. Above it,
      the live surface earns more horizons; below it, this becomes a window. */
   /* Now/Next/Later is the default reading model, not dense scale. Reclaim the
@@ -450,17 +448,21 @@ function boardWindowFor(m){
   boardWindowStart = window.start;
   return {...window, columnWidth: Math.max(220, Math.floor((Math.max(0, previewEl.getBoundingClientRect().width) - 48 - (window.indices.length - 1) * 24) / window.indices.length))};
 }
-function syncBoardWindow(m, narrow){
+function syncBoardWindow(m){
   const host = $('boardwindow');
-  const show = m.style === 'board' && !narrow && boardCapacity(m) < m.horizons.length;
+  /* Board keeps its commitment-ledger identity on a phone: one navigable
+     horizon is a Board, not a silent fall-through into the Grid stack. */
+  const show = m.style === 'board' && boardCapacity(m) < m.horizons.length;
   host.hidden = !show;
   if(!show) return;
   const window = boardWindowFor(m);
   $('boardprev').disabled = !window.hasPrevious;
   $('boardnext').disabled = !window.hasNext;
-  $('boardrange').textContent = m.horizons[window.start] + ' – ' + m.horizons[window.end - 1] +
-    ' · ' + (window.start + 1) + '–' + window.end + ' of ' + m.horizons.length;
+  const single = window.indices.length === 1;
+  $('boardrange').textContent = single ? (window.start + 1) + ' OF ' + m.horizons.length :
+    m.horizons[window.start] + ' – ' + m.horizons[window.end - 1] + ' · ' + (window.start + 1) + '–' + window.end + ' OF ' + m.horizons.length;
   const jump = $('boardjump');
+  jump.hidden = single;
   const active = document.activeElement === jump;
   if(!active){
     jump.textContent = '';
@@ -509,7 +511,7 @@ function doRefresh(){
   const liveWidth = renderWidth();
   const narrow = !!liveWidth && liveWidth < 520;
   gridStack = shouldGridStack(model);
-  syncBoardWindow(model, narrow);
+  syncBoardWindow(model);
   syncHeadline(model);
   syncWhatIfChip(model);
   syncConditionalityHealth(model);
@@ -532,11 +534,12 @@ function doRefresh(){
        role/aria-label on a coarse pointer promises a cycle CSS already blocks
        (style.css's pointer-events:none default) and VoiceOver would announce
        an unreachable button; the card menu's What-if… rows stay the coarse path. */
-    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer(), boardWindow: model.style === 'board' && !narrow ? boardWindowFor(model) : null};
-    const svg = narrow ? render(projected, {...liveCtx, width: w})
-      : model.style === 'register' ? renderRegisterLive(projected, liveCtx)
-      : model.style === 'board' ? renderBoardLive(projected, liveCtx)
-      : model.style === 'focus' ? renderFocusLive(projected, liveCtx)
+    const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer(), boardWindow: model.style === 'board' ? boardWindowFor(model) : null};
+    const svg = model.style === 'board' ? renderBoardLive(projected, {...liveCtx,
+      boardColumnWidth: narrow ? Math.max(220, w - 48) : undefined})
+      : model.style === 'focus' ? renderFocusLive(projected, {...liveCtx, width: narrow ? w : undefined})
+      : model.style === 'register' ? renderRegisterLive(projected, {...liveCtx, width: narrow ? w : undefined})
+      : narrow ? render(projected, {...liveCtx, width: w})
       : render(projected, {...liveCtx, width: gridStack ? Math.round(previewEl.getBoundingClientRect().width) : w, forceStack: gridStack});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,

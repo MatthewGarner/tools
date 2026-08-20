@@ -63,6 +63,11 @@ test('a note-LESS / status-LESS cell still emits a target with empty data-raw (s
   assert.match(svg, /data-edit="status"[^>]*data-raw=""/);
   assert.match(svg, /data-edit="lane"[^>]*data-raw=""/);
 });
+test('empty Register fields are real but hover-revealed controls, not resting row copy', () => {
+  const svg = live('style: register\nNOW\nAlpha\n');
+  assert.equal((svg.match(/data-empty-control=""/g) || []).length, 3);
+  assert.match(svg, /data-empty-control=""[^>]*opacity="0"/);
+});
 test('every horizon — INCLUDING an empty one — emits a drop band and an +add row', () => {
   const svg = live('style: register\nhorizons: Now, Next, Later\nNOW\nCore: A\n');   // Next & Later empty
   assert.equal((svg.match(/data-hdrop="/g) || []).length, 3, 'a band per horizon incl. the two empty');
@@ -91,4 +96,23 @@ test('long live Register titles and notes grow their review row without elision'
   const svg = live('style: register\nNOW\nCore: ' + title + ' -- ' + note);
   for(const word of ['final', 'accountability', 'verification', 'detail']) assert.match(svg, new RegExp(word));
   assert.doesNotMatch(svg, /…/);
+});
+
+test('phone Register preserves outcome grouping, authored context, and a conditional fact', () => {
+  const source = `style: register
+group: outcome
+headline: The review starts with the reader outcome
+basis: paths "Growth decisions"; answered pricing=yes@2026-08-03
+NOW
+Core: Root [bet: pricing]
+NEXT
+Core: Conditional work [if pricing]`;
+  const svg = renderRegisterLive(parse(source), {colors, measure, edit:true, width:360, today:'2026-08-14'});
+  assert.match(svg, /data-register-layout="phone"/);
+  assert.match(svg, /The review starts with the reader outcome/);
+  assert.match(svg, /DELIVERY PROJECTION · FROM PATHS:/);
+  assert.match(svg, /Growth decisions/);
+  assert.match(svg, /ONLY IF PRICING PAYS OFF/);
+  assert.match(svg, />IF PRICING<\/text>/);
+  assert.doesNotMatch(svg, /data-hdrop=/, 'outcome review is not misrepresented as a horizon drag stack');
 });

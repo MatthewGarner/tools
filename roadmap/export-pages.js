@@ -13,6 +13,11 @@ export const EXPORT_PAGE_UNITS = 12;
    item's factual identity rather than reducing type or writing an ellipsis. */
 const TITLE_FRAGMENT_CHARS = 280;
 const NOTE_FRAGMENT_CHARS = 420;
+/* Grid and Board can have five narrow horizons on one page. Their source
+   fragments are deliberately shorter: page planning must protect actual
+   geometry, never assume a character unit will happen to fit a column. */
+const NARROW_TITLE_FRAGMENT_CHARS = 120;
+const NARROW_NOTE_FRAGMENT_CHARS = 180;
 
 function chunkIndices(total, size){
   const out = [];
@@ -58,9 +63,10 @@ function wordFragments(text, limit){
    fragments. The source item index stays stable on every fragment, which keeps
    coverage and snapshot semantics honest while giving the renderer a bounded
    geometry to lay out. */
-function splitLongItem(item){
-  const titles = wordFragments(item.title, TITLE_FRAGMENT_CHARS);
-  const notes = wordFragments(item.note, NOTE_FRAGMENT_CHARS);
+function splitLongItem(item, style){
+  const narrow = style === 'grid' || style === 'board';
+  const titles = wordFragments(item.title, narrow ? NARROW_TITLE_FRAGMENT_CHARS : TITLE_FRAGMENT_CHARS);
+  const notes = wordFragments(item.note, narrow ? NARROW_NOTE_FRAGMENT_CHARS : NOTE_FRAGMENT_CHARS);
   const count = Math.max(1, titles.length, notes.length);
   if(count === 1) return [item];
   return Array.from({length:count}, (_, index) => ({...item, export:{...item.export,
@@ -92,6 +98,71 @@ function chunkItems(items, unitLimit){
   }
   if(current.length) groups.push(current);
   return groups.length ? groups : [[]];
+}
+
+/* A presentation page is physical geometry, not a character bucket. These
+   estimates mirror the two compositions that can become vertically dense:
+   Grid's packed lane tracks and Board's horizon ledgers. Grid deliberately
+   counts the rendered lane advance (tracks + inter-track gap + lane gap), not
+   a fictional per-lane header: the horizon ruler is drawn once for the whole
+   chart. That keeps an ordinary multi-lane plan on one composed slide without
+   relaxing the physical footer guard for genuinely dense work. */
+const lineCount = (text, chars) => Math.max(1, Math.ceil(String(text || '').length / chars));
+function textOf(item, key){ return item.export?.fragment?.[key] ?? item[key] ?? ''; }
+function itemRun(item){ return Math.max(1, item.span || 1); }
+function gridEstimate(items){
+  const byLane = new Map();
+  for(const item of items){
+    const key = item.lane || 'Unlaned';
+    if(!byLane.has(key)) byLane.set(key, []);
+    const title = lineCount(textOf(item, 'title'), 34);
+    const note = textOf(item, 'note') ? lineCount(textOf(item, 'note'), 38) : 0;
+    const detail = 1 + (item.cond ? 1 : 0) + (item.export?.continuesBefore || item.export?.continuesAfter ? 1 : 0);
+    byLane.get(key).push({h0:item.h, h1:item.h + itemRun(item) - 1, h:Math.max(56, 18 + title * 22 + detail * 15 + note * 17 + 16)});
+  }
+  let total = 0;
+  for(const entries of byLane.values()){
+    const tracks = [];
+    for(const entry of entries){
+      let track = 0;
+      while(track < tracks.length && tracks[track].some(other => !(entry.h1 < other.h0 || entry.h0 > other.h1))) track++;
+      if(track === tracks.length) tracks.push([]);
+      tracks[track].push(entry);
+    }
+    const rows = tracks.map(track => Math.max(...track.map(entry => entry.h)));
+    total += rows.reduce((sum, h) => sum + h, 0) + Math.max(0, rows.length - 1) * 8 + 18;
+  }
+  return total;
+}
+function boardEstimate(items){
+  const byH = new Map();
+  for(const item of items){
+    if(!byH.has(item.h)) byH.set(item.h, []);
+    const title = lineCount(textOf(item, 'title'), 38);
+    const note = textOf(item, 'note') ? lineCount(textOf(item, 'note'), 42) : 0;
+    const detail = 1 + (item.cond ? 1 : 0) + (itemRun(item) > 1 ? 1 : 0);
+    byH.get(item.h).push(Math.max(54, 20 + title * 22 + detail * 15 + note * 17 + 14));
+  }
+  return Math.max(0, ...[...byH.values()].map(rows => rows.reduce((sum, h) => sum + h, 0) + Math.max(0, rows.length - 1) * 12));
+}
+function geometryFits(items, style){
+  const height = style === 'grid' ? gridEstimate(items) : boardEstimate(items);
+  /* The smallest deck body begins above y≈200 and ends before the 968px
+     verdict/footer reserve. 620px leaves real room for labels and a long frame. */
+  return height <= 620;
+}
+function geometryChunks(items, style){
+  const out = [];
+  let current = [];
+  for(const item of items){
+    const next = [...current, item];
+    if(current.length && !geometryFits(next, style)){
+      out.push(current);
+      current = [item];
+    } else current = next;
+  }
+  if(current.length) out.push(current);
+  return out.length ? out : [[]];
 }
 
 /* Focus is a reading composition, not a pager. When a true overflow occurs,
@@ -126,17 +197,21 @@ export function exportPages(model, {
      two mostly empty slides and weakened the selected composition. */
   const perPage = style === 'focus' ? Math.max(1, model.horizons.length) :
     Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
-  /* Focus has one deliberately generous hero; it earns a continuation before
-     twelve short cards quietly turn it into a list. Grid reserves rows for
-     span geometry. Board/Register retain the general twelve-unit budget. */
-  const styleFloor = style === 'focus' ? 8 : EXPORT_PAGE_UNITS;
+  /* Focus has one deliberately generous hero, but a normal twelve-item plan
+     still belongs on one considered slide. Its rail carries the rest at a
+     smaller but readable scale; only a twelfth-plus unit earns a continuation.
+     Grid reserves rows for span geometry. */
+  const styleFloor = EXPORT_PAGE_UNITS;
   const unitLimit = Math.max(1, Math.floor(pageUnits) || styleFloor);
   const chunks = chunkIndices(model.horizons.length, perPage);
   const drafts = chunks.flatMap(indices => {
     const start = indices[0], end = indices.at(-1);
     const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end))
-      .filter(Boolean).flatMap(splitLongItem);
-    const itemGroups = chunkItems(items, unitLimit);
+      .filter(Boolean).flatMap(item => splitLongItem(item, style));
+    const unitGroups = chunkItems(items, unitLimit);
+    const itemGroups = style === 'grid' || style === 'board'
+      ? unitGroups.flatMap(group => geometryChunks(group, style))
+      : unitGroups;
     const pageGroups = style === 'focus' ? rebalanceFocusChunks(itemGroups) : itemGroups;
     return pageGroups.map((pageItems, part) => ({
       start,
