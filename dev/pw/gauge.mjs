@@ -8,14 +8,6 @@ import {NO_STORE} from '../../api/gauge/_response.js';
 
 const PORT = 8091;
 const BASE = 'http://localhost:' + PORT;
-const server = spawn('node', ['../../dev/gauge-dev.mjs', String(PORT)], {stdio: ['ignore', 'pipe', 'inherit']});
-await new Promise((res, rej) => {
-  const to = setTimeout(() => rej(new Error('dev server timeout')), 5000);
-  server.stdout.on('data', d => { if(String(d).includes('listening')){ clearTimeout(to); res(); } });
-  server.on('exit', () => rej(new Error('dev server died')));
-});
-
-const browser = await chromium.launch();
 const results = [];
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 const watchErrors = page => {
@@ -29,7 +21,17 @@ const watchErrors = page => {
   return errors;
 };
 
+let server;
+let browser;
 try{
+  server = spawn('node', ['../../dev/gauge-dev.mjs', String(PORT)], {stdio: ['ignore', 'pipe', 'inherit']});
+  await new Promise((res, rej) => {
+    const to = setTimeout(() => rej(new Error('dev server timeout')), 5000);
+    server.stdout.on('data', d => { if(String(d).includes('listening')){ clearTimeout(to); res(); } });
+    server.on('exit', () => rej(new Error('dev server died')));
+  });
+  browser = await chromium.launch();
+
   const relayProbe = await fetch(BASE + '/api/gauge', {
     method: 'POST', headers: {'content-type': 'application/json'}, body: '{}',
   });
@@ -45,7 +47,8 @@ try{
   await pageF.waitForTimeout(400);
   await pageF.locator('#startbtn').click();
   await pageF.waitForSelector('#console:not([hidden])', {timeout: 10000});
-  check('facilitator: console mode after start', true);
+  check('facilitator: console mode after start',
+    await pageF.locator('#console').isVisible() && !(await pageF.locator('#compose').isVisible()));
 
   /* The console generates the compressed participant URL asynchronously.
      Waiting on its value—not an incidental button state—keeps this check
@@ -79,7 +82,9 @@ try{
   }
   const A = await participant('light', 80, 4, 8);
   const B = await participant('dark', 20, 30, 50);
-  check('participants: both submitted', true);
+  check('participants: both submitted',
+    /Submitted/.test(await A.page.locator('#pstatus').innerText()) &&
+    /Submitted/.test(await B.page.locator('#pstatus').innerText()));
   await A.page.reload({waitUntil: 'networkidle'});
   check('participant: reload restores the local draft before relay status can repaint it',
     await A.page.locator('.q[data-q="0"] input[type=range]').inputValue() === '80' &&
@@ -89,7 +94,8 @@ try{
   /* facilitator poll picks the count up (5s ± jitter cadence) */
   await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('2'),
     null, {timeout: 20000});
-  check('facilitator: poll shows 2 responses', true);
+  check('facilitator: poll shows 2 responses',
+    (await pageF.locator('#ccount').innerText()).trim() === '2 people have responded');
 
   check('facilitator: exports hidden before reveal', !(await pageF.locator('#cexports').isVisible()));
   check('facilitator: round-2 button hidden before reveal', !(await pageF.locator('#cround2wrap').isVisible()));
@@ -133,12 +139,14 @@ try{
   /* post-reveal edit rejected by the server */
   await B.page.locator('#psubmit').click();
   await B.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('locked'));
-  check('participant: post-reveal edit rejected', true);
+  check('participant: post-reveal edit rejected',
+    /locked/.test(await B.page.locator('#pstatus').innerText()));
 
   /* participant pulls the overlay on demand */
   await B.page.locator('#pview').click();
   await B.page.waitForSelector('#presult svg', {timeout: 5000});
-  check('participant: results pulled on demand', true);
+  check('participant: results pulled on demand',
+    await B.page.locator('#presult').isVisible() && await B.page.locator('#presult svg').count() === 1);
   check('participant: revealed result includes the same textual receipt',
     await B.page.locator('#presult [data-result-receipt]').count() === 1);
 
@@ -175,8 +183,17 @@ try{
   /* Delphi round 2: open (two-step arm), A revises, B stands pat, reveal both rounds */
   await pageF.locator('#cround2').click();
   await pageF.locator('#cround2').click();
-  await pageF.waitForFunction(() => document.getElementById('creveal').textContent === 'Reveal round 2');
-  check('facilitator: round 2 opens and reveal re-arms', true);
+  await pageF.waitForFunction(() => {
+    const reveal = document.getElementById('creveal');
+    return reveal.textContent === 'Reveal round 2' && !reveal.disabled;
+  });
+  const round2Reveal = await pageF.locator('#creveal').evaluate(el => ({
+    text: el.textContent,
+    disabled: el.disabled,
+    visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+  }));
+  check('facilitator: round 2 opens and reveal re-arms',
+    round2Reveal.text === 'Reveal round 2' && !round2Reveal.disabled && round2Reveal.visible);
 
   await A.page.locator('.q[data-q="0"] input[type=range]').evaluate(el => {
     el.value = '40';
@@ -184,24 +201,29 @@ try{
   });
   await A.page.locator('#psubmit').click();
   await A.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Submitted'));
-  check('participant: round-2 resubmission accepted', true);
+  check('participant: round-2 resubmission accepted',
+    /Submitted/.test(await A.page.locator('#pstatus').innerText()));
 
   await B.page.locator('#pview').click();
   await B.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Round 2'));
-  check('participant: round-2 notice on view', true);
+  check('participant: round-2 notice on view',
+    /Round 2/.test(await B.page.locator('#pstatus').innerText()));
 
   await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('1 of 2'),
     null, {timeout: 20000});
-  check('facilitator: round-2 count shows revisions vs carry-forward', true);
+  check('facilitator: round-2 count shows revisions vs carry-forward',
+    /1 of 2/.test(await pageF.locator('#ccount').innerText()));
 
   /* Bug-2 regression: a newcomer who skipped round 1 submits in round 2. The
      denominator is the whole final room (A,B,C = 3), never the round-1 count — it
      must read "2 of 3", never "2 of 2" (pre-fix) or the "2 of 1" nonsense. */
   const C = await participant('light', 55, 10, 14);
-  check('participant C: newcomer submits in round 2', true);
+  check('participant C: newcomer submits in round 2',
+    /Submitted/.test(await C.page.locator('#pstatus').innerText()));
   await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('2 of 3'),
     null, {timeout: 20000});
-  check('facilitator: round-2 newcomer counts into the final room (no "N of fewer")', true);
+  check('facilitator: round-2 newcomer counts into the final room (no "N of fewer")',
+    /2 of 3/.test(await pageF.locator('#ccount').innerText()));
 
   await pageF.locator('#creveal').click();
   await pageF.locator('#creveal').click();
@@ -214,7 +236,9 @@ try{
 
   await B.page.locator('#pview').click();
   await B.page.waitForFunction(() => document.getElementById('presult').innerHTML.includes('DELPHI'));
-  check('participant: delphi results pulled on demand', true);
+  check('participant: delphi results pulled on demand',
+    await B.page.locator('#presult').isVisible() &&
+    /DELPHI/.test(await B.page.locator('#presult').innerText()));
   check('facilitator: round-2 button gone once round 2 is open',
     !(await pageF.locator('#cround2wrap').isVisible()));
 
@@ -224,13 +248,16 @@ try{
   await pageF.locator('#cend').click();
   await pageF.locator('#cend').click();
   await pageF.waitForFunction(() => document.getElementById('cend').textContent === 'Session ended');
-  check('facilitator: end session deletes relay entry', true);
+  check('facilitator: end session deletes relay entry',
+    (await pageF.locator('#cend').textContent()).trim() === 'Session ended' &&
+    /Responses deleted/.test(await pageF.locator('#csessionstatus').innerText()));
   check('facilitator: end confirmation remains visible after the reveal action is removed',
     await pageF.locator('#csessionstatus').isVisible() &&
     /Responses deleted/.test(await pageF.locator('#csessionstatus').innerText()));
   await A.page.locator('#pview').click();
   await A.page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('ended'));
-  check('participant: view after end says session ended', true);
+  check('participant: view after end says session ended',
+    /ended/.test(await A.page.locator('#pstatus').innerText()));
   check('facilitator: exports still offered after end', await pageF.locator('#cexports').isVisible());
 
   check('no console errors (facilitator)', errF.length === 0);
@@ -251,7 +278,8 @@ try{
     await cf.waitForFunction(() => document.getElementById('joinlink').value.includes('#'),
       null, {timeout: 10000});
     const cJoin = await cf.locator('#joinlink').inputValue();
-    check('chips: session composed and started', true);
+    check('chips: session composed and started',
+      await cf.locator('#console').isVisible() && /^http:\/\/localhost:8091\/gauge\/#.+/.test(cJoin));
 
     /* submit is blocked while the chips sum ≠ 100; a + stepper adds 5, clamped */
     {
@@ -314,9 +342,14 @@ try{
     check('chips phone: no page h-scroll (' + sw + ' <= ' + vw + ')', sw <= vw + 1);
     await mctx.close();
   }
+}catch(error){
+  check('unexpected suite error: ' + (error?.message || String(error)), false);
 }finally{
-  await browser.close();
-  server.kill();
+  if(browser){
+    try{ await browser.close(); }
+    catch(error){ check('browser cleanup: ' + (error?.message || String(error)), false); }
+  }
+  if(server && !server.killed) server.kill();
 }
 console.log(results.join('\n'));
 report('gauge', {...tally(results), min: 46});   // ~90% of 52 measured 2026-08-16 (was 20 — 62% could vanish)

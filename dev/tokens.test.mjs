@@ -83,10 +83,15 @@ function tokensReadAtRuntime(){
    which one is which. `n` guards against matching a rule that merely uses tokens. */
 function themeBlocks(file, n){
   return [...readFileSync(join(ROOT, file), 'utf8').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .map(m => ({
-      sel: m[1].trim().replace(/\s+/g, ' ').split('*/').pop().trim(),
-      tokens: new Set([...m[2].matchAll(/(--[a-z0-9-]+)\s*:/g)].map(x => x[1])),
-    }))
+    .map(m => {
+      const values = new Map([...m[2].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;}]+)(?:;|$)/g)]
+        .map(x => [x[1], x[2].trim()]));
+      return {
+        sel: m[1].trim().replace(/\s+/g, ' ').split('*/').pop().trim(),
+        tokens: new Set(values.keys()),
+        values,
+      };
+    })
     .filter(b => b.tokens.size >= n);
 }
 
@@ -135,3 +140,90 @@ test('energy.css overrides the same tokens in every theme block, and invents non
     assert.ok(base.has(token), 'energy.css overrides ' + token + ', which tokens.css never ' +
       'declares — on the tools origin that token would resolve to \'\'');
 });
+
+/* Every theme custom property is a colour except the deliberately polymorphic
+   box-shadow slot. This exclusion makes a newly added theme token fail as a
+   colour until it is either given a valid colour or consciously classified. */
+const NON_COLOR_THEME_TOKENS = new Set(['--shadow']);
+
+function validColor(value){
+  if(value === 'transparent') return true;
+  if(/^#[0-9a-f]{3,4}$/i.test(value) || /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) return true;
+  const m = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
+  if(!m) return false;
+  if(value.toLowerCase().startsWith('rgba') !== (m[4] != null)) return false;
+  const channels = m.slice(1, 4).map(Number);
+  const alpha = m[4] == null ? 1 : Number(m[4]);
+  return channels.every(n => Number.isFinite(n) && n >= 0 && n <= 255) &&
+    Number.isFinite(alpha) && alpha >= 0 && alpha <= 1;
+}
+
+function resolvedThemes(overrides){
+  const base = themeBlocks('assets/tokens.css', 10);
+  if(!overrides) return base;
+  const extra = themeBlocks(overrides, 3);
+  return base.map((block, i) => ({
+    sel: 'energy ' + block.sel,
+    values: new Map([...block.values, ...extra[i].values]),
+  }));
+}
+
+for(const [label, file] of [['tools', null], ['energy', 'assets/energy.css']]){
+  test(label + ' colour tokens have valid CSS colour values in every resolved theme', () => {
+    for(const block of resolvedThemes(file)){
+      for(const [token, value] of block.values){
+        if(NON_COLOR_THEME_TOKENS.has(token)) continue;
+        assert.ok(validColor(value), block.sel + ' has invalid ' + token + ': ' + value);
+      }
+    }
+  });
+}
+
+function rgb(hex){
+  const raw = hex.slice(1);
+  const six = raw.length === 3 ? [...raw].map(c => c + c).join('') : raw.slice(0, 6);
+  return [0, 2, 4].map(i => parseInt(six.slice(i, i + 2), 16) / 255);
+}
+
+function luminance(hex){
+  const linear = rgb(hex).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+  return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+}
+
+function contrast(a, b){
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + .05) / (lo + .05);
+}
+
+/* These are tokens used as normal-size HTML text on the shared page surfaces.
+   Deliberately exclude chart/mark colours: WCAG text contrast is not the right
+   contract for decorative SVG geometry. brand-on/brand is the primary button. */
+const SURFACE_TEXT = [
+  '--ink', '--muted', '--accent-ink', '--brand-text', '--err', '--st-done',
+  '--st-done-ink', '--st-doing-ink', '--st-risk-ink', '--st-blocked-ink',
+];
+
+for(const [label, file] of [['tools', null], ['energy', 'assets/energy.css']]){
+  test(label + ' semantic text colours meet WCAG AA on their actual surfaces', () => {
+    for(const block of resolvedThemes(file)){
+      for(const foreground of SURFACE_TEXT){
+        for(const surface of ['--bg', '--card']){
+          const fg = block.values.get(foreground);
+          const bg = block.values.get(surface);
+          assert.match(fg, /^#[0-9a-f]{6}$/i, foreground + ' must be an opaque six-digit hex');
+          assert.match(bg, /^#[0-9a-f]{6}$/i, surface + ' must be an opaque six-digit hex');
+          const ratio = contrast(fg, bg);
+          assert.ok(ratio >= 4.5, block.sel + ' ' + foreground + ' on ' + surface +
+            ' is ' + ratio.toFixed(2) + ':1; normal text requires 4.5:1');
+        }
+      }
+      const brandOn = block.values.get('--brand-on');
+      const brand = block.values.get('--brand');
+      assert.match(brandOn, /^#[0-9a-f]{6}$/i, '--brand-on must be an opaque six-digit hex');
+      assert.match(brand, /^#[0-9a-f]{6}$/i, '--brand must be an opaque six-digit hex');
+      const button = contrast(brandOn, brand);
+      assert.ok(button >= 4.5, block.sel + ' --brand-on on --brand is ' +
+        button.toFixed(2) + ':1; primary-button text requires 4.5:1');
+    }
+  });
+}

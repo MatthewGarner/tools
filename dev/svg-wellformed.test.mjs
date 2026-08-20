@@ -63,8 +63,8 @@ test('every golden fill/stroke hex colour has a valid length', () => {
   const OK = new Set([3, 4, 6, 8]);
   for(const file of readdirSync(dir).filter(f => f.endsWith('.svg'))){
     const svg = readFileSync(new URL(file, dir), 'utf8');
-    for(const m of svg.matchAll(/(?:fill|stroke)="#([0-9a-fA-F]+)"/g)){
-      assert.ok(OK.has(m[1].length), file + ': invalid hex colour #' + m[1]);
+    for(const m of svg.matchAll(/(?:fill|stroke)=(['"])#([0-9a-fA-F]+)\1/g)){
+      assert.ok(OK.has(m[2].length), file + ': invalid hex colour #' + m[2]);
     }
   }
 });
