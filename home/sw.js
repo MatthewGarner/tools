@@ -268,9 +268,13 @@ const PRECACHE = [
   '/why/motion-spec.js',
   '/why/parse.js',
   '/why/project.js',
-  '/why/render-map.js',
-  '/why/render-ost.js',
-  '/why/render-presentation.js',
+  '/why/render-causal-field.js',
+  '/why/render-delivery-lens.js',
+  '/why/causal-field-contract.js',
+  '/why/causal-presentation.js',
+  '/why/causal-field.js',
+  '/why/readiness-presentation.js',
+  '/why/readiness-ledger.js',
   '/why/starter.js',
   '/why/style.css'
 ];

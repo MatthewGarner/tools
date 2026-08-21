@@ -311,19 +311,20 @@ test('roadmap exhaustive deck pages escape hostile frame and card text in the co
   renderDeckPages(parse(doc), ctx).pages.forEach((svg, i) => assertClean(svg, 'roadmap-deck-pages-' + i));
 });
 
-test('why renderers escape hostile labels in both projections', async () => {
+test('Why Field and Lens renderers escape hostile labels in every live and presentation projection', async () => {
   const {parse} = await import('../why/parse.js');
   const {project} = await import('../why/project.js');
-  const {renderOst} = await import('../why/render-ost.js');
-  const {renderMap} = await import('../why/render-map.js');
-  const {renderWhyPresentation} = await import('../why/render-presentation.js');
+  const {renderCausalField} = await import('../why/render-causal-field.js');
+  const {renderDeliveryLens} = await import('../why/render-delivery-lens.js');
+  const {renderCausalPresentation} = await import('../why/causal-presentation.js');
   const doc = 'outcome: ' + EVIL[1] + '\n  ' + EVIL[2] + '\n    ' + EVIL[3] + ' [testing]\n      ? ' + EVIL[4];
   const m = parse(doc), pr = project(m);
-  assertClean(renderOst(m, pr, {...ctx, edit: true}), 'why-ost');
-  assertClean(renderOst(m, pr, {...ctx, edit: true, width: 360}), 'why-ost-narrow');
-  assertClean(renderMap(m, pr, ctx), 'why-map');
-  assertClean(renderMap(m, pr, {...ctx, width: 360}), 'why-map-narrow');
-  assertClean(renderWhyPresentation(m, ctx), 'why-presentation');
+  assertClean(renderCausalField(m, pr, {...ctx, edit: true}), 'why-causal-field');
+  assertClean(renderCausalField(m, pr, {...ctx, edit: true, width: 360}), 'why-causal-field-narrow');
+  assertClean(renderDeliveryLens(m, pr, ctx), 'why-delivery-lens');
+  assertClean(renderDeliveryLens(m, pr, {...ctx, width: 360}), 'why-delivery-lens-narrow');
+  assertClean(renderDeliveryLens(m, pr, {...ctx, intent: 'presentation'}), 'why-delivery-lens-presentation');
+  assertClean(renderCausalPresentation(m, ctx), 'why-causal-presentation');
 });
 
 test('tree renderer escapes hostile option labels', async () => {

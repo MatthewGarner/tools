@@ -1012,11 +1012,9 @@ for(const [name, url, chip] of WIDENED){
   await fctx.close();
 }
 
-// why OST narrow relayout gate (Task 4): on phone width the OST view must be
-// a single-column indented outline (cards clustered near the left margin),
-// not the wide left-to-right box tree (cards spread across ~600px+). Card
-// x-positions only vary by the clamped indent (depth<=3 * 16px + a little
-// slack), so a small spread proves the stack, not the tree.
+// Why / Causal Field: phone is an explicit source-order reading surface, not
+// a shrunken desktop tree. Every row has a full breadcrumb and a finger-size
+// contextual route; no document-level horizontal scroll is allowed.
 {
   const page = await ctx.newPage();
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
@@ -1029,19 +1027,23 @@ for(const [name, url, chip] of WIDENED){
     const rects = [...document.querySelectorAll('#preview svg rect[data-hit]')]
       .map(el => el.getBoundingClientRect());
     const xs = rects.map(r => r.x);
-    return {count: rects.length, spread: rects.length ? Math.max(...xs) - Math.min(...xs) : 0};
+    const svg = document.querySelector('#preview svg');
+    return {count: rects.length, spread: rects.length ? Math.max(...xs) - Math.min(...xs) : 0,
+      targets: rects.every(r => r.width >= 44 && r.height >= 44),
+      field: svg?.dataset.causalLayout === 'stack',
+      route: [...document.querySelectorAll('[data-causal-breadcrumb]')].some(el => el.getAttribute('data-causal-breadcrumb').includes('Improve 90-day retention')),
+      width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth};
   });
-  ok(stack.count >= 3, `why: OST narrow renders multiple cards (${stack.count})`);
+  ok(stack.field && stack.count >= 3, `why: Causal Field phone renders source-ordered claims (${stack.count})`);
   ok(stack.spread <= 60,
-    `why: OST narrow is a single-column indented stack, not the wide LTR tree (card x-spread ${stack.spread}px)`);
+    `why: Causal Field phone is a single-column indented stack, not a scaled desktop tree (x-spread ${stack.spread}px)`);
+  ok(stack.route, 'why: Causal Field phone keeps a full visible causal breadcrumb');
+  ok(stack.targets, 'why: Causal Field phone menu targets are all at least 44px');
+  ok(stack.scrollWidth <= stack.width + 1, `why: Causal Field phone has no page h-scroll (${stack.scrollWidth} <= ${stack.width})`);
   await page.close();
 }
 
-// why deep-tree depth clamp (Task 4): a deliberately 5-level-deep opportunity
-// chain (opportunities nest freely — only solution/assumption depth is
-// warned) must not collapse to zero-width or blow out the page. Loaded via
-// the hash-state boot path (the reliable way to seed an exact fixture,
-// vs. fighting CodeMirror's literal-space indentation over keyboard.type).
+// A retained malformed/deep source still has a legible compact Field route.
 {
   const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Readers lose their place between sessions\n' +
     '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
@@ -1060,20 +1062,17 @@ for(const [name, url, chip] of WIDENED){
     return {count: rects.length, minW: rects.length ? Math.min(...rects.map(r => r.width)) : 0,
       xs: [...new Set(rects.map(r => Math.round(r.x)))]};
   });
-  ok(deep.count >= 6, `why: deep-tree fixture renders every depth as its own card (${deep.count})`);
-  ok(deep.minW >= 100, `why: deep-tree fixture — even the deepest clamped card stays legible (min width ${Math.round(deep.minW)}px)`);
+  ok(deep.count >= 6, `why: deep-tree fixture retains every authored source claim (${deep.count})`);
+  ok(deep.minW >= 100, `why: deep-tree fixture — even the deepest clamped claim stays legible (min width ${Math.round(deep.minW)}px)`);
   // depths 3, 4 and 5 share ONE indent (the clamp) — so distinct x positions
   // should be 4 (depths 0,1,2, and the shared 3+ indent), not 6.
   ok(deep.xs.length === 4, `why: deep-tree fixture clamps depth>=3 to a single shared indent (${deep.xs.length} distinct x positions)`);
   await page.close();
 }
 
-// why map-view narrow outcome-band-heading gate (whole-branch review fix):
-// roadmap's renderNarrow never read model.laneGroups, so a MULTI-outcome
-// tree lost its outcome grouping entirely at phone width — every lane
-// rendered as an identical muted sub-label with no heading tying it to an
-// outcome. A two-outcome tree must show BOTH accent/serif band headings in
-// the narrow map view; this assertion fails against the pre-fix renderer.
+// Why / Delivery Lens: a distinct phone readiness ledger retains source paths,
+// truthful per-kind menu routes, 44px menu planes and the no-write menu-open
+// guarantee. It must never collapse back to Causal Field or a temporal board.
 {
   const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Readers lose their place between sessions\n' +
     '    Reading reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
@@ -1084,9 +1083,26 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
-  const map = await page.locator('#preview svg').innerHTML();
-  ok(map.includes('IMPROVE 90-DAY RETENTION'), 'why: narrow map view shows the first outcome band heading');
-  ok(map.includes('GROW REFERRAL REVENUE'), 'why: narrow map view shows the second outcome band heading (multi-outcome grouping preserved at phone width)');
+  const baseline = await page.evaluate(() => localStorage.getItem('why-src'));
+  const lens = await page.locator('#preview svg').innerHTML();
+  ok(lens.includes('data-readiness-layout="stack"') && lens.includes('DELIVERING') && lens.includes('TESTING') && lens.includes('UNADDRESSED'),
+    'why: Delivery Lens phone preserves its stacked readiness ledger and factual columns');
+  ok(lens.includes('Grow referral revenue → Sharing feels braggy'),
+    'why: Delivery Lens phone keeps the complete outcome-to-opportunity path visible');
+  const opportunity = page.locator('#preview svg rect[data-edit="cardmenu-opportunity"][data-line="9"][data-hit]');
+  await opportunity.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box = await opportunity.boundingBox();
+  await page.mouse.click(box.x + 1, box.y + 1);
+  await page.waitForTimeout(300);
+  ok(box.width >= 44 && box.height >= 44, `why: Delivery Lens phone opportunity menu plane is >=44px (${Math.round(box.width)}×${Math.round(box.height)})`);
+  ok((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add solution|Remove branch',
+    'why: Delivery Lens phone unaddressed opportunity opens opportunity actions, never solution status');
+  await page.waitForTimeout(250);
+  ok((await page.evaluate(() => localStorage.getItem('why-src'))) === baseline,
+    'why: Delivery Lens phone menu open writes no source text');
+  const dims = await page.evaluate(() => ({width:document.documentElement.clientWidth, scrollWidth:document.documentElement.scrollWidth}));
+  ok(dims.scrollWidth <= dims.width + 1, `why: Delivery Lens phone has no page h-scroll (${dims.scrollWidth} <= ${dims.width})`);
   await page.close();
 }
 

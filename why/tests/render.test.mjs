@@ -1,11 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {fileURLToPath} from 'node:url';
 import {parse} from '../parse.js';
 import {project} from '../project.js';
-import {renderOst} from '../render-ost.js';
-import {renderMap} from '../render-map.js';
+import {renderCausalField as renderOst} from '../render-causal-field.js';
+import {renderDeliveryLens as renderMap} from '../render-delivery-lens.js';
 
 const ctx = (extra = {}) => ({
   colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667', accent:'#08c',
@@ -29,20 +27,19 @@ const run = (renderer, doc = DOC, extra = {}) => {
   return renderer(m, project(m), ctx(extra));
 };
 
-test('map view: outcome band, opportunity lanes, ghost chip, audit badges', () => {
+test('Delivery Lens: derived readiness columns, audit facts, and no-why integrity stay explicit', () => {
   const svg = run(renderMap);
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
-  assert.ok(svg.includes('IMPROVE 90-DAY RETENTION'), 'outcome band header');
+  assert.ok(svg.includes('DELIVERING') && svg.includes('TESTING') && svg.includes('UNADDRESSED'));
   assert.ok(svg.includes('Resume where you left off'));
-  assert.ok(svg.includes('CHOOSING THE NEXT'), 'unaddressed opportunity is a lane');
-  assert.ok(svg.includes('no committed solution yet'), 'ghost chip instead of repeated title');
-  assert.ok(svg.includes('stroke-dasharray'), 'ghost card dashed');
+  assert.ok(svg.includes('Choosing the next book is work'), 'unaddressed opportunity remains named');
   assert.ok(svg.includes('UNTESTED BET'), 'reading reminders flagged');
-  assert.ok(svg.includes('NO WHY'), 'orphan flagged');
+  assert.ok(svg.includes('NO WHY') && svg.includes('INTEGRITY EXCEPTION'), 'orphan remains a factual exception');
+  assert.doesNotMatch(svg, /\bNOW\b|\bNEXT\b|\bLATER\b/, 'delivery readiness is not a timeline');
 });
 
-test('map view: deeper unaddressed sub-opportunity renders as named OPPORTUNITY card', () => {
+test('Delivery Lens: a deeper unaddressed opportunity keeps its authored identity', () => {
   const doc = [
     'outcome: O',
     '  Big need',
@@ -51,128 +48,98 @@ test('map view: deeper unaddressed sub-opportunity renders as named OPPORTUNITY 
     '    Ignored sub',
   ].join('\n');
   const svg = run(renderMap, doc);
-  assert.ok(svg.includes('Ignored sub'), 'named card, not ghost');
-  assert.ok(svg.includes('OPPORTUNITY'), 'opportunity capsule');
-  assert.ok(svg.includes('BIG NEED'), 'sits in its first-level lane');
+  assert.ok(svg.includes('Ignored sub'), 'named row, never a generic placeholder');
+  assert.match(svg, /data-readiness-column="unaddressed"/);
+  assert.ok(svg.includes('Addressed sub'), 'its causal sibling remains represented in the path');
 });
 
-test('map view: broken assumption badge in err colour', () => {
+test('Delivery Lens: broken assumption stays an alert fact in error colour', () => {
   const doc = 'outcome: O\n  Need\n    Shaky [delivering]\n      ? belief [broken]';
   const svg = run(renderMap, doc);
   assert.ok(svg.includes('BROKEN ASSUMPTION'));
   assert.ok(svg.includes('#b33'), 'err colour used');
 });
 
-/* Gate B: committed solutions with a broken assumption stay live entries
-   (project() untouched — see project.test.mjs) but render.map view as a
-   distinct at-risk ghost: dashed border + the loud BROKEN ASSUMPTION badge,
-   fully legible and fully editable — never roadmap's `ghost`/`worldState`
-   vocabulary (those mean an authored roadmap fact, not "this tree still
-   says delivering but its own assumption broke"). */
-test('map view: broken-assumption solution is a dashed at-risk ghost, stays editable', () => {
+test('Delivery Lens: broken-assumption solution stays a live, editable ledger row', () => {
   const doc = 'outcome: O\n  Need\n    Shaky [delivering]\n      ? belief [broken]';
   const svg = run(renderMap, doc, {edit: true});
   assert.ok(svg.includes('BROKEN ASSUMPTION'), 'badge stays legible');
-  assert.ok(svg.includes('stroke-dasharray="3 3"'), 'at-risk ghost is dashed');
-  assert.ok(svg.includes('data-edit="cardmenu"') && svg.includes('data-edit="title"'),
-    'stays fully editable — never the ghost treatment, which strips data-edit');
+  assert.ok(svg.includes('data-edit="cardmenu-solution"') && svg.includes('data-edit="label"'),
+    'stays fully editable without turning a live claim into a ghost');
   assert.ok(!svg.includes('worldState'), 'never roadmap\'s worldState vocabulary');
 });
 
-test('map view: healthy doc (no broken assumptions) carries no at-risk markup — untested/no-why unaffected', () => {
+test('Delivery Lens: healthy rows do not inherit broken-assumption alert treatment', () => {
   const svg = run(renderMap);   // DOC: testing+untested, delivering+holds, delivering+no-why — no broken assumption anywhere
   assert.ok(svg.includes('UNTESTED BET'));
   assert.ok(svg.includes('NO WHY'));
-  /* the only stroke-dasharray in a healthy map is the ghost placeholder chip
-     ('no committed solution yet'), never a real card */
-  const cardDash = /<rect data-hit="" [^>]*stroke-dasharray/;
-  assert.ok(!cardDash.test(svg), 'no real card is dashed without a broken assumption');
+  assert.doesNotMatch(svg, /#b33/, 'no-why is an integrity fact; only a broken claim earns alert colour');
+  assert.doesNotMatch(svg, /data-readiness-audit="broken assumption"/);
+  assert.doesNotMatch(svg, /stroke-dasharray/, 'readiness remains a ruled ledger, not a ghost-card view');
 });
 
-test('map view: no-why + broken-assumption composite keeps both facts (NO WHY lane placement + BROKEN ASSUMPTION badge), same at-risk treatment', () => {
+test('Delivery Lens: no-why + broken-assumption composite keeps both facts', () => {
   const doc = 'outcome: O\n  Orphan [delivering]\n    ? belief [broken]';
-  /* an orphan solution has no opportunity ancestor, so it renders in the
-     "no why" lane rather than under a named opportunity */
   const svg = run(renderMap, doc);
-  assert.ok(svg.includes('⚠ no why') || svg.includes('no why'), 'NO WHY lane placement kept');
+  assert.ok(svg.includes('NO WHY') && svg.includes('INTEGRITY EXCEPTION'));
   assert.ok(svg.includes('BROKEN ASSUMPTION'), 'BROKEN ASSUMPTION badge kept');
-  assert.ok(svg.includes('stroke-dasharray="3 3"'), 'no-why + broken composite is still an at-risk ghost');
+  assert.match(svg, /data-readiness-column="no-why"/);
 });
 
-test('ost view: cards, status pills, assumption glyphs, dashed unaddressed', () => {
-  const svg = run(renderOst);
+test('Causal Field: four rails retain claims and wrap authored long assumptions', () => {
+  const svg = run(renderOst, DOC + '\n  Extra need\n    Extra fix [testing]\n      ? a deliberately long assumption whose authored words must wrap within the assumption rail');
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
-  assert.ok(svg.includes('DELIVERING') && svg.includes('TESTING'));
-  /* long assumptions wrap inside the card instead of overflowing it */
-  assert.ok(svg.includes('? users want to'));
-  assert.ok(svg.includes('be interrupted'));
-  assert.ok(!svg.includes('>? users want to be interrupted<'), 'row wrapped, not overflowing');
-  assert.ok(svg.includes('✓ freezes reduce churn'));
-  assert.ok(svg.includes('stroke-dasharray'), 'unaddressed opportunity dashed');
+  for(const stage of ['OUTCOME','OPPORTUNITY','SOLUTION','ASSUMPTION']) assert.ok(svg.includes(stage));
+  assert.ok(svg.includes('DELIVERING') && svg.includes('TESTING') && svg.includes('HOLDS'));
+  assert.ok(svg.includes('a deliberately long assumption'));
+  assert.ok(svg.includes('authored words must wrap within the'));
+  assert.ok(svg.includes('assumption rail'));
+  assert.ok(!svg.includes('>a deliberately long assumption whose authored words must wrap within the assumption rail<'), 'row wrapped, not overflowing');
+  assert.doesNotMatch(svg, /stroke-dasharray/, 'claims are connected by quiet rules, not dashed cards');
 });
 
-/* Swiss 6c: the status tag is the house square — a tinted FILL in the status
-   hue with the LABEL in that hue's contrast-boosted `-ink` variant. Both states
-   keep a fill AND a label, so nothing rests on colour alone, and the tool's five
-   solution states survive (the mockup's two-state blue/ink would lose three). */
-test('ost status tags: tinted fill in the status hue, label in its -ink variant', () => {
-  const INK = {colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667',
-    accent:'#0088CC', accentInk:'#0A6C94', bg:'#f7f8f6', err:'#b33',
-    status:{done:'#1D7A3E', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'},
-    statusInk:{done:'#1C753C', doing:'#1A44C2', risk:'#8E6200', blocked:'#B3403A'}},
-    measure: t => t.length * 7};
+test('Causal Field: state remains explicit in wide and phone layouts without ornamental fills', () => {
   const m = parse(DOC);
-  for(const [name, extra] of [['wide', {}], ['narrow', {width: 380}]]){
-    const svg = renderOst(m, project(m), {...INK, ...extra});
-    assert.match(svg, /rx="0" fill="#1D7A3E1F"/, name + ': delivering fill is the 12% status tint');
-    assert.match(svg, /fill="#1C753C"[^>]*>DELIVERING</, name + ': delivering label is the -ink variant');
-    assert.ok(!/fill="#1D7A3E"[^>]*>DELIVERING</.test(svg), name + ': the un-boosted hue is not used as label text');
-    /* the holding assumption reads in the same boosted ink, and keeps its glyph */
-    assert.match(svg, /fill="#1C753C"[^>]*>✓ freezes reduce churn</, name + ': ✓ glyph + boosted ink');
-    /* the model's palette accent has no -ink token of its own, so the TESTING
-       tag stays a single hue — fill tint plus label, as it always was */
-    assert.match(svg, /rx="0" fill="#1F4FD81F"/, name + ': testing fill is the palette accent tint');
-    assert.match(svg, /fill="#1F4FD8"[^>]*>TESTING</, name + ': testing label stays the palette accent');
+  for(const [name, extra] of [['wide', {}], ['phone', {width: 380}]]){
+    const svg = renderOst(m, project(m), {...ctx(), ...extra});
+    assert.ok(svg.includes('data-causal-state="delivering"'), name + ': delivering remains explicit');
+    assert.ok(svg.includes('data-causal-state="holds"'), name + ': assumption claim remains explicit');
+    assert.doesNotMatch(svg, /rx="0" fill="#[\da-fA-F]+1F"/, name + ': no decorative state tint');
   }
 });
 
-test('ost status labels defer pointer input to their canonical pill target', () => {
+test('Causal Field: state control has a separate full-height edit target', () => {
   const m = parse(DOC);
   const svg = renderOst(m, project(m), ctx({edit: true}));
-  assert.match(svg, /data-edit="status"[\s\S]*<text[^>]*pointer-events="none">TESTING<\/text>/);
+  assert.match(svg, /<rect data-edit="status"[^>]*data-hit=""[^>]*height="44"/);
+  assert.match(svg, /<text data-causal-state="testing"[^>]*>TESTING<\/text>/);
 });
 
-/* A ctx without the -ink tokens (older callers, the test harnesses) must still
-   render — it falls back to the fill hue rather than emitting undefined. */
-test('ost status tags fall back to the fill hue when no -ink tokens are supplied', () => {
+test('Causal Field: minimal token contexts do not leak undefined paint', () => {
   const svg = run(renderOst);
   assert.ok(!svg.includes('undefined'));
-  assert.match(svg, /fill="#1D7A3E"[^>]*>DELIVERING</);
+  assert.ok(svg.includes('DELIVERING'));
 });
 
-/* A hue tint() can't build (anything but a 6-digit hex) must not leave the tag
-   as bare coloured text — it outlines instead, so the state is still a SHAPE. */
-test('ost status tags outline when the hue admits no tint (never colour alone)', () => {
+test('Causal Field: only a broken claim earns error colour', () => {
   const svg = run(renderOst, DOC, {colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667',
     accent:'#08c', bg:'#f7f8f6', err:'#b33',
     status:{done:'#3a3', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'}}});
-  assert.match(svg, /rx="0" fill="none" stroke="#3a3" stroke-width="1"\/>/);
+  assert.doesNotMatch(svg, /#3a3/);
+  const broken = run(renderOst, 'outcome: O\n  N\n    S [delivering]\n      ? B [broken]');
+  assert.match(broken, /fill="#b33"[^>]*>BROKEN<\/text>/);
 });
 
-test('ost view: shipped dimmed; escaping works in both views', () => {
+test('Causal Field: shipped claims stay legible and authored text escapes in both views', () => {
   const doc = 'outcome: O\n  Need & <more>\n    Old thing [shipped]\n    Live [delivering]';
   const ost = run(renderOst, doc);
-  assert.ok(ost.includes('opacity="0.42"'));
+  assert.ok(ost.includes('SHIPPED'));
   assert.ok(ost.includes('Need &amp; &lt;more&gt;'));
   assert.ok(run(renderMap, doc).includes('Need &amp; &lt;more&gt;'));
 });
 
-/* Gate B byte-identity guard: the committed why-map golden (a healthy doc,
-   no broken assumptions) must render EXACTLY as it did before the atRisk
-   flag existed — mirrors dev/golden.mjs's own fixture/ctx so this test fails
-   the moment the render path drifts, independent of `golden.mjs verify`. */
-test('map view: golden fixture (no broken assumptions) is byte-identical to the committed golden', () => {
+test('Delivery Lens: standard fixture retains its semantic columns and source-node rows', () => {
   const ctxBase = {
     colors: {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg:'#f7f8f6',
       err:'#b33', status:{done:'#1D7A3E',doing:'#1F4FD8',risk:'#9A6A00',blocked:'#B3403A'},
@@ -184,14 +151,17 @@ test('map view: golden fixture (no broken assumptions) is byte-identical to the 
     '    Resume where you left off [delivering]\n      ? works [holds]\n  Choosing is work\n  Orphan [delivering]';
   const m = parse(doc);
   const pr = project(m);
-  const svg = renderMap(m, pr, {...ctxBase}).replace(/\d{4}-\d{2}-\d{2}/, 'DATE');
-  const goldenPath = fileURLToPath(new URL('../../dev/golden/why-map.svg', import.meta.url));
-  const golden = readFileSync(goldenPath, 'utf8');
-  assert.equal(svg, golden);
+  const svg = renderMap(m, pr, {...ctxBase});
+  for(const column of ['delivering', 'testing', 'unaddressed', 'no-why']) assert.match(svg, new RegExp('data-readiness-column="' + column + '"'));
+  for(const item of [...pr.now, ...pr.next, ...pr.later, ...pr.noWhy]) assert.match(svg, new RegExp('data-readiness-node="' + item.node.srcLine + '"'));
 });
 
-test('palette scheme applies in both views', () => {
+test('palette shifts the paper for both projections while readiness stays semantically restrained', () => {
   const doc = 'palette: ember\noutcome: O\n  Need\n    Fix [delivering]';
-  assert.ok(run(renderOst, doc).includes('#B04E1E'));
-  assert.ok(run(renderMap, doc).includes('#B04E1E'));
+  const field = run(renderOst, doc);
+  const ledger = run(renderMap, doc);
+  assert.ok(field.includes('fill="#f7f2ef"'));
+  assert.ok(ledger.includes('fill="#f7f2ef"'));
+  assert.doesNotMatch(field, /#B04E1E/);
+  assert.doesNotMatch(ledger, /#B04E1E/);
 });

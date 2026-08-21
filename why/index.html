@@ -30,7 +30,7 @@
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Why</h1>
-    <p class="tagline">Your roadmap and your opportunity solution tree disagree because they're maintained separately. Write one tree — outcomes, opportunities, solutions, assumptions — and project it two ways: the OST for discovery, a delivery lens for readiness. Same file, so they can't drift.</p>
+    <p class="tagline">Your roadmap and your opportunity solution tree disagree because they're maintained separately. Write one tree — outcomes, opportunities, solutions, assumptions — and project it two ways: a Causal Field for discovery, a Delivery Lens for readiness. Same file, so they can't drift.</p>
   </header>
 </div>
 
@@ -58,18 +58,18 @@
           <dd>a solution — the status tag makes it one: <code>[candidate]</code> <code>[testing]</code> <code>[delivering]</code> <code>[shipped]</code> <code>[parked]</code></dd>
           <dt><code data-try="">? users want this [holds]</code></dt>
           <dd>an assumption under a solution: <code>[untested]</code> (default) <code>[testing]</code> <code>[holds]</code> <code>[broken]</code></dd>
-          <dt>delivery-lens columns</dt>
-          <dd>derived, never declared: NOW = delivering · NEXT = testing · LATER = opportunities without committed solutions</dd>
+          <dt>Delivery Lens columns</dt>
+          <dd>derived, never declared: DELIVERING · TESTING · UNADDRESSED opportunities</dd>
         </dl>
       </details>
     </aside>
     <button class="railtab" id="railtab" aria-label="Edit tree source">Edit tree source</button>
     <section class="stage">
       <div class="viewtoggle segmented" role="tablist">
-        <button id="viewost" class="on" role="tab" aria-selected="true">OST</button>
-        <button id="viewmap" role="tab" aria-selected="false">Delivery lens</button>
+        <button id="viewost" class="on" role="tab" aria-selected="true">Causal Field</button>
+        <button id="viewmap" role="tab" aria-selected="false">Delivery Lens</button>
       </div>
-      <p class="viewnote" id="viewnote">Discovery lens — trace every solution to the customer opportunity and assumption it relies on.</p>
+      <p class="viewnote" id="viewnote">Causal Field — trace every solution to the customer opportunity and assumption it relies on.</p>
       <div class="metrics" id="metrics" hidden></div>
       <div class="review-region"><div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div><section class="decision-margin" id="margin" aria-live="polite" hidden></section></div>
       <div class="verdict-block review-verdict" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
@@ -91,7 +91,7 @@
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>
-        <span class="method">Snapshot before each discovery review — compare renders the "what changed" narrative on the OST · the URL carries your tree and view</span>
+        <span class="method">Snapshot before each discovery review — compare renders the “what changed” narrative on the Causal Field · the URL carries your tree and view</span>
       </div>
     </section>
 </div>
@@ -100,9 +100,9 @@
   <section class="about">
     <h2>Why one file?</h2>
     <div class="prose">
-    <p>Teresa Torres's <a href="https://www.producttalk.org/opportunity-solution-trees/" target="_blank" rel="noopener">Opportunity Solution Tree</a> keeps solutions tethered to customer needs and a desired outcome; a now/next/later roadmap communicates sequence and intent. Teams keep both — maintained separately — and they drift: roadmap items lose their why, tested-nowhere solutions quietly become commitments. Here both are projections of the same text, so drift is structurally impossible.</p>
-    <p>The delivery-lens columns are derived from discovery status, never declared: NOW holds what you're delivering, NEXT holds what you're still testing, and LATER holds <em>opportunities</em> — needs you've acknowledged but haven't committed a solution to. That takes Janna Bastow's rule that later items should be problem statements to its logical end, and it means the lens cannot claim more certainty than your discovery supports. It is not an operating roadmap: use <a href="/roadmap/">Roadmap</a> for delivery commitments and <a href="/paths/">Paths</a> when outcomes could stop, pivot, or expand the work.</p>
-    <p>The projections also audit each other: solutions with no opportunity ancestry land in a <strong>no why</strong> lane; committed solutions whose assumptions are all untested get an <strong>untested bet</strong> badge; a <strong>broken assumption</strong> on something you're delivering is the loudest flag on the page. Sources: Torres, <em>Continuous Discovery Habits</em>; Bastow on <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">now/next/later</a>.</p>
+    <p>Teresa Torres's <a href="https://www.producttalk.org/opportunity-solution-trees/" target="_blank" rel="noopener">Opportunity Solution Tree</a> keeps solutions tethered to customer needs and a desired outcome. The Causal Field makes that chain legible as an instrument: outcome, opportunity, solution, assumption. Teams otherwise maintain a separate plan and drift: roadmap items lose their why, tested-nowhere solutions quietly become commitments. Here both are projections of the same text, so drift is structurally impossible.</p>
+    <p>The Delivery Lens is derived from discovery status, never declared: <em>delivering</em> means an active solution, <em>testing</em> means an active bet, and <em>unaddressed</em> means an acknowledged opportunity without a committed solution. It is not an operating roadmap: use <a href="/roadmap/">Roadmap</a> for delivery commitments and <a href="/paths/">Paths</a> when outcomes could stop, pivot, or expand the work.</p>
+    <p>The projections also audit each other: solutions with no opportunity ancestry land in a <strong>no why</strong> lane; committed solutions whose assumptions are all untested get an <strong>untested bet</strong> badge; a <strong>broken assumption</strong> on something you're delivering is the loudest flag on the page. Source: Torres, <em>Continuous Discovery Habits</em>.</p>
     </div>
   </section>
 </div>

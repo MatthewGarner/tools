@@ -989,17 +989,19 @@ for(const theme of FLOW_THEMES){
   await page.getByRole('button', {name: 'Edit tree source'}).click();
   await page.getByRole('button', {name: 'Reading retention'}).click();
   await page.waitForTimeout(600);
-  check('why(' + theme + '): OST view renders', await page.locator('#preview svg').count() === 1);
-  const ost = await page.locator('#preview svg').innerHTML();
-  check('why(' + theme + '): assumptions in cards', ost.includes('? readers will invite friends'));
+  check('why(' + theme + '): Causal Field renders', await page.locator('#preview svg[data-causal-field="why"]').count() === 1);
+  const field = await page.locator('#preview svg').innerHTML();
+  check('why(' + theme + '): Causal Field retains explicit assumptions and four source stages',
+    field.includes('readers will invite friends') && ['OUTCOME', 'OPPORTUNITY', 'SOLUTION', 'ASSUMPTION'].every(stage => field.includes(stage)));
   await page.locator('#viewmap').click();
   await page.waitForTimeout(500);
-  const map = await page.locator('#preview svg').innerHTML();
-  check('why(' + theme + '): delivery lens derives columns without claiming an operating roadmap',
-    map.includes('NOW') && map.includes('Resume where you left off') &&
+  const lens = await page.locator('#preview svg').innerHTML();
+  check('why(' + theme + '): Delivery Lens derives factual readiness without claiming an operating roadmap',
+    lens.includes('data-readiness-ledger="why"') && lens.includes('DELIVERING') && lens.includes('TESTING') && lens.includes('UNADDRESSED') &&
+    !/\bNOW\b|\bNEXT\b|\bLATER\b/.test(lens) && lens.includes('Resume where you left off') &&
     (await page.locator('#viewnote').textContent()).includes('not delivery capacity or a decision plan'));
-  check('why(' + theme + '): outcome band renders', map.includes('IMPROVE 90-DAY RETENTION'));
-  check('why(' + theme + '): unaddressed lane gets ghost chip', map.includes('PROGRESS') && map.includes('no committed solution yet'));
+  check('why(' + theme + '): Delivery Lens preserves the causal path for unaddressed discovery',
+    lens.includes('Improve 90-day retention → Progress feels invisible'));
   check('why(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('why(' + theme + '): snapshot compare renders the narrative + NEW badge', await (async () => {
     await page.locator('#viewost').click();
@@ -1014,7 +1016,7 @@ for(const theme of FLOW_THEMES){
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
     const svg = await page.locator('#preview svg').innerHTML();
-    return /Since /.test(svg) && />NEW<\/text>/.test(svg);
+    return /Since /.test(svg) && /data-causal-narrative-line/.test(svg) && />NEW<\/text>/.test(svg);
   })());
   check('why(' + theme + '): no console errors', errors.length === 0);
   await page.close();

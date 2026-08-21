@@ -1,4 +1,4 @@
-/* The projection layer: one tree → roadmap columns + audits + OST annotations.
+/* The projection layer: one tree → derived readiness columns + audits + Causal Field annotations.
    Pure — no DOM. Spec §2. */
 
 const COMMITTED = new Set(['delivering', 'testing']);
@@ -82,12 +82,12 @@ export function project(model){
    A third projection of the same tree: one quotable line + the ONE figure it
    turns on. It reads only states the DSL can express (solution status,
    assumption status, whether an opportunity sits above the work) — the audits
-   the OST already draws, said in a sentence.
+   the Causal Field already draws, said in a sentence.
    Tier order follows the tool's own hierarchy (about copy): a broken assumption
    under something you're delivering is the loudest flag, then committed work
    with no why, then untested commitments. Bare opportunities rank BELOW those
-   three deliberately — an OST is MEANT to be wider than its plan (they are the
-   LATER column by design), so leading with them would drown the real defects.
+   three deliberately — discovery is meant to be wider than delivery readiness,
+   so leading with them would drown the real defects.
    Grammar: "n of t things" — noun agrees with t, verb with n. */
 
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'));
