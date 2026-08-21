@@ -14,7 +14,10 @@
 .handoffstatus{color:var(--st-risk-ink);font-size:13px;max-width:42ch}
 .handoffstatus:empty{display:none}
 @media (max-width:900px){ #cmhost .cm-editor{min-height:280px} }
-@media (max-width:520px){.planning-boundary{align-items:flex-start;margin-top:12px}.planning-boundary p{flex-basis:100%}}
+@media (max-width:520px){
+  .planning-boundary{align-items:flex-start;margin-top:8px;padding:8px 10px}
+  .planning-boundary p{flex-basis:100%;font-size:11px;line-height:1.35}
+}
 
 /* card bodies are popover targets (add child / remove branch) in edit mode */
 .preview svg [data-edit^="card-"]{cursor:pointer}

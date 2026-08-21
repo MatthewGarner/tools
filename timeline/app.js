@@ -1,6 +1,7 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineVerdict} from './render.js';
+import {renderDirection} from './direction-prototypes.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {premortemHandoff} from './handoff.js';
 import {toLink as premortemLink} from '../premortem/store.js';
@@ -50,6 +51,10 @@ Move-in day 2027-01 .. 2027-02`},
 
 let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
+/* Local review switch: these three real-model directions are deliberately
+   renderer paths, not static artwork. It is removed once the chosen composition
+   has been absorbed by render.js. */
+const reviewDirection = new URLSearchParams(location.search).get('direction');
 
 function currentDiff(){
   const cur = snaps && snaps.current();
@@ -60,7 +65,10 @@ function ctx(intent){
   return {colors: themeColors(), measure, intent, dark: isDark(), today: todayDay()};
 }
 function activeRender(intent, edit = false, width){
-  return render(model, {...ctx(intent),...(width?{width}:{})}, currentDiff(), {edit,intent});
+  const renderCtx = {...ctx(intent),...(width?{width}:{})};
+  return reviewDirection && ['field', 'ledger', 'clock'].includes(reviewDirection)
+    ? renderDirection(model, renderCtx, reviewDirection, {edit, intent, diff: currentDiff()})
+    : render(model, renderCtx, currentDiff(), {edit,intent});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
