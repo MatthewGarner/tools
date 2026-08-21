@@ -1282,7 +1282,7 @@ for(const theme of FLOW_THEMES){
   check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('timeline(' + theme + '): Field card menus keep keyboard focus, validation and viewport bounds', await (async () => {
+  const fieldCardContract = await (async () => {
     const card = page.locator('#preview [data-edit="cardmenu"]').first();
     await card.focus();
     await card.press('Enter');
@@ -1296,11 +1296,20 @@ for(const theme of FLOW_THEMES){
     await input.press('Enter');
     const invalid = await input.evaluate(el => el.classList.contains('invalid'));
     await input.press('Escape');
-    await page.waitForTimeout(50);
-    return inBounds && invalid && await input.count() === 0 &&
-      await page.evaluate(() => document.activeElement?.dataset?.edit === 'label');
-  })());
-  check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
+    /* Escape commits only after the input teardown restores its named Field
+       target. Wait for that observable state rather than sampling the
+       post-key handler's animation frame. */
+    const restored = await page.waitForFunction(() =>
+      !document.querySelector('.eip-input') && document.activeElement?.dataset?.edit === 'label',
+    null, {timeout:1000}).then(() => true).catch(() => false);
+    return {inBounds, invalid, closed: await input.count() === 0, restored,
+      returnedTo: await page.evaluate(() => document.activeElement?.dataset?.edit || 'none')};
+  })();
+  check('timeline(' + theme + '): Field card menu stays inside the viewport', fieldCardContract.inBounds);
+  check('timeline(' + theme + '): Field card rejects invalid rename input', fieldCardContract.invalid);
+  check('timeline(' + theme + '): Field card Escape closes the input and restores its label target (returned ' + fieldCardContract.returnedTo + ')',
+    fieldCardContract.closed && fieldCardContract.restored);
+  const fieldCompareContract = await (async () => {
     await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
@@ -1312,8 +1321,10 @@ for(const theme of FLOW_THEMES){
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
     const d = await page.locator('#preview svg').innerHTML();
-    return /Since /.test(d) && />NEW</.test(d);
-  })());
+    return {since:/SINCE /.test(d), fresh:/>NEW</.test(d)};
+  })();
+  check('timeline(' + theme + '): snapshot compare names its baseline', fieldCompareContract.since);
+  check('timeline(' + theme + '): snapshot compare renders a NEW timing fact', fieldCompareContract.fresh);
   check('timeline(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
