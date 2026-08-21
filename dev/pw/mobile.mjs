@@ -1084,7 +1084,9 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
   const baseline = await page.evaluate(() => localStorage.getItem('why-src'));
-  const lens = await page.locator('#preview svg').innerHTML();
+  /* Layout identity belongs to the SVG root, so inspect outerHTML rather than
+     accidentally discarding its data-readiness-layout contract. */
+  const lens = await page.locator('#preview svg').evaluate(el => el.outerHTML);
   ok(lens.includes('data-readiness-layout="stack"') && lens.includes('DELIVERING') && lens.includes('TESTING') && lens.includes('UNADDRESSED'),
     'why: Delivery Lens phone preserves its stacked readiness ledger and factual columns');
   ok(lens.includes('Grow referral revenue → Sharing feels braggy'),

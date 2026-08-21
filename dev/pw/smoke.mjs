@@ -995,7 +995,9 @@ for(const theme of FLOW_THEMES){
     field.includes('readers will invite friends') && ['OUTCOME', 'OPPORTUNITY', 'SOLUTION', 'ASSUMPTION'].every(stage => field.includes(stage)));
   await page.locator('#viewmap').click();
   await page.waitForTimeout(500);
-  const lens = await page.locator('#preview svg').innerHTML();
+  /* The Lens identity is a root-SVG contract; innerHTML cannot observe root
+     attributes and would turn this into a permanent false negative. */
+  const lens = await page.locator('#preview svg').evaluate(el => el.outerHTML);
   check('why(' + theme + '): Delivery Lens derives factual readiness without claiming an operating roadmap',
     lens.includes('data-readiness-ledger="why"') && lens.includes('DELIVERING') && lens.includes('TESTING') && lens.includes('UNADDRESSED') &&
     !/\bNOW\b|\bNEXT\b|\bLATER\b/.test(lens) && lens.includes('Resume where you left off') &&
