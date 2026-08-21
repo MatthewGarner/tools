@@ -157,7 +157,9 @@ test('Causal Tree phone layout is a source-order outline with named ancestry, no
   assert.match(svg, /data-causal-breadcrumb="SOLUTION · Improve 90-day retention › Readers lose their place between sessions"/,
     'phone rows retain stage and full causal ancestry as one compact reading unit');
   const breadcrumb = svg.match(new RegExp('<g data-causal-breadcrumb="SOLUTION · Improve 90-day retention › Readers lose their place between sessions"[^>]*>([\\s\\S]*?)</g>'))[1];
-  assert.ok(breadcrumb.includes('>SOLUTION · Improve 90-day retention ›</text>') && breadcrumb.includes('>Readers lose their place between sessions</text>'),
+  const visibleRoute = [...breadcrumb.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]).join(' ');
+  assert.match(visibleRoute, /SOLUTION · Improve 90-day retention › Readers lose their place between sessions/);
+  assert.ok((breadcrumb.match(/<text/g) || []).length > 1,
     'the complete stage-and-ancestry line is visibly wrapped without a separate PATH or stage label');
   assert.match(svg, /aria-label="More options: solution · Improve 90-day retention › Readers lose their place between sessions › Reading reminders · TESTING"/,
     'the phone menu target announces stage, full ancestry, label and state');
@@ -171,6 +173,15 @@ test('Causal Tree phone layout is a source-order outline with named ancestry, no
   const menu = rect('cardmenu-solution'), state = rect('status');
   const overlaps = menu.x < state.x + state.w && state.x < menu.x + menu.w && menu.y < state.y + state.h && state.y < menu.y + menu.h;
   assert.equal(overlaps, false, 'phone state and card-menu hit planes are physically disjoint, so coarse state taps cannot be menu-rerouted');
+  const hits = [...svg.matchAll(/<rect(?=[^>]*data-hit="")[^>]*>/g)].map(match => {
+    const tag = match[0], value = name => +tag.match(new RegExp('(?:^|\\s)' + name + '="([\\d.]+)"'))?.[1];
+    return {x:value('x'), y:value('y'), w:value('width'), h:value('height')};
+  });
+  for(let i = 0; i < hits.length; i++) for(let j = i + 1; j < hits.length; j++){
+    const a = hits[i], b = hits[j];
+    assert.equal(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h, false,
+      'every phone hit plane owns a distinct coarse tap area, including solution-assumption boundaries');
+  }
 });
 
 test('Delivery Lens is a derived readiness ledger, never a temporal roadmap', () => {

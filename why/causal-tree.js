@@ -153,7 +153,10 @@ function wide(model, ctx, diff, c){
   return out.join('') + '</svg>';
 }
 function narrow(model, ctx, diff, c){
-  const W = ctx.width || 390, pad = 22, measure = ctx.measure || measureFallback, tree = roots(model), rows = [];
+  /* The mobile stage is already inset by its workspace. Keep a precise 16px
+     internal edge so even a depth-clamped source claim has a 300px reading
+     plane on the actual 362px iPhone preview surface. */
+  const W = ctx.width || 390, pad = 16, measure = ctx.measure || measureFallback, tree = roots(model), rows = [];
   const prep = entry => {
     entry.x = pad + Math.min(entry.depth, 3) * 10;
     measureEntry(entry, model, diff, measure, W - entry.x - pad);
@@ -161,12 +164,20 @@ function narrow(model, ctx, diff, c){
        there is no ancestry before an outcome, so its minimal context is just
        the stage rather than a repeated or empty breadcrumb. */
     entry.path = entry.parent ? entry.kind.toUpperCase() + ' · ' + nodeTrail(entry) : entry.kind.toUpperCase();
-    entry.pathLines = entry.path ? wrapCausal(entry.path, '600 9px sans-serif', entry.w - 20, measure) : [];
+    /* Canvas sans-serif metrics understate the inherited system face plus
+       .25px tracking. Keep a measured 54px end reserve: a deep card's long
+       ancestry then wraps before, never through, its right border. */
+    entry.pathLines = entry.path ? wrapCausal(entry.path, '600 9px sans-serif', entry.w - 54, measure) : [];
     /* One measured context line carries both stage and full ancestry. It keeps
        the direct state plane below—not under—a wrapped context or label on a
        coarse phone without repeating a PATH label and a separate stage label. */
     entry.menuH += entry.pathLines.length * 12;
-    entry.h += entry.pathLines.length * 12;
+    /* The compact state control owns a full row below the menu plane. That
+       row must be measured into the card before a ruled assumption band begins:
+       otherwise a solution state and its first assumption contend for one
+       coarse hit area, and standalone malformed assumptions paint below their
+       own card boundary. */
+    entry.h += entry.pathLines.length * 12 + (entry.note ? 48 : 0);
     rows.push(entry); entry.children.forEach(prep);
   };
   tree.forEach(prep); let y = 30;
