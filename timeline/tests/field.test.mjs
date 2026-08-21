@@ -84,12 +84,15 @@ test('editing keeps the field quiet at rest while exposing complete, 44px routes
   const doc = 'App: Beta 2026-08 .. 2026-09\nMarketing: Story 2026-09 .. 2026-10\nLaunch 2026-11 [fixed]';
   const svg = render(parse(doc), ctx, null, {intent:'live-wide', edit:true});
   assert.equal(count(svg, /data-edit="cardmenu"/g), 3);
-  for(const kind of ['label', 'dates', 'status', 'setlane', 'note'])
+  for(const kind of ['label', 'dates', 'setlane', 'note'])
     assert.equal(count(svg, new RegExp('data-edit="' + kind + '"', 'g')), 3, kind + ' route missing');
+  assert.equal(count(svg, /data-edit="status"[^>]*role="button"/g), 3, 'three keyboard status routes missing');
   for(const lane of ['App', 'Marketing'])
     assert.match(svg, new RegExp('data-edit="additem"[^>]*data-lane="' + lane + '"[\\s\\S]{0,300}?height="44"'));
   assert.equal(count(svg, /data-empty-control=""/g), 3);
-  assert.equal(count(svg, /data-hit=""/g), 6, 'three rows, two named lanes, and one global add target');
+  assert.equal(count(svg, /<rect data-edit="status"[^>]*data-hit=""[^>]*aria-hidden="true"[^>]*width="44" height="44"/g), 3,
+    'each timing mark owns a real 44px coarse-pointer target');
+  assert.equal(count(svg, /data-hit=""/g), 9, 'three rows, three timing marks, two named lanes, and one global add target');
 });
 
 test('phone Field gives a long title measured breathing room before its isolated track', () => {

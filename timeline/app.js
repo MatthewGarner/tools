@@ -144,7 +144,7 @@ function milestoneMenu(m, srcLine){
     statusRow,
     laneRow,
     {label: (it && it.note) ? 'Edit note…' : 'Add note…', opens: 'note'},
-    {label: 'Remove milestone', opens: 'removeitem', danger: true},
+    {label: 'Remove milestone', danger: true},
   ];
 }
 

@@ -95,9 +95,10 @@ function colour(it, C, today){
 function editAttrs(it, kind){
   if(kind === 'label') return ' data-edit="label" data-line="' + it.srcLine + '" data-raw="' + esc(it.label) + '"' + btnAttrs('Edit label: ' + it.label);
   if(kind === 'dates') return ' data-edit="dates" data-line="' + it.srcLine + '" data-raw="' + esc(it.rawDates) + '"' + btnAttrs('Edit dates: ' + it.label);
-  return ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status || '') + '"' + btnAttrs('Status: ' + it.label);
+  return statusAttrs(it) + btnAttrs('Status: ' + it.label);
 }
-function dayMark(s, it, y, sc, C, today, edit, {diff, strong = false, next = false, utility = 11} = {}){
+function statusAttrs(it){ return ' data-edit="status" data-line="' + it.srcLine + '" data-raw="' + esc(it.status || '') + '"'; }
+function dayMark(s, it, y, sc, C, today, edit, {diff, strong = false, next = false, utility = 11, statusHit = false} = {}){
   const x50 = sc.X(it.p50), x90 = sc.X(it.p90), col = colour(it, C, today);
   const old = diff && diff.byKey.get(keyOf(it));
   if(old){
@@ -122,6 +123,7 @@ function dayMark(s, it, y, sc, C, today, edit, {diff, strong = false, next = fal
     s.push('<line data-ms="p50"' + attrs + ' x1="' + x50.toFixed(1) + '" y1="' + (y - 10).toFixed(1) + '" x2="' + x50.toFixed(1) + '" y2="' + (y + 10).toFixed(1) + '" stroke="' + col + '" stroke-width="2"/>');
   else
     s.push('<circle data-ms="p50"' + attrs + ' cx="' + x50.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (strong ? '5.5' : '4.5') + '" fill="' + col + '" stroke="' + C.bg + '" stroke-width="1.5"/>');
+  if(statusHit) s.push('<rect' + statusAttrs(it) + ' data-hit="" aria-hidden="true" x="' + (x50 - 22).toFixed(1) + '" y="' + (y - 22).toFixed(1) + '" width="44" height="44" fill="' + C.bg + '" fill-opacity="0"/>');
   const lead = decisionLead(it, today);
   if(lead && lead.day >= sc.lo && lead.day <= sc.hi){
     const x = sc.X(lead.day), receipt = leadReceipt(it, today).text;
@@ -314,7 +316,7 @@ function renderWide(model, ctx, diff, {edit, intent, verdict}){
         if(y > top) s.push('<line x1="' + x + '" y1="' + y.toFixed(1) + '" x2="' + (x + colW) + '" y2="' + y.toFixed(1) + '" stroke="' + C.border + '" opacity=".72"/>');
         s.push('<g' + itemFieldAttrs(it,today) + '>');
         if(edit){
-          s.push('<g data-edit="cardmenu" data-line="' + it.srcLine + '" data-menu=""' + btnAttrs('Milestone: ' + it.label) + '><rect data-hit="" x="' + x + '" y="' + y.toFixed(1) + '" width="' + colW + '" height="' + rowH + '" fill="' + C.bg + '" fill-opacity="0"/><rect data-edit="setlane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '" pointer-events="none" x="' + x + '" y="' + (y + 3) + '" width="1" height="1" fill-opacity="0"/><rect data-edit="note" data-line="' + it.srcLine + '" data-raw="' + esc(it.note || '') + '" pointer-events="none" x="' + x + '" y="' + (y + 3) + '" width="1" height="1" fill-opacity="0"/>');
+          s.push('<g data-edit="cardmenu" data-line="' + it.srcLine + '" data-menu=""' + btnAttrs('Milestone: ' + it.label) + '><rect data-hit="" x="' + x + '" y="' + y.toFixed(1) + '" width="' + (rail - 22) + '" height="' + rowH + '" fill="' + C.bg + '" fill-opacity="0"/><rect data-edit="setlane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '" pointer-events="none" x="' + x + '" y="' + (y + 3) + '" width="1" height="1" fill-opacity="0"/><rect data-edit="note" data-line="' + it.srcLine + '" data-raw="' + esc(it.note || '') + '" pointer-events="none" x="' + x + '" y="' + (y + 3) + '" width="1" height="1" fill-opacity="0"/>');
         }
         const titleLines = metric.lines;
         const titleY = y + (presentation ? 19 : 16), titleGap = presentation ? 22 : 14;
@@ -333,7 +335,7 @@ function renderWide(model, ctx, diff, {edit, intent, verdict}){
         /* New is a comparison fact, not a loose label in the date rail. Its
            reserved end-cap keeps wrapping and an item's timing readout apart. */
         if(diff?.newKeys?.has(keyOf(it))) s.push(txt(endCapX, y + (presentation ? 48 : 31), 'NEW', utility, C.ink, {anchor:'end',weight:700,tracking:.7}));
-        dayMark(s,it,cy,sc,C,today,edit,{diff,strong:presentation,next:it===next,utility});
+        dayMark(s,it,cy,sc,C,today,edit,{diff,strong:presentation,next:it===next,utility,statusHit:edit&&!presentation});
         if(edit){ s.push('<text data-empty-control="" data-edit="removeitem" data-line="' + it.srcLine + '" data-raw=""' + btnAttrs('Remove ' + it.label) + ' x="' + (x + rail - 4) + '" y="' + (y + rowH - 7) + '" text-anchor="end" font-size="11" fill="' + C.muted + '">×</text></g>'); }
         s.push('</g>');
         y += rowH;
