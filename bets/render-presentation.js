@@ -316,7 +316,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   const svgTitle = esc(authoredTitle + ' — allocation field');
   const desc = esc(conditions.baseline.label + ': ' + baseline.loss + ', ' + baseline.median + '. ' +
     conditions.stress.label + ': ' + stress.loss + ', ' + stress.median + '. ' +
-    (exceptions.length ? exceptions.length + ' material exceptions are outside the card selection.' : 'No material exceptions are omitted.'));
+    (exceptions.length ? exceptions.length + ' material exceptions are outside the presentation selection.' : 'No material exceptions are omitted.'));
   return '<svg data-bets-surface="allocation-field-presentation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="' +
     SANS + '" role="img" aria-labelledby="bets-presentation-title bets-presentation-desc"><title id="bets-presentation-title">' +
     svgTitle + '</title><desc id="bets-presentation-desc">' + desc + '</desc>' + parts.join('') + '</svg>';

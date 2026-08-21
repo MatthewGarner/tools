@@ -24,6 +24,7 @@ test('Copy render is a fixed 1920×1080 summary with selection and remainder in-
   assert.doesNotMatch(svg, /NET EV/);
   assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B01–B03/);
   assert.match(svg, /ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG/);
+  assert.match(svg, /outside the presentation selection/);
 });
 
 test('presentation carries only ranked selections, no edit chrome or model mutation', () => {
