@@ -19,6 +19,28 @@ const rangeText = it => it.single ? fmtDay(it.p50)
   : fmtDay(it.p50, {month: it.p90 - it.p50 > 45}) + ' — ' + fmtDay(it.p90, {month: it.p90 - it.p50 > 45});
 const signedWeeks = days => (days > 0 ? '+' : '−') + Math.round(Math.abs(days) / 7) + ' wk' + (Math.round(Math.abs(days) / 7) === 1 ? '' : 's');
 
+/* The shared wrapper deliberately breaks an unbroken authored token. A source
+   label is data, not a CSS-overflow gamble: live/native fields grow for it and
+   presentation can then make an honest fit/refusal decision. */
+function fieldWrap(text, font, maxW, measure){
+  /* Some deterministic export contexts intentionally use a simple character
+     measure. Keep its wrapping honest at rendered type sizes too: the fallback
+     is conservative for the system face, while a real canvas measurement wins. */
+  const px = Number((String(font).match(/([\d.]+)px/) || [])[1]) || 0;
+  const measured = line => Math.max(measure(line, font), String(line).length * px * .62);
+  return wrapText(text, font, maxW, measured).flatMap(line => {
+    if(measured(line) <= maxW) return [line];
+    const parts = []; let part = '';
+    for(const char of [...line]){
+      const trial = part + char;
+      if(part && measured(trial) > maxW){ parts.push(part); part = char; }
+      else part = trial;
+    }
+    if(part) parts.push(part);
+    return parts;
+  });
+}
+
 function itemFieldAttrs(it, today){
   return ' data-field-item="' + esc(keyOf(it)) + '" data-field-timing="' + fieldTiming(it) +
     '" data-field-state="' + fieldState(it,today) + '" data-field-p50-day="' + dayToISO(it.p50) +
@@ -106,7 +128,7 @@ function dayMark(s, it, y, sc, C, today, edit, {diff, strong = false, next = fal
     s.push('<g data-lrm="" aria-label="' + esc(receipt) + '"><title>' + esc(receipt) + '</title><line x1="' + x.toFixed(1) + '" y1="' + (y - 12).toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + (y - 5).toFixed(1) + '" stroke="' + C.ink + '" stroke-width="1"/><rect data-ms="lrm" x="' + (x - 3.5).toFixed(1) + '" y="' + (y - 17).toFixed(1) + '" width="7" height="7" fill="' + C.bg + '" stroke="' + C.ink + '" stroke-width="1.25"/></g>');
   }
   if(old?.slipDays)
-    s.push(txt(x50 - 8, y - 8, signedWeeks(old.slipDays), utility, old.slipDays > 0 ? C.err : C.status.done, {anchor:'end',weight:700,tracking:.2}));
+    s.push(txt(x50 - 8, y - 8, signedWeeks(old.slipDays), utility, C.muted, {anchor:'end',weight:700,tracking:.2}));
   return {x50, x90};
 }
 function textLines(s, x, y, lines, size, C, {weight, gap = 14, anchor, edit = ''} = {}){
@@ -118,18 +140,19 @@ function footer(s, {W, x, y, C, model, today, diff, verdict, measure, edit, addU
   let dy = y;
   if(verdict?.line){
     s.push(txt(x, dy, 'VERDICT', 11, C.muted, {weight:700,tracking:1.15})); dy += 20;
-    const lines = wrapText(verdict.line, '650 16px ' + FONT, max, measure);
+    const lines = fieldWrap(verdict.line, '650 16px ' + FONT, max, measure);
     textLines(s, x, dy, lines, 16, C.ink, {weight:650,gap:20,edit:edit ? ' data-edit="verdict" data-raw="' + esc(model.verdict ?? '') + '"' + btnAttrs('Edit verdict') : ''});
     dy += Math.max(0, lines.length - 1) * 20 + 19;
     if(verdict.rest){
-      const rest = wrapText(verdict.rest, '11px ' + FONT, max, measure);
+      const rest = fieldWrap(verdict.rest, '11px ' + FONT, max, measure);
       textLines(s, x, dy, rest, 11, C.muted, {gap:14});
       dy += rest.length * 14 + 2;
     }
   }
   if(diff?.dropped?.length){
-    s.push(txt(x, dy + 10, 'DROPPED SINCE ' + diff.since.toUpperCase() + ' · ' + diff.dropped.join(' · '), 11, C.muted, {weight:650,tracking:.3}));
-    dy += 24;
+    const dropped = fieldWrap('DROPPED SINCE ' + diff.since.toUpperCase() + ' · ' + diff.dropped.join(' · '), '650 11px ' + FONT, max, measure);
+    textLines(s, x, dy + 10, dropped, 11, C.muted, {weight:650,tracking:.3,gap:14});
+    dy += dropped.length * 14 + 10;
   }
   if(edit) s.push('<g data-add-control="" data-edit="additem" data-line="-1" data-raw="" data-lane="' + esc(addUnlaned || '') + '"' + btnAttrs(addUnlaned ? 'Add milestone into ' + addUnlaned : 'Add unlaned milestone') + '>' + txt(W - x, dy + 8, addUnlaned ? 'ADD TO ' + addUnlaned.toUpperCase() : 'ADD MILESTONE', 11, C.muted, {anchor:'end',weight:700,tracking:.8}) + '<rect data-hit="" x="' + (W - x - 150) + '" y="' + (dy - 20) + '" width="150" height="44" fill="' + C.bg + '" fill-opacity="0"/></g>');
   return dy + 28;
@@ -137,78 +160,134 @@ function footer(s, {W, x, y, C, model, today, diff, verdict, measure, edit, addU
 function footerHeight({width, verdict, diff, measure}){
   let h = 40;
   if(verdict?.line){
-    h += 20 + wrapText(verdict.line, '650 16px ' + FONT, width, measure).length * 20;
-    if(verdict.rest) h += wrapText(verdict.rest, '11px ' + FONT, width, measure).length * 14 + 2;
+    h += 20 + fieldWrap(verdict.line, '650 16px ' + FONT, width, measure).length * 20;
+    if(verdict.rest) h += fieldWrap(verdict.rest, '11px ' + FONT, width, measure).length * 14 + 2;
   }
-  if(diff?.dropped?.length) h += 24;
+  if(diff?.dropped?.length){
+    const dropped = 'DROPPED SINCE ' + diff.since.toUpperCase() + ' · ' + diff.dropped.join(' · ');
+    h += fieldWrap(dropped, '650 11px ' + FONT, width, measure).length * 14 + 10;
+  }
   return h;
 }
-function copyUnavailable(model, C){
-  const W = 1920, H = 1080, side = 64, title = model.title || 'Milestone timeline';
+function presentationReceipt({verdict, diff, width, measure}){
+  const blocks = [];
+  if(verdict?.line) blocks.push({
+    label:'VERDICT',
+    lines:fieldWrap(verdict.line, '650 22px ' + FONT, width, measure),
+  });
+  /* An authored conclusion is editorial, not permission to suppress an active
+     decision clock. Keep that one actionable fact explicit without inflating a
+     five-second presentation with every supporting live-field observation. */
+  if(verdict?.clock && verdict.clock !== verdict.line) blocks.push({
+    label:'DECISION CLOCK',
+    lines:fieldWrap(verdict.clock, '400 22px ' + FONT, width, measure),
+    muted:true,
+  });
+  if(diff?.dropped?.length) blocks.push({
+    label:'DROPPED SINCE ' + diff.since.toUpperCase(),
+    lines:fieldWrap(diff.dropped.join(' · '), '650 22px ' + FONT, width, measure),
+  });
+  return {blocks, height:blocks.reduce((sum, block) => sum + 54 + block.lines.length * 26, 0)};
+}
+function drawPresentationReceipt(s, receipt, {x, y, C}){
+  if(!receipt.blocks.length) return;
+  s.push('<line x1="' + x + '" y1="' + (y - 12) + '" x2="' + (1920-x) + '" y2="' + (y - 12) + '" stroke="' + C.border + '"/>');
+  let dy = y;
+  for(const block of receipt.blocks){
+    s.push(txt(x, dy + 14, block.label, 22, C.muted, {weight:700,tracking:1.1}));
+    dy += 46;
+    textLines(s, x, dy, block.lines, 22, block.muted ? C.muted : C.ink, {weight:block.muted ? 500 : 650,gap:26});
+    dy += block.lines.length * 26 + 6;
+  }
+}
+function copyUnavailable(model, C, measure){
+  const W = 1920, H = 1080, side = 64;
+  const sourceTitle = model.title || 'Milestone timeline';
+  const measuredTitle = fieldWrap(sourceTitle, '700 42px ' + FONT, W-side*2, measure);
+  /* A refusal frame still carries every source title that physically fits.
+     Beyond this measured header allowance, name the title-specific refusal
+     rather than quietly substituting a generic identifier; native SVG is the
+     exhaustive route for that source fact. */
+  const sourceTitleTooLong = measuredTitle.length > 12;
+  const titleLines = sourceTitleTooLong ? ['SOURCE TITLE EXCEEDS ONE-FRAME FIELD'] : measuredTitle;
+  const titleY = 130, titleGap = 46, ruleY = Math.max(250, titleY + (titleLines.length - 1) * titleGap + 56);
   return '<svg xmlns="http://www.w3.org/2000/svg"' + rootFieldAttrs(model, 'presentation', {copy:'unavailable'}) +
+    (sourceTitleTooLong ? ' data-copy-unavailable-reason="source-title"' : '') +
     ' data-font-floor="22" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + FONT + '">' +
     '<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>' +
     txt(side, 64, 'TIMELINE / FORECAST FIELD', 22, C.muted, {weight:700,tracking:1.4}) +
-    txt(side, 130, title, 42, C.ink, {weight:700}) +
-    '<line x1="' + side + '" y1="250" x2="' + (W-side) + '" y2="250" stroke="' + C.border + '"/>' +
-    txt(side, 322, 'COPY PNG UNAVAILABLE — DOWNLOAD SVG', 26, C.ink, {weight:700,tracking:.5}) +
-    txt(side, 366, 'This complete Field needs more than one 16:9 frame. SVG retains every milestone, note and timing fact.', 22, C.muted, {weight:500}) +
-    txt(side, 980, model.items.length + ' MILESTONES · NO PARTIAL PRESENTATION CREATED', 22, C.muted, {weight:650,tracking:.3}) +
+    titleLines.map((line, i) => txt(side, titleY + i * titleGap, line, 42, C.ink, {weight:700})).join('') +
+    '<line x1="' + side + '" y1="' + ruleY + '" x2="' + (W-side) + '" y2="' + ruleY + '" stroke="' + C.border + '"/>' +
+    txt(side, ruleY + 72, 'COPY PNG UNAVAILABLE — DOWNLOAD SVG', 26, C.ink, {weight:700,tracking:.5}) +
+    txt(side, ruleY + 116, sourceTitleTooLong
+      ? 'DOWNLOAD SVG TO RETAIN THE FULL AUTHOR TITLE AND EVERY TIMING FACT.'
+      : 'This complete Field needs more than one 16:9 frame. SVG retains every milestone, note and timing fact.', 22, C.muted, {weight:500}) +
+    txt(side, 980, sourceTitleTooLong
+      ? 'SOURCE TITLE TOO LONG · NO PARTIAL PRESENTATION CREATED'
+      : model.items.length + ' MILESTONES · NO PARTIAL PRESENTATION CREATED', 22, C.muted, {weight:650,tracking:.3}) +
     '</svg>';
 }
-function wideRows(model, columns, rowMetric, laneH){
+function wideRows(model, columns, rowMetric, laneH, groupGap = 8){
   const groups = model.lanes.map(lane => ({lane, items:model.items.filter(it => it.lane === lane)}));
   const cols = Array.from({length:columns}, () => []), heights = Array(columns).fill(0);
   for(const group of groups){
     const target = heights.indexOf(Math.min(...heights));
     cols[target].push(group);
-    heights[target] += group.items.reduce((sum, it) => sum + rowMetric(it).height, 0) + (group.lane ? laneH : 0) + 8;
+    heights[target] += group.items.reduce((sum, it) => sum + rowMetric(it).height, 0) + (group.lane ? laneH : 0) + groupGap;
   }
   return cols;
 }
 function renderWide(model, ctx, diff, {edit, intent, verdict}){
   const presentation = intent === 'presentation', native = intent === 'native';
   const C = fieldColors(model, ctx), today = model.today ?? ctx.today;
-  const utility = presentation ? 22 : 11, laneH = presentation ? 38 : 22;
+  const utility = presentation ? 22 : 11, laneH = presentation ? 20 : 22;
   const W = presentation ? 1920 : 1442, side = presentation ? 64 : 34;
-  const maxColumns = presentation ? 3 : 1;
+  const maxColumns = 1;
   const columnGap = presentation ? 38 : 0;
-  const railFor = columns => presentation
-    ? Math.max(156, Math.min(220, ((W - side * 2 - columnGap * (columns - 1)) / columns) * .27))
-    : 300;
+  const railFor = columns => presentation ? 500 : 326;
   const rowMetricFor = columns => {
     const rail = railFor(columns), titleSize = presentation ? 22 : 12.5;
+    const labelInset = presentation ? 22 : 14;
+    /* State words occupy a measured, permanent end-cap in the label rail.
+       A title may become tall, but it may never run under RISK / OVERDUE. */
+    const stateReserve = presentation ? 152 : 82;
     return it => {
-      const lines = wrapText(itemLabel(it), '650 ' + titleSize + 'px ' + FONT, rail - 22, ctx.measure).slice(0, 2);
+      const lines = fieldWrap(itemLabel(it), '650 ' + titleSize + 'px ' + FONT, rail - labelInset - stateReserve, ctx.measure);
       const noteSize = presentation ? utility : 11;
-      const noteLines = it.note ? wrapText('NOTE · ' + it.note, '400 ' + noteSize + 'px ' + FONT, rail - 22, ctx.measure) : [];
-      const base = lines.length > 1 ? (presentation ? 100 : 58) : (presentation ? 70 : 48);
-      return {lines, noteLines, height: base + (noteLines.length ? (presentation ? 8 : 5) + noteLines.length * (presentation ? 22 : 14) : 0)};
+      const noteLines = it.note ? fieldWrap('NOTE · ' + it.note, '400 ' + noteSize + 'px ' + FONT, rail - labelInset, ctx.measure) : [];
+      const base = presentation ? 46 + (lines.length - 1) * 22 : 48 + (lines.length - 1) * 14;
+      return {lines, noteLines, height: base + (noteLines.length ? (presentation ? 6 : 5) + noteLines.length * (presentation ? 22 : 14) : 0)};
     };
   };
-  /* A presentation Field reserves a true receipt for the verdict. It may use
-     columns, but never lets a verdict or a milestone enter the factual footer. */
-  const receiptReserve = presentation && verdict?.line ? 118 : 0;
-  const capacity = presentation ? 748 - receiptReserve : Infinity;
-  let columns = 1, rowMetric = rowMetricFor(columns), rows = wideRows(model, columns, rowMetric, laneH);
-  while(columns < maxColumns && Math.max(...rows.map(groups => groups.reduce((sum, group) => sum + group.items.reduce((n, it) => n + rowMetric(it).height, 0) + (group.lane ? laneH : 0) + 8, 0))) > capacity){
+  const title = model.title || 'Milestone timeline';
+  const titleSize = presentation ? 38 : 22, titleGap = presentation ? 42 : 26;
+  const titleLines = fieldWrap(title, '700 ' + titleSize + 'px ' + FONT, W-side*2, ctx.measure);
+  const titleY = presentation ? 94 : 65;
+  const detailY = (presentation ? 132 : 85) + (titleLines.length - 1) * titleGap;
+  const top = detailY + (presentation ? 72 : 45);
+  const receipt = presentation ? presentationReceipt({verdict,diff,width:W-side*2,measure:ctx.measure}) : null;
+  /* One slide is a single common chronology. When its honest rows and receipt do
+     not fit, Copy PNG refuses rather than partitioning time or losing a fact. */
+  const capacity = presentation ? 950 - top - 24 - receipt.height : Infinity;
+  const groupGap = presentation ? 2 : 8;
+  let columns = 1, rowMetric = rowMetricFor(columns), rows = wideRows(model, columns, rowMetric, laneH, groupGap);
+  while(columns < maxColumns && Math.max(...rows.map(groups => groups.reduce((sum, group) => sum + group.items.reduce((n, it) => n + rowMetric(it).height, 0) + (group.lane ? laneH : 0) + groupGap, 0))) > capacity){
     columns += 1;
     rowMetric = rowMetricFor(columns);
-    rows = wideRows(model, columns, rowMetric, laneH);
+    rows = wideRows(model, columns, rowMetric, laneH, groupGap);
   }
   const gap = columnGap;
   const colW = (W - side * 2 - gap * (columns - 1)) / columns;
   const rail = railFor(columns);
-  const top = presentation ? 204 : 130, bottomReserve = presentation ? 150 : 88;
-  const bodyH = Math.max(420, ...rows.map(groups => groups.reduce((sum, group) => sum + group.items.reduce((n, it) => n + rowMetric(it).height, 0) + (group.lane ? laneH : 0) + 8, 0)));
-  if(presentation && bodyH > capacity) return copyUnavailable(model, C);
+  const bottomReserve = presentation ? 150 : 88;
+  const bodyH = Math.max(420, ...rows.map(groups => groups.reduce((sum, group) => sum + group.items.reduce((n, it) => n + rowMetric(it).height, 0) + (group.lane ? laneH : 0) + groupGap, 0)));
+  if(presentation && bodyH > capacity) return copyUnavailable(model, C, ctx.measure);
   const H = presentation ? 1080 : Math.round(top + bodyH + footerHeight({width:W-side*2,verdict,diff,measure:ctx.measure}) + 32);
   const s = ['<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>'];
-  const title = model.title || 'Milestone timeline';
   s.push(txt(side, presentation ? 44 : 30, presentation ? 'TIMELINE / FORECAST FIELD' : 'FORECAST FIELD', utility, C.muted, {weight:700,tracking:presentation ? 1.4 : 1.1}));
-  s.push(txt(side, presentation ? 94 : 65, title, presentation ? 38 : 22, C.ink, {weight:700}));
+  textLines(s, side, titleY, titleLines, titleSize, C.ink, {weight:700,gap:titleGap});
   const detail = diff ? 'SINCE ' + diff.since.toUpperCase() + ' · ' + (diff.slips.length ? diff.slips.length + ' SLIPPED · ' : '') + (diff.newKeys.size ? diff.newKeys.size + ' NEW · ' : '') + (diff.dropped.length ? diff.dropped.length + ' DROPPED' : 'NO DROPS') : 'P50–P90 RANGES · COMMON CHRONOLOGY · NOT DELIVERY PROMISES';
-  s.push(txt(side, presentation ? 132 : 85, detail, utility, C.muted, {weight:650,tracking:.32}));
+  s.push(txt(side, detailY, detail, utility, C.muted, {weight:650,tracking:.32}));
   s.push(txt(W - side, presentation ? 44 : 30, fmtDay(today), utility, C.muted, {anchor:'end',weight:650}));
   const next = model.items.filter(it => it.status !== 'done' && it.p50 >= today).sort((a,b) => a.p50 - b.p50)[0] || model.items[0];
   rows.forEach((groups, colIndex) => {
@@ -238,34 +317,32 @@ function renderWide(model, ctx, diff, {edit, intent, verdict}){
           s.push('<g data-edit="cardmenu" data-line="' + it.srcLine + '" data-menu=""' + btnAttrs('Milestone: ' + it.label) + '><rect data-hit="" x="' + x + '" y="' + y.toFixed(1) + '" width="' + colW + '" height="' + rowH + '" fill="' + C.bg + '" fill-opacity="0"/><rect data-edit="setlane" data-line="' + it.srcLine + '" data-raw="' + esc(it.lane) + '" pointer-events="none" x="' + x + '" y="' + (y + 3) + '" width="1" height="1" fill-opacity="0"/><rect data-edit="note" data-line="' + it.srcLine + '" data-raw="' + esc(it.note || '') + '" pointer-events="none" x="' + x + '" y="' + (y + 3) + '" width="1" height="1" fill-opacity="0"/>');
         }
         const titleLines = metric.lines;
-        const titleY = y + (presentation ? 28 : 16), titleGap = presentation ? 25 : 14;
-        textLines(s, x + (presentation ? 22 : 14), titleY, titleLines, presentation ? 22 : 12.5, C.ink, {weight:650,gap:titleGap,edit:edit ? editAttrs(it,'label') : ''});
-        const subY = presentation ? y + (titleLines.length > 1 ? 78 : 54) : y + Math.min(rowH - 8, titleLines.length > 1 ? 42 : 31);
-        textLines(s, x + (presentation ? 22 : 14), subY, [rangeText(it)], presentation ? utility : 11.5, C.muted, {edit:edit ? editAttrs(it,'dates') : ''});
+        const titleY = y + (presentation ? 19 : 16), titleGap = presentation ? 22 : 14;
+        const labelInset = presentation ? 22 : 14;
+        textLines(s, x + labelInset, titleY, titleLines, presentation ? 22 : 12.5, C.ink, {weight:650,gap:titleGap,edit:edit ? editAttrs(it,'label') : ''});
+        const subY = presentation ? y + 41 + (titleLines.length - 1) * 22 : y + Math.min(rowH - 8, 31 + (titleLines.length - 1) * 14);
+        textLines(s, x + labelInset, subY, [rangeText(it)], presentation ? utility : 11.5, C.muted, {edit:edit ? editAttrs(it,'dates') : ''});
         if(metric.noteLines.length){
           const noteY = subY + (presentation ? 23 : 14);
           s.push('<g data-field-note="" aria-label="Note: ' + esc(it.note) + '">');
-          textLines(s, x + (presentation ? 22 : 14), noteY, metric.noteLines, presentation ? utility : 11, C.muted, {gap:presentation ? 22 : 14});
+          textLines(s, x + labelInset, noteY, metric.noteLines, presentation ? utility : 11, C.muted, {gap:presentation ? 22 : 14});
           s.push('</g>');
         }
-        if(st) s.push(txt(plotX - (presentation ? 14 : 10), y + (presentation ? 24 : 13), st, utility, col, {anchor:'end',weight:700,tracking:.65}));
+        const endCapX = plotX - (presentation ? 14 : 10);
+        if(st) s.push(txt(endCapX, y + (presentation ? 24 : 13), st, utility, col, {anchor:'end',weight:700,tracking:.65}));
+        /* New is a comparison fact, not a loose label in the date rail. Its
+           reserved end-cap keeps wrapping and an item's timing readout apart. */
+        if(diff?.newKeys?.has(keyOf(it))) s.push(txt(endCapX, y + (presentation ? 48 : 31), 'NEW', utility, C.ink, {anchor:'end',weight:700,tracking:.7}));
         dayMark(s,it,cy,sc,C,today,edit,{diff,strong:presentation,next:it===next,utility});
-        if(diff?.newKeys?.has(keyOf(it))) s.push(txt(x, y + rowH - 8, 'NEW', utility, C.ink, {weight:700,tracking:.7}));
         if(edit){ s.push('<text data-empty-control="" data-edit="removeitem" data-line="' + it.srcLine + '" data-raw=""' + btnAttrs('Remove ' + it.label) + ' x="' + (x + rail - 4) + '" y="' + (y + rowH - 7) + '" text-anchor="end" font-size="11" fill="' + C.muted + '">×</text></g>'); }
         s.push('</g>');
         y += rowH;
       }
-      y += 8;
+      y += groupGap;
     }
   });
   if(presentation){
-    if(verdict?.line){
-      const receiptY = top + bodyH + 28;
-      s.push('<line x1="' + side + '" y1="' + (receiptY - 12) + '" x2="' + (W-side) + '" y2="' + (receiptY - 12) + '" stroke="' + C.border + '"/>');
-      s.push(txt(side, receiptY + 10, 'VERDICT', 16, C.muted, {weight:700,tracking:1.1}));
-      const line = wrapText(verdict.line, '650 22px ' + FONT, W-side*2, ctx.measure);
-      textLines(s, side, receiptY + 42, line, 22, C.ink, {weight:650,gap:26});
-    }
+    drawPresentationReceipt(s, receipt, {x:side,y:top + bodyH + 24,C});
     s.push('<line x1="' + side + '" y1="950" x2="' + (W-side) + '" y2="950" stroke="' + C.border + '"/>');
     const leadCount = model.items.filter(it => decisionLead(it,today)).length;
     s.push(txt(side, 980, leadCount ? leadCount + ' DECISION LEAD' + (leadCount === 1 ? '' : 'S') + ' MARKED ABOVE THEIR FORECASTS' : 'RANGES ARE FORECAST INTERVALS; FIXED EVENTS ARE FACTS.', utility, C.muted, {weight:650,tracking:.25}));
@@ -278,18 +355,22 @@ function renderWide(model, ctx, diff, {edit, intent, verdict}){
 }
 function renderNarrow(model, ctx, diff, {edit, verdict}){
   const C = fieldColors(model,ctx), W = ctx.width || 390, PAD = 16, today = model.today ?? ctx.today;
-  const sc = fieldScale(model,today,PAD,W-PAD*2,diff), tickY = diff ? 92 : 74;
+  const title = model.title || 'Milestone timeline';
+  const titleLines = fieldWrap(title, '700 17px ' + FONT, W-PAD*2, ctx.measure);
+  const titleY = 48, titleGap = 20;
+  const detailY = 66 + (titleLines.length - 1) * titleGap;
+  const sc = fieldScale(model,today,PAD,W-PAD*2,diff), tickY = diff ? detailY + 26 : titleY + 26 + (titleLines.length - 1) * titleGap;
   const rows = [];
   let y = tickY + 28;
   for(const lane of model.lanes){
     const items = model.items.filter(it => it.lane === lane);
     if(lane){ rows.push({lane, top:y}); y += 25; }
     for(const it of items){
-      const titleLines = wrapText(itemLabel(it), '650 13px ' + FONT, W - PAD * 2 - 62, ctx.measure).slice(0, 2);
-      const dateOffset = titleLines.length > 1 ? 48 : 33;
-      const noteLines = it.note ? wrapText('NOTE · ' + it.note, '400 11px ' + FONT, W - PAD * 2, ctx.measure) : [];
+      const titleLines = fieldWrap(itemLabel(it), '650 13px ' + FONT, W - PAD * 2 - 62, ctx.measure);
+      const dateOffset = 33 + (titleLines.length - 1) * 14;
+      const noteLines = it.note ? fieldWrap('NOTE · ' + it.note, '400 11px ' + FONT, W - PAD * 2, ctx.measure) : [];
       const noteOffset = dateOffset + 14;
-      const trackOffset = noteLines.length ? noteOffset + noteLines.length * 14 + 8 : (titleLines.length > 1 ? 61 : 45);
+      const trackOffset = noteLines.length ? noteOffset + noteLines.length * 14 + 8 : dateOffset + 12;
       const height = trackOffset + 51;
       rows.push({it, top:y, titleLines, noteLines, dateOffset, noteOffset, trackOffset, height}); y += height;
     }
@@ -298,10 +379,10 @@ function renderNarrow(model, ctx, diff, {edit, verdict}){
   const footerStart = y + 4, H = footerStart + footerHeight({width:W-PAD*2,verdict,diff,measure:ctx.measure}) + 24;
   const s = ['<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>'];
   s.push(txt(PAD,22,'CALIBRATED FIELD',11,C.muted,{weight:700,tracking:1.2}));
-  s.push(txt(PAD,48,model.title || 'Milestone timeline',17,C.ink,{weight:700}));
+  textLines(s,PAD,titleY,titleLines,17,C.ink,{weight:700,gap:titleGap});
   if(diff){
     const bits = [diff.slips.length ? diff.slips.length + ' SLIPPED' : '', diff.newKeys.size ? diff.newKeys.size + ' NEW' : '', diff.dropped.length ? diff.dropped.length + ' DROPPED' : ''].filter(Boolean);
-    s.push(txt(PAD,66,'SINCE ' + diff.since.toUpperCase() + ' · ' + (bits.join(' · ') || 'NO CHANGE'),11,C.muted,{weight:650,tracking:.2}));
+    s.push(txt(PAD,detailY,'SINCE ' + diff.since.toUpperCase() + ' · ' + (bits.join(' · ') || 'NO CHANGE'),11,C.muted,{weight:650,tracking:.2}));
   }
   /* Tick lines preserve true date positions. Labels are merely annotations, so
      a later label wins an edge collision instead of producing JULAUG. */
@@ -331,24 +412,58 @@ function renderNarrow(model, ctx, diff, {edit, verdict}){
       s.push('</g>');
     }
     if(st)s.push(txt(W-PAD,top+16,st,11,col,{anchor:'end',weight:700,tracking:.8}));
+    if(diff?.newKeys?.has(keyOf(it)))s.push(txt(W-PAD,top+dateOffset,'NEW',11,C.ink,{anchor:'end',weight:700,tracking:.8}));
     s.push('<line x1="' + PAD + '" y1="' + cy + '" x2="' + (W-PAD) + '" y2="' + cy + '" stroke="' + C.border + '"/>');
     for(const tick of fieldTicks(sc.lo,sc.hi)){ const x=sc.X(tick.day); s.push('<line x1="' + x.toFixed(1) + '" y1="' + trackTop + '" x2="' + x.toFixed(1) + '" y2="' + (trackTop+28) + '" stroke="' + C.border + '" opacity=".65"/>'); }
     s.push('<line data-today="" x1="' + todayX.toFixed(1) + '" y1="' + trackTop + '" x2="' + todayX.toFixed(1) + '" y2="' + (trackTop+28) + '" stroke="' + C.ink + '" stroke-width="1"/>');
     dayMark(s,it,cy,sc,C,today,edit,{diff,strong:true,next:it===next});
-    if(diff?.newKeys?.has(keyOf(it))) s.push(txt(PAD,top+45,'NEW',11,C.ink,{weight:700,tracking:.8}));
     if(edit)s.push('</g>');
     s.push('</g>');
   }
   footer(s,{W,x:PAD,y:footerStart,C,model,today,diff,verdict,measure:ctx.measure,edit,addUnlaned:''});
   return '<svg xmlns="http://www.w3.org/2000/svg"' + rootFieldAttrs(model, 'live-narrow', {narrow:true}) + ' data-font-floor="11" data-min-readable-scale="1" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + FONT + '">' + s.join('') + '</svg>';
 }
+function renderEmptyField(model, ctx, {edit, resolved}){
+  const presentation = resolved === 'presentation', native = resolved === 'native', narrow = resolved === 'live-narrow';
+  const C = fieldColors(model,ctx);
+  const W = presentation ? 1920 : narrow ? (ctx.width || 390) : 1442;
+  const side = presentation ? 64 : narrow ? 16 : 34;
+  const utility = presentation ? 22 : 11;
+  const titleSize = presentation ? 38 : narrow ? 17 : 22;
+  const titleGap = presentation ? 42 : narrow ? 20 : 26;
+  const rawTitle = model.title || 'Milestone timeline';
+  const measuredTitle = fieldWrap(rawTitle, '700 ' + titleSize + 'px ' + FONT, W-side*2, ctx.measure);
+  /* Empty does not mean source facts are optional. A sufficiently long heading
+     takes the same explicit Copy-PNG refusal as a dense Field; native/live
+     forms retain every wrapped line at their natural height. */
+  if(presentation && measuredTitle.length > 16) return copyUnavailable(model,C,ctx.measure);
+  const titleLines = measuredTitle;
+  const titleY = presentation ? 94 : narrow ? 48 : 65;
+  const factY = titleY + (titleLines.length - 1) * titleGap + (presentation ? 82 : narrow ? 38 : 48);
+  const H = presentation ? 1080 : Math.max(narrow ? 170 : 210, factY + (edit ? 82 : 44));
+  const s = ['<rect width="' + W + '" height="' + H + '" fill="' + C.bg + '"/>'];
+  s.push(txt(side, presentation ? 44 : narrow ? 22 : 30, presentation ? 'TIMELINE / FORECAST FIELD' : narrow ? 'CALIBRATED FIELD' : 'FORECAST FIELD', utility, C.muted, {weight:700,tracking:presentation ? 1.4 : 1.1}));
+  textLines(s, side, titleY, titleLines, titleSize, C.ink, {weight:700,gap:titleGap});
+  s.push(txt(side, factY, 'NO MILESTONES YET', utility, C.muted, {weight:700,tracking:presentation ? 1.1 : .8}));
+  s.push(txt(side, factY + (presentation ? 42 : 28), 'Add the first P50–P90 range to begin this forecast field.', presentation ? 26 : 16, C.ink, {weight:650}));
+  if(edit){
+    const addY = factY + (presentation ? 74 : 54);
+    s.push('<g data-add-control="" data-edit="additem" data-line="-1" data-raw="" data-lane=""' + btnAttrs('Add unlaned milestone') + '>' +
+      txt(side, addY, 'ADD MILESTONE', utility, C.muted, {weight:700,tracking:.8}) +
+      '<rect data-hit="" x="' + side + '" y="' + (addY - 28) + '" width="160" height="44" fill="' + C.bg + '" fill-opacity="0"/></g>');
+  }
+  if(presentation){
+    s.push('<line x1="' + side + '" y1="950" x2="' + (W-side) + '" y2="950" stroke="' + C.border + '"/>');
+    s.push(txt(side,980,'NO TIMING FACTS YET — ADD A P50–P90 RANGE',utility,C.muted,{weight:650,tracking:.25}));
+    s.push(txt(W-side,980,'0 MILESTONES · EMPTY FIELD',utility,C.ink,{anchor:'end',weight:700,tracking:.35}));
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg"' + rootFieldAttrs(model, resolved, {narrow, copy:presentation ? 'complete' : null, native}) +
+    ' data-font-floor="' + (presentation ? '22' : '11') + '" data-min-readable-scale="1" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + FONT + '">' + s.join('') + '</svg>';
+}
 export function renderField(model, ctx, diff = null, {edit = false, intent = null, verdict = null} = {}){
   const resolved = intent || ctx.intent || (ctx.width && ctx.width < 520 ? 'live-narrow' : 'live-wide');
-  if(!model.items.length){
-    const C = fieldColors(model,ctx), W = ctx.width && ctx.width < 520 ? ctx.width : 720;
-    return '<svg xmlns="http://www.w3.org/2000/svg"' + rootFieldAttrs(model, resolved, {narrow:resolved === 'live-narrow', copy:resolved === 'presentation' ? 'complete' : null, native:resolved === 'native'}) + ' width="' + W + '" height="120" viewBox="0 0 ' + W + ' 120" font-family="' + FONT + '"><rect width="' + W + '" height="120" fill="' + C.bg + '"/>' + txt(20,36,'FORECAST FIELD',9.5,C.muted,{weight:700,tracking:1.1}) + txt(20,70,'No milestones yet',18,C.ink,{weight:700}) + '</svg>';
-  }
-  return resolved === 'live-narrow' || (ctx.width && ctx.width < 520)
+  if(!model.items.length) return renderEmptyField(model,ctx,{edit,resolved});
+  return resolved === 'live-narrow'
     ? renderNarrow(model,ctx,diff,{edit,verdict})
     : renderWide(model,ctx,diff,{edit,intent:resolved,verdict});
 }

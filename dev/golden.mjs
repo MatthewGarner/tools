@@ -577,9 +577,31 @@ for(const [k, src] of Object.entries(docs)){
   const tm = tparse(tdoc);
   const tctx = {...ctxBase, today: 20640};
   variants['timeline-default'] = trender(tm, tctx);
-  variants['timeline-slide'] = trender(tm, {...tctx, slide: true});
+  /* Export is its own physical intent: one 16:9 Field with a shared ruler, not
+     a legacy `slide` flag quietly falling back to the live board. */
+  variants['timeline-presentation'] = trender(tm, {...tctx, intent:'presentation'}, null, {intent:'presentation'});
+  variants['timeline-native'] = trender(tm, {...tctx, intent:'native'}, null, {intent:'native'});
+  const timelineDark = {...tctx, dark:true, colors:{
+    card:'#1A1A19', border:'#2E2E2C', ink:'#F1F1EE', muted:'#8F8F8A', accent:'#7C97FF', bg:'#121212', err:'#E07A72',
+    status:{done:'#3FA163',doing:'#7C97FF',risk:'#B9880F',blocked:'#D96A61'},
+    statusInk:{done:'#55AC75',doing:'#93A8FF',risk:'#BE9122',blocked:'#DD7B73'}, accentInk:'#93A8FF',
+  }};
+  variants['timeline-dark'] = trender(tm, timelineDark);
+  variants['timeline-narrow-dark'] = trender(tm, {...timelineDark, width:360}, null, {intent:'live-narrow'});
+  variants['timeline-presentation-dark'] = trender(tm, {...timelineDark, intent:'presentation'}, null, {intent:'presentation'});
   variants['timeline-diff'] = trender(tm, tctx,
     timelineDiffView(timelineDiff(tparse(tOld), tm), 'JUNE PACK'));
+  /* A wrapped comparison addition belongs in the end-cap, clear of its date
+     fact, in both live and presentation Fields. */
+  const tNewOld = tparse('Lane: Existing 2026-08 .. 2026-09');
+  const tNew = tparse('Lane: Existing 2026-08 .. 2026-09\nLane: ' + 'A'.repeat(80) + ' 2026-10 .. 2026-11');
+  const tNewDiff = timelineDiffView(timelineDiff(tNewOld, tNew), 'AUGUST REVIEW');
+  variants['timeline-diff-new-wrapped'] = trender(tNew, tctx, tNewDiff);
+  variants['timeline-diff-new-wrapped-narrow'] = trender(tNew, {...tctx, width:360}, tNewDiff, {intent:'live-narrow'});
+  variants['timeline-diff-new-wrapped-presentation'] = trender(tNew, {...tctx, intent:'presentation'}, tNewDiff, {intent:'presentation'});
+  const tEmpty = tparse('title: Empty timing plan');
+  variants['timeline-empty'] = trender(tEmpty, tctx, null, {edit:true});
+  variants['timeline-empty-presentation'] = trender(tEmpty, {...tctx, intent:'presentation'}, null, {intent:'presentation'});
 
   // short whisker + long label → today the P90 diamond splices the date text.
   // NOTE SEPARATOR IS // (the DSL), not · (· is only the renderer's formatting of a
@@ -631,6 +653,10 @@ for(const [k, src] of Object.entries(docs)){
   const tlm = tparse(tLead);
   variants['timeline-lrm'] = trender(tlm, tctx);
   variants['timeline-lrm-narrow'] = trender(tlm, {...tctx, width: 360});
+  /* An authored conclusion may lead the receipt, but an active decision clock
+     must remain visible in the presentation artefact as a named fact. */
+  const tlmAuth = tparse('verdict: Hold the office move inside the review window\n' + tLead);
+  variants['timeline-lrm-authored-presentation'] = trender(tlmAuth, {...tctx, intent:'presentation'}, null, {intent:'presentation'});
 
 }
 

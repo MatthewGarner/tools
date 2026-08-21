@@ -69,18 +69,13 @@ function doRefresh(){
   const text = editor.getText();
   model = parse(text);
   const pv = $('preview');
-  if(!model.items.length){
-    lastSvg = '';
-    pv.innerHTML = '<p class="placeholder">' + (text.trim()
-      ? 'No milestones yet — write one like “Grid: Energisation 2027-02 .. 2027-06”.'
-      : 'Start typing — or load an example.') + '</p>';
-  } else {
-    const width=narrowWidth(pv),intent=width<520?'live-narrow':'live-wide';
-    const svg = activeRender(intent,true,width);
-    paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
-    lastSvg = svg;
-    motionOverride = undefined;
-  }
+  /* Empty is a first-class Field: it carries the keyboard add route and the
+     same native/presentation export boundary as a populated forecast. */
+  const width=narrowWidth(pv),intent=width<520?'live-narrow':'live-wide';
+  const svg = activeRender(intent,true,width);
+  paint(svg, REVEAL, {flipAttr: 'data-mskey', scale: ws.scale, onSwap: ws.applyZoom, mode: motionOverride});
+  lastSvg = svg;
+  motionOverride = undefined;
   renderWarnings();
   setActionsEnabled(!!lastSvg);
   /* #93: the hop appears only when there is a merge to premortem (never a dead link) */
@@ -207,7 +202,7 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: S
 
 /* ---------- exports ---------- */
 function svgString(intent){
-  return (model && model.items.length) ? activeRender(intent, false) : null;
+  return model ? activeRender(intent, false) : null;
 }
 function slug(){
   return slugify(model.title, 'timeline');
@@ -246,7 +241,7 @@ $('topremortem').addEventListener('click', async () => {
   else $('handoffstatus').textContent = 'This plan is too large to open in Premortem. Shorten the title, then try again.';
 });
 $('copymd').addEventListener('click', async () => {
-  if(!model || !model.items.length) return;
+  if(!model) return;
   const md = toMarkdown(model, currentDiff(), location.href, todayDay());
   try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }

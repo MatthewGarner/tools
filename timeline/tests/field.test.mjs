@@ -96,7 +96,8 @@ test('phone Field gives a long title measured breathing room before its isolated
   const doc = 'App: A long operational milestone whose detailed name must wrap cleanly on a phone 2026-08 .. 2026-10';
   const svg = render(parse(doc), {...ctx, width:360}, null, {intent:'live-narrow', edit:true});
   assert.match(svg, /data-narrow=""/);
-  assert.match(svg, /data-edit="cardmenu"[\s\S]*?data-hit=""[^>]*height="112"/);
+  const hit = /data-edit="cardmenu"[\s\S]*?data-hit=""[^>]*height="([\d.]+)"/.exec(svg);
+  assert.ok(hit && +hit[1] >= 112, 'every wrapped authored line receives real card height');
   assert.equal(count(svg, /data-ms="p50"/g), 1);
   assert.equal(count(svg, /data-ms="p90"/g), 1);
 });

@@ -1282,6 +1282,24 @@ for(const theme of FLOW_THEMES){
   check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
+  check('timeline(' + theme + '): Field card menus keep keyboard focus, validation and viewport bounds', await (async () => {
+    const card = page.locator('#preview [data-edit="cardmenu"]').first();
+    await card.focus();
+    await card.press('Enter');
+    const menu = page.locator('.eip-pop');
+    await menu.waitFor({state:'visible'});
+    const bounds = await menu.evaluate(el => { const r = el.getBoundingClientRect(); return {left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:innerWidth, height:innerHeight}; });
+    const inBounds = bounds.left >= 8 && bounds.top >= 8 && bounds.right <= bounds.width - 8 && bounds.bottom <= bounds.height - 8;
+    await menu.getByRole('menuitem', {name:'Rename…'}).click();
+    const input = page.locator('.eip-input');
+    await input.fill('Bad 2026-10');
+    await input.press('Enter');
+    const invalid = await input.evaluate(el => el.classList.contains('invalid'));
+    await input.press('Escape');
+    await page.waitForTimeout(50);
+    return inBounds && invalid && await input.count() === 0 &&
+      await page.evaluate(() => document.activeElement?.dataset?.edit === 'label');
+  })());
   check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
     await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
@@ -1297,6 +1315,26 @@ for(const theme of FLOW_THEMES){
     return /Since /.test(d) && />NEW</.test(d);
   })());
   check('timeline(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* An empty Timeline is still a real Field: it can be exported and its quiet
+   keyboard add route starts the first milestone. This uses the app, rather than
+   a pure renderer, because a placeholder would otherwise bypass both paths. */
+{
+  const {page, errors} = await freshPage('/timeline/');
+  await showSourceIfReading(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await page.waitForFunction(() => document.querySelector('#preview svg[data-field="timeline"]'));
+  const add = page.locator('#preview [data-edit="additem"][data-lane=""]');
+  await add.focus();
+  await add.press('Enter');
+  check('timeline: empty Field keeps a keyboard add route', await page.locator('.eip-input').count() === 1);
+  await page.keyboard.press('Escape');
+  check('timeline: empty Field Copy PNG exports the factual empty state', await copyPngWorks(page));
+  check('timeline: empty Field has no console error', errors.length === 0);
   await page.close();
 }
 

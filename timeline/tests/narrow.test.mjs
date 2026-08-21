@@ -138,13 +138,9 @@ test('narrow: [fixed] is a factual point, not a forecast interval', () => {
 });
 
 test('narrow: fixed and done are both point facts but retain distinct semantics', () => {
-  /* This is where measure/draw drift is actually OBSERVABLE. renderNarrow feeds the
-     same string to wrapText that it later draws, so a predicate that measured a ±?
-     it never draws would change the wrap — and the whole SVG. (In the WIDE renderer
-     msLabelAnchor short-circuits to rightOfP50 for every `single` item, so its
-     titleW is unused there and no x/y can move; the wide draw site is pinned by the
-     "no ±?" test.) One item, so `nextUp` resolves to it either way — for [done] via
-     the `|| items[0]` fallback, for [fixed] via the filter. */
+  /* The Field measures and draws the same label string. One item means `nextUp`
+     resolves deterministically for both point states, while the semantic marker
+     makes the distinction explicit without a decorative treatment. */
   const label = 'Ofgem determination on capacity market rules';
   const svg = st => render(parse(label + ' 2026-09-01 [' + st + ']'), {...ctx, width: W});
   const fixed = svg('fixed'), done = svg('done');

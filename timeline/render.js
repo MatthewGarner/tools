@@ -1,128 +1,15 @@
 /* Timeline's public render boundary. Field owns the visual composition; this
    module keeps only its semantic helpers and public output routes. */
-import {txt, tint} from '../assets/svg.js';
-import {fmtDay, isPointDate} from './parse.js';
+import {fmtDay} from './parse.js';
 import {mergeBias, laneVsDeadline} from './mergebias.js';
 import {resolveVerdict} from '../assets/verdict.js';
-import {decisionLead, leadDuration, leadReceipt, leadSubline, primaryDecisionLead} from './lrm.js';
+import {decisionLead, leadDuration, leadReceipt, primaryDecisionLead} from './lrm.js';
 import {renderField} from './render-field.js';
-
-const F = {body:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"};
-const DAY_MS = 86400000;
-const monthStart = day => {
-  const d = new Date(day * DAY_MS);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / DAY_MS;
-};
-const addMonths = (day, n) => {
-  const d = new Date(day * DAY_MS);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1) / DAY_MS;
-};
-
-export function ticks(lo, hi){
-  const months = (hi - lo) / 30.44;
-  const quarterly = months > 24;
-  const out = [];
-  let t = monthStart(lo);
-  const d0 = new Date(t * DAY_MS);
-  if(quarterly) t = Date.UTC(d0.getUTCFullYear(), Math.floor(d0.getUTCMonth() / 3) * 3, 1) / DAY_MS;
-  while(t <= hi){
-    const d = new Date(t * DAY_MS);
-    out.push({day: t, label: quarterly
-      ? 'Q' + (Math.floor(d.getUTCMonth() / 3) + 1) + ' ' + d.getUTCFullYear()
-      : fmtDay(t, {month: true})});
-    t = addMonths(t, quarterly ? 3 : 1);
-  }
-  return out;
-}
 
 const wk = days => {
   const w = Math.round(Math.abs(days) / 7);
   return w + (w === 1 ? ' week' : ' weeks');
 };
-
-/* Does this milestone wear the "±?" nag? MEASURED at two sites and DRAWN at a
-   third — they must agree, or msLabelAnchor reserves width for a mark that never
-   appears (and renderNarrow wraps a title it never writes). One predicate. */
-const showsPm = it => it.single && !isPointDate(it);
-
-/* the whisker band fill. Light: the shared 12% capsule tint (unchanged). Dark:
-   a stronger tint of the milestone colour over the lane card — 12% vanishes on
-   #1B242C (band-vs-card contrast 1.17); 0x47 (~28%) lifts it to ~1.47 while the
-   in-band ink title (7.4:1) and muted sub (~3.5:1) stay legible in both themes.
-   Non-6-digit colours fall back to the 'none' stroke, exactly as tint() does. */
-export function whiskerFill(col, dark){
-  if(!dark) return tint(col);
-  return /^#[0-9a-fA-F]{6}$/.test(col) ? col + '47' : tint(col);
-}
-
-/* the [risk] capsule pill — the house "never colour-alone" mark (roadmap's
-   capsule idiom: tinted fill + coloured label, so it survives greyscale export).
-   Width is a separate pure helper because msLabelAnchor must RESERVE it before
-   the draw site exists — the two must agree or packing splices the pill. */
-const PILL = {size: 11, h: 17, padX: 6, tracking: 0.6, gap: 6};
-export function riskPillW(S, measure){
-  return measure('RISK', '600 ' + PILL.size * S + 'px ' + F.body) +
-    4 * PILL.tracking * S + PILL.padX * 2 * S;
-}
-export function riskPill(px, pyTop, S, C, measure){
-  const pw = riskPillW(S, measure), ph = PILL.h * S;
-  return {w: pw, svg:
-    '<rect x="' + px.toFixed(1) + '" y="' + pyTop.toFixed(1) + '" width="' + pw.toFixed(1) +
-    '" height="' + ph.toFixed(1) + '" rx="0" fill="' + tint(C.err) + '"' +
-    (tint(C.err) === 'none' ? ' stroke="' + C.err + '" stroke-width="1"' : '') + '/>' +
-    txt(px + PILL.padX * S, pyTop + ph - 4 * S, 'RISK', PILL.size * S, C.err,
-      {weight: 600, tracking: PILL.tracking})};
-}
-
-/* the dates/note sub-line under each label — the extent pass and the milestone
-   loop measure this exact string (module-level so msLabelAnchor stays pure) */
-export function baseSubOf(it){
-  return (it.status === 'done' ? fmtDay(it.p50) : it.single ? fmtDay(it.p50)
-    : fmtDay(it.p50, {month: (it.p90 - it.p50) > 45}) + ' → ' + fmtDay(it.p90, {month: (it.p90 - it.p50) > 45})) +
-    (it.note ? ' · ' + it.note : '');
-}
-export function subOf(it){ return baseSubOf(it) + (it.leadDays ? ' · ' + leadSubline(it) : ''); }
-
-const keyOf = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' ').trim();
-
-/* Where a milestone's label sits so the P90 diamond never splices it. Default:
-   just right of P50 (today's look). If the widest label line would reach the P90
-   diamond's LEFT tip (x90 - 0.8r), move the whole block to the right of the
-   diamond; if THAT overflows the plot AND a left-flip stays on-board AND there's
-   no ghost/slip in that space, flip LEFT of P50, right-anchored (the TODAY-flag
-   idiom). If neither side fits (or compare mode occupies the left), keep it
-   right-of-P90 and accept a right-edge clip — a readable title beats an invisible
-   one. Only ranged milestones with a real whisker move. PURE; `r` is pre-scaled
-   (never double-scale it); `hasGhost` is passed in (the compare pull-in trail
-   lives left of x50, exactly where a flip would land). */
-export function msLabelAnchor(it, x50, x90, r, S, plotX, plotW, measure, labelFont, noteFont, hasGhost){
-  const titleW = measure(it.label + (showsPm(it) ? ' ±?' : ''), labelFont) +
-    (it.status === 'risk' ? PILL.gap * S + riskPillW(S, measure) : 0);
-  const subW = measure(subOf(it), noteFont);
-  const widest = Math.max(titleW, subW);
-  const rightOfP50 = x50 + (r + 5 * S);
-  const hasWhisker = !it.single && (x90 - x50) > 1;
-  if(hasWhisker && rightOfP50 + widest > x90 - 0.8 * r - 4 * S){
-    const afterP90 = x90 + 0.8 * r + 6 * S;
-    if(afterP90 + widest <= plotX + plotW - 4 * S) return {labelX: afterP90, anchorEnd: false, widest, titleW, subW};
-    const flipX = x50 - r - 6 * S;                                    // right-anchored block ends here
-    if(!hasGhost && flipX - widest >= plotX + 4 * S) return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
-    return {labelX: afterP90, anchorEnd: false, widest, titleW, subW};    // both tight / compare → keep right, clip
-  }
-  /* A POINT milestone hard against the right edge. A fixed DEADLINE is usually the
-     rightmost thing on a plan — that is what a deadline IS — so its label ran off
-     the board. Flip left of the diamond, right-anchored: the same idiom the whisker
-     case above uses. Only reachable for point dates (a ranged item that got here
-     has its label fitting before x90, which is itself inside the plot), and it
-     stands down when the flip would overflow the LEFT or collide with a compare
-     ghost — a clipped label still beats an invisible one. */
-  if(rightOfP50 + widest > plotX + plotW - 4 * S){
-    const flipX = x50 - r - 6 * S;
-    if(!hasGhost && flipX - widest >= plotX + 4 * S)
-      return {labelX: flipX, anchorEnd: true, widest, titleW, subW};
-  }
-  return {labelX: rightOfP50, anchorEnd: false, widest, titleW, subW};
-}
 
 /* plain-text mirror of the SVG's "one quotable line" readout — the HTML text
    app.js shows next to the diagram. Pure; same inputs render() itself uses. */
@@ -252,6 +139,8 @@ export function timelineVerdict(model, today){
   const mb = mergeBias(model, today);
   const parts = restParts(model, today);
   const rest = parts.map(p => p.text).join('  ');
+  const clock = primaryDecisionLead(model, today);
+  const clockReceipt = clock ? leadReceipt(clock.it, today).text : '';
   /* `verdict:` (2026-07-31). `rest` is the TOOL's supporting operational bits, so
      it goes wherever the tool's line goes: an authored verdict stands alone, and
      `off` takes the whole band with it. */
@@ -262,11 +151,14 @@ export function timelineVerdict(model, today){
        request to suppress the whole band; a real authored line keeps the clock
        as its supporting receipt. */
     const hasClock = !!primaryDecisionLead(model, today);
-    return model.verdict == null || (hasClock && !r.off) ? {...r, rest: a.rest} : {...r, rest: ''};
+    const resolved = model.verdict == null || (hasClock && !!r.line) ? {...r, rest: a.rest} : {...r, rest: ''};
+    /* The renderer may place an authored conclusion above the tool's supporting
+       line. Carry an active clock independently so an export can retain that
+       decision fact without turning every operational aside into slide copy. */
+    return {...resolved, clock: model.verdict != null && !!resolved.line ? clockReceipt : ''};
   };
   /* A decision clock is more immediately actionable than an aggregate fit. It
      leads when present; merge risk stays in the supporting line, not erased. */
-  const clock = primaryDecisionLead(model, today);
   if(clock){
     const receipt = leadReceipt(clock.it, today);
     /* The automatic clock is already the lead line. An authored verdict takes

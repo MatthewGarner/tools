@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks, timelineReadout, timelineVerdict, toMarkdown} from '../render.js';
+import {render, timelineReadout, timelineVerdict, toMarkdown} from '../render.js';
 import {mergeBias} from '../mergebias.js';
 
 const ctx = {
@@ -17,14 +17,6 @@ Grid: Connection offer 2026-08 .. 2026-10
 Grid: Energisation 2027-02-15 .. 2027-06-01 [risk] // DNO dependent
 Build: FID 2026-06-30 [done]
 Build: Vendor selection 2026-11`;
-
-test('ticks: monthly under two years, quarterly beyond', () => {
-  const m = ticks(parseDate('2026-07-01'), parseDate('2027-03-01'));
-  assert.ok(m.length >= 8 && m.length <= 10);
-  assert.match(m[0].label, /^[A-Z][a-z]{2} \d{4}$/);
-  const q = ticks(parseDate('2026-01-01'), parseDate('2029-06-01'));
-  assert.ok(q.every(t => /^Q[1-4] \d{4}$/.test(t.label)));
-});
 
 test('every milestone renders: solid P50 diamond, whisker + open P90 diamond for ranges', () => {
   const svg = render(parse(DOC), ctx);
@@ -368,6 +360,14 @@ test('verdict: off drops the band, and the tool\'s supporting "rest" bits with i
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
 });
 
+test('verdict: off also suppresses a decision-clock receipt while retaining the factual field mark', () => {
+  const svg = render(parse('verdict: off\ntoday: 2026-08-01\nGate 2026-08-28 [fixed] [lead: 3w]'), ctx);
+  assert.match(svg, /data-lrm/, 'the forecast field still carries the lead mark');
+  const visible = svg.replace(/<title>[\s\S]*?<\/title>/g, '').replace(/aria-label="[^"]*"/g, '');
+  assert.doesNotMatch(visible, /Decision clock:/, 'off suppresses the receipt as requested');
+  assert.doesNotMatch(visible, />VERDICT</);
+});
+
 test('verdict: <text> stands alone — the tool\'s operational rest is not appended to the author\'s claim', () => {
   const m = parse('verdict: We hold the energisation date\n' + DOC);
   const vd = timelineVerdict(m, ctx.today);
@@ -405,14 +405,13 @@ test('dense live-wide uses exhaustive measured Field rows rather than a clipped 
   assert.equal((svg.match(/data-field-item=/g)||[]).length,20);
 });
 
-test('Copy PNG presentation is fixed 1920×1080 and refuses before it becomes partial',()=>{
+test('Copy PNG presentation is fixed 1920×1080 and keeps the complete Field when it fits',()=>{
   const src=Array.from({length:10},(_,i)=>`Milestone ${i+1} 2026-${String(i+1).padStart(2,'0')} .. 2026-${String(Math.min(12,i+2)).padStart(2,'0')}`).join('\n');
   const svg=render(parse(src),{...ctx,intent:'presentation'},null,{intent:'presentation'});
   assert.match(svg,/^<svg[^>]*width="1920" height="1080"/);
   assert.match(svg,/data-font-floor="22"/);
-  assert.match(svg,/data-copy-field="unavailable"/);
-  assert.match(svg,/COPY PNG UNAVAILABLE — DOWNLOAD SVG/);
-  assert.equal((svg.match(/data-field-item=/g)||[]).length,0);
+  assert.match(svg,/data-copy-field="complete"/);
+  assert.equal((svg.match(/data-field-item=/g)||[]).length,10);
 });
 
 test('Field and its safe presentation refusal escape hostile authored text',()=>{
