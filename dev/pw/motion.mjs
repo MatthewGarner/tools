@@ -17,7 +17,7 @@ async function open(path, opts = {}){
   const page = await browser.newPage(opts);
   const errors = trackErrors(page);
   await page.addInitScript(() => {
-    window.__motionProbe = {traceStarts: 0, maxTraceEnvelope: 0, figOverridden: false};
+    window.__motionProbe = {traceStarts: 0, maxTraceEnvelope: 0};
     addEventListener('animationstart', e => {
       if(e.animationName !== 'mo-draw') return;
       const css = getComputedStyle(e.target);
@@ -25,10 +25,6 @@ async function open(path, opts = {}){
       window.__motionProbe.maxTraceEnvelope = Math.max(window.__motionProbe.maxTraceEnvelope,
         (parseFloat(css.animationDuration) + parseFloat(css.animationDelay)) * 1000);
     }, true);
-    new MutationObserver(() => {
-      if([...document.querySelectorAll('.vfig')].some(t => t.style.fill !== ''))
-        window.__motionProbe.figOverridden = true;
-    }).observe(document, {subtree: true, childList: true, attributes: true, attributeFilter: ['style']});
   });
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   return {page, errors};
@@ -216,21 +212,25 @@ for(const [label, viewport] of [
    nothing. Pin that the checks actually ran. */
 check(`anti-stranding: the visible-on-load check actually ran (${onLoadChecks} times)`, onLoadChecks >= 12);
 
-/* --- the verdict figure ARRIVES (2026-08-02): on first reveal the .vfig tspan
-   starts at ink (inline style override) and settles to its brand fill attribute;
-   an edit re-render is brand IMMEDIATELY (no replay). Timeline is the probe. */
+/* --- Field first paint: a forecast is a calibrated instrument, so authored timing
+   facts must be there immediately. Unlike the retired chart, Field has no decorative
+   verdict figure to animate: its semantic root and every item are the contract. */
 {
   const {page, errors} = await open('/timeline/', {viewport: {width: 1440, height: 900}});
-  await page.waitForSelector('#preview .vfig', {timeout: 8000});
-  const overridden = await page.evaluate(() => window.__motionProbe.figOverridden);
-  check('fig-arrival: the figure briefly overrides to ink', overridden);
-  await page.waitForFunction(() => {
-    const t = document.querySelector('#preview .vfig');
-    return t && t.style.fill === '';
-  }, {timeout: 4000}).catch(() => {});
-  const cleared = await page.$eval('#preview .vfig', t => t.style.fill === '');
-  check('fig-arrival: the override clears after the reveal (fill settles to brand)', cleared);
-  check('fig-arrival: no console errors', errors.length === 0);
+  const field = page.locator('#preview svg[data-field="timeline"]');
+  await field.waitFor({state: 'visible', timeout: 8000});
+  await settle(page, '#preview');
+  const facts = await page.locator('#preview [data-field-item]').count();
+  const readable = await page.locator('#preview [data-field-item]').evaluateAll(items =>
+    items.length > 0 && items.every(item => {
+      const label = item.querySelector('text');
+      const box = label && label.getBoundingClientRect();
+      return getComputedStyle(item).opacity === '1' && !!label?.textContent.trim() &&
+        !!box && box.width > 0 && box.height > 0;
+    }));
+  check('Field first-paint: the forecast root and its authored timing rows are present', facts > 0);
+  check('Field first-paint: every timing row has readable rendered text after the renderer settles', readable);
+  check('Field first-paint: no console errors', errors.length === 0);
   await page.close();
 }
 

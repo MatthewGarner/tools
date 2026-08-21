@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
-import {render, ticks, timelineReadout, timelineVerdict, toMarkdown} from '../render.js';
+import {render, timelineReadout, timelineVerdict, toMarkdown} from '../render.js';
 import {mergeBias} from '../mergebias.js';
 
 const ctx = {
@@ -18,14 +18,6 @@ Grid: Energisation 2027-02-15 .. 2027-06-01 [risk] // DNO dependent
 Build: FID 2026-06-30 [done]
 Build: Vendor selection 2026-11`;
 
-test('ticks: monthly under two years, quarterly beyond', () => {
-  const m = ticks(parseDate('2026-07-01'), parseDate('2027-03-01'));
-  assert.ok(m.length >= 8 && m.length <= 10);
-  assert.match(m[0].label, /^[A-Z][a-z]{2} \d{4}$/);
-  const q = ticks(parseDate('2026-01-01'), parseDate('2029-06-01'));
-  assert.ok(q.every(t => /^Q[1-4] \d{4}$/.test(t.label)));
-});
-
 test('every milestone renders: solid P50 diamond, whisker + open P90 diamond for ranges', () => {
   const svg = render(parse(DOC), ctx);
   assert.equal((svg.match(/data-ms="p50"/g) || []).length, 4);
@@ -34,10 +26,11 @@ test('every milestone renders: solid P50 diamond, whisker + open P90 diamond for
   assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
 });
 
-test('status colours: done uses st-done, risk uses err; single date gets ±?', () => {
+test('status uses words and factual exceptions; a bare single date keeps its uncertainty nag', () => {
   const svg = render(parse(DOC), ctx);
   assert.match(svg, /data-ms="p50"[^>]*fill="#1D7A3E"/);
-  assert.match(svg, /data-ms="p50"[^>]*fill="#b3403a"/);
+  assert.match(svg, /fill="#222222">RISK</);
+  assert.doesNotMatch(svg, /data-ms="p50"[^>]*data-mskey="grid\|energisation"[^>]*fill="#b3403a"/);
   assert.match(svg, /±\?/);
 });
 
@@ -59,14 +52,12 @@ test('verdict: next milestone up leads, widest whisker supports, P50 date is the
   assert.match(v.rest, /^Widest whisker: Energisation — 15 weeks between P50 and P90\.$/);
 });
 
-test('verdict SVG: VERDICT kicker, one brand tspan on the figure, muted supporting line', () => {
+test('verdict SVG: a quiet kicker, decisive line, and muted operational receipt', () => {
   const svg = render(parse(DOC), ctx);
   assert.match(svg, />VERDICT</);
-  /* the space before the figure becomes an NBSP so a wrap can't orphan it */
-  assert.match(svg, /Next up: Connection offer — P50\s<tspan class="vfig" fill="#D62015">Aug 2026<\/tspan>, could slip to Oct 2026\./);
-  assert.equal((svg.match(/#D62015/g) || []).length, 1, 'exactly one brand mark in the artefact');
+  assert.match(svg, /Next up: Connection offer — P50 Aug 2026, could slip to Oct 2026\./);
   assert.match(svg, /Widest whisker: Energisation — 15 weeks between P50 and P90\./);
-  assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0\.36"/);
+  assert.match(svg, /font-size="16" font-weight="650"/);
 });
 
 test('readout: a same-month range switches to day grain instead of repeating the month', () => {
@@ -86,10 +77,10 @@ test('edit hooks: label, dates, status, add and remove affordances', () => {
   assert.doesNotMatch(plain, /data-edit/);
 });
 
-test('edit: one ghost add zone per NAMED lane, none for the unnamed lane, none without edit', () => {
+test('edit: named lanes and the unlaned footer each carry an explicit return route', () => {
   const svg = render(parse(DOC), ctx, null, {edit: true});
-  const zones = [...svg.matchAll(/data-edit="additem" data-lane="([^"]*)"/g)].map(m => m[1]);
-  assert.deepEqual(zones.sort(), ['Build', 'Grid']);
+  const zones = [...svg.matchAll(/data-edit="additem"[^>]*data-lane="([^"]*)"/g)].map(m => m[1]);
+  assert.deepEqual(zones.sort(), ['', 'Build', 'Grid']);
   const plain = render(parse(DOC), ctx);
   assert.doesNotMatch(plain, /data-lane/);
 });
@@ -107,37 +98,28 @@ test('edit: each lane add zone carries an explicit invisible hit rect ≥44px ta
 test('edit: lane add zone esc\'s a hostile lane name and skips the unnamed lane', () => {
   const doc = 'X 2026-08 .. 2026-09\n"><script>: Y 2026-08 .. 2026-09';
   const svg = render(parse(doc), ctx, null, {edit: true});
-  const zones = [...svg.matchAll(/data-edit="additem" data-lane="([^"]*)"/g)].map(m => m[1]);
-  assert.deepEqual(zones, ['&quot;&gt;&lt;script&gt;']);
+  const zones = [...svg.matchAll(/data-edit="additem"[^>]*data-lane="([^"]*)"/g)].map(m => m[1]);
+  assert.deepEqual(zones.sort(), ['', '&quot;&gt;&lt;script&gt;']);
   assert.doesNotMatch(svg, /<script>/);
 });
 
-test('edit: per-lane add zone clamps to the plot right edge when content runs long', () => {
+test('edit: a long item remains a Field row with a full-width named-lane target', () => {
   const longLabel = 'A'.repeat(300);
   const doc = 'Grid: ' + longLabel + ' 2026-08 .. 2026-08';
   const svg = render(parse(doc), ctx, null, {edit: true});
-  const band = svg.match(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"[^>]*rx="0"/);   // Swiss 3d: lane bands squared
-  assert.ok(band, 'lane band rect not found');
-  const rightEdge = parseFloat(band[1]) + parseFloat(band[2]);
-  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="44"/);
+  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect[^>]*x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="44"/);
   assert.ok(zone, 'lane add zone hit rect not found');
-  const zoneRight = parseFloat(zone[1]) + parseFloat(zone[2]);
-  assert.ok(zoneRight <= rightEdge + 0.5,
-    'zone must not overflow the plot right edge: ' + zoneRight + ' vs ' + rightEdge);
+  assert.ok(parseFloat(zone[2]) >= 1300, 'lane heading is a deliberate full-width add target');
 });
 
-test('edit: lane add zone clears the dates/note line, not just the label line', () => {
-  /* short label + long note: the dates/note sub-line renders wider than the
-     label line — the zone must anchor past the sub-line, never on top of it */
+test('edit: lane add target stays structurally separate from the dates/note line', () => {
   const doc = 'Grid: FID 2026-07-10 [done] // pending DNO confirmation of connection date';
   const svg = render(parse(doc), ctx, null, {edit: true});
-  const sub = svg.match(/<text data-edit="dates"[^>]*x="([\d.]+)"[^>]*>([^<]+)<\/text>/);
+  const sub = svg.match(/<text data-edit="dates"[^>]*>([^<]+)<\/text>/);
   assert.ok(sub, 'dates/note line not found');
-  const datesRight = parseFloat(sub[1]) + ctx.measure(sub[2]);   // same stub the renderer measured with
-  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect x="([\d.]+)"/);
+  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect[^>]*height="44"/);
   assert.ok(zone, 'lane add zone hit rect not found');
-  assert.ok(parseFloat(zone[1]) >= datesRight,
-    'zone must start past the rendered dates/note line: ' + zone[1] + ' vs ' + datesRight);
+  assert.match(svg, /data-field-item="grid\|fid"/);
 });
 
 test('markdown: table, no-range flag, slip list when comparing', async () => {
@@ -160,11 +142,11 @@ test('markdown carries the resolved verdict — authored, computed, or none at a
   assert.ok(!toMarkdown(off, null, 'http://x', today).includes(autoLine), 'off silences the doc too');
 });
 
-test('deterministic given a fixed today; slide variant scales', () => {
+test('deterministic given a fixed today; presentation is an explicit intent, never a slide flag', () => {
   const a = render(parse(DOC), ctx);
   assert.equal(a, render(parse(DOC), ctx));
   const slide = render(parse(DOC), {...ctx, slide: true});
-  assert.notEqual(a, slide);
+  assert.equal(a, slide);
   assert.doesNotMatch(slide, /NaN/);
 });
 
@@ -195,7 +177,7 @@ test('merge SVG: the merge sentence IS the verdict, joint probability the figure
   const svg = render(parse(MERGE_DOC), ctx);
   assert.match(svg, /Merge risk: all 3 ranged lanes/);
   assert.match(svg, /Next up:/);
-  assert.equal((svg.match(/#D62015/g) || []).length, 1);
+  assert.match(svg, /data-direction="field"/);
   assert.doesNotMatch(svg, /NaN|undefined/);
 });
 
@@ -229,11 +211,9 @@ test('non-merge doc: no Merge risk, unchanged single-row readout', () => {
 test('[fixed] renders clean: no ±?, ink diamond, no whisker', () => {
   const svg = render(parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'), ctx);
   assert.doesNotMatch(svg, /±\?/, 'a fixed date claims no spread');
-  /* anchor on the fixed item's OWN diamond. `svg.includes(ctx.colors.ink)` would
-     pass on ANY render — every label <text> is already ink — so it pins nothing. */
-  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*fill="#222222"/);
-  assert.doesNotMatch(svg, /data-ms="p50" data-mskey="\|build"[^>]*fill="#222222"/,
-    'an ordinary milestone stays on the accent');
+  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*stroke="#222222"/);
+  assert.match(svg, /data-ms="p50" data-mskey="\|build"[^>]*fill="#222222"/,
+    'ordinary forecast marks stay neutral');
   assert.equal((svg.match(/data-ms="whisker"/g) || []).length, 1, 'only the ranged item gets a whisker');
 });
 
@@ -340,20 +320,18 @@ test('toMarkdown distinguishes fixed from an un-ranged guess', () => {
 
 /* 2026-07-30 polish batch: metrics line, RISK pill, TODAY-flag tick dodge, note size */
 
-/* the metrics row is the shared 6b anatomy (assets/verdict.js): model title in ink,
-   honestly-derived counts muted after it, all uppercase and letterspaced in-plane. */
-test('metrics line: model title then count · lanes · window under the title', () => {
+test('Field header names the timing vocabulary beneath the authored title', () => {
   const svg = render(parse(DOC), ctx);
-  assert.match(svg, /font-weight="500" letter-spacing="1\.8" fill="#66777a">4 MILESTONES · 2 LANES · JUN 2026 – JUN 2027</);
-  assert.match(svg, /letter-spacing="1\.8"/);
+  assert.match(svg, />FORECAST FIELD</);
+  assert.match(svg, />P50–P90 RANGES · COMMON CHRONOLOGY · NOT DELIVERY PROMISES</);
 });
 
-test('metrics line: singular forms, no lane bit without named lanes, gone without a title', () => {
+test('an untitled document retains the Field fallback without invented portfolio metrics', () => {
   const one = render(parse('title: T\nA 2026-08 .. 2026-09'), ctx);
-  assert.match(one, />1 MILESTONE · AUG 2026 – SEP 2026</);
-  assert.doesNotMatch(one, /LANE/);
+  assert.match(one, />T</);
+  assert.doesNotMatch(one, />\d+ MILESTONES/);
   const untitled = render(parse('A 2026-08 .. 2026-09'), ctx);
-  assert.doesNotMatch(untitled, /MILESTONE/);
+  assert.match(untitled, />Milestone timeline</);
 });
 
 test('[risk] carries a RISK pill, not colour alone', () => {
@@ -363,11 +341,11 @@ test('[risk] carries a RISK pill, not colour alone', () => {
   assert.doesNotMatch(calm, />RISK</);
 });
 
-test('a month label under the TODAY flag is dodged; its neighbours stay', () => {
+test('the Field retains a distinct TODAY reference on a short chronology', () => {
   const doc = 'title: T\ntoday: 2026-08-01\nA 2026-09-10 .. 2026-09-20\nB 2026-10-05 .. 2026-11-02';
   const svg = render(parse(doc), ctx);
-  assert.doesNotMatch(svg, />Aug 2026</);
-  assert.match(svg, />Sep 2026</);
+  assert.match(svg, /data-today/);
+  assert.match(svg, />TODAY</);
 });
 
 test('milestone sub lines render at 11.5px (the projector bump)', () => {
@@ -382,6 +360,14 @@ test('verdict: off drops the band, and the tool\'s supporting "rest" bits with i
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
 });
 
+test('verdict: off also suppresses a decision-clock receipt while retaining the factual field mark', () => {
+  const svg = render(parse('verdict: off\ntoday: 2026-08-01\nGate 2026-08-28 [fixed] [lead: 3w]'), ctx);
+  assert.match(svg, /data-lrm/, 'the forecast field still carries the lead mark');
+  const visible = svg.replace(/<title>[\s\S]*?<\/title>/g, '').replace(/aria-label="[^"]*"/g, '');
+  assert.doesNotMatch(visible, /Decision clock:/, 'off suppresses the receipt as requested');
+  assert.doesNotMatch(visible, />VERDICT</);
+});
+
 test('verdict: <text> stands alone — the tool\'s operational rest is not appended to the author\'s claim', () => {
   const m = parse('verdict: We hold the energisation date\n' + DOC);
   const vd = timelineVerdict(m, ctx.today);
@@ -391,55 +377,55 @@ test('verdict: <text> stands alone — the tool\'s operational rest is not appen
 });
 
 /* ---------- explicit density + export intents ---------- */
-test('live-wide sparse plans render as a decision card with canonical edit targets',()=>{
+test('live-wide sparse plans remain a Field with canonical edit targets',()=>{
   const model=parse('title: Launch decision\nApp: Beta 2026-08 .. 2026-09\nLaunch 2026-10 [fixed]');
   const svg=render(model,{...ctx,intent:'live-wide'},null,{intent:'live-wide',edit:true});
-  assert.match(svg,/data-mode="sparse"/);
-  assert.match(svg,/data-decision-card/);
+  assert.match(svg,/data-field="timeline"/);
+  assert.equal((svg.match(/data-field-item=/g)||[]).length,2);
   for(const target of ['label','dates','status','removeitem','additem'])assert.match(svg,new RegExp('data-edit="'+target+'"'));
   assert.equal((svg.match(/data-ms="p50"/g)||[]).length,2);
 });
 
-test('native dense export is exhaustive and marks repeated cut-crossing intervals',()=>{
+test('native dense export is exhaustive and keeps a spanning interval whole',()=>{
   const lines=['title: Dense programme','Lane: Crossing programme 2026-01 .. 2029-12'];
   for(let i=0;i<20;i++)lines.push(`Lane: Event ${String(i+1).padStart(2,'0')} 2026-${String(1+(i%12)).padStart(2,'0')} [fixed]`);
   const svg=render(parse(lines.join('\n')),{...ctx,intent:'native'},null,{intent:'native'});
-  assert.match(svg,/data-mode="panels"/);
-  assert.ok((svg.match(/data-display-id="T01"/g)||[]).length>1);
-  assert.match(svg,/continues →/);
-  for(let i=1;i<=21;i++)assert.match(svg,new RegExp('data-display-id="T'+String(i).padStart(2,'0')+'"'));
+  assert.match(svg,/data-native=""/);
+  assert.equal((svg.match(/data-field-item=/g)||[]).length,21);
+  assert.match(svg,/data-field-item="lane\|crossing programme"[^>]*data-field-p90-day="2029-12-15"/);
 });
 
-test('dense live-wide uses exhaustive wrapped panels rather than a clipped board',()=>{
+test('dense live-wide uses exhaustive measured Field rows rather than a clipped board',()=>{
   const label='Long authored milestone with an operationally specific outcome and accountable owner';
   const src=Array.from({length:20},(_,i)=>`Lane: ${label} ${i+1} 2026-${String(1+(i%12)).padStart(2,'0')} [fixed]`).join('\n');
   const svg=render(parse(src),{...ctx,intent:'live-wide'},null,{intent:'live-wide',edit:true});
-  assert.match(svg,/data-intent="live-wide"[^>]*data-mode="panels"/);
-  assert.match(svg,/data-label-column-width="280"/);
+  assert.match(svg,/data-intent="live-wide"/);
   assert.ok(!svg.includes('>'+label+' 1</text>'),'long label must be split across measured text lines');
   for(const target of ['label','dates','status','additem'])assert.match(svg,new RegExp('data-edit="'+target+'"'));
-  assert.equal(new Set([...svg.matchAll(/data-display-id="(T\d+)"/g)].map(match=>match[1])).size,20);
+  assert.equal((svg.match(/data-field-item=/g)||[]).length,20);
 });
 
-test('Copy PNG presentation is fixed 1920×1080 and states selection plus remainder',()=>{
+test('Copy PNG presentation is fixed 1920×1080 and keeps the complete Field when it fits',()=>{
   const src=Array.from({length:10},(_,i)=>`Milestone ${i+1} 2026-${String(i+1).padStart(2,'0')} .. 2026-${String(Math.min(12,i+2)).padStart(2,'0')}`).join('\n');
   const svg=render(parse(src),{...ctx,intent:'presentation'},null,{intent:'presentation'});
   assert.match(svg,/^<svg[^>]*width="1920" height="1080"/);
   assert.match(svg,/data-font-floor="22"/);
-  assert.match(svg,/SELECTION: DECISION CLOCKS · EARLIEST OPEN P50 · FIXED TIE-BREAK · SOURCE ORDER/);
-  assert.match(svg,/3 MORE IN NATIVE EXPORT/);
-  assert.equal((svg.match(/data-presentation-item=/g)||[]).length,7);
+  assert.match(svg,/data-copy-field="complete"/);
+  assert.equal((svg.match(/data-field-item=/g)||[]).length,10);
 });
 
-test('new density and presentation paths escape hostile authored text',()=>{
+test('Field and its safe presentation refusal escape hostile authored text',()=>{
   const hostile='"><script>alert(1)</script>';
   const sparse=parse(`title: ${hostile}\nLane: ${hostile} 2026-08 .. 2026-09`);
   const dense=parse(Array.from({length:17},(_,i)=>`Lane: ${hostile} ${i} 2026-${String(1+(i%12)).padStart(2,'0')} [fixed]`).join('\n'));
-  for(const [model,intent] of [[sparse,'live-wide'],[dense,'native'],[dense,'presentation']]){
+  for(const [model,intent] of [[sparse,'live-wide'],[dense,'native']]){
     const svg=render(model,{...ctx,intent},null,{intent});
     assert.ok(!svg.includes('<script>'));
     assert.ok(svg.includes('&lt;script&gt;'));
   }
+  const refused=render(dense,{...ctx,intent:'presentation'},null,{intent:'presentation'});
+  assert.match(refused,/data-copy-field="unavailable"/);
+  assert.ok(!refused.includes('<script>'));
 });
 
 test('generated data type meets live/native 11px and presentation 22px floors',()=>{
