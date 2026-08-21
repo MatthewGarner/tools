@@ -2378,6 +2378,26 @@ check('no console/page errors', errors.length === 0);
   await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/wardley/', {waitUntil: 'networkidle'});
   await mpage.waitForTimeout(600);
 
+  /* The narrow ledger's evolution strip is a precise direct manipulation
+     target; the row title and its contextual menu are different controls.
+     Keep this as a real coarse-pointer event-topology check: either tap must
+     open its intended EIP route without moving the ruler or writing source. */
+  const sourceBeforePhoneControl = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
+  const titleBeforePhoneControl = await sourceBeforePhoneControl();
+  await settledTap(mpage, mpage.locator('text[data-edit="name"][data-raw="Library"]').first());
+  check('wardley narrow: visible title opens Rename without placing the ruler', await until(async () =>
+    (await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === 'Library')));
+  await new Promise(r => setTimeout(r, 250));
+  check('wardley narrow: title tap writes nothing', (await sourceBeforePhoneControl()) === titleBeforePhoneControl);
+  await mpage.keyboard.press('Escape');
+  const menuBeforePhoneControl = await sourceBeforePhoneControl();
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
+  check('wardley narrow: visible menu opens without placing the ruler', await until(async () =>
+    (await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1)));
+  await new Promise(r => setTimeout(r, 250));
+  check('wardley narrow: menu tap writes nothing', (await sourceBeforePhoneControl()) === menuBeforePhoneControl);
+  await mpage.keyboard.press('Escape');
+
   // tap the "+ Add component" card (no data-stage on narrow) → type Inbox → Enter
   await settledTap(mpage, mpage.locator('[data-edit="additem"]').first());
   await mpage.locator('.eip-input').fill('Inbox');

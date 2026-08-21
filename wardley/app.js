@@ -268,6 +268,11 @@ $('preview').addEventListener('pointerdown', e => {
   dragClick.clear();
   const g = e.target.closest && e.target.closest('#preview svg g[data-drag="evo"]');
   if(!g || e.button !== 0 || !model) return;
+  /* A phone ledger row is a reading surface containing independent Rename and
+     ⋯ controls. Only its ruler's transparent track or dot may begin a direct
+     evolution gesture; wrapping the whole row for drag identity must never
+     turn an ordinary control tap into a source rewrite. */
+  if(g.hasAttribute('data-strip') && !e.target.closest('[data-track], [data-dot]')) return;
   clearInspection();
   e.preventDefault();
   const track = g.hasAttribute('data-strip') ? g.querySelector('[data-track]') : null;
