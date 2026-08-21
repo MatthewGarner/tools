@@ -1012,11 +1012,9 @@ for(const [name, url, chip] of WIDENED){
   await fctx.close();
 }
 
-// why OST narrow relayout gate (Task 4): on phone width the OST view must be
-// a single-column indented outline (cards clustered near the left margin),
-// not the wide left-to-right box tree (cards spread across ~600px+). Card
-// x-positions only vary by the clamped indent (depth<=3 * 16px + a little
-// slack), so a small spread proves the stack, not the tree.
+// Why / Causal Tree: phone is an explicit source-order outline, not a
+// shrunken desktop tree. Every row has a full breadcrumb and a finger-size
+// contextual route; no document-level horizontal scroll is allowed.
 {
   const page = await ctx.newPage();
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
@@ -1025,55 +1023,114 @@ for(const [name, url, chip] of WIDENED){
   const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
-  const stack = await page.evaluate(() => {
+  const tree = await page.evaluate(() => {
     const rects = [...document.querySelectorAll('#preview svg rect[data-hit]')]
       .map(el => el.getBoundingClientRect());
-    const xs = rects.map(r => r.x);
-    return {count: rects.length, spread: rects.length ? Math.max(...xs) - Math.min(...xs) : 0};
+    const svg = document.querySelector('#preview svg');
+    return {count: rects.length, cards:svg?.querySelectorAll('[data-causal-card]').length || 0,
+      targets: rects.every(r => r.width >= 44 && r.height >= 44),
+      outline: svg?.dataset.causalLayout === 'outline',
+      route: [...document.querySelectorAll('[data-causal-breadcrumb]')].some(el => el.getAttribute('data-causal-breadcrumb').includes('Improve 90-day retention')),
+      width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth};
   });
-  ok(stack.count >= 3, `why: OST narrow renders multiple cards (${stack.count})`);
-  ok(stack.spread <= 60,
-    `why: OST narrow is a single-column indented stack, not the wide LTR tree (card x-spread ${stack.spread}px)`);
+  ok(tree.outline && tree.cards >= 3 && tree.count >= 3, `why: Causal Tree phone renders source-order outline cards (${tree.cards})`);
+  ok(tree.route, 'why: Causal Tree phone keeps a full visible causal breadcrumb');
+  ok(tree.targets, 'why: Causal Tree phone menu and state targets are all at least 44px');
+  ok(tree.scrollWidth <= tree.width + 1, `why: Causal Tree phone has no page h-scroll (${tree.scrollWidth} <= ${tree.width})`);
+  const baseline = await page.evaluate(() => localStorage.getItem('why-src'));
+  const stateWord = page.locator('#preview svg [data-causal-state="testing"]').first();
+  await stateWord.scrollIntoViewIfNeeded();
+  const stateBox = await stateWord.boundingBox();
+  await page.mouse.click(stateBox.x + stateBox.width / 2, stateBox.y + stateBox.height / 2);
+  await page.waitForTimeout(200);
+  const stateOpen = await page.evaluate(before => ({
+    rows:[...document.querySelectorAll('.eip-pop button')].map(button => button.textContent.trim()),
+    source:localStorage.getItem('why-src'),
+  }), baseline);
+  ok(stateOpen.rows.join('|') === 'candidate|testing|delivering|shipped|parked' && stateOpen.source === baseline,
+    'why: a coarse visible state-word tap opens its status picker, never the card menu or a source write');
+  await page.keyboard.press('Escape');
   await page.close();
 }
 
-// why deep-tree depth clamp (Task 4): a deliberately 5-level-deep opportunity
-// chain (opportunities nest freely — only solution/assumption depth is
-// warned) must not collapse to zero-width or blow out the page. Loaded via
-// the hash-state boot path (the reliable way to seed an exact fixture,
-// vs. fighting CodeMirror's literal-space indentation over keyboard.type).
+// A retained malformed/deep source stays physically complete on phone: direct
+// outcome claims and nested assumptions are standalone cards, not invisible
+// bands. This deliberately covers source the parser retains even when it
+// departs from the normal outcome → opportunity → solution grammar.
 {
-  const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Readers lose their place between sessions\n' +
-    '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
-    '          Smart batching [testing]\n            ? batching preserves timing';
-  const seed = {t: deepDoc, v: 'ost'};
+  const malformedDoc = 'title: Deep malformed chain\noutcome: Grow retention\n  ? a direct outcome claim [testing]\n' +
+    '  Readers lose their place between sessions\n    Notifications feel spammy\n      Users mute after first week\n' +
+    '        Smart batching [testing]\n          ? a direct solution claim [testing]\n            ? a nested evidence claim [holds]';
+  const seed = {t: malformedDoc, v: 'ost'};
   const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
   const page = await ctx.newPage();
   await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
   const vw = await page.evaluate(() => document.documentElement.clientWidth);
   const docSW = await page.evaluate(() => document.documentElement.scrollWidth);
-  ok(docSW <= vw + 1, `why: deep-tree fixture — no page-level h-scroll (${docSW} <= ${vw})`);
-  const deep = await page.evaluate(() => {
-    const rects = [...document.querySelectorAll('#preview svg rect[data-hit]')]
-      .map(el => el.getBoundingClientRect());
-    return {count: rects.length, minW: rects.length ? Math.min(...rects.map(r => r.width)) : 0,
-      xs: [...new Set(rects.map(r => Math.round(r.x)))]};
+  ok(docSW <= vw + 1, `why: malformed Tree fixture — no page-level h-scroll (${docSW} <= ${vw})`);
+  const malformed = await page.evaluate(() => {
+    const svg = document.querySelector('#preview svg');
+    const cards = [...svg.querySelectorAll('[data-causal-card]')].map(el => {
+      const plane = el.querySelector(':scope > rect:not([data-hit])').getBoundingClientRect();
+      const texts = [...el.querySelectorAll('text')].map(text => {
+        const r = text.getBoundingClientRect();
+        return {left:r.left, right:r.right, top:r.top, bottom:r.bottom, width:r.width, height:r.height};
+      });
+      return {line:el.dataset.line, x:+el.dataset.causalX, w:+el.dataset.causalW,
+        painted:texts.length > 0 && texts.every(t => t.width > 0 && t.height > 0 &&
+          t.left >= plane.left - 1 && t.right <= plane.right + 1 &&
+          t.top >= plane.top - 1 && t.bottom <= plane.bottom + 1)};
+    });
+    const targets = [...svg.querySelectorAll('rect[data-hit]')].map(el => {
+      const r = el.getBoundingClientRect();
+      return {line:el.dataset.line, edit:el.dataset.edit, x:r.x, y:r.y, w:r.width, h:r.height};
+    });
+    const overlaps = targets.some(a => targets.some(b => a !== b && a.line === b.line &&
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
+    const stateLines = targets.filter(t => t.edit === 'status' || t.edit === 'astatus').map(t => t.line);
+    return {cards, targets, overlaps, stateLines};
   });
-  ok(deep.count >= 6, `why: deep-tree fixture renders every depth as its own card (${deep.count})`);
-  ok(deep.minW >= 100, `why: deep-tree fixture — even the deepest clamped card stays legible (min width ${Math.round(deep.minW)}px)`);
+  const sourceLines = ['1', '2', '3', '4', '5', '6', '7', '8'];
+  ok(sourceLines.every(line => malformed.cards.some(card => card.line === line)),
+    `why: malformed Tree fixture retains every parsed source claim (${malformed.cards.map(card => card.line).join(', ')})`);
+  ok(malformed.cards.every(card => card.painted),
+    'why: every malformed Tree card keeps its painted text inside its own measured plane');
+  ok(Math.min(...malformed.cards.map(card => card.w)) >= 300,
+    `why: malformed Tree fixture keeps every measured outline card legible (min width ${Math.round(Math.min(...malformed.cards.map(card => card.w)))}px)`);
   // depths 3, 4 and 5 share ONE indent (the clamp) — so distinct x positions
-  // should be 4 (depths 0,1,2, and the shared 3+ indent), not 6.
-  ok(deep.xs.length === 4, `why: deep-tree fixture clamps depth>=3 to a single shared indent (${deep.xs.length} distinct x positions)`);
+  // should be 4 (depths 0,1,2, and the shared 3+ indent), not 8.
+  ok(new Set(malformed.cards.map(card => card.x)).size === 4,
+    `why: malformed Tree fixture clamps depth>=3 to a single shared indent (${new Set(malformed.cards.map(card => card.x)).size} distinct card positions)`);
+  ok(malformed.targets.every(target => target.w >= 44 && target.h >= 44) && !malformed.overlaps,
+    'why: malformed Tree phone keeps 44px contextual targets with non-overlapping menu/state planes');
+  ok(['2', '6', '7', '8'].every(line => malformed.stateLines.includes(line)),
+    'why: every standalone malformed assumption retains its own state plane');
+  const baseline = await page.evaluate(() => localStorage.getItem('why-src'));
+  const stateWord = page.locator('#preview svg g[data-causal-node="2"] [data-causal-state]').first();
+  await stateWord.scrollIntoViewIfNeeded();
+  const stateBox = await stateWord.boundingBox();
+  await page.mouse.click(stateBox.x + stateBox.width / 2, stateBox.y + stateBox.height / 2);
+  await page.waitForTimeout(200);
+  ok((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'untested|testing|holds|broken' &&
+    (await page.evaluate(() => localStorage.getItem('why-src'))) === baseline,
+  'why: a malformed assumption’s visible state word opens its picker without a source write');
+  await page.keyboard.press('Escape');
+  const menu = page.locator('#preview svg rect[data-edit="cardmenu-assumption"][data-line="2"][data-hit]');
+  await menu.scrollIntoViewIfNeeded();
+  const menuBox = await menu.boundingBox();
+  await page.mouse.click(menuBox.x + menuBox.width - 2, menuBox.y + menuBox.height - 2);
+  await page.waitForTimeout(200);
+  ok((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Claim state…|Remove branch' &&
+    (await page.evaluate(() => localStorage.getItem('why-src'))) === baseline,
+  'why: a malformed assumption’s card control opens its truthful menu without a source write');
+  await page.keyboard.press('Escape');
   await page.close();
 }
 
-// why map-view narrow outcome-band-heading gate (whole-branch review fix):
-// roadmap's renderNarrow never read model.laneGroups, so a MULTI-outcome
-// tree lost its outcome grouping entirely at phone width — every lane
-// rendered as an identical muted sub-label with no heading tying it to an
-// outcome. A two-outcome tree must show BOTH accent/serif band headings in
-// the narrow map view; this assertion fails against the pre-fix renderer.
+// Why / Delivery Lens: a distinct phone readiness ledger retains source paths,
+// truthful per-kind menu routes, 44px menu planes and the no-write menu-open
+// guarantee. It must never collapse back to the Causal Tree or a temporal board.
 {
   const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Readers lose their place between sessions\n' +
     '    Reading reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
@@ -1084,9 +1141,28 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(T + '/why/#' + hash, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(700);
-  const map = await page.locator('#preview svg').innerHTML();
-  ok(map.includes('IMPROVE 90-DAY RETENTION'), 'why: narrow map view shows the first outcome band heading');
-  ok(map.includes('GROW REFERRAL REVENUE'), 'why: narrow map view shows the second outcome band heading (multi-outcome grouping preserved at phone width)');
+  const baseline = await page.evaluate(() => localStorage.getItem('why-src'));
+  /* Layout identity belongs to the SVG root, so inspect outerHTML rather than
+     accidentally discarding its data-readiness-layout contract. */
+  const lens = await page.locator('#preview svg').evaluate(el => el.outerHTML);
+  ok(lens.includes('data-readiness-layout="stack"') && lens.includes('DELIVERING') && lens.includes('TESTING') && lens.includes('UNADDRESSED'),
+    'why: Delivery Lens phone preserves its stacked readiness ledger and factual columns');
+  ok(lens.includes('Grow referral revenue → Sharing feels braggy'),
+    'why: Delivery Lens phone keeps the complete outcome-to-opportunity path visible');
+  const opportunity = page.locator('#preview svg rect[data-edit="cardmenu-opportunity"][data-line="9"][data-hit]');
+  await opportunity.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const box = await opportunity.boundingBox();
+  await page.mouse.click(box.x + 1, box.y + 1);
+  await page.waitForTimeout(300);
+  ok(box.width >= 44 && box.height >= 44, `why: Delivery Lens phone opportunity menu plane is >=44px (${Math.round(box.width)}×${Math.round(box.height)})`);
+  ok((await page.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|＋ Add solution|Remove branch',
+    'why: Delivery Lens phone unaddressed opportunity opens opportunity actions, never solution status');
+  await page.waitForTimeout(250);
+  ok((await page.evaluate(() => localStorage.getItem('why-src'))) === baseline,
+    'why: Delivery Lens phone menu open writes no source text');
+  const dims = await page.evaluate(() => ({width:document.documentElement.clientWidth, scrollWidth:document.documentElement.scrollWidth}));
+  ok(dims.scrollWidth <= dims.width + 1, `why: Delivery Lens phone has no page h-scroll (${dims.scrollWidth} <= ${dims.width})`);
   await page.close();
 }
 

@@ -551,7 +551,10 @@ check('no console/page errors', errors.length === 0);
      assumption text painted on top of the rect — tap the top-left padding
      sliver instead, above every card kind's first text baseline. */
   const tapCard = async line => {
-    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
+    const body = cardBody(line);
+    await body.scrollIntoViewIfNeeded();
+    await p.waitForTimeout(300);
+    await tapCardMenu(p, await body.boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
   const undo = () => undoStep(p);
@@ -730,31 +733,47 @@ check('no console/page errors', errors.length === 0);
   check('why: one undo restores the removed opportunity', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   check('why: export render has no edit affordances', await p.evaluate(async () => {
-    const [{parse}, {project}, {renderOst}] = await Promise.all([
-      import('/why/parse.js'), import('/why/project.js'), import('/why/render-ost.js')]);
+    const [{parse}, {project}, {renderCausalField}] = await Promise.all([
+      import('/why/parse.js'), import('/why/project.js'), import('/why/render-causal-field.js')]);
     const m = parse(localStorage.getItem('why-src'));
-    const svg = renderOst(m, project(m), {colors: {}, measure: () => 50, dark: false});
+    const svg = renderCausalField(m, project(m), {colors: {}, measure: () => 50, dark: false});
     return !svg.includes('cardmenu-') && !svg.includes('removeassump');
   }));
   check('why: no console/page errors', errs.length === 0);
   await p.close();
 }
 
-/* ---- why: map view card menu (roadmap-rendered cards carry a bare
-   data-edit="cardmenu", not the OST view's cardmenu-outcome/-opportunity/
-   -solution split — roadmap/render.js doesn't know why's node kinds. Fix 2
-   registers a single generic `cardmenu` kind {Rename…, Remove branch} for
-   it and widens the onCommit guard from startsWith('cardmenu-') to
-   startsWith('cardmenu') so the bare kind's ✖-sentinels reach the same
-   subtree-removal path OST uses (keyed on data-line = e.node.srcLine, which
-   render-map.js sets from the underlying why node — same source line
-   numbering as the OST view). "Reading reminders" (srcLine 5) lands in the
-   NEXT column since it's [testing]; "Resume where you left off" is [delivering] → NOW.
-   Both are real (non-ghost) cards; the LATER-column ghost chips
-   ("Choosing the next book is work", "Progress feels invisible") render with no
-   data-edit="cardmenu" at all (render.js skips it for c.it.ghost) so they
-   can't open a menu — not exercised here, that's the renderer's own
-   contract, not this fix's. ---- */
+/* ---- why: the visible stacked copy must not eclipse its own hit geometry.
+   Click a wrapped solution's SECOND painted label line and its visible state
+   word — not a transparent corner rect — and prove each opens its intended
+   non-writing control. ---- */
+{
+  const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
+  const source = 'title: Hit geometry\noutcome: Retention\n  Losing your place\n    A deliberately long solution label that wraps across the Field rail for direct hit testing [testing]';
+  const seed = {t: source, v: 'ost', e: 1};
+  const hash = Buffer.from(unescape(encodeURIComponent(JSON.stringify(seed))), 'binary').toString('base64');
+  await p.goto(BASE.replace('/tree/', '/why/#') + hash, {waitUntil: 'networkidle'});
+  await p.waitForTimeout(700);
+  const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
+  const secondLine = p.locator('#preview svg g[data-causal-node="3"] text:not([data-edit]):not([data-causal-state])').first();
+  const secondBox = await secondLine.boundingBox();
+  await p.mouse.click(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height / 2);
+  check('why: visible second Field label line opens its row menu without a source write', await until(async () =>
+    (await p.locator('.eip-pop').count() === 1 && (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline)));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(150);
+  const state = p.locator('#preview svg [data-causal-state="testing"]');
+  const stateBox = await state.boundingBox();
+  await p.mouse.click(stateBox.x + stateBox.width / 2, stateBox.y + stateBox.height / 2);
+  check('why: visible Field state word opens its marked status picker without a source write', await until(async () =>
+    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'candidate|testing|delivering|shipped|parked' &&
+    (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline));
+  await p.close();
+}
+
+/* ---- why: Delivery Lens keeps the Causal Field's truthful per-kind menus.
+   A solution carries Rename/Status/Add-assumption; an unaddressed opportunity
+   carries Rename/Add-solution and never a false solution-status picker. ---- */
 {
   const p = await browser.newPage({viewport: {width: 1500, height: 1000}, reducedMotion: 'reduce'});
   const errs = trackErrors(p);
@@ -764,42 +783,49 @@ check('no console/page errors', errors.length === 0);
   await p.locator('#viewmap').click();
   await p.waitForTimeout(500);
 
-  /* same off-glyph concern as the OST block above and the roadmap block
-     below (this IS roadmap's own card renderer): tap the top-left padding
-     sliver, not the geometric centre, since the title/note text paints
-     over the invisible-fill data-hit rect. */
-  const cardBody = line => p.locator('#preview svg g[data-edit="cardmenu"][data-line="' + line + '"] rect[data-hit]');
+  const cardBody = line => p.locator('#preview svg rect[data-edit="cardmenu-solution"][data-line="' + line + '"][data-hit]');
   const tapCard = async line => {
-    await tapCardMenu(p, await cardBody(line).boundingBox(), line);
+    const body = cardBody(line);
+    await body.scrollIntoViewIfNeeded();
+    await p.waitForTimeout(300);
+    await tapCardMenu(p, await body.boundingBox(), line);
   };
   const baseline = await p.evaluate(() => localStorage.getItem('why-src'));
   const undo = () => undoStep(p);
 
   await tapCard(5);
-  check('why map: card body tap opens the menu with exactly Rename/Remove', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Inspect…|Rename…|Remove branch')));
+  check('why Delivery Lens: solution row keeps the complete solution menu', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch')));
 
   await p.locator('.eip-pop button', {hasText: 'Rename…'}).click();
-  check('why map: menu Rename opens the title input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Reading reminders')));
+  check('why Delivery Lens: menu Rename opens the label input prefilled', await until(async () => (await p.locator('.eip-input').inputValue() === 'Reading reminders')));
   await p.locator('.eip-input').fill('Smart nudges');
   await p.keyboard.press('Enter');
   const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('why-src')),
     tRename => (tRename.includes('Smart nudges') && !tRename.includes('Reading reminders')));
-  check('why map: menu Rename commits the new title', tRename.includes('Smart nudges') && !tRename.includes('Reading reminders'));
+  check('why Delivery Lens: menu Rename commits the source label', tRename.includes('Smart nudges') && !tRename.includes('Reading reminders'));
   await undo();
-  check('why map: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+  check('why Delivery Lens: one undo restores the pre-rename baseline', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
   await tapCard(5);
   await p.locator('.eip-pop button.danger', {hasText: 'Remove branch'}).click();
   await p.waitForTimeout(600);
   const tRemove = await p.evaluate(() => localStorage.getItem('why-src'));
-  check('why map: menu Remove branch drops the solution (and its assumptions)',
+  check('why Delivery Lens: menu Remove branch drops the solution (and its assumptions)',
     !tRemove.includes('Reading reminders') && !tRemove.includes('readers want a nudge mid-commute'));
   await undo();
-  check('why map: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
+  check('why Delivery Lens: one undo restores the removed branch', (await p.evaluate(() => localStorage.getItem('why-src'))) === baseline);
 
-  /* regression proof: the widened guard (startsWith('cardmenu-') →
-     startsWith('cardmenu')) must not disturb the OST view's per-kind menus —
-     switch back and confirm a cardmenu-solution card still shows its full
+  const opportunity = p.locator('#preview svg rect[data-edit="cardmenu-opportunity"][data-line="16"][data-hit]');
+  await tapCardMenu(p, await opportunity.boundingBox(), 16);
+  check('why Delivery Lens: an unaddressed opportunity has only opportunity actions', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+    'Inspect…|Rename…|＋ Add solution|Remove branch')));
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+
+  /* Both views retain their distinct reading geometry but share the same
+     per-kind source actions. Switch back and confirm a Causal Field solution
+     still shows its full
      dynamic Rename/Status/Add/assumptions/Remove set (the OST block above
      already exercises each row end to end; this just proves the two views
      coexist on one page load without one clobbering the other). Nothing in
@@ -807,15 +833,14 @@ check('no console/page errors', errors.length === 0);
      assumptions, so both submenu rows still show their original statuses. */
   await p.locator('#viewost').click();
   await p.waitForTimeout(500);
-  const ostCardBody = p.locator('#preview svg rect[data-edit^="cardmenu"][data-line="5"][data-hit]');
-  const ostBox = await ostCardBody.boundingBox();
-  await p.mouse.click(ostBox.x + 8, ostBox.y + 4);
-  check('why map: switching back to OST still opens the full cardmenu-solution menu', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
+  const causalCardBody = p.locator('#preview svg rect[data-edit="cardmenu-solution"][data-line="5"][data-hit]');
+  await tapCardMenu(p, await causalCardBody.boundingBox(), 5);
+  check('why Delivery Lens: switching back to Causal Field retains the full solution menu', await until(async () => ((await p.locator('.eip-pop button').allInnerTexts()).join('|') ===
     'Inspect…|Rename…|Status…|＋ Add assumption|? readers want a nudge mid-commute · testing|? reading time is detectable · holds|Remove branch')));
   await p.keyboard.press('Escape');
   await p.waitForTimeout(200);
 
-  check('why map: no console/page errors', errs.length === 0);
+  check('why Delivery Lens: no console/page errors', errs.length === 0);
   await p.close();
 }
 

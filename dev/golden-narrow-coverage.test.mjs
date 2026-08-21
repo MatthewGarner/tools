@@ -17,8 +17,8 @@ const EXCLUDE_DIRS = new Set(['node_modules', 'vendor']);
 
 /* Renderer → at least one fixture that enters its distinct narrow composition.
    Facades/delegates are named too: tree/render.js reaches render-density.js and
-   why/render-map.js reaches roadmap/render.js, so both sides of each relationship
-   remain classified if either file is later replaced. */
+   public renderer facades are named too, so a later internal swap cannot silently
+   drop their phone witness. */
 const COVERED = {
   'bets/render-quadrant.js': ['bets-quadrant-narrow'],
   'bets/render.js': ['bets-narrow'],
@@ -45,8 +45,8 @@ const COVERED = {
   'tree/render-density.js': ['tree-bid-narrow'],
   'tree/render.js': ['tree-bid-narrow'],
   'wardley/render.js': ['wardley-narrow'],
-  'why/render-map.js': ['why-map-narrow'],
-  'why/render-ost.js': ['why-ost-narrow'],
+  'why/render-causal-field.js': ['why-ost-narrow'],
+  'why/render-delivery-lens.js': ['why-map-narrow'],
 };
 
 /* These are exclusions, not missing work. A new renderer must be consciously
@@ -70,7 +70,6 @@ const EXCLUDED = {
   'roadmap/render-deck.js': 'Deck export is intentionally fixed at 1920x1080.',
   'roadmap/render-focus.js': 'Phone preview deliberately falls back to roadmap/render.js; this composition stays wide.',
   'roadmap/render-register.js': 'Phone preview deliberately falls back to roadmap/render.js; this composition stays wide.',
-  'why/render-presentation.js': 'Presentation export is intentionally fixed at 1920x1080.',
 };
 
 const isDir = rel => statSync(join(ROOT, rel)).isDirectory();

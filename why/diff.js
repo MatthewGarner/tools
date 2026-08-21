@@ -5,16 +5,31 @@ import {diffItems} from '../assets/snapshots.js';
 
 export function flattenWhy(model){
   const out = [];
-  const walk = n => {
-    out.push({key: n.kind + '|' + n.label, label: n.label, kind: n.kind, state: n.status || '', node: n});
-    n.children.forEach(walk);
+  const walk = (nodes, parentKey = 'root') => {
+    const occurrences = new Map();
+    for(const n of nodes){
+      /* A structural path survives insertions above it. The sibling occurrence
+         keeps duplicate labels distinct without pretending label copy alone is
+         identity. A true rename has no stable DSL identity, so remains an
+         honest add/drop rather than a potentially false move. */
+      const signature = diffItems.norm(n.kind + '|' + n.label);
+      const occurrence = occurrences.get(signature) || 0;
+      occurrences.set(signature, occurrence + 1);
+      const key = parentKey + '/' + n.kind + ':' + n.label + '#' + occurrence;
+      out.push({key, label: n.label, kind: n.kind, state: n.status || '', node: n});
+      walk(n.children || [], key);
+    }
   };
-  model.outcomes.forEach(walk);
+  walk(model.outcomes || []);
   return out;
 }
 
 export function whyDiff(oldModel, model){
-  return diffItems(flattenWhy(oldModel), flattenWhy(model), {key: e => e.key, state: e => e.state});
+  const oldItems = flattenWhy(oldModel), currentItems = flattenWhy(model);
+  const result = diffItems(oldItems, currentItems, {key: e => e.key, state: e => e.state});
+  result.keyFor = new Map(currentItems.map(item => [item.node, diffItems.norm(item.key)]));
+  result.sourceKeyFor = new Map(currentItems.map(item => [item.kind + '|' + item.node.srcLine + '|' + item.label, diffItems.norm(item.key)]));
+  return result;
 }
 
 const plural = (n, w) => n + ' ' + (n === 1 ? w
@@ -44,7 +59,7 @@ export function whyNarrative(d, since){
 export function whyDiffView(d, since){
   const added = new Set(d.added.map(e => diffItems.norm(e.key)));
   const badge = node => {
-    const k = diffItems.norm(node.kind + '|' + node.label);
+    const k = d.keyFor.get(node) || d.sourceKeyFor.get(node.kind + '|' + node.srcLine + '|' + node.label);
     if(added.has(k)) return {kind: 'new', label: 'NEW'};
     const mv = d.moved.get(k);
     if(mv && node.kind === 'solution') return {kind: 'moved', label: 'was ' + mv.from};

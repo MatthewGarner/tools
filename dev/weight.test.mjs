@@ -308,21 +308,12 @@ const PAGES = {
      below. Was 656_000 (A1: parse.js gains bet/cond tokens + the applyWorld cascade engine;
      actual 650.6k, ~5.4k headroom). */
      /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 630.8k, ~5k headroom */   /* 599k->601k 2026-08-02 review: 436B headroom was the thin trap again; actual 598.6k, set with ~2.4k. 598k->599k 2026-08-02 review: deck storyLine + editor story/focus keys; 574k->576k 2026-07-30 Swiss 6a: uppercase add-ghost voice (+755B real) */
-  /* why 470k -> 480k (2026-07-14, roadmap spans). why/render-map.js DELEGATES to
-     roadmap/render.js, so every byte of the span layout is a cost /why pays for a
-     feature it can never use (it has no time axis, so it can never carry a span —
-     which is also why it emits not one span-edge rect). Honest shared-code cost of
-     the delegation, set with headroom for the same reason as roadmap above.
-     the span mark, the per-column counts, the narrow run-line, the packer and the
-     edge-handle wrapper all live in the shared renderer. Actual load ~475.5k.
-     480k -> 490k (2026-07-16, mobile-input Stage 0): why pulls the same shared
-     editor/workspace growth every DSL page did — createEditorCore.undo() via the
-     vendored historyKeymap + mountTouchUndo (Rule 2). why's old headroom was already
-     thin (delegates the whole roadmap renderer), so the ~2.6k shared bytes tipped it
-     4k over; actual now ~484.1k, set with ~5.9k headroom. Only why tripped — every
-     other DSL page had >8k headroom and stays put. */
-  /* why 511k -> 515k (2026-07-31, the standfirst): /why renders its map view
-     THROUGH roadmap/render.js, so it inherits roadmap/text-parts.js (~2.4k of
+  /* Why keeps the same shared editor/workspace contract as the other DSL tools:
+     createEditorCore.undo() via the vendored history keymap + mountTouchUndo.
+     Its visual projections are now purpose-built Causal Field and Delivery Lens
+     modules, not a borrowed time-plan renderer. */
+  /* why 511k -> 515k (2026-07-31, the standfirst): /why inherits the shared
+     workspace presentation chrome (~2.4k of
      font stacks, clip1/wrapN and standfirst). Stated plainly: /why has no
      `headline:` key, so the block is inert there — it pays for a delegated
      renderer's feature it cannot use. The alternative was worse in both
@@ -342,32 +333,18 @@ const PAGES = {
   /* 686k -> 693k (2026-08-10, E1 board outcome zones): why pays cond-parts.js's
      splitColumnZones growth too — render.js imports the whole module even though
      the chart doesn't paint zones. Actual 687.0k, ~6.0k headroom. */
-  /* 700k -> 716k (2026-08-12, Roadmap projection basis): Why deliberately
-     delegates Roadmap's parser and renderer for its delivery lens, so the
-     atomic `basis:` grammar and non-erasable conditional export text are an
-     honest shared dependency rather than Why-local creep. Actual 710.3k;
-     restore ~5.7k headroom. */
+  /* 700k -> 716k (2026-08-12): Why retains shared workspace accessibility and
+     source-edit infrastructure rather than creating a second interaction model. */
   /* Shared workspace’s joined rail/stage edge replaces the old gutter for every
      DSL surface, including Why. Actual 716110 bytes; retain a small 90-byte
      allowance rather than making this common visual correction an untracked overage. */
   /* 716.2k -> 730k (2026-08-15 Mapping family): Why now shares the lightweight
      review-margin stylesheet with Map and Wardley, keeping its causal artefact
      readable in review without adding a runtime dependency. Actual 722.6k.
-     730k -> 750k (2026-08-20 Roadmap visual system): Why deliberately imports
-     Roadmap's shared parser/rendering for its delivery lens. The first-class
-     phone views and exhaustive presentation reflow therefore remain part of
-     its eager, offline dependency surface too. Actual 742.0k; retain ~8k
-     headroom rather than treating that honest delegation as unexplained creep. */
+     730k -> 750k (2026-08-21 Causal Field): Why replaces borrowed plan rendering
+     with native discovery/readiness projections, including independent phone and
+     complete-or-refuse presentation paths. They remain eager for offline parity. */
   'why/index.html': 750_000,
-  /* 2026-08-09 adversarial-review fix batch: why pays render.js's
-     activeCount routing and cond-parts.js's previewableBet(bets, it) signature change too
-     (delegation — /why's map view renders through renderRoadmap); actual 672.9k, ~5.1k headroom. */
-  /* 2026-08-09 review-fix batch: why pays parse.js's growth too (it
-     imports roadmap/parse.js directly for the same bet/cond model); actual 669.8k, ~2.2k headroom. */
-  /* 2026-08-09 conditional roadmap A3: why pays roadmap/render.js's
-     new cond-parts.js import too (delegation — /why's map view renders through renderRoadmap,
-     so every render-state byte lands here); actual 662.8k, ~5.2k headroom. Was 653_000 (A1: why
-     pays roadmap/parse.js's bet/cond+applyWorld growth too; actual 647.5k, ~5.5k headroom). */
      /* 519k->521k 2026-08-02 review: 637B headroom, thin trap; actual 518.4k, ~2.6k */   /* 490k->492k 2026-07-30 Swiss 6a: square-ghost voice rides roadmap's delegated painter */   /* 2026-08-04 fold wave 2: popover-focus.js roving-focus + role=menu, editor-common's isolate-tagged insertLinesAfter; actual 630.5k, ~5.5k headroom */
   /* raised 470k -> 478k (2026-07-17, B4 the priced-insistence walk's mobile
      treatment): tree/style.css gained the coarse-pointer sticky-bottom

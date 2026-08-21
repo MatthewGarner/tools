@@ -173,9 +173,9 @@ const DRIVERS = {
   async why(doc){
     const {parse} = await import('../why/parse.js');
     const {project} = await import('../why/project.js');
-    const {renderOst} = await import('../why/render-ost.js');
+    const {renderCausalField} = await import('../why/render-causal-field.js');
     const m = parse(doc);
-    return renderOst(m, project(m), {...ctx, edit: true, width: W});
+    return renderCausalField(m, project(m), {...ctx, edit: true, width: W});
   },
   async tree(doc){
     const {parse} = await import('../tree/parse.js');

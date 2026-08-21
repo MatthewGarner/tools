@@ -359,8 +359,8 @@ for(const [k, src] of Object.entries(docs)){
 {
   const {parse: wparse} = await import('../why/parse.js');
   const {project} = await import('../why/project.js');
-  const {renderOst} = await import('../why/render-ost.js');
-  const {renderMap} = await import('../why/render-map.js');
+  const {renderCausalField: renderOst} = await import('../why/render-causal-field.js');
+  const {renderDeliveryLens: renderMap} = await import('../why/render-delivery-lens.js');
   const doc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n      ? wanted\n    Resume where you left off [delivering]\n      ? works [holds]\n  Choosing is work\n  Orphan [delivering]';
   const m = wparse(doc);
   const pr = project(m);
@@ -371,25 +371,18 @@ for(const [k, src] of Object.entries(docs)){
   const wd = whyDiffView(whyDiff(wparse(oldDoc), m), 'SNAP');
   variants['why-ost-diff'] = norm(renderOst(m, pr, {...ctxBase}, wd));
   variants['why-map'] = norm(renderMap(m, pr, {...ctxBase}));
-  variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, slide: true}));
-  /* WIDE + edit:true — the shape a /why user actually sees in the browser, and the
-     one the golden suite was BLIND to: every other why fixture is either edit:false
-     (exports) or narrow. Roadmap's spans added an edit-only affordance (the span-edge
-     handles) that /why silently inherited, and nothing here could see it. This is the
-     containment guard: /why delegates to roadmap's renderer, so an edit-mode change
-     there must be visible HERE. */
+  variants['why-map-slide'] = norm(renderMap(m, pr, {...ctxBase, intent:'presentation'}));
+  /* Wide editable Ledger: the browser's normal authoring state must stay covered
+     separately from the 16:9 presentation plate and the phone stack. */
   variants['why-map-edit'] = norm(renderMap(m, pr, {...ctxBase, edit: true}));
 
-  /* narrow (phone) relayout, edit:true — the only real-world path (exports
-     never set ctx.width): the indented outline (OST) and its map-view
-     inheritance of roadmap's narrow relayout (Task 2). */
+  /* Phone is a source-order Causal stack / Delivery Ledger, never a scaled
+     desktop tree or a borrowed Roadmap layout. */
   variants['why-ost-narrow'] = norm(renderOst(m, pr, {...ctxBase, edit: true, width: 360}));
   variants['why-map-narrow'] = norm(renderMap(m, pr, {...ctxBase, edit: true, width: 360}));
 
-  /* multi-outcome map-view narrow fixture: every single-outcome fixture above
-     hid the dropped-band-header regression (a lone laneGroup still reads fine
-     without a heading) — two outcomes prove the fix actually distinguishes
-     which lanes belong to which outcome on a phone. */
+  /* Multi-outcome phone lens: source paths disambiguate the same readiness
+     column without collapsing authored identities into one label. */
   const multiDoc = 'title: H2 product bets\noutcome: Improve 90-day retention\n  Readers lose their place between sessions\n' +
     '    Reading reminders [testing]\n      ? users want interruptions\noutcome: Grow referral revenue\n' +
     '  Sharing feels braggy\n    Private progress cards [delivering]\n      ? cards get shared [testing]\n' +
@@ -398,9 +391,8 @@ for(const [k, src] of Object.entries(docs)){
   const mpr = project(mm);
   variants['why-map-narrow-multi'] = norm(renderMap(mm, mpr, {...ctxBase, edit: true, width: 360}));
 
-  /* deep-tree fixture (#4-5 levels of freely-nesting opportunities down to a
-     solution): proves the depth clamp — depths 3, 4 and 5 all share the
-     depth-3 indent/card width instead of collapsing or running off-screen. */
+  /* Deep phone field: levels beyond the visual indent clamp remain readable
+     through their rendered causal context. */
   const deepDoc = 'title: Deep chain\noutcome: Grow retention\n  Readers lose their place between sessions\n' +
     '    Notifications feel spammy\n      Users mute after first week\n        Frequency too high\n' +
     '          Smart batching [testing]\n            ? batching preserves timing';
@@ -408,13 +400,23 @@ for(const [k, src] of Object.entries(docs)){
   const dpr = project(dm);
   variants['why-ost-narrow-deep'] = norm(renderOst(dm, dpr, {...ctxBase, edit: true, width: 360}));
 
-  /* Gate B: a committed solution with a broken assumption — the map view's
-     at-risk ghost (dashed + BROKEN ASSUMPTION badge, still fully editable).
-     Otherwise unreachable by the fixtures above, all of which stay healthy. */
+  /* Broken assumptions remain a factual Delivery Lens audit — never a ghost
+     card — and must still be editable. */
   const brokenDoc = 'title: T\noutcome: Retention\n  Losing your place\n    Shaky reminders [delivering]\n      ? reading sticks [broken]';
   const bm = wparse(brokenDoc);
   const bpr = project(bm);
   variants['why-map-broken'] = norm(renderMap(bm, bpr, {...ctxBase, edit: true}));
+
+  /* Dark is a real Field family surface, not a generic XML decode sweep:
+     palette paper stays quiet, ink retains contrast, and broken remains the
+     only semantic alert across both live and Copy-PNG projections. */
+  const darkCtx = {...ctxBase, dark:true, colors:{...ctxBase.colors,
+    bg:'#121212', ink:'#F4F4F1', muted:'#A7A7A3', border:'#2E2E2C', err:'#FF6B62'}};
+  const darkModel = wparse('palette: ember\n' + brokenDoc);
+  const darkProjection = project(darkModel);
+  variants['why-ost-dark'] = norm(renderOst(darkModel, darkProjection, {...darkCtx, edit:true}));
+  variants['why-map-dark'] = norm(renderMap(darkModel, darkProjection, {...darkCtx, edit:true}));
+  variants['why-map-slide-dark'] = norm(renderMap(darkModel, darkProjection, {...darkCtx, intent:'presentation'}));
 }
 
 /* /map fixtures (dates normalised) */
@@ -1051,7 +1053,7 @@ for(const [k, src] of Object.entries(docs)){
   variants['map-presentation'] = renderMapPresentation(mm, mres, mro(mm, mres), {...ctxBase});
 
   const {parse: wp} = await import('../why/parse.js');
-  const {renderWhyPresentation} = await import('../why/render-presentation.js');
+  const {renderCausalPresentation: renderWhyPresentation} = await import('../why/causal-presentation.js');
   const wdoc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n    Resume where you left off [delivering]\n  Choosing is work';
   /* No date normaliser here, unlike the other why fixtures: ctxBase sets no `today`,
      and render-presentation emits String(ctx.today || '') — so there is no date to strip.

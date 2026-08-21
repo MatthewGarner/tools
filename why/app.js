@@ -2,11 +2,11 @@
 import {parse} from './parse.js';
 import {project, whyVerdict, whyMetrics} from './project.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
-import {renderOst} from './render-ost.js';
-import {renderWhyPresentation} from './render-presentation.js';
+import {renderCausalField} from './render-causal-field.js';
+import {renderCausalPresentation} from './causal-presentation.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {whyDiff, whyDiffView} from './diff.js';
-import {renderMap} from './render-map.js';
+import {renderDeliveryLens} from './render-delivery-lens.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
 import {readHashState, writeHashState} from '../assets/series.js';
@@ -78,7 +78,7 @@ function inspectNode(line, origin){
   for(const el of $('preview').querySelectorAll('[data-line="'+line+'"]')) el.classList.add('is-inspected');
   const {node,trail}=hit, m=$('margin'),k=document.createElement('p'),h=document.createElement('h2'),dl=document.createElement('dl');k.className='margin-kicker';k.textContent='DECISION MARGIN';h.id='margin-title';m.setAttribute('aria-labelledby',h.id);h.tabIndex=-1;h.textContent=node.label;
   const route=trail.map(n=>n.label).join(' → '), children=(node.children||[]).reduce((a,n)=>(a[n.kind]=(a[n.kind]||0)+1,a),{}), support=node.kind==='solution'?(node.children||[]).filter(n=>n.kind==='assumption').map(n=>n.status).join(', ')||'No assumptions recorded':Object.entries(children).map(([k,n])=>n+' '+k+(n===1?'':'s')).join(' · ')||'No child claims';
-  for(const [a,b] of [['Source','Line '+(line+1)],['Chain',route],['Kind',node.kind],['Status',node.status||'—'],[node.kind==='solution'?'Assumptions':'Connected claims',support],['Lens',view==='ost'?'Discovery tree':'Derived readiness — not a delivery plan']]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b;dl.append(dt,dd);}
+  for(const [a,b] of [['Source','Line '+(line+1)],['Chain',route],['Kind',node.kind],['Status',node.status||'—'],[node.kind==='solution'?'Assumptions':'Connected claims',support],['Lens',view==='ost'?'Causal Tree':'Derived readiness — not a delivery plan']]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b;dl.append(dt,dd);}
   const actions=document.createElement('div'),edit=document.createElement('button'),close=document.createElement('button');actions.className='margin-actions';edit.className=close.className='btn';edit.textContent='Edit source';close.textContent='Close';edit.addEventListener('click',()=>{clearInspection();ws.setCollapsed(false);const l=editor.view.state.doc.line(line+1);editor.view.dispatch({selection:{anchor:l.from},scrollIntoView:true});editor.view.focus();});close.addEventListener('click',()=>clearInspection({restore:true}));actions.append(edit,close);m.replaceChildren(k,h,dl,actions);m.hidden=false;m.parentElement.classList.add('has-margin');h.focus();
 }
 const previewEl = $('preview');
@@ -92,17 +92,14 @@ function currentDiff(){
   if(!cur || !model || !model.outcomes.length) return null;
   return whyDiffView(whyDiff(cur.model, model), cur.label);
 }
-/* width rides the shared ctx into BOTH views: renderOst reads ctx.width
-   directly, and renderMap forwards {...ctx} untouched into roadmap's
-   renderer (render-map.js), so the map view inherits roadmap's narrow
-   relayout for free. Exports never pass edit:true, so they never carry a
-   width — the wide artefact stays pinned regardless of the on-screen bucket. */
+/* Both projections receive the same live width. Exports omit it so their
+   physical reading artefact remains wide, with its own presentation policy. */
 function activeRender(intent = 'native', edit = false){
   const presentation = intent === 'presentation';
   const ctx = {colors: themeColors(), measure, slide: false, intent, dark: isDark(), edit,
     today: new Date().toISOString().slice(0, 10), width: edit ? renderWidth() : undefined};
-  if(presentation && view === 'ost') return renderWhyPresentation(model, ctx);
-  return view === 'ost' ? renderOst(model, projection, ctx, currentDiff()) : renderMap(model, projection, ctx);
+  if(presentation && view === 'ost') return renderCausalPresentation(model, ctx, currentDiff());
+  return view === 'ost' ? renderCausalField(model, projection, ctx, currentDiff()) : renderDeliveryLens(model, projection, ctx, currentDiff());
 }
 function doRefresh(){
   clearInspection();
@@ -123,7 +120,7 @@ function doRefresh(){
   renderWarnings();
   /* the header/verdict anatomy rides this same loop — both painters bail out
      when their strings are unchanged, so a keystroke that doesn't move a count
-     costs nothing. The verdict is a projection of the SAME audits the OST
+     costs nothing. The verdict is a projection of the SAME audits the Causal Tree
      draws, so the two views can't disagree either. */
   paintMetrics($('metrics'), model.outcomes.length ? (model.title || 'Untitled') : '', whyMetrics(model));
   const vd = whyVerdict(model, projection);
@@ -176,8 +173,8 @@ function syncViewToggle(){
   $('viewost').setAttribute('aria-selected', String(view === 'ost'));
   $('viewmap').setAttribute('aria-selected', String(view === 'map'));
   $('viewnote').textContent = view === 'ost'
-    ? 'Discovery lens — trace every solution to the customer opportunity and assumption it relies on.'
-    : 'Delivery lens — shows discovery readiness, not delivery capacity or a decision plan.';
+    ? 'Causal Tree — trace every solution to the customer opportunity and assumption it relies on.'
+    : 'Delivery Lens — shows derived readiness, not delivery capacity or a decision plan.';
 }
 $('viewost').addEventListener('click', () => setView('ost'));
 $('viewmap').addEventListener('click', () => setView('map'));
@@ -209,16 +206,10 @@ const whyEip = attachEditInPlace($('preview'), {
        assumption (status picker + danger remove), resolved fresh from the
        current model each time the menu opens — app-menu.js's solutionMenu. */
     'cardmenu-solution': {menu: (el) => solutionMenu(model, +el.dataset.line)},
-    /* map-view cards are roadmap-rendered (render-map.js → roadmap/render.js),
-       so they carry a bare data-edit="cardmenu" with no per-kind suffix — the
-       roadmap renderer doesn't know outcome/opportunity/solution. opens:'title'
-       (not 'label') because that's the data-edit kind roadmap's renderer emits
-       for the title text. No Status/Add rows: map items carry no status pill
-       and adding a child node from a projected roadmap position is out of
-       scope here. */
-    cardmenu: {menu: [
+    'cardmenu-assumption': {menu: [
       {label: 'Inspect…', action: true},
-      {label: 'Rename…', opens: 'title'},
+      {label: 'Rename…', opens: 'label'},
+      {label: 'Claim state…', opens: 'astatus'},
       {label: 'Remove branch', action: true, danger: true},
     ]},
     removeassump: {cycle: ['×']},
