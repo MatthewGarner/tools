@@ -251,6 +251,18 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
       ' = stage ' + Math.round(stageW) + ')', Math.abs(after - stageW) < 12);
     check(path + ' artefact + receipt reach a sibling\'s width (' + Math.round(after) + ' + ' +
       Math.round(receiptBox?.width || 0) + ')', !!receiptBox && after + receiptBox.width > 1500);
+  } else if(path === '/timeline/') {
+    /* Timeline's Field is a calibrated physical artefact, not a fluid dashboard.
+       Its 1442px native width keeps the timing track, factual marks and text at a
+       stable reading scale alongside the rail; hiding the rail must then give that
+       same Field the entire available stage. The generic 20% growth heuristic is
+       wrong here: 1442 → 1636 is intentional, useful growth without rescaling the
+       authored instrument. */
+    const stageW = (await page.locator('#preview').boundingBox()).width;
+    check(path + ' Field retains its physical reading width and claims the full stage (' +
+      Math.round(before) + '→' + Math.round(after) + ' = ' + Math.round(stageW) + ')',
+    minReadable >= 1 && before >= 1400 && before <= 1450 &&
+      after >= 1600 && after - before >= 160 && Math.abs(after - stageW) < 12);
   } else {
     check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
       after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));
