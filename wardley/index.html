@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wardley map — strategy as code</title>
-<meta name="description" content="A plain-text Wardley map: components, dependencies and evolution positions as code. Drag writes evolution back into the text, and snapshot compare draws the drift-toward-commodity slide.">
+<meta name="description" content="A plain-text Wardley strategic field: components, dependencies and evolution positions as code. Drag writes evolution back into the text, and snapshots make changing claims auditable.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
@@ -30,7 +30,7 @@
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Wardley map</h1>
-    <p class="tagline">Maps drawn in a workshop die in the drawing tool. This one is text: components, dependencies and evolution positions in a file, the picture derived — so the next review diffs the landscape instead of redrawing it, and "payments drifted into commodity" arrives as a slide.</p>
+    <p class="tagline">A strategy map is a current claim, not a workshop artefact. This one is text: user needs, dependencies and evolution positions in a file, the picture derived — so the next review compares the claim instead of redrawing it.</p>
   </header>
 </div>
 
@@ -88,7 +88,7 @@
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>
-        <span class="method">Needs… in a component's ⋯ menu rewires dependencies — mouse or touch · snapshot at each strategy review — compare draws the drift · the URL carries your map</span>
+        <span class="method">Needs… in a component's ⋯ menu rewires dependencies — mouse or touch · snapshot at each strategy review — compare records changed claims · the URL carries your map</span>
       </div>
     </section>
 </div>
@@ -97,9 +97,9 @@
   <section class="about">
     <h2>Why a map, and why as code?</h2>
     <div class="prose">
-    <p>A Wardley map puts every component of a value chain on two honest axes: how visible it is to the user, and how evolved it is — genesis to commodity. The point isn't the picture, it's the argument the picture forces: why are we hand-building something the market sells as a utility? What are we treating as settled that is still genuinely novel? Position is a claim, and claims should be inspectable. It is not a forecast, a delivery schedule, or a decision plan.</p>
-    <p>Here the map is a projection of a text file. Vertical position is derived from the dependency chain — anchors at the top, each component below the things that need it — so the text fully determines the picture and there is no pixel-fiddling to lose. Dragging a pill along the evolution axis writes its position back into the text as an ordinary undoable edit; the file stays the single source of truth.</p>
-    <p>The snapshot compare is the reason this earns a slot next to the drawing tools that already exist: snapshot at each review, and the next map renders ghosts, drift arrows and a counted headline — components sliding toward commodity, new bets appearing at genesis. Strategy drift becomes a slide you export, not a memory you argue about. Use <a href="/roadmap/">Roadmap</a> for delivery commitments, and <a href="/paths/">Paths</a> when different outcomes could stop, pivot, or expand the work. Source: Simon Wardley's mapping work, CC BY-SA.</p>
+        <p>A Wardley strategic field makes an inspectable claim about a value chain: what the user needs, what each thing needs, and where each component sits from genesis to commodity. The point is the argument: why are we hand-building something the market sells as a utility? What are we treating as settled that is still genuinely novel? Horizontal position is a claim, not a forecast, delivery schedule, or decision plan.</p>
+    <p>Here the field is a projection of a text file. Vertical position is derived from the dependency chain — user needs above the things they need — rather than pretending the DSL contains a measured visibility value. Dragging a component along the evolution ruler writes its position back into the text as an ordinary undoable edit; the file stays the single source of truth.</p>
+    <p>Snapshot compare keeps changes legible: moved positions, new and dropped components, and changed dependencies become factual receipts in the next review. Strategy drift becomes an artefact you can inspect, not a memory you argue about. Use <a href="/roadmap/">Roadmap</a> for delivery commitments, and <a href="/paths/">Paths</a> when different outcomes could stop, pivot, or expand the work. Source: Simon Wardley's mapping work, CC BY-SA.</p>
     </div>
   </section>
 </div>

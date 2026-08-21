@@ -806,7 +806,7 @@ for(const [k, src] of Object.entries(docs)){
   const wPrev = wdoc.replace('Recommendations @ custom', 'Recommendations @ 0.30')
     .replace('\nCatalogue DB @ commodity', '\nCatalogue DB @ commodity\nOld cache @ product')
     .replace('Recommendations -> Catalogue DB', 'Recommendations -> Catalogue DB\nRecommendations -> Old cache');
-  const wctx = {...ctxBase, palette: ['#4C8DAE', '#5E9E6F', '#B5885A', '#8B7BB8']};
+  const wctx = {...ctxBase, today: '2026-08-21'};
   const wm = wparse(wdoc);
   variants['wardley-map'] = wrender(wm, layoutMap(wm), wctx);
   const wmOff = wparse('verdict: off\n' + wdoc);
@@ -818,6 +818,12 @@ for(const [k, src] of Object.entries(docs)){
   variants['wardley-narrow'] = wrender(wm, layoutMap(wm), {...wctx, width: 390});
   variants['wardley-edit'] = wrender(wm, layoutMap(wm), wctx, {edit: true});
   variants['wardley-narrow-edit'] = wrender(wm, layoutMap(wm), {...wctx, width: 390}, {edit: true});
+  /* A presentation plate is only valid when the field is complete at a
+     projection-readable type floor; these fixtures pin that actual Copy PNG
+     route plus the dark family, not a decorative surrogate. */
+  variants['wardley-presentation'] = wrender(wm, layoutMap(wm), {...wctx, intent: 'presentation'}, {intent: 'presentation'});
+  variants['wardley-dark'] = wrender(wm, layoutMap(wm), {...ctxDark, today: '2026-08-21'});
+  variants['wardley-presentation-dark'] = wrender(wm, layoutMap(wm), {...ctxDark, today: '2026-08-21', intent: 'presentation'}, {intent: 'presentation'});
 
   const wComps = layoutMap(wm).nodes.filter(n => !n.anchor);
   const wGhosts = wComps.filter(n => n.ghost).length;

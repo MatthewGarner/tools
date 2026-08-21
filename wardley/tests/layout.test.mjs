@@ -77,14 +77,14 @@ test('authored evolution x survives every density and export intent exactly', ()
   }
 });
 
-test('density assigns stable source-order IDs and an exhaustive key', () => {
+test('density keeps every authored label in the field rather than replacing it with a remote key', () => {
   const components = Array.from({length: 18}, (_, i) => `Capability ${String(i + 1).padStart(2, '0')} @ ${((i % 4) + 1) / 5}`).join('\n');
   const layout = lay('anchor: Need\n' + components);
-  assert.equal(layout.density, 'keyed');
-  assert.equal(layout.keyEntries.length, 18);
-  assert.deepEqual(layout.keyEntries.map(item => item.id),
+  assert.equal(layout.density, 'stacked');
+  assert.equal(layout.keyEntries.length, 0);
+  assert.deepEqual(layout.nodes.filter(item => !item.anchor).map(item => item.id),
     Array.from({length:18}, (_, i) => 'W' + String(i + 1).padStart(2, '0')));
-  assert.ok(layout.nodes.filter(item => !item.anchor).every(item => item.useKey && item.lines[0] === item.id));
+  assert.ok(layout.nodes.filter(item => !item.anchor).every(item => !item.useKey && item.lines.join(' ').startsWith('Capability')));
 });
 
 test('long direct names become measured two-line cards without row overlap', () => {

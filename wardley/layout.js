@@ -21,6 +21,25 @@ function overlaps(a,b){
 }
 function sourceCmp(a,b){ return a.srcLine-b.srcLine || a.name.localeCompare(b.name); }
 
+/* `wrapText` deliberately preserves an unbroken token for normal prose. A map
+   label is a physical claim, though: an identifier or URL must never quietly
+   leave its label plane. Split only after its measured width proves it cannot
+   fit, preserving every source character in deterministic chunks. */
+function labelWrap(text, font, width, measure){
+  const initial = wrapText(text, font, width, measure);
+  const out = [];
+  for(const line of initial){
+    if(measure(line, font) <= width){ out.push(line); continue; }
+    let bit = '';
+    for(const ch of line){
+      if(bit && measure(bit + ch, font) > width){ out.push(bit); bit = ch; }
+      else bit += ch;
+    }
+    if(bit) out.push(bit);
+  }
+  return out.length ? out : [''];
+}
+
 export function layoutMap(model, options = {}){
   const {measure,intent,geom}=optionsOf(options),w=geom.w||1200,pad=geom.pad??56,rowGap=geom.rowGap||ROW_GAP;
   const px=x=>pad+x*(w-2*pad);
@@ -58,17 +77,20 @@ export function layoutMap(model, options = {}){
 
   const orderedComponents=[...model.components.values()].sort(sourceCmp);
   const ids=new Map(orderedComponents.map((component,index)=>[component.name.toLowerCase(),'W'+String(index+1).padStart(2,'0')]));
-  const density=orderedComponents.length<=10?'direct':orderedComponents.length<=16?'hybrid':'keyed';
+  const density=orderedComponents.length<=10?'direct':orderedComponents.length<=16?'hybrid':'stacked';
 
   const nodes=new Map();
   for(const [key,component] of model.components){
     const id=ids.get(key),rawW=measure(component.name,'600 13px '+SANS)+26;
-    const fullLines=wrapText(component.name,'600 13px '+SANS,184,measure);
-    const useKey=density==='keyed'||fullLines.length>2||(density==='hybrid'&&rawW>156);
-    const maxText=useKey?42:184;
-    const lines=useKey?[id]:fullLines.slice(0,2);
-    const cardW=useKey?46:Math.max(82,Math.min(210,Math.max(...lines.map(line=>measure(line,'600 13px '+SANS)))+26));
-    const cardH=useKey?28:(lines.length>1?46:28);
+    const fullLines=labelWrap(component.name,'600 13px '+SANS,184,measure);
+    /* A field may grow vertically, but it must never replace the actual claim
+       with an opaque W-number and a remote key. All views carry the label. */
+    const useKey=false;
+    const lines=fullLines;
+    const cardW=Math.max(96,Math.min(210,Math.max(...lines.map(line=>measure(line,'600 13px '+SANS)))+26));
+    /* Title and exact evolution claim have separate baselines. The small
+       position line is factual, not a badge squeezed into title descenders. */
+    const cardH=Math.max(44,28 + lines.length * 16);
     const authoredPx=component.x===null?pad+84:px(component.x);
     const cardX=Math.max(4,Math.min(w-cardW-4,authoredPx-cardW/2));
     nodes.set(key,{name:component.name,id,x:component.x,stage:component.stage,ghost:component.ghost,
@@ -78,7 +100,7 @@ export function layoutMap(model, options = {}){
   for(const anchor of model.anchors){
     const key=anchor.name.toLowerCase(),kids=activeEdges.filter(e=>e.from===key).map(e=>nodes.get(e.to)).filter(Boolean);
     const authoredPx=kids.length?kids.reduce((sum,node)=>sum+node.px,0)/kids.length:w/2;
-    const lines=wrapText(anchor.name,'600 13px '+SANS,220,measure).slice(0,2);
+    const lines=labelWrap(anchor.name,'600 13px '+SANS,220,measure);
     const cardW=Math.max(100,Math.min(246,Math.max(...lines.map(line=>measure(line,'600 13px '+SANS)))+26));
     nodes.set(key,{name:anchor.name,id:'A'+String(model.anchors.indexOf(anchor)+1).padStart(2,'0'),x:null,
       stage:null,ghost:false,anchor:true,srcLine:anchor.srcLine,row:0,px:authoredPx,y:0,
@@ -132,7 +154,7 @@ export function layoutMap(model, options = {}){
   const keyEntries=orderedComponents.map(component=>{
     const node=nodes.get(component.name.toLowerCase());
     return {id:node.id,name:node.name,x:node.x,stage:node.stage,ghost:node.ghost,srcLine:node.srcLine,
-      lines:wrapText(node.name,'600 12px '+SANS,380,measure)};
+      lines:labelWrap(node.name,'600 12px '+SANS,380,measure)};
   });
   const loopCallouts=[...dropped].map((edge,index)=>{
     const link=links.find(item=>item.from===edge.from&&item.to===edge.to);

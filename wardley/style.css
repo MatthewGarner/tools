@@ -3,14 +3,21 @@
 
 .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 #cmhost .cm-editor{min-height:440px}
-.stage .preview{--reserve-ar: 1200 / 563}   /* load-grace: default example's viewBox — see workspace.css */
+.stage .preview{--reserve-ar:1200 / 688}   /* Strategic Field default — see workspace.css */
 .method{color:var(--muted);font-size:12.5px}
 
 /* ---- drag affordances ---- */
 #preview svg g[data-drag], #preview svg g[data-drag] *{ cursor: grab; }
+#preview svg [data-edit]{cursor:pointer}
+#preview svg:not([data-narrow]) [data-edit="componentmenu"],
+#preview svg:not([data-narrow]) [data-edit="additem"]{opacity:0}
+#preview svg:not([data-narrow]) g[data-drag]:hover + [data-edit="componentmenu"],
+#preview svg:not([data-narrow]) [data-edit="componentmenu"]:focus,
+#preview svg:not([data-narrow]) [data-dependency-projection]:hover [data-edit="additem"],
+#preview svg:not([data-narrow]) [data-edit="additem"]:focus{opacity:1}
 #preview svg[data-narrow]{ touch-action: pan-y; }  /* Chromium honours touch-action only on the svg ROOT */
 #preview svg g[data-drag].dragging{ cursor: grabbing; }
-#preview svg g[data-drag].dragging rect{ filter: brightness(1.08); }
+#preview svg g[data-drag].dragging .strategic-label-plane{ filter:brightness(1.04); }
 
 @media (prefers-reduced-motion: no-preference){
   #preview svg g[data-drag]{ transition: opacity 120ms; }

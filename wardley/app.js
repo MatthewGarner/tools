@@ -5,7 +5,7 @@ import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, addedComponentTarget, removeComponent, addEdge, removeEdge} from './edit-targets.js';
-import {readHashState, writeHashState, mix} from '../assets/series.js';
+import {readHashState, writeHashState, PALETTES} from '../assets/series.js';
 import {applyLineOps} from '../assets/editor-common.js';
 import {measure, isDark, themeColors, onThemeChange, renderWarningList, slugify, exampleChips} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -79,15 +79,14 @@ function inspectComponent(line, origin){
   const actions=document.createElement('div'),edit=document.createElement('button'),close=document.createElement('button');actions.className='margin-actions';edit.className=close.className='btn';edit.textContent='Edit source';close.textContent='Close';edit.addEventListener('click',()=>{clearInspection();ws.setCollapsed(false);const l=editor.view.state.doc.line(line+1);editor.view.dispatch({selection:{anchor:l.from},scrollIntoView:true});editor.view.focus();});close.addEventListener('click',()=>clearInspection({restore:true}));actions.append(edit,close);m.replaceChildren(k,h,dl,actions);m.hidden=false;m.parentElement.classList.add('has-margin');h.focus();
 }
 
-/* validated 2026-07-10 (dataviz validate_palette, ordinal mode, both themes):
-   one-hue evolution ramp accent → ink at t = 0, ⅓, ⅔, 1.
-   light #0c7fae→#22323c 4.23:1 vs #F7F8F6 · dark #2e93c4→#d7e0e6 5.04:1 vs #141B21 */
-function stageRamp(c){
-  return [0, 1 / 3, 2 / 3, 1].map(t => mix(c.accent, c.ink, t));
-}
 function ctx(){
-  const colors = themeColors();
-  return {colors, measure, dark: isDark(), palette: stageRamp(colors), today: todayISO()};
+  const dark = isDark(), base = themeColors();
+  /* Palette/accent survives every projection as the ONE inspection/diff ink.
+     It never becomes a four-stage categorical ramp: evolution is ruler
+     geometry plus exact text, leaving red exclusively for diagnostics. */
+  const palette = PALETTES[model?.palette || 'ocean'] || PALETTES.ocean;
+  const accent = model?.accent || palette[dark ? 'dark' : 'light'];
+  return {colors:{...base, accent}, measure, dark, today: todayISO()};
 }
 function currentCompare(){
   const cur = snaps && snaps.current();
@@ -116,21 +115,14 @@ function doRefresh(){
   const text = editor.getText();
   model = parse(text);
   const pv = $('preview');
-  if(!model.components.size){
-    layout = null;
-    lastSvg = ''; paint.reset();
-    pv.innerHTML = '<p class="placeholder">' + (text.trim()
-      ? 'No components yet — write one like “Recommendations @ custom”.'
-      : 'Start typing — or load an example.') + '</p>';
-    paintMetrics($('metrics'), '', []);
-  } else {
-    layout = layoutMap(model, {measure, intent: 'native', geom: GEOM});
-    const svg = activeRender();
-    paint(svg, REVEAL); lastSvg = svg;
-    /* the verdict itself is drawn INSIDE the artefact (render.js's readout band) —
-       one verdict per page, and it travels with every export */
-    paintMetrics($('metrics'), model.title || 'Wardley map', mapCounts());
-  }
+  /* An empty or anchor-only source is still a coherent strategic field: it is
+     where an editor starts, and SVG export must never silently disappear. */
+  layout = layoutMap(model, {measure, intent: 'native', geom: GEOM});
+  const svg = activeRender();
+  paint(svg, REVEAL); lastSvg = svg;
+  /* the verdict itself is drawn INSIDE the artefact — one verdict per page,
+     travelling with native SVG and every complete presentation plate. */
+  paintMetrics($('metrics'), model.title || 'Wardley map', mapCounts());
   renderWarnings();
   setActionsEnabled(!!lastSvg);
   if(shouldPersist()){ try{ localStorage.setItem('wardley-src', text); }catch(e){} }
@@ -384,7 +376,7 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: S
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function svgString(intent){
-  return (model && model.components.size) ? activeRender(intent) : null;
+  return model ? activeRender(intent) : null;
 }
 /* The counted facts the map already knows, feeding the page's metrics row. */
 function mapCounts(){
@@ -400,14 +392,17 @@ function slug(){
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString('native'),
-  getCopy: () => svgString('presentation'),
+  getCopy: () => {
+    const svg = svgString('presentation');
+    return svg && svg.includes('data-wardley-presentation-refusal') ? null : svg;
+  },
   slug,
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
    prompt() with the markdown so it's still copyable — wireExports has no
    equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
-  if(!model || !model.components.size) return;
+  if(!model) return;
   const md = toMarkdown(model, layoutMap(model, {measure, intent: 'native', geom: GEOM}), location.href);
   try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }

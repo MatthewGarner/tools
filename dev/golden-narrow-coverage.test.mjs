@@ -44,6 +44,7 @@ const COVERED = {
   'timeline/render-field.js': ['timeline-narrow'],
   'tree/render-density.js': ['tree-bid-narrow'],
   'tree/render.js': ['tree-bid-narrow'],
+  'wardley/render-field.js': ['wardley-narrow'],
   'wardley/render.js': ['wardley-narrow'],
   'why/render-causal-field.js': ['why-ost-narrow'],
   'why/render-delivery-lens.js': ['why-map-narrow'],
