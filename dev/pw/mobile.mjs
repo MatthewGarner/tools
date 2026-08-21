@@ -1040,6 +1040,19 @@ for(const [name, url, chip] of WIDENED){
   ok(stack.route, 'why: Causal Field phone keeps a full visible causal breadcrumb');
   ok(stack.targets, 'why: Causal Field phone menu targets are all at least 44px');
   ok(stack.scrollWidth <= stack.width + 1, `why: Causal Field phone has no page h-scroll (${stack.scrollWidth} <= ${stack.width})`);
+  const baseline = await page.evaluate(() => localStorage.getItem('why-src'));
+  const stateWord = page.locator('#preview svg [data-causal-state="testing"]').first();
+  await stateWord.scrollIntoViewIfNeeded();
+  const stateBox = await stateWord.boundingBox();
+  await page.mouse.click(stateBox.x + stateBox.width / 2, stateBox.y + stateBox.height / 2);
+  await page.waitForTimeout(200);
+  const stateOpen = await page.evaluate(before => ({
+    rows:[...document.querySelectorAll('.eip-pop button')].map(button => button.textContent.trim()),
+    source:localStorage.getItem('why-src'),
+  }), baseline);
+  ok(stateOpen.rows.join('|') === 'candidate|testing|delivering|shipped|parked' && stateOpen.source === baseline,
+    'why: a coarse visible state-word tap opens its status picker, never the card menu or a source write');
+  await page.keyboard.press('Escape');
   await page.close();
 }
 

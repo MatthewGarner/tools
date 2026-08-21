@@ -73,6 +73,15 @@ test('Causal Field phone layout is a source-order causal stack with named ancest
   assert.match(svg, /aria-label="More options: solution · Improve 90-day retention › Readers lose their place between sessions › Reading reminders · TESTING"/,
     'the phone menu target announces stage, full ancestry, label and state');
   assert.match(svg, /<g data-causal-node="3"[^>]*><rect data-edit="cardmenu-solution"[^>]*data-hit=""/, 'phone claim begins with its own contextual hit plane');
+  const rect = edit => {
+    const tag = svg.match(new RegExp('<rect(?=[^>]*data-edit="' + edit + '")(?=[^>]*data-line="3")[^>]*>'))?.[0];
+    assert.ok(tag, edit + ' has a source-owned phone hit plane');
+    const value = name => +tag.match(new RegExp(name + '="([\\d.]+)"'))?.[1];
+    return {x:value('x'), y:value('y'), w:value('width'), h:value('height')};
+  };
+  const menu = rect('cardmenu-solution'), state = rect('status');
+  const overlaps = menu.x < state.x + state.w && state.x < menu.x + menu.w && menu.y < state.y + state.h && state.y < menu.y + menu.h;
+  assert.equal(overlaps, false, 'phone state and card-menu hit planes are physically disjoint, so coarse state taps cannot be menu-rerouted');
 });
 
 test('Delivery Lens is a derived readiness ledger, never a temporal roadmap', () => {
