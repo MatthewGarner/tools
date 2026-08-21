@@ -31,7 +31,7 @@ function compactIds(records){
 }
 
 function exceptionCopy(exceptions){
-  if(!exceptions.length) return 'NO MATERIAL EXCEPTIONS HIDDEN BY THE SIX-CARD SELECTION';
+  if(!exceptions.length) return 'NO MATERIAL EXCEPTIONS HIDDEN BY THE SIX-POSITION SELECTION';
   return ['NO KILL', 'P50 LOSS', 'HIGH CONCENTRATION'].map(reason => {
     const matches = exceptions.filter(item => item.reasons.includes(reason));
     return matches.length ? reason + ' ' + compactIds(matches) : null;
@@ -52,93 +52,230 @@ const unscoredCopy = selection => selection.unscored.length
   ? 'NOT SCORED · ' + selection.unscored.map(record => record.id + ' ' + record.b.name).join(', ')
   : 'ALL BETS SCORED';
 
+/* The plate's left header is a physical reading area, not an ellipsis. Keep
+   authored titles whole while they fit; an exceptional title earns a clear
+   refusal rather than silently becoming an inaccurate crop. */
+function presentationTitle(text, measure){
+  const width = 970;
+  for(const size of [42, 38, 34, 30, 26, 22]){
+    const lines = measuredLines(text, '600 ' + size + 'px ' + SANS, width, measure);
+    if(lines.length <= 2) return {lines, size, leading: Math.round(size * 1.1), refused: false};
+  }
+  const lines = measuredLines(text, '600 22px ' + SANS, width, measure);
+  return lines.length <= 3 ? {lines, size: 22, leading: 25, refused: false} : {lines, refused: true};
+}
+
+function titleLine(x, y, line, size, c){
+  return '<text data-bets-title-line="" x="' + x + '" y="' + y +
+    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="' + size +
+    '" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>';
+}
+
+function titleRefusal(title, c){
+  return '<svg data-bets-surface="allocation-field-presentation" data-bets-title-refusal="" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="' +
+    SANS + '" role="img" aria-labelledby="bets-presentation-title bets-presentation-desc"><title id="bets-presentation-title">' +
+    esc(title) + '</title><desc id="bets-presentation-desc">The authored title is too long for a legible 16 by 9 allocation field.</desc>' +
+    '<rect width="1920" height="1080" fill="' + c.bg + '"/><line x1="96" y1="162" x2="1824" y2="162" stroke="' + c.ink + '" stroke-width="2"/>' +
+    titleLine(96, 116, 'Title too long for presentation field', 42, c) +
+    txt(96, 210, 'SHORTEN THE AUTHORED TITLE, THEN COPY PNG AGAIN', 14, c.muted, {weight: 700, tracking: '0.09em'}) +
+    txt(96, 1040, 'ALLOCATION FIELD · SOURCE TITLE PRESERVED IN SVG METADATA', 11, c.muted, {weight: 700, tracking: '0.1em'}) +
+    '</svg>';
+}
+
+function densityRefusal(title, c){
+  return '<svg data-bets-surface="allocation-field-presentation" data-bets-density-refusal="" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="' +
+    SANS + '" role="img" aria-labelledby="bets-presentation-title bets-presentation-desc"><title id="bets-presentation-title">' +
+    esc(title) + '</title><desc id="bets-presentation-desc">The selected positions are too wordy for a legible 16 by 9 allocation field.</desc>' +
+    '<rect width="1920" height="1080" fill="' + c.bg + '"/><line x1="96" y1="162" x2="1824" y2="162" stroke="' + c.ink + '" stroke-width="2"/>' +
+    titleLine(96, 116, 'Selection too dense for presentation field', 42, c) +
+    txt(96, 210, 'SHORTEN POSITION OR KILL TEXT, THEN COPY PNG AGAIN', 14, c.muted, {weight: 700, tracking: '0.09em'}) +
+    txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted, {weight: 700, tracking: '0.1em'}) +
+    '</svg>';
+}
+
+function rowPlan(record, C, measure){
+  const b = record.b;
+  const names = measuredLines(b.name, '600 17px ' + SANS, C.nameEnd - C.name, measure);
+  const killText = b.kill && ('fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''));
+  const kills = killText ? measuredLines(killText, '10px ' + SANS, C.nameEnd - C.name, measure).slice(0, 2) : [];
+  const audits = record.rec.audits.length ? record.rec.audits : ['—'];
+  const height = Math.max(58, 20 + names.length * 19 + kills.length * 13, 18 + audits.length * 14);
+  return {names, kills, audits, height};
+}
+
+function bodyEnd(records, C, startY, measure){
+  let y = startY, group = null;
+  for(const record of records){
+    if(record.group.name !== group){
+      if(group !== null) y += 8;
+      group = record.group.name;
+      y += 24;
+    }
+    y += rowPlan(record, C, measure).height;
+  }
+  return y;
+}
+
+/* A fixed plate has a lower portfolio field. Admission is source-honest: it
+   stops at the first ranked position that would displace that evidence, then
+   names the remainder in the existing full-SVG handoff. */
+function admittedSelection(selection, C, startY, measure){
+  const selected = [];
+  for(const record of selection.selected){
+    const next = selected.concat(record).sort((a, b) => a.sourceOrder - b.sourceOrder);
+    const end = bodyEnd(next, C, startY, measure);
+    if(end <= 720 || (!selected.length && end <= 920)) selected.push(record);
+    else break;
+  }
+  const omitted = selection.selected.length - selected.length;
+  return {...selection, selected, remainder: selection.remainder + omitted, refused: selection.selected.length > 0 && selected.length === 0};
+}
+
+function conditionReceipt(readings, x0, y0, width, c){
+  const gap = 28, receiptW = (width - gap) / 2, parts = [];
+  [readings.baseline, readings.stress].forEach((item, i) => {
+    const x = x0 + i * (receiptW + gap), pf = item.result;
+    const loss = pf ? Math.round((pf.pLoss || 0) * 100) : null;
+    if(i) parts.push('<line x1="' + (x - gap / 2) + '" y1="' + y0 + '" x2="' + (x - gap / 2) + '" y2="' + (y0 + 68) + '" stroke="' + c.border + '"/>');
+    parts.push('<g data-condition-receipt="" data-condition="' + item.key + '">');
+    parts.push(txt(x, y0 + 13, item.label.toUpperCase(), 10.5, c.muted, {weight: 700, tracking: '0.07em'}));
+    parts.push(txt(x, y0 + 40, loss == null ? 'NOT AVAILABLE' : 'P(LOSES MONEY) ' + loss + '%', 20,
+      loss != null && loss >= 50 ? c.err : c.accentInk, {weight: 700, mono: true}));
+    parts.push(txt(x, y0 + 61, pf ? 'MEDIAN ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90) : 'Correct invalid terms',
+      11.5, c.ink, {weight: 600, mono: true}));
+    parts.push('</g>');
+  });
+  return parts;
+}
+
+/* The plate ends on the portfolio's two actual outcome ranges. They occupy the
+   quiet lower field with evidence—not decoration—and share one scale so the
+   stress reading can be compared at a glance. */
+function portfolioExposureRails(readings, x0, x1, y0, c){
+  const baseline = readings.baseline.result, stress = readings.stress.result;
+  if(!baseline || !stress) return [];
+  const lo = Math.min(0, baseline.p10, stress.p10);
+  const hi = Math.max(1, baseline.p90, stress.p90);
+  const scale = value => x0 + (value - lo) / (hi - lo || 1) * (x1 - x0);
+  const out = [];
+  [[readings.baseline.label.toUpperCase(), baseline, c.accent, c.accentInk],
+    [readings.stress.label.toUpperCase(), stress, c.err, c.err]].forEach(([label, result, tone, ink], index) => {
+    const y = y0 + index * 58, loss = Math.round((result.pLoss || 0) * 100);
+    out.push('<g data-portfolio-exposure="" data-condition="' + (index ? 'shared' : 'independent') + '">');
+    out.push(txt(x0, y + 10, label, 10, index ? c.err : c.muted, {weight: 700, tracking: '0.08em'}));
+    out.push(txt(x1, y + 10, loss + '% BELOW ZERO · MEDIAN ' + sgn(result.p50), 10, ink,
+      {weight: 700, tracking: '0.05em', anchor: 'end'}));
+    out.push('<line x1="' + x0 + '" y1="' + (y + 28) + '" x2="' + x1 + '" y2="' + (y + 28) +
+      '" stroke="' + c.border + '" stroke-width="1"/>');
+    if(lo < 0) out.push('<line x1="' + exRound(scale(0)) + '" y1="' + (y + 20) + '" x2="' + exRound(scale(0)) +
+      '" y2="' + (y + 36) + '" stroke="' + c.muted + '" stroke-width="1" stroke-dasharray="2 2"/>');
+    out.push('<line x1="' + exRound(scale(result.p10)) + '" y1="' + (y + 28) + '" x2="' + exRound(scale(result.p90)) +
+      '" y2="' + (y + 28) + '" stroke="' + tone + '" stroke-width="6" stroke-opacity="' + (index ? '0.34' : '0.62') +
+      '"' + (index ? ' stroke-dasharray="3 2"' : '') + '/>');
+    out.push('<line x1="' + exRound(scale(result.p50)) + '" y1="' + (y + 19) + '" x2="' + exRound(scale(result.p50)) +
+      '" y2="' + (y + 37) + '" stroke="' + (index ? c.err : c.ink) + '" stroke-width="2"/>');
+    out.push(txt(scale(result.p10), y + 48, 'P10 ' + sgn(result.p10), 9.5, c.muted, {mono: true, anchor: 'middle'}));
+    out.push(txt(scale(result.p50), y + 48, 'P50 ' + sgn(result.p50), 9.5, index ? c.err : c.ink,
+      {mono: true, weight: 700, anchor: 'middle'}));
+    out.push(txt(scale(result.p90), y + 48, 'P90 ' + sgn(result.p90), 9.5, c.muted, {mono: true, anchor: 'middle'}));
+    out.push('</g>');
+  });
+  return out;
+}
+
+const exRound = value => Math.round(value * 100) / 100;
+
 export function renderBetsPresentation(model, sim, ctx = {}){
   const c = ctx.colors, measure = ctx.measure || (s => String(s).length * 14);
-  const selection = presentationSelection(model, sim);
+  const authoredTitle = model.title || 'Bets board';
+  const title = presentationTitle(authoredTitle, measure);
+  if(title.refused) return titleRefusal(authoredTitle, c);
   const conditions = conditionReadings(sim);
-  const baseline = reading(conditions.baseline.result);
-  const stress = reading(conditions.stress.result);
+  const C = {left: 96, id: 98, name: 168, nameEnd: 650, stake: 790, odds: 920, payoff: 1060,
+    p10: 1210, p50: 1320, p90: 1430, range0: 1482, range1: 1710, audit: 1780, right: 1824};
+  const titleBottom = 86 + (title.lines.length - 1) * title.leading + title.size * 0.25;
+  const headerShift = Math.max(0, Math.ceil(titleBottom - 116));
+  const ruleY = 142 + headerShift, headY = ruleY + 136;
+  const selection = admittedSelection(presentationSelection(model, sim), C, headY + 30, measure);
+  if(selection.refused) return densityRefusal(authoredTitle, c);
+  const displayed = selection.selected.slice().sort((a, b) => a.sourceOrder - b.sourceOrder);
   const exceptions = omittedMaterialExceptions(selection);
-  const totalStake = selection.selected.length
-    ? selection.records.filter(record => record.rec.scoreable !== false).reduce((n, record) => n + stakeMid(record.b), 0)
-    : 0;
-  const parts = [];
+  const totalStake = selection.records.filter(record => record.rec.scoreable !== false).reduce((n, record) => n + stakeMid(record.b), 0);
+  let elo = 0, ehi = 1;
+  for(const record of displayed){ elo = Math.min(elo, record.rec.ev.p10); ehi = Math.max(ehi, record.rec.ev.p90); }
+  const epad = (ehi - elo) * 0.07 || 1;
+  elo -= epad; ehi += epad;
+  const ex = v => C.range0 + (v - elo) / (ehi - elo || 1) * (C.range1 - C.range0);
+  const parts = ['<rect width="1920" height="1080" fill="' + c.bg + '"/>'];
 
-  parts.push('<rect width="1920" height="1080" fill="' + c.bg + '"/>');
-  parts.push('<rect x="0" y="0" width="18" height="1080" fill="' + c.accent + '"/>');
-  parts.push('<text x="96" y="104" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="44" fill="' + c.ink + '">' +
-    esc(model.title || 'Bets board') + '</text>');
-  parts.push(txt(96, 142, selection.total + ' BETS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' ' + (model.unit || ''),
-    18, c.muted, {mono: true, tracking: '0.05em'}));
-  const conditionCards = [
-    {x: 1000, title: conditions.baseline.label, copy: baseline, tone: c.accentInk, condition: conditions.baseline.condition},
-    {x: 1420, title: conditions.stress.label, copy: stress,
-      tone: conditions.stress.available && conditions.stress.result.pLoss >= 0.5 ? c.err : c.accentInk,
-      condition: conditions.stress.condition},
-  ];
-  for(const card of conditionCards){
-    parts.push('<rect x="' + card.x + '" y="38" width="394" height="112" fill="' + c.card + '" stroke="' + c.border + '"/>');
-    parts.push(txt(card.x + 18, 61, card.title.toUpperCase(), 12, c.muted,
-      {weight: 700, tracking: '0.08em'}));
-    parts.push(txt(card.x + 18, 91, card.copy.loss.toUpperCase(), 23, card.tone, {weight: 700, mono: true}));
-    parts.push(txt(card.x + 18, 116, card.copy.median + ' · ' + card.copy.range, 14, c.ink, {weight: 600, mono: true}));
-    parts.push(txt(card.x + 18, 138, card.condition, 11.5, c.muted));
-  }
-
-  parts.push('<rect x="96" y="178" width="1728" height="106" fill="' + c.card + '" stroke="' + c.border + '"/>');
-  parts.push(txt(120, 205, 'SELECTION · ' + selection.rule.toUpperCase(), 15, c.accentInk,
+  title.lines.forEach((line, index) => parts.push(titleLine(96, 86 + index * title.leading, line, title.size, c)));
+  parts.push(txt(96, 116 + headerShift, selection.total + ' BETS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' ' + (model.unit || ''),
+    15, c.muted, {mono: true, tracking: '0.06em'}));
+  parts.push(...conditionReceipt(conditions, 1110, 30, 714, c));
+  parts.push('<line x1="96" y1="' + ruleY + '" x2="1824" y2="' + ruleY + '" stroke="' + c.ink + '" stroke-width="2"/>');
+  parts.push(txt(96, ruleY + 30, 'SELECTION · ' + selection.rule.toUpperCase(), 12, c.accentInk,
     {weight: 700, tracking: '0.08em'}));
-  parts.push(txt(120, 228, selection.selected.length + ' SHOWN · ' + selection.remainder +
+  parts.push(txt(96, ruleY + 52, displayed.length + ' SHOWN · ' + selection.remainder +
     (selection.remainder === 1 ? ' FURTHER BET IN FULL SVG' : ' FURTHER BETS IN FULL SVG'), 16, c.muted,
     {weight: 700, tracking: '0.04em'}));
-  parts.push(txt(120, 254, 'OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions), 12,
+  parts.push(txt(96, ruleY + 74, 'OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions), 10.5,
     exceptions.length ? c.err : c.muted, {weight: 700, tracking: '0.03em'}));
   const concentration = concentrationCopy(selection, sim);
-  parts.push(txt(120, 276, concentration, 12, sim.concentration ? c.err : c.muted,
+  parts.push(txt(96, ruleY + 94, concentration, 10.5, sim.concentration ? c.err : c.muted,
     {weight: 700, tracking: '0.03em'}));
-  parts.push(txt(1800, 276, unscoredCopy(selection), 12, selection.unscored.length ? c.err : c.muted,
+  parts.push(txt(1824, ruleY + 94, unscoredCopy(selection), 10.5, selection.unscored.length ? c.err : c.muted,
     {weight: 700, tracking: '0.02em', anchor: 'end'}));
 
-  const cols = 2, gapX = 34, cardW = (1728 - gapX) / cols, cardH = 226;
-  selection.selected.forEach((record, i) => {
-    const col = i % cols, row = Math.floor(i / cols);
-    const x = 96 + col * (cardW + gapX), y = 304 + row * (cardH + 18);
-    const b = record.b, e = record.rec.ev;
-    parts.push('<rect x="' + x + '" y="' + y + '" width="' + cardW + '" height="' + cardH +
-      '" fill="' + c.card + '" stroke="' + (record.rec.audits.length ? c.err : c.border) + '" stroke-width="1.5"/>');
-    parts.push('<rect x="' + x + '" y="' + y + '" width="8" height="' + cardH + '" fill="' + c.accent + '"/>');
-    parts.push(txt(x + 28, y + 34, record.id + ' · ' + record.group.name.toUpperCase(), 14, c.accentInk,
-      {weight: 700, tracking: '0.08em'}));
-    let nameSize = 27;
-    let nameLines = measuredLines(b.name, '600 27px ' + SANS, cardW - 58, measure);
-    if(nameLines.length > 2){
-      nameSize = 22;
-      nameLines = measuredLines(b.name, '600 22px ' + SANS, cardW - 58, measure);
-    }
-    const nameStep = nameSize + 3;
-    nameLines.forEach((line, li) => parts.push(txt(x + 28, y + 74 + li * nameStep, line, nameSize, c.ink, {weight: 600})));
-    const stripY = Math.max(y + 138, y + 74 + (nameLines.length - 1) * nameStep + nameSize + 8);
-    parts.push('<rect x="' + (x + 24) + '" y="' + stripY + '" width="' + (cardW - 48) + '" height="48" fill="' + c.track + '" fill-opacity="0.55"/>');
-    const cells = [['STAKE', rng(b.stake)], ['ODDS', pct(b.odds)], ['PAYOFF', rng(b.payoff)], ['P50 EV', sgn(e.p50)]];
-    cells.forEach(([label, value], ci) => {
-      const cx = x + 44 + ci * (cardW - 80) / 4;
-      parts.push(txt(cx, stripY + 17, label, 11, c.muted, {weight: 700, tracking: '0.08em'}));
-      parts.push(txt(cx, stripY + 38, value, 17, label === 'P50 EV' && e.p50 < 0 ? c.err : c.ink, {mono: true, weight: 700}));
-    });
-    const audit = record.rec.audits.length ? record.rec.audits.join(' · ') : 'AUDITS CLEAR';
-    parts.push(txt(x + 28, y + 211, audit, 12, record.rec.audits.length ? c.err : c.muted,
-      {weight: 700, tracking: '0.05em'}));
-  });
+  for(const [label, x, anchor] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
+    ['PAYOFF', C.payoff, 'end'], ['P10', C.p10, 'end'], ['P50', C.p50, 'end'], ['P90', C.p90, 'end']])
+    parts.push(txt(x, headY, label, 10, c.muted, {weight: 700, tracking: '0.08em', anchor}));
+  parts.push(txt((C.range0 + C.range1) / 2, headY, 'P10 ▸ P90', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  parts.push(txt(C.audit, headY, 'AUDIT NOTE', 10, c.muted, {weight: 700, tracking: '0.08em', anchor: 'middle'}));
+  parts.push('<line x1="96" y1="' + (headY + 14) + '" x2="1824" y2="' + (headY + 14) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
 
-  parts.push(txt(96, 1040, 'PRESENTATION SUMMARY · FULL DETAIL: DOWNLOAD SVG', 14, c.muted,
+  let y = headY + 30, group = null;
+  for(const record of displayed){
+    if(record.group.name !== group){
+      if(group !== null) y += 8;
+      group = record.group.name;
+      const groupRows = displayed.filter(item => item.group.name === group);
+      parts.push(txt(C.left, y + 13, group.toUpperCase(), 11, c.accentInk, {weight: 700, tracking: '0.11em'}));
+      parts.push(txt(C.right, y + 13, groupRows.length + ' POSITIONS · STAKE ' + num(groupRows.reduce((n, item) => n + stakeMid(item.b), 0)), 10, c.muted, {mono: true, anchor: 'end'}));
+      y += 24;
+    }
+    const b = record.b, e = record.rec.ev;
+    const {names, kills, audits, height: rowH} = rowPlan(record, C, measure);
+    parts.push('<g data-row="bet" data-id="' + record.id + '">');
+    parts.push(txt(C.id, y + 21, record.id, 10, c.muted, {weight: 700, mono: true}));
+    names.forEach((line, i) => parts.push(txt(C.name, y + 20 + i * 19, line, 17, c.ink, {weight: 600})));
+    kills.forEach((line, i) => parts.push(txt(C.name, y + 23 + names.length * 19 + i * 13, '↳ ' + line, 10, c.muted)));
+    for(const [x, value] of [[C.stake, rng(b.stake)], [C.odds, pct(b.odds)], [C.payoff, rng(b.payoff)]])
+      parts.push(txt(x, y + 21, value, 14, c.ink, {mono: true, anchor: 'end'}));
+    for(const [x, value] of [[C.p10, e.p10], [C.p50, e.p50], [C.p90, e.p90]])
+      parts.push(txt(x, y + 21, sgn(value), 14, value < 0 ? c.err : (x === C.p50 ? c.ink : c.muted), {mono: true, anchor: 'end', weight: x === C.p50 ? 700 : 400}));
+    parts.push('<line x1="' + C.range0 + '" y1="' + (y + 18) + '" x2="' + C.range1 + '" y2="' + (y + 18) + '" stroke="' + c.border + '"/>');
+    parts.push('<line data-exposure-range="" x1="' + ex(e.p10) + '" y1="' + (y + 18) + '" x2="' + ex(e.p90) + '" y2="' + (y + 18) + '" stroke="' + (e.p50 < 0 ? c.err : c.accent) + '" stroke-width="5" stroke-opacity="0.72"/>');
+    parts.push('<line data-exposure-median="" x1="' + ex(e.p50) + '" y1="' + (y + 10) + '" x2="' + ex(e.p50) + '" y2="' + (y + 26) + '" stroke="' + c.ink + '" stroke-width="2"/>');
+    audits.forEach((audit, i) => parts.push(txt(C.audit, y + 21 + i * 14, audit, 9.5, record.rec.audits.length ? c.err : c.muted,
+      {weight: 700, anchor: 'middle', tracking: '0.035em'})));
+    parts.push('</g>');
+    y += rowH;
+    parts.push('<line x1="96" y1="' + y + '" x2="1824" y2="' + y + '" stroke="' + c.border + '"/>');
+  }
+
+  const railY = Math.max(y + 34, 760);
+  if(railY <= 900) parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c));
+
+  parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
     {weight: 700, tracking: '0.1em'}));
-  parts.push(txt(1824, 1040, 'BOTH CONDITION READINGS · RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 14, c.muted,
+  parts.push(txt(1824, 1040, 'BOTH CONDITION READINGS · RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 11, c.muted,
     {anchor: 'end', tracking: '0.06em'}));
-  const title = esc((model.title || 'Bets board') + ' — decision comparison');
+  const baseline = reading(conditions.baseline.result), stress = reading(conditions.stress.result);
+  const svgTitle = esc(authoredTitle + ' — allocation field');
   const desc = esc(conditions.baseline.label + ': ' + baseline.loss + ', ' + baseline.median + '. ' +
     conditions.stress.label + ': ' + stress.loss + ', ' + stress.median + '. ' +
     (exceptions.length ? exceptions.length + ' material exceptions are outside the card selection.' : 'No material exceptions are omitted.'));
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="' +
+  return '<svg data-bets-surface="allocation-field-presentation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="' +
     SANS + '" role="img" aria-labelledby="bets-presentation-title bets-presentation-desc"><title id="bets-presentation-title">' +
-    title + '</title><desc id="bets-presentation-desc">' + desc + '</desc>' + parts.join('') + '</svg>';
+    svgTitle + '</title><desc id="bets-presentation-desc">' + desc + '</desc>' + parts.join('') + '</svg>';
 }

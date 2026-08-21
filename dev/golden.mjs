@@ -15,6 +15,14 @@ const ctxBase = {
     brand:'#E2231A', brandText:'#D62015'},
   measure: (t) => t.length * 7,
 };
+const ctxDark = {
+  colors: {card:'#1A1A19',border:'#2E2E2C',ink:'#F1F1EE',muted:'#8F8F8A',accent:'#7C97FF',bg:'#121212',
+    err:'#E07A72', track:'#232E37', status:{done:'#3FA163',doing:'#7C97FF',risk:'#B9880F',blocked:'#D96A61'},
+    statusInk:{done:'#55AC75',doing:'#93A8FF',risk:'#BE9122',blocked:'#DD7B73'}, accentInk:'#93A8FF',
+    brand:'#FF4B3E', brandText:'#FF4B3E'},
+  measure: (t) => t.length * 7,
+  dark: true,
+};
 const docs = {
   lanes: 'title: T\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- note here\nGrowth: Referral flow [risk]\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done]',
   nolanes: 'date: 2026-07-04\nNOW\nplain item\nNEXT\nanother much longer item title that wraps across lines for sure definitely',
@@ -827,6 +835,7 @@ for(const [k, src] of Object.entries(docs)){
   const bm = bparse(bdoc), bsim = simulate(bm);
   variants['bets-board'] = renderBoard(bm, bsim, ctxBase);
   variants['bets-narrow'] = renderBoard(bm, bsim, {...ctxBase, width: 390});
+  variants['bets-board-dark'] = renderBoard(bm, bsim, ctxDark);
 
   const {verdictCopy: betsVerdict} = await import('../bets/engine.js');
   const bCounts = {kill: 1};
@@ -835,6 +844,7 @@ for(const [k, src] of Object.entries(docs)){
   const {renderQuadrant} = await import('../bets/render-quadrant.js');
   variants['bets-quadrant'] = renderQuadrant(bm, bsim, ctxBase);
   variants['bets-quadrant-narrow'] = renderQuadrant(bm, bsim, {...ctxBase, width: 390});
+  variants['bets-quadrant-dark'] = renderQuadrant(bm, bsim, ctxDark);
 
   /* crowded fixture: the point of the greedy label-placement task — 12 bets
      across 3 lanes, several deliberately clustered near break-even (odds
@@ -1042,6 +1052,7 @@ for(const [k, src] of Object.entries(docs)){
   const bdoc = 'title: Q3 bets\nunit: £k\n\nGrowth\n  Referral loop: stake 80, odds 40-60%, payoff 300-500\n    kill: signups per referral under 0.3 by 2026-09-15\n  Paid push: stake 220, odds 15-25%, payoff 150-300\nPlatform\n  Sync rewrite: stake 140, odds 55-70%, payoff 200-420';
   const bm = bparse(bdoc);
   variants['bets-presentation'] = renderBetsPresentation(bm, bsim(bm, {seed: 7}), {...ctxBase});
+  variants['bets-presentation-dark'] = renderBetsPresentation(bm, bsim(bm, {seed: 7}), {...ctxDark});
 
   const {parse: mp} = await import('../map/parse.js');
   const {resolve: mz} = await import('../map/zones.js');

@@ -118,7 +118,7 @@ function pairedVerdict(s){
    the plain view (board or quadrant), so a shared artefact never carries stray "was …" annotations from the
    author's own review session. */
 function activeRender(intent = 'live'){
-  const c = {colors: themeColors(), measure, intent};
+  const c = {colors: themeColors(), measure, intent, dark: isDark()};
   /* live preview is editable (rename target + narrow ＋ capsules); exports and
      goldens render without ctx.edit, so the artefact never carries edit chrome */
   if(intent === 'live'){ c.width = narrowWidth($('preview')); c.edit = true; }
@@ -195,6 +195,9 @@ snaps = wireSnapshots({
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
+  /* Reader is a temporary presentation state. Returning to source is an editing
+     action, so place the caret back in the actual CodeMirror surface. */
+  focusEditor: () => editor.view.focus(),
   onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
 });
 

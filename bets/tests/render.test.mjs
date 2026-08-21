@@ -64,10 +64,10 @@ test('audit badges render for known audits (loser + certainty + no-kill)', () =>
   assert.match(svg, /NO KILL CRITERION/);
 });
 
-test('wide rows reserve a protected numeric strip and audit gutter per bet', () => {
+test('wide rows give every bet one protected exposure range and median notch', () => {
   const svg = renderBoard(model, sim, CTX);
-  assert.equal([...svg.matchAll(/data-numeric-strip=""/g)].length, 3);
-  assert.equal([...svg.matchAll(/data-audit-gutter=""/g)].length, 3);
+  assert.equal([...svg.matchAll(/data-exposure-range=""/g)].length, 3);
+  assert.equal([...svg.matchAll(/data-exposure-median=""/g)].length, 3);
 });
 
 test('wide edit composition has one canonical card-menu row per bet source line', () => {

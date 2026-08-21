@@ -57,7 +57,11 @@ const TOOLS = [
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false, reader: true},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
-  {path: '/bets/', chip: 'Lantern portfolio'},
+  /* Bets keeps source open for editing, but its fit advisory has a named manual
+     reader route. That route must release the hidden editor's layout height; a
+     zero-width CodeMirror otherwise rewraps into a many-thousand-pixel phantom
+     row behind the Field. */
+  {path: '/bets/', chip: 'Lantern portfolio', reader: 'manual'},
   {path: '/energy/risk/', chip: 'Route to market', source: 'Show source editor', narrowTab: false, reader: true},
   {path: '/energy/cycles/', chip: 'Wexcombe base case', source: 'Show source editor', narrowTab: false, reader: true},
   /* Added 2026-08-16. All three import assets/workspace.js and have done since they
@@ -84,7 +88,9 @@ const TOOLS = [
    arrive on the whole artefact, retain a shareable URL, then return to a real
    CodeMirror authoring surface without the reader reclaiming the rail. */
 for(const {path, reader} of TOOLS.filter(t => t.reader)){
-  const page = await browser.newPage({viewport: {width:1440, height:900}, reducedMotion:'reduce'});
+  /* Bets exposes its reader through the Fit advisory at its normal authoring
+     width, so exercise that named route where the guard honestly appears. */
+  const page = await browser.newPage({viewport: reader === 'manual' ? {width:1280, height:900} : {width:1440, height:900}, reducedMotion:'reduce'});
   const errors = trackErrors(page);
   await page.addInitScript(() => {
     window.__readerArrivalStates = [];
@@ -100,6 +106,9 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
     new MutationObserver(watch).observe(document, {childList:true, subtree:true});
   });
   await page.goto(BASE + path, {waitUntil:'networkidle'});
+  if(reader === 'manual'){
+    await page.getByRole('button', {name:'Open reading view'}).click();
+  }
   const ready = await until(() => page.evaluate(() => {
     const ws = document.getElementById('workspace'), svg = document.querySelector('#preview svg');
     return !!(ws?.dataset.workspaceView === 'reading' && svg?.getBoundingClientRect().width);
@@ -111,8 +120,11 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
     const preview = document.getElementById('preview');
     const tab = document.getElementById('railtab');
     const advisory = document.querySelector('.fit-readability-advisory');
-    const s = svg?.getBoundingClientRect(), p = preview?.getBoundingClientRect();
+    const stage = document.querySelector('.stage');
+    const s = svg?.getBoundingClientRect(), p = preview?.getBoundingClientRect(), q = stage?.getBoundingClientRect();
+    const lastChildBottom = stage ? Math.max(...[...stage.children].map(child => child.getBoundingClientRect().bottom)) : 0;
     return {state:ws?.dataset.workspaceView, rail:document.querySelector('.rail')?.getBoundingClientRect(),
+      stage:q && {bottom:q.bottom, lastChildBottom},
       svg:s && {left:s.left, right:s.right, width:s.width}, preview:p && {left:p.left, right:p.right},
       hash:location.hash, tabLabel:tab?.getAttribute('aria-label'), tabExpanded:tab?.getAttribute('aria-expanded'),
       tabControls:tab?.getAttribute('aria-controls'), advisory:!!advisory && !advisory.hidden,
@@ -122,6 +134,8 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
   check(path + ' reader: opens on the artefact, not a collapsed rail', arrival.state === 'reading' && arrival.rail?.width <= 1);
   check(path + ' reader: preserves the full SVG in a reader pane', !!arrival.svg && !!arrival.preview &&
     arrival.svg.width >= arrival.preview.right - arrival.preview.left - 1);
+  check(path + ' reader: releases the hidden source from the layout row', !!arrival.stage &&
+    arrival.stage.bottom - arrival.stage.lastChildBottom <= 24);
   check(path + ' reader: exposes Show source editor without an advisory', arrival.tabLabel === 'Show source editor' &&
     arrival.tabExpanded === 'false' && arrival.tabControls === 'cmhost' && !arrival.advisory);
   check(path + ' reader: never persists a collapse or flashes one at arrival', arrival.hash === '' &&

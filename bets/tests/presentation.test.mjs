@@ -23,7 +23,7 @@ test('Copy render is a fixed 1920×1080 summary with selection and remainder in-
   assert.match(svg, /MEDIAN OUTCOME/);
   assert.doesNotMatch(svg, /NET EV/);
   assert.match(svg, /OMITTED MATERIAL EXCEPTIONS · NO KILL B01–B03/);
-  assert.match(svg, /PRESENTATION SUMMARY · FULL DETAIL: DOWNLOAD SVG/);
+  assert.match(svg, /ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG/);
 });
 
 test('presentation carries only ranked selections, no edit chrome or model mutation', () => {
@@ -82,4 +82,35 @@ test('all-unscored Copy summary says unavailable rather than 0% safe', () => {
   assert.match(svg, /Correct invalid terms/);
   assert.match(svg, /NOT SCORED · B01 Invalid/);
   assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
+});
+
+test('Copy PNG wraps a long authored title inside the header rather than clipping it', () => {
+  const title = 'A deliberately long allocation review title whose full wording must remain legible in a presentation field';
+  const m = parse(`title: ${title}\nG\n  Sound: stake 10, odds 50%, payoff 40`);
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  const lines = svg.match(/data-bets-title-line=""/g) || [];
+  assert.ok(lines.length >= 2, 'the title should use measured presentation lines');
+  for(const word of ['deliberately', 'wording', 'presentation']) assert.match(svg, new RegExp(word));
+});
+
+test('a wrapped Copy-PNG title moves the table rule with its measured header', () => {
+  const m = parse('title: A deliberately long allocation review title whose full wording must remain legible in a presentation field\nG\n  Sound: stake 10, odds 50%, payoff 40');
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  const positionY = +(svg.match(/<text x="96" y="([\d.]+)"[^>]*>POSITION<\/text>/) || [])[1];
+  const rules = [...svg.matchAll(/<line x1="96" y1="([\d.]+)" x2="1824"/g)].map(match => +match[1]);
+  assert.ok(rules.includes(positionY + 14),
+    'the table header’s separator must follow the shifted POSITION label');
+});
+
+test('Copy PNG admits only the ranked rows that fit above its portfolio-field reserve', () => {
+  const long = 'A deliberately wordy position label that needs several measured lines in a projection-ready field';
+  const kill = 'a deliberately wordy kill criterion that also needs enough room to prove the compact slide admission policy';
+  const m = parse(`title: Dense portfolio\nG\n${Array.from({length: 6}, (_, i) =>
+    `  ${long} ${i + 1}: stake ${100 - i}, odds 40-60%, payoff 80-160\n    kill: ${kill}`).join('\n')}`);
+  const svg = renderBetsPresentation(m, simulate(m), {colors: COLORS, measure});
+  const rows = [...svg.matchAll(/<g data-row="bet"[^>]*>([\s\S]*?)<\/g>/g)];
+  const bodyBottom = Math.max(...rows.flatMap(row => [...row[1].matchAll(/ y="([\d.]+)"/g)].map(match => +match[1])));
+  assert.ok(rows.length < 6, 'the plate should stop before its dense rows displace the portfolio evidence');
+  assert.ok(bodyBottom <= 720, 'admitted rows reserve the lower portfolio field and factual footer');
+  assert.match(svg, /FURTHER BETS IN FULL SVG/);
 });

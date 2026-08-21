@@ -357,6 +357,18 @@ for(const [name, url, selectors] of CONTAINERS){
   const chip = page.getByRole('button', {name: 'Lantern portfolio'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
+  const board = await page.evaluate(() => {
+    const svg = document.querySelector('#preview svg');
+    return {
+      surface: svg?.dataset.betsSurface,
+      ranges: svg?.querySelectorAll('[data-exposure-range]').length || 0,
+      cards: svg?.querySelectorAll('[data-bet-card]').length || 0,
+      rows: svg?.querySelectorAll('[data-edit^="cardmenu"] [data-hit]').length || 0,
+    };
+  });
+  ok(board.surface === 'allocation-field' && board.ranges === 5 && board.cards === 0,
+    'bets: Board phone projection remains a five-position Allocation Field, not a card fallback');
+  ok(board.rows === 5, 'bets: Board phone projection retains one menu route per position');
   await page.getByRole('button', {name: 'Quadrant'}).click();
   await page.waitForTimeout(400);
   const vw = await page.evaluate(() => document.documentElement.clientWidth);

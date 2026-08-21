@@ -63,12 +63,31 @@ test('axis titles present', () => {
   assert.doesNotMatch(svg, /NET EV/);
 });
 
-test('both implied-certainty zones match the audit extremes', () => {
+test('implied-certainty thresholds are quiet rules, not shaded zones', () => {
   const svg = renderQuadrant(model, sim, CTX);   // Billing rewrite is 90-100%
-  assert.match(svg, /data-zone="certainty-low"/);
-  assert.match(svg, /data-zone="certainty"/);
+  assert.doesNotMatch(svg, /data-zone=/);
+  assert.equal((svg.match(/data-allocation-guide=""/g) || []).length, 5);
   assert.match(svg, /LOW ≥ 90%/);
   assert.match(svg, /HIGH ≤ 10%/);
+});
+
+test('a label near break-even reserves the zero-rule gutter', () => {
+  const m = parse(`Growth
+  Referral flow v2: stake 80, odds 40-60%, payoff 300-500
+    kill: x
+  Paid acquisition push: stake 220, odds 15-25%, payoff 150-300
+    kill: x
+Platform
+  Sync engine rewrite: stake 150, odds 90-98%, payoff 180-260
+  Publisher storefront pilot: stake 60, odds 15-25%, payoff 250-450
+    kill: x
+  E-reader sync: stake 60, odds 30-40%, payoff 150-280
+    kill: x`);
+  const svg = renderQuadrant(m, simulate(m), CTX);
+  const zero = +(svg.match(/data-allocation-zero=""[^>]* y1="([\d.]+)"/) || [])[1];
+  const label = +(svg.match(/<text[^>]* y="([\d.]+)"[^>]*>Sync engine rewrite<\/text>/) || [])[1];
+  assert.ok(Math.abs(label - zero) >= 16,
+    'the zero rule must not run through the break-even label');
 });
 
 test('paired condition receipt and accessible structured summary survive both widths', () => {
@@ -90,10 +109,11 @@ test('unscored bets are listed but never plotted or counted as stake', () => {
   assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
 });
 
-test('loss region present when a bet EV < 0', () => {
-  // "Sure loser" (odds 10-20%, payoff 50-80, stake 100) should EV-lose at p50
+test('loss is carried by the affected allocation mark, not a washed-out region', () => {
+  // "Sure loser" (odds 10-20%, payoff 50-80, stake 100) should EV-lose at p50.
   const svg = renderQuadrant(model, sim, CTX);
-  assert.match(svg, /data-zone="loss"/);
+  const loser = svg.match(/<g data-allocation-mark="" data-id="B02">([\s\S]*?)<\/g>/)?.[1] || '';
+  assert.match(loser, new RegExp('stroke="' + COLORS.err + '"'));
 });
 
 test('no NaN / undefined; well-formed shell', () => {

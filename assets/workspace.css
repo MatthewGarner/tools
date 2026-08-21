@@ -40,8 +40,12 @@
 }
 /* Reserve editor height to avoid load shift. */
 #cmhost{min-height: 440px}
-.workspace.collapsed .rail,.workspace.focus-artefact .rail{opacity:0;visibility:hidden;padding-left:0;padding-right:0;border-color:transparent;pointer-events:none}
-.workspace.reading-pending:has(.preview svg) .rail{opacity:0;visibility:hidden;padding-left:0;padding-right:0;border-color:transparent;pointer-events:none}
+/* Release rail height: zero-width CodeMirror creates a phantom reader row. */
+.workspace.collapsed .rail,.workspace.focus-artefact .rail,
+.workspace.reading-pending:has(.preview svg) .rail{
+  height:0;min-height:0;overflow:hidden;
+  opacity:0;visibility:hidden;padding:0;border-color:transparent;pointer-events:none
+}
 /* indent/outdent buttons for indented DSLs — fingers have no Tab key.
    Hidden wherever a keyboard is likely; shown for coarse pointers. */
 .cm-indentbar{display: none}

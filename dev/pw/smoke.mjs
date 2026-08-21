@@ -995,7 +995,7 @@ for(const theme of FLOW_THEMES){
   await page.getByRole('button', {name: 'Bid or no bid'}).click();
   await page.waitForTimeout(600);
   check('tree(' + theme + '): example renders SVG', await page.locator('#preview svg').count() === 1);
-  const svg = await page.locator('#preview svg').innerHTML();
+  const svg = await page.locator('#preview svg').evaluate(el => el.outerHTML);
   check('tree(' + theme + '): verdict present (6b anatomy: kicker + one brand key figure)',
     svg.includes('VERDICT') && /Choose /.test(svg) && /<tspan class="vfig" fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
   check('tree(' + theme + '): flip analysis present', svg.includes('WHAT WOULD FLIP THIS') || svg.includes('flips if'));
@@ -1251,14 +1251,20 @@ for(const theme of FLOW_THEMES){
   await page.waitForTimeout(600);
   const svg = await page.locator('#preview svg').innerHTML();
   check('bets(' + theme + '): board renders the ledger', svg.includes('Referral flow v2') && svg.includes('PORTFOLIO'));
+  check('bets(' + theme + '): board uses the Allocation Field surface, not legacy cards',
+    svg.includes('data-bets-surface="allocation-field"') && !svg.includes('data-bet-card'));
   check('bets(' + theme + '): audits stamp the flagged bet', /NO KILL CRITERION/.test(svg) && /ODDS IMPLY CERTAINTY/.test(svg));
   check('bets(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   // view toggle: Board <-> Quadrant (view 2, read-only risk-return scatter)
   await page.getByRole('button', {name: 'Quadrant'}).click();
   await page.waitForTimeout(300);
-  const qsvg = await page.locator('#preview svg').innerHTML();
+  const qsvg = await page.locator('#preview svg').evaluate(el => el.outerHTML);
   check('bets(' + theme + '): quadrant view renders a bubble', qsvg.includes('<circle'));
   check('bets(' + theme + '): quadrant axis title present', qsvg.includes('ODDS OF SUCCESS'));
+  check('bets(' + theme + '): quadrant is a rule-led Allocation Plane, not shaded zones',
+    qsvg.includes('data-allocation-guide') && !qsvg.includes('data-zone'));
+  if(theme === 'dark') check('bets(dark): quadrant uses the dark lane palette',
+    qsvg.includes('#7C97FF') && qsvg.includes('#8489D6') && !qsvg.includes('#1F4FD8'));
   check('bets(' + theme + '): quadrant toggle marks aria-pressed',
     await page.getByRole('button', {name: 'Quadrant'}).getAttribute('aria-pressed') === 'true' &&
     await page.getByRole('button', {name: 'Board'}).getAttribute('aria-pressed') === 'false');

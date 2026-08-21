@@ -28,3 +28,18 @@ The P50 of realised Portfolio outcomes. _Avoid_: Net EV.
 **Kill criterion**:
 The authored condition that says when a Bet should stop. It is an audit of one
 Bet, not a probability input.
+
+## Projections
+
+**Allocation Field (Board)** is the editing and review surface: every Bet stays
+in source order, with its P10–P90 range and P50 on one outcome scale. It answers
+which positions exist and how their exposures compare.
+
+**Allocation Plane (Quadrant)** is a portfolio-shape lens: probability, P50
+outcome, stake, uncertainty and a missing kill are geometric facts. It does not
+replace Board for editing or hide a Bet.
+
+**Presentation export** is one selected, five-second Allocation Field with the
+same two outcome readings and the same shared portfolio ranges. It names its
+selection and directs exhaustive detail to native SVG; it must not regress to a
+card grid.
