@@ -1,13 +1,6 @@
-/* model + sim → read-only Allocation Plane (VIEW 2 of /bets). Board owns
-   position editing and comparison; this view owns portfolio shape. Probability
-   runs left-to-right and P50 outcome runs vertically through a single zero
-   rule. Every Bet is one measured mark: horizontal odds interval, vertical
-   P10–P90 interval, and a stake-weighted dot. A loss earns a red mark; a
-   missing kill earns only its dashed ring. There are deliberately no coloured
-   zones: guides establish geometry and colour stays semantic. Lane hues use
-   the shared validated ramp. Dense work switches to source IDs plus a full
-   in-plane key. The narrow projection preserves the same field, not a Board
-   fallback; it remains read-only. */
+/* Pure model + sim → read-only Allocation Plane. Odds run horizontally, P50
+   vertically; every Bet is one measured mark. Guides carry geometry; colour
+   is reserved for loss and the missing-kill ring. */
 import {esc, txt} from '../assets/svg.js';
 import {PALETTES, niceTicks} from '../assets/series.js';
 import {conditionReadings, measuredLines, quadrantDensity, sourceBets} from './layout.js';
@@ -78,24 +71,8 @@ export function prep(model, sim){
 
 const microFor = b => num(stakeMid(b)) + ' @ ' + pct(oddsOf(b)) + ' → pays ' + rng(payoffOf(b));
 
-/* ---------------- label placement: greedy free-space + leaders ----------------
-   Each label (name, + microcopy line when microSize is set) gets a measured
-   box. For every bet, in PRIORITY order (biggest stake first, ties broken by
-   the most extreme |EV p50| — the bets most worth reading clearly get first
-   pick of clean space), we try candidate anchors at 16 compass points around
-   the bubble at three rings: snug (radius+gap), and two escape rings further
-   out (the fine angular resolution + extra ring matter once a bubble's
-   immediate neighbourhood is already saturated by other bets' labels). The
-   snug ring is exhausted compass-first (E/SE/NE preferred, matching the old
-   "right of the bubble" look) before an escape ring is tried. The first
-   candidate whose box (a) fits the drawable bounds
-   (the plot rect + a small gutter margin — see padX/padTop below) and (b)
-   doesn't overlap any already-placed label, any bubble, or the fixed
-   certainty-zone caption wins outright. If nothing is clean — a genuinely
-   crowded cluster — we never drop the label: fall back to the least-overlap
-   candidate (in-bounds preferred). A leader line is drawn only when the
-   winning candidate came from the escape ring (i.e. it isn't snug against
-   the bubble) — the small-portfolio look stays leader-free. */
+/* Measured labels try compass anchors from snug to escape rings. They never
+   disappear: the least-overlap in-bounds candidate is the final fallback. */
 export const NAME_ONLY_THRESHOLD = 9;   // retained as the direct/key density boundary
 /* 16-point compass (E first, then fanning out by angle, south/clockwise
    preferred at each tier before north/counter-clockwise — generalises the
@@ -262,8 +239,8 @@ function plotAndLegend(model, sim, c, measure, P, geo){
      bubble right in this column, so a full-height label would run straight
      through it. Right-anchored near the top keeps it clear of the typical
      bubble band and still reads as "about" the right-hand zone. */
-  const capText = 'IMPLIED CERTAINTY — LOW ≥ 90%';
-  const lowCapText = 'HIGH ≤ 10%';
+  const capText = 'HIGH ODDS OF SUCCESS ≥ 90%';
+  const lowCapText = 'LOW ODDS OF SUCCESS ≤ 10%';
   parts.push(txt(plotX1 - 6, plotY0 + tickSize + 6, capText, tickSize, c.muted,
     {weight: 700, anchor: 'end', tracking: '0.06em', halo: c.bg}));
   parts.push(txt(plotX0 + 6, plotY0 + tickSize + 6, lowCapText, tickSize, c.muted,
@@ -388,9 +365,9 @@ function directPlacement(P, sim, geo, measure){
   const items = layoutBubbles(P, sim, geo).map((item, i) => ({...item, nameLines: lines[i]}));
   const bounds = {x0: Math.max(2, geo.plotX0 - (geo.padX || 0)), x1: geo.plotX1 + (geo.padX || 0),
     y0: Math.max(2, geo.plotY0 - (geo.padTop || 0)), y1: geo.plotY1};
-  const capText = 'IMPLIED CERTAINTY — LOW ≥ 90%';
+  const capText = 'HIGH ODDS OF SUCCESS ≥ 90%';
   const capW = measure(capText, '700 ' + geo.tickSize + 'px ' + SANS) + 8;
-  const lowCapText = 'HIGH ≤ 10%';
+  const lowCapText = 'LOW ODDS OF SUCCESS ≤ 10%';
   const lowCapW = measure(lowCapText, '700 ' + geo.tickSize + 'px ' + SANS) + 8;
   /* The zero rule is the plane's hinge. A label may lead toward it, but the
      type itself never sits on it: reserve a real quiet gutter, not a halo
@@ -415,14 +392,17 @@ function renderWide(model, sim, ctx){
   const parts = [];
   const right = 930;
 
-  parts.push('<text x="30" y="52" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" fill="' + c.ink + '">' +
-      esc(model.title || 'Bets board') + '</text>');
-  parts.push(txt(30, 74, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
+  const titleLines = measuredLines(model.title || 'Bets board', '600 24px ' + SANS, 400, measure);
+  titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="30" y="' + (52 + i * 26) +
+    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" font-weight="600" fill="' + c.ink + '">' +
+    esc(line) + '</text>'));
+  const strapY = Math.max(74, 52 + (titleLines.length - 1) * 26 + 22);
+  parts.push(txt(30, strapY, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
     10, c.muted, {mono: true, tracking: '0.05em'}));
   const receipt = conditionReceipt(P.conditions, 460, 16, right - 460, c, false);
   parts.push(...receipt.parts);
 
-  let panelTop = 102;
+  let panelTop = strapY + 28;
   if(P.unscored.length){
     const copy = 'NOT SCORED · ' + P.unscored.map(record => record.id + ' ' + record.b.name).join(', ');
     for(const line of measuredLines(copy, '700 9px ' + SANS, right - 60, measure)){
@@ -453,7 +433,7 @@ function renderWide(model, sim, ctx){
     model.title || 'Bets quadrant',
     'Risk-return view. ' + P.conditions.baseline.label + ': ' + (P.pf ? pl + '% lose money, median outcome ' + sgn(P.pf.p50) : 'not available') + '. ' +
       P.conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') +
-      '. The horizontal axis is odds of success; the vertical axis is per-bet P50 expected value. Implied-certainty zones cover odds ranges wholly at or below 10%, or wholly at or above 90%.');
+      '. The horizontal axis is odds of success; the vertical axis is per-bet P50 expected value. Probability threshold labels mark odds ranges at or below 10%, or at or above 90%.');
 }
 
 /* ---------------- NARROW: square-ish plot fit to the width ---------------- */

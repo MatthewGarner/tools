@@ -30,6 +30,22 @@ test('Copy PNG prefers getCopy — the deck-shaped render, not the plain chart',
   assert.equal(plain, false);
 });
 
+test('Copy PNG makes an unavailable presentation handoff explicit and leaves SVG as the truthful route', async () => {
+  const {wireExports} = await import('../exports.js');
+  const handlers = {};
+  const btn = {textContent: 'Copy PNG', addEventListener: (ev, fn) => { handlers[ev] = fn; },
+    setAttribute(name, value){ this[name] = value; }};
+  const previousTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = () => 0;
+  try {
+    wireExports({buttons: {copypng: btn}, getCopy: () => null, getSvg: () => '<svg width="960" height="540"/>', slug: () => 'x'});
+    handlers.click();
+    assert.equal(btn.textContent, 'Copy PNG unavailable — download SVG');
+  }finally {
+    globalThis.setTimeout = previousTimeout;
+  }
+});
+
 test('Copy PNG falls back to getSvg when the tool has no separate deck render', async () => {
   let plain = false;
   await clickCopy({getSvg: () => { plain = true; return null; }});

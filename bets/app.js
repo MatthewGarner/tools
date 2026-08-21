@@ -65,6 +65,7 @@ let view = 'board';   // 'board' | 'quadrant'; persisted with the source URL sta
 let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-flip re-render
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 const nBets = m => m.groups.reduce((t, g) => t + g.bets.length, 0);
+const isCoarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 /* the snapshot's own 4,000-run simulate() is memoised per parsed snapshot
    model (wireSnapshots already caches the PARSE, keyed by idx|length|label,
    and returns the same model object while that snapshot stays selected) — a
@@ -121,7 +122,10 @@ function activeRender(intent = 'live'){
   const c = {colors: themeColors(), measure, intent, dark: isDark()};
   /* live preview is editable (rename target + narrow ＋ capsules); exports and
      goldens render without ctx.edit, so the artefact never carries edit chrome */
-  if(intent === 'live'){ c.width = narrowWidth($('preview')); c.edit = true; }
+  if(intent === 'live'){
+    c.width = narrowWidth($('preview')); c.edit = true;
+    c.coarse = isCoarsePointer();
+  }
   if(intent === 'live' && view === 'board'){
     const compare = currentCompare();
     if(compare) c.compare = compare;
@@ -225,27 +229,15 @@ $('viewtoggle').addEventListener('click', e => {
   refresh();
 });
 
-/* ---------- edit-in-place: direct cells + the coarse-pointer card menu ----------
-   stake/odds/payoff/kill/name/addbet/addgroup are the imported plain-input
-   kinds; `cardmenu` is this app's own addition — the per-row `data-menu`
-   target render.js emits opens betMenu(). Rename/stake/odds/payoff rows
-   (`opens:`) reuse attachEditInPlace's built-in "open a sibling field sharing
-   this data-line" lookup for free, because those cells share the ROW's own
-   data-line (the bet's srcLine). The kill row can't use that trick: the kill
-   CHILD line has its OWN srcLine (a few lines below the bet), so it's wired
-   as a plain action — re-open the existing kill field via a synthetic click
-   if one exists, else insert a fresh `kill:` child line under the bet.
-   Remove bet is the danger action → removeBet's whole-block delete. The
-   narrow ＋ capsules (addbet carries the GROUP's srcLine, addgroup -1) open
-   an empty input; the typed name replaces the placeholder in the inserted
-   line — and a COARSE add never focuses the editor (the soft keyboard would
-   bury the artefact; mobile-input focus rule). */
+/* Source-line rewrites; coarse rows resolve through their full-row menu. */
 function openOrAddKill(lineNo, origin){
   const bet = findBet(model, lineNo);
   if(!bet) return;
   if(bet.kill){
     const raw = bet.kill.text + (bet.kill.by ? ' by ' + bet.kill.by : '');
-    eip.openAt({kind: 'kill', line: bet.kill.srcLine, data: {raw}}, {origin});
+    const coarse = isCoarsePointer();
+    eip.openAt(coarse ? {kind: 'cardmenu', line: lineNo} : {kind: 'kill', line: bet.kill.srcLine, data: {raw}},
+      {origin, ...(coarse ? {openAs: {kind: 'kill', raw}} : {})});
     return;
   }
   const idx = lineNo - 1;   // 0-based index of the bet's own line
@@ -255,7 +247,8 @@ function openOrAddKill(lineNo, origin){
   const killIndent = ' '.repeat(indent + 2);
   editor.insertLinesAfter(idx, [killIndent + 'kill: reason']);
   const addedText = editor.getText();   // onCancel only rolls back if nothing else changed since
-  const target = addedKillTarget(lineNo);
+  const coarse = isCoarsePointer();
+  const target = coarse ? {kind: 'cardmenu', line: lineNo} : addedKillTarget(lineNo);
   // undo() (not a forward removeLine) pops the insert's own isolated group —
   // Escape leaves no extra "remove" entry for a stray Ctrl+Z to resurrect.
   const cancel = () => { if(editor.getText() === addedText) editor.undo(); };
@@ -265,6 +258,7 @@ function openOrAddKill(lineNo, origin){
      focus to the still-existing bet card instead of ever falling into CM. */
   eip.openAt(target, {
     origin,
+    ...(coarse ? {openAs: {kind: 'kill', raw: 'reason'}} : {}),
     onCancel: cancel,
     onMiss(){
       cancel();
@@ -308,13 +302,23 @@ const eip = attachEditInPlace($('preview'), {
       const placeholder = kind === 'addbet' ? 'New bet' : 'New group';
       const name = typed || placeholder;
       editor.insertLinesAfter(r.afterLine, [typed ? r.newLine.replace(placeholder, typed) : r.newLine]);
-      const target = kind === 'addbet' ? addedBetTarget(r, name) : addedGroupTarget(r);
+      /* Coarse Board editing is deliberately menu-first. A newly inserted
+         bet therefore returns focus to its one 44px row control; a fine
+         pointer still lands on the exact rename field for immediate typing. */
+      const target = kind === 'addbet'
+        ? (isCoarsePointer() ? {kind: 'cardmenu', line: r.afterLine + 2} : addedBetTarget(r, name))
+        : addedGroupTarget(r);
       eip.focusAt(target, {origin: el});
       return;
     }
     const rewrite = REWRITE[kind];
     if(!rewrite) return;
-    const ops = rewrite(editor.getText(), lineNo, oldRaw, newValue);
+    /* A coarse card menu carries a Bet line, while kill is authored on its
+       child. Resolve that factual child only at the rewrite boundary. */
+    const kill = kind === 'kill' && el?.dataset.edit === 'cardmenu' && findBet(model, lineNo)?.kill;
+    if(kind === 'kill' && el?.dataset.edit === 'cardmenu' && !kill) return;
+    const ops = rewrite(editor.getText(), kill ? kill.srcLine : lineNo,
+      kill ? kill.text + (kill.by ? ' by ' + kill.by : '') : oldRaw, newValue);
     if(ops) applyLineOps(editor, ops);
   },
 });
@@ -351,8 +355,11 @@ function nativeSvgString(){
   return (hasBets(model) && sim) ? activeRender('native') : null;
 }
 function presentationSvgString(){
-  return (hasBets(model) && sim) ? renderBetsPresentation(model, sim,
-    {colors: themeColors(), measure, intent: 'presentation'}) : null;
+  if(!hasBets(model) || !sim) return null;
+  const svg = renderBetsPresentation(model, sim, {colors: themeColors(), measure, intent: 'presentation'});
+  /* A refusal is deliberate Copy-PNG unavailability, never a rasterised
+     apology. The exhaustive native SVG remains the truthful handoff. */
+  return /data-bets-(?:title|density)-refusal=""/.test(svg) ? null : svg;
 }
 function slug(){
   return slugify(model && model.title, 'bets');

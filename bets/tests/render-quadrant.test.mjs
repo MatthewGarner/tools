@@ -63,12 +63,12 @@ test('axis titles present', () => {
   assert.doesNotMatch(svg, /NET EV/);
 });
 
-test('implied-certainty thresholds are quiet rules, not shaded zones', () => {
+test('probability thresholds are quiet rules, not shaded zones', () => {
   const svg = renderQuadrant(model, sim, CTX);   // Billing rewrite is 90-100%
   assert.doesNotMatch(svg, /data-zone=/);
   assert.equal((svg.match(/data-allocation-guide=""/g) || []).length, 5);
-  assert.match(svg, /LOW ≥ 90%/);
-  assert.match(svg, /HIGH ≤ 10%/);
+  assert.match(svg, /HIGH ODDS OF SUCCESS ≥ 90%/);
+  assert.match(svg, /LOW ODDS OF SUCCESS ≤ 10%/);
 });
 
 test('a label near break-even reserves the zero-rule gutter', () => {

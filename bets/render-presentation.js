@@ -30,8 +30,8 @@ function compactIds(records){
   return spans.join(', ');
 }
 
-function exceptionCopy(exceptions){
-  if(!exceptions.length) return 'NO MATERIAL EXCEPTIONS HIDDEN BY THE SIX-POSITION SELECTION';
+function exceptionCopy(exceptions, selectionSize){
+  if(!exceptions.length) return 'NO MATERIAL EXCEPTIONS HIDDEN BY THE ' + selectionSize + '-POSITION SELECTION';
   return ['NO KILL', 'P50 LOSS', 'HIGH CONCENTRATION'].map(reason => {
     const matches = exceptions.filter(item => item.reasons.includes(reason));
     return matches.length ? reason + ' ' + compactIds(matches) : null;
@@ -97,7 +97,7 @@ function rowPlan(record, C, measure){
   const b = record.b;
   const names = measuredLines(b.name, '600 17px ' + SANS, C.nameEnd - C.name, measure);
   const killText = b.kill && ('fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''));
-  const kills = killText ? measuredLines(killText, '10px ' + SANS, C.nameEnd - C.name, measure).slice(0, 2) : [];
+  const kills = killText ? measuredLines(killText, '10px ' + SANS, C.nameEnd - C.name, measure) : [];
   const audits = record.rec.audits.length ? record.rec.audits : ['—'];
   const height = Math.max(58, 20 + names.length * 19 + kills.length * 13, 18 + audits.length * 14);
   return {names, kills, audits, height};
@@ -124,11 +124,29 @@ function admittedSelection(selection, C, startY, measure){
   for(const record of selection.selected){
     const next = selected.concat(record).sort((a, b) => a.sourceOrder - b.sourceOrder);
     const end = bodyEnd(next, C, startY, measure);
-    if(end <= 720 || (!selected.length && end <= 920)) selected.push(record);
+    if(end <= 720) selected.push(record);
     else break;
   }
   const omitted = selection.selected.length - selected.length;
   return {...selection, selected, remainder: selection.remainder + omitted, refused: selection.selected.length > 0 && selected.length === 0};
+}
+
+/* The disclosure strip is measured before row admission. It is part of the
+   plate's factual header, so malformed source gets its own vertical room
+   rather than colliding with a right-aligned annotation. */
+function receiptPlan(selection, sim, measure){
+  const font = '700 10.5px ' + SANS, width = 1728;
+  const exceptions = omittedMaterialExceptions(selection);
+  const rows = [
+    {key: 'exceptions', tone: exceptions.length ? 'err' : 'muted',
+      lines: measuredLines('OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions, selection.selected.length), font, width, measure)},
+    {key: 'concentration', tone: sim.concentration ? 'err' : 'muted',
+      lines: measuredLines(concentrationCopy(selection, sim), font, width, measure)},
+  ];
+  if(selection.unscored.length) rows.push({key: 'unscored', tone: 'err',
+    lines: measuredLines(unscoredCopy(selection), font, width, measure)});
+  else rows.push({key: 'unscored', tone: 'muted', lines: ['ALL BETS SCORED']});
+  return {exceptions, rows, height: rows.reduce((sum, row) => sum + row.lines.length * 13, 0)};
 }
 
 function conditionReceipt(readings, x0, y0, width, c){
@@ -195,11 +213,28 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     p10: 1210, p50: 1320, p90: 1430, range0: 1482, range1: 1710, audit: 1780, right: 1824};
   const titleBottom = 86 + (title.lines.length - 1) * title.leading + title.size * 0.25;
   const headerShift = Math.max(0, Math.ceil(titleBottom - 116));
-  const ruleY = 142 + headerShift, headY = ruleY + 136;
-  const selection = admittedSelection(presentationSelection(model, sim), C, headY + 30, measure);
+  const ruleY = 142 + headerShift;
+  const initial = presentationSelection(model, sim);
+  let selection = initial, receipts, headY;
+  /* Selection and exceptions inform one another: when a row cannot be
+     admitted, its audit joins the receipt. Iterate to a stable measured
+     header instead of clipping either fact. */
+  for(let pass = 0; pass < 4; pass++){
+    receipts = receiptPlan(selection, sim, measure);
+    headY = Math.max(ruleY + 136, ruleY + 74 + receipts.height + 25);
+    const next = admittedSelection(initial, C, headY + 30, measure);
+    const same = next.selected.length === selection.selected.length &&
+      next.selected.every((record, index) => record.b.srcLine === selection.selected[index]?.b.srcLine);
+    selection = next;
+    if(same) break;
+  }
+  receipts = receiptPlan(selection, sim, measure);
+  headY = Math.max(ruleY + 136, ruleY + 74 + receipts.height + 25);
+  selection = admittedSelection(initial, C, headY + 30, measure);
   if(selection.refused) return densityRefusal(authoredTitle, c);
   const displayed = selection.selected.slice().sort((a, b) => a.sourceOrder - b.sourceOrder);
-  const exceptions = omittedMaterialExceptions(selection);
+  receipts = receiptPlan(selection, sim, measure);
+  const exceptions = receipts.exceptions;
   const totalStake = selection.records.filter(record => record.rec.scoreable !== false).reduce((n, record) => n + stakeMid(record.b), 0);
   let elo = 0, ehi = 1;
   for(const record of displayed){ elo = Math.min(elo, record.rec.ev.p10); ehi = Math.max(ehi, record.rec.ev.p90); }
@@ -218,13 +253,16 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   parts.push(txt(96, ruleY + 52, displayed.length + ' SHOWN · ' + selection.remainder +
     (selection.remainder === 1 ? ' FURTHER BET IN FULL SVG' : ' FURTHER BETS IN FULL SVG'), 16, c.muted,
     {weight: 700, tracking: '0.04em'}));
-  parts.push(txt(96, ruleY + 74, 'OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions), 10.5,
-    exceptions.length ? c.err : c.muted, {weight: 700, tracking: '0.03em'}));
-  const concentration = concentrationCopy(selection, sim);
-  parts.push(txt(96, ruleY + 94, concentration, 10.5, sim.concentration ? c.err : c.muted,
-    {weight: 700, tracking: '0.03em'}));
-  parts.push(txt(1824, ruleY + 94, unscoredCopy(selection), 10.5, selection.unscored.length ? c.err : c.muted,
-    {weight: 700, tracking: '0.02em', anchor: 'end'}));
+  let receiptY = ruleY + 74;
+  for(const row of receipts.rows){
+    const tone = row.tone === 'err' ? c.err : c.muted;
+    row.lines.forEach((line, index) => {
+      const attr = row.key === 'unscored' ? ' data-bets-unscored-line=""' : '';
+      parts.push('<text' + attr + ' x="96" y="' + (receiptY + index * 13) +
+        '" font-size="10.5" font-weight="700" letter-spacing="0.03em" fill="' + tone + '">' + esc(line) + '</text>');
+    });
+    receiptY += row.lines.length * 13;
+  }
 
   for(const [label, x, anchor] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['P10', C.p10, 'end'], ['P50', C.p50, 'end'], ['P90', C.p90, 'end']])
@@ -264,7 +302,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   }
 
   const railY = Math.max(y + 34, 760);
-  if(railY <= 900) parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c));
+  parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c));
 
   parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
     {weight: 700, tracking: '0.1em'}));

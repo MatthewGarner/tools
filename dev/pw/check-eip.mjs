@@ -2616,6 +2616,16 @@ check('no console/page errors', errors.length === 0);
   const btSrc = () => mpage.evaluate(() => localStorage.getItem('bets-src'));
   const btBase = await btSrc();
 
+  /* The visible odds glyph itself—not the hidden menu plane—must route to
+     the coarse row menu. This guards the 44px menu-first contract against a
+     later direct-value target or SVG hit-order regression. */
+  await settledTap(mpage, mpage.locator('#preview svg g[data-row="bet"]').filter({hasText: 'Referral flow v2'}).getByText('40–60%', {exact: true}));
+  check('bets narrow: visible odds tap opens the coarse menu, not a direct field',
+    await mpage.locator('.eip-pop').count() === 1 && await mpage.locator('.eip-input').count() === 0);
+  await new Promise(r => setTimeout(r, 250));
+  check('bets narrow: visible odds tap commits NOTHING on its own', (await btSrc()) === btBase);
+  await mpage.keyboard.press('Escape');
+
   // Referral flow v2 (srcLine 5): the full six-row menu, no silent commit
   await btTapCard(5);
   check('bets narrow: card tap opens the menu with the expected rows (one popover)',
@@ -2643,10 +2653,10 @@ check('no console/page errors', errors.length === 0);
   check('bets narrow: ＋ Add bet inserts a parseable placeholder into the group', await until(async () => ((await btSrc()).split(/\r?\n/)[8] === '  Pen test: stake 50, odds 40-60%, payoff 100-200')));
   check('bets narrow: coarse-pointer add opts OUT of editor focus', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
-  check('bets narrow: focus lands on the fresh bet\'s OWN rendered field (positive assertion)',
+  check('bets narrow: focus lands on the fresh bet\'s own 44px menu route (positive assertion)',
     await until(() => mpage.evaluate(() => {
       const el = document.activeElement;
-      return !!el && el.dataset && el.dataset.edit === 'name' && el.dataset.raw === 'Pen test';
+      return !!el && el.dataset && el.dataset.edit === 'cardmenu' && el.dataset.line === '9';
     })));
   await tlUndo();
   check('bets narrow: one Undo removes the added bet', (await btSrc()) === btBase);

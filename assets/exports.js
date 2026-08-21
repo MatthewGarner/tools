@@ -1,10 +1,5 @@
-/* Shared export wiring. Four optional actions, in one fixed order everywhere:
-   Copy PNG · Copy as markdown · PNG · SVG.
-
-   getSvg is the full-detail native artefact used by both downloads. SVG is
-   exhaustive; PNG is available while that artboard fits the shared raster
-   budget. getCopy may supply a distinct presentation-summary render for the
-   paste-into-a-deck action, otherwise Copy PNG falls back to getSvg. */
+/* Shared exports: getSvg is exhaustive native output; getCopy is an optional
+   presentation PNG source. */
 import {download, pngRasterPlan, svgToCanvas} from './app-common.js';
 
 const buttonText = (btn, fallback) => btn.textContent || fallback;
@@ -67,8 +62,8 @@ export function wireExports({buttons, getSvg, getCopy, getMarkdown, slug, labels
   });
   if(buttons.copypng) buttons.copypng.addEventListener('click', () => {
     const svg = (getCopy || getSvg)();
-    if(!svg) return;
     const revert = buttonText(buttons.copypng, copyLabel);
+    if(!svg) return flash(buttons.copypng, 'Copy PNG unavailable — download SVG', revert);
     if(!navigator.clipboard || !window.ClipboardItem)
       return flash(buttons.copypng, 'Clipboard unavailable — use Download', revert);
     const plan = pngRasterPlan(svg);

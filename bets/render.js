@@ -1,19 +1,6 @@
-/* model + sim → allocation-field SVG string. A position is a priced exposure
-   on one shared outcome scale: a ledger on wide screens, a continuous register
-   on phones. Audits are factual annotations, never decorative stamps. Pure;
-   colours + measure from ctx. Edit hooks on stake/odds/payoff/kill + a per-row
-   data-menu for the coarse-pointer card menu. Every user string via txt()/esc.
-   Snapshot compare (2026-07-12) rides in via ctx.compare — see diff.js for the
-   shape (newKeys/movedFields/killed/headline from betsDiffView) plus a
-   `prevSim` app.js resimulates and memoises (never here — a Monte Carlo run
-   per keystroke isn't free). Absent ctx.compare, output stays byte-identical
-   to the pre-compare goldens: every addition below is gated on `compare`.
-   ctx.edit (mobile-input stage, 2026-07-16) gates the STRUCTURE surface the
-   same way: a rename target on every bet name (both layouts — the shared card
-   menu's Rename… row routes to it), plus narrow-only ＋ Add bet / ＋ Add group
-   capsules. Absent ctx.edit, output stays byte-identical to the goldens; the
-   value targets + per-card data-menu predate the flag and stay unconditional. */
-import {esc, txt, tint, editTarget, wrapText, btnAttrs} from '../assets/svg.js';
+/* Pure model + sim → Allocation Field. Wide is a shared exposure ledger;
+   narrow is a menu-first register. Compare data is precomputed in app.js. */
+import {esc, txt, tint, editTarget, btnAttrs} from '../assets/svg.js';
 import {betKey} from './diff.js';
 import {boardPlan, conditionReadings, measuredLines} from './layout.js';
 
@@ -34,6 +21,8 @@ const concentrationLine = conc => !conc ? null :
 
 const lossPct = pf => pf ? Math.round((pf.pLoss || 0) * 100) : null;
 const outcomeText = pf => pf ? 'MEDIAN OUTCOME ' + sgn(pf.p50) + ' · P10 ' + sgn(pf.p10) + ' · P90 ' + sgn(pf.p90) : 'NOT AVAILABLE';
+const menuFacts = b => ' data-name-raw="' + esc(b.name) + '" data-stake-raw="' + esc(rng(b.stake)) +
+  '" data-odds-raw="' + esc(pct(b.odds)) + '" data-payoff-raw="' + esc(rng(b.payoff)) + '"';
 
 /* The paired condition receipt is the board's thesis. It deliberately owns no
    surface of its own: the comparison is typography and a rule, not two tiles. */
@@ -52,7 +41,7 @@ function conditionCards(readings, x0, y0, width, c, narrow){
     out.push(txt(x + px, y0 + (narrow ? 35 : 37), pl == null ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) ' + pl + '%',
       narrow ? 13 : 15, tone, {weight: 700, mono: true}));
     out.push(txt(x + px, y0 + (narrow ? 53 : 55), outcomeText(pf), narrow ? 8.6 : 9.2, c.ink, {weight: 600, mono: true}));
-    const copyLines = wrapText(item.condition, (narrow ? '8.5px ' : '8.8px ') + SANS, receiptW - px - 4,
+    const copyLines = measuredLines(item.condition, (narrow ? '8.5px ' : '8.8px ') + SANS, receiptW - px - 4,
       s => String(s).length * (narrow ? 4.3 : 4.5));
     copyLines.slice(0, narrow ? 2 : 1).forEach((line, li) => out.push(txt(x + px,
       y0 + (narrow ? 71 : 68) + li * (narrow ? 11 : 10), line, narrow ? 8.5 : 8.8, c.muted)));
@@ -132,15 +121,24 @@ function renderWide(model, sim, ctx){
   const ex = v => C.bar0 + (v - elo) / (ehi - elo || 1) * (C.bar1 - C.bar0);
   const parts = [], body = [];
 
-  /* header strap */
-  parts.push('<text x="40" y="48" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" fill="' + c.ink + '">' + esc(model.title || 'Bets board') + '</text>');
-  parts.push(txt(40, 70, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
+  /* Header title owns a measured left rail. The condition receipt remains a
+     separate right reading, so neither truncates authored source. */
+  const titleLines = measuredLines(model.title || 'Bets board', '600 24px ' + SANS, 540, measure);
+  titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="40" y="' + (48 + i * 26) +
+    '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
+  const strapY = Math.max(70, 48 + (titleLines.length - 1) * 26 + 22);
+  parts.push(txt(40, strapY, flat.length + ' POSITIONS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' · ' + flagged + ' FLAGGED', 10, c.muted, {mono: true, tracking: '0.05em'}));
   const receipt = conditionCards(conditions, 610, 16, C.right - 610, c, false);
   parts.push(...receipt.parts);
-  if(compare) parts.push(txt(40, 106, compare.headline, 11.5, c.accentInk, {weight: 700, tracking: '0.01em'}));
+  let panelTop = strapY + 42;
+  if(compare){
+    const compareLines = measuredLines(compare.headline, '700 11.5px ' + SANS, 540, measure);
+    compareLines.forEach((line, i) => parts.push(txt(40, strapY + 36 + i * 15, line, 11.5, c.accentInk, {weight: 700, tracking: '0.01em'})));
+    panelTop = strapY + 36 + compareLines.length * 15 + 1;
+  }
 
   // column heads
-  const panelTop = compare ? 122 : 112, colHeadY = panelTop + 26;
+  const colHeadY = panelTop + 26;
   for(const [s, x, a] of [['POSITION', C.left, 'start'], ['STAKE', C.stake, 'end'], ['ODDS', C.odds, 'end'],
     ['PAYOFF', C.payoff, 'end'], ['EV P10', C.p10, 'end'], ['P50', C.p50, 'end'], ['P90', C.p90, 'end']])
     body.push(txt(x, colHeadY, s, 9, c.muted, {weight: 700, tracking: '0.08em', anchor: a}));
@@ -249,7 +247,7 @@ function renderWide(model, sim, ctx){
         if(mv.payoff) body.push(txt(C.payoff, wy, 'was ' + rng(mv.payoff), 9, c.muted, {mono: true, anchor: 'end'}));
       }
       if(rec.scoreable !== false) stampRow(body, rec.audits, C.audit1 - 52, y + 17, c);
-      body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>' +
+      body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + menuFacts(b) + btnAttrs('More options: ' + b.name) + '>' +
         '<rect data-hit="" x="' + (C.right - 44) + '" y="' + y + '" width="44" height="44" fill="transparent"/>' +
         txt(C.right - 14, y + 27, '⋯', 14, c.muted, {weight: 700, anchor: 'middle'}) + '</g>');
       body.push('</g>');
@@ -392,7 +390,7 @@ function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare){
 /* ---------------- NARROW: continuous position register ---------------- */
 function renderNarrow(model, sim, ctx){
   const c = ctx.colors, measure = ctx.measure || ((s) => String(s).length * 7);
-  const compare = ctx.compare || null, edit = !!ctx.edit;
+  const compare = ctx.compare || null, edit = !!ctx.edit, coarse = !!ctx.coarse;
   const W = Math.max(300, Math.round(ctx.width)), pad = 16, inner = W - pad * 2;
   /* a full-width dashed ＋ capsule (edit only) — timeline/roadmap's narrow add
      idiom: the whole 44px band is the hit rect (coarse-pointer floor), the
@@ -411,7 +409,7 @@ function renderNarrow(model, sim, ctx){
   const ex = (v, x0, w) => x0 + (v - elo) / (ehi - elo || 1) * w;
   const parts = [];
   let y = 30;
-  const titleLines = wrapText(model.title || 'Bets board', '600 21px ' + SANS, inner, measure);
+  const titleLines = measuredLines(model.title || 'Bets board', '600 21px ' + SANS, inner, measure);
   titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="' + pad + '" y="' + (y + i * 24) +
     '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
   y += titleLines.length * 24 - 2;
@@ -420,13 +418,13 @@ function renderNarrow(model, sim, ctx){
   parts.push(...receipt.parts); y += receipt.height + 12;
   if(compare){
     // wrapped — the label can carry a title, easily wider than a phone card
-    for(const ln of wrapText(compare.headline, '11px ' + SANS, inner, measure)){
+    for(const ln of measuredLines(compare.headline, '11px ' + SANS, inner, measure)){
       parts.push(txt(pad, y, ln, 11, c.accentInk, {weight: 700})); y += 15;
     }
     y += 5;
   }
   if(concLine){
-    for(const ln of wrapText(concLine, '10.5px ' + SANS, inner, measure)){
+    for(const ln of measuredLines(concLine, '10.5px ' + SANS, inner, measure)){
       parts.push(txt(pad, y, ln, 10.5, c.status.risk, {weight: 600})); y += 14;
     }
     y += 6;
@@ -471,7 +469,7 @@ function renderNarrow(model, sim, ctx){
          so their own hit boxes win the small overlap band below the name. */
       const nameLines = measuredLines(b.name, '600 14px ' + SANS, inner - 24, measure);
       const nameTxt = nameLines.map((line, i) => txt(pad + 12, y + 10 + i * 17, line, 14, c.ink, {weight: 600})).join('');
-      if(edit) card.push(editTarget(nameTxt,
+      if(edit && !coarse) card.push(editTarget(nameTxt,
         {x: pad + 8, y: r2(y - 6), w: inner - 16, h: Math.max(26, nameLines.length * 17 + 8), bg: c.bg},
         {kind: 'name', line: b.srcLine, raw: b.name, label: 'Rename: ' + b.name}));
       else card.push(nameTxt);
@@ -481,9 +479,9 @@ function renderNarrow(model, sim, ctx){
       }
       y += 22 + (nameLines.length - 1) * 17;
       // stake / odds / payoff, editable
-      ncell(card, pad + 12, y, 'STAKE', rng(b.stake), c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null);
-      ncell(card, pad + 12 + inner / 3, y, 'ODDS', pct(b.odds), c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null);
-      ncell(card, pad + 12 + inner * 2 / 3, y, 'PAYOFF', rng(b.payoff), c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null);
+      ncell(card, pad + 12, y, 'STAKE', rng(b.stake), c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null, !coarse);
+      ncell(card, pad + 12 + inner / 3, y, 'ODDS', pct(b.odds), c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null, !coarse);
+      ncell(card, pad + 12 + inner * 2 / 3, y, 'PAYOFF', rng(b.payoff), c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null, !coarse);
       y += 34;
       if(mv){
         const was = [mv.stake && ('stake was ' + rng(mv.stake)), mv.odds && ('odds was ' + pct(mv.odds)),
@@ -506,11 +504,12 @@ function renderNarrow(model, sim, ctx){
       y += 16;
       }
       if(b.kill){
-        const line = wrapText('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure)[0];
-        const kinner = txt(pad + 12, y + 8, line, 10.5, c.muted);
-        card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: 22, bg: c.bg},
+        const killLines = measuredLines('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure);
+        const kinner = killLines.map((line, i) => txt(pad + 12, y + 8 + i * 14, line, 10.5, c.muted)).join('');
+        if(!coarse) card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: killLines.length * 14 + 8, bg: c.bg},
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
-        y += 16;
+        else card.push(kinner);
+        y += killLines.length * 14 + 2;
       }
       if(rec.scoreable !== false && rec.audits.length){ y += 12; stampRow(card, rec.audits, W - pad - 8, y, c); y += rec.audits.length * 14; }
       y += 6;
@@ -518,8 +517,9 @@ function renderNarrow(model, sim, ctx){
       parts.push('<g data-row="bet">');
       parts.push('<line x1="' + pad + '" y1="' + top + '" x2="' + (W - pad) + '" y2="' + top + '" stroke="' + c.border + '" stroke-width="1"/>');
       parts.push(...card);
-      parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + btnAttrs('More options: ' + b.name) + '>' +
-        '<rect data-hit="" x="' + (pad + inner - 44) + '" y="' + top + '" width="44" height="44" fill="transparent"/>' +
+      const menuX = coarse ? pad : pad + inner - 44, menuW = coarse ? inner : 44, menuH = coarse ? Math.max(44, cardH) : 44;
+      parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + menuFacts(b) + btnAttrs('More options: ' + b.name) + '>' +
+        '<rect data-hit="" x="' + menuX + '" y="' + top + '" width="' + menuW + '" height="' + menuH + '" fill="transparent"/>' +
         txt(pad + inner - 18, top + 27, '⋯', 15, c.muted, {weight: 700, anchor: 'middle'}) + '</g>');
       parts.push('</g>');
       y += 10;
@@ -554,9 +554,10 @@ function renderNarrow(model, sim, ctx){
       conditions.stress.label + ': ' + (stress ? lossPct(stress) + '% lose money, median outcome ' + sgn(stress.p50) : 'not available') + '.');
 }
 
-function ncell(parts, x, y, label, val, c, hooks, tone){
+function ncell(parts, x, y, label, val, c, hooks, tone, direct = true){
   const inner = txt(x, y, label, 8.5, c.muted, {weight: 700, tracking: '0.06em'}) + txt(x, y + 16, val, 13, tone || c.ink, {mono: true});
-  parts.push(editTarget(inner, {x: r2(x - 2), y: r2(y - 12), w: 96, h: 34, bg: c.bg}, hooks));
+  if(direct) parts.push(editTarget(inner, {x: r2(x - 2), y: r2(y - 12), w: 96, h: 34, bg: c.bg}, hooks));
+  else parts.push(inner);
 }
 
 function svgShell(W, H, c, inner, narrow, title = 'Bets board', desc = 'A portfolio of explicit bets with uncertainty ranges and audit exceptions.'){
