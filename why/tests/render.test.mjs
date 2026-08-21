@@ -86,20 +86,20 @@ test('Delivery Lens: no-why + broken-assumption composite keeps both facts', () 
   assert.match(svg, /data-readiness-column="no-why"/);
 });
 
-test('Causal Field: four rails retain claims and wrap authored long assumptions', () => {
+test('Causal Tree: rooted cards retain claims and wrap authored long assumptions', () => {
   const svg = run(renderOst, DOC + '\n  Extra need\n    Extra fix [testing]\n      ? a deliberately long assumption whose authored words must wrap within the assumption rail');
   assert.match(svg, /^<svg[\s\S]*<\/svg>$/);
   assert.ok(!svg.includes('NaN'));
-  for(const stage of ['OUTCOME','OPPORTUNITY','SOLUTION','ASSUMPTION']) assert.ok(svg.includes(stage));
+  for(const stage of ['outcome','opportunity','solution','assumption']) assert.ok(svg.includes('data-causal-stage="' + stage + '"'));
   assert.ok(svg.includes('DELIVERING') && svg.includes('TESTING') && svg.includes('HOLDS'));
-  assert.ok(svg.includes('a deliberately long assumption'));
-  assert.ok(svg.includes('authored words must wrap within the'));
-  assert.ok(svg.includes('assumption rail'));
+  assert.ok(svg.includes('>a deliberately</text>'));
+  assert.ok(svg.includes('>whose authored</text>'));
+  assert.ok(svg.includes('>the assumption</text>'));
   assert.ok(!svg.includes('>a deliberately long assumption whose authored words must wrap within the assumption rail<'), 'row wrapped, not overflowing');
   assert.doesNotMatch(svg, /stroke-dasharray/, 'claims are connected by quiet rules, not dashed cards');
 });
 
-test('Causal Field: state remains explicit in wide and phone layouts without ornamental fills', () => {
+test('Causal Tree: state remains explicit in wide and phone layouts without ornamental fills', () => {
   const m = parse(DOC);
   for(const [name, extra] of [['wide', {}], ['phone', {width: 380}]]){
     const svg = renderOst(m, project(m), {...ctx(), ...extra});
@@ -109,20 +109,20 @@ test('Causal Field: state remains explicit in wide and phone layouts without orn
   }
 });
 
-test('Causal Field: state control has a separate full-height edit target', () => {
+test('Causal Tree: state control has a separate full-height edit target', () => {
   const m = parse(DOC);
   const svg = renderOst(m, project(m), ctx({edit: true}));
   assert.match(svg, /<rect data-edit="status"[^>]*data-hit=""[^>]*height="44"/);
   assert.match(svg, /<text data-causal-state="testing"[^>]*>TESTING<\/text>/);
 });
 
-test('Causal Field: minimal token contexts do not leak undefined paint', () => {
+test('Causal Tree: minimal token contexts do not leak undefined paint', () => {
   const svg = run(renderOst);
   assert.ok(!svg.includes('undefined'));
   assert.ok(svg.includes('DELIVERING'));
 });
 
-test('Causal Field: only a broken claim earns error colour', () => {
+test('Causal Tree: only a broken claim earns error colour', () => {
   const svg = run(renderOst, DOC, {colors: {card:'#fff', border:'#ddd', ink:'#222', muted:'#667',
     accent:'#08c', bg:'#f7f8f6', err:'#b33',
     status:{done:'#3a3', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'}}});
@@ -131,7 +131,7 @@ test('Causal Field: only a broken claim earns error colour', () => {
   assert.match(broken, /fill="#b33"[^>]*>BROKEN<\/text>/);
 });
 
-test('Causal Field: shipped claims stay legible and authored text escapes in both views', () => {
+test('Causal Tree: shipped claims stay legible and authored text escapes in both views', () => {
   const doc = 'outcome: O\n  Need & <more>\n    Old thing [shipped]\n    Live [delivering]';
   const ost = run(renderOst, doc);
   assert.ok(ost.includes('SHIPPED'));

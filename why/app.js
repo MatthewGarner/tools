@@ -78,7 +78,7 @@ function inspectNode(line, origin){
   for(const el of $('preview').querySelectorAll('[data-line="'+line+'"]')) el.classList.add('is-inspected');
   const {node,trail}=hit, m=$('margin'),k=document.createElement('p'),h=document.createElement('h2'),dl=document.createElement('dl');k.className='margin-kicker';k.textContent='DECISION MARGIN';h.id='margin-title';m.setAttribute('aria-labelledby',h.id);h.tabIndex=-1;h.textContent=node.label;
   const route=trail.map(n=>n.label).join(' → '), children=(node.children||[]).reduce((a,n)=>(a[n.kind]=(a[n.kind]||0)+1,a),{}), support=node.kind==='solution'?(node.children||[]).filter(n=>n.kind==='assumption').map(n=>n.status).join(', ')||'No assumptions recorded':Object.entries(children).map(([k,n])=>n+' '+k+(n===1?'':'s')).join(' · ')||'No child claims';
-  for(const [a,b] of [['Source','Line '+(line+1)],['Chain',route],['Kind',node.kind],['Status',node.status||'—'],[node.kind==='solution'?'Assumptions':'Connected claims',support],['Lens',view==='ost'?'Causal field':'Derived readiness — not a delivery plan']]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b;dl.append(dt,dd);}
+  for(const [a,b] of [['Source','Line '+(line+1)],['Chain',route],['Kind',node.kind],['Status',node.status||'—'],[node.kind==='solution'?'Assumptions':'Connected claims',support],['Lens',view==='ost'?'Causal Tree':'Derived readiness — not a delivery plan']]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b;dl.append(dt,dd);}
   const actions=document.createElement('div'),edit=document.createElement('button'),close=document.createElement('button');actions.className='margin-actions';edit.className=close.className='btn';edit.textContent='Edit source';close.textContent='Close';edit.addEventListener('click',()=>{clearInspection();ws.setCollapsed(false);const l=editor.view.state.doc.line(line+1);editor.view.dispatch({selection:{anchor:l.from},scrollIntoView:true});editor.view.focus();});close.addEventListener('click',()=>clearInspection({restore:true}));actions.append(edit,close);m.replaceChildren(k,h,dl,actions);m.hidden=false;m.parentElement.classList.add('has-margin');h.focus();
 }
 const previewEl = $('preview');
@@ -120,7 +120,7 @@ function doRefresh(){
   renderWarnings();
   /* the header/verdict anatomy rides this same loop — both painters bail out
      when their strings are unchanged, so a keystroke that doesn't move a count
-     costs nothing. The verdict is a projection of the SAME audits the Causal Field
+     costs nothing. The verdict is a projection of the SAME audits the Causal Tree
      draws, so the two views can't disagree either. */
   paintMetrics($('metrics'), model.outcomes.length ? (model.title || 'Untitled') : '', whyMetrics(model));
   const vd = whyVerdict(model, projection);
@@ -173,7 +173,7 @@ function syncViewToggle(){
   $('viewost').setAttribute('aria-selected', String(view === 'ost'));
   $('viewmap').setAttribute('aria-selected', String(view === 'map'));
   $('viewnote').textContent = view === 'ost'
-    ? 'Causal Field — trace every solution to the customer opportunity and assumption it relies on.'
+    ? 'Causal Tree — trace every solution to the customer opportunity and assumption it relies on.'
     : 'Delivery Lens — shows derived readiness, not delivery capacity or a decision plan.';
 }
 $('viewost').addEventListener('click', () => setView('ost'));

@@ -1,6 +1,6 @@
 /* Readiness ledger rendered directly from Why's derived projection. */
 import {esc, btnAttrs} from '../assets/svg.js';
-import {causalNodes, causalColours, wrapCausal} from './causal-field.js';
+import {causalNodes, causalColours, wrapCausal} from './causal-shared.js';
 
 const heading = {delivering:'DELIVERING', testing:'TESTING', unaddressed:'UNADDRESSED'};
 const measureFallback = text => String(text || '').length * 7;

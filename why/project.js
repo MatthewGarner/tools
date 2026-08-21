@@ -1,4 +1,4 @@
-/* The projection layer: one tree → derived readiness columns + audits + Causal Field annotations.
+/* The projection layer: one tree → derived readiness columns + audits + Causal Tree annotations.
    Pure — no DOM. Spec §2. */
 
 const COMMITTED = new Set(['delivering', 'testing']);
@@ -82,7 +82,7 @@ export function project(model){
    A third projection of the same tree: one quotable line + the ONE figure it
    turns on. It reads only states the DSL can express (solution status,
    assumption status, whether an opportunity sits above the work) — the audits
-   the Causal Field already draws, said in a sentence.
+   the Causal Tree already draws, said in a sentence.
    Tier order follows the tool's own hierarchy (about copy): a broken assumption
    under something you're delivering is the loudest flag, then committed work
    with no why, then untested commitments. Bare opportunities rank BELOW those

@@ -29,19 +29,19 @@ outcome: A fourth outcome with a deliberately long label that must remain inside
   Need four
     Fix four [testing]`;
 
-test('Causal Field presentation is complete when it fits; it never selects a preferred path', () => {
+test('Causal Tree presentation is complete when it fits; it never selects a preferred path', () => {
   const model = parse(DOC);
   const svg = renderWhyPresentation(model, ctx);
   assert.match(svg, /width="1920" height="1080"/);
   const mode = (svg.match(/data-causal-presentation="(plate|refusal)"/) || [])[1];
   assert.ok(mode === 'plate' || mode === 'refusal');
   if(mode === 'plate') assert.ok(svg.includes('First outcome') && svg.includes('Second outcome') && svg.includes('Third outcome'));
-  else assert.match(svg, /CANNOT FIT COMPLETE CAUSAL FIELD/);
+  else assert.match(svg, /CANNOT FIT COMPLETE CAUSAL TREE/);
   assert.doesNotMatch(svg, /DEEPEST SOLUTION CHAIN|SHOWING OUTCOME/);
   assert.ok(!svg.includes('data-edit='));
 });
 
-test('dense native Causal Field retains source identity and one canonical edit target per label', () => {
+test('dense native Causal Tree retains source identity and one canonical edit target per label', () => {
   const model = parse(DOC);
   const svg = renderOst(model, project(model), {...ctx, edit:true});
   for(const outcome of model.outcomes) assert.ok(svg.includes('data-causal-node="' + outcome.srcLine + '"'));

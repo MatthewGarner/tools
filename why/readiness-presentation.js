@@ -1,7 +1,7 @@
 /* One complete 16:9 readiness plate, or an explicit refusal. */
 import {esc} from '../assets/svg.js';
 import {renderReadinessLedger} from './readiness-ledger.js';
-import {causalColours, wrapCausal} from './causal-field.js';
+import {causalColours, wrapCausal} from './causal-shared.js';
 
 const dims = svg => ({
   width: +((svg.match(/\bwidth="([\d.]+)"/) || [, 1])[1]),

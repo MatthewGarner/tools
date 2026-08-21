@@ -66,7 +66,7 @@ test('view: NEW badge on added cards, was-status on moved solutions, none on ass
   assert.ok(v.dropped.includes('Resume where you left off'));
 });
 
-test('Causal Field with diff: narrative, new/moved labels, and dropped receipt', () => {
+test('Causal Tree with diff: narrative, new/moved labels, and dropped receipt', () => {
   const m = parse(NEW);
   const v = whyDiffView(whyDiff(parse(OLD), parse(NEW)), 'last sprint');
   const svg = renderOst(m, project(m), ctx, v);
