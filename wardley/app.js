@@ -1,5 +1,5 @@
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
-import {parse} from './parse.js';
+import {parse, STAGES} from './parse.js';
 import {layoutMap} from './layout.js';
 import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
@@ -187,6 +187,11 @@ function componentMenuRows(el){
   const rows = [];
   const targets = model
     ? [...model.components.values()].filter(c => c.name.toLowerCase() !== fk) : [];
+  rows.push({label: 'Evolution…', submenu: STAGES.map(stage => ({
+    label: stage.name[0].toUpperCase() + stage.name.slice(1),
+    on: model.components.get(fk)?.stage === stage.name,
+    commit: {kind: 'stage', line, oldRaw: from, value: stage.name},
+  }))});
   if(targets.length) rows.push({label: 'Needs…', submenu: targets.map(c => ({
     label: c.name,
     on: model.edges.some(e => e.from === fk && e.to === c.name.toLowerCase()),

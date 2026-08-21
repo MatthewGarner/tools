@@ -19,13 +19,13 @@ export function parse(text){
   const key = s => s.toLowerCase();
   let sawContent = false;
 
-  const declare = (name, x, stage, ghost, ln, warn) => {
+  const declare = (name, x, stage, ghost, ln, warn, positionRaw = null) => {
     const k = key(name);
     if(model.components.has(k) || model.anchors.some(a => key(a.name) === k)){
       warn('duplicate component "' + name + '" — first declaration wins');
       return;
     }
-    model.components.set(k, {name, x, stage, ghost, srcLine: ln});
+    model.components.set(k, {name, x, stage, ghost, srcLine: ln, positionRaw});
   };
 
   for(let ln = 0; ln < lines.length; ln++){
@@ -40,6 +40,10 @@ export function parse(text){
       const k = config[1].toLowerCase(), val = config[2].trim();
       if(k === 'anchor'){
         if(!val){ warn('anchor wants a name'); continue; }
+        if(model.anchors.some(anchor => key(anchor.name) === key(val)) || model.components.has(key(val))){
+          warn('duplicate anchor "' + val + '" — first declaration wins');
+          continue;
+        }
         model.anchors.push({name: val, srcLine: ln});
         sawContent = true;
         continue;
@@ -81,7 +85,8 @@ export function parse(text){
       const n = Number(pos);
       if(Number.isFinite(n)){
         if(n < 0 || n > 1) warn('evolution runs 0–1 — clamped');
-        declare(name, Math.min(1, Math.max(0, n)), null, false, ln, warn);
+        const clamped = Math.min(1, Math.max(0, n));
+        declare(name, clamped, null, false, ln, warn, String(clamped));
         continue;
       }
       warn('unknown stage "' + pos + '" — use genesis, custom, product, commodity or a number 0–1');

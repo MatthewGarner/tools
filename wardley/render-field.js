@@ -16,12 +16,12 @@ const SERIF = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";
 const SANS_SQATTR = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
 export const GEOM = {w:1200, pad:56};
 export const NARROW = 520;
-const EPSILON = .02;
 
 const r = n => Math.round(n * 100) / 100;
 const count = (n, singular, plural = singular + 's') => n + ' ' + (n === 1 ? singular : plural);
 const componentList = model => [...model.components.values()];
 const norm = value => String(value || '').toLowerCase();
+const sourceOrder = (a,b) => a.srcLine-b.srcLine || (a.order ?? 0)-(b.order ?? 0) || a.name.localeCompare(b.name);
 
 /* A source title, identifier, URL, or narrow mobile fact cannot be allowed to
    run through a neighbouring rail. Preserve every character, splitting an
@@ -41,9 +41,15 @@ function lines(text, font, width, measure){
   return out.length ? out : [''];
 }
 
-function stageText(x){
+function stageText(value){
+  const node = value && typeof value === 'object' ? value : null;
+  const x = node ? node.x : value;
   if(x === null || x === undefined) return 'UNPLACED';
-  return stageOf(x).name.toUpperCase() + ' · ' + Number(x).toFixed(2);
+  /* A named stage is a compact categorical source claim; a direct `@ 0.3333`
+     is an exact coordinate and must never be rounded into a different claim. */
+  const position = node && !node.stage && node.positionRaw !== null && node.positionRaw !== undefined
+    ? node.positionRaw : Number(x).toFixed(2);
+  return stageOf(x).name.toUpperCase() + ' · ' + position;
 }
 
 function relationIndex(model){
@@ -82,15 +88,17 @@ export function mapReadout(model, layout, opts = {}){
   if(indexed[0]?.direct){
     const lead = indexed[0];
     fig = count(lead.direct, 'direct dependant');
-    derived = lead.node.name + ' has ' + fig + '; its evolution position is ' + stageText(lead.node.x) + '. This is not a delivery forecast.';
+    derived = lead.node.name + ' has ' + fig + '; its evolution position is ' + stageText(lead.node) + '. This is not a delivery forecast.';
   }else if(placed.length){
     const left = placed.filter(node => node.x < .5).length;
     fig = left + ' of ' + placed.length;
     derived = fig + ' placed components sit before product; evolution positions are current strategic claims, not a delivery forecast.';
   }else derived = 'No evolution positions are placed yet.';
   const flags = [];
-  const ghosts = components.filter(node => node.ghost);
-  if(ghosts.length) flags.push(count(ghosts.length, 'unplaced component') + ' — set an evolution position to complete the claim.');
+  /* Parser warnings are factual source diagnostics. Keep their line identity
+     intact in native, phone, markdown and the complete presentation plate;
+     a generic ghost count is not an honest substitute for a bad declaration. */
+  for(const warning of model.warnings) flags.push(warning);
   for(const edge of layout.droppedEdges)
     flags.push('DEPENDENCY LOOP · ' + edge.from + ' → ' + edge.to + ' is retained in source but omitted from the vertical projection.');
   const authored = resolveVerdict(model.verdict, {line:derived, fig});
@@ -110,26 +118,30 @@ function edgeFacts(model, previous){
 function strategicDiff(model, compare){
   if(!compare?.prev) return null;
   const previous = compare.prev;
+  const currentNames = relationIndex(model), previousNames = relationIndex(previous);
   const nodeDiff = diffItems(componentList(previous), componentList(model), {
     key:item => item.name,
-    state:item => item.x === null ? 'unplaced' : Number(item.x).toFixed(2),
+    /* This is a strategic claim, not a charting tolerance: comparisons use
+       the full parsed coordinate. Named stages and their exact numeric
+       equivalent resolve to the same effective position, while 0.3333 →
+       0.3349 remains a visible authored change. */
+    state:item => item.x === null ? 'unplaced' : 'x:' + String(item.x),
   });
-  const moved = [...nodeDiff.moved.values()].filter(change => {
-    if(change.from === 'unplaced' || change.to === 'unplaced') return true;
-    return Math.abs(Number(change.from) - Number(change.to)) > EPSILON;
-  });
+  const previousByName = new Map(componentList(previous).map(item => [norm(item.name), item]));
+  const moved = [...nodeDiff.moved.values()];
   const edges = edgeFacts(model, previous);
   const oldAnchors = new Set(previous.anchors.map(anchor => norm(anchor.name))), newAnchors = new Set(model.anchors.map(anchor => norm(anchor.name)));
   const facts = [];
   for(const movement of moved){
-    const before = movement.from === 'unplaced' ? 'UNPLACED' : stageText(Number(movement.from));
-    const after = movement.to === 'unplaced' ? 'UNPLACED' : stageText(Number(movement.to));
+    const beforeNode = previousByName.get(norm(movement.item.name));
+    const before = beforeNode?.x === null || !beforeNode ? 'UNPLACED' : stageText(beforeNode);
+    const after = movement.item.x === null ? 'UNPLACED' : stageText(movement.item);
     facts.push('WAS ' + before + ' → ' + after + ' · ' + movement.item.name);
   }
   for(const added of nodeDiff.added) facts.push('NEW · ' + added.name);
   for(const dropped of nodeDiff.dropped) facts.push('DROPPED · ' + dropped.name);
-  for(const edge of edges.added) facts.push('DEPENDENCY ADDED · ' + edge.from + ' → ' + edge.to);
-  for(const edge of edges.dropped) facts.push('DEPENDENCY DROPPED · ' + edge.from + ' → ' + edge.to);
+  for(const edge of edges.added) facts.push('DEPENDENCY ADDED · ' + currentNames.label(edge.from) + ' → ' + currentNames.label(edge.to));
+  for(const edge of edges.dropped) facts.push('DEPENDENCY DROPPED · ' + previousNames.label(edge.from) + ' → ' + previousNames.label(edge.to));
   for(const anchor of model.anchors) if(!oldAnchors.has(norm(anchor.name))) facts.push('USER NEED ADDED · ' + anchor.name);
   for(const anchor of previous.anchors) if(!newAnchors.has(norm(anchor.name))) facts.push('USER NEED DROPPED · ' + anchor.name);
   return {label:compare.label || 'snapshot', facts};
@@ -155,7 +167,7 @@ function comparisonReceipt(diff, x, y, width, c, measure, size = 11){
 
 function labelPlane(node, relations, c){
   const x = node.cardX, y = node.y - node.cardH / 2, w = node.cardW, h = node.cardH;
-  const detail = node.anchor ? 'USER NEED' : stageText(node.x);
+  const detail = node.anchor ? 'USER NEED' : stageText(node);
   const needs = relations.needs.get(norm(node.name)) || [];
   const by = relations.neededBy.get(norm(node.name)) || [];
   const accessible = node.name + '. ' + (node.anchor ? 'User need.' : 'Evolution ' + detail + '.') +
@@ -166,34 +178,44 @@ function labelPlane(node, relations, c){
     '" fill="' + c.bg + '" stroke="' + (node.ghost ? c.muted : c.border) + '" stroke-width="1"' +
     (node.ghost ? ' stroke-dasharray="4 3"' : '') + '/>');
   if(!node.anchor && node.x !== null) inner.push('<line data-evolution-pin="" data-authored-x="' + node.x + '" x1="' + r(node.px) + '" y1="' + r(y-8) + '" x2="' + r(node.px) + '" y2="' + r(y) + '" stroke="' + c.ink + '" stroke-width="1.5"/>');
+  const editKind = node.anchor ? 'anchor' : 'name';
+  /* The wide Field keeps one 44px rename plane and one 44px evolution plane
+     physically separate. A title never doubles as an ambiguous stage tap. */
+  const hitW = Math.max(44, w - 52), hitH = Math.max(44, node.lines.length * 16 + 12);
+  inner.push('<rect data-title-hit="" data-edit="' + editKind + '" data-line="' + node.srcLine + '" data-raw="' + esc(node.name) +
+    '" x="' + r(x+4) + '" y="' + r(y) + '" width="' + r(hitW) + '" height="' + r(hitH) +
+    '" fill="' + c.bg + '" fill-opacity="0" tabindex="0" role="button" aria-label="Rename ' + (node.anchor ? 'user need' : 'component') + ': ' + esc(node.name) + '"/>');
   const lineY = y + 18;
   node.lines.forEach((line, index) => {
-    const attrs = index === 0
-      ? ' data-edit="' + (node.anchor ? 'anchor' : 'name') + '" data-line="' + node.srcLine + '" data-raw="' + esc(node.name) +
-        '" tabindex="0" role="button" aria-label="Rename ' + (node.anchor ? 'user need' : 'component') + ': ' + esc(node.name) + '"'
-      : ' pointer-events="none"';
-    inner.push('<text x="' + r(x+12) + '" y="' + r(lineY+index*16) + '" font-size="13" font-weight="650" fill="' + (node.ghost ? c.muted : c.ink) + '"' + attrs + '>' + esc(line) + '</text>');
+    inner.push('<text x="' + r(x+12) + '" y="' + r(lineY+index*16) + '" font-size="13" font-weight="650" fill="' + (node.ghost ? c.muted : c.ink) + '" pointer-events="none">' + esc(line) + '</text>');
   });
   if(!node.anchor) inner.push('<text x="' + r(x+w-10) + '" y="' + r(y+h-8) + '" text-anchor="end" font-size="9" font-weight="700" letter-spacing=".9" fill="' + c.muted + '" pointer-events="none">' + esc(detail) + '</text>');
   if(node.anchor) return '<g class="strategic-anchor" data-source-line="' + node.srcLine + '" aria-label="' + esc(accessible) + '">' + inner.join('') + '</g>';
   const raw = node.stage || (node.x === null ? '' : String(node.x));
-  const stageHit = node.ghost ? '' : '<rect data-edit="stage" data-line="' + node.srcLine + '" data-raw="' + esc(raw) +
-    '" x="' + r(x) + '" y="' + r(y) + '" width="' + r(w) + '" height="' + r(h) +
-    '" fill="' + c.bg + '" fill-opacity="0" tabindex="0" role="button" aria-label="Cycle evolution stage: ' + esc(node.name) + '"/>';
-  /* The transparent stage plane sits above the inert surface but below the
-     rename text. A visible title must remain the rename target; blank plane
-     remains the cycle target. */
+  const stageHit = node.ghost ? '' : '<rect data-stage-hit="" data-edit="stage" data-line="' + node.srcLine + '" data-raw="' + esc(raw) +
+    '" x="' + r(x+w-44) + '" y="' + r(y+Math.max(0,(h-44)/2)) + '" width="44" height="44"' +
+    ' fill="' + c.bg + '" fill-opacity="0" tabindex="0" role="button" aria-label="Cycle evolution stage: ' + esc(node.name) + '"/>';
+  /* The two action planes are sibling strips: title at left, exact evolution
+     at right. Inert text yields to the correct plane without a hidden overlay. */
   const layered = inner.slice(0,2).concat(stageHit, inner.slice(2)).join('');
   return '<g data-drag="evo" data-name="' + esc(node.name) + '" data-line="' + node.srcLine + '" data-strategic-node="' + esc(node.id) +
     '" aria-label="' + esc(accessible) + '">' + layered + '</g>';
 }
 
-function componentMenu(node, c, width){
-  const right = node.cardX + node.cardW + 25;
-  const x = right + 22 <= width - 4 ? right : Math.max(26, node.cardX - 25), y = node.y;
-  return '<g data-edit="componentmenu" data-line="' + node.srcLine + '" data-raw="' + esc(node.name) + '" tabindex="0" role="button" aria-label="More options: ' + esc(node.name) + '">' +
+function componentMenu(node, c, width, nodes){
+  const others = nodes.filter(other => other !== node).map(other => ({x:other.cardX,y:other.y-other.cardH/2,w:other.cardW,h:other.cardH}));
+  const free = (x,y) => x-22 >= 4 && x+22 <= width-4 && !others.some(other =>
+    x+22 > other.x && x-22 < other.x+other.w && y+22 > other.y && y-22 < other.y+other.h);
+  const right=node.cardX+node.cardW+25,left=node.cardX-25,gap=node.cardH/2+26;
+  const candidates=[[right,node.y],[left,node.y],[right,node.y-gap],[left,node.y-gap],[right,node.y+gap],[left,node.y+gap],
+    [right,node.y-gap*2],[left,node.y-gap*2],[right,node.y+gap*2],[left,node.y+gap*2],
+    /* Dense fields still have one safe last resort: a component's own right
+       action strip. It can never cover a neighbouring strategic claim. */
+    [node.cardX+node.cardW-22,node.y]];
+  const [x,y] = candidates.find(([cx,cy]) => free(cx,cy)) || [node.cardX+node.cardW-22,node.y];
+  return {x,y,svg:'<g data-edit="componentmenu" data-line="' + node.srcLine + '" data-raw="' + esc(node.name) + '" data-menu-for="' + esc(node.name) + '" tabindex="0" role="button" aria-label="More options: ' + esc(node.name) + '">' +
     '<rect x="' + r(x-22) + '" y="' + r(y-22) + '" width="44" height="44" fill="' + c.bg + '" fill-opacity="0" data-hit=""/>' +
-    '<text x="' + r(x) + '" y="' + r(y+4) + '" text-anchor="middle" font-size="14" font-weight="700" fill="' + c.muted + '" pointer-events="none">⋯</text></g>';
+    '<text x="' + r(x) + '" y="' + r(y+4) + '" text-anchor="middle" font-size="14" font-weight="700" fill="' + c.muted + '" pointer-events="none">⋯</text></g>'};
 }
 
 function addZone(stage, y, width, pad, c){
@@ -263,15 +285,22 @@ function fieldWide(model, suppliedLayout, ctx, opts = {}, presentation = false){
   for(const loop of layout.loopCallouts) plane.push('<g data-loop-callout="' + loop.id + '"><circle cx="' + r(loop.x) + '" cy="' + r(loop.y) + '" r="10" fill="' + c.bg + '" stroke="' + c.err + '" stroke-width="1.4"/><text x="' + r(loop.x+16) + '" y="' + r(loop.y+4) + '" font-size="9" font-weight="700" letter-spacing="1" fill="' + c.err + '">LOOP</text></g>');
   plane.push('<g data-strategic-inventory="" data-components="' + components.length + '" data-dependencies="' + model.edges.length + '">');
   for(const node of layout.nodes){
-    plane.push(labelPlane(node, relations, c));
-    /* Desktop chrome is a sibling of its own claim, letting CSS reveal it on
-       that claim's hover without making unrelated map controls noisy. */
-    if(opts.edit && !presentation && !node.anchor) plane.push(componentMenu(node, c, w));
+    if(opts.edit && !presentation && !node.anchor){
+      const menu=componentMenu(node, c, w, layout.nodes);
+      const bx=Math.min(node.cardX,menu.x-22),by=Math.min(node.y-node.cardH/2,menu.y-22);
+      const br=Math.max(node.cardX+node.cardW,menu.x+22),bb=Math.max(node.y+node.cardH/2,menu.y+22);
+      /* The bridge is inert hover geometry, not an invisible action: it keeps
+         one component's contextual control available while its real 44px
+         target remains non-interactive until that component is engaged. */
+      plane.push('<g data-strategic-edit-pair=""><rect data-menu-bridge="" aria-hidden="true" x="'+r(bx)+'" y="'+r(by)+'" width="'+r(br-bx)+'" height="'+r(bb-by)+'" fill="'+c.bg+'" fill-opacity="0"/>'+labelPlane(node, relations, c)+menu.svg+'</g>');
+    }else plane.push(labelPlane(node, relations, c));
   }
   plane.push('</g>');
   if(opts.edit && !presentation){
     const bottom = Math.max(...layout.nodes.map(node => node.y + node.cardH/2), 34) + 34;
+    plane.push('<g data-strategic-add-row=""><rect data-add-bridge="" aria-hidden="true" x="'+pad+'" y="'+(bottom-22)+'" width="'+(w-pad*2)+'" height="44" fill="'+c.bg+'" fill-opacity="0"/>');
     for(const stage of STAGES) plane.push(addZone(stage, bottom, w, pad, c));
+    plane.push('</g>');
     layout = {...layout, fieldControlBottom:bottom+28};
   }
   plane.push(ruler(layout, c), '</g>');
@@ -315,13 +344,15 @@ function renderPresentation(model, ctx, opts){
 
 function ledgerRow(node, relations, c, measure, W, pad, y, opts){
   const inner=W-pad*2,key=norm(node.name),need=(relations.needs.get(key)||[]).map(relations.label),by=(relations.neededBy.get(key)||[]).map(relations.label),from=relations.ancestors(key);
-  const title=lines(node.name,'650 16px '+SANS,inner-70,measure),facts=node.anchor?['USER NEED']:[stageText(node.x),need.length?'NEEDS · '+need.join(' · '):'NEEDS · —',by.length?'NEEDED BY · '+by.join(' · '):'NEEDED BY · —',from.length?'FROM · '+from.join(' · '):'FROM · —'];
+  const title=lines(node.name,'650 16px '+SANS,inner-70,measure),facts=node.anchor?['USER NEED']:[stageText(node),need.length?'NEEDS · '+need.join(' · '):'NEEDS · —',by.length?'NEEDED BY · '+by.join(' · '):'NEEDED BY · —',from.length?'FROM · '+from.join(' · '):'FROM · —'];
   if(node.ghost)facts.unshift('UNPLACED — TAP RULER TO PLACE');
   const factLines=facts.flatMap(f=>lines(f,'11px '+SANS,inner-28,measure)),h=30+title.length*19+factLines.length*16+(node.anchor?4:32)+18;
   const row=['<g data-strategic-row="'+node.srcLine+'"'+(node.anchor?'':' data-drag="evo" data-strip="" data-name="'+esc(node.name)+'" data-line="'+node.srcLine+'"')+' aria-label="'+esc(node.name+'. '+facts.join('. '))+'">','<rect x="'+pad+'" y="'+y+'" width="'+inner+'" height="'+h+'" fill="'+c.bg+'" stroke="'+(node.ghost?c.muted:c.border)+'" stroke-width="1"'+(node.ghost?' stroke-dasharray="4 3"':'')+'/>'];
-  title.forEach((line,index)=>row.push('<text x="'+(pad+14)+'" y="'+(y+25+index*19)+'" font-size="16" font-weight="650" fill="'+(node.ghost?c.muted:c.ink)+'"'+(index===0?' data-edit="'+(node.anchor?'anchor':'name')+'" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" tabindex="0" role="button" aria-label="Rename '+(node.anchor?'user need':'component')+': '+esc(node.name)+'"':' pointer-events="none"')+'>'+esc(line)+'</text>'));
+  const titleKind=node.anchor?'anchor':'name',titleHitH=Math.max(44,title.length*19+12),titleHitW=Math.max(44,inner-68);
+  row.push('<rect data-title-hit="" data-edit="'+titleKind+'" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" x="'+(pad+8)+'" y="'+(y+6)+'" width="'+titleHitW+'" height="'+titleHitH+'" fill="'+c.bg+'" fill-opacity="0" tabindex="0" role="button" aria-label="Rename '+(node.anchor?'user need':'component')+': '+esc(node.name)+'"/>');
+  title.forEach((line,index)=>row.push('<text x="'+(pad+14)+'" y="'+(y+25+index*19)+'" font-size="16" font-weight="650" fill="'+(node.ghost?c.muted:c.ink)+'" pointer-events="none">'+esc(line)+'</text>'));
   let factY=y+31+title.length*19;factLines.forEach(f=>{row.push('<text x="'+(pad+14)+'" y="'+factY+'" font-size="11" font-weight="600" fill="'+c.muted+'" pointer-events="none">'+esc(f)+'</text>');factY+=16;});
-  if(!node.anchor){const tx=pad+14,tw=inner-28,ty=y+h-22,dot=node.x===null?tx:tx+node.x*tw;row.push('<line x1="'+tx+'" y1="'+ty+'" x2="'+(tx+tw)+'" y2="'+ty+'" stroke="'+c.ink+'" stroke-width="1"/>');for(const stage of STAGES){const sx=tx+stage.mid*tw;row.push('<line x1="'+sx+'" y1="'+(ty-4)+'" x2="'+sx+'" y2="'+(ty+4)+'" stroke="'+c.muted+'" stroke-width="1"/>');}row.push('<rect data-track="" data-x0="'+tx+'" data-w="'+tw+'" x="'+tx+'" y="'+(ty-18)+'" width="'+tw+'" height="36" fill="'+c.bg+'" fill-opacity="0"/><circle data-dot="" cx="'+dot+'" cy="'+ty+'" r="5" fill="'+(node.ghost?c.bg:c.ink)+'" stroke="'+c.ink+'" stroke-width="1.4"'+(node.ghost?' stroke-dasharray="2 2"':'')+'/>');/* Phone has one unambiguous menu plane; exact evolution is edited on the ruler, so a second stage plane would overlap it. */if(opts.edit)row.push('<g data-edit="componentmenu" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" tabindex="0" role="button" aria-label="More options: '+esc(node.name)+'"><rect data-hit="" x="'+(pad+inner-52)+'" y="'+(y+8)+'" width="44" height="44" fill="'+c.bg+'" fill-opacity="0"/><text x="'+(pad+inner-30)+'" y="'+(y+37)+'" text-anchor="middle" font-size="14" font-weight="700" fill="'+c.muted+'" pointer-events="none">⋯</text></g>');}
+  if(!node.anchor){const tx=pad+14,tw=inner-28,ty=y+h-22,dot=node.x===null?tx:tx+node.x*tw;row.push('<line x1="'+tx+'" y1="'+ty+'" x2="'+(tx+tw)+'" y2="'+ty+'" stroke="'+c.ink+'" stroke-width="1"/>');for(const stage of STAGES){const sx=tx+stage.mid*tw;row.push('<line x1="'+sx+'" y1="'+(ty-4)+'" x2="'+sx+'" y2="'+(ty+4)+'" stroke="'+c.muted+'" stroke-width="1"/>');}row.push('<rect data-track="" data-x0="'+tx+'" data-w="'+tw+'" x="'+tx+'" y="'+(ty-22)+'" width="'+tw+'" height="44" fill="'+c.bg+'" fill-opacity="0"/><circle data-dot="" cx="'+dot+'" cy="'+ty+'" r="5" fill="'+(node.ghost?c.bg:c.ink)+'" stroke="'+c.ink+'" stroke-width="1.4"'+(node.ghost?' stroke-dasharray="2 2"':'')+'/>');/* Phone has one unambiguous menu plane; exact evolution is edited on the ruler, so a second stage plane would overlap it. */if(opts.edit)row.push('<g data-edit="componentmenu" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" tabindex="0" role="button" aria-label="More options: '+esc(node.name)+'"><rect data-hit="" x="'+(pad+inner-52)+'" y="'+(y+8)+'" width="44" height="44" fill="'+c.bg+'" fill-opacity="0"/><text x="'+(pad+inner-30)+'" y="'+(y+37)+'" text-anchor="middle" font-size="14" font-weight="700" fill="'+c.muted+'" pointer-events="none">⋯</text></g>');}
   row.push('</g>');return {svg:row.join(''),h};
 }
 
@@ -330,7 +361,7 @@ function renderNarrow(model, layout, ctx, opts){
   for(const line of lines(model.title||'Wardley map','700 22px '+SERIF,W-pad*2,measure)){parts.push('<text x="'+pad+'" y="'+y+'" font-family="'+SERIF+'" font-size="22" font-weight="700" fill="'+c.ink+'">'+esc(line)+'</text>');y+=27;}
   parts.push('<text x="'+pad+'" y="'+y+'" font-size="11" fill="'+c.muted+'">STRATEGIC LEDGER · SOURCE ORDER · DEPENDENCY FACTS</text>');y+=25;
   const receipt=comparisonReceipt(diff,pad,y,W-pad*2,c,measure,11);parts.push(receipt.svg);y+=receipt.height;parts.push('<g data-strategic-ledger="">');
-  for(const node of [...layout.nodes].sort((a,b)=>a.srcLine-b.srcLine||a.name.localeCompare(b.name))){const row=ledgerRow(node,relations,c,measure,W,pad,y,opts);parts.push(row.svg);y+=row.h+8;}parts.push('</g>');
+  for(const node of [...layout.nodes].sort(sourceOrder)){const row=ledgerRow(node,relations,c,measure,W,pad,y,opts);parts.push(row.svg);y+=row.h+8;}parts.push('</g>');
   if(opts.edit){parts.push('<g data-edit="additem" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add component"><rect x="'+pad+'" y="'+y+'" width="'+(W-pad*2)+'" height="44" fill="none" stroke="'+c.border+'" stroke-dasharray="3 4"/><text x="'+(W/2)+'" y="'+(y+27)+'" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1.1" fill="'+c.muted+'" pointer-events="none">ADD COMPONENT</text><rect data-hit="" x="'+pad+'" y="'+y+'" width="'+(W-pad*2)+'" height="44" fill="'+c.bg+'" fill-opacity="0"/></g>');y+=60;}
   const read=mapReadout(model,layout,{narrow:true});parts.push('<line x1="'+pad+'" y1="'+y+'" x2="'+(W-pad)+'" y2="'+y+'" stroke="'+c.border+'"/>');const verdict=svgVerdict({x:pad,y:y+24,width:W-pad*2,line:read.verdict,fig:read.fig,ink:c.ink,muted:c.muted,brandText:c.ink,font:SANS_SQATTR,measure,size:17,edit:opts.edit?{raw:model.verdict??''}:undefined});parts.push(verdict.svg);y+=24+verdict.height;for(const flag of read.flags)for(const line of lines(flag,'11px '+SANS,W-pad*2,measure)){y+=16;parts.push('<text x="'+pad+'" y="'+y+'" font-size="11" fill="'+c.err+'">'+esc(line)+'</text>');}
   const H=Math.ceil(y+24);return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" data-strategic-ledger="" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="'+SANS+'"><rect width="'+W+'" height="'+H+'" fill="'+c.bg+'"/>'+parts.join('')+'</svg>';
@@ -338,7 +369,7 @@ function renderNarrow(model, layout, ctx, opts){
 
 export function toMarkdown(model, layout, href){
   const out=['# '+(model.title||'Wardley map'),'','> Horizontal evolution positions are current strategic claims; vertical order is derived from `A -> B` dependencies, not measured visibility.',''];
-  const read=mapReadout(model,layout);if(read.verdict)out.push('**'+read.verdict+'**','');for(const node of [...layout.nodes].filter(node=>!node.anchor).sort((a,b)=>a.srcLine-b.srcLine))out.push('- **'+node.name+'** — '+stageText(node.x));for(const flag of read.flags)out.push('- '+flag);out.push('',count(model.edges.length,'dependency','dependencies')+' · user needs: '+model.anchors.map(anchor=>anchor.name).join(', '),'','[live map]('+href+')');return out.join('\n')+'\n';
+  const read=mapReadout(model,layout);if(read.verdict)out.push('**'+read.verdict+'**','');for(const node of [...layout.nodes].filter(node=>!node.anchor).sort(sourceOrder))out.push('- **'+node.name+'** — '+stageText(node));for(const flag of read.flags)out.push('- '+flag);out.push('',count(model.edges.length,'dependency','dependencies')+' · user needs: '+model.anchors.map(anchor=>anchor.name).join(', '),'','[live map]('+href+')');return out.join('\n')+'\n';
 }
 
 export function renderMap(model, layout, ctx, opts = {}){

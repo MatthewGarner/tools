@@ -2256,9 +2256,18 @@ check('no console/page errors', errors.length === 0);
       await wpage.getByRole('button', {name: 'Edit landscape source'}).click();
     await wpage.locator('.cm-content').click();
   };
+  const openWideWardleyMenu = async raw => {
+    const menu = wpage.locator('[data-edit="componentmenu"][data-raw="' + raw + '"]').first();
+    /* Desktop menus are deliberately quiet while a claim is being read. The
+       claim's visible title is the real hover corridor; the ensuing click
+       still lands on the isolated 44px menu target, never an invisible live
+       plane. The bridge simply keeps the pair's hover envelope continuous. */
+    await wpage.locator('[data-title-hit][data-raw="' + raw + '"]').first().hover();
+    await menu.click();
+  };
 
   // name edit commits to the editor text and every edge mention
-  await wpage.locator('text[data-edit="name"]', {hasText: 'Catalogue DB'}).first().click();
+  await wpage.locator('[data-edit="name"][data-raw="Catalogue DB"]').first().click();
   check('wardley: name editor opens prefilled', await until(async () => (await wpage.locator('.eip-input').inputValue() === 'Catalogue DB')));
   await wpage.locator('.eip-input').fill('Postgres');
   await wpage.keyboard.press('Enter');
@@ -2300,8 +2309,13 @@ check('no console/page errors', errors.length === 0);
     wsrc5 => (wsrc5 === wsrc4));
   check('wardley: vertical drag is a no-op on the text', wsrc5 === wsrc4);
 
-  // add zone: tap the CUSTOM stage's ghost "+" → eip-input opens empty → type Cache → Enter
-  await wpage.locator('[data-edit="additem"][data-stage="custom"]').first().click();
+  // add zone: the Field keeps desktop add controls quiet until their row is
+  // engaged; hover activates the real stage-specific 44px plane, then a click
+  // opens an empty EIP input → type Cache → Enter. This must not regress to an
+  // always-live invisible control that steals a normal field click.
+  const customAdd = wpage.locator('[data-edit="additem"][data-stage="custom"]').first();
+  await wpage.locator('[data-strategic-add-row] [data-add-bridge]').hover();
+  await customAdd.click();
   check('wardley: add zone opens the eip-input', await until(async () => (await wpage.locator('.eip-input').count() === 1)));
   await wpage.locator('.eip-input').fill('Cache');
   await wpage.keyboard.press('Enter');
@@ -2321,8 +2335,8 @@ check('no console/page errors', errors.length === 0);
     !document.activeElement.closest('.cm-editor')));
 
   // component menu: tap Cache's ⋯ → danger row removes the declaration + any edge mentions
-  await wpage.locator('[data-edit="componentmenu"][data-raw="Cache"]').first().click();
-  check('wardley: component menu shows Needs… then the danger row', await until(async () => ((await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Needs…|Inspect…|Remove component')));
+  await openWideWardleyMenu('Cache');
+  check('wardley: component menu exposes an accessible evolution alternative before dependency and danger actions', await until(async () => ((await wpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Evolution…|Needs…|Inspect…|Remove component')));
   await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
   await wpage.waitForTimeout(500);
   const wsrc8 = await wpage.evaluate(() => localStorage.getItem('wardley-src'));
@@ -2340,7 +2354,7 @@ check('no console/page errors', errors.length === 0);
   // remove a LINKED component (Recommendations sits in two chains) — this is the
   // multi-op removal (declaration delete + edge splices/deletes) that
   // applyLineOps exists for; the earlier Cache remove was single-op
-  await wpage.locator('[data-edit="componentmenu"][data-raw="Recommendations"]').first().click();
+  await openWideWardleyMenu('Recommendations');
   await wpage.waitForTimeout(200);
   await wpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).click();
   await wpage.waitForTimeout(500);
@@ -2359,8 +2373,10 @@ check('no console/page errors', errors.length === 0);
   await wpage.setViewportSize({width: 430, height: 900});
   await wpage.waitForTimeout(600);
   const ghostTrack = wpage.locator('#preview svg g[data-strip=""]', {has: wpage.locator('circle[stroke-dasharray]')}).first().locator('[data-track]');
+  await ghostTrack.scrollIntoViewIfNeeded();
+  await wpage.waitForTimeout(200);
   const gb = await ghostTrack.boundingBox();
-  await wpage.mouse.click(gb.x + gb.width * 0.6, gb.y + 4);
+  await wpage.mouse.click(gb.x + gb.width * 0.6, gb.y + gb.height / 2);
   const wsrc6 = await untilValue(() => wpage.evaluate(() => localStorage.getItem('wardley-src')),
     wsrc6 => (/Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6)));
   check('wardley: tap-to-place writes @ before the trailing comment', /Analytics pipeline @ 0\.\d+\s+\/\//.test(wsrc6));
@@ -2384,7 +2400,7 @@ check('no console/page errors', errors.length === 0);
      open its intended EIP route without moving the ruler or writing source. */
   const sourceBeforePhoneControl = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
   const titleBeforePhoneControl = await sourceBeforePhoneControl();
-  await settledTap(mpage, mpage.locator('text[data-edit="name"][data-raw="Library"]').first());
+  await settledTap(mpage, mpage.locator('[data-title-hit][data-edit="name"][data-raw="Library"]').first());
   check('wardley narrow: visible title opens Rename without placing the ruler', await until(async () =>
     (await mpage.locator('.eip-input').count() === 1 && await mpage.locator('.eip-input').inputValue() === 'Library')));
   await new Promise(r => setTimeout(r, 250));
@@ -2434,8 +2450,18 @@ check('no console/page errors', errors.length === 0);
   const wSrc = () => mpage.evaluate(() => localStorage.getItem('wardley-src'));
   // open Library's ⋯ → the menu carries Needs… above the danger Remove
   await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
-  check('wardley needs: the ⋯ menu shows the Needs… row', await until(async () => (await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
+  check('wardley needs: the ⋯ menu shows a keyboard evolution operation, Needs… and Remove', await until(async () => (await mpage.locator('.eip-pop button', {hasText: 'Evolution…'}).count() === 1 &&
+    await mpage.locator('.eip-pop button', {hasText: 'Needs…'}).count() === 1 &&
     await mpage.locator('.eip-pop button.danger', {hasText: 'Remove component'}).count() === 1)));
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Evolution…'}));
+  check('wardley evolution: menu offers every named ruler position', await until(async () =>
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Genesis|Custom|Product|Commodity'));
+  await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Custom'}));
+  check('wardley evolution: keyboard/menu choice writes the selected evolution claim', await until(async () =>
+    (await wSrc()).includes('Library @ custom')));
+  await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
+  check('wardley evolution: one touch undo restores the selected evolution claim', await until(async () => (await wSrc()) === msrc3));
+  await settledTap(mpage, mpage.locator('[data-edit="componentmenu"][data-raw="Library"]').first());
   // open the checklist: 6 other components, existing deps marked, anchor + self absent
   await settledTap(mpage, mpage.locator('.eip-pop button', {hasText: 'Needs…'}));
   check('wardley needs: checklist lists every OTHER component (anchor + self absent)', await until(async () => (await mpage.locator('.eip-pop button').count() === 6 &&
@@ -2463,8 +2489,15 @@ check('no console/page errors', errors.length === 0);
     /^Reading -> Library$/m.test(wsrc1) &&
     /^Recommendations -> Catalogue DB$/m.test(wsrc1) &&
     !/Library\s*->\s*Recommendations/.test(wsrc1));
-  check('wardley needs: the map redraws with one fewer dependency',
-    await mpage.locator('#preview svg text', {hasText: '8 dependencies'}).count() === 1);
+  /* Phone is a source-order ledger, not the wide Field's metric header. Prove
+     the redraw through the factual dependency rows it is designed to expose. */
+  check('wardley needs: the phone ledger redraws the removed dependency facts',
+    await until(async () => {
+      const library = await mpage.locator('#preview svg g[data-drag][data-name="Library"]').textContent();
+      const recommendations = await mpage.locator('#preview svg g[data-drag][data-name="Recommendations"]').textContent();
+      return library.includes('NEEDS · Notification service') && !library.includes('Recommendations') &&
+        recommendations.includes('NEEDED BY · Book clubs');
+    }));
   check('wardley needs: coarse toggle does NOT focus the editor', await mpage.evaluate(() =>
     !document.activeElement || !document.activeElement.closest('.cm-editor')));
   await settledTap(mpage, mpage.locator('.stage .actions .touch-undo'));
@@ -2480,8 +2513,11 @@ check('no console/page errors', errors.length === 0);
     wsrc2 => (/^Book clubs -> Catalogue DB$/m.test(wsrc2)));
   check('wardley needs: toggle ON appends the edge as its own line',
     /^Book clubs -> Catalogue DB$/m.test(wsrc2));
-  check('wardley needs: the map redraws with the new dependency counted',
-    await mpage.locator('#preview svg text', {hasText: '10 dependencies'}).count() === 1);
+  check('wardley needs: the phone ledger redraws the added dependency fact',
+    await until(async () => {
+      const bookClubs = await mpage.locator('#preview svg g[data-drag][data-name="Book clubs"]').textContent();
+      return /NEEDS · [\s\S]*Catalogue DB(?=NEEDED BY ·)/.test(bookClubs) && !bookClubs.includes('NEEDED BY · Catalogue DB');
+    }));
 
   // WIDE map, still coarse (tablet-shaped): the added edge is a drawn arrow,
   // and the same menu path removes it — the single-edge-line case in browser

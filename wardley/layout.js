@@ -19,7 +19,7 @@ function optionsOf(options){
 function overlaps(a,b){
   return a.cardX < b.cardX+b.cardW+CARD_GAP && a.cardX+a.cardW+CARD_GAP > b.cardX;
 }
-function sourceCmp(a,b){ return a.srcLine-b.srcLine || a.name.localeCompare(b.name); }
+function sourceCmp(a,b){ return a.srcLine-b.srcLine || (a.order ?? 0)-(b.order ?? 0) || a.name.localeCompare(b.name); }
 
 /* `wrapText` deliberately preserves an unbroken token for normal prose. A map
    label is a physical claim, though: an identifier or URL must never quietly
@@ -75,7 +75,12 @@ export function layoutMap(model, options = {}){
   const maxDepth=Math.max(0,...depth.values()),orphanRow=orphanKeys.length?maxDepth+1:null;
   orphanKeys.forEach(k=>depth.set(k,orphanRow));
 
-  const orderedComponents=[...model.components.values()].sort(sourceCmp);
+  /* Two ghosts can be introduced by separate segments on the same edge line.
+     Parser insertion order is then the only truthful source order—alphabetising
+     them makes the phone ledger claim an order the author never wrote. */
+  const componentOrder=new Map([...model.components.keys()].map((key,index)=>[key,index]));
+  const orderedComponents=[...model.components.values()].sort((a,b) =>
+    a.srcLine-b.srcLine || componentOrder.get(a.name.toLowerCase())-componentOrder.get(b.name.toLowerCase()) || a.name.localeCompare(b.name));
   const ids=new Map(orderedComponents.map((component,index)=>[component.name.toLowerCase(),'W'+String(index+1).padStart(2,'0')]));
   const density=orderedComponents.length<=10?'direct':orderedComponents.length<=16?'hybrid':'stacked';
 
@@ -94,7 +99,8 @@ export function layoutMap(model, options = {}){
     const authoredPx=component.x===null?pad+84:px(component.x);
     const cardX=Math.max(4,Math.min(w-cardW-4,authoredPx-cardW/2));
     nodes.set(key,{name:component.name,id,x:component.x,stage:component.stage,ghost:component.ghost,
-      anchor:false,srcLine:component.srcLine,row:depth.get(key),px:authoredPx,y:0,
+      anchor:false,srcLine:component.srcLine,order:componentOrder.get(key),positionRaw:component.positionRaw,
+      row:depth.get(key),px:authoredPx,y:0,
       cardX,cardW,cardH,lines,useKey,leaderX:cardX+cardW/2});
   }
   for(const anchor of model.anchors){
@@ -103,7 +109,7 @@ export function layoutMap(model, options = {}){
     const lines=labelWrap(anchor.name,'600 13px '+SANS,220,measure);
     const cardW=Math.max(100,Math.min(246,Math.max(...lines.map(line=>measure(line,'600 13px '+SANS)))+26));
     nodes.set(key,{name:anchor.name,id:'A'+String(model.anchors.indexOf(anchor)+1).padStart(2,'0'),x:null,
-      stage:null,ghost:false,anchor:true,srcLine:anchor.srcLine,row:0,px:authoredPx,y:0,
+      stage:null,ghost:false,anchor:true,srcLine:anchor.srcLine,order:-1,positionRaw:null,row:0,px:authoredPx,y:0,
       cardX:Math.max(4,Math.min(w-cardW-4,authoredPx-cardW/2)),cardW,cardH:lines.length>1?46:28,
       lines,useKey:false,leaderX:authoredPx});
   }

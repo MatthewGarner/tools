@@ -99,18 +99,17 @@ Reading -> Recommendations
 Reading -> Fresh thing`);
   const s = renderMap(cur, mapLayout(cur), ctx, {compare: {prev, label: 'March'}});
   assert.match(s, /data-strategic-diff/);
-  assert.match(s, /WAS CUSTOM · 0\.30 → PRODUCT · 0\.55/);
+  assert.match(s, /WAS CUSTOM · 0\.3 → PRODUCT · 0\.55/);
   assert.match(s, /NEW · Fresh thing/);
   assert.match(s, /DROPPED · Old thing/);
   wellFormed(s);
 });
 
-test('compare: tiny drift under epsilon is not a move', () => {
+test('compare: a small exact-coordinate change remains an auditable move', () => {
   const prev = parse('anchor: A\nB @ 0.50\nA -> B');
   const cur = parse('anchor: A\nB @ 0.51\nA -> B');
   const s = renderMap(cur, mapLayout(cur), ctx, {compare: {prev, label: 'x'}});
-  assert.ok(!s.includes('WAS '));
-  assert.ok(s.includes('NO STRATEGIC CLAIMS CHANGED'));
+  assert.match(s, /WAS PRODUCT · 0\.5 → PRODUCT · 0\.51 · B/);
 });
 
 test('markdown lists exact claims, ghosts and carries the live link', async () => {
@@ -153,7 +152,7 @@ test('readout: flags ghosts and dropped loops by name', async () => {
   const {mapReadout} = await import('../render.js');
   const m = parse('anchor: N\nA @ custom\nB @ custom\nGhosty\nN -> A -> B\nB -> A\nN -> Ghosty');
   const r = mapReadout(m, mapLayout(m));
-  assert.ok(r.flags.some(f => f.includes('unplaced')));
+  assert.ok(r.flags.some(f => f.includes('no position')));
   assert.ok(r.flags.some(f => f.includes('LOOP') && f.includes('B') && f.includes('A')));
 });
 
@@ -222,7 +221,7 @@ test('narrow: source-order Strategic Ledger exposes complete dependency facts wi
 test('narrow: ghost card is dashed and invites placement', () => {
   const s = draw(SRC, {}, narrowCtx);
   assert.match(s, /stroke-dasharray[^>]*>[^]*?Push gateway/);
-  assert.match(s, /unplaced/);
+  assert.match(s, /UNPLACED/);
 });
 
 test('narrow: hostile names escaped, name edit hooks live', () => {
@@ -286,7 +285,7 @@ test('add-zones sit as one row below the lowest pill in a crowded column', () =>
   const plusY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>ADD<\/text>/g)].map(m => +m[1]);
   assert.equal(plusY.length, 4);                                    // one per stage
   assert.ok(plusY.every(y => Math.abs(y - plusY[0]) < 0.01), 'zones share one baseline');
-  const pillY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*data-edit="name"[^>]*>(?:Alpha|Bravo)<\/text>/g)].map(m => +m[1]);
+  const pillY = [...s.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>(?:Alpha|Bravo)<\/text>/g)].map(m => +m[1]);
   assert.equal(pillY.length, 2);
   // text y is the pill CENTRE; a clear pill-height gap below the lowest pill
   assert.ok(plusY[0] - Math.max(...pillY) >= 30, 'zone row clears the lowest pill');

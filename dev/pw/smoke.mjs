@@ -1242,6 +1242,37 @@ for(const theme of FLOW_THEMES){
   await page.close();
 }
 
+/* A Wardley Copy PNG is a complete fixed plate, never a representative chain.
+   Exercise the actual export button for an overfull landscape: its safe refusal
+   must not write a clipboard image or mutate the authored text, while native
+   SVG remains the exhaustive handoff. The pure renderer contract cannot prove
+   this wiring path. */
+{
+  const dense = 'title: Dense strategic field\nanchor: Need\n' + Array.from({length:30}, (_, i) =>
+    'Capability with a deliberately long strategic source claim ' + (i + 1) + ' @ custom').join('\n');
+  const {page, errors} = await freshPage('/wardley/');
+  await page.getByRole('button', {name: 'Edit landscape source'}).click();
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type(dense);
+  await page.waitForFunction(() => document.querySelectorAll('#preview [data-strategic-node]').length === 30, null, {timeout:3000});
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(() => {
+    window.__wardleyClipboardWrites = 0;
+    navigator.clipboard.write = () => { window.__wardleyClipboardWrites++; return Promise.resolve(); };
+  });
+  const sourceBeforeCopy = await page.evaluate(() => localStorage.getItem('wardley-src'));
+  check('wardley: dense Copy PNG refuses the real export path instead of copying a partial field', await copyPngRefuses(page));
+  check('wardley: dense refusal writes neither clipboard nor source text',
+    await page.evaluate(before => window.__wardleyClipboardWrites === 0 && localStorage.getItem('wardley-src') === before, sourceBeforeCopy));
+  check('wardley: dense refusal retains an enabled native SVG handoff',
+    await page.locator('#dlsvg').isEnabled() && (await page.locator('#preview svg').innerHTML()).includes('Capability with a deliberately long strategic source claim 30'));
+  check('wardley: dense export refusal has no console error', errors.length === 0);
+  await page.close();
+}
+
 /* ---- bets ---- */
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/bets/', theme);

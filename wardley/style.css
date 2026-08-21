@@ -9,12 +9,18 @@
 /* ---- drag affordances ---- */
 #preview svg g[data-drag], #preview svg g[data-drag] *{ cursor: grab; }
 #preview svg [data-edit]{cursor:pointer}
-#preview svg:not([data-narrow]) [data-edit="componentmenu"],
-#preview svg:not([data-narrow]) [data-edit="additem"]{opacity:0}
-#preview svg:not([data-narrow]) g[data-drag]:hover + [data-edit="componentmenu"],
-#preview svg:not([data-narrow]) [data-edit="componentmenu"]:focus,
-#preview svg:not([data-narrow]) [data-dependency-projection]:hover [data-edit="additem"],
-#preview svg:not([data-narrow]) [data-edit="additem"]:focus{opacity:1}
+/* SVG controls do not inherit a dependable browser focus ring. Keep keyboard
+   location visible without adding resting chrome to the quiet Field. */
+#preview svg [data-edit]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* Hidden desktop affordances must be genuinely inactive. Their inert bridge
+   preserves a component/add-row hover corridor without creating a clickable
+   invisible menu or add action. */
+#preview svg:not([data-narrow]) [data-strategic-edit-pair] [data-edit="componentmenu"],
+#preview svg:not([data-narrow]) [data-strategic-add-row] [data-edit="additem"]{opacity:0;pointer-events:none}
+#preview svg:not([data-narrow]) [data-strategic-edit-pair]:hover [data-edit="componentmenu"],
+#preview svg:not([data-narrow]) [data-strategic-edit-pair]:focus-within [data-edit="componentmenu"],
+#preview svg:not([data-narrow]) [data-strategic-add-row]:hover [data-edit="additem"],
+#preview svg:not([data-narrow]) [data-strategic-add-row]:focus-within [data-edit="additem"]{opacity:1;pointer-events:auto}
 #preview svg[data-narrow]{ touch-action: pan-y; }  /* Chromium honours touch-action only on the svg ROOT */
 #preview svg g[data-drag].dragging{ cursor: grabbing; }
 #preview svg g[data-drag].dragging .strategic-label-plane{ filter:brightness(1.04); }

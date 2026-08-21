@@ -56,6 +56,70 @@ test('phone Strategic Ledger keeps source-order rows and exposes factual depende
   assert.match(svg, /CUSTOM · 0\.38/);
 });
 
+test('direct numeric positions, tied ghost source order, and diagnostics remain exact in every factual projection', () => {
+  const numeric = `anchor: Need
+Core @ 0.3333
+Need -> Core`;
+  const numericModel = parse(numeric), numericLayout = layoutMap(numericModel, {measure:ctx.measure, intent:'native', geom:GEOM});
+  for(const intent of ['native', 'live-narrow', 'presentation']){
+    const svg = renderMap(numericModel, numericLayout, {...ctx, intent}, {intent});
+    assert.match(svg, /CUSTOM · 0\.3333/, intent + ' keeps a direct numeric source claim exact');
+  }
+  const tied = render('anchor: Need\nNeed -> Zed ghost -> Alpha ghost', 'live-narrow');
+  assert.ok(tied.indexOf('Need') < tied.indexOf('Zed ghost') && tied.indexOf('Zed ghost') < tied.indexOf('Alpha ghost'),
+    'edge-created ghosts sharing a source line preserve edge-segment order');
+  const invalid = parse('anchor: Need\nA @ bespoke\nNeed -> A -> B');
+  const invalidLayout = layoutMap(invalid, {measure:ctx.measure, intent:'native', geom:GEOM});
+  const native = renderMap(invalid, invalidLayout, {...ctx, intent:'native'}, {intent:'native'});
+  const presentation = renderMap(invalid, invalidLayout, {...ctx, intent:'presentation'}, {intent:'presentation'});
+  assert.match(native, /line 2: unknown stage &quot;bespoke&quot;/);
+  assert.match(presentation, /line 3: undeclared &quot;B&quot; — added as a ghost/);
+});
+
+test('duplicate user needs are rejected as retained source diagnostics rather than silently collapsing', () => {
+  const model = parse('anchor: Same need\nanchor: Same need\nA @ custom\nSame need -> A');
+  assert.equal(model.anchors.length, 1, 'first declaration owns the shared user-need identity');
+  assert.match(model.warnings.join('\n'), /line 2: duplicate anchor "Same need" — first declaration wins/);
+  const layout = layoutMap(model, {measure:ctx.measure, intent:'presentation', geom:GEOM});
+  const svg = renderMap(model, layout, {...ctx, intent:'presentation'}, {intent:'presentation'});
+  assert.match(svg, /line 2: duplicate anchor &quot;Same need&quot; — first declaration wins/);
+});
+
+test('phone title and ruler targets meet the coarse 44px floor without competing, and desktop menus avoid other claims', () => {
+  const phone = render(source, 'live-narrow', {edit:true});
+  const track = phone.match(/<rect data-track=""[^>]*height="([\d.]+)"/);
+  const titleHit = phone.match(/<rect data-title-hit=""[^>]*width="([\d.]+)" height="([\d.]+)"/);
+  assert.ok(track && +track[1] >= 44, 'ruler hit plane is finger-sized');
+  assert.ok(titleHit && +titleHit[1] >= 44 && +titleHit[2] >= 44, 'title hit plane is finger-sized');
+  const crowded = render('anchor: Need\nAlpha @ 0.20\nBravo @ 0.30\nNeed -> Alpha\nNeed -> Bravo', 'native', {edit:true});
+  const menus = [...crowded.matchAll(/data-menu-for="([^"]+)"[^>]*><rect data-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)];
+  const planes = [...crowded.matchAll(/class="strategic-label-plane" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(m => m.slice(1).map(Number));
+  for(const menu of menus){
+    const [x,y,w,h] = menu.slice(2).map(Number);
+    assert.ok(planes.every(([px,py,pw,ph]) => x + w <= px || px + pw <= x || y + h <= py || py + ph <= y),
+      'a contextual menu never sits over an unrelated field label');
+  }
+});
+
+test('wide edit planes remain physically separate and comparison retains exact direct-coordinate changes', () => {
+  const wide = render(source, 'native', {edit:true});
+  const titlePlane = wide.match(/<rect data-title-hit=""[^>]*data-raw="Recommendations"[^>]*x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+  const stagePlane = wide.match(/<rect data-stage-hit=""[^>]*data-raw="custom"[^>]*x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+  assert.ok(titlePlane && stagePlane, 'the title and evolution planes are both emitted for a placed component');
+  const [, tx, ty, tw, th] = titlePlane.map(Number);
+  const [, sx, sy, sw, sh] = stagePlane.map(Number);
+  assert.ok(tw >= 44 && th >= 44 && sw >= 44 && sh >= 44, 'both direct actions satisfy the same physical target floor');
+  assert.ok(+tx + +tw <= +sx || +sx + +sw <= +tx || +ty + +th <= +sy || +sy + +sh <= +ty,
+    'rename and evolution targets never compete for the same part of a live component');
+
+  const prev = parse('anchor: Need\nCore @ 0.3333\nNeed -> Core');
+  const cur = parse('anchor: Need\nCore @ 0.3349\nNeed -> Core');
+  const layout = layoutMap(cur, {measure:ctx.measure, intent:'presentation', geom:GEOM});
+  const diff = renderMap(cur, layout, {...ctx, intent:'presentation'}, {intent:'presentation', compare:{prev, label:'Before'}});
+  assert.match(diff, /WAS CUSTOM · 0\.3333 → CUSTOM · 0\.3349 · Core/,
+    'a precise authored movement remains visible even below a visually convenient rounding threshold');
+});
+
 test('Copy PNG is exhaustive or explicitly refuses; it never selects a dependency spine', () => {
   const svg = render(source, 'presentation');
   for(const label of ['Reading', 'Recommendations', 'Catalogue DB', 'Analytics pipeline']) assert.ok(svg.includes(label));
