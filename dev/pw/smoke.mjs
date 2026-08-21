@@ -113,6 +113,20 @@ async function copyPngWorks(page){
   }catch(e){ return false; }
 }
 
+/* A dense Timeline must never turn a single-slide request into an attractive
+   but partial PNG. This follows the real button path, rather than inspecting a
+   renderer string, so the author receives the same safe outcome we assert. */
+async function copyPngRefuses(page){
+  try{
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.locator('#copypng').click();
+    await page.waitForFunction(
+      () => (document.getElementById('copypng').textContent || '').startsWith('Copy PNG unavailable'),
+      null, {timeout: 3000});
+    return true;
+  }catch(e){ return false; }
+}
+
 /* Deep behavioural flows run under ONE theme (2026-08-18).
 
    193 of this suite's 279 check sites used to run twice, under light and dark, and
@@ -175,6 +189,25 @@ for(const theme of FLOW_THEMES){
   check('risk(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('risk(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* Copy PNG admits one complete 16:9 Field or clearly declines it. The native
+   SVG remains the exhaustive path; this is deliberately not a selection test. */
+{
+  const dense = 'title: Dense Field\n' + Array.from({length:40}, (_, i) =>
+    `Lane ${i % 4}: A deliberately descriptive forecast ${i} 202${6 + Math.floor(i / 12)}-0${i % 8 + 1} .. 202${6 + Math.floor(i / 12)}-1${i % 2 + 1} // a note that must remain present in export`).join('\n');
+  const {page, errors} = await freshPage('/timeline/');
+  await showSourceIfReading(page);
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type(dense);
+  await page.waitForFunction(() => document.querySelectorAll('#preview [data-field-item]').length === 40, null, {timeout:3000});
+  await page.getByText('Export', {exact:true}).click();
+  check('timeline: dense Copy PNG refuses rather than copying a partial field', await copyPngRefuses(page));
+  check('timeline: dense export refusal has no console error', errors.length === 0);
   await page.close();
 }
 
@@ -1254,7 +1287,34 @@ for(const theme of FLOW_THEMES){
   check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
-  check('timeline(' + theme + '): snapshot compare renders the slip slide', await (async () => {
+  const fieldCardContract = await (async () => {
+    const card = page.locator('#preview [data-edit="cardmenu"]').first();
+    await card.focus();
+    await card.press('Enter');
+    const menu = page.locator('.eip-pop');
+    await menu.waitFor({state:'visible'});
+    const bounds = await menu.evaluate(el => { const r = el.getBoundingClientRect(); return {left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:innerWidth, height:innerHeight}; });
+    const inBounds = bounds.left >= 8 && bounds.top >= 8 && bounds.right <= bounds.width - 8 && bounds.bottom <= bounds.height - 8;
+    await menu.getByRole('menuitem', {name:'Rename…'}).click();
+    const input = page.locator('.eip-input');
+    await input.fill('Bad 2026-10');
+    await input.press('Enter');
+    const invalid = await input.evaluate(el => el.classList.contains('invalid'));
+    await input.press('Escape');
+    /* Escape commits only after the input teardown restores its named Field
+       target. Wait for that observable state rather than sampling the
+       post-key handler's animation frame. */
+    const restored = await page.waitForFunction(() =>
+      !document.querySelector('.eip-input') && document.activeElement?.dataset?.edit === 'label',
+    null, {timeout:1000}).then(() => true).catch(() => false);
+    return {inBounds, invalid, closed: await input.count() === 0, restored,
+      returnedTo: await page.evaluate(() => document.activeElement?.dataset?.edit || 'none')};
+  })();
+  check('timeline(' + theme + '): Field card menu stays inside the viewport', fieldCardContract.inBounds);
+  check('timeline(' + theme + '): Field card rejects invalid rename input', fieldCardContract.invalid);
+  check('timeline(' + theme + '): Field card Escape closes the input and restores its label target (returned ' + fieldCardContract.returnedTo + ')',
+    fieldCardContract.closed && fieldCardContract.restored);
+  const fieldCompareContract = await (async () => {
     await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
     await page.locator('.cm-content').click();
@@ -1266,9 +1326,31 @@ for(const theme of FLOW_THEMES){
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
     const d = await page.locator('#preview svg').innerHTML();
-    return /Since /.test(d) && />NEW</.test(d);
-  })());
+    return {since:/SINCE /.test(d), fresh:/>NEW</.test(d)};
+  })();
+  check('timeline(' + theme + '): snapshot compare names its baseline', fieldCompareContract.since);
+  check('timeline(' + theme + '): snapshot compare renders a NEW timing fact', fieldCompareContract.fresh);
   check('timeline(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* An empty Timeline is still a real Field: it can be exported and its quiet
+   keyboard add route starts the first milestone. This uses the app, rather than
+   a pure renderer, because a placeholder would otherwise bypass both paths. */
+{
+  const {page, errors} = await freshPage('/timeline/');
+  await showSourceIfReading(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await page.waitForFunction(() => document.querySelector('#preview svg[data-field="timeline"]'));
+  const add = page.locator('#preview [data-edit="additem"][data-lane=""]');
+  await add.focus();
+  await add.press('Enter');
+  check('timeline: empty Field keeps a keyboard add route', await page.locator('.eip-input').count() === 1);
+  await page.keyboard.press('Escape');
+  check('timeline: empty Field Copy PNG exports the factual empty state', await copyPngWorks(page));
+  check('timeline: empty Field has no console error', errors.length === 0);
   await page.close();
 }
 

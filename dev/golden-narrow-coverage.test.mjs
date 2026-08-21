@@ -41,6 +41,7 @@ const COVERED = {
   'roadmap/render.js': ['roadmap-narrow'],
   'signal-vs-noise/render.js': ['signal-noise-grid-narrow', 'signal-noise-collapse-narrow'],
   'timeline/render.js': ['timeline-narrow'],
+  'timeline/render-field.js': ['timeline-narrow'],
   'tree/render-density.js': ['tree-bid-narrow'],
   'tree/render.js': ['tree-bid-narrow'],
   'wardley/render.js': ['wardley-narrow'],

@@ -83,7 +83,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
   }
   function announceMiss(){ announce('The new item could not be opened here. Focus returned to the original control.'); }
 
-  function close(){
+  function close(restore = true){
     if(!active) return;
     const {input, away, el, errEl} = active;
     if(away) document.removeEventListener('pointerdown', away, true);
@@ -104,7 +104,7 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
        activeElement is <body> ONLY if nothing else claimed focus in the
        meantime — that's the one case a genuine dismiss (Escape, or a blur
        with nowhere to go) actually needs restoring. */
-    if(el && typeof el.focus === 'function') setTimeout(() => {
+    if(restore && el && typeof el.focus === 'function') setTimeout(() => {
       if(!active && document.activeElement === document.body) el.focus();
     }, 0);
   }
@@ -134,7 +134,8 @@ export function attachEditInPlace(preview, {kinds, onCommit}){
              fall back to the attach container so opens works on both renditions */
           const root = activeEl.closest('svg') || preview;
           const t = root.querySelector('[data-line="' + activeEl.dataset.line + '"][data-edit="' + row.opens + '"]' + (row.sel || ''));
-          close();
+          /* The selected Field target owns Escape focus. */
+          close(false);
           /* forceInput: true — the menu's own "opens" row is the precise-entry
              path (C5), so it must always land in the real text popover even
              when the target also carries a spec.custom (e.g. tree's hot-number

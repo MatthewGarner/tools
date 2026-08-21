@@ -3337,10 +3337,9 @@ insure: premium 6 attach 65 limit 30`;
 }
 
 /* ---- timeline at coarse-WIDE (tablet): the Stage-0 [IMPORTANT] fix — the wide
-   status target is now the real state list, so a COARSE tap opens the marked
-   picker instead of silently stepping (the ['cycle'] sentinel's mis-tap trap is
-   closed); a fine click still steps (proved by the desktop lane block + node
-   tests). The × removeitem cycle keeps its one-row danger confirm. ---- */
+   timing mark owns a real 44px target and opens the marked picker instead of
+   silently stepping. Its text rail owns the contextual menu; the standalone ×
+   sits outside that rail and retains its explicit one-row confirmation. ---- */
 {
   const tctx = await browser.newContext({...devices['iPad Pro 11 landscape'], reducedMotion: 'reduce'});
   const p = await tctx.newPage();
@@ -3352,7 +3351,13 @@ insure: premium 6 attach 65 limit 30`;
      exhausting its ceiling). */
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('timeline-src'));
-  await settledTap(p, p.locator('[data-edit="status"]').first());
+  const statusHit = p.locator('rect[data-edit="status"][data-hit]').first();
+  const statusBox = await untilValue(() => statusHit.boundingBox(), b => b && b.width >= 44 && b.height >= 44);
+  check('tablet timeline: a timing mark owns a 44px coarse target', statusBox.width >= 44 && statusBox.height >= 44);
+  await statusHit.scrollIntoViewIfNeeded();
+  await p.waitForTimeout(300);
+  const statusEdge = await statusHit.boundingBox();
+  await p.mouse.click(statusEdge.x + 1, statusEdge.y + statusEdge.height / 2);
   check('tablet timeline: a coarse status tap opens the marked picker — NO silent step', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
     (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline)));
@@ -3363,13 +3368,12 @@ insure: premium 6 attach 65 limit 30`;
   await settledTap(p, p.locator('.actions .touch-undo'));
   check('tablet timeline: ↶ Undo reverts the picked status', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline)));
 
-  /* the standalone ['×'] cycle popover (Rule 1's remove branch): timeline has NO
-     card menu, so its × removeitem has no data-menu sibling — the redirect can't
-     fire and openCyclePopover(isRemove) IS the path. A bare tap must open a
-     one-row danger confirm, commit NOTHING until confirmed, then remove on tap. */
+  /* The standalone ['×'] is outside the contextual rail, so its explicit
+     one-row confirmation remains the direct delete route rather than redirecting
+     through the card menu. */
   const base2 = await p.evaluate(() => localStorage.getItem('timeline-src'));
   await settledTap(p, p.locator('[data-edit="removeitem"]').first());
-  check('tablet timeline: × tap opens a one-row danger confirm (cycle-popover fallback, no menu sibling)', await until(async () => (await p.locator('.eip-pop button.danger').count() === 1 &&
+  check('tablet timeline: × opens a one-row danger confirm outside the card-menu rail', await until(async () => (await p.locator('.eip-pop button.danger').count() === 1 &&
     (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove')));
   check('tablet timeline: doc UNCHANGED while the × confirm is open — no silent removal',
     (await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2);

@@ -1,11 +1,13 @@
-/* Slip compare (#91's reason to exist): milestones keyed by lane|label, state =
-   "p50,p90". The view gives the renderer ghosts + slip labels and the board
-   pack its sentence. Pure. */
+/* Slip compare (#91's reason to exist): a parsed identity includes a duplicate
+   occurrence within its lane. State carries timing AND kind, so a former fixed
+   fact remains visible when it becomes an estimate. The view gives the Field
+   historic geometry + receipts. Pure. */
 import {diffItems} from '../assets/snapshots.js';
 
 const keyed = m => m.items.map(it => ({
-  key: it.lane + '|' + it.label, label: it.label,
-  state: it.p50 + ',' + it.p90, p50: it.p50, p90: it.p90,
+  key: it.identity || (it.lane + '|' + it.label), label: it.label,
+  state: [it.p50, it.p90, it.status || '', it.single ? 'point' : 'range'].join(','),
+  p50: it.p50, p90: it.p90, status: it.status || '', single: !!it.single,
 }));
 
 export function timelineDiff(oldModel, model){
@@ -22,9 +24,15 @@ export function timelineDiffView(d, since){
   const slips = [];
   let widened = 0;
   for(const [k, {from, item}] of d.moved){
-    const [oldP50, oldP90] = String(from).split(',').map(Number);
+    const [p50, p90, oldStatus = '', oldKind = 'range'] = String(from).split(',');
+    const oldP50 = Number(p50), oldP90 = Number(p90);
     const slipDays = item.p50 - oldP50;
-    byKey.set(k, {oldP50, oldP90, slipDays});
+    const history = [];
+    if(oldP50 !== item.p50) history.push('p50');
+    if(oldP90 !== item.p90) history.push('p90');
+    if(oldStatus === 'fixed' && item.status !== 'fixed') history.push('fixed');
+    if(oldStatus !== 'fixed' && item.status === 'fixed') history.push('forecast');
+    byKey.set(k, {oldP50, oldP90, oldStatus, oldKind, history, slipDays});
     if(slipDays !== 0) slips.push({label: item.label, days: slipDays});
     else if(item.p90 !== oldP90) widened++;
   }

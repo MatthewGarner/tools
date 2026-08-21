@@ -65,29 +65,33 @@ test('lead date expands the time domain rather than clipping the derived diamond
   const m=parse('today: 2026-01-01\nEvent 2026-12-31 [fixed] [lead: 40w]');
   const svg=render(m,ctx,null,{intent:'live-wide'});
   assert.match(svg,/data-lrm/);
-  assert.match(svg,/DECIDE BY/);
+  assert.match(svg,/Decision clock/);
 });
 
-test('the native and panelled export paths retain each decision clock', () => {
+test('native Field remains exhaustive and retains each decision clock', () => {
   const source=['today: 2026-01-01', ...Array.from({length:17}, (_, i) =>
     i === 16 ? 'External gate 2028-01-01 [fixed] [lead: 12w]' :
       'Lane: Milestone ' + i + ' 2026-' + String(i % 12 + 1).padStart(2,'0') + ' .. 2027-02')].join('\n');
   const m=parse(source);
   const native=render(m,ctx,null,{intent:'native'});
-  assert.match(native,/data-mode="panels"/);
+  assert.match(native,/data-field="timeline"/);
+  assert.equal((native.match(/data-field-item=/g)||[]).length,17);
   assert.match(native,/data-lrm/);
-  assert.match(native,/DECIDE BY/);
+  assert.match(native,/Decision clock/);
 });
 
-test('presentation cut prioritises decision clocks and names any it cannot carry', async () => {
-  const {layoutTimeline}=await import('../layout.js');
+test('presentation either carries every decision clock or honestly refuses a partial copy', () => {
   const many=['today: 2026-01-01', ...Array.from({length:9},(_,i)=>
     'Early '+i+' 2026-0'+(i%8+1)+' .. 2026-10'),
     'Late external gate 2028-01-01 [fixed] [lead: 8w]'].join('\n');
-  const m=parse(many), layout=layoutTimeline(m,{...ctx,intent:'presentation'});
-  assert.ok(layout.presentation.selected.some(e=>e.it.label==='Late external gate'));
+  const m=parse(many), deckMany=render(m,ctx,null,{intent:'presentation'});
+  assert.match(deckMany,/data-copy-field="(?:complete|unavailable)"/);
+  if(/data-copy-field="complete"/.test(deckMany)) assert.equal((deckMany.match(/data-lrm/g)||[]).length,1);
+  else assert.match(deckMany,/COPY PNG UNAVAILABLE/);
   const clocks=['today: 2026-01-01', ...Array.from({length:9},(_,i)=>
     'Gate '+i+' 2027-'+String(i%9+1).padStart(2,'0')+'-01 [fixed] [lead: 2w]')].join('\n');
   const deck=render(parse(clocks),ctx,null,{intent:'presentation'});
-  assert.match(deck,/2 DECISION CLOCKS/);
+  assert.match(deck,/data-copy-field="(?:complete|unavailable)"/);
+  if(/data-copy-field="complete"/.test(deck)) assert.equal((deck.match(/data-lrm/g)||[]).length,9);
+  else assert.match(deck,/COPY PNG UNAVAILABLE/);
 });
