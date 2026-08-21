@@ -27,13 +27,20 @@ const changed = (pg, was) => untilValue(() => roadmapSrc(pg), v => v !== was);
    a person has, rather than trying to click a deliberately hidden editor. */
 async function focusRoadmapSource(pg){
   const source = pg.locator('.cm-content');
-  if(!(await source.isVisible())){
+  /* A hidden rail's CodeMirror child can retain a non-zero layout box, so
+     visibility alone is not its authoring state. Take Roadmap's named return
+     route whenever reading/collapse owns the rail; never send a shortcut to
+     a pointer-disabled editor. */
+  const railClosed = await pg.locator('#workspace').evaluate(el =>
+    el.classList.contains('collapsed') || el.classList.contains('focus-artefact') || el.classList.contains('reading-pending'));
+  if(railClosed || !(await source.isVisible())){
     await pg.locator('#railtab').click();
     await source.waitFor({state:'visible'});
   }
   /* The rail is visibly back, but its expanding grid column can briefly sit
      beneath the stage during the CSS transition. Keep the source click in the
      same undo turn without making the browser wait on that decorative overlap. */
+  await until(() => source.evaluate(el => getComputedStyle(el.closest('.rail')).pointerEvents !== 'none'));
   await source.click({force:true});
 }
 const holds = (pg, read) => until(() => read(pg));

@@ -1249,7 +1249,9 @@ for(const theme of FLOW_THEMES){
   check('bets(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
   await page.getByRole('button', {name: 'Lantern portfolio'}).click();
   await page.waitForTimeout(600);
-  const svg = await page.locator('#preview svg').innerHTML();
+  /* Allocation Field is a root-SVG contract; innerHTML cannot observe its
+     data surface and would turn the regression into a false negative. */
+  const svg = await page.locator('#preview svg').evaluate(el => el.outerHTML);
   check('bets(' + theme + '): board renders the ledger', svg.includes('Referral flow v2') && svg.includes('PORTFOLIO'));
   check('bets(' + theme + '): board uses the Allocation Field surface, not legacy cards',
     svg.includes('data-bets-surface="allocation-field"') && !svg.includes('data-bet-card'));

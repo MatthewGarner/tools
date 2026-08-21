@@ -171,7 +171,11 @@ function doRefresh(){
   setActionsEnabled(!!lastSvg);
   try{ if(shouldPersist()) localStorage.setItem('bets-src', text); }catch(e){}
   clearTimeout(hashTimer);
-  hashTimer = setTimeout(writeHash, 400);
+  /* Autoload is deliberately URL-silent. Decide whether to schedule while its
+     suppression is active; a later unrelated pointer gesture must not revive
+     this render's deferred hash write. A genuine source edit runs doRefresh
+     again after suppression has cleared and schedules its own handoff. */
+  if(shouldPersist()) hashTimer = setTimeout(writeHash, 400);
 }
 const refresh = rafBatched(doRefresh);
 const editor = createEditor({
