@@ -989,10 +989,11 @@ for(const theme of FLOW_THEMES){
   await page.getByRole('button', {name: 'Edit tree source'}).click();
   await page.getByRole('button', {name: 'Reading retention'}).click();
   await page.waitForTimeout(600);
-  check('why(' + theme + '): Causal Field renders', await page.locator('#preview svg[data-causal-field="why"]').count() === 1);
+  check('why(' + theme + '): Causal Tree renders', await page.locator('#preview svg[data-causal-field="why"]').count() === 1);
   const field = await page.locator('#preview svg').innerHTML();
-  check('why(' + theme + '): Causal Field retains explicit assumptions and four source stages',
-    field.includes('readers will invite friends') && ['OUTCOME', 'OPPORTUNITY', 'SOLUTION', 'ASSUMPTION'].every(stage => field.includes(stage)));
+  check('why(' + theme + '): Causal Tree retains the rooted source topology and explicit assumption claims',
+    ['outcome', 'opportunity', 'solution', 'assumption'].every(stage => field.includes('data-causal-stage="' + stage + '"')) &&
+    field.includes('data-causal-assumption-band') && field.includes('ASSUMPTION CLAIMS'));
   await page.locator('#viewmap').click();
   await page.waitForTimeout(500);
   /* The Lens identity is a root-SVG contract; innerHTML cannot observe root
