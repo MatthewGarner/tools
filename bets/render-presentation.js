@@ -4,6 +4,7 @@ import {esc, txt} from '../assets/svg.js';
 import {conditionReadings, measuredLines, omittedMaterialExceptions, presentationSelection} from './layout.js';
 
 const W = 1920, H = 1080;
+const TABLE_LIMIT_Y = 720;
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
 const MINUS = '−';
 const num = v => (v < 0 ? MINUS : '') + Math.round(Math.abs(v));
@@ -124,7 +125,7 @@ function admittedSelection(selection, C, startY, measure){
   for(const record of selection.selected){
     const next = selected.concat(record).sort((a, b) => a.sourceOrder - b.sourceOrder);
     const end = bodyEnd(next, C, startY, measure);
-    if(end <= 720) selected.push(record);
+    if(end <= TABLE_LIMIT_Y) selected.push(record);
     else break;
   }
   const omitted = selection.selected.length - selected.length;
@@ -231,7 +232,10 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   receipts = receiptPlan(selection, sim, measure);
   headY = Math.max(ruleY + 136, ruleY + 74 + receipts.height + 25);
   selection = admittedSelection(initial, C, headY + 30, measure);
-  if(selection.refused) return densityRefusal(authoredTitle, c);
+  /* A receipt can be the whole source truth when every position is malformed.
+     It still consumes the plate's table field; refuse before its measured
+     header crosses into the lower outcome field instead of exporting crop. */
+  if(selection.refused || headY + 14 > TABLE_LIMIT_Y) return densityRefusal(authoredTitle, c);
   const displayed = selection.selected.slice().sort((a, b) => a.sourceOrder - b.sourceOrder);
   receipts = receiptPlan(selection, sim, measure);
   const exceptions = receipts.exceptions;

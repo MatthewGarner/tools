@@ -67,3 +67,14 @@ test('Copy PNG measures exception receipts and discloses the actual selection si
     'measured malformed-source receipts reserve a quiet gap before the table header');
   assert.match(svg, /1-POSITION SELECTION/);
 });
+
+test('Copy PNG refuses an all-unscored receipt before its source facts leave the plate', () => {
+  const m = parse(`title: Invalid allocation inventory\nG\n${Array.from({length: 80}, (_, i) =>
+    '  Invalid position ' + String(i + 1).padStart(2, '0') + ' ' + 'unbroken-source-fact-'.repeat(9) +
+    ': stake 10, odds 150%, payoff 30').join('\n')}`);
+  const svg = renderBetsPresentation(m, simulate(m), ctx);
+  assert.match(svg, /data-bets-density-refusal=""/,
+    'a measured all-unscored receipt must refuse before it can pass the 16:9 footer');
+  assert.doesNotMatch(svg, /<text[^>]*>POSITION<\/text>/,
+    'a refusal contains no table header beyond the physical plate');
+});
