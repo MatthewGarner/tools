@@ -113,6 +113,20 @@ async function copyPngWorks(page){
   }catch(e){ return false; }
 }
 
+/* A dense Timeline must never turn a single-slide request into an attractive
+   but partial PNG. This follows the real button path, rather than inspecting a
+   renderer string, so the author receives the same safe outcome we assert. */
+async function copyPngRefuses(page){
+  try{
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.locator('#copypng').click();
+    await page.waitForFunction(
+      () => (document.getElementById('copypng').textContent || '').startsWith('Copy PNG unavailable'),
+      null, {timeout: 3000});
+    return true;
+  }catch(e){ return false; }
+}
+
 /* Deep behavioural flows run under ONE theme (2026-08-18).
 
    193 of this suite's 279 check sites used to run twice, under light and dark, and
@@ -175,6 +189,25 @@ for(const theme of FLOW_THEMES){
   check('risk(' + theme + '): crumb points at energy landing',
     await page.locator('a.crumb').getAttribute('href') === '../');
   check('risk(' + theme + '): no console errors', errors.length === 0);
+  await page.close();
+}
+
+/* Copy PNG admits one complete 16:9 Field or clearly declines it. The native
+   SVG remains the exhaustive path; this is deliberately not a selection test. */
+{
+  const dense = 'title: Dense Field\n' + Array.from({length:40}, (_, i) =>
+    `Lane ${i % 4}: A deliberately descriptive forecast ${i} 202${6 + Math.floor(i / 12)}-0${i % 8 + 1} .. 202${6 + Math.floor(i / 12)}-1${i % 2 + 1} // a note that must remain present in export`).join('\n');
+  const {page, errors} = await freshPage('/timeline/');
+  await showSourceIfReading(page);
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type(dense);
+  await page.waitForFunction(() => document.querySelectorAll('#preview [data-field-item]').length === 40, null, {timeout:3000});
+  await page.getByText('Export', {exact:true}).click();
+  check('timeline: dense Copy PNG refuses rather than copying a partial field', await copyPngRefuses(page));
+  check('timeline: dense export refusal has no console error', errors.length === 0);
   await page.close();
 }
 

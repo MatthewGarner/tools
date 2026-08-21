@@ -151,5 +151,18 @@ export function parse(text){
     if(!laneSet.has(lane)){ laneSet.add(lane); model.lanes.push(lane); }
     model.items.push({lane, label: head, p50, p90, rawDates: dateText, status, note, single, leadDays, srcLine: ln});
   }
+  /* Snapshot comparison must not silently merge repeated labels. A lane remains
+     part of the identity (a move is a portfolio change), while an ordinal makes
+     repeated labels within that lane independently comparable. Keep the common
+     unique case byte-compatible for motion and old links. */
+  const stem = it => (it.lane + '|' + it.label).toLowerCase().replace(/\s+/g, ' ').trim();
+  const totals = new Map();
+  for(const it of model.items) totals.set(stem(it), (totals.get(stem(it)) || 0) + 1);
+  const seen = new Map();
+  for(const it of model.items){
+    const key = stem(it), n = (seen.get(key) || 0) + 1;
+    seen.set(key, n);
+    it.identity = totals.get(key) > 1 ? key + '#' + n : key;
+  }
   return model;
 }

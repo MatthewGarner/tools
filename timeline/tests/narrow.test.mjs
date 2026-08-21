@@ -79,13 +79,13 @@ test('narrow WITH edit: every milestone is a data-menu cardmenu with a ≥44px h
   // one cardmenu group + one data-hit per milestone (4)
   assert.equal((svg.match(/data-edit="cardmenu"/g) || []).length, 4);
   assert.equal((svg.match(/data-menu=""/g) || []).length, 4);
-  assert.equal((svg.match(/data-hit=""/g) || []).length, 4);
+  assert.ok((svg.match(/data-hit=""/g) || []).length >= 7, 'rows plus named and global Field add routes are real hit targets');
   // the menu's opens: rows route to these siblings; setlane/note are the free-text anchors
   for(const kind of ['label', 'dates', 'status', 'setlane', 'note'])
     assert.ok((svg.match(new RegExp('data-edit="' + kind + '"', 'g')) || []).length === 4,
       kind + ' target missing on some row');
   // the hit rect clears 44px (title + dates + track); every cardmenu group is keyboard-operable
-  const hitH = [...svg.matchAll(/data-hit="" x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)"/g)].map(m => +m[1]);
+  const hitH = [...svg.matchAll(/data-edit="cardmenu"[\s\S]*?<rect data-hit="" x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)"/g)].map(m => +m[1]);
   assert.ok(hitH.length === 4 && hitH.every(h => h >= 44), 'card hit rects must clear 44px: ' + hitH);
   assert.equal((svg.match(/data-edit="cardmenu"[^>]*role="button"/g) || []).length, 4);
   // the routing anchors never steal a direct tap
@@ -94,27 +94,25 @@ test('narrow WITH edit: every milestone is a data-menu cardmenu with a ≥44px h
 
 test('narrow WITH edit: a dashed ＋ Add capsule closes each named lane and a global one closes the board', () => {
   const svg = render(parse(DOC), {...ctx, width: W}, null, {edit: true});
-  // App + Ops named lanes → two "＋ Add to <lane>" capsules; laneless global → "＋ Add milestone"
-  assert.match(svg, /＋ Add to App/);
-  assert.match(svg, /＋ Add to Ops/);
-  assert.match(svg, /＋ Add milestone/);
-  const adds = [...svg.matchAll(/<g data-edit="additem"[^>]*aria-label="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(adds, ['Add milestone into App', 'Add milestone into Ops', 'Add milestone']);
-  assert.equal((svg.match(/data-edit="additem" data-line="-1"/g) || []).length, 3);
+  // Controls remain quiet at rest, but retain named accessible return routes.
+  const adds = [...svg.matchAll(/<g[^>]*data-edit="additem"[^>]*aria-label="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(adds, ['Add milestone into App', 'Add milestone into Ops', 'Add unlaned milestone']);
+  assert.equal((svg.match(/data-edit="additem"[^>]*data-line="-1"/g) || []).length, 3);
+  assert.equal((svg.match(/data-edit="additem"[^>]*role="button"/g) || []).length, 3);
 });
 
-test('narrow compare: ghost diamonds, slip labels, NEW badge, since-line and dropped list all render', async () => {
+test('narrow compare: historic facts, NEW, dropped receipt and since line all render', async () => {
   const {timelineDiff, timelineDiffView} = await import('../diff.js');
   const oldDoc = 'title: T\nGrid: Offer 2026-08 .. 2026-10\nGrid: Energisation 2027-01 .. 2027-04\nBuild: Dropped thing 2026-12 .. 2027-01';
   const newDoc = 'title: T\nGrid: Offer 2026-08 .. 2026-10\nGrid: Energisation 2027-02-15 .. 2027-06-01 [risk]\nBuild: New item 2026-11';
   const diff = timelineDiffView(timelineDiff(parse(oldDoc), parse(newDoc)), 'JUNE');
   const svg = render(parse(newDoc), {...ctx, width: W}, diff);
   assert.match(svg, /data-narrow=""/);
-  assert.match(svg, /data-ms="ghost"/);          // Energisation moved → ghost
+  assert.match(svg, /data-field-history="p50"/); // Energisation moved → historic P50
   assert.match(svg, />NEW</);                     // New item
   assert.match(svg, /JUNE/);                      // since-line
   assert.match(svg, /DROPPED SINCE/);             // Dropped thing
-  assert.match(svg, /[+−]\d+ weeks?/);            // slip label on the ghost trail
+  assert.match(svg, /\+4 wks/);                   // exact compact slip receipt
 });
 
 test('exports/renderer are stateless: a narrow paint leaks nothing into a later wide render', () => {
@@ -131,15 +129,15 @@ test('the verdict (timelineReadout) still names the widest whisker regardless of
   assert.match(line, /Widest whisker: Privacy audit signed/);
 });
 
-test('narrow: [fixed] renders clean and in ink', () => {
+test('narrow: [fixed] is a factual point, not a forecast interval', () => {
   const svg = render(parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'),
     {...ctx, width: W});
   assert.match(svg, /data-narrow=""/);
   assert.doesNotMatch(svg, /±\?/);
-  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*fill="#222222"/);
+  assert.match(svg, /data-field-item="\|ofgem decision"[^>]*data-field-timing="fixed"[^>]*data-field-state="fixed"/);
 });
 
-test('narrow: [fixed] and [done] lay out identically — the ±? predicate agrees', () => {
+test('narrow: fixed and done are both point facts but retain distinct semantics', () => {
   /* This is where measure/draw drift is actually OBSERVABLE. renderNarrow feeds the
      same string to wrapText that it later draws, so a predicate that measured a ±?
      it never draws would change the wrap — and the whole SVG. (In the WIDE renderer
@@ -149,29 +147,24 @@ test('narrow: [fixed] and [done] lay out identically — the ±? predicate agree
      the `|| items[0]` fallback, for [fixed] via the filter. */
   const label = 'Ofgem determination on capacity market rules';
   const svg = st => render(parse(label + ' 2026-09-01 [' + st + ']'), {...ctx, width: W});
-  const norm = s => s.split(ctx.colors.status.done).join('§').split(ctx.colors.ink).join('§');
-  /* the VERDICT block legitimately differs — a [done] milestone is landed, so it is
-     never "next up" — and its advance rides the root <svg> height. This test is about
-     the BOARD, so compare the board markup only: everything between the root tag and
-     the verdict block (the sole font-family-bearing text in the narrow board). */
-  const board = s => norm(s)
-    .replace(/^<svg[^>]*><rect width="\d+" height="\d+" fill="[^"]*"\/>/, '')   // both carry the height
-    .split(' font-family="')[0].replace(/<text xml:space="preserve" x="[\d.]+" y="[\d.]+"$/, '').replace(/<\/svg>$/, '');
-  assert.equal(board(svg('fixed')), board(svg('done')));
+  const fixed = svg('fixed'), done = svg('done');
+  assert.doesNotMatch(fixed,/±\?/);
+  assert.doesNotMatch(done,/±\?/);
+  assert.match(fixed,/data-field-timing="fixed"/);
+  assert.match(done,/data-field-timing="completed"/);
 });
 
 /* Swiss 6b: the page carries no HTML verdict, so the narrow artefact carries the
    one — same anatomy, re-wrapped above the 11px data floor. Exports never take this path. */
-test('narrow: the verdict re-wraps above the data floor and keeps its single brand figure', () => {
+test('narrow: the verdict remains a quiet, readable Field receipt', () => {
   const svg = render(parse(DOC), {...ctx, width: W});
   assert.match(svg, /data-narrow=""/);
   assert.match(svg, />VERDICT</);
-  assert.match(svg, /font-size="18\.7" font-weight="700"/);
-  assert.equal((svg.match(/#D62015/g) || []).length, 1);
+  assert.match(svg, /font-size="16" font-weight="650"/);
+  assert.equal((svg.match(/#D62015/g) || []).length, 0);
   const v = timelineVerdict(parse(DOC), ctx.today);
   assert.ok(v.fig && v.line.includes(v.fig));
-  // the wide export is pinned to the 24px artefact, whatever the preview did
-  assert.match(render(parse(DOC), ctx), /font-size="24" font-weight="700"/);
+  assert.match(render(parse(DOC), ctx), /data-font-floor="11"/);
 });
 
 test('narrow: [risk] carries the RISK pill too', () => {

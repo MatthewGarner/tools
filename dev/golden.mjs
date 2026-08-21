@@ -1,5 +1,5 @@
 /* Golden-output harness: renders fixed models through render.js and writes/compares
-   exact SVG strings. Usage: node dev/golden.mjs capture|compare|verify
+   exact SVG strings. Usage: node dev/golden.mjs capture|compare|verify [tool-prefix]
    - compare: byte-identical check, warns if dev/golden has uncommitted changes
    - verify : compare AND assert dev/golden is fully committed (pre-merge gate) */
 import {writeFileSync, readFileSync, mkdirSync} from 'node:fs';
@@ -1077,9 +1077,11 @@ function dirtyGoldens(){
 }
 
 const mode = process.argv[2];   // capture | compare | verify (compare + assert committed)
+const prefix = process.argv[3]; // optional narrow capture, e.g. `timeline`
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
 for(const [k, svg] of Object.entries(variants)){
+  if(prefix && !k.startsWith(prefix + '-')) continue;
   const file = new URL('./golden/' + k + '.svg', import.meta.url);
   if(mode === 'capture'){
     writeFileSync(file, svg);

@@ -30,7 +30,7 @@ test('nothing moved says so', () => {
   assert.equal(v.any, false);
 });
 
-test('render with diff: ghost diamond, slip label, NEW, dropped strip, since line', () => {
+test('render with diff: historic facts, slip label, NEW and dropped receipt remain visible', () => {
   const ctx = {
     colors: {card: '#ffffff', border: '#dddddd', ink: '#222222', muted: '#66777a',
       accent: '#0088cc', bg: '#f7f8f6', err: '#b3403a',
@@ -43,7 +43,7 @@ test('render with diff: ghost diamond, slip label, NEW, dropped strip, since lin
   assert.match(svg, /\+4 wks/);
   assert.match(svg, />NEW</);
   assert.match(svg, /DROPPED SINCE JUNE PACK/);
-  assert.match(svg, /Since June pack/);
+  assert.match(svg, /SINCE JUNE PACK/);
   assert.doesNotMatch(svg, /NaN|undefined/);
   const plain = render(parse(NEW), ctx);
   assert.doesNotMatch(plain, /ghost|NEW|DROPPED/);

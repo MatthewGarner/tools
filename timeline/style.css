@@ -23,3 +23,7 @@
 .preview svg [data-edit^="card-"]{cursor:pointer}
 .preview svg [data-edit="removeassump"]{cursor:pointer}
 .preview svg [data-edit="removeassump"]:hover{fill:var(--err)}
+.preview svg [data-edit="cardmenu"] [data-empty-control]{opacity:0}
+.preview svg [data-edit="cardmenu"]:hover [data-empty-control],.preview svg [data-empty-control]:focus{opacity:.6}
+.preview svg [data-add-control]{opacity:0}
+.preview svg [data-add-control]:hover,.preview svg [data-add-control]:focus-within{opacity:.6}

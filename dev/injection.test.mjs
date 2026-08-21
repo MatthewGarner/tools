@@ -404,6 +404,7 @@ test('gauge overlay + FORM HTML escape hostile question text and names', async (
 test('timeline renderer escapes hostile lanes, labels and notes', async () => {
   const {parse} = await import('../timeline/parse.js');
   const {render} = await import('../timeline/render.js');
+  const {renderField} = await import('../timeline/render-field.js');
   const doc = 'title: ' + EVIL[0] + '\n' +
     EVIL.map((e, i) => e.replace(/[:\[\]]/g, ' ') + ': item ' + i + ' 2026-0' + (i % 8 + 1) +
       ' .. 2026-1' + (i % 2) + ' // ' + EVIL[(i + 2) % EVIL.length]).join('\n') +
@@ -411,6 +412,7 @@ test('timeline renderer escapes hostile lanes, labels and notes', async () => {
     '\nGate: ' + EVIL[1].replace(/[:\[\]]/g, ' ') + ' 2027-06-01 [fixed]' +
     '\nA: Alpha 2026-09 .. 2026-11\nB: Beta 2026-10 .. 2026-12';
   assertClean(render(parse(doc), ctx, null, {edit: true}), 'timeline');
+  assertClean(renderField(parse(doc), ctx, null, {edit: true}), 'timeline-field');
 });
 
 test('timeline NARROW renderer escapes hostile text (title/label/note + since-line + dropped)', async () => {

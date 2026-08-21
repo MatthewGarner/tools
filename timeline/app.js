@@ -1,7 +1,6 @@
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineVerdict} from './render.js';
-import {renderDirection} from './direction-prototypes.js';
 import {timelineDiff, timelineDiffView} from './diff.js';
 import {premortemHandoff} from './handoff.js';
 import {toLink as premortemLink} from '../premortem/store.js';
@@ -51,10 +50,6 @@ Move-in day 2027-01 .. 2027-02`},
 
 let model = null, lastSvg = '', hashTimer = null;
 let snaps = null;
-/* Local review switch: these three real-model directions are deliberately
-   renderer paths, not static artwork. It is removed once the chosen composition
-   has been absorbed by render.js. */
-const reviewDirection = new URLSearchParams(location.search).get('direction');
 
 function currentDiff(){
   const cur = snaps && snaps.current();
@@ -65,10 +60,7 @@ function ctx(intent){
   return {colors: themeColors(), measure, intent, dark: isDark(), today: todayDay()};
 }
 function activeRender(intent, edit = false, width){
-  const renderCtx = {...ctx(intent),...(width?{width}:{})};
-  return reviewDirection && ['field', 'ledger', 'clock'].includes(reviewDirection)
-    ? renderDirection(model, renderCtx, reviewDirection, {edit, intent, diff: currentDiff()})
-    : render(model, renderCtx, currentDiff(), {edit,intent});
+  return render(model, {...ctx(intent),...(width?{width}:{})}, currentDiff(), {edit,intent});
 }
 function renderWarnings(){
   renderWarningList($('warns'), model ? model.warnings : []);
@@ -157,7 +149,7 @@ function milestoneMenu(m, srcLine){
     statusRow,
     laneRow,
     {label: (it && it.note) ? 'Edit note…' : 'Add note…', opens: 'note'},
-    {label: 'Remove milestone', action: true, danger: true},
+    {label: 'Remove milestone', opens: 'removeitem', danger: true},
   ];
 }
 
@@ -220,11 +212,21 @@ function svgString(intent){
 function slug(){
   return slugify(model.title, 'timeline');
 }
+let copyPngUnavailable = false;
 wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
   getSvg: () => svgString('native'),
-  getCopy: () => svgString('presentation'),
+  getCopy: () => {
+    const svg = svgString('presentation');
+    copyPngUnavailable = /\bdata-copy-field="unavailable"/.test(svg || '');
+    return copyPngUnavailable ? null : svg;
+  },
   slug,
+});
+/* Copy PNG is a one-frame promise. A dense Field keeps every fact in native
+   SVG instead of silently copying a selective slide. */
+$('copypng').addEventListener('click', () => {
+  if(copyPngUnavailable) flash('copypng', 'Copy PNG unavailable — download SVG', 2000);
 });
 /* copymd keeps its inline handler: on clipboard failure it falls back to a
    prompt() with the markdown so it's still copyable — wireExports has no
@@ -264,8 +266,12 @@ function panToToday(){
   const pv = $('preview');
   const next = pv.querySelector('[data-next]');
   if(next){
-    const m = /M([\d.]+)/.exec(next.getAttribute('d'));   // the P50 diamond's cx
-    if(m){ pv.scrollLeft = Math.max(0, parseFloat(m[1]) - pv.clientWidth * 0.30); panned = true; return; }
+    /* Field P50 points are circles; fixed events remain vertical facts. Accept
+       either physical representation so next-up panning stays semantic. */
+    const x = parseFloat(next.getAttribute('cx') || next.getAttribute('x1'));
+    const m = /M([\d.]+)/.exec(next.getAttribute('d'));
+    const nextX = isFinite(x) ? x : m ? parseFloat(m[1]) : NaN;
+    if(isFinite(nextX)){ pv.scrollLeft = Math.max(0, nextX - pv.clientWidth * 0.30); panned = true; return; }
   }
   const line = pv.querySelector('[data-today]');
   if(!line) return;
