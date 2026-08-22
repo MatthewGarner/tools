@@ -116,7 +116,7 @@ await untilValue(doc, d => d.includes('x: Licensing pressure (loose → strict)'
 check('axis rename: label rewritten, end labels kept',
   (await doc()).includes('x: Licensing pressure (loose → strict)'));
 
-/* ---- add item from the ghost, remove from the × ---- */
+/* ---- add from the quiet ghost; removal is contextual, never a resting × ---- */
 await loadExample(ASSUMPTION_MAP.name);
 await page.locator('[data-edit="additem"]').click();
 await inputOpen();
@@ -124,11 +124,16 @@ await page.locator('.eip-input').fill('Suite-added item');
 await page.keyboard.press('Enter');
 await untilValue(doc, d => d.includes('Suite-added item'));
 check('add item: line landed in the text', (await doc()).includes('Suite-added item'));
-await page.locator('[data-edit="removeitem"]').last().click();
+check('remove item: no resting delete mark competes with the Field',
+  await page.locator('#preview svg [data-edit="removeitem"]').count() === 0);
+const addedMenu = page.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Suite-added item'}).locator('rect[data-hit]');
+await addedMenu.click();
+await until(() => page.locator('.eip-pop button', {hasText: 'Remove'}).count());
+await page.locator('.eip-pop button', {hasText: 'Remove'}).click();
 /* a removal poll is safe where a plain negative would not be: the line IS present
    before the click, so this predicate is false until the removal actually lands */
 await untilValue(doc, d => !d.includes('Suite-added item'));
-check('remove item: line gone', !(await doc()).includes('Suite-added item'));
+check('remove item: contextual action removes the line', !(await doc()).includes('Suite-added item'));
 
 check('suite: no console errors', errors.length === 0);
 if(errors.length) results.push(...errors.slice(0, 3));
