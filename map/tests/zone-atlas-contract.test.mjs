@@ -54,6 +54,19 @@ test('Zone Atlas phone keeps the full authored item label in its source-order re
   assert.match(phone, /word40/, 'a source-order receipt cannot silently truncate its authored item');
 });
 
+test('Zone Atlas phone gives rename and item-menu actions separate 44px routes', () => {
+  const svg = render(model, resolved, ro, {...ctx, width:390, edit:true});
+  const row = svg.match(/<g data-line="\d+"[^>]*data-edit="cardmenu"[\s\S]*?<rect data-title-hit=""[^>]*\/>/);
+  assert.ok(row, 'expected one editable source row');
+  const menu = row[0].match(/<rect data-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+  const rename = row[0].match(/<rect data-title-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+  assert.ok(menu && rename);
+  assert.ok(+menu[3] >= 44 && +menu[4] >= 44 && +rename[3] >= 44 && +rename[4] >= 44);
+  const overlap = Math.min(+menu[1] + +menu[3], +rename[1] + +rename[3]) > Math.max(+menu[1], +rename[1]) &&
+    Math.min(+menu[2] + +menu[4], +rename[2] + +rename[4]) > Math.max(+menu[2], +rename[2]);
+  assert.equal(overlap, false, 'the visible rename and menu actions cannot compete for the same touch area');
+});
+
 test('Zone Atlas keeps an authored field reachable through the quiet item menu', () => {
   const svg = render(model, resolved, ro, {...ctx, edit:true});
   assert.match(svg, /data-edit="cardmenu"[^>]*data-field-raw="watch 5 onboarding sessions"[^>]*data-key="test"/);

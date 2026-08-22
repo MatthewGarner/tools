@@ -140,13 +140,13 @@ function drawMargin(out, model, ro, C, x, y, w, measure, edit, plan, diff){
   if(ro.unplaced.length){
     text('UNPLACED · '+ro.unplaced.length,9.5,C.muted,'600','1.25'); cy+=18;
     for(const item of ro.unplaced){
-      const label=lines(item.label,'600 10.5px '+FONT,w-16,measure),firstField=item.fields[0];
+      const label=lines(item.label,'600 10.5px '+FONT,w-16,measure),firstField=item.fields[0],rowH=Math.max(edit?44:22,label.length*13+9);
       out.push('<g data-line="'+item.srcLine+'" data-tray="1"'+(edit?' data-edit="cardmenu"'+btnAttrs('More options: '+item.label)+(firstField?' data-field-raw="'+esc(firstField.val)+'" data-key="'+esc(firstField.key)+'"':'')+' data-menu=""':'')+'>');
-      if(edit) out.push('<rect data-hit="" x="'+n(x-4)+'" y="'+n(cy-13)+'" width="'+n(w+4)+'" height="'+n(Math.max(30,label.length*13+8))+'" fill="'+C.card+'" fill-opacity="0"/>');
+      if(edit) out.push('<rect data-hit="" x="'+n(x-4)+'" y="'+n(cy-13)+'" width="'+n(w+4)+'" height="'+rowH+'" fill="'+C.card+'" fill-opacity="0"/>');
       out.push('<line x1="'+n(x)+'" y1="'+n(cy-8)+'" x2="'+n(x+8)+'" y2="'+n(cy-8)+'" stroke="'+C.muted+'"/>');
       out.push('<text data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'" x="'+n(x+14)+'" y="'+n(cy)+'" font-size="10.5" font-weight="600" fill="'+C.ink+'"'+btnAttrs('Rename: '+item.label)+'>'+esc(label[0])+'</text>');
       label.slice(1).forEach((line,index)=>out.push('<text pointer-events="none" x="'+n(x+14)+'" y="'+n(cy+(index+1)*13)+'" font-size="10.5" font-weight="600" fill="'+C.ink+'">'+esc(line)+'</text>'));
-      out.push('</g>'); cy+=Math.max(22,label.length*13+9);
+      out.push('</g>'); cy+=rowH;
     }
     cy+=8;
   }
@@ -183,7 +183,7 @@ function narrow(model,resolved,ro,ctx,C,diff){
   for(const record of sourceItems(model,ro)){
     const item=record.item,bad=flags.has(item.srcLine),label=lines(item.label,'650 13px '+FONT,232,measure),rowH=Math.max(66,48+label.length*15),entry=item.x==null?null:ro.zones.find(z=>z.items.some(value=>value.srcLine===item.srcLine)),firstField=item.fields[0];
     out.push('<g data-line="'+item.srcLine+'"'+(item.x==null?' data-tray="1"':'')+' data-edit="cardmenu"'+btnAttrs('More options: '+item.label)+(firstField?' data-field-raw="'+esc(firstField.val)+'" data-key="'+esc(firstField.key)+'"':'')+(edit?' data-menu=""':'')+'>');
-    if(edit)out.push('<rect data-hit="" x="'+p+'" y="'+n(y-22)+'" width="'+(W-p*2)+'" height="'+rowH+'" fill="'+C.card+'" fill-opacity="0"/>');
+    if(edit)out.push('<rect data-hit="" x="'+(W-p-44)+'" y="'+n(y-22)+'" width="44" height="44" fill="'+C.card+'" fill-opacity="0"/>');
     out.push('<line x1="'+p+'" y1="'+n(y+rowH-22)+'" x2="'+(W-p)+'" y2="'+n(y+rowH-22)+'" stroke="'+C.border+'"/>',marker(p+7,y-7,bad,C,3),'<text x="'+(p+20)+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".7" fill="'+C.muted+'">'+record.id+'</text>');
     out.push('<g data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'"'+btnAttrs('Rename: '+item.label)+' data-title-hit="">');
     label.forEach((line,index)=>out.push('<text pointer-events="none" x="'+(p+54)+'" y="'+n(y+index*15)+'" font-size="13" font-weight="650" fill="'+(bad?C.err:C.ink)+'">'+esc(line)+'</text>'));

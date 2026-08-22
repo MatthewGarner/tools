@@ -164,7 +164,7 @@ test('edit mode: tray items become cardmenu triggers (Place on map… is the coa
   assert.ok(trayGroup[0].includes('role="button"'), 'tray cardmenu must be keyboard-operable');
   /* the margin row is a true coarse target, not a text-sized click area */
   const h = +trayGroup[1].match(/height="([\d.]+)"/)[1];
-  assert.ok(h >= 30);
+  assert.ok(h >= 44, 'tray menu must be at least 44px tall, got ' + h);
 });
 
 test('cardmenu hit rect gives the label a stable coarse plane', () => {
