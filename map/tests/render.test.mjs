@@ -223,19 +223,22 @@ test('card hit rects never overlap on the default first-run example (EXAMPLES[0]
   for(const extra of [{edit: true}, {edit: true, slide: true}]){
     const rects = hitRects(run(src, extra));
     assert.equal(rects.length, 8, 'seven placed cards + the unplaced tray item get hit rects');
+    const svg = run(src, extra);
+    assert.doesNotMatch(svg, /FIELD INDEX · SOURCE ORDER/,
+      'the first-run map keeps its claim labels in the coordinate field');
     const hit = anyOverlap(rects);
     assert.equal(hit, null, extra.slide ? 'slide-mode default overlaps ' + hit : 'default overlaps ' + hit);
   }
 });
 
-test('crowded stack switches to a keyed field index before menu targets become smaller than 44px', () => {
-  /* Three authored claims on the same coordinate require a genuine disambiguation
-     route—not invisible shrinking click strips. */
+test('crowded stack keeps direct claims while reserving distinct 44px menu planes', () => {
+  /* Three authored claims on the same coordinate must remain a readable field,
+     with the label layout—not tiny click strips—making the edit planes separate. */
   const svg = run('x: A\ny: B\nAlpha @ 50,50\nBeta @ 50,50\nGamma @ 50,50', {edit: true});
   const rects = hitRects(svg);
   assert.equal(rects.length, 3);
-  assert.match(svg, /FIELD INDEX · SOURCE ORDER/);
-  assert.equal(anyOverlap(rects), null, 'keyed targets must remain separate');
+  assert.doesNotMatch(svg, /FIELD INDEX · SOURCE ORDER/);
+  assert.equal(anyOverlap(rects), null, 'direct menu planes must remain separate');
   assert.ok(rects.every(r => r.h >= 44), 'each menu route remains a true 44px target');
 });
 

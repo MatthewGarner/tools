@@ -204,7 +204,7 @@ export function renderZoneAtlas(model,resolved,ro,ctx,diff=null){
   const y=title.length?78+Math.max(0,title.length-1)*27:28;
   const geom=drawPlane(out,model,resolved,C,planeX,y,planeW,planeH,edit),flags=flagSet(ro),records=sourceItems(model,ro);
   if(diff)for(const ghost of diff.ghosts){const gx=geom.px(ghost.from[0]),gy=geom.py(ghost.from[1]),tx=geom.px(ghost.to[0]),ty=geom.py(ghost.to[1]);out.push('<line x1="'+n(gx)+'" y1="'+n(gy)+'" x2="'+n(tx)+'" y2="'+n(ty)+'" stroke="'+C.muted+'" stroke-width="1" stroke-dasharray="3 4"/><circle cx="'+n(gx)+'" cy="'+n(gy)+'" r="4" fill="none" stroke="'+C.muted+'" stroke-dasharray="2 2"/>');}
-  const planArgs={planeX,planeY:y,planeW,planeH,measure,font:'650 12px '+FONT,maxLabelW:184,zoneObstacles:geom.obstacles};
+  const planArgs={planeX,planeY:y,planeW,planeH,measure,font:'650 12px '+FONT,maxLabelW:184,zoneObstacles:geom.obstacles,interactionHeight:44};
   let plan=layoutPlaced(records,planArgs);
   /* When 44px menus would collide, the factual source index is the only honest
      disambiguation: do not quietly make the editable targets smaller. */

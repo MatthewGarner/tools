@@ -61,7 +61,7 @@ export function nudge(boxes, x0, y0, x1, y1, iters = 64){
 }
 
 export function layoutPlaced(records, {planeX, planeY, planeW, planeH, scale = 1,
-  measure, font, maxLabelW = 190, zoneObstacles = [], forceKeyed = false}){
+  measure, font, maxLabelW = 190, zoneObstacles = [], forceKeyed = false, interactionHeight = 0}){
   const placed = records.filter(record => record.item.x != null);
   const prepared = placed.map(record => ({...record,
     lines: measuredLines(record.item.label, font, maxLabelW * scale, measure)}));
@@ -79,8 +79,14 @@ export function layoutPlaced(records, {planeX, planeY, planeW, planeH, scale = 1
     if(x + w > planeX + planeW - 4) x = cx - 7 * scale - w;
     return {...record, it: record.item, w, h, x, y: cy - h / 2, cx, cy};
   });
-  const nudged = nudge([...boxes.map(({x, y, w, h}) => ({x, y, w, h})), ...zoneObstacles],
+  const nudged = nudge([...boxes.map(({x, y, w, h}) => {
+    const targetH = Math.max(h, interactionHeight * scale);
+    return {x, y:y+h/2-targetH/2, w:w+(interactionHeight ? 16*scale : 0), h:targetH};
+  }), ...zoneObstacles],
     planeX + 2, planeY + 2, planeX + planeW - 2, planeY + planeH - 2);
-  boxes.forEach((box, i) => { box.x = nudged[i].x; box.y = nudged[i].y; });
+  boxes.forEach((box, i) => {
+    box.x = nudged[i].x;
+    box.y = nudged[i].y + nudged[i].h / 2 - box.h / 2;
+  });
   return {mode: 'direct', records: boxes};
 }

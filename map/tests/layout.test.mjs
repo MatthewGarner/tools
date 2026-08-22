@@ -24,6 +24,18 @@ test('direct geometry is pure and grows to two measured label lines', () => {
   assert.ok(one.records[0].h > 20);
 });
 
+test('direct layout can reserve the true 44px menu footprint without falling back to IDs', () => {
+  const model = parse('Alpha @ 50,50\nBeta @ 50,50\nGamma @ 50,50');
+  const plan = layoutPlaced(sourceItems(model, {flagged: []}), {planeX:72, planeY:70, planeW:620, planeH:470,
+    measure, font:'700 11px sans-serif', zoneObstacles:[], interactionHeight:44});
+  assert.equal(plan.mode, 'direct');
+  for(let i=0;i<plan.records.length;i++) for(let j=i+1;j<plan.records.length;j++){
+    const a=plan.records[i], b=plan.records[j], ay=a.y+a.h/2-22, by=b.y+b.h/2-22;
+    const overlap=Math.min(a.x+a.w+16,b.x+b.w+16)>Math.max(a.x,b.x) && Math.min(ay+44,by+44)>Math.max(ay,by);
+    assert.equal(overlap, false, 'direct labels must be separated enough for their real menus');
+  }
+});
+
 test('more than nine items switches to an exhaustive keyed layout', () => {
   const model = parse(Array.from({length: 10}, (_, i) => `Item ${i + 1} @ 50,50`).join('\n'));
   const records = sourceItems(model, {flagged: []});
