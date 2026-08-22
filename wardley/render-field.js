@@ -228,10 +228,11 @@ function addZone(stage, y, width, pad, c){
 
 function edgePath(link, c){
   const y1 = link.y1 + link.fromNode.cardH / 2, y2 = link.y2 - link.toNode.cardH / 2;
-  const bend = Math.min(54, Math.max(16, (y2-y1)/2));
-  const path = y2 <= y1 + 6
-    ? 'M ' + r(link.x1) + ' ' + r(link.y1) + ' L ' + r(link.x2) + ' ' + r(link.y2)
-    : 'M ' + r(link.x1) + ' ' + r(y1) + ' C ' + r(link.x1) + ' ' + r(y1+bend) + ', ' + r(link.x2) + ' ' + r(y2-bend) + ', ' + r(link.x2) + ' ' + r(y2);
+  /* A relationship on a Wardley map is a direct claim in the value chain.
+     Keep that claim as one straight segment: curves suggest a flowchart route
+     and make the evolution coordinate look incidental. Label planes sit above
+     the ink, so a direct line stays readable in dense maps too. */
+  const path = 'M ' + r(link.x1) + ' ' + r(y1) + ' L ' + r(link.x2) + ' ' + r(y2);
   return '<path class="edge' + (link.dropped ? ' dropped' : '') + '" d="' + path + '" fill="none" stroke="' + (link.dropped ? c.err : c.muted) +
     '" stroke-opacity="' + (link.dropped ? '.9' : '.48') + '" stroke-width="' + (link.dropped ? '1.4' : '1.15') + '"' + (link.dropped ? ' stroke-dasharray="3 4"' : '') + '/>';
 }

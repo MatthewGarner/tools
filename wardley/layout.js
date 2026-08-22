@@ -136,9 +136,9 @@ export function layoutMap(model, options = {}){
 
   const links=model.edges.map(edge=>{
     const from=nodes.get(edge.from),to=nodes.get(edge.to),isDropped=dropped.has(edge);
-    const y1=from.y+from.cardH/2,y2=to.y-to.cardH/2,bend=Math.min(54,Math.max(18,(y2-y1)/2));
+    const y1=from.y+from.cardH/2,y2=to.y-to.cardH/2;
     return {x1:from.px,y1:from.y,x2:to.px,y2:to.y,from:edge.from,to:edge.to,dropped:isDropped,
-      fromNode:from,toNode:to,path:'M '+from.px+' '+y1+' C '+from.px+' '+(y1+bend)+', '+to.px+' '+(y2-bend)+', '+to.px+' '+y2};
+      fromNode:from,toNode:to};
   });
 
   const needs=new Map();activeEdges.forEach(edge=>needs.set(edge.to,(needs.get(edge.to)||0)+1));

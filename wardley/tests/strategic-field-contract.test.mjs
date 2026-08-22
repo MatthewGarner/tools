@@ -31,6 +31,14 @@ test('Strategic Field makes a single neutral evolution ruler and names vertical 
   assert.equal((svg.match(/data-stage-colour/g) || []).length, 0, 'evolution is not encoded as decorative stage colour');
 });
 
+test('dependency relationships are direct straight lines between value-chain nodes', () => {
+  const svg = render('anchor: Need\nCapability @ product\nNeed -> Capability');
+  const edge = svg.match(/<path class="edge" d="([^"]+)"/);
+  assert.ok(edge, 'the dependency remains a visible map relationship');
+  assert.match(edge[1], /^M [\d.]+ [\d.]+ L [\d.]+ [\d.]+$/, 'a Wardley relationship is one direct line, not a routed curve');
+  assert.doesNotMatch(edge[1], /\b[CSQTA]\b/, 'the line contains no curve or arc command');
+});
+
 test('every rendered component carries its exact authored evolution position while palette stays a single document rule', () => {
   const model = parse(source);
   const layout = layoutMap(model, {measure:ctx.measure, intent:'native', geom:GEOM});
