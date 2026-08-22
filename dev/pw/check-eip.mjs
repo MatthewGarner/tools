@@ -3267,13 +3267,10 @@ insure: premium 6 attach 65 limit 30`;
     await p.close();
   }
 
-  /* map: the coarse card-menu REDIRECT branch. map's items carry BOTH a small ×
-     removeitem cycle AND a cardmenu whose hit-rect covers it — so a coarse tap on
-     the × is redirected to the card menu (line ~284 in edit-in-place.js) rather
-     than firing the ['×'] cycle popover. Confirm: the redirect wins (a menu, not a
-     bare × confirm), nothing commits on open, its danger Remove removes the line,
-     and ↶ Undo restores it. The standalone ['×'] cycle-popover (no menu sibling)
-     is proved on timeline-tablet below. */
+  /* Map's Field contract keeps destructive controls out of the resting artefact.
+     A coarse item tap opens its one contextual menu; the menu owns Remove and Undo
+     restores the authored line. The standalone ['×'] cycle-popover is proved on
+     timeline-tablet below. */
   {
     const p = await mctx.newPage();
     const errs = trackErrors(p);
@@ -3282,8 +3279,10 @@ insure: premium 6 attach 65 limit 30`;
     await p.getByRole('button', {name: 'Assumption map'}).click();
     await p.waitForTimeout(700);
     const baseline = await p.evaluate(() => localStorage.getItem('map-src'));
-    await settledTap(p, p.locator('[data-edit="removeitem"]').first());
-    check('phone map: × tap redirects to the card MENU (not a silent removal, not a bare × confirm)', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
+    check('phone map: Field keeps destructive remove marks out of the resting map',
+      (await p.locator('[data-edit="removeitem"]').count()) === 0);
+    await settledTap(p, p.locator('#preview svg g[data-edit="cardmenu"] rect[data-hit]').first());
+    check('phone map: item tap opens the one contextual MENU (not a silent removal)', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
       await p.locator('.eip-pop button', {hasText: 'Rename…'}).count() === 1 &&
       await p.locator('.eip-pop button.danger', {hasText: 'Remove'}).count() === 1)));
     check('phone map: doc text UNCHANGED while the menu is open',
