@@ -11,6 +11,10 @@ operating follow-up and must not be coerced into probability questions.
 
 The Zone Atlas live view makes the placement claim legible in one coordinate field;
 the adjacent decision margin contains only derived action, warning, source index, or
-unplaced facts. On a phone it becomes a source-order placement audit with a compact
-position field, not a shrunken desktop map. Copy PNG is a complete 16:9 field plate
-or deliberately unavailable; it never silently selects a subset of the source.
+unplaced facts. Named-zone labels are geometry that placed labels must avoid. When
+direct 44px edit routes would collide, the same source facts move to the margin's
+indexed route rather than shrinking tap targets. On a phone it becomes a source-order
+placement audit with both axes named and a compact position field, not a shrunken
+desktop map. Copy PNG is a complete 16:9 field plate or deliberately unavailable; it
+never silently selects a subset of the source and comparison plates retain movement
+geometry plus its factual receipt.

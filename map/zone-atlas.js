@@ -30,6 +30,16 @@ function cardOpen(item, edit){
     (edit ? ' data-menu=""' : '') + '>';
 }
 
+function directMenuOverlap(records){
+  for(let i=0;i<records.length;i++) for(let j=i+1;j<records.length;j++){
+    const a=records[i], b=records[j];
+    const ax=a.x, ay=a.y+a.h/2-Math.max(44,a.h)/2, aw=a.w+16, ah=Math.max(44,a.h);
+    const bx=b.x, by=b.y+b.h/2-Math.max(44,b.h)/2, bw=b.w+16, bh=Math.max(44,b.h);
+    if(Math.min(ax+aw,bx+bw)>Math.max(ax,bx) && Math.min(ay+ah,by+bh)>Math.max(ay,by)) return true;
+  }
+  return false;
+}
+
 function drawPlane(out, model, resolved, C, x, y, w, h, edit){
   const px = value => x + value / 100 * w;
   const py = value => y + (1-value/100) * h;
@@ -74,24 +84,15 @@ function drawPlane(out, model, resolved, C, x, y, w, h, edit){
 function drawPlaced(out, plan, flags, C, edit, diff){
   const newly = label => !!diff?.newLabels?.has(String(label).toLowerCase().replace(/\s+/g, ' ').trim());
   if(plan.mode === 'keyed') for(const record of plan.records){
-    out.push(cardOpen(record.item, edit));
-    out.push('<rect data-hit="" x="'+n(record.cx-22)+'" y="'+n(record.cy-22)+'" width="44" height="44" fill="'+C.card+'" fill-opacity="0"/>');
     out.push(marker(record.cx,record.cy,flags.has(record.item.srcLine),C));
     if(newly(record.item.label)) out.push('<circle cx="'+n(record.cx)+'" cy="'+n(record.cy)+'" r="8" fill="none" stroke="'+C.ink+'" stroke-width="1"/><text x="'+n(record.cx+11)+'" y="'+n(record.cy-7)+'" font-size="8" font-weight="650" letter-spacing=".7" fill="'+C.muted+'">NEW</text>');
-    out.push('<text pointer-events="none" x="'+n(record.cx+9)+'" y="'+n(record.cy+4)+'" font-size="9" font-weight="650" fill="'+C.muted+'">'+record.id+'</text></g>');
+    out.push('<text pointer-events="none" x="'+n(record.cx+9)+'" y="'+n(record.cy+4)+'" font-size="9" font-weight="650" fill="'+C.muted+'">'+record.id+'</text>');
     continue;
   }
   if(plan.mode === 'keyed') return;
   for(const record of plan.records){
     const middle = record.y + record.h/2;
-    /* Labels may sit close when authored positions converge. The visible label
-       remains distinct; the underlying menu planes meet rather than overlap. */
-    let hitH = Math.max(44,record.h);
-    for(const other of plan.records){
-      if(other === record || other.x + other.w <= record.x || other.x >= record.x + record.w) continue;
-      const gap = Math.abs((other.y + other.h/2) - middle);
-      if(gap < hitH) hitH = Math.max(record.h, Math.min(hitH, 2 * gap - other.h - 2));
-    }
+    const hitH = Math.max(44,record.h);
     out.push(cardOpen(record.it,edit).replace('>', ' data-display-id="'+record.id+'" data-geometry="'+[record.cx,record.cy,record.x,record.y,record.w,record.h].map(n).join(',')+'">'));
     out.push('<rect data-hit="" x="'+n(record.x)+'" y="'+n(middle-hitH/2)+'" width="'+n(record.w+16)+'" height="'+n(hitH)+'" fill="'+C.card+'" fill-opacity="0"/>');
     if(Math.hypot(record.cx-(record.x+record.w/2),record.cy-middle)>18) out.push('<line x1="'+n(record.cx)+'" y1="'+n(record.cy)+'" x2="'+n(record.x+record.w/2)+'" y2="'+n(middle)+'" stroke="'+C.border+'"/>');
@@ -127,10 +128,12 @@ function drawMargin(out, model, ro, C, x, y, w, measure, edit, plan, diff){
   if(plan.mode==='keyed'){
     text('FIELD INDEX · SOURCE ORDER',9.5,C.muted,'600','1.25'); cy+=18;
     for(const record of plan.records){
-      const label=lines(record.item.label,'600 10.5px '+FONT,w-34,measure), bad=ro.flagged.some(f=>f.item.srcLine===record.item.srcLine);
-      text(record.id,9.5,bad?C.err:C.muted,'650','.5');
-      label.forEach((line,index)=>out.push('<text x="'+n(x+32)+'" y="'+n(cy+index*13)+'" font-size="10.5" font-weight="600" fill="'+(bad?C.err:C.ink)+'">'+esc(line)+'</text>'));
-      cy+=Math.max(18,label.length*13+5);
+      const item=record.item,label=lines(item.label,'600 10.5px '+FONT,w-34,measure),bad=ro.flagged.some(f=>f.item.srcLine===item.srcLine),rowH=Math.max(44,label.length*13+14);
+      out.push(cardOpen(item,edit).replace('>', ' data-display-id="'+record.id+'">'));
+      if(edit) out.push('<rect data-hit="" x="'+n(x-4)+'" y="'+n(cy-16)+'" width="'+n(w+4)+'" height="'+rowH+'" fill="'+C.card+'" fill-opacity="0"/>');
+      out.push('<text pointer-events="none" x="'+n(x)+'" y="'+n(cy)+'" font-size="9.5" font-weight="650" letter-spacing=".5" fill="'+(bad?C.err:C.muted)+'">'+record.id+'</text>');
+      label.forEach((line,index)=>out.push('<text data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'" x="'+n(x+32)+'" y="'+n(cy+index*13)+'" font-size="10.5" font-weight="600" fill="'+(bad?C.err:C.ink)+'"'+(index?' pointer-events="none"':btnAttrs('Rename: '+item.label))+'>'+esc(line)+'</text>'));
+      out.push('</g>'); cy+=rowH;
     }
     cy+=10;
   }
@@ -170,14 +173,15 @@ function narrow(model,resolved,ro,ctx,C,diff){
   title.forEach((line,index)=>out.push('<text data-title-line="'+(index+1)+'" x="'+p+'" y="'+n(y+index*25)+'" font-family="'+DISPLAY+'" font-size="22" font-weight="700" fill="'+C.ink+'">'+esc(line)+'</text>'));
   y+=title.length*25+16;
   out.push('<text x="'+p+'" y="'+y+'" font-size="9.5" font-weight="600" letter-spacing="1.2" fill="'+C.muted+'">SOURCE ORDER · PLACEMENT AUDIT</text>'); y+=21;
-  out.push('<text x="'+p+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".8" fill="'+C.muted+'">FROM '+esc(upper(resolved.x.label))+' TO '+esc(upper(resolved.x.high||'HIGH'))+'</text>'); y+=14;
+  out.push('<text x="'+p+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".8" fill="'+C.muted+'">X · '+esc(upper(resolved.x.label))+' — '+esc(upper(resolved.x.low||'LOW'))+' TO '+esc(upper(resolved.x.high||'HIGH'))+'</text>'); y+=14;
+  out.push('<text x="'+p+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".8" fill="'+C.muted+'">Y · '+esc(upper(resolved.y.label))+' — '+esc(upper(resolved.y.low||'LOW'))+' TO '+esc(upper(resolved.y.high||'HIGH'))+'</text>'); y+=14;
   const px=p,py=y,pw=W-p*2,ph=128;
   out.push('<rect data-plane="1" data-position-hit="" x="'+px+'" y="'+py+'" width="'+pw+'" height="'+ph+'" fill="'+C.card+'" stroke="'+C.border+'"/>');
   if(resolved.grid){for(let col=1;col<resolved.grid.cols;col++)out.push('<line x1="'+n(px+pw*col/resolved.grid.cols)+'" y1="'+py+'" x2="'+n(px+pw*col/resolved.grid.cols)+'" y2="'+n(py+ph)+'" stroke="'+C.border+'"/>');for(let row=1;row<resolved.grid.rows;row++)out.push('<line x1="'+px+'" y1="'+n(py+ph*row/resolved.grid.rows)+'" x2="'+n(px+pw)+'" y2="'+n(py+ph*row/resolved.grid.rows)+'" stroke="'+C.border+'"/>');}
   const flags=flagSet(ro); for(const record of sourceItems(model,ro))if(record.item.x!=null)out.push(marker(px+record.item.x/100*pw,py+(1-record.item.y/100)*ph,flags.has(record.item.srcLine),C,3));
   y=py+ph+26;
   for(const record of sourceItems(model,ro)){
-    const item=record.item,bad=flags.has(item.srcLine),label=lines(item.label,'650 13px '+FONT,232,measure).slice(0,3),rowH=Math.max(66,48+label.length*15),entry=item.x==null?null:ro.zones.find(z=>z.items.some(value=>value.srcLine===item.srcLine)),firstField=item.fields[0];
+    const item=record.item,bad=flags.has(item.srcLine),label=lines(item.label,'650 13px '+FONT,232,measure),rowH=Math.max(66,48+label.length*15),entry=item.x==null?null:ro.zones.find(z=>z.items.some(value=>value.srcLine===item.srcLine)),firstField=item.fields[0];
     out.push('<g data-line="'+item.srcLine+'"'+(item.x==null?' data-tray="1"':'')+' data-edit="cardmenu"'+btnAttrs('More options: '+item.label)+(firstField?' data-field-raw="'+esc(firstField.val)+'" data-key="'+esc(firstField.key)+'"':'')+(edit?' data-menu=""':'')+'>');
     if(edit)out.push('<rect data-hit="" x="'+p+'" y="'+n(y-22)+'" width="'+(W-p*2)+'" height="'+rowH+'" fill="'+C.card+'" fill-opacity="0"/>');
     out.push('<line x1="'+p+'" y1="'+n(y+rowH-22)+'" x2="'+(W-p)+'" y2="'+n(y+rowH-22)+'" stroke="'+C.border+'"/>',marker(p+7,y-7,bad,C,3),'<text x="'+(p+20)+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".7" fill="'+C.muted+'">'+record.id+'</text>');
@@ -200,12 +204,15 @@ export function renderZoneAtlas(model,resolved,ro,ctx,diff=null){
   const y=title.length?78+Math.max(0,title.length-1)*27:28;
   const geom=drawPlane(out,model,resolved,C,planeX,y,planeW,planeH,edit),flags=flagSet(ro),records=sourceItems(model,ro);
   if(diff)for(const ghost of diff.ghosts){const gx=geom.px(ghost.from[0]),gy=geom.py(ghost.from[1]),tx=geom.px(ghost.to[0]),ty=geom.py(ghost.to[1]);out.push('<line x1="'+n(gx)+'" y1="'+n(gy)+'" x2="'+n(tx)+'" y2="'+n(ty)+'" stroke="'+C.muted+'" stroke-width="1" stroke-dasharray="3 4"/><circle cx="'+n(gx)+'" cy="'+n(gy)+'" r="4" fill="none" stroke="'+C.muted+'" stroke-dasharray="2 2"/>');}
-  /* Field labels take precedence over quiet zone names. This prevents a named
-     zone from pushing two factual commitments into each other. */
-  const plan=layoutPlaced(records,{planeX,planeY:y,planeW,planeH,measure,font:'650 12px '+FONT,maxLabelW:184,zoneObstacles:[]});drawPlaced(out,plan,flags,C,edit,diff);
+  const planArgs={planeX,planeY:y,planeW,planeH,measure,font:'650 12px '+FONT,maxLabelW:184,zoneObstacles:geom.obstacles};
+  let plan=layoutPlaced(records,planArgs);
+  /* When 44px menus would collide, the factual source index is the only honest
+     disambiguation: do not quietly make the editable targets smaller. */
+  if(plan.mode==='direct' && directMenuOverlap(plan.records)) plan=layoutPlaced(records,{...planArgs,forceKeyed:true});
+  drawPlaced(out,plan,flags,C,edit,diff);
   const marginEnd=drawMargin(out,model,ro,C,marginX,y+14,marginW,measure,edit,plan,diff),verdictY=Math.max(y+planeH+72,marginEnd+24);let end=verdictY+12;
-  if(ro.verdict){const block=svgVerdict({x:p,y:verdictY,width:W-p*2,line:ro.verdict,fig:ro.verdictFig,ink:C.ink,muted:C.muted,brandText:C.ink,font:DISPLAY,measure,size:24,scale:1,edit:edit?{raw:model.verdict??''}:undefined});out.push(block.svg);end=verdictY+block.height+24;}
-  const H=Math.ceil(end),physicalW=ctx.slide?Math.round(W*1.35):W,start=['<svg data-map-layout="zone-atlas" xmlns="http://www.w3.org/2000/svg" width="'+physicalW+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="'+FONT+'">','<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>'];
+  if(ro.verdict){const block=svgVerdict({x:p,y:verdictY,width:W-p*2,line:ro.verdict,fig:ro.verdictFig,ink:C.ink,muted:C.muted,brandText:C.brandText||C.ink,font:DISPLAY,measure,size:24,scale:1,edit:edit?{raw:model.verdict??''}:undefined});out.push(block.svg);end=verdictY+block.height+24;}
+  const H=Math.ceil(end),slideScale=ctx.slide?1.35:1,physicalW=Math.round(W*slideScale),physicalH=Math.round(H*slideScale),start=['<svg data-map-layout="zone-atlas" xmlns="http://www.w3.org/2000/svg" width="'+physicalW+'" height="'+physicalH+'" viewBox="0 0 '+W+' '+H+'" font-family="'+FONT+'">','<rect width="'+W+'" height="'+H+'" fill="'+C.bg+'"/>'];
   title.forEach((line,index)=>start.push('<text data-title-line="'+(index+1)+'" x="'+p+'" y="'+(36+index*27)+'" font-family="'+DISPLAY+'" font-size="24" font-weight="700" fill="'+C.ink+'">'+esc(line)+'</text>'));
   if(title.length&&model.items.length)start.push(svgMetrics({x:p,y:55+Math.max(0,title.length-1)*27,model:'',counts:ro.counts||[],ink:C.ink,muted:C.muted,font:FONT,scale:1}));
   return start.concat(out,['</svg>']).join('');

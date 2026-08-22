@@ -74,7 +74,11 @@ test('slide variant scales up', () => {
   const base = run('preset: risk\nA @ 60,85');
   const slide = run('preset: risk\nA @ 60,85', {slide: true});
   const w = s => +s.match(/width="(\d+)"/)[1];
+  const h = s => +s.match(/height="(\d+)"/)[1];
   assert.ok(w(slide) > w(base));
+  assert.ok(h(slide) > h(base), 'slide scale must enlarge both physical dimensions');
+  assert.ok(Math.abs(w(slide) / h(slide) - w(base) / h(base)) < 0.01,
+    'slide scale preserves the field aspect ratio instead of adding horizontal whitespace');
 });
 
 test('nudge separates overlapping boxes deterministically and clamps to bounds', () => {
@@ -224,16 +228,15 @@ test('card hit rects never overlap on the default first-run example (EXAMPLES[0]
   }
 });
 
-test('crowded stack: hit-rect heights cap to the neighbour gap, no overlap; floor never below the visible card', () => {
-  /* three items authored on top of each other: nudge stacks the capsules
-     tightly, so the 44px boxes would overlap without the cap */
+test('crowded stack switches to a keyed field index before menu targets become smaller than 44px', () => {
+  /* Three authored claims on the same coordinate require a genuine disambiguation
+     route—not invisible shrinking click strips. */
   const svg = run('x: A\ny: B\nAlpha @ 50,50\nBeta @ 50,50\nGamma @ 50,50', {edit: true});
   const rects = hitRects(svg);
   assert.equal(rects.length, 3);
-  assert.equal(anyOverlap(rects), null, 'capped hit rects must not overlap');
-  /* at least one card is capped below the full 44, and none below the 20px card height */
-  assert.ok(rects.some(r => r.h < 44 - 0.01), 'expected at least one capped (<44) hit rect in a crowded stack');
-  assert.ok(rects.every(r => r.h >= 20 - 0.01), 'hit rect never shrinks below the visible card height');
+  assert.match(svg, /FIELD INDEX · SOURCE ORDER/);
+  assert.equal(anyOverlap(rects), null, 'keyed targets must remain separate');
+  assert.ok(rects.every(r => r.h >= 44), 'each menu route remains a true 44px target');
 });
 
 
@@ -249,11 +252,12 @@ test('metrics row is gone without a title (the minimal header keeps its own shap
   assert.doesNotMatch(run('preset: assumptions\nA @ 20,80'), /PLACED/);
 });
 
-test('verdict block: VERDICT kicker and a neutral 24px display line', () => {
+test('verdict block: VERDICT kicker and one restrained shared key figure', () => {
   const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
   assert.match(svg, />VERDICT</);
   assert.match(svg, /font-size="24" font-weight="700"/);
-  assert.doesNotMatch(svg, /#D62015|#FF4B3E/, 'the field has no ornamental brand colour');
+  assert.match(svg, /<tspan class="vfig" fill="#D62015">2 of 3<\/tspan>/,
+    'the verdict may carry exactly one shared key figure, never decorative field chrome');
   assert.match(svg, /assumptions sit in test first/);
 });
 

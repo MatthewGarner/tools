@@ -1073,6 +1073,12 @@ for(const [k, src] of Object.entries(docs)){
   const mres = mz(mm);
   variants['map-presentation'] = renderMapPresentation(mm, mres, mro(mm, mres), {...ctxBase});
   variants['map-presentation-dark'] = renderMapPresentation(mm, mres, mro(mm, mres), {...ctxDark});
+  const {mapDiff, mapDiffView} = await import('../map/diff.js');
+  const plateBefore = mp('preset: assumptions\ntitle: Launch assumptions\nReaders finish the first book @ 20,90\nGone @ 70,20');
+  const plateAfter = mp('preset: assumptions\ntitle: Launch assumptions\nReaders finish the first book @ 40,70\nNew evidence @ 70,20');
+  const plateResolved = mz(plateAfter);
+  variants['map-presentation-diff'] = renderMapPresentation(plateAfter, plateResolved, mro(plateAfter, plateResolved), {...ctxBase},
+    mapDiffView(mapDiff(plateBefore, plateAfter), 'Prior review'));
 
   const {parse: wp} = await import('../why/parse.js');
   const {renderCausalPresentation: renderWhyPresentation} = await import('../why/causal-presentation.js');

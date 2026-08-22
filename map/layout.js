@@ -3,7 +3,6 @@
 import {wrapText} from '../assets/svg.js';
 
 export const MAP_DIRECT_CAPACITY = 9;
-export const MAP_PRESENTATION_LIMIT = 8;
 
 export function measuredLines(text, font, maxWidth, measure){
   const out = [];
@@ -62,11 +61,11 @@ export function nudge(boxes, x0, y0, x1, y1, iters = 64){
 }
 
 export function layoutPlaced(records, {planeX, planeY, planeW, planeH, scale = 1,
-  measure, font, maxLabelW = 190, zoneObstacles = []}){
+  measure, font, maxLabelW = 190, zoneObstacles = [], forceKeyed = false}){
   const placed = records.filter(record => record.item.x != null);
   const prepared = placed.map(record => ({...record,
     lines: measuredLines(record.item.label, font, maxLabelW * scale, measure)}));
-  const keyed = prepared.length > MAP_DIRECT_CAPACITY || prepared.some(record => record.lines.length > 2);
+  const keyed = forceKeyed || prepared.length > MAP_DIRECT_CAPACITY || prepared.some(record => record.lines.length > 2);
   const px = x => planeX + x / 100 * planeW;
   const py = y => planeY + (1 - y / 100) * planeH;
   if(keyed) return {mode: 'keyed', records: prepared.map(record => ({...record, it: record.item,
@@ -84,16 +83,4 @@ export function layoutPlaced(records, {planeX, planeY, planeW, planeH, scale = 1
     planeX + 2, planeY + 2, planeX + planeW - 2, planeY + planeH - 2);
   boxes.forEach((box, i) => { box.x = nudged[i].x; box.y = nudged[i].y; });
   return {mode: 'direct', records: boxes};
-}
-
-export function presentationSelection(model, ro, limit = MAP_PRESENTATION_LIMIT){
-  const records = sourceItems(model, ro).filter(record => record.item.x != null);
-  const ranked = records.slice().sort((a, b) =>
-    Number(b.flagged) - Number(a.flagged) ||
-    (b.item.y - a.item.y) ||
-    (a.item.x - b.item.x) ||
-    (a.sourceOrder - b.sourceOrder));
-  const selected = ranked.slice(0, Math.max(0, limit));
-  return {selected, total: records.length, remainder: Math.max(0, records.length - selected.length),
-    rule: 'flagged first · then field position · source order'};
 }

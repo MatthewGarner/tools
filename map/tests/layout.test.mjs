@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {layoutPlaced, measuredLines, presentationSelection, sourceItems} from '../layout.js';
+import {layoutPlaced, measuredLines, sourceItems} from '../layout.js';
 
 const measure = (text, font = '') => String(text).length * (+(/([\d.]+)px/.exec(font)?.[1] || 12)) * 0.55;
 
@@ -37,11 +37,4 @@ test('single long tokens break within the measured label width', () => {
   const lines = measuredLines('Supercalifragilisticexpialidocious', '700 11px sans-serif', 55, measure);
   assert.ok(lines.length > 1);
   assert.ok(lines.every(line => measure(line, '700 11px sans-serif') <= 55.01));
-});
-
-test('presentation selection is flagged first, then top-to-bottom/left-to-right field position', () => {
-  const model = parse('Low @ 10,10\nTop right @ 80,90\nFlagged low @ 90,5\nTop left @ 20,90');
-  const ro = {flagged: [{item: model.items[2]}]};
-  const names = presentationSelection(model, ro, 4).selected.map(record => record.item.label);
-  assert.deepEqual(names, ['Flagged low', 'Top left', 'Top right', 'Low']);
 });

@@ -9,7 +9,7 @@ import {mapDiff, mapDiffView} from '../diff.js';
 
 const ctx = {
   colors: {card:'#fff', border:'#d6d4cf', ink:'#171717', muted:'#73716d', accent:'#2457d6', accentInk:'#1c45aa', bg:'#f8f7f4',
-    err:'#bf3029', status:{done:'#1D7A3E', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'}},
+    err:'#bf3029', brandText:'#d62015', status:{done:'#1D7A3E', doing:'#0C7FAE', risk:'#9A6A00', blocked:'#B3403A'}},
   measure: text => String(text).length * 7,
 };
 const source = `preset: assumptions
@@ -37,12 +37,21 @@ test('Zone Atlas phone is a source-order audit ledger, not a shrunken plane', ()
   const svg = render(model, resolved, ro, {...ctx, width:390, edit:true});
   assert.match(svg, /data-map-layout="zone-atlas-phone"/);
   assert.match(svg, /SOURCE ORDER · PLACEMENT AUDIT/);
-  assert.match(svg, /FROM EVIDENCE TO STRONG/);
+  assert.match(svg, /X · EVIDENCE — NONE TO STRONG/);
+  assert.match(svg, /Y · IMPORTANCE — LOW TO HIGH/);
   assert.match(svg, /data-title-hit/);
   assert.match(svg, /data-position-hit/);
   assert.match(svg, /data-field-raw="watch 5 onboarding sessions"[^>]*data-key="test"/,
     'the phone ledger preserves the same quiet field-menu route');
   assert.ok(!svg.includes('data-map-field="coordinates"'));
+});
+
+test('Zone Atlas phone keeps the full authored item label in its source-order receipt', () => {
+  const label = Array.from({length: 40}, (_, index) => 'word' + (index + 1)).join(' ');
+  const m = parse(label + ' @ 30,70'), r = resolve(m);
+  const phone = render(m, r, readout(m, r), {...ctx, width:390});
+  assert.match(phone, /word1/);
+  assert.match(phone, /word40/, 'a source-order receipt cannot silently truncate its authored item');
 });
 
 test('Zone Atlas keeps an authored field reachable through the quiet item menu', () => {
@@ -62,6 +71,17 @@ test('Zone Atlas presentation is complete or explicitly refuses — never a rank
   assert.ok(!svg.includes('FURTHER IN FULL SVG'));
 });
 
+test('Zone Atlas plate reserves clear header space for a wrapped title and its metrics', () => {
+  const title = 'A deliberately long map title that takes two disciplined display lines while retaining a clean boundary before the coordinate field starts below it '.repeat(2).trim();
+  const m = parse('title: ' + title + '\nA @ 20,80');
+  const r = resolve(m), svg = renderMapPresentation(m, r, readout(m, r), ctx);
+  assert.ok(svg, 'a two-line title remains a valid single plate');
+  assert.equal((svg.match(/data-title-line=/g) || []).length, 2);
+  const metricsY = +(svg.match(/<text x="100" y="([\d.]+)" font-size="14"/) || [])[1];
+  const fieldY = +(svg.match(/<rect x="100" y="([\d.]+)" width="1160"/) || [])[1];
+  assert.ok(metricsY < fieldY, 'metrics must sit above, never in, the coordinate field');
+});
+
 test('Zone Atlas presentation retains active snapshot facts rather than exporting a silent current state', () => {
   const before = parse('preset: assumptions\nA @ 20,80\nGone @ 70,20');
   const after = parse('preset: assumptions\nA @ 40,70\nNew evidence @ 70,20');
@@ -70,6 +90,8 @@ test('Zone Atlas presentation retains active snapshot facts rather than exportin
   assert.match(svg, /SINCE PRIOR REVIEW/);
   assert.match(svg, /NEW/);
   assert.match(svg, /WAS · GONE/);
+  assert.match(svg, /MOVED · 1/);
+  assert.match(svg, /stroke-dasharray="3 4"/);
 });
 
 test('Zone Atlas dark mode stays a quiet field with red reserved for the warning', () => {
@@ -78,4 +100,19 @@ test('Zone Atlas dark mode stays a quiet field with red reserved for the warning
   assert.match(dark, /data-map-layout="zone-atlas"/);
   assert.match(dark, /fill="#ff6b62">TEST FIRST</);
   assert.ok(!dark.includes('fill="#7c97ff"'), 'the inherited accent never becomes decorative map chrome');
+});
+
+test('Zone Atlas keeps one shared key figure in its verdict, not a colour system', () => {
+  const svg = render(model, resolved, ro, ctx);
+  assert.match(svg, /<tspan class="vfig" fill="#d62015">2 of 3<\/tspan>/);
+});
+
+test('Zone Atlas treats named-zone labels as placement obstacles', () => {
+  const m = parse('zones: grid 2x2\nzone 1,1: One very long deliberate scenario name\nSignal @ 25,25');
+  const r = resolve(m), svg = render(m, r, readout(m, r), ctx);
+  const zone = svg.match(/<text x="[\d.]+" y="([\d.]+)" text-anchor="middle"[^>]*>ONE VERY LONG DELIBERATE SCENARIO NAME<\/text>/);
+  const signal = svg.match(/<text data-edit="label"[^>]*data-raw="Signal" x="[\d.]+" y="([\d.]+)"[^>]*>Signal<\/text>/);
+  assert.ok(zone && signal);
+  assert.ok(Math.abs(+zone[1] - +signal[1]) >= 15,
+    'the item label must not print on the named-zone baseline');
 });
