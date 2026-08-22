@@ -3,7 +3,7 @@
    status palette, owners, deadlines, or an operational workflow. */
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc, editTarget, btnAttrs} from '../assets/svg.js';
-import {paintOrder, labelAnchors} from './zones.js';
+import {effectiveBoundaries, labelAnchors} from './zones.js';
 import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
 import {layoutPlaced, measuredLines, sourceItems} from './layout.js';
 
@@ -46,9 +46,9 @@ function drawPlane(out, model, resolved, C, x, y, w, h, edit){
   out.push('<rect data-plane="1" data-map-field="coordinates" x="' + n(x) + '" y="' + n(y) + '" width="' + n(w) + '" height="' + n(h) + '" fill="' + C.card + '" stroke="' + C.border + '"/>');
   /* A Map needs its zones legible. The geometry is a hairline, not a coloured
      panel; red belongs solely to the test-first / flagged semantic. */
-  for(const {pts} of paintOrder(resolved)){
-    const d = pts.map(([a,b], index) => (index ? 'L' : 'M') + n(px(a)) + ' ' + n(py(b))).join('') + 'Z';
-    out.push('<path d="' + d + '" fill="none" stroke="' + C.border + '" stroke-width="1" opacity=".72"/>');
+  for(const {from, to} of effectiveBoundaries(resolved)){
+    out.push('<line data-map-boundary="" x1="' + n(px(from[0])) + '" y1="' + n(py(from[1])) +
+      '" x2="' + n(px(to[0])) + '" y2="' + n(py(to[1])) + '" stroke="' + C.border + '" stroke-width="1" opacity=".72"/>');
   }
   if(resolved.grid){
     for(let col=1; col<resolved.grid.cols; col++) out.push('<line x1="' + n(px(col*100/resolved.grid.cols)) + '" y1="' + y + '" x2="' + n(px(col*100/resolved.grid.cols)) + '" y2="' + n(y+h) + '" stroke="' + C.border + '"/>');
@@ -95,7 +95,6 @@ function drawPlaced(out, plan, flags, C, edit, diff){
     const hitH = Math.max(44,record.h);
     out.push(cardOpen(record.it,edit).replace('>', ' data-display-id="'+record.id+'" data-geometry="'+[record.cx,record.cy,record.x,record.y,record.w,record.h].map(n).join(',')+'">'));
     out.push('<rect data-hit="" x="'+n(record.x)+'" y="'+n(middle-hitH/2)+'" width="'+n(record.w+16)+'" height="'+n(hitH)+'" fill="'+C.card+'" fill-opacity="0"/>');
-    if(Math.hypot(record.cx-(record.x+record.w/2),record.cy-middle)>18) out.push('<line x1="'+n(record.cx)+'" y1="'+n(record.cy)+'" x2="'+n(record.x+record.w/2)+'" y2="'+n(middle)+'" stroke="'+C.border+'"/>');
     out.push(marker(record.cx,record.cy,flags.has(record.it.srcLine),C));
     if(newly(record.it.label)) out.push('<circle cx="'+n(record.cx)+'" cy="'+n(record.cy)+'" r="8" fill="none" stroke="'+C.ink+'" stroke-width="1"/><text x="'+n(record.cx+11)+'" y="'+n(record.cy-7)+'" font-size="8" font-weight="650" letter-spacing=".7" fill="'+C.muted+'">NEW</text>');
     const tx=record.x+8, base=record.y+16, bad=flags.has(record.it.srcLine);

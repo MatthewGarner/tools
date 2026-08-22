@@ -11,7 +11,9 @@ operating follow-up and must not be coerced into probability questions.
 
 The Zone Atlas live view makes the placement claim legible in one coordinate field;
 the adjacent decision margin contains only derived action, warning, source index, or
-unplaced facts. Named-zone labels are geometry that placed labels must avoid. When
+unplaced facts. A zone hairline denotes an actual change in the winning decision,
+never the hidden extent of a lower-priority rule. A placed label sits immediately by
+its diamond; the field never uses leader lines. Named-zone labels are geometry that placed labels must avoid. When
 direct 44px edit routes would collide, the same source facts move to the margin's
 indexed route rather than shrinking tap targets. On a phone it becomes a source-order
 placement audit with both axes named and a compact position field, not a shrunken

@@ -33,6 +33,14 @@ test('assumptions map renders zones, cards, axes, verdict', () => {
   assert.ok(!svg.includes('NaN'));
 });
 
+test('map annotations never need leader lines: a label belongs beside its mark or in the field index', () => {
+  const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 70,60');
+  const cards = [...svg.matchAll(/<g data-edit="cardmenu"[^>]*>[\s\S]*?<\/g>/g)].map(match => match[0]);
+  assert.ok(cards.length >= 2, 'the direct field supplies two card annotations');
+  assert.ok(cards.every(card => !card.includes('<line ')),
+    'a connector would slice through text and turn the field into a diagram');
+});
+
 test('unplaced items render in a tray with data-tray; tray absent when all placed', () => {
   const withTray = run('preset: assumptions\nA @ 20,80\nLegal sign-off');
   assert.ok(withTray.includes('UNPLACED'));
@@ -228,6 +236,18 @@ test('card hit rects never overlap on the default first-run example (EXAMPLES[0]
       'the first-run map keeps its claim labels in the coordinate field');
     const hit = anyOverlap(rects);
     assert.equal(hit, null, extra.slide ? 'slide-mode default overlaps ' + hit : 'default overlaps ' + hit);
+  }
+});
+
+test('direct field labels remain immediately adjacent to their own marker', () => {
+  const svg = run(EXAMPLES[0].src, {edit: true});
+  const geometries = [...svg.matchAll(/data-geometry="([\d.,-]+)"/g)].map(match => match[1].split(',').map(Number));
+  assert.equal(geometries.length, 7, 'the default map keeps all placed claims in the field');
+  for(const [cx, cy, x, y, w, h] of geometries){
+    const dx = Math.max(x - cx, 0, cx - (x + w));
+    const dy = Math.max(y - cy, 0, cy - (y + h));
+    assert.ok(Math.hypot(dx, dy) <= 8,
+      'a direct label must touch its diamond’s immediate reading area; got ' + dx + '×' + dy + ' away');
   }
 });
 

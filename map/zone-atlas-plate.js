@@ -2,7 +2,7 @@
    absent, so the export control can direct people to the exhaustive SVG. */
 import {PALETTES, scheme} from '../assets/series.js';
 import {esc} from '../assets/svg.js';
-import {paintOrder, labelAnchors} from './zones.js';
+import {effectiveBoundaries, labelAnchors} from './zones.js';
 import {layoutPlaced, measuredLines, sourceItems} from './layout.js';
 
 const FONT = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
@@ -29,7 +29,7 @@ export function renderZoneAtlasPlate(model,resolved,ro,ctx={},diff=null){
   out.push('<text x="100" y="'+metricsY+'" font-size="14" font-weight="600" letter-spacing="1.25" fill="'+C.muted+'">'+esc((ro.counts||[]).filter(Boolean).join(' · ').toUpperCase())+'</text>');
   out.push('<text x="1820" y="92" text-anchor="end" font-size="14" font-weight="600" letter-spacing="1.1" fill="'+C.muted+'">TWO-AXIS FIELD</text>');
   out.push('<rect x="'+fx+'" y="'+fy+'" width="'+fw+'" height="'+fh+'" fill="'+C.card+'" stroke="'+C.border+'"/>');
-  for(const {pts} of paintOrder(resolved)){const d=pts.map(([a,b],i)=>(i?'L':'M')+n(px(a))+' '+n(py(b))).join('')+'Z';out.push('<path d="'+d+'" fill="none" stroke="'+C.border+'" stroke-width="1.25"/>');}
+  for(const {from,to} of effectiveBoundaries(resolved))out.push('<line data-map-boundary="" x1="'+n(px(from[0]))+'" y1="'+n(py(from[1]))+'" x2="'+n(px(to[0]))+'" y2="'+n(py(to[1]))+'" stroke="'+C.border+'" stroke-width="1.25"/>');
   if(resolved.grid){for(let c=1;c<resolved.grid.cols;c++)out.push('<line x1="'+n(px(c*100/resolved.grid.cols))+'" y1="'+fy+'" x2="'+n(px(c*100/resolved.grid.cols))+'" y2="'+(fy+fh)+'" stroke="'+C.border+'"/>');for(let r=1;r<resolved.grid.rows;r++)out.push('<line x1="'+fx+'" y1="'+n(py(r*100/resolved.grid.rows))+'" x2="'+(fx+fw)+'" y2="'+n(py(r*100/resolved.grid.rows))+'" stroke="'+C.border+'"/>');}
   const anchors=labelAnchors(resolved),obstacles=[];
   for(const zone of resolved.zones){if(zone.kind==='unzoned'||zone.anonymous)continue;const at=anchors.get(zone.id);if(!at)continue;const zx=px(at[0]),zy=py(at[1]),label=upper(zone.name);out.push('<text x="'+n(zx)+'" y="'+n(zy)+'" text-anchor="middle" font-size="13" font-weight="600" letter-spacing="1.4" fill="'+zoneInk(zone,C)+'">'+esc(label)+'</text>');obstacles.push({x:zx-label.length*5,y:zy-16,w:label.length*10,h:21,fixed:true});}
@@ -41,7 +41,7 @@ export function renderZoneAtlasPlate(model,resolved,ro,ctx={},diff=null){
     const gx=px(ghost.from[0]),gy=py(ghost.from[1]),tx=px(ghost.to[0]),ty=py(ghost.to[1]);
     out.push('<line x1="'+n(gx)+'" y1="'+n(gy)+'" x2="'+n(tx)+'" y2="'+n(ty)+'" stroke="'+C.muted+'" stroke-width="1.25" stroke-dasharray="3 4"/><circle cx="'+n(gx)+'" cy="'+n(gy)+'" r="7" fill="none" stroke="'+C.muted+'" stroke-dasharray="2 2"/>');
   }
-  if(plan.mode==='direct')for(const record of plan.records){const bad=flags.has(record.it.srcLine),tx=record.x+12,base=record.y+23;out.push(marker(record.cx,record.cy,bad,C));if(newly(record.it.label))out.push('<circle cx="'+n(record.cx)+'" cy="'+n(record.cy)+'" r="13" fill="none" stroke="'+C.ink+'" stroke-width="1.25"/><text x="'+n(record.cx+17)+'" y="'+n(record.cy-10)+'" font-size="10" font-weight="650" letter-spacing=".8" fill="'+C.muted+'">NEW</text>');if(Math.hypot(record.cx-(record.x+record.w/2),record.cy-(record.y+record.h/2))>20)out.push('<line x1="'+n(record.cx)+'" y1="'+n(record.cy)+'" x2="'+n(record.x+record.w/2)+'" y2="'+n(record.y+record.h/2)+'" stroke="'+C.border+'"/>');record.lines.forEach((line,index)=>out.push('<text x="'+n(tx)+'" y="'+n(base+index*21)+'" font-size="18" font-weight="650" fill="'+(bad?C.err:C.ink)+'">'+esc(line)+'</text>'));}
+  if(plan.mode==='direct')for(const record of plan.records){const bad=flags.has(record.it.srcLine),tx=record.x+12,base=record.y+23;out.push(marker(record.cx,record.cy,bad,C));if(newly(record.it.label))out.push('<circle cx="'+n(record.cx)+'" cy="'+n(record.cy)+'" r="13" fill="none" stroke="'+C.ink+'" stroke-width="1.25"/><text x="'+n(record.cx+17)+'" y="'+n(record.cy-10)+'" font-size="10" font-weight="650" letter-spacing=".8" fill="'+C.muted+'">NEW</text>');record.lines.forEach((line,index)=>out.push('<text x="'+n(tx)+'" y="'+n(base+index*21)+'" font-size="18" font-weight="650" fill="'+(bad?C.err:C.ink)+'">'+esc(line)+'</text>'));}
   else for(const record of plan.records){out.push(marker(record.cx,record.cy,flags.has(record.item.srcLine),C));if(newly(record.item.label))out.push('<circle cx="'+n(record.cx)+'" cy="'+n(record.cy)+'" r="13" fill="none" stroke="'+C.ink+'" stroke-width="1.25"/><text x="'+n(record.cx+17)+'" y="'+n(record.cy-10)+'" font-size="10" font-weight="650" letter-spacing=".8" fill="'+C.muted+'">NEW</text>');out.push('<text x="'+n(record.cx+13)+'" y="'+n(record.cy+5)+'" font-size="12" font-weight="650" fill="'+C.muted+'">'+record.id+'</text>');}
   let y=fy+14;out.push('<line x1="'+(mx-18)+'" y1="'+(fy-2)+'" x2="'+(mx-18)+'" y2="'+(fy+40)+'" stroke="'+C.ink+'" stroke-width="3"/>','<text x="'+mx+'" y="'+y+'" font-size="13" font-weight="600" letter-spacing="1.5" fill="'+C.muted+'">DECISION MARGIN</text>');y+=38;
   const action=ro.zones.filter(e=>e.items.length||e.advice).slice().sort((a,b)=>Number(b.zone.tone==='bad')-Number(a.zone.tone==='bad')||b.items.length-a.items.length)[0];

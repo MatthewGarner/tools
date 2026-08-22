@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {PRESETS, PRESET_NAMES, resolve, zoneFor, ruleHolds, zonePolygon, paintOrder, labelAnchors} from '../zones.js';
+import {PRESETS, PRESET_NAMES, resolve, zoneFor, ruleHolds, zonePolygon, paintOrder, effectiveBoundaries, labelAnchors} from '../zones.js';
 
 const blank = () => ({title:'', palette:'ocean', accent:null, preset:null,
   axes:{x:null, y:null}, grid:null, cellNames:[], ruleZones:[], items:[], warnings:[]});
@@ -168,6 +168,18 @@ test('paint order: cells first, then rules lowest-precedence-first', () => {
                {name:'b', rules:[{expr:'y', op:'>', val:70}], srcLine:2}]};
   const order = paintOrder(resolve(m)).map(e => e.zone.kind === 'cell' ? 'cell' : e.zone.name);
   assert.deepEqual(order, ['cell', 'cell', 'cell', 'cell', 'b', 'a']);
+});
+
+test('assumption-map hairlines only divide a changed decision zone', () => {
+  const edges = effectiveBoundaries(resolve({...blank(), preset:'assumptions'}));
+  const same = (a, b) => a.every((n, i) => Math.abs(n - b[i]) < 0.001);
+  const has = (a, b) => edges.some(edge => (same(edge.from, a) && same(edge.to, b)) ||
+    (same(edge.from, b) && same(edge.to, a)));
+  assert.ok(has([0, 50], [50, 50]), 'test first ends at the horizontal midline');
+  assert.ok(has([50, 50], [50, 100]), 'test first ends at the vertical midline');
+  assert.ok(has([50, 50], [100, 0]), 'keep an eye on meets safe enough diagonally');
+  assert.ok(!has([0, 100], [50, 50]),
+    'the keep-an-eye-on rule is suppressed inside test first, so it has no visible diagonal there');
 });
 
 test('label anchors land inside their own zone', () => {

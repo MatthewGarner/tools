@@ -282,6 +282,53 @@ export function paintOrder(resolved){
     .filter(e => e.pts && e.pts.length >= 3);
 }
 
+/* Internal zone geometry is deliberately broader than what a person should see:
+   a lower-priority rule can run beneath an earlier rule without changing the
+   decision. A visible hairline is therefore emitted only where two adjacent
+   samples resolve to different winning zones. */
+export function effectiveBoundaries(resolved){
+  const raw = [];
+  for(const {pts} of paintOrder(resolved)) for(let i = 0; i < pts.length; i++){
+    const from = pts[i], to = pts[(i + 1) % pts.length];
+    const frame = (from[0] === to[0] && (from[0] === 0 || from[0] === 100)) ||
+      (from[1] === to[1] && (from[1] === 0 || from[1] === 100));
+    if(!frame) raw.push({from, to});
+  }
+  const cross = (a, b) => a[0] * b[1] - a[1] * b[0];
+  const intersection = (a, b, c, d) => {
+    const ab = [b[0] - a[0], b[1] - a[1]], cd = [d[0] - c[0], d[1] - c[1]];
+    const den = cross(ab, cd);
+    if(Math.abs(den) < 1e-8) return null;
+    const ac = [c[0] - a[0], c[1] - a[1]], t = cross(ac, cd) / den, u = cross(ac, ab) / den;
+    return t > 1e-7 && t < 1 - 1e-7 && u >= -1e-7 && u <= 1 + 1e-7
+      ? [a[0] + ab[0] * t, a[1] + ab[1] * t] : null;
+  };
+  const key = p => Math.round(p[0] * 1e6) + ',' + Math.round(p[1] * 1e6);
+  const out = [], seen = new Set();
+  for(const edge of raw){
+    const cuts = [edge.from, edge.to];
+    for(const other of raw){
+      const at = intersection(edge.from, edge.to, other.from, other.to);
+      if(at) cuts.push(at);
+    }
+    const dx = edge.to[0] - edge.from[0], dy = edge.to[1] - edge.from[1], length = Math.hypot(dx, dy);
+    cuts.sort((a, b) => ((a[0] - edge.from[0]) * dx + (a[1] - edge.from[1]) * dy) -
+      ((b[0] - edge.from[0]) * dx + (b[1] - edge.from[1]) * dy));
+    for(let i = 0; i < cuts.length - 1; i++){
+      const from = cuts[i], to = cuts[i + 1];
+      if(Math.hypot(to[0] - from[0], to[1] - from[1]) < 1e-7) continue;
+      const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2], sample = .04;
+      const nx = -dy / length * sample, ny = dx / length * sample;
+      const left = [mid[0] + nx, mid[1] + ny], right = [mid[0] - nx, mid[1] - ny];
+      if(left.some(v => v <= 0 || v >= 100) || right.some(v => v <= 0 || v >= 100)) continue;
+      if(zoneFor(resolved, left[0], left[1]).id === zoneFor(resolved, right[0], right[1]).id) continue;
+      const signature = [key(from), key(to)].sort().join('|');
+      if(!seen.has(signature)){ seen.add(signature); out.push({from, to}); }
+    }
+  }
+  return out;
+}
+
 /* label anchor per zone: mean of the lattice samples the zone actually wins,
    snapped to the nearest winning sample if the mean falls in another zone */
 export function labelAnchors(resolved, step = 4){
