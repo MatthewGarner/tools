@@ -31,7 +31,7 @@ export function sourceItems(model, ro){
   }));
 }
 
-export function nudge(boxes, x0, y0, x1, y1, iters = 24){
+export function nudge(boxes, x0, y0, x1, y1, iters = 64){
   const b = boxes.map(o => ({...o}));
   for(let it = 0; it < iters; it++){
     let moved = false;

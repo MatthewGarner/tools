@@ -2130,16 +2130,19 @@ check('no console/page errors', errors.length === 0);
     await mpage.waitForTimeout(200);
   }
 
-  /* the hit-rect gate: a readout-panel field tap shares its card's
-     data-line but sits far outside the menu's hit-rect (a different plane
-     entirely), so it must keep its direct value edit rather than redirect. */
+  /* Fields deliberately stay out of the live plane. The item's menu carries
+     the authored value/key instead, so the exact edit remains available without
+     reintroducing a second visual readout. */
   {
-    const roField = mpage.locator('#preview svg text[data-edit="field"]').first();
-    await roField.scrollIntoViewIfNeeded();
+    const fieldMenu = mpage.locator('#preview svg g[data-edit="cardmenu"][data-line="3"] rect[data-hit]');
+    await fieldMenu.scrollIntoViewIfNeeded();
     await mpage.waitForTimeout(300);
-    const roBox = await roField.boundingBox();
-    await mpage.mouse.click(roBox.x + roBox.width / 2, roBox.y + roBox.height / 2);
-    check('map: coarse readout field tap opens the value editor, not the menu', await until(async () => (await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1)));
+    const fieldBox = await fieldMenu.boundingBox();
+    await mpage.mouse.click(fieldBox.x + 4, fieldBox.y + fieldBox.height / 2);
+    await mpage.locator('.eip-pop button', {hasText: 'Edit field…'}).click();
+    check('map: coarse menu keeps the authored field editable without a visual readout', await until(async () =>
+      (await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1 &&
+       await mpage.locator('.eip-input').inputValue() === 'watch 5 onboarding sessions')));
     await mpage.keyboard.press('Escape');
     await mpage.waitForTimeout(200);
   }

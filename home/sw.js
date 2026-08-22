@@ -134,6 +134,8 @@ const PRECACHE = [
   '/map/readout.js',
   '/map/render-presentation.js',
   '/map/render.js',
+  '/map/zone-atlas-plate.js',
+  '/map/zone-atlas.js',
   '/map/starter.js',
   '/map/style.css',
   '/map/zones.js',

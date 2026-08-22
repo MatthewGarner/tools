@@ -66,13 +66,11 @@ const FLOORS = {
      inline field kinds. Its root/decision/chance/leaf menus plus verdict
      remain, and each menu carries field-specific raw values for its rows. */
   tree:      {kinds: 6, menu: true},
-  /* map (mobile-input stage, 2026-07-16): Move…/Place on map… landed as a
-     cardmenu ROW and the tray gained the same cardmenu kind — no NEW data-edit
-     kind at the time. The set is now additem, axis, cardmenu, field, label,
-     removeitem, verdict, verdictedit — the last two arrived with verdict EIP
-     (2026-08-02) and the floor sat at 6 until it was re-measured. The Move…
-     behaviour is gated in dev/pw/check-eip.mjs. */
-  map:       {kinds: 8, menu: true},
+  /* Map's Zone Atlas deliberately replaces the legacy inventory of visible
+     field/remove controls with a source-order placement audit. Its exact phone
+     contract lives below: a compact position field, one menu plane per source
+     item, and the authored field route carried by that menu. */
+  map:       {menu: true, field: true},
   /* bets (mobile-input stage, 2026-07-16): the narrow board's structure surface
      landed — name (rename) + addbet/addgroup capsules join the unconditional
      stake/odds/payoff/kill cells and the per-card data-menu: 8 distinct kinds. */
@@ -184,13 +182,13 @@ const DRIVERS = {
     const m = parse(doc);
     return render(m, evaluate(m), {...ctx, edit: true, intent: 'live-narrow', width: W, coarse: true});
   },
-  async map(doc){    // map has no narrow relayout either
+  async map(doc){
     const {parse} = await import('../map/parse.js');
     const {resolve} = await import('../map/zones.js');
     const {readout} = await import('../map/readout.js');
     const {render} = await import('../map/render.js');
     const m = parse(doc), r = resolve(m);
-    return render(m, r, readout(m, r), {...ctx, edit: true});
+    return render(m, r, readout(m, r), {...ctx, edit: true, width: W});
   },
   async bets(doc){   // value cells are unconditional; ctx.edit gates the structure surface
     const {parse} = await import('../bets/parse.js');
@@ -253,9 +251,20 @@ test('every edit-in-place tool has a declared phone-edit floor (and no stale ent
 });
 
 for(const [tool, floor] of Object.entries(FLOORS)){
-  test('phone edit surface: ' + tool + (floor.pilot ? ' [KNOWN GAP — pilot target]' : ''), async () => {
+  test((floor.field ? 'phone Field contract: ' : 'phone edit surface: ') + tool + (floor.pilot ? ' [KNOWN GAP — pilot target]' : ''), async () => {
     const svg = await DRIVERS[tool](DOCS[tool]);
     const kinds = editKinds(svg);
+    if(floor.field){
+      assert.match(svg, /data-map-layout="zone-atlas-phone"/);
+      assert.match(svg, /SOURCE ORDER · PLACEMENT AUDIT/);
+      assert.match(svg, /data-position-hit/);
+      assert.match(svg, /data-field-raw="watch 5 onboarding sessions"[^>]*data-key="test"/);
+      assert.doesNotMatch(svg, /data-map-field="coordinates"/,
+        'the phone audit must not be a shrunken desktop coordinate field');
+      assert.deepEqual([...kinds].sort(), ['additem', 'cardmenu', 'label'],
+        'only direct-reading controls belong in the phone Field; the menu carries the rest');
+      return;
+    }
     if(floor.pilot){
       assert.equal(kinds.size, floor.kinds,
         tool + ' now emits ' + kinds.size + ' edit kind(s) at phone width (' + [...kinds].join(', ') +

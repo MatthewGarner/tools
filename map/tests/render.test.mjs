@@ -107,16 +107,14 @@ test('nudge: fixed obstacles never move; free boxes move off them', () => {
 const CAP_H = 20, CAP_PAD_X = 8, CAP_BASE_UP = 6;
 const capsuleFromLabel = (x, base) => ({x: x - CAP_PAD_X, y: base + CAP_BASE_UP - CAP_H, h: CAP_H});
 
-test('zone labels are nudge obstacles: a card authored on a zone label moves off it', () => {
+test('zone labels remain available as semantic geometry while authored marks stay exact', () => {
   /* futures: cell label sits at the cell centre; author a card exactly there */
   const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
   const label = svg.match(/<g data-edit="zonename"[^>]*data-zone="c:1,1"[^>]*><text x="([\d.]+)" y="([\d.]+)"/);
   const item = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"/);
   assert.ok(label && item);
-  const cap = capsuleFromLabel(+item[1], +item[2]);
-  /* the item's box must not contain the zone label's baseline */
-  const ly = +label[2];
-  assert.ok(ly < cap.y - 2 || ly > cap.y + cap.h + 2, 'zone label baseline inside the item box');
+  const mark = svg.match(/transform="rotate\(45 ([\d.]+) ([\d.]+)\)"/);
+  assert.ok(mark && +mark[1] === 277 && +mark[2] === 433, 'the map never silently moves an authored position');
 });
 
 test('authored positions unchanged by nudge: markers stay at exact coordinates', () => {
@@ -127,20 +125,16 @@ test('authored positions unchanged by nudge: markers stay at exact coordinates',
   assert.equal(new Set(marks).size, 1);
 });
 
-test('flagged items are marked by shape AND colour, never colour alone', () => {
+test('flagged items use the restrained red only for the semantic test-first claim', () => {
   const svg = run('preset: assumptions\nUntested bet @ 20,80');
   /* the err-inked label … */
   const lab = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"[^>]*fill="#b33"/);
   assert.ok(lab, 'flagged label carries the err hue');
-  /* … plus a rule under it, which is what survives greyscale and colour-blindness */
-  const rule = new RegExp('<rect x="' + lab[1] + '" y="' + (+lab[2] + 3).toFixed(2) +
-    '" width="[\\d.]+" height="2\\.00" fill="#b33"/>');
-  assert.match(svg, rule);
-  /* and the marker itself is err-inked */
+  /* and the diamond itself is err-inked (geometry survives greyscale) */
   assert.match(svg, /<rect [^>]*fill="#b33" transform="rotate\(45 /);
-  /* an unflagged item gets neither */
+  /* an unflagged item gets neither red label nor red marker */
   const clean = run('preset: assumptions\nSettled bet @ 20,80 :: test: five interviews');
-  assert.ok(!/height="2\.00" fill="#b33"/.test(clean));
+  assert.doesNotMatch(clean, /data-edit="label"[^>]*fill="#b33"/, 'a settled item is not painted as a warning');
 });
 
 test('placed cards carry data-edit="cardmenu" with a >=44px data-hit rect as the first child; tray items do not', () => {
@@ -164,23 +158,19 @@ test('edit mode: tray items become cardmenu triggers (Place on map… is the coa
   assert.ok(trayGroup[0].includes('data-edit="cardmenu"'), 'tray group must be a cardmenu trigger in edit mode');
   assert.ok(trayGroup[0].includes('data-menu=""'), 'tray cardmenu must carry the coarse-redirect data-menu marker');
   assert.ok(trayGroup[0].includes('role="button"'), 'tray cardmenu must be keyboard-operable');
-  /* the hit rect fills the row pitch (26px) — capped so adjacent rows never overlap */
+  /* the margin row is a true coarse target, not a text-sized click area */
   const h = +trayGroup[1].match(/height="([\d.]+)"/)[1];
-  assert.equal(h, 26);
+  assert.ok(h >= 30);
 });
 
-test('cardmenu hit rect is centred on the label box, not the authored marker', () => {
+test('cardmenu hit rect gives the label a stable coarse plane', () => {
   /* futures preset nudges cards off zone labels, so the box != the marker here */
   const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
   const item = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"/);
   const hit = svg.match(/<rect data-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
   assert.ok(item && hit);
-  const cap = capsuleFromLabel(+item[1], +item[2]);
-  const hitCentreY = +hit[2] + (+hit[4]) / 2;
-  assert.ok(Math.abs(cap.y + cap.h / 2 - hitCentreY) < 0.5, 'hit rect must centre on the label box centre');
-  /* left edge: the padding strip the suites tap to open the menu without
-     landing on a glyph must still exist */
-  assert.ok(Math.abs(+hit[1] - cap.x) < 0.5, 'hit rect starts one card-padding left of the label');
+  assert.ok(+hit[3] >= 44 || +hit[4] >= 44, 'whole-card menu plane has a coarse target');
+  assert.ok(+hit[1] <= +item[1], 'menu plane starts before the factual label');
 });
 
 test('plane-level widens: axis, zonename and additem targets get a >=44px invisible box, no data-hit', () => {
@@ -259,23 +249,22 @@ test('metrics row is gone without a title (the minimal header keeps its own shap
   assert.doesNotMatch(run('preset: assumptions\nA @ 20,80'), /PLACED/);
 });
 
-test('verdict block: VERDICT kicker, 24px display line, exactly one brand figure', () => {
+test('verdict block: VERDICT kicker and a neutral 24px display line', () => {
   const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 30,90\nC @ 80,20\nD');
   assert.match(svg, />VERDICT</);
-  assert.match(svg, /font-size="24" font-weight="700" letter-spacing="-0\.36"/);
-  assert.match(svg, /<tspan class="vfig" fill="#D62015">2 of 3<\/tspan>/);
-  assert.equal((svg.match(/#D62015/g) || []).length, 1, 'brand red appears once and only on the figure');
+  assert.match(svg, /font-size="24" font-weight="700"/);
+  assert.doesNotMatch(svg, /#D62015|#FF4B3E/, 'the field has no ornamental brand colour');
   assert.match(svg, /assumptions sit in test first/);
 });
 
-test('the verdict advance drives the readout flow — a long verdict never overlaps a zone column', () => {
+test('the verdict flows below the field — a long verdict never overlaps its decision margin', () => {
   const long = 'verdict: ' + 'This deliberately long authored verdict keeps stating the decision and its consequence '.repeat(4) +
     '\npreset: risk\ntitle: T\nA @ 90,90\nB @ 10,10';
   const svg = run(long);
-  const ys = [...svg.matchAll(/y="([\d.]+)" font-family="'Helvetica Neue'[^>]*font-size="24"/g)].map(m => +m[1]);
+  const ys = [...svg.matchAll(/y="([\d.]+)"[^>]*font-size="24"/g)].map(m => +m[1]);
   assert.ok(ys.length >= 2, 'the long verdict really did wrap');
-  const zoneY = +svg.match(/y="([\d.]+)" font-size="10\.5" font-weight="600" letter-spacing="0\.8"/)[1];
-  assert.ok(zoneY > ys[ys.length - 1], 'the zone columns start below the last verdict line');
+  const planeY = +svg.match(/data-plane="1"[^>]*y="([\d.]+)"/)[1];
+  assert.ok(ys.at(-1) > planeY + 540, 'the verdict starts after the coordinate field');
 });
 
 test('semantic item geometry is identical with and without edit chrome', () => {
@@ -286,32 +275,31 @@ test('semantic item geometry is identical with and without edit chrome', () => {
 });
 
 test('long title uses measured lines and increases the header before the field', () => {
-  const svg = run('title: A deliberately long map title that should settle cleanly across two measured lines without clipping\npreset: risk\nA @ 50,50');
+  const svg = run('title: ' + 'A deliberately long map title that should settle cleanly across measured lines without clipping '.repeat(3) + '\npreset: risk\nA @ 50,50');
   const lines = [...svg.matchAll(/data-title-line="(\d+)"/g)];
   assert.ok(lines.length >= 2);
   const planeY = +svg.match(/data-plane="1"[^>]*y="([\d.]+)"/)[1];
   assert.ok(planeY > 70);
 });
 
-test('dense native map expands for an exhaustive source-order key', () => {
+test('dense native map keeps one field and moves source detail into its factual margin', () => {
   const src = 'preset: risk\ntitle: Dense\n' + Array.from({length: 12}, (_, i) => `Risk ${i + 1} @ 50,50`).join('\n');
   const svg = run(src);
-  assert.match(svg, /data-map-key=""/);
-  assert.match(svg, /FULL MAP KEY · SOURCE ORDER/);
+  assert.doesNotMatch(svg, /data-map-key=""/);
+  assert.match(svg, /FIELD INDEX · SOURCE ORDER/);
   for(const id of ['M01', 'M06', 'M12']) assert.ok(svg.includes(id));
   for(let i = 1; i <= 12; i++) assert.ok(svg.includes('Risk ' + i));
-  assert.equal(+svg.match(/data-plane="1"[^>]*width="([\d.]+)"/)[1], 620, 'field keeps its minimum width');
-  assert.ok(+svg.match(/<svg[^>]*width="(\d+)"/)[1] > 718, 'native artboard expands for the key');
+  assert.equal(+svg.match(/data-plane="1"[^>]*width="([\d.]+)"/)[1], 820, 'field keeps its reading width');
+  assert.equal(+svg.match(/<svg[^>]*width="(\d+)"/)[1], 1234, 'native artboard holds a fixed decision margin');
 });
 
-test('narrow dense map keeps the field width and puts the register below it', () => {
+test('narrow dense map becomes a source-order placement ledger', () => {
   const src = 'preset: assumptions\ntitle: Dense\n' + Array.from({length: 10}, (_, i) => `Item ${i + 1} @ 50,50`).join('\n');
   const svg = run(src, {width: 390});
   const plane = svg.match(/data-plane="1"[^>]*y="([\d.]+)"[^>]*width="([\d.]+)" height="([\d.]+)"/);
-  const keyY = +svg.match(/data-map-key=""[^>]*y="([\d.]+)"/)[1];
-  assert.equal(+plane[2], 620);
-  assert.ok(keyY >= +plane[1] + +plane[3]);
-  assert.match(svg, /data-narrow=""/);
+  assert.equal(+plane[2], 354);
+  assert.match(svg, /data-map-layout="zone-atlas-phone"[^>]*data-narrow=""/);
+  assert.match(svg, /SOURCE ORDER · PLACEMENT AUDIT/);
 });
 
 test('small maps across core presets retain direct labels', () => {

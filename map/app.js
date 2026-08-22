@@ -146,8 +146,7 @@ attachEditInPlace($('preview'), {
     verdictedit: {validate: validVerdictInput, placeholder: () => ro ? ro.verdict : ''},
     cardmenu: {menu: el => {
       const it = model && model.items.find(i => i.srcLine === +el.dataset.line);
-      const fieldTarget = $('preview').querySelector('[data-edit="field"][data-line="' + el.dataset.line + '"]');
-      return cardMenuRows(it, !!fieldTarget);
+      return cardMenuRows(it, !!it?.fields.length);
     }},
   },
   onCommit(kind, lineNo, oldRaw, newValue, el){
@@ -231,7 +230,7 @@ function nativeSvgString(){
 function presentationSvgString(){
   if(!hasContent() || !ro) return null;
   return renderMapPresentation(model, resolved, ro,
-    {colors: themeColors(), measure, dark: isDark(), intent: 'presentation'});
+    {colors: themeColors(), measure, dark: isDark(), intent: 'presentation'}, currentDiff());
 }
 function slug(){
   return slugify(model.title || model.preset, 'map');

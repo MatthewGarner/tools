@@ -454,6 +454,7 @@ for(const [k, src] of Object.entries(docs)){
   const curMap = mparse(mdocs['map-assumptions']);
   const md = mapDiffView(mapDiff(oldMap, curMap), 'SNAP');
   const rr = mresolve(curMap);
+  variants['map-assumptions-dark'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxDark, edit:true}));
   variants['map-diff'] = norm(mrender(curMap, rr, mreadout(curMap, rr), {...ctxBase}, md));
   variants['map-assumptions-slide'] = mk(mdocs['map-assumptions'], {slide: true});
   variants['map-verdict-off'] = mk('verdict: off\n' + mdocs['map-assumptions']);
@@ -463,9 +464,12 @@ for(const [k, src] of Object.entries(docs)){
      exhaustive keyed layout moves its source-order register from beside the
      plane to below it. Ten collocated items are the smallest deterministic
      fixture that selects that composition; edit:true matches the live preview. */
-  variants['map-dense-narrow'] = mk('preset: assumptions\ntitle: Dense assumptions\n' +
-    Array.from({length: 10}, (_, i) => 'Assumption ' + (i + 1) + ' @ 50,50').join('\n'),
-    {width: 390, edit: true});
+  const denseSource = 'preset: assumptions\ntitle: Dense assumptions\n' +
+    Array.from({length: 10}, (_, i) => 'Assumption ' + (i + 1) + ' @ 50,50').join('\n');
+  variants['map-dense-narrow'] = mk(denseSource, {width: 390, edit: true});
+  const denseModel = mparse(denseSource), denseResolved = mresolve(denseModel);
+  variants['map-dense-narrow-dark'] = norm(mrender(denseModel, denseResolved,
+    mreadout(denseModel, denseResolved), {...ctxDark, width:390, edit:true}));
 
   const pm = mparse(mdocs['map-assumptions']);
   const pr = mresolve(pm);
@@ -1068,6 +1072,7 @@ for(const [k, src] of Object.entries(docs)){
   const mm = mp(mdoc);
   const mres = mz(mm);
   variants['map-presentation'] = renderMapPresentation(mm, mres, mro(mm, mres), {...ctxBase});
+  variants['map-presentation-dark'] = renderMapPresentation(mm, mres, mro(mm, mres), {...ctxDark});
 
   const {parse: wp} = await import('../why/parse.js');
   const {renderCausalPresentation: renderWhyPresentation} = await import('../why/causal-presentation.js');

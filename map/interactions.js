@@ -24,12 +24,12 @@ export function createPostDragClickGuard(schedule = fn => setTimeout(fn, 0), can
   };
 }
 
-/* The renderer exposes exactly one field target only when fields exist. Keep
-   the menu in lockstep so every visible row always has a reachable action. */
-export function cardMenuRows(item, hasFieldTarget = false){
+/* Field values stay in the source model, not as incidental map decoration.
+   The card trigger carries its first authored field route for the menu fallback. */
+export function cardMenuRows(item, hasFieldRoute = false){
   if(!item) return [];
   const rows = [{label: 'Rename…', opens: 'label'}];
-  if(hasFieldTarget)
+  if(hasFieldRoute)
     rows.push({label: 'Edit field…', opens: 'field'});
   rows.push(
     {label: 'Inspect…', action: true},

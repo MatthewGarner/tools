@@ -14,12 +14,12 @@ test('fieldless item menu contains only actions with rendered targets', () => {
   assert.deepEqual(labels(cardMenuRows({x: 20, fields: []}, false)), ['Rename…', 'Inspect…', 'Move…', 'Remove']);
 });
 
-test('field menu appears when the renderer has a field target', () => {
+test('field menu appears when the quiet card carries a field route', () => {
   assert.deepEqual(labels(cardMenuRows({x: 20, fields: [{key: 'owner', val: 'Jo'}]}, true)),
     ['Rename…', 'Edit field…', 'Inspect…', 'Move…', 'Remove']);
 });
 
-test('menu omits Edit field when a crowded readout did not render that target', () => {
+test('menu omits Edit field when the item has no authored field route', () => {
   assert.deepEqual(labels(cardMenuRows({x: 20, fields: [{key: 'owner', val: 'Jo'}]}, false)),
     ['Rename…', 'Inspect…', 'Move…', 'Remove']);
   assert.deepEqual(cardMenuRows(null, false), []);

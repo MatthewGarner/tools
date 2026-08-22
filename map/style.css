@@ -27,6 +27,15 @@
 .preview.placing svg{cursor:crosshair}
 .preview.placing rect[data-plane]{stroke:var(--accent);stroke-width:1.5}
 
+/* The source rail is the primary way to add records. Keep this secondary
+   affordance out of the field's resting composition, but discoverable by
+   intent on a precise pointer and always available to keyboard users. */
+@media (min-width:641px) and (pointer:fine){
+  .preview svg [data-edit="additem"] .quiet-add{opacity:0}
+  .preview svg [data-edit="additem"]:hover .quiet-add,
+  .preview svg [data-edit="additem"]:focus .quiet-add{opacity:1}
+}
+
 .dragghost{
   position:fixed;z-index:50;pointer-events:none;max-width:240px;
   padding:8px 14px;border-radius:0;font-size:13px;font-weight:600;

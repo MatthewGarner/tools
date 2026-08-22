@@ -12,16 +12,17 @@ const source = 'preset: assumptions\ntitle: Presentation map\n' +
   Array.from({length: 11}, (_, i) => `Item ${i + 1} @ ${10 + i * 7},${90 - i * 6}`).join('\n');
 const model = parse(source), resolved = resolve(model), ro = readout(model, resolved);
 
-test('presentation is fixed 1920×1080 and states its selection and remainder', () => {
+test('presentation is fixed 1920×1080 and remains complete at plate scale', () => {
   const svg = renderMapPresentation(model, resolved, ro, {colors, measure});
   assert.match(svg, /^<svg[^>]+width="1920" height="1080" viewBox="0 0 1920 1080"/);
-  assert.match(svg, /SELECTION · FLAGGED FIRST · THEN FIELD POSITION · SOURCE ORDER/);
-  assert.match(svg, /8 SHOWN · 3 FURTHER IN FULL SVG/);
-  assert.match(svg, /PRESENTATION SUMMARY · FULL DETAIL: DOWNLOAD SVG/);
+  assert.match(svg, /data-map-layout="zone-atlas-plate"/);
+  assert.match(svg, /FIELD INDEX · SOURCE ORDER/);
+  for(let i = 1; i <= 11; i++) assert.match(svg, new RegExp('Item ' + i));
+  assert.doesNotMatch(svg, /SELECTION ·|FURTHER IN FULL SVG|DOWNLOAD SVG/);
   assert.ok(!svg.includes('data-edit='));
 });
 
-test('presentation display IDs remain source IDs even when selection is ranked', () => {
+test('presentation display IDs remain source IDs when the field needs an index', () => {
   const svg = renderMapPresentation(model, resolved, ro, {colors, measure});
   assert.match(svg, /M01/);
   assert.match(svg, /M08/);
