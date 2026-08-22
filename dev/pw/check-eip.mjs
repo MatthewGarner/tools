@@ -2116,16 +2116,20 @@ check('no console/page errors', errors.length === 0);
   await mpage.getByRole('button', {name: 'Assumption map'}).click();
   await mpage.waitForTimeout(600);
 
-  /* coarse menu-first redirect: tap the CENTRE of the label text itself — a
-     [data-edit="label"] field that shares the card's own srcLine — and
-     confirm it redirects to the card menu, not the label editor. */
+  /* The phone ledger now makes its two card actions spatially explicit:
+     tap the named title route to rename; tap the separate right-gutter
+     ellipsis route for contextual actions. Keep the title behaviour direct
+     rather than silently collapsing it back into the legacy menu-first path. */
   {
     const labelField = mpage.locator('#preview svg [data-edit="label"][data-line="3"]').first();
     await labelField.scrollIntoViewIfNeeded();
     await mpage.waitForTimeout(300);
     const labelBox = await labelField.boundingBox();
+    const labelRaw = await labelField.getAttribute('data-raw');
     await mpage.mouse.click(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
-    check('map: coarse label-field tap opens the menu, not the label editor', await until(async () => (await mpage.locator('.eip-pop').count() === 1)));
+    check('map: coarse title route opens its prefilled rename input, not the menu', await until(async () =>
+      (await mpage.locator('.eip-pop').count() === 0 && await mpage.locator('.eip-input').count() === 1 &&
+       await mpage.locator('.eip-input').inputValue() === labelRaw)));
     await mpage.keyboard.press('Escape');
     await mpage.waitForTimeout(200);
   }
