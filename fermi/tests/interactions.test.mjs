@@ -52,9 +52,24 @@ test('cashflow source grammar refuses a fractional or out-of-range tenor', () =>
       horizon: 2, grain: 'year', rateLower: '8', rateUpper: '12',
       debtEnabled: true, dscr: '1.3', costOfDebt: '6.5', tenor, sizingCase: 'central',
     });
-    assert.equal(parsed.spec, null);
+    assert.ok(parsed.spec, 'the valid cashflow remains available');
+    assert.equal(parsed.spec.debt, undefined);
+    assert.match(parsed.spec.debtError, /Tenor/);
     assert.match(parsed.errors.join(' '), /Tenor/);
   }
+});
+
+test('invalid debt fields pause only debt sizing, not a valid base cashflow', () => {
+  const parsed = parseCashflowInputs({
+    periods: [{lo: '-10', hi: '-8'}, {lo: '2', hi: '4'}],
+    horizon: 2, grain: 'year', rateLower: '8', rateUpper: '12',
+    debtEnabled: true, dscr: 'zero', costOfDebt: '-101', tenor: '2.5', sizingCase: 'central',
+  });
+  assert.ok(parsed.spec);
+  assert.equal(parsed.spec.debt, undefined);
+  assert.match(parsed.spec.debtError, /DSCR/);
+  assert.match(parsed.spec.debtError, /Cost of debt/);
+  assert.match(parsed.spec.debtError, /Tenor/);
 });
 
 test('the web cashflow form delegates its scalar boundary to the shared source parser', () => {

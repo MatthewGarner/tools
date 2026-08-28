@@ -1444,16 +1444,19 @@ function cfParse(){
     periods: cf.periods, horizon: cf.horizon, grain: cf.grain,
     rateLower: cf.rlo, rateUpper: cf.rhi, debtEnabled: cf.debtOn,
     dscr: cf.dscr, costOfDebt: cf.rd, tenor: cf.tenor, sizingCase: cf.sizingCase,
-  }).spec;
+  });
 }
 function cfPaint(){
   if(pageMode !== 'cf') return;
   updateModelTrace();
-  const spec = cfParse();
+  const parsed = cfParse();
+  const spec = parsed.spec;
   if(!spec){
-    $('cfwrap').innerHTML = '<p class="placeholder">Waiting on ranges — every period needs two numbers (k / M suffixes fine), and the discount rate two percentages.</p>';
+    const detail = parsed.baseErrors.join(' ') || 'Every period needs two numbers (k / M suffixes fine), and the discount rate two percentages.';
+    $('cfwrap').innerHTML = '<p class="placeholder">Waiting on ranges — ' + detail + '</p>';
     cfResult = null; cfSig = ''; cfSvg = '';
     $('cftout').textContent = '—';
+    $('cfwarn').textContent = '';
     $('cfdebtbox').hidden = true;
     clearTimeout(cfHashTimer);
     cfHashTimer = setTimeout(cfWriteHash, 400);
@@ -1468,6 +1471,7 @@ function cfPaint(){
   }
   const svg = renderCashflow(cfResult, cfSpec, {colors: themeColors()});
   if(svg !== cfSvg){ $('cfwrap').innerHTML = svg; cfSvg = svg; }
+  $('cfwarn').textContent = parsed.debtErrors.length ? 'Debt sizing paused — ' + parsed.debtErrors.join(' ') : '';
   // debt sizing only makes sense for an investment (money out then in)
   $('cfdebtbox').hidden = cfResult.framing !== 'invest';
   $('cfdebtfields').hidden = !cf.debtOn;

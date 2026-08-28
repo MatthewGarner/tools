@@ -66,7 +66,9 @@ function paintFitsWidth(svg, measure){
     if(!x) continue;
     const size = match[1].match(/\sfont-size="([\d.]+)"/), weight = match[1].match(/\sfont-weight="([\d.]+)"/);
     const text = match[2].replace(/&(?:amp|lt|gt|quot|#39);/g, 'x');
-    const width = measure(text, (weight?.[1] || '400') + ' ' + (size?.[1] || '13') + 'px ' + SANS);
+    const tracking = +(match[1].match(/\sletter-spacing="([\d.]+)"/)?.[1] || 0);
+    const width = measure(text, (weight?.[1] || '400') + ' ' + (size?.[1] || '13') + 'px ' + SANS) +
+      Math.max(0, text.length - 1) * tracking;
     const anchor = match[1].match(/\stext-anchor="(end|middle)"/), point = +x[1];
     const left = anchor?.[1] === 'end' ? point - width : anchor?.[1] === 'middle' ? point - width / 2 : point;
     const right = anchor?.[1] === 'end' ? point : anchor?.[1] === 'middle' ? point + width / 2 : point + width;
@@ -74,35 +76,16 @@ function paintFitsWidth(svg, measure){
   }
   return true;
 }
-function directLabelsFit(model, ctx, style){
-  const fit = (text, size, width, tracking) => ctx.measure(String(text).toUpperCase(),
-    '700 ' + size + 'px ' + SANS) + Math.max(0, String(text).length - 1) * tracking <= width;
-  if(style === 'board'){
-    const n = Math.max(1, model.horizons.length), colW = (INNER - (n - 1) * 24) / n;
-    const labels = ctx.exportPage?.dropped ? ['DROPPED SINCE ' + (ctx.diff?.since || '')] : model.horizons;
-    return labels.every(label => fit(label, 13, colW - 72, 1.2));
-  }
-  if(style === 'grid'){
-    const n = Math.max(1, model.horizons.length), laneW = 156;
-    const colW = (INNER - laneW - (n - 1) * 10) / n;
-    return model.horizons.every(label => fit(label, 12, colW - 24, 1.1)) &&
-      [...new Set(model.items.map(item => item.lane || 'Unlaned'))]
-        .every(label => fit(label, 11, laneW - 12, 1.1));
-  }
-  if(style === 'focus'){
-    const hero = Math.max(0, model.horizons.findIndex((_, h) => model.items.some(item => item.h === h)));
-    const heroW = Math.round(INNER * .62), railW = INNER - heroW - 32;
-    return model.horizons.every((label, h) => !model.items.some(item => item.h === h) ||
-      fit(label, h === hero ? 20 : 12, h === hero ? heroW : railW, 1.2));
-  }
-  return true;
+function headerLines(text, size, width, tracking, measure){
+  const font = '700 ' + size + 'px ' + SANS;
+  return wrapText(String(text || '').toUpperCase(), font, Math.max(1, width),
+    value => measure(value, font) + Math.max(0, String(value).length - 1) * tracking);
 }
 function exhaustivePageGeometryFits(model, sourceModel, ctx, C, style, height, dropped){
   const body = style === 'grid' ? exhaustiveGridBody : style === 'focus' ? exhaustiveFocusBody :
     style === 'register' ? exhaustiveRegisterBody : exhaustiveBoardBody;
   const page = dropped ? {dropped:true} : undefined;
   const pageCtx = {...ctx, sourceModel, exportPage:page, planning:true};
-  if(!directLabelsFit(model, pageCtx, style)) return false;
   const svg = body(model, pageCtx, C)(0, height);
   return maximumPaintY(svg) <= height - 24 && paintFitsWidth(svg, ctx.measure);
 }
@@ -118,14 +101,21 @@ function exhaustiveBoardBody(model, ctx, C){
     const n = Math.max(1, model.horizons.length);
     const gap = 24, colW = (INNER - (n - 1) * gap) / n;
     const byH = h => model.items.filter(item => item.h === h);
+    const droppedPage = !!ctx.exportPage?.dropped;
+    const labels = model.horizons.map(label => droppedPage ? 'DROPPED SINCE ' + (ctx.diff?.since || '') : label);
+    const header = labels.map(label => headerLines(label, 13, colW - 72, 1.2, ctx.measure));
+    const headerLineH = Math.max(1, ...header.map(lines => lines.length)) * 16;
+    const ruleY = y0 + 22 + headerLineH;
+    const cardTop = ruleY + 14;
     const s = [];
     for(let h = 0; h < n; h++){
-      const x = M + h * (colW + gap), first = h === 0, droppedPage = !!ctx.exportPage?.dropped;
-      s.push(txt(x + 18, y0 + 28, (droppedPage ? 'DROPPED SINCE ' + (ctx.diff?.since || '') : model.horizons[h]).toUpperCase(), 13, first ? C.ink : C.muted, {weight:700, tracking:1.2}));
+      const x = M + h * (colW + gap), first = h === 0;
+      header[h].forEach((lineText, index) => s.push(txt(x + 18, y0 + 28 + index * 16, lineText, 13,
+        first ? C.ink : C.muted, {weight:700, tracking:1.2})));
       s.push(txt(x + colW - 18, y0 + 28, String(byH(h).length), 13, C.muted, {anchor: 'end', weight: 700}));
-      s.push(line(x, y0 + 38, x + colW, y0 + 38, C.border, 1, .9));
-      if(first) s.push(line(x, y0 + 38, x + 18, y0 + 38, C.ink, 2));
-      let y = y0 + 52;
+      s.push(line(x, ruleY, x + colW, ruleY, C.border, 1, .9));
+      if(first) s.push(line(x, ruleY, x + 18, ruleY, C.ink, 2));
+      let y = cardTop;
       for(const item of byH(h)){
         const status = item.status ? (STATUS_LABEL[item.status] || item.status).toUpperCase() : '';
         const titleLines = wrapText(exportTitle(item), '700 17px ' + SANS, colW - 36, ctx.measure);
@@ -164,17 +154,23 @@ function exhaustiveGridBody(model, ctx, C){
     const colW = (INNER - laneW - (n - 1) * gap) / n;
     const labels = [...new Set(model.items.map(item => item.lane || 'Unlaned'))];
     if(!labels.length) labels.push('Unlaned');
+    const horizonHeader = model.horizons.map(label => headerLines(label, 12, colW - 24, 1.1, ctx.measure));
+    const headerLineH = Math.max(1, ...horizonHeader.map(lines => lines.length)) * 15;
+    const ruleY = y0 + 15 + headerLineH;
     const s = [];
     for(let h = 0; h < n; h++){
       const x = M + laneW + h * (colW + gap);
-      s.push(txt(x + 12, y0 + 22, model.horizons[h].toUpperCase(), 12, h === 0 ? C.ink : C.muted, {weight:700, tracking:1.1}));
-      s.push(line(x, y0 + 30, x + colW, y0 + 30, h === 0 ? C.ink : C.border, h === 0 ? 2 : 1, 1));
+      horizonHeader[h].forEach((lineText, index) => s.push(txt(x + 12, y0 + 22 + index * 15, lineText, 12,
+        h === 0 ? C.ink : C.muted, {weight:700, tracking:1.1})));
+      s.push(line(x, ruleY, x + colW, ruleY, h === 0 ? C.ink : C.border, h === 0 ? 2 : 1, 1));
     }
-    let y = y0 + 46;
+    let y = ruleY + 16;
     for(const lane of labels){
       const items = model.items.filter(item => (item.lane || 'Unlaned') === lane);
       if(!items.length) continue;
       const laneTop = y;
+      const laneLines = headerLines(lane, 11, laneW - 12, 1.1, ctx.measure);
+      const cardTop = laneTop + (laneLines.length - 1) * 15 + 4;
       const cards = items.map(item => {
         const start = Math.max(0, item.h), span = Math.max(1, item.span || 1);
         const x = M + laneW + start * (colW + gap) + 6;
@@ -187,7 +183,7 @@ function exhaustiveGridBody(model, ctx, C){
       const packed = packLane(cards);
       const rowH = new Array(packed.nTracks).fill(0);
       cards.forEach((card, index) => { rowH[packed.at[index]] = Math.max(rowH[packed.at[index]], card.h); });
-      const trackY = [laneTop];
+      const trackY = [cardTop];
       for(let track = 0; track < rowH.length; track++) trackY.push(trackY[track] + rowH[track] + 8);
       cards.forEach((card, index) => {
         const {item, x, w, lines, h} = card;
@@ -201,8 +197,11 @@ function exhaustiveGridBody(model, ctx, C){
         if(lines.status) s.push(txt(x + w - 12, ty, lines.status, 10.5,
           C.statusInk[item.status] || C.status[item.status], {anchor:'end', weight:700, tracking:.75}));
       });
-      s.push(txt(M, laneTop + 20, lane.toUpperCase(), 11, C.muted, {weight:700, tracking:1.1}));
-      y = laneTop + Math.max(48, trackY.at(-1) - laneTop - 8) + 18;
+      laneLines.forEach((lineText, index) => s.push(txt(M, laneTop + 20 + index * 15, lineText, 11, C.muted,
+        {weight:700, tracking:1.1})));
+      const cardsBottom = cardTop + Math.max(48, trackY.at(-1) - cardTop - 8);
+      const labelBottom = laneTop + 28 + (laneLines.length - 1) * 15;
+      y = Math.max(cardsBottom, labelBottom) + 18;
     }
     if(!ctx.planning) s.push(txt(M, y1 - 8, 'GRID · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
     return s.join('');
@@ -214,10 +213,13 @@ function exhaustiveFocusBody(model, ctx, C){
     const source = ctx.sourceModel || model;
     const hero = Math.max(0, model.horizons.findIndex((_, h) => model.items.some(item => item.h === h)));
     const heroW = Math.round(INNER * .62), railX = M + heroW + 32, railW = INNER - heroW - 32;
+    const heroLines = headerLines(model.horizons[hero], 20, heroW, 1.2, ctx.measure);
     const s = [txt(M, y0 + 18, 'FOCUS', 10, C.muted, {weight:700, tracking:1.3})];
-    s.push(txt(M, y0 + 50, model.horizons[hero].toUpperCase(), 20, C.ink, {weight:700, tracking:1.2}));
-    s.push(line(M, y0 + 62, M + heroW, y0 + 62, C.ink, 1.5));
-    let hy = y0 + 82;
+    heroLines.forEach((lineText, index) => s.push(txt(M, y0 + 50 + index * 24, lineText, 20, C.ink,
+      {weight:700, tracking:1.2})));
+    const heroRuleY = y0 + 62 + (heroLines.length - 1) * 24;
+    s.push(line(M, heroRuleY, M + heroW, heroRuleY, C.ink, 1.5));
+    let hy = heroRuleY + 20;
     for(const item of model.items.filter(item => item.h === hero)){
       const title = wrapText(exportTitle(item), '700 21px ' + SANS, heroW, ctx.measure);
       const detail = wrapText(exportDetail(source, item, {includeStatus:false}), '700 10.5px ' + SANS, heroW, ctx.measure);
@@ -237,9 +239,12 @@ function exhaustiveFocusBody(model, ctx, C){
     const populatedHorizons = model.horizons.map((_, h) => h)
       .filter(h => h !== hero && model.items.some(item => item.h === h));
     for(const h of populatedHorizons){
-      s.push(txt(railX, ry + 20, model.horizons[h].toUpperCase(), 12, C.muted, {weight:700, tracking:1.2}));
-      s.push(line(railX, ry + 28, railX + railW, ry + 28, C.border, 1, .6));
-      ry += 38;
+      const railLines = headerLines(model.horizons[h], 12, railW, 1.2, ctx.measure);
+      railLines.forEach((lineText, index) => s.push(txt(railX, ry + 20 + index * 16, lineText, 12, C.muted,
+        {weight:700, tracking:1.2})));
+      const railRuleY = ry + 28 + (railLines.length - 1) * 16;
+      s.push(line(railX, railRuleY, railX + railW, railRuleY, C.border, 1, .6));
+      ry += 38 + (railLines.length - 1) * 16;
       for(const item of model.items.filter(item => item.h === h)){
         const itemTop = ry;
         const itemBottom = itemTop + focusItemHeight(source, item, railW - 28, ctx.measure, 15, 19, 16) - 10;

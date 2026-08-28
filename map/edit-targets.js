@@ -34,7 +34,10 @@ function configValue(text, key, value){
     if(lines[i].trim().startsWith('//')) continue;
     if(re.test(lines[i])) target = i; // the parser's last declaration is effective
   }
-  if(target >= 0) lines[target] = lines[target].replace(re, (_, prefix) => prefix + value.trim());
+  if(target >= 0){
+    const comment = lines[target].match(/\s\/\/.*$/) || '';
+    lines[target] = lines[target].replace(re, (_, prefix) => prefix + value.trim() + comment);
+  }
   else lines.splice(configInsertIndex(lines), 0, key + ': ' + value.trim());
   return lines.join(lineEnding(source));
 }

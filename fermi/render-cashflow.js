@@ -191,6 +191,12 @@ export function renderCashflow(r, spec, ctx){
     y += 24;
     s.push(txt(PAD, y, 'DEBT SIZING — ' + r.debt.reason, 12.5, c.muted, {weight: 600}));
     y += 12;
+  } else if(spec.debtError){
+    y += 12;
+    s.push('<line x1="' + PAD + '" y1="' + f1(y) + '" x2="' + (W - PAD) + '" y2="' + f1(y) + '" stroke="' + c.border + '"/>');
+    y += 24;
+    s.push(txt(PAD, y, 'DEBT SIZING PAUSED — ' + spec.debtError, 12.5, c.muted, {weight: 600}));
+    y += 12;
   }
 
   const HT = y;
@@ -226,6 +232,8 @@ export function cashflowMarkdown(r, spec, url){
     lines.push('- _cover shortfall counts operating-years below covenant; periods are sampled independently, so the levered spread is tighter than correlated revenue would give_');
   } else if(r.debt && !r.debt.ok){
     lines.push('- debt sizing: ' + r.debt.reason);
+  } else if(spec.debtError){
+    lines.push('- debt sizing paused: ' + spec.debtError);
   }
   lines.push('');
   lines.push('_' + r.n.toLocaleString('en-GB') + ' seeded runs · [live model](' + url + ')_');

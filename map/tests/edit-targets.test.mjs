@@ -99,6 +99,12 @@ test('setTitle preserves literal replacement tokens in native text', () => {
     `title: ${replacement}\nClaim @ 20,80`);
 });
 
+test('setTitle preserves the effective declaration’s authored comment', () => {
+  const source = 'title: Historic // retain\ntitle: Effective // current rationale\nClaim @ 20,80';
+  assert.equal(setTitle(source, 'Calibrated claims'),
+    'title: Historic // retain\ntitle: Calibrated claims // current rationale\nClaim @ 20,80');
+});
+
 test('editLabel swaps exactly the old label text', () => {
   assert.equal(editLabel('Old name @ 10,20 :: note: n', 'Old name', 'New name'),
     'New name @ 10,20 :: note: n');

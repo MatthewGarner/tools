@@ -7,7 +7,7 @@ import {moveItem} from '../edit.js';
    transaction — one undo step, URL-coherent, re-rendered by the normal loop.
    The renderer is never mutated as a model. */
 import {setSpan, setSpanStart, moveItemKeepingSpan} from '../edit-targets.js';
-import {setLane, addNote, addStatus, ensureHorizonHeader} from '../edit-targets.js';
+import {setLane, addNote, addStatus, ensureHorizonHeader, setNote} from '../edit-targets.js';
 import {resolveBet, setCondition, clearCondition} from '../edit-targets.js';
 
 test('title rewrite keeps lane, status, note, link', () => {
@@ -23,7 +23,7 @@ test('status swap', () => {
 });
 test('validators reject structure-breakers', () => {
   assert.ok(validators.title('Nice title') && !validators.title('a -- b') && !validators.title('[x]'));
-  assert.ok(validators.note('fine') && !validators.note('a -- b'));
+  assert.ok(validators.note('fine') && !validators.note('a -- b') && !validators.note('a -> b') && !validators.note('a\t->\tb'));
 });
 
 const DOC = `title: Lantern — Product Roadmap
@@ -317,6 +317,18 @@ test('addNote lands after an xN token and preserves the span (round-trips)', () 
   const it = parse(out).items[0];
   assert.equal(it.span, 2);
   assert.equal(it.note, 'note');
+});
+
+test('note rewrites reject a structural link delimiter without acknowledging source loss', () => {
+  const source = 'NOW\nCore: Preserve the existing note -- retained context';
+  const line = 1;
+  for(const rejected of ['new note -> https://example.test/lost-suffix', 'new note\t->\thttps://example.test/lost-suffix']){
+    assert.equal(addNote('NOW\nCore: Add safely', line, rejected), 'NOW\nCore: Add safely');
+    assert.equal(setNote(source, line, rejected), source);
+    const item = parse(setNote(source, line, rejected)).items[0];
+    assert.equal(item.note, 'retained context');
+    assert.equal(item.url, null);
+  }
 });
 test('addStatus inserts a bracket status on a status-less item', () => {
   assert.match(addStatus('NOW\nCore: A -- n\n', 1, 'risk'), /^Core: A \[risk\] -- n$/m);

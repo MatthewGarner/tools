@@ -38,18 +38,19 @@ export function parseCashflowInputs({periods, horizon, grain, rateLower, rateUpp
   const rows = Array.isArray(periods) ? periods : [];
   const normalisedPeriods = rows.map(row => normaliseCashflowRange(row?.lo, row?.hi));
   const rate = normaliseCashflowRange(rateLower, rateUpper, parseCashflowScalar);
-  const errors = [];
-  if(normalisedPeriods.some(range => !range)) errors.push('Every cashflow period needs numeric lower and upper values.');
-  if(!rate) errors.push('Discount-rate bounds must be numeric percentages.');
+  const baseErrors = [];
+  if(normalisedPeriods.some(range => !range)) baseErrors.push('Every cashflow period needs numeric lower and upper values.');
+  if(!rate) baseErrors.push('Discount-rate bounds must be numeric percentages.');
 
   let debt;
+  const debtErrors = [];
   if(debtEnabled) {
     const parsedDSCR = parseCashflowScalar(dscr);
     const parsedCostOfDebt = parseCashflowScalar(costOfDebt);
     const parsedTenor = parseCashflowTenor(tenor);
-    if(!Number.isFinite(parsedDSCR) || !(parsedDSCR > 0)) errors.push('DSCR must be a numeric value greater than zero.');
-    if(!Number.isFinite(parsedCostOfDebt) || !(parsedCostOfDebt > -100)) errors.push('Cost of debt must be a numeric percentage greater than −100%.');
-    if(!parsedTenor.valid) errors.push('Tenor must be a whole number from 1 to 60, or blank for the available operating life.');
+    if(!Number.isFinite(parsedDSCR) || !(parsedDSCR > 0)) debtErrors.push('DSCR must be a numeric value greater than zero.');
+    if(!Number.isFinite(parsedCostOfDebt) || !(parsedCostOfDebt > -100)) debtErrors.push('Cost of debt must be a numeric percentage greater than −100%.');
+    if(!parsedTenor.valid) debtErrors.push('Tenor must be a whole number from 1 to 60, or blank for the available operating life.');
     debt = {
       dscr: parsedDSCR,
       costOfDebt: parsedCostOfDebt / 100,
@@ -58,14 +59,20 @@ export function parseCashflowInputs({periods, horizon, grain, rateLower, rateUpp
     };
   }
 
-  const ready = !errors.length && normalisedPeriods.length > 0 && rate;
+  const ready = !baseErrors.length && normalisedPeriods.length > 0 && rate;
+  const debtError = debtErrors.join(' ');
+  const spec = ready ? {periods: normalisedPeriods, horizon: effectiveHorizon(horizon, normalisedPeriods.length),
+    grain: grain === 'month' ? 'month' : 'year', rate, debt: debtErrors.length ? undefined : debt} : null;
+  if(spec && debtError) spec.debtError = debtError;
   return {
     periods: normalisedPeriods,
     rate,
     debt,
     horizon: effectiveHorizon(horizon, normalisedPeriods.length),
-    errors,
-    spec: ready ? {periods: normalisedPeriods, horizon: effectiveHorizon(horizon, normalisedPeriods.length), grain: grain === 'month' ? 'month' : 'year', rate, debt} : null,
+    baseErrors,
+    debtErrors,
+    errors: [...baseErrors, ...debtErrors],
+    spec,
   };
 }
 

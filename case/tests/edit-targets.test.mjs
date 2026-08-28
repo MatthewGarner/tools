@@ -52,6 +52,21 @@ test('native config rewrites target the parser-effective duplicate and clearing 
     'A -> /map/#x');
 });
 
+test('native config rewrites preserve comments on effective declarations', () => {
+  const source = [
+    'title: Historic // retain',
+    'title: Current // title rationale',
+    'question: Old? // question rationale',
+    'status: open // status rationale',
+    'verdict: Wait // verdict rationale',
+    'A -> /map/#x',
+  ].join('\n');
+  assert.match(setTitle(source, 'Renamed'), /title: Renamed \/\/ title rationale/);
+  assert.match(setQuestion(source, 'Decide?'), /question: Decide\? \/\/ question rationale/);
+  assert.match(setStatus(source, 'decided'), /status: decided \/\/ status rationale/);
+  assert.match(setVerdict(source, 'Proceed'), /verdict: Proceed \/\/ verdict rationale/);
+});
+
 test('addExhibitLine appends a canonical source-owned exhibit after content', () => {
   assert.deepEqual(addExhibitLine('title: T\n\nA -> /map/#x\n'), {afterLine: 2, newLine: 'New exhibit -> /fermi/'});
   assert.deepEqual(addExhibitLine(''), {afterLine: -1, newLine: 'New exhibit -> /fermi/'});

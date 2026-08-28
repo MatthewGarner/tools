@@ -85,6 +85,14 @@ test('financing card surfaces a clean reason when debt cannot be sized', () => {
   assert.match(renderCashflow(r, investSpec, ctx), /construction spend/i);
 });
 
+test('invalid debt inputs leave the base cashflow chart visible and name the validation error', () => {
+  const r = simulateCashflow(investSpec, {seed: 2, n: 4000});
+  const spec = {...investSpec, debtError: 'DSCR must be a numeric value greater than zero.'};
+  assert.match(renderCashflow(r, spec, ctx), /NPV P50/);
+  assert.match(renderCashflow(r, spec, ctx), /DEBT SIZING PAUSED.*DSCR/);
+  assert.match(cashflowMarkdown(r, spec, 'https://example.test/fermi/#x'), /debt sizing paused.*DSCR/i);
+});
+
 test('markdown carries the financing block when debt on', () => {
   const r = simulateCashflow(gearedSpec, {seed: 2, n: 4000});
   const md = cashflowMarkdown(r, gearedSpec, 'https://example.test/fermi/#x');

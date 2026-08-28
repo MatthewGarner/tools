@@ -3,10 +3,11 @@ import {parse, STATUS_ALIASES} from './parse.js';
 import {moveItem} from './edit.js';
 
 export const STATUSES = ['done', 'doing', 'risk', 'blocked'];
+const LINK_DELIMITER = /\s->\s/;
 
 export const validators = {
   title(v){ const s = v.trim(); return s.length > 0 && !/[[\]\n]/.test(s) && !s.includes(' -- '); },
-  note(v){ return !/[\n[\]]/.test(v) && !v.includes(' -- '); },
+  note(v){ return !/[\n[\]]/.test(v) && !v.includes(' -- ') && !LINK_DELIMITER.test(v); },
 };
 
 /* Does this bracket-tag content read as a STATUS word (done/doing/risk/blocked,
@@ -274,7 +275,7 @@ export function setLane(text, srcLine, lane){
    which parse would then read as note = "note xN", silently destroying the span). */
 export function addNote(text, srcLine, note){
   const n = String(note).trim();
-  if(!n || /[\n[\]]/.test(n) || n.includes(' -- ')) return text;
+  if(!n || /[\n[\]]/.test(n) || n.includes(' -- ') || LINK_DELIMITER.test(n)) return text;
   const lines = text.split(/\r?\n/);
   if(srcLine < 0 || srcLine >= lines.length) return text;
   const line = lines[srcLine];
@@ -287,7 +288,7 @@ export function addNote(text, srcLine, note){
    It deliberately leaves any -> URL suffix untouched. */
 export function setNote(text, srcLine, note){
   const n = String(note || '').trim();
-  if(/[\n[\]]/.test(n) || n.includes(' -- ')) return text;
+  if(/[\n[\]]/.test(n) || n.includes(' -- ') || LINK_DELIMITER.test(n)) return text;
   const lines = text.split(/\r?\n/);
   if(srcLine < 0 || srcLine >= lines.length) return text;
   const line = lines[srcLine];

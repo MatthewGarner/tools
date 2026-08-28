@@ -321,7 +321,7 @@ test('an unbroken item token is grapheme-fragmented inside every selected view',
   }
 });
 
-test('unbroken frame copy wraps while an unrenderable direct horizon label refuses completeness', () => {
+test('unbroken frame copy and direct horizon labels wrap into complete page sets', () => {
   const token = 'z'.repeat(500);
   for(const style of ['grid', 'board', 'focus', 'register']){
     const framed = renderDeckPages(parse(`style: ${style}\ntitle: ${token}\nNOW\nCore: Kept`),
@@ -332,21 +332,43 @@ test('unbroken frame copy wraps while an unrenderable direct horizon label refus
 
     const source = `style: ${style}\nhorizons: ${token}, Later\n${token}\nCore: Kept`;
     const horizon = renderDeckPages(parse(source), {colors, measure, today:'2026-08-14'});
-    if(style === 'register') assert.equal(horizon.complete, true, 'Register wraps its horizon cell');
-    else assert.equal(horizon.complete, false, `${style} refuses an unbounded direct horizon heading`);
+    assert.equal(horizon.complete, true, `${style} wraps its authored horizon heading`);
+    assert.ok(horizon.plan.pages.every(page => page.geometryComplete), `${style} keeps wrapped headings inside page geometry`);
   }
 });
 
-test('fixed-width Grid and Board labels refuse local collisions', () => {
-  const horizon = 'h'.repeat(80);
-  const source = `horizons: ${horizon}, Two, Three, Four, Five\n${horizon}\nCore: Kept`;
+test('Focus wraps a long rail horizon and includes its header height in page planning', () => {
+  const token = 'r'.repeat(500);
+  const source = `style: focus
+horizons: Now, ${token}
+Now
+Core: Hero work
+${token}
+Core: Rail work`;
+  const out = renderDeckPages(parse(source), {colors, measure, today:'2026-08-14'});
+  assert.equal(out.complete, true);
+  assert.equal(exportPageCoverage(out.plan).complete, true);
+  assert.ok(out.plan.pages.every(page => page.geometryComplete));
+  const rendered = out.pages.join('');
+  const retained = [...rendered.matchAll(/>(R+)<\/text>/g)].reduce((count, match) => count + match[1].length, 0);
+  assert.equal(retained, token.length, 'every authored rail-header grapheme remains visible');
+});
+
+test('Grid and Board wrap long authored horizon and lane labels without losing source text', () => {
+  const parts = Array.from({length:24}, (_, index) => 'horizon-marker-' + String(index + 1).padStart(2, '0'));
+  const laneParts = Array.from({length:18}, (_, index) => 'lane-marker-' + String(index + 1).padStart(2, '0'));
+  const horizon = parts.join(' '), lane = laneParts.join(' ');
+  const source = `horizons: ${horizon}, Two, Three, Four, Five\n${horizon}\n${lane}: Kept`;
   for(const style of ['grid', 'board']){
     const out = renderDeckPages(parse(`style: ${style}\n${source}`), {colors, measure, today:'2026-08-14'});
-    assert.equal(out.complete, false, `${style} does not certify a heading that crosses its column`);
+    assert.equal(out.complete, true, `${style} makes a complete page plan for wrapped headings`);
+    assert.equal(exportPageCoverage(out.plan).complete, true, `${style} certifies all source work`);
+    assert.ok(out.plan.pages.every(page => page.geometryComplete), `${style} has no geometry overflow page`);
+    const rendered = out.pages.join('\n').toUpperCase();
+    for(const marker of parts) assert.match(rendered, new RegExp(marker.toUpperCase()), `${style} preserves ${marker}`);
+    if(style === 'grid')
+      for(const marker of laneParts) assert.match(rendered, new RegExp(marker.toUpperCase()), `Grid preserves ${marker}`);
   }
-  const lane = 'l'.repeat(40);
-  const grid = renderDeckPages(parse(`style: grid\nNOW\n${lane}: Kept`), {colors, measure, today:'2026-08-14'});
-  assert.equal(grid.complete, false, 'Grid does not certify a lane label that crosses its fixed rail');
 });
 
 test('note-only continuations never restore an exhausted unbounded title token', () => {

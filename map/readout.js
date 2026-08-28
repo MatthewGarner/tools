@@ -83,8 +83,6 @@ const axisEnd = value => value == null || String(value).trim() === '' ? 'not spe
 const position = item => item.x == null ? 'unplaced' : '@ ' + String(item.x) + ',' + String(item.y);
 
 function comparisonMarkdown(baseline, current, label){
-  const safety = comparisonSafety(baseline, current);
-  if(!safety.safe) throw new Error(safety.warning);
   const diff = mapDiff(baseline, current);
   const name = inlineLiteral(label || 'Selected baseline');
   const facts = [];
@@ -134,7 +132,7 @@ export function toMarkdown(ro, model, {comparison = null} = {}){
     } else out.push('  - Fields: none');
     out.push('  - Flag: ' + (flagsByLine.has(item.srcLine) ? listLiteral(flagsByLine.get(item.srcLine)) : 'none'));
   }
-  if(comparison?.model){
+  if(comparison?.model && comparisonSafety(comparison.model, model).safe){
     out.push('', ...comparisonMarkdown(comparison.model, model, comparison.label));
   }
   out.push('', '_Source: local Map source snapshot._');

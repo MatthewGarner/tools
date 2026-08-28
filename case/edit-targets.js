@@ -38,7 +38,10 @@ function setConfigValue(text, key, value, afterKeys = []){
   const at = matching.at(-1) ?? -1;
   const v = String(value).trim();
   if(at >= 0){
-    if(v) source.lines[at] = key + ': ' + v;
+    if(v){
+      const comment = source.lines[at].match(/(\s\/\/.*)$/);
+      source.lines[at] = key + ': ' + v + (comment ? comment[0] : '');
+    }
     else source.lines = source.lines.filter((_, index) => !matching.includes(index));
     return joinLines(source);
   }

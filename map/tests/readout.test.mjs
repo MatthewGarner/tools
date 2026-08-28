@@ -102,6 +102,15 @@ test('markdown export treats hostile authored and comparison text as literals', 
   assert.match(md, /### Comparison with # Prior \\\*/);
 });
 
+test('markdown export keeps the current map when duplicate labels pause comparison', () => {
+  const {m, ro} = run('preset: assumptions\nSame @ 20,80\n  same @ 70,20');
+  const baseline = parse('preset: assumptions\nEarlier @ 30,70');
+  const md = toMarkdown(ro, m, {comparison: {model: baseline, label: 'Prior'}});
+  assert.match(md, /## Map/);
+  assert.match(md, /\*\*Same\*\*/);
+  assert.doesNotMatch(md, /### Comparison with|Earlier|Prior/);
+});
+
 /* ---------- Swiss 6b: the verdict figure + the metrics counts ---------- */
 
 test('verdictFig is the load-bearing ratio, verbatim inside the verdict', () => {
