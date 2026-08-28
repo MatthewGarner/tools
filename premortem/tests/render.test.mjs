@@ -162,6 +162,14 @@ test('pre-parade renders opportunity language and no likelihood/impact score con
   assert.ok(!register.includes('EV-ranked'));
 });
 
+test('pre-parade collect keeps the risk lexicon out of success conditions', () => {
+  const collect = renderPhase({mode: 'success', phase: 'COLLECT', entries: [
+    kinded('Keep the old onboarding reversible', 'opportunity'),
+  ]}, new Date());
+  assert.ok(!collect.includes('data-tag='));
+  assert.ok(!collect.includes('paper tiger'));
+});
+
 test('pre-parade board promotion is direct and never asks for numeric harm ranges', () => {
   const h = renderBoard({mode: 'success', entries: [kinded('Coaches will join', 'belief', {id: 'b1'})]}, new Date(), 'b1');
   assert.match(h, /Add to success register/);

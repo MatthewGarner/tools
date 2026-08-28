@@ -72,7 +72,36 @@ export function loops(n, duels){
         tri.push([m[i], m[j], m[k]]);
     }
     return {members, triangles: tri};
-  });
+  }).filter(loop => loop.triangles.length > 0 || loopCycle(loop.members, duels).length >= 3);
+}
+
+/* A deterministic, directly observed cycle for an SCC. Triangles are useful
+   when they exist, but a four-or-more-item loop can have no three-cycle at all;
+   callers that need to tag or re-duel edges must never invent one. */
+export function loopCycle(members, duels){
+  const allowed = new Set(members);
+  const adjacency = new Map([...members].sort((a, b) => a - b).map(member => [member, []]));
+  for(const duel of active(duels)){
+    const l = other(duel);
+    if(allowed.has(duel.w) && allowed.has(l)) adjacency.get(duel.w).push(l);
+  }
+  for(const next of adjacency.values()) next.sort((a, b) => a - b);
+  const visit = (start, current, path, seen) => {
+    for(const next of adjacency.get(current) || []){
+      if(next === start && path.length >= 3) return path;
+      if(seen.has(next)) continue;
+      seen.add(next);
+      const found = visit(start, next, [...path, next], seen);
+      if(found) return found;
+      seen.delete(next);
+    }
+    return null;
+  };
+  for(const start of [...members].sort((a, b) => a - b)){
+    const found = visit(start, start, [start], new Set([start]));
+    if(found) return found;
+  }
+  return [];
 }
 
 /* per rank-position 'settled' | 'mushy': settled iff every neighbour in the order

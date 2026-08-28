@@ -83,7 +83,7 @@ export function verdictCopy(stats, k){
   if(secure.length >= k){
     fig = String(k);
     headline = 'The top ' + k + ' is settled.';
-    body = ' Every initiative that makes the cut does so in at least 85% of simulations — reasonable people with different weights get the same answer. Stop tuning the spreadsheet and start the work.';
+    body = ' Every initiative that makes the cut does so in at least 85% of simulations — reasonable people with different weights get the same answer. Stop tuning the spreadsheet; use the stable order alongside strategy and delivery judgement.';
   } else if(secure.length > 0){
     fig = String(secure.length);
     headline = secure.length + ' of the top ' + k + (secure.length === 1 ? ' is' : ' are') + ' settled.';

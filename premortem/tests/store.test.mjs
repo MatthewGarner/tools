@@ -110,6 +110,43 @@ test('fromLink mints a new id (import is a copy)', async () => {
   assert.equal((await fromLink(await toLink(doc))).title, 'T');
 });
 
+test('fromLink preserves a pre-parade as success conditions rather than turning it into risk scoring', async () => {
+  const doc = {v: 1, id: 'success-original', mode: 'success', title: 'Lantern win', question: 'What did we deliberately make true?', people: 2, phase: 'SCORE', entries: [{
+    id: 'reversible', text: 'Keep the old onboarding reversible', kind: 'opportunity', essential: true,
+    p: null, impact: null, actions: [{text: 'Run staged cutovers', owner: 'Alex', done: false, votes: 4}], votes: 0,
+    status: 'open', created: '2026-08-20T00:00:00.000Z', lastReviewed: '2026-08-20T00:00:00.000Z',
+  }]};
+  const imported = await fromLink(await toLink(doc));
+  assert.equal(imported.mode, 'success');
+  assert.equal(imported.entries[0].kind, 'opportunity');
+  assert.equal(imported.entries[0].essential, true);
+  assert.equal(imported.entries[0].p, null);
+  assert.equal(imported.entries[0].impact, null);
+  assert.equal(imported.entries[0].actions[0].votes, 4);
+});
+
+test('fromLink rejects cross-mode register entries rather than recasting their meaning', async () => {
+  const successWithRisk = {v: 1, id: 'ambiguous-success', mode: 'success', entries: [{
+    id: 'risk', text: 'Launch stalls', kind: 'risk', p: [20, 40], impact: [50, 100], actions: [], votes: 0,
+  }]};
+  const riskWithOpportunity = {v: 1, id: 'ambiguous-risk', entries: [{
+    id: 'opportunity', text: 'Keep cutovers reversible', kind: 'opportunity', p: null, impact: null, actions: [], votes: 0,
+  }]};
+
+  assert.equal(await fromLink(await toLink(successWithRisk)), null);
+  assert.equal(await fromLink(await toLink(riskWithOpportunity)), null);
+});
+
+test('fromLink keeps valid risk scoring while it sanitises link data', async () => {
+  const doc = {v: 1, id: 'risk-original', people: 2, entries: [{
+    id: 'risk', text: 'Migration loses customers', kind: 'risk', p: [20, 40], impact: [50, 100], actions: [], votes: 0,
+  }]};
+  const imported = await fromLink(await toLink(doc));
+
+  assert.deepEqual(imported.entries[0].p, [20, 40]);
+  assert.deepEqual(imported.entries[0].impact, [50, 100]);
+});
+
 test('fromLink rejects garbage without throwing', async () => {
   assert.equal(await fromLink('#not-base64!'), null);
   assert.equal(await fromLink('#'), null);
@@ -163,7 +200,7 @@ test('fromLink normalises hostile decoded documents before render paths see them
   assert.equal(imported.x.label, 'Timeline', 'validated provenance strips controls');
 });
 
-test('fromLink mints selector-safe unique entry ids, keeps missing dates unknown, and caps imported votes to the group', async () => {
+test('fromLink mints selector-safe unique entry ids, keeps missing dates unknown, and caps imported votes to the group pool', async () => {
   const hostile = {v: 1, title: 'T', people: 3, entries: [
     {id: 'x\"][data-id]', text: 'one', actions: [{votes: 99}]},
     {id: 'x\"][data-id]', text: 'two', actions: [{votes: 99}], created: 'bad', lastReviewed: null},
@@ -172,7 +209,7 @@ test('fromLink mints selector-safe unique entry ids, keeps missing dates unknown
   assert.deepEqual(imported.entries.map(e => e.id), ['imported-1', 'imported-2']);
   assert.equal(new Set(imported.entries.map(e => e.id)).size, 2);
   assert.deepEqual(imported.entries.map(e => e.lastReviewed), [null, null]);
-  assert.equal(imported.entries.reduce((n, e) => n + e.actions.reduce((m, a) => m + a.votes, 0), 0), 3);
+  assert.equal(imported.entries.reduce((n, e) => n + e.actions.reduce((m, a) => m + a.votes, 0), 0), 9);
 });
 
 test('ordinary shared links strip transient handoff provenance', async () => {

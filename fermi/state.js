@@ -22,7 +22,7 @@ function dataRecord(value){
 function boundedText(value, max){
   if(typeof value !== 'string') return null;
   const text = value.trim();
-  if(!text || text.length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) return null;
+  if(!text || text.length > max || /[\u0000-\u001f\u007f-\u009f\p{Cf}]/u.test(text)) return null;
   return text;
 }
 

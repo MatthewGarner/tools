@@ -1,23 +1,14 @@
-/* Shared SVG-string helpers for the tools' renderers. */
-
-/* Escapes BOTH quote characters: some renderers emit single-quoted attributes
-   (merit-order's data-plant, cycles/risk's escaped-quote style), and an
-   apostrophe in user text would end such an attribute early — the same class
-   of export-killing XML bug as the double-quote case. &#39; not &apos; — the
-   numeric form survives HTML serialisation too (outerHTML re-reads). */
+/* Shared SVG helpers; numeric &#39; survives HTML serialisation. */
 export function esc(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
           .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-/* 12% tint for capsules; non-hex colors fall back to 'none' (stroke-only) */
 export function tint(hex){
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + '1F' : 'none';
 }
 
-/* Alpha-suffix a hex colour SAFELY: a 3-digit token + suffix is an invalid
-   colour some rasterisers paint BLACK (deck boards shipped that way; the
-   golden colour scan now guards the class). Non-6-digit input -> 'none'. */
+/* Reject invalid alpha colours rather than letting rasterisers paint black. */
 export function wash(hex, alpha){
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex + alpha : 'none';
 }
@@ -25,6 +16,8 @@ export function wash(hex, alpha){
 /* One-line <text> element with the attribute set the renderers share.
    Coordinates round to 2 decimals. mono switches to the ui-monospace stack. */
 const MONO = "ui-monospace,'SF Mono',Menlo,Consolas,monospace";   /* no double quotes: lands in SVG attrs */
+const GRAPHEMES = typeof Intl !== 'undefined' && Intl.Segmenter
+  ? new Intl.Segmenter(undefined, {granularity:'grapheme'}) : null;
 const r2 = n => (Math.round(n * 100) / 100).toString();
 export function txt(x, y, str, size, fill, {weight, tracking, anchor, mono, halo, strike} = {}){
   // halo: a stroke in the given colour painted BEHIND the glyphs (paint-order)
@@ -68,18 +61,30 @@ export function editTarget(inner, box, {kind, line, raw, extra, label, hit}){
     '" fill="' + box.bg + '" fill-opacity="0"/></g>';
 }
 
-/* Greedy wrap with widow control: no single-word last lines when rebalancing fits. */
 export function wrapText(text, font, maxW, measure){
-  const words = text.split(/\s+/);
+  const tokens = [];
+  let hard = false;
+  for(const word of String(text).split(/\s+/)){
+    if(measure(word, font) <= maxW){ tokens.push({text:word, space:true}); continue; }
+    hard = true;
+    const units = GRAPHEMES ? [...GRAPHEMES.segment(word)].map(part => part.segment) : Array.from(word);
+    let part = '', first = true;
+    for(const unit of units){
+      const trial = part + unit;
+      if(part && measure(trial, font) > maxW){ tokens.push({text:part, space:first}); first = false; part = unit; }
+      else part = trial;
+    }
+    if(part) tokens.push({text:part, space:first});
+  }
   const out = [];
   let cur = '';
-  for(const w of words){
-    const trial = cur ? cur + ' ' + w : w;
+  for(const token of tokens){
+    const trial = cur ? cur + (token.space ? ' ' : '') + token.text : token.text;
     if(measure(trial, font) <= maxW || !cur) cur = trial;
-    else { out.push(cur); cur = w; }
+    else { out.push(cur); cur = token.text; }
   }
   if(cur) out.push(cur);
-  if(out.length > 1){
+  if(!hard && out.length > 1){
     const last = out[out.length - 1], prev = out[out.length - 2];
     if(!last.includes(' ') && prev.includes(' ')){
       const prevWords = prev.split(' ');

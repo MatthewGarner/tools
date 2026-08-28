@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {evaluate, evalDet, flipAlong, sliderExtent, loadBearing, refMid, findByLine, hingesBeyondTrack} from '../engine.js';
+import {evaluate, evalDet, flipAlong, sliderExtent, loadBearing, probabilityActionState, refMid, findByLine, hingesBeyondTrack} from '../engine.js';
 
 // canonical bid tree (srcLines: Root0 Bid1 Outcome2 Win3 Lose4 NoBid5)
 const bid = parse(`Root
@@ -60,6 +60,50 @@ test('loadBearing marks the flip-carrying inputs, ranked by proximity, not degen
   // the probability's flip is proportionally nearer its track than the value's → ranked first
   assert.deepEqual(lb[0].ref, winProb);
   for(let i = 1; i < lb.length; i++) assert.ok(lb[i - 1].proximity <= lb[i].proximity, 'proximity-sorted');
+});
+
+test('unreadable authored probability is not a sensitivity ref while missing fallback remains zero', () => {
+  const m = parse(`Root
+  A
+    Known (p=0.5): 10
+    Invalid (p=maybe): 20
+    Missing: 30
+  B: 1`);
+  const invalid = {kind: 'prob', line: 3};
+  const missing = {kind: 'prob', line: 4};
+  const invalidNode = findByLine(m, invalid.line);
+  const missingNode = findByLine(m, missing.line);
+
+  assert.deepEqual(probabilityActionState(invalidNode), {editable: true, explorable: false},
+    'invalid authored odds remain editable but are never offered as Explore success odds');
+  assert.deepEqual(probabilityActionState(missingNode), {editable: true, explorable: true});
+  assert.equal(refMid(m, invalid), null, 'authored unreadable syntax fails closed');
+  assert.equal(refMid(m, missing), 0, 'a genuinely missing sibling keeps the safe zero fallback');
+  assert.equal(loadBearing(m).some(mark => mark.ref.kind === 'prob' && mark.ref.line === 3), false,
+    'unreadable authored probability is never offered as load-bearing');
+});
+
+test('out-of-domain authored probabilities stay editable but never enter shared sensitivity', () => {
+  const m = parse(`Root
+  A
+    Too high (p=2): 10
+    Negative (p=-0.25): 20
+    Missing: 30
+  B: 1`);
+  const tooHigh = findByLine(m, 2);
+  const negative = findByLine(m, 3);
+  const missing = findByLine(m, 4);
+
+  assert.deepEqual(probabilityActionState(tooHigh), {editable: true, explorable: false});
+  assert.deepEqual(probabilityActionState(negative), {editable: true, explorable: false});
+  assert.deepEqual(probabilityActionState({p:{lo:Infinity, hi:Infinity}, pParseValid:true}),
+    {editable:true, explorable:false}, 'non-finite parser output must fail closed');
+  assert.deepEqual(probabilityActionState(missing), {editable: true, explorable: true},
+    'the parser-synthesized missing p=0 remains a valid Explore input');
+  assert.equal(refMid(m, {kind:'prob', line:2}), null);
+  assert.equal(refMid(m, {kind:'prob', line:3}), null);
+  assert.equal(refMid(m, {kind:'prob', line:4}), 0);
+  assert.equal(loadBearing(m).some(mark => mark.ref.kind === 'prob' && [2, 3].includes(mark.ref.line)), false);
 });
 
 test('loadBearing never returns empty for a valid tree; a far-off swing input is still caught (M-1)', () => {

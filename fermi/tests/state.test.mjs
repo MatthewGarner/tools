@@ -61,6 +61,9 @@ test('target unpack drops non-normalizable Gauge question and unit receipts', ()
   for(const [field, value] of [
     ['question', 'Weeks\u0000to migrate'],
     ['unit', 'week\u0007s'],
+    ['question', 'Weeks\u0085to migrate'],
+    ['question', 'Weeks\u202eto migrate'],
+    ['unit', 'week\u200ds'],
   ]){
     const state = unpackScen({f:'x', v:{x:['1', '2', 'auto']}, p:{
       x:{...gauge, [field]:value},

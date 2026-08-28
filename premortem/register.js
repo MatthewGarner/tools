@@ -101,7 +101,7 @@ export function mergeEntries(entries, srcId, dstId){
 
 export function promote(entry, p, impact){ return {...entry, kind: 'risk', p, impact}; }
 export function promoteOpportunity(entry){
-  return {...entry, kind: 'opportunity', p: null, impact: null, essential: false};
+  return {...entry, kind: 'opportunity', tag: null, p: null, impact: null, essential: false};
 }
 
 const pctRange = p => p ? p[0] + '–' + p[1] + '%' : '—';

@@ -15,7 +15,7 @@ import {wireExports} from '../assets/exports.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {rafBatched, debounced} from '../assets/schedule.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
-import {effectiveHorizon, cashflowHashState, cashflowTailNote} from './interactions.js';
+import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs} from './interactions.js';
 import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
   normalizeReceipt, receiptLabel} from './state.js';
 import {targetHashState, validHandoffMeta} from '../assets/handoff.js';
@@ -1440,22 +1440,11 @@ function ensureFreshCashflow(){
 }
 
 function cfParse(){
-  const periods = [];
-  for(const p of cf.periods){
-    const lo = parseNum(p.lo), hi = parseNum(p.hi);
-    if(!isFinite(lo) || !isFinite(hi)) return null;
-    periods.push({lo: Math.min(lo, hi), hi: Math.max(lo, hi)});
-  }
-  const rlo = parseFloat(cf.rlo), rhi = parseFloat(cf.rhi);
-  if(!isFinite(rlo) || !isFinite(rhi)) return null;
-  const spec = {periods, horizon: effectiveHorizon(cf.horizon, periods.length), grain: cf.grain,
-    rate: {lo: Math.min(rlo, rhi), hi: Math.max(rlo, rhi)}};
-  if(cf.debtOn){
-    // pass raw values through; sizeDebt gates invalid dscr / cost-of-debt cleanly
-    spec.debt = {dscr: parseFloat(cf.dscr), costOfDebt: parseFloat(cf.rd) / 100,
-      tenor: cf.tenor ? parseInt(cf.tenor, 10) : undefined, sizingCase: cf.sizingCase};
-  }
-  return spec;
+  return parseCashflowInputs({
+    periods: cf.periods, horizon: cf.horizon, grain: cf.grain,
+    rateLower: cf.rlo, rateUpper: cf.rhi, debtEnabled: cf.debtOn,
+    dscr: cf.dscr, costOfDebt: cf.rd, tenor: cf.tenor, sizingCase: cf.sizingCase,
+  }).spec;
 }
 function cfPaint(){
   if(pageMode !== 'cf') return;

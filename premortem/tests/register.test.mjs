@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newEntry, exposure, ranked, staleness, mergeEntries, promote, markdown,
-        serialise, deserialise, exampleDoc, isRisk, isOpportunity, isScoreable, modeOf} from '../register.js';
+        serialise, deserialise, exampleDoc, isRisk, isOpportunity, isScoreable, modeOf, promoteOpportunity} from '../register.js';
 import {canAdvance} from '../wizard.js';
 
 const risk = (text, p, impact) => ({...newEntry(text), p, impact});
@@ -61,6 +61,14 @@ test('promote sets kind and ranges', () => {
   const r = promote(f, [20, 40], [50, 100]);
   assert.equal(r.kind, 'risk');
   assert.deepEqual(r.p, [20, 40]);
+});
+test('promoteOpportunity clears risk-only scoring and lexicon residue', () => {
+  const belief = {...newEntry('Coaches will join'), kind: 'belief', tag: 'tiger', p: [70, 85], impact: [10, 20]};
+  const opportunity = promoteOpportunity(belief);
+  assert.equal(opportunity.kind, 'opportunity');
+  assert.equal(opportunity.tag, null);
+  assert.equal(opportunity.p, null);
+  assert.equal(opportunity.impact, null);
 });
 test('serialise round-trips and versions', () => {
   const doc = {v: 1, id: 'r1', title: 'T', unit: '£k', question: 'Q', entries: [risk('a', [1,2], [3,4])], phase: 'REGISTER'};

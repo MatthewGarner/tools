@@ -78,8 +78,10 @@ export function parse(text){
     const warn = msg => model.warnings.push('line ' + (ln+1) + ': ' + msg);
 
     /* pull (p=…) from anywhere in the line */
-    let p = null, pRaw = null, body = line;
-    body = body.replace(/\(p=([^)]+)\)/i, (m, val) => { pRaw = val.trim(); p = parseP(val, warn); return ''; }).trim();
+    let p = null, pRaw = null, pParseValid = null, body = line;
+    body = body.replace(/\(p=([^)]+)\)/i, (m, val) => {
+      pRaw = val.trim(); p = parseP(val, warn); pParseValid = p !== null; return '';
+    }).trim();
 
     /* value = text after the final colon, if it parses as money */
     let value = null, valueRaw = null, label = body;
@@ -91,7 +93,7 @@ export function parse(text){
     }
     if(!label){ warn('missing label'); label = '(unnamed)'; }
 
-    const node = {label, kind: 'leaf', value, valueRaw, p, pRaw, children: [], srcLine: ln};
+    const node = {label, kind: 'leaf', value, valueRaw, p, pRaw, pParseValid, children: [], srcLine: ln};
     while(stack.length && stack[stack.length - 1].level >= level) stack.pop();
     if(stack.length === 0) tops.push(node);
     else stack[stack.length - 1].node.children.push(node);
@@ -124,7 +126,8 @@ export function parse(text){
       node.kind = 'chance';
       const withoutP = node.children.filter(c => c.p === null);
       for(const c of withoutP){
-        model.warnings.push('line ' + (c.srcLine + 1) + ': "' + c.label + '" has no p= among probabilistic siblings — given p=0');
+        if(c.pParseValid !== false)
+          model.warnings.push('line ' + (c.srcLine + 1) + ': "' + c.label + '" has no p= among probabilistic siblings — given p=0');
         c.p = {lo: 0, hi: 0};
       }
     } else {

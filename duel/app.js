@@ -1,6 +1,6 @@
 /* DOM shell: setup → duel loop → live readout. Engine + renderers are pure;
    this file owns the DOM, the duel log, hash state, tag/re-duel edits, keyboard. */
-import {nextPair, minDuels, budget, active, impliedOrder, settledness, loops, verdictParts} from './engine.js';
+import {nextPair, minDuels, budget, active, impliedOrder, settledness, loops, loopCycle, verdictParts} from './engine.js';
 import {renderDuel, renderOrder, renderLoops, markdown} from './render.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {debounced} from '../assets/schedule.js';
@@ -164,8 +164,8 @@ function reduelLoop(li){
   const ls = loops(n(), state.duels);
   const loop = ls[li];
   if(!loop) return;
-  const tri = loop.triangles[0] || [...loop.members].slice(0, 3);
-  const edges = new Set([tri[0] + '>' + tri[1], tri[1] + '>' + tri[2], tri[2] + '>' + tri[0]]);
+  const tri = loop.triangles[0] || loopCycle(loop.members, state.duels);
+  const edges = new Set(tri.map((winner, index) => winner + '>' + tri[(index + 1) % tri.length]));
   for(const x of state.duels){
     if(x.sup) continue;
     const key = x.w + '>' + (x.w === x.a ? x.b : x.a);

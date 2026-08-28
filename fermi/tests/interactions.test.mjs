@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {effectiveHorizon, cashflowHashState, cashflowTailNote} from '../interactions.js';
+import {readFileSync} from 'node:fs';
+import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs} from '../interactions.js';
 
 test('cashflow horizon never claims fewer periods than the entered schedule uses', () => {
   assert.equal(effectiveHorizon(1, 4), 3);
@@ -28,4 +29,36 @@ test('blank cashflow threshold stays out of compact URL state', () => {
 test('cashflow tail copy never presents an inverted period range', () => {
   assert.equal(cashflowTailNote(3, 4), 'Entered periods cover the full horizon');
   assert.equal(cashflowTailNote(5, 4), 't4…t5 repeat the t3 range');
+});
+
+test('cashflow source grammar keeps amount suffixes out of percentage and debt scalars', () => {
+  const parsed = parseCashflowInputs({
+    periods: [{lo: '-80k', hi: '-120k'}, {lo: '90k', hi: '40k'}],
+    horizon: 4, grain: 'year', rateLower: '12', rateUpper: '8k',
+    debtEnabled: true, dscr: '1.4k', costOfDebt: '6.5k', tenor: '3', sizingCase: 'central',
+  });
+
+  assert.deepEqual(parsed.errors, []);
+  assert.deepEqual(parsed.rate, {lo: 8, hi: 12});
+  assert.deepEqual(parsed.periods, [{lo: -120_000, hi: -80_000}, {lo: 40_000, hi: 90_000}]);
+  assert.equal(parsed.debt.dscr, 1.4);
+  assert.equal(parsed.debt.costOfDebt, 0.065);
+});
+
+test('cashflow source grammar refuses a fractional or out-of-range tenor', () => {
+  for (const tenor of ['2.5', '61']) {
+    const parsed = parseCashflowInputs({
+      periods: [{lo: '-10', hi: '-8'}, {lo: '2', hi: '4'}],
+      horizon: 2, grain: 'year', rateLower: '8', rateUpper: '12',
+      debtEnabled: true, dscr: '1.3', costOfDebt: '6.5', tenor, sizingCase: 'central',
+    });
+    assert.equal(parsed.spec, null);
+    assert.match(parsed.errors.join(' '), /Tenor/);
+  }
+});
+
+test('the web cashflow form delegates its scalar boundary to the shared source parser', () => {
+  const shell = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  assert.match(shell, /parseCashflowInputs/);
+  assert.ok(shell.includes('function cfParse(){\n  return parseCashflowInputs('));
 });

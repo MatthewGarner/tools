@@ -61,6 +61,19 @@ test('loop report: cycle text, tag buttons, synthesis after tagging', () => {
   assert.match(renderLoops(tagged), /on cost/);
 });
 
+test('loop render and Markdown retain every directly observed edge of a triangle-free cycle', () => {
+  const ring = {q: 'What first?', items: ['A', 'B', 'C', 'D'], duels: [
+    {a: 0, b: 1, w: 0}, {a: 1, b: 2, w: 1}, {a: 2, b: 3, w: 2}, {a: 3, b: 0, w: 3},
+  ]};
+  const loop = renderLoops(ring);
+  const exported = markdown(ring);
+
+  assert.match(loop, /A → B → C → D → A/);
+  assert.equal((loop.match(/class="tagbtn"/g) || []).length, 4, 'each observed cycle edge must remain taggable');
+  assert.match(exported, /A → B → C → D → A/);
+  assert.doesNotMatch(exported, /A → B → C → A/, 'Markdown must not invent a triangle edge that was never recorded');
+});
+
 test('markdown carries order, loops and the live link', () => {
   const md = markdown(st, 'https://example.com/#x');
   assert.match(md, /Alpha/);

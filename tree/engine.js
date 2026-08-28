@@ -236,11 +236,18 @@ export function findByLine(model, line){
   return found;
 }
 
+export function probabilityActionState(node){
+  const editable = Boolean(node && node.p && node.p !== 'rest');
+  const lo = editable ? node.p.lo : NaN, hi = editable ? node.p.hi : NaN;
+  const inDomain = Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && lo <= hi && hi <= 1;
+  return {editable, explorable: editable && node.pParseValid !== false && inDomain};
+}
+
 /* the ref's current midpoint (what evalDet uses by default) */
 export function refMid(model, ref){
   const n = findByLine(model, ref.line);
   if(!n) return null;
-  if(ref.kind === 'prob') return (n.p && n.p !== 'rest') ? (n.p.lo + n.p.hi) / 2 : null;
+  if(ref.kind === 'prob') return probabilityActionState(n).explorable ? (n.p.lo + n.p.hi) / 2 : null;
   return n.value ? (n.value.lo + n.value.hi) / 2 : null;
 }
 
@@ -345,7 +352,7 @@ export function loadBearing(model){
   const refs = [];
   (function w(n){
     if(!n) return;
-    if(n.p && n.p !== 'rest') refs.push({kind: 'prob', line: n.srcLine});
+    if(probabilityActionState(n).explorable) refs.push({kind: 'prob', line: n.srcLine});
     if(n.value) refs.push({kind: 'value', line: n.srcLine});
     n.children.forEach(w);
   })(model.root);

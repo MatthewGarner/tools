@@ -68,6 +68,20 @@ test('missing p among probabilistic siblings is explicit p=0, never inferred as 
   assert.ok(m2.warnings.some(w => w.includes('Y') && w.includes('no p=') && w.includes('p=0')));
 });
 
+test('unreadable authored probability remains distinct from a missing probability fallback', () => {
+  const model = parse('Root\n  A\n    Known (p=0.5): 10\n    Invalid (p=maybe): 20\n    Missing: 30\n  B: 1');
+  const [, invalid, missing] = model.root.children[0].children;
+  assert.equal(invalid.pRaw, 'maybe');
+  assert.equal(invalid.pParseValid, false);
+  assert.deepEqual(invalid.p, {lo:0, hi:0});
+  assert.equal(missing.pRaw, null);
+  assert.equal(missing.pParseValid, null);
+  assert.deepEqual(missing.p, {lo:0, hi:0});
+  assert.ok(model.warnings.some(warning => /unreadable probability "maybe"/.test(warning)));
+  assert.ok(model.warnings.some(warning => warning.includes('Missing') && warning.includes('given p=0')));
+  assert.ok(!model.warnings.some(warning => warning.includes('Invalid') && warning.includes('has no p=')));
+});
+
 test('only the first authored p=rest survives; duplicates fail safely to p=0 with their own warning', () => {
   const m = parse('Root\n  A\n    X (p=0.4): 10\n    Other (p=rest): 2\n    Duplicate (p=rest): 999\n  B: 1');
   const chance = m.root.children[0];

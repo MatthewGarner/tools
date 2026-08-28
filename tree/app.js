@@ -1,6 +1,6 @@
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
-import {evaluate, evalDet, findByLine, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
+import {evaluate, evalDet, findByLine, probabilityActionState, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
 import {pricedCopy, seamCopy} from './format.js';
 import {render, treeVerdictParts} from './render.js';
 import {createEditor} from './editor.js';
@@ -148,7 +148,7 @@ function refFingerprint(m, ref){
   const node = findByLine(m, ref.line);
   if(!node) return null;
   if(ref.kind === 'prob'){
-    if(!node.p || node.p === 'rest') return null;
+    if(node.pParseValid === false || !node.p || node.p === 'rest') return null;
     return {label: node.label, raw: node.pRaw || ''};
   }
   if(!node.value) return null;
@@ -339,7 +339,8 @@ function exploreRowsFor(el){
   const node = findByLine(model, +el.dataset.line);
   if(!node) return [];
   const kind = el.dataset.edit;
-  const hasProb = !!node.p && node.p !== 'rest';
+  const probabilityActions = probabilityActionState(node);
+  const hasProb = probabilityActions.editable;
   const hasValue = !!node.value;
   const rows = [];
   if(hasProb && kind !== 'cardmenu-chance') rows.push({label: 'Edit probability…', opens: 'prob'});
@@ -348,7 +349,7 @@ function exploreRowsFor(el){
      recommendation for the slider to price against, so don't offer it there. The plain typed-entry
      row above is unaffected — it's just precise numeric entry, independent of routing. */
   if(model.root && model.root.kind === 'decision' && model.root.children.length >= 2){
-    if(hasProb) rows.push({label: 'Explore success odds…', commit: {kind: 'explore', line: node.srcLine, value: 'prob'}});
+    if(probabilityActions.explorable) rows.push({label: 'Explore success odds…', commit: {kind: 'explore', line: node.srcLine, value: 'prob'}});
     if(hasValue) rows.push({label: 'Explore payoff…', commit: {kind: 'explore', line: node.srcLine, value: 'value'}});
   }
   return rows;

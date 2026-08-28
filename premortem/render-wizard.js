@@ -48,8 +48,8 @@ function collect(doc){
   const opportunity = success(doc);
   const list = entriesOf(doc).map(e =>
     '<li class="centry" data-id="' + e.id + '"><span class="ctext">' + esc(e.text) + '</span>' +
-    '<span class="lexicon">' + TAGS.map(t => '<button class="lexbtn' + (e.tag === t ? ' on' : '') +
-      '" data-tag="' + t + '" data-id="' + e.id + '">' + t.replace('-', ' ') + '</button>').join('') + '</span>' +
+    (opportunity ? '' : '<span class="lexicon">' + TAGS.map(t => '<button class="lexbtn' + (e.tag === t ? ' on' : '') +
+      '" data-tag="' + t + '" data-id="' + e.id + '">' + t.replace('-', ' ') + '</button>').join('') + '</span>') +
     '<button class="cdel" data-del="' + e.id + '" aria-label="Delete this ' + (opportunity ? 'opportunity' : 'risk') + '">×</button></li>').join('');
   if(opportunity) return '<div class="phase" data-phase="COLLECT"><h2>Collect the success conditions</h2>' +
     '<input type="text" data-add="entry" placeholder="Something we deliberately made true — press Enter" aria-label="Add an opportunity">' +

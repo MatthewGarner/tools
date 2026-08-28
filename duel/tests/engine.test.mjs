@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {copeland, impliedOrder, loops, settledness, verdictCopy, verdictParts} from '../engine.js';
+import {copeland, impliedOrder, loopCycle, loops, settledness, verdictCopy, verdictParts} from '../engine.js';
 const d = (a, b, w) => ({a, b, w});
 
 test('copeland: wins minus losses', () => {
@@ -33,6 +33,18 @@ test('loops: 5-knot reported as one SCC with all its triangles', () => {
   assert.equal(l.length, 1);
   assert.equal(l[0].members.length, 5);
   assert.ok(l[0].triangles.length >= 1);        // e.g. 2>4>0>2 via 4>0, 0>2
+});
+
+test('loopCycle follows real observed edges when a loop has no triangle', () => {
+  const ring = [d(0,1,0), d(1,2,1), d(2,3,2), d(3,0,3)];
+  const found = loops(4, ring);
+  assert.equal(found[0].triangles.length, 0);
+  assert.deepEqual(loopCycle(found[0].members, ring), [0, 1, 2, 3]);
+});
+
+test('loops excludes SCCs made only of contradictory pair re-duels', () => {
+  const contradictory = [d(0,1,0), d(0,1,1), d(0,2,0), d(0,2,2)];
+  assert.deepEqual(loops(3, contradictory), []);
 });
 
 test('no loop in a transitive tournament', () => {
