@@ -67,16 +67,16 @@
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
       <div class="metrics" id="metrics" hidden></div>
-      <div class="preview" id="preview"><p class="placeholder">Paste a tool's URL as “Label -&gt; url” — or load the example.</p></div>
+      <div class="preview" id="preview" data-capability="views.case-file"><p class="placeholder">Paste a tool's URL as “Label -&gt; url” — or load the example.</p></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn primary" id="copypng">Copy PNG</button>
+        <button class="btn primary" id="copypng" data-capability="presentationExports.png">Copy PNG</button>
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="copymd">Copy as markdown</button>
-            <button class="btn" id="dlpng">PNG</button>
-            <button class="btn" id="dlsvg">SVG</button>
+            <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as markdown</button>
+            <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
+            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
           </div>
         </details>
         <span class="method">Work in the tools, paste each URL here · planning rows state what they claim · exhibit rows open only when you choose them · the URL carries the whole case</span>

@@ -117,7 +117,7 @@ function metricCounts(d){
    own terminal REGISTER phase reachable through the flow. */
 function renderToggle(){
   const seg = (k, label) => '<button class="vtseg' + (view === k ? ' on' : '') +
-    '" data-view="' + k + '" aria-pressed="' + (view === k) + '">' + label + '</button>';
+    '" data-view="' + k + '" data-capabilities="views.workshop views.board views.register" aria-pressed="' + (view === k) + '">' + label + '</button>';
   const register = modeOf(doc) === 'success' ? 'Success register' : 'Risk register';
   $('viewtoggle').innerHTML = seg('wizard', 'Run workshop') + seg('board', 'Working board') + seg('register', register);
 }

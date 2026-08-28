@@ -1,6 +1,7 @@
-/* Zone membership → advice + verdict sentences + copy-for-doc markdown. Pure. */
+/* Zone readout and portable Markdown. Pure. */
 import {resolveVerdict} from '../assets/verdict.js';
 import {zoneFor} from './zones.js';
+import {comparisonSafety, mapDiff} from './diff.js';
 
 export function readout(model, resolved){
   const placed = model.items.filter(i => i.x != null);
@@ -36,9 +37,7 @@ export function readout(model, resolved){
       : e.zone.kind === 'cell' ? (!e.zone.anonymous || e.items.length > 0)
       : e.items.length > 0);
 
-  /* the artefact's metrics row (Swiss 6b) — only counts this function actually
-     computed. Occupied = zones holding at least one item; empties are dropped by
-     countsLine, so a flawless map simply says nothing about flags. */
+  /* Metrics expose only facts computed here. */
   const occupied = zones.filter(e => e.items.length).length;
   const counts = [
     placed.length + ' of ' + model.items.length + ' placed',
@@ -46,12 +45,12 @@ export function readout(model, resolved){
     flagged.length ? flagged.length + ' flagged' : '',
   ];
 
-  /* `verdict` stays a plain string: copy-for-doc and the handoff consume it
-     unchanged. `verdictFig` is the figure to mark, never re-derived. */
-  /* `verdict:` (2026-07-31) is the author's override — off suppresses, text replaces.
-     Resolved HERE so every consumer (band, markdown, handoff) sees one answer. */
+  /* Resolve the authored verdict once for every consumer. */
   const av = resolveVerdict(model.verdict, {line: v.line, fig: v.fig});
-  return {zones, unplaced, flagged, verdict: av.line, verdictFig: av.fig, counts};
+  return {
+    zones, unplaced, flagged, verdict: av.line, verdictFig: av.fig, counts,
+    axes: {x: resolved.x, y: resolved.y},
+  };
 }
 
 function genericVerdict(st){
@@ -65,25 +64,79 @@ function genericVerdict(st){
   return {line: fig + ' item' + (st.placed === 1 ? '' : 's') + ' sit in ' + top + '.', fig};
 }
 
-export function toMarkdown(ro, model){
-  const out = ['## ' + (model.title || 'Map'), '', ro.verdict, ''];
-  for(const e of ro.zones){
-    if(!e.items.length && !e.advice) continue;   // ro.zones already hides empty anonymous cells
-    out.push('**' + e.zone.name + '** (' + e.items.length + ')');
-    for(const it of e.items){
-      const meta = it.fields.map(f => f.key + ': ' + f.val).join(' · ');
-      out.push('- ' + it.label + (meta ? ' — ' + meta : ''));
-    }
-    out.push('');
+function portableLiteral(value){
+  return String(value ?? '')
+    .replace(/[\p{Cc}\p{Cf}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/([\\`*_{}\[\]|])/g, '\\$1');
+}
+
+/* Values remain literals in their heading, inline, or list context. */
+const headingLiteral = value => portableLiteral(value) || 'Map';
+const inlineLiteral = value => portableLiteral(value) || '—';
+const listLiteral = value => portableLiteral(value) || '—';
+const axisEnd = value => value == null || String(value).trim() === '' ? 'not specified' : inlineLiteral(value);
+const position = item => item.x == null ? 'unplaced' : '@ ' + String(item.x) + ',' + String(item.y);
+
+function comparisonMarkdown(baseline, current, label){
+  const safety = comparisonSafety(baseline, current);
+  if(!safety.safe) throw new Error(safety.warning);
+  const diff = mapDiff(baseline, current);
+  const name = inlineLiteral(label || 'Selected baseline');
+  const facts = [];
+  for(const {from, to, item} of diff.moved.values()){
+    const claim = listLiteral(item.label);
+    if(from === '') facts.push('- Placed from unplaced: ' + claim + ' → @ ' + to);
+    else if(to === '') facts.push('- Moved to unplaced: ' + claim + ' (was @ ' + from + ')');
+    else facts.push('- Moved: ' + claim + ' · @ ' + from + ' → @ ' + to);
   }
-  if(ro.unplaced.length){
-    out.push('**Unplaced** (' + ro.unplaced.length + ')');
-    for(const it of ro.unplaced) out.push('- ' + it.label);
-    out.push('');
+  for(const item of diff.added)
+    facts.push('- Added: ' + listLiteral(item.label) + (item.state ? ' · @ ' + item.state : ' · unplaced'));
+  for(const item of diff.dropped)
+    facts.push('- Dropped: ' + listLiteral(item.label) + (item.state ? ' · was @ ' + item.state : ' · was unplaced'));
+  return [
+    '### Comparison with ' + name,
+    '',
+    facts.length ? facts.join('\n') : '_No changes._',
+  ];
+}
+
+export function toMarkdown(ro, model, {comparison = null} = {}){
+  const x = ro.axes?.x || model.axes?.x || {label:'X', low:null, high:null};
+  const y = ro.axes?.y || model.axes?.y || {label:'Y', low:null, high:null};
+  const zonesByLine = new Map();
+  for(const entry of ro.zones) for(const item of entry.items) zonesByLine.set(item.srcLine, entry.zone.name);
+  const flagsByLine = new Map(ro.flagged.map(flag => [flag.item.srcLine, flag.msg]));
+  const verdict = ro.verdict || (model.verdict != null ? 'Off' : '—');
+  const out = [
+    '## ' + headingLiteral(model.title || 'Map'),
+    '',
+    '**Method:** ' + inlineLiteral(model.preset || 'custom'),
+    '**X axis:** ' + inlineLiteral(x.label || 'X') + ' (' + axisEnd(x.low) + ' → ' + axisEnd(x.high) + ')',
+    '**Y axis:** ' + inlineLiteral(y.label || 'Y') + ' (' + axisEnd(y.low) + ' → ' + axisEnd(y.high) + ')',
+    '**Verdict:** ' + inlineLiteral(verdict),
+    '',
+    '### Claims',
+    '',
+  ];
+  if(!model.items.length) out.push('_No claims authored._');
+  for(const item of model.items){
+    const state = position(item);
+    out.push('- **' + listLiteral(item.label) + '** — ' + state);
+    out.push('  - Zone: ' + (item.x == null ? 'unplaced' : listLiteral(zonesByLine.get(item.srcLine) || 'unzoned')));
+    if(item.fields.length){
+      for(const field of item.fields)
+        out.push('  - Field — ' + listLiteral(field.key) + ': ' + listLiteral(field.val));
+    } else out.push('  - Fields: none');
+    out.push('  - Flag: ' + (flagsByLine.has(item.srcLine) ? listLiteral(flagsByLine.get(item.srcLine)) : 'none'));
   }
-  if(ro.flagged.length){
-    out.push('**Flags**');
-    for(const f of ro.flagged) out.push('- ' + f.item.label + ' — ' + f.msg);
+  if(comparison?.model){
+    out.push('', ...comparisonMarkdown(comparison.model, model, comparison.label));
   }
+  out.push('', '_Source: local Map source snapshot._');
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }

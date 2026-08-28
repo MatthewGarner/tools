@@ -84,10 +84,10 @@
   <section class="stage">
     <div class="selection-tools">
       <p class="selection-note" id="selectionnote">Select a failure theory to inspect its scoped receipt.</p>
-      <button class="btn" id="viewreceipt" disabled>View selected receipt</button>
+      <button class="btn" id="viewreceipt" data-capability="views.review-receipt" disabled>View selected receipt</button>
     </div>
     <div class="metrics" id="metrics" hidden></div>
-    <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+    <div class="preview" id="preview" data-capability="views.causal-hunt"><p class="placeholder">Start typing — or load an example.</p></div>
     <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
     <div class="author-verdict-wrap">
       <div class="verdict-block author-verdict" id="authorverdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" data-verdictedit-raw="" tabindex="0" role="button" aria-label="Author-stated verdict — edit, copy, or switch it off"></div>
@@ -97,16 +97,16 @@
     <p class="causal-note" id="causalnote" aria-live="polite"></p>
     <div class="actions">
       <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-      <button class="btn primary" id="copypng">Copy full hunt PNG</button>
+      <button class="btn primary" id="copypng" data-capability="presentationExports.full-png">Copy full hunt PNG</button>
       <details class="action-disclosure">
         <summary class="btn">Export</summary>
         <div class="action-menu">
           <span class="export-label">Full hunt · all theories</span>
-          <button class="btn" id="dlpng">Full hunt PNG</button>
-          <button class="btn" id="dlsvg">Full hunt SVG</button>
+          <button class="btn" id="dlpng" data-capability="presentationExports.full-png">Full hunt PNG</button>
+          <button class="btn" id="dlsvg" data-capability="presentationExports.full-svg">Full hunt SVG</button>
           <span class="export-label">Selected theory · scoped receipt</span>
-          <button class="btn" id="receiptpng">Receipt PNG</button>
-          <button class="btn" id="receiptsvg">Receipt SVG</button>
+          <button class="btn" id="receiptpng" data-capability="presentationExports.receipt-png">Receipt PNG</button>
+          <button class="btn" id="receiptsvg" data-capability="presentationExports.receipt-svg">Receipt SVG</button>
         </div>
       </details>
       <span class="method">Authored theories and reported patterns remain separate · full exports omit the live selection · the URL carries the hunt and selected receipt</span>

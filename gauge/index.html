@@ -73,8 +73,8 @@
       </div>
       <div class="workshop-state" aria-label="Facilitator · authoring questions">Facilitator · authoring questions</div>
       <div class="viewtoggle segmented" role="group" aria-label="Composer view">
-        <button id="viewform" aria-pressed="false">Compose questions</button>
-        <button id="viewreveal" class="on" aria-pressed="true">Sample reveal</button>
+        <button id="viewform" data-capability="views.question-set" aria-pressed="false">Compose questions</button>
+        <button id="viewreveal" class="on" data-capability="views.sample-reveal" aria-pressed="true">Sample reveal</button>
       </div>
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
@@ -83,13 +83,13 @@
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="startbtn" disabled>Start session</button>
-        <button class="btn" id="copypng">Copy PNG</button>
+        <button class="btn" id="copypng" data-capability="presentationExports.sample-png">Copy PNG</button>
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="copymd">Copy as markdown</button>
-            <button class="btn" id="dlpng">PNG</button>
-            <button class="btn" id="dlsvg">SVG</button>
+            <button class="btn" id="copymd" data-capability="presentationExports.sample-markdown">Copy as markdown</button>
+            <button class="btn" id="dlpng" data-capability="presentationExports.sample-png">PNG</button>
+            <button class="btn" id="dlsvg" data-capability="presentationExports.sample-svg">SVG</button>
           </div>
         </details>
         <span class="method">Sample reveal uses seeded fake responses · the URL carries your questions</span>
@@ -99,7 +99,7 @@
   </div>
 </div>
 
-<div id="participant" class="wrap narrow" hidden>
+<div id="participant" class="wrap narrow" data-capability="editing.network-participants" hidden>
   <h2 class="stitle" id="ptitle"></h2>
   <p class="workshop-state">Participant · private response</p>
   <p class="pintro">Answer privately — nobody sees your numbers until the facilitator reveals everyone's at once. You can edit your answers until then.</p>
@@ -107,7 +107,7 @@
   <p class="errline" id="perr" hidden></p>
   <div class="actions">
     <button class="btn primary" id="psubmit">Submit</button>
-    <button class="btn" id="pview">View results</button>
+    <button class="btn" id="pview" data-capability="views.results">View results</button>
   </div>
   <p class="statusline" id="pstatus"></p>
   <p class="headline" id="phead" aria-live="polite" aria-atomic="true"></p>
@@ -140,13 +140,13 @@
     <span class="method">Discuss what the spread shows, then everyone re-estimates seeing it. Round-1 answers stay on record; anyone who doesn't resubmit carries theirs forward. The output: a pooled estimate + how much the room converged.</span>
   </div>
   <div class="actions" id="cexports" hidden>
-    <button class="btn" id="copypng2">Copy PNG</button>
+    <button class="btn" id="copypng2" data-capability="presentationExports.results-png">Copy PNG</button>
     <details class="action-disclosure">
       <summary class="btn">Export</summary>
       <div class="action-menu">
-        <button class="btn" id="copymd2">Copy as markdown</button>
-        <button class="btn" id="dlpng2">PNG</button>
-        <button class="btn" id="dlsvg2">SVG</button>
+        <button class="btn" id="copymd2" data-capability="presentationExports.results-markdown">Copy as markdown</button>
+        <button class="btn" id="dlpng2" data-capability="presentationExports.results-png">PNG</button>
+        <button class="btn" id="dlsvg2" data-capability="presentationExports.results-svg">SVG</button>
       </div>
     </details>
     <button class="btn" id="tofermi" data-handoff-contract="gauge-to-fermi-review-needed" hidden title="Open the room's ranges as a review-needed Fermi draft">Draft Fermi inputs</button>

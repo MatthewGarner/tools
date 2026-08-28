@@ -482,7 +482,17 @@ export function renderBoardLive(model, ctx){
     maxBottom = Math.max(maxBottom, cy);
   }
 
-  const my = maxBottom + 14;
+  let my = maxBottom + 14;
+  if(diff?.dropped?.length){
+    const dropped = wrapText(
+      'DROPPED SINCE ' + (diff.since || '') + ' · ' + diff.dropped.join(' · '),
+      '600 12px ' + SANS,
+      W - M * 2,
+      measure
+    );
+    dropped.forEach((text, index) => s.push(txt(M, my + 16 + index * 17, text, 12, C.muted, {weight:600, strike:true})));
+    my += 18 + dropped.length * 17;
+  }
   s.push(line(M, my, W - M, my, C.border));
   s.push(txt(M, my + 22, deckMetrics(model), 13, C.muted, {weight: 600}));
   const H = Math.round(my + 38);

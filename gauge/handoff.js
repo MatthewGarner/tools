@@ -1,7 +1,4 @@
-/* The room's revealed ranges → a review-needed Fermi input draft. A room
-   aggregate is a receipt of elicited judgement, never automatically the next
-   person's calibrated 90% belief. The recipient must author a formula and
-   explicitly adopt or restate each range before Fermi simulates it. Pure. */
+/* Revealed ranges → review-needed Fermi inputs; never automatic adoption. */
 
 export function slugVar(text, taken = new Set()){
   let s = String(text).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -14,20 +11,26 @@ export function slugVar(text, taken = new Set()){
   return out;
 }
 
-const short = v => {
-  const a = Math.abs(v);
-  if(a >= 1e9) return trim(v / 1e9) + 'B';
-  if(a >= 1e6) return trim(v / 1e6) + 'M';
-  if(a >= 1e3) return trim(v / 1e3) + 'k';
-  return trim(v);
-};
-const trim = v => String(Math.round(v * 100) / 100);
+export function portableFermiNumber(value){
+  if(!Number.isFinite(value)) return null;
+  const raw = String(value);
+  let text = raw;
+  if(/[eE]/.test(raw)){
+    const match = raw.match(/^(-?)(\d+)(?:\.(\d*))?[eE]([+-]?\d+)$/);
+    if(!match) return null;
+    const sign = match[1], digits = match[2] + (match[3] || '');
+    const point = match[2].length + Number(match[4]);
+    if(point <= 0) text = sign + '0.' + '0'.repeat(-point) + digits;
+    else if(point >= digits.length) text = sign + digits + '0'.repeat(point - digits.length);
+    else text = sign + digits.slice(0, point) + '.' + digits.slice(point);
+  }
+  if(text.length > 48 || !/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text) || Number(text) !== value) return null;
+  return text;
+}
 
-const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\p{Cf}]/u;
 
-/* Keep the source-side boundary at least as strict as Fermi's unpacker. A
-   receipt which target normalisation would discard must abort the whole draft:
-   ranges without their provenance look more certain than they are. */
+/* Abort the whole draft if Fermi would discard any receipt provenance. */
 function receiptText(value, max, field, optional = false){
   if(value == null && optional) return {value:undefined};
   if(typeof value !== 'string') return {issue:`its ${field} is not plain text`};
@@ -52,11 +55,43 @@ function receiptIssue(model){
   return invalid ? `Fermi draft unavailable: one range ${invalid.issue}, so its receipt cannot transfer safely.` : '';
 }
 
+function handoffIssue(model, stats, delphi){
+  const sourceIssue = receiptIssue(model);
+  if(sourceIssue) return sourceIssue;
+  const ranges = rangeReceipts(model);
+  if(!ranges.length) return 'Fermi review unavailable: this Gauge has no range questions.';
+  for(const {question} of ranges){
+    const index = model.questions.indexOf(question), stat = stats?.[index], dstat = delphi?.[index];
+    const aggregate = dstat ? dstat : stat;
+    /* Four branches, three sentences: no aggregate at all and a zero count are
+       genuinely the same situation to a facilitator, so they say the same thing.
+       What must NOT be shared is the privacy wording (nothing was disclosed, so
+       there is nothing to protect) or the unreadable-count wording (a broken
+       count is not an unanswered question). A draft transfers every range or
+       none, so any branch here refuses the whole transfer. */
+    if(!aggregate)
+      return 'Fermi review unavailable: a range question is unanswered, and a Fermi draft transfers every range or none.';
+    const count = aggregate.n;
+    if(!Number.isSafeInteger(count) || count < 0)
+      return 'Fermi review unavailable: a range question has an unreadable response count.';
+    if(count === 0)
+      return 'Fermi review unavailable: a range question is unanswered, and a Fermi draft transfers every range or none.';
+    if(count < 2)
+      return 'Fermi review unavailable: every transferred range needs at least 2 responses for aggregate privacy.';
+    const pair = dstat ? dstat.pooledRange : stat?.pooled ? [stat.pooled.lo, stat.pooled.hi] : null;
+    if(!Array.isArray(pair) || pair.length !== 2 || pair[0] > pair[1])
+      return 'Fermi review unavailable: a disclosed range has no valid aggregate bounds.';
+    if(portableFermiNumber(pair[0]) === null || portableFermiNumber(pair[1]) === null)
+      return 'Fermi review unavailable: a disclosed range uses a magnitude or precision Fermi cannot preserve exactly.';
+  }
+  return '';
+}
+
 export function fermiHandoff(model, stats, delphi = null){
   /* State is deliberately bounded for URL/share safety. Refuse the whole
      transfer rather than preserve ranges while silently shedding their receipt. */
   const receipts = rangeReceipts(model);
-  if(receipts.some(entry => entry.issue)) return null;
+  if(handoffIssue(model, stats, delphi)) return null;
   const receiptByQuestion = new Map(receipts.map(entry => [entry.question, entry]));
   const taken = new Set();
   const v = {}, p = {};
@@ -71,9 +106,10 @@ export function fermiHandoff(model, stats, delphi = null){
     else {
       if(s && s.pooled && s.n > 0){ lo = s.pooled.lo; hi = s.pooled.hi; }
     }
-    if(lo === null || !isFinite(lo) || !isFinite(hi)) return;
+    const low = portableFermiNumber(lo), high = portableFermiNumber(hi);
+    if(low === null || high === null) return;
     const name = slugVar(receipt.label.value, taken);
-    v[name] = [short(lo), short(hi), 'auto'];
+    v[name] = [low, high, 'auto'];
     p[name] = {
       kind: 'gauge', label: receipt.label.value, question: receipt.label.value, unit: receipt.unit.value,
       round: d ? 2 : 1, responses: d ? d.n : s.n,
@@ -87,6 +123,6 @@ export function fermiHandoff(model, stats, delphi = null){
 }
 
 /** Explain an unavailable handoff without exposing a half-formed target state. */
-export function fermiHandoffIssue(model){
-  return receiptIssue(model);
+export function fermiHandoffIssue(model, stats = [], delphi = null){
+  return handoffIssue(model, stats, delphi);
 }

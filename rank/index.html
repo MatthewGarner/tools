@@ -224,7 +224,7 @@
   <section class="card">
     <div class="chips" id="chips"><span class="lead">Or try:</span></div>
     <div class="tblwrap">
-      <table id="tbl">
+      <table id="tbl" data-capability="views.assumptions">
         <thead><tr id="headrow"></tr></thead>
         <tbody id="rows"></tbody>
       </table>
@@ -238,7 +238,7 @@
       <p class="hint">One row per initiative: name, then 4 numbers (Value, Time criticality, Risk reduction, Effort). Tabs, commas, or markdown-table pipes all work — paste straight from Excel, Sheets, or a doc. Replaces the current table.</p>
       <textarea id="pastearea" spellcheck="false" placeholder="Onboarding revamp	8	7	5	6"></textarea>
       <div style="margin-top:8px">
-        <button class="btn" id="pastego">Import</button>
+        <button class="btn" id="pastego" data-capability="imports.spreadsheet">Import</button>
         <span class="perr" id="perr"></span>
       </div>
     </div>
@@ -246,7 +246,7 @@
 
   <section class="card">
     <p class="placeholder" id="ph">Add initiatives and scores above. The result isn't a ranking — it's how much of the ranking you can trust.</p>
-    <div id="results">
+    <div id="results" data-capability="views.stability">
       <div class="metrics" id="metrics" hidden></div>
       <div class="khead">
         <h2>What survives the wobble</h2>
@@ -264,7 +264,7 @@
         <span class="key"><span class="knifepill" style="display:inline-block">knife-edge</span> = this rank flips under a ±10% nudge of one weight — a stricter probe than the ±N% wobble above</span>
       </div>
       <div class="actions">
-        <button class="btn primary" id="copydoc">Copy as markdown</button>
+        <button class="btn primary" id="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button>
         <span class="method">Wobble: weights ±<input id="ww" type="number" min="0" max="200" step="10" value="50" aria-label="Weight wobble percent">% · scores ±<input id="sw" type="number" min="0" max="5" step="0.5" value="1" aria-label="Score wobble points"> pts · 4,000 simulations · deterministic</span>
       </div>
     </div>
@@ -274,7 +274,7 @@
     <div class="khead"><h2>Do two orders agree?</h2></div>
     <p class="subverdict" style="margin-top:6px">Paste two priority orders, one item per line — yours vs a stakeholder's, last quarter's vs this one's, the framework's vs your gut. Items are matched by name; ranks are compared over the shared set.</p>
     <div class="odgrid">
-      <textarea id="oda" spellcheck="false" placeholder="Order A — one initiative per line" aria-label="Order A"></textarea>
+      <textarea id="oda" data-capability="views.compare-orders" spellcheck="false" placeholder="Order A — one initiative per line" aria-label="Order A"></textarea>
       <textarea id="odb" spellcheck="false" placeholder="Order B" aria-label="Order B"></textarea>
     </div>
     <p class="odline" id="odverdict" style="margin-top:14px" hidden></p>

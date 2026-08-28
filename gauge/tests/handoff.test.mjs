@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse as gparse} from '../parse.js';
 import {sessionStats, delphiStats} from '../engine.js';
-import {fermiHandoff, fermiHandoffIssue, slugVar} from '../handoff.js';
-import {gaugeHandoff} from '../../map/handoff.js';
+import {fermiHandoff, fermiHandoffIssue, portableFermiNumber, slugVar} from '../handoff.js';
+import {GAUGE_HANDOFF_TEXT_POLICY, gaugeHandoff, gaugeHandoffIssue} from '../../map/handoff.js';
 import {parse as mparse} from '../../map/parse.js';
 import {resolve} from '../../map/zones.js';
 import {readout} from '../../map/readout.js';
@@ -53,19 +53,62 @@ test('fermiHandoff: Delphi pooled range wins when a second round ran', () => {
   });
 });
 
-test('fermiHandoff: nothing to send → null; large values get suffixes', () => {
+test('fermiHandoff: nothing or private n=1 ranges refuse; exact portable decimals round-trip', () => {
   const probOnly = gparse('Ship it :: prob');
   assert.equal(fermiHandoff(probOnly, sessionStats(probOnly, [{values: [50]}])), null);
   const big = gparse('Daily actives :: range users');
-  const h = fermiHandoff(big, sessionStats(big, [{values: [[80000, 2000000]]}]));
-  assert.deepEqual(h.v.daily_actives, ['80k', '2M', 'auto']);
+  assert.equal(fermiHandoff(big, sessionStats(big, [{values: [[80000, 2000000]]}])), null);
+  assert.match(fermiHandoffIssue(big, sessionStats(big, [{values: [[80000, 2000000]]}])), /at least 2/);
+  const h = fermiHandoff(big, sessionStats(big, [
+    {values:[[80000.125, 2000000.75]]}, {values:[[80000.125, 2000000.75]]},
+  ]));
+  assert.deepEqual(h.v.daily_actives, ['80000.125', '2000000.75', 'auto']);
+  const unpacked = unpackScen(h).vars.get('daily_actives');
+  assert.equal(Number(unpacked.lo), 80000.125);
+  assert.equal(Number(unpacked.hi), 2000000.75);
+});
+
+test('fermiHandoff: an unanswered range is named as unanswered, not as a privacy redaction', () => {
+  /* The shipped "Q3 commitment review" shape: two range questions, and a room
+     that answered only the first. n=0 carries no privacy exposure — there is
+     nothing to expose — so the refusal must not blame aggregate privacy. */
+  const model = gparse(`Ship the referral loop :: prob
+Weeks to migrate billing :: range weeks
+Active teams at end of quarter :: range teams`);
+  const stats = sessionStats(model, [
+    {values: [80, [4, 8], null]},
+    {values: [20, [30, 50], null]},
+  ]);
+  const issue = fermiHandoffIssue(model, stats);
+  assert.match(issue, /unanswered/, 'an unanswered range must say so');
+  assert.doesNotMatch(issue, /privacy/, 'nothing was disclosed, so privacy cannot be the reason');
+  assert.doesNotMatch(issue, /no aggregate/, 'the answered range DOES have an aggregate; all-or-nothing is what blocks it');
+  assert.equal(fermiHandoff(model, stats), null, 'D1: the refusal itself stays all-or-nothing');
+
+  /* A count that cannot be read is not an unanswered question either. Defensive
+     today — sessionStats clamps n — but the whole point of this branching is
+     that each refusal states something true. */
+  for(const unreadable of [NaN, -1, 2.5, undefined, '3', Infinity]){
+    const reason = fermiHandoffIssue(model, [{n: 2, pooled: {lo: 4, hi: 8}}, {n: unreadable}, {n: unreadable}]);
+    assert.match(reason, /unreadable response count/, `n=${String(unreadable)} must not claim to be unanswered`);
+  }
+});
+
+test('portable Fermi bounds never round, suffix, exponentiate, or serialize non-finite values', () => {
+  for(const value of [0, -0.000000000001, 0.1, -42.125, 999999999999999]){
+    const text = portableFermiNumber(value);
+    assert.equal(Number(text), value);
+    assert.doesNotMatch(text, /[eEkKmMbBtT]/);
+  }
+  for(const value of [Infinity, -Infinity, NaN, 1e100]) assert.equal(portableFermiNumber(value), null);
 });
 
 test('fermiHandoff: refuses rather than silently losing a non-normalizable source receipt', () => {
   for(const scenario of GAUGE_FERMI_PROVENANCE_STRESS){
     const model = gparse(scenario.source);
-    assert.equal(fermiHandoff(model, sessionStats(model, [{values: [[4, 8]]}])), null, scenario.id);
-    assert.match(fermiHandoffIssue(model), scenario.issue, scenario.id);
+    const stats = sessionStats(model, [{values:[[4, 8]]}, {values:[[5, 9]]}]);
+    assert.equal(fermiHandoff(model, stats), null, scenario.id);
+    assert.match(fermiHandoffIssue(model, stats), scenario.issue, scenario.id);
   }
 });
 
@@ -101,6 +144,36 @@ test('gaugeHandoff: nothing flagged → null', () => {
   assert.equal(gaugeHandoff(m, readout(m, r)), null);
 });
 
+test('gaugeHandoff: refusal reasons are explicit and oversized drafts never truncate in Gauge', () => {
+  const risk = mparse('preset: risk\nSevere unowned @ 90,90');
+  assert.match(gaugeHandoffIssue(risk, readout(risk, resolve(risk))), /Only an assumption Map/);
+  const overflow = mparse('preset: assumptions\n' +
+    Array.from({length:21}, (_, index) => `Flag ${index + 1} @ 20,80`).join('\n'));
+  const report = readout(overflow, resolve(overflow));
+  assert.match(gaugeHandoffIssue(overflow, report), /at most 20 questions/);
+  assert.equal(gaugeHandoff(overflow, report), null);
+});
+
+test('gaugeHandoff: C0, C1, and Unicode format controls are stripped under bounded text policy', () => {
+  const title = 'Control\u0000 C1\u0085 bidi\u202e title ' + 'T'.repeat(180);
+  const label = 'Question\u0007 C1\u009f join\u200d mark ' + 'Q'.repeat(300);
+  const doc = gaugeHandoff({preset:'assumptions', title}, {flagged:[{item:{label}}]});
+  assert.doesNotMatch(doc, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\p{Cf}]/u);
+  const parsed = gparse(doc);
+  assert.equal(Array.from(parsed.title.replace(/ — room prior$/, '')).length,
+    GAUGE_HANDOFF_TEXT_POLICY.titleCodePoints);
+  assert.equal(Array.from(parsed.questions[0].text).length,
+    GAUGE_HANDOFF_TEXT_POLICY.questionCodePoints);
+  assert.match(parsed.questions[0].text, /^Question C1 join mark/);
+});
+
+test('gaugeHandoff: a control-only flagged label is refused instead of opening an invalid draft', () => {
+  const model = {preset:'assumptions', title:'Controls'};
+  const report = {flagged:[{item:{label:'\u0000\u0085\u202e'}}]};
+  assert.match(gaugeHandoffIssue(model, report), /no portable question text/);
+  assert.equal(gaugeHandoff(model, report), null);
+});
+
 test('handoff metadata is bounded, validated and size-capped', async () => {
   const meta = handoffMeta('map', 'question-set', 'Lantern\n\u0000assumptions');
   assert.deepEqual(meta, {v:1, mode:'draft', from:'map', kind:'question-set', label:'Lantern  assumptions'});
@@ -133,6 +206,40 @@ test('Map labels cannot inject Gauge DSL delimiters or lines', () => {
   assert.equal(back.questions.length, 1);
   assert.equal(back.questions[0].type, 'prob');
   assert.equal(back.names, false);
+});
+
+test('Map labels leading with every Gauge config key remain readable probability questions', () => {
+  const labels = [
+    'title: launch decision',
+    'Names : off',
+    'PALETTE: ember',
+    'accent : #123456',
+    'verdict: off',
+  ];
+  const doc = gaugeHandoff({preset:'assumptions', title:'Reserved forms'}, {
+    flagged: labels.map(label => ({item:{label}})),
+  });
+  const parsed = gparse(doc);
+  assert.deepEqual(parsed.questions.map(question => question.text),
+    labels.map(label => 'Assumption — ' + label));
+  assert.equal(parsed.questions.length, labels.length);
+  assert.ok(parsed.questions.every(question => question.type === 'prob'));
+  assert.deepEqual(parsed.warnings, []);
+});
+
+test('Map comment-looking labels and title text survive the Gauge round trip', () => {
+  const labels = ['   // verify retention', '\u202e   // challenge pricing'];
+  const doc = gaugeHandoff({preset:'assumptions', title:'Launch // dissent // room'}, {
+    flagged: labels.map(label => ({item:{label}})),
+  });
+  const parsed = gparse(doc);
+  assert.equal(parsed.title, 'Launch ∕∕ dissent ∕∕ room — room prior');
+  assert.deepEqual(parsed.questions.map(question => [question.text, question.type]), [
+    ['Assumption — // verify retention', 'prob'],
+    ['Assumption — // challenge pricing', 'prob'],
+  ]);
+  assert.equal(parsed.questions.length, labels.length);
+  assert.deepEqual(parsed.warnings, []);
 });
 
 test('Map handoff overflow status is visible, not screen-reader-only', () => {

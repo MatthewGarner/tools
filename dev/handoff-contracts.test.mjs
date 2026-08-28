@@ -124,7 +124,10 @@ test('Map to Gauge keeps propositions as room priors, not evidence', () => {
 
 test('Gauge to Fermi lands review-needed, with no invented formula', () => {
   const gauge = parseGauge('Weeks to migrate :: range weeks');
-  const target = unpackScen(fermiHandoff(gauge, sessionStats(gauge, [{values:[[4, 8]]}])));
+  const target = unpackScen(fermiHandoff(gauge, sessionStats(gauge, [
+    {values:[[4, 8]]},
+    {values:[[5, 9]]},
+  ])));
   assert.equal(target.f, '');
   assert.equal(target.vars.get('weeks_to_migrate').base.status, 'needs-restatement');
   assert.equal(target.vars.get('weeks_to_migrate').base.pooling, 'envelope');

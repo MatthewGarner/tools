@@ -71,6 +71,17 @@ test('height is content-driven (no fixed 1080) and width grows with horizon coun
   assert.ok(h > 0 && h !== 1080, 'content height, not the slide 1080');
 });
 
+test('comparison keeps its baseline and every dropped title inside the live Board', () => {
+  const model = parse(`horizons: Now, Next\nNow\nCore: Current`);
+  const diff = {since:'July review', dropped:['Retired route', 'Old fallback'], badge:() => null, any:true};
+  const svg = renderBoardLive(model, {...ctx, diff});
+  assert.match(svg, /DROPPED SINCE July review/);
+  assert.match(svg, /Retired route · Old fallback/);
+  const height = Number(/height="([\d.]+)"/.exec(svg)?.[1]);
+  const lastText = Math.max(...[...svg.matchAll(/<text[^>]* y="([\d.]+)"/g)].map(match => Number(match[1])));
+  assert.ok(lastText < height, 'comparison receipt must remain inside the artboard');
+});
+
 test('long live Board cards retain every title and note word by growing', () => {
   const long = 'A deliberately long Board title that must retain its final source words rather than quietly becoming an ellipsis';
   const note = 'The supporting note also stays complete through its final verification detail.';

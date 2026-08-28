@@ -5,7 +5,7 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../asset
 import {renderCausalField} from './render-causal-field.js';
 import {renderCausalPresentation} from './causal-presentation.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
-import {whyDiff, whyDiffView} from './diff.js';
+import {whyComparisonSafety, whyDiff, whyDiffView} from './diff.js';
 import {renderDeliveryLens} from './render-delivery-lens.js';
 import {createEditor} from './editor.js';
 import {insertAndSelect} from '../assets/editor-common.js';
@@ -84,12 +84,19 @@ function inspectNode(line, origin){
 const previewEl = $('preview');
 function renderWidth(){ return narrowWidth(previewEl); }
 function renderWarnings(){
-  renderWarningList($('warns'), model ? model.warnings : []);
+  const warnings = model ? [...model.warnings] : [];
+  const cur = snaps && snaps.current();
+  if(cur && model){
+    const safety = whyComparisonSafety(cur.model, model);
+    if(!safety.safe) warnings.push((safety.line == null ? '' : 'line ' + (safety.line + 1) + ': ') + safety.warning);
+  }
+  renderWarningList($('warns'), warnings);
 }
 let snaps = null;   // wired below, after the editor exists
 function currentDiff(){
   const cur = snaps && snaps.current();
   if(!cur || !model || !model.outcomes.length) return null;
+  if(!whyComparisonSafety(cur.model, model).safe) return null;
   return whyDiffView(whyDiff(cur.model, model), cur.label);
 }
 /* Both projections receive the same live width. Exports omit it so their

@@ -6,6 +6,27 @@ const r1 = v => Math.round(v * 10) / 10;
 const keyed = m => m.items.map(it => ({label: it.label,
   state: it.x != null ? r1(it.x) + ',' + r1(it.y) : '', x: it.x, y: it.y}));
 
+export function duplicateVisibleLabels(model){
+  const seen = new Map(), duplicates = [];
+  for(const item of model.items){
+    const label = diffItems.norm(item.label);
+    if(seen.has(label)){
+      if(!duplicates.some(entry => entry.label === label))
+        duplicates.push({label, first: seen.get(label), duplicate: item});
+    } else seen.set(label, item);
+  }
+  return duplicates;
+}
+
+export function comparisonSafety(oldModel, model){
+  const duplicates = [...duplicateVisibleLabels(oldModel), ...duplicateVisibleLabels(model)];
+  return duplicates.length ? {
+    safe: false,
+    warning: 'Snapshot comparison paused: duplicate claim names are ambiguous. Rename duplicates before comparing.',
+    line: duplicates[0].duplicate.srcLine,
+  } : {safe: true, warning: '', line: null};
+}
+
 export function mapDiff(oldModel, model){
   return diffItems(keyed(oldModel), keyed(model), {key: e => e.label, state: e => e.state});
 }

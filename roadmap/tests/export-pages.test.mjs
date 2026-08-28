@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {exportPages, exportPageCoverage} from '../export-pages.js';
 import {renderDeckPages} from '../render-deck-pages.js';
+import {deckBodyBounds, paletteColors} from '../render-deck.js';
 
 const colors = {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',accentInk:'#067',bg:'#f7f8f6',err:'#b33',
   status:{done:'#1D7A3E',doing:'#0C7FAE',risk:'#9A6A00',blocked:'#B3403A'},
@@ -145,6 +146,37 @@ test('comparison page sets include dropped work as an explicit page', () => {
   assert.match(out.pages[1], /PAGE 2 OF 2/);
 });
 
+test('Register labels comparison drops with their honest synthetic horizon', () => {
+  const out = renderDeckPages(parse('style: register\nNOW\nCore: Kept'), {colors, measure,
+    today:'2026-08-14', diff:{since:'Baseline', dropped:['Retired route'], badge:() => null, any:true}});
+  assert.match(out.pages[1], />Changed work<\/text>/);
+  assert.doesNotMatch(out.pages[1], />NOW<\/text>/);
+});
+
+test('comparison drops use every selected-view geometry planner and count toward completeness', () => {
+  const current = parse('title: Current\nNOW\nCore: Kept');
+  const dropped = Array.from({length:6}, (_, index) =>
+    Array.from({length:99}, (_, word) => `retired${index + 1}-${word + 1}`).join(' ') +
+      ` drop-final-${index + 1}`);
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const out = renderDeckPages({...current, style}, {colors, measure, today:'2026-08-14',
+      diff:{since:'Baseline', dropped, badge:() => null, any:true}});
+    const coverage = exportPageCoverage(out.plan);
+    assert.equal(coverage.complete, true, `${style} proves current and comparison coverage`);
+    assert.equal(coverage.seen.size, 1);
+    assert.equal(coverage.comparisonSeen.size, 6);
+    assert.ok(out.pages.length > 2, `${style} fragments and paginates long comparison titles`);
+    const all = out.pages.join('\n');
+    for(let index = 1; index <= 6; index++){
+      const marker = `drop-final-${index}`;
+      const match = all.match(new RegExp(`<text[^>]*y="([\\d.]+)"[^>]*>[^<]*${marker}</text>`));
+      assert.ok(match, `${style} retains ${marker}`);
+      assert.ok(Number(match[1]) < 930, `${style} keeps ${marker} above the factual footer`);
+    }
+    assert.doesNotMatch(all, /\+ \d+ more/);
+  }
+});
+
 test('long frame copy gains wrapped height rather than an ellipsis', () => {
   const title = 'A roadmap title that intentionally keeps going past the old single-line frame limit without losing its final source words';
   const headline = 'This deliberately long headline carries the meeting narrative through several full lines and must remain completely readable in the exported slide frame.';
@@ -215,6 +247,123 @@ test('Focus balances a real continuation and does not print empty horizon rails'
     assert.doesNotMatch(out.pages[1], new RegExp('>' + empty + '</text>'));
   for(const populated of ['FIVE','SIX','SEVEN','EIGHT'])
     assert.match(out.pages[1], new RegExp('>' + populated + '</text>'));
+});
+
+test('Focus paginates a dense hero before any authored item crosses the 1080-page bounds', () => {
+  const items = Array.from({length:12}, (_, index) =>
+    `Core: Focus item ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const out = renderDeckPages(parse(`style: focus\nNOW\n${items}`), {
+    colors, measure, today:'2026-08-14',
+  });
+  assert.ok(out.pages.length > 1, 'twelve hero rows need a bounded continuation');
+  const seen = new Set();
+  out.pages.forEach((page, pageIndex) => {
+    assert.match(page, /^<svg[^>]*height="1080"/);
+    for(const match of page.matchAll(/<g data-i="(\d+)" data-y0="([\d.]+)" data-y1="([\d.]+)">/g)){
+      const sourceIndex = Number(match[1]), top = Number(match[2]), bottom = Number(match[3]);
+      assert.ok(top >= 0 && bottom > top, `Focus item ${sourceIndex + 1} must have real visible geometry`);
+      assert.ok(bottom < 968,
+        `Focus item ${sourceIndex + 1} on page ${pageIndex + 1} must remain above the factual footer, got bottom=${bottom}`);
+      seen.add(sourceIndex);
+    }
+  });
+  assert.deepEqual([...seen].sort((a, b) => a - b), Array.from({length:12}, (_, index) => index));
+});
+
+test('all selected views paginate against the actual narrative frame height', () => {
+  const words = (prefix, count) => Array.from({length:count}, (_, index) => `${prefix}${index + 1}`).join(' ');
+  const items = Array.from({length:12}, (_, index) =>
+    `Core: Frame item ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const source = `title: ${words('title', 80)}\nheadline: ${words('headline', 70)}\nstory: ${words('story', 100)}\nverdict: ${words('verdict', 35)}\nNOW\n${items}`;
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const model = parse(`style: ${style}\n${source}`);
+    const ctx = {colors, measure, today:'2026-08-14',
+      diff:{since:'A baseline with wrapped provenance', dropped:[], badge:() => null, any:true}};
+    const bounds = deckBodyBounds(model, ctx, paletteColors(model, ctx));
+    const out = renderDeckPages(model, ctx), seen = new Set();
+    assert.ok(out.pages.length > 1, `${style} gives dynamic frame copy its physical space`);
+    assert.equal(exportPageCoverage(out.plan).complete, true);
+    for(const page of out.pages){
+      for(const match of page.matchAll(/<text[^>]*\sy="([\d.]+)"[^>]*>Frame item (\d{2})<\/text>/g)){
+        assert.ok(Number(match[1]) + 40 <= bounds.bottom, `${style} item ${match[2]} stays above the verdict`);
+        seen.add(match[2]);
+      }
+    }
+    assert.equal(seen.size, 12, `${style} keeps every framed item visible`);
+  }
+});
+
+test('an indivisible frame with no item band refuses complete export', () => {
+  const title = Array.from({length:1_000}, (_, index) => `frame${index + 1}`).join(' ');
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const out = renderDeckPages(parse(`style: ${style}\ntitle: ${title}\nNOW\nCore: Kept`),
+      {colors, measure, today:'2026-08-14'});
+    assert.equal(out.complete, false, `${style} cannot certify an item that has no physical frame space`);
+    assert.equal(exportPageCoverage(out.plan).complete, false);
+  }
+});
+
+test('an unbroken item token is grapheme-fragmented inside every selected view', () => {
+  const token = 'x'.repeat(500);
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const out = renderDeckPages(parse(`style: ${style}\nNOW\nCore: ${token}`),
+      {colors, measure, today:'2026-08-14'});
+    assert.equal(exportPageCoverage(out.plan).complete, true);
+    let authoredCharacters = 0;
+    for(const page of out.pages){
+      for(const match of page.matchAll(/<text\sx="([\d.]+)"[^>]*>(x+)<\/text>/g)){
+        const x = Number(match[1]), text = match[2];
+        authoredCharacters += text.length;
+        assert.ok(x + measure(text) <= 1820, `${style} token fragment stays inside the artboard`);
+      }
+    }
+    assert.equal(authoredCharacters, 500, `${style} preserves the complete token exactly once`);
+  }
+});
+
+test('unbroken frame copy wraps while an unrenderable direct horizon label refuses completeness', () => {
+  const token = 'z'.repeat(500);
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const framed = renderDeckPages(parse(`style: ${style}\ntitle: ${token}\nNOW\nCore: Kept`),
+      {colors, measure, today:'2026-08-14'});
+    assert.equal(framed.complete, true, `${style} hard-wraps frame copy`);
+    for(const match of framed.pages[0].matchAll(/<text\sx="([\d.]+)"[^>]*>(z+)<\/text>/g))
+      assert.ok(Number(match[1]) + measure(match[2]) <= 1820, `${style} frame token stays bounded`);
+
+    const source = `style: ${style}\nhorizons: ${token}, Later\n${token}\nCore: Kept`;
+    const horizon = renderDeckPages(parse(source), {colors, measure, today:'2026-08-14'});
+    if(style === 'register') assert.equal(horizon.complete, true, 'Register wraps its horizon cell');
+    else assert.equal(horizon.complete, false, `${style} refuses an unbounded direct horizon heading`);
+  }
+});
+
+test('fixed-width Grid and Board labels refuse local collisions', () => {
+  const horizon = 'h'.repeat(80);
+  const source = `horizons: ${horizon}, Two, Three, Four, Five\n${horizon}\nCore: Kept`;
+  for(const style of ['grid', 'board']){
+    const out = renderDeckPages(parse(`style: ${style}\n${source}`), {colors, measure, today:'2026-08-14'});
+    assert.equal(out.complete, false, `${style} does not certify a heading that crosses its column`);
+  }
+  const lane = 'l'.repeat(40);
+  const grid = renderDeckPages(parse(`style: grid\nNOW\n${lane}: Kept`), {colors, measure, today:'2026-08-14'});
+  assert.equal(grid.complete, false, 'Grid does not certify a lane label that crosses its fixed rail');
+});
+
+test('note-only continuations never restore an exhausted unbounded title token', () => {
+  const token = 'x'.repeat(500);
+  const note = Array.from({length:900}, (_, index) => `note${index + 1}`).join(' ') + ' final-note-marker';
+  for(const style of ['grid', 'board', 'focus', 'register']){
+    const out = renderDeckPages(parse(`style: ${style}\nNOW\nCore: ${token} -- ${note}`),
+      {colors, measure, today:'2026-08-14'});
+    assert.equal(out.complete, true);
+    const all = out.pages.join('\n');
+    assert.match(all, /Item continued/);
+    assert.match(all, /final-note-marker/);
+    const chunks = [...all.matchAll(/<text\sx="([\d.]+)"[^>]*>(x+)<\/text>/g)];
+    assert.equal(chunks.reduce((sum, match) => sum + match[2].length, 0), 500);
+    for(const match of chunks)
+      assert.ok(Number(match[1]) + measure(match[2]) <= 1820, `${style} never restores the raw title`);
+  }
 });
 
 test('an exceptionally long source note becomes bounded, explicit item continuations', () => {

@@ -102,7 +102,7 @@ test('more than eight bets renders an exhaustive full register in ledger mode', 
 });
 
 test('edit hooks on stake / odds / payoff / kill with data-line', () => {
-  const svg = renderBoard(model, sim, CTX);
+  const svg = renderBoard(model, sim, {...CTX, edit: true});
   assert.match(svg, /data-edit="stake" data-line="4"/);
   assert.match(svg, /data-edit="odds" data-line="4"/);
   assert.match(svg, /data-edit="payoff" data-line="4"/);
@@ -135,10 +135,10 @@ test('edit:true wide — the rename target exists too (the shared card menu rout
   assert.ok(!/data-edit="addbet"|data-edit="addgroup"/.test(svg), 'no capsules on the wide ledger');
 });
 
-test('edit gated OUT: without ctx.edit neither layout carries name/addbet/addgroup markup (goldens unchanged)', () => {
+test('edit gated OUT: without ctx.edit neither layout carries interactive markup', () => {
   for(const c of [CTX, {...CTX, width: 390}]){
     const svg = renderBoard(model, sim, c);
-    assert.ok(!/data-edit="name"|data-edit="addbet"|data-edit="addgroup"|＋ Add/.test(svg));
+    assert.doesNotMatch(svg, /data-edit=|data-hit=|data-menu=|＋ Add/);
   }
 });
 
@@ -171,7 +171,7 @@ test('degenerate all-point model does not NaN', () => {
 });
 
 test('narrow relayout (<520) emits the stacked layout and keeps edit hooks', () => {
-  const svg = renderBoard(model, sim, {...CTX, width: 390});
+  const svg = renderBoard(model, sim, {...CTX, width: 390, edit: true});
   assert.match(svg, /data-narrow=""/);
   assert.match(svg, /viewBox="0 0 390 /);
   assert.match(svg, /data-edit="odds"/);

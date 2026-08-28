@@ -248,15 +248,15 @@
   </header>
 
   <main class="fermi-sheet" id="fermisheet">
-  <div class="handoff-strip" id="handoffstrip" role="status" aria-live="polite" hidden>
+  <div class="handoff-strip" id="handoffstrip" data-capability="imports.gauge-receipt" role="status" aria-live="polite" hidden>
     <p class="handoff-copy"><strong id="handofftitle">Draft from Gauge</strong><small>This is a separate Fermi model. Adopting, restating or editing a range does not update Gauge.</small></p>
     <div class="handoff-actions"><a class="btn" id="returnsource" href="/gauge/">Return to Gauge</a></div>
   </div>
   <section class="model-trace" aria-label="Current model">
     <div class="trace-copy"><span class="trace-label" id="modelkind">Estimate</span><code id="modeltrace">Formula not yet set</code><p id="modelmeta"></p></div>
-    <div class="trace-actions"><div class="scentabs" id="scentabs"></div><div class="pagemode segmented" role="tablist" aria-label="Tool mode">
-      <button id="modeest" class="on" role="tab" aria-selected="true">Estimate</button>
-      <button id="modecf" role="tab" aria-selected="false">Cashflow</button>
+    <div class="trace-actions"><div class="scentabs" id="scentabs" data-capability="history.scenario-compare"></div><div class="pagemode segmented" role="tablist" aria-label="Tool mode">
+      <button id="modeest" class="on" role="tab" data-capability="views.estimate" aria-selected="true">Estimate</button>
+      <button id="modecf" role="tab" data-capability="views.cashflow" aria-selected="false">Cashflow</button>
     </div><button class="btn" id="editmodel">Edit formula &amp; ranges</button></div>
   </section>
   <section class="model-source" id="modelsource" hidden aria-label="Model authoring">
@@ -314,9 +314,9 @@
       </div>
       <p class="warn" id="cfwarn"></p>
       <div class="actions">
-        <button id="cfcopypng" class="btn primary">Copy PNG</button>
+        <button id="cfcopypng" class="btn primary" data-capability="presentationExports.cashflow-png">Copy PNG</button>
         <details class="action-disclosure"><summary class="btn">Export</summary><div class="action-menu">
-          <button id="cfcopydoc" class="btn">Copy as markdown</button><button id="cfpng" class="btn">PNG</button><button id="cfsvg" class="btn">SVG</button>
+          <button id="cfcopydoc" class="btn" data-capability="presentationExports.cashflow-markdown">Copy as markdown</button><button id="cfpng" class="btn" data-capability="presentationExports.cashflow-png">PNG</button><button id="cfsvg" class="btn" data-capability="presentationExports.cashflow-svg">SVG</button>
         </div></details>
         <span class="method">Log-normal fit per period range · 10,000 seeded runs · deterministic</span>
       </div>
@@ -335,8 +335,8 @@
       <p class="provenance" id="provenance" aria-live="polite" aria-atomic="true"></p>
       <p class="spread" id="spread" aria-live="polite" aria-atomic="true"></p>
       <div class="viewseg segmented" role="tablist" aria-label="Result view">
-        <button id="viewdist" class="on" role="tab" aria-selected="true">Distribution</button>
-        <button id="viewtree" role="tab" aria-selected="false">Driver tree</button>
+        <button id="viewdist" class="on" role="tab" data-capability="views.distribution" aria-selected="true">Distribution</button>
+        <button id="viewtree" role="tab" data-capability="views.driver-tree" aria-selected="false">Driver tree</button>
       </div>
       <button id="replay" class="btn primary replaybtn" title="Watch the answer's uncertainty being built — pour the draws through the drivers">↻ Replay the maths</button>
       <div id="driverwrap" hidden></div>
@@ -360,10 +360,10 @@
       </div>
       <div class="actions">
         <button id="copy" class="btn">Copy summary</button>
-        <button id="copydoc" class="btn">Copy as markdown</button>
-        <button id="png" class="btn">PNG</button>
-        <button id="treepng" class="btn" hidden>Tree PNG</button>
-        <button id="treesvg" class="btn" hidden>Tree SVG</button>
+        <button id="copydoc" class="btn" data-capability="presentationExports.estimate-markdown">Copy as markdown</button>
+        <button id="png" class="btn" data-capability="presentationExports.distribution-png">PNG</button>
+        <button id="treepng" class="btn" data-capability="presentationExports.driver-tree-png" hidden>Tree PNG</button>
+        <button id="treesvg" class="btn" data-capability="presentationExports.driver-tree-svg" hidden>Tree SVG</button>
         <span class="method">Log-normal fit to each 90% range · 20,000 samples</span>
       </div>
       </div>

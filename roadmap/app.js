@@ -11,7 +11,8 @@ import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {parse, STATUS_LABEL, wipBreaches, roadmapVerdict, roadmapMetrics, applyWorld} from './parse.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict, resolveVerdict} from '../assets/verdict.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
-import {snapStore, diffItems, wireSnapshots} from '../assets/snapshots.js';
+import {snapStore, wireSnapshots} from '../assets/snapshots.js';
+import {roadmapDiff} from './diff.js';
 import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
@@ -28,7 +29,6 @@ import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
 import {roadmapConditionalityHealth} from './handoff-paths.js';
 import {roadmapToMarkdown, markdownToRoadmapDsl} from './markdown.js';
-import {exportPages} from './export-pages.js';
 import {resolveBoardWindow, boardCapacityFor} from './board-window.js';
 import {layoutRoadmap} from './layout.js';
 import {inspectionFacts, inspectionIdentity} from './inspect-item.js';
@@ -100,31 +100,10 @@ API rate-limit tiers`},
 
 /* ---------- snapshots + diff (shared core in assets/snapshots.js) ---------- */
 let snaps = null;   // wired below, after the editor exists
-const flatHorizon = m => m.items.map(it => ({title: it.title, state: String(m.horizons[it.h] ?? '?')}));
-const duplicateTitles = m => {
-  const seen = new Set(), duplicates = new Set();
-  for(const item of m.items){
-    const key = diffItems.norm(item.title);
-    if(seen.has(key)) duplicates.add(key); else seen.add(key);
-  }
-  return duplicates;
-};
 function makeDiff(model){
   const cur = snaps && snaps.current();
   if(!cur) return null;
-  const ambiguous = new Set([...duplicateTitles(cur.model), ...duplicateTitles(model)]);
-  const d = diffItems(flatHorizon(cur.model), flatHorizon(model),
-    {key: e => e.title, state: e => e.state});
-  const added = new Set(d.added.map(e => diffItems.norm(e.title)));
-  const badge = it => {
-    const k = diffItems.norm(it.title);
-    if(ambiguous.has(k)) return null;
-    if(added.has(k)) return {kind: 'new', label: 'New'};
-    const mv = d.moved.get(k);
-    return mv ? {kind: 'moved', label: 'was ' + mv.from} : null;
-  };
-  return {badge, dropped: d.dropped.map(e => e.title), since: cur.label, any: d.any,
-    ambiguous: ambiguous.size ? [...ambiguous] : null};
+  return roadmapDiff(cur.model, model, cur.label);
 }
 
 /* ---------- refresh loop ---------- */
@@ -880,13 +859,12 @@ function plainStyleSvg(){
    button or quietly hand over a partial artefact. */
 function deckSet(){
   if(!model || !model.items.length) return null;
-  return renderDeckPages(selectedModel(model), {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
+  const set = renderDeckPages(selectedModel(model), {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
+  return set.complete ? set : null;
 }
 function deckSvgString(){ return deckSet()?.pages[0] || null; }
 function deckPageCount(){
-  if(!model || !model.items.length) return 0;
-  const dropped = makeDiff(model)?.dropped?.length || 0;
-  return exportPages(selectedModel(model)).pages.length + Math.ceil(dropped / 6);
+  return deckSet()?.pages.length || 0;
 }
 function syncDeckActions(){
   const pages = deckPageCount();

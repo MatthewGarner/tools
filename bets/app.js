@@ -66,12 +66,7 @@ let flipMode;         // 'none' to suppress the quadrant FLIP on a resize/view-f
 const hasBets = m => !!m && m.groups.some(g => g.bets.length);
 const nBets = m => m.groups.reduce((t, g) => t + g.bets.length, 0);
 const isCoarsePointer = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-/* the snapshot's own 4,000-run simulate() is memoised per parsed snapshot
-   model (wireSnapshots already caches the PARSE, keyed by idx|length|label,
-   and returns the same model object while that snapshot stays selected) — a
-   Monte Carlo pass is too costly to redo on every keystroke unmemoised, and
-   render.js must stay a pure function of its own inputs (no resimulating
-   there — see render.js's file header). */
+/* Keep snapshot simulation memoised without putting state in renderers. */
 const prevSimCache = new WeakMap();
 function currentCompare(){
   const cur = snaps && snaps.current();
@@ -79,7 +74,7 @@ function currentCompare(){
   if(!comparisonSafety(cur.model, model).safe) return null;
   if(!prevSimCache.has(cur.model)) prevSimCache.set(cur.model, simulate(cur.model));
   const diffView = betsDiffView(betsDiff(cur.model, model), cur.label);
-  return {...diffView, prevSim: prevSimCache.get(cur.model)};
+  return {...diffView, prevSim: prevSimCache.get(cur.model), previousUnit: cur.model.unit};
 }
 function findBet(m, srcLine){
   if(!m) return null;
@@ -111,17 +106,9 @@ function pairedVerdict(s){
     fig: ip + '% → ' + sp + '%',
   };
 }
-/* width-aware: the live preview re-lays-out below 520px (narrowWidth's
-   built-in threshold, shared by both views); native exports render the wide
-   active view, while Copy PNG uses its fixed presentation summary. Compare is preview-only AND
-   board-only — the quadrant is a portfolio-shape lens, not a diff, so it
-   never receives ctx.compare even when a snapshot is selected; native exports stay
-   the plain view (board or quadrant), so a shared artefact never carries stray "was …" annotations from the
-   author's own review session. */
+/* Comparison is a live Board lens only; exported SVGs stay current-only. */
 function activeRender(intent = 'live'){
   const c = {colors: themeColors(), measure, intent, dark: isDark()};
-  /* live preview is editable (rename target + narrow ＋ capsules); exports and
-     goldens render without ctx.edit, so the artefact never carries edit chrome */
   if(intent === 'live'){
     c.width = narrowWidth($('preview')); c.edit = true;
     c.coarse = isCoarsePointer();
@@ -369,7 +356,9 @@ wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
   getSvg: nativeSvgString,
   getCopy: presentationSvgString,
-  getMarkdown: () => (hasBets(model) && sim) ? markdown(model, sim, location.href) : null,
+  getMarkdown: () => (hasBets(model) && sim)
+    ? markdown(model, sim, location.href, {comparison: currentCompare()})
+    : null,
   slug,
 });
 

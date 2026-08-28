@@ -31,7 +31,7 @@
   </header>
 
   <main>
-  <div class="card" id="setupcard">
+  <div class="card" id="setupcard" data-capability="views.line-up">
     <div class="chips" id="examples"><span class="lead">Try:</span></div>
     <label class="setuplabel" for="question">The question</label>
     <input type="text" id="question" placeholder="Which should we build first?">
@@ -41,13 +41,13 @@
     <div class="actions"><button class="btn primary" id="start">Start duelling →</button></div>
   </div>
 
-  <div class="card" id="duelcard" hidden>
+  <div class="card" id="duelcard" data-capability="views.showdown" hidden>
     <div id="duelwrap"></div>
     <p class="sr-only" id="duelstatus" role="status" aria-live="polite"></p>
     <div class="actions">
       <button class="btn" id="undo">Undo last</button>
       <button class="btn" id="finish" hidden>Finish now</button>
-      <button class="btn" id="keep" hidden>Keep duelling</button>
+      <button class="btn" id="keep" data-capability="editing.re-duel-loops" hidden>Keep duelling</button>
       <button class="btn" id="restart">New line-up</button>
     </div>
   </div>
@@ -60,7 +60,7 @@
       <div class="readcol" id="loopcol" hidden><h2>No clean order</h2><div id="loopwrap"></div></div>
     </div>
     <div class="actions">
-      <button class="btn" id="copydoc">Copy as markdown</button>
+      <button class="btn" id="copydoc" data-capability="presentationExports.markdown">Copy as markdown</button>
       <button class="btn" id="copylink">Copy link</button>
       <span class="method">Copeland order from your duels · “neighbours compared” means directly compared · the URL carries the whole session</span>
     </div>

@@ -202,6 +202,9 @@ export function toMarkdown(model, diff, url, today){
       lines.push('- ' + sl.label + ' ' + (sl.days > 0 ? 'slipped +' : 'pulled in −') + wk(sl.days));
   }
   lines.push('');
-  lines.push('_P50–P90 milestone ranges · [live timeline](' + url + ')_');
+  const provenance = typeof url === 'string' && url
+    ? '[live timeline](' + url + ')'
+    : 'local Timeline source snapshot';
+  lines.push('_P50–P90 milestone ranges · ' + provenance + '_');
   return lines.join('\n');
 }

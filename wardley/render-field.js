@@ -22,6 +22,32 @@ const count = (n, singular, plural = singular + 's') => n + ' ' + (n === 1 ? sin
 const componentList = model => [...model.components.values()];
 const norm = value => String(value || '').toLowerCase();
 const sourceOrder = (a,b) => a.srcLine-b.srcLine || (a.order ?? 0)-(b.order ?? 0) || a.name.localeCompare(b.name);
+const markdownOneLine = value => String(value ?? '').replace(/[\r\n]+/g,' ');
+const markdownInline = value => markdownOneLine(value)
+  .replace(/\\/g,'\\\\').replace(/([`*_\[\]<>])/g,'\\$1');
+const markdownHeading = value => markdownInline(value).replace(/#/g,'\\#');
+function markdownCode(value){
+  const text=markdownOneLine(value), runs=[...text.matchAll(/`+/g)].map(match=>match[0].length);
+  const fence='`'.repeat(Math.max(0,...runs)+1);
+  const pad=/^(?:`| )|(?:`| )$/.test(text)?' ':'';
+  return fence+pad+text+pad+fence;
+}
+
+function duplicateDiagnostic(model){
+  const warning = model.warnings.find(message => /duplicate (?:component|anchor)/i.test(message));
+  if(!warning) return null;
+  const match = warning.match(/^line\s+(\d+):/i);
+  return {warning, line:match ? Number(match[1]) - 1 : null};
+}
+
+export function comparisonSafety(previous, model){
+  const duplicate = duplicateDiagnostic(previous) || duplicateDiagnostic(model);
+  return duplicate ? {
+    safe:false,
+    warning:'Snapshot comparison paused: duplicate component or user-need names are ambiguous. Rename duplicates before comparing.',
+    line:duplicate.line,
+  } : {safe:true, warning:'', line:null};
+}
 
 /* A source title, identifier, URL, or narrow mobile fact cannot be allowed to
    run through a neighbouring rail. Preserve every character, splitting an
@@ -118,6 +144,7 @@ function edgeFacts(model, previous){
 function strategicDiff(model, compare){
   if(!compare?.prev) return null;
   const previous = compare.prev;
+  if(!comparisonSafety(previous, model).safe) return null;
   const currentNames = relationIndex(model), previousNames = relationIndex(previous);
   const nodeDiff = diffItems(componentList(previous), componentList(model), {
     key:item => item.name,
@@ -165,7 +192,7 @@ function comparisonReceipt(diff, x, y, width, c, measure, size = 11){
   return {svg:rendered.join(''), height:cursor-y};
 }
 
-function labelPlane(node, relations, c){
+function labelPlane(node, relations, c, edit = false, drag = false){
   const x = node.cardX, y = node.y - node.cardH / 2, w = node.cardW, h = node.cardH;
   const detail = node.anchor ? 'USER NEED' : stageText(node);
   const needs = relations.needs.get(norm(node.name)) || [];
@@ -182,7 +209,7 @@ function labelPlane(node, relations, c){
   /* The wide Field keeps one 44px rename plane and one 44px evolution plane
      physically separate. A title never doubles as an ambiguous stage tap. */
   const hitW = Math.max(44, w - 52), hitH = Math.max(44, node.lines.length * 16 + 12);
-  inner.push('<rect data-title-hit="" data-edit="' + editKind + '" data-line="' + node.srcLine + '" data-raw="' + esc(node.name) +
+  if(edit) inner.push('<rect data-title-hit="" data-edit="' + editKind + '" data-line="' + node.srcLine + '" data-raw="' + esc(node.name) +
     '" x="' + r(x+4) + '" y="' + r(y) + '" width="' + r(hitW) + '" height="' + r(hitH) +
     '" fill="' + c.bg + '" fill-opacity="0" tabindex="0" role="button" aria-label="Rename ' + (node.anchor ? 'user need' : 'component') + ': ' + esc(node.name) + '"/>');
   const lineY = y + 18;
@@ -192,13 +219,13 @@ function labelPlane(node, relations, c){
   if(!node.anchor) inner.push('<text x="' + r(x+w-10) + '" y="' + r(y+h-8) + '" text-anchor="end" font-size="9" font-weight="700" letter-spacing=".9" fill="' + c.muted + '" pointer-events="none">' + esc(detail) + '</text>');
   if(node.anchor) return '<g class="strategic-anchor" data-source-line="' + node.srcLine + '" aria-label="' + esc(accessible) + '">' + inner.join('') + '</g>';
   const raw = node.stage || (node.x === null ? '' : String(node.x));
-  const stageHit = node.ghost ? '' : '<rect data-stage-hit="" data-edit="stage" data-line="' + node.srcLine + '" data-raw="' + esc(raw) +
+  const stageHit = !edit || node.ghost ? '' : '<rect data-stage-hit="" data-edit="stage" data-line="' + node.srcLine + '" data-raw="' + esc(raw) +
     '" x="' + r(x+w-44) + '" y="' + r(y+Math.max(0,(h-44)/2)) + '" width="44" height="44"' +
     ' fill="' + c.bg + '" fill-opacity="0" tabindex="0" role="button" aria-label="Cycle evolution stage: ' + esc(node.name) + '"/>';
   /* The two action planes are sibling strips: title at left, exact evolution
      at right. Inert text yields to the correct plane without a hidden overlay. */
   const layered = inner.slice(0,2).concat(stageHit, inner.slice(2)).join('');
-  return '<g data-drag="evo" data-name="' + esc(node.name) + '" data-line="' + node.srcLine + '" data-strategic-node="' + esc(node.id) +
+  return '<g' + (edit || drag ? ' data-drag="evo" data-name="' + esc(node.name) + '" data-line="' + node.srcLine + '"' : '') + ' data-strategic-node="' + esc(node.id) +
     '" aria-label="' + esc(accessible) + '">' + layered + '</g>';
 }
 
@@ -293,8 +320,14 @@ function fieldWide(model, suppliedLayout, ctx, opts = {}, presentation = false){
       /* The bridge is inert hover geometry, not an invisible action: it keeps
          one component's contextual control available while its real 44px
          target remains non-interactive until that component is engaged. */
-      plane.push('<g data-strategic-edit-pair=""><rect data-menu-bridge="" aria-hidden="true" x="'+r(bx)+'" y="'+r(by)+'" width="'+r(br-bx)+'" height="'+r(bb-by)+'" fill="'+c.bg+'" fill-opacity="0"/>'+labelPlane(node, relations, c)+menu.svg+'</g>');
-    }else plane.push(labelPlane(node, relations, c));
+      plane.push('<g data-strategic-edit-pair=""><rect data-menu-bridge="" aria-hidden="true" x="'+r(bx)+'" y="'+r(by)+'" width="'+r(br-bx)+'" height="'+r(bb-by)+'" fill="'+c.bg+'" fill-opacity="0"/>'+labelPlane(node, relations, c, true)+menu.svg+'</g>');
+    }else {
+      const sourceBacked = !model.edges.some(edge => edge.srcLine === node.srcLine);
+      plane.push(labelPlane(
+        node, relations, c, Boolean(opts.edit && !presentation),
+        Boolean(opts.drag && !presentation && !node.anchor && sourceBacked)
+      ));
+    }
   }
   plane.push('</g>');
   if(opts.edit && !presentation){
@@ -348,9 +381,9 @@ function ledgerRow(node, relations, c, measure, W, pad, y, opts){
   const title=lines(node.name,'650 16px '+SANS,inner-70,measure),facts=node.anchor?['USER NEED']:[stageText(node),need.length?'NEEDS · '+need.join(' · '):'NEEDS · —',by.length?'NEEDED BY · '+by.join(' · '):'NEEDED BY · —',from.length?'FROM · '+from.join(' · '):'FROM · —'];
   if(node.ghost)facts.unshift('UNPLACED — TAP RULER TO PLACE');
   const factLines=facts.flatMap(f=>lines(f,'11px '+SANS,inner-28,measure)),h=30+title.length*19+factLines.length*16+(node.anchor?4:32)+18;
-  const row=['<g data-strategic-row="'+node.srcLine+'"'+(node.anchor?'':' data-drag="evo" data-strip="" data-name="'+esc(node.name)+'" data-line="'+node.srcLine+'"')+' aria-label="'+esc(node.name+'. '+facts.join('. '))+'">','<rect x="'+pad+'" y="'+y+'" width="'+inner+'" height="'+h+'" fill="'+c.bg+'" stroke="'+(node.ghost?c.muted:c.border)+'" stroke-width="1"'+(node.ghost?' stroke-dasharray="4 3"':'')+'/>'];
+  const row=['<g data-strategic-row="'+node.srcLine+'"'+(!node.anchor&&opts.edit?' data-drag="evo" data-strip="" data-name="'+esc(node.name)+'" data-line="'+node.srcLine+'"':'')+' aria-label="'+esc(node.name+'. '+facts.join('. '))+'">','<rect x="'+pad+'" y="'+y+'" width="'+inner+'" height="'+h+'" fill="'+c.bg+'" stroke="'+(node.ghost?c.muted:c.border)+'" stroke-width="1"'+(node.ghost?' stroke-dasharray="4 3"':'')+'/>'];
   const titleKind=node.anchor?'anchor':'name',titleHitH=Math.max(44,title.length*19+12),titleHitW=Math.max(44,inner-68);
-  row.push('<rect data-title-hit="" data-edit="'+titleKind+'" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" x="'+(pad+8)+'" y="'+(y+6)+'" width="'+titleHitW+'" height="'+titleHitH+'" fill="'+c.bg+'" fill-opacity="0" tabindex="0" role="button" aria-label="Rename '+(node.anchor?'user need':'component')+': '+esc(node.name)+'"/>');
+  if(opts.edit) row.push('<rect data-title-hit="" data-edit="'+titleKind+'" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" x="'+(pad+8)+'" y="'+(y+6)+'" width="'+titleHitW+'" height="'+titleHitH+'" fill="'+c.bg+'" fill-opacity="0" tabindex="0" role="button" aria-label="Rename '+(node.anchor?'user need':'component')+': '+esc(node.name)+'"/>');
   title.forEach((line,index)=>row.push('<text x="'+(pad+14)+'" y="'+(y+25+index*19)+'" font-size="16" font-weight="650" fill="'+(node.ghost?c.muted:c.ink)+'" pointer-events="none">'+esc(line)+'</text>'));
   let factY=y+31+title.length*19;factLines.forEach(f=>{row.push('<text x="'+(pad+14)+'" y="'+factY+'" font-size="11" font-weight="600" fill="'+c.muted+'" pointer-events="none">'+esc(f)+'</text>');factY+=16;});
   if(!node.anchor){const tx=pad+14,tw=inner-28,ty=y+h-22,dot=node.x===null?tx:tx+node.x*tw;row.push('<line x1="'+tx+'" y1="'+ty+'" x2="'+(tx+tw)+'" y2="'+ty+'" stroke="'+c.ink+'" stroke-width="1"/>');for(const stage of STAGES){const sx=tx+stage.mid*tw;row.push('<line x1="'+sx+'" y1="'+(ty-4)+'" x2="'+sx+'" y2="'+(ty+4)+'" stroke="'+c.muted+'" stroke-width="1"/>');}row.push('<rect data-track="" data-x0="'+tx+'" data-w="'+tw+'" x="'+tx+'" y="'+(ty-22)+'" width="'+tw+'" height="44" fill="'+c.bg+'" fill-opacity="0"/><circle data-dot="" cx="'+dot+'" cy="'+ty+'" r="5" fill="'+(node.ghost?c.bg:c.ink)+'" stroke="'+c.ink+'" stroke-width="1.4"'+(node.ghost?' stroke-dasharray="2 2"':'')+'/>');/* Phone has one unambiguous menu plane; exact evolution is edited on the ruler, so a second stage plane would overlap it. */if(opts.edit)row.push('<g data-edit="componentmenu" data-line="'+node.srcLine+'" data-raw="'+esc(node.name)+'" tabindex="0" role="button" aria-label="More options: '+esc(node.name)+'"><rect data-hit="" x="'+(pad+inner-52)+'" y="'+(y+8)+'" width="44" height="44" fill="'+c.bg+'" fill-opacity="0"/><text x="'+(pad+inner-30)+'" y="'+(y+37)+'" text-anchor="middle" font-size="14" font-weight="700" fill="'+c.muted+'" pointer-events="none">⋯</text></g>');}
@@ -368,9 +401,40 @@ function renderNarrow(model, layout, ctx, opts){
   const H=Math.ceil(y+24);return '<svg xmlns="http://www.w3.org/2000/svg" data-narrow="" data-strategic-ledger="" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="'+SANS+'"><rect width="'+W+'" height="'+H+'" fill="'+c.bg+'"/>'+parts.join('')+'</svg>';
 }
 
-export function toMarkdown(model, layout, href){
-  const out=['# '+(model.title||'Wardley map'),'','> Horizontal evolution positions are current strategic claims; vertical order is derived from `A -> B` dependencies, not measured visibility.',''];
-  const read=mapReadout(model,layout);if(read.verdict)out.push('**'+read.verdict+'**','');for(const node of [...layout.nodes].filter(node=>!node.anchor).sort(sourceOrder))out.push('- **'+node.name+'** — '+stageText(node));for(const flag of read.flags)out.push('- '+flag);out.push('',count(model.edges.length,'dependency','dependencies')+' · user needs: '+model.anchors.map(anchor=>anchor.name).join(', '),'','[live map]('+href+')');return out.join('\n')+'\n';
+export function toMarkdown(model, layout, href, compare = null){
+  const out=['# '+markdownHeading(model.title||'Wardley map'),'','> Horizontal evolution positions are current strategic claims; vertical order is derived from `A -> B` dependencies, not measured visibility.',''];
+  const read=mapReadout(model,layout);
+  if(read.verdict) out.push('**'+markdownInline(read.verdict)+'**','');
+
+  const diff=strategicDiff(model,compare);
+  if(diff){
+    out.push('## Compared with '+markdownHeading(diff.label),'');
+    for(const fact of diff.facts.length ? diff.facts : ['NO STRATEGIC CLAIMS CHANGED']) out.push('- '+markdownInline(fact));
+    out.push('');
+  }
+
+  out.push('## User needs','');
+  for(const anchor of model.anchors) out.push('- **'+markdownInline(anchor.name)+'**');
+  out.push('','## Components','');
+  for(const node of [...layout.nodes].filter(node=>!node.anchor).sort(sourceOrder))
+    out.push('- **'+markdownInline(node.name)+'** — '+stageText(node));
+
+  const relations=relationIndex(model);
+  out.push('','## Dependencies','');
+  if(model.edges.length){
+    for(const edge of model.edges){
+      const from=relations.label(edge.from),to=relations.label(edge.to);
+      out.push('- '+markdownInline(from)+' needs '+markdownInline(to)+' ('+markdownCode(from+' -> '+to)+')');
+    }
+  }else out.push('- None authored');
+
+  if(read.flags.length){
+    out.push('','## Projection notes','');
+    for(const flag of read.flags) out.push('- '+markdownInline(flag));
+  }
+  out.push('',count(model.edges.length,'dependency','dependencies')+' · user needs: '+model.anchors.map(anchor=>markdownInline(anchor.name)).join(', '),'');
+  out.push(typeof href==='string'&&href ? '[live map]('+href+')' : '_Local Wardley source snapshot_');
+  return out.join('\n')+'\n';
 }
 
 export function renderMap(model, layout, ctx, opts = {}){

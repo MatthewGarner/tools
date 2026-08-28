@@ -24,10 +24,11 @@ function marker(x, y, bad, C, r = 4){
 }
 function zoneInk(zone, C){ return zone.tone === 'bad' ? C.err : C.muted; }
 function cardOpen(item, edit){
+  if(!edit) return '<g data-line="' + item.srcLine + '">';
   const firstField = item.fields[0];
   return '<g data-edit="cardmenu" data-line="' + item.srcLine + '"' + btnAttrs('More options: ' + item.label) +
     (firstField ? ' data-field-raw="' + esc(firstField.val) + '" data-key="' + esc(firstField.key) + '"' : '') +
-    (edit ? ' data-menu=""' : '') + '>';
+    ' data-menu="">';
 }
 
 function directMenuOverlap(records){
@@ -60,7 +61,7 @@ function drawPlane(out, model, resolved, C, x, y, w, h, edit){
     const at = anchors.get(zone.id); if(!at) continue;
     const zx = px(at[0]), zy = py(at[1]), label = upper(zone.name);
     const visible = '<text x="' + n(zx) + '" y="' + n(zy) + '" text-anchor="middle" font-size="9.5" font-weight="600" letter-spacing="1.15" fill="' + zoneInk(zone,C) + '">' + esc(label) + '</text>';
-    if(zone.kind === 'cell' || (zone.kind === 'rule' && zone.srcLine != null)){
+    if(edit && (zone.kind === 'cell' || (zone.kind === 'rule' && zone.srcLine != null))){
       const ref = zone.kind === 'cell' ? 'c:' + zone.col + ',' + zone.row : 'r:' + zone.name;
       out.push(editTarget(visible, {x:zx-22,y:zy-22,w:44,h:44,bg:C.bg}, {kind:'zonename',line:zone.srcLine ?? -1,raw:zone.name,extra:'data-zone="' + esc(ref) + '"',label:'Rename zone: '+zone.name}));
     } else out.push(visible);
@@ -68,8 +69,10 @@ function drawPlane(out, model, resolved, C, x, y, w, h, edit){
   }
   const ax = resolved.x, ay = resolved.y, cx = x+w/2, cy = y+h/2;
   const atext = ' font-size="10" font-weight="600" letter-spacing="1.80" fill="' + C.muted + '"';
-  out.push(editTarget('<text x="'+n(cx)+'" y="'+n(y+h+30)+'" text-anchor="middle"'+atext+'>'+esc(upper(ax.label))+'</text>', {x:cx-22,y:y+h+8,w:44,h:44,bg:C.bg}, {kind:'axis',line:ax.srcLine ?? -1,raw:ax.label,extra:'data-axis="x"',label:'Edit x-axis label: '+ax.label}));
-  out.push(editTarget('<text x="'+n(x-28)+'" y="'+n(cy)+'" text-anchor="middle" transform="rotate(-90 '+n(x-28)+' '+n(cy)+')"'+atext+'>'+esc(upper(ay.label))+'</text>', {x:Math.max(0,x-50),y:cy-22,w:44,h:44,bg:C.bg}, {kind:'axis',line:ay.srcLine ?? -1,raw:ay.label,extra:'data-axis="y"',label:'Edit y-axis label: '+ay.label}));
+  const xAxis = '<text x="'+n(cx)+'" y="'+n(y+h+30)+'" text-anchor="middle"'+atext+'>'+esc(upper(ax.label))+'</text>';
+  const yAxis = '<text x="'+n(x-28)+'" y="'+n(cy)+'" text-anchor="middle" transform="rotate(-90 '+n(x-28)+' '+n(cy)+')"'+atext+'>'+esc(upper(ay.label))+'</text>';
+  out.push(edit ? editTarget(xAxis, {x:cx-22,y:y+h+8,w:44,h:44,bg:C.bg}, {kind:'axis',line:ax.srcLine ?? -1,raw:ax.label,extra:'data-axis="x"',label:'Edit x-axis label: '+ax.label}) : xAxis);
+  out.push(edit ? editTarget(yAxis, {x:Math.max(0,x-50),y:cy-22,w:44,h:44,bg:C.bg}, {kind:'axis',line:ay.srcLine ?? -1,raw:ay.label,extra:'data-axis="y"',label:'Edit y-axis label: '+ay.label}) : yAxis);
   if(ax.low){
     out.push('<text x="'+x+'" y="'+n(y+h+13)+'" font-size="9.5" fill="'+C.muted+'">'+esc(ax.low)+'</text>');
     out.push('<text x="'+n(x+w)+'" y="'+n(y+h+13)+'" text-anchor="end" font-size="9.5" fill="'+C.muted+'">'+esc(ax.high)+'</text>');
@@ -94,11 +97,11 @@ function drawPlaced(out, plan, flags, C, edit, diff){
     const middle = record.y + record.h/2;
     const hitH = Math.max(44,record.h);
     out.push(cardOpen(record.it,edit).replace('>', ' data-display-id="'+record.id+'" data-geometry="'+[record.cx,record.cy,record.x,record.y,record.w,record.h].map(n).join(',')+'">'));
-    out.push('<rect data-hit="" x="'+n(record.x)+'" y="'+n(middle-hitH/2)+'" width="'+n(record.w+16)+'" height="'+n(hitH)+'" fill="'+C.card+'" fill-opacity="0"/>');
+    if(edit) out.push('<rect data-hit="" x="'+n(record.x)+'" y="'+n(middle-hitH/2)+'" width="'+n(record.w+16)+'" height="'+n(hitH)+'" fill="'+C.card+'" fill-opacity="0"/>');
     out.push(marker(record.cx,record.cy,flags.has(record.it.srcLine),C));
     if(newly(record.it.label)) out.push('<circle cx="'+n(record.cx)+'" cy="'+n(record.cy)+'" r="8" fill="none" stroke="'+C.ink+'" stroke-width="1"/><text x="'+n(record.cx+11)+'" y="'+n(record.cy-7)+'" font-size="8" font-weight="650" letter-spacing=".7" fill="'+C.muted+'">NEW</text>');
     const tx=record.x+8, base=record.y+16, bad=flags.has(record.it.srcLine);
-    out.push('<text data-edit="label" data-line="'+record.it.srcLine+'" data-raw="'+esc(record.it.label)+'" x="'+n(tx)+'" y="'+n(base)+'" font-size="12" font-weight="650" fill="'+(bad?C.err:C.ink)+'"'+btnAttrs('Rename: '+record.it.label)+'>'+esc(record.lines[0])+'</text>');
+    out.push('<text'+(edit?' data-edit="label" data-line="'+record.it.srcLine+'" data-raw="'+esc(record.it.label)+'"':'')+' x="'+n(tx)+'" y="'+n(base)+'" font-size="12" font-weight="650" fill="'+(bad?C.err:C.ink)+'"'+(edit?btnAttrs('Rename: '+record.it.label):'')+'>'+esc(record.lines[0])+'</text>');
     record.lines.slice(1).forEach((line,index)=>out.push('<text pointer-events="none" x="'+n(tx)+'" y="'+n(base+(index+1)*14)+'" font-size="12" font-weight="650" fill="'+(bad?C.err:C.ink)+'">'+esc(line)+'</text>'));
     out.push('</g>');
   }
@@ -131,7 +134,7 @@ function drawMargin(out, model, ro, C, x, y, w, measure, edit, plan, diff){
       out.push(cardOpen(item,edit).replace('>', ' data-display-id="'+record.id+'">'));
       if(edit) out.push('<rect data-hit="" x="'+n(x-4)+'" y="'+n(cy-16)+'" width="'+n(w+4)+'" height="'+rowH+'" fill="'+C.card+'" fill-opacity="0"/>');
       out.push('<text pointer-events="none" x="'+n(x)+'" y="'+n(cy)+'" font-size="9.5" font-weight="650" letter-spacing=".5" fill="'+(bad?C.err:C.muted)+'">'+record.id+'</text>');
-      label.forEach((line,index)=>out.push('<text data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'" x="'+n(x+32)+'" y="'+n(cy+index*13)+'" font-size="10.5" font-weight="600" fill="'+(bad?C.err:C.ink)+'"'+(index?' pointer-events="none"':btnAttrs('Rename: '+item.label))+'>'+esc(line)+'</text>'));
+      label.forEach((line,index)=>out.push('<text'+(edit?' data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'"':'')+' x="'+n(x+32)+'" y="'+n(cy+index*13)+'" font-size="10.5" font-weight="600" fill="'+(bad?C.err:C.ink)+'"'+(edit?(index?' pointer-events="none"':btnAttrs('Rename: '+item.label)):'')+'>'+esc(line)+'</text>'));
       out.push('</g>'); cy+=rowH;
     }
     cy+=10;
@@ -143,7 +146,7 @@ function drawMargin(out, model, ro, C, x, y, w, measure, edit, plan, diff){
       out.push('<g data-line="'+item.srcLine+'" data-tray="1"'+(edit?' data-edit="cardmenu"'+btnAttrs('More options: '+item.label)+(firstField?' data-field-raw="'+esc(firstField.val)+'" data-key="'+esc(firstField.key)+'"':'')+' data-menu=""':'')+'>');
       if(edit) out.push('<rect data-hit="" x="'+n(x-4)+'" y="'+n(cy-13)+'" width="'+n(w+4)+'" height="'+rowH+'" fill="'+C.card+'" fill-opacity="0"/>');
       out.push('<line x1="'+n(x)+'" y1="'+n(cy-8)+'" x2="'+n(x+8)+'" y2="'+n(cy-8)+'" stroke="'+C.muted+'"/>');
-      out.push('<text data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'" x="'+n(x+14)+'" y="'+n(cy)+'" font-size="10.5" font-weight="600" fill="'+C.ink+'"'+btnAttrs('Rename: '+item.label)+'>'+esc(label[0])+'</text>');
+      out.push('<text'+(edit?' data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'"':'')+' x="'+n(x+14)+'" y="'+n(cy)+'" font-size="10.5" font-weight="600" fill="'+C.ink+'"'+(edit?btnAttrs('Rename: '+item.label):'')+'>'+esc(label[0])+'</text>');
       label.slice(1).forEach((line,index)=>out.push('<text pointer-events="none" x="'+n(x+14)+'" y="'+n(cy+(index+1)*13)+'" font-size="10.5" font-weight="600" fill="'+C.ink+'">'+esc(line)+'</text>'));
       out.push('</g>'); cy+=rowH;
     }
@@ -175,20 +178,20 @@ function narrow(model,resolved,ro,ctx,C,diff){
   out.push('<text x="'+p+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".8" fill="'+C.muted+'">X · '+esc(upper(resolved.x.label))+' — '+esc(upper(resolved.x.low||'LOW'))+' TO '+esc(upper(resolved.x.high||'HIGH'))+'</text>'); y+=14;
   out.push('<text x="'+p+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".8" fill="'+C.muted+'">Y · '+esc(upper(resolved.y.label))+' — '+esc(upper(resolved.y.low||'LOW'))+' TO '+esc(upper(resolved.y.high||'HIGH'))+'</text>'); y+=14;
   const px=p,py=y,pw=W-p*2,ph=128;
-  out.push('<rect data-plane="1" data-position-hit="" x="'+px+'" y="'+py+'" width="'+pw+'" height="'+ph+'" fill="'+C.card+'" stroke="'+C.border+'"/>');
+  out.push('<rect data-plane="1"'+(edit?' data-position-hit=""':'')+' x="'+px+'" y="'+py+'" width="'+pw+'" height="'+ph+'" fill="'+C.card+'" stroke="'+C.border+'"/>');
   if(resolved.grid){for(let col=1;col<resolved.grid.cols;col++)out.push('<line x1="'+n(px+pw*col/resolved.grid.cols)+'" y1="'+py+'" x2="'+n(px+pw*col/resolved.grid.cols)+'" y2="'+n(py+ph)+'" stroke="'+C.border+'"/>');for(let row=1;row<resolved.grid.rows;row++)out.push('<line x1="'+px+'" y1="'+n(py+ph*row/resolved.grid.rows)+'" x2="'+n(px+pw)+'" y2="'+n(py+ph*row/resolved.grid.rows)+'" stroke="'+C.border+'"/>');}
   const flags=flagSet(ro); for(const record of sourceItems(model,ro))if(record.item.x!=null)out.push(marker(px+record.item.x/100*pw,py+(1-record.item.y/100)*ph,flags.has(record.item.srcLine),C,3));
   y=py+ph+26;
   for(const record of sourceItems(model,ro)){
     const item=record.item,bad=flags.has(item.srcLine),label=lines(item.label,'650 13px '+FONT,232,measure),rowH=Math.max(66,48+label.length*15),entry=item.x==null?null:ro.zones.find(z=>z.items.some(value=>value.srcLine===item.srcLine)),firstField=item.fields[0];
-    out.push('<g data-line="'+item.srcLine+'"'+(item.x==null?' data-tray="1"':'')+' data-edit="cardmenu"'+btnAttrs('More options: '+item.label)+(firstField?' data-field-raw="'+esc(firstField.val)+'" data-key="'+esc(firstField.key)+'"':'')+(edit?' data-menu=""':'')+'>');
+    out.push('<g data-line="'+item.srcLine+'"'+(item.x==null?' data-tray="1"':'')+(edit?' data-edit="cardmenu"'+btnAttrs('More options: '+item.label)+(firstField?' data-field-raw="'+esc(firstField.val)+'" data-key="'+esc(firstField.key)+'"':'')+' data-menu=""':'')+'>');
     if(edit)out.push('<rect data-hit="" x="'+(W-p-44)+'" y="'+n(y-22)+'" width="44" height="44" fill="'+C.card+'" fill-opacity="0"/>');
     out.push('<line x1="'+p+'" y1="'+n(y+rowH-22)+'" x2="'+(W-p)+'" y2="'+n(y+rowH-22)+'" stroke="'+C.border+'"/>',marker(p+7,y-7,bad,C,3),'<text x="'+(p+20)+'" y="'+y+'" font-size="9" font-weight="600" letter-spacing=".7" fill="'+C.muted+'">'+record.id+'</text>');
-    out.push('<g data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'"'+btnAttrs('Rename: '+item.label)+' data-title-hit="">');
+    if(edit) out.push('<g data-edit="label" data-line="'+item.srcLine+'" data-raw="'+esc(item.label)+'"'+btnAttrs('Rename: '+item.label)+' data-title-hit="">');
     label.forEach((line,index)=>out.push('<text pointer-events="none" x="'+(p+54)+'" y="'+n(y+index*15)+'" font-size="13" font-weight="650" fill="'+(bad?C.err:C.ink)+'">'+esc(line)+'</text>'));
-    out.push('<rect data-title-hit="" x="'+(p+48)+'" y="'+n(y-21)+'" width="250" height="'+Math.max(44,label.length*15+15)+'" fill="'+C.card+'" fill-opacity="0"/></g>');
+    if(edit) out.push('<rect data-title-hit="" x="'+(p+48)+'" y="'+n(y-21)+'" width="250" height="'+Math.max(44,label.length*15+15)+'" fill="'+C.card+'" fill-opacity="0"/></g>');
     const fact=item.x==null?'UNPLACED':'@ '+item.x+', '+item.y+(entry?' · '+upper(entry.zone.name):'');
-    out.push('<text pointer-events="none" x="'+(p+54)+'" y="'+n(y+label.length*15+9)+'" font-size="9.5" font-weight="600" letter-spacing=".45" fill="'+(bad?C.err:C.muted)+'">'+esc(fact)+(bad && !/TEST FIRST/.test(fact)?' · TEST FIRST':'')+'</text><text pointer-events="none" x="'+(W-p)+'" y="'+y+'" text-anchor="end" font-size="16" fill="'+C.muted+'">⋯</text></g>');
+    out.push('<text pointer-events="none" x="'+(p+54)+'" y="'+n(y+label.length*15+9)+'" font-size="9.5" font-weight="600" letter-spacing=".45" fill="'+(bad?C.err:C.muted)+'">'+esc(fact)+(bad && !/TEST FIRST/.test(fact)?' · TEST FIRST':'')+'</text>'+(edit?'<text pointer-events="none" x="'+(W-p)+'" y="'+y+'" text-anchor="end" font-size="16" fill="'+C.muted+'">⋯</text>':'')+'</g>');
     y+=rowH;
   }
   if(edit){out.push(editTarget('<text class="quiet-add" x="'+p+'" y="'+n(y+10)+'" font-size="11" font-weight="600" fill="'+C.muted+'">＋ Add item</text>',{x:p-8,y:y-22,w:112,h:44,bg:C.bg},{kind:'additem',line:-1,raw:'',label:'Add item'}));y+=42;}

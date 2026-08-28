@@ -37,13 +37,14 @@ test('the canonical Paths stress corpus preserves truth or refuses without a par
 
 test('a Gauge room aggregate remains review-needed and malformed provenance transfers fail closed', () => {
   const gauge = parseGauge('Weeks to migrate :: range weeks');
-  const state = unpackScen(fermiHandoff(gauge, sessionStats(gauge, [{values:[[4, 8]]}])));
+  const aggregate = [{values:[[4, 8]]}, {values:[[5, 9]]}];
+  const state = unpackScen(fermiHandoff(gauge, sessionStats(gauge, aggregate)));
   assert.equal(state.vars.get('weeks_to_migrate').base.status, 'needs-restatement');
   assert.equal(state.vars.get('weeks_to_migrate').base.pooling, 'envelope');
 
   for(const scenario of GAUGE_FERMI_PROVENANCE_STRESS){
     const malformed = parseGauge(scenario.source);
-    assert.equal(fermiHandoff(malformed, sessionStats(malformed, [{values:[[4, 8]]}])), null, scenario.id);
+    assert.equal(fermiHandoff(malformed, sessionStats(malformed, aggregate)), null, scenario.id);
     assert.match(fermiHandoffIssue(malformed), scenario.issue, scenario.id);
   }
 });

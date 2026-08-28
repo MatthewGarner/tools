@@ -183,11 +183,11 @@ function chipsPanel(q, s, cw, c, measure, narrow){
       const isConv = j === s.conviction, isStated = j === s.stated;
       const right = Math.round(o.share) + '% · ' + o.votes + ' first choice' + (o.votes === 1 ? '' : 's');
       const rightW = measure(right, '600 11px ' + SANS);
-      const label = wrapText(o.option, '600 12px ' + SANS, cw - rightW - 12, measure)[0] || '';
-      parts.push('<text x="0" y="' + (yy + 11) + '" font-size="12" font-weight="600" fill="' + c.ink + '">' + esc(label) + '</text>');
+      const labels = wrapText(o.option, '600 12px ' + SANS, Math.max(40, cw - rightW - 12), measure);
+      labels.forEach((label, line) => parts.push('<text x="0" y="' + (yy + 11 + line * 15) + '" font-size="12" font-weight="600" fill="' + c.ink + '">' + esc(label) + '</text>'));
       parts.push('<text x="' + cw + '" y="' + (yy + 11) + '" text-anchor="end" font-size="11" font-weight="600" fill="' +
         (isConv ? c.accent : c.muted) + '">' + esc(right) + '</text>');
-      const barY = yy + 18, barH = 14;
+      const barY = yy + Math.max(18, labels.length * 15 + 3), barH = 14;
       const w = Math.max(2, o.share / 100 * cw);
       parts.push('<rect x="0" y="' + barY + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="3" fill="' +
         (isConv ? c.accent : tint(c.accent)) + '"' + (isConv ? '' : ' stroke="' + c.accent + '"') + '/>');
@@ -216,18 +216,19 @@ function chipsPanel(q, s, cw, c, measure, narrow){
     }
     return {h, body: parts.join('')};
   }
-  const labelW = Math.min(160, Math.max(64, ...s.perOption.map(o => measure(o.option, '600 12px ' + SANS) + 12)));
+  const labelW = Math.min(260, Math.max(64, ...s.perOption.map(o => Math.min(260, measure(o.option, '600 12px ' + SANS) + 12))));
   const x0 = labelW, barW = cw - x0;
   const X = v => x0 + Math.max(0, Math.min(100, v)) / 100 * barW;
-  const ROWH = 46;
   const parts = [];
+  let yy = 0;
   s.perOption.forEach((o, j) => {
-    const y = j * ROWH;
+    const labels = wrapText(o.option, '600 12px ' + SANS, labelW - 8, measure);
+    const rowH = Math.max(46, labels.length * 15 + 31);
+    const y = yy;
     const isConv = j === s.conviction, isStated = j === s.stated;
     const barY = y + 2, barH = 14;
     const w = Math.max(2, o.share / 100 * barW);
-    const label = wrapText(o.option, '600 12px ' + SANS, labelW - 8, measure)[0] || '';
-    parts.push('<text x="0" y="' + (barY + 11) + '" font-size="12" font-weight="600" fill="' + c.ink + '">' + esc(label) + '</text>');
+    labels.forEach((label, line) => parts.push('<text x="0" y="' + (barY + 11 + line * 15) + '" font-size="12" font-weight="600" fill="' + c.ink + '">' + esc(label) + '</text>'));
     parts.push('<rect x="' + x0 + '" y="' + barY + '" width="' + w.toFixed(1) + '" height="' + barH + '" rx="3" fill="' +
       (isConv ? c.accent : tint(c.accent)) + '"' + (isConv ? '' : ' stroke="' + c.accent + '"') + '/>');
     parts.push('<text x="' + (x0 + w + 6).toFixed(1) + '" y="' + (barY + 11) + '" font-size="11" font-weight="600" fill="' + c.ink + '">' + Math.round(o.share) + '%</text>');
@@ -245,8 +246,9 @@ function chipsPanel(q, s, cw, c, measure, narrow){
       if(named && s.n <= 8 && s.rows[k] && s.rows[k].name)
         parts.push('<text x="' + X(v).toFixed(1) + '" y="' + (dy + 12) + '" text-anchor="middle" font-size="8" fill="' + c.muted + '">' + esc(s.rows[k].name) + '</text>');
     });
+    yy += rowH;
   });
-  let h = s.perOption.length * ROWH + 2;
+  let h = yy + 2;
   if(s.abstentions){
     parts.push('<text x="0" y="' + (h + 4) + '" font-size="11" fill="' + c.muted + '">' +
       s.abstentions + ' split their top pile evenly</text>');
@@ -257,7 +259,7 @@ function chipsPanel(q, s, cw, c, measure, narrow){
 
 export function renderOverlay(model, stats, ctx, opts = {}){
   const c = ctx.colors, measure = ctx.measure;
-  const delphi = opts.delphi || null, round1 = opts.round1 || null;
+  const delphi = opts.delphi || null, round1 = opts.round1 || null, sample = opts.sample === true;
   /* width-aware: exports and desktop never pass opts.width (960, byte-stable);
      the phone preview passes its container width and re-lays-out below 520 */
   const W = opts.width ? Math.max(MIN_W, Math.round(opts.width)) : WIDE_W;
@@ -274,7 +276,7 @@ export function renderOverlay(model, stats, ctx, opts = {}){
     y += 24;
   }
   const title = model.title || 'Gauge the room';
-  const titleLines = narrow ? wrapText(title, '700 22px ' + SERIF, panelW, measure) : [title];
+  const titleLines = wrapText(title, '700 22px ' + SERIF, panelW - (delphi && !narrow ? 180 : 0), measure);
   titleLines.forEach((t, i) => {
     if(i) y += 26;
     head.push('<text x="' + PAD + '" y="' + y + '" font-family="' + SERIF +
@@ -282,6 +284,11 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   });
   if(delphi && !narrow) head.push(pill(W - PAD, PAD + 6, 'delphi round 2', c.accent, measure));
   y += 24;
+  if(sample){
+    head.push('<text x="' + PAD + '" y="' + y + '" font-size="10" font-weight="700" letter-spacing="1" fill="' +
+      c.accent + '">SYNTHETIC SAMPLE · SCHEMA INSPECTION · NOT PARTICIPANT DATA</text>');
+    y += 20;
+  }
   /* The Swiss 6b verdict, drawn INTO the artefact: this is gauge's one display
      verdict (the HTML console keeps only a plain supporting headline), so the
      export carries the finding wherever it's pasted. Red discipline: the line is
@@ -298,7 +305,8 @@ export function renderOverlay(model, stats, ctx, opts = {}){
     head.push(block.svg);
     y += block.height + 4;   // height already clears the last baseline by one advance
   }
-  const countText = count + ' response' + (count === 1 ? '' : 's') + ' · ' + stats.length + ' question' + (stats.length === 1 ? '' : 's') +
+  const countText = count + (sample ? ' synthetic' : '') + ' response' + (count === 1 ? '' : 's') + ' · ' + stats.length + ' question' + (stats.length === 1 ? '' : 's') +
+    (sample ? ' · not live' : '') +
     (delphi ? ' · final answers (round 2, round 1 carried forward)' : '');
   const countLines = narrow ? wrapText(countText, '12px ' + SANS, panelW, measure) : [countText];
   countLines.forEach((t, i) => {
@@ -328,7 +336,7 @@ export function renderOverlay(model, stats, ctx, opts = {}){
       : q.type === 'range' ? rangePanel(q, s, cw, c, dl, narrow, measure)
       : probPanel(s, cw, c, dl, narrow, measure);
     const panelH = PP + headH + inner.h + PP;
-    parts.push('<rect x="' + PAD + '" y="' + y + '" width="' + panelW + '" height="' + panelH +
+    parts.push('<rect data-gauge-question-index="' + i + '" x="' + PAD + '" y="' + y + '" width="' + panelW + '" height="' + panelH +
       '" rx="0" fill="' + c.card + '" stroke="' + c.border + '"/>');
     let ty = y + PP + 15 + pillRow;
     for(const lnText of qLines){
@@ -355,7 +363,8 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   /* pure display — no data-edit targets here, so a role="img" summary is
      safe (it never hides interactive descendants); the same headline is
      also mirrored as HTML next to this overlay (session.js/app.js) */
-  const svgLabel = (model.title || 'Gauge the room') + (vv.line ? ' — ' + vv.line : '');
+  const svgLabel = (sample ? 'Synthetic sample, not participant data — ' : '') +
+    (model.title || 'Gauge the room') + (vv.line ? ' — ' + vv.line : '');
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
     '" viewBox="0 0 ' + W + ' ' + H + '" font-family="' + SANS + '" role="img" aria-label="' +
     esc(svgLabel) + '">' +

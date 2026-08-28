@@ -1,20 +1,6 @@
-/* Pure engine: one seeded Monte-Carlo pass yields the existing independent
-   baseline plus a paired shared-outcome stress. Both scenarios reuse the
-   same sampled stake, odds and payoff for every Bet; only the Bernoulli draw
-   differs. The independent result remains at `portfolio` for backwards
-   compatibility and remains seed-for-seed byte-identical for valid documents.
-
-   The pass also yields two deliberately different kinds of reading:
-     - per-bet EV band = distribution of p·payoff − stake (parameter uncertainty)
-       → the slip band + LOSES AT P50 ("is this bet sound?")
-     - portfolio fan + P(loses money) = distribution of REALISED outcomes.
-       The baseline uses one uniform per Bet; the stress reuses the first
-       scoreable Bet's uniform across every Bet in that run, the maximum
-       positive co-movement compatible with their sampled marginal odds.
-   Odds sample as normal + clamp to 0–100 (percentages, not money); stake/payoff
-   as lognormal + floor 0 (positive money). rangeSampler is a closure built ONCE
-   per bet outside the loop; point ranges consume zero RNG. */
+/* Seeded independent baseline plus paired maximum-positive-co-movement stress. */
 import {mulberry32, gaussian, rangeSampler, quantile, fmt} from '../assets/series.js';
+import {betKey} from './diff.js';
 
 const SEED = 0xBE75, NSIM = 4000, BINS = 40;
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -25,9 +11,6 @@ export const OUTCOME_SCENARIOS = Object.freeze({
   shared: 'Shared-outcome stress',
 });
 
-/* One terminology/selection seam for renderers and exports. `portfolio`
-   remains the baseline alias so older consumers do not need to know the
-   paired shape exists. */
 export function scenarioReading(sim, key = 'independent'){
   const scenario = key === 'shared' ? 'shared' : 'independent';
   const portfolio = sim && sim.scenarios ? sim.scenarios[scenario] : sim.portfolio;
@@ -40,7 +23,6 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
   const flat = [];
   for(const g of model.groups) for(const b of g.bets) flat.push(b);
 
-  // samplers built once; a scoreable bet needs all three ranges
   const sim = flat.map(b => ({
     bet: b,
     ok: !!(b.stake && b.odds && b.payoff),
@@ -61,10 +43,6 @@ export function simulate(model, {seed = SEED, nsim = NSIM} = {}){
       const pay = Math.max(0, s.pay());
       const stk = Math.max(0, s.stk());
       s.ev.push(p * pay - stk);
-      /* Consume exactly the same draw, in the same position, as the legacy
-         baseline. The first scoreable Bet's draw is also the run-wide stress
-         draw, which keeps a one-Bet portfolio exactly paired rather than
-         inventing a finite-sample difference between equivalent scenarios. */
       const independentDraw = rand();
       if(sharedDraw === null) sharedDraw = independentDraw;
       outcome += (independentDraw < p ? pay : 0) - stk;
@@ -101,12 +79,9 @@ function portfolioSummary(outcomes, nsim){
   };
 }
 
-/* audit order is fixed: kill, certainty, loses */
 function auditsFor(bet, ev){
   const a = [];
   if(!bet.kill) a.push('NO KILL CRITERION');
-  // near-certainty at EITHER extreme (a fact dressed as a forecast); a tight
-  // MID band is over-precision, a different sin — it must not stamp here.
   if(bet.odds && (bet.odds[0] >= 90 || bet.odds[1] <= 10)) a.push('ODDS IMPLY CERTAINTY');
   if(ev.p50 < 0) a.push('LOSES AT P50');
   return a;
@@ -133,9 +108,6 @@ function histogram(sorted, nsim){
   return bins;
 }
 
-/* The verdict, split into the line and the ONE load-bearing figure it turns on
-   — P(loses money), the number the whole simulation exists to produce. `fig`
-   appears verbatim in `line`, so the surface can mark it without re-deriving it. */
 export function verdictParts(portfolio, counts){
   const pct = Math.round(portfolio.pLoss * 100);
   const fig = pct + '%';
@@ -147,22 +119,23 @@ export function verdictParts(portfolio, counts){
   return {line: lead + tail, fig};
 }
 
-/* The plain line — what the markdown export consumes. */
 export function verdictCopy(portfolio, counts){
   return verdictParts(portfolio, counts).line;
 }
 
-export function markdown(model, sim, href){
-  const u = model.unit ? ' ' + model.unit : '';
-  const out = ['# ' + (model.title || 'Bets board'), ''];
-  out.push('| Bet | Stake' + u + ' | Odds | Payoff' + u + ' | EV P50 | Flags |');
-  out.push('|-----|------|------|--------|--------|-------|');
+export function markdown(model, sim, href, {comparison = null, sourceLabel = ''} = {}){
+  const u = model.unit ? ' ' + mdInline(model.unit) : '', tu = model.unit ? ' ' + mdCell(model.unit) : '';
+  const out = ['# ' + mdInline(model.title || 'Bets board'), ''];
+  out.push('| Group | Bet | Stake' + tu + ' | Odds | Payoff' + tu + ' | EV P10–P90 (P50) | Kill criterion | Flags |');
+  out.push('|-------|-----|------|------|--------|-------------------|----------------|-------|');
   for(const g of model.groups){
     for(const b of g.bets){
       const r = sim.bets.get(b.srcLine);
-      out.push('| ' + b.name + ' | ' + rng(b.stake) + ' | ' + (b.odds ? rng(b.odds) + '%' : '—') + ' | ' + rng(b.payoff) + ' | ' +
-        (r.scoreable ? fmt(r.ev.p50) : 'NOT SCORED') + ' | ' +
-        (r.scoreable ? (r.audits.join('; ') || '—') : 'NOT SCORED — correct invalid or missing terms') + ' |');
+      const kill = b.kill ? b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '') : '—';
+      out.push('| ' + [g.name, b.name, rng(b.stake), pct(b.odds), rng(b.payoff),
+        r.scoreable ? fmt(r.ev.p10) + '–' + fmt(r.ev.p90) + ' (' + fmt(r.ev.p50) + ')' : 'NOT SCORED', kill,
+        r.scoreable ? (r.audits.join('; ') || '—') : 'NOT SCORED — correct invalid or missing terms']
+        .map(mdCell).join(' | ') + ' |');
     }
   }
   const baseline = scenarioReading(sim, 'independent');
@@ -173,7 +146,48 @@ export function markdown(model, sim, href){
       Math.round(reading.portfolio.pLoss * 100) + '%**.';
   out.push('', line(baseline), '', line(shared) +
     ' Only realised win/loss outcomes share one common draw; stake, odds and payoff ranges remain independently sampled. This is a stress, not a forecast.');
-  if(href) out.push('', '[Open in bets](' + href + ')');
+  if(sim.concentration) out.push('', '**Concentration:** ' + mdCell(sim.concentration.name) + ' carries ' +
+    Math.round(sim.concentration.share * 100) + '% of total scored stake.');
+  out.push(...comparisonMarkdown(model, comparison));
+  if(href) out.push('', '[Open in bets](' + mdHref(href) + ')');
+  else if(sourceLabel) out.push('', '_' + mdInline(sourceLabel) + '_');
   return out.join('\n') + '\n';
 }
 const rng = r => !r ? '—' : r[0] === r[1] ? String(r[0]) : r[0] + '–' + r[1];
+const mdInline = value => String(value == null ? '—' : value).replace(/\\/g, '\\\\')
+  .replace(/\r?\n/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([`*_[\]!])/g, '\\$1');
+const mdCell = value => mdInline(value).replace(/\|/g, '\\|');
+const mdHref = value => String(value).replace(/\\/g, '%5C').replace(/</g, '%3C').replace(/>/g, '%3E')
+  .replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/[\r\n ]/g, '%20');
+
+function comparisonMarkdown(model, comparison){
+  if(!comparison) return [];
+  const out = ['', '## Selected comparison', '', mdInline(comparison.headline), '',
+    '**Scope:** Current allocations versus the selected baseline; prior portfolio values use its Independent baseline.'];
+  const bets = model.groups.flatMap(g => g.bets.map(b => ({...b, group:g.name})));
+  const additions = bets.filter(bet => comparison.newKeys.has(betKey(bet)));
+  const name = b => mdInline(b.group) + ' — ' + mdInline(b.name);
+  if(additions.length) out.push('', '**New:** ' + additions.map(name).join('; '));
+  const changes = bets.filter(b => comparison.movedFields.has(betKey(b))).map(b => {
+    const old = comparison.movedFields.get(betKey(b)), facts = [];
+    if(old.stake) facts.push('stake ' + rng(old.stake) + ' → ' + rng(b.stake));
+    if(old.odds) facts.push('odds ' + pct(old.odds) + ' → ' + pct(b.odds));
+    if(old.payoff) facts.push('payoff ' + rng(old.payoff) + ' → ' + rng(b.payoff));
+    return name(b) + (facts.length ? ' (' + facts.join(', ') + ')' : ' (kill criterion changed)');
+  });
+  if(changes.length) out.push('', '**Changed:** ' + changes.join('; '));
+  const prior = comparison.prevSim && scenarioReading(comparison.prevSim, 'independent'), pu = comparison.previousUnit;
+  if(prior?.available){
+    const n = value => fmt(value) + (pu ? ' ' + mdInline(pu) : '');
+    out.push('', '**Prior Independent baseline:** P10 **' + n(prior.portfolio.p10) + '** · P50 **' +
+      n(prior.portfolio.p50) + '** · P90 **' + n(prior.portfolio.p90) + '**.');
+  }
+  if(comparison.killed.length) out.push('', '**Removed allocations:**', ...comparison.killed.map(b => {
+    const bu = pu ? ' ' + mdInline(pu) : '', kill = b.kill ? b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '') : '—';
+    return '- ' + name(b) + ': stake ' + rng(b.stake) + bu + '; odds ' + pct(b.odds) +
+      '; payoff ' + rng(b.payoff) + bu + '; kill ' + mdInline(kill) + '.';
+  }));
+  return out;
+}
+
+const pct = r => r ? rng(r) + '%' : '—';

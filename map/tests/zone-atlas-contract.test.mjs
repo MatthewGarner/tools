@@ -122,7 +122,7 @@ test('Zone Atlas keeps one shared key figure in its verdict, not a colour system
 
 test('Zone Atlas treats named-zone labels as placement obstacles', () => {
   const m = parse('zones: grid 2x2\nzone 1,1: One very long deliberate scenario name\nSignal @ 25,25');
-  const r = resolve(m), svg = render(m, r, readout(m, r), ctx);
+  const r = resolve(m), svg = render(m, r, readout(m, r), {...ctx, edit:true});
   const zone = svg.match(/<text x="[\d.]+" y="([\d.]+)" text-anchor="middle"[^>]*>ONE VERY LONG DELIBERATE SCENARIO NAME<\/text>/);
   const signal = svg.match(/<text data-edit="label"[^>]*data-raw="Signal" x="[\d.]+" y="([\d.]+)"[^>]*>Signal<\/text>/);
   assert.ok(zone && signal);

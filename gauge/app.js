@@ -1,16 +1,17 @@
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
 import {resolveVerdict} from '../assets/verdict.js';   // the composer headline is a verdict mirror too
-import {sessionStats, markdownSummary, verdict} from './engine.js';
+import {sessionStats, sampleMarkdownSummary, verdict} from './engine.js';
 import {renderForm} from './render-form.js';
 import {addQuestionLine, removeQuestionLine, renameQuestion, setType, setUnit,
   renameOption, addOption, removeOption, addedQuestionTarget} from './edit-targets.js';
 import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {renderOverlay} from './render-overlay.js';
+import {sampleResponses} from './sample.js';
 import {createRelay, randomHex, sha256hex} from './relay-client.js';
 import {wireExports} from '../assets/exports.js';
-import {readHashState, writeHashState, mulberry32} from '../assets/series.js';
+import {readHashState, writeHashState} from '../assets/series.js';
 import {measure, themeColors, onThemeChange, renderWarningList, exampleChips} from '../assets/app-common.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -63,30 +64,6 @@ names: off
 “Almost certain” :: prob
 “A real possibility” :: prob`},
 ];
-
-/* Deterministic sample responses for the solo "Sample reveal" (seeded, spec §Session flow). */
-export function sampleResponses(model){
-  const rand = mulberry32(20260704);
-  const NAMES = ['Ana', 'Ben', 'Chika', 'Dev', 'Elle', 'Fin', 'Gus', 'Hana'];
-  const shapes = model.questions.map(q => q.type === 'prob'
-    ? {split: rand() < 0.4, a: 15 + rand() * 25, b: 60 + rand() * 30}
-    : {base: Math.pow(10, 1 + Math.floor(rand() * 2)) * (0.5 + rand()),
-       outlier: rand() < 0.5 ? Math.floor(rand() * 8) : -1});   // half the range questions agree
-  return NAMES.map((name, p) => {
-    const values = model.questions.map((q, qi) => {
-      const s = shapes[qi];
-      if(q.type === 'prob'){
-        const c = s.split ? (p % 2 ? s.a : s.b) : (s.a + s.b) / 2;
-        return Math.max(2, Math.min(98, Math.round(c + (rand() - 0.5) * 18)));
-      }
-      const mid = s.base * (p === s.outlier ? 2.6 : 0.9 + rand() * 0.2);
-      const half = mid * (0.25 + rand() * 0.3);   // wide enough that non-outlier rooms overlap
-      const r1 = v => Math.round(v * 10) / 10;
-      return [r1(mid - half), r1(mid + half)];
-    });
-    return model.names ? {values, name} : {values};
-  });
-}
 
 /* Slider <-> output sync for any live form under `root` (compose preview + participant). */
 export function wireFormEvents(root){
@@ -266,7 +243,7 @@ async function initCompose(hash){
     } else {
       const stats = sessionStats(model, sampleResponses(model));
       // the PREVIEW carries the narrow width (<520 ⇒ phone relayout); exports never do
-      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv), edit: true}) + sampleReceipt(stats);
+      out = renderOverlay(model, stats, ctx(), {width: narrowWidth(pv), edit: true, sample: true}) + sampleReceipt(stats);
     }
     paint(out, REVEAL); lastOut = out;
     $('revealhead').textContent = '';
@@ -360,14 +337,14 @@ async function initCompose(hash){
 
   /* exports (sample reveal) */
   const svgString = () => (model && model.questions.length)
-    ? renderOverlay(model, sessionStats(model, sampleResponses(model)), ctx()) : null;
+    ? renderOverlay(model, sessionStats(model, sampleResponses(model)), ctx(), {sample: true}) : null;
   const slug = () => ((model && model.title) || 'gauge').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
     getSvg: svgString,
     getMarkdown: () => (model && model.questions.length)
-      ? markdownSummary(model, sessionStats(model, sampleResponses(model))) : null,
+      ? sampleMarkdownSummary(model, sessionStats(model, sampleResponses(model))) : null,
     slug,
   });
 

@@ -488,6 +488,12 @@ export function renderFocusLive(model, ctx){
     heroBuf.push(txt(heroX + RPAD, hy + 14, clip1(lbl, '13px ' + SANS, HERO_W - RPAD * 2, measure), 13, C.muted, {strike: true}));
     hy += 24;
   }
+  if(diff?.added?.length){
+    const lbl = 'Added since ' + (diff.since || '') + ':  ' + diff.added.join('  ·  ');
+    const lines = wrapText(lbl, '13px ' + SANS, HERO_W - RPAD * 2, measure);
+    lines.forEach((lineText, index) => heroBuf.push(txt(heroX + RPAD, hy + 14 + index * 17, lineText, 13, C.muted)));
+    hy += lines.length * 17 + 7;
+  }
   const heroBottom = hy;
   s.push(band(heroIdx, heroX, HERO_W, heroCardsTop - 8, heroBottom));
   s.push(heroBuf.join(''));

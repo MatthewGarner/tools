@@ -61,7 +61,7 @@ test('field: neutral ruler, dependency projection, metrics and factual readout',
 });
 
 test('component pills carry drag + edit hooks with srcLines', () => {
-  const s = draw();
+  const s = draw(SRC, {edit:true});
   assert.ok(s.includes('data-drag="evo"'));
   assert.match(s, /data-edit="name"[^>]*data-line="2"/);
   assert.match(s, /data-edit="stage"[^>]*data-raw="custom"/);
@@ -76,7 +76,7 @@ test('hostile names are escaped everywhere', () => {
 });
 
 test('ghosts render dashed', () => {
-  const s = draw();
+  const s = draw(SRC, {edit:true});
   assert.match(s, /data-name="Push gateway"[^>]*>[^]*?stroke-dasharray/);
 });
 
@@ -203,7 +203,7 @@ N -> App B -> Core`;
 const narrowCtx = {...ctx, width: 390};
 
 test('narrow: source-order Strategic Ledger exposes complete dependency facts with evolution strips', () => {
-  const s = draw(SRC, {}, narrowCtx);
+  const s = draw(SRC, {edit:true}, narrowCtx);
   assert.ok(s.includes('data-track=""'));                          // per-card strip track
   assert.equal((s.match(/data-drag="evo"/g) || []).length, 3);     // every component draggable
   assert.match(s, /data-strategic-ledger/);
@@ -225,7 +225,7 @@ test('narrow: ghost card is dashed and invites placement', () => {
 });
 
 test('narrow: hostile names escaped, name edit hooks live', () => {
-  const s = draw('anchor: A\n<img src=x> @ custom\nA -> <img src=x>', {}, narrowCtx);
+  const s = draw('anchor: A\n<img src=x> @ custom\nA -> <img src=x>', {edit:true}, narrowCtx);
   assert.ok(!s.includes('<img'));
   assert.ok(s.includes('data-edit="name"'));
   wellFormed(s);
@@ -238,9 +238,9 @@ test('wide render ignores ctx.width above the threshold (exports stay pinned)', 
 });
 
 /* ---- edit gating: add zones + component menus (Task 4) ---- */
-test('edit gating: zones/markers only under opts.edit; default output unchanged', () => {
+test('edit gating: clean output has no action planes; live output restores all controls', () => {
   const plain = draw();
-  assert.ok(!plain.includes('data-edit="additem"') && !plain.includes('componentmenu'));
+  assert.doesNotMatch(plain, /data-(?:edit|drag|hit|title-hit|stage-hit|menu-for)=|role="button"|tabindex="0"/);
   const edit = draw(SRC, {edit: true});
   assert.equal((edit.match(/data-edit="additem"/g) || []).length, 4);     // one per stage
   assert.match(edit, /data-edit="additem" data-stage="custom"/);

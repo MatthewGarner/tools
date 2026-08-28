@@ -376,6 +376,18 @@ export function renderRegisterLive(model, ctx){
     }
   }
 
+  if(diff?.dropped?.length){
+    const droppedLines = wrapText(
+      'DROPPED SINCE ' + (diff.since || '') + ' · ' + diff.dropped.join(' · '),
+      '600 12px ' + SANS,
+      INNER,
+      measure
+    );
+    droppedLines.forEach((lineText, index) =>
+      s.push(txt(M, y + 18 + index * 17, lineText, 12, C.muted, {weight:600, strike:true})));
+    y += 22 + droppedLines.length * 17;
+  }
+
   /* --- metrics line (the closest thing roadmap has to a verdict) --- */
   s.push(line(M, y + 4, W - M, y + 4, C.border));
   s.push(txt(M, y + 24, deckMetrics(model), 13, C.muted, {weight: 600}));

@@ -8,6 +8,7 @@ export const AGREE_SPREAD = 20;     // percentage points
 
 const pct = v => Math.round(v) + '%';
 const mean = xs => xs.reduce((s, v) => s + v, 0) / xs.length;
+const mdLiteral = value => String(value ?? '').replace(/([\\`*_[\]<>])/g, '\\$1');
 
 export function rangeStats(answers){
   const n = answers.length;
@@ -237,7 +238,7 @@ export function delphiStats(model, r1, r2){
   });
 }
 
-const fmtN = v => Math.round(v * 10) / 10;
+const fmtN = v => Number.isFinite(Math.round(v * 10) / 10) ? Math.round(v * 10) / 10 : v;
 
 export function delphiVerdictOf(dstats){
   const active = dstats.filter(d => d.n > 0 && d.spread1 > 0 && !d.excluded);
@@ -255,7 +256,7 @@ export function delphiVerdictOf(dstats){
 export function delphiVerdict(dstats){ return delphiVerdictOf(dstats).line; }
 
 export function markdownSummary(model, stats, delphi){
-  const out = ['# ' + (model.title || 'Gauge session'), ''];
+  const out = ['# ' + mdLiteral(model.title || 'Gauge session'), ''];
   /* `verdict:` reaches the markdown too — this one summary feeds THREE separate
      copy-as-markdown buttons (composer, participant, facilitator Delphi), so a
      bypass here leaks the tool's line into every doc the room pastes it into. */
@@ -263,7 +264,7 @@ export function markdownSummary(model, stats, delphi){
   if(v) out.push('**' + v + '**', '');
   stats.forEach((s, i) => {
     const q = s.question;
-    out.push('## ' + (i + 1) + '. ' + q.text, '', s.headline, '');
+    out.push('## ' + (i + 1) + '. ' + mdLiteral(q.text), '', mdLiteral(s.headline), '');
     if(s.kind === 'empty' || s.kind === 'single'){ out.push('- ' + s.n + ' response(s)', ''); return; }
     if(q.type === 'prob'){
       out.push('- ' + s.n + ' responses · median ' + pct(s.median) +
@@ -272,11 +273,11 @@ export function markdownSummary(model, stats, delphi){
         ', ' + s.camps.hi.n + ' near ' + pct(s.camps.hi.center));
     } else if(q.type === 'chips'){
       for(const o of s.perOption)
-        out.push('- ' + o.option + ': ' + Math.round(o.share) + '% of chips · ' +
+        out.push('- ' + mdLiteral(o.option) + ': ' + Math.round(o.share) + '% of chips · ' +
           o.votes + ' first choice' + (o.votes === 1 ? '' : 's'));
       if(s.abstentions) out.push('- ' + s.abstentions + ' split their top pile evenly');
     } else {
-      const u = q.unit ? ' ' + q.unit : '';
+      const u = q.unit ? ' ' + mdLiteral(q.unit) : '';
       out.push('- ' + s.n + ' responses · pooled ' + s.pooled.lo + '–' + s.pooled.hi + u +
         ' · median interval width ' + s.medianWidth + u);
       out.push(s.overlap ? '- common ground: ' + s.overlap.lo + '–' + s.overlap.hi + u
@@ -293,8 +294,76 @@ export function markdownSummary(model, stats, delphi){
     const dv = model.verdict == null ? delphiVerdict(delphi) : '';
     if(dv) out.push('**' + dv + '**', '');
     delphi.forEach((d, i) => {
-      out.push('- **' + (i + 1) + '. ' + d.question.text + '** — ' + d.headline +
+      out.push('- **' + (i + 1) + '. ' + mdLiteral(d.question.text) + '** — ' + mdLiteral(d.headline) +
         (d.n2 < d.n ? ' (' + (d.n - d.n2) + ' of ' + d.n + ' carried forward from round 1)' : ''));
+    });
+    out.push('');
+  }
+  return out.join('\n').trim() + '\n';
+}
+
+export function sampleMarkdownSummary(model, stats){
+  const lines = markdownSummary(model, stats).trimEnd().split('\n');
+  lines.splice(1, 0, '', '_Synthetic sample for question-schema inspection · 8 deterministic example respondents · not participant data._');
+  return lines.join('\n') + '\n';
+}
+
+const number = value => Number.isFinite(value) ? String(fmtN(value)) : '—';
+
+/** Durable aggregate-only receipt. `summary` is the public projection returned
+ * by the native semantic kernel: it cannot contain participant rows or names. */
+export function disclosedMarkdownSummary(model, summary, round){
+  const out = [
+    '# ' + mdLiteral(model.title || summary.title || 'Gauge session'),
+    '',
+    `_Disclosed aggregate receipt · round ${round} · frozen schema ${mdLiteral(summary.fingerprint)} · no individual responses._`,
+    '',
+  ];
+  if(summary.verdict?.line) out.push('**' + mdLiteral(summary.verdict.line) + '**', '');
+  summary.stats.forEach((stat, index) => {
+    const question = stat.question || model.questions[index] || {};
+    out.push('## ' + (index + 1) + '. ' + mdLiteral(question.text), '', mdLiteral(stat.headline), '');
+    if(stat.kind === 'empty' || stat.kind === 'single'){
+      out.push(stat.kind === 'single'
+        ? '- Insufficient aggregation; answer detail is withheld until at least 2 responses.'
+        : '- No responses; no aggregate detail available.', '');
+      return;
+    }
+    if(question.kind === 'prob'){
+      out.push(`- ${stat.n} responses · median ${number(stat.median)}% · spread ${number(stat.low)}%–${number(stat.high)}%`);
+      if(stat.camps) out.push(`- camps: ${stat.camps.lo.n} near ${number(stat.camps.lo.center)}%, ${stat.camps.hi.n} near ${number(stat.camps.hi.center)}%`);
+    } else if(question.kind === 'chips'){
+      for(const option of stat.options || [])
+        out.push(`- ${mdLiteral(option.option)}: ${number(option.share)}% of chips · ${option.votes} first choice${option.votes === 1 ? '' : 's'}`);
+      if(stat.abstentions) out.push(`- ${stat.abstentions} split their top pile evenly`);
+    } else {
+      const unit = question.unit ? ' ' + mdLiteral(question.unit) : '';
+      if(stat.pooled) out.push(`- ${stat.n} responses · pooled ${number(stat.pooled.lo)}–${number(stat.pooled.hi)}${unit} · median interval width ${number(stat.medianWidth)}${unit}`);
+      out.push(stat.overlap
+        ? `- common ground: ${number(stat.overlap.lo)}–${number(stat.overlap.hi)}${unit}`
+        : '- no value everyone believes');
+      if(Number.isFinite(stat.ratio)) out.push(`- pooled spread / median individual width: ${number(stat.ratio)}×`);
+    }
+    out.push('');
+  });
+  if(summary.delphi){
+    out.push('## Round 2 (Delphi)', '');
+    if(summary.delphiVerdict?.line) out.push('**' + mdLiteral(summary.delphiVerdict.line) + '**', '');
+    summary.delphi.forEach((stat, index) => {
+      const carried = stat.n2 < stat.n ? ` (${stat.n - stat.n2} of ${stat.n} carried forward from round 1)` : '';
+      out.push(`- **${index + 1}. ${mdLiteral(stat.question.text)}** — ${mdLiteral(stat.headline)}${carried}`);
+      for(const [label, aggregate] of [['Round 1', stat.roundOne], ['Round 2 revisions', stat.roundTwo]]){
+        if(aggregate.n < 2){
+          out.push(`  - ${label}: ${aggregate.n} response(s); insufficient aggregation, detail withheld`);
+        } else if(aggregate.question.kind === 'prob'){
+          out.push(`  - ${label}: n=${aggregate.n}; spread ${number(aggregate.low)}%–${number(aggregate.high)}%; median ${number(aggregate.median)}%`);
+        } else if(aggregate.question.kind === 'range'){
+          out.push(`  - ${label}: n=${aggregate.n}; spread ${number(aggregate.pooled.lo)}–${number(aggregate.pooled.hi)}${aggregate.question.unit ? ' ' + mdLiteral(aggregate.question.unit) : ''}`);
+        } else {
+          out.push(`  - ${label}: n=${aggregate.n}; ` + aggregate.options.map(option =>
+            `${mdLiteral(option.option)} ${number(option.share)}%`).join(' · '));
+        }
+      }
     });
     out.push('');
   }

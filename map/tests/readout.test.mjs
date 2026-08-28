@@ -66,14 +66,40 @@ test('anonymous cells appear only when occupied; named zones always listed', () 
   assert.ok(!names.includes('1,1'));             // anonymous, empty → hidden
 });
 
-test('markdown export: title, verdict, per-zone lists, unplaced, flags', () => {
+test('markdown export: method, axes, verdict, exact placement, zones, fields, and flags', () => {
   const {m, ro} = run('preset: assumptions\ntitle: Lantern bets\nA @ 20,80\nB');
   const md = toMarkdown(ro, m);
   assert.ok(md.startsWith('## Lantern bets'));
-  assert.ok(md.includes('**test first** (1)'));
-  assert.ok(md.includes('- A'));
-  assert.ok(md.includes('**Unplaced** (1)'));
-  assert.ok(md.includes('**Flags**'));
+  assert.match(md, /\*\*Method:\*\* assumptions/);
+  assert.match(md, /\*\*X axis:\*\* Evidence \(none → strong\)/);
+  assert.match(md, /\*\*Y axis:\*\* Importance \(low → high\)/);
+  assert.match(md, /\*\*Verdict:\*\* 1 of 1 assumption sit in test first/);
+  assert.match(md, /- \*\*A\*\* — @ 20,80\n  - Zone: test first\n  - Fields: none\n  - Flag: no test designed/);
+  assert.match(md, /- \*\*B\*\* — unplaced\n  - Zone: unplaced/);
+  assert.match(md, /_Source: local Map source snapshot\._\n$/);
+});
+
+test('markdown export treats hostile authored and comparison text as literals', () => {
+  const {m, ro} = run('preset: assumptions\ntitle: Safe\nClaim @ 20,80 :: note: value');
+  const item = m.items[0];
+  m.title = '# Title * [link](https://bad.test) <script> & end';
+  item.label = 'Item * [link](https://bad.test) <img>';
+  item.fields = [{key:'note_*', val:'[field](https://bad.test) | <tag>', srcLine:item.srcLine}];
+  ro.axes.x = {label:'X * <axis>', low:'[low]', high:'high | end'};
+  ro.zones.find(entry => entry.items.includes(item)).zone.name = 'Zone * [link](bad)';
+  ro.flagged = [{item, msg:'Flag * [link](bad) <b>'}];
+  const baseline = parse('preset: assumptions\nEarlier @ 30,70');
+  baseline.items[0].label = 'Dropped [link](bad) <i>';
+  const md = toMarkdown(ro, m, {
+    comparison: {model: baseline, label:'# Prior * [link](https://bad.test) <frame>'},
+  });
+  assert.doesNotMatch(md, /<script>|<img>|<tag>|<frame>|\[link\]\(/);
+  assert.match(md, /## # Title \\\*/);
+  assert.match(md, /\\\[link\\\]\(https:\/\/bad\.test\)/);
+  assert.match(md, /&lt;script&gt; &amp; end/);
+  assert.match(md, /\*\*X axis:\*\* X \\\* &lt;axis&gt; \(\\\[low\\\] → high \\\| end\)/);
+  assert.match(md, /Zone \\\* \\\[link\\\]\(bad\)/);
+  assert.match(md, /### Comparison with # Prior \\\*/);
 });
 
 /* ---------- Swiss 6b: the verdict figure + the metrics counts ---------- */

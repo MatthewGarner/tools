@@ -98,6 +98,17 @@ test('long live Register titles and notes grow their review row without elision'
   assert.doesNotMatch(svg, /…/);
 });
 
+test('comparison receipt stays inside the live Register artboard', () => {
+  const diff = {since:'July review', dropped:['Retired route'], badge:() => null};
+  const svg = renderRegisterLive(parse('style: register\nNOW\nCore: Current route'), {
+    colors, measure, edit:false, diff,
+  });
+  const height = Number(svg.match(/<svg[^>]*height="(\d+)"/)[1]);
+  const receiptY = Number(svg.match(/y="([\d.]+)"[^>]*>DROPPED SINCE July review/)[1]);
+  assert.ok(receiptY > 0 && receiptY < height, 'comparison receipt must be visible inside the artboard');
+  assert.match(svg, /Retired route/);
+});
+
 test('phone Register preserves outcome grouping, authored context, and a conditional fact', () => {
   const source = `style: register
 group: outcome

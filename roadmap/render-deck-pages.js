@@ -1,34 +1,36 @@
-/* Exhaustive 16:9 page-set renderer. Kept out of render-deck.js because /why
-   deliberately imports Roadmap's legacy presentation renderer and should not
-   carry the export planner or its continuation composition. */
+/* Exhaustive 16:9 page-set renderer, separate from /why's legacy deck import. */
 import {txt, wrapText} from '../assets/svg.js';
 import {STATUS_LABEL} from './parse.js';
-import {exportPages} from './export-pages.js';
-import {W, M, deckFrame, paletteColors, effectiveStyle} from './render-deck.js';
+import {exportPages, exportPageCoverage} from './export-pages.js';
+import {W, M, deckFrame, deckBodyBounds, paletteColors, effectiveStyle} from './render-deck.js';
 import {rect, line, SANS} from './deck-parts.js';
 import {packLane} from './pack.js';
 
 const INNER = W - M * 2;
 
 export function renderDeckPages(model, ctx = {}){
-  const basePlan = exportPages(model, {style: effectiveStyle(model)});
+  const style = effectiveStyle(model);
+  const C = paletteColors(model, ctx), bounds = deckBodyBounds(model, ctx, C);
+  const bodyHeight = Math.max(0, bounds.bottom - bounds.top);
+  const planFor = (source, dropped = false) => exportPages(source, {style,
+    pageGeometryFits:(items, selectedStyle, horizons) =>
+      exhaustivePageGeometryFits({...source, horizons, items}, model, ctx, C, selectedStyle, bodyHeight, dropped)});
+  const basePlan = planFor(model);
   const dropped = ctx.diff?.dropped || [];
-  const droppedPages = [];
-  for(let i = 0; i < dropped.length; i += 6){
-    const names = dropped.slice(i, i + 6);
-    droppedPages.push({horizons:['Changed work'], start:0, end:0, horizonIndices:[0], part:i / 6,
-      sourceItemIndices:[], dropped:names, model:{...model, horizons:['Changed work'], items:names.map((title, index) => ({
-        title, lane:'', h:0, span:1, status:null, note:'', export:{sourceStart:0, sourceEnd:0, dropped:true, sourceIndex:index},
-      }))}});
-  }
+  const droppedModel = {...model, horizons:['Changed work'], items:dropped.map((title, index) => ({
+    title, lane:'', h:0, span:1, status:null, note:'', export:{dropped:true, sourceIndex:index},
+  }))};
+  const droppedPages = dropped.length ? planFor(droppedModel, true).pages.map(page => ({...page, dropped:true,
+    comparisonItemIndices:page.sourceItemIndices, sourceItemIndices:[]})) : [];
   const rawPages = [...basePlan.pages, ...droppedPages];
-  const plan = {...basePlan, pages: rawPages.map((page, index) => ({...page, index, total:rawPages.length}))};
+  const plan = {...basePlan, comparisonSourceItemCount:dropped.length,
+    pages:rawPages.map((page, index) => ({...page, index, total:rawPages.length}))};
   const pages = plan.pages.map(page => {
     const pageCtx = {...ctx, sourceModel: model, exportPage: page};
     const C = paletteColors(model, pageCtx);
     return renderExhaustiveDeckPage(page.model, pageCtx, C);
   });
-  return {plan, pages};
+  return {plan, pages, complete:exportPageCoverage(plan).complete};
 }
 
 function exportDetail(sourceModel, item, {includeStatus = true, includeRun = true, includeLane = true} = {}){
@@ -48,6 +50,69 @@ function exportDetail(sourceModel, item, {includeStatus = true, includeRun = tru
 }
 function exportTitle(item){ return item.export?.fragment?.title ?? item.title; }
 function exportNote(item){ return item.export?.fragment?.note ?? item.note; }
+
+function maximumPaintY(svg){
+  let bottom = 0;
+  for(const match of svg.matchAll(/\s(?:y|y1|y2)="(-?[\d.]+)"/g)) bottom = Math.max(bottom, +match[1]);
+  for(const match of svg.matchAll(/<rect\b[^>]*>/g)){
+    const y = match[0].match(/\sy="(-?[\d.]+)"/), h = match[0].match(/\sheight="([\d.]+)"/);
+    if(y && h) bottom = Math.max(bottom, +y[1] + +h[1]);
+  }
+  return bottom;
+}
+function paintFitsWidth(svg, measure){
+  for(const match of svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)){
+    const x = match[1].match(/\sx="(-?[\d.]+)"/);
+    if(!x) continue;
+    const size = match[1].match(/\sfont-size="([\d.]+)"/), weight = match[1].match(/\sfont-weight="([\d.]+)"/);
+    const text = match[2].replace(/&(?:amp|lt|gt|quot|#39);/g, 'x');
+    const width = measure(text, (weight?.[1] || '400') + ' ' + (size?.[1] || '13') + 'px ' + SANS);
+    const anchor = match[1].match(/\stext-anchor="(end|middle)"/), point = +x[1];
+    const left = anchor?.[1] === 'end' ? point - width : anchor?.[1] === 'middle' ? point - width / 2 : point;
+    const right = anchor?.[1] === 'end' ? point : anchor?.[1] === 'middle' ? point + width / 2 : point + width;
+    if(left < M || right > W - M) return false;
+  }
+  return true;
+}
+function directLabelsFit(model, ctx, style){
+  const fit = (text, size, width, tracking) => ctx.measure(String(text).toUpperCase(),
+    '700 ' + size + 'px ' + SANS) + Math.max(0, String(text).length - 1) * tracking <= width;
+  if(style === 'board'){
+    const n = Math.max(1, model.horizons.length), colW = (INNER - (n - 1) * 24) / n;
+    const labels = ctx.exportPage?.dropped ? ['DROPPED SINCE ' + (ctx.diff?.since || '')] : model.horizons;
+    return labels.every(label => fit(label, 13, colW - 72, 1.2));
+  }
+  if(style === 'grid'){
+    const n = Math.max(1, model.horizons.length), laneW = 156;
+    const colW = (INNER - laneW - (n - 1) * 10) / n;
+    return model.horizons.every(label => fit(label, 12, colW - 24, 1.1)) &&
+      [...new Set(model.items.map(item => item.lane || 'Unlaned'))]
+        .every(label => fit(label, 11, laneW - 12, 1.1));
+  }
+  if(style === 'focus'){
+    const hero = Math.max(0, model.horizons.findIndex((_, h) => model.items.some(item => item.h === h)));
+    const heroW = Math.round(INNER * .62), railW = INNER - heroW - 32;
+    return model.horizons.every((label, h) => !model.items.some(item => item.h === h) ||
+      fit(label, h === hero ? 20 : 12, h === hero ? heroW : railW, 1.2));
+  }
+  return true;
+}
+function exhaustivePageGeometryFits(model, sourceModel, ctx, C, style, height, dropped){
+  const body = style === 'grid' ? exhaustiveGridBody : style === 'focus' ? exhaustiveFocusBody :
+    style === 'register' ? exhaustiveRegisterBody : exhaustiveBoardBody;
+  const page = dropped ? {dropped:true} : undefined;
+  const pageCtx = {...ctx, sourceModel, exportPage:page, planning:true};
+  if(!directLabelsFit(model, pageCtx, style)) return false;
+  const svg = body(model, pageCtx, C)(0, height);
+  return maximumPaintY(svg) <= height - 24 && paintFitsWidth(svg, ctx.measure);
+}
+
+function focusItemHeight(source, item, width, measure, titleSize, titleStep, base){
+  const lines = (text, font, step) => wrapText(text, font, width, measure).length * step;
+  return base + lines(exportTitle(item), '700 ' + titleSize + 'px ' + SANS, titleStep) +
+    lines(exportDetail(source, item, {includeStatus:false}), '700 10.5px ' + SANS, 15) +
+    (exportNote(item) ? lines(exportNote(item), '13px ' + SANS, 17) : 0) + (item.status ? 15 : 0);
+}
 function exhaustiveBoardBody(model, ctx, C){
   return (y0, y1) => {
     const n = Math.max(1, model.horizons.length);
@@ -79,7 +144,7 @@ function exhaustiveBoardBody(model, ctx, C){
         y += cardH + 12;
       }
     }
-    s.push(txt(M, y1 - 8, 'BOARD · COMPLETE READING SET', 11, C.muted, {weight: 700, tracking: 1.2}));
+    if(!ctx.planning) s.push(txt(M, y1 - 8, 'BOARD · COMPLETE READING SET', 11, C.muted, {weight: 700, tracking: 1.2}));
     return s.join('');
   };
 }
@@ -92,15 +157,13 @@ function pageCardLines(sourceModel, item, width, measure, detailOptions){
   return {title, detail, note, status, height: 18 + title.length * 22 + detail.length * 15 + note.length * 17 + (status ? 15 : 0) + 16};
 }
 
-/* Grid keeps horizontal occupancy and spans on every continuation page. Its
-   source-order track packing is the same interval rule as live Grid: work that
-   does not overlap in time shares a row, while true overlaps gain a new track. */
 function exhaustiveGridBody(model, ctx, C){
   return (y0, y1) => {
     const source = ctx.sourceModel || model, laneW = 156;
     const n = Math.max(1, model.horizons.length), gap = 10;
     const colW = (INNER - laneW - (n - 1) * gap) / n;
-    const labels = model.lanes.length ? model.lanes : ['Unlaned'];
+    const labels = [...new Set(model.items.map(item => item.lane || 'Unlaned'))];
+    if(!labels.length) labels.push('Unlaned');
     const s = [];
     for(let h = 0; h < n; h++){
       const x = M + laneW + h * (colW + gap);
@@ -116,8 +179,6 @@ function exhaustiveGridBody(model, ctx, C){
         const start = Math.max(0, item.h), span = Math.max(1, item.span || 1);
         const x = M + laneW + start * (colW + gap) + 6;
         const w = Math.max(40, span * colW + (span - 1) * gap - 12);
-        /* Width already makes an in-page run explicit. Only a true page edge
-           needs prose such as CONTINUES TO …, never a redundant RUNS label. */
         const lines = pageCardLines(source, item, w - 24, ctx.measure,
           {includeRun:false, includeStatus:false, includeLane:false});
         const h = Math.max(48, lines.height);
@@ -131,8 +192,6 @@ function exhaustiveGridBody(model, ctx, C){
       cards.forEach((card, index) => {
         const {item, x, w, lines, h} = card;
         const cardY = trackY[packed.at[index]];
-        /* Continuation-page Grid keeps the same one primitive as the live chart:
-           a neutral band whose physical width is the run. Empty time is paper. */
         s.push('<rect x="' + x + '" y="' + (cardY + 4) + '" width="' + w + '" height="' + Math.max(40, h - 8) +
           '" fill="' + C.ink + '" fill-opacity="0.08"/>');
         let ty = cardY + 24;
@@ -145,20 +204,16 @@ function exhaustiveGridBody(model, ctx, C){
       s.push(txt(M, laneTop + 20, lane.toUpperCase(), 11, C.muted, {weight:700, tracking:1.1}));
       y = laneTop + Math.max(48, trackY.at(-1) - laneTop - 8) + 18;
     }
-    s.push(txt(M, y1 - 8, 'GRID · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
+    if(!ctx.planning) s.push(txt(M, y1 - 8, 'GRID · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
     return s.join('');
   };
 }
 
-/* Focus retains its authored reading lens: a full hero with factual horizon
-   rails, not a generic dense board wearing a Focus label. */
 function exhaustiveFocusBody(model, ctx, C){
   return (y0, y1) => {
     const source = ctx.sourceModel || model;
     const hero = Math.max(0, model.horizons.findIndex((_, h) => model.items.some(item => item.h === h)));
     const heroW = Math.round(INNER * .62), railX = M + heroW + 32, railW = INNER - heroW - 32;
-    /* Focus makes one horizon physically dominant. The hierarchy comes from
-       scale and a single baseline, not a second accent motif or framed cards. */
     const s = [txt(M, y0 + 18, 'FOCUS', 10, C.muted, {weight:700, tracking:1.3})];
     s.push(txt(M, y0 + 50, model.horizons[hero].toUpperCase(), 20, C.ink, {weight:700, tracking:1.2}));
     s.push(line(M, y0 + 62, M + heroW, y0 + 62, C.ink, 1.5));
@@ -170,11 +225,12 @@ function exhaustiveFocusBody(model, ctx, C){
       const note = exportNote(item) ? wrapText(exportNote(item), '13px ' + SANS, heroW, ctx.measure) : [];
       const h = 16 + title.length * 26 + detail.length * 15 + note.length * 17 + (status ? 15 : 0) + 16;
       let ty = hy + 21;
+      s.push('<g data-i="' + item.export.sourceIndex + '" data-y0="' + hy + '" data-y1="' + (hy + h) + '">');
       title.forEach(t => { s.push(txt(M, ty, t, 21, C.ink, {weight:700})); ty += 26; });
       detail.forEach(t => { s.push(txt(M, ty, t, 10.5, C.muted, {weight:700, tracking:.5})); ty += 15; });
       note.forEach(t => { s.push(txt(M, ty, t, 13, C.muted)); ty += 17; });
       if(status) s.push(txt(M + heroW, ty, status, 10.5, C.statusInk[item.status] || C.status[item.status], {anchor:'end', weight:700, tracking:.75}));
-      s.push(line(M, hy + h, M + heroW, hy + h, C.border, 1, .8));
+      s.push(line(M, hy + h, M + heroW, hy + h, C.border, 1, .8), '</g>');
       hy += h + 12;
     }
     let ry = y0 + 4;
@@ -185,6 +241,9 @@ function exhaustiveFocusBody(model, ctx, C){
       s.push(line(railX, ry + 28, railX + railW, ry + 28, C.border, 1, .6));
       ry += 38;
       for(const item of model.items.filter(item => item.h === h)){
+        const itemTop = ry;
+        const itemBottom = itemTop + focusItemHeight(source, item, railW - 28, ctx.measure, 15, 19, 16) - 10;
+        s.push('<g data-i="' + item.export.sourceIndex + '" data-y0="' + itemTop + '" data-y1="' + itemBottom + '">');
         const title = wrapText(exportTitle(item), '700 15px ' + SANS, railW - 28, ctx.measure);
         title.forEach(t => { s.push(txt(railX + 14, ry + 16, t, 15, C.ink, {weight:700})); ry += 19; });
         const detail = wrapText(exportDetail(source, item, {includeStatus:false}), '700 10.5px ' + SANS, railW - 28, ctx.measure);
@@ -192,20 +251,18 @@ function exhaustiveFocusBody(model, ctx, C){
         if(exportNote(item)){ const note = wrapText(exportNote(item), '13px ' + SANS, railW - 28, ctx.measure); note.forEach(t => { s.push(txt(railX + 14, ry + 14, t, 13, C.muted)); ry += 17; }); }
         if(item.status){ s.push(txt(railX + railW - 14, ry + 13, (STATUS_LABEL[item.status] || item.status).toUpperCase(), 10.5,
           C.statusInk[item.status] || C.status[item.status], {anchor:'end', weight:700, tracking:.75})); ry += 15; }
-        s.push(line(railX, ry + 6, railX + railW, ry + 6, C.border, 1, .6)); ry += 16;
+        s.push(line(railX, ry + 6, railX + railW, ry + 6, C.border, 1, .6), '</g>');
+        ry += 16;
       }
     }
-    s.push(txt(M, y1 - 8, 'FOCUS · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
+    if(!ctx.planning) s.push(txt(M, y1 - 8, 'FOCUS · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
     return s.join('');
   };
 }
 
-/* Register remains a review table at any density. Each source field wraps to
-   its natural row height, and the planner creates another page rather than
-   clipping a cell or hiding a row behind an overflow count. */
 function exhaustiveRegisterBody(model, ctx, C){
   return (y0, y1) => {
-    const source = ctx.sourceModel || model;
+    const source = ctx.exportPage?.dropped ? model : (ctx.sourceModel || model);
     const specs = [
       {key:'item', label:'ITEM', frac:.34}, {key:'horizon', label:'HORIZON', frac:.18},
       {key:'state', label:'LANE · STATUS · CONDITION', frac:.19}, {key:'note', label:'NOTE', frac:.29},
@@ -234,7 +291,7 @@ function exhaustiveRegisterBody(model, ctx, C){
       put(col('note'), noteLines, 13, C.muted, 400);
       s.push(line(M, y+h, W-M, y+h, C.border, 1, .55)); y += h;
     }
-    s.push(txt(M, y1 - 8, 'REGISTER · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
+    if(!ctx.planning) s.push(txt(M, y1 - 8, 'REGISTER · COMPLETE READING SET', 11, C.muted, {weight:700, tracking:1.2}));
     return s.join('');
   };
 }

@@ -3,6 +3,31 @@
    discovery review would say it. Pure. */
 import {diffItems} from '../assets/snapshots.js';
 
+function duplicateSiblingLine(model){
+  let duplicate = null;
+  const visit = nodes => {
+    const seen = new Set();
+    for(const node of nodes || []){
+      const key = diffItems.norm(node.kind + '|' + node.label);
+      if(seen.has(key) && duplicate == null) duplicate = node.srcLine;
+      seen.add(key);
+    }
+    for(const node of nodes || []) visit(node.children);
+  };
+  visit(model?.outcomes);
+  return duplicate;
+}
+
+export function whyComparisonSafety(previous, model){
+  const currentLine = duplicateSiblingLine(model);
+  const previousLine = duplicateSiblingLine(previous);
+  return currentLine != null || previousLine != null ? {
+    safe:false,
+    warning:'Snapshot comparison paused: duplicate sibling claims have ambiguous structural identity. Rename or move duplicates in the current document or selected baseline before comparing.',
+    line:currentLine,
+  } : {safe:true, warning:'', line:null};
+}
+
 export function flattenWhy(model){
   const out = [];
   const walk = (nodes, parentKey = 'root') => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {project} from '../project.js';
 import {renderCausalField as renderOst} from '../render-causal-field.js';
-import {whyDiff, whyNarrative, whyDiffView, flattenWhy} from '../diff.js';
+import {whyComparisonSafety, whyDiff, whyNarrative, whyDiffView, flattenWhy} from '../diff.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
@@ -120,4 +120,15 @@ test('inserting above existing source claims does not turn later branches into f
   const diff = whyDiff(parse(oldSource), parse(nextSource));
   assert.deepEqual(diff.added.map(item => item.label), ['New']);
   assert.equal(diff.dropped.length, 0, 'line shifts preserve structurally-identical later branches');
+});
+
+test('comparison safety permits repeated labels on distinct paths but refuses duplicate siblings', () => {
+  const distinctPaths = parse('outcome: O\n  Need A\n    Repeat [testing]\n  Need B\n    Repeat [testing]');
+  assert.equal(whyComparisonSafety(distinctPaths, distinctPaths).safe, true);
+
+  const duplicateSiblings = parse('outcome: O\n  Same need\n    A [testing]\n  same   need\n    B [testing]');
+  const safety = whyComparisonSafety(distinctPaths, duplicateSiblings);
+  assert.equal(safety.safe, false);
+  assert.equal(safety.line, 3);
+  assert.match(safety.warning, /duplicate sibling claims/);
 });

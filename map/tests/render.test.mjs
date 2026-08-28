@@ -19,7 +19,7 @@ const run = (src, extra = {}) => {
 };
 
 test('assumptions map renders zones, cards, axes, verdict', () => {
-  const svg = run('preset: assumptions\ntitle: T\nA @ 20,80 :: test: interview five\nB @ 70,60\nC');
+  const svg = run('preset: assumptions\ntitle: T\nA @ 20,80 :: test: interview five\nB @ 70,60\nC', {edit:true});
   assert.ok(svg.startsWith('<svg'));
   assert.ok(svg.includes('data-plane'));
   assert.ok(svg.includes('TEST FIRST'));
@@ -34,7 +34,7 @@ test('assumptions map renders zones, cards, axes, verdict', () => {
 });
 
 test('map annotations never need leader lines: a label belongs beside its mark or in the field index', () => {
-  const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 70,60');
+  const svg = run('preset: assumptions\ntitle: T\nA @ 20,80\nB @ 70,60', {edit:true});
   const cards = [...svg.matchAll(/<g data-edit="cardmenu"[^>]*>[\s\S]*?<\/g>/g)].map(match => match[0]);
   assert.ok(cards.length >= 2, 'the direct field supplies two card annotations');
   assert.ok(cards.every(card => !card.includes('<line ')),
@@ -56,19 +56,19 @@ test('grid hairlines and named-cell labels; anonymous cells unlabelled', () => {
 });
 
 test('zone-name edit targets: declared zones carry data-zone; preset rule zones do not', () => {
-  const declared = run('zones: grid 2x2\nzone 1,2: Quick wins\nx: E\ny: V');
+  const declared = run('zones: grid 2x2\nzone 1,2: Quick wins\nx: E\ny: V', {edit:true});
   assert.ok(declared.includes('data-zone="c:1,2"'));
-  const preset = run('preset: assumptions\nA @ 20,80');
+  const preset = run('preset: assumptions\nA @ 20,80', {edit:true});
   assert.ok(!preset.includes('data-zone="r:test first"'));
-  const futures = run('preset: futures');
+  const futures = run('preset: futures', {edit:true});
   assert.ok(futures.includes('data-zone="c:1,2"'));   // preset cells editable via insert path
 });
 
 test('axis edit targets carry data-axis and srcLine or -1', () => {
-  const svg = run('x: Effort (low → high)\ny: Value\nA @ 10,10');
+  const svg = run('x: Effort (low → high)\ny: Value\nA @ 10,10', {edit:true});
   assert.ok(svg.includes('data-axis="x"'));
   assert.ok(/<g data-edit="axis" data-line="0"[^>]*data-axis="x"/.test(svg));
-  const preset = run('preset: risk\nA @ 10,10');
+  const preset = run('preset: risk\nA @ 10,10', {edit:true});
   assert.ok(/<g data-edit="axis" data-line="-1"[^>]*data-axis="x"/.test(preset));
 });
 
@@ -121,7 +121,7 @@ const capsuleFromLabel = (x, base) => ({x: x - CAP_PAD_X, y: base + CAP_BASE_UP 
 
 test('zone labels remain available as semantic geometry while authored marks stay exact', () => {
   /* futures: cell label sits at the cell centre; author a card exactly there */
-  const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
+  const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25', {edit:true});
   const label = svg.match(/<g data-edit="zonename"[^>]*data-zone="c:1,1"[^>]*><text x="([\d.]+)" y="([\d.]+)"/);
   const item = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"/);
   assert.ok(label && item);
@@ -138,26 +138,28 @@ test('authored positions unchanged by nudge: markers stay at exact coordinates',
 });
 
 test('flagged items use the restrained red only for the semantic test-first claim', () => {
-  const svg = run('preset: assumptions\nUntested bet @ 20,80');
+  const svg = run('preset: assumptions\nUntested bet @ 20,80', {edit:true});
   /* the err-inked label … */
   const lab = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"[^>]*fill="#b33"/);
   assert.ok(lab, 'flagged label carries the err hue');
   /* and the diamond itself is err-inked (geometry survives greyscale) */
   assert.match(svg, /<rect [^>]*fill="#b33" transform="rotate\(45 /);
   /* an unflagged item gets neither red label nor red marker */
-  const clean = run('preset: assumptions\nSettled bet @ 20,80 :: test: five interviews');
+  const clean = run('preset: assumptions\nSettled bet @ 20,80 :: test: five interviews', {edit:true});
   assert.doesNotMatch(clean, /data-edit="label"[^>]*fill="#b33"/, 'a settled item is not painted as a warning');
 });
 
 test('placed cards carry data-edit="cardmenu" with a >=44px data-hit rect as the first child; tray items do not', () => {
-  const svg = run('preset: assumptions\nPlaced one @ 20,80\nUnplaced one');
-  const g = svg.match(/<g data-edit="cardmenu" data-line="1"[^>]*>(<rect data-hit=""[^>]*\/>)/);
+  const source = 'preset: assumptions\nPlaced one @ 20,80\nUnplaced one';
+  const editable = run(source, {edit:true});
+  const g = editable.match(/<g data-edit="cardmenu" data-line="1"[^>]*>(<rect data-hit=""[^>]*\/>)/);
   assert.ok(g, 'expected cardmenu group with a data-hit rect as its first child');
   const h = +g[1].match(/height="([\d.]+)"/)[1];
   assert.ok(h >= 44, 'hit rect must be at least 44px tall, got ' + h);
   /* export/golden path (edit:false): the tray item keeps its plain data-line
      group — no cardmenu, no data-hit */
-  const trayGroup = svg.match(/<g data-line="\d+" data-tray="1">[\s\S]*?<\/g>/);
+  const clean = run(source);
+  const trayGroup = clean.match(/<g data-line="\d+" data-tray="1">[\s\S]*?<\/g>/);
   assert.ok(trayGroup, 'expected a tray group');
   assert.ok(!trayGroup[0].includes('cardmenu') && !trayGroup[0].includes('data-hit'),
     'tray items must stay bare in export renders (goldens are edit:false)');
@@ -177,7 +179,7 @@ test('edit mode: tray items become cardmenu triggers (Place on map… is the coa
 
 test('cardmenu hit rect gives the label a stable coarse plane', () => {
   /* futures preset nudges cards off zone labels, so the box != the marker here */
-  const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25');
+  const svg = run('preset: futures\nx: A\ny: B\nSignal @ 25,25', {edit:true});
   const item = svg.match(/<text data-edit="label"[^>]*x="([\d.]+)" y="([\d.]+)"/);
   const hit = svg.match(/<rect data-hit="" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
   assert.ok(item && hit);
@@ -201,10 +203,20 @@ test('plane-level widens: axis, zonename and additem targets get a >=44px invisi
 });
 
 test('axis y-label hit box is clamped so it never runs past x=0', () => {
-  const svg = run('x: Effort\ny: Value\nA @ 50,50');
+  const svg = run('x: Effort\ny: Value\nA @ 50,50', {edit:true});
   const m = svg.match(/<g data-edit="axis" data-line="-?\d+" data-raw="Value"[^>]*data-axis="y">[\s\S]*?<rect x="([-\d.]+)"/);
   assert.ok(m);
   assert.ok(+m[1] >= 0, 'y-axis hit box x must be clamped to >=0, got ' + m[1]);
+});
+
+test('non-editable wide and narrow renders contain no interaction chrome', () => {
+  const source = 'zones: grid 2x2\nzone 1,2: Quick wins\nx: Effort\ny: Value\nPlaced @ 20,80\nUnplaced';
+  for(const svg of [run(source), run(source, {width:390})]){
+    assert.match(svg, /Placed|PLACED/);
+    assert.match(svg, /Unplaced|UNPLACED/);
+    assert.doesNotMatch(svg, /data-(?:edit|hit|menu|title-hit|position-hit)=/);
+    assert.doesNotMatch(svg, /role="button"|tabindex="0"/);
+  }
 });
 
 /* collect every card [data-hit] rect as a box for overlap assertions */

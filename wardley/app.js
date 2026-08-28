@@ -1,7 +1,7 @@
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
 import {parse, STAGES} from './parse.js';
 import {layoutMap} from './layout.js';
-import {renderMap, toMarkdown, GEOM, NARROW} from './render.js';
+import {comparisonSafety, renderMap, toMarkdown, GEOM, NARROW} from './render.js';
 import {createEditor} from './editor.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,
   addComponent, addedComponentTarget, removeComponent, addEdge, removeEdge} from './edit-targets.js';
@@ -91,6 +91,7 @@ function ctx(){
 function currentCompare(){
   const cur = snaps && snaps.current();
   if(!cur || !model) return null;
+  if(!comparisonSafety(cur.model, model).safe) return null;
   return {prev: cur.model, label: cur.label};
 }
 /* width-aware: the preview re-lays-out below NARROW; exports stay pinned wide */
@@ -108,7 +109,13 @@ function activeRender(renderIntent){
   return renderMap(model, renderLayout, c, opts);
 }
 function renderWarnings(){
-  renderWarningList($('warns'), model ? model.warnings : []);
+  const warnings = model ? [...model.warnings] : [];
+  const cur = snaps && snaps.current();
+  if(cur && model){
+    const safety = comparisonSafety(cur.model, model);
+    if(!safety.safe) warnings.push((safety.line == null ? '' : 'line ' + (safety.line + 1) + ': ') + safety.warning);
+  }
+  renderWarningList($('warns'), warnings);
 }
 function doRefresh(){
   clearInspection();

@@ -47,7 +47,7 @@
       <div class="importbox" id="importbox">
         <p class="hint">Paste a markdown roadmap (<code>### Now</code> headings with <code>-</code> bullets, as exported by this tool or written by hand). Replaces the editor.</p>
         <textarea id="importarea" spellcheck="false"></textarea>
-        <div style="margin-top:8px"><button class="btn" id="importgo">Convert</button></div>
+        <div style="margin-top:8px"><button class="btn" id="importgo" data-capability="imports.markdown">Convert</button></div>
       </div>
       <ul id="warns"></ul>
       <details class="syntax">
@@ -119,10 +119,10 @@
       <div class="composition-bar" aria-label="Roadmap composition">
         <span class="composition-label" id="stylelbl">View</span>
         <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">
-          <button data-style="grid" aria-pressed="false">Grid</button>
-          <button data-style="board" aria-pressed="false">Board</button>
-          <button data-style="focus" aria-pressed="false">Focus</button>
-          <button data-style="register" aria-pressed="false">Register</button>
+          <button data-style="grid" data-capabilities="views.grid editing.grid-interactions" aria-pressed="false">Grid</button>
+          <button data-style="board" data-capability="views.board" aria-pressed="false">Board</button>
+          <button data-style="focus" data-capability="views.focus" aria-pressed="false">Focus</button>
+          <button data-style="register" data-capability="views.register" aria-pressed="false">Register</button>
         </div>
         <p class="narrow-composition-note" id="narrowcomposition" aria-live="polite" hidden></p>
         <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>
@@ -162,22 +162,22 @@
         </div>
         <div class="actions">
           <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-          <button class="btn" id="copypng">Copy PNG</button>
+          <button class="btn" id="copypng" data-capability="presentationExports.png">Copy PNG</button>
           <details class="action-disclosure">
             <summary class="btn">Export</summary>
             <div class="action-menu">
               <p class="action-menu-label">Full-detail artefact</p>
-              <button class="btn" id="dlpng">Full-detail PNG</button>
-              <button class="btn" id="dlsvg">Editable SVG</button>
-              <button class="btn" id="copymd">Copy source as Markdown</button>
-              <button class="btn" id="fullslideexport" type="button" hidden>Review 16:9 slide set…</button>
+              <button class="btn" id="dlpng" data-capability="presentationExports.png">Full-detail PNG</button>
+              <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Editable SVG</button>
+              <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy source as Markdown</button>
+              <button class="btn" id="fullslideexport" data-capability="presentationExports.slide-set" type="button" hidden>Review 16:9 slide set…</button>
             </div>
           </details>
           <details class="action-disclosure history">
             <summary class="btn">History</summary>
             <div class="action-menu">
               <button class="btn" id="snap">Snapshot</button>
-              <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+              <select class="ctl" id="snapsel" data-capability="history.snapshot-compare" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
               <button class="btn" id="changepreview" type="button" hidden>Review change deck…</button>
               <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
             </div>

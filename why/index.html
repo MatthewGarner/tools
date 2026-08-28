@@ -66,8 +66,8 @@
     <button class="railtab" id="railtab" aria-label="Edit tree source">Edit tree source</button>
     <section class="stage">
       <div class="viewtoggle segmented" role="tablist">
-        <button id="viewost" class="on" role="tab" aria-selected="true">Causal Tree</button>
-        <button id="viewmap" role="tab" aria-selected="false">Delivery Lens</button>
+        <button id="viewost" class="on" role="tab" data-capability="views.causal-tree" aria-selected="true">Causal Tree</button>
+        <button id="viewmap" role="tab" data-capability="views.delivery-lens" aria-selected="false">Delivery Lens</button>
       </div>
       <p class="viewnote" id="viewnote">Causal Tree — trace every solution to the customer opportunity and assumption it relies on.</p>
       <div class="metrics" id="metrics" hidden></div>
@@ -75,19 +75,19 @@
       <div class="verdict-block review-verdict" id="verdict" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn primary" id="copypng">Copy PNG</button>
+        <button class="btn primary" id="copypng" data-capability="presentationExports.png">Copy PNG</button>
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="dlpng">PNG</button>
-            <button class="btn" id="dlsvg">SVG</button>
+            <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
+            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
           </div>
         </details>
         <details class="action-disclosure history">
           <summary class="btn">History</summary>
           <div class="action-menu">
             <button class="btn" id="snap">Snapshot</button>
-            <select class="ctl" id="snapsel" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
+            <select class="ctl" id="snapsel" data-capability="history.snapshot-compare" aria-label="Compare with snapshot"><option value="">Compare with…</option></select>
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>

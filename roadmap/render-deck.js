@@ -1,13 +1,4 @@
-/* (model, ctx, {style}) → a 16:9 DECK svg. Pure — no DOM, no `new Date()`.
-   SEPARATE from render.js: /why's map view delegates to renderRoadmap, so
-   anything added there lands in /why too (shifted its goldens once).
-   render.js stays the working chart; the deck lives here. Named render-*.js
-   so renderer-coverage.test.mjs FORCES this into the injection corpus.
-
-   1920×1080, one shared frame (ink rule → Charter title → date → the
-   author's `headline:` standfirst, if they wrote one → body band → footer rule
-   + metrics). Styles fill the body; colour comes from the doc (palette:/accent:
-   via scheme()), never the style — a style owns STRUCTURE. */
+/* Pure 1920×1080 presentation renderer; the working chart stays in render.js. */
 import {txt, wrapText} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
 import {render as renderChart} from './render.js';
@@ -40,6 +31,25 @@ export function deckMetrics(model){
           by('doing') ? by('doing') + ' in progress' : null,
           by('risk') ? by('risk') + ' at risk' : null,
           by('blocked') ? by('blocked') + ' blocked' : null].filter(Boolean).join(' · ');
+}
+
+export function deckBodyBounds(model, ctx, C){
+  const source = ctx.sourceModel || model, {measure} = ctx;
+  const titleLines = wrapText(source.title || 'Roadmap', '700 38px ' + SERIF, INNER - 390, measure);
+  const frameTop = 146 + Math.max(0, titleLines.length - 1) * 42;
+  const basis = basisBand(source, M, frameTop, INNER, measure, C);
+  const headline = String(source.headline || '').trim();
+  const headlineLines = headline ? wrapText(headline, '600 22px ' + SERIF, INNER, measure).length : 0;
+  let top = basis.height ? frameTop + basis.height + 14 : frameTop + 30;
+  if(headlineLines) top = (basis.height ? frameTop + basis.height + 66 : frameTop + 68) + (headlineLines - 1) * 30;
+  if(ctx.diff?.any){
+    top += wrapText('BASELINE · ' + (ctx.diff.since || 'Selected snapshot'), '700 11px ' + SANS, INNER, measure).length * 15 + 6;
+    const story = String(source.story || '').trim();
+    if(story) top += wrapText(story, '13px ' + SERIF, INNER, measure).length * 18 + 8;
+  }
+  const verdict = resolveVerdict(source.verdict, roadmapVerdict(source));
+  const verdictLines = verdict?.line ? wrapText(verdict.line, '600 14px ' + SANS, INNER - 300, measure).length : 0;
+  return {top, bottom:verdictLines ? 970 - verdictLines * 18 : 968};
 }
 
 

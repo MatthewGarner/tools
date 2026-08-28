@@ -261,17 +261,19 @@ export function initConsole({model, text, relay, ctx, $, id, key}){
     poll2 = mkPoll();
   });
 
-  /* #93: the room's ranges → prefilled fermi variables */
-  function currentHandoff(){
-    if(responses2)
-      return fermiHandoff(model, sessionStats(model, mergeFinal(responses, responses2)),
-        delphiStats(model, responses, responses2));
-    return responses ? fermiHandoff(model, sessionStats(model, responses)) : null;
+  function currentHandoff(issue = false){
+    if(responses2){
+      const stats = sessionStats(model, mergeFinal(responses, responses2));
+      const delphi = delphiStats(model, responses, responses2);
+      return issue ? fermiHandoffIssue(model, stats, delphi) : fermiHandoff(model, stats, delphi);
+    }
+    const stats = responses ? sessionStats(model, responses) : [];
+    return issue ? fermiHandoffIssue(model, stats) : responses ? fermiHandoff(model, stats) : null;
   }
   function refreshHandoff(){
     const h = currentHandoff();
     $('tofermi').hidden = !h;
-    const note = fermiHandoffIssue(model);
+    const note = h ? '' : currentHandoff(true);
     $('fermiDraftNote').hidden = !(h || note);
     $('fermiDraftNote').textContent = note ||
       'A room range is an elicited assumption, not automatically a calibrated 90% belief. Fermi will ask you to restate or adopt every range before simulating.';

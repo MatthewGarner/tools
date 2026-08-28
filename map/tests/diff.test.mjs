@@ -4,7 +4,7 @@ import {parse} from '../parse.js';
 import {resolve} from '../zones.js';
 import {readout} from '../readout.js';
 import {render} from '../render.js';
-import {mapDiff, mapDiffView} from '../diff.js';
+import {comparisonSafety, duplicateVisibleLabels, mapDiff, mapDiffView} from '../diff.js';
 
 const OLD = 'preset: assumptions\nA @ 20,80 :: test: interview\nB @ 70,60\nC @ 40,90\nD';
 const NEW = 'preset: assumptions\nA @ 25,40\nB @ 70,60\nD @ 50,50\nE @ 10,10';
@@ -50,4 +50,16 @@ test('no-diff render is untouched by the feature', () => {
   const plain = render(m, r, ro, ctx);
   assert.doesNotMatch(plain, />NEW<\/text>|DROPPED SINCE|Since /);
   assert.equal(plain, render(m, r, ro, ctx, null));
+});
+
+test('snapshot comparison refuses duplicate visible claim names on either side', () => {
+  const unique = parse('One @ 20,80\nTwo @ 70,20');
+  const duplicate = parse('One @ 20,80\n  one   @ 70,20');
+  assert.equal(duplicateVisibleLabels(duplicate).length, 1);
+  for(const [before, after] of [[duplicate, unique], [unique, duplicate]]){
+    const safety = comparisonSafety(before, after);
+    assert.equal(safety.safe, false);
+    assert.match(safety.warning, /comparison paused.*Rename duplicates/i);
+  }
+  assert.deepEqual(comparisonSafety(unique, unique), {safe:true, warning:'', line:null});
 });

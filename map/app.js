@@ -1,4 +1,3 @@
-/* State, refresh loop, saved maps, exports, edit-in-place, drag, boot. */
 import {parse} from './parse.js';
 import {resolve, zoneFor} from './zones.js';
 import {readout, toMarkdown} from './readout.js';
@@ -20,7 +19,7 @@ import {attachEditInPlace} from '../assets/edit-in-place.js';
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine} from './edit-targets.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
-import {mapDiff, mapDiffView} from './diff.js';
+import {mapDiff, mapDiffView, comparisonSafety} from './diff.js';
 import {gaugeHandoff} from './handoff.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
 import {cardMenuRows, createPostDragClickGuard} from './interactions.js';
@@ -31,7 +30,6 @@ const paint = mountMotion($("preview"));
 
 import {EXAMPLES} from './examples.js';
 
-/* ---------- refresh loop ---------- */
 let model = null, resolved = null, ro = null;
 let lastSvg = '', hashTimer = null;
 let inspected = null;
@@ -57,7 +55,13 @@ function inspectItem(line, origin){
 }
 
 function renderWarnings(){
-  renderWarningList($('warns'), [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])]);
+  const warnings = [...(model ? model.warnings : []), ...(resolved ? resolved.warnings : [])];
+  const selectedSnapshot = snaps && snaps.current();
+  if(selectedSnapshot && model){
+    const safety = comparisonSafety(selectedSnapshot.model, model);
+    if(!safety.safe) warnings.push('line ' + (safety.line + 1) + ': ' + safety.warning);
+  }
+  renderWarningList($('warns'), warnings);
 }
 function hasContent(){
   return model && (model.items.length || model.preset || model.grid || model.ruleZones.length);
@@ -66,6 +70,7 @@ let snaps = null;   // wired below, after the editor exists
 function currentDiff(){
   const cur = snaps && snaps.current();
   if(!cur || !model || !ro) return null;
+  if(!comparisonSafety(cur.model, model).safe) return null;
   return mapDiffView(mapDiff(cur.model, model), cur.label);
 }
 function activeRender(intent = 'live'){
@@ -75,10 +80,7 @@ function activeRender(intent = 'live'){
 }
 function doRefresh(){
   clearInspection();
-  /* any re-parse invalidates an armed Move…/Place placement: its line number
-     may be stale (a keyboard-only user can Tab into the editor and edit lines
-     above without the pointerdown that normally disarms). The placement's own
-     replaceLine disarms synchronously first, so this is always a no-op there. */
+  /* Re-parse invalidates the armed source line before it can go stale. */
   disarmPlace();
   const text = editor.getText();
   model = parse(text);
@@ -133,7 +135,6 @@ const ws = initWorkspace({
 });
 watchNarrowBucket($('preview'), () => { lastSvg = ''; paint.reset(); refresh(); });
 
-/* ---------- edit-in-place ---------- */
 attachEditInPlace($('preview'), {
   kinds: {
     label: {validate: validators.label},
@@ -192,10 +193,8 @@ attachEditInPlace($('preview'), {
   },
 });
 
-/* ---------- example chips ---------- */
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
 
-/* ---------- saved ---------- */
 const SAVED_KEY = 'map-saved';
 function renderSaved(){
   const row = $('savedrow');
@@ -219,10 +218,8 @@ function renderSaved(){
   row.appendChild(save);
 }
 
-/* the instrument kicker — static, painted once (never in the refresh loop) */
 paintKicker($('kicker'), '06', 'Two axes, named zones');
 
-/* ---------- exports ---------- */
 function nativeSvgString(){
   if(!hasContent() || !ro) return null;
   return activeRender('native');
@@ -239,11 +236,10 @@ wireExports({
   buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copymd')},
   getSvg: nativeSvgString,
   getCopy: presentationSvgString,
-  getMarkdown: () => ro ? toMarkdown(ro, model) : null,
+  getMarkdown: () => ro ? toMarkdown(ro, model, {comparison: snaps?.current()}) : null,
   slug,
 });
 
-/* ---------- drag-to-place: a drop is a text edit ---------- */
 const postDragClick = createPostDragClickGuard();
 const drag = {armed: null, active: false, ghost: null, srcEl: null, pointerId: null};
 const finePointer = () => matchMedia('(pointer: fine)').matches;   // coarse pointers reposition via the source @ x,y
@@ -315,19 +311,14 @@ window.addEventListener('keydown', e => {
     clearInspection({restore:true});
   }
 });
-/* the browser can claim the gesture mid-drag (scroll/gesture) → clean up the
-   ghost instead of stranding it until the next pointerup */
+/* Browser-owned gestures must not strand a drag ghost. */
 window.addEventListener('pointercancel', e => {
   if(!drag.armed) return;
   if(drag.pointerId !== null && e.pointerId !== drag.pointerId) return;
   postDragClick.clear();
   endDrag();
 });
-/* No element ever calls setPointerCapture here (move/up live on window, not
-   the dragged element), so a lostpointercapture listener never fires — it's
-   dead. A release outside the browser window during a drag delivers no
-   pointerup to this page at all; window losing focus is the only signal we
-   get in that case — clear the ghost/armed state instead of stranding it. */
+/* Window blur is the only release signal after the pointer leaves the page. */
 window.addEventListener('blur', () => {
   if(!drag.armed) return;
   postDragClick.clear();
@@ -337,15 +328,7 @@ $('preview').addEventListener('click', e => {
   if(postDragClick.consume()){ e.preventDefault(); e.stopPropagation(); }
 }, true);
 
-/* ---------- Move… / Place on map…: one-shot tap-the-plane placement ----------
-   The card menu ARMS a placement; the NEXT tap on the plane writes @ x,y via
-   setPosition — the coarse-pointer sibling of the fine drag (wardley's
-   tap-the-strip, generalised to 2D). planeCoords() reads the plane rect's
-   live getBoundingClientRect, so workspace zoom and coarse pan are already
-   accounted for. Always escapable (no silent trap): Escape, the hint's
-   Cancel, an off-plane tap, or any tap outside the preview all disarm —
-   only an on-plane tap commits (one undoable text edit), and nothing here
-   focuses the editor (no soft-keyboard jump on phones). */
+/* Coarse placement arms one plane tap; cancel/off-plane never writes source. */
 let placing = null;   // {line, hint}
 function disarmPlace(){
   if(!placing) return;
@@ -373,8 +356,6 @@ function armPlace(line){
   pv.classList.add('placing');
   placing = {line, hint};
 }
-/* capture: while armed, the tap is a placement (or a cancel), never an
-   edit-in-place open underneath */
 $('preview').addEventListener('click', e => {
   if(!placing) return;
   e.preventDefault();
@@ -387,15 +368,13 @@ $('preview').addEventListener('click', e => {
   const newLine = setPosition(src, at.x, at.y);
   if(newLine !== src) editor.replaceLine(line, newLine);   // one transaction → one undo step
 }, true);
-/* a tap that leaves the preview entirely (editor, action row…) disarms
-   without being swallowed — the user has moved on */
 document.addEventListener('pointerdown', e => {
   if(!placing) return;
   if($('preview').contains(e.target) || placing.hint.contains(e.target)) return;
   disarmPlace();
 }, true);
 
-/* ---------- #93: untested assumption-map items → Gauge priors ---------- */
+/* Untested assumption claims may become independent Gauge priors. */
 $('togauge').addEventListener('click', async () => {
   if(!model || !ro) return;
   const doc = gaugeHandoff(model, ro);
@@ -411,11 +390,9 @@ $('togauge').addEventListener('click', async () => {
   else $('handoffstatus').textContent = 'This map is too large to send to Gauge. Remove some flagged items and try again.';
 });
 
-/* ---------- theme ---------- */
 function rerender(){ lastSvg = ''; paint.reset(); refresh(); }
 onThemeChange(rerender);
 
-/* ---------- boot ---------- */
 (async function(){
   const hash = await readHashState();
   let text = hash && typeof hash.t === 'string' ? hash.t : '';
@@ -428,6 +405,5 @@ onThemeChange(rerender);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
 
-/* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['preset', 'title', 'palette', 'accent', 'x', 'y', 'zones', 'verdict']);

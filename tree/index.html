@@ -69,7 +69,7 @@
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
       <div class="metrics" id="metrics"></div>
-      <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="preview" id="preview" data-capability="views.decision-diagram"><p class="placeholder">Start typing — or load an example.</p></div>
       <!-- B3: the priced-insistence walk. ONE persistent slider, created once, living
            OUTSIDE #preview (the refresh loop innerHTMLs that container) — hidden until a
            load-bearing number is engaged; tap/Enter on a different one re-binds the same
@@ -80,7 +80,7 @@
           <button type="button" class="explore-close" id="exploreClose" aria-label="Stop exploring this number">✕</button>
         </div>
         <div class="explore-track" id="exploreTrack">
-          <input type="range" id="exploreRange" class="explore-range" aria-describedby="explorePriced">
+          <input type="range" id="exploreRange" class="explore-range" data-capability="editing.sensitivity-exploration" aria-describedby="explorePriced">
           <div class="explore-band" id="exploreBand" hidden></div>
           <div class="explore-notch" id="exploreNotchBelow" hidden></div>
           <div class="explore-notch" id="exploreNotchAbove" hidden></div>
@@ -90,12 +90,12 @@
       <p class="seam" id="seam" hidden></p>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn primary" id="copypng">Copy PNG</button>
+        <button class="btn primary" id="copypng" data-capability="presentationExports.png">Copy PNG</button>
         <details class="action-disclosure">
           <summary class="btn">Export</summary>
           <div class="action-menu">
-            <button class="btn" id="dlpng">PNG</button>
-            <button class="btn" id="dlsvg">SVG</button>
+            <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
+            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
           </div>
         </details>
         <span class="method">10,000 simulations · deterministic · the URL carries your tree</span>

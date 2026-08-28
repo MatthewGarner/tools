@@ -112,7 +112,7 @@ test('invalid terms are excluded rather than reordered/clamped into the outcome'
   assert.deepEqual(records.slice(0, 3).map(r => r.scoreable), [false, false, false]);
   assert.equal(records[3].scoreable, true);
   const md = markdown(mixed, b);
-  assert.match(md, /\| Broken odds \| 10 \| — \| 30 \| NOT SCORED \|/,
+  assert.match(md, /\| G \| Broken odds \| 10 \| — \| 30 \| NOT SCORED \| — \|/,
     'unscoreable terms stay visibly unscored in the text export');
   assert.doesNotMatch(md, /—%/);
 });
@@ -190,8 +190,27 @@ test('markdown carries the honest table, paired assumptions and Median outcome t
   assert.match(md, /£k/);
   assert.match(md, /Independent baseline/);
   assert.match(md, /Shared-outcome stress/);
+  assert.match(md, /EV P10–P90 \(P50\)/);
+  assert.match(md, /flips stop landing/);
+  assert.match(md, /Concentration:/);
   assert.match(md, /Only realised win\/loss outcomes share one common draw/);
   assert.match(md, /ranges remain independently sampled/);
   assert.match(md, /Median outcome/);
+  assert.match(md, /\[Open in bets\]\(https:\/\/x\/bets\/#abc\)/);
   assert.doesNotMatch(md, /net EV/i);
+});
+
+test('markdown escapes authored text for heading, table, prose and link contexts', () => {
+  const source = `title: <img src=x> \\*prefixed* *title* [link] \`tick\` | end
+unit: <b>£|k</b> \\ *unit*
+<section> \\ *group* | \`g\`
+  <img> \\ *bet* [x] | \`b\`: stake 10, odds 40-60%, payoff 20
+    kill: <script>x</script> \\ *kill* | \`k\``;
+  const hostile = parse(source), md = markdown(hostile, simulate(hostile), 'https://x/bets/(receipt)');
+  assert.doesNotMatch(md, /<(?:img|script|b|section)\b/i);
+  for(const escaped of ['&lt;img', '\\*title\\*', '\\[link\\]', '\\`tick\\`', '\\|k', '&lt;script&gt;'])
+    assert.ok(md.includes(escaped), `missing escaped receipt fact ${escaped}`);
+  assert.ok(md.includes('\\'.repeat(3) + '*prefixed\\*'), 'source backslash must escape before Markdown syntax');
+  assert.match(md, /\[Open in bets\]\(https:\/\/x\/bets\/%28receipt%29\)/);
+  assert.doesNotMatch(md, /(^|[^\\])\*title\*/);
 });

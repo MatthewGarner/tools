@@ -66,7 +66,13 @@ try{
   check('join link: session id but no facilitator key', /^[0-9a-f]{32}$/.test(decoded.id) && !('key' in decoded));
 
   /* two participants in isolated contexts (B runs the dark theme) */
-  async function participant(colorScheme, prob, low, high){
+  /* Answer BOTH range questions. Leaving "Active teams at end of quarter"
+     blank made the room untransferable and cost this suite every assertion
+     about the Fermi landing, for no reason other than the fixture being short
+     an input — a Fermi draft transfers every range or none, so one blank
+     question refuses the lot. The refusal wording itself is unit-tested in
+     gauge/tests/handoff.test.mjs; what only a browser can check is the hop. */
+  async function participant(colorScheme, prob, low, high, teamsLow, teamsHigh){
     const page = await (await browser.newContext({colorScheme})).newPage();
     const errors = watchErrors(page);
     await page.goto(joinUrl, {waitUntil: 'networkidle'});
@@ -76,12 +82,14 @@ try{
     }, prob);
     await page.locator('.q[data-q="1"] input[data-part=low]').fill(String(low));
     await page.locator('.q[data-q="1"] input[data-part=high]').fill(String(high));
+    await page.locator('.q[data-q="2"] input[data-part=low]').fill(String(teamsLow));
+    await page.locator('.q[data-q="2"] input[data-part=high]').fill(String(teamsHigh));
     await page.locator('#psubmit').click();
     await page.waitForFunction(() => document.getElementById('pstatus').textContent.includes('Submitted'));
     return {page, errors};
   }
-  const A = await participant('light', 80, 4, 8);
-  const B = await participant('dark', 20, 30, 50);
+  const A = await participant('light', 80, 4, 8, 120, 200);
+  const B = await participant('dark', 20, 30, 50, 90, 260);
   check('participants: both submitted',
     /Submitted/.test(await A.page.locator('#pstatus').innerText()) &&
     /Submitted/.test(await B.page.locator('#pstatus').innerText()));
@@ -89,7 +97,8 @@ try{
   check('participant: reload restores the local draft before relay status can repaint it',
     await A.page.locator('.q[data-q="0"] input[type=range]').inputValue() === '80' &&
     await A.page.locator('.q[data-q="1"] input[data-part=low]').inputValue() === '4' &&
-    await A.page.locator('.q[data-q="1"] input[data-part=high]').inputValue() === '8');
+    await A.page.locator('.q[data-q="1"] input[data-part=high]').inputValue() === '8' &&
+    await A.page.locator('.q[data-q="2"] input[data-part=low]').inputValue() === '120');
 
   /* facilitator poll picks the count up (5s ± jitter cadence) */
   await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('2'),
@@ -134,6 +143,23 @@ try{
     const [pngDl] = await Promise.all([pageF.waitForEvent('download', {timeout: 8000}),
       pageF.locator('#dlpng2').click()]);
     check('facilitator: Download PNG produces a file (SVG decoded)', /\.png$/.test(pngDl.suggestedFilename()));
+    /* Close the disclosure the way a person would. A native <details> action menu
+       stays open until dismissed and floats over the controls beneath it — left
+       open, #dlsvg2 sits on top of #cend and swallows its clicks. This used to be
+       hidden because the Fermi hop below navigated away and back, reloading the
+       console; with that hop gone (D1) the menu persists, so the suite has to
+       close it. Asserting it closed keeps this honest rather than incidental. */
+    const coveringBefore = await pageF.locator('#dlsvg2').isVisible();
+    await pageF.locator('#cexports').getByText('Export', {exact: true}).click();
+    /* isVisible() answers false for an element that does not exist, so pin the
+       count too: without it this passes if #dlsvg2 is renamed or the console
+       fails to render at all. coveringBefore makes it a real transition rather
+       than a state that was already true. */
+    check('facilitator: the export disclosure closes and stops covering the session controls',
+      coveringBefore &&
+      await pageF.locator('#cexports details').evaluate(node => !node.open) &&
+      await pageF.locator('#dlsvg2').count() === 1 &&
+      !await pageF.locator('#dlsvg2').isVisible());
   }
 
   /* post-reveal edit rejected by the server */
@@ -153,17 +179,15 @@ try{
   await pageF.screenshot({path: 'gauge-console-light.png', fullPage: true});
   await B.page.screenshot({path: 'gauge-participant-dark.png', fullPage: true});
 
-  /* Revealed room ranges become a review-needed Fermi draft, never an automatic estimate. */
+  /* Revealed room ranges become a review-needed Fermi draft, never an automatic
+     estimate. D1 deprioritised handoff WORK; it did not ask for this coverage to
+     be dropped, and only a browser can check that the hop lands and returns. */
   check('facilitator: Draft Fermi inputs appears after reveal with an explicit review-needed warning',
     await pageF.locator('#tofermi').isVisible() &&
     await pageF.locator('#fermiDraftNote').isVisible() &&
     /not automatically a calibrated 90% belief/.test(await pageF.locator('#fermiDraftNote').innerText()));
   {
-    const target = await pageF.evaluate(() => {
-      // read the destination without navigating the console away
-      return document.getElementById('tofermi') ? 'ok' : 'missing';
-    });
-    const [nav] = await Promise.all([
+    await Promise.all([
       pageF.waitForNavigation({timeout: 8000}),
       pageF.locator('#tofermi').click(),
     ]);
@@ -171,9 +195,14 @@ try{
       if(!pageF.url().includes('/fermi/')) return false;
       await pageF.waitForTimeout(600);
       const formula = await pageF.locator('#formula').inputValue();
-      const review = await pageF.locator('.vreceipt').innerText().catch(() => '');
+      /* Both ranges transfer, so there is a receipt per variable — assert the
+         provenance on every one rather than on whichever the locator resolved
+         to first. A single-.vreceipt locator was a strict-mode violation here. */
+      const reviews = await pageF.locator('.vreceipt').allInnerTexts();
       const placeholder = await pageF.locator('#ph').innerText().catch(() => '');
-      return formula === '' && /Gauge → review needed/.test(review) && /not automatically your 90% belief/.test(placeholder);
+      return formula === '' && reviews.length === 2 &&
+        reviews.every(review => /Gauge → review needed/.test(review)) &&
+        /not automatically your 90% belief/.test(placeholder);
     })());
     await pageF.goBack();
     await pageF.waitForTimeout(800);
@@ -217,7 +246,7 @@ try{
   /* Bug-2 regression: a newcomer who skipped round 1 submits in round 2. The
      denominator is the whole final room (A,B,C = 3), never the round-1 count — it
      must read "2 of 3", never "2 of 2" (pre-fix) or the "2 of 1" nonsense. */
-  const C = await participant('light', 55, 10, 14);
+  const C = await participant('light', 55, 10, 14, 100, 240);
   check('participant C: newcomer submits in round 2',
     /Submitted/.test(await C.page.locator('#pstatus').innerText()));
   await pageF.waitForFunction(() => document.getElementById('ccount').textContent.includes('2 of 3'),

@@ -215,9 +215,9 @@ function renderWide(model, sim, ctx){
         const nameW = measure(row.nameLines[0], '600 13px ' + SANS);
         body.push(pill(Math.min(C.name + nameW + 8, C.nameEnd - 40), y + 14, 'NEW', c.accentInk));
       }
-      cell(body, C.stake, y + 4, rng(b.stake), e, c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null);
-      cell(body, C.odds, y + 4, pct(b.odds), e, c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null);
-      cell(body, C.payoff, y + 4, rng(b.payoff), e, c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null);
+      cell(body, C.stake, y + 4, rng(b.stake), e, c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null, edit);
+      cell(body, C.odds, y + 4, pct(b.odds), e, c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null, edit);
+      cell(body, C.payoff, y + 4, rng(b.payoff), e, c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null, edit);
       if(rec.scoreable === false){
         body.push(txt(C.p50, y + 23, 'NOT SCORED', 11, c.err, {mono: true, anchor: 'end', weight: 700}));
         body.push(txt((C.bar0 + C.bar1) / 2, y + 23, 'Correct invalid or missing terms', 9, c.muted, {anchor: 'middle'}));
@@ -236,9 +236,10 @@ function renderWide(model, sim, ctx){
       if(b.kill){
         const killY = nameY + row.nameLines.length * 16 + 5;
         const inner = row.killLines.map((line, i) => txt(C.name, killY + i * 14, line, 10.5, c.muted)).join('');
-        body.push(editTarget(inner, {x: C.name - 4, y: r2(killY - 12), w: C.nameEnd - C.name + 6,
+        if(edit) body.push(editTarget(inner, {x: C.name - 4, y: r2(killY - 12), w: C.nameEnd - C.name + 6,
           h: row.killLines.length * 14 + 7, bg: c.bg},
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
+        else body.push(inner);
       }
       if(mv){
         const wy = y + 43;
@@ -247,7 +248,7 @@ function renderWide(model, sim, ctx){
         if(mv.payoff) body.push(txt(C.payoff, wy, 'was ' + rng(mv.payoff), 9, c.muted, {mono: true, anchor: 'end'}));
       }
       if(rec.scoreable !== false) stampRow(body, rec.audits, C.audit1 - 52, y + 17, c);
-      body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + menuFacts(b) + btnAttrs('More options: ' + b.name) + '>' +
+      if(edit) body.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + menuFacts(b) + btnAttrs('More options: ' + b.name) + '>' +
         '<rect data-hit="" x="' + (C.right - 44) + '" y="' + y + '" width="44" height="44" fill="transparent"/>' +
         txt(C.right - 14, y + 27, '⋯', 14, c.muted, {weight: 700, anchor: 'middle'}) + '</g>');
       body.push('</g>');
@@ -307,9 +308,10 @@ function renderWide(model, sim, ctx){
 /* a right-aligned editable numeric cell (stake/odds/payoff); `tone` overrides
    the value's fill (compare mode: accent when this field moved since the
    snapshot) — omit/null for the default ink. */
-function cell(body, x, y, str, e, c, hooks, tone){
+function cell(body, x, y, str, e, c, hooks, tone, edit){
   const inner = txt(x, y + 19, str, 12, tone || c.ink, {mono: true, anchor: 'end'});
-  body.push(editTarget(inner, {x: r2(x - 64), y: r2(y + 2), w: 68, h: 26, bg: c.bg}, hooks));
+  if(edit) body.push(editTarget(inner, {x: r2(x - 64), y: r2(y + 2), w: 68, h: 26, bg: c.bg}, hooks));
+  else body.push(inner);
 }
 
 function outcomeRail(body, conditions, x0, x1, y, c, narrow, compare){
@@ -479,9 +481,9 @@ function renderNarrow(model, sim, ctx){
       }
       y += 22 + (nameLines.length - 1) * 17;
       // stake / odds / payoff, editable
-      ncell(card, pad + 12, y, 'STAKE', rng(b.stake), c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null, !coarse);
-      ncell(card, pad + 12 + inner / 3, y, 'ODDS', pct(b.odds), c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null, !coarse);
-      ncell(card, pad + 12 + inner * 2 / 3, y, 'PAYOFF', rng(b.payoff), c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null, !coarse);
+      ncell(card, pad + 12, y, 'STAKE', rng(b.stake), c, {kind: 'stake', line: b.srcLine, raw: rng(b.stake)}, mv && mv.stake ? c.accentInk : null, edit && !coarse);
+      ncell(card, pad + 12 + inner / 3, y, 'ODDS', pct(b.odds), c, {kind: 'odds', line: b.srcLine, raw: pct(b.odds)}, mv && mv.odds ? c.accentInk : null, edit && !coarse);
+      ncell(card, pad + 12 + inner * 2 / 3, y, 'PAYOFF', rng(b.payoff), c, {kind: 'payoff', line: b.srcLine, raw: rng(b.payoff)}, mv && mv.payoff ? c.accentInk : null, edit && !coarse);
       y += 34;
       if(mv){
         const was = [mv.stake && ('stake was ' + rng(mv.stake)), mv.odds && ('odds was ' + pct(mv.odds)),
@@ -506,7 +508,7 @@ function renderNarrow(model, sim, ctx){
       if(b.kill){
         const killLines = measuredLines('↳ fold if ' + b.kill.text + (b.kill.by ? ' — by ' + b.kill.by : ''), '10.5px ' + SANS, inner - 24, measure);
         const kinner = killLines.map((line, i) => txt(pad + 12, y + 8 + i * 14, line, 10.5, c.muted)).join('');
-        if(!coarse) card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: killLines.length * 14 + 8, bg: c.bg},
+        if(edit && !coarse) card.push(editTarget(kinner, {x: pad + 12, y: r2(y - 4), w: r2(inner - 24), h: killLines.length * 14 + 8, bg: c.bg},
           {kind: 'kill', line: b.kill.srcLine, raw: b.kill.text + (b.kill.by ? ' by ' + b.kill.by : '')}));
         else card.push(kinner);
         y += killLines.length * 14 + 2;
@@ -518,7 +520,7 @@ function renderNarrow(model, sim, ctx){
       parts.push('<line x1="' + pad + '" y1="' + top + '" x2="' + (W - pad) + '" y2="' + top + '" stroke="' + c.border + '" stroke-width="1"/>');
       parts.push(...card);
       const menuX = coarse ? pad : pad + inner - 44, menuW = coarse ? inner : 44, menuH = coarse ? Math.max(44, cardH) : 44;
-      parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + menuFacts(b) + btnAttrs('More options: ' + b.name) + '>' +
+      if(edit) parts.push('<g data-edit="cardmenu" data-line="' + b.srcLine + '" data-menu=""' + menuFacts(b) + btnAttrs('More options: ' + b.name) + '>' +
         '<rect data-hit="" x="' + menuX + '" y="' + top + '" width="' + menuW + '" height="' + menuH + '" fill="transparent"/>' +
         txt(pad + inner - 18, top + 27, '⋯', 15, c.muted, {weight: 700, anchor: 'middle'}) + '</g>');
       parts.push('</g>');

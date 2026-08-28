@@ -88,6 +88,13 @@ test('compare: HERO gets BOTH new and moved badges; the RAIL stays diff-clean', 
   assert.ok(!svg.includes('was Later'), 'rail moved badge must NOT render (rail is diff-clean)');
   assert.ok(svg.includes('Dropped since Q1') && svg.includes('Legacy import'), 'dropped line under the hero');
 });
+
+test('compare: Focus names additions even when their rail rows remain badge-free', () => {
+  const model = parse('focus: Now\nNow\nCore: Hero\nNext\nCore: Added rail item');
+  const diff = {since:'July review', added:['Added rail item'], dropped:[], badge:() => null, any:true};
+  const svg = renderFocusLive(model, {...ctx, diff});
+  assert.match(svg, /Added since July review:\s+Added rail item/);
+});
 test('content-driven height (not the slide 1080)', () => {
   const h = +renderFocusLive(parse('style: focus\nNOW\nCore: A'), {...ctx, edit:true}).match(/height="(\d+)"/)[1];
   assert.ok(h > 0 && h !== 1080);
