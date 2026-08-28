@@ -418,7 +418,10 @@ const PAGES = {
      512.5k; preserve ~5.5k headroom. */
   /* 518k -> 530k (2026-08-15 Mapping family): Wardley's review margin adds
      source-owned inspection while retaining the native strategic landscape. Actual 523.4k. */
-  'wardley/index.html': 530_000,
+  /* 530k -> 538k (2026-08-28): comparison identity refusal and clean export
+     composition are eager reader truth, shared by snapshots and exports.
+     Actual 533.0k; retain a normal ~5k guardrail. */
+  'wardley/index.html': 538_000,
   /* raised 480k → 486k (2026-07-16, mobile-input bets stage), consciously: the
      phone structure surface is real feature bytes across three modules —
      edit-targets.js grew the four parse-verified structure rewrites (~2.8k),
@@ -433,7 +436,9 @@ const PAGES = {
      and Markdown, plus fail-closed invalid-row handling and occurrence-safe
      snapshot protection. This is first-load decision truth, not optional
      chrome. Actual 563.3k; retain ~6.7k headroom. */
-  'bets/index.html': 580_000,   /* 570k -> 580k (2026-08-20 P1): shared reader/export seams put the eager graph at 572.3k; retain ~7.7k. */   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
+  /* 580k -> 582k (2026-08-28): strict source integrity and complete
+     comparison markdown are eager export behavior. Actual 580.9k. */
+  'bets/index.html': 582_000,   /* 570k -> 580k (2026-08-20 P1): shared reader/export seams put the eager graph at 572.3k; retain ~7.7k. */   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool
