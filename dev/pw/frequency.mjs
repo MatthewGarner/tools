@@ -49,6 +49,21 @@ async function downloadSvg(page){
 {
   const {page, errors} = await open({viewport: {width: 1200, height: 860}, reducedMotion: 'no-preference'});
   try{
+    /* open() waits for network, not the page-load rAF trace. Its final frame
+       can otherwise arrive after this reset and masquerade as the click's
+       opening frame. Wait for that trace to stop painting before clearing the
+       probe. The nadir appears before the trace's last frame. */
+    await page.waitForFunction(() => window.__frequencyPaint.labels.some(label => label.startsWith('nadir ')), null, {timeout: 5000});
+    await page.evaluate(async () => {
+      let idleFrames = 0;
+      let paints = window.__frequencyPaint.paints;
+      while(idleFrames < 3){
+        await new Promise(requestAnimationFrame);
+        const next = window.__frequencyPaint.paints;
+        if(next === paints) idleFrames += 1;
+        else { paints = next; idleFrames = 0; }
+      }
+    });
     await page.evaluate(() => { window.__frequencyPaint = {paints: 0, frames: [], labels: []}; });
     await page.locator('#tripbtn').click();
     await page.waitForFunction(() => window.__frequencyPaint.labels.includes('48.8 Hz — load shed'));
