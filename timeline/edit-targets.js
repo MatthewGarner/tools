@@ -1,5 +1,5 @@
 /* Pure text rewrites for /timeline edit-in-place. No DOM; the text is the model. */
-import {parse, parseDate, STATUSES} from './parse.js';
+import {parse, parseDate, parseLead, STATUSES} from './parse.js';
 
 const CONFIG_LINE = /^(title|palette|accent|today|verdict)\s*:/i;
 const DATE_RE = /\d{4}-\d{2}(?:-\d{2})?/;
@@ -28,9 +28,15 @@ export const validators = {
 };
 
 export function editLabel(line, oldRaw, newRaw){
-  const i = line.indexOf(oldRaw);
-  if(i < 0) return line;
-  return line.slice(0, i) + newRaw.trim() + line.slice(i + oldRaw.length);
+  const date = line.match(DATE_RE);
+  if(!date || date.index == null) return line;
+  const head = line.slice(0, date.index);
+  const lane = head.match(/^([^:]+):\s*/);
+  const labelStart = lane ? lane[0].length : 0;
+  const label = head.slice(labelStart).trimEnd();
+  if(label !== oldRaw) return line;
+  const separator = head.slice(labelStart + label.length);
+  return head.slice(0, labelStart) + newRaw.trim() + separator + line.slice(date.index);
 }
 
 export function editDates(line, oldRaw, newRaw){
@@ -54,17 +60,33 @@ export function setStatus(line, status){
      valid but semantically orphaned `[lead: …]` behind after a card-menu status
      edit; text remains the model, so the rewrite must make the changed state
      clear in the source as well as in the render. */
-  const stripped = line.replace(/\s*\[(?:done|risk|fixed)\]/ig, '')
-    .replace(st === 'fixed' ? /$^/ : /\s*\[lead\s*:[^\]]+\]/ig, '');
-  if(!st) return stripped;
-  const noteM = stripped.match(/\s*\/\/.*$/);
-  const head = noteM ? stripped.slice(0, noteM.index) : stripped;
-  const tail = noteM ? stripped.slice(noteM.index) : '';
-  if(st === 'fixed'){
-    const leadM=head.match(/\s*(\[lead\s*:[^\]]+\])\s*$/i);
-    if(leadM) return head.slice(0,leadM.index).trimEnd() + ' [fixed] ' + leadM[1] + tail;
-  }
-  return head.replace(/\s*$/, '') + ' [' + st + ']' + tail;
+  const noteM = line.match(/\s*\/\/.*$/);
+  const head = noteM ? line.slice(0, noteM.index) : line;
+  const tail = noteM ? line.slice(noteM.index) : '';
+  const withoutStatus = head.replace(/\s*\[\s*(?:done|risk|fixed)\s*\]/ig, '').trimEnd();
+  const leadM = withoutStatus.match(/\s*(\[\s*lead\s*:\s*[^\]]+\])\s*$/i);
+  const withoutLead = (leadM ? withoutStatus.slice(0, leadM.index) : withoutStatus).trimEnd();
+  if(!st) return withoutLead + tail;
+  if(st === 'fixed')
+    return withoutLead + ' [fixed]' + (leadM ? ' ' + leadM[1].trim() : '') + tail;
+  return withoutLead + ' [' + st + ']' + tail;
+}
+
+/* Set or clear the decision lead on a fixed external event. The parser owns the
+   duration grammar; this rewrite only accepts that grammar and normalises the
+   authored token. A lead on a forecast is deliberately a no-op: native editing
+   must not create source which the canonical parser immediately rejects. */
+export function setLead(line, value){
+  const raw = String(value || '').trim();
+  const noteM = line.match(/\s*\/\/.*$/);
+  const head = (noteM ? line.slice(0, noteM.index) : line).trimEnd();
+  const tail = noteM ? line.slice(noteM.index) : '';
+  const withoutLead = head.replace(/\s*\[\s*lead\s*:\s*[^\]]+\]/ig, '').trimEnd();
+  if(!raw) return withoutLead + tail;
+  if(!/\[\s*fixed\s*\]/i.test(withoutLead) || parseLead(raw) === null) return line;
+  const match = raw.match(/^(\d+)\s*(d|w)$/i);
+  const canonical = match[1] + match[2].toLowerCase();
+  return withoutLead + ' [lead: ' + canonical + ']' + tail;
 }
 
 /* Rewrite / insert / clear the "Lane: " prefix on one milestone line, keeping

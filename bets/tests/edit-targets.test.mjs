@@ -98,6 +98,11 @@ test('whitespace-only kill value also deletes the child kill line', () => {
   assert.deepEqual(edits, [{line: 6, text: null}]);
 });
 
+test('kill rewrites reject a pasted line break so text cannot become DSL structure', () => {
+  assert.equal(rewriteKill(FULL, 7, 'CTR flat after 2 sprints by 2026-09-01', 'stop here\nOther group'), null);
+  assert.equal(kinds.kill.validate('stop here\r\nOther group'), false);
+});
+
 test('a trailing // comment on a bet line survives an odds rewrite', () => {
   const doc = 'G\n  B: stake 10, odds 20-40%, payoff 5-9   // hot lead';
   const edits = rewriteOdds(doc, 2, '20-40%', '25-45');

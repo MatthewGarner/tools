@@ -7,7 +7,7 @@ const CONFIG_LINE = /^(preset|title|palette|accent|x|y|zones|verdict)\s*:|^zone\
 export const validators = {
   label(v){
     const s = v.trim();
-    return s.length > 0 && !s.includes('::') && !s.includes('@') && !s.includes('\n') &&
+    return s.length > 0 && !s.includes('::') && !s.includes('@') && !s.includes('//') && !s.includes('\n') &&
       !s.startsWith('//') && !CONFIG_LINE.test(s);
   },
   zonename(v){
@@ -16,12 +16,32 @@ export const validators = {
   },
   axis(v){
     const s = v.trim();
-    return s.length > 0 && !/[():\n]/.test(s);
+    return s.length > 0 && !/[():\n]/.test(s) && !s.includes('//');
   },
   field(v){
     return v.trim().length > 0 && !v.includes('::') && !v.includes('\n');
   },
 };
+
+function lineEnding(text){ return String(text).includes('\r\n') ? '\r\n' : '\n'; }
+
+function configValue(text, key, value){
+  const source = String(text ?? '');
+  const lines = source.split(/\r?\n/);
+  const re = new RegExp('^(\\s*' + key + '\\s*:\\s*)(.*)$', 'i');
+  let target = -1;
+  for(let i = 0; i < lines.length; i++){
+    if(lines[i].trim().startsWith('//')) continue;
+    if(re.test(lines[i])) target = i; // the parser's last declaration is effective
+  }
+  if(target >= 0) lines[target] = lines[target].replace(re, (_, prefix) => prefix + value.trim());
+  else lines.splice(configInsertIndex(lines), 0, key + ': ' + value.trim());
+  return lines.join(lineEnding(source));
+}
+
+export function setTitle(text, value){
+  return validators.label(value) ? configValue(text, 'title', value) : null;
+}
 
 /* drag drop + tap-to-place: rewrite or insert `@ x,y`. Mirrors the parser
    exactly: the trailing // comment is split off FIRST (an @ or :: inside it is
@@ -41,6 +61,20 @@ export function setPosition(line, x, y){
   const rest = cut < 0 ? '' : ' ' + body.slice(cut);
   const cl = v => Math.max(0, Math.min(100, Math.round(v)));
   return head + ' @ ' + cl(x) + ',' + cl(y) + rest + comment;
+}
+
+export function clearPosition(line){
+  const t = line.trim();
+  if(t.startsWith('//') || CONFIG_LINE.test(t)) return line;
+  const cm = line.match(/\s\/\/.*$/);
+  const comment = cm ? cm[0] : '';
+  const body = cm ? line.slice(0, cm.index) : line;
+  const cut = body.indexOf('::');
+  const head = (cut < 0 ? body : body.slice(0, cut))
+    .replace(/\s*@\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/, '')
+    .replace(/\s+$/, '');
+  const rest = cut < 0 ? '' : ' ' + body.slice(cut);
+  return head + rest + comment;
 }
 
 export function editLabel(line, oldRaw, newRaw){
@@ -96,19 +130,25 @@ export function renameZone(text, ref, newName){
 }
 
 export function setAxisLabel(text, axis, newLabel){
-  const lines = text.split(/\r?\n/);
+  const source = String(text ?? '');
+  const lines = source.split(/\r?\n/);
   const re = new RegExp('^(\\s*' + axis + '\\s*:\\s*)(.*)$', 'i');
+  let target = -1;
   for(let i = 0; i < lines.length; i++){
     if(lines[i].trim().startsWith('//')) continue;
-    const m = lines[i].match(re);
-    if(m){
-      const ends = m[2].match(/\([^()]*\)\s*$/);
-      lines[i] = m[1] + newLabel.trim() + (ends ? ' ' + ends[0].trim() : '');
-      return lines.join('\n');
-    }
+    if(re.test(lines[i])) target = i; // the parser's last declaration is effective
+  }
+  if(target >= 0){
+    const m = lines[target].match(re);
+    const authored = m[2];
+    const comment = authored.match(/(\s\/\/.*)$/);
+    const beforeComment = comment ? authored.slice(0, comment.index) : authored;
+    const ends = beforeComment.match(/\([^()]*\)\s*$/);
+    lines[target] = m[1] + newLabel.trim() + (ends ? ' ' + ends[0].trim() : '') + (comment ? comment[0] : '');
+    return lines.join(lineEnding(source));
   }
   lines.splice(configInsertIndex(lines), 0, axis + ': ' + newLabel.trim());
-  return lines.join('\n');
+  return lines.join(lineEnding(source));
 }
 
 /* ---- add/remove items (S1) ---- */

@@ -67,6 +67,21 @@ export function addItemLine(text, lane, horizonName){
   return {afterLine: lines.length - 1};
 }
 
+/* The native editor needs the same insertion primitive as the web Add row. Keep
+   source placement in addItemLine, then return the inserted source line so both
+   surfaces can retain selection without inventing a DOM-only identity. */
+export function insertItem(text, lane, horizonName, title = 'New work', note = 'Describe the outcome'){
+  const {afterLine} = addItemLine(text, lane, horizonName);
+  const lines = text.split(/\r?\n/);
+  const safeTitle = String(title).trim() || 'New work';
+  const safeNote = String(note).trim();
+  const prefix = String(lane).trim();
+  const line = (prefix ? prefix + ': ' : '') + safeTitle + (safeNote ? ' -- ' + safeNote : '');
+  const srcLine = afterLine + 1;
+  lines.splice(srcLine, 0, line);
+  return {text: lines.join('\n'), srcLine};
+}
+
 /* Only lines that parse as items may be removed. */
 export function removeItemLine(text, srcLine){
   return parse(text).items.some(i => i.srcLine === srcLine);
@@ -92,6 +107,13 @@ export function removeItemLine(text, srcLine){
    appends at the END, so no existing srcLine shifts, and model/hIdx, both
    resolved before the ensure, stay valid without a re-parse). */
 export function moveHorizon(text, srcLine, targetHorizon){
+  const result = moveHorizonResult(text, srcLine, targetHorizon);
+  return result ? result.text : null;
+}
+
+/* Variant for native surfaces which need to hold inspector focus after a move.
+   The public moveHorizon string contract remains unchanged for the web app. */
+export function moveHorizonResult(text, srcLine, targetHorizon){
   const model = parse(text);
   const item = model.items.find(i => i.srcLine === srcLine);
   if(!item) return null;
@@ -99,7 +121,7 @@ export function moveHorizon(text, srcLine, targetHorizon){
   if(hIdx < 0 || hIdx === item.h) return null;
   const withHeader = ensureHorizonHeader(text, model, hIdx);
   const r = moveItem(withHeader, model, srcLine, {h: hIdx, lane: item.lane, beforeLine: null});
-  return r ? r.text : null;
+  return r ? {text: r.text, srcLine: r.cursorLine} : null;
 }
 
 /* ---- config keys the UI can commit: style: (the picker) and headline: (the field) ---- */
@@ -261,6 +283,24 @@ export function addNote(text, srcLine, note){
   return replaceLineAt(lines, srcLine, head.trimEnd() + ' -- ' + n + tail);
 }
 
+/* Rewrite, add, or clear an item's note through one canonical text operation.
+   It deliberately leaves any -> URL suffix untouched. */
+export function setNote(text, srcLine, note){
+  const n = String(note || '').trim();
+  if(/[\n[\]]/.test(n) || n.includes(' -- ')) return text;
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return text;
+  const line = lines[srcLine];
+  const linkAt = line.search(/\s->\s+/);
+  const head = linkAt >= 0 ? line.slice(0, linkAt) : line;
+  const tail = linkAt >= 0 ? line.slice(linkAt) : '';
+  const current = head.match(/\s--\s+(.*)$/);
+  if(!current) return n ? addNote(text, srcLine, n) : text;
+  const before = head.slice(0, current.index).trimEnd();
+  lines[srcLine] = before + (n ? ' -- ' + n : '') + tail;
+  return lines.join('\n');
+}
+
 /* Insert "[status]" on a status-less line. Status sits BEFORE xN — and before
    any [bet: …]/[if …]/[unless …] token, per the canonical order
    "Lane: Title [status] [bet…] [if…] xN -- note -> url" — so unlike addNote
@@ -285,6 +325,19 @@ export function addStatus(text, srcLine, status){
   const after = stem.slice(insertAt).trimStart();
   const newStem = before + ' [' + status + ']' + (after ? ' ' + after : '');
   return replaceLineAt(lines, srcLine, newStem.trimEnd() + xtok + tail);
+}
+
+/* Remove only the status token, never a neighbouring bet or condition tag. */
+export function clearStatus(text, srcLine){
+  const lines = text.split(/\r?\n/);
+  if(srcLine < 0 || srcLine >= lines.length) return text;
+  const [head, tail] = headCut(lines[srcLine]);
+  let removed = false;
+  lines[srcLine] = head.replace(/\[([^\]]+)\]/g, (match, tag) => {
+    if(!removed && isStatusTag(tag)){ removed = true; return ''; }
+    return match;
+  }).replace(/ {2,}/g, ' ').trimEnd() + tail;
+  return lines.join('\n');
 }
 
 /* ---- conditional-roadmap tokens (A5): [bet: name won|lost], [if/unless name] ----

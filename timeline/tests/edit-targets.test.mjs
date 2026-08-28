@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, editLabel, editDates, setStatus, setLane, editNote, addItemLine, addedItemTarget, removeItemLine}
+import {validators, editLabel, editDates, setStatus, setLead, setLane, editNote, addItemLine, addedItemTarget, removeItemLine}
   from '../edit-targets.js';
 
 test('validators: labels reject dates/config/brackets; dates accept 1–2 parseable dates', () => {
@@ -23,6 +23,11 @@ test('editLabel / editDates rewrite in place', () => {
     'Grid: Offer 2026-09 .. 2026-12 [risk] // note');
 });
 
+test('editLabel never mistakes a matching lane name for the item label', () => {
+  assert.equal(editLabel('Build: Build 2026-08 .. 2026-10', 'Build', 'Ship'),
+    'Build: Ship 2026-08 .. 2026-10');
+});
+
 test('addItemLine: after the last item, dated around today, placeholder selectable', () => {
   const r = addItemLine('title: T\nGrid: Offer 2026-08 .. 2026-10', '2026-07-06');
   assert.equal(r.afterLine, 1);
@@ -31,6 +36,8 @@ test('addItemLine: after the last item, dated around today, placeholder selectab
   const empty = addItemLine('title: T', '2026-12-15');
   assert.equal(empty.afterLine, 0);
   assert.equal(empty.newLine, 'New milestone 2027-01 .. 2027-03');
+  assert.deepEqual(addItemLine('', '2026-12-15'),
+    {afterLine: 0, newLine: 'New milestone 2027-01 .. 2027-03', select: 'New milestone'});
 });
 
 test('addItemLine with lane lands after that lane\'s last item, prefixed', () => {
@@ -95,6 +102,13 @@ test('setStatus: set / replace / clear, note preserved, unknown is a no-op', () 
   assert.equal(setStatus(base, 'bogus'), base);            // unknown status → no-op
 });
 
+test('setStatus does not rewrite bracket-shaped literal note text and accepts parser-valid spaced tags', () => {
+  assert.equal(setStatus('Gate 2026-10-01 [ fixed ] [ lead : 6w ] // previously [done]', 'risk'),
+    'Gate 2026-10-01 [risk] // previously [done]');
+  assert.equal(setStatus('Gate 2026-10-01 [ fixed ] [ lead : 6w ] // external', 'fixed'),
+    'Gate 2026-10-01 [fixed] [ lead : 6w ] // external');
+});
+
 test('setStatus reproduces the fine-pointer step chain none→done→risk→none', () => {
   const base = 'Grid: Offer 2026-08 .. 2026-10 // note';
   const done = setStatus(base, 'done');
@@ -108,6 +122,19 @@ test('setStatus clears a decision lead when the source is no longer fixed', () =
   const src='Gate 2026-10-01 [fixed] [lead: 6w] // external';
   assert.equal(setStatus(src, 'risk'), 'Gate 2026-10-01 [risk] // external');
   assert.equal(setStatus(src, 'fixed'), src);
+});
+
+test('setLead only changes a fixed event and keeps its note', () => {
+  const fixed = 'Gate 2026-10-01 [fixed] // external';
+  assert.equal(setLead(fixed, '6 w'), 'Gate 2026-10-01 [fixed] [lead: 6w] // external');
+  assert.equal(setLead('Gate 2026-10-01 [fixed] [lead: 6w] // external', '3d'),
+    'Gate 2026-10-01 [fixed] [lead: 3d] // external');
+  assert.equal(setLead('Gate 2026-10-01 [fixed] [lead: 6w] // external', ''), fixed);
+  const forecast = 'Gate 2026-10 .. 2026-12 // estimate';
+  assert.equal(setLead(forecast, '6w'), forecast);
+  assert.equal(setLead(fixed, 'soon'), fixed);
+  assert.equal(setLead('Gate 2026-10-01 [ fixed ] [ lead : 6w ] // external', '3d'),
+    'Gate 2026-10-01 [ fixed ] [lead: 3d] // external');
 });
 
 test('setLane: insert / replace / clear the prefix, keeping status + note', () => {

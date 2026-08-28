@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validators, setPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine,
+import {validators, setTitle, setPosition, clearPosition, editLabel, editField, renameZone, setAxisLabel, addItemLine, removeItemLine,
   configInsertIndex} from '../edit-targets.js';
 import {parse} from '../parse.js';
 
@@ -80,6 +80,25 @@ test('setPosition applied twice equals once with the later coords', () => {
   assert.equal(setPosition(setPosition(line, 10, 20), 70, 5), setPosition(line, 70, 5));
 });
 
+test('clearPosition removes only the parser-recognised authored position', () => {
+  assert.equal(clearPosition('A @ 40,60 :: test: interview // held @ 1,2'),
+    'A :: test: interview // held @ 1,2');
+  assert.equal(clearPosition('Meet @ 10,10 sharp'), 'Meet @ 10,10 sharp');
+});
+
+test('setTitle rewrites the parser-effective title, preserves CRLF, and rejects unsafe text', () => {
+  const source = 'title: Old\r\ntitle: Effective\r\nClaim @ 20,80';
+  assert.equal(setTitle(source, 'Calibrated claims'),
+    'title: Old\r\ntitle: Calibrated claims\r\nClaim @ 20,80');
+  assert.equal(setTitle(source, 'Bad\nconfig'), null);
+});
+
+test('setTitle preserves literal replacement tokens in native text', () => {
+  const replacement = "Plan $& $1 $' $$";
+  assert.equal(setTitle('title: Old\nClaim @ 20,80', replacement),
+    `title: ${replacement}\nClaim @ 20,80`);
+});
+
 test('editLabel swaps exactly the old label text', () => {
   assert.equal(editLabel('Old name @ 10,20 :: note: n', 'Old name', 'New name'),
     'New name @ 10,20 :: note: n');
@@ -129,6 +148,23 @@ test('setAxisLabel inserts when the axis line is missing', () => {
     'preset: futures\ny: AI acceptance\nSignal @ 20,80');
 });
 
+test('setAxisLabel preserves CRLF source when a native edit rewrites an axis', () => {
+  assert.equal(setAxisLabel('x: Evidence (none → strong)\r\nClaim @ 20,80', 'x', 'Confidence'),
+    'x: Confidence (none → strong)\r\nClaim @ 20,80');
+});
+
+test('setAxisLabel rewrites the parser-effective final declaration', () => {
+  const source = 'x: Historic (old → old)\nx: Effective (weak → strong)\nClaim @ 20,80';
+  assert.equal(setAxisLabel(source, 'x', 'Evidence'),
+    'x: Historic (old → old)\nx: Evidence (weak → strong)\nClaim @ 20,80');
+});
+
+test('setAxisLabel preserves authored end labels and comments on the effective declaration', () => {
+  const source = 'x: Evidence (none → strong) // research axis\nClaim @ 20,80';
+  assert.equal(setAxisLabel(source, 'x', 'Confidence'),
+    'x: Confidence (none → strong) // research axis\nClaim @ 20,80');
+});
+
 test('validators: labels reject config collisions, ::, @, emptiness; zone names reject : and &', () => {
   assert.ok(validators.label('A perfectly good label'));
   assert.ok(!validators.label(''));
@@ -138,11 +174,13 @@ test('validators: labels reject config collisions, ::, @, emptiness; zone names 
   assert.ok(!validators.label('verdict: x'));
   assert.ok(!validators.label('a :: b'));
   assert.ok(!validators.label('at @ 5,5'));
+  assert.ok(!validators.label('Changed // note'));
   assert.ok(validators.zonename('Walled gardens'));
   assert.ok(!validators.zonename('a: b'));
   assert.ok(!validators.zonename('a & b'));
   assert.ok(validators.axis('Regulation'));
   assert.ok(!validators.axis('Reg (light)'));
+  assert.ok(!validators.axis('Evidence // partial'));
   assert.ok(validators.field('watch 5 sessions'));
   assert.ok(!validators.field('a :: b'));
 });

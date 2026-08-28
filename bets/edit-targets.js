@@ -94,6 +94,9 @@ export function rewriteKill(text, srcLine, raw, value){
   const m = code.match(KILL_LINE);
   if(!m) return null;
   const v = String(value ?? '');
+  // A kill criterion belongs to one child line. Pasted line breaks would
+  // otherwise become unvalidated DSL structure, not authored criterion text.
+  if(/[\r\n]/.test(v)) return null;
   if(!v.trim()) return [{line: idx, text: null}];
   const indent = m[1];
   const newBody = v.trim();
@@ -114,7 +117,8 @@ const cleanName = v => {
   const s = String(v ?? '').trim();
   return s.length > 0 && !s.includes('\n') && !s.includes(':') && !s.includes('//');
 };
-export const validators = {name: cleanName, group: cleanName};
+const cleanKill = v => !/[\r\n]/.test(String(v ?? ''));
+export const validators = {name: cleanName, group: cleanName, kill: cleanKill};
 
 const findBet = (model, srcLine) => {
   for(const g of model.groups) for(const b of g.bets) if(b.srcLine === srcLine) return b;
@@ -208,7 +212,7 @@ export const kinds = {
   payoff: {validate: v => {
     const r = parseRange(v); return !!r && r.lo <= r.hi && r.lo >= 0;
   }},
-  kill:   {validate: () => true},
+  kill:   {validate: validators.kill},
   name:     {validate: validators.name},
   addbet:   {validate: validators.name},
   addgroup: {validate: validators.group},

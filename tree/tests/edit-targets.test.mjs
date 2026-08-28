@@ -192,8 +192,8 @@ test('applyExplore: a no-op for a field the node does not carry ("rest" probabil
 
 test('validators: prob bounds, value parses, label sanity', () => {
   assert.ok(validators.prob('0.5') && validators.prob('0.3-0.45') && validators.prob('rest'));
-  assert.ok(!validators.prob('1.5') && !validators.prob('abc'));
-  assert.ok(validators.value('-1M to -0.5M') && !validators.value('lots'));
+  assert.ok(!validators.prob('1.5') && !validators.prob('abc') && !validators.prob('0.\n5'));
+  assert.ok(validators.value('-1M to -0.5M') && !validators.value('lots') && !validators.value('1\n2'));
   assert.ok(validators.label('New name') && !validators.label('[tag]') && !validators.label('? doubt'));
 });
 

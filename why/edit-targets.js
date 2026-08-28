@@ -50,9 +50,40 @@ export function childLineFor(text, srcLine){
 export const validators = {
   label(v){
     const s = v.trim();
-    return s.length > 0 && !/[[\]\n]/.test(s) && !s.startsWith('?') && !/^outcome\s*:/i.test(s);
+    return s.length > 0 && !/[[\]\r\n]/.test(s) && !s.startsWith('?') && !/^outcome\s*:/i.test(s);
   },
 };
+
+/* parse.js expands tabs to two spaces before recording node.label. Keep the
+   rewriter on the original source so a native rename still edits exactly one
+   authored line, rather than becoming a falsely acknowledged no-op. */
+function normalisedSourceSpan(line, label){
+  const raw = String(line);
+  let normalised = '';
+  const offsets = [];
+  for(let index = 0; index < raw.length; index++){
+    if(raw[index] === '\t') { normalised += '  '; offsets.push(index, index); }
+    else { normalised += raw[index]; offsets.push(index); }
+  }
+  /* The parser removes exactly the first [status] tag before it derives the
+     label. A status word can be the same text as the label, so never search
+     into that tag. Then skip the two syntactic prefixes which parse.js removes
+     from the label itself. */
+  const tag = normalised.match(/\[[^\]]+\]/);
+  const labelLimit = tag?.index ?? normalised.length;
+  let searchStart = 0;
+  while(searchStart < labelLimit && /\s/.test(normalised[searchStart])) searchStart++;
+  if(normalised[searchStart] === '?') {
+    searchStart++;
+    while(searchStart < labelLimit && /\s/.test(normalised[searchStart])) searchStart++;
+  }
+  const outcome = normalised.slice(searchStart, labelLimit).match(/^outcome\s*:\s*/i);
+  if(outcome) searchStart += outcome[0].length;
+  const start = normalised.indexOf(label, searchStart);
+  if(start < 0 || start + label.length > labelLimit) return null;
+  const end = start + label.length;
+  return {start: offsets[start], end: end < offsets.length ? offsets[end] : raw.length};
+}
 
 export const applies = {
   /* replace the [status] tag, or append one if the line has none (untested default) */
@@ -61,8 +92,8 @@ export const applies = {
     return line.replace(/\s*$/, '') + ' [' + newRaw + ']';
   },
   label(line, oldRaw, newRaw){
-    const i = line.indexOf(oldRaw);
-    if(i < 0) return line;
-    return line.slice(0, i) + newRaw.trim() + line.slice(i + oldRaw.length);
+    const span = normalisedSourceSpan(line, oldRaw);
+    if(!span) return line;
+    return line.slice(0, span.start) + newRaw.trim() + line.slice(span.end);
   },
 };

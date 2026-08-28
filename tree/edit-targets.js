@@ -4,18 +4,67 @@ import {parse, parseMoney} from './parse.js';
 import {shiftRange, formatRange} from './format.js';
 
 export const validators = {
+  title(v){
+    const s = v.trim();
+    return s.length > 0 && !/[\n\r]/.test(s) && !s.includes('//');
+  },
   prob(v){
     const s = v.trim();
+    if(/[\n\r]/.test(s)) return false;
     if(/^rest$/i.test(s)) return true;
     const r = parseMoney(s);
     return r !== null && r.lo >= 0 && r.hi <= 1;
   },
-  value(v){ return parseMoney(v.trim()) !== null; },
+  value(v){
+    const s = v.trim();
+    return !/[\n\r]/.test(s) && parseMoney(s) !== null;
+  },
   label(v){
     const s = v.trim();
-    return s.length > 0 && !/[[\]\n]/.test(s) && !s.startsWith('?');
+    if(s.length === 0 || /[[\]\n]/.test(s) || s.startsWith('?')) return false;
+    // The native Branch field changes only the label. These tokens are grammar,
+    // not literal prose: accepting them would alter probability or payoff too.
+    if(/\(p=[^)]*\)/i.test(s)) return false;
+    const colon = s.lastIndexOf(':');
+    return colon < 0 || parseMoney(s.slice(colon + 1).trim()) === null;
   },
 };
+
+const lineEnding = text => String(text).includes('\r\n') ? '\r\n' : '\n';
+
+/* Config is only config before the first tree node. Match parse.js's boundary so
+   an authored `title:` branch label is never rewritten as document metadata. */
+function effectiveConfigLine(text, key){
+  const lines = String(text).split(/\r?\n/);
+  let treeStarted = false, found = -1;
+  const config = new RegExp('^\\s*' + key + '\\s*:', 'i');
+  const anyConfig = /^\s*(title|currency|palette|accent|verdict)\s*:/i;
+  for(let index = 0; index < lines.length; index++){
+    const trimmed = lines[index].trim();
+    if(!trimmed || trimmed.startsWith('//')) continue;
+    if(!treeStarted && anyConfig.test(lines[index])) {
+      if(config.test(lines[index])) found = index;
+      continue;
+    }
+    treeStarted = true;
+  }
+  return {lines, index: found};
+}
+
+/* Rewrites parser-effective title declaration and retains a hand-authored source
+   comment. Native text cannot contain `//`: parse.js would silently remove it. */
+export function setTitle(text, nextTitle){
+  if(!validators.title(nextTitle)) return null;
+  const title = nextTitle.trim();
+  const {lines, index} = effectiveConfigLine(text, 'title');
+  if(index < 0) return ['title: ' + title, ...lines].join(lineEnding(text));
+  const original = lines[index];
+  const prefix = original.match(/^(\s*title\s*:\s*)/i)?.[1] || 'title: ';
+  const tail = original.slice(prefix.length);
+  const comment = tail.match(/\s+\/\/.*$/)?.[0] || '';
+  lines[index] = prefix + title + comment;
+  return lines.join(lineEnding(text));
+}
 
 /* ---- add/remove branches (S1 shared mechanics) ---- */
 

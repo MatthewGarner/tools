@@ -77,7 +77,8 @@ function applyOps(text, ops){
    Plans is undoable and URL-coherent without creating a second UI state. */
 export function setStyle(text, value){
   const style = String(value || '').toLowerCase();
-  if(style !== 'tree' && style !== 'plans') return null;
+  if(!new Set(['brief', 'question', 'conditions', 'agenda', 'overview', 'dependencies', 'tree', 'plans']).has(style))
+    return null;
   const lines = String(text ?? '').replace(/\r/g, '').split('\n');
   let winner = -1;
   for(let line = 0; line < lines.length; line++) if(/^style\s*:/i.test(lines[line])) winner = line;
@@ -94,6 +95,41 @@ export function setStyle(text, value){
   if(at === 0) return [{line:0, text:`style: ${style}\n${lines[0]}`}];
   const previous = at - 1;
   return [{line:previous, text:`${lines[previous]}\nstyle: ${style}`}];
+}
+
+/* Document-level values use the same source-first discipline as decision
+   fields.  Keep the surviving config line's comment, remove shadow settings,
+   and verify the parser sees the requested title before exposing this rewrite
+   to a native control. */
+export function setTitle(text, value){
+  const title = cleanLine(value);
+  if(title === null || !title) return null;
+  const lines = String(text ?? '').replace(/\r/g, '').split('\n');
+  const hits = [];
+  for(let line = 0; line < lines.length; line++){
+    if(/^\s*title\s*:/i.test(lines[line])) hits.push(line);
+  }
+  let ops;
+  if(hits.length){
+    ops = [
+      {line:hits[0], text:rewriteLine(lines[hits[0]], title)},
+      ...hits.slice(1).map(line => ({line, text:null})),
+    ];
+  } else if(!String(text ?? '').trim()) {
+    ops = [{line:0, text:`title: ${title}`}];
+  } else {
+    let at = lines.length;
+    for(let line = 0; line < lines.length; line++){
+      const content = lines[line].trim();
+      if(!content || content.startsWith('//') || CONFIG.test(content)) continue;
+      at = line;
+      break;
+    }
+    ops = at === 0
+      ? [{line:0, text:`title: ${title}\n${lines[0]}`}]
+      : [{line:at - 1, text:`${lines[at - 1]}\ntitle: ${title}`}];
+  }
+  return parse(applyOps(text, ops)).title === title ? ops : null;
 }
 
 function rewriteLine(line, value){

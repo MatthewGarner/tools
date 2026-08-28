@@ -5,7 +5,7 @@ import {
   clearAnswer, clearAnswerBy, clearAssumption, clearOwner, clearQuestion,
   clearEnough, clearLearn, clearReading, clearSignal, clearWhen, kinds, setAnswer, setAnswerBy,
   setAnswerRaw, setAssumption, setAssumptionRaw, setOwner, setQuestion,
-  setEnough, setLearn, setReading, setSignal, setStyle, setWhen,
+  setEnough, setLearn, setReading, setSignal, setStyle, setTitle, setWhen,
   setCloseOutField, closeOutKinds, validators,
 } from '../edit-targets.js';
 
@@ -365,6 +365,20 @@ test('stage view switch writes one exact undoable style operation in the config 
   assert.deepEqual(ops, [{line:1, text:'style: plans'}]);
   assert.equal(parse(apply(configured, ops)).style, 'plans');
   assert.equal(setStyle(configured, 'cards'), null);
+});
+
+test('title rewrite preserves its comment, normalises shadows, and never accepts a forged line', () => {
+  const doc = `title: First plan // keep this note\ntitle: Shadow\ndecision groups:\n  question: Groups?`;
+  const changed = apply(doc, setTitle(doc, 'Learning plan'));
+  assert.deepEqual(changed.split('\n').slice(0, 3), [
+    'title: Learning plan // keep this note',
+    'decision groups:',
+    '  question: Groups?',
+  ]);
+  assert.equal(parse(changed).title, 'Learning plan');
+  assert.equal(setTitle(doc, 'unsafe\nowner: attacker'), null);
+  assert.equal(setTitle(doc, 'unsafe // hidden'), null);
+  assert.equal(setTitle(doc, '   '), null);
 });
 
 test('validators and kinds accept safe clears and reject values the setters cannot represent', () => {

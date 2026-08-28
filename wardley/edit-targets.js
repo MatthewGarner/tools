@@ -15,7 +15,11 @@ const linesOf = text => text.split(/\r?\n/);
    re-attach the comment (a ghost drag once wrote "@ 0.6" AFTER the comment,
    invisible to the parser — the dot snapped back) */
 function splitComment(line){
-  const i = line.indexOf('//');
+  /* Keep this in lockstep with parse.js: `https://…` is component text, while
+     whitespace before // starts an authored comment.  A bare indexOf used to
+     make a native rename corrupt an otherwise-valid URL-shaped component. */
+  const boundary = line.match(/(^|\s)\/\//);
+  const i = boundary ? boundary.index + boundary[1].length : -1;
   return i === -1 ? [line, ''] : [line.slice(0, i).replace(/\s+$/, ''), '   ' + line.slice(i)];
 }
 
@@ -54,7 +58,8 @@ export function renameComponent(text, srcLine, raw, value){
 
 export function renameAnchor(text, srcLine, raw, value){
   const lines = linesOf(text);
-  return [{line: srcLine, text: 'anchor: ' + value}, ...edgeRewrites(lines, raw, value)];
+  const [, comment] = splitComment(lines[srcLine]);
+  return [{line: srcLine, text: 'anchor: ' + value + comment}, ...edgeRewrites(lines, raw, value)];
 }
 
 function setPosition(text, srcLine, pos){
