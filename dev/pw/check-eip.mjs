@@ -75,8 +75,7 @@ async function focusRoadmapSource(pg){
 /* Card titles can wrap in the final layouts, so their rendered text is not a
    stable selector. `data-raw` is the authored identity exposed for the edit
    target; use it to find the card independently of its line breaks. */
-const roadmapCard = (pg, title) => pg.locator(
-  '#preview svg g[data-edit="cardmenu"]:has([data-edit="title"][data-raw="' + title + '"])').first();
+const roadmapCard = (pg, title) => pg.getByRole('button', {name:'More options: '+title, exact:true});
 
 /* Mobile-emulated contexts: locator.click() scrolls-then-clicks as one step, and a
    trailing scroll-settle event can still land AFTER the click dispatches — racing

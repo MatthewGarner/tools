@@ -346,7 +346,7 @@ export function roadmapVerdict(model){
    presenting a partial world as the plan's basis. */
 export function parse(text){
   const model = {title:'', dateStr:null, headline:'', story:'', horizons:[...DEFAULT_HORIZONS],
-    lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null,
+    lanes:[], items:[], warnings:[], wip:6, fade:true, palette:'ocean', accent:null, font:'Chapter',
     style:null, focus:undefined, timeAxis:false, bets:{}, verdict:null, group:'lane', basis:null};
   let currentH = -1;
   let basisSeen = false, basisInvalid = false, basisWarning = false;
@@ -356,7 +356,7 @@ export function parse(text){
     let line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|font|style|focus|verdict|group|basis)\s*:\s*(.*)$/i);
     if(config){
       const key = config[1].toLowerCase();
       const val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too (except atomic basis: below)
@@ -396,6 +396,11 @@ export function parse(text){
       /* the diff narrative — a claim about the CHANGE, where headline is a claim
          about the plan. Shown only while a comparison is active. */
       else if(key === 'story') model.story = val;
+      else if(key === 'font'){
+        const name = val.toLowerCase();
+        model.font = name === 'dm sans' ? 'DM Sans' : 'Chapter';
+        if(name !== 'chapter' && name !== 'dm sans') model.warnings.push('line ' + (ln+1) + ': unknown font "' + val + '" — using Chapter (options: Chapter, DM Sans)');
+      }
       else if(key === 'palette'){
         const p = val.toLowerCase();
         if(PALETTE_NAMES.includes(p)) model.palette = p;
@@ -459,7 +464,7 @@ export function parse(text){
 
     /* item line */
     if(currentH < 0){
-      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s+\S/i);
+      const ck = line.match(/^(title|date|headline|story|horizons|wip|fade|palette|accent|font|style|focus|verdict|group|basis)\s+\S/i);
       if(ck) model.warnings.push('line ' + (ln+1) + ': ' + snippet(line) + ' — did you mean "' + ck[1].toLowerCase() + ':"? (missing colon) — skipped');
       else preHeader.push(ln + 1);
       continue;

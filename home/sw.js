@@ -6,7 +6,7 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-2230c7a301';
+const CACHE = 'tools-bb7dd328f3';
 const PRECACHE = [
   '/',
   '/alarm/',
@@ -193,6 +193,10 @@ const PRECACHE = [
   '/roadmap/',
   '/roadmap/app.js',
   '/roadmap/board-window.js',
+  '/roadmap/chapter-font-loader.js',
+  '/roadmap/chapter-fonts.js',
+  '/roadmap/chapter-layout.js',
+  '/roadmap/chapter-svg.js',
   '/roadmap/cond-parts.js',
   '/roadmap/deck-parts.js',
   '/roadmap/diff.js',
@@ -200,20 +204,18 @@ const PRECACHE = [
   '/roadmap/edit.js',
   '/roadmap/editor.js',
   '/roadmap/export-pages.js',
+  '/roadmap/export-zip.js',
+  '/roadmap/fonts/dm-sans-latin-ext.woff2',
+  '/roadmap/fonts/dm-sans-latin.woff2',
+  '/roadmap/fonts/instrument-serif-latin-ext.woff2',
+  '/roadmap/fonts/instrument-serif-latin.woff2',
   '/roadmap/handoff-paths.js',
   '/roadmap/inspect-item.js',
   '/roadmap/interactions.js',
   '/roadmap/layout.js',
   '/roadmap/markdown.js',
   '/roadmap/motion-spec.js',
-  '/roadmap/pack.js',
   '/roadmap/parse.js',
-  '/roadmap/render-board.js',
-  '/roadmap/render-deck-pages.js',
-  '/roadmap/render-deck.js',
-  '/roadmap/render-focus.js',
-  '/roadmap/render-register.js',
-  '/roadmap/render.js',
   '/roadmap/starter.js',
   '/roadmap/style.css',
   '/roadmap/text-parts.js',

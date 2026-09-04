@@ -1,12 +1,7 @@
-/* S5/E6 — the focus "hinges on" strip: betChain() (cond-parts.js) and the
-   live hero-card foot row it feeds (render-focus.js). Spec:
-   docs/superpowers/specs/2026-08-10-track1-roadmap-conditional-display.md
-   §S5, Rev A override (states are open/paid off/didn't pay off/never
-   ran/in a cycle — "not yet placed" is unreachable and deleted). */
+/* The conditional dependency chain used by Chapter Spotlight. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {renderFocusLive} from '../render-focus.js';
 import {betChain} from '../cond-parts.js';
 
 const measure = (s, f) => (s ? s.length : 0) * ((/(\d+)px/.exec(String(f)) || [])[1] || 12) * 0.55;
@@ -18,6 +13,7 @@ const colors = {
 const ctx = (extra = {}) => ({colors, measure, dark: false, today: '2026-08-09', ...extra});
 
 /* ---------- betChain() (cond-parts.js) ---------- */
+
 
 test('betChain: an item with no cond returns []', () => {
   const m = parse('title: T\nNOW\nCore: Plain item\nNEXT\nCore: Another');
@@ -73,69 +69,4 @@ test('betChain: a condition cycle reads "in a cycle" and the walk terminates (ow
   const chain = betChain(m, a);
   assert.equal(chain.length, 2, 'terminates without looping forever');
   assert.ok(chain.every(l => l.state === 'in a cycle'));
-});
-
-/* ---------- the live hero strip (render-focus.js) ---------- */
-
-const chainDoc = 'title: T\nstyle: focus\nNOW\nCore: Root [bet: root won]\nCore: Gate [bet: gate] [if root]\nCore: Rider [if gate]';
-
-test('strip present on a cond hero card: HINGES ON + capsule text for every link', () => {
-  const svg = renderFocusLive(parse(chainDoc), ctx());
-  assert.ok(svg.includes('HINGES ON'));
-  assert.ok(svg.includes('root · paid off'));
-  assert.ok(svg.includes('gate · open'));
-});
-
-test('strip absent on a plain live card and on a dropped/done card', () => {
-  const plain = renderFocusLive(parse('title: T\nstyle: focus\nNOW\nCore: Just a card'), ctx());
-  assert.ok(!plain.includes('HINGES ON'));
-  const dropped = renderFocusLive(
-    parse('title: T\nstyle: focus\nNOW\nCore: Root [bet: root lost]\nCore: Casualty [if root]'), ctx());
-  assert.ok(!dropped.includes('HINGES ON'), 'a dropped card carries its own "not needed" tag, not the hinge strip');
-  const done = renderFocusLive(
-    parse('title: T\nstyle: focus\nNOW\nCore: Root [bet: root]\nCore: Settled [done] [if root]'), ctx());
-  assert.ok(!done.includes('HINGES ON'), '[done] outranks the fork — worldState is null, never cond');
-});
-
-test('a bet-free doc renders byte-identical — no HINGES ON substring at all', () => {
-  const svg = renderFocusLive(parse('title: T\nstyle: focus\nNOW\nCore: A\nNEXT\nCore: B'), ctx());
-  assert.ok(!svg.includes('HINGES ON'));
-});
-
-test('height: +22 gated exactly to a cond hero card, tagH held constant', () => {
-  // both docs give "Twin" the SAME bet-open tag (tagH unchanged) — the only
-  // difference is the second doc ALSO conditions Twin on a second, open bet,
-  // flipping worldState to 'cond' and adding the strip.
-  const base = 'title: T\nstyle: focus\nNOW\nCore: Twin [bet: gate]\nNEXT\nCore: Root holder [bet: root]';
-  const cond = 'title: T\nstyle: focus\nNOW\nCore: Twin [bet: gate] [if root]\nNEXT\nCore: Root holder [bet: root]';
-  const hOf = svg => +/<rect x="\d+" y="[\d.]+" width="[\d.]+" height="([\d.]+)" fill="[^"]*" rx="0"/.exec(svg)[1];
-  const hBase = hOf(renderFocusLive(parse(base), ctx()));
-  const hCond = hOf(renderFocusLive(parse(cond), ctx()));
-  assert.equal(hCond - hBase, 22);
-});
-
-test('no data-edit/data-hit/data-whatif/data-menu inside the strip, even in edit mode', () => {
-  const svg = renderFocusLive(parse(chainDoc), ctx({edit: true}));
-  const start = svg.indexOf('HINGES ON');
-  assert.ok(start !== -1);
-  const end = svg.indexOf('</g>', start);
-  const seg = svg.slice(start, end);
-  assert.ok(!/data-/.test(seg), 'strip segment: ' + seg);
-});
-
-test('long chain clips from the end, keeping the FIRST (root) link visible', () => {
-  // a five-deep chain forced through a narrow measure (short capsules still
-  // add up past the card width) — the root link must always survive.
-  const doc = 'title: T\nstyle: focus\nNOW\n' +
-    'Core: B1 [bet: b1 won]\n' +
-    'Core: B2 [bet: b2] [if b1]\n' +
-    'Core: B3 [bet: b3] [if b2]\n' +
-    'Core: B4 [bet: b4] [if b3]\n' +
-    'Core: B5 [bet: b5] [if b4]\n' +
-    'Core: Rider [if b5]';
-  const wideMeasure = (s, f) => (s ? s.length : 0) * ((/(\d+)px/.exec(String(f)) || [])[1] || 12) * 3;
-  const svg = renderFocusLive(parse(doc), ctx({measure: wideMeasure}));
-  assert.ok(svg.includes('HINGES ON'));
-  assert.ok(svg.includes('b1 · paid off'), 'root link (b1) must survive clipping');
-  assert.ok(!svg.includes('b5 · open'), 'the far end of a too-long chain is clipped away');
 });

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
-import {focusHeroIndex} from '../render-focus.js';
+import {chapterHero as focusHeroIndex} from '../chapter-layout.js';
 
 test('no focus: key → first non-empty horizon (byte-identical fallback)', () => {
   assert.equal(focusHeroIndex(parse('NOW\nNEXT\nCore: A\nLATER')), 1);  // NOW empty → NEXT

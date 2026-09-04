@@ -53,7 +53,7 @@ The twelve grammars differ, but they're a family and obey the same rules:
 |---|---|---|---|---|---|
 | [paths](#paths) | ✓ | ✓ | ✓ | `date` `today` `style` `verdict` | `decision name:` blocks, period headers, then `Lane: Item [status] [if/unless] -- note -> url` |
 | [proxy](#proxy) | ✓ | ✓ | ✓ | `date` `outcome` `proxy` `action` `mode` | intended theory, protected outcomes and up to three failure theories |
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `font` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
 | [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
@@ -219,7 +219,7 @@ swimlanes, WIP limits, and a deck export.
 **Config keys** (put them above the first horizon header):
 - `title:` free text.
 - `date:` deck date, free text; `date: off` hides it.
-- `headline:` the standfirst under the title, free text. Never generated — if you want one,
+- `headline:` the main editorial heading, free text. Never generated — if you want one,
   write one. It appears on **every** export (chart, board, register, focus, and the markdown).
 - `story:` one authored line about what changed, printed under the standfirst and shown
   **only while a snapshot comparison is active** — it is a claim about a diff, so with no
@@ -230,12 +230,17 @@ swimlanes, WIP limits, and a deck export.
   (time) axis is what enables `xN` spans.
 - `wip:` a number (default 6) or `off` — the per-column work-in-progress limit; a breach is
   an editor warning, not a slide.
-- `fade:` anything other than `off` turns on the certainty fade for later horizons.
+- `fade:` retained for older documents. Chapter preserves full text contrast in every horizon.
 - `palette:` / `accent:` — as above.
-- `style:` deck layout, one of `board`, `focus`, `register`, `grid`.
+- `style:` live and export composition: `board` (Horizons), `focus` (Spotlight),
+  `register` (Register), or `grid` (Time grid). Omission selects Time grid.
+- `font:` `Chapter` (Instrument Serif headings, DM Sans body) or `DM Sans` throughout.
+  Names are case-insensitive; omission selects Chapter. Unknown names warn and fall back
+  to Chapter. Both families are bundled locally; no network font service is required.
 - `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
   first non-empty horizon when absent, blank, or naming no real horizon.
-- `verdict:` — `off` to carry no verdict at all, or your own line to replace the tool's. Omit it and the tool writes one, as it always has.
+- `verdict:` — `off` to suppress the verdict, or your own line. Authored verdicts travel
+  with the artifact and exports; automatic diagnosis appears in the app.
 - `group:` the register's grouping lens, `lane` (default) or `outcome`: `group: outcome`
   regroups the register into either-way / only-if-a-bet-pays-off / only-if-it-doesn't / not-needed
   sections instead of by horizon. Affects only the `register` style — elsewhere it warns.
@@ -260,7 +265,13 @@ swimlanes, WIP limits, and a deck export.
     written resolution always beats a bare declaration, whatever order the lines are in.
     `[if name]` / `[unless name]` make an item conditional on that bet paying off (or not);
     at most one condition per item.
-  - `-- note` trailing annotation; `-> url` a link; `xN` spans N columns (time axis only).
+  - `-- note` optional subtitle or commentary beneath the item title. Empty notes take no
+    space. Longer commentary wraps and continues across slides without being dropped.
+    `-> url` is a link; `xN` spans N columns (time axis only).
+
+The slide preview includes commentary by default; **Titles only** is an explicit export
+choice. Single slides download as PNG; multi-slide sets download as one ZIP. SVG and
+PNG artifact exports retain the selected typography and colours.
 
 **Worlds.** Each bet is unresolved, won or lost until you write a resolution. A bet whose
 own item is dropped (its condition failed) reads **moot** — "never ran", never "lost" — and
@@ -270,7 +281,7 @@ always outranks the fork: a finished item never ghosts or drops, though it warns
 itself *conditioned* on a bet that's still unresolved, lost, or never ran — the past can't be
 conditional.
 
-**What it warns about:** unknown palette / bad accent / bad `wip` / unknown `style`; a config
+**What it warns about:** unknown font / unknown palette / bad accent / bad `wip` / unknown `style`; a config
 line placed after the first header (read as a lane item); header typos; items before any
 header (skipped); an unknown `[status]`; a span used without a time axis; a bet name that
 isn't letters/digits/hyphens; a reserved bet name (`won`/`lost`); a duplicate `[bet: x]`

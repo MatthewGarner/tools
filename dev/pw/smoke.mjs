@@ -1558,7 +1558,8 @@ for(const theme of FLOW_THEMES){
 
   const deckSvg = await page.evaluate(async () => {
     const {parse} = await import('/roadmap/parse.js');
-    const {renderDeck} = await import('/roadmap/render-deck.js');
+    const {renderChapterPages} = await import('/roadmap/chapter-svg.js');
+    const renderDeck = (m,c) => renderChapterPages(m,c).pages[0];
     const {measure, themeColors} = await import('/assets/app-common.js');
     const ctx = {colors: themeColors(), measure, today: '2026-07-14'};
     /* the exact state the old auto-verdict fired on: over-WIP AND flagged */

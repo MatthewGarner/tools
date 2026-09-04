@@ -1,3 +1,4 @@
+import {renderChapter as render} from '../roadmap/chapter-svg.js';
 /* Meta-test: the PHONE edit surface (mobile-input Stage 0 gate).
 
    The trap this closes: timeline shipped a narrow relayout that emits ZERO
@@ -160,7 +161,7 @@ const DRIVERS = {
   },
   async roadmap(doc){
     const {parse} = await import('../roadmap/parse.js');
-    const {render} = await import('../roadmap/render.js');
+  
     return render(parse(doc), {...ctx, edit: true, width: W});
   },
   async timeline(doc){
