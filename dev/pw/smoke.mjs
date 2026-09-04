@@ -4,7 +4,7 @@
 import {chromium} from 'playwright';
 import {readFileSync} from 'node:fs';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS, BINDERS} from '../tool-dirs.mjs';
-import {trackErrors, report, tally, emptyPaint, pickExample} from './_harness.mjs';
+import {trackErrors, report, tally, emptyPaint, pickExample, openRoadmapSource} from './_harness.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
 
 const OPS_INFRA_BACKLOG = pickExample(RANK_EXAMPLES, 'Ops & infra backlog');
@@ -1396,27 +1396,23 @@ for(const theme of FLOW_THEMES){
 /* ---- roadmap (smoke only; deep suite is check.mjs) ---- */
 {
   const {page, errors} = await freshPage('/roadmap/');
-  const openRoadmapSource = async () => {
-    if(await page.locator('#workspace').evaluate(el => el.classList.contains('collapsed'))){
-      await page.locator('#railtab').click();
-    }
-  };
+  await openRoadmapSource(page);
   await page.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await page.locator('#stylepicker [data-style="grid"]').click();
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
   check('roadmap: svg decodes as an image', await svgDecodes(page, '#preview svg'));
-  /* A plain now/next/later document is explicitly represented as Grid in the
-     composition bar and in exports. The Grid carries data-cell drag cells and
+  /* Selecting Grid is represented consistently in the composition bar and exports. The Grid carries data-cell drag cells and
      never data-hdrop (Board/Register are explicit source choices). */
-  check('roadmap: a plain doc (no style:) renders Grid by default, not board-live',
+  check('roadmap: selecting Grid renders time cells without horizon drop bands',
     (await page.locator('#preview svg [data-cell]').count()) >= 1 &&
     (await page.locator('#preview svg [data-hdrop]').count()) === 0);
-  check('roadmap: the Grid chip lights on a plain doc (same live and export choice)',
+  check('roadmap: selecting Grid lights its composition chip',
     await page.locator('#stylepicker [data-style="grid"]').evaluate(el => el.classList.contains('on')));
-  // Choosing Board writes style:board and switches the preview to the live board.
+  // Choosing Board writes style:board and switches the preview to Horizons.
   await page.locator('#stylepicker [data-style="board"]').click();
   await page.waitForTimeout(400);
-  check('roadmap: clicking Board on a plain doc switches the preview to the live board',
+  check('roadmap: clicking Board switches the preview to the live board',
     (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
     (await page.locator('#preview svg [data-cell]').count()) === 0);
 
@@ -1433,8 +1429,9 @@ for(const theme of FLOW_THEMES){
     page.locator('#dlsvg').click(),
   ]);
   const regSvg = readFileSync(await reg.path(), 'utf8');
-  check('roadmap: Download SVG in Register view exports the register table (has the ITEM/HORIZON header)',
-    /ITEM/.test(regSvg) && /HORIZON/.test(regSvg) && !/data-cell/.test(regSvg));
+  check('roadmap: Download SVG in Register view exports Chapter’s review fields',
+    /data-chapter-layout="register"/.test(regSvg) && /Initiative &amp; commentary/.test(regSvg) &&
+    /Horizon/.test(regSvg) && !/data-cell|data-hdrop|data-edit=/.test(regSvg));
   await page.locator('#stylepicker [data-style="board"]').click();
   await page.waitForTimeout(400);
   // Board view (Task 4): the live editable board, not the chart — the chart carries
@@ -1462,7 +1459,7 @@ for(const theme of FLOW_THEMES){
      stays the chart per the Board lesson). Items resolved BY TITLE throughout, the
      suite convention — a line number is a property of the example doc, not a
      stable identity. */
-  await openRoadmapSource();
+  await openRoadmapSource(page);
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.insertText(
@@ -1490,19 +1487,20 @@ for(const theme of FLOW_THEMES){
   ]);
   const focSvg = readFileSync(await foc.path(), 'utf8');
   check('roadmap: Download SVG in Focus view exports the live focus artefact (hero + rail content, no chart data-cell, no edit markup)',
-    /Gamma task/.test(focSvg) && /LATER/.test(focSvg) &&
+     /data-chapter-layout="focus"/.test(focSvg) && /Later/.test(focSvg) &&
+    ['Alpha task', 'Beta task', 'Gamma task'].every(title => focSvg.includes('data-item-title="' + title + '"')) &&
     !/data-cell/.test(focSvg) && !/data-hdrop/.test(focSvg) && !/data-edit=/.test(focSvg));
 
   // back to Grid (the state the composition loop below expects as its starting chip)
   await page.locator('#stylepicker [data-style="grid"]').click();
   await page.waitForTimeout(400);
 
-  /* composition bar: 4 chips, enabled once there's a preview, Grid active on
-     a plain document (no split live/export state). */
+  /* Composition bar: four chips, enabled once there is a preview, with the
+     selected Grid composition shared by live and export. */
   check('roadmap: style picker has 4 chips', await page.locator('#stylepicker [data-style]').count() === 4);
   check('roadmap: style picker enabled once there is something to export',
     await page.locator('#stylepicker [data-style="board"]').isEnabled());
-  check('roadmap: Grid is the default active chip',
+  check('roadmap: Grid is the selected active chip',
     await page.locator('#stylepicker [data-style="grid"]').evaluate(el => el.classList.contains('on')));
 
   for(const style of ['focus', 'register', 'grid', 'board']){
@@ -1548,7 +1546,7 @@ for(const theme of FLOW_THEMES){
   /* the OTHER direction: edit the doc, the field follows (it is unfocused, so
      syncHeadline actually runs — filling the field and reading it straight back
      would assert nothing) */
-  await openRoadmapSource();
+  await openRoadmapSource(page);
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.insertText('title: T\nheadline: Written in the editor\nNOW\nCore: A');
@@ -1576,7 +1574,7 @@ for(const theme of FLOW_THEMES){
 
   // Clearing the doc disables exports but leaves the above-artifact composition
   // choice available for the roadmap the person is about to start.
-  await openRoadmapSource();
+  await openRoadmapSource(page);
   await page.locator('.cm-content').click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Backspace');

@@ -63,9 +63,9 @@
           <dt><code data-try="">horizons: quarterly from Q3 2026 x4</code></dt>
           <dd>generate quarter columns (also <code>monthly from Aug 2026 x6</code>)</dd>
           <dt><code>wip: 8</code> / <code>wip: off</code></dt>
-          <dd>first-column overload warning threshold (default 6)</dd>
+          <dd>overload warning threshold for each horizon (default 6)</dd>
           <dt><code data-try="">fade: off</code></dt>
-          <dd>disable the certainty fade on later columns</dd>
+          <dd>accepted for older documents; Chapter keeps text at full contrast</dd>
           <dt><code data-try="">palette: ember</code></dt>
           <dd>diagram scheme — accent, background wash, card tint: <code>ocean</code> (default) · <code>slate</code> · <code>ember</code> · <code>plum</code></dd>
           <dt><code data-try="">font: DM Sans</code></dt>
@@ -73,7 +73,7 @@
           <dt><code data-try="">accent: #C05621</code></dt>
           <dd>any hex; derives a matching scheme (overrides palette)</dd>
           <dt><code data-try="">style: focus</code></dt>
-          <dd>the view and the export shape — <code>board</code> (columns) · <code>focus</code> (hero + rail) · <code>register</code> (table) · <code>grid</code> (chart). The first three are live editable views too</dd>
+          <dd>the interactive view and export composition — <code>board</code> (Horizons) · <code>focus</code> (Spotlight) · <code>register</code> (Register) · <code>grid</code> (Time grid)</dd>
           <dt><code data-try="">group: outcome</code></dt>
           <dd>regroup the register by consequence — either way, only if a bet pays off, only if it doesn't. The By&nbsp;lane / By&nbsp;outcome control above a register writes this for you; omit the key for the usual lane order</dd>
           <dt><code data-try="">headline: We are betting on retention</code></dt>
@@ -100,9 +100,9 @@
           <dt><code data-try="">Growth: Referral loop [bet: referrals]</code></dt>
           <dd>declare the item a <em>bet</em> — a fork the plan turns on. Click its capsule (or use the card menu) to preview each world; when reality answers, resolve it in the text: <code>[bet: referrals won]</code> / <code>[bet: referrals lost]</code></dd>
           <dt><code data-try="">Personalisation [if referrals]</code></dt>
-          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditioned items render ghosted while the fork is open — the branch not needed stays on the board, marked not needed, when it closes. When the fork can move without losing meaning, the conditional-work summary can start an incomplete <a href="/paths/">Paths</a> decision plan for you to finish</dd>
+          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditional items retain their condition while the fork is open; work no longer needed stays visible with a struck-through title when it closes. When the fork can move without losing meaning, the conditional-work summary can start an incomplete <a href="/paths/">Paths</a> decision plan for you to finish</dd>
           <dt><code data-try="">… -- note text</code></dt>
-          <dd>smaller second line on the card</dd>
+          <dd>optional subtitle or commentary beneath the title; wraps and continues across slides when needed</dd>
           <dt><code data-try="">… -&gt; https://jira/PROJ-42</code></dt>
           <dd>makes the card title a link (marked ↗)</dd>
           <dt><code data-try="">// comment</code></dt>

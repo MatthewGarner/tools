@@ -241,6 +241,9 @@ export function layoutChapter(model, ctx = {}){
     for(const group of groups){
       const items=group.items;
       if(!items.length){
+        // A continuation contains only this page's rows. Work elsewhere in the
+        // complete plan is not an empty horizon and must not consume placeholder space.
+        if(ctx.slide && sourceModel.items.some(i=>sourceModel.horizons[i.h]===model.horizons[group.h]))continue;
         if(model.group!=='outcome'){const label=text(model.horizons[group.h]+' · No work planned',inner,meta);sections.push({name:label.text,x:margin,y,w:inner,h:44,label,small:true});dropzones.push({x:margin,y,w:inner,h:44,horizon:group.h});y+=64+addSpace;}
         continue;
       }
@@ -274,7 +277,14 @@ export function layoutChapter(model, ctx = {}){
     const rail=!longLanes && lanes.some(Boolean)?Math.min(210,inner*.16):0;
     const gx=margin+rail, cw=(inner-rail)/model.horizons.length;
     let headerH=0;
-    allIndices.forEach(h=>{let label=text(model.horizons[h],cw-28,24,{family:type.display,weight:type.displayWeight});if(label.lines.length>3)label=text(model.horizons[h],cw-28,meta,{weight:500});sections.push({name:model.horizons[h],x:gx+h*cw+12,y,w:cw-24,h:label.lines.length*label.step+24,label,horizon:h});headerH=Math.max(headerH,label.lines.length*label.step+24);});y+=headerH;
+    allIndices.forEach(h=>{
+      let label=text(model.horizons[h],cw-28,24,{family:type.display,weight:type.displayWeight});
+      if(label.lines.length>3)label=text(model.horizons[h],cw-28,meta,{weight:500});
+      const hint=ctx.edit?horizonHint(model.horizons[h],cw-28):null;
+      const height=label.lines.length*label.step+24+(hint?hint.lines.length*hint.step+8:0);
+      sections.push({name:model.horizons[h],x:gx+h*cw+12,y,w:cw-24,h:height,label,hint,horizon:h});
+      headerH=Math.max(headerH,height);
+    });y+=headerH;
     const gridTop=y;
     for(const lane of lanes){
       const top=y, tracks=[];

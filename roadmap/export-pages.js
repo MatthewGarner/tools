@@ -126,6 +126,26 @@ function columnChunks(items, style, fits){
   return pages.length ? pages : [[]];
 }
 
+// A ruled review reads sequentially. Move only the tail of a preceding page to
+// the start of its successor, preserving source order while avoiding orphan pages.
+function balanceChunks(groups, style, fits, height){
+  const pages=groups.map(items=>items.slice());
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let i=pages.length-1;i>0;i--){
+      const before=pages[i-1],after=pages[i];
+      if(before.length<2)continue;
+      const left=before.slice(0,-1),right=[before.at(-1),...after];
+      if(!fits(left,style)||!fits(right,style))continue;
+      const gap=Math.abs(height(before,style)-height(after,style));
+      if(Math.abs(height(left,style)-height(right,style))>=gap)continue;
+      pages[i-1]=left;pages[i]=right;changed=true;
+    }
+  }
+  return pages;
+}
+
 // Spotlight has two independent reading regions. Pair their measured pages,
 // rather than repeating every hero page for every supporting-horizon window.
 function focusPages(model, {horizonsPerPage, pageGeometryFits}){
@@ -188,6 +208,7 @@ export function exportPages(model, {
   style = model.style || 'grid',
   pageGeometryFits,
   packColumns = false,
+  pageGeometryHeight,
 } = {}){
   if(style==='focus')return focusPages(model,{horizonsPerPage,pageGeometryFits});
   const perPage = Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
@@ -202,7 +223,9 @@ export function exportPages(model, {
     const horizons = indices.map(i => model.horizons[i]);
     const fits = pageGeometryFits ? (items, style) => pageGeometryFits(items, style, horizons) : geometryFits;
     const itemGroups = unitGroups.flatMap(group => geometryChunks(group, style, fits));
-    const pageGroups = packColumns ? columnChunks(items,style,fits) : itemGroups;
+    let pageGroups = packColumns ? columnChunks(items,style,fits) : itemGroups;
+    if(pageGeometryHeight && pageGroups.length>1)
+      pageGroups=balanceChunks(pageGroups,style,fits,(items,style)=>pageGeometryHeight(items,style,horizons));
     return pageGroups.map((pageItems, part) => ({
       start,
       end,

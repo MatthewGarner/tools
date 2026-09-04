@@ -1,6 +1,7 @@
 /* Behavioral migration from the retired renderers. Chapter may compose these
    facts differently, but an authored claim, condition or edit route cannot vanish. */
 import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {renderChapter,renderChapterPages} from '../chapter-svg.js';
@@ -180,4 +181,28 @@ test('coarse Chapter cards offer complete field menus without tiny nested edit t
       if(next)assert.ok(next.y>=zone.y+zone.h+44,'the add target cannot cover later work');
     }
   }
+});
+
+test('live Time grid surfaces a horizon WIP breach without adding it to slides',()=>{
+  const model=parse('style: grid\nNOW\n'+Array.from({length:7},(_,i)=>'Core: Work '+i).join('\n'));
+  assert.match(visible(renderChapter(model,{...ctx,edit:true})),/Over WIP 6/);
+  assert.doesNotMatch(visible(renderChapterPages(model,ctx).pages.join('')),/Over WIP/);
+});
+
+test('Register continuations never call work on another page unplanned',()=>{
+  const m=parse('style: register\nhorizons: Now, Next, Later, Unplanned\n'+['Now','Next','Later'].map(h=>h+'\n'+Array.from({length:6},(_,i)=>`Core: ${h} initiative ${i} -- Commentary for review`).join('\n')).join('\n'));
+  const set=renderChapterPages(m,ctx);
+  assert.ok(set.pages.length>1);
+  for(const svg of set.pages)assert.doesNotMatch(visible(svg),/(Now|Next|Later) · No work planned/);
+  assert.ok(set.pages.some(svg=>visible(svg).includes('Unplanned · No work planned')));
+  assert.ok(set.complete);
+});
+
+
+test('a crowded Register balances its final pages without reordering work',()=>{
+  const m=parse(readFileSync(new URL('./fixtures/chapter-crowded.txt',import.meta.url),'utf8').replace('style: focus','style: register'));
+  const set=renderChapterPages(m,ctx);
+  assert.ok(set.complete);
+  assert.deepEqual(set.plan.pages.flatMap(p=>p.sourceItemIndices),m.items.map((_,i)=>i));
+  assert.ok(set.plan.pages.every(p=>p.model.items.length>=3),'avoid a lone final initiative when preceding pages can share space');
 });

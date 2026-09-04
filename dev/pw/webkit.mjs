@@ -45,17 +45,17 @@ for(const theme of ['light', 'dark']){
     try{
       await page.goto(base + '/' + (path ? path + '/' : ''), {waitUntil: 'networkidle', timeout: 20000});
       await page.waitForTimeout(200);
-      const m = await page.evaluate(() => {
+      const m = await page.evaluate(path => {
         const de = document.scrollingElement || document.documentElement;
         return {sw: de.scrollWidth, cw: de.clientWidth,
           bg: getComputedStyle(document.body).backgroundColor,
           // the stylesheet applying at all: the header h1 must resolve to the
-          // Swiss display stack from page.css, not the UA default and not the old
+          // intended display stack (Chapter uses DM Sans), not the UA default or old
           // Charter (a positive AND a negative — /serif/i alone would pass
           // vacuously against "sans-serif", killing the canary)
-          serif: (fam => /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
+          serif: (fam => path==='roadmap' ? /dm sans/i.test(fam) : /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
             getComputedStyle(document.querySelector('h1') || document.body).fontFamily)};
-      });
+      },path);
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');
       ok(m.bg && m.bg !== 'rgba(0, 0, 0, 0)', label + ': body background styled (' + m.bg + ')');
       ok(m.serif, label + ': display font stack applied (stylesheet loaded)');
@@ -174,7 +174,7 @@ for(const theme of ['light', 'dark']){
       if(await row.count()) await row.click();
       await page.waitForTimeout(300);
     }
-    const m = await page.evaluate(() => {
+    const m = await page.evaluate(path => {
       const de = document.scrollingElement || document.documentElement;
       const bar = document.getElementById('explorebar');
       return {sw: de.scrollWidth, cw: de.clientWidth,

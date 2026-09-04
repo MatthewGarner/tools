@@ -37,10 +37,16 @@ try{
    return {complete:set.complete,count:model.items.length,pages:set.pages.length,overflow:set.plan.pages.filter(p=>!p.geometryComplete).map(p=>p.model.items.map(i=>i.title)),fontsReady:document.fonts.check('24px "DM Sans"') && document.fonts.check('38px "Instrument Serif"'),geometry:set.plan.pages.map(p=>{const l=layoutChapter(p.model,{...ctx,slide:true,sourceModel:model});return {fits:l.fits,bottom:l.contentBottom}})};
   },source);
   assert.ok(diagnostics.fontsReady,key+' fonts');assert.ok(diagnostics.complete,key+' complete '+JSON.stringify(diagnostics));
+  if(fixture==='crowded' && style==='grid')assert.ok(diagnostics.pages<=3,key+' should use free column space before adding slides');
   if(fixture==='sparse')assert.equal(diagnostics.pages,1,key+' sparse plan should be a single composed slide');
   await page.locator('#exportdeck').click();
   assert.equal(await page.locator('#slidecanvas svg').getAttribute('width'),'1920');
   await page.locator('#slidecanvas svg').screenshot({path:out+'/'+key+'-slide.png'});
+  for(let i=1;i<diagnostics.pages;i++){
+    await page.locator('#slidenext').click();
+    assert.equal(await page.locator('#slideposition').innerText(),`Slide ${i+1} of ${diagnostics.pages}`);
+    await page.locator('#slidecanvas svg').screenshot({path:out+'/'+key+'-slide-'+(i+1)+'.png'});
+  }
   await page.locator('#slidepreviewdialog').getByRole('button',{name:'Close',exact:true}).click();
   await page.locator('#preview svg').screenshot({path:out+'/'+key+'-desktop.png'});
   await page.setViewportSize({width:390,height:844});

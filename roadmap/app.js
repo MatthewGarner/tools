@@ -188,32 +188,24 @@ function resetWhatIf(){
   whatIf = {};
   lastSvg = ''; paint.reset(); refresh();
 }
-/* Cross-fade on a world flip (spec §3: "NOT FLIP — nothing changes position").
-   mountMotion's shared paint() does an innerHTML swap with no DOM diffing, so
-   the CSS `transition:opacity` on g[data-line] (style.css) can't animate by
-   itself — there is no continuous element to transition. This captures each
-   card's opacity BEFORE the swap (keyed by data-line, stable across a toggle
-   since the text doesn't move) and, right after, sets the surviving elements'
-   inline opacity back to their OLD value then clears it a frame later so the
-   CSS transition tweens old -> new — same capture/apply shape as the shared
-   FLIP helper, kept local to roadmap (one caller; not assets/ material yet).
-   prefers-reduced-motion -> motionStill() bails to a hard cut, same gate FLIP uses. */
+/* A world flip changes condition labels and strike-through, while Chapter keeps
+   full text contrast. Animate that state change itself rather than waiting for a
+   permanent opacity difference. Source lines are stable during a what-if toggle. */
 function captureLineOpacity(){
-  const m = new Map();
-  for(const el of previewEl.querySelectorAll('[data-line]')) m.set(el.getAttribute('data-line'), el.getAttribute('opacity') || '1');
-  return m;
+  return new Map([...previewEl.querySelectorAll('[data-edit="cardmenu"]')].map(el=>
+    [el.dataset.line,{world:el.dataset.worldState,opacity:el.getAttribute('opacity')||'1'}]));
 }
 function fadeLineOpacity(old){
-  if(motionStill() || !old) return;
-  const changed = [];
-  for(const el of previewEl.querySelectorAll('[data-line]')){
-    const prev = old.get(el.getAttribute('data-line')); if(prev == null) continue;
-    const next = el.getAttribute('opacity') || '1';
-    if(prev !== next) changed.push([el, prev]);
+  if(motionStill() || !old)return;
+  const changed=[];
+  for(const el of previewEl.querySelectorAll('[data-edit="cardmenu"]')){
+    const prev=old.get(el.dataset.line);if(!prev)continue;
+    if(prev.world!==el.dataset.worldState)changed.push([el,'0']);
+    else if(prev.opacity!==(el.getAttribute('opacity')||'1'))changed.push([el,prev.opacity]);
   }
-  for(const [el, prev] of changed){ el.style.transition = 'none'; el.style.opacity = prev; }
-  if(changed.length) requestAnimationFrame(() => requestAnimationFrame(() => {
-    for(const [el] of changed){ el.style.transition = ''; el.style.opacity = ''; }
+  for(const [el,opacity] of changed){el.style.transition='none';el.style.opacity=opacity;}
+  if(changed.length)requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    for(const [el] of changed){el.style.transition='';el.style.opacity='';}
   }));
 }
 /* the chip: a roadmap-only element OUTSIDE #preview (the paint innerHTML-swap
@@ -670,36 +662,14 @@ function itemMenu(m, srcLine, whatIfMap){
         commit: {kind: 'setspan', line: srcLine, oldRaw: '', value: String(k + 1)},
       }))
     : [];
-  /* Focus hero vs rail (Matt's "clean rail + Status submenu" call, Task 5): the
-     HERO card carries the full set of inline edit targets (title/note/status/lane,
-     paintFocusHeroCard), same as a register/board card. The RAIL row is a clean
-     ranked index (paintFocusRailRow) — title only, no inline status/lane/note
-     targets — so a rail item's "Status…" can't `opens:'status'` (there is no
-     target to find) and Lane…/Edit note… rows would be permanently dead. Instead
-     the rail gets a Status… SUBMENU of the four statuses that commits directly,
-     the same commit-row machinery the card-menu programme already ships (e.g.
-     "Move to…" below). Clearing a rail item's status is out of scope for v1 —
-     promote it to the hero, whose inline status editor clears. */
-  const focusRail = m && m.style === 'focus' && item && item.h !== focusHeroIndex(m);
-  const statusRow = focusRail
-    ? {label: 'Status…', submenu: EDIT_STATUSES.map(st => ({
-        label: STATUS_LABEL[st] || st, on: item && item.status === st,
-        commit: {kind: 'status', line: srcLine, oldRaw: (item && item.status) || '', value: st},
-      }))}                                          // rail: a submenu, no inline target
-    : {label: 'Status…', opens: 'status'};          // hero/register/board: the inline target
-  const rows = focusRail
-    ? [{label: 'Rename…', opens: 'title'}, statusRow]                                     // clean rail
-    : [{label: 'Rename…', opens: 'title'}, {label: 'Edit note…', opens: 'note'}, statusRow];
-  /* Register + board + focus-HERO only: the lane cell/tag (data-edit="lane") is
-     reachable by a direct tap on a fine pointer, but coarse pointers (iPad ≥520px)
-     reroute every in-card field tap to this menu instead — without a row here, the
-     lane field would be unreachable on those devices. The chart carries no
-     data-edit="lane" target at all (no lane column), so an `opens` row there would
-     resolve to nothing — same reason the rail (no lane target either) is excluded. */
+  // Every Chapter item supports the same fields. Empty fields and coarse-pointer
+  // cards use data-*-raw fallbacks, so supporting items need no hidden controls.
+  const rows = [{label: 'Rename…', opens: 'title'}, {label: 'Edit note…', opens: 'note'},
+    {label: 'Status…', opens: 'status'}];
   if(resolveRow) rows.push(resolveRow);
   rows.push(...whatIfRows);
   if(conditionRow) rows.push(conditionRow);
-  if(m && (m.style === 'register' || m.style === 'board' || (m.style === 'focus' && !focusRail)))
+  if(m && (m.style === 'register' || m.style === 'board' || m.style === 'focus'))
     rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});

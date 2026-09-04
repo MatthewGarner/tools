@@ -63,8 +63,10 @@ export function renderChapter(model,ctx={}){
   }
   for(const row of layout.rows){
     const item=row.item, edit=ctx.edit&&!item.ghost;
-    s.push(`<g${attrs({'data-key':item.title.toLowerCase().replace(/\s+/g,' ').trim(),'data-line':edit?item.srcLine:null,'data-edit':edit?'cardmenu':null,'data-menu':edit?'':null,'data-title-raw':edit?item.title:null,'data-note-raw':edit?item.note:null,'data-status-raw':edit?item.status:null,'data-lane-raw':edit?item.lane:null,'data-source-index':item.export?.sourceIndex,'data-context':item.export?.repeatedContext?'repeated':null,'data-item-title':item.title})}${edit?btnAttrs('More options: '+item.title):''}>`);
-    if(layout.style==='grid'&&!layout.phone)s.push(rect(row.x,row.y,row.w,row.h,item.worldState==='dropped'?'none':C.band,
+    s.push(`<g${attrs({'data-key':item.title.toLowerCase().replace(/\s+/g,' ').trim(),'data-line':edit?item.srcLine:null,'data-edit':edit?'cardmenu':null,'data-menu':edit?'':null,'data-title-raw':edit?item.title:null,'data-note-raw':edit?item.note:null,'data-status-raw':edit?item.status:null,'data-lane-raw':edit?item.lane:null,'data-source-index':item.export?.sourceIndex,'data-context':item.export?.repeatedContext?'repeated':null,'data-item-title':item.title,'data-world-state':item.worldState||'live'})}${edit?btnAttrs('More options: '+item.title):''}>`);
+    // Dropped work stays editable. Transparent paint preserves the whole-card
+    // hit area; fill="none" makes its padding invisible to pointer hit testing.
+    if(layout.style==='grid'&&!layout.phone)s.push(rect(row.x,row.y,row.w,row.h,item.worldState==='dropped'?'transparent':C.band,
       {'data-hit':edit?'':null,stroke:item.cond?C.accent:'none','stroke-dasharray':item.cond?'5 5':null}));
     else s.push(rect(row.x,row.y,row.w,row.h,'transparent',{'data-hit':edit?'':null}));
     for(const b of row.blocks){
@@ -113,7 +115,9 @@ export function renderChapterPages(model,ctx={}){
   const style=model.style||'grid';
   const layoutFor=(pageModel)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model});
   const content=ctx.titlesOnly ? {...model,items:model.items.map(item=>({...item,note:''}))} : model;
-  const base=exportPages(content,{style,horizonsPerPage:style==='grid'?4:3,packColumns:['board','focus'].includes(style),pageUnits:1000000,pageGeometryFits:(items,_,horizons)=>layoutFor({...model,horizons,items}).fits});
+  const base=exportPages(content,{style,horizonsPerPage:style==='grid'?4:3,packColumns:['board','focus','grid'].includes(style),pageUnits:1000000,
+    pageGeometryFits:(items,_,horizons)=>layoutFor({...model,horizons,items}).fits,
+    pageGeometryHeight:style==='register'?(items,_,horizons)=>layoutFor({...model,horizons,items}).contentBottom:undefined});
   // Compare dropped work is explicit content, not an omission from the current plan.
   const dropped=ctx.diff?.dropped||[];
   let pages=base.pages;

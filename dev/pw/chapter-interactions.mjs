@@ -21,12 +21,13 @@ async function settledTap(target,position){
   await page.waitForTimeout(300);
   await target.tap(position?{position}:{});
 }
-async function note(value){
-  await settledTap(card(),{x:12,y:12});
+async function note(value, target=card()){
+  const title=await target.getAttribute('data-item-title');
+  await settledTap(target,{x:12,y:12});
   await page.getByRole('menuitem',{name:'Edit note…',exact:true}).tap();
   await page.getByRole('textbox',{name:'Edit note',exact:true}).fill(value);
   await page.getByRole('textbox',{name:'Edit note',exact:true}).press('Enter');
-  await page.waitForFunction(value=>document.querySelector('[data-item-title="Resume your reading"]')?.dataset.noteRaw===value,value);
+  await page.waitForFunction(({title,value})=>[...document.querySelectorAll('[data-item-title]')].some(el=>el.dataset.itemTitle===title&&el.dataset.noteRaw===value),{title,value});
 }
 try{
   await page.goto(base+'/roadmap/');
@@ -45,6 +46,10 @@ try{
       await page.getByRole('button',{name:'Undo',exact:true}).tap();await saved(src);
       console.log('independent typography and accent undo');
       if(process.env.CHAPTER_UNDO_ONLY)break;
+      await note('Available without a connection.',page.locator('[data-item-title="Offline downloads"]'));
+      await saved(src.replace('Platform: Offline downloads','Platform: Offline downloads -- Available without a connection.'));
+      await page.getByRole('button',{name:'Undo',exact:true}).tap();await saved(src);
+      console.log('Spotlight supporting item commentary edit and undo');
     }
     await note('Pick up on any device.');await saved(src.replace('Original commentary','Pick up on any device.'));
     await page.getByRole('button',{name:'Undo',exact:true}).tap();await saved(src);
