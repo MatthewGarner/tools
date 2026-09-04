@@ -58,10 +58,10 @@ function wordFragments(text, limit){
 }
 
 /* Long copy becomes explicit, source-indexed continuations. */
-function splitLongItem(item, style){
+function splitLongItem(item, style, limits = {}){
   const narrow = style === 'grid' || style === 'board';
-  const titles = wordFragments(item.title, narrow ? NARROW_TITLE_FRAGMENT_CHARS : TITLE_FRAGMENT_CHARS);
-  const notes = wordFragments(item.note, narrow ? NARROW_NOTE_FRAGMENT_CHARS : NOTE_FRAGMENT_CHARS);
+  const titles = wordFragments(item.title, limits.title || (narrow ? NARROW_TITLE_FRAGMENT_CHARS : TITLE_FRAGMENT_CHARS));
+  const notes = wordFragments(item.note, limits.note || (narrow ? NARROW_NOTE_FRAGMENT_CHARS : NOTE_FRAGMENT_CHARS));
   const count = Math.max(1, titles.length, notes.length);
   if(count === 1) return [item];
   return Array.from({length:count}, (_, index) => ({...item, export:{...item.export,
@@ -72,6 +72,24 @@ function splitLongItem(item, style){
       total: count,
     },
   }}));
+}
+
+// Character limits provide the first cut; real geometry decides whether a long
+// title and commentary together need smaller, explicitly numbered continuations.
+function fittedLongItem(item, style, fits){
+  const initial=splitLongItem(item,style);
+  if(initial.every(part=>fits([part])) || !fits([]))return initial;
+  const narrow=style==='grid'||style==='board';
+  let title=narrow?NARROW_TITLE_FRAGMENT_CHARS:TITLE_FRAGMENT_CHARS;
+  let note=narrow?NARROW_NOTE_FRAGMENT_CHARS:NOTE_FRAGMENT_CHARS;
+  for(let attempt=0;attempt<3;attempt++){
+    title=Math.max(20,Math.floor(title/2));note=Math.max(40,Math.floor(note/2));
+    const parts=splitLongItem(item,style,{title,note});
+    if(parts.every(part=>fits([part])))return parts;
+  }
+  // Indivisible framing or metadata remains an explicit overflow, never a
+  // declaration that the export is complete merely because text was split.
+  return initial;
 }
 
 function itemUnits(item){
@@ -156,16 +174,16 @@ function focusPages(model, {horizonsPerPage, pageGeometryFits}){
   const project=(item,sourceIndex,localH)=>({...item,h:localH,span:1,export:{...item.export,
     sourceIndex,sourceStart:item.h,sourceEnd:item.h+Math.max(1,item.span||1)-1,
     continuesBefore:false,continuesAfter:false}});
-  const owned=h=>model.items.flatMap((item,index)=>item.h===h?splitLongItem(project(item,index,0),'focus'):[]);
+  const owned=(h,fits)=>model.items.flatMap((item,index)=>item.h===h?fittedLongItem(project(item,index,0),'focus',fits):[]);
   const fit=(items,indices)=>pageGeometryFits ? pageGeometryFits(items,'focus',indices.map(h=>model.horizons[h])) : geometryFits(items);
   // Keep the hero measurement at its final width even when its rail is empty.
   const heroIndices=[hero,...supporting.slice(0,1)];
-  const heroGroups=geometryChunks(owned(hero),'focus',items=>fit(items,heroIndices));
+  const heroGroups=geometryChunks(owned(hero,items=>fit(items,heroIndices)),'focus',items=>fit(items,heroIndices));
   const rails=[];
   let current={indices:[],items:[]};
   const flush=()=>{if(current.indices.length)rails.push(current);current={indices:[],items:[]};};
   for(const h of supporting){
-    const entries=owned(h);
+    const entries=owned(h,items=>fit(items.map(i=>({...i,h:1})),[hero,h]));
     if(!entries.length){
       const indices=[...current.indices,h];
       if(current.indices.length && (indices.length>capacity||!fit(current.items,[hero,...indices])))flush();
@@ -217,11 +235,11 @@ export function exportPages(model, {
   const chunks = chunkIndices(model.horizons.length, perPage);
   const drafts = chunks.flatMap(indices => {
     const start = indices[0], end = indices.at(-1);
-    const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end))
-      .filter(Boolean).flatMap(item => splitLongItem(item, style));
-    const unitGroups = chunkItems(items, unitLimit);
     const horizons = indices.map(i => model.horizons[i]);
     const fits = pageGeometryFits ? (items, style) => pageGeometryFits(items, style, horizons) : geometryFits;
+    const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end))
+      .filter(Boolean).flatMap(item => fittedLongItem(item, style,parts=>fits(parts,style)));
+    const unitGroups = chunkItems(items, unitLimit);
     const itemGroups = unitGroups.flatMap(group => geometryChunks(group, style, fits));
     let pageGroups = packColumns ? columnChunks(items,style,fits) : itemGroups;
     if(pageGeometryHeight && pageGroups.length>1)

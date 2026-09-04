@@ -83,3 +83,34 @@ test('titles-only export does not paginate commentary that was explicitly omitte
  assert.equal(out.plan.pages.flatMap(p=>p.model.items).length,1);
  assert.doesNotMatch(out.pages.join(''),/Long commentary|Item continued/);
 });
+
+test('long titles and commentary share measured continuation space in every reading region',()=>{
+ const title='Reading with confidence '.repeat(18).trim(),note='Keep every reader informed about what changes and why. '.repeat(30).trim();
+ for(const style of ['board','grid','focus','register'])for(const horizon of ['NOW','NEXT']){
+  const m=parse(`style: ${style}\nNOW\nCore: Anchor\n${horizon}\nCore: ${title} -- ${note}`),set=renderChapterPages(m,ctx);
+  assert.ok(set.complete,style+' '+horizon);
+  const target=m.items.length-1;
+  const fragments=[...new Map(set.plan.pages.flatMap(p=>p.model.items).filter(i=>i.export.sourceIndex===target).map(i=>[i.export.fragment?.index||0,i])).values()].sort((a,b)=>a.export.fragment.index-b.export.fragment.index);
+  assert.equal(fragments.map(i=>i.export.fragment.note).join(' ').trim(),note);
+  assert.equal(fragments.map(i=>i.export.fragment.title).filter(t=>t!=='Item continued').join(' ').trim(),title);
+ }
+});
+
+test('quiet Horizons and Register exports use the space available before adding pages',()=>{
+ const src='horizons: A, B, C, D\nA\nCore: First -- Some commentary\nCore: Second\nC\nCore: Third';
+ for(const style of ['board','register']){
+  const set=renderChapterPages(parse('style: '+style+'\n'+src),ctx);
+  assert.equal(set.pages.length,1,style+' quiet four horizons');assert.ok(set.complete);
+ }
+ const eight=parse('style: register\nhorizons: A, B, C, D, E, F, G, H\nA\nOnly initiative');
+ assert.equal(renderChapterPages(eight,ctx).pages.length,1,'Register collects empty horizons without spending a page on each group');
+});
+
+test('empty future-horizon pages state their planning status explicitly',()=>{
+ for(const style of ['board','grid']){
+  const m=parse('style: '+style+'\nhorizons: A, B, C, D, E, F, G, H\nA\nOnly initiative'),set=renderChapterPages(m,ctx);
+  const empty=set.plan.pages.map((p,i)=>!p.model.items.length?set.pages[i]:null).filter(Boolean);
+  assert.ok(empty.length>0,'wide horizon context is preserved');
+  for(const svg of empty)assert.match(svg,/No work planned in these horizons/);
+ }
+});

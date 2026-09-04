@@ -115,7 +115,15 @@ export function renderChapterPages(model,ctx={}){
   const style=model.style||'grid';
   const layoutFor=(pageModel)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model});
   const content=ctx.titlesOnly ? {...model,items:model.items.map(item=>({...item,note:''}))} : model;
-  const base=exportPages(content,{style,horizonsPerPage:style==='grid'?4:3,packColumns:['board','focus','grid'].includes(style),pageUnits:1000000,
+  let horizonsPerPage=style==='grid'?4:style==='register'?model.horizons.length:3;
+  if(style==='board'){
+    // Quiet four/five-column plans fit at the same type floor. Crowded columns
+    // retain the wider three-column composition and earn continuation pages.
+    const count=Math.min(5,model.horizons.length);
+    const first={...content,horizons:content.horizons.slice(0,count),items:content.items.filter(i=>i.h<count)};
+    if(count>3 && layoutFor(first).fits)horizonsPerPage=count;
+  }
+  const base=exportPages(content,{style,horizonsPerPage,packColumns:['board','focus','grid'].includes(style),pageUnits:1000000,
     pageGeometryFits:(items,_,horizons)=>layoutFor({...model,horizons,items}).fits,
     pageGeometryHeight:style==='register'?(items,_,horizons)=>layoutFor({...model,horizons,items}).contentBottom:undefined});
   // Compare dropped work is explicit content, not an omission from the current plan.

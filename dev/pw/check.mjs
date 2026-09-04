@@ -221,8 +221,8 @@ await wipPage.close();
   await until(() => boardPage.locator('#preview svg rect[data-hdrop]').count().then(n => n === 5));
   check('presentation-width Board restores all five horizons instead of fixing at three',
     await boardPage.locator('#boardwindow').isHidden() && await boardPage.locator('#preview svg rect[data-hdrop]').count() === 5);
-  check('five-horizon Board offers exact deck review without promising a one-slide copy',
-    await boardPage.locator('#exportdeck').isEnabled() && await boardPage.locator('#copypng').isHidden());
+  check('a quiet five-horizon Board offers one-slide copy and exact deck review',
+    await boardPage.locator('#exportdeck').isEnabled() && await boardPage.locator('#copypng').isVisible());
   await boardPage.close();
 }
 

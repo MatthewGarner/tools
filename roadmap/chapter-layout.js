@@ -237,13 +237,21 @@ export function layoutChapter(model, ctx = {}){
     const names=['Initiative & commentary','Workstream','Horizon','Status & condition'];
     let cx=margin;
     names.forEach((name,i)=>{const label=text(name,widths[i]-20,meta,{weight:600});sections.push({name,x:cx,y,w:widths[i],h:26,label,small:true});cx+=widths[i];});y+=38;
+    if(ctx.slide && model.group!=='outcome'){
+      const empty=model.horizons.filter(name=>!sourceModel.items.some(i=>sourceModel.horizons[i.h]===name));
+      if(empty.length){
+        const label=text(empty.join(', ')+' · No work planned',inner,meta);
+        sections.push({name:label.text,x:margin,y,w:inner,h:label.lines.length*label.step+24,label,small:true});
+        y+=label.lines.length*label.step+24;
+      }
+    }
     const groups=model.group==='outcome' ? registerOutcomeGroups(model,model.items) : allIndices.map(h=>({h,items:model.items.filter(i=>i.h===h)}));
     for(const group of groups){
       const items=group.items;
       if(!items.length){
         // A continuation contains only this page's rows. Work elsewhere in the
         // complete plan is not an empty horizon and must not consume placeholder space.
-        if(ctx.slide && sourceModel.items.some(i=>sourceModel.horizons[i.h]===model.horizons[group.h]))continue;
+        if(ctx.slide)continue;
         if(model.group!=='outcome'){const label=text(model.horizons[group.h]+' · No work planned',inner,meta);sections.push({name:label.text,x:margin,y,w:inner,h:44,label,small:true});dropzones.push({x:margin,y,w:inner,h:44,horizon:group.h});y+=64+addSpace;}
         continue;
       }
@@ -307,6 +315,11 @@ export function layoutChapter(model, ctx = {}){
     allIndices.forEach(h=>lines.push({x:gx+h*cw,y:gridTop-headerH,x2:gx+h*cw,y2:y}));
     const marker=model.dateStr==='off'?null:chapterDatePosition(model,ctx.today || new Date().toISOString().slice(0,10));
     if(marker){const x=gx+(marker.index+marker.fraction)*cw;lines.push({x,y:gridTop-4,x2:x,y2:y,role:'accent'});const label=text(marker.label,cw-20,meta,{weight:500});sections.push({name:marker.label,x:Math.min(width-margin-cw,Math.max(gx,x-40)),y:gridTop-24,w:cw-20,h:20,label,small:true,role:'accent'});}
+  }
+  if(ctx.slide && !model.items.length && (style==='board'||style==='grid')){
+    const label=text('No work planned in these horizons',inner,itemSize,{weight:500});
+    y+=32;sections.push({name:label.text,x:margin,y,w:inner,h:label.lines.length*label.step,label,small:true});
+    y+=label.lines.length*label.step;
   }
   const authored=resolveVerdict(sourceModel.verdict,{line:'',fig:''});
   if(authored?.line){
