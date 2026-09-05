@@ -6,7 +6,7 @@
    to :8089 via the EPORT env knob — reused if already alive, e.g. another
    suite's session server, else self-spawned). */
 import {chromium, devices} from 'playwright';
-import {report, tally, pickExample, until} from './_harness.mjs';
+import {report, tally, pickExample, until, openRoadmapSource} from './_harness.mjs';
 import {spawn} from 'node:child_process';
 import {TOOL_DIRS, ENERGY_TOOL_DIRS} from '../tool-dirs.mjs';
 import {EXAMPLES as RANK_EXAMPLES} from '../../rank/examples.js';
@@ -87,7 +87,7 @@ async function installAndWait(page){
        counts equal, this degrades to a 4s wait and a correct pass — never a false
        green.) */
     ['/rank/', async p => { const was = await p.locator('.rankbar').count(); await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await until(() => p.locator('.rankbar').count().then(n => n !== was)); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
-    ['/roadmap/', async p => { await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/roadmap/', async p => { await openRoadmapSource(p); await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
@@ -105,7 +105,7 @@ async function installAndWait(page){
        shipped, and paths is the largest page in the suite. The coverage assertion
        below is what stops it falling behind a fourth time. */
     ['/signal-vs-noise/', async p => { await shown(p, 'svg'); return await p.locator('svg').count() >= 1; }],
-    ['/case/', async p => { await p.getByRole('button', {name: 'Wexcombe augmentation'}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/case/', async p => { await p.getByRole('button', {name: 'Edit source', exact: true}).click(); await p.getByRole('button', {name: 'Morrow · paid tier', exact: true}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
     /* paths keeps its rail collapsed, so the chip row is in the DOM but not clickable
        until the railtab is opened — the same shape smoke.mjs handles for wardley/map.
        KEPT SLEEP (2026-08-18): the branch below turns on isVisible(), and during the

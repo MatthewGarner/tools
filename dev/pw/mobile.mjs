@@ -54,9 +54,9 @@ for(const [name, url] of ALL){
   ok(tiny === null, `${name}: no <16px editable field (iOS zoom-on-focus)${tiny ? ' — ' + tiny : ''}`);
   /* page-scaffold parity: the per-tool style.css must carry the house page
      (a tool once shipped with Times New Roman on a transparent body) */
-  const parity = await page.evaluate(() => {
+  const parity = await page.evaluate(name => {
     const cs = getComputedStyle(document.body);
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    const bg = cs.getPropertyValue('--bg').trim();
     const probe = document.createElement('div');
     probe.style.color = bg;
     document.body.appendChild(probe);
@@ -64,14 +64,14 @@ for(const [name, url] of ALL){
     probe.remove();
     const h1 = document.querySelector('h1');
     return {
-      font: cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
+      font: ['roadmap','case'].includes(name) ? cs.fontFamily.includes('DM Sans') : cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: h1 ? getComputedStyle(h1).fontFamily.includes('Helvetica Neue') : false,   // no h1 is a FAIL, not a vacuous pass (Swiss Phase 1: Charter → Helvetica)
+      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(['roadmap','timeline','case'].includes(name)?'DM Sans':'Helvetica Neue'),
     };
-  });
-  ok(parity.font, `${name}: body wears the system font stack`);
+  },name);
+  ok(parity.font, `${name}: body wears its intended font stack`);
   ok(parity.bg, `${name}: body background is the token --bg`);
-  ok(parity.h1, `${name}: h1 wears the Swiss display stack`);
+  ok(parity.h1, `${name}: h1 wears its intended display stack`);
   /* Presets are discrete choices rather than a carousel: every visible .chip in
      a populated .chips row must fit the row without a horizontal scroller. */
   const presetRows = await page.evaluate(() => {
@@ -956,8 +956,8 @@ for(const [name, url, chip] of WIDENED){
     page.click('#dlsvg'),
   ]);
   const svg = await readFile(await dl.path(), 'utf8');
-  ok(svg.includes('>ITEM<') && svg.includes('>HORIZON<'),
-    'roadmap: phone Download SVG exports the register table (ITEM/HORIZON header), not the stack');
+  ok(svg.includes('data-chapter-layout="register"') && svg.includes('>Initiative &amp; commentary<') && svg.includes('>Horizon<'),
+    'roadmap: phone Download SVG exports the wide Chapter register and its review fields');
   ok(!svg.includes('data-cell'),
     'roadmap: phone register export is the table, not the chart (no data-cell)');
   await page.close();

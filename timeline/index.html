@@ -23,13 +23,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="/assets/pwa.js" defer></script>
 </head>
-<body>
+<body data-visual-family="observatory">
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
-    <p class="kicker" id="kicker"></p>
-    <h1>Timeline</h1>
-    <p class="tagline">A timing forecast that draws P50–P90 ranges without turning them into promises.</p>
+    <h1 title="Timing forecast · ranges, not promises">Timeline</h1>
+    <div class="instrument-actions">
+      <button class="btn" id="exportdeck" type="button" data-icon="download">Export deck</button>
+      <button class="btn" id="editsource" type="button" data-icon="edit">Edit source</button>
+    </div>
   </header>
 </div>
 
@@ -48,6 +50,12 @@
           <dt><code data-try="">verdict: off</code></dt>
           <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
         </dl>
+        <h4>Presentation</h4>
+        <dl>
+          <dt><code data-try="">style: field</code></dt><dd>Field, Review, Decisions or Register. The view picker rewrites this same setting for the screen and exports. Review needs a saved comparison.</dd>
+          <dt><code data-try="">font: DM Sans</code></dt><dd>Chapter pairs editorial headings with DM Sans. DM Sans uses the same typeface throughout. Fonts are bundled in standalone exports.</dd>
+          <dt><code data-try="">accent: #326752</code></dt><dd>Your chart accent. <code>palette:</code> selects the shared colour palette; both stay in the source.</dd>
+        </dl>
         <h4>Milestones</h4>
         <dl>
           <dt><code data-try="">Grid: Energisation 2027-02 .. 2027-06</code></dt>
@@ -62,6 +70,8 @@
           <dd>a date you don’t control — an external event. Renders clean, and becomes the deadline the merge-risk line measures the plan against</dd>
           <dt><code data-try="">Lease ends 2027-02-28 [fixed] [lead: 6w]</code></dt>
           <dd>draws a <strong>DECIDE BY</strong> diamond six weeks before a fixed event. This is a decision clock: preserve the stated preparation time; it is not a delivery dependency or a promise that the decision will happen that day</dd>
+          <dt><code data-try="">Audit 2026-10-12 .. 2026-11-23 [started: 2026-08-24]</code></dt>
+          <dd>optional actual start, as a full calendar date. The quiet square and dotted connector show calendar span; the solid whisker still means P50–P90 finish. Select the item for elapsed time and duration. Never a planned start or progress percentage.</dd>
           <dt><code data-try="">// after the dates</code></dt>
           <dd>a note, shown under the label</dd>
         </dl>
@@ -69,7 +79,21 @@
     </aside>
     <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
     <section class="stage">
-      <div class="preview" id="preview" data-capability="views.field"><p class="placeholder">Start typing — or load an example.</p></div>
+      <div class="observatory-settings">
+        <div class="stylepick segmented" id="stylepicker" role="group" aria-label="Timeline view">
+          <button class="ctl" data-style="field" aria-pressed="true">Field</button><button class="ctl" data-style="review" aria-pressed="false">Review</button><button class="ctl" data-style="decisions" aria-pressed="false">Decisions</button><button class="ctl" data-style="register" aria-pressed="false">Register</button>
+        </div>
+        <details class="appearance action-disclosure"><summary class="btn">Appearance</summary><div class="action-menu">
+          <label>Theme <select class="ctl" id="themechoice"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+          <label>Typography <select class="ctl" id="fontchoice"><option>Chapter</option><option>DM Sans</option></select></label>
+          <label>Accent <input id="accentchoice" type="color" value="#326752"></label>
+        </div></details>
+      </div>
+      <p id="fontstatus" role="status"><span id="fontmessage">Loading typography…</span> <button class="btn" id="retryfonts" type="button">Retry</button></p>
+      <div class="observatory-body" id="observatorybody">
+        <div class="preview" id="preview" data-capability="views.field"><p class="placeholder">Start typing — or load an example.</p></div>
+        <aside class="milestone-inspector" id="inspector" aria-labelledby="inspecttitle" hidden></aside>
+      </div>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
         <button class="btn primary" id="copypng" data-capability="presentationExports.png">Copy PNG</button>
@@ -91,21 +115,18 @@
             <button class="btn" id="snapdel" style="display:none">Delete snapshot</button>
           </div>
         </details>
-        <span class="method">Snapshot before each board pack — compare renders the slip slide · the URL carries your timeline</span>
+
       </div>
+      <details class="forecast-analysis"><summary>Forecast analysis</summary><p id="readout"></p></details>
     </section>
 </div>
 
 <div class="wrap">
-  <section class="about">
-    <h2>Why whiskers, not bars?</h2>
-    <p>Timeline does not decide which conditional work belongs in the plan. Use <a href="/paths/">Paths</a> and <a href="/roadmap/">Roadmap</a> for decision and delivery planning.</p>
-    <div class="prose">
-    <p>A milestone date is a forecast, and forecasts have distributions — but the moment a date lands in a Gantt cell it reads as a commitment, and the argument shifts from "how uncertain are we" to "why did you miss it". Writing every date as a P50–P90 pair (the same 90%-interval habit as the estimator tools) keeps the uncertainty in the artefact itself: the diamond is the middle of your belief, the whisker is its honest width, and a date with no whisker is visibly making a claim nobody should sign.</p>
-    <p>The snapshot compare is the tool's real job. Snapshot before each board pack; next cycle, the comparison renders slips, pull-ins, widened ranges and additions as one exportable slide — the "what moved" conversation, already drawn. Those saved snapshots quietly become reference-class data: your promised-vs-actual history, waiting for the day you want an outside-view forecast (Flyvbjerg's cure for the planning fallacy).</p>
-    <p>Sources: Douglas Hubbard on calibrated 90% intervals (<em>How to Measure Anything</em>); Bent Flyvbjerg on reference-class forecasting; Reinertsen on why variability is information, not failure.</p>
-    </div>
-  </section>
+  <details class="about"><summary>About this timeline</summary>
+    <p>Timeline forecasts when milestones may finish. It does not decide which conditional work belongs in the plan; use <a href="/paths/">Paths</a> and <a href="/roadmap/">Roadmap</a> for those decisions.</p>
+    <p>Finish ranges express uncertainty: P50 is the median forecast and P90 allows more time. A recorded start supplies calendar-span context, not a progress estimate. Fixed events and actual finishes retain their own marks.</p>
+    <p>Snapshot before a review, then select it in History to compare forecasts. The URL carries your current source; snapshots stay in this browser.</p>
+  </details>
 </div>
 </main>
 
@@ -115,6 +136,12 @@
     Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, July 2026.
   </footer>
 </div>
+<dialog id="slidepreviewdialog" class="slide-preview" aria-labelledby="slidepreviewtitle">
+  <div class="slide-heading"><h2 id="slidepreviewtitle">Timeline slide set</h2><button class="btn" id="slideclose" type="button" data-icon="close">Close</button></div>
+  <p id="slideerror" role="status" hidden>The complete timeline could not fit. Download the full SVG or shorten long commentary.</p>
+  <div id="slidecanvas"></div>
+  <div class="slide-actions"><button class="btn" id="slideprev">Previous</button><span id="slideposition" aria-live="polite"></span><button class="btn" id="slidenext">Next</button><button class="btn primary" id="slidedownload">Download slides</button></div>
+</dialog>
 <script type="module" src="app.js"></script>
 </body>
 </html>

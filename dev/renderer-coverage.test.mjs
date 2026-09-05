@@ -22,7 +22,7 @@ const ALLOW = new Set([
 
 const isDir = rel => statSync(join(ROOT, rel)).isDirectory();
 const renderersIn = dir => readdirSync(join(ROOT, dir))
-  .filter(f => /^render.*\.js$/.test(f) && !EXCLUDE.has(f))
+  .filter(f => /^(?:render.*|chapter-svg)\.js$/.test(f) && !EXCLUDE.has(f))
   .map(f => dir + '/' + f);
 
 function discoverRenderers(){

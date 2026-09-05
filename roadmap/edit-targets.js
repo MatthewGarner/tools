@@ -163,7 +163,13 @@ export function setConfigKey(text, key, value){
   lines.splice(at, 0, line);
   return lines.join('\n');
 }
-export const setStyle = (text, style) => setConfigKey(text, 'style', style);
+export function setStyle(text, style){
+  const lines=setConfigKey(text,'style',style).split('\n');
+  // One visible setting owns the view. Retired declarations must not reappear
+  // when someone subsequently edits or removes the winning line in the DSL.
+  const last=lines.findLastIndex(line=>/^style\s*:/i.test(line.trim()));
+  return lines.filter((line,index)=>index===last || !/^style\s*:/i.test(line.trim())).join('\n');
+}
 /* the focus style's lens — which horizon is the hero */
 export const setFocus = (text, name) => setConfigKey(text, 'focus', name);
 /* the register's grouping lens (S4/E10) — 'lane' is the default, so choosing
@@ -235,7 +241,7 @@ export function setSpanStart(text, srcLine, newH, model){
 
 /* Exported so a later validator (the register "lane" cell edit) can reuse the
    same config-key collision list rather than a second, driftable copy. */
-export const CONFIG_KEYS = /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)$/i;
+export const CONFIG_KEYS = /^(title|date|headline|story|horizons|wip|fade|palette|accent|font|style|focus|verdict|group|basis)$/i;
 
 /* peel the head of a line — the part before ` -- note` / ` -> url` — the same cut
    setSpan uses, so an inserted token/prefix lands in the right place. */

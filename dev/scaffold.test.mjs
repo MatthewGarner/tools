@@ -46,6 +46,7 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
     'instrument numbers must be collision-free');
   /* binders carry their own kicker, never an instrument number */
   for(const dir of BINDERS){
+    if(dir==='case'){assert.match(read(dir+'/index.html'),/data-visual-family="chapter-review"/);assert.match(read(dir+'/render.js'),/m\.decision\|\|m\.unresolved/);continue;}
     assert.match(read(dir + '/index.html'), /<p class="kicker" id="kicker"><\/p>/,
       dir + ': missing the .kicker slot above its h1');
     assert.match(read(dir + '/app.js'), /CASE FILE — /,
@@ -55,6 +56,7 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
   }
   for(const dir of numbered){
     const html = read(dir + '/index.html');
+    if(dir==='timeline'){assert.match(html, /data-visual-family="observatory"/);continue;}
     assert.match(html, /<p class="kicker" id="kicker"><\/p>/,
       dir + ': missing the .kicker slot above its h1');
     const js = read(dir + '/app.js');

@@ -24,12 +24,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="/assets/pwa.js" defer></script>
 </head>
-<body>
+<body class="chapter-app">
 <div class="wrap">
   <header>
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
-    <h1>Roadmap as code</h1>
+    <h1>Roadmap <span class="chapter-wordmark">Chapter</span></h1>
     <p class="tagline">A roadmap is a text file wearing a diagram. Write yours as plain text on the left; get a clean, deck-ready now/next/later graphic on the right. Change the text, the picture follows — no more nudging boxes in slides.</p>
     <aside class="planning-boundary" aria-label="When to use Roadmap">
       <span>Delivery roadmap · committed work</span>
@@ -63,15 +63,17 @@
           <dt><code data-try="">horizons: quarterly from Q3 2026 x4</code></dt>
           <dd>generate quarter columns (also <code>monthly from Aug 2026 x6</code>)</dd>
           <dt><code>wip: 8</code> / <code>wip: off</code></dt>
-          <dd>first-column overload warning threshold (default 6)</dd>
+          <dd>overload warning threshold for each horizon (default 6)</dd>
           <dt><code data-try="">fade: off</code></dt>
-          <dd>disable the certainty fade on later columns</dd>
+          <dd>accepted for older documents; Chapter keeps text at full contrast</dd>
           <dt><code data-try="">palette: ember</code></dt>
           <dd>diagram scheme — accent, background wash, card tint: <code>ocean</code> (default) · <code>slate</code> · <code>ember</code> · <code>plum</code></dd>
+          <dt><code data-try="">font: DM Sans</code></dt>
+          <dd>typography for the artifact and exports: <code>Chapter</code> (editorial headings) or <code>DM Sans</code> throughout. Fonts load locally.</dd>
           <dt><code data-try="">accent: #C05621</code></dt>
           <dd>any hex; derives a matching scheme (overrides palette)</dd>
           <dt><code data-try="">style: focus</code></dt>
-          <dd>the view and the export shape — <code>board</code> (columns) · <code>focus</code> (hero + rail) · <code>register</code> (table) · <code>grid</code> (chart). The first three are live editable views too</dd>
+          <dd>the view picker edits this same setting; it controls the interactive view and every export — <code>board</code> (Horizons) · <code>focus</code> (Spotlight) · <code>register</code> (Register) · <code>grid</code> (Time grid)</dd>
           <dt><code data-try="">group: outcome</code></dt>
           <dd>regroup the register by consequence — either way, only if a bet pays off, only if it doesn't. The By&nbsp;lane / By&nbsp;outcome control above a register writes this for you; omit the key for the usual lane order</dd>
           <dt><code data-try="">headline: We are betting on retention</code></dt>
@@ -81,7 +83,7 @@
           <dt><code data-try="">focus: NEXT</code></dt>
           <dd>which horizon the <code>focus</code> view heroes (defaults to the first with items)</dd>
           <dt><code data-try="">verdict: off</code></dt>
-          <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool writes one</dd>
+          <dd>carry no verdict at all. Any other text becomes <em>your</em> line in its place — omit the key and the tool shows its diagnosis while you edit</dd>
         </dl>
         <h4>Items</h4>
         <dl>
@@ -98,9 +100,9 @@
           <dt><code data-try="">Growth: Referral loop [bet: referrals]</code></dt>
           <dd>declare the item a <em>bet</em> — a fork the plan turns on. Click its capsule (or use the card menu) to preview each world; when reality answers, resolve it in the text: <code>[bet: referrals won]</code> / <code>[bet: referrals lost]</code></dd>
           <dt><code data-try="">Personalisation [if referrals]</code></dt>
-          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditioned items render ghosted while the fork is open — the branch not needed stays on the board, marked not needed, when it closes. When the fork can move without losing meaning, the conditional-work summary can start an incomplete <a href="/paths/">Paths</a> decision plan for you to finish</dd>
+          <dd>happens only if the bet pays off; <code>[unless referrals]</code> marks the fallback if it doesn't. Conditional items retain their condition while the fork is open; work no longer needed stays visible with a struck-through title when it closes. When the fork can move without losing meaning, the conditional-work summary can start an incomplete <a href="/paths/">Paths</a> decision plan for you to finish</dd>
           <dt><code data-try="">… -- note text</code></dt>
-          <dd>smaller second line on the card</dd>
+          <dd>optional subtitle or commentary beneath the title; wraps and continues across slides when needed</dd>
           <dt><code data-try="">… -&gt; https://jira/PROJ-42</code></dt>
           <dd>makes the card title a link (marked ↗)</dd>
           <dt><code data-try="">// comment</code></dt>
@@ -119,11 +121,14 @@
       <div class="composition-bar" aria-label="Roadmap composition">
         <span class="composition-label" id="stylelbl">View</span>
         <div class="stylepick segmented" id="stylepicker" role="group" aria-labelledby="stylelbl">
-          <button data-style="grid" data-capabilities="views.grid editing.grid-interactions" aria-pressed="false">Grid</button>
-          <button data-style="board" data-capability="views.board" aria-pressed="false">Board</button>
-          <button data-style="focus" data-capability="views.focus" aria-pressed="false">Focus</button>
+          <button data-style="grid" data-capabilities="views.grid editing.grid-interactions" aria-pressed="false">Time grid</button>
+          <button data-style="board" data-capability="views.board" aria-pressed="false">Horizons</button>
+          <button data-style="focus" data-capability="views.focus" aria-pressed="false">Spotlight</button>
           <button data-style="register" data-capability="views.register" aria-pressed="false">Register</button>
         </div>
+        <label class="chapter-setting">Typography <select class="ctl" id="fontchoice" aria-label="Typography"><option>Chapter</option><option>DM Sans</option></select></label>
+        <label class="chapter-setting">Accent <input id="accentchoice" type="color" aria-label="Accent colour" value="#254C3D"></label>
+        <button class="btn chapter-export" id="exportdeck" type="button">Export deck</button>
         <p class="narrow-composition-note" id="narrowcomposition" aria-live="polite" hidden></p>
         <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>
           <button data-group="lane" aria-pressed="true">By lane</button>
@@ -139,6 +144,7 @@
         <select class="ctl" id="boardjump" aria-label="Jump Board window to horizon"></select>
         <button class="btn board-step" id="boardnext" type="button" aria-label="Next Board horizons" title="Next Board horizons">›</button>
       </div>
+      <p id="fontstatus" role="status"><span id="fontmessage">Loading roadmap typography…</span> <button class="btn" id="retryfonts" type="button">Retry fonts</button></p>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <div class="vwrap" data-edit="verdictedit" data-line="-1" data-raw="">
       <div class="verdict-block" id="verdict" aria-live="polite" aria-atomic="true" hidden data-edit="verdict" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Verdict — edit, copy, or switch it off"></div>
@@ -168,7 +174,7 @@
             <div class="action-menu">
               <p class="action-menu-label">Full-detail artefact</p>
               <button class="btn" id="dlpng" data-capability="presentationExports.png">Full-detail PNG</button>
-              <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Editable SVG</button>
+              <button class="btn" id="dlsvg" data-capability="presentationExports.svg">Full-detail SVG</button>
               <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy source as Markdown</button>
               <button class="btn" id="fullslideexport" data-capability="presentationExports.slide-set" type="button" hidden>Review 16:9 slide set…</button>
             </div>
@@ -192,10 +198,10 @@
     <h2>Why text?</h2>
     <div class="prose">
     <p>Roadmaps decay because updating them is friction: the truth changes in minutes, but the diagram lives in a slide nobody wants to reflow. Making the source plain text removes the friction — an update is one line, the layout is the tool's problem, and the diagram is always regenerable. Text also diffs: paste versions into git or a doc and you can see exactly what moved between planning cycles, which slides will never tell you.</p>
-    <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty — which is also why later columns fade slightly. See <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">Janna Bastow on inventing now/next/later</a>, and her <a href="https://www.prodpad.com/blog/timeline-roadmap-issues/" target="_blank" rel="noopener">case against timeline roadmaps</a>. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>) — the certainty fade applies just the same.</p>
+    <p>The default now/next/later form (over date-based Gantt) is deliberate: dates on a roadmap read as commitments and get negotiated; horizons communicate sequence and intent while staying honest about uncertainty. See <a href="https://www.prodpad.com/blog/invented-now-next-later-roadmap/" target="_blank" rel="noopener">Janna Bastow on inventing now/next/later</a>, and her <a href="https://www.prodpad.com/blog/timeline-roadmap-issues/" target="_blank" rel="noopener">case against timeline roadmaps</a>. If your organisation plans in calendar time anyway, generate month or quarter columns (<code>horizons: quarterly from Q3 2026 x4</code>).</p>
     <p>The snapshot/compare feature exists because the most useful roadmap artefact isn't the roadmap — it's <em>what changed since last time</em>. Snapshot before each planning cycle; the comparison renders new, moved, and dropped items as an exportable slide.</p>
     <p>Exports leave at 16:9, because a roadmap's destination is almost always a deck: pick a structure with <code>style:</code> (columns, a hero for the current horizon, a formal register, or the chart itself), and colour still comes from <code>palette:</code>/<code>accent:</code> — a style owns structure, never colour. The headline under the title is the one thing the tool won't write for you. It could: the model knows which horizon is overloaded and what's at risk. But a headline is a claim you're making to a room, and a tool that drafts it for you has put words in your mouth — so <code>headline:</code> stays blank until you write it, and the deck simply omits it if you don't. The tool still tells <em>you</em> when Now is overloaded; it just says it in the editor, where an argument belongs, rather than on your slide.</p>
-    <p>The style picker does more than choose an export: Register, Board and Focus are live views you edit in place. Register is an accountable review table; Board is a horizon-led commitment ledger; Focus is a movable lens, with one horizon in full and the rest as a ranked rail. Grid stays the chart, because Grid <em>is</em> the chart. On a phone each view keeps its purpose: Grid stacks time, Board moves one horizon at a time, Focus becomes a vertical lens, and Register becomes a review log.</p>
+    <p>The four Chapter layouts share typography and colour settings. Horizons arranges work by sequence; Spotlight gives one horizon a dominant reading surface; Register is an accountable review table; Time grid shows occupancy and overlap. Each is editable in place. On a phone each view keeps its purpose: Time grid stacks time, Horizons moves one horizon at a time, Spotlight becomes a vertical lens, and Register becomes a review log.</p>
     <p>A span (<code>x3</code>) means an item runs for that many columns straight — full occupancy, not a landing-date guess. That distinction is deliberate: honest uncertainty about <em>when</em> something lands is what <a href="/timeline/">Timeline</a> is for, with its own P50/P90 language; a span here says the opposite, that the work is committed and running for its whole length. Drag its edges to change how long it runs, or its middle to move it without changing the length. A span can also leave an item active in a column it was never written under, so the WIP guardrail now counts everything active in a column, not just what starts there — a crunch two quarters out, invisible before, now warns.</p>
     </div>
   </section>
@@ -210,12 +216,15 @@
     </div>
     <button class="btn" id="slideclose" type="button">Close</button>
   </div>
+  <label class="chapter-setting">Include <select id="exportdetail" class="ctl"><option value="complete">Titles and commentary</option><option value="titles">Titles only</option></select></label>
   <p class="slide-set-copy" id="slidecopy">Every horizon and item is included.</p>
+  <p id="slideerror" role="alert" hidden>This plan cannot fit readable slides yet. Shorten the headline or story, or move supporting detail into item commentary, which can continue across slides. You can still download the full SVG from Export +.</p>
   <div class="slide-set-art" id="slidecanvas" aria-live="polite" aria-atomic="true"></div>
   <div class="slide-set-actions">
     <button class="btn" id="slideprev" type="button">Previous</button>
     <span class="method" id="slideposition" aria-live="polite"></span>
     <button class="btn" id="slidenext" type="button">Next</button>
+    <button class="btn" id="slidecopyimage" type="button">Copy slide PNG</button>
     <button class="btn primary" id="slidedownload" type="button">Download slide set</button>
   </div>
 </dialog>

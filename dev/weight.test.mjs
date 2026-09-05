@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {FONT_FACES} from '../roadmap/chapter-fonts.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
@@ -48,6 +49,9 @@ function pageLoad(page){
     moduleGraph(resolveRef(dir, m[1]), files);
   for(const m of html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g))
     files.add(resolveRef(dir, m[1]));
+  // Chapter eagerly fetches its local registry before measuring live or export text.
+  if(files.has('roadmap/chapter-font-loader.js'))
+    for(const face of FONT_FACES) files.add('roadmap/fonts/' + face.file);
   return files;
 }
 
@@ -166,7 +170,7 @@ const PAGES = {
      recognition, bounded Roadmap-basis decoding and claim-labelled exports
      are the Case binder's job, not decorative shell bytes. Actual 472.8k;
      retain ~6.2k headroom for this CodeMirror page. */
-  'case/index.html': 490_000,   /* 479k -> 490k (2026-08-20 P1): shared export and reader-state code brings the real eager graph to 484.0k; retain ~6k headroom rather than turning a cross-suite safety seam into a recurring 300B trap. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+  'case/index.html': 580_000, // Chapter review, local fonts and complete paginated decks: measured 561k; bounded headroom for the approved feature.
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   /* 113k -> 125k (2026-08-13 pre-parade): the inverse workshop adds a distinct
      opportunity register, commitment-only rendering/markdown, explicit home
@@ -409,7 +413,7 @@ const PAGES = {
      explicit author route, and focus-safe session feedback. They share the live
      SVG statistics rather than creating a second model; actual 565.6k leaves a
      4.4k guardrail. */
-  'gauge/index.html': 580_000, 'timeline/index.html': 576_000,   /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
+  'gauge/index.html': 580_000, 'timeline/index.html': 665_000,   /* Timeline Observatory adds the local font registry, measured four-view renderer and complete PNG decks (~646k). */ /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */

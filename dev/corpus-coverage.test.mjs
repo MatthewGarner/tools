@@ -71,12 +71,12 @@ function renderersOnDisk(){
     const topPath = join(ROOT, top);
     if(top.startsWith('.') || ['node_modules', 'vendor'].includes(top) || !statSync(topPath).isDirectory()) continue;
     for(const file of readdirSync(topPath))
-      if(/^render.*\.js$/.test(file)) out.push(top + '/' + file);
+      if(/^(?:render.*|chapter-svg)\.js$/.test(file)) out.push(top + '/' + file);
     if(top === 'energy') for(const sub of readdirSync(topPath)){
       const subPath = join(topPath, sub);
       if(!statSync(subPath).isDirectory()) continue;
       for(const file of readdirSync(subPath))
-        if(/^render.*\.js$/.test(file)) out.push('energy/' + sub + '/' + file);
+        if(/^(?:render.*|chapter-svg)\.js$/.test(file)) out.push('energy/' + sub + '/' + file);
     }
   }
   return sorted(out);
@@ -150,7 +150,6 @@ test('check-eip visits every attachEditInPlace tool or records its dedicated-sui
   const baseRoute = routesIn(src.match(/const BASE\s*=.*?;\s*$/m)?.[0] || '');
   const covered = new Set([...baseRoute, ...gotoArguments(src).flatMap(routesIn)]);
   const allowed = {
-    case: 'dev/pw/case.mjs owns case-level edit-in-place interaction and undo coverage.',
     proxy: 'dev/pw/smoke.mjs exercises the proxy author-verdict edit-in-place flow in both themes.',
   };
   assert.ok(eligible.length > 0, 'edit-in-place app discovery found nothing');

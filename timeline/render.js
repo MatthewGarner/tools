@@ -186,11 +186,11 @@ export function toMarkdown(model, diff, url, today){
   const v = timelineVerdict(model, today).line;
   if(v) lines.push('**' + v + '**', '');
   if(diff) lines.push(diff.sinceLine, '');
-  lines.push('| Milestone | Lane | P50 | P90 | Status / decision lead | Note |');
-  lines.push('|---|---|---|---|---|---|');
+  lines.push('| Milestone | Lane | Started | P50 | P90 | Status / decision lead | Note |');
+  lines.push('|---|---|---|---|---|---|---|');
   for(const it of model.items){
     const clock = decisionLead(it, today);
-    lines.push('| ' + it.label + ' | ' + (it.lane || '—') + ' | ' + fmtDay(it.p50) + ' | ' +
+    lines.push('| ' + it.label + ' | ' + (it.lane || '—') + ' | ' + (it.started != null ? fmtDay(it.started) : '—') + ' | ' + fmtDay(it.p50) + ' | ' +
       (it.single ? (it.status === 'done' ? 'done' : it.status === 'fixed' ? 'fixed' : 'no range')
         : fmtDay(it.p90)) + ' | ' +
       ((it.status || '') + (clock ? ' · decide by ' + fmtDay(clock.day) + ' (' + leadDuration(clock.leadDays) + ' lead)' : '')) + ' | ' +

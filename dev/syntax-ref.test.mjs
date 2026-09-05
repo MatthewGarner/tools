@@ -56,7 +56,7 @@ const TOOLS = {
       'A @ 20,80'].join('\n'),
   },
   case: {
-    keys: ['title', 'question', 'status', 'verdict', 'palette', 'accent'],
+    keys: ['title', 'question', 'status', 'verdict', 'palette', 'accent', 'headline', 'decision', 'unresolved', 'owner', 'date', 'review-by', 'reconsider', 'constraints', 'view', 'font', 'theme'],
     doc: ['title: T', 'question: Ship it?', 'status: decided', 'verdict: We ship',
       'palette: ocean', 'accent: #C05621', 'Money: NPV model -> /fermi/#x // why it matters'].join('\n'),
   },

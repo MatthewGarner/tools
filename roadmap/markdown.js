@@ -50,6 +50,9 @@ function itemMetadata(it){
 export function roadmapToMarkdown(model, {href = '', includeStory = false} = {}){
   const lines = [];
   if(model.title) lines.push('## ' + model.title, '');
+  for(const key of ['font', 'palette', 'accent', 'style', 'focus', 'group']){
+    if(model[key] && model[key] !== ({font:'Chapter',palette:'ocean',group:'lane'})[key]) lines.push('`' + key + ': ' + model[key] + '`', '');
+  }
   const axis = horizonsLine(model);
   if(axis) lines.push('`horizons: ' + axis + '`', '');
   const basis = basisLine(model.basis);
@@ -83,7 +86,7 @@ export function markdownToRoadmapDsl(md){
     if(!line) continue;
     let m;
     if((m = line.match(/^##\s+(.*)$/)) && !line.startsWith('###')){ config.push('title: ' + m[1].trim()); continue; }
-    if((m = line.match(/^`?(horizons|basis):\s*(.*?)`?$/i))){
+    if((m = line.match(/^`?(horizons|basis|font|palette|accent|style|focus|group):\s*(.*?)`?$/i))){
       const rawValue = m[2].trim().replace(/`$/, '');
       config.push(m[1].toLowerCase() + ': ' + rawValue); continue;
     }

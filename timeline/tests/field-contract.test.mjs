@@ -1,3 +1,5 @@
+import {layoutObservatory,observatoryPages,observatoryColors} from '../observatory.js';
+const words = svg => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m=>m[1]).join(' ');
 /*
   Field contract — written from timeline/CONTEXT.md before the renderer is
   changed. These assertions deliberately name user-visible meaning (a forecast,
@@ -86,15 +88,11 @@ External gate 2026-10 .. 2026-12`;
   assert.match(svg, /data-field-history-inert=""/, 'historic geometry is never an edit target');
 });
 
-test('comparison movement labels stay neutral; red and green remain reserved for factual exceptions', () => {
-  const oldDoc = 'Forecast 2026-09 .. 2026-11';
-  const newDoc = 'Forecast 2026-10 .. 2026-11';
-  const diff = timelineDiffView(timelineDiff(parse(oldDoc), parse(newDoc)), 'August review');
-  const svg = renderIntent(newDoc, 'live-wide', {}, diff);
-  const movement = [...svg.matchAll(/<text[^>]*fill="([^"]+)"[^>]*>([+−][^<]+)<\/text>/g)];
-  assert.ok(movement.length, 'the comparison makes the moved timing explicit');
-  assert.ok(movement.every(([, fill]) => fill === ctx.colors.muted),
-    'movement is geometry and neutral text, never a state colour');
+test('comparison movement is neutral text with an explicit finish delta', () => {
+  const a=parse('A 2026-09 .. 2026-11'),m=parse('A 2026-10 .. 2026-11');
+  const d=timelineDiffView(timelineDiff(a,m),'August'),L=layoutObservatory(m,ctx,d),s=render(m,ctx,d);
+  assert.ok(L.rows[0].blocks.some(b=>b.kind==='change'&&b.lines.join(' ').includes('+30 days')));
+  assert.match(s,new RegExp('fill="'+observatoryColors(m,ctx).muted+'"[^>]*>P50'));
 });
 
 test('the field carries date facts separately from geometry across short, multi-year and state edge cases', () => {
@@ -115,16 +113,12 @@ Risk forecast 2026-09 .. 2026-11 [risk]`;
   }
 });
 
-test('Copy PNG is either one complete 16:9 Field or an explicit safe refusal — never a partial selection', () => {
-  const ordinary = renderIntent(complete, 'presentation');
-  assert.match(ordinary, /data-copy-field="complete"/);
-  assert.match(ordinary, /5 MILESTONES · COMPLETE SET/);
-  const dense = 'title: Dense\n' + Array.from({length:40}, (_, i) =>
-    `Lane ${i % 4}: A deliberately descriptive forecast ${i} 202${6 + Math.floor(i / 12)}-0${i % 8 + 1} .. 202${6 + Math.floor(i / 12)}-1${i % 2 + 1} // a note that must remain present in export`).join('\n');
-  const refused = renderIntent(dense, 'presentation');
-  assert.match(refused, /data-copy-field="unavailable"/);
-  assert.match(refused, /COPY PNG UNAVAILABLE.*DOWNLOAD SVG/);
-  assert.equal(count(refused, /data-field-item=/g), 0, 'a refusal cannot masquerade as a partial Field');
+test('Copy PNG keeps one complete slide while a dense deck covers every row', () => {
+  const ordinary=renderIntent(complete,'presentation');assert.match(ordinary,/data-copy-field="complete"/);
+  assert.equal(count(ordinary,/data-field-item=/g),5);assert.doesNotMatch(words(ordinary),/MILESTONES|COMPLETE SET/);
+  const m=parse(Array.from({length:40},(_,i)=>`Lane: Outcome ${i} 2026-08 .. 2027-01`).join('\n'));
+  assert.match(render(m,{...ctx,intent:'presentation'}),/data-copy-field="unavailable"/);
+  const deck=observatoryPages(m,ctx);assert.equal(deck.complete,true);assert.equal(deck.pages.flatMap(p=>p.sourceKeys).length,40);
 });
 
 test('explicit export intent wins over a phone-sized context', () => {
@@ -143,98 +137,39 @@ test('an unbroken authored token wraps in the Field or makes Copy PNG refuse', (
     'Copy PNG either keeps an unbroken token within the Field or safely refuses');
 });
 
-test('the presentation receipt is measured and preserves a dropped item by name', () => {
-  const verdict = 'This is a deliberately long authored verdict. '.repeat(100);
-  const tooLong = renderIntent('verdict: ' + verdict + '\nA 2026-08 .. 2026-09', 'presentation');
-  assert.match(tooLong, /data-copy-field="unavailable"/,
-    'a receipt that cannot fit the factual footer refuses before it overflows');
-
-  const oldDoc = 'Dropped commitment with a descriptive accountable outcome 2026-08 .. 2026-09\nRetained 2026-10 .. 2026-11';
-  const nextDoc = 'Retained 2026-10 .. 2026-11';
-  const diff = timelineDiffView(timelineDiff(parse(oldDoc), parse(nextDoc)), 'August review');
-  const complete = renderIntent(nextDoc, 'presentation', {}, diff);
-  assert.match(complete, /data-copy-field="complete"/);
-  assert.match(complete, /DROPPED SINCE AUGUST REVIEW/);
-  assert.match(complete, /Dropped commitment with a descriptive accountable outcome/);
+test('large conclusions refuse safely and removed milestones retain their full names', () => {
+  const m=parse('verdict: '+ 'Long authored conclusion. '.repeat(200)+'\nA 2026-08 .. 2026-09');
+  assert.match(render(m,{...ctx,intent:'presentation'}),/data-copy-field="unavailable"/);
+  const a=parse('Dropped outcome 2026-08 .. 2026-09\nRetained 2026-10 .. 2026-11'),b=parse('Retained 2026-10 .. 2026-11');
+  const d=timelineDiffView(timelineDiff(a,b),'August review'),deck=observatoryPages(b,ctx,d);
+  assert.equal(deck.complete,true);assert.match(words(deck.pages[0].svg),/Dropped outcome/);assert.match(deck.pages[0].svg,/data-dropped=""/);
 });
 
-test('an authored verdict leaves an active decision clock explicit in Copy PNG', () => {
-  const doc = `today: 2026-08-01
-verdict: Hold the public launch inside the review window.
-Compliance: Privacy review 2026-08-28 [fixed] [lead: 3w]
-Launch story 2026-09 .. 2026-10`;
-  const svg = renderIntent(doc, 'presentation');
-  assert.match(svg, /Hold the public launch inside the review window\./);
-  const visible = svg.replace(/<title>[\s\S]*?<\/title>/g, '').replace(/aria-label="[^"]*"/g, '');
-  assert.match(visible, /Decision clock: Decide by 7 Aug 2026 for Privacy review \(3 weeks lead\)\./,
-    'an authored conclusion cannot hide the active decision clock from the exported receipt');
+test('authored conclusions preserve the independent decision clock', () => {
+  const m=parse('today: 2026-08-01\nverdict: Keep the review window clear.\nPrivacy review 2026-08-28 [fixed] [lead: 3w]');
+  const s=render(m,{...ctx,intent:'presentation'});assert.match(words(s),/Keep the review window clear/);assert.match(words(s),/Decide by 7 Aug 2026/);assert.match(s,/data-lrm/);
 });
 
-test('a long source title keeps every word that fits, and names an explicit export refusal when it cannot', () => {
-  const title = 'Crossfunctional'.repeat(18);
-  const doc = 'title: ' + title + '\nRisk: Forecast 2026-08 .. 2026-10 [risk]';
-  for(const [intent, extra] of intents){
-    const svg = renderIntent(doc, intent, extra);
-    assert.doesNotMatch(svg, new RegExp('>' + title + '</text>'), intent + ' never emits the source title as an overflowing line');
-    const visible = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(([, line]) => line).join('');
-    assert.ok(visible.includes(title), intent + ' retains the authored title when its wrapped lines fit the Field');
-  }
-  const tooLong = 'Crossfunctional'.repeat(100);
-  const refused = renderIntent('title: ' + tooLong + '\n' + Array.from({length:40}, (_, i) =>
-    'Lane ' + (i % 4) + ': Forecast ' + i + ' 2026-08 .. 2026-10').join('\n'), 'presentation');
-  assert.match(refused, /data-copy-field="unavailable"/);
-  assert.match(refused, /SOURCE TITLE EXCEEDS ONE-FRAME FIELD/,
-    'a source heading that physically cannot fit states why Copy PNG is unavailable');
-  assert.match(refused, /DOWNLOAD SVG TO RETAIN THE FULL AUTHOR TITLE/,
-    'the refusal preserves the authoring escape route instead of silently replacing the title');
+test('unbounded titles stay complete in native SVG and cannot claim a fitted deck', () => {
+  const title='Crossfunctional'.repeat(18),m=parse('title: '+title+'\nA 2026-08 .. 2026-10');
+  for(const intent of ['live-wide','native']){const s=render(m,{...ctx,intent});assert.ok(words(s).replace(/ /g,'').includes(title));}
+  const tooLong=parse('title: '+title.repeat(20)+'\nA 2026-08 .. 2026-10');assert.match(render(tooLong,{...ctx,intent:'presentation'}),/data-copy-field="unavailable"/);assert.equal(observatoryPages(tooLong,ctx).complete,false);
 });
 
-test('state words retain a clear end-cap when an item title needs multiple lines', () => {
-  const label = 'A'.repeat(80);
-  const doc = 'today: 2026-10-01\nLane: ' + label + ' 2026-08-01 [fixed]';
-  for(const [intent, extra] of [['live-wide', {}], ['presentation', {}]]){
-    const svg = renderIntent(doc, intent, extra);
-    const item = svg.match(new RegExp('<g data-field-item="lane\\|' + label.toLowerCase() + '"[\\s\\S]*?</g>'))?.[0] || '';
-    const state = item.match(/<text x="([\d.]+)"[^>]*text-anchor="end"[^>]*>OVERDUE<\/text>/);
-    const ends = [...item.matchAll(/<text x="([\d.]+)"[^>]*>(A+)<\/text>/g)]
-      .map(([, x, line]) => Number(x) + ctx.measure(line));
-    assert.ok(state && ends.length, intent + ' shows both the state and wrapped title');
-    assert.ok(Math.max(...ends) <= Number(state[1]) - ctx.measure('OVERDUE') - 12,
-      intent + ' leaves a readable gap before the state end-cap');
-  }
+test('wrapped item labels give state words their own measured line', () => {
+  const m=parse('today: 2026-10-01\nLane: '+ 'A'.repeat(80)+' 2026-08-01 [fixed]');
+  for(const intent of ['live-wide','presentation']){const L=layoutObservatory(m,ctx,null,{intent}),row=L.rows[0],status=row.blocks.find(b=>b.kind==='state');assert.ok(status);assert.equal(status.lines.join(' '),'OVERDUE');assert.ok(status.y>=row.blocks[0].y+row.blocks[0].lines.length*row.blocks[0].step);}
 });
 
-test('a wrapped comparison addition uses the separate state end-cap, never the date rail', () => {
-  const label = 'A'.repeat(80);
-  const oldDoc = 'Lane: Existing 2026-08 .. 2026-09';
-  const newDoc = oldDoc + '\nLane: ' + label + ' 2026-10 .. 2026-11';
-  const diff = timelineDiffView(timelineDiff(parse(oldDoc), parse(newDoc)), 'August review');
-  for(const [intent, extra] of [['live-wide', {}], ['live-narrow', {width:390}], ['presentation', {}]]){
-    const svg = renderIntent(newDoc, intent, extra, diff);
-    const item = svg.match(new RegExp('<g data-field-item="lane\\|' + label.toLowerCase() + '"[\\s\\S]*?</g>'))?.[0] || '';
-    const range = item.match(/<text x="([\d.]+)"[^>]*font-size="(?:11|11\.5|22)"[^>]*>([^<]*Oct 2026[^<]*Nov 2026)<\/text>/);
-    const fresh = item.match(/<text x="([\d.]+)"([^>]*)>NEW<\/text>/);
-    assert.ok(range && fresh, intent + ' preserves the date fact and NEW marker');
-    assert.equal((item.match(/>NEW<\/text>/g) || []).length, 1,
-      intent + ' renders one, and only one, NEW comparison fact');
-    const freshStart = /text-anchor="end"/.test(fresh[2]) ? Number(fresh[1]) - ctx.measure('NEW') : Number(fresh[1]);
-    assert.ok(freshStart >= Number(range[1]) + ctx.measure(range[2]) + 12 ||
-      freshStart + ctx.measure('NEW') <= Number(range[1]) - 12,
-    intent + ' gives the new marker its own spatial band');
-  }
+test('comparison additions never overprint their finish dates', () => {
+  const a=parse('A 2026-08 .. 2026-09'),m=parse('A 2026-08 .. 2026-09\n'+ 'Long'.repeat(50)+' 2026-10 .. 2026-11'),d=timelineDiffView(timelineDiff(a,m),'August');
+  for(const intent of ['live-wide','live-narrow','presentation']){const L=layoutObservatory(m,{...ctx,width:390},d,{intent}),r=L.rows[1],fresh=r.blocks.find(b=>b.lines.includes('NEW')),dates=r.blocks.find(b=>b.kind==='dates');assert.ok(fresh&&dates);assert.ok(fresh.y>=dates.y+dates.lines.length*dates.step);}
 });
 
-test('an empty Field preserves its selected geometry and the live add route', () => {
-  const doc = 'title: Empty timing plan';
-  const presentation = renderIntent(doc, 'presentation');
-  assert.match(presentation, /width="1920" height="1080"/);
-  assert.match(presentation, /data-font-floor="22"/);
-  assert.match(presentation, /0 MILESTONES · EMPTY FIELD/);
-  const native = renderIntent(doc, 'native');
-  assert.match(native, /width="1442"/);
-  const edit = renderIntent(doc, 'live-wide', {}, null, true);
-  assert.match(edit, /data-edit="additem"[^>]*data-lane=""/);
-  assert.match(edit, /data-hit=""[^>]*height="44"/);
+test('empty views keep their geometry and a keyboard add route', () => {
+  const m=parse('title: Empty timing plan');
+  const p=render(m,{...ctx,intent:'presentation'});assert.match(p,/width="1920" height="1080"/);assert.doesNotMatch(words(p),/MILESTONES/);
+  assert.match(render(m,{...ctx,intent:'native'}),/width="1442"/);const s=render(m,ctx,null,{edit:true});assert.match(s,/data-edit="additem"[^>]*data-lane=""/);assert.match(s,/data-hit=""[^>]*height="44"/);
 });
 
 test('live Field controls are keyboard routes, with a complete add route and no interaction on history', () => {

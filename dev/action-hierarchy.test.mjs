@@ -8,7 +8,7 @@ const read = path => readFileSync(new URL(path, ROOT), 'utf8');
 const STANDARD = {
   'alarm/index.html': ['copypng', 'copydoc', 'dlpng', 'dlsvg'],
   'bets/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
-  'case/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
+
   'energy/cycles/index.html': ['copypng', 'copymd', 'dlpng', 'dlsvg'],
   'energy/frequency/index.html': ['copypng', 'copydoc', 'dlpng', 'dlsvg'],
   'energy/intraday/index.html': ['copypng', 'dlpng', 'dlsvg'],
@@ -45,6 +45,9 @@ function assertExportDisclosure(html, who, [copyId, ...secondary]){
 }
 
 test('instrument export rows keep Copy PNG immediate and disclose secondary formats', () => {
+  const caseHTML=read('case/index.html');
+  assert.match(caseHTML, /id="copypng"[^>]*>Copy decision slide/);
+  for(const id of ['deckpng','decksvg','deckprint'])assert.ok(caseHTML.indexOf('id="'+id+'"')>caseHTML.indexOf('<dialog id="deckdialog"'));
   for(const [path, ids] of Object.entries(STANDARD))
     assertExportDisclosure(read(path), path, ids);
 
@@ -87,7 +90,7 @@ test('every page with a primary Copy PNG declares its export hierarchy', async (
     try { return read(dir + '/index.html').includes('id="copypng"'); }
     catch { return false; }
   }).map(dir => dir + '/index.html');
-  const missing = offers.filter(p => !(p in STANDARD));
+  const missing = offers.filter(p => !(p in STANDARD) && p!=='case/index.html'); // Case's complete deck modal is asserted above.
   assert.deepEqual(missing, [], 'these pages offer Copy PNG but declare no export hierarchy: ' +
     missing.join(' '));
   const stale = Object.keys(STANDARD).filter(p => !offers.includes(p));

@@ -2,8 +2,6 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {layoutRoadmap, presentationStrip} from '../layout.js';
-import {renderDeck} from '../render-deck.js';
-import {renderDeckPages} from '../render-deck-pages.js';
 
 const measure = text => String(text || '').length * 7;
 const colors = {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',accentInk:'#067',bg:'#f7f8f6',
@@ -24,6 +22,7 @@ E
 Core: e
 F
 Core: f`);
+
 
 test('native layout is exhaustive and retains all authored horizons', () => {
   const layout = layoutRoadmap(many, {kind:'native', measure, width:900});
@@ -47,27 +46,4 @@ test('presentation remaps the selected strip and states selection plus remainder
   assert.deepEqual(layout.model.items.map(i => i.h), [0,1,2]);
   assert.equal(layout.selection.omittedItems, 3);
   assert.match(layout.selection.line, /SHOWING 3 OF 6 HORIZONS · 3 OF 6 ITEMS · 3 CONTINUE/);
-});
-
-test('every fixed deck style carries the same visible selection contract', () => {
-  for(const style of ['board','register','focus','grid']){
-    const svg = renderDeck({...many, style}, {measure, colors, today:'2026-08-04'});
-    assert.match(svg, /width="1920" height="1080"/);
-    assert.ok(svg.includes('SHOWING 3 OF 6 HORIZONS'));
-    assert.ok(svg.includes('3 CONTINUE'));
-  }
-});
-
-test('exhaustive deck pages retain full-model metrics and declare every page', () => {
-  for(const style of ['board','register','focus','grid']){
-    const out = renderDeckPages({...many, style}, {measure, colors, today:'2026-08-04'});
-    assert.equal(out.pages.length, style === 'focus' ? 1 : 2);
-    assert.equal(out.plan.pages.every(p => p.total === out.pages.length), true);
-    assert.equal(out.plan.pages.flatMap(p => p.sourceItemIndices).includes(5), true);
-    assert.match(out.pages[0], new RegExp('PAGE 1 OF ' + out.pages.length));
-    if(style === 'focus') assert.doesNotMatch(out.pages[0], /PAGE 2 OF/);
-    else assert.match(out.pages[1], /PAGE 2 OF 2/);
-    assert.match(out.pages[0], /6 items · 6 horizons/);
-    if(style !== 'focus') assert.match(out.pages[1], /6 items · 6 horizons/);
-  }
 });

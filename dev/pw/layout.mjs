@@ -39,10 +39,9 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
      that takes the physical-size-floor branch below, which any unchanged width
      satisfies, so a regression capping it at 700px would have passed everything.
 
-   `case` was in the deep set and is not any more: it is declared identically to
-   `tree` on every dimension the walk branches on (no source, no view, no receipt),
-   so it walked the shared module a fourth time and bought nothing. The coverage
-   guard at the foot of this file could not see that — see its comment.
+   Case's Chapter review shares the receipt-column geometry with Paths. Its own
+   native editing and deck flows live in case.mjs; Paths witnesses the shared deep
+   workspace behavior for that shape.
 
    The narrow-stacking check stays on ALL thirteen deliberately. `narrowTab` is
    real per-tool markup, not shared behaviour, and its TRUE branch belongs only to
@@ -52,10 +51,10 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 const TOOLS = [
   {path: '/tree/', chip: 'Bid or no bid', deep: true},
   {path: '/why/', chip: 'Reading retention', source: 'Edit tree source'},
-  {path: '/roadmap/', chip: 'Reading app roadmap'},
+  {path: '/roadmap/', source: 'Edit roadmap source', narrowTab: true, chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
-  {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false, reader: true},
+  {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   /* Bets keeps source open for editing, but its fit advisory has a named manual
      reader route. That route must release the hidden editor's layout height; a
@@ -68,7 +67,7 @@ const TOOLS = [
      shipped; this list had never caught up, so the rail/collapse/zoom behaviour of
      three tools — paths the largest page in the suite — was never exercised.
 
-     case and proxy open with the rail EXPANDED (their railtab reads "Hide source
+     proxy opens with the rail EXPANDED (their railtab reads "Hide source
      editor"), so neither needs a source trigger. paths opens COLLAPSED and its railtab
      is labelled "Edit Paths plan source", so it takes the gauge shape: a source
      trigger, but narrowTab:false, because at 800px its rail stacks visibly while the
@@ -77,7 +76,7 @@ const TOOLS = [
      Every one of those facts was measured against the running page. A first attempt
      guessed the label; a second removed the trigger entirely on the strength of a
      visibility probe that used offsetParent and reported the opposite of the truth. */
-  {path: '/case/', chip: 'Wexcombe augmentation'},
+  {path: '/case/', chip: 'Morrow · paid tier', source: 'Edit source', narrowTab: false, receiptColumn: true},
   {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true, deep: true},
   {path: '/proxy/', chip: TWO_THEORIES.name, source: 'Show source editor', narrowTab: false, reader: true},
 ];
@@ -200,7 +199,7 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
    responsive transition; initial coarse arrivals are covered below for all four. */
 {
   const page = await browser.newPage({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
-  await page.goto(BASE + '/timeline/', {waitUntil:'networkidle'});
+  await page.goto(BASE + '/proxy/', {waitUntil:'networkidle'});
   await until(() => page.evaluate(() => document.getElementById('workspace')?.dataset.workspaceView === 'reading'));
   await page.setViewportSize({width:800, height:900});
   await page.waitForTimeout(350);
@@ -229,7 +228,9 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   await page.waitForTimeout(500);
   if(view){ await page.locator(view).click(); await page.waitForTimeout(400); }
 
-  const svgW = async () => (await page.locator('#preview svg').boundingBox()).width;
+  // Case replaces its SVG during resize. A resolved SVG handle can detach before
+  // evaluate runs (width 0); query it inside the stable preview's DOM operation.
+  const svgW = () => page.locator('#preview').evaluate(preview=>preview.querySelector('svg')?.getBoundingClientRect().width||0);
   check(path + ' rail visible by default', await page.locator('.rail').isVisible());
   const before = await svgW();
   await page.locator('#railtab').click();
@@ -259,24 +260,27 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
     /* count() first: boundingBox() on a locator that matches nothing waits out the
        full timeout and rejects, which would CRASH the suite where a vanished receipt
        should read as a clean FAIL. */
-    const receipt = page.locator('.overview-receipt').first();
+    const receipt = page.locator(path === '/case/' ? '#inspector' : '.overview-receipt').first();
     const receiptBox = await receipt.count() ? await receipt.boundingBox() : null;
     check(path + ' artefact fills its stage beside the receipt (svg ' + Math.round(after) +
       ' = stage ' + Math.round(stageW) + ')', Math.abs(after - stageW) < 12);
     check(path + ' artefact + receipt reach a sibling\'s width (' + Math.round(after) + ' + ' +
       Math.round(receiptBox?.width || 0) + ')', !!receiptBox && after + receiptBox.width > 1500);
-  } else if(path === '/timeline/') {
-    /* Timeline's Field is a calibrated physical artefact, not a fluid dashboard.
-       Its 1442px native width keeps the timing track, factual marks and text at a
-       stable reading scale alongside the rail; hiding the rail must then give that
-       same Field the entire available stage. The generic 20% growth heuristic is
-       wrong here: 1442 → 1636 is intentional, useful growth without rescaling the
-       authored instrument. */
+  } else if(path === '/roadmap/') {
+    /* Chapter starts at its 1440px composition width beside source, then uses
+       the full reading stage. That useful 13% growth is smaller than the old
+       generic 20% heuristic; assert the actual reading geometry instead. */
     const stageW = (await page.locator('#preview').boundingBox()).width;
-    check(path + ' Field retains its physical reading width and claims the full stage (' +
+    check(path + ' Chapter preserves its composition width and fills the reading stage (' +
       Math.round(before) + '→' + Math.round(after) + ' = ' + Math.round(stageW) + ')',
-    minReadable >= 1 && before >= 1400 && before <= 1450 &&
-      after >= 1600 && after - before >= 160 && Math.abs(after - stageW) < 12);
+      before >= 1440 && after > before && Math.abs(after - stageW) < 12);
+    check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
+  } else if(path === '/timeline/') {
+    // Observatory reflows its track to the available live width. Native/export
+    // intents retain their own dimensions; live type stays at its reading floor.
+    const stageW = (await page.locator('#preview').boundingBox()).width;
+    check(path + ' Observatory reflows to fill the stage without shrinking text',
+      minReadable >= 1 && before >= 760 && after > before && Math.abs(after - stageW) < 12);
   } else {
     check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
       after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));

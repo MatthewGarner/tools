@@ -1,369 +1,109 @@
-/* model → cover-page SVG string. Pure; colours from ctx only.
-   Single-quoted font stacks (XML: no double quotes inside attributes).
-   Anatomy: Charter header + date + metrics · status tag (label, never
-   colour-alone) · the QUESTION as standfirst · lane-grouped exhibit index
-   (numbered rows, tool capsule pills, ghost for dead links) · verdict-led
-   readout (authored only — a case never computes). Height follows content. */
-import {esc, tint, wrapText} from '../assets/svg.js';
-import {svgVerdict} from '../assets/verdict-svg.js';
-import {resolveVerdict} from '../assets/verdict.js';
+/* Measured Chapter reading surfaces. Selection is a lens; edits belong to source. */
+import {esc, wrapText} from '../assets/svg.js';
+import {chapterColors} from '../roadmap/chapter-colors.js';
+import {project} from './review-model.js';
 
-const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-const SERIF = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";
-const SANS_SQATTR = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
-export const GEOM = {w: 1200, pad: 56};
-export const NARROW = 520;
-const MICRO = 10, MICRO_TRACK = 1.8;
-
-const micro = (x, y, str, fill, anchor) => '<text x="' + x + '" y="' + y +
-  '" font-size="' + MICRO + '" font-weight="600" letter-spacing="' + MICRO_TRACK +
-  '" fill="' + fill + '"' + (anchor ? ' text-anchor="' + anchor + '"' : '') + '>' +
-  esc(str) + '</text>';
-
-/* the honest tool line when no verdict is authored: status + the state of the kit */
-export function caseReadout(model){
-  const n = model.exhibits.length;
-  const auto = {line: model.status.toUpperCase() + ' — ' + n + ' exhibit' + (n === 1 ? '' : 's') +
-    ', no verdict yet', fig: String(n)};
-  return resolveVerdict(model.verdict, auto);
-}
-
-function statusTag(model, c, measure, x, y, anchorEnd, opts){
-  const label = model.status.toUpperCase();
-  const w = measure(label, '600 ' + MICRO + 'px ' + SANS) + label.length * MICRO_TRACK + 18;
-  const lx = anchorEnd ? x - w : x;
-  const decided = model.status === 'decided';
-  const stroke = decided ? c.accent : c.border;
-  const fill = decided ? tint(c.accent, c.bg, 0.12) : 'none';
-  const text = decided ? c.accent : c.muted;
-  const body = '<rect x="' + lx + '" y="' + (y - 14) + '" width="' + w + '" height="20" rx="0" fill="' +
-    fill + '" stroke="' + stroke + '" stroke-width="1.2"/>' + micro(lx + 9, y, label, text);
-  if(!opts.edit) return body;   // export/golden markup stays byte-stable
-  const edit = opts.edit ? ' data-edit="status" data-line="' + (model.srcLines.status ?? -1) +
-    '" data-raw="' + esc(model.status) + '" tabindex="0" role="button" aria-label="Change case status"' : '';
-  return '<g' + edit + '><rect x="' + (lx - 4) + '" y="' + (y - 26) +
-    '" width="' + (w + 8) + '" height="44" fill="transparent"/>' +
-    body + '</g>';
-}
-
-function pillW(name, measure){
-  return measure(name.toUpperCase(), '600 11px ' + SANS) + name.length * 1.2 + 20;
-}
-
-function toolPill(ex, c, measure, x, yMid){
-  const name = (ex.tool || 'link').toUpperCase();
-  const w = pillW(ex.tool || 'link', measure);
-  const dash = ex.live ? '' : ' stroke-dasharray="5 4"';
-  const stroke = ex.live ? c.accent : c.muted;
-  const fill = ex.live ? tint(c.accent, c.bg, 0.10) : 'none';
-  const text = ex.live ? c.accent : c.muted;
-  return {w, svg: '<rect x="' + x + '" y="' + (yMid - 11) + '" width="' + w +
-    '" height="22" rx="0" fill="' + fill + '" stroke="' + stroke + '" stroke-width="1.2"' + dash + '/>' +
-    '<text x="' + (x + w / 2) + '" y="' + (yMid + 3.5) + '" text-anchor="middle" font-size="11"' +
-    ' font-weight="600" letter-spacing="1.2" fill="' + text + '">' + esc(name) + '</text>'};
-}
-
-function ledger(entries){
-  return entries.map(entry => entry.key + '=' + entry.direction + ' @ ' + entry.date).join(' · ');
-}
-
-/* An opaque Roadmap URL may contain Markdown punctuation in its provenance.
-   Preserve it as prose in Case's Markdown export, never as export syntax. */
-function markdownText(value){
-  return String(value ?? '').replace(/[\\`*_{}\[\]()<>#+\-.!|&]/g, '\\$&');
-}
-
-/* Claim metadata belongs to Case, not to the member tools' models. Paths,
-   Roadmap and Timeline remain separate exhibits; these lines say what sort of
-   claim each URL carries. A projection gets its complete decoded receipt. */
-function planningLines(ex, width, measure){
-  const p = ex.planning;
-  if(!p) return [];
-  const out = [];
-  for(const text of wrapText((p.role + ' · ' + p.scope).toUpperCase(), '600 10px ' + SANS, width, measure))
-    out.push({text, claim:true});
-  if(p.basis){
-    for(const text of wrapText('From Paths: ' + p.basis.source, '12px ' + SANS, width, measure)) out.push({text});
-    if(p.basis.known.length)
-      for(const text of wrapText('Known: ' + ledger(p.basis.known), '12px ' + SANS, width, measure)) out.push({text});
-    if(p.basis.assumed.length)
-      for(const text of wrapText('Assumed: ' + ledger(p.basis.assumed), '12px ' + SANS, width, measure)) out.push({text});
+const e=v=>esc(String(v??''));
+const fallback=(s,f)=>String(s).length*(Number(f.match(/([\d.]+)px/)?.[1])||16)*.51;
+export function reviewTypography(model){return {body:'DM Sans',display:/^(dm-sans|DM Sans)$/.test(model.font)?'DM Sans':'Instrument Serif',weight:/^(dm-sans|DM Sans)$/.test(model.font)?600:400};}
+export function reviewColors(model,ctx={}){return chapterColors({...model,accent:model.accent||(!model.palette?'#526F65':null)},ctx);}
+export function renderReview(input,ctx={},opts={}){
+  const m=project(input),W=Math.max(280,ctx.width||960),phone=W<600,P=phone?16:28,I=W-P*2;
+  const c=reviewColors(m,ctx),t=reviewTypography(m),measure=ctx.measure||fallback,parts=[];
+  const line=(y,x=P,w=I)=>parts.push(`<line x1="${x}" y1="${y}" x2="${x+w}" y2="${y}" stroke="${c.border}"/>`);
+  const block=(value,x,y,w,size=16,{color=c.ink,display=false,weight=400,tracking=0}={})=>{
+    if(!value)return y;
+    const family=display?t.display:t.body,fw=display?t.weight:weight;
+    const rows=wrapText(String(value),`${fw} ${size}px "${family}"`,Math.max(20,w),measure),step=Math.ceil(size*1.28);
+    rows.forEach((s,i)=>parts.push(`<text x="${x}" y="${y+size+i*step}" font-family="${family}" font-weight="${fw}" font-size="${size}" fill="${color}"${tracking?` letter-spacing="${tracking}"`:''}>${e(s)}</text>`));
+    return y+rows.length*step;
+  };
+  const micro=(v,x,y,w=I)=>block(v,x,y,w,11,{color:c.accent,weight:600,tracking:1.4});
+  const hit=(kind,id,label,y,h)=>{
+    if(!opts.live)return;
+    parts.push(`<g role="button" tabindex="0" data-kind="${e(kind)}" data-id="${e(id)}" aria-label="Inspect ${e(label)}" aria-pressed="${opts.selected===kind+':'+id}"><rect x="${P}" y="${y}" width="${I}" height="${Math.max(44,h)}" fill="transparent" class="case-hit"/></g>`);
+  };
+  let y=24;
+  y=micro((m.title||'Case')+' / '+({brief:'DECISION REVIEW',compare:'ALTERNATIVES',review:'REVIEW RECORD'}[m.view]||'DECISION REVIEW'),P,y)+22;
+  const headline=m.view==='compare'?(m.question||'Weigh the alternatives'):m.view==='review'?'How the decision changed':m.headline||m.title||'Make the decision clear.';
+  y=block(headline,P,y,I,phone?40:W<800?48:64,{display:true})+22;
+  if(m.question&&m.view!=='compare'&&m.question!==headline)y=block(m.question,P,y,I,17,{color:c.muted})+24;
+  if(!m.headline&&m.verdict&&m.verdict!=='off')y=block(m.verdict,P,y,I,20)+24;
+  if(m.decision||m.unresolved){
+    const start=y;y+=16;
+    const insert=parts.length;
+    const decision=[m.decision,m.date].filter(Boolean).join(' · ');
+    const fits=!phone&&measure(decision,'600 16px "DM Sans"')+measure(m.unresolved||'','400 15px "DM Sans"')+68<I;
+    y=block(decision,P+16,y,I-32,16,{weight:600});
+    if(m.unresolved)y=fits?Math.max(y,block(m.unresolved,P+40+measure(decision,'600 16px "DM Sans"'),start+16,I-measure(decision,'600 16px "DM Sans"')-56,15,{color:c.muted})):block(m.unresolved,P+16,y+8,I-32,15,{color:c.muted});
+    y+=16;parts.splice(insert,0,`<rect x="${P}" y="${start}" width="${I}" height="${y-start}" fill="${c.band}"/>`);y+=30;
   }
-  return out;
-}
-
-function planningMarkdown(p){
-  if(!p) return '';
-  let text = p.role + ' · ' + p.scope;
-  if(p.basis){
-    text += ' · From Paths: ' + markdownText(p.basis.source);
-    if(p.basis.known.length) text += ' · Known: ' + ledger(p.basis.known);
-    if(p.basis.assumed.length) text += ' · Assumed: ' + ledger(p.basis.assumed);
-  }
-  return text;
-}
-
-/* one exhibit row; returns {svg, h}. Wide layout: NN · pill · label — note. */
-function row(ex, i, c, measure, geom, opts){
-  const {x, width, labelX} = geom;
-  const parts = [];
-  const yMid = 15;
-  const num = String(i + 1).padStart(2, '0');
-  parts.push('<text x="' + x + '" y="' + (yMid + 4) + '" font-size="12" fill="' + c.muted + '">' + num + '</text>');
-  const p = toolPill(ex, c, measure, x + 30, yMid);
-  const live = opts.live && ex.live;
-  /* The OPEN affordance is one anchor/focus stop spanning both the pill and
-     trailing ↗, with invisible ≥44px hit rects (fill transparent —
-     fill:none catches no pointers).
-     The label/note stay edit targets and must NEVER sit inside the link, or a
-     phone tap lands on the edit handler and the link never fires. */
-  if(live){
-    parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
-      '<rect x="' + (x + 26) + '" y="' + (yMid - 22) + '" width="' + (p.w + 8) + '" height="44" fill="transparent"/>' + p.svg +
-      '<rect x="' + (x + width - 44) + '" y="' + (yMid - 22) + '" width="44" height="44" fill="transparent"/>' +
-      '<text x="' + (x + width - 6) + '" y="' + (yMid + 5) + '" text-anchor="end" font-size="14" fill="' + c.accent + '">\u2197</text></a>');
-  } else parts.push(p.svg);
-  const lx = labelX;   // one shared column: the index reads as a register, not a ragged list
-  const labelFill = ex.live ? c.ink : c.muted;
-  parts.push('<text x="' + lx + '" y="' + (yMid + 5) + '" font-size="15" font-weight="600" fill="' + labelFill + '"' +
-    (opts.edit ? ' data-edit="label" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.label) +
-      '" tabindex="0" role="button" aria-label="Rename exhibit: ' + esc(ex.label) + '"' : '') +
-    '>' + esc(ex.label) + '</text>');
-  let cursor = yMid + 5;
-  const context = planningLines(ex, width - (lx - x) - 8, measure);
-  for(const line of context){
-    cursor += line.claim ? 17 : 18;
-    parts.push('<text x="' + lx + '" y="' + cursor + '" font-size="' + (line.claim ? 10 : 12) + '"' +
-      (line.claim ? ' font-weight="600" letter-spacing="0.9"' : '') + ' fill="' + (line.claim ? c.accent : c.muted) + '">' +
-      esc(line.text) + '</text>');
-  }
-  if(ex.note){
-    const noteLines = wrapText(ex.note, '12.5px ' + SANS, width - (lx - x), measure);
-    let firstN = true;
-    for(const t of noteLines){
-      cursor += 18;
-      parts.push('<text x="' + lx + '" y="' + cursor + '" font-size="12.5" fill="' + c.muted + '"' +
-        (opts.edit && firstN ? ' data-edit="note" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.note) +
-          '" tabindex="0" role="button" aria-label="Edit note: ' + esc(ex.note) + '"' : '') +
-        '>' + esc(t) + '</text>');
-      firstN = false;
-    }
-  } else if(opts.edit){
-    cursor += 18;
-    parts.push('<text x="' + lx + '" y="' + cursor + '" font-size="12.5" fill="' + c.muted +
-      '" opacity="0.55" data-edit="note" data-line="' + ex.srcLine + '" data-raw="" tabindex="0" role="button"' +
-      ' aria-label="Add note to exhibit: ' + esc(ex.label) + '">+ note</text>');
-  }
-  const h = context.length || ex.note ? Math.max(30, cursor + 13) : (opts.edit ? 48 : 30);
-  return {svg: parts.join(''), h};
-}
-
-export function render(model, ctx, opts = {}){
-  if(ctx.width && ctx.width < NARROW) return renderNarrow(model, ctx, opts);
-  const c = ctx.colors, measure = ctx.measure;
-  const {w, pad} = GEOM;
-  const inner = w - 2 * pad;
-  const parts = [];
-  let y = 38;
-
-  /* ---- header ---- */
-  parts.push('<text x="' + pad + '" y="' + y + '" font-family="' + SERIF + '" font-size="24" font-weight="700" fill="' +
-    c.ink + '">' + esc(model.title || 'Case file') + '</text>');
-  if(typeof ctx.today === 'string')
-    parts.push('<text x="' + (w - pad) + '" y="26" text-anchor="end" font-size="12" fill="' + c.muted + '">' +
-      esc(ctx.today) + '</text>');
-  parts.push(statusTag(model, c, measure, w - pad, 48, true, opts));
-  const n = model.exhibits.length, ln = model.lanes.length;
-  parts.push('<text x="' + pad + '" y="58" font-size="12.5" fill="' + c.muted + '">' +
-    n + ' exhibit' + (n === 1 ? '' : 's') + (ln ? ' · ' + ln + ' lane' + (ln === 1 ? '' : 's') : '') +
-    (model.exhibits.some(e => !e.live) ? ' · ' + model.exhibits.filter(e => !e.live).length + ' dead' : '') +
-    '</text>');
-  y = 84;
-
-  /* ---- the question, as standfirst ---- */
-  if(model.question){
-    let first = true;
-    for(const t of wrapText(model.question, '17px ' + SANS, inner - 180, measure)){
-      parts.push('<text x="' + pad + '" y="' + y + '" font-size="17" fill="' + c.ink + '"' +
-        (opts.edit && first ? ' data-edit="question" data-line="' + (model.srcLines.question ?? -1) +
-          '" data-raw="' + esc(model.question) + '" tabindex="0" role="button" aria-label="Edit the question"' : '') +
-        '>' + esc(t) + '</text>');
-      y += 26; first = false;
-    }
-    y += 6;
-  } else if(opts.edit){
-    parts.push('<text x="' + pad + '" y="' + y + '" font-size="14" fill="' + c.muted +
-      '" opacity="0.55" data-edit="question" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add a question">+ question</text>');
-    y += 32;
-  }
-
-  /* ---- exhibit index, grouped by lane ---- */
-  parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y +
-    '" stroke="' + c.border + '"/>');
-  y += 8;
-  const groups = model.lanes.length
-    ? model.lanes.map(l => [l, model.exhibits.filter(e => e.lane === l)])
-      .concat(model.exhibits.some(e => !e.lane) ? [['', model.exhibits.filter(e => !e.lane)]] : [])
-    : [['', model.exhibits]];
-  let idx = 0;
-  const maxPillW = model.exhibits.reduce((a, e) => Math.max(a, pillW(e.tool || 'link', measure)), 0);
-  const labelX = pad + 30 + maxPillW + 16;
-  for(const [lane, list] of groups){
-    if(!list.length) continue;
-    if(lane){
-      y += 24;
-      parts.push(micro(pad, y, lane.toUpperCase(), c.muted));
-      y += 6;
-    } else { y += 14; }
-    for(const ex of list){
-      const r = row(ex, idx++, c, measure, {x: pad, width: inner, labelX}, opts);
-      parts.push('<g transform="translate(0 ' + y + ')">' + r.svg + '</g>');
-      y += r.h;
-    }
-  }
-  if(!model.exhibits.length){
-    y += 26;
-    parts.push('<text x="' + pad + '" y="' + y + '" font-size="13" fill="' + c.muted +
-      '">Add exhibits in the source panel: “Label -&gt; tool URL”.</text>');
-    y += 8;
-  }
-  y += 16;
-
-  /* ---- verdict band ---- */
-  parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y +
-    '" stroke="' + c.border + '"/>');
-  const av = caseReadout(model);
-  const vTop = y + 24;
-  const V = svgVerdict({x: pad, y: vTop, width: inner, line: av.line, fig: av.fig,
-    ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
-    font: SANS_SQATTR, measure, size: 17,
-    edit: opts.edit ? {raw: model.verdict ?? ''} : undefined,
-    copyTap: opts.copyTap});
-  parts.push(V.svg);
-  y = vTop + Math.max(V.height - 23, 0) + 20;
-
-  const H = Math.round(y);
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + H +
-    '" viewBox="0 0 ' + w + ' ' + H + '" font-family="' + SANS + '">' +
-    '<rect width="' + w + '" height="' + H + '" fill="' + c.bg + '"/>' + parts.join('') + '</svg>';
-}
-
-/* <520px: rows stack — pill above label, single column, tighter pad. */
-export function renderNarrow(model, ctx, opts = {}){
-  const c = ctx.colors, measure = ctx.measure;
-  const w = Math.max(280, ctx.width), pad = 16;
-  const inner = w - 2 * pad;
-  const parts = [];
-  let y = 30;
-  parts.push('<text x="' + pad + '" y="' + y + '" font-family="' + SERIF + '" font-size="20" font-weight="700" fill="' +
-    c.ink + '">' + esc(model.title || 'Case file') + '</text>');
-  y += 22;
-  parts.push(statusTag(model, c, measure, pad, y, false, opts));
-  const n = model.exhibits.length;
-  parts.push('<text x="' + (pad + 90) + '" y="' + y + '" font-size="12" fill="' + c.muted + '">' +
-    n + ' exhibit' + (n === 1 ? '' : 's') + '</text>');
-  y += 24;
-  if(model.question){
-    let first = true;
-    for(const t of wrapText(model.question, '15px ' + SANS, inner, measure)){
-      parts.push('<text x="' + pad + '" y="' + y + '" font-size="15" fill="' + c.ink + '"' +
-        (opts.edit && first ? ' data-edit="question" data-line="' + (model.srcLines.question ?? -1) +
-          '" data-raw="' + esc(model.question) + '" tabindex="0" role="button" aria-label="Edit the question"' : '') +
-        '>' + esc(t) + '</text>');
-      y += 22; first = false;
-    }
-  } else if(opts.edit){
-    parts.push('<text x="' + pad + '" y="' + y + '" font-size="14" fill="' + c.muted +
-      '" opacity="0.55" data-edit="question" data-line="-1" data-raw="" tabindex="0" role="button" aria-label="Add a question">+ question</text>');
-    y += 22;
-  }
-  y += 4;
-  parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y + '" stroke="' + c.border + '"/>');
-  let lastLane = null;
-  let idx = 0;
-  for(const ex of model.exhibits){
-    if(ex.lane !== lastLane && ex.lane){
-      y += 26;
-      parts.push(micro(pad, y, ex.lane.toUpperCase(), c.muted));
-      lastLane = ex.lane;
-    }
-    y += 18;
-    const p = toolPill(ex, c, measure, pad, y + 6);
-    parts.push('<text x="' + (pad + p.w + 10) + '" y="' + (y + 9) + '" font-size="12" fill="' + c.muted + '">' +
-      String(++idx).padStart(2, '0') + '</text>');
-    const live = opts.live && ex.live;
-    if(live){
-      parts.push('<a href="' + esc(ex.url) + '" aria-label="Open ' + esc(ex.label) + ' in ' + esc((ex.tool || 'tool').toUpperCase()) + '">' +
-        '<rect x="' + (pad - 4) + '" y="' + (y - 16) + '" width="' + (p.w + 12) + '" height="44" fill="transparent"/>' + p.svg +
-        '<text x="' + (w - pad - 4) + '" y="' + (y + 10) + '" text-anchor="end" font-size="15" fill="' + c.accent + '">\u2197</text>' +
-        '<rect x="' + (w - pad - 44) + '" y="' + (y - 16) + '" width="44" height="44" fill="transparent"/></a>');
-    } else parts.push(p.svg);
-    y += 30;
-    const body = [];
-    body.push('<text x="' + pad + '" y="' + y + '" font-size="15" font-weight="600" fill="' +
-      (ex.live ? c.ink : c.muted) + '"' +
-      (opts.edit ? ' data-edit="label" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.label) +
-        '" tabindex="0" role="button" aria-label="Rename exhibit: ' + esc(ex.label) + '"' : '') +
-      '>' + esc(ex.label) + '</text>');
-    for(const line of planningLines(ex, inner, measure)){
-      y += line.claim ? 17 : 18;
-      body.push('<text x="' + pad + '" y="' + y + '" font-size="' + (line.claim ? 10 : 12) + '"' +
-        (line.claim ? ' font-weight="600" letter-spacing="0.9"' : '') + ' fill="' +
-        (line.claim ? c.accent : c.muted) + '">' + esc(line.text) + '</text>');
-    }
-    if(ex.note){
-      let firstN = true;
-      for(const t of wrapText(ex.note, '12.5px ' + SANS, inner, measure)){
-        y += 18;
-        body.push('<text x="' + pad + '" y="' + y + '" font-size="12.5" fill="' + c.muted + '"' +
-          (opts.edit && firstN ? ' data-edit="note" data-line="' + ex.srcLine + '" data-raw="' + esc(ex.note) +
-            '" tabindex="0" role="button" aria-label="Edit note: ' + esc(ex.note) + '"' : '') +
-          '>' + esc(t) + '</text>');
-        firstN = false;
+  if(m.view==='compare'){
+    if(!m.options.length)y=block('Add the alternatives you are considering. Describe the trade-offs in your own terms.',P,y,I,18,{color:c.muted})+24;
+    else if(phone){
+      for(const o of m.options){const start=y;line(y);y=block(o.label,P,y+18,I,30,{display:true})+12;
+        for(const [label,key] of [['Expected value / outcome','value'],['What must be true','requires'],['Main downside','downside'],['What changes the choice','reconsider']])if(o[key]){y=micro(label.toUpperCase(),P,y)+6;y=block(o[key],P,y,I,16)+18;}
+        hit('option',o.id,o.label,start,y-start);y+=12;
       }
-    } else if(opts.edit){
-      y += 18;
-      body.push('<text x="' + pad + '" y="' + y + '" font-size="12.5" fill="' + c.muted +
-        '" opacity="0.55" data-edit="note" data-line="' + ex.srcLine + '" data-raw="" tabindex="0" role="button"' +
-        ' aria-label="Add note to exhibit: ' + esc(ex.label) + '">+ note</text>');
+    }else{
+      // Pair-sized groups keep six or more alternatives readable without narrowing type.
+      for(let offset=0;offset<m.options.length;offset+=3){
+        const options=m.options.slice(offset,offset+3),labelW=145,gap=22,cw=(I-labelW-gap)/options.length;
+        let high=y;
+        options.forEach((o,i)=>{const x=P+labelW+gap+i*cw;high=Math.max(high,block(o.label,x,y,cw-20,30,{display:true,color:opts.selected==='option:'+o.id?c.accent:c.ink}));});
+        y=high+22;line(y);
+        for(const [label,key] of [['Expected value / outcome','value'],['What must be true','requires'],['Main downside','downside'],['What changes the choice','reconsider']]){
+          if(!options.some(o=>o[key]))continue;
+          const start=y;y+=20;high=block(label,P,y,labelW,14,{color:c.muted});
+          options.forEach((o,i)=>{high=Math.max(high,block(o[key]||'Not stated',P+labelW+gap+i*cw,y,cw-20,key==='value'?22:16,{weight:key==='value'?600:400,color:o[key]?c.ink:c.muted}));});
+          y=high+22;line(y);
+          if(opts.live)options.forEach((o,i)=>parts.push(`<g role="button" tabindex="0" data-kind="option" data-id="${e(o.id)}" aria-label="Inspect ${e(o.label)}: ${e(label)}"><rect x="${P+labelW+gap+i*cw}" y="${start}" width="${cw}" height="${y-start}" fill="transparent" class="case-hit"/></g>`));
+        }y+=40;
+      }
     }
-    parts.push(body.join(''));   // label/note: edit targets, never inside the link
-    y += 8;
+  }else if(m.view==='review'){
+    if(!m.reviews.length)y=block('Record a review when evidence, assumptions or the choice changes. Earlier decisions and captured references stay on record.',P,y,I,18,{color:c.muted})+24;
+    for(const r of m.reviews){const start=y;line(y);y+=22;const margin=phone?0:126;
+      if(phone)y=micro(r.date||'UNDATED',P,y)+12;else micro(r.date||'UNDATED',P,y,110);
+      y=block(r.label,P+margin,y,I-margin,34,{display:true})+16;
+      for(const [label,key] of [['Changed','change'],['Implication','implication'],['Decision','decision']])if(r[key]){y=micro(label.toUpperCase(),P+margin,y,I-margin)+7;y=block(r[key],P+margin,y,I-margin,17)+18;}
+      if(r.previous||r.url)y=block('Captured references available',P+margin,y,I-margin,14,{color:c.accent})+16;
+      hit('review',r.id,r.label,start,y-start);y+=16;
+    }
+  }else{
+    if(m.claims.length){y=micro('REASONS & BASIS',P,y)+14;line(y);}
+    for(const claim of m.claims){
+      const start=y,selected=opts.selected==='claim:'+claim.id,insert=parts.length;y+=17;
+      const qWidth=phone?0:Math.min(245,I*.29),mainW=I-(qWidth?qWidth+30:0);
+      y=micro([claim.basis||'basis not stated',claim.reference?.tool||claim.tool||claim.lane].filter(Boolean).join(' / ').toUpperCase(),P+12,y,mainW-24)+8;
+      y=block(claim.label,P+12,y,mainW-24,phone?29:32,{display:true})+10;
+      if(claim.detail)y=block(claim.detail,P+12,y,mainW-24,16)+8;
+      const qualification=[claim.qualification,claim.captureQualification].filter(Boolean).join(' ');
+      if(qWidth){const x=P+I-qWidth;y=Math.max(y,block(qualification,x,start+38,qWidth-12,15,{color:c.muted})+16);}
+      else if(qualification)y=block(qualification,P+12,y+8,I-24,15,{color:c.muted})+8;
+      if(claim.planningContext||claim.reference?.planningContext||claim.planning){
+        const p=claim.planningContext||claim.reference?.planningContext||claim.planning;y=block(`${p.role} · ${p.scope}`,P+12,y+8,I-24,13,{color:c.accent})+5;
+        if(p.basis){y=block(`From Paths: ${p.basis.source}`,P+12,y,I-24,13,{color:c.muted})+5;
+          for(const [label,entries] of [['Known',p.basis.known],['Assumed',p.basis.assumed]])if(entries?.length)y=block(label+': '+entries.map(a=>`${a.key}=${a.direction} @ ${a.date}`).join(', '),P+12,y,I-24,13,{color:c.muted})+4;}
+      }
+      y+=17;if(selected)parts.splice(insert,0,`<rect x="${P}" y="${start}" width="${I}" height="${y-start}" fill="${c.tint}"/>`);
+      hit('claim',claim.id,claim.label,start,y-start);line(y);
+    }
+    if(!m.claims.length)y=block('Start with a reason, an assumption, or a captured tool model. Keep the choice and its basis together.',P,y,I,18,{color:c.muted})+24;
+    if(m.options.length){y+=28;y=micro('ALTERNATIVES',P,y)+15;
+      const cols=phone?1:Math.min(m.options.length,3),cw=I/cols;
+      for(let offset=0;offset<m.options.length;offset+=cols){let bottom=y;
+        m.options.slice(offset,offset+cols).forEach((o,i)=>{const x=P+i*cw;let yy=block(o.label,x,y,cw-20,17);yy=block(o.value,x,yy+7,cw-20,16,{color:c.accent,weight:500});bottom=Math.max(bottom,yy);
+          if(opts.live)parts.push(`<g role="button" tabindex="0" data-kind="option" data-id="${e(o.id)}" aria-label="Inspect ${e(o.label)}"><rect x="${x}" y="${y-6}" width="${cw-12}" height="${Math.max(52,yy-y+16)}" fill="transparent" class="case-hit"/></g>`);
+        });y=bottom+26;
+      }
+    }
   }
-  y += 16;
-  parts.push('<line x1="' + pad + '" y1="' + y + '" x2="' + (w - pad) + '" y2="' + y + '" stroke="' + c.border + '"/>');
-  const av = caseReadout(model);
-  const V = svgVerdict({x: pad, y: y + 22, width: inner, line: av.line, fig: av.fig,
-    ink: c.ink, muted: c.muted, brandText: c.brandText || c.ink,
-    font: SANS_SQATTR, measure, size: 16, scale: 0.94,
-    edit: opts.edit ? {raw: model.verdict ?? ''} : undefined});
-  parts.push(V.svg);
-  y = y + 22 + Math.max(V.height - 23, 0) + 18;
-  const H = Math.round(y);
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + H +
-    '" viewBox="0 0 ' + w + ' ' + H + '" font-family="' + SANS + '">' +
-    '<rect width="' + w + '" height="' + H + '" fill="' + c.bg + '"/>' + parts.join('') + '</svg>';
+  if(m.constraints){y+=12;line(y);y=micro('NON-NEGOTIABLE',P,y+20)+10;y=block(m.constraints,P,y,I,17)+24;}
+  const H=Math.ceil(y+24);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${e(m.title||'Case review')}" font-family="DM Sans"><rect width="${W}" height="${H}" fill="${c.bg}"/>${parts.join('')}</svg>`;
 }
 
-/* the markdown rung of the export ladder: the doc travels with its links */
-export function toMarkdown(model, href){
-  const av = caseReadout(model);
-  const out = ['# ' + (model.title || 'Case file'), ''];
-  if(model.question) out.push(model.question, '');
-  out.push('Status: ' + model.status + (av.line ? ' — ' + av.line : ''), '');
-  const groups = model.lanes.length
-    ? model.lanes.map(l => [l, model.exhibits.filter(e => e.lane === l)])
-      .concat(model.exhibits.some(e => !e.lane) ? [['', model.exhibits.filter(e => !e.lane)]] : [])
-    : [['', model.exhibits]];
-  for(const [lane, list] of groups){
-    if(!list.length) continue;
-    if(lane) out.push('## ' + lane, '');
-    for(const ex of list)
-      out.push('- [' + ex.label + '](' + ex.url + ')' + (ex.note ? ' — ' + ex.note : '') +
-        (ex.live ? '' : ' *(not a suite link)*') +
-        (ex.planning ? '\n  - Claim: ' + planningMarkdown(ex.planning) : ''));
-    out.push('');
-  }
-  if(href) out.push('[Open the case](' + href + ')');
-  return out.join('\n');
-}
+export const render = renderReview;
+export const NARROW = 520;
+export const renderNarrow = (model,ctx={},opts={}) => renderReview(model,{...ctx,width:ctx.width||390},opts);

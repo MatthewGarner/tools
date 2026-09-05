@@ -46,7 +46,7 @@
    only (which also trims their apt-deps step). Everything moved onto it is
    chromium-only, so it costs that shard no extra install — webkit is already there. */
 export const SHARDS = [
-  {name: 'smoke',         suites: ['smoke.mjs'],                          browsers: 'chromium'},
+  {name: 'smoke',         suites: ['smoke.mjs', 'chapter.mjs', 'chapter-interactions.mjs', 'timeline.mjs'],                          browsers: 'chromium'},
   {name: 'eip',           suites: ['check-eip.mjs'],                      browsers: 'chromium'},
   {name: 'mobile-core',   suites: ['mobile.mjs', 'pwa.mjs'],             browsers: 'chromium'},
   {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs', 'check.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium webkit'},
@@ -106,6 +106,8 @@ export const ALL_SUITES = SHARDS.flatMap(s => s.suites);
    CI spread is 50s (the 56s figure at the top of this file is LOCAL — different
    machines, different numbers, and they are not comparable). */
 export const SUITE_SECONDS = {
+  // Initial ordering hints for Chapter; update from the first complete gate run.
+  'chapter.mjs': 45, 'chapter-interactions.mjs': 20, 'timeline.mjs': 20,
   'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 103, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
   'pwa.mjs': 15, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,

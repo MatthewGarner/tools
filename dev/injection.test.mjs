@@ -1,3 +1,4 @@
+import {renderChapter,renderChapterPages} from '../roadmap/chapter-svg.js';
 /* Adversarial labels through every parser → renderer: output must stay
    well-formed XML with nothing unescaped. esc() slips become failures here,
    not shared-URL exploits (the CSP is the second wall). */
@@ -161,154 +162,18 @@ test('paths tree, overview, dependencies, conditions, learning agenda and possib
   assertClean(renderPlansNarrow(projected, {...renderCtx, width:360}), 'paths-plans-narrow');
 });
 
-test('roadmap renderer escapes hostile titles/items/lanes', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {render} = await import('../roadmap/render.js');
-  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i)).join('\n');
-  assertClean(render(parse(doc), {...ctx, edit: true}), 'roadmap');
-  assertClean(render(parse(doc), {...ctx, edit: true, width: 360}), 'roadmap-narrow');
-});
-
-test('roadmap SPANS escape hostile titles in the range label, the run line and the "also running" list', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {render} = await import('../roadmap/render.js');
-  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nhorizons: quarterly from Q3 2026 x4\n' +
-    'Q3 2026\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' x' + (i % 3 + 1)).join('\n');
-  assertClean(render(parse(doc), ctx), 'roadmap-spans');
-  assertClean(render(parse(doc), {...ctx, width: 360}), 'roadmap-spans-narrow');
-  /* wide + edit:true + a time axis is the ONLY combination that emits the span-edge
-     handle rects, and no golden renders it — so it is scanned here, or nowhere */
-  assertClean(render(parse(doc), {...ctx, edit: true}), 'roadmap-spans-edit');
-});
-
-test('roadmap DECK (board style) escapes hostile titles/notes/lanes + diff dropped/badge strings, in both card and flipped-to-list layouts', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderBoardDeck} = await import('../roadmap/render-board.js');
-  const {paletteColors} = await import('../roadmap/render-deck.js');
-  /* headline: is user text that lands in the frame's standfirst — the one string
-     on a deck the author writes freehand, so it gets the hostile treatment too */
-  const doc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nheadline: ' + EVIL[1] + '\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
-  const m = parse(doc);
-  const diff = {
-    any: true, since: EVIL[2],
-    badge: it => it.srcLine % 2 === 0 ? {kind: 'new', label: EVIL[3]} : {kind: 'moved', label: EVIL[4]},
-    dropped: [EVIL[5], EVIL[1]],
-  };
-  assertClean(renderBoardDeck(m, {...ctx, diff}, paletteColors(m, {...ctx, diff})), 'roadmap-deck-board');
-
-  /* the same hostile strings again, but repeated enough times in one column to
-     force the list-mode flip — a distinct rendering path with its own escaping
-     (clip1'd sub-lines, struck dropped rows) that the card-mode pass above
-     never reaches. */
-  const flipDoc = 'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    Array.from({length: 20}, (_, i) => EVIL[i % EVIL.length].replace(/:/g, ';') + ' lane: item ' + i +
-      ' -- ' + EVIL[(i + 2) % EVIL.length]).join('\n');
-  const flipM = parse(flipDoc);
-  assertClean(renderBoardDeck(flipM, {...ctx, diff}, paletteColors(flipM, {...ctx, diff})), 'roadmap-deck-board-list');
-});
-
-test('roadmap DECK (register style) escapes hostile titles/notes/lanes + status washes + the NEW capsule, "was X" italic cell and struck DROPPED rows', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {paletteColors} = await import('../roadmap/render-deck.js');
-  const {renderRegisterDeck} = await import('../roadmap/render-register.js');
-  const doc = 'style: register\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
-      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
-  const m = parse(doc);
-  const diff = {
-    any: true, since: EVIL[2],
-    badge: it => it.srcLine % 3 === 0 ? {kind: 'new', label: EVIL[3]} :
-                 it.srcLine % 3 === 1 ? {kind: 'moved', label: EVIL[4]} : null,
-    dropped: [EVIL[5], EVIL[1]],
-  };
-  assertClean(renderRegisterDeck(m, {...ctx, diff}, paletteColors(m, {...ctx, diff})), 'roadmap-deck-register');
-
-  /* enough dropped names to force the dropped section's own cap (capFit) —
-     a distinct rendering path (the clipped struck title + DROPPED capsule
-     placement loop) the small-dropped-list pass above never reaches. */
-  const manyDropped = {...diff, dropped: Array.from({length: 15}, (_, i) => EVIL[i % EVIL.length] + ' dropped ' + i)};
-  assertClean(renderRegisterDeck(m, {...ctx, diff: manyDropped}, paletteColors(m, {...ctx, diff: manyDropped})),
-    'roadmap-deck-register-dropped-cap');
-});
-
-test('roadmap REGISTER LIVE escapes hostile titles/notes/lanes/statuses, edit:true (the only place the edit markup renders)', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderRegisterLive} = await import('../roadmap/render-register.js');
-  const doc = 'style: register\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
-      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
-  assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-edit');
-});
-
-test('roadmap REGISTER LIVE escapes a hostile horizons: line, edit:true (flows into data-col + the +add aria-label)', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderRegisterLive} = await import('../roadmap/render-register.js');
-  const doc = 'style: register\ndate: 2026-07-06\nhorizons: ' + EVIL[0] + ', ' + EVIL[1] + '\n' + EVIL[0] + '\nCore: item one\n' + EVIL[1] + '\n';
-  assertClean(renderRegisterLive(parse(doc), {...ctx, edit: true}), 'register-live-horizons-edit');
-});
-
-test('roadmap BOARD LIVE escapes hostile titles/notes/lanes/statuses, edit:true (the only place board edit markup renders)', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const doc = 'style: board\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) +
-      (i % 2 === 0 ? ' [risk]' : ' [blocked]') + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
-  assertClean(renderBoardLive(parse(doc), {...ctx, edit: true}), 'board-live-edit');
-});
-
-test('roadmap BOARD LIVE escapes a hostile horizons: line, edit:true (flows into data-col + the +add aria-label)', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const doc = 'style: board\ndate: 2026-07-06\nhorizons: ' + EVIL[0] + ', ' + EVIL[1] + '\n' + EVIL[0] + '\nCore: item one\n' + EVIL[1] + '\n';
-  assertClean(renderBoardLive(parse(doc), {...ctx, edit: true}), 'board-live-horizons-edit');
-});
-
-test('roadmap FOCUS LIVE escapes hostile titles/notes/lanes/statuses (hero + rail), a hostile horizons: line (data-col/data-lens), and a hostile compare diff (the moved-badge path is UNIQUE to render-focus.js — it bypasses badgeCapsule\'s upper-casing so "was X" stays readable — plus dropped-line titles)', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderFocusLive} = await import('../roadmap/render-focus.js');
-  const doc = 'style: focus\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nhorizons: ' + EVIL[2] + ', ' + EVIL[3] + '\n' +
-    EVIL[2] + '\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length] +
-      (i % 2 === 0 ? ' [risk]' : ' [blocked]')).join('\n') +
-    '\n' + EVIL[3] + '\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: rail ' + label(i)).join('\n');
-  const m = parse(doc);
-  const diff = {since: EVIL[0], dropped: [EVIL[4], EVIL[1]], badge: it => ({kind: 'moved', label: EVIL[1]})};
-  assertClean(renderFocusLive(m, {...ctx, edit: true, diff}), 'focus-live-edit');
-});
-
-test('roadmap DECK (focus style) escapes hostile titles/notes/lanes in the hero cards AND the ranked rail', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderFocusDeck} = await import('../roadmap/render-focus.js');
-  const {paletteColors} = await import('../roadmap/render-deck.js');
-  const doc = 'style: focus\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length] +
-      (i % 2 === 0 ? ' [risk]' : ' [blocked]')).join('\n') +
-    '\nNEXT\n' + EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: rail ' + label(i)).join('\n');
-  const m = parse(doc);
-  assertClean(renderFocusDeck(m, ctx, paletteColors(m, ctx)), 'roadmap-deck-focus');
-});
-
-test('roadmap DECK (grid style) escapes hostile titles/notes/lanes via the embedded chart (render.js\'s own escaping — called, never modified)', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderDeck} = await import('../roadmap/render-deck.js');
-  const doc = 'style: grid\ntitle: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
-    EVIL.map((e, i) => e.replace(/:/g, ';') + ' lane: ' + label(i) + ' -- ' + EVIL[(i + 1) % EVIL.length]).join('\n');
-  assertClean(renderDeck(parse(doc), ctx), 'roadmap-deck-grid');
-});
-
-test('roadmap exhaustive deck pages escape hostile frame and card text in the continuation composition', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {renderDeckPages} = await import('../roadmap/render-deck-pages.js');
-  const doc = 'style: board\ntitle: ' + EVIL[0] + '\nheadline: ' + EVIL[1] +
-    '\nhorizons: ' + EVIL[2] + ', ' + EVIL[3] + ', ' + EVIL[4] + ', ' + EVIL[5] + '\n' +
-    EVIL[2] + '\n' + EVIL[0].replace(/:/g, ';') + ' lane: ' + label(0) + ' -- ' + EVIL[1] + '\n' +
-    EVIL[3] + '\n' + EVIL[2].replace(/:/g, ';') + ' lane: ' + label(2) + ' [risk]\n' +
-    EVIL[4] + '\n' + EVIL[3].replace(/:/g, ';') + ' lane: ' + label(3) + '\n' +
-    EVIL[5] + '\n' + EVIL[4].replace(/:/g, ';') + ' lane: ' + label(4);
-  renderDeckPages(parse(doc), ctx).pages.forEach((svg, i) => assertClean(svg, 'roadmap-deck-pages-' + i));
+test('Chapter escapes hostile labels, metadata and comparison text in every live and slide composition',async()=>{
+  const {parse}=await import('../roadmap/parse.js');
+  for(const style of ['grid','board','focus','register']){
+    const doc='style: '+style+'\ntitle: '+EVIL[0]+'\nheadline: '+EVIL[1]+'\nstory: '+EVIL[2]+'\ndate: 2026-07-06\n'+
+      'horizons: '+EVIL[2]+', '+EVIL[3]+'\n'+EVIL[2]+'\n'+
+      EVIL.map((e,i)=>e.replace(/:/g,';')+' lane: '+label(i)+' [risk] -- '+EVIL[(i+1)%EVIL.length]).join('\n')+'\n'+EVIL[3]+'\nLane: rail '+label(0);
+    const model=parse(doc),diff={any:true,since:EVIL[0],dropped:[EVIL[4]],badge:()=>({kind:'moved',label:EVIL[1]})};
+    for(const width of [1440,360])assertClean(renderChapter(model,{...ctx,width,edit:true,diff}),style+' live '+width);
+    const out=renderChapterPages(model,{...ctx,diff});
+    assert.ok(out.pages.length,'the hostile fixture reaches the slide painter');
+    out.pages.forEach((svg,i)=>assertClean(svg,style+' slide '+i));
+  }
 });
 
 test('Why Field and Lens renderers escape hostile labels in every live and presentation projection', async () => {
@@ -724,27 +589,6 @@ test('every tool accepting verdict: escapes a hostile authored line', async () =
      verdict even when the author wrote one.) */
 });
 
-/* `headline:` reached only the deck until 2026-07-31 and `story:` is new — two
-   author-supplied strings now landing in SVG text nodes on FOUR artefacts each.
-   Same class as the authored verdict above, so same corpus treatment. */
-test('roadmap escapes a hostile headline and story on every artefact', async () => {
-  const {parse} = await import('../roadmap/parse.js');
-  const {render} = await import('../roadmap/render.js');
-  const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const {renderRegisterLive} = await import('../roadmap/render-register.js');
-  const {renderFocusLive} = await import('../roadmap/render-focus.js');
-  const evil = EVIL.join(' ').replace(/\n/g, ' ');
-  const diff = {any: true, since: EVIL[1], badge: () => null, dropped: [EVIL[2]]};
-  const doc = style => (style ? 'style: ' + style + '\n' : '') +
-    'title: T\nheadline: ' + evil + '\nstory: ' + evil +
-    '\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
-  assertClean(render(parse(doc()), {...ctx, diff}), 'roadmap headline+story');
-  assertClean(render(parse(doc()), {...ctx, diff, width: 360}), 'roadmap headline+story narrow');
-  assertClean(renderBoardLive(parse(doc('board')), {...ctx, diff}), 'board headline+story');
-  assertClean(renderRegisterLive(parse(doc('register')), {...ctx, diff}), 'register headline+story');
-  assertClean(renderFocusLive(parse(doc('focus')), {...ctx, diff}), 'focus headline+story');
-});
-
 /* ---------- conditional roadmap (A6) ----------
    Bet names themselves are `[a-z0-9-]+` (case-insensitive) — the parser refuses
    anything else, so a hostile payload can never ride a bet NAME. It rides the
@@ -758,15 +602,15 @@ test('roadmap escapes a hostile headline and story on every artefact', async () 
    rider) — the two dropped-tag wordings — across every live renderer + deck. */
 test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items, and hostile bet names at the grammar\'s shape boundary parse cleanly, across every live renderer + deck', async () => {
   const {parse} = await import('../roadmap/parse.js');
-  const {render} = await import('../roadmap/render.js');
-  const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const {renderRegisterLive} = await import('../roadmap/render-register.js');
-  const {renderFocusLive} = await import('../roadmap/render-focus.js');
-  const {renderBoardDeck} = await import('../roadmap/render-board.js');
-  const {renderRegisterDeck} = await import('../roadmap/render-register.js');
-  const {renderFocusDeck} = await import('../roadmap/render-focus.js');
-  const {renderDeck} = await import('../roadmap/render-deck.js');
-  const {paletteColors} = await import('../roadmap/render-deck.js');
+
+
+
+
+
+
+
+
+
 
   const doc = style => (style ? 'style: ' + style + '\n' : '') +
     'title: ' + EVIL[0] + '\ndate: 2026-07-06\nNOW\n' +
@@ -786,23 +630,20 @@ test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items
   // call below on an EMPTY doc that escapes nothing because there's nothing to escape.
   assert.ok(m.bets['shipped-a1-b2'] && m.bets['won-x'] && m.bets.x, 'the fixture declares its three bets');
   assert.ok(m.items.some(i => i.worldState === 'dropped'), 'the fixture actually drops an item');
-  assertClean(render(m, {...ctx, edit: true}), 'roadmap conditional');
-  assertClean(render(m, {...ctx, edit: true, width: 360}), 'roadmap conditional narrow');
-  assertClean(renderBoardLive(parse(doc('board')), {...ctx, edit: true}), 'board-live conditional');
-  assertClean(renderRegisterLive(parse(doc('register')), {...ctx, edit: true}), 'register-live conditional');
-  /* S4 (E10): group: outcome's section labels interpolate a bet's DISPLAY
-     name straight into a txt() call ("Only if <bet> pays off") — same esc()
-     path as every other label, but a new call site, so it gets its own
-     hostile-name pass rather than riding on the lane-mode assertion above. */
-  assertClean(renderRegisterLive(parse('group: outcome\n' + doc('register')), {...ctx, edit: true}), 'register-live conditional, group: outcome');
-  assertClean(renderFocusLive(parse(doc('focus')), {...ctx, edit: true}), 'focus-live conditional');
-  const boardM = parse(doc('board'));
-  assertClean(renderBoardDeck(boardM, ctx, paletteColors(boardM, ctx)), 'roadmap-deck-board conditional');
-  const registerM = parse(doc('register'));
-  assertClean(renderRegisterDeck(registerM, ctx, paletteColors(registerM, ctx)), 'roadmap-deck-register conditional');
-  const registerOutcomeM = parse('group: outcome\n' + doc('register'));
-  assertClean(renderRegisterDeck(registerOutcomeM, ctx, paletteColors(registerOutcomeM, ctx)), 'roadmap-deck-register conditional, group: outcome');
-  const focusM = parse(doc('focus'));
-  assertClean(renderFocusDeck(focusM, ctx, paletteColors(focusM, ctx)), 'roadmap-deck-focus conditional');
-  assertClean(renderDeck(m, ctx), 'roadmap-deck-grid conditional');
+  for(const style of ['grid','board','focus','register']){
+    const model=parse(doc(style));
+    for(const width of [1440,360])assertClean(renderChapter(model,{...ctx,edit:true,width}),'Chapter conditional '+style+' '+width);
+    renderChapterPages(model,ctx).pages.forEach((svg,i)=>assertClean(svg,'Chapter conditional slide '+style+' '+i));
+  }
+  assertClean(renderChapter(parse('group: outcome\n'+doc('register')),{...ctx,edit:true}),'Chapter conditional outcome grouping');
+});
+
+
+test('Case structured views and every deck page escape all authored fields',async()=>{
+  const {parse}=await import('../case/parse.js');
+  const {render}=await import('../case/render.js');
+  const {buildCaseDeck}=await import('../case/deck-svg.js');
+  const doc='title: '+EVIL[0]+'\nheadline: '+EVIL[1]+'\nclaim c: '+EVIL[2]+'\n  detail: '+EVIL[3]+'\n  qualification: '+EVIL[4]+'\noption o: '+EVIL[1]+'\n  downside: '+EVIL[0]+'\nreview r: '+EVIL[2]+'\n  change: '+EVIL[0];
+  for(const view of ['brief','compare','review'])assertClean(render(parse(doc+'\nview: '+view),ctx),'case-'+view);
+  for(const page of buildCaseDeck(parse(doc),{measure:ctx.measure}).pages)assertClean(page.svg,'case-deck');
 });

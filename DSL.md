@@ -53,10 +53,10 @@ The twelve grammars differ, but they're a family and obey the same rules:
 |---|---|---|---|---|---|
 | [paths](#paths) | ✓ | ✓ | ✓ | `date` `today` `style` `verdict` | `decision name:` blocks, period headers, then `Lane: Item [status] [if/unless] -- note -> url` |
 | [proxy](#proxy) | ✓ | ✓ | ✓ | `date` `outcome` `proxy` `action` `mode` | intended theory, protected outcomes and up to three failure theories |
-| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
+| [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `font` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
-| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
+| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `style` `font` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
 | [map](#map) | ✓ | ✓ | ✓ | `preset` `x` `y` `zones` `verdict` | `Label @ x,y :: field: value`, plus `zone …:` directives |
 | [tree](#tree) | ✓ | ✓ | ✓ | `currency` `verdict` | indented tree; `Label (p=…) : value` |
 | [why](#why) | ✓ | ✓ | ✓ | — | indented tree; `outcome:` / `? assumption` / `Solution [status]` |
@@ -219,7 +219,7 @@ swimlanes, WIP limits, and a deck export.
 **Config keys** (put them above the first horizon header):
 - `title:` free text.
 - `date:` deck date, free text; `date: off` hides it.
-- `headline:` the standfirst under the title, free text. Never generated — if you want one,
+- `headline:` the main editorial heading, free text. Never generated — if you want one,
   write one. It appears on **every** export (chart, board, register, focus, and the markdown).
 - `story:` one authored line about what changed, printed under the standfirst and shown
   **only while a snapshot comparison is active** — it is a claim about a diff, so with no
@@ -230,12 +230,19 @@ swimlanes, WIP limits, and a deck export.
   (time) axis is what enables `xN` spans.
 - `wip:` a number (default 6) or `off` — the per-column work-in-progress limit; a breach is
   an editor warning, not a slide.
-- `fade:` anything other than `off` turns on the certainty fade for later horizons.
+- `fade:` retained for older documents. Chapter preserves full text contrast in every horizon.
 - `palette:` / `accent:` — as above.
-- `style:` deck layout, one of `board`, `focus`, `register`, `grid`.
+- `style:` live and export composition: `board` (Horizons), `focus` (Spotlight),
+  `register` (Register), or `grid` (Time grid). Omission selects Time grid.
+  The view picker edits this same DSL setting as one undoable change, removing
+  superseded `style:` declarations. Source edits update the picker and all exports.
+- `font:` `Chapter` (Instrument Serif headings, DM Sans body) or `DM Sans` throughout.
+  Names are case-insensitive; omission selects Chapter. Unknown names warn and fall back
+  to Chapter. Both families are bundled locally; no network font service is required.
 - `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
   first non-empty horizon when absent, blank, or naming no real horizon.
-- `verdict:` — `off` to carry no verdict at all, or your own line to replace the tool's. Omit it and the tool writes one, as it always has.
+- `verdict:` — `off` to suppress the verdict, or your own line. Authored verdicts travel
+  with the artifact and exports; automatic diagnosis appears while editing the source.
 - `group:` the register's grouping lens, `lane` (default) or `outcome`: `group: outcome`
   regroups the register into either-way / only-if-a-bet-pays-off / only-if-it-doesn't / not-needed
   sections instead of by horizon. Affects only the `register` style — elsewhere it warns.
@@ -260,7 +267,13 @@ swimlanes, WIP limits, and a deck export.
     written resolution always beats a bare declaration, whatever order the lines are in.
     `[if name]` / `[unless name]` make an item conditional on that bet paying off (or not);
     at most one condition per item.
-  - `-- note` trailing annotation; `-> url` a link; `xN` spans N columns (time axis only).
+  - `-- note` optional subtitle or commentary beneath the item title. Empty notes take no
+    space. Longer commentary wraps and continues across slides without being dropped.
+    `-> url` is a link; `xN` spans N columns (time axis only).
+
+The slide preview includes commentary by default; **Titles only** is an explicit export
+choice. Single slides download as PNG; multi-slide sets download as one ZIP. SVG and
+PNG artifact exports retain the selected typography and colours.
 
 **Worlds.** Each bet is unresolved, won or lost until you write a resolution. A bet whose
 own item is dropped (its condition failed) reads **moot** — "never ran", never "lost" — and
@@ -270,7 +283,7 @@ always outranks the fork: a finished item never ghosts or drops, though it warns
 itself *conditioned* on a bet that's still unresolved, lost, or never ran — the past can't be
 conditional.
 
-**What it warns about:** unknown palette / bad accent / bad `wip` / unknown `style`; a config
+**What it warns about:** unknown font / unknown palette / bad accent / bad `wip` / unknown `style`; a config
 line placed after the first header (read as a lane item); header typos; items before any
 header (skipped); an unknown `[status]`; a span used without a time axis; a bet name that
 isn't letters/digits/hyphens; a reserved bet name (`won`/`lost`); a duplicate `[bet: x]`
@@ -374,34 +387,72 @@ Growth bets
 **`/timeline`** — a milestone timeline with honest P50–P90 date ranges, swimlanes and a
 "today" line.
 
-**Config keys** (order-free): `title:`, `palette:`, `accent:`, and `today:` a date
-(`YYYY-MM` or `YYYY-MM-DD`) for the today line.
-- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line in the tool's verdict slot. Omit it and the tool writes one, as it always has.
+**Config keys** (order-free):
+- `title:`, `palette:` and `accent:` follow the shared conventions. Palette and accent
+  apply to every view and export in both light and dark themes.
+- `font:` `Chapter` (Instrument Serif headings, DM Sans body) or `DM Sans` throughout.
+  Names are case-insensitive; unknown names warn and fall back to Chapter. Both families
+  are bundled locally, including for detached SVG and deck exports.
+- `style:` `field` (shared chronology), `review` (snapshot changes), `decisions`
+  (fixed events and decision windows) or `register` (milestone details). Default: `field`.
+  The view picker writes this same DSL key and removes superseded declarations;
+  editing the source updates the picker. Review needs an explicitly selected snapshot
+  for comparisons; choosing the view never invents a baseline or embeds local history
+  in the shared URL.
+- `today:` a date (`YYYY-MM` or `YYYY-MM-DD`) for the today line and elapsed-time facts.
+  Omit it to use the current UTC day.
+- `verdict:` `off` suppresses the verdict; any other text becomes the authored verdict.
 
-**Node syntax:** each milestone is `[Lane:] Label DATE [.. DATE] [status] [// note]`.
-- Dates are `YYYY-MM` (treated as mid-month) or `YYYY-MM-DD`.
-- A **range** uses `..` (or an en/em-dash) between two dates — this is the P50..P90 spread.
-- `[status]` is `[done]`, `[risk]` or `[fixed]`. `// note` is a trailing annotation. `Lane:`
-  prefixes a swimlane. Any lane name works except `Today` and `Verdict` — those read as
-  config keys, so a milestone in a lane by either name would vanish into config.
-- `[fixed]` marks a date you don't control — an external event (a regulatory decision, a
-  contract expiry, a conference). It renders clean with no `±?`, and the latest fixed date
-  still ahead of today becomes the deadline the merge-risk verdict measures the plan against.
-- A single **undone, un-fixed** date with no range warns ("claims certainty nobody has") —
-  give it a `..` range, mark it `[done]`, or mark it `[fixed]`.
+**Node syntax:** each milestone is
+`[Lane:] Label DATE [.. DATE] [status] [started: YYYY-MM-DD] [lead: 6w] [// note]`.
+- Finish dates are `YYYY-MM` (treated as mid-month, displayed at month precision) or
+  `YYYY-MM-DD`. A range uses `..` (or an en/em-dash) between P50 and P90 finish dates.
+  The interval is uncertainty about the finish, not the duration of work.
+- `[status]` is `[done]`, `[risk]` or `[fixed]`. `// note` is trailing commentary,
+  retained in the view, item focus and exports. `Lane:` prefixes a swimlane. Any lane
+  name works except `Today` and `Verdict`, which always read as config keys.
+- `[started: YYYY-MM-DD]` records an **actual start**, never a planned start. It is
+  optional, requires a full valid date and applies to open or completed work. No start
+  is inferred when absent. It adds a quiet start mark and connector; the P50–P90
+  finish marks retain their meaning. Calendar time elapsed runs from start to today
+  for open work, or from start to the actual `[done]` date for completed work. Start-to-
+  P50/P90 spans are calendar-duration estimates, not effort or percent complete.
+- Starts after today or after P50/completion produce warnings and no calculated
+  durations until corrected. Valid authored dates stay in the source and model;
+  they do not move the finish forecast. A start on `[fixed]` warns and is ignored.
+- `[fixed]` marks a date outside the team's control, such as a contract expiry or
+  conference. It has no uncertainty interval; it does not create a dependency on
+  every other milestone. The merge-risk model may use a future fixed event as its
+  reference date, under its separate independence assumption.
+- `[lead: 6w]` or `[lead: 10d]` on `[fixed]` supplies positive preparation time. Its
+  decide-by date is the fixed date minus that lead. It is separate from actual start
+  and from forecast duration; non-fixed leads warn and are ignored.
+- A single **undone, un-fixed** finish date warns about false precision. Supply a
+  P90 range or mark the point as an actual completion or fixed event.
 
-**What it warns about:** bad palette / accent / `today`; a line with no date; an unknown
-`[status]`; unreadable or too many dates; a reversed range (swapped); a `[done]` or `[fixed]`
-item with a range; a bare single future date.
+Snapshot comparisons distinguish changes to actual starts from finish slips.
+Changing a lane remains a dropped item plus a new item; repeated labels are compared
+by their occurrence within that lane. Historic marks are inert and never alter forecasts.
+Complete slide sets repeat their chronological scale and lane context across pages;
+no interval is split across pages, and no milestone or commentary is silently omitted.
+
+**What it warns about:** unknown font / style / palette; bad accent / today; missing,
+unreadable, too many or reversed dates; unknown tags; invalid or repeated starts and
+leads; incompatible tags; starts after today or finish; ranges on completed/fixed
+items; bare single forecast dates.
 
 ```dsl tool=timeline
-title: Launch plan
-verdict: We hold the GA date
-today: 2026-08-01
-Beta cut 2026-09 .. 2026-10
-Build: FID 2026-09-30 [done]
-Build: GA 2026-11 .. 2027-01 [risk]
-Ofgem decision 2026-12-01 [fixed]
+title: Lantern launch
+font: DM Sans
+style: field
+palette: ocean
+accent: #537D76
+verdict: External review remains the widest uncertainty
+today: 2026-09-05
+App: Beta cut 2026-09-18 .. 2026-10-02 [started: 2026-08-24]
+App: Store review 2026-10 .. 2026-11 [risk] // External review timing
+Marketing: Landing page 2026-09-01 [done] [started: 2026-08-20]
+Conference 2026-12-15 [fixed] [lead: 6w]
 ```
 
 ## map
@@ -596,23 +647,71 @@ insure: premium 8 attach 40 limit 120
 through the tool's own `parse.js` and fails if any of them produce a warning
 (`dev/dsl-doc.test.mjs`). The concepts behind the tools are in `ARCHITECTURE.md`.*
 
-## case — the case file (binder)
+## case — decision review
 
-One URL that holds a decision's whole kit. Config: `title:`, `question:` (the
-standfirst), `status:` (`open` | `decided` | `parked`), `verdict:` (authored
-only — a case never computes one; `off` carries none), `palette:`/`accent:`.
-An exhibit is roadmap's link grammar: `[Lane:] Label -> url [// note]` — the
-URL must be one of this suite's tools (relative `/tool/#…` or the two full
-https origins); anything else stays visible as a dead (ghost) exhibit. Lanes
-are free text and exist once an exhibit carries one.
+A portable, authored decision review. Case does not compute a verdict or infer
+agreement between instruments. `decision:` states the commitment authorised now;
+`unresolved:` preserves the question still open. `status: decided` can therefore
+mean an experiment was approved while rollout remains undecided.
+
+Config: `title:`, `question:`, `headline:`, `status:` (`open` | `decided` | `parked`),
+`decision:`, `unresolved:`, `verdict:` (authored; `off` hides it), `owner:`, `date:`
+and `review-by:` (real `YYYY-MM-DD` dates), `reconsider:`, `constraints:`, `view:`
+(`brief` | `compare` | `review`), `font:` (`chapter` | `dm-sans`), `theme:`
+(`system` | `light` | `dark`), `palette:` and six-digit hex `accent:`. View and
+appearance controls edit these source settings; there is one presentation state.
+
+Blocks have a unique id, a label, and indented single-line fields:
+
+- `option id: Label`: `value`, `requires`, `downside`, `reconsider`.
+- `claim id: Label`: `basis` (`observation` | `assumption` | `model` | `judgement`),
+  `detail`, `qualification`, `assumptions`, `url`.
+- `review id: Label`: `date`, `change`, `implication`, `decision`, `url`, `previous`.
+  Each review is a separate authored record; a later decision does not overwrite
+  the original authorisation. Planned reviews must say they contain no new evidence.
+
+Reference fields accept exact suite URLs or explicit external HTTP(S) references.
+A tool link needs meaningful URL-carried state to be called captured. A bare link,
+teaching seed or malformed hash is qualified; successful decoding does not validate
+its assumptions or conclusions. External references are links, never captured
+models. Case reads state already in the URL and never fetches external evidence.
+`previous:` links the exact earlier model used in a dated review.
+
+Legacy exhibits remain valid alongside claims: `[Lane:] Label -> url [// note]`.
+Their existing suite-only allowlist remains unchanged; other URLs stay visible as
+dead exhibits. Use a claim's `url:` for an explicit external reference. Comments
+start with `//` at a whitespace boundary. Blank lines do not end a block; the next
+unindented declaration does. Unknown fields produce soft line-numbered warnings.
 
 ```dsl tool=case
-title: Wexcombe augmentation
-question: Augment in 2029, or run the fleet down?
+title: Morrow / Paid tier
+question: Launch now, learn first, or defer?
+headline: Fund the pilot. Keep launch open.
 status: decided
-verdict: We augment — the warranty binds 3 years before the wear does
-Money: Augment NPV model -> /fermi/#abc // the £ case either way
-Money: Board options -> /tree/#def
-Delivery: Plan of record -> /timeline/#ghi // P50–P90 dates
-Risk: Premortem register -> /premortem/#jkl
+decision: Approve the pilot within its cost ceiling
+unresolved: General launch remains undecided
+verdict: Learn first, provided the pilot costs no more than £13.6k.
+owner: Pricing lead
+date: 2026-09-05
+review-by: 2026-11-13
+reconsider: Total pilot cost exceeds £13.6k.
+font: dm-sans
+view: brief
+option pilot: Run the pilot
+  value: £16.6k expected contribution under the authored assumptions
+  requires: £10k pilot cost and an informative signal
+  downside: Eight weeks of delay
+option launch: Launch now
+  value: £13k expected contribution under the same assumptions
+  downside: Commit before learning about demand
+claim margin: The pilot leads by £3.6k
+  basis: model
+  detail: The expected-value comparison includes the pilot cost.
+  qualification: Expected value is not a revenue promise.
+  assumptions: Viable-demand prior 30%; sensitivity and specificity 80%.
+review budget: Cost estimate changes
+  date: 2026-09-12
+  change: Pilot cost is now estimated at £14k; no customer evidence changed.
+  implication: The model preference reverses.
+  decision: Reopen the pilot approval before spending.
 ```

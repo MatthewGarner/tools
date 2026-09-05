@@ -1,0 +1,17 @@
+title: Lantern / Product roadmap
+headline: Make reading a daily habit.
+style: focus
+accent: #254C3D
+date: 2026-09-04
+
+NOW
+Core: Resume your reading [doing] -- Keep your place across devices
+Core: Curated shelves [doing]
+Growth: Referral flow [risk] -- Awaiting app-store review
+
+NEXT
+Core: Reading reminders [bet: reminders]
+Platform: Offline downloads
+
+LATER
+Core: Personalised reminders [if reminders]

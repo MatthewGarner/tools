@@ -1,6 +1,7 @@
+import {CONFIG_KEYS, BLOCK_FIELDS, parse} from './parse.js';
 /* Pure text rewrites for /case edit-in-place. No DOM; the text is the model. */
 
-const CONFIG_LINE = /^(title|question|status|verdict|palette|accent)\s*:/i;
+const CONFIG_LINE = new RegExp('^(' + CONFIG_KEYS.join('|') + ')\\s*:', 'i');
 
 export const validators = {
   /* a label sits between [Lane:] and -> — no newline, no ->, no // and not a
@@ -27,11 +28,29 @@ const textLines = text => ({
 
 const joinLines = ({lines, ending}) => lines.join(ending);
 
+
+// A config-like word may be an indented review field or a legacy exhibit lane.
+// Native edits must use precisely the same declaration boundaries as parsing.
+function configIndices(lines, key){
+  let block = false;
+  const found = [];
+  for(let index = 0; index < lines.length; index++){
+    const raw = lines[index], line = raw.trim();
+    if(!line || line.startsWith('//')) continue;
+    if(block && /^\s/.test(raw)) continue;
+    block = /^(option|claim|review)\s+[a-z][a-z0-9_-]*\s*:/i.test(line);
+    if(block) continue;
+    const match = line.match(/^([a-z-]+)\s*:\s*(.*)$/i);
+    if(!match || match[1].toLowerCase() !== key) continue;
+    const legacyLane = !['title', 'question', 'status', 'verdict', 'palette', 'accent'].includes(key) && /\s->\s+\S+(?:\s+\/\/.*)?$/.test(match[2]);
+    if(!legacyLane) found.push(index);
+  }
+  return found;
+}
+
 function setConfigValue(text, key, value, afterKeys = []){
   const source = textLines(text);
-  const matching = source.lines.map((line, index) =>
-    new RegExp('^' + key + '\\s*:', 'i').test(line.trim()) ? index : -1
-  ).filter(index => index >= 0);
+  const matching = configIndices(source.lines, key);
   // The parser makes the last duplicate config line authoritative, so native
   // edits must target the same one. Clearing removes every duplicate to avoid
   // revealing an older hidden value instead of the requested empty state.
@@ -46,9 +65,7 @@ function setConfigValue(text, key, value, afterKeys = []){
     return joinLines(source);
   }
   if(!v) return text;
-  const anchor = afterKeys.map(candidate => source.lines.map((line, index) =>
-    new RegExp('^' + candidate + '\\s*:', 'i').test(line.trim()) ? index : -1
-  ).filter(index => index >= 0).at(-1) ?? -1).find(index => index >= 0) ?? -1;
+  const anchor = afterKeys.map(candidate => configIndices(source.lines, candidate).at(-1) ?? -1).find(index => index >= 0) ?? -1;
   source.lines.splice(anchor + 1, 0, key + ': ' + v);
   return joinLines(source);
 }
@@ -105,4 +122,53 @@ export function addExhibitLine(text){
     if(lines[i].trim()) { afterLine = i; break; }
   }
   return {afterLine, newLine: 'New exhibit -> /fermi/'};
+}
+
+
+/* All helpers return source text for the app's ordinary undoable dispatch. */
+export function setConfig(text, key, value){
+  if(!CONFIG_KEYS.includes(key) || /[\r\n]/.test(String(value)) || hasConfigComment(value)) return text;
+  return setConfigValue(text, key, value, ['title']);
+}
+
+export function setBlockField(text, kind, id, key, value){
+  if(!BLOCK_FIELDS[kind] || !['label', ...BLOCK_FIELDS[kind]].includes(key) || /[\r\n]/.test(String(value)) || hasConfigComment(value)) return text;
+  const source = textLines(text);
+  const collection = parse(text)[kind === 'option' ? 'options' : kind === 'claim' ? 'claims' : 'reviews'];
+  const start = collection.find(node => node.id === id)?.srcLine ?? -1;
+  if(start < 0) return text;
+  if(key === 'label'){
+    source.lines[start] = kind + ' ' + id + ': ' + String(value).trim();
+    return joinLines(source);
+  }
+  let end = start + 1;
+  while(end < source.lines.length && (!source.lines[end].trim() || /^\s/.test(source.lines[end]) || /^\/\//.test(source.lines[end]))) end++;
+  const matches = [];
+  for(let i = start + 1; i < end; i++) if(new RegExp('^\\s+' + key + '\\s*:', 'i').test(source.lines[i])) matches.push(i);
+  const val = String(value).trim();
+  if(val){
+    const at = matches.at(-1);
+    if(at == null) source.lines.splice(start + 1, 0, '  ' + key + ': ' + val);
+    else source.lines[at] = '  ' + key + ': ' + val;
+  }else source.lines = source.lines.filter((_, index) => !matches.includes(index));
+  return joinLines(source);
+}
+
+export function appendBlock(text, kind, values = {}){
+  if(!BLOCK_FIELDS[kind]) return text;
+  const label = String(values.label || 'New ' + kind);
+  if(/[\r\n]/.test(label) || hasConfigComment(label)) return text;
+  const source = String(text), ids = new Set([...source.matchAll(/^(?:option|claim|review)\s+([a-z][a-z0-9_-]*)\s*:/gmi)].map(match => match[1]));
+  let id = values.id || kind, suffix = 2;
+  if(!/^[a-z][a-z0-9_-]*$/i.test(id)) return text;
+  const base = id;
+  while(ids.has(id)) id = base + '-' + suffix++;
+  const lines = [kind + ' ' + id + ': ' + label];
+  for(const key of BLOCK_FIELDS[kind]){
+    const value = String(values[key] || '');
+    if(/[\r\n]/.test(value) || hasConfigComment(value)) return text;
+    if(value) lines.push('  ' + key + ': ' + value);
+  }
+  const ending = source.includes('\r\n') ? '\r\n' : '\n';
+  return source.replace(/\s*$/, '') + ending + ending + lines.join(ending);
 }
