@@ -21,7 +21,24 @@ const report=[];
 try{
  await page.goto(base+'/roadmap/');
  await page.waitForFunction(()=>document.querySelector('#fontstatus').hidden && document.querySelector('#preview svg'));
- for(const fixture of ['sparse','crowded'])for(const font of ['Chapter','DM Sans'])for(const style of ['focus','board','register','grid'])for(const theme of ['light','dark']){
+ const duplicateStyle='style: board\nNOW\nCore: Read together\nstyle: focus';
+ if(await page.locator('.workspace').evaluate(el=>el.classList.contains('collapsed')))await page.locator('#railtab').click();
+ await page.locator('.cm-content').fill(duplicateStyle);
+ await waitChapterSource(page,duplicateStyle);
+ await page.locator('#stylepicker [data-style="grid"]').click();
+ const canonicalStyle='NOW\nCore: Read together\nstyle: grid';
+ await waitChapterSource(page,canonicalStyle);
+ await page.waitForFunction(()=>document.querySelector('#preview svg')?.getAttribute('data-chapter-layout')==='grid');
+ await page.locator('.cm-content').focus();
+ await page.keyboard.press(process.platform==='darwin'?'Meta+z':'Control+z');
+ await waitChapterSource(page,duplicateStyle);
+ await page.waitForFunction(()=>document.querySelector('#stylepicker [aria-pressed="true"]')?.dataset.style==='focus');
+ await page.locator('#stylepicker [data-style="grid"]').click();
+ await waitChapterSource(page,canonicalStyle);
+ await page.reload();
+ await page.waitForFunction(()=>document.querySelector('#fontstatus').hidden && document.querySelector('#preview svg')?.getAttribute('data-chapter-layout')==='grid');
+ await waitChapterSource(page,canonicalStyle);
+ for(const fixture of ['sparse','crowded','quarterly'])for(const font of ['Chapter','DM Sans'])for(const style of ['focus','board','register','grid'])for(const theme of ['light','dark']){
   const key=[fixture,font.replace(' ','-'),style,theme].join('-');
   if(process.env.CHAPTER_CASE && !key.includes(process.env.CHAPTER_CASE))continue;
   const source=readFileSync(new URL('../../roadmap/tests/fixtures/chapter-'+fixture+'.txt',import.meta.url),'utf8').replace(/^style:.*$/m,'style: '+style)+'\nfont: '+font;
@@ -32,7 +49,9 @@ try{
   await waitChapterSource(page,source);
   await page.waitForFunction(style=>document.querySelector('#preview svg')?.getAttribute('data-chapter-layout')===style,style);
   await page.waitForFunction(theme=>document.querySelector('#preview svg > rect')?.getAttribute('fill')===(theme==='dark'?'#171A18':'#F6F3ED'),theme);
+  assert.equal(await page.locator('#stylepicker [aria-pressed="true"]').getAttribute('data-style'),style,key+' DSL and picker agree');
   await page.locator('#railtab').click();
+  assert.equal(await page.locator('#verdict').isVisible(),false,key+' automatic diagnosis belongs in the editing view');
   const diagnostics=await page.evaluate(async source=>{
    const [{parse},{renderChapterPages},{layoutChapter},{measure}]=await Promise.all([import('/roadmap/parse.js'),import('/roadmap/chapter-svg.js'),import('/roadmap/chapter-layout.js'),import('/assets/app-common.js')]);
    const model=parse(source),ctx={measure,today:'2026-09-04'};
@@ -41,9 +60,11 @@ try{
   },source);
   assert.ok(diagnostics.fontsReady,key+' fonts');assert.ok(diagnostics.complete,key+' complete '+JSON.stringify(diagnostics));
   if(fixture==='crowded' && style==='grid')assert.ok(diagnostics.pages<=3,key+' should use free column space before adding slides');
+  if(fixture==='quarterly' && style==='grid')assert.equal(diagnostics.pages,2,key+' should not orphan one item on an extra slide');
   if(fixture==='sparse')assert.equal(diagnostics.pages,1,key+' sparse plan should be a single composed slide');
   await page.locator('#exportdeck').click();
   assert.equal(await page.locator('#slidecanvas svg').getAttribute('width'),'1920');
+  assert.equal(await page.locator('#slidecanvas svg').getAttribute('data-chapter-layout'),style,key+' export and selected view agree');
   await page.locator('#slidecanvas svg').screenshot({path:out+'/'+key+'-slide.png'});
   for(let i=1;i<diagnostics.pages;i++){
     await page.locator('#slidenext').click();

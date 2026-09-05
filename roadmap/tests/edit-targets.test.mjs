@@ -135,12 +135,12 @@ test('setStyle rewrites an existing style: line in place, not a prepend', () => 
   assert.equal(text, 'style: register\n' + DOC);
 });
 
-test('setStyle targets the LAST style: line so a duplicate can never mask the new value', () => {
+test('setStyle leaves one canonical declaration so old styles cannot re-emerge', () => {
   const text = 'style: board\nNOW\nCore: thing\nstyle: focus';
   const out = setStyle(text, 'grid');
   const lines = out.split('\n');
-  assert.equal(lines[0], 'style: board');    // earlier duplicate left alone
-  assert.equal(lines[3], 'style: grid');     // the one that actually wins gets rewritten
+  assert.equal(lines.filter(line=>/^style:/.test(line)).length,1);
+  assert.equal(lines.at(-1), 'style: grid');
   assert.equal(parse(out).style, 'grid');    // last-wins: this is what the doc resolves to
 });
 

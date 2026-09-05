@@ -163,7 +163,13 @@ export function setConfigKey(text, key, value){
   lines.splice(at, 0, line);
   return lines.join('\n');
 }
-export const setStyle = (text, style) => setConfigKey(text, 'style', style);
+export function setStyle(text, style){
+  const lines=setConfigKey(text,'style',style).split('\n');
+  // One visible setting owns the view. Retired declarations must not reappear
+  // when someone subsequently edits or removes the winning line in the DSL.
+  const last=lines.findLastIndex(line=>/^style\s*:/i.test(line.trim()));
+  return lines.filter((line,index)=>index===last || !/^style\s*:/i.test(line.trim())).join('\n');
+}
 /* the focus style's lens — which horizon is the hero */
 export const setFocus = (text, name) => setConfigKey(text, 'focus', name);
 /* the register's grouping lens (S4/E10) — 'lane' is the default, so choosing

@@ -101,13 +101,12 @@ export function renderChapter(model,ctx={}){
   const fy=layout.footerY;
   const rail=layout.panels.find(p=>p.role==='rail');
   const footerW=(rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
-  s.push(rule(M,fy-20,footerW,fy-20,C.border));
-  const count=ctx.sourceModel?.items.length ?? model.items.length;
-  const scope=ctx.page?`Page ${ctx.page.index+1} of ${ctx.page.total}`:ctx.titlesOnly?'Titles only':`${model.horizons.length} horizons`;
+  const scope=ctx.page?.total>1?`Page ${ctx.page.index+1} of ${ctx.page.total}`:'';
   const small={family:layout.type.body,size:layout.phone?12:15,step:20,weight:400};
-  const context=ctx.page?.context ? ` · ${ctx.page.context.region} repeated from page ${ctx.page.context.page}` : '';
-  s.push(blockSvg({...small,lines:[`${count} initiative${count===1?'':'s'}${ctx.titlesOnly?' · Titles only':''}${context}`]},M,fy-15,C.muted));
-  s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':layout.phone?12:15,fill:C.muted,'text-anchor':'end'})}>${e(scope)}</text>`);
+  const context=ctx.page?.context ? `${ctx.page.context.region} repeated from page ${ctx.page.context.page}` : '';
+  const detail=[ctx.titlesOnly?'Titles only':'',context].filter(Boolean).join(' · ');
+  if(detail)s.push(blockSvg({...small,lines:[detail]},M,fy-15,C.muted));
+  if(scope)s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':layout.phone?12:15,fill:C.muted,'text-anchor':'end'})}>${e(scope)}</text>`);
   s.push('</svg>');return s.join('');
 }
 
@@ -123,6 +122,9 @@ export function renderChapterPages(model,ctx={}){
     const first={...content,horizons:content.horizons.slice(0,count),items:content.items.filter(i=>i.h<count)};
     if(count>3 && layoutFor(first).fits)horizonsPerPage=count;
   }
+  // Equal temporal windows avoid a narrow final page that exaggerates duration:
+  // six quarters become two three-quarter windows, rather than four then two.
+  if(style==='board'||style==='grid')horizonsPerPage=Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/horizonsPerPage));
   const base=exportPages(content,{style,horizonsPerPage,packColumns:['board','focus','grid'].includes(style),pageUnits:1000000,
     pageGeometryFits:(items,_,horizons)=>layoutFor({...model,horizons,items}).fits,
     pageGeometryHeight:style==='register'?(items,_,horizons)=>layoutFor({...model,horizons,items}).contentBottom:undefined});

@@ -234,13 +234,15 @@ swimlanes, WIP limits, and a deck export.
 - `palette:` / `accent:` — as above.
 - `style:` live and export composition: `board` (Horizons), `focus` (Spotlight),
   `register` (Register), or `grid` (Time grid). Omission selects Time grid.
+  The view picker edits this same DSL setting as one undoable change, removing
+  superseded `style:` declarations. Source edits update the picker and all exports.
 - `font:` `Chapter` (Instrument Serif headings, DM Sans body) or `DM Sans` throughout.
   Names are case-insensitive; omission selects Chapter. Unknown names warn and fall back
   to Chapter. Both families are bundled locally; no network font service is required.
 - `focus:` which horizon is the hero of the `focus` style (case-insensitive); defaults to the
   first non-empty horizon when absent, blank, or naming no real horizon.
 - `verdict:` — `off` to suppress the verdict, or your own line. Authored verdicts travel
-  with the artifact and exports; automatic diagnosis appears in the app.
+  with the artifact and exports; automatic diagnosis appears while editing the source.
 - `group:` the register's grouping lens, `lane` (default) or `outcome`: `group: outcome`
   regroups the register into either-way / only-if-a-bet-pays-off / only-if-it-doesn't / not-needed
   sections instead of by horizon. Affects only the `register` style — elsewhere it warns.

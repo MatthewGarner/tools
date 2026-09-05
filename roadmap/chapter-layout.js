@@ -43,8 +43,8 @@ export function chapterFacts(model, item, {showLane = true, showRun = true, diff
   const start = ex?.sourceStart ?? item.h;
   const end = ex?.sourceEnd ?? item.h + Math.max(1, item.span || 1) - 1;
   if((showRun && end > start) || item.spanEnd) facts.push({text:'Runs ' + source.horizons[start] + ' — ' + (item.spanEnd || source.horizons[end]), kind:'run'});
-  if(ex?.continuesBefore) facts.push({text:'Continues from ' + source.horizons[start], kind:'continuation'});
-  if(ex?.continuesAfter) facts.push({text:'Continues to ' + source.horizons[end], kind:'continuation'});
+  if(!showRun && ex?.continuesBefore) facts.push({text:'Continues from ' + source.horizons[start], kind:'continuation'});
+  if(!showRun && ex?.continuesAfter) facts.push({text:'Continues to ' + source.horizons[end], kind:'continuation'});
   if(ex?.fragment?.total > 1) facts.push({text:'R' + String((ex.sourceIndex ?? 0) + 1).padStart(2,'0') + ' · Item part ' + (ex.fragment.index + 1) + ' of ' + ex.fragment.total, kind:'continuation'});
   if(ex?.dropped) facts.push({text:'Dropped', kind:'change'});
   const badge = item.worldState !== 'dropped' && diff?.badge?.(item);
@@ -67,13 +67,17 @@ export function layoutChapter(model, ctx = {}){
   const headingSize = phone ? 32 : CHAPTER_TYPE.section;
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
-  let y = phone ? 28 : 52;
   const dense = (ctx.sourceModel || model).items.length > 8;
+  // Dense time grids recover framing and padding before spending another slide;
+  // title, commentary and metadata type sizes remain unchanged.
+  const compactGrid=ctx.slide && style==='grid' && dense;
+  let y = phone ? 28 : compactGrid ? 40 : 52;
   const hero = chapterHero(ctx.sourceModel || model);
   const heroName = (ctx.sourceModel || model).horizons[hero];
   const localHero = Math.max(0, model.horizons.indexOf(heroName));
   const hasRail = style === 'focus' && !phone && model.horizons.length > 1;
-  const heroWidth = hasRail ? Math.round(inner * (dense ? .59 : .64)) - gap : inner;
+  const railColumns=hasRail && !ctx.slide && model.horizons.length>4 ? 2 : 1;
+  const heroWidth = hasRail ? Math.round(inner * (railColumns===2 ? .46 : dense ? .59 : .64)) - gap : inner;
   const railX = hasRail ? margin + heroWidth + gap : null;
   const railWidth = hasRail ? width - railX : 0;
   const text = (value, maxWidth, size, {family = type.body, weight = 400} = {}) => {
@@ -88,7 +92,7 @@ export function layoutChapter(model, ctx = {}){
   const sourceModel = ctx.sourceModel || model;
   const date = model.dateStr === 'off' ? '' : model.dateStr || ctx.today || new Date().toISOString().slice(0,10);
   if(model.headline){
-    headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : 22;
+    headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : compactGrid ? 16 : 22;
   }
   let mainSize = phone ? 38 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
   const mainWidth=hasRail && !dense ? heroWidth*.82 : heroWidth;
@@ -106,7 +110,7 @@ export function layoutChapter(model, ctx = {}){
   }
   headerText(mainTitle, mainWidth, mainSize,
     {family:type.display, weight:type.displayWeight, role:'ink', edit:model.headline ? 'headline' : null});
-  y += phone ? 12 : 20;
+  y += phone ? 12 : compactGrid ? 14 : 20;
   headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, meta, {role:'muted'});
   if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteSize, {role:'muted'}); }
   if(model.basis){
@@ -118,12 +122,12 @@ export function layoutChapter(model, ctx = {}){
       if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, meta, {role:'muted'});
     }
   }
-  y += phone ? 30 : style === 'grid' ? 24 : 42;
+  y += phone ? 30 : compactGrid ? 18 : style === 'grid' ? 24 : 42;
   const bodyTop = y;
   const titleOf = item => item.export?.fragment?.title ?? item.title;
   const noteOf = item => ctx.titlesOnly ? '' : item.export?.fragment?.note ?? item.note;
   function itemRow(item, w, {rail = false, showLane = true, showRun = true, compact = false} = {}){
-    const pad = style === 'grid' && !phone ? 12 : 0;
+    const pad = style === 'grid' && !phone ? compactGrid ? 8 : 12 : 0;
     const sideFacts = style === 'focus' && !phone && !rail;
     const contentW = sideFacts ? w * .70 - 24 : w - pad * 2;
     const title = text(titleOf(item), contentW, compact ? Math.max(itemSize - 2, 21) : itemSize, {weight:500});
@@ -136,7 +140,7 @@ export function layoutChapter(model, ctx = {}){
     let cursor = pad;
     const blocks = [{...title, y:cursor, kind:'title'}];
     cursor += title.lines.length * title.step;
-    if(note){ cursor += 7; blocks.push({...note, y:cursor, kind:'note'}); cursor += note.lines.length * note.step; }
+    if(note){ cursor += compactGrid ? 5 : 7; blocks.push({...note, y:cursor, kind:'note'}); cursor += note.lines.length * note.step; }
     if(facts.length && sideFacts){
       let fy = 0;
       for(const fact of facts){
@@ -146,7 +150,7 @@ export function layoutChapter(model, ctx = {}){
       }
       cursor=Math.max(cursor,fy);
     }else if(facts.length){
-      cursor += 10;
+      cursor += compactGrid ? 8 : 10;
       // Pack metadata by measured width; a long condition gets its own wrapped line.
       let fx = 0, lineHeight = 0;
       for(const fact of facts){
@@ -163,7 +167,7 @@ export function layoutChapter(model, ctx = {}){
   function horizonHint(name,w){
     const h=sourceModel.horizons.indexOf(name), active=activeCount(sourceModel,h), conditional=condCount(sourceModel,h);
     const count=conditional ? (active-conditional)+' + '+conditional+' conditional' : String(active);
-    const label=!ctx.slide && sourceModel.wip>0 && active>sourceModel.wip ? count+' · Over WIP '+sourceModel.wip : conditional ? conditional+' conditional item'+(conditional===1?'':'s') : '';
+    const label=!ctx.slide && sourceModel.wip>0 && active>sourceModel.wip ? count+' · Over WIP '+sourceModel.wip : '';
     return label ? text(label,w,meta) : null;
   }
   function section(name,x,top,w,h,{rail = false, lane = '', idx = h, lens = false} = {}){
@@ -204,18 +208,24 @@ export function layoutChapter(model, ctx = {}){
     y=list(model.items.filter(i=>i.h===localHero),margin,y,heroWidth);
     dropzones.push({x:margin,y:top,w:heroWidth,h:Math.max(y-top,120),horizon:localHero});
     y+=addSpace;
-    let ry=52;
-    for(const h of allIndices.filter(i=>i!==localHero)){
+    let ry=52, rowTop=52, rowBottom=52;
+    const rw=(railWidth-60-gap*(railColumns-1))/railColumns;
+    for(const [index,h] of allIndices.filter(i=>i!==localHero).entries()){
+      const column=index%railColumns;
+      if(column===0)rowTop=rowBottom;
+      ry=rowTop;
+      const rx=railX+30+column*(rw+gap);
       const top=ry;
-      ry=section(model.horizons[h],railX+30,ry,railWidth-60,h,{rail:true,lens:true});
-      ry=list(model.items.filter(i=>i.h===h),railX+30,ry,railWidth-60,{rail:true,compact:true});
+      ry=section(model.horizons[h],rx,ry,rw,h,{rail:true,lens:true});
+      ry=list(model.items.filter(i=>i.h===h),rx,ry,rw,{rail:true,compact:true});
       if(!model.items.some(i=>i.h===h)){
-        const b=text(ctx.slide && sourceModel.items.some(i=>sourceModel.horizons[i.h]===model.horizons[h]) ? 'Continued on another slide' : 'No work planned',railWidth-60,noteSize);
-        sections.push({name:b.text,x:railX+30,y:ry,w:railWidth-60,h:b.lines.length*b.step,label:b,small:true,rail:true});ry+=b.lines.length*b.step+12;
+        const b=text(ctx.slide && sourceModel.items.some(i=>sourceModel.horizons[i.h]===model.horizons[h]) ? 'Continued on another slide' : 'No work planned',rw,noteSize);
+        sections.push({name:b.text,x:rx,y:ry,w:rw,h:b.lines.length*b.step,label:b,small:true,rail:true});ry+=b.lines.length*b.step+12;
       }
-      dropzones.push({x:railX,y:top,w:railWidth,h:Math.max(ry-top,90),horizon:h});ry+=24+addSpace;
+      dropzones.push({x:rx,y:top,w:rw,h:Math.max(ry-top,90),horizon:h});ry+=24+addSpace;
+      rowBottom=Math.max(rowBottom,ry);
     }
-    y=Math.max(y,ry);
+    y=Math.max(y,rowBottom);
     if(hasRail) panels.push({x:railX,y:0,w:railWidth,h:y+26,role:'rail'});
   }else if(style === 'board'){
     const cw=(inner-gap*(boardIndices.length-1))/Math.max(1,boardIndices.length);
@@ -231,8 +241,6 @@ export function layoutChapter(model, ctx = {}){
     if(boardIndices.length>1)panels.push({x:margin+(boardIndices.length-1)*(cw+gap)-14,y:top-10,w:cw+28,h:Math.max(160,y-top+10),role:'tint'});
   }else if(style === 'register'){
     panels.push({x:0,y:0,w:88,h:810,role:'spine'});
-    const review=text('Review',68,meta,{weight:500});
-    sections.push({name:'Review',x:14,y:52,w:68,h:24,label:review,small:true,rail:true});
     const widths=[inner*.43,inner*.13,inner*.13,inner*.31];
     const names=['Initiative & commentary','Workstream','Horizon','Status & condition'];
     let cx=margin;
@@ -304,7 +312,7 @@ export function layoutChapter(model, ctx = {}){
         let track=tracks.find(t=>t.end<=item.h);if(!track){track={end:0,rows:[],height:0};tracks.push(track);}
         track.rows.push(row);track.end=item.h+span;track.height=Math.max(track.height,row.h);row.x=gx+item.h*cw+10;
       }
-      for(const track of tracks){for(const row of track.rows){row.y=y;row.h=track.height;rows.push(row);} y+=track.height+8;}
+      for(const track of tracks){for(const row of track.rows){row.y=y;row.h=track.height;rows.push(row);} y+=track.height+(compactGrid?6:8);}
       y=Math.max(y,top+80);
       if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
       for(const h of allIndices)dropzones.push({x:gx+h*cw,y:top,w:cw,h:y-top,horizon:h,lane});

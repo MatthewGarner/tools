@@ -667,7 +667,7 @@ export function parse(text){
      after style/horizons (which set timeAxis) are both fully resolved,
      because group: may be written before either in the config block. */
   if(model.group === 'outcome'){
-    const eff = model.style || (model.timeAxis ? 'grid' : 'board');
+    const eff = model.style || 'grid';
     if(eff !== 'register') model.warnings.push('group: only affects the register view');
   }
   return model;

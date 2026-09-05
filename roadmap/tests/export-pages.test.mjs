@@ -84,7 +84,8 @@ function assertComplete(model,out){
   out.pages.forEach((svg,index)=>{
     assert.match(svg,/^<svg[^>]*width="1920"[^>]*height="1080"/);
     assert.match(svg,new RegExp('data-chapter-layout="'+(out.plan.pages[index].dropped?'board':model.style)+'"'));
-    assert.match(svg,new RegExp('Page '+(index+1)+' of '+out.pages.length));
+    if(out.pages.length>1)assert.match(svg,new RegExp('Page '+(index+1)+' of '+out.pages.length));
+    else assert.doesNotMatch(svg,/Page 1 of 1/);
     assert.doesNotMatch(svg,/NaN|undefined|…|\+ \d+ more/);
     const page=out.plan.pages[index];
     const geometry=layoutChapter(page.model,{...ctx,slide:true,sourceModel:page.dropped?page.model:model});

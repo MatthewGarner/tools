@@ -114,3 +114,30 @@ test('empty future-horizon pages state their planning status explicitly',()=>{
   for(const svg of empty)assert.match(svg,/No work planned in these horizons/);
  }
 });
+
+
+test('Chapter omits document counts and decorative narration, retaining useful pagination',()=>{
+ for(const style of ['board','grid','focus','register']){
+  const m={...parse(fixture('sparse')),style};
+  for(const width of [1440,390])assert.doesNotMatch(renderChapter(m,{...ctx,width}),/>\d+ (initiatives?|horizons|conditional items?)<|>Review<|Page 1 of 1/);
+  assert.doesNotMatch(renderChapterPages(m,ctx).pages[0],/>\d+ initiatives?<|Page 1 of 1/);
+ }
+ const many=renderChapterPages({...parse(fixture('crowded')),style:'register'},ctx);
+ assert.match(many.pages[0],/Page 1 of/);
+});
+
+test('six quarters use balanced export windows and a compact two-column Spotlight rail',()=>{
+ const m=parse(fixture('quarterly'));
+ for(const style of ['grid','board']){
+  const set=renderChapterPages({...m,style},ctx);
+  assert.ok(set.complete);
+  assert.equal(set.pages.length,2,style+' six-quarter fixture should avoid orphan pages');
+  assert.ok(set.plan.pages.every(p=>p.model.horizons.length===3),style+' keeps equal quarter widths');
+ }
+ const l=layoutChapter({...m,style:'focus'},ctx);
+ const headings=l.sections.filter(s=>s.lens && s.rail);
+ assert.equal(new Set(headings.map(s=>s.x)).size,2);
+ assert.equal(headings[0].y,headings[1].y);
+ assert.equal(l.rows.length,m.items.length);
+ assert.ok(l.height<1500,'supporting quarters must not create a long empty featured column');
+});
