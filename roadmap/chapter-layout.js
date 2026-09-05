@@ -61,18 +61,18 @@ export function layoutChapter(model, ctx = {}){
   const margin = phone ? 20 : style === 'register' ? 128 : 48;
   const inner = width - margin - (phone ? 20 : 48);
   const gap = phone ? 24 : 36;
-  const meta = phone ? 12 : CHAPTER_TYPE.meta;
-  const itemSize = phone ? 20 : style === 'grid' ? 22 : CHAPTER_TYPE.item;
-  const noteSize = phone ? 16 : CHAPTER_TYPE.note;
-  const headingSize = phone ? 32 : CHAPTER_TYPE.section;
+  const compactSlide=ctx.slide && (ctx.sourceModel || model).items.length > 8;
+  const meta = phone ? 12 : compactSlide ? 14 : CHAPTER_TYPE.meta;
+  const itemSize = phone ? 20 : compactSlide ? 20 : style === 'grid' ? 22 : CHAPTER_TYPE.item;
+  const noteSize = phone ? 16 : compactSlide ? 16 : CHAPTER_TYPE.note;
+  const headingSize = phone ? 32 : compactSlide ? 32 : CHAPTER_TYPE.section;
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
   const dense = (ctx.sourceModel || model).items.length > 8;
-  // Dense slide sets recover framing and padding before spending another slide;
-  // title, commentary and metadata type sizes remain unchanged.
-  const compactSlide=ctx.slide && dense;
+  // Dense exports use the reviewed 20/16/14 type floor and tighter framing.
+  // These sizes are fixed: pagination never shrinks text to force a fit.
   const compactGrid=compactSlide && style==='grid';
-  let y = phone ? 28 : compactSlide ? 40 : 52;
+  let y = phone ? 28 : compactSlide ? 32 : 52;
   const focusModel = ctx.slide ? model : (ctx.sourceModel || model);
   const hero = chapterHero(focusModel);
   const heroName = focusModel.horizons[hero];
@@ -84,7 +84,7 @@ export function layoutChapter(model, ctx = {}){
   const railWidth = hasRail ? width - railX : 0;
   const text = (value, maxWidth, size, {family = type.body, weight = 400} = {}) => {
     const font = fontSpec(family, size, weight);
-    return {text:String(value || ''), lines:wrapText(String(value || ''), font, Math.max(20, maxWidth), measure), font, family, weight, size, step:Math.ceil(size * 1.3)};
+    return {text:String(value || ''), lines:wrapText(String(value || ''), font, Math.max(20, maxWidth), measure), font, family, weight, size, step:Math.ceil(size * (compactSlide ? 1.2 : 1.3))};
   };
   const headerText = (value, maxWidth, size, options = {}) => {
     if(!value) return;
@@ -96,7 +96,7 @@ export function layoutChapter(model, ctx = {}){
   if(model.headline){
     headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
   }
-  let mainSize = phone ? 38 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
+  let mainSize = phone ? 38 : compactSlide ? 40 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
   const mainWidth=hasRail && !dense ? heroWidth*.82 : heroWidth;
   const mainTitle=model.headline || model.title || 'Your roadmap';
   // Long authored framing spends header space before it takes space from work.
@@ -112,7 +112,7 @@ export function layoutChapter(model, ctx = {}){
   }
   headerText(mainTitle, mainWidth, mainSize,
     {family:type.display, weight:type.displayWeight, role:'ink', edit:model.headline ? 'headline' : null});
-  y += phone ? 12 : compactSlide ? 14 : 20;
+  y += phone ? 12 : compactSlide ? 8 : 20;
   headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, meta, {role:'muted'});
   if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteSize, {role:'muted'}); }
   if(model.basis){
@@ -124,15 +124,15 @@ export function layoutChapter(model, ctx = {}){
       if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, meta, {role:'muted'});
     }
   }
-  y += phone ? 30 : compactSlide ? 18 : style === 'grid' ? 24 : 42;
+  y += phone ? 30 : compactSlide ? 14 : style === 'grid' ? 24 : 42;
   const bodyTop = y;
   const titleOf = item => item.export?.fragment?.title ?? item.title;
   const noteOf = item => ctx.titlesOnly ? '' : item.export?.fragment?.note ?? item.note;
   function itemRow(item, w, {rail = false, showLane = true, showRun = true, compact = false} = {}){
-    const pad = style === 'grid' && !phone ? compactGrid ? 8 : 12 : 0;
+    const pad = style === 'grid' && !phone ? compactGrid ? 4 : 12 : 0;
     const sideFacts = style === 'focus' && !phone && !rail;
     const contentW = sideFacts ? w * .70 - 24 : w - pad * 2;
-    const title = text(titleOf(item), contentW, compact ? Math.max(itemSize - 2, 21) : itemSize, {weight:500});
+    const title = text(titleOf(item), contentW, compact && !compactSlide ? Math.max(itemSize - 2, 21) : itemSize, {weight:500});
     const note = noteOf(item) ? text(noteOf(item), contentW, noteSize) : null;
     const facts = chapterFacts({...model,sourceModel:ctx.sourceModel}, item, {showLane, showRun,diff:ctx.diff});
     if(style === 'focus' && !rail && item.cond && item.status !== 'done'){
@@ -152,7 +152,7 @@ export function layoutChapter(model, ctx = {}){
       }
       cursor=Math.max(cursor,fy);
     }else if(facts.length){
-      cursor += compactGrid ? 8 : 10;
+      cursor += compactGrid ? 6 : 10;
       // Pack metadata by measured width; a long condition gets its own wrapped line.
       let fx = 0, lineHeight = 0;
       for(const fact of facts){
@@ -164,7 +164,7 @@ export function layoutChapter(model, ctx = {}){
       }
       cursor += lineHeight;
     }
-    return {item, w, h:Math.max(phone ? 60 : 62, cursor + pad + (phone ? 18 : style === 'grid' ? 10 : compactSlide ? 14 : 22)), blocks,pad,rail};
+    return {item, w, h:Math.max(phone ? 60 : 62, cursor + pad + (phone ? 18 : style === 'grid' ? (compactGrid ? 4 : 10) : compactSlide ? 14 : 22)), blocks,pad,rail};
   }
   function horizonHint(name,w){
     const h=sourceModel.horizons.indexOf(name), active=activeCount(sourceModel,h), conditional=condCount(sourceModel,h);
@@ -314,7 +314,7 @@ export function layoutChapter(model, ctx = {}){
         let track=tracks.find(t=>t.end<=item.h);if(!track){track={end:0,rows:[],height:0};tracks.push(track);}
         track.rows.push(row);track.end=item.h+span;track.height=Math.max(track.height,row.h);row.x=gx+item.h*cw+10;
       }
-      for(const track of tracks){for(const row of track.rows){row.y=y;row.h=track.height;rows.push(row);} y+=track.height+(compactGrid?6:8);}
+      for(const track of tracks){for(const row of track.rows){row.y=y;row.h=track.height;rows.push(row);} y+=track.height+(compactGrid?4:8);}
       y=Math.max(y,top+80);
       if(lane && !longLanes){const label=text(lane,rail-28,28,{family:type.display,weight:type.displayWeight});sections.push({name:lane,x:margin,y:top+12,w:rail-28,h:label.lines.length*label.step,label,small:true});y=Math.max(y,top+label.lines.length*label.step+28);}
       for(const h of allIndices)dropzones.push({x:gx+h*cw,y:top,w:cw,h:y-top,horizon:h,lane});

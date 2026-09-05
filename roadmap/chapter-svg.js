@@ -91,6 +91,17 @@ export function renderChapter(model,ctx={}){
 }
 
 export function renderChapterPages(model,ctx={}){
+  // Candidate plans repeatedly measure the same authored text at the same type
+  // sizes. Keep the cache local to this render, so font loads and edits cannot
+  // reuse stale geometry or make theme grouping block the UI on native metrics.
+  if(ctx.measure){
+    const measure=ctx.measure, widths=new Map();
+    ctx={...ctx,measure:(text,font)=>{
+      const key=JSON.stringify([font,text]);
+      if(!widths.has(key))widths.set(key,measure(text,font));
+      return widths.get(key);
+    }};
+  }
   const style=model.style||'grid';
   const layoutFor=(pageModel)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model});
   const content=ctx.titlesOnly ? {...model,items:model.items.map(item=>({...item,note:''}))} : model;

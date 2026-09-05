@@ -93,7 +93,7 @@ function assertComplete(model,out){
     for(const row of geometry.rows){
       assert.ok(row.y>=0 && row.y+row.h<geometry.footerY,model.style+' row remains above footer');
       for(const block of row.blocks){
-        assert.ok(block.size>=15,'slide preserves the metadata floor');
+        assert.ok(block.size >= (block.kind==='title' ? 20 : block.kind==='note' ? 16 : 14),'slide preserves the reviewed type floors');
         for(const line of block.lines) assert.ok(row.x+row.pad+(block.x||0)+measure(line,block.font)<=1441,'authored text stays inside artboard');
       }
     }
@@ -198,7 +198,7 @@ test('70-item Grid and Board decks use stable theme groups across balanced time 
     const model = {...await fixture70(), style};
     const out = renderChapterPages(model, ctx);
     assert.equal(out.complete, true);
-    assert.ok(out.pages.length <= 10, `${style}: ${out.pages.length} pages`);
+    assert.ok(out.pages.length <= 8, `${style}: ${out.pages.length} pages`);
     assert.ok(out.plan.pages.every(p => p.model.items.length > 1), 'no stranded one-item slide');
     const windows = Map.groupBy(out.plan.pages, p => p.start);
     assert.ok(windows.size >= 2);
@@ -214,7 +214,7 @@ test('Board, Register and Focus do not repeat spanning items at horizon boundari
   for(const style of ['board','register','focus']){
     const out = renderChapterPages({...source, style}, ctx);
     assert.equal(out.complete, true);
-    assert.ok(out.pages.length <= (style === 'register' ? 12 : 8), `${style}: ${out.pages.length} pages`);
+    assert.ok(out.pages.length <= (style === 'register' ? 9 : 8), `${style}: ${out.pages.length} pages`);
     assert.equal(out.plan.pages.flatMap(p => p.model.items).filter(i => i.export.repeatedContext).length, 0);
     assert.deepEqual(out.plan.pages.flatMap(p => p.sourceItemIndices).sort((a,b) => a-b),
       Array.from({length:70}, (_, i) => i));
@@ -244,7 +244,7 @@ test('only timeline continuations repeat source items, retaining their original 
 test('spanning Grid uses a compact tiered plan without scattering themes', async () => {
   const model = {...await fixture70(true), style:'grid'};
   const out = renderChapterPages(model, ctx);
-  assert.ok(out.pages.length <= 13);
+  assert.ok(out.pages.length <= 8);
   assert.equal(out.complete, true);
   const starts = out.plan.pages.map(p => p.start);
   assert.deepEqual(starts, starts.slice().sort((a,b) => a-b));

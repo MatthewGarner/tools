@@ -43,7 +43,7 @@ test('complete slides retain every note fragment and every item at readable type
    const note=ordered.map(it=>it.export.fragment?.note??it.note).join(' ').trim();
    assert.equal(note,m.items[i].note,style+' note '+i);
   }
-  for(const page of set.plan.pages){const l=layoutChapter(page.model,{...ctx,slide:true,sourceModel:m});assert.ok(l.fits);assert.equal(l.height,810);for(const r of l.rows)for(const b of r.blocks)assert.ok(b.size>=15);}
+  for(const page of set.plan.pages){const l=layoutChapter(page.model,{...ctx,slide:true,sourceModel:m});assert.ok(l.fits);assert.equal(l.height,810);for(const r of l.rows)for(const b of r.blocks)assert.ok(b.size >= (b.kind==='title' ? 20 : b.kind==='note' ? 16 : 14));}
  }
 });
 test('overlapping spans occupy separate tracks and retain proportional width',()=>{
