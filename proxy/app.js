@@ -80,7 +80,7 @@ function renderChrome(){
   paintAuthorVerdict();
   $('causalnote').textContent = `Causal limit — ${hunt.selectedReceipt?.causalLimitation || hunt.verdict?.limit || CAUSAL_LIMIT}`;
   $('selectionnote').textContent = hunt.selectedReceipt
-    ? `Selected: ${hunt.selectedReceipt.id}. The receipt is scoped to this failure theory; the full hunt export shows every theory without a selected row.`
+    ? `Selected theory: ${hunt.selectedReceipt.id}`
     : 'Select a failure theory to inspect its scoped receipt.';
   $('viewreceipt').disabled = !hunt.selectedReceipt;
 }

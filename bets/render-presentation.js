@@ -248,7 +248,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   const parts = ['<rect width="1920" height="1080" fill="' + c.bg + '"/>'];
 
   title.lines.forEach((line, index) => parts.push(titleLine(96, 86 + index * title.leading, line, title.size, c)));
-  parts.push(txt(96, 116 + headerShift, selection.total + ' BETS · ' + model.groups.length + ' BOOKS · TOTAL STAKE ' + num(totalStake) + ' ' + (model.unit || ''),
+  parts.push(txt(96, 116 + headerShift, 'TOTAL STAKE ' + num(totalStake) + ' ' + (model.unit || ''),
     15, c.muted, {mono: true, tracking: '0.06em'}));
   parts.push(...conditionReceipt(conditions, 1110, 30, 714, c));
   parts.push('<line x1="96" y1="' + ruleY + '" x2="1824" y2="' + ruleY + '" stroke="' + c.ink + '" stroke-width="2"/>');
@@ -282,7 +282,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
       group = record.group.name;
       const groupRows = displayed.filter(item => item.group.name === group);
       parts.push(txt(C.left, y + 13, group.toUpperCase(), 11, c.accentInk, {weight: 700, tracking: '0.11em'}));
-      parts.push(txt(C.right, y + 13, groupRows.length + ' POSITIONS · STAKE ' + num(groupRows.reduce((n, item) => n + stakeMid(item.b), 0)), 10, c.muted, {mono: true, anchor: 'end'}));
+      parts.push(txt(C.right, y + 13, 'STAKE ' + num(groupRows.reduce((n, item) => n + stakeMid(item.b), 0)), 10, c.muted, {mono: true, anchor: 'end'}));
       y += 24;
     }
     const b = record.b, e = record.rec.ev;
@@ -310,7 +310,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
 
   parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
     {weight: 700, tracking: '0.1em'}));
-  parts.push(txt(1824, 1040, 'BOTH CONDITION READINGS · RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 11, c.muted,
+  parts.push(txt(1824, 1040, 'P10–P90 RANGES · 4,000 SIMULATIONS', 11, c.muted,
     {anchor: 'end', tracking: '0.06em'}));
   const baseline = reading(conditions.baseline.result), stress = reading(conditions.stress.result);
   const svgTitle = esc(authoredTitle + ' — allocation field');

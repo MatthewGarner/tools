@@ -421,7 +421,7 @@ function outlineDoc(doc, today = '2026-12-22', width = 360){
   return renderOutline(treeProjection(projection), {colors, measure, dark:false, today, width, projection});
 }
 
-test('a real wide export is a complete named artefact with frame, regions, metrics, and generated verdict', () => {
+test('a real wide export is a complete named artefact with frame, regions, and generated verdict', () => {
   const doc = 'title: Lantern paths\ndate: 2026-12-02\n' + decisionBlock('groups') +
     'NOW\n  Core: Shared repair\nLATER\n  Growth: Club challenges [if groups]';
   const svg = renderDoc(doc, '2026-12-01');
@@ -431,7 +431,7 @@ test('a real wide export is a complete named artefact with frame, regions, metri
   assert.match(svg, /Questions: groups: Open/);
   assert.match(svg, /Work: 1 included, 1 waiting/);
   assert.match(svg, /Tree boundary: 2 possible plans remain/);
-  for(const text of ['Lantern paths', '2026-12-02', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
+  for(const text of ['Lantern paths', '2026-12-02',
     'SHARED WORK · IN EVERY PLAN', 'QUESTION PATHS · CHANGES WITH ANSWERS',
     'One of two items depends on the groups answer']) assert.match(svg, new RegExp(text));
   assert.match(svg, /data-kind="artifact-verdict"/);
@@ -456,7 +456,8 @@ test('the projected date and authored verdict contract survive wide export and n
   for(const svg of [renderDoc(base, '2026-12-03'), outlineDoc(base, '2026-12-03')]){
     assert.match(svg, /Launch paths/);
     assert.match(svg, /2026-12-03/, 'an absent date uses the injected/projected today');
-    assert.match(svg, /1 ITEM/);
+    assert.match(svg, /1 item/);
+    assert.doesNotMatch(svg, /data-kind="artifact-metrics"/);
     assert.match(svg, /Choose the /);
     assert.match(svg, />2<\/tspan>-week/, 'authored verdict remains visible with its figure treatment');
     assert.match(svg, /role="img" aria-labelledby=/);
@@ -473,7 +474,7 @@ test('the projected date and authored verdict contract survive wide export and n
 test('the narrow outline keeps the complete context as a genuine relayout', () => {
   const svg = outlineDoc('title: Lantern mobile\ndate: 2026-12-04\n' + decisionBlock('groups') +
     'NOW\n  Core: Shared repair\nLATER\n  Growth: Club challenges [if groups]', '2026-12-01', 320);
-  for(const text of ['Lantern mobile', '2026-12-04', '1 QUESTION', '2 ITEMS', '2 POSSIBLE PLANS',
+  for(const text of ['Lantern mobile', '2026-12-04',
     'SHARED WORK · IN EVERY PLAN', 'QUESTION PATHS · CHANGES WITH ANSWERS', 'VERDICT'])
     assert.match(svg, new RegExp(text));
   assert.match(svg, /<title id="paths-tree-name">Lantern mobile — outline<\/title>/);
