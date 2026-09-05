@@ -10,7 +10,6 @@ import {parse} from '../parse.js';
 import {CONFIG_KEYS, setConfigKey, setGroup} from '../edit-targets.js';
 import {registerOutcomeGroups} from '../cond-parts.js';
 import {registerRows} from '../deck-parts.js';
-import {renderRegisterLive, renderRegisterDeck} from '../render-register.js';
 
 const measure = (s, f) => (s ? s.length : 0) * ((/(\d+)px/.exec(String(f)) || [])[1] || 12) * 0.55;
 const colors = {
@@ -33,6 +32,7 @@ const OUTCOME_DOC = 'title: T\nstyle: register\ngroup: outcome\nwip: off\nNOW\n'
   'Growth: Won rider stays [if expansion]';
 
 /* ---------- parse: group key ---------- */
+
 
 test('group: defaults to "lane" when absent', () => {
   assert.equal(parse('NOW\nAlpha').group, 'lane');
@@ -67,8 +67,6 @@ test('a config line "group:" never becomes a lane/item — even a lane literally
   assert.ok(CONFIG_KEYS.test('group'), 'CONFIG_KEYS must include group, or a lane named "group" would silently eat the config warning path\'s own protection');
 });
 
-/* ---------- edit-targets: setGroup / setConfigKey round-trip ---------- */
-
 test('setGroup writes group: outcome, and it round-trips through parse', () => {
   const text = setGroup('style: register\nNOW\nAlpha', 'outcome');
   assert.match(text, /^group: outcome$/m);
@@ -81,8 +79,6 @@ test('setGroup("lane") CLEARS the key rather than writing "group: lane"', () => 
   assert.ok(!/group:/.test(cleared), cleared);
   assert.equal(parse(cleared).group, 'lane');
 });
-
-/* ---------- registerOutcomeGroups: membership + counts ---------- */
 
 test('registerOutcomeGroups: either-way / pays-off / doesn\'t / cycle / not-needed sections, correct membership', () => {
   const m = parse(OUTCOME_DOC);
@@ -126,53 +122,4 @@ test('registerOutcomeGroups: a bet with only an [if] rider (no [unless]) omits t
   const groups = registerOutcomeGroups(m, registerRows(m));
   assert.ok(groups.some(g => g.kind === 'pays'));
   assert.ok(!groups.some(g => g.kind === 'not-pays'));
-});
-
-/* ---------- live render: outcome mode ---------- */
-
-test('register live, group: outcome: section labels + counts appear, no data-hdrop, no ADD rows', () => {
-  const svg = renderRegisterLive(parse(OUTCOME_DOC), ctx({edit: true}));
-  assert.ok(svg.includes('EITHER WAY — 4'), svg.match(/EITHER WAY[^<]*/)?.[0]);
-  assert.ok(/ONLY IF GATE PAYS OFF — 1/i.test(svg), svg.match(/ONLY IF[^<]*/)?.[0]);
-  assert.ok(svg.includes('ONLY IF IT DOESN&#39;T — 1'), svg.match(/ONLY IF[^<]*/g)?.join(' | '));
-  assert.ok(svg.includes('IN A CONDITION CYCLE — 2'));
-  assert.ok(svg.includes('NOT NEEDED — 1'));
-  assert.ok(!svg.includes('data-hdrop'), 'outcome mode paints no horizon drop bands');
-  assert.ok(!svg.includes('data-edit="additem"'), 'outcome mode paints no "+ ADD" rows');
-  assert.ok(svg.includes('data-edit="cardmenu"'), 'card EIP still works in outcome mode');
-});
-
-test('register live, group: outcome: horizon prints on every row (no ditto suppression)', () => {
-  // "Root gate" and "Feature ships" and "Fallback plan" all sit in NEXT — in
-  // outcome mode each row prints its own horizon cell, so ">Next<" (the
-  // horizon label, title-cased from the header) should appear once per row
-  // spread across sections, not ditto-suppressed to a single first-in-group.
-  const svg = renderRegisterLive(parse(OUTCOME_DOC), ctx({edit: true}));
-  const nextCount = (svg.match(/>Next</g) || []).length;
-  assert.ok(nextCount >= 3, 'NEXT prints per-row (Root gate, Feature ships, Fallback plan all sit in NEXT): got ' + nextCount);
-});
-
-test('register live, group: lane (default): parses to model.group "lane" and paints no outcome-section markup', () => {
-  const base = 'title: T\nstyle: register\nwip: off\nNOW\nCore: A [doing]\nNEXT\nCore: B';
-  const m = parse(base);
-  assert.equal(m.group, 'lane');
-  const svg = renderRegisterLive(m, ctx({edit: true}));
-  assert.ok(!svg.includes('EITHER WAY'));
-  assert.ok(!svg.includes('ONLY IF'));
-});
-
-/* ---------- deck render: outcome mode ---------- */
-
-test('register deck, group: outcome: sections render and the body still caps', () => {
-  const svg = renderRegisterDeck(parse(OUTCOME_DOC), ctx(), colors);
-  assert.ok(svg.includes('EITHER WAY'));
-  assert.ok(/ONLY IF GATE PAYS OFF/i.test(svg));
-  assert.ok(svg.includes('IN A CONDITION CYCLE'));
-  assert.ok(svg.includes('NOT NEEDED'));
-});
-
-test('register deck, group: lane (default): unaffected — no section labels', () => {
-  const svg = renderRegisterDeck(parse('title: T\nstyle: register\nNOW\nCore: A [bet: x]\nNEXT\nCore: B [if x]'), ctx(), colors);
-  assert.ok(!svg.includes('EITHER WAY'));
-  assert.ok(!svg.includes('ONLY IF'));
 });

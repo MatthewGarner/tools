@@ -1,10 +1,11 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {renderDeckPages} from './render-deck-pages.js';
-import {renderRegisterLive} from './render-register.js';
-import {renderBoardLive} from './render-board.js';
-import {renderFocusLive, focusHeroIndex} from './render-focus.js';
+import {createSlideZip} from './export-zip.js';
+import {renderChapter, renderChapterPages} from './chapter-svg.js';
+import {chapterHero as focusHeroIndex, chapterNativeWidth} from './chapter-layout.js';
+import {stripEmbeddedFonts} from './chapter-fonts.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from './chapter-font-loader.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';
@@ -13,17 +14,16 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict, resolveVerdict
 import {verdictMenuRows, handleVerdictCommit, validVerdictInput} from '../assets/verdict-edit.js';
 import {snapStore, wireSnapshots} from '../assets/snapshots.js';
 import {roadmapDiff} from './diff.js';
-import {render} from './render.js';
 import {createEditor} from './editor.js';
 import {moveItem} from './edit.js';
-import {readHashState, writeHashState} from '../assets/series.js';
+import {readHashState, writeHashState, PALETTES} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState, validHandoffMeta} from '../assets/handoff.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
 import {initWorkspace, setActionsEnabled, mountTouchUndo} from '../assets/workspace.js';
 import {mountMotion, motionStill} from "../assets/motion.js";
 import {REVEAL} from "./motion-spec.js";
 import {attachEditInPlace} from '../assets/edit-in-place.js';
-import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setGroup, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS} from './edit-targets.js';
+import {validators as eipValidators, applies as eipApplies, STATUSES as EDIT_STATUSES, addItemLine, removeItemLine, moveHorizon, setStyle, setHeadline, setStory, setFocus, setGroup, setSpan, setSpanStart, setLane, addNote, addStatus, ensureHorizonHeader, CONFIG_KEYS, setConfigKey} from './edit-targets.js';
 import {resolveBet, setCondition, clearCondition} from './edit-targets.js';
 import {createPostDragClickGuard, moveCommit} from './interactions.js';
 import {previewableBet} from './cond-parts.js';
@@ -42,8 +42,10 @@ wireCopyVerdict($('verdict'));
 /* ---------- examples ---------- */
 const EXAMPLES = [
   {name:'Reading app roadmap', src:
-`title: Lantern — Product Roadmap
-headline: Retention first — everything in Now keeps readers reading
+`title: Lantern / Product roadmap
+style: focus
+accent: #254C3D
+headline: Make reading a daily habit.
 horizons: Now, Next, Later
 
 NOW
@@ -108,6 +110,7 @@ function makeDiff(model){
 
 /* ---------- refresh loop ---------- */
 let model = null, lastSvg = '', hashTimer = null, inboundHandoff = null, boardWindowStart = null, gridStack = false, boardCapacityLast = null;
+let sourceReady = false;
 let inspectedIdentity = null, inspectOpener = null, inspectionSource = null;
 let flipNext = false;   // set on a drop so the next render FLIP-glides cards (shared FLIP)
 const previewEl = $('preview');
@@ -185,32 +188,24 @@ function resetWhatIf(){
   whatIf = {};
   lastSvg = ''; paint.reset(); refresh();
 }
-/* Cross-fade on a world flip (spec §3: "NOT FLIP — nothing changes position").
-   mountMotion's shared paint() does an innerHTML swap with no DOM diffing, so
-   the CSS `transition:opacity` on g[data-line] (style.css) can't animate by
-   itself — there is no continuous element to transition. This captures each
-   card's opacity BEFORE the swap (keyed by data-line, stable across a toggle
-   since the text doesn't move) and, right after, sets the surviving elements'
-   inline opacity back to their OLD value then clears it a frame later so the
-   CSS transition tweens old -> new — same capture/apply shape as the shared
-   FLIP helper, kept local to roadmap (one caller; not assets/ material yet).
-   prefers-reduced-motion -> motionStill() bails to a hard cut, same gate FLIP uses. */
+/* A world flip changes condition labels and strike-through, while Chapter keeps
+   full text contrast. Animate that state change itself rather than waiting for a
+   permanent opacity difference. Source lines are stable during a what-if toggle. */
 function captureLineOpacity(){
-  const m = new Map();
-  for(const el of previewEl.querySelectorAll('[data-line]')) m.set(el.getAttribute('data-line'), el.getAttribute('opacity') || '1');
-  return m;
+  return new Map([...previewEl.querySelectorAll('[data-edit="cardmenu"]')].map(el=>
+    [el.dataset.line,{world:el.dataset.worldState,opacity:el.getAttribute('opacity')||'1'}]));
 }
 function fadeLineOpacity(old){
-  if(motionStill() || !old) return;
-  const changed = [];
-  for(const el of previewEl.querySelectorAll('[data-line]')){
-    const prev = old.get(el.getAttribute('data-line')); if(prev == null) continue;
-    const next = el.getAttribute('opacity') || '1';
-    if(prev !== next) changed.push([el, prev]);
+  if(motionStill() || !old)return;
+  const changed=[];
+  for(const el of previewEl.querySelectorAll('[data-edit="cardmenu"]')){
+    const prev=old.get(el.dataset.line);if(!prev)continue;
+    if(prev.world!==el.dataset.worldState)changed.push([el,'0']);
+    else if(prev.opacity!==(el.getAttribute('opacity')||'1'))changed.push([el,prev.opacity]);
   }
-  for(const [el, prev] of changed){ el.style.transition = 'none'; el.style.opacity = prev; }
-  if(changed.length) requestAnimationFrame(() => requestAnimationFrame(() => {
-    for(const [el] of changed){ el.style.transition = ''; el.style.opacity = ''; }
+  for(const [el,opacity] of changed){el.style.transition='none';el.style.opacity=opacity;}
+  if(changed.length)requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    for(const [el] of changed){el.style.transition='';el.style.opacity='';}
   }));
 }
 /* the chip: a roadmap-only element OUTSIDE #preview (the paint innerHTML-swap
@@ -462,6 +457,7 @@ function setBoardWindowStart(start){
   clearTimeout(hashTimer); writeHash();
 }
 function writeHash(){
+  if(!sourceReady)return;
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
   if(Number.isInteger(boardWindowStart)) state.b = boardWindowStart;
@@ -470,6 +466,7 @@ function writeHash(){
 const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
   const text = editor.getText();
+  if(!sourceReady || !chapterFontsReady()){ setActionsEnabled(false); return; }
   /* Card menus are source-line based. A textual revision can shift those lines,
      so review is deliberately transient rather than silently attaching itself
      to whichever item now occupies the old line. */
@@ -492,6 +489,8 @@ function doRefresh(){
   gridStack = shouldGridStack(model);
   syncBoardWindow(model);
   syncHeadline(model);
+  if(document.activeElement !== $('fontchoice')) $('fontchoice').value=model.font;
+  if(document.activeElement !== $('accentchoice')) $('accentchoice').value=model.accent || (PALETTES[model.palette] || PALETTES.ocean)[isDark()?'dark':'light'];
   syncWhatIfChip(model);
   syncConditionalityHealth(model);
   renderInspection(projected);
@@ -514,12 +513,7 @@ function doRefresh(){
        (style.css's pointer-events:none default) and VoiceOver would announce
        an unreachable button; the card menu's What-if… rows stay the coarse path. */
     const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer(), boardWindow: model.style === 'board' ? boardWindowFor(model) : null};
-    const svg = model.style === 'board' ? renderBoardLive(projected, {...liveCtx,
-      boardColumnWidth: narrow ? Math.max(220, w - 48) : undefined})
-      : model.style === 'focus' ? renderFocusLive(projected, {...liveCtx, width: narrow ? w : undefined})
-      : model.style === 'register' ? renderRegisterLive(projected, {...liveCtx, width: narrow ? w : undefined})
-      : narrow ? render(projected, {...liveCtx, width: w})
-      : render(projected, {...liveCtx, width: gridStack ? Math.round(previewEl.getBoundingClientRect().width) : w, forceStack: gridStack});
+    const svg = renderChapter(projected, {...liveCtx, width:narrow ? w : model.style === 'board' ? 1440 : chapterNativeWidth(model)});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
@@ -559,10 +553,10 @@ const editor = createEditor({
 mountTouchUndo($('zoomctl').closest('.actions'), editor);   // phones have no ⌘Z (Rule 2)
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
-  preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true,
+  preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true, initialCollapsed: true,
   collapsedLabel: 'Edit roadmap source',
   collapsedAriaLabel: 'Edit roadmap source',
-  expandedLabel: 'Hide roadmap source',
+  expandedLabel: '',
   onCollapseChange(_collapsed, {auto = false} = {}){
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */
@@ -668,36 +662,14 @@ function itemMenu(m, srcLine, whatIfMap){
         commit: {kind: 'setspan', line: srcLine, oldRaw: '', value: String(k + 1)},
       }))
     : [];
-  /* Focus hero vs rail (Matt's "clean rail + Status submenu" call, Task 5): the
-     HERO card carries the full set of inline edit targets (title/note/status/lane,
-     paintFocusHeroCard), same as a register/board card. The RAIL row is a clean
-     ranked index (paintFocusRailRow) — title only, no inline status/lane/note
-     targets — so a rail item's "Status…" can't `opens:'status'` (there is no
-     target to find) and Lane…/Edit note… rows would be permanently dead. Instead
-     the rail gets a Status… SUBMENU of the four statuses that commits directly,
-     the same commit-row machinery the card-menu programme already ships (e.g.
-     "Move to…" below). Clearing a rail item's status is out of scope for v1 —
-     promote it to the hero, whose inline status editor clears. */
-  const focusRail = m && m.style === 'focus' && item && item.h !== focusHeroIndex(m);
-  const statusRow = focusRail
-    ? {label: 'Status…', submenu: EDIT_STATUSES.map(st => ({
-        label: STATUS_LABEL[st] || st, on: item && item.status === st,
-        commit: {kind: 'status', line: srcLine, oldRaw: (item && item.status) || '', value: st},
-      }))}                                          // rail: a submenu, no inline target
-    : {label: 'Status…', opens: 'status'};          // hero/register/board: the inline target
-  const rows = focusRail
-    ? [{label: 'Rename…', opens: 'title'}, statusRow]                                     // clean rail
-    : [{label: 'Rename…', opens: 'title'}, {label: 'Edit note…', opens: 'note'}, statusRow];
-  /* Register + board + focus-HERO only: the lane cell/tag (data-edit="lane") is
-     reachable by a direct tap on a fine pointer, but coarse pointers (iPad ≥520px)
-     reroute every in-card field tap to this menu instead — without a row here, the
-     lane field would be unreachable on those devices. The chart carries no
-     data-edit="lane" target at all (no lane column), so an `opens` row there would
-     resolve to nothing — same reason the rail (no lane target either) is excluded. */
+  // Every Chapter item supports the same fields. Empty fields and coarse-pointer
+  // cards use data-*-raw fallbacks, so supporting items need no hidden controls.
+  const rows = [{label: 'Rename…', opens: 'title'}, {label: 'Edit note…', opens: 'note'},
+    {label: 'Status…', opens: 'status'}];
   if(resolveRow) rows.push(resolveRow);
   rows.push(...whatIfRows);
   if(conditionRow) rows.push(conditionRow);
-  if(m && (m.style === 'register' || m.style === 'board' || (m.style === 'focus' && !focusRail)))
+  if(m && (m.style === 'register' || m.style === 'board' || m.style === 'focus'))
     rows.push({label: 'Lane…', opens: 'lane'});
   rows.push({label: 'Move to…', submenu: moveRows});
   if(untilRows.length > 1) rows.push({label: 'Runs until…', submenu: untilRows});
@@ -820,7 +792,7 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
   onCommit(kind, lineNo, oldRaw, newValue){
     handleVerdictCommit(kind, newValue, {
       getText: () => editor.getText(), setText: t => editor.setText(t),
-      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|style|focus|verdict|group|basis)\s*:/i,
+      configRe: /^(title|date|headline|story|horizons|wip|fade|palette|accent|font|style|focus|verdict|group|basis)\s*:/i,
       getLine: () => (model ? (roadmapVerdict(model) || {}).line : '') || '',
     });
   },
@@ -841,27 +813,26 @@ exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: S
 
 /* ---------- exports ---------- */
 /* Download SVG/PNG = the current STYLE's plain, content-sized artefact (WYSIWYG),
-   independent of the preview: on a phone the preview falls back to the chart stack
-   but a register doc still exports the register table. Copy PNG stays the
-   16:9 deck (renderDeck already picks by style). */
+   independent of phone reflow. Copy PNG uses the selected 16:9 composition. */
 function plainStyleSvg(){
-  if(!model || !model.items.length) return null;
-  const base = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark()};
-  /* WYSIWYG: Download matches the PREVIEW — explicit style only, so a plain doc
-     downloads the chart (not board-live), exactly as it renders. */
-  if(model.style === 'register') return renderRegisterLive(model, {...base, today: todayISO()});   // edit omitted → edit:false, no markup
-  if(model.style === 'board') return renderBoardLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
-  if(model.style === 'focus') return renderFocusLive(model, {...base, today: todayISO()});          // edit omitted → edit:false, no markup
-  return render(model, base);                                                                        // plain / grid → the chart
+  if(!model || !model.items.length || !chapterFontsReady()) return null;
+  return embedChapterFonts(renderChapter(model,{measure,diff:makeDiff(model),dark:isDark(),today:todayISO()}));
 }
+
 /* A compact source stays a single, style-faithful 16:9 slide. A genuinely dense
-   roadmap has an explicit full-deck path; it does not add a persistent preview
-   button or quietly hand over a partial artefact. */
+   roadmap earns a complete slide set, available through the exact export preview. */
+let deckCache = null;
 function deckSet(){
-  if(!model || !model.items.length) return null;
-  const set = renderDeckPages(selectedModel(model), {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), today: todayISO()});
-  return set.complete ? set : null;
+  if(!model || !model.items.length || !chapterFontsReady()) return null;
+  const titlesOnly = $('exportdetail').value === 'titles';
+  const dark = isDark();
+  if(deckCache?.model === model && deckCache.dark === dark && deckCache.titlesOnly === titlesOnly) return deckCache.set;
+  const result = renderChapterPages(selectedModel(model),{measure,diff:makeDiff(model),dark,titlesOnly,today:todayISO()});
+  const set = result.complete ? {...result,pages:result.pages.map(embedChapterFonts)} : null;
+  deckCache = {model,dark,titlesOnly,set};
+  return set;
 }
+
 function deckSvgString(){ return deckSet()?.pages[0] || null; }
 function deckPageCount(){
   return deckSet()?.pages.length || 0;
@@ -870,7 +841,8 @@ function syncDeckActions(){
   const pages = deckPageCount();
   const comparison = makeDiff(model);
   $('copypng').hidden = pages !== 1;
-  $('fullslideexport').hidden = pages <= 1;
+  $('fullslideexport').hidden = false;
+  $('exportdeck').disabled = !model?.items.length;
   $('changepreview').hidden = !comparison?.any;
 }
 function slug(){
@@ -889,22 +861,28 @@ function renderSlidePage(index){
   const set = deckSet();
   if(!set || !set.pages.length) return;
   slidePageIndex = Math.max(0, Math.min(index, set.pages.length - 1));
-  $('slidecanvas').innerHTML = set.pages[slidePageIndex];
+  // The document CSP allows local fonts; embedded data fonts belong only in detached files.
+  $('slidecanvas').innerHTML = stripEmbeddedFonts(set.pages[slidePageIndex]);
   $('slideposition').textContent = 'Slide ' + (slidePageIndex + 1) + ' of ' + set.pages.length;
   $('slideprev').disabled = slidePageIndex === 0;
   $('slidenext').disabled = slidePageIndex === set.pages.length - 1;
   $('slidedownload').textContent = set.pages.length === 1
-    ? (slidePreviewChange ? 'Copy comparison PNG' : 'Copy PNG')
-    : 'Download ' + set.pages.length + '-slide PNG set';
+    ? 'Download slide PNG'
+    : 'Download ' + set.pages.length + '-slide ZIP';
 }
 function openSlidePreview(change = false){
-  if(!change && deckPageCount() <= 1) return;
+  const available=deckPageCount()>0;
+  $('slideerror').hidden=available;
+  $('slidecanvas').hidden=!available;
+  for(const id of ['slideprev','slidenext','slidecopyimage','slidedownload'])$(id).hidden=!available;
+  $('slideposition').hidden=!available;
   slidePreviewChange = change;
   $('slidepreviewtitle').textContent = change ? 'Change deck preview' : 'Roadmap slide set';
   $('slidecopy').textContent = change
     ? 'This is the exact comparison slide set: current work, change markers, dropped work, and the authored story.'
-    : 'Every horizon and item is included.';
-  renderSlidePage(0);
+    : ($('exportdetail').value === 'titles' ? 'Every item is included. Commentary is omitted by your choice.' : 'Every horizon, item and commentary is included.');
+  if(available)renderSlidePage(0);
+  else $('slidecopy').textContent='Your roadmap is preserved. Adjust the framing and try again.';
   const dialog = $('slidepreviewdialog');
   if(!dialog.open) dialog.showModal();
 }
@@ -922,31 +900,17 @@ async function downloadSlideSet(){
   const set = deckSet();
   if(!set) return;
   const button = $('slidedownload');
-  if(set.pages.length === 1){
-    const original = button.textContent;
-    if(!navigator.clipboard || !window.ClipboardItem){ button.textContent = 'Clipboard unavailable — use Download'; return; }
-    const plan = pngRasterPlan(set.pages[0]);
-    if(!plan.ok){ button.textContent = 'PNG could not be created'; return; }
-    const png = pngFromSvg(set.pages[0]);
-    try{
-      navigator.clipboard.write([new ClipboardItem({'image/png': png})])
-        .then(() => { button.textContent = 'Copied — paste into your deck'; })
-        .catch(() => { button.textContent = 'Copy blocked — use Download'; })
-        .finally(() => setTimeout(() => { button.textContent = original; }, 1800));
-    }catch(_){
-      button.textContent = 'Copy blocked — use Download';
-      setTimeout(() => { button.textContent = original; }, 1800);
-    }
-    return;
-  }
   const original = button.textContent;
   button.disabled = true;
   try{
+    const files=[];
     for(let i = 0; i < set.pages.length; i++){
       button.textContent = 'Preparing ' + (i + 1) + ' of ' + set.pages.length;
-      download(slug() + '-slide-' + String(i + 1).padStart(2, '0') + '.png', await pngFromSvg(set.pages[i]));
+      files.push({name:slug() + '-slide-' + String(i + 1).padStart(2, '0') + '.png',bytes:new Uint8Array(await (await pngFromSvg(set.pages[i])).arrayBuffer())});
     }
-    button.textContent = 'Downloaded ' + set.pages.length + ' PNGs';
+    if(files.length===1)download(files[0].name,new Blob([files[0].bytes],{type:'image/png'}));
+    else download(slug()+'-slides.zip',createSlideZip(files));
+    button.textContent = files.length===1 ? 'Downloaded PNG' : 'Downloaded '+files.length+' slides';
   }catch(_){
     button.textContent = 'Could not prepare slides';
   }finally{
@@ -959,6 +923,16 @@ $('slideclose').addEventListener('click', () => $('slidepreviewdialog').close())
 $('slideprev').addEventListener('click', () => renderSlidePage(slidePageIndex - 1));
 $('slidenext').addEventListener('click', () => renderSlidePage(slidePageIndex + 1));
 $('slidedownload').addEventListener('click', downloadSlideSet);
+$('slidecopyimage').addEventListener('click',()=>{
+  const svg=deckSet()?.pages[slidePageIndex],button=$('slidecopyimage');
+  if(!svg)return;
+  if(!navigator.clipboard || !window.ClipboardItem){button.textContent='Use Download on this browser';return;}
+  try{navigator.clipboard.write([new ClipboardItem({'image/png':pngFromSvg(svg)})])
+    .then(()=>{button.textContent='Copied — paste into your deck';})
+    .catch(()=>{button.textContent='Copy blocked — use Download';})
+    .finally(()=>setTimeout(()=>{button.textContent='Copy slide PNG';},1800));
+  }catch(_){button.textContent='Copy blocked — use Download';}
+});
 /* Native modal focus handling is not consistent across every embedded browser
    surface. Keep the small export dialog self-contained: a backwards Tab from
    Close lands on the last enabled action, and a forward Tab returns to Close. */
@@ -975,6 +949,10 @@ $('slidepreviewdialog').addEventListener('keydown', event => {
 /* clicking a chip COMMITS style: as a text edit (one transaction, one undo
    step, URL-coherent) — the doc stays the only source of truth, the normal
    refresh loop re-syncs the active chip */
+$('fontchoice').addEventListener('change',()=>{editor.setText(setConfigKey(editor.getText(),'font',$('fontchoice').value));refresh();});
+$('accentchoice').addEventListener('change',()=>{editor.setText(setConfigKey(editor.getText(),'accent',$('accentchoice').value));refresh();});
+$('exportdeck').addEventListener('click',()=>openSlidePreview());
+$('exportdetail').addEventListener('change',()=>{ deckCache=null; syncDeckActions(); if($('slidepreviewdialog').open) openSlidePreview(); });
 $('stylepicker').addEventListener('click', e => {
   const b = e.target.closest('[data-style]');
   // setText fires the editor's 120ms typing debounce; a chip is a single-shot edit,
@@ -1395,6 +1373,12 @@ new ResizeObserver(() => {
 }).observe(previewEl);
 
 /* ---------- boot: hash > localStorage > empty ---------- */
+async function prepareTypography(){
+  try{ await loadChapterFonts(); $('fontstatus').hidden=true; refresh(); }
+  catch(error){ $('fontstatus').hidden=false; $('fontmessage').textContent='The roadmap fonts could not load. Retry to render and export with the right typography.'; setActionsEnabled(false); }
+}
+$('retryfonts').addEventListener('click',prepareTypography);
+prepareTypography();
 (async function(){
   let text = '';
   const state = await readHashState();
@@ -1417,10 +1401,11 @@ new ResizeObserver(() => {
   }
   snaps.refresh();
   renderSaved();
+  sourceReady = true;
   if(text) editor.setText(text);
   else if(!autoloadExample(() => editor.setText(EXAMPLES[0].src))) refresh();
 })();
 
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
-wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'style', 'focus', 'verdict', 'group', 'basis']);
+wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'date', 'headline', 'story', 'horizons', 'wip', 'fade', 'palette', 'accent', 'font', 'style', 'focus', 'verdict', 'group', 'basis']);

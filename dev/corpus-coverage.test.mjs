@@ -71,12 +71,12 @@ function renderersOnDisk(){
     const topPath = join(ROOT, top);
     if(top.startsWith('.') || ['node_modules', 'vendor'].includes(top) || !statSync(topPath).isDirectory()) continue;
     for(const file of readdirSync(topPath))
-      if(/^render.*\.js$/.test(file)) out.push(top + '/' + file);
+      if(/^(?:render.*|chapter-svg)\.js$/.test(file)) out.push(top + '/' + file);
     if(top === 'energy') for(const sub of readdirSync(topPath)){
       const subPath = join(topPath, sub);
       if(!statSync(subPath).isDirectory()) continue;
       for(const file of readdirSync(subPath))
-        if(/^render.*\.js$/.test(file)) out.push('energy/' + sub + '/' + file);
+        if(/^(?:render.*|chapter-svg)\.js$/.test(file)) out.push('energy/' + sub + '/' + file);
     }
   }
   return sorted(out);

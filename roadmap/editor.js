@@ -10,7 +10,7 @@ function makeLang(horizons){
       if(stream.sol()){
         const line = stream.string.trim();
         if(line.startsWith('//')){ stream.skipToEnd(); return 'comment'; }
-        if(/^(title|date|headline|story|focus|horizons|wip|fade|palette|accent|style|verdict|group|basis)\s*:/i.test(line)){
+        if(/^(title|date|headline|story|focus|horizons|wip|fade|palette|accent|font|style|verdict|group|basis)\s*:/i.test(line)){
           stream.match(/^\s*[a-z]+\s*:/i); return 'keyword';
         }
         if(hset.has(line.replace(/:$/, '').toLowerCase())){ stream.skipToEnd(); return 'heading'; }
@@ -45,6 +45,10 @@ export function createEditor({parent, doc, onChange}){
     ]});
   return {
     ...core,
+    // Controls and item popovers are discrete edits, never part of CM's typing group.
+    // Without an explicit event, rapid font/accent changes can undo the whole loaded plan.
+    setText(text){core.view.dispatch({changes:{from:0,to:core.view.state.doc.length,insert:text},userEvent:'input.complete'});},
+    replaceLine(n,text){const line=core.view.state.doc.line(n+1);core.view.dispatch({changes:{from:line.from,to:line.to,insert:text},userEvent:'input.complete'});},
     setHorizons(names){
       const key = names.join('|').toLowerCase();
       if(key === currentHorizons.join('|').toLowerCase()) return;

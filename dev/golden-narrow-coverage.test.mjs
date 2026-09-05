@@ -38,7 +38,7 @@ const COVERED = {
   'paths/render-question-lens.js': ['paths-question-narrow'],
   'paths/render-tree.js': ['paths-outline-narrow'],
   'proxy/render-hunt.js': ['proxy-hunt-narrow'],
-  'roadmap/render.js': ['roadmap-narrow'],
+  'roadmap/chapter-svg.js': ['chapter-grid-narrow','chapter-board-narrow','chapter-focus-narrow','chapter-register-narrow'],
   'signal-vs-noise/render.js': ['signal-noise-grid-narrow', 'signal-noise-collapse-narrow'],
   'timeline/render.js': ['timeline-narrow'],
   'timeline/render-field.js': ['timeline-narrow'],
@@ -66,16 +66,11 @@ const EXCLUDED = {
   'premortem/render-board.js': 'Renderer emits HTML, not SVG.',
   'premortem/render-register.js': 'Renderer emits HTML, not SVG.',
   'premortem/render-wizard.js': 'Renderer emits HTML, not SVG.',
-  'roadmap/render-board.js': 'Phone preview deliberately falls back to roadmap/render.js; this composition stays wide.',
-  'roadmap/render-deck-pages.js': 'Paginated presentation export is intentionally fixed at 1920x1080.',
-  'roadmap/render-deck.js': 'Deck export is intentionally fixed at 1920x1080.',
-  'roadmap/render-focus.js': 'Phone preview deliberately falls back to roadmap/render.js; this composition stays wide.',
-  'roadmap/render-register.js': 'Phone preview deliberately falls back to roadmap/render.js; this composition stays wide.',
 };
 
 const isDir = rel => statSync(join(ROOT, rel)).isDirectory();
 const renderersIn = dir => readdirSync(join(ROOT, dir))
-  .filter(file => /^render.*\.js$/.test(file))
+  .filter(file => /^(?:render.*|chapter-svg)\.js$/.test(file))
   .map(file => dir + '/' + file);
 
 function discoverRenderers(){

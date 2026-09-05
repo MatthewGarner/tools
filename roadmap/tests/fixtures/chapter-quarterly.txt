@@ -1,0 +1,30 @@
+title: Lantern / Product roadmap
+headline: Make reading a daily habit.
+date: 2026-09-05
+horizons: quarterly from Q3 2026 x6
+style: grid
+accent: #254C3D
+
+Q3 2026
+Core: Reader foundations x2 [doing] -- Keep your place across devices
+Platform: Library migration x3 -- Move existing collections without disruption
+Growth: Reader interviews -- Understand what brings people back
+
+Q4 2026
+Core: Offline reading -- Download a book before travelling
+Growth: Gift memberships x2 -- Give a year of reading
+
+Q1 2027
+Core: Shared shelves x2 -- Bring favourite books together
+Platform: Search indexing -- Find a passage across your library
+
+Q2 2027
+Growth: Publisher partnerships x2 -- Introduce independent voices
+Platform: Accessibility review -- Read comfortably with assistive technology
+
+Q3 2027
+Core: Book clubs x2 -- Small groups with shared shelves
+Platform: E-reader sync -- Pick up where you left off
+
+Q4 2027
+Growth: Family accounts -- One membership for the household

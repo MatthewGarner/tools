@@ -1,0 +1,29 @@
+title: Lantern / Product roadmap
+headline: Make reading a daily habit.
+style: focus
+accent: #663B59
+date: 2026-09-04
+
+NOW
+Core: Resume your reading [doing] -- Keep your place across devices
+Core: Curated shelves [doing]
+Growth: Referral flow [risk] -- Awaiting app-store review
+Platform: Sync engine rewrite [doing] -- Resolve conflicts without losing a reader's place
+Platform: Library import [blocked] -- Waiting for an export format specification
+Core: Reader accessibility -- Keyboard navigation and a clearer reading order
+
+NEXT
+Core: Reading reminders [bet: reminders] -- Find each reader's natural time of day
+Growth: Widget gallery
+Platform: Offline downloads -- Save a book before travelling
+Core: Reading statistics
+Growth: Gift memberships
+Platform: Search indexing
+
+LATER
+Core: Personalised reminders [if reminders] -- Adapt to the reader's habits
+Core: Digest emails [unless reminders] -- A fallback channel with less interruption
+Core: Book clubs -- Small groups and shared shelves
+Growth: Publisher storefront
+Platform: E-reader sync
+Growth: Family accounts

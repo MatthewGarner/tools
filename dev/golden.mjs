@@ -6,7 +6,7 @@ import {writeFileSync, readFileSync, mkdirSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {parse} from '../roadmap/parse.js';
-import {render} from '../roadmap/render.js';
+import {renderChapter, renderChapterPages} from '../roadmap/chapter-svg.js';
 
 const ctxBase = {
   colors: {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg:'#f7f8f6',
@@ -23,317 +23,31 @@ const ctxDark = {
   measure: (t) => t.length * 7,
   dark: true,
 };
-const docs = {
-  lanes: 'title: T\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- note here\nGrowth: Referral flow [risk]\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done]',
-  nolanes: 'date: 2026-07-04\nNOW\nplain item\nNEXT\nanother much longer item title that wraps across lines for sure definitely',
-  quarterly: 'title: Q\ndate: 2026-07-04\nhorizons: quarterly from Q3 2026 x5\nwip: off\nfade: off\nQ3 2026\nA: one\nQ1 2027\nB: two',
-};
-const basisDoc = 'title: Growth delivery\ndate: 2026-08-12\n' +
-  'basis: paths "Growth decisions"; answered pricing=yes@2026-08-03, retention=no@2026-08-09; assumed groups=no@2026-08-12\n' +
-  'headline: Keep shared work moving while the open choice resolves.\n' +
-  'NOW\nCore: Fix resume position [doing]\nNEXT\nGrowth: Improve invitations\nLATER\nCore: Deepen retention';
 const variants = {};
-for(const [k, src] of Object.entries(docs)){
-  const m = parse(src);
-  variants[k] = render(m, {...ctxBase});
-  variants[k + '-slide'] = render(m, {...ctxBase, slide: true});
+/* Chapter's real renderer owns all four reading compositions in both themes.
+   Separate narrow fixtures pin each phone layout; page sets pin complete exports. */
+const chapterSource = 'title: Lantern roadmap\nheadline: Make reading a habit\ndate: 2026-09-04\naccent: #254C3D\n' +
+  'NOW\nCore: Resume a book [doing] -- Remember the exact place\nCore: Curated shelves [bet: shelves] -- Find the next good read\n' +
+  'NEXT\nGrowth: Share a shelf [if shelves] -- An invitation from a friend\nGrowth: Reading digest [unless shelves]\n' +
+  'LATER\nPlatform: E-reader sync -- Pick up on any device\nPlatform: Offline reading';
+for(const style of ['grid','board','focus','register']){
+  const model = parse('style: ' + style + '\n' + chapterSource);
+  for(const [theme,context] of [['light',ctxBase],['dark',ctxDark]]){
+    variants['chapter-' + style + '-' + theme] = renderChapter(model,context);
+    const pages=renderChapterPages(model,context);
+    pages.pages.forEach((svg,i)=>{variants['chapter-'+style+'-'+theme+'-slide-'+i]=svg;});
+  }
 }
-{
-  const m = parse(docs.lanes);
-  variants['lanes-diff'] = render(m, {...ctxBase, diff: {
-    badge: it => it.title === 'Reading reminders' ? {kind:'new', label:'New'} :
-                 it.title === 'Referral flow' ? {kind:'moved', label:'was Next'} : null,
-    dropped: ['old thing one', 'old thing two', 'old thing three'],
-    since: '2026-06-01', any: true,
-  }});
-  /* narrow (phone) relayout, edit:true — the only real-world path (exports
-     never set ctx.width): plain no-lanes stack, lane sub-labels + certainty
-     fade + status pills, and the diff strip's single-column dropped list. */
-  /* the chart artefact's authored standfirst — WIDE (it grows headerH, pushing
-     every column down) and NARROW (it advances the running y cursor). */
-  const hlDoc = 'headline: We are consolidating — three bets, no more\n' + docs.lanes;
-  variants['roadmap-headline'] = render(parse(hlDoc), {...ctxBase});
-  /* `story:` (2026-07-31) — the authored diff narrative, which renders ONLY with
-     an active comparison. Both states pinned: with a diff it appears under the
-     standfirst and pushes the board down; without one it must be absent. */
-  const storyDoc = 'story: We chose depth over breadth this cycle\n' + hlDoc;
-  const storyDiff = {
-    badge: it => it.title === 'Reading reminders' ? {kind: 'new', label: 'New'} : null,
-    dropped: ['old thing one'], since: '2026-06-01', any: true,
-  };
-  variants['roadmap-story'] = render(parse(storyDoc), {...ctxBase, diff: storyDiff});
-  variants['roadmap-story-nodiff'] = render(parse(storyDoc), {...ctxBase});
-  variants['roadmap-headline-narrow'] = render(parse(hlDoc), {...ctxBase, edit: true, width: 360});
-  variants['roadmap-narrow'] = render(parse(docs.nolanes), {...ctxBase, edit: true, width: 360});
-  variants['roadmap-narrow-lanes'] = render(m, {...ctxBase, edit: true, width: 360});
-  variants['roadmap-narrow-diff'] = render(m, {...ctxBase, edit: true, width: 360, diff: {
-    badge: it => it.title === 'Reading reminders' ? {kind:'new', label:'New'} :
-                 it.title === 'Referral flow' ? {kind:'moved', label:'was Next'} : null,
-    dropped: ['old thing one', 'old thing two', 'old thing three'],
-    since: '2026-06-01', any: true,
-  }});
-  /* two cards stacked in ONE cell, at slide scale — the ONLY fixture exercising
-     the track-to-track y accumulation at S=1.35, where (a+h)+g !== a+(h+g).
-     Captured BEFORE the packer landed: it pins the pre-change bytes. */
-  variants['roadmap-stack-slide'] = render(parse(
-    'title: Stacked\ndate: 2026-07-04\nNOW\nCore: First card\nCore: Second card\nCore: Third card\n' +
-    'NEXT\nCore: Lonely'), {...ctxBase, slide: true});
-
-  /* SPANS: mixed lengths in one lane (the torture case the layout was chosen on),
-     and an item running past the board edge. Wide + slide; the narrow span layout
-     is captured in Task 6. */
-  const spanDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
-    'horizons: monthly from Jul 2026 x6\nwip: 4\n' +
-    'Jul 2026\nPlatform: Sync engine rewrite [doing] x6 -- conflicts are the #1 support driver\n' +
-    'Platform: Curated shelves [done]\nPlatform: Resume where you left off [doing] x2\n' +
-    'Aug 2026\nPlatform: Referral flow [risk] x3 -- waiting on app-store review\n' +
-    'Platform: Widget gallery\n' +
-    'Sep 2026\nPlatform: Book clubs x2\nPlatform: Publisher storefront\n';
-  const spanModel = parse(spanDoc);
-  variants['roadmap-spans'] = render(spanModel, {...ctxBase});
-  variants['roadmap-spans-slide'] = render(spanModel, {...ctxBase, slide: true});
-
-  const spanEdgeDoc = 'title: Platform Delivery Plan\ndate: 2026-07-04\n' +
-    'horizons: quarterly from Q3 2026 x4\nwip: 4\n' +
-    'Q3 2026\nInfra: Data platform rebuild x6 -- runs well past this board\n' +
-    'Infra: Sync engine rewrite [doing] x4\n' +
-    'Q4 2026\nApp: Reading reminders x2\n';
-  variants['roadmap-spans-edge'] = render(parse(spanEdgeDoc), {...ctxBase});
-
-  /* the phone span layout: a span is a LABEL in its start section, plus every
-     section it runs THROUGH lists it under "also running" — a span-free doc
-     has runLines = [] and no through items, so no OTHER narrow golden can move. */
-  variants['roadmap-spans-narrow'] = render(spanModel, {...ctxBase, edit: true, width: 360});
-
-  /* CONDITIONAL (A6): an unresolved fork — one declared bet, an [if] rider, an
-     [unless] fallback, and the bet's own item still [doing] (in-flight WIP
-     counts even while the fork is open). Chart style, wide. Pins the open-bet
-     capsule (`BET name`), the cond dashed-muted treatment + `if`/`unless`
-     capsules, and the what-if hit rect the live preview paints under them. */
-  const forkDoc = 'title: Fork doc\ndate: 2026-08-09\nhorizons: Now, Next, Later\nwip: off\nNOW\n' +
-    'Core: Foundation\nNEXT\n' +
-    'Core: Retention engine [bet: retention] [doing] -- ships behind a flag\n' +
-    'Core: Proactive nudges [if retention]\n' +
-    'Core: Manual outreach [unless retention]\n' +
-    'LATER\nGrowth: Cross-sell push';
-  variants['roadmap-fork'] = render(parse(forkDoc), {...ctxBase, edit: true});
-  /* Projection basis: one named Paths world, with known answers and an
-     explicit planning assumption. Pinned wide + narrow so neither header
-     composition can silently flatten the assumption into certainty. */
-  variants['roadmap-basis'] = render(parse(basisDoc), {...ctxBase});
-  variants['roadmap-basis-narrow'] = render(parse(basisDoc), {...ctxBase, width: 360});
-}
-
-/* deck exports (roadmap/render-deck.js) — a separate module from render.js
-   (the whole containment story: /why delegates to render.js, never to the
-   deck). `date:` is fixed in the doc, so the capture is deterministic without
-   needing ctx.today at all. */
-{
-  const {renderDeck} = await import('../roadmap/render-deck.js');
-  variants['deck-board'] = renderDeck(parse(docs.lanes), {...ctxBase});
-  variants['deck-board-basis'] = renderDeck(parse(basisDoc), {...ctxBase});
-  /* the flipped-to-list rendering path (a distinct code path from card
-     columns — the prototype's version of this had no cap and overflowed the
-     frame, which is exactly what this golden pins down). */
-  const listDoc = 'title: Portfolio board\ndate: 2026-07-04\nNOW\n' +
-    Array.from({length: 24}, (_, i) => (i % 3 === 0 ? 'Core: ' : i % 3 === 1 ? 'Growth: ' : 'Platform: ') +
-      'Item number ' + i + (i % 5 === 0 ? ' [risk]' : i % 7 === 0 ? ' [blocked]' : '') +
-      (i % 4 === 0 ? ' -- a short note on this one' : '')).join('\n') +
-    '\nNEXT\nCore: placeholder\nLATER\nCore: placeholder';
-  variants['deck-board-list'] = renderDeck(parse(listDoc), {...ctxBase});
-
-  const wipDoc = 'title: Lantern board\ndate: 2026-07-04\nwip: 2\nNOW\n' +
-    'Core: Resume where you left off\nCore: Widget gallery\nGrowth: Referral loop\nNEXT\nCore: Publisher storefront';
-  variants['deck-board-wip'] = renderDeck(parse(wipDoc), {...ctxBase});
-  /* `verdict:` (2026-08-17): the deck export used to ignore the authored line
-     and always print the derived one — the one deck-export bug the other
-     tools (tree/map/gauge) didn't share. wipDoc already forces a derived WIP-
-     breach verdict, so it's the same fixture that proves REPLACEMENT (off
-     drops the band, authored text replaces the WIP sentence) rather than
-     just presence. */
-  variants['deck-board-verdict-off'] = renderDeck(parse('verdict: off\n' + wipDoc), {...ctxBase});
-  variants['deck-board-verdict-authored'] = renderDeck(
-    parse('verdict: We ship the reader experience first\n' + wipDoc), {...ctxBase});
-
-  const emptyColDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off\nNEXT\nLATER\nGrowth: Publisher storefront';
-  variants['deck-board-empty'] = renderDeck(parse(emptyColDoc), {...ctxBase});
-
-  const boardDiffDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\n' +
-    'Core: Resume where you left off [doing] -- ship first\nGrowth: Widget gallery\nNEXT\nCore: Publisher storefront';
-  const boardDiff = {
-    since: 'Q1', badge: it => it.title === 'Resume where you left off' ? {kind: 'new', label: 'NEW'}
-      : it.title === 'Widget gallery' ? {kind: 'moved', label: 'was Next'} : null,
-    dropped: ['Legacy import'],
-  };
-  variants['deck-board-diff'] = renderDeck(parse(boardDiffDoc), {...ctxBase, diff: boardDiff});
-
-  /* REGISTER: badges (NEW capsule + "was X" italic horizon cell) + dropped
-     rows (struck, DROPPED capsule) — the formal-table diff read. Also the one
-     fixture carrying an AUTHORED `headline:`, so the standfirst (and the body
-     band it pushes down) stays pinned; the others prove the no-headline frame. */
-  const registerDoc = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\n' +
-    'headline: We are consolidating — three bets, no more\nNOW\n' +
-    'Core: Resume where you left off [doing] -- shipping soon\n' +
-    'Growth: Referral flow [risk] -- needs legal review\n' +
-    'Platform: Billing migration [blocked] -- waiting on vendor\n' +
-    'NEXT\nCore: Reading reminders\nGrowth: Onboarding v2\n' +
-    'LATER\nGrowth: Publisher storefront [done]';
-  const registerDiff = {
-    any: true, since: '2026-06-01',
-    badge: it => it.title === 'Reading reminders' ? {kind: 'new', label: 'New'} :
-                 it.title === 'Referral flow' ? {kind: 'moved', label: 'was Next'} : null,
-    dropped: ['old thing one', 'old thing two', 'old thing three'],
-  };
-  variants['deck-register-diff'] = renderDeck(parse(registerDoc), {...ctxBase, diff: registerDiff});
-
-  /* Register byte-gate (2026-07-15): deck-register-diff carries a diff and is the
-     only register golden. Pin the shapes a live-view refactor could perturb —
-     no diff, dropped-column redistribution, the 8-horizon type ramp — BEFORE the
-     refactor, so "IDENTICAL" actually guards the export path. */
-  const regPlain = 'title: Portfolio register\nstyle: register\ndate: 2026-07-04\n' +
-    'NOW\nCore: Resume where you left off [doing] -- shipping soon\nGrowth: Referral flow [risk]\n' +
-    'NEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done] -- eventually';
-  variants['deck-register'] = renderDeck(parse(regPlain), {...ctxBase});
-  /* laneless AND status-less AND note-less → LANE/STATUS/NOTE columns all drop */
-  const regDrop = 'title: Bare\nstyle: register\ndate: 2026-07-04\nNOW\nAlpha\nBeta\nNEXT\nGamma';
-  variants['deck-register-dropcol'] = renderDeck(parse(regDrop), {...ctxBase});
-  /* 8 horizons — the smallest type ramp / widest horizon set */
-  const reg8 = 'title: Long horizon\nstyle: register\ndate: 2026-07-04\n' +
-    'horizons: quarterly from Q1 2026 x8\n' +
-    Array.from({length: 8}, (_, i) => 'Q' + (i % 4 + 1) + ' ' + (2026 + Math.floor(i / 4)) +
-      '\nCore: Item ' + i + (i % 2 ? ' [doing]' : '')).join('\n');
-  variants['deck-register-8h'] = renderDeck(parse(reg8), {...ctxBase});
-
-  /* FOCUS: an over-WIP Now (which the deck must NOT editorialise about — the
-     breach is an editor warning, never a line on the slide) with enough items
-     to force the 2-column hero (>=6) and a faded ranked rail. */
-  const focusDoc = 'title: Product roadmap\nstyle: focus\ndate: 2026-07-04\nwip: 6\nNOW\n' +
-    Array.from({length: 8}, (_, i) => (['Core', 'Growth', 'Platform'][i % 3]) + ': Item number ' + i +
-      (i % 3 === 0 ? ' -- a short supporting note' : '') +
-      (i === 2 ? ' [risk]' : i === 5 ? ' [blocked]' : '')).join('\n') +
-    '\nNEXT\nCore: Next horizon item one\nGrowth: Next horizon item two\n' +
-    'LATER\nCore: Later horizon item';
-  variants['deck-focus'] = renderDeck(parse(focusDoc), {...ctxBase});
-
-  const focusEmptyDoc = 'title: Lantern roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nNEXT\nCore: Reading reminders\nCore: Widget gallery\nLATER\nGrowth: Publisher storefront';
-  variants['deck-focus-empty'] = renderDeck(parse(focusEmptyDoc), {...ctxBase});
-
-  const focus2colDoc = 'title: Lantern roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
-    'Core: Resume where you left off\nCore: Curated shelves\nGrowth: Referral flow\nGrowth: Widget gallery\nPlatform: Sync rewrite\nPlatform: Offline downloads\nNEXT\nCore: Reading reminders';
-  variants['deck-focus-2col'] = renderDeck(parse(focus2colDoc), {...ctxBase});
-
-  const focusDiffDoc = 'title: Lantern roadmap\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing]\nGrowth: Referral flow\nNEXT\nCore: Reading reminders';
-  variants['deck-focus-diff'] = renderDeck(parse(focusDiffDoc), {...ctxBase, diff: {since: 'Q1', dropped: ['Legacy import', 'Old onboarding']}});
-
-  /* focus: config key — proves the lens overrides the default first-non-empty
-     pick on the deck too (heroes LATER, not NOW, even though NOW has items). */
-  const focusKeyDoc = 'title: Lantern roadmap\nstyle: focus\nfocus: Later\ndate: 2026-07-04\nNOW\nCore: Resume where you left off\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront';
-  variants['deck-focus-keyed'] = renderDeck(parse(focusKeyDoc), {...ctxBase});   // heroes LATER, not NOW
-
-  /* GRID: a quarterly (time-axis) doc — style: grid is also the DEFAULT here
-     (no style: line needed) since genHorizons sets model.timeAxis. */
-  variants['deck-grid'] = renderDeck(parse(docs.quarterly), {...ctxBase});
-
-  /* REGISTER LIVE (Task 4): the editable-table preview paint, captured at
-     edit:false (the export/golden path — zero edit markup) so this golden
-     pins the LAYOUT (fixed live width, content-driven height, the light
-     frame, the column header row, one section per horizon) rather than the
-     edit-only affordances, which dev/injection.test.mjs exercises instead. */
-  const {renderRegisterLive} = await import('../roadmap/render-register.js');
-  const regLiveDoc = 'title: Plan\nstyle: register\ndate: 2026-07-04\nNOW\nCore: Sync engine rewrite [doing] -- conflicts\n' +
-    'Growth: Referral flow [risk]\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront [done]';
-  variants['register-live'] = renderRegisterLive(parse(regLiveDoc), {...ctxBase});   // edit:false pins layout
-  variants['register-live-basis'] = renderRegisterLive(parse(basisDoc), {...ctxBase});
-  /* the AUTHORED standfirst on the live artefacts (2026-07-31). `headline:` used
-     to reach the deck alone, so two of four exports ignored what the author wrote.
-     One golden per artefact pins the block AND the layout it pushes down. */
-  variants['register-live-headline'] = renderRegisterLive(parse('headline: We are consolidating — three bets, no more\n' + regLiveDoc), {...ctxBase});
-
-  /* CONDITIONAL (A6): a RESOLVED world — a lost bet whose own [if] rider drops
-     (making that rider's own declared bet MOOT: a moot-chain drop, "never ran"),
-     an [unless] fallback that stays LIVE because a lost bet still didn't pay off,
-     and a won bet whose [unless] fallback drops ("won") while its [if] rider
-     stays live. Register style, edit:false (pins layout, not edit affordances —
-     injection.test.mjs covers those) so the won/lost/moot dropped-tag wordings
-     and the muted dropped-row wash golden-lock. */
-  const resolvedDoc = 'title: Resolved world\nstyle: register\ndate: 2026-08-09\nwip: off\nNOW\n' +
-    'Core: Foundation\nNEXT\n' +
-    'Core: Root gate [bet: gate lost]\n' +
-    'Core: Cascade bet [bet: cascade] [if gate] -- runs only if gate pays off\n' +
-    'Core: Downstream rider [if cascade] -- depends on cascade paying off\n' +
-    'Core: Fallback when gate fails [unless gate] -- still live, gate certainly did not pay off\n' +
-    'LATER\n' +
-    'Growth: Expansion bet [bet: expansion won]\n' +
-    'Growth: Won fallback dropped [unless expansion] -- superseded once expansion shipped\n' +
-    'Growth: Won rider stays [if expansion]';
-  variants['register-live-conditional'] = renderRegisterLive(parse(resolvedDoc), {...ctxBase});
-
-  /* S4 (E10): `group: outcome` — the register's regrouping lens, captured
-     edit:false (layout, not edit affordances — dev/injection.test.mjs covers
-     those). One doc exercises all five sections: an open fork (gate: pays
-     off / doesn't), a genuine condition cycle (alpha/beta each conditioned
-     on the other), and a resolved-world casualty (the won fallback drops). */
-  const outcomeDoc = 'title: Portfolio register\nstyle: register\ngroup: outcome\ndate: 2026-08-10\nwip: off\nNOW\n' +
-    'Core: Foundation\nNEXT\n' +
-    'Core: Root gate [bet: gate]\n' +
-    'Core: Feature ships [if gate] -- ships once gate pays off\n' +
-    'Core: Fallback plan [unless gate] -- covers if gate fails\n' +
-    'Core: Alpha loop [bet: alpha] [if beta]\n' +
-    'Core: Beta loop [bet: beta] [if alpha]\n' +
-    'LATER\n' +
-    'Growth: Expansion bet [bet: expansion won]\n' +
-    'Growth: Won fallback dropped [unless expansion] -- superseded once expansion shipped\n' +
-    'Growth: Won rider stays [if expansion]';
-  variants['register-outcome'] = renderRegisterLive(parse(outcomeDoc), {...ctxBase});
-
-  /* BOARD LIVE (Task 3): the editable-board preview paint, captured at
-     edit:false (the export/golden path — zero edit markup) so this golden
-     pins the LAYOUT (content-width columns, content-driven height, the
-     light frame, one section per horizon) rather than the edit-only
-     affordances, which dev/injection.test.mjs exercises instead. */
-  const {renderBoardLive} = await import('../roadmap/render-board.js');
-  const boardLiveDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- ship first\n' +
-    'Growth: Widget gallery\nNEXT\nLATER\nCore: Publisher storefront';
-  variants['board-live'] = renderBoardLive(parse(boardLiveDoc), {...ctxBase});          // edit:false pins layout
-  variants['board-live-basis'] = renderBoardLive(parse(basisDoc), {...ctxBase});
-  variants['board-live-headline'] = renderBoardLive(parse('headline: We are consolidating — three bets, no more\n' + boardLiveDoc), {...ctxBase});
-  variants['board-live-story'] = renderBoardLive(
-    parse('story: We chose depth over breadth this cycle\n' + boardLiveDoc),
-    {...ctxBase, diff: {badge: () => null, dropped: ['old thing'], since: 'JUNE', any: true}});
-
-  /* E1 (S3): an OPEN fork on the live board — a live item, both halves of one
-     bet's zone (if-so + if-not), and a second open bet whose zone has only
-     an if-so half (its if-not is empty and must not paint) — pins the wash/
-     label markup, the live-flow-then-zones order, and the empty-half
-     omission all in one golden. edit:false, matching every other board-live
-     golden's export-path convention. */
-  const zonesDoc = 'title: Lantern board\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing]\nCore: Ship reminders [bet: reminders]\n' +
-    'Core: Ship digest [bet: digest]\nNEXT\nCore: Widget gallery\n' +
-    'Core: Smart nudges [if reminders]\nCore: Manual outreach [unless reminders]\n' +
-    'Core: Digest follow-up [if digest]\nLATER\nCore: Publisher storefront';
-  variants['board-live-zones'] = renderBoardLive(parse(zonesDoc), {...ctxBase});
-
-  /* FOCUS LIVE (Task 4): the editable-focus-lens preview paint, captured at
-     edit:false (the export/golden path — zero edit markup) so this golden
-     pins the LAYOUT (fixed live width, content-driven height, the light
-     frame, the hero zone + ranked rail) rather than the edit-only
-     affordances, which dev/injection.test.mjs exercises instead. */
-  const {renderFocusLive} = await import('../roadmap/render-focus.js');
-  const focusLiveDoc = 'title: Lantern\nstyle: focus\ndate: 2026-07-04\nNOW\nCore: Resume where you left off [doing] -- ship first\nGrowth: Referral flow\nNEXT\nCore: Reading reminders\nLATER\nGrowth: Publisher storefront';
-  variants['focus-live'] = renderFocusLive(parse(focusLiveDoc), {...ctxBase});   // edit:false pins layout
-  variants['focus-live-basis'] = renderFocusLive(parse(basisDoc), {...ctxBase});
-  variants['focus-live-headline'] = renderFocusLive(parse('headline: We are consolidating — three bets, no more\n' + focusLiveDoc), {...ctxBase});
-
-  /* E6 (S5): the "hinges on" strip on a live hero card — a chained pair of
-     bets two links deep (root resolves won, gate stays open), pinning the
-     capsule text, the +22 card height, and the strip's absence from every
-     other card on the same doc. edit:false, matching every other focus-live
-     golden's export-path convention. */
-  const hingesDoc = 'title: Lantern\nstyle: focus\ndate: 2026-07-04\nNOW\n' +
-    'Core: Root milestone [bet: root won]\nCore: Gate check [bet: gate] [if root]\n' +
-    'Core: Send digest [if gate]\nNEXT\nGrowth: Referral flow\nLATER\nGrowth: Publisher storefront';
-  variants['focus-live-hinges'] = renderFocusLive(parse(hingesDoc), {...ctxBase});
-}
+variants['chapter-grid-narrow'] = renderChapter(parse('style: grid\n'+chapterSource),{...ctxBase,width:360,edit:true});
+variants['chapter-board-narrow'] = renderChapter(parse('style: board\n'+chapterSource),{...ctxBase,width:360,edit:true});
+variants['chapter-focus-narrow'] = renderChapter(parse('style: focus\n'+chapterSource),{...ctxBase,width:360,edit:true});
+variants['chapter-register-narrow'] = renderChapter(parse('style: register\n'+chapterSource),{...ctxBase,width:360,edit:true});
+const chapterBasis='basis: paths "Growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12\n';
+variants['chapter-basis'] = renderChapter(parse(chapterBasis+chapterSource),ctxBase);
+variants['chapter-basis-narrow'] = renderChapter(parse(chapterBasis+chapterSource),{...ctxBase,width:360});
+variants['chapter-spans'] = renderChapter(parse('style: grid\ndate: 2026-09-04\nhorizons: monthly from Jul 2026 x4\nJul 2026\nPlatform: Sync engine x4 -- Keep every device current\nPlatform: Local cache\nAug 2026\nPlatform: Conflict resolution x2'),ctxBase);
+variants['chapter-comparison'] = renderChapter(parse('style: register\nstory: The next release follows the evidence\n'+chapterSource),{...ctxBase,diff:{any:true,since:'June baseline',dropped:['Legacy import'],badge:()=>({kind:'new',label:'New'})}});
+variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n'+chapterSource),ctxBase);
 
 /* tree fixtures (dates normalised so captures are stable) */
 {
@@ -1045,7 +759,7 @@ for(const [k, src] of Object.entries(docs)){
    covers them as HTML surfaces. tree/render-density looked unreachable to a scan of
    import specifiers but is fully covered through the tree/render.js facade.
 
-   renderDeckPages returns {plan, pages} rather than one string, so each page is
+   renderChapterPages returns {plan, pages} rather than one string, so each page is
    pinned separately — the composition is the thing that breaks, so page count matters
    as much as page content, and a lost page shows up as a missing file.
 
@@ -1111,14 +825,14 @@ for(const [k, src] of Object.entries(docs)){
   variants['paths-learning-closeout-narrow'] =
     renderLearningCloseOutNarrow(pmodel, pdec, preceipt, {...ctxBase, width: 390});
 
-  const {renderDeckPages} = await import('../roadmap/render-deck-pages.js');
+
   /* Six horizons x five lanes — deliberately past the one-page threshold, so the
      CONTINUATION composition is pinned (four pages). A three-horizon doc renders a
      single page and would leave the thing most likely to break untested. */
   const rdoc = 'style: board\ntitle: Roadmap\nhorizons: ' + ['Q1','Q2','Q3','Q4','Q5','Q6'].join(', ') + '\n\n' +
     ['Q1','Q2','Q3','Q4','Q5','Q6'].map(h => h + '\n' +
       [1,2,3,4,5].map(i => 'Lane' + i + ': Item ' + h + '-' + i).join('\n')).join('\n\n');
-  const deck = renderDeckPages(parse(rdoc), {...ctxBase});
+  const deck = renderChapterPages(parse('date: 2026-09-04\n'+rdoc), {...ctxBase});
   deck.pages.forEach((page, i) => { variants['roadmap-deck-pages-' + i] = page; });
 }
 

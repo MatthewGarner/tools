@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {FONT_FACES} from '../roadmap/chapter-fonts.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
@@ -48,6 +49,9 @@ function pageLoad(page){
     moduleGraph(resolveRef(dir, m[1]), files);
   for(const m of html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g))
     files.add(resolveRef(dir, m[1]));
+  // Chapter eagerly fetches its local registry before measuring live or export text.
+  if(files.has('roadmap/chapter-font-loader.js'))
+    for(const face of FONT_FACES) files.add('roadmap/fonts/' + face.file);
   return files;
 }
 

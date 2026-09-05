@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';
-import {trackErrors, report, tally, until, untilValue} from './_harness.mjs';
+import {trackErrors, report, tally, until, untilValue, openRoadmapSource} from './_harness.mjs';
 
 const BASE = (process.env.BASE || 'http://localhost:8087') + '/roadmap/';
 
@@ -43,6 +43,16 @@ async function focusRoadmapSource(pg){
   await until(() => source.evaluate(el => getComputedStyle(el.closest('.rail')).pointerEvents !== 'none'));
   await source.click({force:true});
 }
+// Raw pointer coordinates must be measured in the reading surface, after its
+// CSS transition and native scroll have settled. Source entry can leave both
+// the card and a distant horizon outside the viewport.
+async function prepareRoadmapDrag(pg, target){
+  if(!await pg.locator('#workspace').evaluate(el=>el.classList.contains('collapsed')))
+    await pg.locator('#railtab').click();
+  await pg.waitForTimeout(300); // source drawer width transition
+  await target.scrollIntoViewIfNeeded();
+  await pg.waitForTimeout(150); // native scroll settles before measuring pointer coordinates
+}
 const holds = (pg, read) => until(() => read(pg));
 const rendered = (pg, sel) => until(() => pg.locator(sel).count());
 const browser = await chromium.launch();
@@ -65,13 +75,16 @@ const page = await browser.newPage();
 const errors = trackErrors(page);
 
 const results = [];
+process.on('uncaughtExceptionMonitor',()=>console.log(results.join('\n')));
 const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
 
 await page.goto(BASE, {waitUntil: 'networkidle'});
 check('page loads with editor mounted', await page.locator('.cm-editor').count() === 1);
 
 // load example via chip
+await openRoadmapSource(page);
 await page.getByRole('button', {name: 'Reading app roadmap'}).click();
+await page.locator('#stylepicker [data-style="grid"]').click();
 await seeded(page);
 check('example renders SVG preview', await page.locator('#preview svg').count() === 1);
 check('swimlanes render', (await page.locator('#preview svg text', {hasText: 'Growth'}).count()) >= 1);
@@ -119,15 +132,15 @@ await page.keyboard.press('Enter');
 await page.keyboard.type('Core: Brand new initiative');
 await until(() => roadmapSrc(page).then(s => (s || '').includes('Brand new initiative')));
 await page.locator('#snapsel').selectOption({index: 1});
-await until(() => page.locator('#preview svg').innerHTML().then(h => h.includes('>NEW<')));
-check('compare shows NEW badge', (await page.locator('#preview svg').innerHTML()).includes('>NEW<'));
+await until(() => page.locator('#preview svg').innerHTML().then(h => h.includes('>New<')));
+check('compare shows New badge', (await page.locator('#preview svg').innerHTML()).includes('>New<'));
 check('comparison exposes the Change preflight', await page.locator('#changepreview').isVisible());
 await page.locator('#changepreview').click();
 await holds(page, p => p.locator('#slidepreviewdialog').evaluate(d => d.open));
 check('Change preflight opens the actual page-set dialog', await page.locator('#slidepreviewdialog').evaluate(d => d.open) &&
   await page.locator('#slidepreviewtitle').innerText() === 'Change deck preview');
 const changeAction = await page.locator('#slidedownload').textContent();
-check('Change preflight names its actual one-page or multi-page action', /^(Copy comparison PNG|Download [2-9]\d*-slide PNG set)$/.test(changeAction || ''));
+check('Change preflight names its actual one-page or multi-page action', /^Download (slide PNG|[2-9]\d*-slide ZIP)$/.test(changeAction || ''));
 check('Change preflight is an explicit modal with initial focus', await page.locator('#slidepreviewdialog').getAttribute('aria-modal') === 'true' &&
   await page.locator('#slideclose').evaluate(el => document.activeElement === el));
 await page.keyboard.press('Shift+Tab');
@@ -146,8 +159,9 @@ const wipDoc = 'NOW\n' + Array.from({length:7}, (_, i) => 'Item number ' + i).jo
 const wipPage = await browser.newPage();
 await wipPage.goto(BASE + '#' + Buffer.from(wipDoc, 'utf8').toString('base64'), {waitUntil: 'networkidle'});
 await rendered(wipPage, '#warns li');
+await openRoadmapSource(wipPage);
 check('WIP warning fires', (await wipPage.locator('#warns').innerText()).includes('Now has 7 items in flight (wip: 6).'));
-check('WIP flag in svg', (await wipPage.locator('#preview svg').innerHTML()).includes('7 ITEMS'));
+check('WIP flag in svg', (await wipPage.locator('#preview svg').innerHTML()).includes('Over WIP 6'));
 await wipPage.close();
 
 /* Board does not have a fixed three-horizon ceiling: it keeps every horizon
@@ -197,6 +211,7 @@ await wipPage.close();
   const boardDoc = 'title: Board capacity\nstyle: board\nhorizons: A, B, C, D, E\nA\nCore: One\nB\nCore: Two\nC\nCore: Three\nD\nCore: Four\nE\nCore: Five';
   const boardPage = await browser.newPage({viewport: {width:1440, height:1000}});
   await boardPage.goto(BASE + '#' + Buffer.from(boardDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
+  await openRoadmapSource(boardPage);
   await holds(boardPage, p => p.locator('#boardwindow').isVisible());
   check('dense Board exposes a bounded horizon window when the editor is open', await boardPage.locator('#boardwindow').isVisible());
   check('bounded Board window carries source-horizon drop targets', await boardPage.locator('#preview svg rect[data-hdrop="2"]').count() === 1);
@@ -206,8 +221,8 @@ await wipPage.close();
   await until(() => boardPage.locator('#preview svg rect[data-hdrop]').count().then(n => n === 5));
   check('presentation-width Board restores all five horizons instead of fixing at three',
     await boardPage.locator('#boardwindow').isHidden() && await boardPage.locator('#preview svg rect[data-hdrop]').count() === 5);
-  check('a compact five-horizon Board keeps the calm one-slide Copy PNG action',
-    await boardPage.locator('#copypng').isVisible() && await boardPage.locator('#fullslideexport').isHidden());
+  check('a quiet five-horizon Board offers one-slide copy and exact deck review',
+    await boardPage.locator('#exportdeck').isEnabled() && await boardPage.locator('#copypng').isVisible());
   await boardPage.close();
 }
 
@@ -226,7 +241,7 @@ await wipPage.close();
   const exportText = exportMenu.text.toUpperCase();
   check('Export distinguishes full-detail source artefacts and keeps its menu out of the editorial copy',
     /FULL-DETAIL ARTEFACT/.test(exportText) && /FULL-DETAIL PNG/.test(exportText) &&
-    /EDITABLE SVG/.test(exportText) && /COPY SOURCE AS MARKDOWN/.test(exportText) && exportMenu.opensAbove);
+    /FULL-DETAIL SVG/.test(exportText) && /COPY SOURCE AS MARKDOWN/.test(exportText) && exportMenu.opensAbove);
   check('a complete multi-slide deck is an explicit Export-menu action', await fullPage.locator('#fullslideexport').isVisible());
   await fullPage.locator('#fullslideexport').click();
   await holds(fullPage, p => p.locator('#slidepreviewdialog').evaluate(d => d.open));
@@ -250,14 +265,14 @@ await page2.emulateMedia({colorScheme: 'dark'});
 /* the light artefact is on screen until onThemeChange repaints, so "a dark scheme
    base is in the markup" is precisely false-then-true across this repaint */
 await until(() => page2.locator('#preview svg').innerHTML()
-  .then(h => h.includes('#181a20') || h.includes('#202227')));
+  .then(h => h.includes('#171A18')));
 /* ocean scheme dark surfaces (derived in render.scheme) */
-check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#181a20') ||
-  (await page2.locator('#preview svg').innerHTML()).includes('#202227'));   /* Swiss Phase 2 scheme bases */
+check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTML()).includes('#171A18'));   /* Chapter dark paper */
 
 // markdown import round trip
 if(await page2.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))
   await page2.locator('#railtab').click();
+await openRoadmapSource(page2);
 await page2.getByRole('button', {name: 'Import markdown'}).click();
 await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
@@ -274,7 +289,9 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
 {
   const dragPage = await browser.newPage({viewport: DRAG_VIEWPORT});
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
-  await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openRoadmapSource(dragPage);
+await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
+await dragPage.locator('#stylepicker [data-style="grid"]').click();
   await seeded(dragPage);
   /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a render settle.
      The source change made by the example chip must be more than newGroupDelay
@@ -286,10 +303,14 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const textBefore = await dragPage.evaluate(() => localStorage.getItem('roadmap-src'));
   const card = dragPage.locator('#preview svg g[data-line]', {hasText: 'Offline downloads'});
   const cell = dragPage.locator('#preview svg rect[data-cell="2|Platform"]');
+  await prepareRoadmapDrag(dragPage, card);
   const from = await card.boundingBox();
   const to = await cell.boundingBox();
+  // A tall cell may extend below the fold while both gesture points are visible.
   check('drag endpoints are both on screen (an off-screen drop is a silent no-op)',
-    dragBoxesVisible(dragPage, from, to));
+    dragBoxesVisible(dragPage,
+      {x:from.x+from.width/2,y:from.y+10,width:0,height:0},
+      {x:to.x+to.width/2,y:to.y+to.height/2,width:0,height:0}));
   await dragPage.mouse.move(from.x + from.width/2, from.y + 10);
   await dragPage.mouse.down();
   await dragPage.mouse.move(to.x + to.width/2, to.y + to.height/2, {steps: 12});
@@ -321,7 +342,9 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
      the drop is a silent no-op, so the register block gets the extra height. */
   const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height + 160}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await openRoadmapSource(p);
+await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+await p.locator('#stylepicker [data-style="grid"]').click();
   await seeded(p);
   await p.getByRole('button', {name: 'Register'}).click();
   /* KEPT SLEEP: the drag below measures boundingBoxes, so the register relayout
@@ -340,6 +363,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
      one is how the 2026-08-17 round landed clicks on neighbouring cards. */
   await p.waitForTimeout(150);
   // "Reading reminders" starts under NEXT — drag it onto NOW's band (data-hdrop="0")
+  await prepareRoadmapDrag(p, rowOf('Reading reminders'));
   const hit = await rowOf('Reading reminders').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();
   check('register drag endpoints are both on screen', dragBoxesVisible(p, hit, band));
@@ -391,6 +415,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   check('register (headerless): baseline has no literal Q1 2027 header yet', !baseline.includes('Q1 2027'));
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  await prepareRoadmapDrag(p, rowOf('Drag into the void'));
   const hit = await rowOf('Drag into the void').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="2"]').boundingBox();   // Q1 2027, index 2
   await p.mouse.move(hit.x + 8, hit.y + 4);
@@ -445,6 +470,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  await prepareRoadmapDrag(p, rowOf('Draggable card'));
   const hit = await rowOf('Draggable card').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="1"]').boundingBox();   // NEXT
   await p.mouse.move(hit.x + 8, hit.y + 4);
@@ -512,6 +538,7 @@ const focusDragDoc =
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  await prepareRoadmapDrag(p, rowOf('Rail card to promote'));
   const hit = await rowOf('Rail card to promote').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();   // Q3 2026, the hero
   await p.mouse.move(hit.x + 8, hit.y + 4);
@@ -556,6 +583,7 @@ const focusDragDoc =
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  await prepareRoadmapDrag(p, rowOf('Hero card B'));
   const hit = await rowOf('Hero card B').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="1"]').boundingBox();   // Q4 2026, a rail section
   await p.mouse.move(hit.x + 8, hit.y + 4);
@@ -604,6 +632,7 @@ const focusDragDoc =
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  await prepareRoadmapDrag(p, rowOf('Hero card A'));
   const hit = await rowOf('Hero card A').locator('rect[data-hit]').boundingBox();
   const header = await p.locator('#preview svg [data-lens="Q4 2026"]').boundingBox();
   await p.mouse.move(hit.x + 8, hit.y + 4);
@@ -673,13 +702,15 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.press('Delete');
   await p.keyboard.insertText('horizons: monthly from Jul 2026 x6\nJul 2026\nA: Long bar one x4\nA: Short\n');
   await rendered(p, '#preview svg rect[data-cell="3|A"]');
+  await p.locator('#railtab').click();
+  await p.locator('#preview svg').scrollIntoViewIfNeeded();
   const probe = await p.evaluate(() => [0, 1, 2, 3].map(h => {
     const cell = document.querySelector('#preview svg rect[data-cell="' + h + '|A"]');
     if(!cell) return {h, card: false, drop: false};
     const b = cell.getBoundingClientRect();
     const stack = document.elementsFromPoint(b.x + b.width / 2, b.y + 12);
     return {h,
-      card: !!stack[0].closest('g[data-line]'),
+      card: !!stack[0]?.closest('g[data-line]'),
       drop: stack.some(e => e.matches && e.matches('rect[data-cell="' + h + '|A"]'))};
   }));
   check('roadmap: a span is grabbable across every column it covers (drop-zones do not occlude it)',
@@ -708,6 +739,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await until(() => roadmapSrc(p).then(v => (v || '').includes('Reading reminders')));
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
+  await prepareRoadmapDrag(p, bar.first());
   const barLine = await bar.first().getAttribute('data-line');
   const rEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + barLine + '"]');
   const edgeBox = await rEdge.boundingBox();
@@ -751,6 +783,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await until(() => roadmapSrc(p).then(v => (v || '').includes('Long haul project')));
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Long haul project'});
+  await prepareRoadmapDrag(p, bar.first());
   const barLine = await bar.first().getAttribute('data-line');
   const lEdge = p.locator('#preview svg rect[data-span-edge="l"][data-line="' + barLine + '"]');
   const edgeBox = await lEdge.boundingBox();
@@ -784,6 +817,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await until(() => roadmapSrc(p).then(v => (v || '').includes('Sync engine rewrite')));
 
   const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
+  await prepareRoadmapDrag(p, bar.first());
   const box = await bar.first().boundingBox();
   const q1Cell = await p.locator('#preview svg rect[data-cell="2|Core"]').boundingBox();   // Q1 2027
   const preMove = await roadmapSrc(p);
@@ -818,6 +852,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   const textBefore = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   const card = p.locator('#preview svg g[data-line]', {hasText: 'Dropped rider'});
   const cell = p.locator('#preview svg rect[data-cell="2|Core"]');   // LATER/Core
+  await prepareRoadmapDrag(p, card);
   const from = await card.boundingBox();
   const to = await cell.boundingBox();
   check('roadmap dropped item: drag endpoints are both on screen', dragBoxesVisible(p, from, to));
@@ -860,6 +895,7 @@ Growth: Shared foundations`;
   check('roadmap -> paths: direct conditional-work health is explicit',
     await health.isVisible() && (await p.locator('#conditionalitymsg').innerText()) ===
       '2 unfinished delivery items are directly conditional on 1 open fork.');
+  await openRoadmapSource(p);
   check('roadmap -> paths: WIP advice does not mutate starter eligibility',
     (await p.locator('#warns').innerText()).includes('Next has 2 items in flight (wip: 1).'));
   check('roadmap -> paths: exact starter action appears only for the safe source', await action.isVisible());

@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../parse.js';
 import {resolveBoardWindow, boardCapacityFor} from '../board-window.js';
-import {renderBoardLive} from '../render-board.js';
+import {renderChapter} from '../chapter-svg.js';
 
 const colors = {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',accentInk:'#067',bg:'#f7f8f6',err:'#b33',
   status:{done:'#1D7A3E',doing:'#0C7FAE',risk:'#9A6A00',blocked:'#B3403A'},
@@ -31,7 +31,7 @@ test('Board capacity is adaptive, so a five-quarter canvas stays whole when it f
 });
 
 test('the live Board window keeps source horizon targets for direct manipulation', () => {
-  const svg = renderBoardLive(model, {colors, measure:text => String(text).length * 7, edit:true,
+  const svg = renderChapter({...model,style:'board'}, {colors, measure:text => String(text).length * 7, edit:true,
     boardWindow: resolveBoardWindow(model), today:'2026-08-14'});
   assert.match(svg, />C</);
   assert.match(svg, />E</);

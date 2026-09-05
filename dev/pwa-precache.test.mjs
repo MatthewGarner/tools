@@ -17,7 +17,7 @@ function walk(dir, out = []){
     if(f === 'tests' || f === 'node_modules') continue;
     const rel = dir + '/' + f;
     if(statSync(join(ROOT, rel)).isDirectory()) walk(rel, out);
-    else if(/\.(js|css|html|png)$/.test(f) && !f.endsWith('.test.mjs'))
+    else if(/\.(js|css|html|png|woff2)$/.test(f) && !f.endsWith('.test.mjs'))
       out.push(('/' + rel).replace('/index.html', '/'));
   }
   return out;

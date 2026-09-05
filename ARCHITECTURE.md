@@ -29,6 +29,18 @@ are functions from data to data (or data to string), so they're fully testable i
 node with no browser — which is why the test suites are as load-bearing as they are.
 `app.js` owns the DOM and nothing else does.
 
+## Chapter composition and exports
+
+Roadmap uses one pure measured layout for live SVG and export composition. Font
+selection controls both measurement and painting; the app waits for local fonts
+before either. Detached SVG embeds those fonts, PNG rasterizes them, and the live
+preview uses the already-loaded font faces to respect the document's security policy.
+
+Slide pagination tests the same geometry as painting. Independent horizon columns
+can fill earlier pages while preserving source order within each horizon. Item and
+commentary continuations carry source identity and page context. No export is
+certified complete while any selected item or measured fragment is missing or overflowing.
+
 ## Text is the model
 
 The rendered picture is never the source of truth; the text is. A tool parses text

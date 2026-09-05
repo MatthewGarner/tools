@@ -15,6 +15,10 @@ import {setHeadline, setStyle} from '../edit-targets.js';
 
 /* ---------------- parse ---------------- */
 
+
+const STORY = 'We chose depth over breadth this cycle';
+const sdoc = (extra = '') => 'title: T\n' + extra + 'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
+
 test('headline: is a config key, kept verbatim', () => {
   assert.equal(parse('headline: Retention first — everything in Now keeps readers reading\nNOW\nCore: A').headline,
     'Retention first — everything in Now keeps readers reading');
@@ -40,11 +44,6 @@ test('a colon-less "headline Foo" is caught as the near-miss it is, not filed as
   assert.match(m.warnings.join(' '), /did you mean "headline:"/);
 });
 
-/* A settings key and a lane prefix are the same shape. A doc with a lane
-   genuinely called "Headline" loses those items to the config parser — and the
-   text would surface on the exported deck, which is the exact thing an authored
-   headline exists to prevent. It still parses as config (last-wins, like every
-   key), but it must not do so in silence. */
 test('a lane called "Headline" is eaten as config — and SAYS SO', () => {
   const m = parse('NOW\nHeadline: New pricing page\nCore: B');
   assert.equal(m.headline, 'New pricing page');
@@ -64,8 +63,6 @@ test('settings in the config block (where the UI writes them) never warn', () =>
   assert.deepEqual(m.warnings, []);
 });
 
-/* ---------------- the WIP breach is an editor warning, and only that ---------------- */
-
 test('the WIP breach is an editor warning, and it states the fact', () => {
   const m = parse('wip: 2\nNOW\nCore: A\nCore: B\nCore: C');
   assert.deepEqual(wipBreaches(m), ['Now has 3 items in flight (wip: 2).']);
@@ -76,8 +73,6 @@ test('wipBreaches: silent at the threshold, silent when off', () => {
   assert.deepEqual(wipBreaches(parse('wip: off\nNOW\n' +
     Array.from({length: 9}, (_, i) => 'Core: I' + i).join('\n'))), []);
 });
-
-/* ---------------- setHeadline: the field and the DSL are one act ---------------- */
 
 test('setHeadline inserts into the config block — before the first horizon header, never at line 0', () => {
   const out = setHeadline('title: T\nhorizons: Now, Next\n\nNOW\nCore: A', 'We are betting on retention');
@@ -134,130 +129,12 @@ test('setStyle and setHeadline are the same rewrite, and do not tread on each ot
   assert.equal((src.match(/^headline:/gm) || []).length, 1, 'no duplicate headline: line');
 });
 
-/* ---------------- the standfirst reaches EVERY export (2026-07-31) ----------------
-   Matt's report: "the headline field doesn't appear to impact the outputs". It was
-   true — `headline` lived only in render-deck.js, so it reached Copy PNG and none of
-   the other three exports. The author writing a claim and watching two of their four
-   exports ignore it is the same defect class as `verdict:`: the artefact not carrying
-   the author's words. */
-import {render} from '../render.js';
-import {renderBoardLive} from '../render-board.js';
-import {renderRegisterLive} from '../render-register.js';
-import {renderFocusLive} from '../render-focus.js';
-import {standfirst} from '../deck-parts.js';
-
-const hctx = {
-  colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#08c',
-    accentInk: '#067', bg: '#f7f8f6', err: '#b33', brand: '#E2231A', brandText: '#D62015',
-    status: {done: '#1D7A3E', doing: '#0C7FAE', risk: '#9A6A00', blocked: '#B3403A'},
-    statusInk: {done: '#1C753C', doing: '#0B709A', risk: '#8E6200', blocked: '#B3403A'}},
-  measure: t => t.length * 7, today: '2026-07-31',
-};
-const HL = 'Retention first — everything in Now keeps readers reading';
-const DOC = style => (style ? 'style: ' + style + '\n' : '') +
-  'title: T\nheadline: ' + HL + '\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
-
-test('standfirst: the shared block is empty for an absent headline, and reserves no space', () => {
-  const none = standfirst({headline: ''}, 32, 34, 900, hctx.measure, hctx.colors);
-  assert.equal(none.svg, '');
-  assert.equal(none.height, 0);
-});
-
-test('standfirst: a headline produces a block that advances the layout', () => {
-  const some = standfirst({headline: HL}, 32, 34, 900, hctx.measure, hctx.colors);
-  assert.ok(some.svg.includes('Retention first'));
-  assert.ok(some.height > 0);
-});
-
-test('the chart export carries the authored standfirst', () => {
-  assert.ok(render(parse(DOC()), hctx).includes('Retention first'));
-});
-
-test('the board export carries the authored standfirst', () => {
-  assert.ok(renderBoardLive(parse(DOC('board')), hctx).includes('Retention first'));
-});
-
-test('the register export carries the authored standfirst', () => {
-  assert.ok(renderRegisterLive(parse(DOC('register')), hctx).includes('Retention first'));
-});
-
-test('the focus export carries the authored standfirst', () => {
-  assert.ok(renderFocusLive(parse(DOC('focus')), hctx).includes('Retention first'));
-});
-
-test('no headline means no standfirst and no reserved gap in any renderer', () => {
-  const bare = 'title: T\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
-  for(const [name, fn, style] of [['chart', render, ''], ['board', renderBoardLive, 'board'],
-                                  ['register', renderRegisterLive, 'register'], ['focus', renderFocusLive, 'focus']]){
-    const withHl = fn(parse(DOC(style)), hctx);
-    const without = fn(parse((style ? 'style: ' + style + '\n' : '') + bare), hctx);
-    assert.ok(!without.includes('Retention first'), name + ': leaked a headline that was not written');
-    const h = s => +(s.match(/height="(\d+)"/) || [])[1];
-    assert.ok(h(withHl) > h(without), name + ': the standfirst must GROW the artefact, not overlap it');
-  }
-});
-
-test('the standfirst appears exactly once per export', () => {
-  for(const [name, fn, style] of [['chart', render, ''], ['board', renderBoardLive, 'board'],
-                                  ['register', renderRegisterLive, 'register'], ['focus', renderFocusLive, 'focus']]){
-    const out = fn(parse(DOC(style)), hctx);
-    assert.equal((out.match(/Retention first/g) || []).length, 1, name);
-  }
-});
-
-/* ---------------- `story:` — the diff narrative (2026-07-31) ----------------
-   The snapshot compare detects WHAT changed (New / was Next badges, a dropped
-   strip). It cannot say WHY, which is the entire content of a roadmap review.
-   `story:` is one authored line about the comparison as a whole.
-
-   Deliberately NOT the headline: the headline is a claim about the plan and shows
-   always; the story is a claim about the change and shows only when a comparison
-   is active — with no diff there is nothing for it to be about.
-
-   Per-item reasons were designed and then cut (Matt, 2026-07-31): a single
-   narrative covers a review, and a `~~ reason` per item would rot in the text the
-   moment the item stopped moving — drift being the exact thing this suite exists
-   to catch. */
-const DIFF = {
-  any: true, since: 'JUNE PACK',
-  badge: it => it.title === 'Reading reminders' ? {kind: 'new', label: 'New'} : null,
-  dropped: ['Old thing'],
-};
-const STORY = 'We chose depth over breadth this cycle';
-const sdoc = (extra = '') => 'title: T\n' + extra + 'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders';
-
 test('story: is a config key, kept verbatim', () => {
   assert.equal(parse(sdoc('story: ' + STORY + '\n')).story, STORY);
 });
 
 test('story: absent is an empty string, never generated', () => {
   assert.equal(parse(sdoc()).story, '');
-});
-
-test('story: shows ONLY when a comparison is active — it is a claim about a diff', () => {
-  const m = parse(sdoc('story: ' + STORY + '\n'));
-  assert.ok(!render(m, hctx).includes('depth over breadth'), 'no comparison: nothing to be about');
-  assert.ok(render(m, {...hctx, diff: DIFF}).includes('depth over breadth'), 'comparison active: the story lands');
-});
-
-test('story: reaches every artefact that carries a diff', () => {
-  const m = s => parse('style: ' + s + '\n' + 'story: ' + STORY + '\n' +
-    'NOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders');
-  for(const [name, fn, style] of [['board', renderBoardLive, 'board'],
-                                  ['register', renderRegisterLive, 'register'],
-                                  ['focus', renderFocusLive, 'focus']]){
-    const out = fn(m(style), {...hctx, diff: DIFF});
-    assert.ok(out.includes('depth over breadth'), name + ': the story is missing from the diff read');
-    assert.equal((out.match(/depth over breadth/g) || []).length, 1, name + ': printed twice');
-  }
-});
-
-test('story: and headline: are different claims and can coexist', () => {
-  const m = parse('title: T\nheadline: ' + HL + '\nstory: ' + STORY +
-    '\nNOW\nCore: Resume where you left off [doing]\nNEXT\nCore: Reading reminders');
-  const out = render(m, {...hctx, diff: DIFF});
-  assert.ok(out.includes('Retention first'), 'the headline is about the plan');
-  assert.ok(out.includes('depth over breadth'), 'the story is about the change');
 });
 
 test('story: an item literally named "Story: something" is still an item', () => {
