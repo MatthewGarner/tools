@@ -68,12 +68,14 @@ export function layoutChapter(model, ctx = {}){
   const addSpace = ctx.edit && !ctx.slide ? 48 : 0;
   const rows = [], sections = [], panels = [], lines = [], header = [], dropzones = [];
   const dense = (ctx.sourceModel || model).items.length > 8;
-  // Dense time grids recover framing and padding before spending another slide;
+  // Dense slide sets recover framing and padding before spending another slide;
   // title, commentary and metadata type sizes remain unchanged.
-  const compactGrid=ctx.slide && style==='grid' && dense;
-  let y = phone ? 28 : compactGrid ? 40 : 52;
-  const hero = chapterHero(ctx.sourceModel || model);
-  const heroName = (ctx.sourceModel || model).horizons[hero];
+  const compactSlide=ctx.slide && dense;
+  const compactGrid=compactSlide && style==='grid';
+  let y = phone ? 28 : compactSlide ? 40 : 52;
+  const focusModel = ctx.slide ? model : (ctx.sourceModel || model);
+  const hero = chapterHero(focusModel);
+  const heroName = focusModel.horizons[hero];
   const localHero = Math.max(0, model.horizons.indexOf(heroName));
   const hasRail = style === 'focus' && !phone && model.horizons.length > 1;
   const railColumns=hasRail && !ctx.slide && model.horizons.length>4 ? 2 : 1;
@@ -92,7 +94,7 @@ export function layoutChapter(model, ctx = {}){
   const sourceModel = ctx.sourceModel || model;
   const date = model.dateStr === 'off' ? '' : model.dateStr || ctx.today || new Date().toISOString().slice(0,10);
   if(model.headline){
-    headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : compactGrid ? 16 : 22;
+    headerText(model.title || 'Roadmap', heroWidth, meta, {weight:600, role:'muted'}); y += phone ? 18 : compactSlide ? 16 : 22;
   }
   let mainSize = phone ? 38 : hasRail && !dense ? 78 : dense || style === 'grid' ? 48 : 60;
   const mainWidth=hasRail && !dense ? heroWidth*.82 : heroWidth;
@@ -110,7 +112,7 @@ export function layoutChapter(model, ctx = {}){
   }
   headerText(mainTitle, mainWidth, mainSize,
     {family:type.display, weight:type.displayWeight, role:'ink', edit:model.headline ? 'headline' : null});
-  y += phone ? 12 : compactGrid ? 14 : 20;
+  y += phone ? 12 : compactSlide ? 14 : 20;
   headerText([date, ctx.diff?.since ? 'Compared with ' + ctx.diff.since : ''].filter(Boolean).join(' · '), heroWidth, meta, {role:'muted'});
   if(ctx.diff?.any && model.story){ y += 14; headerText(model.story, heroWidth, noteSize, {role:'muted'}); }
   if(model.basis){
@@ -122,7 +124,7 @@ export function layoutChapter(model, ctx = {}){
       if(entries.length) headerText((kind === 'answered' ? 'Known: ' : 'Assumed: ') + entries.map(e => `${e.key} = ${e.direction} (${e.date})`).join('; '), heroWidth, meta, {role:'muted'});
     }
   }
-  y += phone ? 30 : compactGrid ? 18 : style === 'grid' ? 24 : 42;
+  y += phone ? 30 : compactSlide ? 18 : style === 'grid' ? 24 : 42;
   const bodyTop = y;
   const titleOf = item => item.export?.fragment?.title ?? item.title;
   const noteOf = item => ctx.titlesOnly ? '' : item.export?.fragment?.note ?? item.note;
@@ -162,7 +164,7 @@ export function layoutChapter(model, ctx = {}){
       }
       cursor += lineHeight;
     }
-    return {item, w, h:Math.max(phone ? 60 : 62, cursor + pad + (phone ? 18 : style === 'grid' ? 10 : 22)), blocks,pad,rail};
+    return {item, w, h:Math.max(phone ? 60 : 62, cursor + pad + (phone ? 18 : style === 'grid' ? 10 : compactSlide ? 14 : 22)), blocks,pad,rail};
   }
   function horizonHint(name,w){
     const h=sourceModel.horizons.indexOf(name), active=activeCount(sourceModel,h), conditional=condCount(sourceModel,h);
@@ -174,11 +176,11 @@ export function layoutChapter(model, ctx = {}){
     let label = text(name,w - (phone ? 0 : 32),headingSize,{family:type.display,weight:type.displayWeight});
     if(!phone && label.lines.length>3)label=text(name,w,meta,{weight:500});
     const hint=horizonHint(name,w);
-    const s = {name,x,y:top,w,h:label.lines.length * label.step + 25+(hint?hint.lines.length*hint.step+8:0),label,hint,rail,horizon:h,lane,idx,lens}; sections.push(s);return top + s.h;
+    const s = {name,x,y:top,w,h:label.lines.length * label.step + (compactSlide ? 16 : 25)+(hint?hint.lines.length*hint.step+8:0),label,hint,rail,horizon:h,lane,idx,lens}; sections.push(s);return top + s.h;
   }
   function list(items,x,top,w,options = {}){
     let bottom = top;
-    for(const item of items){ const row=itemRow(item,w,options); row.x=x;row.y=bottom;rows.push(row);bottom += row.h + (phone ? 12 : 16); }
+    for(const item of items){ const row=itemRow(item,w,options); row.x=x;row.y=bottom;rows.push(row);bottom += row.h + (phone ? 12 : compactSlide ? 10 : 16); }
     return bottom;
   }
   const allIndices = model.horizons.map((_,i)=>i);
@@ -273,14 +275,14 @@ export function layoutChapter(model, ctx = {}){
       for(const item of items){
         const b=itemRow(item,widths[0]-28,{showLane:false,showRun:false});
         b.blocks=b.blocks.filter(t=>t.kind==='title'||t.kind==='note');
-        let maxH=Math.max(...b.blocks.map(t=>t.y+t.lines.length*t.step),24)+22;
+        let maxH=Math.max(...b.blocks.map(t=>t.y+t.lines.length*t.step),24)+(compactSlide?14:22);
         const wideFields=[];
         let x=widths[0];
         const values=[item.lane || '—',model.horizons[item.h],chapterFacts({...model,sourceModel:ctx.sourceModel},item,{showLane:false,diff:ctx.diff})];
         values.forEach((value,index)=>{
           const facts=Array.isArray(value)?value:[{text:value,kind:index===0?'lane':'horizon'}];let fy=0;
           for(const fact of facts){let t=text(fact.text,widths[index+1]-24,meta,{weight:fact.kind==='status'?600:400});if(index<2 && t.lines.length>5){wideFields.push({...text((index===0?'Workstream: ':'Horizon: ')+fact.text,inner,meta),kind:fact.kind});t=text('See below',widths[index+1]-24,meta);}b.blocks.push({...t,x,y:fy,kind:fact.kind,status:fact.status});fy+=t.lines.length*t.step+5;}
-          maxH=Math.max(maxH,fy+22);x+=widths[index+1];
+          maxH=Math.max(maxH,fy+(compactSlide?14:22));x+=widths[index+1];
         });
         for(const field of wideFields){b.blocks.push({...field,x:0,y:maxH});maxH+=field.lines.length*field.step+12;}
         b.x=margin;b.y=y;b.w=inner;b.h=maxH;b.register=true;rows.push(b);y+=maxH+6;
@@ -288,7 +290,7 @@ export function layoutChapter(model, ctx = {}){
       if(model.group!=='outcome'){dropzones.push({x:margin,y:top,w:inner,h:y-top,horizon:group.h});y+=addSpace;}
     }
   }else{
-    const lanes=ctx.slide ? (model.lanes || ['']).filter(l=>model.items.some(i=>i.lane===l)) : model.lanes?.length ? model.lanes : [''];
+    const lanes=model.exportLanes || (ctx.slide ? (model.lanes || ['']).filter(l=>model.items.some(i=>i.lane===l)) : model.lanes?.length ? model.lanes : ['']);
     const longLanes=lanes.some(l=>text(l,182,28,{family:type.display}).lines.length>3);
     const rail=!longLanes && lanes.some(Boolean)?Math.min(210,inner*.16):0;
     const gx=margin+rail, cw=(inner-rail)/model.horizons.length;

@@ -98,18 +98,6 @@ function itemUnits(item){
   return Math.max(1, Math.ceil(text.length / 110));
 }
 
-function chunkItems(items, unitLimit){
-  const groups = [];
-  let current = [], used = 0;
-  for(const item of items){
-    const units = itemUnits(item);
-    if(current.length && used + units > unitLimit){ groups.push(current); current = []; used = 0; }
-    current.push(item); used += units;
-  }
-  if(current.length) groups.push(current);
-  return groups.length ? groups : [[]];
-}
-
 function geometryFits(items){
   return items.reduce((sum, item) => sum + itemUnits(item), 0) <= EXPORT_PAGE_UNITS;
 }
@@ -164,60 +152,106 @@ function balanceChunks(groups, style, fits, height){
   return pages;
 }
 
-// Spotlight has two independent reading regions. Pair their measured pages,
-// rather than repeating every hero page for every supporting-horizon window.
+// Spotlight leads with the chosen horizon, then reads the remaining horizons
+// in time order. Exhausted work is never replayed to fill an empty region: the
+// next supporting horizon becomes the next slide's featured reading surface.
 function focusPages(model, {horizonsPerPage, pageGeometryFits}){
   const named=model.horizons.findIndex(h=>h.toLowerCase()===String(model.focus||'').toLowerCase());
   const hero=named>=0?named:Math.max(0,model.horizons.findIndex((_,h)=>model.items.some(i=>i.h===h)));
-  const supporting=model.horizons.map((_,h)=>h).filter(h=>h!==hero);
+  const order=[hero,...model.horizons.map((_,h)=>h).filter(h=>h!==hero)];
   const capacity=Math.max(1,Math.floor(horizonsPerPage)||EXPORT_HORIZONS_PER_PAGE);
-  const project=(item,sourceIndex,localH)=>({...item,h:localH,span:1,export:{...item.export,
-    sourceIndex,sourceStart:item.h,sourceEnd:item.h+Math.max(1,item.span||1)-1,
-    continuesBefore:false,continuesAfter:false}});
-  const owned=(h,fits)=>model.items.flatMap((item,index)=>item.h===h?fittedLongItem(project(item,index,0),'focus',fits):[]);
-  const fit=(items,indices)=>pageGeometryFits ? pageGeometryFits(items,'focus',indices.map(h=>model.horizons[h])) : geometryFits(items);
-  // Keep the hero measurement at its final width even when its rail is empty.
-  const heroIndices=[hero,...supporting.slice(0,1)];
-  const heroGroups=geometryChunks(owned(hero,items=>fit(items,heroIndices)),'focus',items=>fit(items,heroIndices));
-  const rails=[];
-  let current={indices:[],items:[]};
-  const flush=()=>{if(current.indices.length)rails.push(current);current={indices:[],items:[]};};
-  for(const h of supporting){
-    const entries=owned(h,items=>fit(items.map(i=>({...i,h:1})),[hero,h]));
-    if(!entries.length){
-      const indices=[...current.indices,h];
-      if(current.indices.length && (indices.length>capacity||!fit(current.items,[hero,...indices])))flush();
-      current.indices.push(h);
-      continue;
+  const fit=(items,indices)=>pageGeometryFits
+    ? pageGeometryFits(items,'focus',indices.map(h=>model.horizons[h]),{focus:model.horizons[indices[0]]})
+    : geometryFits(items);
+  const queues=new Map(order.map(h=>[h,[]]));
+  for(const [sourceIndex,item] of model.items.entries()){
+    const projected={...item,h:0,span:1,export:{...item.export,sourceIndex,
+      sourceStart:item.h,sourceEnd:item.h+Math.max(1,item.span||1)-1,
+      continuesBefore:false,continuesAfter:false}};
+    // Use a rail when checking fragment size so a fragment fits either region.
+    const other=order.find(h=>h!==item.h);
+    const indices=other===undefined?[item.h]:[other,item.h];
+    const localH=indices.indexOf(item.h);
+    queues.get(item.h)?.push(...fittedLongItem(projected,'focus',parts=>fit(parts.map(i=>({...i,h:localH})),indices)));
+  }
+  const pending=new Set(order), drafts=[];
+  while(pending.size){
+    const featured=order.find(h=>pending.has(h));
+    const rest=order.filter(h=>h!==featured&&pending.has(h));
+    // Reserve final hero width even if supporting rows cannot fit this page.
+    let indices=[featured,...rest.slice(0,1)],items=[];
+    const take=(h,localH)=>{
+      const queue=queues.get(h);
+      while(queue.length && fit([...items,{...queue[0],h:localH}],indices))
+        items.push({...queue.shift(),h:localH});
+      if(!queue.length)pending.delete(h);
+    };
+    take(featured,0);
+    if(queues.get(featured).length && !items.length){
+      const item=queues.get(featured).shift();
+      items.push({...item,h:0,export:{...item.export,geometryOverflow:true}});
+      if(!queues.get(featured).length)pending.delete(featured);
     }
-    for(const item of entries){
-      let indices=current.indices.includes(h)?current.indices:[...current.indices,h];
-      let projected={...item,h:indices.indexOf(h)+1};
-      if(current.indices.length && (indices.length>capacity||!fit([...current.items,projected],[hero,...indices]))){
-        flush();indices=[h];projected={...item,h:1};
+    for(const h of rest){
+      if(!indices.includes(h)){
+        const next=[...indices,h];
+        if(next.length>capacity+1 || !fit(items,next))break;
+        indices=next;
       }
-      current.indices=indices;
-      current.items.push(fit([projected],[hero,...indices])?projected:{...projected,export:{...projected.export,geometryOverflow:true}});
+      const before=queues.get(h).length;
+      take(h,indices.indexOf(h));
+      if(queues.get(h).length===before && before>0)break;
+      if(queues.get(h).length)break;
+    }
+    const horizons=indices.map(h=>model.horizons[h]);
+    drafts.push({start:Math.min(...indices),end:Math.max(...indices),part:0,
+      horizonIndices:indices,horizons,focusHeroIndex:featured,
+      progression:featured===hero?'Featured horizon':'Supporting horizons',
+      sourceItemIndices:items.map(i=>i.export.sourceIndex),contextSourceItemIndices:[],
+      geometryComplete:!items.some(i=>i.export.geometryOverflow)&&fit(items,indices),
+      model:{...model,focus:model.horizons[featured],horizons,items}});
+  }
+  return {sourceModel:model,pages:drafts.map((page,index)=>({...page,index,total:drafts.length}))};
+}
+
+// Finish the theme groups inside one fixed time window before advancing time.
+// Prefer stable groups across windows; a tiered plan can regroup at a window
+// boundary when the busiest period would otherwise inflate the entire deck.
+// Only an individually oversized theme earns item continuations.
+function themedPages(model, windows, style, fitsPage, heightPage, stableThemes){
+  const lanes = [...new Set([...(model.lanes || []), ...model.items.map(i => i.lane || '')])];
+  const groupWindows = current => {
+    const fitsGroup = group => current.every(w => fitsPage(w.items.filter(i => group.includes(i.lane || '')), w.horizons, group));
+    const groups = [];
+    for(const lane of lanes){
+      const previous = groups.find(group => fitsGroup([...group, lane]));
+      if(previous) previous.push(lane);
+      else groups.push([lane]);
+    }
+    return groups;
+  };
+  const stableGroups = stableThemes && groupWindows(windows);
+  const drafts = [];
+  for(const [windowIndex, window] of windows.entries()){
+    const groups = stableGroups || groupWindows([window]);
+    for(const [groupIndex, group] of groups.entries()){
+      const items = window.items.filter(i => group.includes(i.lane || ''))
+        .sort((a,b) => group.indexOf(a.lane || '') - group.indexOf(b.lane || '') || a.h - b.h || a.export.sourceIndex - b.export.sourceIndex);
+      if(!items.length && window.items.length) continue;
+      const fits = items => fitsPage(items, window.horizons, group);
+      let parts = geometryChunks(items, style, fits);
+      if(heightPage && parts.length > 1)
+        parts = balanceChunks(parts, style, fits, items => heightPage(items, window.horizons, group));
+      parts.forEach((items, part) => drafts.push({...window, items, lanes:group,
+        groupIndex, windowIndex, part, parts:parts.length,
+        progression:groups.length > 1 ? `Theme group ${groupIndex + 1} of ${groups.length}` : '',
+      }));
+      // An entirely empty time window needs one explicit empty state, not one
+      // duplicate empty slide for every theme group.
+      if(!window.items.length) break;
     }
   }
-  flush();
-  if(!rails.length)rails.push({indices:[],items:[]});
-  const count=Math.max(heroGroups.length,rails.length);
-  const drafts=Array.from({length:count},(_,index)=>{
-    const hi=Math.min(index,heroGroups.length-1),ri=Math.min(index,rails.length-1);
-    const repeatHero=index>=heroGroups.length,repeatRail=index>=rails.length;
-    const repeat=(items,repeated)=>items.map(item=>repeated?{...item,export:{...item.export,repeatedContext:true}}:item);
-    const items=[...repeat(heroGroups[hi],repeatHero),...repeat(rails[ri].items,repeatRail)];
-    const indices=[hero,...rails[ri].indices],horizons=indices.map(h=>model.horizons[h]);
-    const context=repeatHero&&heroGroups[hi].length?{region:'Featured work',page:hi+1}:repeatRail&&rails[ri].items.length?{region:'Supporting work',page:ri+1}:null;
-    return {start:Math.min(...indices),end:Math.max(...indices),part:index,
-      horizonIndices:indices,horizons,focusHeroIndex:hero,context,
-      sourceItemIndices:items.filter(i=>!i.export.repeatedContext).map(i=>i.export.sourceIndex),
-      contextSourceItemIndices:items.filter(i=>i.export.repeatedContext).map(i=>i.export.sourceIndex),
-      geometryComplete:!items.some(i=>i.export.geometryOverflow)&&fit(items,indices),
-      model:{...model,focus:model.horizons[hero],horizons,items}};
-  });
-  return {sourceModel:model,pages:drafts.map((page,index)=>({...page,index,total:count}))};
+  return drafts;
 }
 
 export function exportPages(model, {
@@ -227,36 +261,44 @@ export function exportPages(model, {
   pageGeometryFits,
   packColumns = false,
   pageGeometryHeight,
+  groupThemes = false,
+  stableThemes = true,
 } = {}){
   if(style==='focus')return focusPages(model,{horizonsPerPage,pageGeometryFits});
-  const perPage = Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
-  const styleFloor = EXPORT_PAGE_UNITS;
-  const unitLimit = Math.max(1, Math.floor(pageUnits) || styleFloor);
-  const chunks = chunkIndices(model.horizons.length, perPage);
-  const drafts = chunks.flatMap(indices => {
-    const start = indices[0], end = indices.at(-1);
-    const horizons = indices.map(i => model.horizons[i]);
-    const fits = pageGeometryFits ? (items, style) => pageGeometryFits(items, style, horizons) : geometryFits;
-    const items = model.items.map((item, sourceIndex) => pageItem(item, sourceIndex, start, end))
-      .filter(Boolean).flatMap(item => fittedLongItem(item, style,parts=>fits(parts,style)));
-    const unitGroups = chunkItems(items, unitLimit);
-    const itemGroups = unitGroups.flatMap(group => geometryChunks(group, style, fits));
-    let pageGroups = packColumns ? columnChunks(items,style,fits) : itemGroups;
-    if(pageGeometryHeight && pageGroups.length>1)
-      pageGroups=balanceChunks(pageGroups,style,fits,(items,style)=>pageGeometryHeight(items,style,horizons));
-    return pageGroups.map((pageItems, part) => ({
-      start,
-      end,
-      part,
-      horizonIndices: indices,
-      horizons,
-      sourceItemIndices: pageItems.map(item => item.export.sourceIndex),
-      geometryComplete: !pageItems.some(item => item.export.geometryOverflow),
-      model: {...model, horizons, items: pageItems},
-    }));
+  const perPage = style === 'register' ? Math.max(1, model.horizons.length) : Math.max(1, Math.floor(horizonsPerPage) || EXPORT_HORIZONS_PER_PAGE);
+  const unitLimit = Math.max(1, Math.floor(pageUnits) || EXPORT_PAGE_UNITS);
+  const fitsPage = (items, horizons, lanes) => pageGeometryFits
+    ? pageGeometryFits(items, style, horizons, {lanes})
+    : items.reduce((sum, item) => sum + itemUnits(item), 0) <= unitLimit;
+  const heightPage = pageGeometryHeight && ((items, horizons, lanes) => pageGeometryHeight(items, style, horizons, {lanes}));
+  const windows = chunkIndices(model.horizons.length, perPage).map(indices => {
+    const start = indices[0], end = indices.at(-1), horizons = indices.map(i => model.horizons[i]);
+    const items = model.items.map((item, sourceIndex) => {
+      // Ledgers own a row at its start; its full run is metadata. Repeating a
+      // whole ledger row in a later window falsely introduces it as new work.
+      if(style === 'board' && (item.h < start || item.h > end)) return null;
+      return pageItem(item, sourceIndex, start, end);
+    }).filter(Boolean).flatMap(item => fittedLongItem(item, style, parts => fitsPage(parts, horizons)));
+    return {start, end, horizonIndices:indices, horizons, items};
   });
-  const pages = drafts.map((page, index) => ({...page, index, total: drafts.length}));
-  return {sourceModel: model, pages};
+  const drafts = groupThemes && ['grid','board'].includes(style)
+    ? themedPages(model, windows, style, fitsPage, heightPage, stableThemes)
+    : windows.flatMap(window => {
+      const fits = items => fitsPage(items, window.horizons);
+      const items = window.items.slice().sort((a,b) => a.h - b.h || a.export.sourceIndex - b.export.sourceIndex);
+      // Geometry is the capacity rule when available. A pre-bucket creates
+      // stranded continuations that no subsequent packing pass can recombine.
+      let groups = packColumns ? columnChunks(items,style,fits) : geometryChunks(items,style,fits);
+      if(heightPage && groups.length>1)
+        groups=balanceChunks(groups,style,fits,items=>heightPage(items,window.horizons));
+      return groups.map((items,part)=>({...window,items,part,parts:groups.length}));
+    });
+  const pages = drafts.map(({items, ...page}, index) => ({...page,index,total:drafts.length,
+    sourceItemIndices:items.map(item=>item.export.sourceIndex),
+    geometryComplete:!items.some(item=>item.export.geometryOverflow) && fitsPage(items,page.horizons,page.lanes),
+    model:{...model,horizons:page.horizons,items,...(page.lanes ? {lanes:page.lanes,exportLanes:page.lanes} : {})},
+  }));
+  return {sourceModel:model,pages};
 }
 
 export function exportPageCoverage(plan){
