@@ -39,10 +39,9 @@ const check = (name, ok) => results.push((ok ? 'PASS ' : 'FAIL ') + name);
      that takes the physical-size-floor branch below, which any unchanged width
      satisfies, so a regression capping it at 700px would have passed everything.
 
-   `case` was in the deep set and is not any more: it is declared identically to
-   `tree` on every dimension the walk branches on (no source, no view, no receipt),
-   so it walked the shared module a fourth time and bought nothing. The coverage
-   guard at the foot of this file could not see that — see its comment.
+   Case's Chapter review shares the receipt-column geometry with Paths. Its own
+   native editing and deck flows live in case.mjs; Paths witnesses the shared deep
+   workspace behavior for that shape.
 
    The narrow-stacking check stays on ALL thirteen deliberately. `narrowTab` is
    real per-tool markup, not shared behaviour, and its TRUE branch belongs only to
@@ -68,7 +67,7 @@ const TOOLS = [
      shipped; this list had never caught up, so the rail/collapse/zoom behaviour of
      three tools — paths the largest page in the suite — was never exercised.
 
-     case and proxy open with the rail EXPANDED (their railtab reads "Hide source
+     proxy opens with the rail EXPANDED (their railtab reads "Hide source
      editor"), so neither needs a source trigger. paths opens COLLAPSED and its railtab
      is labelled "Edit Paths plan source", so it takes the gauge shape: a source
      trigger, but narrowTab:false, because at 800px its rail stacks visibly while the
@@ -229,7 +228,8 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   await page.waitForTimeout(500);
   if(view){ await page.locator(view).click(); await page.waitForTimeout(400); }
 
-  const svgW = async () => (await page.locator('#preview svg').boundingBox()).width;
+  // Source/resize paints can replace the SVG. Read its width in one DOM operation.
+  const svgW = () => page.locator('#preview svg').evaluate(svg=>svg.getBoundingClientRect().width);
   check(path + ' rail visible by default', await page.locator('.rail').isVisible());
   const before = await svgW();
   await page.locator('#railtab').click();

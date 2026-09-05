@@ -52,11 +52,13 @@ function appearance(){
 }
 function paint(){
   if(!model||!ready)return;
+  const focused=document.activeElement?.dataset,focusKey=focused?.kind?focused.kind+':'+focused.id:null;
   chooseDefault();appearance();
   $('preview').innerHTML=renderReview(model,ctx(),{live:true,selected});
   document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===model.view)));
   $('addentry').textContent=model.view==='compare'?'Add alternative':model.view==='review'?'Record review':'Add reason';
   paintInspector();warnings();
+  if(focusKey)[...$('preview').querySelectorAll('[data-kind]')].find(el=>el.dataset.kind+':'+el.dataset.id===focusKey)?.focus({preventScroll:true});
 }
 async function refresh(){
   const source=editor.getText(),turn=++revision;
@@ -69,8 +71,8 @@ const fact=(label,value)=>value?`<dt>${e(label)}</dt><dd>${e(value)}</dd>`:'';
 const link=(url,label)=>classifyReference(url).safe?`<a href="${e(url)}" target="_blank" rel="noopener noreferrer">${e(label)}</a>`:'';
 function paintInspector(){
   const {kind,item:selectedItem}=current(),item=innerWidth<=760&&!$('focusdialog').open?null:selectedItem;let html='';
-  if(model.verdict&&model.headline)html+=`<p class="fact-label">Authored verdict</p><p>${e(model.verdict)}</p>`;
-  if(model.reconsider)html+=`<p class="fact-label">What changes the choice</p><p class="reconsider">${e(model.reconsider)}</p>`;
+  if(model.verdict&&model.verdict!=='off'&&model.headline&&!$('focusdialog').open)html+=`<p class="fact-label">Authored verdict</p><p>${e(model.verdict)}</p>`;
+  if(model.reconsider&&!$('focusdialog').open)html+=`<p class="fact-label">What changes the choice</p><p class="reconsider">${e(model.reconsider)}</p>`;
   if(item){
     html+=`<div${model.reconsider?' class="rule"':''}><p class="fact-label">${kind==='option'?'Alternative':kind==='review'?'Dated review':'Selected reason'}</p><h2>${e(item.label)}</h2>`;
     if(kind==='claim'){
@@ -95,7 +97,7 @@ function paintInspector(){
 }
 $('preview').addEventListener('click',event=>{const hit=event.target.closest('[data-kind]');if(!hit)return;selected=hit.dataset.kind+':'+hit.dataset.id;if(innerWidth<=760){$('focusdialog').append($('inspector'));$('focusdialog').showModal();}
 if(hit.dataset.kind==='option'&&model.view==='brief'){editor.setText(setConfig(editor.getText(),'view','compare'));}else paint();});
-$('focusdialog').addEventListener('close',()=>{document.querySelector('.review-layout').append($('inspector'));paintInspector();});
+$('focusdialog').addEventListener('close',()=>{document.querySelector('.review-layout').append($('inspector'));paintInspector();[...$('preview').querySelectorAll('[data-kind]')].find(el=>el.dataset.kind+':'+el.dataset.id===selected)?.focus({preventScroll:true});});
 $('preview').addEventListener('keydown',event=>{if((event.key==='Enter'||event.key===' ')&&event.target.matches('[data-kind]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
 for(const b of document.querySelectorAll('[data-view]'))b.addEventListener('click',()=>{selected='';editor.setText(setConfig(editor.getText(),'view',b.dataset.view));});
 $('editsource').addEventListener('click',()=>{ws.setCollapsed(!ws.collapsed());if(!ws.collapsed())editor.view.focus();});
@@ -151,7 +153,7 @@ for(const b of $('chips').querySelectorAll('[data-example]'))b.addEventListener(
 $('savesource').addEventListener('click',()=>download(slug()+'.case.txt',new Blob([editor.getText()],{type:'text/plain;charset=utf-8'})));
 $('opensource').addEventListener('change',async()=>{const file=$('opensource').files[0];if(!file)return;if(file.size>1000000){status('Source files can be up to 1 MB.');return;}editor.setText(await file.text());$('opensource').value='';status('Source opened.');});
 function markdown(){
-  const out=['# '+model.title,'',model.headline||model.verdict||'',model.question||'',''];
+  const out=['# '+model.title,'',model.headline||(model.verdict==='off'?'':model.verdict)||'',model.question||'',''];
   for(const key of ['decision','unresolved','owner','date','reviewBy','reconsider','constraints'])if(model[key])out.push(key+': '+model[key],'');
   for(const [title,entries,keys] of [['Reasons',model.claims,['basis','detail','qualification','assumptions','url']],['Alternatives',model.options,['value','requires','downside','reconsider']],['Reviews',model.reviews,['date','change','implication','decision','previous','url']]])if(entries.length){out.push('## '+title,'');for(const it of entries){out.push('### '+it.label,'');for(const k of keys)if(it[k])out.push(k+': '+it[k],'');}}
   return out.join('\n');

@@ -18,6 +18,7 @@ check('Brief separates the approved pilot from the unresolved launch',(await pag
 await page.locator('[data-kind="claim"]').first().focus();
 await page.keyboard.press('Enter');
 check('keyboard selection opens its reason inspector',await page.getByRole('button',{name:'Edit reason',exact:true}).isVisible());
+check('inspection preserves keyboard focus through repaint',await page.evaluate(()=>document.activeElement?.dataset.kind==='claim'));
 // CodeMirror groups edits within 500ms; isolate the form transaction from fixture load.
 await page.waitForTimeout(550);
 await page.getByRole('button',{name:'Edit reason',exact:true}).click();
@@ -87,4 +88,4 @@ const file=await download;const {readFile}=await import('node:fs/promises');cons
 check('SVG deck ZIP includes source and embedded typography',zip.includes(Buffer.from('case-source.txt'))&&zip.includes(Buffer.from('data-chapter-fonts="embedded"'))&&zip.readUInt32LE(0)===0x04034b50);
 if(errors.length)console.log('Browser errors:',errors);
 check('no console or page errors',errors.length===0);
-await browser.close();console.log(results.join('\n'));report('case',{...tally(results),min:17});
+await browser.close();console.log(results.join('\n'));report('case',{...tally(results),min:18});

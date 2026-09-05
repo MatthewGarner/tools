@@ -96,3 +96,18 @@ test('long previous-review URLs remain compact while preserving their exact link
   assert.equal(fieldContent(plan,'review.0.previous'),'tools.matthewgarner.me/case/ · linked state');
   assert.ok(plan.pages[1].svg.includes(`href="${previous}"`));
 });
+
+test('compact alternatives share one comparison slide with distinct columns',()=>{
+ const plan=buildCaseDeck({...base,options:[...base.options,{label:'Defer',value:'£0 incremental contribution',requires:'Accept the cost of waiting',downside:'No new learning',reconsider:'New evidence becomes available'}]},ctx);
+ const labels=plan.pages.flatMap(p=>p.blocks.filter(b=>/^option\.\d+\.label$/.test(b.key)).map(b=>({x:b.x,page:p.index})));
+ assert.equal(new Set(labels.map(b=>b.page)).size,1);
+ assert.equal(new Set(labels.map(b=>b.x)).size,3,'alternatives are compared side by side');
+ assertGeometry(plan);
+});
+
+
+test('explicit verdict off stays out of the deck',()=>{
+ const plan=buildCaseDeck({...base,verdict:'off'},ctx);
+ assert.equal(fieldContent(plan,'verdict'),'');
+ assert.equal(fieldContent(plan,'decision'),base.decision);
+});

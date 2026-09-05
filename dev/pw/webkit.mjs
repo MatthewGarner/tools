@@ -53,7 +53,7 @@ for(const theme of ['light', 'dark']){
           // intended display stack (Chapter uses DM Sans), not the UA default or old
           // Charter (a positive AND a negative — /serif/i alone would pass
           // vacuously against "sans-serif", killing the canary)
-          serif: (fam => ['roadmap','timeline'].includes(path) ? /dm sans/i.test(fam) : /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
+          serif: (fam => ['roadmap','timeline','case'].includes(path) ? /dm sans/i.test(fam) : /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
             getComputedStyle(document.querySelector('h1') || document.body).fontFamily)};
       },path);
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');

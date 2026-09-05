@@ -99,7 +99,7 @@ export function exportCasePages(model,ctx={}) {
     field('headline','',model.headline,{display:true,size:64}),
     field('question','Question',model.question,{size:25}),
     field('decision','Authorised',model.decision,{size:30}),
-    field('verdict',model.decision?'Judgment':'Decision',model.verdict,{size:28}),
+    field('verdict',model.decision?'Judgment':'Decision',model.verdict==='off'?'':model.verdict,{size:28}),
     field('unresolved','Still open',model.unresolved),
     field('constraints','Hard constraints',model.constraints),
     field('reconsider','Reconsider when',model.reconsider),
@@ -151,7 +151,26 @@ export function exportCasePages(model,ctx={}) {
     }
   }
   addRecords('The argument',records.claims);
-  addRecords('Alternatives',records.options);
+  // A compact choice set earns a single comparison slide. Long or numerous
+  // alternatives retain the complete record flow rather than smaller type.
+  const options=records.options,columns=[];
+  if(options.length>=2&&options.length<=3){
+    const gap=32,w=(width-2*margin-gap*(options.length-1))/options.length;
+    for(const [i,row] of options.entries()){
+      const x=margin+i*(w+gap);let y=top;const blocks=[];
+      const add=b=>{blocks.push(b);y=b.y+b.lines.length*b.step+20;};
+      add(block(row.label,x,y,w,{size:34,family:type.display,weight:type.displayWeight,key:row.key+'.label'}));
+      for(const f of row.fields){
+        if(f.label){add(block(f.label.toUpperCase(),x,y,w,{size:15,weight:600,role:'muted',key:f.key+'.label'}));y-=15;}
+        add(block(f.text,x,y,w,{size:f.size||24,key:f.key,href:f.href}));
+      }
+      columns.push(blocks);
+    }
+  }
+  if(columns.length&&columns.every(bs=>bs.every(b=>b.y+b.lines.length*b.step<=bottom))){
+    const page=makePage('Alternatives');
+    for(const [i,bs] of columns.entries()){for(const b of bs)put(page,b);if(i)page.rules.push({x:bs[0].x-16,y:top,x2:bs[0].x-16,y2:bottom,role:'border'});}
+  }else addRecords('Alternatives',options);
   addRecords('Decision history',records.reviews);
   addRecords('Supporting exhibits',records.exhibits);
   for(const page of pages){
