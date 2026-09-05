@@ -138,15 +138,15 @@ function admittedSelection(selection, C, startY, measure){
 function receiptPlan(selection, sim, measure){
   const font = '700 10.5px ' + SANS, width = 1728;
   const exceptions = omittedMaterialExceptions(selection);
-  const rows = [
+  const rows = [];
+  if(selection.remainder || selection.unscored.length) rows.push(
     {key: 'exceptions', tone: exceptions.length ? 'err' : 'muted',
-      lines: measuredLines('OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions, selection.selected.length), font, width, measure)},
+      lines: measuredLines('OMITTED MATERIAL EXCEPTIONS · ' + exceptionCopy(exceptions, selection.selected.length), font, width, measure)});
+  if(sim.concentration) rows.push(
     {key: 'concentration', tone: sim.concentration ? 'err' : 'muted',
-      lines: measuredLines(concentrationCopy(selection, sim), font, width, measure)},
-  ];
+      lines: measuredLines(concentrationCopy(selection, sim), font, width, measure)});
   if(selection.unscored.length) rows.push({key: 'unscored', tone: 'err',
     lines: measuredLines(unscoredCopy(selection), font, width, measure)});
-  else rows.push({key: 'unscored', tone: 'muted', lines: ['ALL BETS SCORED']});
   return {exceptions, rows, height: rows.reduce((sum, row) => sum + row.lines.length * 13, 0)};
 }
 
@@ -222,7 +222,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
      header instead of clipping either fact. */
   for(let pass = 0; pass < 4; pass++){
     receipts = receiptPlan(selection, sim, measure);
-    headY = Math.max(ruleY + 136, ruleY + 74 + receipts.height + 25);
+    headY = ruleY + (selection.remainder || selection.unscored.length ? 99 : 40) + receipts.height;
     const next = admittedSelection(initial, C, headY + 30, measure);
     const same = next.selected.length === selection.selected.length &&
       next.selected.every((record, index) => record.b.srcLine === selection.selected[index]?.b.srcLine);
@@ -230,7 +230,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     if(same) break;
   }
   receipts = receiptPlan(selection, sim, measure);
-  headY = Math.max(ruleY + 136, ruleY + 74 + receipts.height + 25);
+  headY = ruleY + (selection.remainder || selection.unscored.length ? 99 : 40) + receipts.height;
   selection = admittedSelection(initial, C, headY + 30, measure);
   /* A receipt can be the whole source truth when every position is malformed.
      It still consumes the plate's table field; refuse before its measured
@@ -252,12 +252,15 @@ export function renderBetsPresentation(model, sim, ctx = {}){
     15, c.muted, {mono: true, tracking: '0.06em'}));
   parts.push(...conditionReceipt(conditions, 1110, 30, 714, c));
   parts.push('<line x1="96" y1="' + ruleY + '" x2="1824" y2="' + ruleY + '" stroke="' + c.ink + '" stroke-width="2"/>');
-  parts.push(txt(96, ruleY + 30, 'SELECTION · ' + selection.rule.toUpperCase(), 12, c.accentInk,
-    {weight: 700, tracking: '0.08em'}));
-  parts.push(txt(96, ruleY + 52, displayed.length + ' SHOWN · ' + selection.remainder +
-    (selection.remainder === 1 ? ' FURTHER BET IN FULL SVG' : ' FURTHER BETS IN FULL SVG'), 16, c.muted,
-    {weight: 700, tracking: '0.04em'}));
-  let receiptY = ruleY + 74;
+  const partial = selection.remainder || selection.unscored.length;
+  if(partial){
+    parts.push(txt(96, ruleY + 30, 'SELECTION · ' + selection.rule.toUpperCase(), 12, c.accentInk,
+      {weight: 700, tracking: '0.08em'}));
+    parts.push(txt(96, ruleY + 52, displayed.length + ' SHOWN · ' + selection.remainder +
+      (selection.remainder === 1 ? ' FURTHER BET IN FULL SVG' : ' FURTHER BETS IN FULL SVG'), 16, c.muted,
+      {weight: 700, tracking: '0.04em'}));
+  }
+  let receiptY = ruleY + (partial ? 74 : 20);
   for(const row of receipts.rows){
     const tone = row.tone === 'err' ? c.err : c.muted;
     row.lines.forEach((line, index) => {
@@ -308,7 +311,7 @@ export function renderBetsPresentation(model, sim, ctx = {}){
   const railY = Math.max(y + 34, 760);
   parts.push(...portfolioExposureRails(conditions, 96, 1824, railY, c));
 
-  parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
+  if(partial) parts.push(txt(96, 1040, 'ALLOCATION FIELD · FULL DETAIL: DOWNLOAD SVG', 11, c.muted,
     {weight: 700, tracking: '0.1em'}));
   parts.push(txt(1824, 1040, 'P10–P90 RANGES · 4,000 SIMULATIONS', 11, c.muted,
     {anchor: 'end', tracking: '0.06em'}));

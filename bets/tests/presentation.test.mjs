@@ -115,3 +115,12 @@ test('Copy PNG admits only the ranked rows that fit above its portfolio-field re
   assert.ok(bodyBottom <= 720, 'admitted rows reserve the lower portfolio field and factual footer');
   assert.match(svg, /FURTHER BETS IN FULL SVG/);
 });
+
+test('a complete portfolio omits selection narration but keeps its outcome readings', () => {
+  const model = parse('title: Complete portfolio\nG\n' + Array.from({length:3}, (_, i) =>
+    `  Bet ${i}: stake 10, odds 40-60%, payoff 30-50\n    kill: Stop after the pilot`).join('\n'));
+  const svg = renderBetsPresentation(model, simulate(model), {colors:COLORS, measure});
+  assert.doesNotMatch(svg, /SELECTION ·|FURTHER BETS|ALL BETS SCORED|CONCENTRATION CLEAR/);
+  assert.match(svg, /INDEPENDENT BASELINE/);
+  assert.match(svg, /SHARED-OUTCOME STRESS/);
+});
