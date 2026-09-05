@@ -6,6 +6,7 @@ import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {encodeHash} from '../../assets/series.js';
 import {waitChapterSource} from './chapter-state.mjs';
 const base=process.env.BASE || 'http://localhost:8087';
 // CI runs on Linux; evidence must use the host's writable temporary directory.
@@ -38,29 +39,44 @@ try{
  await page.reload();
  await page.waitForFunction(()=>document.querySelector('#fontstatus').hidden && document.querySelector('#preview svg')?.getAttribute('data-chapter-layout')==='grid');
  await waitChapterSource(page,canonicalStyle);
- for(const fixture of ['sparse','crowded','quarterly'])for(const font of ['Chapter','DM Sans'])for(const style of ['focus','board','register','grid'])for(const theme of ['light','dark']){
+ for(const fixture of ['sparse','crowded','quarterly','export-70-spanning'])for(const font of ['Chapter','DM Sans'])for(const style of ['focus','board','register','grid'])for(const theme of ['light','dark']){
   const key=[fixture,font.replace(' ','-'),style,theme].join('-');
   if(process.env.CHAPTER_CASE && !key.includes(process.env.CHAPTER_CASE))continue;
-  const source=readFileSync(new URL('../../roadmap/tests/fixtures/chapter-'+fixture+'.txt',import.meta.url),'utf8').replace(/^style:.*$/m,'style: '+style)+'\nfont: '+font;
+  const source=readFileSync(new URL('../../roadmap/tests/fixtures/'+(fixture.startsWith('export-')?'':'chapter-')+fixture+'.txt',import.meta.url),'utf8').replace(/^style:.*$/m,'')+'\nstyle: '+style+'\nfont: '+font;
   await page.setViewportSize({width:1440,height:1000});await page.emulateMedia({colorScheme:theme});
   if(await page.locator('#slidepreviewdialog').evaluate(el=>el.open))await page.locator('#slidepreviewdialog').getByRole('button',{name:'Close',exact:true}).click();
-  if(await page.locator('.workspace').evaluate(el=>el.classList.contains('collapsed')))await page.locator('#railtab').click();
-  await page.locator('.cm-content').fill(source);
+  if(fixture.startsWith('export-')){
+   // CodeMirror virtualizes a large source: filling its visible contenteditable
+   // after a phone scroll can replace only a document slice. Use the real URL
+   // handoff for this export fixture and still assert the complete editor state.
+   // A distinct query forces a document load; a hash-only navigation does not rerun boot.
+   await page.goto(base+'/roadmap/?export-test='+encodeURIComponent(key)+'#'+await encodeHash({t:source,e:0}));
+   await page.waitForFunction(()=>document.querySelector('#fontstatus').hidden && document.querySelector('#preview svg'));
+  }else{
+   if(await page.locator('.workspace').evaluate(el=>el.classList.contains('collapsed')))await page.locator('#railtab').click();
+   await page.locator('.cm-content').fill(source);
+  }
   await waitChapterSource(page,source);
   await page.waitForFunction(style=>document.querySelector('#preview svg')?.getAttribute('data-chapter-layout')===style,style);
   await page.waitForFunction(theme=>document.querySelector('#preview svg > rect')?.getAttribute('fill')===(theme==='dark'?'#171A18':'#F6F3ED'),theme);
   assert.equal(await page.locator('#stylepicker [aria-pressed="true"]').getAttribute('data-style'),style,key+' DSL and picker agree');
-  await page.locator('#railtab').click();
+  if(!await page.locator('.workspace').evaluate(el=>el.classList.contains('collapsed')))await page.locator('#railtab').click();
   assert.equal(await page.locator('#verdict').isVisible(),false,key+' automatic diagnosis belongs in the editing view');
   const diagnostics=await page.evaluate(async source=>{
    const [{parse},{renderChapterPages},{layoutChapter},{measure}]=await Promise.all([import('/roadmap/parse.js'),import('/roadmap/chapter-svg.js'),import('/roadmap/chapter-layout.js'),import('/assets/app-common.js')]);
    const model=parse(source),ctx={measure,today:'2026-09-04'};
    const set=renderChapterPages(model,ctx);
-   return {complete:set.complete,count:model.items.length,pages:set.pages.length,overflow:set.plan.pages.filter(p=>!p.geometryComplete).map(p=>p.model.items.map(i=>i.title)),fontsReady:document.fonts.check('24px "DM Sans"') && document.fonts.check('38px "Instrument Serif"'),geometry:set.plan.pages.map(p=>{const l=layoutChapter(p.model,{...ctx,slide:true,sourceModel:model});return {fits:l.fits,bottom:l.contentBottom}})};
+   return {appearances:set.plan.pages.flatMap(p=>p.sourceItemIndices),minTitle:Math.min(...set.plan.pages.flatMap(p=>layoutChapter(p.model,{...ctx,slide:true,sourceModel:model}).rows.flatMap(r=>r.blocks.filter(b=>b.kind==='title').map(b=>b.size)))),complete:set.complete,count:model.items.length,pages:set.pages.length,overflow:set.plan.pages.filter(p=>!p.geometryComplete).map(p=>p.model.items.map(i=>i.title)),fontsReady:document.fonts.check('24px "DM Sans"') && document.fonts.check('38px "Instrument Serif"'),geometry:set.plan.pages.map(p=>{const l=layoutChapter(p.model,{...ctx,slide:true,sourceModel:model});return {fits:l.fits,bottom:l.contentBottom}})};
   },source);
   assert.ok(diagnostics.fontsReady,key+' fonts');assert.ok(diagnostics.complete,key+' complete '+JSON.stringify(diagnostics));
   if(fixture==='crowded' && style==='grid')assert.ok(diagnostics.pages<=3,key+' should use free column space before adding slides');
   if(fixture==='quarterly' && style==='grid')assert.equal(diagnostics.pages,2,key+' should not orphan one item on an extra slide');
+  if(fixture==='export-70-spanning'){
+   assert.ok(diagnostics.pages<=({grid:7,board:6,focus:8,register:9}[style]),key+' keeps the approved compact density');
+   assert.equal(new Set(diagnostics.appearances).size,70,key+' retains every source item');
+   if(style!=='grid')assert.equal(diagnostics.appearances.length,70,key+' never repeats work');
+   assert.ok(diagnostics.minTitle>=20,key+' retains the approved title floor');
+  }
   if(fixture==='sparse')assert.equal(diagnostics.pages,1,key+' sparse plan should be a single composed slide');
   await page.locator('#exportdeck').click();
   assert.equal(await page.locator('#slidecanvas svg').getAttribute('width'),'1920');

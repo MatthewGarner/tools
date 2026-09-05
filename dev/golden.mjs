@@ -844,9 +844,8 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
     renderLearningCloseOutNarrow(pmodel, pdec, preceipt, {...ctxBase, width: 390});
 
 
-  /* Six horizons x five lanes — deliberately past the one-page threshold, so the
-     CONTINUATION composition is pinned (four pages). A three-horizon doc renders a
-     single page and would leave the thing most likely to break untested. */
+  /* This legacy-named fixture also uses Chapter. Six horizons x five lanes
+     pin balanced time-window pagination beyond the one-page threshold. */
   const rdoc = 'style: board\ntitle: Roadmap\nhorizons: ' + ['Q1','Q2','Q3','Q4','Q5','Q6'].join(', ') + '\n\n' +
     ['Q1','Q2','Q3','Q4','Q5','Q6'].map(h => h + '\n' +
       [1,2,3,4,5].map(i => 'Lane' + i + ': Item ' + h + '-' + i).join('\n')).join('\n\n');

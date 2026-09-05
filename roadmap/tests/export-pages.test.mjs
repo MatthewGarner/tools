@@ -93,7 +93,7 @@ function assertComplete(model,out){
     for(const row of geometry.rows){
       assert.ok(row.y>=0 && row.y+row.h<geometry.footerY,model.style+' row remains above footer');
       for(const block of row.blocks){
-        assert.ok(block.size>=15,'slide preserves the metadata floor');
+        assert.ok(block.size >= (block.kind==='title' ? 20 : block.kind==='note' ? 16 : 14),'slide preserves the reviewed type floors');
         for(const line of block.lines) assert.ok(row.x+row.pad+(block.x||0)+measure(line,block.font)<=1441,'authored text stays inside artboard');
       }
     }
@@ -185,5 +185,73 @@ test('long authored horizon and lane labels remain complete in slide sets',()=>{
     const out=renderChapterPages(model,ctx);assertComplete(model,out);
     const text=out.pages.join('').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
     for(const marker of [...horizon.split(' '),...lane.split(' ')])assert.ok(text.includes(marker),style+' '+marker);
+  }
+});
+
+const fixture70 = async (spanning = false) => {
+  const {readFile} = await import('node:fs/promises');
+  return parse(await readFile(new URL(`./fixtures/export-70${spanning ? '-spanning' : ''}.txt`, import.meta.url), 'utf8'));
+};
+
+test('70-item Grid and Board decks use stable theme groups across balanced time windows', async () => {
+  for(const style of ['grid', 'board']){
+    const model = {...await fixture70(), style};
+    const out = renderChapterPages(model, ctx);
+    assert.equal(out.complete, true);
+    assert.ok(out.pages.length <= 8, `${style}: ${out.pages.length} pages`);
+    assert.ok(out.plan.pages.every(p => p.model.items.length > 1), 'no stranded one-item slide');
+    const windows = Map.groupBy(out.plan.pages, p => p.start);
+    assert.ok(windows.size >= 2);
+    const groups = [...windows.values()].map(pages => pages.map(p => p.lanes));
+    for(const group of groups.slice(1))assert.deepEqual(groups[0], group, 'theme groups stay fixed as time advances');
+    assert.deepEqual(out.plan.pages.flatMap(p => p.sourceItemIndices).sort((a,b) => a-b),
+      Array.from({length:70}, (_, i) => i));
+  }
+});
+
+test('Board, Register and Focus do not repeat spanning items at horizon boundaries', async () => {
+  const source = await fixture70(true);
+  for(const style of ['board','register','focus']){
+    const out = renderChapterPages({...source, style}, ctx);
+    assert.equal(out.complete, true);
+    assert.ok(out.pages.length <= (style === 'register' ? 9 : 8), `${style}: ${out.pages.length} pages`);
+    assert.equal(out.plan.pages.flatMap(p => p.model.items).filter(i => i.export.repeatedContext).length, 0);
+    assert.deepEqual(out.plan.pages.flatMap(p => p.sourceItemIndices).sort((a,b) => a-b),
+      Array.from({length:70}, (_, i) => i));
+  }
+});
+
+test('only timeline continuations repeat source items, retaining their original ranges', async () => {
+  const model = {...await fixture70(true), style:'grid'};
+  const out = renderChapterPages(model, ctx);
+  assert.equal(out.complete, true);
+  for(let i = 0; i < model.items.length; i++){
+    const appearances = out.plan.pages.flatMap(p => p.model.items.filter(x => x.export.sourceIndex === i));
+    for(const item of appearances){
+      assert.equal(item.export.sourceStart, model.items[i].h);
+      assert.equal(item.export.sourceEnd, model.items[i].h + (model.items[i].span || 1) - 1);
+    }
+    if(appearances.length > 1){
+      assert.equal(appearances.length, 2);
+      assert.ok(appearances[0].export.continuesAfter);
+      assert.ok(appearances[1].export.continuesBefore);
+    }
+  }
+});
+
+// When overlaps prevent stable grouping, finish all themes within a time window
+// before moving to the next. The same theme must never be scattered across pages.
+test('spanning Grid uses a compact tiered plan without scattering themes', async () => {
+  const model = {...await fixture70(true), style:'grid'};
+  const out = renderChapterPages(model, ctx);
+  assert.ok(out.pages.length <= 8);
+  assert.equal(out.complete, true);
+  const starts = out.plan.pages.map(p => p.start);
+  assert.deepEqual(starts, starts.slice().sort((a,b) => a-b));
+  for(const pages of Map.groupBy(out.plan.pages, p => p.start).values()){
+    const lanes = pages.flatMap(p => p.lanes);
+    assert.equal(new Set(lanes).size, lanes.length, 'each theme stays together within a time window');
+    assert.deepEqual(new Set(lanes), new Set(model.lanes));
+    for(const page of pages)assert.deepEqual(page.horizons, pages[0].horizons);
   }
 });

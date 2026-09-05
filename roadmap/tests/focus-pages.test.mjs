@@ -10,20 +10,20 @@ function verify(model,out){
   assert.equal(exportPageCoverage(out.plan).complete,true);
   const seen=new Set(),horizons=new Set();
   for(const [index,page] of out.plan.pages.entries()){
-    assert.equal(page.model.horizons.includes(model.focus),true,'the chosen featured horizon persists on every slide');
+    if(index===0)assert.equal(page.model.focus,model.focus,'the chosen horizon leads the deck');
+    assert.equal(page.model.focus,model.horizons[page.focusHeroIndex]);
+    assert.equal(page.model.items.some(i=>i.export.repeatedContext),false,'exhausted content is never repeated');
     const geometry=layoutChapter(page.model,{...ctx,sourceModel:model,slide:true});
     assert.equal(geometry.fits,true,'every paired hero and rail fits');
-    for(const row of geometry.rows){assert.ok(row.y+row.h<geometry.footerY);for(const block of row.blocks)assert.ok(block.size>=15);}
+    for(const row of geometry.rows){assert.ok(row.y+row.h<geometry.footerY);for(const block of row.blocks)assert.ok(block.size >= (block.kind==='title' ? 20 : block.kind==='note' ? 16 : 14));}
     page.horizonIndices.forEach(h=>horizons.add(h));
     page.sourceItemIndices.forEach(i=>seen.add(i));
-    const context=page.model.items.filter(i=>i.export.repeatedContext);
-    if(context.length){assert.match(out.pages[index],/repeated from page/);assert.ok(context.every(i=>!page.sourceItemIndices.includes(i.export.sourceIndex)));}
   }
   assert.equal(seen.size,model.items.length);
   assert.equal(horizons.size,model.horizons.length);
 }
 
-test('eight Spotlight horizons paginate their rail and retain a selected late hero',()=>{
+test('eight Spotlight horizons lead with a selected late hero then advance through supporting work',()=>{
   const model=parse('style: focus\nfocus: H7\nhorizons: H1, H2, H3, H4, H5, H6, H7, H8\n'+Array.from({length:8},(_,i)=>`H${i+1}\nCore: Work ${i+1} -- Commentary ${i+1}`).join('\n'));
   const out=renderChapterPages(model,ctx);verify(model,out);
   assert.ok(out.pages.length>=2&&out.pages.length<=4,'eight ordinary horizons deserve a compact slide set');

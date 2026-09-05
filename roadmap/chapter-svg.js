@@ -83,7 +83,7 @@ export function renderChapter(model,ctx={}){
   const footerW=(rail?rail.x:W)-(layout.style==='register'&&!layout.phone?48:M);
   const scope=ctx.page?.total>1?`Page ${ctx.page.index+1} of ${ctx.page.total}`:'';
   const small={family:layout.type.body,size:layout.phone?12:15,step:20,weight:400};
-  const context=ctx.page?.context ? `${ctx.page.context.region} repeated from page ${ctx.page.context.page}` : '';
+  const context=[ctx.page?.progression,ctx.page?.parts>1 ? `Continued · ${ctx.page.part+1} of ${ctx.page.parts}` : ''].filter(Boolean).join(' · ');
   const detail=[ctx.titlesOnly?'Titles only':'',context].filter(Boolean).join(' · ');
   if(detail)s.push(blockSvg({...small,lines:[detail]},M,fy-15,C.muted));
   if(scope)s.push(`<text${attrs({x:footerW,y:fy,'font-family':layout.type.body,'font-size':layout.phone?12:15,fill:C.muted,'text-anchor':'end'})}>${e(scope)}</text>`);
@@ -91,13 +91,24 @@ export function renderChapter(model,ctx={}){
 }
 
 export function renderChapterPages(model,ctx={}){
+  // Candidate plans repeatedly measure the same authored text at the same type
+  // sizes. Keep the cache local to this render, so font loads and edits cannot
+  // reuse stale geometry or make theme grouping block the UI on native metrics.
+  if(ctx.measure){
+    const measure=ctx.measure, widths=new Map();
+    ctx={...ctx,measure:(text,font)=>{
+      const key=JSON.stringify([font,text]);
+      if(!widths.has(key))widths.set(key,measure(text,font));
+      return widths.get(key);
+    }};
+  }
   const style=model.style||'grid';
   const layoutFor=(pageModel)=>layoutChapter(pageModel,{...ctx,slide:true,width:1440,sourceModel:model});
   const content=ctx.titlesOnly ? {...model,items:model.items.map(item=>({...item,note:''}))} : model;
-  let horizonsPerPage=style==='grid'?4:style==='register'?model.horizons.length:3;
+  let horizonsPerPage=['grid','board'].includes(style)?4:style==='register'?model.horizons.length:3;
   if(style==='board'){
-    // Quiet four/five-column plans fit at the same type floor. Crowded columns
-    // retain the wider three-column composition and earn continuation pages.
+    // Quiet five-column plans may fit at the same type floor. Dense plans
+    // compare wider columns and smaller theme groups below.
     const count=Math.min(5,model.horizons.length);
     const first={...content,horizons:content.horizons.slice(0,count),items:content.items.filter(i=>i.h<count)};
     if(count>3 && layoutFor(first).fits)horizonsPerPage=count;
@@ -105,9 +116,23 @@ export function renderChapterPages(model,ctx={}){
   // Equal temporal windows avoid a narrow final page that exaggerates duration:
   // six quarters become two three-quarter windows, rather than four then two.
   if(style==='board'||style==='grid')horizonsPerPage=Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/horizonsPerPage));
-  const base=exportPages(content,{style,horizonsPerPage,packColumns:['board','focus','grid'].includes(style),pageUnits:1000000,
-    pageGeometryFits:(items,_,horizons)=>layoutFor({...model,horizons,items}).fits,
-    pageGeometryHeight:style==='register'?(items,_,horizons)=>layoutFor({...model,horizons,items}).contentBottom:undefined});
+  const planFor = (count,stableThemes=true) => exportPages(content,{style,horizonsPerPage:count,stableThemes,groupThemes:['board','grid'].includes(style),
+    pageGeometryFits:(items,_,horizons,options={})=>layoutFor({...model,horizons,items,...options,...(options.lanes?{exportLanes:options.lanes}:{})}).fits,
+    pageGeometryHeight:(items,_,horizons,options={})=>layoutFor({...model,horizons,items,...options,...(options.lanes?{exportLanes:options.lanes}:{})}).contentBottom});
+  let base=planFor(horizonsPerPage);
+  if(['board','grid'].includes(style) && base.pages.length>1){
+    // Compare whole, balanced time-window plans. A narrower window can fit more
+    // themes without reducing type or forcing arbitrary item slices.
+    const sizes=[...new Set([horizonsPerPage,3,2,1].map(n=>Math.ceil(model.horizons.length/Math.ceil(model.horizons.length/n))))];
+    const score=plan=>[exportPageCoverage(plan).complete?0:1,plan.pages.length,
+      plan.pages.reduce((sum,p)=>sum+p.model.items.length,0),new Set(plan.pages.map(p=>p.start)).size];
+    const better=(a,b)=>{const left=score(a),right=score(b);for(let i=0;i<left.length;i++)if(left[i]!==right[i])return left[i]<right[i];return false;};
+    for(const stableThemes of [true,false])for(const size of sizes){
+
+      const candidate=planFor(size,stableThemes);
+      if(better(candidate,base))base=candidate;
+    }
+  }
   // Compare dropped work is explicit content, not an omission from the current plan.
   const dropped=ctx.diff?.dropped||[];
   let pages=base.pages;

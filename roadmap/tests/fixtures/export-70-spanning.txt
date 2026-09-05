@@ -1,0 +1,89 @@
+title: Lantern — Two-year roadmap
+horizons: quarterly from Q1 2027 x8
+date: off
+
+Q1 2027
+Discovery: R001 Research saved searches -- Validate with pilot teams before wider rollout.
+Onboarding: R002 Research guided setup -- Validate with pilot teams before wider rollout.
+Collaboration: R003 Research shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R004 Research approval rules [doing] -- Validate with pilot teams before wider rollout.
+Analytics: R005 Research usage reports x3 -- Validate with pilot teams before wider rollout.
+Integrations: R006 Research calendar sync -- Validate with pilot teams before wider rollout.
+Reliability: R007 Research recovery controls -- Validate with pilot teams before wider rollout.
+Accessibility: R008 Research keyboard navigation [doing] -- Validate with pilot teams before wider rollout.
+Discovery: R009 Research feedback collection -- Validate with pilot teams before wider rollout.
+
+Q2 2027
+Onboarding: R010 Prototype guided setup x3 -- Validate with pilot teams before wider rollout.
+Collaboration: R011 Prototype shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R012 Prototype approval rules [doing] -- Validate with pilot teams before wider rollout.
+Analytics: R013 Prototype usage reports -- Validate with pilot teams before wider rollout.
+Integrations: R014 Prototype calendar sync -- Validate with pilot teams before wider rollout.
+Reliability: R015 Prototype recovery controls x3 -- Validate with pilot teams before wider rollout.
+Accessibility: R016 Prototype keyboard navigation [doing] -- Validate with pilot teams before wider rollout.
+Discovery: R017 Prototype saved searches -- Validate with pilot teams before wider rollout.
+Onboarding: R018 Prototype feedback collection -- Validate with pilot teams before wider rollout.
+
+Q3 2027
+Collaboration: R019 Pilot shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R020 Pilot approval rules [doing] x3 -- Validate with pilot teams before wider rollout.
+Analytics: R021 Pilot usage reports -- Validate with pilot teams before wider rollout.
+Integrations: R022 Pilot calendar sync -- Validate with pilot teams before wider rollout.
+Reliability: R023 Pilot recovery controls -- Validate with pilot teams before wider rollout.
+Accessibility: R024 Pilot keyboard navigation [doing] -- Validate with pilot teams before wider rollout.
+Discovery: R025 Pilot saved searches x3 -- Validate with pilot teams before wider rollout.
+Onboarding: R026 Pilot guided setup -- Validate with pilot teams before wider rollout.
+Collaboration: R027 Pilot feedback collection -- Validate with pilot teams before wider rollout.
+
+Q4 2027
+Automation: R028 Launch approval rules [doing] -- Validate with pilot teams before wider rollout.
+Analytics: R029 Launch usage reports -- Validate with pilot teams before wider rollout.
+Integrations: R030 Launch calendar sync x3 -- Validate with pilot teams before wider rollout.
+Reliability: R031 Launch recovery controls -- Validate with pilot teams before wider rollout.
+Accessibility: R032 Launch keyboard navigation [doing] -- Validate with pilot teams before wider rollout.
+Discovery: R033 Launch saved searches -- Validate with pilot teams before wider rollout.
+Onboarding: R034 Launch guided setup -- Validate with pilot teams before wider rollout.
+Collaboration: R035 Launch shared workspaces x3 -- Validate with pilot teams before wider rollout.
+Automation: R036 Launch feedback collection [doing] -- Validate with pilot teams before wider rollout.
+
+Q1 2028
+Analytics: R037 Extend usage reports -- Validate with pilot teams before wider rollout.
+Integrations: R038 Extend calendar sync -- Validate with pilot teams before wider rollout.
+Reliability: R039 Extend recovery controls -- Validate with pilot teams before wider rollout.
+Accessibility: R040 Extend keyboard navigation [doing] x3 -- Validate with pilot teams before wider rollout.
+Discovery: R041 Extend saved searches -- Validate with pilot teams before wider rollout.
+Onboarding: R042 Extend guided setup -- Validate with pilot teams before wider rollout.
+Collaboration: R043 Extend shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R044 Extend approval rules [doing] -- Validate with pilot teams before wider rollout.
+Analytics: R045 Extend feedback collection x3 -- Validate with pilot teams before wider rollout.
+
+Q2 2028
+Integrations: R046 Refine calendar sync -- Validate with pilot teams before wider rollout.
+Reliability: R047 Refine recovery controls -- Validate with pilot teams before wider rollout.
+Accessibility: R048 Refine keyboard navigation [doing] -- Validate with pilot teams before wider rollout.
+Discovery: R049 Refine saved searches -- Validate with pilot teams before wider rollout.
+Onboarding: R050 Refine guided setup x3 -- Validate with pilot teams before wider rollout.
+Collaboration: R051 Refine shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R052 Refine approval rules [doing] -- Validate with pilot teams before wider rollout.
+Analytics: R053 Refine usage reports -- Validate with pilot teams before wider rollout.
+Integrations: R054 Refine feedback collection -- Validate with pilot teams before wider rollout.
+
+Q3 2028
+Reliability: R055 Scale recovery controls x2 -- Validate with pilot teams before wider rollout.
+Accessibility: R056 Scale keyboard navigation [doing] -- Validate with pilot teams before wider rollout.
+Discovery: R057 Scale saved searches -- Validate with pilot teams before wider rollout.
+Onboarding: R058 Scale guided setup -- Validate with pilot teams before wider rollout.
+Collaboration: R059 Scale shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R060 Scale approval rules [doing] x2 -- Validate with pilot teams before wider rollout.
+Analytics: R061 Scale usage reports -- Validate with pilot teams before wider rollout.
+Integrations: R062 Scale calendar sync -- Validate with pilot teams before wider rollout.
+
+Q4 2028
+Accessibility: R063 Review keyboard navigation -- Validate with pilot teams before wider rollout.
+Discovery: R064 Review saved searches [doing] -- Validate with pilot teams before wider rollout.
+Onboarding: R065 Review guided setup -- Validate with pilot teams before wider rollout.
+Collaboration: R066 Review shared workspaces -- Validate with pilot teams before wider rollout.
+Automation: R067 Review approval rules -- Validate with pilot teams before wider rollout.
+Analytics: R068 Review usage reports [doing] -- Validate with pilot teams before wider rollout.
+Integrations: R069 Review calendar sync -- Validate with pilot teams before wider rollout.
+Reliability: R070 Review recovery controls -- Validate with pilot teams before wider rollout.
