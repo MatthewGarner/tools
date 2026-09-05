@@ -57,6 +57,9 @@ try{
     await page.reload();await saved(revised);
     await page.waitForFunction(()=>document.querySelector('[data-item-title="Resume your reading"]')?.dataset.noteRaw==='Ready for the deck.');
     const add=page.getByRole('button',{name:'Add item to Now',exact:true});
+    // Reload may expose restored item text before the responsive paint installs
+    // its Add target. Measure the target only after that paint makes it visible.
+    await add.waitFor({state:'visible'});
     assert.ok((await add.boundingBox()).height>=44);
     await settledTap(add);await page.getByRole('textbox',{name:'Edit additem',exact:true}).fill('New initiative');await page.getByRole('textbox',{name:'Edit additem',exact:true}).press('Enter');
     await saved(revised.replace('\nNEXT','\nNew initiative\nNEXT'));
