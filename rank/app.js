@@ -262,8 +262,6 @@ function renderResults(){
     ? ' Contested for the cut: ' + contested.map(s => s.name + ' (' + pctStr(s.ptop) + ')').join(' · ')
     : '');
   paintMetrics($('metrics'), '', [
-    stats.length + (stats.length === 1 ? ' initiative' : ' initiatives'),
-    state.criteria.length + (state.criteria.length === 1 ? ' benefit criterion' : ' benefit criteria'),
     'top ' + k + ' capacity',
   ]);
 

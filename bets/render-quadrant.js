@@ -397,7 +397,7 @@ function renderWide(model, sim, ctx){
     '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="24" font-weight="600" fill="' + c.ink + '">' +
     esc(line) + '</text>'));
   const strapY = Math.max(74, 52 + (titleLines.length - 1) * 26 + 22);
-  parts.push(txt(30, strapY, P.flat.length + ' BETS · ' + model.groups.length + ' LANES · TOTAL STAKE ' + num(P.totalStake),
+  parts.push(txt(30, strapY, 'TOTAL STAKE ' + num(P.totalStake),
     10, c.muted, {mono: true, tracking: '0.05em'}));
   const receipt = conditionReceipt(P.conditions, 460, 16, right - 460, c, false);
   parts.push(...receipt.parts);
@@ -424,7 +424,7 @@ function renderWide(model, sim, ctx){
 
   const panelBot = bottomY + 14;
   parts.push(...body);
-  parts.push(txt(30, panelBot + 22, 'PER-BET P50 EV · BOTH PORTFOLIO CONDITIONS SHOWN · RANGES ARE P10–P90 FROM 4,000 SEEDED RUNS', 9, c.muted, {tracking: '0.04em'}));
+  parts.push(txt(30, panelBot + 22, 'PER-BET P50 EV · P10–P90 RANGES · 4,000 SIMULATIONS', 9, c.muted, {tracking: '0.04em'}));
   parts.push(txt(right, panelBot + 22, 'ALL FIGURES ' + (model.unit || '').toUpperCase(), 9, c.muted, {anchor: 'end', tracking: '0.05em'}));
 
   const H = panelBot + 40;

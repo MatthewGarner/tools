@@ -42,7 +42,7 @@ test('wide overview renders the canonical period by lane grid and each item exac
   for(const copy of ['Moves regardless', 'Waiting — Pricing = yes',
     'Waiting — Pricing = yes and Groups = yes', 'Waiting — Pricing = no'])
     assert.match(svg, new RegExp(copy));
-  assert.match(svg, /Work stays in its authored place; each card says what must be true for it to proceed\./);
+  assert.doesNotMatch(svg, /Lane × period|Work stays in its authored place/);
   assert.ok(Number(/width="(\d+)"/.exec(svg)[1]) >= 36 * 2 + 150 + 2 * 260,
     'every period retains at least the canonical 260px column');
   assert.match(svg, /data-min-readable-scale="0\.925"/);

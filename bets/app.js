@@ -81,31 +81,6 @@ function findBet(m, srcLine){
   for(const g of m.groups) for(const b of g.bets) if(b.srcLine === srcLine) return b;
   return null;
 }
-function auditCounts(s){
-  const counts = {kill: 0, certainty: 0, loses: 0, flagged: 0};
-  for(const rec of s.bets.values()){
-    if(rec.scoreable === false) continue;
-    if(rec.audits.includes('NO KILL CRITERION')) counts.kill++;
-    if(rec.audits.includes('ODDS IMPLY CERTAINTY')) counts.certainty++;
-    if(rec.audits.includes('LOSES AT P50')) counts.loses++;
-    if(rec.audits.length) counts.flagged++;
-  }
-  return counts;
-}
-function pairedVerdict(s){
-  const independent = s.scenarios ? s.scenarios.independent : s.portfolio;
-  const shared = s.scenarios && s.scenarios.shared;
-  if(!independent) return {line: 'Portfolio outcomes are unavailable until at least one bet has valid stake, odds and payoff.', fig: 'NOT SCORED'};
-  const ip = Math.round(independent.pLoss * 100);
-  const sp = shared ? Math.round(shared.pLoss * 100) : null;
-  const signed = n => (n < 0 ? '−' : '+') + Math.round(Math.abs(n));
-  if(!shared) return {line: 'Independent baseline loses money ' + ip + '% of the time; shared-outcome stress is unavailable.', fig: ip + '%'};
-  return {
-    line: 'Independent baseline loses money ' + ip + '% of the time; shared outcomes, ' + sp + '%. Median outcomes ' +
-      signed(independent.p50) + ' and ' + signed(shared.p50) + '.',
-    fig: ip + '% → ' + sp + '%',
-  };
-}
 /* Comparison is a live Board lens only; exported SVGs stay current-only. */
 function activeRender(intent = 'live'){
   const c = {colors: themeColors(), measure, intent, dark: isDark()};
@@ -138,15 +113,9 @@ function doRefresh(){
     // board view has no data-key marks so FLIP is a no-op there.
     paint(svg, REVEAL, {flipAttr: 'data-key', scale: ws.scale, onSwap: ws.applyZoom, mode: flipMode});
     lastSvg = svg; flipMode = undefined;
-    const counts = auditCounts(sim);
-    const v = pairedVerdict(sim);
-    paintVerdict($('verdict'), v.line, v.fig);
-    /* the same four facts the board's own strap prints, above the artefact */
-    paintMetrics($('metrics'), model.title || 'Bets board', [
-      nBets(model) + (nBets(model) === 1 ? ' bet' : ' bets'),
-      model.groups.length + (model.groups.length === 1 ? ' book' : ' books'),
-      counts.flagged + ' flagged',
-    ]);
+    paintVerdict($('verdict'), '', '');
+    // The board owns the portfolio reading; avoid a second summary above it.
+    paintMetrics($('metrics'), '', []);
   }
   const warnings = model.warnings.slice();
   const selectedSnapshot = snaps && snaps.current();

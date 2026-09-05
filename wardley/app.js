@@ -129,7 +129,7 @@ function doRefresh(){
   paint(svg, REVEAL); lastSvg = svg;
   /* the verdict itself is drawn INSIDE the artefact — one verdict per page,
      travelling with native SVG and every complete presentation plate. */
-  paintMetrics($('metrics'), model.title || 'Wardley map', mapCounts());
+  paintMetrics($('metrics'), '', mapCounts());
   renderWarnings();
   setActionsEnabled(!!lastSvg);
   if(shouldPersist()){ try{ localStorage.setItem('wardley-src', text); }catch(e){} }
@@ -399,9 +399,7 @@ function svgString(intent){
 function mapCounts(){
   const comps = layout.nodes.filter(n => !n.anchor);
   const ghostN = comps.filter(n => n.ghost).length;
-  return [comps.length + (comps.length === 1 ? ' component' : ' components'),
-          model.edges.length + (model.edges.length === 1 ? ' dependency' : ' dependencies'),
-          ...(ghostN ? [ghostN + ' unplaced'] : [])];
+  return ghostN ? [ghostN + ' unplaced'] : [];
 }
 function slug(){
   return slugify(model.title, 'wardley');

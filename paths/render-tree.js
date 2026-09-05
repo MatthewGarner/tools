@@ -1,7 +1,7 @@
 /* /paths wide Tree SVG. Pure: consumes treeProjection + treeLayout output. */
 
 import {btnAttrs, esc, txt, wash, wrapText} from '../assets/svg.js';
-import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../roadmap/deck-parts.js';
 import {verdict} from './verdict.js';
 
@@ -110,10 +110,7 @@ function wideFrame(data, width, C, measure){
       '" text-anchor="end" font-size="11" fill="' + C.muted + '">' + esc(data.date) + '</text>');
     if(!sameLine) y += 18;
   }
-  const metricsY = Math.max(56, y + 2);
-  parts.push('<g data-kind="artifact-metrics">' + svgMetrics({x:FRAME_PAD, y:metricsY, model:'',
-    counts:data.counts, ink:C.ink, muted:C.muted, font:SANS}) + '</g>');
-  const height = metricsY + 24;
+  const height = y + 4;
   parts.push(line(FRAME_PAD, height - 1, width - FRAME_PAD, height - 1, C.border, 1), '</g>');
   return {svg:parts.join(''), height};
 }
@@ -671,13 +668,7 @@ export function renderOutline(projection, ctx){
     header += txt(PAD, headerY, data.date, 10, C.muted);
     headerY += 17;
   }
-  header += '<g data-kind="artifact-metrics">';
-  for(const metricLine of wrapText(data.counts.join(' · ').toUpperCase(),
-    '500 9px ' + SANS, W - PAD * 2, measure)){
-    header += txt(PAD, headerY, metricLine, 9, C.muted, {weight:600, tracking:0.8});
-    headerY += 14;
-  }
-  header += '</g>';
+
   const outlineVerdict = boundedTokens(data.readout.line, W - PAD * 2, measure, '700 17px ' + SANS);
   const vBlock = svgVerdict({x:PAD, y:headerY + 8, width:W - PAD * 2,
     line:outlineVerdict, fig:data.readout.fig, ink:C.ink, muted:C.muted,
