@@ -2,7 +2,10 @@
 import {chromium,devices} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdirSync,writeFileSync} from 'node:fs';
-const BASE=process.env.BASE||'http://localhost:8097',out=process.env.TIMELINE_EVIDENCE||'/private/tmp/timeline-qa';mkdirSync(out,{recursive:true});
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+// CI uses the shared 8087 origin; evidence belongs in the host's writable temp directory.
+const BASE=process.env.BASE||'http://localhost:8087',out=process.env.TIMELINE_EVIDENCE||join(tmpdir(),'timeline-qa');mkdirSync(out,{recursive:true});
 const source=`title: Lantern — launch forecast
 style: field
 font: Chapter
