@@ -46,6 +46,7 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
     'instrument numbers must be collision-free');
   /* binders carry their own kicker, never an instrument number */
   for(const dir of BINDERS){
+    if(dir==='case'){assert.match(read(dir+'/index.html'),/data-visual-family="chapter-review"/);assert.match(read(dir+'/render.js'),/m\.decision\|\|m\.unresolved/);continue;}
     assert.match(read(dir + '/index.html'), /<p class="kicker" id="kicker"><\/p>/,
       dir + ': missing the .kicker slot above its h1');
     assert.match(read(dir + '/app.js'), /CASE FILE — /,
@@ -76,7 +77,7 @@ test('every tools-origin page carries a metrics row and exactly one primary butt
     const inSvg = readdirSync(join(ROOT, dir))
       .filter(f => /^render.*\.js$/.test(f))
       .some(f => read(dir + '/' + f).includes('svgMetrics'));
-    assert.ok(/class="metrics"/.test(html) || inSvg || (dir==='timeline' && /data-visual-family="observatory"/.test(html)),
+    assert.ok(/class="metrics"/.test(html) || inSvg || (dir==='timeline' && /data-visual-family="observatory"/.test(html)) || (dir==='case' && /data-visual-family="chapter-review"/.test(html)),
       dir + ': no metrics row — neither an HTML .metrics row nor an in-SVG svgMetrics');
     /* Red discipline: the brand fill is the page's ONE forward action. Several
        tools are multi-surface (gauge's console, premortem's wizard) and those

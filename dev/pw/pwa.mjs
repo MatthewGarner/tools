@@ -105,7 +105,7 @@ async function installAndWait(page){
        shipped, and paths is the largest page in the suite. The coverage assertion
        below is what stops it falling behind a fourth time. */
     ['/signal-vs-noise/', async p => { await shown(p, 'svg'); return await p.locator('svg').count() >= 1; }],
-    ['/case/', async p => { await p.getByRole('button', {name: 'Wexcombe augmentation'}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/case/', async p => { await p.getByRole('button', {name: 'Edit source', exact: true}).click(); await p.getByRole('button', {name: 'Morrow · paid tier', exact: true}).click(); await persisted(p, 'case-src'); return await p.locator('#preview svg').count() === 1; }],
     /* paths keeps its rail collapsed, so the chip row is in the DOM but not clickable
        until the railtab is opened — the same shape smoke.mjs handles for wardley/map.
        KEPT SLEEP (2026-08-18): the branch below turns on isVisible(), and during the

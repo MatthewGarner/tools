@@ -637,3 +637,13 @@ test('roadmap CONDITIONAL escapes hostile titles/notes on bet/cond/dropped items
   }
   assertClean(renderChapter(parse('group: outcome\n'+doc('register')),{...ctx,edit:true}),'Chapter conditional outcome grouping');
 });
+
+
+test('Case structured views and every deck page escape all authored fields',async()=>{
+  const {parse}=await import('../case/parse.js');
+  const {render}=await import('../case/render.js');
+  const {buildCaseDeck}=await import('../case/deck-svg.js');
+  const doc='title: '+EVIL[0]+'\nheadline: '+EVIL[1]+'\nclaim c: '+EVIL[2]+'\n  detail: '+EVIL[3]+'\n  qualification: '+EVIL[4]+'\noption o: '+EVIL[1]+'\n  downside: '+EVIL[0]+'\nreview r: '+EVIL[2]+'\n  change: '+EVIL[0];
+  for(const view of ['brief','compare','review'])assertClean(render(parse(doc+'\nview: '+view),ctx),'case-'+view);
+  for(const page of buildCaseDeck(parse(doc),{measure:ctx.measure}).pages)assertClean(page.svg,'case-deck');
+});

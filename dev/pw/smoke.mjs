@@ -1619,7 +1619,7 @@ for(const theme of FLOW_THEMES){
 for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your programme'],
     ['/wardley/', 'Your landscape'], ['/map/', 'Your assumptions'], ['/why/', 'Your outcome'],
     ['/tree/', 'Your decision'], ['/bets/', 'Your bets'], ['/paths/', 'Your plan'],
-    ['/proxy/', 'Your hunt'], ['/gauge/', 'Your session'], ['/case/', 'Your case'],
+    ['/proxy/', 'Your hunt'], ['/gauge/', 'Your session'], ['/case/', 'Your decision'],
     ['/energy/cycles/', 'Your cycle budget'], ['/energy/risk/', 'Your route to market']]){
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);

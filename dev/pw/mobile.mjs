@@ -64,9 +64,9 @@ for(const [name, url] of ALL){
     probe.remove();
     const h1 = document.querySelector('h1');
     return {
-      font: name==='roadmap' ? cs.fontFamily.includes('DM Sans') : cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
+      font: ['roadmap','case'].includes(name) ? cs.fontFamily.includes('DM Sans') : cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(['roadmap','timeline'].includes(name)?'DM Sans':'Helvetica Neue'),
+      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(['roadmap','timeline','case'].includes(name)?'DM Sans':'Helvetica Neue'),
     };
   },name);
   ok(parity.font, `${name}: body wears its intended font stack`);
