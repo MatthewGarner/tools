@@ -1327,6 +1327,8 @@ for(const theme of FLOW_THEMES){
   check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(await page.locator('#readout').textContent()));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
+  // A shrink-to-fit menu once widened AFTER clamping near the right edge.
+  // Measure final bounds after focus, including the font's actual menu width.
   const fieldCardContract = await (async () => {
     const card = page.locator('#preview [data-edit="cardmenu"]').first();
     await card.focus();

@@ -16,8 +16,7 @@
 import {trapPopoverFocus} from './popover-focus.js';
 export {trapPopoverFocus};
 
-/* Measure after append, flip above when needed, then clamp to the viewport.
-   SVG keyboard focus can leave the trigger itself offscreen. */
+/* Clamp after append; SVG keyboard focus can leave its trigger offscreen. */
 function clampToViewport(el, rect){
   const w = el.offsetWidth, h = el.offsetHeight;
   let x = parseFloat(el.style.left), y = parseFloat(el.style.top);
