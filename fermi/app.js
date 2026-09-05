@@ -620,17 +620,10 @@ function writeHashSafe(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeH
 
 /* ---------- render results ---------- */
 let resultsSig = '';   // output-unchanged gate: skip the DOM rebuild when nothing shown would differ (batch 7)
-/* the metrics row over the answer: the formula it came from, and the three
-   honest facts behind the distribution — how many variables carry a range, how
-   many seeded draws were run, and where the middle landed. */
+// The formula identifies the estimate; its result belongs in the answer.
 function formulaLabel(){
   const f = ($('formula').value || '').trim();
   return f || 'Untitled estimate';
-}
-function metricCounts(r, p50Text){
-  const v = r.varNames.length;
-  return [v + ' variable' + (v === 1 ? '' : 's'),
-    N.toLocaleString('en-GB') + ' runs', 'P50 ' + p50Text];
 }
 
 function renderResults(){
@@ -642,7 +635,7 @@ function renderResults(){
   const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
   /* outside the resultsSig gate: the formula label can change without moving a
      percentile (a rename, a whitespace edit), and the row must not go stale */
-  paintMetrics($('metrics'), formulaLabel(), metricCounts(r, p50Text));
+  paintMetrics($('metrics'), '', []);
   updateModelTrace();
   reviewDetail();
   const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +

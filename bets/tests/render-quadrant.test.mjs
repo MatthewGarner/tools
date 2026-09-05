@@ -104,7 +104,7 @@ test('unscored bets are listed but never plotted or counted as stake', () => {
   const m = parse('G\n  Invalid: stake 200, odds 120%, payoff 300');
   const svg = renderQuadrant(m, simulate(m), CTX);
   assert.match(svg, /NOT SCORED · B01 Invalid/);
-  assert.match(svg, /0 BETS · 1 LANES · TOTAL STAKE 0/);
+  assert.match(svg, /TOTAL STAKE 0/);
   assert.equal((svg.match(/<circle/g) || []).length, 0);
   assert.doesNotMatch(svg, /P\(LOSES MONEY\) 0%/);
 });

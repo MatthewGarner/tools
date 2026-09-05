@@ -1,6 +1,6 @@
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
-import {project, whyVerdict, whyMetrics} from './project.js';
+import {project, whyVerdict} from './project.js';
 import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../assets/verdict.js';
 import {renderCausalField} from './render-causal-field.js';
 import {renderCausalPresentation} from './causal-presentation.js';
@@ -129,7 +129,7 @@ function doRefresh(){
      when their strings are unchanged, so a keystroke that doesn't move a count
      costs nothing. The verdict is a projection of the SAME audits the Causal Tree
      draws, so the two views can't disagree either. */
-  paintMetrics($('metrics'), model.outcomes.length ? (model.title || 'Untitled') : '', whyMetrics(model));
+  paintMetrics($('metrics'), '', []);
   const vd = whyVerdict(model, projection);
   paintVerdict($('verdict'), vd ? vd.line : '', vd ? vd.fig : '');
   setActionsEnabled(!!lastSvg);

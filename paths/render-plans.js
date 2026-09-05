@@ -1,7 +1,7 @@
 /* /paths Possible Plans artefact. Pure: consumes the existing plan projection. */
 
 import {esc, txt, wash, wrapText} from '../assets/svg.js';
-import {svgMetrics, svgVerdict} from '../assets/verdict-svg.js';
+import {svgVerdict} from '../assets/verdict-svg.js';
 import {line, rect} from '../roadmap/deck-parts.js';
 import {verdict} from './verdict.js';
 
@@ -123,10 +123,7 @@ function wideHeader(data, width, C, measure){
     y += 28;
   }
   if(data.date) svg += txt(width - PAD, 38, data.date, 11, C.muted, {anchor:'end'});
-  const metricsY = Math.max(58, y + 2);
-  svg += '<g data-kind="artifact-metrics">' + svgMetrics({x:PAD, y:metricsY, model:'', counts:data.counts,
-    ink:C.ink, muted:C.muted, font:SANS}) + '</g>';
-  const bottom = metricsY + 24;
+  const bottom = y + 4;
   svg += line(PAD, bottom - 1, width - PAD, bottom - 1, C.border, 1) + '</g>';
   return {svg, height:bottom};
 }
@@ -367,10 +364,6 @@ function narrowHeader(data, width, C, measure){
     y += 26;
   }
   if(data.date){ svg += txt(NARROW_PAD, y, data.date, 10, C.muted); y += 17; }
-  for(const metrics of wrapText(data.counts.join(' · ').toUpperCase(), '600 9px ' + SANS,
-    width - NARROW_PAD * 2, measure)){
-    svg += txt(NARROW_PAD, y, metrics, 9, C.muted, {weight:600, tracking:0.8}); y += 14;
-  }
   y += 8;
   svg += line(NARROW_PAD, y, width - NARROW_PAD, y, C.border, 1) + '</g>';
   return {svg, height:y + 14};

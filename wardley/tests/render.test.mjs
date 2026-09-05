@@ -43,7 +43,7 @@ test('field: neutral ruler, dependency projection, metrics and factual readout',
   const s = draw();
   assert.match(s, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" data-wardley-strategic-field="" width="1200"/);
   assert.ok(s.includes('Lantern platform'));
-  assert.ok(s.includes('3 components'));                  // header metrics line
+  assert.ok(!s.includes('3 components')); // The field owns its inventory; no census strip.
   assert.ok(s.includes('data-evolution-ruler'));
   assert.ok(s.includes('DEPENDENCY PROJECTION'));
   assert.ok(!s.includes('VISIBLE ↑'), 'the DSL has no measured visibility value');

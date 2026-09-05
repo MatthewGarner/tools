@@ -68,17 +68,11 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
   }
 });
 
-test('every tools-origin page carries a metrics row and exactly one primary button', () => {
+test('every tools-origin page carries exactly one primary button', () => {
   for(const dir of TOOL_DIRS){
     const html = read(dir + '/index.html');
-    /* Two renditions, one anatomy: tools whose verdict lives in the exported
-       artefact carry the metrics row INSIDE the SVG (svgMetrics) instead of in
-       page chrome. Either satisfies the gate; neither does not. */
-    const inSvg = readdirSync(join(ROOT, dir))
-      .filter(f => /^render.*\.js$/.test(f))
-      .some(f => read(dir + '/' + f).includes('svgMetrics'));
-    assert.ok(/class="metrics"/.test(html) || inSvg || (dir==='timeline' && /data-visual-family="observatory"/.test(html)) || (dir==='case' && /data-visual-family="chapter-review"/.test(html)),
-      dir + ': no metrics row — neither an HTML .metrics row nor an in-SVG svgMetrics');
+    // Reader-facing metrics are optional: structural counts do not justify a
+    // mandatory strip in every tool or export. Primary-action hierarchy does.
     /* Red discipline: the brand fill is the page's ONE forward action. Several
        tools are multi-surface (gauge's console, premortem's wizard) and those
        surfaces are mutually exclusive, so the cap is per surface, not per file

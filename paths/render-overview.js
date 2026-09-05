@@ -86,11 +86,6 @@ function header(overview, width, C, measure, narrow = false){
     if(narrow){ svg += txt(pad, y, String(overview.date), 10, C.muted); y += 17; }
     else svg += txt(width - pad, pad + 17, String(overview.date), 10, C.muted, {anchor:'end'});
   }
-  const metrics = `${overview.periods?.length || 0} PERIODS · ${overview.lanes?.length || 0} LANES · ` +
-    `${overview.items?.length || 0} ITEMS · ${overview.decisions?.length || 0} DECISIONS`;
-  for(const metric of wrapped(metrics, width - pad * 2, measure, '600 9px ' + SANS)){
-    svg += txt(pad, y, metric, 9, C.muted, {weight:600, tracking:0.7}); y += 14;
-  }
   y += 6;
   svg += line(pad, y, width - pad, y, C.border, 1) + '</g>';
   return {svg, height:y + (narrow ? 14 : 18)};
@@ -303,8 +298,7 @@ function roadmapGrid(overview, x, y, C, measure, selectedKey){
   const height = headerHeight + layouts.reduce((sum, lane) => sum + lane.height, 0);
   let svg = '<g data-kind="roadmap-grid">' + rect(x, y, width, height, C.bg, {stroke:C.border, sw:1}) +
     rect(x, y, LANE_W, headerHeight, wash(C.accent, '08')) +
-    txt(x + 12, y + 20, 'ROADMAP', 9, C.muted, {weight:700, tracking:0.9}) +
-    txt(x + 12, y + 38, 'Lane × period', 10, C.ink, {weight:700});
+    txt(x + 12, y + 20, 'ROADMAP', 9, C.muted, {weight:700, tracking:0.9});
   periods.forEach((period, index) => {
     const px = x + LANE_W + index * PERIOD_W;
     svg += '<g data-kind="period-header"><title>' + esc(period.name) + '</title>' +
@@ -339,13 +333,8 @@ function roadmapGrid(overview, x, y, C, measure, selectedKey){
   return {svg:svg + '</g>', width, height};
 }
 
-function gridPreface(x, y, width, C, measure){
-  const copy = 'Work stays in its authored place; each card says what must be true for it to proceed.';
-  const lines = wrapped(copy, width, measure, '600 11px ' + SANS);
-  let svg = '<g data-kind="roadmap-preface">' +
-    txt(x, y + 10, 'THE ROADMAP', 9, C.muted, {weight:700, tracking:0.9});
-  lines.forEach((text, index) => { svg += txt(x, y + 29 + index * 14, text, 11, C.ink, {weight:600}); });
-  return {svg:svg + '</g>', height:38 + lines.length * 14};
+function gridPreface(){
+  return {svg:'', height:0};
 }
 
 function modelHealth(overview, x, y, width, C, measure){

@@ -25,7 +25,7 @@ test('real matrix merges equivalent assignments and shows full mechanical assign
     decision('groups') + decision('pricing') +
     'NOW\n  Core: Foundation\n  Growth: Either route [if groups or pricing]');
   assert.match(svg, /Launch paths/);
-  assert.match(svg, /4 ASSIGNMENTS · 2 DISTINCT PLANS/);
+  assert.match(svg, /4 assignments, 2 distinct plans/);
   assert.match(svg, /COVERS 3 ASSIGNMENTS/);
   assert.match(svg, /groups — Answer: yes/);
   assert.match(svg, /pricing — Answer: no/);
