@@ -25,6 +25,9 @@ function clampToViewport(el, rect){
   let x = parseFloat(el.style.left), y = parseFloat(el.style.top);
   x = Math.min(Math.max(8, x), Math.max(8, innerWidth - w - 8));
   if(y + h > innerHeight - 8) y = Math.max(8, rect.top - h - 6);
+  // Keyboard focus can target an SVG row beyond the viewport; flipping alone
+  // still leaves its menu offscreen. Clamp both edges after choosing a side.
+  y = Math.min(Math.max(8, y), Math.max(8, innerHeight - h - 8));
   el.style.left = x + 'px';
   el.style.top = y + 'px';
 }

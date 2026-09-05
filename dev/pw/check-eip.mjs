@@ -2560,8 +2560,10 @@ check('no console/page errors', errors.length === 0);
      Same round-trip contract as the tree/why blocks above: commit, assert, ONE
      touch-Undo, assert full revert to the pre-menu baseline before the next
      action starts clean. ---- */
-  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/', {waitUntil: 'networkidle'});
-  await mpage.getByRole('button', {name: 'App launch programme'}).click();
+  // Pin the editing fixture: the public example and source visibility can evolve.
+  const tlFixture = 'title: Editing programme\nApp: Feature freeze 2026-09 .. 2026-10\nApp: Store review 2026-10 .. 2026-11\nMarketing: Landing page 2026-09 .. 2026-10\nMarketing: Campaign 2026-10 .. 2026-11\nCompliance: Privacy audit 2026-10 .. 2026-12\nCompliance: Terms 2026-09 .. 2026-11\nApp: Launch 2026-11 .. 2026-12';
+  const tlHash = Buffer.from(JSON.stringify({t:tlFixture,e:0})).toString('base64');
+  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + tlHash, {waitUntil: 'networkidle'});
   /* This settle stays a sleep. The poll that replaced it waited for the narrow
      relayout to RENDER, which happens before the example's text reaches
      localStorage through the editor's debounce — so the baseline below captured
@@ -2607,7 +2609,7 @@ check('no console/page errors', errors.length === 0);
   // Feature freeze (App, srcLine 1): the full menu, no silent commit
   await tlTapCard(1);
   check('timeline narrow: milestone tap opens the card menu with the expected rows (one popover)',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Status…|Lane…|Add note…|Remove milestone' &&
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Add actual start…|Status…|Lane…|Add note…|Remove milestone' &&
     await mpage.locator('.eip-pop').count() === 1);
   /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
   await new Promise(r => setTimeout(r, 250));
@@ -3428,7 +3430,9 @@ insure: premium 6 attach 65 limit 30`;
   const tctx = await browser.newContext({...devices['iPad Pro 11 landscape'], reducedMotion: 'reduce'});
   const p = await tctx.newPage();
   const errs = trackErrors(p);
-  await p.goto(BASE.replace('/tree/', '/timeline/'), {waitUntil: 'networkidle'});
+  const seed=Buffer.from(JSON.stringify({t:'title: Tablet editing\nApp: Beta 2026-10 .. 2026-11\nApp: Launch 2026-12 .. 2027-01',e:0})).toString('base64');
+  await p.goto(BASE.replace('/tree/', '/timeline/#')+seed, {waitUntil: 'networkidle'});
+  await p.waitForFunction(()=>localStorage.getItem('timeline-src')?.includes('Tablet editing'));
   const baseline = await p.evaluate(() => localStorage.getItem('timeline-src'));
   const menu = p.locator('[data-edit="cardmenu"]').first();
   const box = await untilValue(() => menu.boundingBox(), b => b && b.width >= 44 && b.height >= 44);
