@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Case file — one link holds the decision evidence</title>
+<title>Case — the decision and its basis</title>
 <meta name="description" content="Bind the models, decision plans, delivery projections, forecasts and risks behind one decision — without pretending they make the same claim.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂️</text></svg>">
 <link rel="stylesheet" href="/assets/tokens.css">
@@ -21,87 +21,39 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="/assets/pwa.js" defer></script>
+<link rel="stylesheet" href="case.css">
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <a class="crumb" href="/">← All tools</a>
-    <p class="kicker" id="kicker"></p>
-    <h1>Case file</h1>
-    <p class="tagline">A real decision scatters across models, decision plans, delivery projections, forecasts and risks. Paste those tool URLs here as exhibits. Case keeps each claim distinct, then gives the whole argument one cover, one verdict and one link.</p>
-  </header>
-</div>
-
+<body data-visual-family="chapter-review">
+<header class="case-toolbar">
+  <nav aria-label="Breadcrumb"><a href="/">All tools</a><span>/</span><h1>Case</h1></nav>
+  <div class="toolbar-actions"><button id="exportdeck" data-icon="download">Export deck</button><button id="editsource" data-icon="edit">Edit source</button>
+  <details id="appearance"><summary>Appearance</summary><div class="appearance-menu">
+    <label>Typography<select aria-label="Typography" id="font"><option value="chapter">Chapter</option><option value="dm-sans">DM Sans</option></select></label>
+    <label>Theme<select aria-label="Theme" id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label>Palette<select aria-label="Palette" id="palette"><option value="">Chapter sage</option><option value="ocean">Ocean</option><option value="slate">Slate</option><option value="ember">Ember</option><option value="plum">Plum</option></select></label>
+    <label>Accent<input type="color" aria-label="Accent" id="accent" value="#526F65"></label><button id="resetaccent">Use palette accent</button>
+  </div></details></div>
+</header>
 <main>
 <div class="workspace" id="workspace">
-    <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
-      <div id="cmhost" aria-label="Case file source editor"></div>
-      <ul id="warns"></ul>
-      <details class="syntax">
-        <summary>Syntax reference</summary>
-        <h4>Exhibits — the case is made of these</h4>
-        <dl>
-          <dt><code data-try="">Augment NPV model -> /fermi/#abc</code></dt>
-          <dd>an exhibit: a label, then <code>-></code>, then a tool URL pasted from the address bar</dd>
-          <dt><code data-try="">Money: Board options -> /tree/#def</code></dt>
-          <dd>a lane prefix groups exhibits — Money, Delivery, Risk, anything</dd>
-          <dt><code data-try="">Timing forecast -> /timeline/#ghi // P50–P90 dates</code></dt>
-          <dd>a <code>// note</code> says why the exhibit matters</dd>
-          <dt><code data-try="">Decision: Outcome plan -> /paths/#abc</code></dt>
-          <dd>planning URLs identify their claim: Paths shows all outcomes; Roadmap shows delivery work (and a known/assumed receipt when it is a Paths projection); Timeline forecasts timing ranges</dd>
-        </dl>
-        <h4>The cover</h4>
-        <dl>
-          <dt><code>title:</code> <code>palette:</code> <code>accent:</code></dt>
-          <dd>config · <code>// comment</code> anywhere</dd>
-          <dt><code data-try="">question: Augment in 2029, or run down?</code></dt>
-          <dd>the decision, as asked — the cover's standfirst</dd>
-          <dt><code data-try="">status: open</code></dt>
-          <dd><code>open</code>, <code>decided</code> or <code>parked</code></dd>
-          <dt><code data-try="">verdict: We augment — the warranty binds first</code></dt>
-          <dd>the decision in one line, yours alone — a case never computes one. <code>verdict: off</code> carries none</dd>
-        </dl>
-      </details>
-    </aside>
-    <button class="railtab" id="railtab" aria-label="Toggle the editor panel">‹</button>
-    <section class="stage">
-      <div class="metrics" id="metrics" hidden></div>
-      <div class="preview" id="preview" data-capability="views.case-file"><p class="placeholder">Paste a tool's URL as “Label -&gt; url” — or load the example.</p></div>
-      <div class="actions">
-        <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn primary" id="copypng" data-capability="presentationExports.png">Copy PNG</button>
-        <details class="action-disclosure">
-          <summary class="btn">Export</summary>
-          <div class="action-menu">
-            <button class="btn" id="copymd" data-capability="presentationExports.markdown">Copy as markdown</button>
-            <button class="btn" id="dlpng" data-capability="presentationExports.png">PNG</button>
-            <button class="btn" id="dlsvg" data-capability="presentationExports.svg">SVG</button>
-          </div>
-        </details>
-        <span class="method">Work in the tools, paste each URL here · planning rows state what they claim · exhibit rows open only when you choose them · the URL carries the whole case</span>
-      </div>
-    </section>
-</div>
-
-<div class="wrap">
-  <section class="about">
-    <h2>Why a binder, and why one URL?</h2>
-    <div class="prose">
-    <p>Every tool on this site keeps its state in its URL — a model, a decision plan, a delivery roadmap, a timing forecast. Each is a bookmarkable claim, but they are not interchangeable. Paths describes the outcomes still in play. Roadmap distinguishes commitment from shaped work; when it is projected from Paths, Case shows the exact known and assumed basis. Timeline forecasts when work may land.</p>
-    <p>Assembly is deliberately manual: do the work in the member tools, then paste each URL here with a label, lane and note saying why it matters. Case recognizes canonical Paths, Roadmap and Timeline URLs locally; it never fetches them, merges their models or changes their state. Unreadable or unsafe URLs earn no inferred context.</p>
-    <p>The cover renders the question, a claim-labelled exhibit register and the verdict once you commit to one. A case never computes that verdict: the exhibits argue, you decide, and the cover states it. The case URL then carries the whole kit for a board pack, handover or later retro; readers open an exhibit only when they choose its row.</p>
-    </div>
+  <aside class="rail"><div class="chips" id="chips"></div><div id="cmhost" aria-label="Case file source editor"></div>
+    <div class="source-actions"><button id="savesource">Save source</button><label class="file-button">Open source<input type="file" id="opensource" accept=".txt,.case,.md,text/plain"></label></div>
+    <details class="syntax"><summary>Syntax reference</summary><p>Tap a specimen to insert it into source.</p><p><code data-try="">title: Your decision</code> · <code data-try="">view: brief</code> · <code data-try="">font: chapter</code> · <code data-try="">theme: system</code></p><p><code>question:</code> the choice · <code>status:</code> open / decided / parked · <code>verdict:</code> your judgement · <code>palette:</code> ocean / slate / ember / plum · <code>accent:</code> a hex colour.</p><p><code>owner:</code> accountable person · <code>date:</code> decision date · <code>review-by:</code> next review · <code>constraints:</code> non-negotiables.</p><p><code>headline:</code> recommendation · <code>decision:</code> what is authorised · <code>unresolved:</code> what remains open.</p><p><code>claim id: Title</code> with indented <code>basis:</code>, <code>detail:</code>, <code>qualification:</code>, <code>assumptions:</code>, <code>url:</code>.</p><p><code>option id: Title</code> with <code>value:</code>, <code>requires:</code>, <code>downside:</code>, <code>reconsider:</code>.</p><p><code>review id: Title</code> with <code>date:</code>, <code>change:</code>, <code>implication:</code>, <code>decision:</code>, <code>previous:</code>, <code>url:</code>.</p><p>Existing <code>Label -&gt; URL // note</code> exhibits still work.</p><a href="https://github.com/MatthewGarner/tools/blob/main/DSL.md#case" target="_blank" rel="noopener">Full DSL spec</a></details>
+  </aside>
+  <button class="railtab" id="railtab" aria-label="Show source editor">Source</button>
+  <section class="stage">
+    <nav class="case-views" aria-label="Case view"><button data-view="brief">Brief</button><button data-view="compare">Compare</button><button data-view="review">Reviews</button><button id="editdecision">Edit decision</button></nav>
+    <ul id="warns" aria-live="polite"></ul><p id="appstatus" role="status"></p>
+    <div class="review-layout"><div class="preview" id="preview" data-capability="views.case-file"></div><aside id="inspector" aria-label="Decision detail"></aside></div>
+    <div class="actions"><div id="zoomctl" class="zoomctl" hidden></div><button id="addentry">Add reason</button><button id="copypng" data-capability="presentationExports.png">Copy decision slide</button><button id="copymd" data-capability="presentationExports.markdown">Copy Markdown</button><button id="sharecase">Copy Case link</button></div>
   </section>
 </div>
 </main>
-
-<div class="wrap">
-  <footer>
-    No accounts, no tracking. The URL carries your case — bookmark or share it.<br>
-    Part of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">source</a> · Built with Claude Code, August 2026.
-  </footer>
-</div>
+<footer class="case-footer">No accounts. No tracking. Your source and captured references travel with the Case.</footer>
+<dialog id="focusdialog" aria-labelledby="focusheading"><header><h2 id="focusheading">Decision detail</h2><button data-close="focusdialog" data-icon="close" aria-label="Close detail"></button></header></dialog>
+<dialog id="editdialog" aria-labelledby="editheading"><form id="editform"><header><h2 id="editheading">Edit</h2><button type="button" data-close="editdialog" data-icon="close" aria-label="Close editor"></button></header><div id="editfields"></div><p id="editerror" role="alert"></p><div class="dialog-actions"><button type="button" data-close="editdialog">Cancel</button><button type="submit" class="btn primary">Save changes</button></div></form></dialog>
+<dialog id="replacedialog" aria-labelledby="replaceheading"><header><h2 id="replaceheading">Replace captured reference</h2><button data-close="replacedialog" data-icon="close" aria-label="Close replacement"></button></header><p>The earlier reference stays in a dated review. Your decision changes only when you edit it.</p><label>New reference URL<input id="replacementurl" type="url"></label><button id="comparereference">Compare references</button><div id="referencecomparison" hidden><div class="reference-pair"><label>Previous captured state<textarea id="previousstate" readonly></textarea></label><label>Proposed state<textarea id="nextstate" readonly></textarea></label></div><label>What changed?<input id="replacementchange" required></label><label>What does this mean for the decision?<input id="replacementimplication" required></label><button id="adoptreference" class="btn primary">Adopt reference and record review</button></div><p id="replaceerror" role="alert"></p></dialog>
+<dialog id="deckdialog" aria-labelledby="deckheading"><header><h2 id="deckheading">Review deck</h2><button data-close="deckdialog" data-icon="close" aria-label="Close deck preview"></button></header><div id="deckcanvas"></div><div class="deck-navigation"><button id="deckprev">Previous</button><span id="deckposition"></span><button id="decknext">Next</button></div><div class="dialog-actions"><button id="deckpng">PNG slides</button><button id="decksvg" data-capability="presentationExports.svg">SVG slides</button><button id="deckprint">Print / PDF</button></div><p id="deckerror" role="status"></p></dialog>
+<div id="printpages" aria-hidden="true"></div>
 <script type="module" src="app.js"></script>
-</body>
-</html>
+</body></html>

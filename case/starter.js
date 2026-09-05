@@ -1,10 +1,25 @@
-/* The "Start your own" skeleton: a valid, warning-free frame with the content
-   left to you. Kept DOM-free so dev/starter.test.mjs can parse it through the
-   real parser and prove it stays clean as the DSL moves. */
-export const STARTER = `title: Your case
-question: The decision you are making
+/* A warning-free authored frame. Empty references cannot imply evidence. */
+export const STARTER = `title: Your decision
+question: What choice are you making?
+headline: State the choice and why it matters.
 status: open
+decision: No commitment authorised yet
+unresolved: The choice remains open
+font: chapter
+view: brief
 
-Money: The £ case -> /fermi/
-Decision: The outcome plan -> /paths/
-Risk: The premortem -> /premortem/`;
+option first: First option
+  value: What this option makes possible
+  requires: What must be true
+  downside: What you give up
+
+option second: Second option
+  value: What this option makes possible
+  requires: What must be true
+  downside: What you give up
+
+claim premise: A premise to examine
+  basis: assumption
+  detail: State the premise explicitly.
+  qualification: Describe what is still unknown.
+  assumptions: Explain what would change your mind.`;

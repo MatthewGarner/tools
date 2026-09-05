@@ -170,7 +170,7 @@ const PAGES = {
      recognition, bounded Roadmap-basis decoding and claim-labelled exports
      are the Case binder's job, not decorative shell bytes. Actual 472.8k;
      retain ~6.2k headroom for this CodeMirror page. */
-  'case/index.html': 490_000,   /* 479k -> 490k (2026-08-20 P1): shared export and reader-state code brings the real eager graph to 484.0k; retain ~6k headroom rather than turning a cross-suite safety seam into a recurring 300B trap. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 462.8k, ~4.2k headroom */   /* 2026-08-04 fold: density + interaction branches both land real bytes; merged actual 456.7k, ~5k headroom */   /* new binder 2026-08-02: actual ~439.7k (the CodeMirror-editor page class, like every DSL tool), set with ~4k */   /* +2k sweep (12 pages) 2026-08-02 compressed-hash: series.js +1.1k rides every page; six pages tripped, six sat <500B — thin-is-a-trap */
+  'case/index.html': 580_000, // Chapter review, local fonts and complete paginated decks: measured 561k; bounded headroom for the approved feature.
   'duel/index.html': 93_000,   /* no editor/CodeMirror — pure engine + render + app shell */
   /* 113k -> 125k (2026-08-13 pre-parade): the inverse workshop adds a distinct
      opportunity register, commitment-only rendering/markdown, explicit home

@@ -77,7 +77,7 @@ const TOOLS = [
      Every one of those facts was measured against the running page. A first attempt
      guessed the label; a second removed the trigger entirely on the strength of a
      visibility probe that used offsetParent and reported the opposite of the truth. */
-  {path: '/case/', chip: 'Wexcombe augmentation'},
+  {path: '/case/', chip: 'Morrow · paid tier', source: 'Edit source', narrowTab: false, receiptColumn: true},
   {path: '/paths/', chip: 'Lantern', source: 'Edit Paths plan source', narrowTab: false, receiptColumn: true, deep: true},
   {path: '/proxy/', chip: TWO_THEORIES.name, source: 'Show source editor', narrowTab: false, reader: true},
 ];
@@ -259,7 +259,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
     /* count() first: boundingBox() on a locator that matches nothing waits out the
        full timeout and rejects, which would CRASH the suite where a vanished receipt
        should read as a clean FAIL. */
-    const receipt = page.locator('.overview-receipt').first();
+    const receipt = page.locator(path === '/case/' ? '#inspector' : '.overview-receipt').first();
     const receiptBox = await receipt.count() ? await receipt.boundingBox() : null;
     check(path + ' artefact fills its stage beside the receipt (svg ' + Math.round(after) +
       ' = stage ' + Math.round(stageW) + ')', Math.abs(after - stageW) < 12);

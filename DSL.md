@@ -647,23 +647,71 @@ insure: premium 8 attach 40 limit 120
 through the tool's own `parse.js` and fails if any of them produce a warning
 (`dev/dsl-doc.test.mjs`). The concepts behind the tools are in `ARCHITECTURE.md`.*
 
-## case — the case file (binder)
+## case — decision review
 
-One URL that holds a decision's whole kit. Config: `title:`, `question:` (the
-standfirst), `status:` (`open` | `decided` | `parked`), `verdict:` (authored
-only — a case never computes one; `off` carries none), `palette:`/`accent:`.
-An exhibit is roadmap's link grammar: `[Lane:] Label -> url [// note]` — the
-URL must be one of this suite's tools (relative `/tool/#…` or the two full
-https origins); anything else stays visible as a dead (ghost) exhibit. Lanes
-are free text and exist once an exhibit carries one.
+A portable, authored decision review. Case does not compute a verdict or infer
+agreement between instruments. `decision:` states the commitment authorised now;
+`unresolved:` preserves the question still open. `status: decided` can therefore
+mean an experiment was approved while rollout remains undecided.
+
+Config: `title:`, `question:`, `headline:`, `status:` (`open` | `decided` | `parked`),
+`decision:`, `unresolved:`, `verdict:` (authored; `off` hides it), `owner:`, `date:`
+and `review-by:` (real `YYYY-MM-DD` dates), `reconsider:`, `constraints:`, `view:`
+(`brief` | `compare` | `review`), `font:` (`chapter` | `dm-sans`), `theme:`
+(`system` | `light` | `dark`), `palette:` and six-digit hex `accent:`. View and
+appearance controls edit these source settings; there is one presentation state.
+
+Blocks have a unique id, a label, and indented single-line fields:
+
+- `option id: Label`: `value`, `requires`, `downside`, `reconsider`.
+- `claim id: Label`: `basis` (`observation` | `assumption` | `model` | `judgement`),
+  `detail`, `qualification`, `assumptions`, `url`.
+- `review id: Label`: `date`, `change`, `implication`, `decision`, `url`, `previous`.
+  Each review is a separate authored record; a later decision does not overwrite
+  the original authorisation. Planned reviews must say they contain no new evidence.
+
+Reference fields accept exact suite URLs or explicit external HTTP(S) references.
+A tool link needs meaningful URL-carried state to be called captured. A bare link,
+teaching seed or malformed hash is qualified; successful decoding does not validate
+its assumptions or conclusions. External references are links, never captured
+models. Case reads state already in the URL and never fetches external evidence.
+`previous:` links the exact earlier model used in a dated review.
+
+Legacy exhibits remain valid alongside claims: `[Lane:] Label -> url [// note]`.
+Their existing suite-only allowlist remains unchanged; other URLs stay visible as
+dead exhibits. Use a claim's `url:` for an explicit external reference. Comments
+start with `//` at a whitespace boundary. Blank lines do not end a block; the next
+unindented declaration does. Unknown fields produce soft line-numbered warnings.
 
 ```dsl tool=case
-title: Wexcombe augmentation
-question: Augment in 2029, or run the fleet down?
+title: Morrow / Paid tier
+question: Launch now, learn first, or defer?
+headline: Fund the pilot. Keep launch open.
 status: decided
-verdict: We augment — the warranty binds 3 years before the wear does
-Money: Augment NPV model -> /fermi/#abc // the £ case either way
-Money: Board options -> /tree/#def
-Delivery: Plan of record -> /timeline/#ghi // P50–P90 dates
-Risk: Premortem register -> /premortem/#jkl
+decision: Approve the pilot within its cost ceiling
+unresolved: General launch remains undecided
+verdict: Learn first, provided the pilot costs no more than £13.6k.
+owner: Pricing lead
+date: 2026-09-05
+review-by: 2026-11-13
+reconsider: Total pilot cost exceeds £13.6k.
+font: dm-sans
+view: brief
+option pilot: Run the pilot
+  value: £16.6k expected contribution under the authored assumptions
+  requires: £10k pilot cost and an informative signal
+  downside: Eight weeks of delay
+option launch: Launch now
+  value: £13k expected contribution under the same assumptions
+  downside: Commit before learning about demand
+claim margin: The pilot leads by £3.6k
+  basis: model
+  detail: The expected-value comparison includes the pilot cost.
+  qualification: Expected value is not a revenue promise.
+  assumptions: Viable-demand prior 30%; sensitivity and specificity 80%.
+review budget: Cost estimate changes
+  date: 2026-09-12
+  change: Pilot cost is now estimated at £14k; no customer evidence changed.
+  implication: The model preference reverses.
+  decision: Reopen the pilot approval before spending.
 ```

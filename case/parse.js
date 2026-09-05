@@ -7,6 +7,42 @@
 import {PALETTE_NAMES} from '../assets/series.js';
 
 const STATUSES = ['open', 'decided', 'parked'];
+export const CONFIG_KEYS = ['title', 'question', 'status', 'verdict', 'palette', 'accent', 'headline', 'decision', 'unresolved', 'owner', 'date', 'review-by', 'reconsider', 'constraints', 'view', 'font', 'theme'];
+export const BLOCK_FIELDS = {
+  option: ['value', 'requires', 'downside', 'reconsider'],
+  claim: ['basis', 'detail', 'qualification', 'assumptions', 'url'],
+  review: ['date', 'change', 'implication', 'decision', 'url', 'previous'],
+};
+const ENUMS = {status: STATUSES, view: ['brief', 'compare', 'review'], font: ['chapter', 'dm-sans'], theme: ['system', 'light', 'dark']};
+const commentValue = value => value.replace(/(^|\s)\/\/.*$/, '').trim();
+export function validDate(value){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+}
+
+/* A reference is navigation, never evidence validation. A non-empty hash may
+   carry a model; only the receiving tool can establish that it is meaningful. */
+export function classifyReference(value){
+  const raw = String(value || '');
+  const invalid = {safe: false, kind: 'invalid', tool: '', capture: 'none'};
+  if(!raw || /[\s\u0000-\u001f\u007f\\]/.test(raw) || raw.startsWith('//')) return invalid;
+  let url;
+  try{ url = new URL(raw, 'https://tools.matthewgarner.me'); }catch{ return invalid; }
+  if(!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return invalid;
+  if(!raw.startsWith('/') && !/^https?:\/\//i.test(raw)) return invalid;
+  const local = raw.startsWith('/');
+  const suite = ['https://tools.matthewgarner.me', 'https://energy.matthewgarner.me'].includes(url.origin);
+  const tool = url.pathname.match(/^\/([a-z-]+)\/$/)?.[1] || '';
+  const allowed = url.origin === 'https://energy.matthewgarner.me' ? ENERGY_TOOLS : SUITE_TOOLS;
+  const rawPath = local ? raw.split(/[?#]/)[0] : raw.replace(/^https?:\/\/[^/]+/i, '').split(/[?#]/)[0];
+  if(local || suite){
+    if(!suite || !allowed.includes(tool) || rawPath !== url.pathname || url.search) return invalid;
+    const hash = url.hash.slice(1);
+    return {safe: true, kind: 'tool', tool, capture: !hash || hash === 'eyJ2IjoxfQ' ? 'missing' : 'unverified'};
+  }
+  return {safe: true, kind: 'external', tool: '', capture: 'external'};
+}
 
 /* the tools each origin serves — the pill name derives from the path segment.
    Kept as a literal (not an import of dev/tool-dirs.mjs, which is dev-only and
@@ -36,29 +72,65 @@ export function classifyUrl(url){
 
 export function parse(text){
   const model = {title: '', question: '', status: 'open', verdict: null,
-    palette: null, accent: null, exhibits: [], lanes: [], warnings: [], srcLines: {}};
+    palette: null, accent: null, headline: '', decision: '', unresolved: '', owner: '', date: '', reviewBy: '', reconsider: '', constraints: '', view: 'brief', font: 'chapter', theme: 'system', options: [], claims: [], reviews: [], exhibits: [], lanes: [], warnings: [], srcLines: {}};
   const lines = String(text ?? '').split(/\r?\n/);
   const warn = (ln, msg) => model.warnings.push('line ' + (ln + 1) + ': ' + msg);
 
+  let block = null;
   for(let ln = 0; ln < lines.length; ln++){
     const line = lines[ln].trim();
     if(!line || line.startsWith('//')) continue;
 
-    const config = line.match(/^(title|question|status|verdict|palette|accent)\s*:\s*(.*)$/i);
-    if(config){
-      const key = config[1].toLowerCase();
-      const val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
-      if(key === 'title') model.title = val;
-      else if(key === 'question') model.question = val;
-      else if(key === 'verdict') model.verdict = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // raw; assets/verdict.js owns off/empty
-      else if(key === 'status'){
-        if(STATUSES.includes(val.toLowerCase())) model.status = val.toLowerCase();
-        else warn(ln, 'unknown status "' + val + '" — options: ' + STATUSES.join(', '));
-      } else if(key === 'palette'){
+    if(/^\s+/.test(lines[ln]) && block){
+      const field = line.match(/^([a-z-]+)\s*:\s*(.*)$/i);
+      if(!field || !BLOCK_FIELDS[block.kind].includes(field[1].toLowerCase())){
+        warn(ln, 'unknown ' + block.kind + ' field'); continue;
+      }
+      const key = field[1].toLowerCase(), value = commentValue(field[2]);
+      block.fields[key] = ln;
+      if(key === 'basis' && value && !['observation', 'assumption', 'model', 'judgement'].includes(value)){
+        warn(ln, 'basis wants observation, assumption, model or judgement'); continue;
+      }
+      if(key === 'date' && value && !validDate(value)){ warn(ln, 'date wants a real YYYY-MM-DD date'); continue; }
+      block[key] = value;
+      if(key === 'url' || key === 'previous'){
+        const reference = classifyReference(value);
+        block[key === 'url' ? 'reference' : 'previousReference'] = reference;
+        if(value && !reference.safe) warn(ln, 'unsafe or malformed reference — kept as text, never a live link');
+      }
+      continue;
+    }
+    block = null;
+    const start = line.match(/^(option|claim|review)\s+([a-z][a-z0-9_-]*)\s*:\s*(.*)$/i);
+    if(start){
+      const kind = start[1].toLowerCase(), id = start[2], label = commentValue(start[3]);
+      const collection = model[kind === 'option' ? 'options' : kind === 'claim' ? 'claims' : 'reviews'];
+      if(collection.some(node => node.id === id)){ warn(ln, 'duplicate ' + kind + ' id "' + id + '" — use a unique id'); continue; }
+      block = {kind, id, label, srcLine: ln, fields: {}, ...Object.fromEntries(BLOCK_FIELDS[kind].map(key => [key, '']))};
+      if(kind !== 'option') block.reference = classifyReference('');
+      if(kind === 'review') block.previousReference = classifyReference('');
+      collection.push(block);
+      if(!label) warn(ln, kind + ' needs a label');
+      continue;
+    }
+    const config = line.match(/^([a-z-]+)\s*:\s*(.*)$/i);
+    // New review config names also occur as old exhibit lanes (Decision: ...).
+    // An exhibit-shaped value keeps that legacy meaning rather than consuming its URL.
+    const legacyLane = config && !['title', 'question', 'status', 'verdict', 'palette', 'accent'].includes(config[1].toLowerCase()) && /\s->\s+\S+(?:\s+\/\/.*)?$/.test(config[2]);
+    if(config && !legacyLane && CONFIG_KEYS.includes(config[1].toLowerCase())){
+      const key = config[1].toLowerCase(), val = commentValue(config[2]);
+      const property = key === 'review-by' ? 'reviewBy' : key;
+      if(ENUMS[key]){
+        if(ENUMS[key].includes(val.toLowerCase())) model[property] = val.toLowerCase();
+        else warn(ln, 'unknown ' + key + ' "' + val + '" — options: ' + ENUMS[key].join(', '));
+      }else if(key === 'palette'){
         if(PALETTE_NAMES.includes(val.toLowerCase())) model.palette = val.toLowerCase();
         else warn(ln, 'unknown palette "' + val + '" — options: ' + PALETTE_NAMES.join(', '));
-      } else if(/^#[0-9a-fA-F]{6}$/.test(val)) model.accent = val;
-      else warn(ln, 'accent wants a 6-digit hex like #C05621');
+      }else if(key === 'accent'){
+        if(/^#[0-9a-fA-F]{6}$/.test(val)) model.accent = val;
+        else warn(ln, 'accent wants a 6-digit hex like #C05621');
+      }else if((key === 'date' || key === 'review-by') && val && !validDate(val)) warn(ln, key + ' wants a real YYYY-MM-DD date');
+      else model[property] = val;
       model.srcLines[key] = ln;
       continue;
     }
@@ -88,5 +160,7 @@ export function parse(text){
   const vRaw = model.verdict == null ? '' : String(model.verdict).trim();
   if(model.status === 'decided' && (vRaw === '' || vRaw.toLowerCase() === 'off'))
     model.warnings.push('a decided case states its verdict — add a verdict: line (or set status: open)');
+  if(model.status === 'decided' && (model.options.length || model.claims.length || model.reviews.length) && !model.decision)
+    model.warnings.push('state the authorised scope in decision:; decided does not mean every open question is resolved');
   return model;
 }

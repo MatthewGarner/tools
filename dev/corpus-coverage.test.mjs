@@ -150,7 +150,6 @@ test('check-eip visits every attachEditInPlace tool or records its dedicated-sui
   const baseRoute = routesIn(src.match(/const BASE\s*=.*?;\s*$/m)?.[0] || '');
   const covered = new Set([...baseRoute, ...gotoArguments(src).flatMap(routesIn)]);
   const allowed = {
-    case: 'dev/pw/case.mjs owns case-level edit-in-place interaction and undo coverage.',
     proxy: 'dev/pw/smoke.mjs exercises the proxy author-verdict edit-in-place flow in both themes.',
   };
   assert.ok(eligible.length > 0, 'edit-in-place app discovery found nothing');

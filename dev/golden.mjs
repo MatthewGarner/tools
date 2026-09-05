@@ -519,6 +519,16 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
       known:[{key:'pricing', direction:'yes', date:'2026-08-03'}],
       assumed:[{key:'groups', direction:'no', date:'2026-08-12'}]}};
   variants['case-projection'] = crender(cProjection, cctx);
+  const {DEFAULT_TEXT,EXAMPLES} = await import('../case/examples.js');
+  const {buildCaseDeck} = await import('../case/deck-svg.js');
+  for(const view of ['brief','compare','review']) {
+    const source=(view==='review'?EXAMPLES[3].text:DEFAULT_TEXT)+'\nview: '+view;
+    variants['case-'+view]=crender(cparse(source),{...cctx,width:1100});
+    variants['case-'+view+'-phone-dark']=crender(cparse(source),{...cctx,width:390,dark:true});
+  }
+  for(const page of buildCaseDeck(cparse(DEFAULT_TEXT),{measure:cctx.measure}).pages)
+    variants['case-deck-'+page.index]=page.svg;
+
 }
 
 /* /wardley fixtures (pure layout → deterministic) */

@@ -6,8 +6,9 @@ const lang = StreamLanguage.define({
     if(stream.sol()){
       const line = stream.string.trim();
       if(line.startsWith('//')){ stream.skipToEnd(); return 'comment'; }
-      if(/^(title|question|status|verdict|palette|accent)\s*:/i.test(line)){
-        stream.match(/^\s*[a-z]+\s*:/i); return 'keyword';
+      if(/^(option|claim|review)\s+/i.test(line)){ stream.match(/^\s*(option|claim|review)\s+[^:]+:/i); return 'keyword'; }
+      if(/^(title|question|status|verdict|palette|accent|headline|decision|unresolved|owner|date|review-by|reconsider|constraints|view|font|theme|basis|detail|qualification|assumptions|url|value|requires|downside|change|implication|previous)\s*:/i.test(line)){
+        stream.match(/^\s*[a-z-]+\s*:/i); return 'keyword';
       }
     }
     if(stream.match(/^->\s*\S+/)) return 'atom';        // the link — the exhibit's whole point
