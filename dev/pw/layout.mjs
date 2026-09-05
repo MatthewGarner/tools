@@ -228,8 +228,9 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   await page.waitForTimeout(500);
   if(view){ await page.locator(view).click(); await page.waitForTimeout(400); }
 
-  // Source/resize paints can replace the SVG. Read its width in one DOM operation.
-  const svgW = () => page.locator('#preview svg').evaluate(svg=>svg.getBoundingClientRect().width);
+  // Case replaces its SVG during resize. A resolved SVG handle can detach before
+  // evaluate runs (width 0); query it inside the stable preview's DOM operation.
+  const svgW = () => page.locator('#preview').evaluate(preview=>preview.querySelector('svg')?.getBoundingClientRect().width||0);
   check(path + ' rail visible by default', await page.locator('.rail').isVisible());
   const before = await svgW();
   await page.locator('#railtab').click();
