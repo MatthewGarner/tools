@@ -1,3 +1,5 @@
+import {layoutObservatory,observatoryPages,observatoryColors} from '../observatory.js';
+const words = svg => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m=>m[1]).join(' ');
 /* Ship 2 — the <520px narrow relayout: stacked milestone rows on a SHARED time
    axis. renderNarrow is a preview-only early return; exports/wide stay untouched.
    Every invariant test also asserts /data-narrow/ so a gate drift can't let it
@@ -55,14 +57,14 @@ test('narrow: named lanes get one uppercase section header each; the unnamed lan
   const svg = render(parse('X: one 2026-08 .. 2026-09\nplain 2026-08-10'), {...ctx, width: W});
   assert.match(svg, /data-narrow=""/);
   assert.match(svg, />X</);
-  assert.equal((svg.match(/letter-spacing="1"/g) || []).length, 1);   // exactly one lane header
+  assert.equal((svg.match(/data-lane="X"/g) || []).length, 1);   // exactly one lane header
 });
 
 test('narrow: a TODAY rule and month-tick labels render', () => {
   const svg = render(parse(DOC), {...ctx, width: W});
   assert.match(svg, /data-narrow=""/);
   assert.match(svg, /data-today/);
-  assert.match(svg, />TODAY</);
+  assert.match(svg, />Today ·[^<]+</);
   assert.match(svg, /Aug 2026|Sep 2026|Oct 2026/);
 });
 
@@ -111,8 +113,8 @@ test('narrow compare: historic facts, NEW, dropped receipt and since line all re
   assert.match(svg, /data-field-history="p50"/); // Energisation moved → historic P50
   assert.match(svg, />NEW</);                     // New item
   assert.match(svg, /JUNE/);                      // since-line
-  assert.match(svg, /DROPPED SINCE/);             // Dropped thing
-  assert.match(svg, /\+4 wks/);                   // exact compact slip receipt
+  assert.match(svg, /data-dropped=""/);             // Dropped thing
+  assert.match(svg, /P50 \+31 days/);                   // exact compact slip receipt
 });
 
 test('exports/renderer are stateless: a narrow paint leaks nothing into a later wide render', () => {
@@ -152,15 +154,8 @@ test('narrow: fixed and done are both point facts but retain distinct semantics'
 
 /* Swiss 6b: the page carries no HTML verdict, so the narrow artefact carries the
    one — same anatomy, re-wrapped above the 11px data floor. Exports never take this path. */
-test('narrow: the verdict remains a quiet, readable Field receipt', () => {
-  const svg = render(parse(DOC), {...ctx, width: W});
-  assert.match(svg, /data-narrow=""/);
-  assert.match(svg, />VERDICT</);
-  assert.match(svg, /font-size="16" font-weight="650"/);
-  assert.equal((svg.match(/#D62015/g) || []).length, 0);
-  const v = timelineVerdict(parse(DOC), ctx.today);
-  assert.ok(v.fig && v.line.includes(v.fig));
-  assert.match(render(parse(DOC), ctx), /data-font-floor="11"/);
+test('phone conclusions retain authored copy without automatic clutter', () => {
+ const m=parse('verdict: Keep the review clear.\n'+DOC),s=render(m,{...ctx,width:W});assert.match(s,/data-narrow=""/);assert.match(words(s),/Keep the review clear/);assert.doesNotMatch(words(render(parse(DOC),{...ctx,width:W})),/Next up:|Widest whisker:/);assert.match(s,/data-font-floor="14"/);
 });
 
 test('narrow: [risk] carries the RISK pill too', () => {

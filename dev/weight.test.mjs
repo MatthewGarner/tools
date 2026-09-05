@@ -413,7 +413,7 @@ const PAGES = {
      explicit author route, and focus-safe session feedback. They share the live
      SVG statistics rather than creating a second model; actual 565.6k leaves a
      4.4k guardrail. */
-  'gauge/index.html': 580_000, 'timeline/index.html': 576_000,   /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
+  'gauge/index.html': 580_000, 'timeline/index.html': 665_000,   /* Timeline Observatory adds the local font registry, measured four-view renderer and complete PNG decks (~646k). */ /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */

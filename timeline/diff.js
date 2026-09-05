@@ -5,9 +5,9 @@
 import {diffItems} from '../assets/snapshots.js';
 
 const keyed = m => m.items.map(it => ({
-  key: it.identity || (it.lane + '|' + it.label), label: it.label,
-  state: [it.p50, it.p90, it.status || '', it.single ? 'point' : 'range'].join(','),
-  p50: it.p50, p90: it.p90, status: it.status || '', single: !!it.single,
+  key: it.identity || (it.lane + '|' + it.label), label: it.label, lane: it.lane, note: it.note, rawDates: it.rawDates,
+  state: [it.p50, it.p90, it.status || '', it.single ? 'point' : 'range', it.started ?? ''].join(','),
+  p50: it.p50, p90: it.p90, status: it.status || '', single: !!it.single, started: it.started ?? null,
 }));
 
 export function timelineDiff(oldModel, model){
@@ -22,17 +22,18 @@ const wk = days => {
 export function timelineDiffView(d, since){
   const byKey = new Map();
   const slips = [];
-  let widened = 0;
+  let widened = 0, startsChanged = 0;
   for(const [k, {from, item}] of d.moved){
-    const [p50, p90, oldStatus = '', oldKind = 'range'] = String(from).split(',');
-    const oldP50 = Number(p50), oldP90 = Number(p90);
+    const [p50, p90, oldStatus = '', oldKind = 'range', oldStart = ''] = String(from).split(',');
+    const oldP50 = Number(p50), oldP90 = Number(p90), oldStarted = oldStart === '' ? null : Number(oldStart);
     const slipDays = item.p50 - oldP50;
     const history = [];
     if(oldP50 !== item.p50) history.push('p50');
     if(oldP90 !== item.p90) history.push('p90');
     if(oldStatus === 'fixed' && item.status !== 'fixed') history.push('fixed');
     if(oldStatus !== 'fixed' && item.status === 'fixed') history.push('forecast');
-    byKey.set(k, {oldP50, oldP90, oldStatus, oldKind, history, slipDays});
+    if(oldStarted !== item.started){ history.push('started'); startsChanged++; }
+    byKey.set(k, {oldStarted, oldP50, oldP90, oldStatus, oldKind, history, slipDays});
     if(slipDays !== 0) slips.push({label: item.label, days: slipDays});
     else if(item.p90 !== oldP90) widened++;
   }
@@ -42,10 +43,11 @@ export function timelineDiffView(d, since){
   if(late.length) bits.push(late.length + ' slipped (worst ' + late[0].label + ' +' + wk(late[0].days) + ')');
   if(early.length) bits.push(early.length + ' pulled in');
   if(widened) bits.push(widened + (widened === 1 ? ' range' : ' ranges') + ' widened');
+  if(startsChanged) bits.push(startsChanged + (startsChanged === 1 ? ' start changed' : ' starts changed'));
   if(d.added.length) bits.push(d.added.length + ' new');
   if(d.dropped.length) bits.push(d.dropped.length + ' dropped');
   const sinceLine = 'Since ' + since + ': ' + (bits.length ? bits.join(' · ') : 'nothing moved') + '.';
   return {byKey, slips, sinceLine, since, any: d.any,
     newKeys: new Set(d.added.map(e => diffItems.norm(e.key))),
-    dropped: d.dropped.map(e => e.label)};
+    dropped: d.dropped.map(e => e.label), droppedItems: d.dropped.map(e => ({...e}))};
 }

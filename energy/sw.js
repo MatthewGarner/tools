@@ -1,10 +1,11 @@
 /* Energy-origin worker — same strategy as the root sw.js (see its comment);
    PRECACHE lists URLs as served on energy.matthewgarner.me and is generated
    by dev/gen-sw.mjs (dev/pwa-precache.test.mjs enforces). */
-const CACHE = 'energy-c222443cdb';
+const CACHE = 'energy-3e6550d0f7';
 const PRECACHE = [
   '/',
   '/assets/about.css',
+  '/assets/action-icons.js',
   '/assets/app-common.js',
   '/assets/controls.css',
   '/assets/edit-in-place.js',

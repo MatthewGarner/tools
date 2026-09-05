@@ -1,14 +1,14 @@
 /* Timeline DSL language on the shared editor core. */
 import {makeEditor, StreamLanguage, tags as t} from '../assets/editor-common.js';
 export {insertAndSelect} from '../assets/editor-common.js';
-import {STATUSES} from './parse.js';
+import {STATUSES, parseLead, parseStarted} from './parse.js';
 
 const lang = StreamLanguage.define({
   token(stream){
     if(stream.sol()){
       const line = stream.string.trim();
       if(line.startsWith('//')){ stream.skipToEnd(); return 'comment'; }
-      if(/^(title|palette|accent|today|verdict)\s*:/i.test(line)){
+      if(/^(title|palette|accent|font|style|today|verdict)\s*:/i.test(line)){
         stream.match(/^\s*[a-z]+\s*:/i); return 'keyword';
       }
       const lane = stream.match(/^\s*[^:\[\d][^:\[]*?:\s/, true);
@@ -18,7 +18,9 @@ const lang = StreamLanguage.define({
     if(stream.match(/^\.\./)) return 'meta';
     if(stream.match(/^\[[^\]]+\]/)){
       const tag = stream.current().slice(1, -1).trim().toLowerCase();
-      return STATUSES.includes(tag) ? 'atom' : 'invalid';
+      const lead = tag.match(/^lead\s*:\s*(.*)$/), started = tag.match(/^started\s*:\s*(.*)$/);
+      return STATUSES.includes(tag) || (lead && parseLead(lead[1]) !== null) ||
+        (started && parseStarted(started[1]) !== null) ? 'atom' : 'invalid';
     }
     if(stream.match(/^\/\/.*$/)) return 'comment';
     stream.next();

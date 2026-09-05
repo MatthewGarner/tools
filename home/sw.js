@@ -6,7 +6,7 @@
    serves stale pages when connected. /api/ (gauge relay) stays live-only.
    PRECACHE is generated from the filesystem; dev/pwa-precache.test.mjs fails
    if a shipped file is missing from it. */
-const CACHE = 'tools-bb7dd328f3';
+const CACHE = 'tools-c32068c2c7';
 const PRECACHE = [
   '/',
   '/alarm/',
@@ -18,6 +18,7 @@ const PRECACHE = [
   '/alarm/render.js',
   '/alarm/style.css',
   '/assets/about.css',
+  '/assets/action-icons.js',
   '/assets/app-common.js',
   '/assets/controls.css',
   '/assets/edit-in-place.js',
@@ -193,6 +194,7 @@ const PRECACHE = [
   '/roadmap/',
   '/roadmap/app.js',
   '/roadmap/board-window.js',
+  '/roadmap/chapter-colors.js',
   '/roadmap/chapter-font-loader.js',
   '/roadmap/chapter-fonts.js',
   '/roadmap/chapter-layout.js',
@@ -232,14 +234,17 @@ const PRECACHE = [
   '/timeline/edit-targets.js',
   '/timeline/editor.js',
   '/timeline/handoff.js',
+  '/timeline/inspector.js',
   '/timeline/lrm.js',
   '/timeline/mergebias.js',
   '/timeline/motion-spec.js',
+  '/timeline/observatory.js',
   '/timeline/parse.js',
   '/timeline/render-field.js',
   '/timeline/render.js',
   '/timeline/starter.js',
   '/timeline/style.css',
+  '/timeline/timing.js',
   '/tree/',
   '/tree/app.js',
   '/tree/comparison.js',

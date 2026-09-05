@@ -1,3 +1,5 @@
+import {layoutObservatory,observatoryPages,observatoryColors} from '../observatory.js';
+const words = svg => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m=>m[1]).join(' ');
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, dayToISO, parseDate} from '../parse.js';
@@ -87,11 +89,11 @@ test('presentation either carries every decision clock or honestly refuses a par
   const m=parse(many), deckMany=render(m,ctx,null,{intent:'presentation'});
   assert.match(deckMany,/data-copy-field="(?:complete|unavailable)"/);
   if(/data-copy-field="complete"/.test(deckMany)) assert.equal((deckMany.match(/data-lrm/g)||[]).length,1);
-  else assert.match(deckMany,/COPY PNG UNAVAILABLE/);
+  else assert.match(deckMany,/Copy PNG needs a complete single slide/);
   const clocks=['today: 2026-01-01', ...Array.from({length:9},(_,i)=>
     'Gate '+i+' 2027-'+String(i%9+1).padStart(2,'0')+'-01 [fixed] [lead: 2w]')].join('\n');
   const deck=render(parse(clocks),ctx,null,{intent:'presentation'});
   assert.match(deck,/data-copy-field="(?:complete|unavailable)"/);
   if(/data-copy-field="complete"/.test(deck)) assert.equal((deck.match(/data-lrm/g)||[]).length,9);
-  else assert.match(deck,/COPY PNG UNAVAILABLE/);
+  else assert.match(deck,/Copy PNG needs a complete single slide/);
 });
