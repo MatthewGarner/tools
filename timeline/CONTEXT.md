@@ -10,6 +10,15 @@ around it.
 A dated event or forecasted delivery point. An open milestone carries a P50–P90
 range; it is not a delivery promise.
 
+**Actual start**:
+An authored, observed work-start date: `[started: YYYY-MM-DD]`. It is optional,
+never inferred from the finish distribution and never a planned start. An actual
+start plus P50/P90 finish gives estimated calendar spans, not effort, progress or
+a duration distribution. Completed work ends elapsed time at its actual finish;
+open work uses the same effective UTC today as the chart. Contradictory future or
+post-finish starts remain visible as authored facts with warnings, but calculate
+no duration. Fixed external events cannot carry work starts.
+
 **Fixed event**:
 A date outside the team's control, written `[fixed]`. It certifies the date,
 not that every other milestone must precede it.
@@ -46,6 +55,10 @@ geometry without depending on colour.
 
 The DSL is visible in the artefact, not merely retained in parsing:
 
+- `font` selects the same locally bundled Chapter or DM Sans typography used by
+  Roadmap. `style` selects field, review, decisions or register; the picker writes
+  this canonical source setting, not a second hidden visual state. Review requires
+  a separately selected snapshot baseline.
 - `palette` and `accent` derive the paper and rule scheme in every Field output;
   they never turn uncertainty into decorative badges.
 - An authored note is a measured secondary fact beneath its milestone dates in
@@ -58,22 +71,21 @@ Comparison identifies an item by normalized lane, label and its occurrence
 within that lane. Moving a milestone to another lane is deliberately a drop plus
 a new milestone: lane membership is a meaningful portfolio fact and the DSL has
 no stable ID to claim otherwise. A change may therefore preserve historic P50,
-historic P90, both, or a former fixed/forecast state; historic marks are inert
+historic P90, actual start, or a former fixed/forecast state; historic marks are inert
 and visually distinguishable by construction, never colour alone.
 
-Native SVG is exhaustive and may grow vertically. Copy PNG is a single complete
-1920×1080 Field only: it must contain every milestone, note and receipt above
-its footer. When the measured Field cannot fit, Copy PNG clearly refuses and
-directs the author to exhaustive SVG; it never silently selects, crops or turns
-the remainder into a partial presentation. If a future output introduces
-continuation pages, each repeats its header and scale and no interval is split
-at a page boundary.
+Native SVG is exhaustive and may grow vertically. Presentation exports must
+account for the complete selected view: every milestone, note, decision clock
+and historic dropped item. A single-slide copy must refuse if it cannot fit;
+complete slide sets paginate rows and commentary while repeating the header,
+lane context and identical chronological scale on every page. No interval may
+be divided across a page boundary, silently selected away or cropped. Font
+measurement and painting use the same font, and detached exports embed it.
 
 Live editing stays quiet at rest, but never undiscoverable: every milestone has
 an accessible menu, every named lane plus the unlaned field has an add route,
 and keyboard focus reveals the relevant control. Escape cancels without source
 change; invalid input remains visibly invalid; commit and undo return focus to
 the initiating Field target. Popovers remain on-screen at every supported
-viewport. The canonical URL carries only source state (never a visual-direction
-switch); snapshots, Premortem handoff, next-up selection and motion all retain
+viewport. The canonical URL carries source state, including its declared view and font; snapshots, Premortem handoff, next-up selection and motion all retain
 their existing semantics.

@@ -81,7 +81,7 @@ test('Paths, Roadmap and Timeline name their different planning claims at the en
   assert.match(roadmap, /If an open question can stop, pivot or expand investment, design the decision plan in <a href="\/paths\/">Paths<\/a> first\./,
     'Roadmap must route material conditionality to Paths without implying a shared model');
   assert.match(timeline, /Timing forecast · ranges, not promises/,
-    'Timeline must identify its forecast claim before the workspace');
+    'Timeline keeps its forecast claim on the tool title without repeating it in the artifact');
   assert.match(timeline, /does not decide which conditional work belongs in the plan/,
     'Timeline must not make a timing forecast look like a decision or delivery plan');
   assert.match(timeline, /<a href="\/paths\/">Paths<\/a> and <a href="\/roadmap\/">Roadmap<\/a>/,

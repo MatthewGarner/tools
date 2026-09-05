@@ -2560,8 +2560,10 @@ check('no console/page errors', errors.length === 0);
      Same round-trip contract as the tree/why blocks above: commit, assert, ONE
      touch-Undo, assert full revert to the pre-menu baseline before the next
      action starts clean. ---- */
-  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/', {waitUntil: 'networkidle'});
-  await mpage.getByRole('button', {name: 'App launch programme'}).click();
+  // Pin the editing fixture: the public example and source visibility can evolve.
+  const tlFixture = 'title: Editing programme\nApp: Feature freeze 2026-09 .. 2026-10\nApp: Store review 2026-10 .. 2026-11\nMarketing: Landing page 2026-09 .. 2026-10\nMarketing: Campaign 2026-10 .. 2026-11\nCompliance: Privacy audit 2026-10 .. 2026-12\nCompliance: Terms 2026-09 .. 2026-11\nApp: Launch 2026-11 .. 2026-12';
+  const tlHash = Buffer.from(JSON.stringify({t:tlFixture,e:0})).toString('base64');
+  await mpage.goto((process.env.BASE || 'http://localhost:8087') + '/timeline/#' + tlHash, {waitUntil: 'networkidle'});
   /* This settle stays a sleep. The poll that replaced it waited for the narrow
      relayout to RENDER, which happens before the example's text reaches
      localStorage through the editor's debounce — so the baseline below captured
@@ -2607,7 +2609,7 @@ check('no console/page errors', errors.length === 0);
   // Feature freeze (App, srcLine 1): the full menu, no silent commit
   await tlTapCard(1);
   check('timeline narrow: milestone tap opens the card menu with the expected rows (one popover)',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Status…|Lane…|Add note…|Remove milestone' &&
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Rename…|Dates…|Add actual start…|Status…|Lane…|Add note…|Remove milestone' &&
     await mpage.locator('.eip-pop').count() === 1);
   /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
   await new Promise(r => setTimeout(r, 250));
@@ -3422,54 +3424,39 @@ insure: premium 6 attach 65 limit 30`;
   await mctx.close();
 }
 
-/* ---- timeline at coarse-WIDE (tablet): the Stage-0 [IMPORTANT] fix — the wide
-   timing mark owns a real 44px target and opens the marked picker instead of
-   silently stepping. Its text rail owns the contextual menu; the standalone ×
-   sits outside that rail and retains its explicit one-row confirmation. ---- */
+/* ---- Timeline tablet: the visible menu owns a 44px target. Status and
+   removal remain explicit, undoable source edits. ---- */
 {
   const tctx = await browser.newContext({...devices['iPad Pro 11 landscape'], reducedMotion: 'reduce'});
   const p = await tctx.newPage();
   const errs = trackErrors(p);
-  await p.goto(BASE.replace('/tree/', '/timeline/'), {waitUntil: 'networkidle'});
-  await p.getByRole('button', {name: 'App launch programme'}).click();
-  /* 700ms settle stays — see the roadmap tablet block above for why no poll works
-     here (debounced write + narrow re-render, and the old predicate only "worked" by
-     exhausting its ceiling). */
-  await p.waitForTimeout(700);
+  const seed=Buffer.from(JSON.stringify({t:'title: Tablet editing\nApp: Beta 2026-10 .. 2026-11\nApp: Launch 2026-12 .. 2027-01',e:0})).toString('base64');
+  await p.goto(BASE.replace('/tree/', '/timeline/#')+seed, {waitUntil: 'networkidle'});
+  await p.waitForFunction(()=>localStorage.getItem('timeline-src')?.includes('Tablet editing'));
   const baseline = await p.evaluate(() => localStorage.getItem('timeline-src'));
-  const statusHit = p.locator('rect[data-edit="status"][data-hit]').first();
-  const statusBox = await untilValue(() => statusHit.boundingBox(), b => b && b.width >= 44 && b.height >= 44);
-  check('tablet timeline: a timing mark owns a 44px coarse target', statusBox.width >= 44 && statusBox.height >= 44);
-  await statusHit.scrollIntoViewIfNeeded();
-  await p.waitForTimeout(300);
-  const statusEdge = await statusHit.boundingBox();
-  await p.mouse.click(statusEdge.x + 1, statusEdge.y + statusEdge.height / 2);
-  check('tablet timeline: a coarse status tap opens the marked picker — NO silent step', await until(async () => (await p.locator('.eip-pop').count() === 1 &&
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'none|done|risk|fixed' &&
-    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline)));
+  const menu = p.locator('[data-edit="cardmenu"]').first();
+  const box = await untilValue(() => menu.boundingBox(), b => b && b.width >= 44 && b.height >= 44);
+  check('tablet timeline: milestone menu owns a 44px target', box.width >= 44 && box.height >= 44);
+  await settledTap(p, menu);
+  await p.locator('.eip-pop button', {hasText: 'Status…'}).click();
+  check('tablet timeline: opening status picker preserves source',
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline);
   await p.locator('.eip-pop button', {hasText: 'risk'}).click();
-  const stepped = await untilValue(() => p.evaluate(() => localStorage.getItem('timeline-src')),
-    stepped => (stepped !== baseline && /\[risk\]/.test(stepped)));
-  check('tablet timeline: picking a status commits it (no blind step)', stepped !== baseline && /\[risk\]/.test(stepped));
+  check('tablet timeline: status selection commits', await until(async () => {
+    const text = await p.evaluate(() => localStorage.getItem('timeline-src'));
+    return text !== baseline && /\[risk\]/.test(text);
+  }));
   await settledTap(p, p.locator('.actions .touch-undo'));
-  check('tablet timeline: ↶ Undo reverts the picked status', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline)));
-
-  /* The standalone ['×'] is outside the contextual rail, so its explicit
-     one-row confirmation remains the direct delete route rather than redirecting
-     through the card menu. */
-  const base2 = await p.evaluate(() => localStorage.getItem('timeline-src'));
-  await settledTap(p, p.locator('[data-edit="removeitem"]').first());
-  check('tablet timeline: × opens a one-row danger confirm outside the card-menu rail', await until(async () => (await p.locator('.eip-pop button.danger').count() === 1 &&
-    (await p.locator('.eip-pop button').allInnerTexts()).join('|') === 'Remove')));
-  check('tablet timeline: doc UNCHANGED while the × confirm is open — no silent removal',
-    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2);
-  await p.locator('.eip-pop button.danger').click();
-  check('tablet timeline: confirming × removes the milestone line', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) !== base2)));
+  check('tablet timeline: Undo restores status', await until(async () =>
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline));
+  await settledTap(p, menu);
+  await p.locator('.eip-pop button', {hasText: 'Remove milestone'}).click();
+  check('tablet timeline: explicit removal commits', await until(async () =>
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) !== baseline));
   await settledTap(p, p.locator('.actions .touch-undo'));
-  check('tablet timeline: ↶ Undo restores the removed milestone', await until(async () => ((await p.evaluate(() => localStorage.getItem('timeline-src'))) === base2)));
-
+  check('tablet timeline: Undo restores milestone', await until(async () =>
+    (await p.evaluate(() => localStorage.getItem('timeline-src'))) === baseline));
   check('tablet timeline: no console/page errors', errs.length === 0);
-  await p.close();
   await tctx.close();
 }
 

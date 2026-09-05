@@ -205,8 +205,9 @@ for(const theme of FLOW_THEMES){
   await page.keyboard.press('Backspace');
   await page.keyboard.type(dense);
   await page.waitForFunction(() => document.querySelectorAll('#preview [data-field-item]').length === 40, null, {timeout:3000});
-  await page.getByText('Export', {exact:true}).click();
-  check('timeline: dense Copy PNG refuses rather than copying a partial field', await copyPngRefuses(page));
+  await page.getByRole('button',{name:'Export deck',exact:true}).click();
+  const count=Number((await page.locator('#slideposition').textContent()).match(/of (\d+)/)?.[1]);
+  check('timeline: dense forecast offers a complete paginated deck', count>1 && await page.locator('#slidecanvas [data-field-item]').count()>0);
   check('timeline: dense export refusal has no console error', errors.length === 0);
   await page.close();
 }
@@ -1323,9 +1324,11 @@ for(const theme of FLOW_THEMES){
   check('timeline(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').innerHTML();
   check('timeline(' + theme + '): whiskers + today line', /data-ms="whisker"/.test(svg) && /data-today/.test(svg));
-  check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(svg));
+  check('timeline(' + theme + '): readout names the widest whisker', /Widest whisker/.test(await page.locator('#readout').textContent()));
   check('timeline(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('timeline(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
+  // A shrink-to-fit menu once widened AFTER clamping near the right edge.
+  // Measure final bounds after focus, including the font's actual menu width.
   const fieldCardContract = await (async () => {
     const card = page.locator('#preview [data-edit="cardmenu"]').first();
     await card.focus();
@@ -1365,7 +1368,7 @@ for(const theme of FLOW_THEMES){
     await page.locator('#snapsel').selectOption({index: n - 1});
     await page.waitForTimeout(500);
     const d = await page.locator('#preview svg').innerHTML();
-    return {since:/SINCE /.test(d), fresh:/>NEW</.test(d)};
+    return {since:/Compared with /.test(d), fresh:/>NEW</.test(d)};
   })();
   check('timeline(' + theme + '): snapshot compare names its baseline', fieldCompareContract.since);
   check('timeline(' + theme + '): snapshot compare renders a NEW timing fact', fieldCompareContract.fresh);

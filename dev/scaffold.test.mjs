@@ -55,6 +55,7 @@ test('every tools-origin page carries the 6b kicker slot and its canonical numbe
   }
   for(const dir of numbered){
     const html = read(dir + '/index.html');
+    if(dir==='timeline'){assert.match(html, /data-visual-family="observatory"/);continue;}
     assert.match(html, /<p class="kicker" id="kicker"><\/p>/,
       dir + ': missing the .kicker slot above its h1');
     const js = read(dir + '/app.js');
@@ -75,7 +76,7 @@ test('every tools-origin page carries a metrics row and exactly one primary butt
     const inSvg = readdirSync(join(ROOT, dir))
       .filter(f => /^render.*\.js$/.test(f))
       .some(f => read(dir + '/' + f).includes('svgMetrics'));
-    assert.ok(/class="metrics"/.test(html) || inSvg,
+    assert.ok(/class="metrics"/.test(html) || inSvg || (dir==='timeline' && /data-visual-family="observatory"/.test(html)),
       dir + ': no metrics row — neither an HTML .metrics row nor an in-SVG svgMetrics');
     /* Red discipline: the brand fill is the page's ONE forward action. Several
        tools are multi-surface (gauge's console, premortem's wizard) and those

@@ -1,3 +1,5 @@
+import {layoutObservatory,observatoryPages,observatoryColors} from '../observatory.js';
+const words = svg => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m=>m[1]).join(' ');
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, parseDate} from '../parse.js';
@@ -26,18 +28,14 @@ test('every milestone renders: solid P50 diamond, whisker + open P90 diamond for
   assert.doesNotMatch(svg, /NaN|Infinity|undefined/);
 });
 
-test('status uses words and factual exceptions; a bare single date keeps its uncertainty nag', () => {
-  const svg = render(parse(DOC), ctx);
-  assert.match(svg, /data-ms="p50"[^>]*fill="#1D7A3E"/);
-  assert.match(svg, /fill="#222222">RISK</);
-  assert.doesNotMatch(svg, /data-ms="p50"[^>]*data-mskey="grid\|energisation"[^>]*fill="#b3403a"/);
-  assert.match(svg, /±\?/);
+test('status words and completion colour survive with the uncertainty warning', () => {
+ const m=parse(DOC),s=render(m,ctx),C=observatoryColors(m,ctx);assert.match(s,new RegExp('data-ms="p50"[^>]*fill="'+C.status.done+'"'));assert.match(words(s),/RISK/);assert.match(s,/±\?/);
 });
 
 test('today line present and labelled; lanes render as bands', () => {
   const svg = render(parse(DOC), ctx);
   assert.match(svg, /data-today/);
-  assert.match(svg, />TODAY</); // stronger today marker: a filled flag pill
+  assert.match(svg, />Today ·[^<]+</); // stronger today marker: a filled flag pill
   assert.match(svg, />GRID</);
   assert.match(svg, />BUILD</);
 });
@@ -52,12 +50,8 @@ test('verdict: next milestone up leads, widest whisker supports, P50 date is the
   assert.match(v.rest, /^Widest whisker: Energisation — 15 weeks between P50 and P90\.$/);
 });
 
-test('verdict SVG: a quiet kicker, decisive line, and muted operational receipt', () => {
-  const svg = render(parse(DOC), ctx);
-  assert.match(svg, />VERDICT</);
-  assert.match(svg, /Next up: Connection offer — P50 Aug 2026, could slip to Oct 2026\./);
-  assert.match(svg, /Widest whisker: Energisation — 15 weeks between P50 and P90\./);
-  assert.match(svg, /font-size="16" font-weight="650"/);
+test('authored conclusions remain visible while automatic analysis stays separate', () => {
+ const s=render(parse(DOC),ctx);assert.doesNotMatch(words(s),/Next up:|Widest whisker:|VERDICT/);const authored=render(parse('verdict: Keep the review clear.\n'+DOC),ctx);assert.match(words(authored),/Keep the review clear/);assert.match(timelineReadout(parse(DOC),ctx.today),/Next up:/);
 });
 
 test('readout: a same-month range switches to day grain instead of repeating the month', () => {
@@ -82,17 +76,11 @@ test('edit: named lanes and the unlaned footer each carry an explicit return rou
   const zones = [...svg.matchAll(/data-edit="additem"[^>]*data-lane="([^"]*)"/g)].map(m => m[1]);
   assert.deepEqual(zones.sort(), ['', 'Build', 'Grid']);
   const plain = render(parse(DOC), ctx);
-  assert.doesNotMatch(plain, /data-lane/);
+  assert.doesNotMatch(plain, /data-edit="additem"/);
 });
 
-test('edit: each lane add zone carries an explicit invisible hit rect ≥44px tall', () => {
-  const svg = render(parse(DOC), ctx, null, {edit: true});
-  for(const lane of ['Grid', 'Build']){
-    const i = svg.indexOf('data-lane="' + lane + '"');
-    assert.ok(i >= 0, lane + ' zone missing');
-    const nearby = svg.slice(i, i + 400);
-    assert.match(nearby, /<rect[^>]*height="44"[^>]*fill-opacity="0"/);
-  }
+test('lane add actions have discrete 44px targets', () => {
+ const s=render(parse(DOC),ctx,null,{edit:true});for(const lane of ['Grid','Build'])assert.match(s,new RegExp('data-edit="additem"[^>]*data-lane="'+lane+'"[\s\S]*?<rect[^>]*width="44" height="44"'.replace('[sS]','[\\s\\S]')));
 });
 
 test('edit: lane add zone esc\'s a hostile lane name and skips the unnamed lane', () => {
@@ -103,29 +91,18 @@ test('edit: lane add zone esc\'s a hostile lane name and skips the unnamed lane'
   assert.doesNotMatch(svg, /<script>/);
 });
 
-test('edit: a long item remains a Field row with a full-width named-lane target', () => {
-  const longLabel = 'A'.repeat(300);
-  const doc = 'Grid: ' + longLabel + ' 2026-08 .. 2026-08';
-  const svg = render(parse(doc), ctx, null, {edit: true});
-  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect[^>]*x="([\d.]+)"[^>]*width="([\d.]+)"[^>]*height="44"/);
-  assert.ok(zone, 'lane add zone hit rect not found');
-  assert.ok(parseFloat(zone[2]) >= 1300, 'lane heading is a deliberate full-width add target');
+test('long labels retain both inspection and their named-lane add route', () => {
+ const m=parse('Grid: '+ 'A'.repeat(300)+' 2026-08 .. 2026-09'),L=layoutObservatory(m,ctx,null,{edit:true}),s=render(m,ctx,null,{edit:true});assert.ok(L.rows[0].h>200);assert.match(s,/data-edit="additem"[^>]*data-lane="Grid"/);assert.match(s,/data-inspect=/);
 });
 
-test('edit: lane add target stays structurally separate from the dates/note line', () => {
-  const doc = 'Grid: FID 2026-07-10 [done] // pending DNO confirmation of connection date';
-  const svg = render(parse(doc), ctx, null, {edit: true});
-  const sub = svg.match(/<text data-edit="dates"[^>]*>([^<]+)<\/text>/);
-  assert.ok(sub, 'dates/note line not found');
-  const zone = svg.match(/data-lane="Grid"[\s\S]*?<rect[^>]*height="44"/);
-  assert.ok(zone, 'lane add zone hit rect not found');
-  assert.match(svg, /data-field-item="grid\|fid"/);
+test('lane add actions stay outside editable milestone rows', () => {
+ const s=render(parse('Grid: FID 2026-07-10 [done] // pending review'),ctx,null,{edit:true});assert.match(s,/data-edit="dates"/);assert.match(s,/data-edit="additem"[^>]*data-lane="Grid"/);assert.match(s,/data-field-note=/);assert.ok(s.indexOf('data-edit="additem"')<s.indexOf('data-field-item='));
 });
 
 test('markdown: table, no-range flag, slip list when comparing', async () => {
   const {toMarkdown} = await import('../render.js');
   const md = toMarkdown(parse(DOC), null, 'https://x.test/t');
-  assert.match(md, /\| Vendor selection \| Build \| 15 Nov 2026 \| no range \|/);
+  assert.match(md, /\| Vendor selection \| Build \| — \| 15 Nov 2026 \| no range \|/);
   assert.match(md, /x\.test/);
 });
 
@@ -168,23 +145,12 @@ test('merge readout: ≥2 ranged lanes → verdict leads with Merge risk', () =>
 });
 
 
-test('merge SVG: the merge sentence IS the verdict, joint probability the figure', () => {
-  const v = timelineVerdict(parse(MERGE_DOC), ctx.today);
-  assert.match(v.line, /^Merge risk: all 3 ranged lanes/);   // short in-chart form (c): "ranged", matches the joint
-  assert.match(v.fig, /^\d+%$/);
-  assert.ok(v.line.includes(v.fig));
-  assert.match(v.rest, /Next up:/);                          // the operational bits still present
-  const svg = render(parse(MERGE_DOC), ctx);
-  assert.match(svg, /Merge risk: all 3 ranged lanes/);
-  assert.match(svg, /Next up:/);
-  assert.match(svg, /data-direction="field"/);
-  assert.doesNotMatch(svg, /NaN|undefined/);
+test('aggregate modelling remains available without automatic artifact narration', () => {
+ const m=parse(MERGE_DOC),v=timelineVerdict(m,ctx.today);assert.match(v.line,/^Merge risk: all 3 ranged lanes/);assert.ok(v.line.includes(v.fig));assert.match(v.rest,/Next up:/);assert.match(timelineReadout(m,ctx.today),/Merge risk:/);assert.doesNotMatch(words(render(m,ctx)),/Merge risk:|Next up:/);
 });
 
-test('short form counts RANGED lanes, not every lane — single-date lanes are not in the joint (c)', () => {
-  // 3 ranged + 1 single-date completion: the chart shows 4 lanes, the joint fits 3
-  const doc = MERGE_DOC + '\nOps: Handover 2027-09';
-  assert.match(render(parse(doc), ctx), /Merge risk: all 3 ranged lanes/);
+test('aggregate analysis counts ranged lanes rather than every lane', () => {
+ const m=parse(MERGE_DOC+'\nOps: Handover 2027-09');assert.match(timelineVerdict(m,ctx.today).line,/Merge risk: all 3 ranged lanes/);
 });
 
 test('stale-lane flag: a fitted lane past its P90 is named in the prose form only (a)', () => {
@@ -194,13 +160,8 @@ test('stale-lane flag: a fitted lane past its P90 is named in the prose form onl
   assert.doesNotMatch(render(parse(doc), ctx), /past its P90/);   // short stays terse (the whisker shows it)
 });
 
-test('<1% rounding: a probability model never prints a bare 0% (b)', () => {
-  const doc = 'title: Nine\n' + Array.from({length: 9}, (_, i) => `L${i}: Finish 2027-01 .. 2027-04`).join('\n');
-  assert.match(timelineReadout(parse(doc), ctx.today), /together <1%\./);   // full form, plain text
-  const svg = render(parse(doc), ctx);
-  assert.match(svg, /&lt;1%/);                          // short form, XML-escaped (never a raw <1% mid-attr)
-  assert.doesNotMatch(svg, /≈ &lt;1%/);                 // ≈ dropped when the value is already an inequality
-  assert.doesNotMatch(svg, /\b0%/);
+test('analysis never claims a bare zero probability', () => {
+ const m=parse('title: Nine\n'+Array.from({length:9},(_,i)=>`L${i}: Finish 2027-01 .. 2027-04`).join('\n'));const result=timelineReadout(m,ctx.today);assert.match(result,/together <1%\./);assert.doesNotMatch(result,/≈ <1%|\b0%/);
 });
 
 test('non-merge doc: no Merge risk, unchanged single-row readout', () => {
@@ -208,13 +169,8 @@ test('non-merge doc: no Merge risk, unchanged single-row readout', () => {
   assert.doesNotMatch(render(parse(DOC), ctx), /Merge risk/);
 });
 
-test('[fixed] renders clean: no ±?, ink diamond, no whisker', () => {
-  const svg = render(parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'), ctx);
-  assert.doesNotMatch(svg, /±\?/, 'a fixed date claims no spread');
-  assert.match(svg, /data-ms="p50" data-mskey="\|ofgem decision"[^>]*stroke="#222222"/);
-  assert.match(svg, /data-ms="p50" data-mskey="\|build"[^>]*fill="#222222"/,
-    'ordinary forecast marks stay neutral');
-  assert.equal((svg.match(/data-ms="whisker"/g) || []).length, 1, 'only the ranged item gets a whisker');
+test('fixed events keep distinct geometry without a forecast interval', () => {
+ const m=parse('Ofgem decision 2026-12-01 [fixed]\nBuild 2026-09 .. 2026-11'),s=render(m,ctx);assert.doesNotMatch(s,/±\?/);assert.match(s,/<line data-ms="p50" data-mskey="\|ofgem decision"/);assert.match(s,/<circle data-ms="p50" data-mskey="\|build"/);assert.equal((s.match(/data-ms="whisker"/g)||[]).length,1);
 });
 
 test('a BARE single date still gets ±? — the nag survives', () => {
@@ -314,16 +270,16 @@ test('"Next up" on a fixed item says fixed, not P50', () => {
 
 test('toMarkdown distinguishes fixed from an un-ranged guess', () => {
   const md = toMarkdown(parse('A 2026-09-01 [fixed]\nB 2026-10-01'), null, 'http://x');
-  assert.match(md, /\| A \|[^|]*\|[^|]*\| fixed \|/);
-  assert.match(md, /\| B \|[^|]*\|[^|]*\| no range \|/);
+  assert.match(md, /\| A \|[^|]*\|[^|]*\|[^|]*\| fixed \|/);
+  assert.match(md, /\| B \|[^|]*\|[^|]*\|[^|]*\| no range \|/);
 });
 
 /* 2026-07-30 polish batch: metrics line, RISK pill, TODAY-flag tick dodge, note size */
 
 test('Field header names the timing vocabulary beneath the authored title', () => {
   const svg = render(parse(DOC), ctx);
-  assert.match(svg, />FORECAST FIELD</);
-  assert.match(svg, />P50–P90 RANGES · COMMON CHRONOLOGY · NOT DELIVERY PROMISES</);
+  assert.match(svg, />Timeline \/ Field</);
+  assert.match(svg, />P50 finish</);
 });
 
 test('an untitled document retains the Field fallback without invented portfolio metrics', () => {
@@ -345,12 +301,12 @@ test('the Field retains a distinct TODAY reference on a short chronology', () =>
   const doc = 'title: T\ntoday: 2026-08-01\nA 2026-09-10 .. 2026-09-20\nB 2026-10-05 .. 2026-11-02';
   const svg = render(parse(doc), ctx);
   assert.match(svg, /data-today/);
-  assert.match(svg, />TODAY</);
+  assert.match(svg, />Today ·[^<]+</);
 });
 
 test('milestone sub lines render at 11.5px (the projector bump)', () => {
   const svg = render(parse(DOC), ctx);
-  assert.ok((svg.match(/font-size="11.5"/g) || []).length >= 4);
+  assert.ok((svg.match(/font-size="14"/g) || []).length >= 4);
 });
 
 /* ---------- `verdict:` on the artefact (2026-07-31) ---------- */

@@ -6,6 +6,8 @@ import {PALETTE_NAMES} from '../assets/series.js';
 const DAY = 86400000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const STATUSES = ['done', 'risk', 'fixed'];
+export const STYLES = ['field', 'review', 'decisions', 'register'];
+export const FONTS = ['Chapter', 'DM Sans'];
 
 /* an item whose single date is a legitimate point, not false precision:
    [done] happened, [fixed] is an external fact nobody here controls. A BARE
@@ -24,6 +26,10 @@ export function parseDate(s){
   if(dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;   // e.g. Feb 30
   return Math.round(t / DAY);
 }
+export function parseStarted(value){
+  const raw = String(value).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? parseDate(raw) : null;
+}
 export const dayToISO = day => new Date(day * DAY).toISOString().slice(0, 10);
 export function fmtDay(day, {month = false} = {}){
   const d = new Date(day * DAY);
@@ -41,7 +47,7 @@ export function parseLead(s){
 }
 
 export function parse(text){
-  const model = {title: '', palette: 'ocean', accent: null, today: null, verdict: null,
+  const model = {title: '', palette: 'ocean', accent: null, font: 'Chapter', style: 'field', today: null, verdict: null,
     lanes: [], items: [], warnings: []};
   const lines = String(text).split(/\r?\n/);
   const laneSet = new Set();
@@ -60,12 +66,19 @@ export function parse(text){
        phantom milestone in a lane called "verdict", losing the verdict entirely
        (found in review, 2026-07-31). */
     const DATE_EXEMPT = /^(today|verdict)$/i;
-    const config = line.match(/^(title|palette|accent|today|verdict)\s*:\s*(.*)$/i);
+    const config = line.match(/^(title|palette|accent|font|style|today|verdict)\s*:\s*(.*)$/i);
     if(config && !(DATE_RE.test(config[2]) && !DATE_EXEMPT.test(config[1]))){
       const key = config[1].toLowerCase(), val = config[2].replace(/(^|\s)\/\/.*$/, '').trim();   // trailing comments are comments here too
       if(key === 'title') model.title = val;
       else if(key === 'verdict') model.verdict = val;   // raw; assets/verdict.js owns what off/empty mean
-      else if(key === 'palette'){
+      else if(key === 'font'){
+        model.font = val.toLowerCase() === 'dm sans' ? 'DM Sans' : 'Chapter';
+        if(!FONTS.some(name => name.toLowerCase() === val.toLowerCase()))
+          warn('unknown font "' + val + '" — using Chapter (options: Chapter, DM Sans)');
+      } else if(key === 'style'){
+        model.style = STYLES.includes(val.toLowerCase()) ? val.toLowerCase() : 'field';
+        if(!STYLES.includes(val.toLowerCase())) warn('unknown style "' + val + '" — using field (options: ' + STYLES.join(', ') + ')');
+      } else if(key === 'palette'){
         const p = val.toLowerCase();
         if(PALETTE_NAMES.includes(p)) model.palette = p;
         else warn('unknown palette "' + val + '" — options: ' + PALETTE_NAMES.join(', '));
@@ -85,18 +98,23 @@ export function parse(text){
     const noteM = body.match(/\/\/(.*)$/);
     if(noteM){ note = noteM[1].trim() || null; body = body.slice(0, noteM.index).trim(); }
 
-    let status = null, leadDays = null;
+    let status = null, leadDays = null, started = null;
     body = body.replace(/\[([^\]]+)\]/g, (m, t) => {
       const tag = t.trim().toLowerCase();
       if(STATUSES.includes(tag)){
         if(status) warn('more than one status — using [' + status + ']');
         else status = tag;
+      } else if(/^started\s*:/i.test(tag)){
+        const parsed = parseStarted(tag.slice(tag.indexOf(':') + 1));
+        if(parsed === null) warn('actual start wants a full date like [started: 2026-08-24]');
+        else if(started !== null) warn('more than one actual start — using the first');
+        else started = parsed;
       } else if(/^lead\s*:/i.test(tag)){
         const parsed = parseLead(tag.slice(tag.indexOf(':') + 1));
         if(parsed === null) warn('decision lead wants a positive duration like [lead: 6w]');
         else if(leadDays !== null) warn('more than one decision lead — using the first');
         else leadDays = parsed;
-      } else warn('unknown tag [' + t.trim() + '] — use ' + STATUSES.join(' / ') + ' / lead: 6w');
+      } else warn('unknown tag [' + t.trim() + '] — use ' + STATUSES.join(' / ') + ' / lead: 6w / started: YYYY-MM-DD');
       return '';
     }).trim();
 
@@ -148,8 +166,20 @@ export function parse(text){
       leadDays = null;
     }
 
+    if(started !== null && status === 'fixed'){
+      warn('[started: …] describes work, not a [fixed] external event — ignored');
+      started = null;
+    }
+    if(started !== null && started > p50)
+      warn('actual start is after ' + (status === 'done' ? 'completion' : 'P50 finish') + ' — check the dates');
+
     if(!laneSet.has(lane)){ laneSet.add(lane); model.lanes.push(lane); }
-    model.items.push({lane, label: head, p50, p90, rawDates: dateText, status, note, single, leadDays, srcLine: ln});
+    model.items.push({lane, label: head, p50, p90, rawDates: dateText, status, note, single, leadDays, started, srcLine: ln});
+  }
+  // today: is order-free. Validate actual facts after the final config wins.
+  if(model.today !== null) for(const item of model.items){
+    if(item.started !== null && item.started > model.today)
+      model.warnings.push('line ' + (item.srcLine + 1) + ': actual start is after today — check the dates');
   }
   /* Snapshot comparison must not silently merge repeated labels. A lane remains
      part of the identity (a move is a portfolio change), while an ordinal makes

@@ -1,3 +1,5 @@
+import {layoutObservatory,observatoryPages,observatoryColors} from '../observatory.js';
+const words = svg => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m=>m[1]).join(' ');
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse,parseDate} from '../parse.js';
@@ -53,24 +55,14 @@ test('a long interval remains one Field fact rather than being split across an i
   assert.equal(count(svg,/data-ms="p90"/g),1);
 });
 
-test('presentation is one complete Field or an explicit refusal, never ranked selection',()=>{
-  const ordinary=field(Array.from({length:12},(_,i)=>`Lane: Milestone ${i+1} 2026-0${i%8+1} .. 2026-11`).join('\n'),'presentation');
-  assert.match(ordinary,/data-copy-field="complete"/);
-  assert.equal(count(ordinary,/data-field-item=/g),12);
-  const dense=field(Array.from({length:40},(_,i)=>`Lane ${i%4}: Deliberately descriptive milestone ${i} 2026-0${i%8+1} .. 2027-11 \/\/ note retained in SVG`).join('\n'),'presentation');
-  assert.match(dense,/data-copy-field="unavailable"/);
-  assert.equal(count(dense,/data-field-item=/g),0);
+test('dense presentation paginates completely rather than ranking a subset', () => {
+  const m=parse(Array.from({length:40},(_,i)=>`Lane ${i%4}: Milestone ${i} 2026-08 .. 2027-11`).join('\n'));assert.match(render(m,{...ctx,intent:'presentation'}),/data-copy-field="unavailable"/);const d=observatoryPages(m,ctx);assert.equal(d.complete,true);assert.equal(d.pages.flatMap(p=>p.sourceKeys).length,40);
 });
 
-test('a complete presentation has one shared chronology, ruler and TODAY reference',()=>{
-  const src=Array.from({length:12},(_,i)=>`Lane ${i%4+1}: Milestone ${i+1} 2026-0${i%8+1} .. 2026-11`).join('\n');
-  const svg=field(src,'presentation');
-  assert.match(svg,/data-copy-field="complete"/);
-  assert.equal(count(svg,/data-today=""/g),1,
-    'one 16:9 Field has one shared chronological reference, never side-by-side timelines');
+test('every continuation repeats the identical common chronology', () => {
+  const m=parse(Array.from({length:12},(_,i)=>`Lane ${i%4}: Milestone ${i} 2026-08 .. 2026-11`).join('\n')),d=observatoryPages(m,ctx);assert.equal(d.complete,true);for(const p of d.pages)assert.equal(count(p.svg,/data-today=""/g),1);assert.equal(new Set(d.pages.map(p=>p.svg.match(/data-domain-lo="[^"]+" data-domain-hi="[^"]+"/)[0])).size,1);
 });
 
-test('each physical intent declares the agreed data-text floor',()=>{
-  for(const [intent,floor] of [['live-wide',11],['live-narrow',11],['native',11],['presentation',22]])
-    assert.match(field('A 2026-02',intent),new RegExp('data-font-floor="'+floor+'"'));
+test('data typography uses the improved live and slide floors', () => {
+  for(const [intent,floor] of [['live-wide',14],['live-narrow',14],['native',14],['presentation',22]])assert.match(field('A 2026-02',intent),new RegExp('data-font-floor="'+floor+'"'));
 });

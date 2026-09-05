@@ -53,7 +53,7 @@ for(const theme of ['light', 'dark']){
           // intended display stack (Chapter uses DM Sans), not the UA default or old
           // Charter (a positive AND a negative — /serif/i alone would pass
           // vacuously against "sans-serif", killing the canary)
-          serif: (fam => path==='roadmap' ? /dm sans/i.test(fam) : /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
+          serif: (fam => ['roadmap','timeline'].includes(path) ? /dm sans/i.test(fam) : /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
             getComputedStyle(document.querySelector('h1') || document.body).fontFamily)};
       },path);
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');
@@ -253,6 +253,21 @@ for(const theme of ['light', 'dark']){
 /* A long colour-matrix run can leave WebKit slow to accept a new navigation.
    Reader-first flows need a fresh engine so this suite proves the product
    interaction rather than inheriting that test-runner lifetime cost. */
+// Observatory keeps source behind an explicit action in both themes on Safari.
+for(const theme of ['light','dark']){
+  const ctx=await browser.newContext({...devices['iPhone 13'],colorScheme:theme,reducedMotion:'reduce'});
+  const page=await ctx.newPage();
+  try{
+    await page.goto(T+'/timeline/',{waitUntil:'networkidle'});
+    await page.locator('#preview [data-inspect]').first().click();
+    await page.locator('#inspector').waitFor({state:'visible'});
+    ok(await page.locator('#inspector').getAttribute('role')==='dialog', 'timeline (webkit '+theme+'): item focus opens a phone dialog');
+    await page.getByRole('button',{name:'Close milestone details'}).click();
+    await page.getByRole('button',{name:'Edit source',exact:true}).click();
+    ok(await page.locator('.cm-content').isVisible(), 'timeline (webkit '+theme+'): Edit source exposes the editor');
+  }catch(e){ok(false,'timeline (webkit '+theme+'): Observatory flow — '+String(e).split('\n')[0]);}
+  await ctx.close();
+}
 await browser.close();
 browser = await webkit.launch();
 
@@ -261,7 +276,7 @@ browser = await webkit.launch();
 for(const theme of ['light', 'dark']){
   const ctx = await browser.newContext({viewport:{width:1440, height:900}, hasTouch:false, isMobile:false,
     colorScheme:theme, reducedMotion:'reduce'});
-  for(const [base, path, name] of [[T, '/timeline/', 'timeline'], [E, '/risk/', 'risk'], [E, '/cycles/', 'cycles'], [T, '/proxy/', 'proxy']]){
+  for(const [base, path, name] of [[E, '/risk/', 'risk'], [E, '/cycles/', 'cycles'], [T, '/proxy/', 'proxy']]){
     const page = await ctx.newPage();
     const errs = [], csp = [];
     page.on('pageerror', e => errs.push(String(e).split('\n')[0]));
@@ -332,6 +347,21 @@ for(const theme of ['light', 'dark']){
     ok(false, 'frequency (webkit): export action — ' + String(e).split('\n')[0]);
   }
   await page.close();
+  await ctx.close();
+}
+// Observatory keeps source behind an explicit action in both themes on Safari.
+for(const theme of ['light','dark']){
+  const ctx=await browser.newContext({...devices['iPhone 13'],colorScheme:theme,reducedMotion:'reduce'});
+  const page=await ctx.newPage();
+  try{
+    await page.goto(T+'/timeline/',{waitUntil:'networkidle'});
+    await page.locator('#preview [data-inspect]').first().click();
+    await page.locator('#inspector').waitFor({state:'visible'});
+    ok(await page.locator('#inspector').getAttribute('role')==='dialog', 'timeline (webkit '+theme+'): item focus opens a phone dialog');
+    await page.getByRole('button',{name:'Close milestone details'}).click();
+    await page.getByRole('button',{name:'Edit source',exact:true}).click();
+    ok(await page.locator('.cm-content').isVisible(), 'timeline (webkit '+theme+'): Edit source exposes the editor');
+  }catch(e){ok(false,'timeline (webkit '+theme+'): Observatory flow — '+String(e).split('\n')[0]);}
   await ctx.close();
 }
 await browser.close();

@@ -56,7 +56,7 @@ The twelve grammars differ, but they're a family and obey the same rules:
 | [roadmap](#roadmap) | ✓ | ✓ | ✓ | `date` `headline` `story` `horizons` `wip` `fade` `style` `font` `focus` `verdict` `group` `basis` | `HORIZON` header, then `Lane: Item [status] [bet:/if/unless] -- note -> url xN` |
 | [wardley](#wardley) | ✓ | ✓ | ✓ | `anchor` `verdict` | `Name @ stage` and `A -> B -> C` edges |
 | [bets](#bets) | ✓ | ✓\* | ✓\* | `unit` | indent 0 group / 2 `Bet: stake N, odds N-N%, payoff N-N` / 4 `kill:` |
-| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
+| [timeline](#timeline) | ✓ | ✓ | ✓ | `today` `style` `font` `verdict` | `Lane: Label DATE [.. DATE] [status] // note` |
 | [map](#map) | ✓ | ✓ | ✓ | `preset` `x` `y` `zones` `verdict` | `Label @ x,y :: field: value`, plus `zone …:` directives |
 | [tree](#tree) | ✓ | ✓ | ✓ | `currency` `verdict` | indented tree; `Label (p=…) : value` |
 | [why](#why) | ✓ | ✓ | ✓ | — | indented tree; `outcome:` / `? assumption` / `Solution [status]` |
@@ -387,34 +387,72 @@ Growth bets
 **`/timeline`** — a milestone timeline with honest P50–P90 date ranges, swimlanes and a
 "today" line.
 
-**Config keys** (order-free): `title:`, `palette:`, `accent:`, and `today:` a date
-(`YYYY-MM` or `YYYY-MM-DD`) for the today line.
-- `verdict:` — `off` carries no verdict at all; any other text becomes *your* line in the tool's verdict slot. Omit it and the tool writes one, as it always has.
+**Config keys** (order-free):
+- `title:`, `palette:` and `accent:` follow the shared conventions. Palette and accent
+  apply to every view and export in both light and dark themes.
+- `font:` `Chapter` (Instrument Serif headings, DM Sans body) or `DM Sans` throughout.
+  Names are case-insensitive; unknown names warn and fall back to Chapter. Both families
+  are bundled locally, including for detached SVG and deck exports.
+- `style:` `field` (shared chronology), `review` (snapshot changes), `decisions`
+  (fixed events and decision windows) or `register` (milestone details). Default: `field`.
+  The view picker writes this same DSL key and removes superseded declarations;
+  editing the source updates the picker. Review needs an explicitly selected snapshot
+  for comparisons; choosing the view never invents a baseline or embeds local history
+  in the shared URL.
+- `today:` a date (`YYYY-MM` or `YYYY-MM-DD`) for the today line and elapsed-time facts.
+  Omit it to use the current UTC day.
+- `verdict:` `off` suppresses the verdict; any other text becomes the authored verdict.
 
-**Node syntax:** each milestone is `[Lane:] Label DATE [.. DATE] [status] [// note]`.
-- Dates are `YYYY-MM` (treated as mid-month) or `YYYY-MM-DD`.
-- A **range** uses `..` (or an en/em-dash) between two dates — this is the P50..P90 spread.
-- `[status]` is `[done]`, `[risk]` or `[fixed]`. `// note` is a trailing annotation. `Lane:`
-  prefixes a swimlane. Any lane name works except `Today` and `Verdict` — those read as
-  config keys, so a milestone in a lane by either name would vanish into config.
-- `[fixed]` marks a date you don't control — an external event (a regulatory decision, a
-  contract expiry, a conference). It renders clean with no `±?`, and the latest fixed date
-  still ahead of today becomes the deadline the merge-risk verdict measures the plan against.
-- A single **undone, un-fixed** date with no range warns ("claims certainty nobody has") —
-  give it a `..` range, mark it `[done]`, or mark it `[fixed]`.
+**Node syntax:** each milestone is
+`[Lane:] Label DATE [.. DATE] [status] [started: YYYY-MM-DD] [lead: 6w] [// note]`.
+- Finish dates are `YYYY-MM` (treated as mid-month, displayed at month precision) or
+  `YYYY-MM-DD`. A range uses `..` (or an en/em-dash) between P50 and P90 finish dates.
+  The interval is uncertainty about the finish, not the duration of work.
+- `[status]` is `[done]`, `[risk]` or `[fixed]`. `// note` is trailing commentary,
+  retained in the view, item focus and exports. `Lane:` prefixes a swimlane. Any lane
+  name works except `Today` and `Verdict`, which always read as config keys.
+- `[started: YYYY-MM-DD]` records an **actual start**, never a planned start. It is
+  optional, requires a full valid date and applies to open or completed work. No start
+  is inferred when absent. It adds a quiet start mark and connector; the P50–P90
+  finish marks retain their meaning. Calendar time elapsed runs from start to today
+  for open work, or from start to the actual `[done]` date for completed work. Start-to-
+  P50/P90 spans are calendar-duration estimates, not effort or percent complete.
+- Starts after today or after P50/completion produce warnings and no calculated
+  durations until corrected. Valid authored dates stay in the source and model;
+  they do not move the finish forecast. A start on `[fixed]` warns and is ignored.
+- `[fixed]` marks a date outside the team's control, such as a contract expiry or
+  conference. It has no uncertainty interval; it does not create a dependency on
+  every other milestone. The merge-risk model may use a future fixed event as its
+  reference date, under its separate independence assumption.
+- `[lead: 6w]` or `[lead: 10d]` on `[fixed]` supplies positive preparation time. Its
+  decide-by date is the fixed date minus that lead. It is separate from actual start
+  and from forecast duration; non-fixed leads warn and are ignored.
+- A single **undone, un-fixed** finish date warns about false precision. Supply a
+  P90 range or mark the point as an actual completion or fixed event.
 
-**What it warns about:** bad palette / accent / `today`; a line with no date; an unknown
-`[status]`; unreadable or too many dates; a reversed range (swapped); a `[done]` or `[fixed]`
-item with a range; a bare single future date.
+Snapshot comparisons distinguish changes to actual starts from finish slips.
+Changing a lane remains a dropped item plus a new item; repeated labels are compared
+by their occurrence within that lane. Historic marks are inert and never alter forecasts.
+Complete slide sets repeat their chronological scale and lane context across pages;
+no interval is split across pages, and no milestone or commentary is silently omitted.
+
+**What it warns about:** unknown font / style / palette; bad accent / today; missing,
+unreadable, too many or reversed dates; unknown tags; invalid or repeated starts and
+leads; incompatible tags; starts after today or finish; ranges on completed/fixed
+items; bare single forecast dates.
 
 ```dsl tool=timeline
-title: Launch plan
-verdict: We hold the GA date
-today: 2026-08-01
-Beta cut 2026-09 .. 2026-10
-Build: FID 2026-09-30 [done]
-Build: GA 2026-11 .. 2027-01 [risk]
-Ofgem decision 2026-12-01 [fixed]
+title: Lantern launch
+font: DM Sans
+style: field
+palette: ocean
+accent: #537D76
+verdict: External review remains the widest uncertainty
+today: 2026-09-05
+App: Beta cut 2026-09-18 .. 2026-10-02 [started: 2026-08-24]
+App: Store review 2026-10 .. 2026-11 [risk] // External review timing
+Marketing: Landing page 2026-09-01 [done] [started: 2026-08-20]
+Conference 2026-12-15 [fixed] [lead: 6w]
 ```
 
 ## map

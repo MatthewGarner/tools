@@ -55,7 +55,7 @@ const TOOLS = [
   {path: '/roadmap/', source: 'Edit roadmap source', narrowTab: true, chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
   {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
-  {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false, reader: true},
+  {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   /* Bets keeps source open for editing, but its fit advisory has a named manual
      reader route. That route must release the hidden editor's layout height; a
@@ -200,7 +200,7 @@ for(const {path, reader} of TOOLS.filter(t => t.reader)){
    responsive transition; initial coarse arrivals are covered below for all four. */
 {
   const page = await browser.newPage({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
-  await page.goto(BASE + '/timeline/', {waitUntil:'networkidle'});
+  await page.goto(BASE + '/proxy/', {waitUntil:'networkidle'});
   await until(() => page.evaluate(() => document.getElementById('workspace')?.dataset.workspaceView === 'reading'));
   await page.setViewportSize({width:800, height:900});
   await page.waitForTimeout(350);
@@ -275,17 +275,11 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
       before >= 1440 && after > before && Math.abs(after - stageW) < 12);
     check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
   } else if(path === '/timeline/') {
-    /* Timeline's Field is a calibrated physical artefact, not a fluid dashboard.
-       Its 1442px native width keeps the timing track, factual marks and text at a
-       stable reading scale alongside the rail; hiding the rail must then give that
-       same Field the entire available stage. The generic 20% growth heuristic is
-       wrong here: 1442 → 1636 is intentional, useful growth without rescaling the
-       authored instrument. */
+    // Observatory reflows its track to the available live width. Native/export
+    // intents retain their own dimensions; live type stays at its reading floor.
     const stageW = (await page.locator('#preview').boundingBox()).width;
-    check(path + ' Field retains its physical reading width and claims the full stage (' +
-      Math.round(before) + '→' + Math.round(after) + ' = ' + Math.round(stageW) + ')',
-    minReadable >= 1 && before >= 1400 && before <= 1450 &&
-      after >= 1600 && after - before >= 160 && Math.abs(after - stageW) < 12);
+    check(path + ' Observatory reflows to fill the stage without shrinking text',
+      minReadable >= 1 && before >= 760 && after > before && Math.abs(after - stageW) < 12);
   } else {
     check(path + ' diagram grows on collapse or holds its physical-size floor (' + Math.round(before) + '→' + Math.round(after) + ')',
       after > before * 1.2 || (minReadable >= 1 && Math.abs(after - before) < 8));

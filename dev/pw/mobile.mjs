@@ -56,7 +56,7 @@ for(const [name, url] of ALL){
      (a tool once shipped with Times New Roman on a transparent body) */
   const parity = await page.evaluate(name => {
     const cs = getComputedStyle(document.body);
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    const bg = cs.getPropertyValue('--bg').trim();
     const probe = document.createElement('div');
     probe.style.color = bg;
     document.body.appendChild(probe);
@@ -66,7 +66,7 @@ for(const [name, url] of ALL){
     return {
       font: name==='roadmap' ? cs.fontFamily.includes('DM Sans') : cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(name==='roadmap'?'DM Sans':'Helvetica Neue'),
+      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(['roadmap','timeline'].includes(name)?'DM Sans':'Helvetica Neue'),
     };
   },name);
   ok(parity.font, `${name}: body wears its intended font stack`);

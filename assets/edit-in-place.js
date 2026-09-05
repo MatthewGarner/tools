@@ -16,15 +16,13 @@
 import {trapPopoverFocus} from './popover-focus.js';
 export {trapPopoverFocus};
 
-/* Floating elements (popover, input) are positioned from the target's rect
-   before their own size is known; clamp after append so they never render
-   off the left/right edge, and flip above the target if they'd run past
-   the bottom — phones near screen edges hit this often. */
+/* Clamp after append; SVG keyboard focus can leave its trigger offscreen. */
 function clampToViewport(el, rect){
   const w = el.offsetWidth, h = el.offsetHeight;
   let x = parseFloat(el.style.left), y = parseFloat(el.style.top);
   x = Math.min(Math.max(8, x), Math.max(8, innerWidth - w - 8));
   if(y + h > innerHeight - 8) y = Math.max(8, rect.top - h - 6);
+  y = Math.max(8, Math.min(y, innerHeight - h - 8));
   el.style.left = x + 'px';
   el.style.top = y + 'px';
 }

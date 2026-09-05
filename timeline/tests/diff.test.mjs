@@ -40,10 +40,10 @@ test('render with diff: historic facts, slip label, NEW and dropped receipt rema
   };
   const svg = render(parse(NEW), ctx, view());
   assert.match(svg, /data-ms="ghost"/);
-  assert.match(svg, /\+4 wks/);
+  assert.match(svg, /P50 \+28 days/);
   assert.match(svg, />NEW</);
-  assert.match(svg, /DROPPED SINCE JUNE PACK/);
-  assert.match(svg, /SINCE JUNE PACK/);
+  assert.match(svg, /(?:Removed|DROPPED)/);
+  assert.match(svg, /Compared with June pack/i);
   assert.doesNotMatch(svg, /NaN|undefined/);
   const plain = render(parse(NEW), ctx);
   assert.doesNotMatch(plain, /ghost|NEW|DROPPED/);

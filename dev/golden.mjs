@@ -305,6 +305,14 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
   const tm = tparse(tdoc);
   const tctx = {...ctxBase, today: 20640};
   variants['timeline-default'] = trender(tm, tctx);
+  const {observatoryPages} = await import('../timeline/observatory.js');
+  for(const style of ['field','review','decisions','register']){
+    const configured=tparse('style: '+style+'\nfont: DM Sans\naccent: #315D48\n'+tdoc.replace('Offer 2026-08 .. 2026-10','Offer 2026-08 .. 2026-10 [started: 2026-06-01]'));
+    variants['timeline-observatory-'+style]=trender(configured,tctx);
+  }
+  const busy=tparse('title: Six quarter forecast\ntoday: 2026-07-06\n'+Array.from({length:24},(_,i)=>`Lane ${i%4}: Milestone ${i} 2026-08 .. 2027-12 [started: 2026-06-01] // Authored commentary ${i}`).join('\n'));
+  for(const page of observatoryPages(busy,tctx).pages)variants['timeline-deck-'+page.index]=page.svg;
+
   /* Export is its own physical intent: one 16:9 Field with a shared ruler, not
      a legacy `slide` flag quietly falling back to the live board. */
   variants['timeline-presentation'] = trender(tm, {...tctx, intent:'presentation'}, null, {intent:'presentation'});
