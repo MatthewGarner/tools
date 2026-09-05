@@ -299,9 +299,7 @@ function fieldWide(model, suppliedLayout, ctx, opts = {}, presentation = false){
   header.push('<line data-document-accent="" x1="' + pad + '" y1="' + accentY + '" x2="' + (pad+(presentation?34:24)) + '" y2="' + accentY + '" stroke="' + c.accent + '" stroke-width="2"/>');
   if(typeof ctx.today === 'string') header.push('<text x="' + (w-pad) + '" y="' + (presentation?52:26) + '" text-anchor="end" font-size="' + (presentation?14:12) + '" fill="' + c.muted + '">' + esc(ctx.today) + '</text>');
   header.push('<text x="' + pad + '" y="' + y + '" font-size="' + (presentation?14:12) + '" fill="' + c.muted + '">' +
-    count(components.length, 'component') + ' · ' + count(model.edges.length, 'dependency', 'dependencies') +
-    (components.some(node => node.ghost) ? ' · ' + count(components.filter(node => node.ghost).length, 'unplaced component') : '') +
-    ' · horizontal positions are current claims</text>');
+    'horizontal positions are current claims</text>');
   y += presentation ? 24 : 20;
   const receipt = comparisonReceipt(diff, pad, y+2, w-pad*2, c, measure, presentation ? 12 : 11);
   header.push(receipt.svg); y += receipt.height;

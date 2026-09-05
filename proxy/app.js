@@ -68,7 +68,7 @@ function renderChrome(){
   const pattern = hunt.reportedPattern
     ? (hunt.reportedPattern.complete ? 'author-reported pattern' : 'reported pattern incomplete')
     : 'no reported pattern';
-  paintMetrics($('metrics'), hunt.title || 'Untitled hunt', [
+  paintMetrics($('metrics'), '', [
     `${theoryCount()} of 3 failure theories`,
     `${readyCount()} fully stated`,
     hunt.target.mode || 'mode missing',

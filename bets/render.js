@@ -414,7 +414,7 @@ function renderNarrow(model, sim, ctx){
   titleLines.forEach((line, i) => parts.push('<text data-bets-title-line="" x="' + pad + '" y="' + (y + i * 24) +
     '" font-family="\'Helvetica Neue\',Helvetica,\'Segoe UI\',Roboto,sans-serif" font-size="21" font-weight="600" fill="' + c.ink + '">' + esc(line) + '</text>'));
   y += titleLines.length * 24 - 2;
-  parts.push(txt(pad, y, flat.length + ' bets · ' + flagged + ' flagged · stake ' + num(totalStake), 11, c.muted)); y += 12;
+  parts.push(txt(pad, y, 'Stake ' + num(totalStake) + (flagged ? ' · ' + flagged + ' flagged' : ''), 11, c.muted)); y += 12;
   const receipt = conditionCards(conditions, pad, y, inner, c, true);
   parts.push(...receipt.parts); y += receipt.height + 12;
   if(compare){

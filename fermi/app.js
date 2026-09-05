@@ -635,7 +635,7 @@ function renderResults(){
   const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
   /* outside the resultsSig gate: the formula label can change without moving a
      percentile (a rename, a whitespace edit), and the row must not go stale */
-  paintMetrics($('metrics'), formulaLabel(), []);
+  paintMetrics($('metrics'), '', []);
   updateModelTrace();
   reviewDetail();
   const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +

@@ -50,7 +50,7 @@ test('every rendered component carries its exact authored evolution position whi
   assert.match(svg, /data-document-accent=""[^>]*stroke="#7b4a18"/);
   assert.equal((svg.match(/#7b4a18/g) || []).length, 1, 'accent has one restrained document role');
   const accentY = +svg.match(/data-document-accent=""[^>]*y1="([\d.]+)"/)[1];
-  const metricY = +svg.match(/<text x="56" y="([\d.]+)" font-size="12"[^>]*>3 components/)[1];
+  const metricY = +svg.match(/<text x="56" y="([\d.]+)" font-size="12"[^>]*>horizontal positions are current claims/)[1];
   assert.ok(accentY <= metricY - 12, 'the rule uses the title/metadata gutter rather than striking the metric text');
 });
 
