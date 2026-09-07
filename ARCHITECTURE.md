@@ -148,9 +148,7 @@ than merely scaling down, with the exports pinned to the wide artefact. Every
 animation respects `prefers-reduced-motion`.
 
 Within that one shared grammar, tools split into four families by interaction
-mechanism and audience — not by subject matter, and not the same axis as a
-workflow route (home's Paths → Roadmap → Timeline → Case nav sequences four
-*document* tools for one use case; it doesn't compete with this split). A
+mechanism and audience rather than subject matter. A
 **document** tool is text that becomes an artefact — a rail to write in, a
 stage to read the result, edit-in-place, collapse-to-read; most tools are
 this. A **calculator** has no text source at all — a formula or a weight

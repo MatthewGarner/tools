@@ -158,3 +158,23 @@ body[data-mode="console"] header h1{font-size:22px}
   .addopt,.gform .addq{min-height:44px;display:flex;align-items:center;justify-content:center}
   .addopt{display:inline-flex}
 }
+
+/* Keep the facilitator's next step beside all three explicitly separate views. */
+.compose-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  position:sticky;top:0;z-index:10;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border)}
+.compose-toolbar .viewtoggle{margin:0;flex-wrap:wrap}
+.compose-toolbar .viewtoggle button{min-height:44px;white-space:normal}
+.viewhint{font-size:13px;line-height:1.5;color:var(--muted);margin:12px 0 18px;max-width:65ch}
+.author-question .qhead{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center}
+.author-question .qtitle{grid-column:2;min-width:0;padding:10px 0;border-bottom:1px dotted var(--muted)}
+.author-question .qtypepill{grid-column:2;grid-row:2;justify-self:start}
+.author-question .qdel{grid-column:3;grid-row:1}
+.author-question [data-edit]{min-height:44px;display:inline-flex;align-items:center}
+.author-question .qdel,.author-question .rmopt{min-width:44px;justify-content:center}
+.author-details{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.author-question .chiprow{border-bottom:1px solid var(--border)}
+@media(max-width:700px){
+  .compose-toolbar .viewtoggle{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .compose-toolbar .viewtoggle #viewparticipant{grid-column:1 / -1;grid-row:2}
+  .compose-toolbar #startbtn{width:100%}
+}

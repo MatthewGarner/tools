@@ -53,7 +53,7 @@ const TOOLS = [
   {path: '/why/', chip: 'Reading retention', source: 'Edit tree source'},
   {path: '/roadmap/', source: 'Edit roadmap source', narrowTab: true, chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
-  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
+  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit question source', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   /* Bets keeps source open for editing, but its fit advisory has a named manual
@@ -224,6 +224,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   if(source) await page.getByRole('button', {name: source}).click();
+  if(['/roadmap/','/case/'].includes(path)) await page.locator('#examples summary').click();
   await page.getByRole('button', {name: chip}).click();
   await page.waitForTimeout(500);
   if(view){ await page.locator(view).click(); await page.waitForTimeout(400); }
@@ -233,6 +234,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   const svgW = () => page.locator('#preview').evaluate(preview=>preview.querySelector('svg')?.getBoundingClientRect().width||0);
   check(path + ' rail visible by default', await page.locator('.rail').isVisible());
   const before = await svgW();
+  const authorStageWidth = (await page.locator('#preview').boundingBox()).width;
   await page.locator('#railtab').click();
   await page.waitForTimeout(500);
   check(path + ' collapse hides rail', !(await page.locator('.rail').isVisible()));
@@ -267,13 +269,11 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
     check(path + ' artefact + receipt reach a sibling\'s width (' + Math.round(after) + ' + ' +
       Math.round(receiptBox?.width || 0) + ')', !!receiptBox && after + receiptBox.width > 1500);
   } else if(path === '/roadmap/') {
-    /* Chapter starts at its 1440px composition width beside source, then uses
-       the full reading stage. That useful 13% growth is smaller than the old
-       generic 20% heuristic; assert the actual reading geometry instead. */
+    // Chapter reflows beside source, then fills the full reading stage.
     const stageW = (await page.locator('#preview').boundingBox()).width;
-    check(path + ' Chapter preserves its composition width and fills the reading stage (' +
+    check(path + ' Chapter fits its authoring stage and fills the reading stage (' +
       Math.round(before) + '→' + Math.round(after) + ' = ' + Math.round(stageW) + ')',
-      before >= 1440 && after > before && Math.abs(after - stageW) < 12);
+      Math.abs(before - authorStageWidth) < 12 && after > before && Math.abs(after - stageW) < 12);
     check(path + ' fills most of viewport (' + Math.round(after) + 'px)', after > 1500);
   } else if(path === '/timeline/') {
     // Observatory reflows its track to the available live width. Native/export

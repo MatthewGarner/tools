@@ -156,10 +156,9 @@ export function report(name, {pass, fail, min}){
 }
 
 
-/* Chapter keeps examples with their source. Use its named return control before
-   choosing one; hidden chip DOM is not an available authoring route. */
+/* Source readiness is the editor itself; examples have a separate disclosure. */
 export async function openRoadmapSource(page){
   const closed=await page.locator('#workspace').evaluate(el=>el.classList.contains('collapsed')||el.classList.contains('focus-artefact')||el.classList.contains('reading-pending'));
   if(closed)await page.getByRole('button',{name:'Edit roadmap source',exact:true}).click();
-  await page.locator('#chips').waitFor({state:'visible'});
+  await page.locator('.cm-content').waitFor({state:'visible'});
 }

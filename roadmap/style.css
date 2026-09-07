@@ -111,7 +111,7 @@ select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);borde
 /* Roadmap's action row sits immediately above the explanatory prose. Its
    treated Export menu therefore opens into the utility area, never over the
    editorial reading column below. */
-.actions .action-disclosure:not(.history) .action-menu{top:auto;bottom:calc(100% + 6px)}
+.roadmap-utilities .actions .action-disclosure:not(.history) .action-menu{top:auto;bottom:calc(100% + 6px)}
 .action-menu-label{margin:2px 7px 5px;padding:0 0 6px;border-bottom:1px solid var(--border);
   color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
 /* the headline field — the UI half of `headline:`. Given its own labelled row
@@ -279,7 +279,7 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
  .chapter-app .composition-bar {justify-content:flex-start}
  .chapter-app .composition-bar .segmented {flex-basis:100%;display:flex;margin:0}
  .chapter-app .segmented button {flex:1;padding:8px}
- .chapter-setting {font-size:0}
+ .chapter-setting {font-size:14px}
  .chapter-setting .ctl {font-size:16px;max-width:135px}
  .chapter-app .chapter-export {margin-left:auto}
  .chapter-app select.ctl,.chapter-app input.ctl {font-size:16px}
@@ -290,7 +290,28 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    source folded, so its named return must remain available at every width. */
 @media(max-width:900px){
  .chapter-app .workspace .railtab{display:block;top:8px;left:12px;width:auto;min-width:44px;min-height:44px;transform:none;padding:0 12px}
- .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab::after{content:'Hide source';font:500 14px 'DM Sans',sans-serif}
+ .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab::after{content:none}
 }
 
 @media (pointer:coarse){.preview [data-add-control]{opacity:.75}}
+
+.chapter-app .model-actions{margin-top:16px;flex-wrap:wrap;gap:8px}
+.chapter-app .model-actions .action-menu{min-width:240px;max-width:min(340px,calc(100vw - 40px));flex-wrap:wrap}
+.chapter-app #appearance .action-menu{min-width:220px;padding:12px;gap:12px}
+.chapter-app #appearance .chapter-setting{justify-content:space-between}
+.chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab{width:auto;min-height:44px;padding:0 12px;transform:none;writing-mode:horizontal-tb}
+
+.chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab{top:12px;left:calc(var(--workspace-rail-width) + 24px);opacity:1;color:var(--ink);border-left:2px solid var(--accent)}
+.chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab::after{content:none}
+.chapter-app .workspace:not(.collapsed):not(.focus-artefact) .stage-head{padding-top:54px}
+@media(max-width:900px){
+ .chapter-app > .wrap header{flex-wrap:wrap;gap:12px}
+ .chapter-app .model-actions{flex-basis:100%;margin-top:0}
+ .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab{left:12px}
+}
+
+@media(max-width:900px){
+ .chapter-app .model-actions{position:relative}
+ .chapter-app .model-actions .action-disclosure{position:static}
+ .chapter-app .model-actions .action-menu{left:0;right:auto;top:calc(100% + 6px);bottom:auto}
+}

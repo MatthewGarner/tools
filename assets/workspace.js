@@ -57,7 +57,7 @@ export function initialReadingState(options){
 
 export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChange, autoFold = false,
   collapsedLabel = 'Source', collapsedAriaLabel = 'Show source editor', expandedLabel = '‹', initialCollapsed = false,
-  initialReading = false, focusEditor = null}){
+  initialReading = false, focusEditor = null, fitToFold = true}){
   let zoom = 'fit';   // 'fit' | number (1 = natural size)
   let reading = false;
   let readingResolved = initialReading !== 'when-guarded';
@@ -97,7 +97,7 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
      clientWidth, which would feed back into the cap and let it oscillate */
   const paneWidth = () => preview.getBoundingClientRect().width;
   function fitCap(svg, {pane = paneWidth(), forExpanded = false} = {}){
-    if(workspace.classList.contains('collapsed') || (!forExpanded && (reading || workspace.classList.contains('reading-pending')))) return 0; // collapse = "give it room"
+    if(!fitToFold || workspace.classList.contains('collapsed') || (!forExpanded && (reading || workspace.classList.contains('reading-pending')))) return 0; // collapse = "give it room"
     const vb = svg.viewBox.baseVal;
     const aspect = (vb && vb.height) ? vb.width / vb.height : 0;
     if(!aspect || pane < WIDE) return 0;

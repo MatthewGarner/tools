@@ -1,7 +1,7 @@
 /* Session model → participant form HTML string, and DOM-free value collection.
 
-   In compose mode the app passes {editable:true}: the form gains phone-first
-   AUTHORING chrome — every question's text, type, unit and chip options become
+   In compose mode the app passes {editable:true}: the form becomes a question authoring surface without response inputs;
+   every question gains AUTHORING chrome — its text, type, unit and chip options become
    edit-in-place targets (assets/edit-in-place.js), each an undoable text rewrite
    (gauge/edit-targets.js). Participants never get editable:true, so their markup
    is unchanged. Targets are <span role="button">, not <button>, so a keyboard
@@ -24,13 +24,26 @@ export function renderForm(model, opts = {}){
       const title = '<span class="qtitle"' + de('qtext', L, q.text) +
         ' aria-label="Edit question ' + (i + 1) + ' text">' + esc(q.text) + '</span>';
       const typepill = '<span class="qtypepill"' + de('qtype', L, q.type) +
-        ' aria-label="Change question ' + (i + 1) + ' type">' + q.type + '</span>';
+        ' aria-label="Change question ' + (i + 1) + ' type">' + ({prob: 'Probability', range: 'Range', chips: 'Chips'}[q.type]) + '</span>';
       const del = '<span class="qdel"' + de('removeq', L, '') +
         ' aria-label="Remove question ' + (i + 1) + '">×</span>';
       head = '<p class="qtext qhead"><span class="qnum">' + (i + 1) + '</span>' +
         title + typepill + del + '</p>';
     } else {
       head = '<p class="qtext"><span class="qnum">' + (i + 1) + '</span>' + esc(q.text) + '</p>';
+    }
+    if(editable){
+      let detail = '<p class="hint">Participants give a probability from 0 to 100%.</p>';
+      if(q.type === 'range') detail = '<div class="author-details"><span>90% range · unit</span> ' +
+        '<span class="unit unitpill' + (q.unit ? '' : ' ghost') + '"' + de('unit', L, q.unit || '') +
+        ' aria-label="Edit unit">' + esc(q.unit || 'unit') + '</span></div>';
+      if(q.type === 'chips') detail = '<p class="hint">Participants split 100 chips across these options. Select an option to rename it.</p>' +
+        q.options.map((opt, j) => '<div class="chiprow"><span class="chipopt"' +
+          de('opt', L, opt, ' data-opt="' + j + '"') + ' aria-label="Rename option ' + esc(opt) + '">' + esc(opt) + '</span>' +
+          (q.options.length > 2 ? '<span class="rmopt"' + de('rmopt', L, '', ' data-opt="' + j + '"') +
+            ' aria-label="Remove option ' + esc(opt) + '">×</span>' : '') + '</div>').join('') +
+        (q.options.length < 8 ? '<span class="addopt"' + de('addopt', L, '') + '>＋ Add option</span>' : '');
+      return '<div class="q author-question" data-q="' + i + '" data-type="' + q.type + '">' + head + detail + '</div>';
     }
     if(q.type === 'prob'){
       return '<div class="q" data-q="' + i + '" data-type="prob">' + head +
@@ -43,32 +56,19 @@ export function renderForm(model, opts = {}){
     }
     if(q.type === 'chips'){
       const rowsH = q.options.map((opt, j) => {
-        const label = editable
-          ? '<span class="chipopt"' + de('opt', L, opt, ' data-opt="' + j + '"') +
-            ' aria-label="Rename option ' + esc(opt) + '">' + esc(opt) + '</span>'
-          : '<span class="chipopt">' + esc(opt) + '</span>';
-        const rmv = (editable && q.options.length > 2)
-          ? '<span class="rmopt"' + de('rmopt', L, '', ' data-opt="' + j + '"') +
-            ' aria-label="Remove option ' + esc(opt) + '">×</span>'
-          : '';
+        const label = '<span class="chipopt">' + esc(opt) + '</span>';
         return '<div class="chiprow">' + label +
           '<button class="chipstep" data-dir="-1" type="button" aria-label="Fewer chips for ' + esc(opt) + '">−</button>' +
           '<input type="number" inputmode="numeric" min="0" max="100" step="1" value=""' +
           ' data-part="chip" data-opt="' + j + '" aria-label="Chips for: ' + esc(opt) + '">' +
           '<button class="chipstep" data-dir="1" type="button" aria-label="More chips for ' + esc(opt) + '">+</button>' +
-          rmv + '</div>';
+          '</div>';
       }).join('');
-      const addopt = (editable && q.options.length < 8)
-        ? '<span class="addopt"' + de('addopt', L, '') + '>＋ Add option</span>'
-        : '';
-      return '<div class="q" data-q="' + i + '" data-type="chips">' + head + rowsH + addopt +
+      return '<div class="q" data-q="' + i + '" data-type="chips">' + head + rowsH +
         '<p class="hint">Split 100 chips by conviction — <output class="chipsleft">100</output> left.</p>' +
         '<p class="qerr" role="alert" hidden></p></div>';
     }
-    const unit = editable
-      ? '<span class="unit unitpill' + (q.unit ? '' : ' ghost') + '"' +
-        de('unit', L, q.unit || '') + ' aria-label="Edit unit">' + esc(q.unit || 'unit') + '</span>'
-      : (q.unit ? '<span class="unit">' + esc(q.unit) + '</span>' : '');
+    const unit = q.unit ? '<span class="unit">' + esc(q.unit) + '</span>' : '';
     return '<div class="q" data-q="' + i + '" data-type="range">' + head +
       '<div class="rangerow">' +
       '<input type="number" inputmode="decimal" data-part="low" aria-label="Low end for: ' + esc(q.text) + '">' +
@@ -78,7 +78,7 @@ export function renderForm(model, opts = {}){
       '<p class="hint">Your 90% range — you’d be surprised if the truth fell outside it.</p>' +
       '<p class="qerr" role="alert" hidden></p></div>';
   });
-  const name = model.names
+  const name = !editable && model.names
     ? '<div class="q namefield"><label>Your name ' +
       '<input type="text" maxlength="40" data-name placeholder="shown next to your answers"></label></div>'
     : '';

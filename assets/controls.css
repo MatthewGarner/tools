@@ -102,6 +102,14 @@
 .savedchip button:hover{color:var(--accent-ink)}
 .savedchip .chipdel{padding:4px 10px 4px 4px;color:var(--muted)}
 .savedchip .chipdel:hover{color:var(--err)}
+.model-link-status:empty{display:none}
+.model-link-status{flex-basis:100%;overflow-wrap:anywhere}
+.model-link-dialog{width:min(520px,calc(100vw - 40px));box-sizing:border-box;padding:24px;background:var(--bg);color:var(--ink);border:1px solid var(--border)}
+.model-link-dialog::backdrop{background:rgb(0 0 0 / .45)}
+.model-link-dialog h2{margin-top:0}
+.model-link-dialog label{display:grid;gap:8px}
+.model-link-dialog textarea{box-sizing:border-box;width:100%;min-height:140px;font:16px/1.5 monospace;overflow-wrap:anywhere;background:var(--bg);color:var(--ink);border:1px solid var(--border)}
+.model-link-dialog button{margin-top:16px;min-height:44px}
 @media (max-width: 520px), (pointer: coarse){
   .savedchip button{min-height:44px;display:inline-flex;align-items:center}
 }

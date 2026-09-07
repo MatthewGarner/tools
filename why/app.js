@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
 import {project, whyVerdict} from './project.js';
@@ -144,11 +145,12 @@ const editor = createEditor({
   onChange: debounced(refresh, 120),
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
-function writeHash(){
+function modelLinkState(){
   const state = {t: editor.getText(), v: view};
   state.e = ws.collapsed() ? 0 : 1;
-  if(shouldPersist()) writeHashState(state);
+  return state;
 }
+function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 snaps = wireSnapshots({
   store: snapStore('why-snaps'),
   parse,
@@ -270,7 +272,7 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!model || !model.outcomes.length) return;
     const list = loadSaved(SAVED_KEY);
@@ -321,3 +323,5 @@ watchNarrowBucket(previewEl, rerender);
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent']);
+
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});

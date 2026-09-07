@@ -1,5 +1,6 @@
 /* Real touch edits, source persistence and export recovery in the Chapter shell. */
 import {chromium} from 'playwright';
+import {checkModelLink} from './model-link-check.mjs';
 import assert from 'node:assert/strict';
 import {waitChapterSource} from './chapter-state.mjs';
 const browser=await chromium.launch();
@@ -28,17 +29,26 @@ async function note(value, target=card()){
   await page.getByRole('textbox',{name:'Edit note',exact:true}).fill(value);
   await page.getByRole('textbox',{name:'Edit note',exact:true}).press('Enter');
   await page.waitForFunction(({title,value})=>[...document.querySelectorAll('[data-item-title]')].some(el=>el.dataset.itemTitle===title&&el.dataset.noteRaw===value),{title,value});
+  assert.ok(!(await page.locator('[aria-live]').allTextContents()).join(' ').includes('That option can’t be edited here.'), 'successful Roadmap edit must not announce an unsupported edit');
 }
 try{
   await page.goto(base+'/roadmap/');
+  await checkModelLink(page);
+  await page.locator('#examples summary').tap();
+  const menu = await page.locator('#chips').boundingBox();
+  assert.ok(menu.y >= 0 && menu.x >= 0 && menu.x + menu.width <= 390, 'Examples opens inside the phone viewport');
+  await page.getByRole('button', {name:'Reading app roadmap',exact:true}).tap();
+  assert.equal(await page.locator('#examples').getAttribute('open'), null, 'choosing an example closes the menu');
   await page.waitForFunction(()=>document.querySelector('#fontstatus').hidden);
   for(const style of ['focus','board','grid','register']){
     const src=`title: Touch review\nstyle: ${style}\nfont: Chapter\naccent: #254C3D\nNOW\nCore: Resume your reading [doing] -- Original commentary\nNEXT\nPlatform: Offline downloads\nLATER\nCore: Book clubs`;
     await source(src);
     if(style==='focus'){
       // Two deliberate controls are two undo steps even inside CM's typing group delay.
+      await page.locator('#appearance summary').tap();
       await page.locator('#fontchoice').selectOption('DM Sans');
       await page.locator('#accentchoice').evaluate(el=>{el.value='#663b59';el.dispatchEvent(new Event('change',{bubbles:true}));});
+      await page.locator('#appearance summary').tap();
       const changed=src.replace('font: Chapter','font: DM Sans').replace('#254C3D','#663b59');
       await saved(changed);
       await page.getByRole('button',{name:'Undo',exact:true}).tap();

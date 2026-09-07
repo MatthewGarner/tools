@@ -104,3 +104,15 @@ test('receiptLabel is explicit about source without certifying authority', () =>
   assert.equal(receiptChipLabel(gauge), 'Gauge · review needed');
   assert.equal(receiptChipLabel({...gauge, status: 'adopted'}), 'Gauge · adopted');
 });
+
+ test('authored result question and unit round-trip independently of formula and receipts', () => {
+  const raw = {f:'users * price',v:{users:['2','4','auto']},q:'What is the annual cost?',u:'£ per year'};
+  assert.deepEqual(packScen(unpackScen(raw)), raw);
+  const legacy = unpackScen({f:'x',v:{}});
+  assert.equal(legacy.question, '');
+  assert.equal(legacy.unit, '');
+  assert.deepEqual(packScen({...legacy,question:'',unit:''}), {f:'x',v:{}});
+  const invalid = unpackScen({f:'x',v:{},q:'x'.repeat(181),u:'\u202eweeks'});
+  assert.equal(invalid.question, '');
+  assert.equal(invalid.unit, '');
+});

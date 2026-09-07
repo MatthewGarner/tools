@@ -1400,7 +1400,7 @@ for(const theme of FLOW_THEMES){
 {
   const {page, errors} = await freshPage('/roadmap/');
   await openRoadmapSource(page);
-  await page.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await page.locator('#examples summary').click(); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
   await page.locator('#stylepicker [data-style="grid"]').click();
   await page.waitForTimeout(500);
   check('roadmap: preview renders', await page.locator('#preview svg').count() === 1);
@@ -1445,7 +1445,7 @@ for(const theme of FLOW_THEMES){
     (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
     (await page.locator('#preview svg [data-edit="cardmenu"]').count()) >= 1);
   check('roadmap: Board card resolved by title carries data-edit=cardmenu',
-    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Resume where you left off'}).count()) >= 1);
+    (await page.locator('#preview svg [data-edit="cardmenu"][data-item-title="Resume where you left off"]').count()) >= 1);
   // WYSIWYG export: Download SVG from Board view yields the live board artefact, not the chart
   const [brd] = await Promise.all([
     page.waitForEvent('download', {timeout: 8000}),
@@ -1624,9 +1624,9 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);
   /* half these tools open with the source rail collapsed (the chips live in it) */
-  if(!await page.locator('#chips').isVisible()) await page.locator('#railtab').click();
+  if(!['/roadmap/','/case/'].includes(tool) && !await page.locator('#chips').isVisible()) await page.locator('#railtab').click();
   await page.waitForTimeout(300);
-  const chip = page.getByRole('button', {name: 'Start your own'});
+  const chip = page.getByRole('button', {name: tool === '/roadmap/' ? 'New roadmap' : tool === '/case/' ? 'New case' : 'Start your own'});
   check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);
   await chip.click();
   /* energy's engines settle off-thread — poll rather than guess a sleep */

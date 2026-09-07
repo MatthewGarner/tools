@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved portfolios, exports, boot, snapshot compare
    (2026-07-12 — the deferred Task 5b): an editor -> board -> exports loop
    with edit-in-place + the coarse-pointer card menu. */
@@ -137,12 +138,13 @@ const editor = createEditor({
   onChange: debounced(refresh, 120),
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
-function writeHash(){
+function modelLinkState(){
   const state = {t: editor.getText()};
   if(view !== 'board') state.v = view;
   if(ws.collapsed()) state.e = 0;
-  if(shouldPersist()) writeHashState(state);
+  return state;
 }
+function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 snaps = wireSnapshots({
   store: snapStore('bets-snaps'),
   parse,
@@ -296,7 +298,7 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!hasBets(model)) return;
     const list = loadSaved(SAVED_KEY);
@@ -354,3 +356,5 @@ wireCopyVerdict($('verdict'));
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'unit']);
+
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});

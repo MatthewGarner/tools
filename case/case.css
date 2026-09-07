@@ -13,3 +13,5 @@ dialog{box-sizing:border-box;width:min(720px,calc(100vw - 32px));max-height:90vh
 @media print{@page{size:16in 9in;margin:0}body>*{display:none!important}body>#printpages{display:block!important}#printpages section{width:16in;height:9in;break-after:page}#printpages section:last-child{break-after:auto}#printpages svg{display:block;width:100%;height:100%}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 
 #focusdialog #inspector{position:static;border:0;margin:0;padding:0}#focusdialog{max-height:88dvh}
+
+#editdialog{padding-bottom:0}#editdialog textarea{min-height:66px;line-height:1.45}#editdialog .dialog-actions{position:sticky;bottom:0;background:var(--case-bg);border-top:1px solid var(--case-border);padding:12px 0;margin-bottom:0}

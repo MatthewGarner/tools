@@ -18,24 +18,25 @@ import {paintKicker, paintMetrics, paintVerdict, wireCopyVerdict} from '../asset
 import {effectiveHorizon, cashflowHashState, cashflowTailNote, parseCashflowInputs} from './interactions.js';
 import {packScen as packEstimateScenario, unpackScen as unpackEstimateScenario,
   normalizeReceipt, receiptLabel} from './state.js';
+import {mountModelLink} from '../assets/model-link.js';
 import {targetHashState, validHandoffMeta} from '../assets/handoff.js';
 
 /* ---------- examples ---------- */
 const EXAMPLES = [
-  {name:'Piano tuners in Chicago',
+  {name:'Piano tuners in Chicago', q:'How many piano tuners does Chicago need?', u:'tuners',
    f:'households * share_with_piano * tunings_per_year / (tunings_per_day * working_days)',
    v:{households:['3M','4M'], share_with_piano:['0.02','0.08'], tunings_per_year:['0.5','2'],
       tunings_per_day:['2','5'], working_days:['220','260']}},
-  {name:'Weekly meeting, annual cost',
+  {name:'Weekly meeting, annual cost', q:'What does this weekly meeting cost per year?', u:'£ per year',
    f:'attendees * hourly_cost * meeting_hours * weeks_per_year',
    v:{attendees:['6','10'], hourly_cost:['60','120'], meeting_hours:['0.75','1.5'], weeks_per_year:['44','48']}},
-  {name:'New feature revenue',
+  {name:'New feature revenue', q:'What annual revenue could one month’s new customers bring?', u:'£ per year',
    f:'monthly_visitors * signup_rate * paid_conversion * annual_price',
    v:{monthly_visitors:['80k','200k'], signup_rate:['0.02','0.06'], paid_conversion:['0.05','0.15'], annual_price:['90','140']}},
-  {name:'Availability chain',
+  {name:'Availability chain', q:'What fraction of time is the whole service available?', u:'fraction of time (0–1)',
    f:'app_up * db_up * network_up * api_up',
    v:{app_up:['0.97','0.999'], db_up:['0.98','0.9995'], network_up:['0.99','0.9999'], api_up:['0.95','0.999']}},
-  {name:'Cadence economics',
+  {name:'Cadence economics', q:'What does decision-making cost per quarter?', u:'£ per quarter',
    f:'decisions_per_quarter * hours_per_decision * people_in_room * hourly_cost',
    v:{decisions_per_quarter:['12','30'], hours_per_decision:['1','4'], people_in_room:['4','9'], hourly_cost:['60','120']}},
 ];
@@ -110,7 +111,8 @@ function reviewDetail(){
   title.textContent = selected ? names[selected] : 'Model basis';
   body.textContent = selected ? explanations[selected] :
     'Choose P10, P50 or P90 to read one point in the distribution. None is a promise.';
-  const rows = selected ? [['Selected result', fmt(values[selected])], ['Formula', formulaLabel()],
+  const resultUnit = $('estimateunit').value.trim();
+  const rows = selected ? [['Selected result', fmt(values[selected]) + (resultUnit ? ' ' + resultUnit : '')], ['Formula', formulaLabel()],
     ['Interval', fmt(last.p10) + ' to ' + fmt(last.p90)], ['Input receipts', receiptSummary(last.varNames)]] :
     [['Formula', formulaLabel()], ['Input ranges', last.varNames.length + ' ranged input' + (last.varNames.length === 1 ? '' : 's')],
       ['Input receipts', receiptSummary(last.varNames)], ['Simulation', N.toLocaleString('en-GB') + ' seeded runs']];
@@ -155,12 +157,15 @@ const SEEDS = {A:0x5EED, B:0x0B5EED};
 function snapshot(){
   return {
     f: $('formula').value,
+    question: $('estimatequestion').value, unit: $('estimateunit').value,
     vars: new Map([...varState].map(([k, s]) => [k, {...s}])),
     thresh: threshStr,
   };
 }
 function loadSnap(s){
   $('formula').value = s ? s.f : '';
+  $('estimatequestion').value = s?.question || '';
+  $('estimateunit').value = s?.unit || '';
   varState.clear();
   if(s) for(const [k, v] of s.vars) varState.set(k, {...v});
   threshStr = s ? s.thresh : '';
@@ -628,6 +633,12 @@ function formulaLabel(){
 
 function renderResults(){
   const r = last;
+  const question = $('estimatequestion').value.trim(), unit = $('estimateunit').value.trim();
+  $('resultcontext').hidden = !question && !unit;
+  $('resultquestion').textContent = question;
+  $('resultquestion').hidden = !question;
+  $('resultunit').textContent = unit ? 'Results in ' + unit : '';
+  $('resultunit').hidden = !unit;
   $('ph').style.display = 'none';
   $('results').style.display = 'grid';
   $('results').classList.remove('is-stale');
@@ -638,7 +649,7 @@ function renderResults(){
   paintMetrics($('metrics'), '', []);
   updateModelTrace();
   reviewDetail();
-  const sayText = '“Probably around ' + p50Text + ' — I’d be surprised outside ' +
+  const sayText = '“Probably around ' + p50Text + (unit ? ' ' + unit : '') + ' — I’d be surprised outside ' +
     p10Text + ' to ' + p90Text + '.”';
   const ratio = (r.p10 > 0) ? r.p90 / r.p10 : NaN;
   const spreadText = isFinite(ratio)
@@ -1127,6 +1138,8 @@ for(const ex of EXAMPLES){
   b.addEventListener('click', () => {
     syncExampleButtons(estimateExampleButtons, ex.name);
     $('formula').value = ex.f;
+    $('estimatequestion').value = ex.q || '';
+    $('estimateunit').value = ex.u || '';
     for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist:'auto'});
     varRowsSig = '';
     lint();
@@ -1138,7 +1151,7 @@ $('copy').addEventListener('click', async () => {
   ensureFreshEstimate();
   if(!last) return;
   await flushEstimateHash();
-  const txt = 'P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
+  const txt = ($('estimatequestion').value.trim() ? $('estimatequestion').value.trim() + ' — ' : '') + ($('estimateunit').value.trim() ? 'Results in ' + $('estimateunit').value.trim() + ' — ' : '') + 'P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
     (last.p10 > 0 ? ' (spread ×' + sig(last.p90 / last.p10, 2) + ')' : '') +
     ' — ' + $('formula').value + ' — Input receipts: ' + receiptSummary(last.varNames) + ' — ' + location.href;
   try{
@@ -1154,6 +1167,8 @@ $('copydoc').addEventListener('click', async () => {
   if(!last) return;
   await flushEstimateHash();
   const lines = [];
+  if($('estimatequestion').value.trim()) lines.push($('estimatequestion').value.trim(), '');
+  if($('estimateunit').value.trim()) lines.push('Results in ' + $('estimateunit').value.trim(), '');
   lines.push('**Estimate — `' + $('formula').value.trim() + '`**');
   lines.push('');
   let head = 'P50 ≈ **' + fmt(last.p50) + '** · 90% range ' + fmt(last.p10) + ' – ' + fmt(last.p90);
@@ -1198,26 +1213,37 @@ $('png').addEventListener('click', () => {
   if(!last) return;
   const src = $('hist');
   const C = themeColors();
-  const pad = 24, capH = 66;
+  const pad = 24;
   const w = src.clientWidth, h = 180;
   const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
+  const titleLines = [''];
+  for(const char of ($('estimatequestion').value.trim() || $('formula').value.trim())){
+    const i = titleLines.length - 1;
+    if(ctx.measureText(titleLines[i] + char).width > w) titleLines.push(char);
+    else titleLines[i] += char;
+  }
+  const capH = titleLines.length * 18 + 70;
   const scale = 2;
   c.width = (w + pad * 2) * scale;
   c.height = (h + capH + pad * 2) * scale;
-  const ctx = c.getContext('2d');
   ctx.scale(scale, scale);
   ctx.fillStyle = C.card;
   ctx.fillRect(0, 0, w + pad * 2, h + capH + pad * 2);
   ctx.drawImage(src, pad, pad, w, h);
   ctx.fillStyle = C.ink;
   ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText($('formula').value.trim(), pad, pad + h + 18);
+  titleLines.forEach((line,i) => ctx.fillText(line, pad, pad + h + 18 * (i + 1)));
+  const captionY = pad + h + titleLines.length * 18;
+  ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText($('estimateunit').value.trim() ? 'Results in ' + $('estimateunit').value.trim() : '', pad, captionY + 18, w);
   ctx.fillStyle = C.muted;
   ctx.font = '12px ui-monospace, Menlo, monospace';
   ctx.fillText('P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
-    (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, pad + h + 36);
+    (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, captionY + 38, w);
   ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('INPUT RECEIPTS: ' + compactReceiptSummary(last.varNames), pad, pad + h + 54);
+  ctx.fillText('INPUT RECEIPTS: ' + compactReceiptSummary(last.varNames), pad, captionY + 58, w);
   c.toBlob(b => download('estimate.png', b), 'image/png');
 });
 
@@ -1226,13 +1252,15 @@ const SAVED_KEY = 'fermi-models';
 function renderSaved(){
   const row = $('savedrow');
   renderSavedChips(row, loadSaved(SAVED_KEY), {
-    title: m => m.f,
+    title: m => m.q || m.f,
     deleteLabel: m => 'Delete saved model ' + m.name,
     onLoad: m => {
       syncExampleButtons(estimateExampleButtons);
       $('formula').value = m.f;
       varState.clear();
       const restored = unpackEstimateScenario(m);
+      $('estimatequestion').value = restored.question;
+      $('estimateunit').value = restored.unit;
       for(const [k, state] of restored.vars) varState.set(k, state);
       threshStr = restored.thresh;
       $('tin').value = threshStr;
@@ -1248,14 +1276,15 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = '＋ Save on this device';
   save.addEventListener('click', () => {
     ensureFreshEstimate();
     const f = $('formula').value.trim();
     if(!f) return;
     const saved = packEstimateScenario(snapshot());
     const list = loadSaved(SAVED_KEY);
-    list.push({name: f.length > 26 ? f.slice(0, 24) + '…' : f, ...saved});
+    const name = saved.q || f;
+    list.push({name: name.length > 26 ? name.slice(0, 24) + '…' : name, ...saved});
     storeSaved(SAVED_KEY, list);
     renderSaved();
   });
@@ -1264,6 +1293,7 @@ function renderSaved(){
 renderSaved();
 
 $('formula').addEventListener('input', () => schedule(180));
+for(const id of ['estimatequestion','estimateunit']) $(id).addEventListener('input', () => schedule(180));
 $('editmodel').addEventListener('click', () => setAuthorOpen(true, {focus:true}));
 $('returntoreview').addEventListener('click', () => setAuthorOpen(false, {focus:true}));
 for(const key of ['p10', 'p50', 'p90']){
@@ -1300,6 +1330,8 @@ if(boot && boot.a && boot.b){
     const ex = EXAMPLES[0];
     syncExampleButtons(estimateExampleButtons, ex.name);
     $('formula').value = ex.f;
+    $('estimatequestion').value = ex.q || '';
+    $('estimateunit').value = ex.u || '';
     for(const [k, [lo, hi]] of Object.entries(ex.v)) varState.set(k, {lo, hi, dist: 'auto'});
     varRowsSig = '';
   });
@@ -1548,3 +1580,9 @@ if(boot && boot.m === 'cf'){
 
 paintKicker($('kicker'), '11', 'A number built from its parts');
 wireCopyVerdict($('verdict'));
+
+mountModelLink(document.querySelector('.trace-actions'), {getState: () => {
+  if(pageMode === 'cf'){ensureFreshCashflow();return cashflowHashState(cf, $('cftin').value);}
+  ensureFreshEstimate();scenStore[active]=snapshot();
+  return targetHashState(compareOn ? {a:packScen(scenStore.A), b:packScen(scenStore.B), on:active} : packScen(scenStore.A), inboundHandoff);
+}});

@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 import {parse} from './parse.js';
 import {resolve, zoneFor} from './zones.js';
 import {readout, toMarkdown} from './readout.js';
@@ -112,11 +113,12 @@ const editor = createEditor({
   onChange: debounced(refresh, 120),
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
-function writeHash(){
+function modelLinkState(){
   const state = {t: editor.getText()};
   state.e = ws.collapsed() ? 0 : 1;
-  if(shouldPersist()) writeHashState(state);
+  return state;
 }
+function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 snaps = wireSnapshots({
   store: snapStore('map-snaps'),
   parse,
@@ -207,7 +209,7 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!hasContent()) return;
     const list = loadSaved(SAVED_KEY);
@@ -407,3 +409,5 @@ onThemeChange(rerender);
 
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['preset', 'title', 'palette', 'accent', 'x', 'y', 'zones', 'verdict']);
+
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});

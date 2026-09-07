@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
 import {evaluate, evalDet, findByLine, probabilityActionState, refMid, sliderExtent, loadBearing, hingesBeyondTrack} from './engine.js';
@@ -110,11 +111,12 @@ const editor = createEditor({
   onChange: scheduleRefresh,
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
-function writeHash(){
+function modelLinkState(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
-  if(shouldPersist()) writeHashState(state);
+  return state;
 }
+function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'),
@@ -548,7 +550,7 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!model || !model.root) return;
     const list = loadSaved(SAVED_KEY);
@@ -615,3 +617,5 @@ onThemeChange(rerender);
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'currency', 'palette', 'accent', 'verdict']);
+
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
