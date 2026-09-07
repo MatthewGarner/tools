@@ -113,9 +113,11 @@ function openEdit(kind,item){
   $('editfields').innerHTML=fieldNames[kind].map(key=>{
     const value=item?.[key==='review-by'?'reviewBy':key]||(key==='date'&&kind==='review'?new Date().toISOString().slice(0,10):'');
     const options=key==='basis'?['','judgement','assumption','observation','model']:key==='status'?['open','decided','parked']:null;
-    return `<label>${e(labels[key]||key[0].toUpperCase()+key.slice(1))}${options?`<select aria-label="${e(labels[key]||key[0].toUpperCase()+key.slice(1))}" name="${key}">${options.map(v=>`<option value="${v}"${value===v?' selected':''}>${v||'Not stated'}</option>`).join('')}</select>`:`<${['detail','qualification','assumptions','constraints','change','implication'].includes(key)?'textarea':'input'} aria-label="${e(labels[key]||key[0].toUpperCase()+key.slice(1))}" name="${key}"${['date','review-by'].includes(key)?' type="date"':''}${key==='label'?' required':''}${['detail','qualification','assumptions','constraints','change','implication'].includes(key)?`>${e(value)}</textarea>`:` value="${e(value)}">`}`}</label>`;
-  }).join('');$('editerror').textContent='';$('editdialog').showModal();
+    return `<label>${e(labels[key]||key[0].toUpperCase()+key.slice(1))}${options?`<select aria-label="${e(labels[key]||key[0].toUpperCase()+key.slice(1))}" name="${key}">${options.map(v=>`<option value="${v}"${value===v?' selected':''}>${v||'Not stated'}</option>`).join('')}</select>`:`<${!['owner','date','review-by','url','previous'].includes(key)?'textarea':'input'} aria-label="${e(labels[key]||key[0].toUpperCase()+key.slice(1))}" name="${key}"${['date','review-by'].includes(key)?' type="date"':''}${key==='label'?' required':''}${!['owner','date','review-by','url','previous'].includes(key)?`>${e(value)}</textarea>`:` value="${e(value)}">`}`}</label>`;
+  }).join('');$('editerror').textContent='';$('editdialog').showModal();for(const field of $('editfields').querySelectorAll('textarea'))expandProse(field);
 }
+function expandProse(field){field.style.height='auto';field.style.height=field.scrollHeight+'px';}
+$('editfields').addEventListener('input',event=>{if(event.target.matches('textarea'))expandProse(event.target);});
 $('editform').addEventListener('submit',event=>{
   event.preventDefault();if(editor.getText()!==editing.source){$('editerror').textContent='The source changed while this editor was open. Close and reopen it to edit the current version.';return;}
   const values=Object.fromEntries([...new FormData(event.target)].map(([k,v])=>[k,String(v).replace(/[\r\n]+/g,' ').trim()]));
@@ -147,9 +149,9 @@ $('adoptreference').addEventListener('click',()=>{
   editor.setText(source);$('replacedialog').close();status('Reference adopted. The previous reference is preserved in Reviews.');
 });
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',()=>$(b.dataset.close).close());
-$('chips').innerHTML='<button id="newcase">Start your own</button>'+EXAMPLES.map((ex,i)=>`<button data-example="${i}">${e(ex.name)}</button>`).join('');
+$('chips').innerHTML=EXAMPLES.map((ex,i)=>`<button data-example="${i}">${e(ex.name)}</button>`).join('');
 $('newcase').addEventListener('click',()=>editor.setText(STARTER));
-for(const b of $('chips').querySelectorAll('[data-example]'))b.addEventListener('click',()=>{selected='';editor.setText(EXAMPLES[+b.dataset.example].text);});
+for(const b of $('chips').querySelectorAll('[data-example]'))b.addEventListener('click',()=>{selected='';editor.setText(EXAMPLES[+b.dataset.example].text);$('examples').open=false;});
 $('savesource').addEventListener('click',()=>download(slug()+'.case.txt',new Blob([editor.getText()],{type:'text/plain;charset=utf-8'})));
 $('opensource').addEventListener('change',async()=>{const file=$('opensource').files[0];if(!file)return;if(file.size>1000000){status('Source files can be up to 1 MB.');return;}editor.setText(await file.text());$('opensource').value='';status('Source opened.');});
 function markdown(){

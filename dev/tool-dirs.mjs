@@ -40,10 +40,7 @@ export const INSTRUMENTS = {
    here (document); Analysis was a mixed bag — Fermi and Rank share a
    ruler/form shell with no text source (calculator), while Tree and Bets
    were always document-family tools that happened to get filed elsewhere.
-   A "family" here is a claim about mechanism, not about workflow order —
-   home/index.html's separate planning-route nav (paths→roadmap→timeline→
-   case) is a sequencing aid for four document-family tools, not a rival
-   taxonomy; both can name the same tools for different reasons.
+   A "family" here is a claim about mechanism, not workflow order.
    dev/families.test.mjs asserts every TOOL_DIRS entry (BINDERS included) is
    classified exactly once. */
 export const FAMILIES = {

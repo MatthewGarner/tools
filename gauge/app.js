@@ -143,7 +143,10 @@ async function initCompose(hash){
   const composeEip = attachEditInPlace($('preview'), {
     kinds: {
       qtext:   {validate: v => renameQuestion('X :: prob', v) != null},
-      qtype:   {options: ['prob', 'range', 'chips']},
+      qtype:   {menu: el => ['prob', 'range', 'chips'].map(t => ({
+        label: {prob: 'Probability', range: 'Range', chips: 'Chips'}[t], on: t === el.dataset.raw,
+        commit: {kind: 'qtype', line: +el.dataset.line, oldRaw: el.dataset.raw, value: t},
+      }))},
       unit:    {validate: v => v.trim() !== '' && !v.includes('::')},
       opt:     {validate: v => v.trim() !== '' && !v.includes('|') && !v.includes('::')},
       removeq: {cycle: ['×']},
@@ -238,8 +241,8 @@ async function initCompose(hash){
       out = '<p class="placeholder">' + (text.trim()
         ? 'No questions yet — write one like “Weeks to migrate billing :: range weeks”.'
         : 'Start typing — or load an example.') + '</p>';
-    } else if(view === 'form'){
-      out = '<div class="formpreview">' + renderForm(model, {editable: true}) + '</div>';
+    } else if(view === 'form' || view === 'participant'){
+      out = '<div class="formpreview">' + renderForm(model, {editable: view === 'form'}) + '</div>';
     } else {
       const stats = sessionStats(model, sampleResponses(model));
       // the PREVIEW carries the narrow width (<520 ⇒ phone relayout); exports never do
@@ -272,6 +275,12 @@ async function initCompose(hash){
   /* view toggle */
   function setView(v){
     view = v;
+    for(const el of document.querySelectorAll('#zoomctl, #copypng, .stage .action-disclosure, .stage .actions .method')) el.hidden = v !== 'reveal';
+    $('viewparticipant').classList.toggle('on', v === 'participant');
+    $('viewparticipant').setAttribute('aria-pressed', String(v === 'participant'));
+    $('viewhint').textContent = v === 'form' ? 'Select a question to edit its text. Use the type and unit controls to shape the answer.' :
+      v === 'participant' ? 'Try the participant form. These practice answers are not saved or sent to a session.' :
+      'Synthetic sample responses show how the reveal works.';
     $('viewform').classList.toggle('on', v === 'form');
     $('viewreveal').classList.toggle('on', v === 'reveal');
     $('viewform').setAttribute('aria-pressed', String(v === 'form'));
@@ -280,6 +289,7 @@ async function initCompose(hash){
     refresh();
   }
   $('viewform').addEventListener('click', () => setView('form'));
+  $('viewparticipant').addEventListener('click', () => setView('participant'));
   $('viewreveal').addEventListener('click', () => setView('reveal'));
   wireFormEvents($('preview'));
 

@@ -35,15 +35,18 @@
       <span>Delivery roadmap · committed work</span>
       <p>Use Roadmap for work you are prepared to carry. If an open question can stop, pivot or expand investment, design the decision plan in <a href="/paths/">Paths</a> first.</p>
     </aside>
+    <div class="model-actions actions" id="modelactions">
+      <button class="btn" id="newroadmap" type="button">New roadmap</button>
+      <details class="action-disclosure" id="examples"><summary class="btn">Examples</summary><div class="action-menu chips" id="chips"></div></details>
+      <details class="action-disclosure"><summary class="btn">Saved on this device</summary><div class="action-menu chips" id="savedrow"></div></details>
+    </div>
   </header>
 </div>
 
 <main>
 <div class="workspace" id="workspace">
     <aside class="rail">
-      <div class="chips" id="chips"><span class="lead">Or try:</span></div>
       <div id="cmhost" aria-label="Roadmap source editor"></div>
-      <div class="chips" id="savedrow" style="margin-top:12px"></div>
       <div class="importbox" id="importbox">
         <p class="hint">Paste a markdown roadmap (<code>### Now</code> headings with <code>-</code> bullets, as exported by this tool or written by hand). Replaces the editor.</p>
         <textarea id="importarea" spellcheck="false"></textarea>
@@ -126,8 +129,10 @@
           <button data-style="focus" data-capability="views.focus" aria-pressed="false">Spotlight</button>
           <button data-style="register" data-capability="views.register" aria-pressed="false">Register</button>
         </div>
+        <details class="action-disclosure" id="appearance"><summary class="btn">Appearance</summary><div class="action-menu">
         <label class="chapter-setting">Typography <select class="ctl" id="fontchoice" aria-label="Typography"><option>Chapter</option><option>DM Sans</option></select></label>
         <label class="chapter-setting">Accent <input id="accentchoice" type="color" aria-label="Accent colour" value="#254C3D"></label>
+        </div></details>
         <button class="btn chapter-export" id="exportdeck" type="button">Export deck</button>
         <p class="narrow-composition-note" id="narrowcomposition" aria-live="polite" hidden></p>
         <div class="stylepick segmented" id="grouppicker" role="group" aria-label="Register grouping" hidden>

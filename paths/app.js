@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved paths, exports, boot. */
 import {parse, CONFIG_KEYS} from './parse.js';
 import {project} from './project.js';
@@ -1039,8 +1040,7 @@ function renderInspector(){
 async function writeHash(){
   if(!shouldPersist()) return;
   const attempt = ++hashAttempt;
-  const ok = await writeHashState(targetHashState(
-    {t:editor.getText(), ...(ws.collapsed() && !sourceAutoFolded ? {e:0} : {})}, inboundHandoff));
+  const ok = await writeHashState(modelLinkState());
   if(attempt !== hashAttempt) return;
   const oversized = !ok;
   if(oversized !== urlStateOversized){
@@ -1567,7 +1567,7 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!model || (!model.items.length && !model.decisions.length)) return;
     const list = loadSaved(SAVED_KEY);
@@ -1741,3 +1741,7 @@ onThemeChange(rerender);
 })();
 
 export {LANTERN};
+
+function modelLinkState(){ return targetHashState(
+    {t:editor.getText(), ...(ws.collapsed() && !sourceAutoFolded ? {e:0} : {})}, inboundHandoff); }
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});

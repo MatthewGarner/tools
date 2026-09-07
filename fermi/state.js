@@ -80,7 +80,7 @@ export function normalizeReceiptMap(raw, variableNames){
   return {receipts, dropped};
 }
 
-/** Pack the app's Map representation to the stable {f,v,p?,t?} URL shape. */
+/** Pack the app's Map representation to the stable {f,v,p?,t?,q?,u?} URL shape. */
 export function packScen(snap){
   const v = {}, p = {};
   const vars = snap?.vars instanceof Map ? snap.vars : new Map();
@@ -91,6 +91,7 @@ export function packScen(snap){
     if(receipt) p[name] = receipt;
   }
   const out = {f: typeof snap?.f === 'string' ? snap.f : '', v};
+  for(const [key,value,limit] of [['q',snap?.question,MAX_LABEL],['u',snap?.unit,MAX_UNIT]]){const text=boundedText(value,limit);if(text)out[key]=text;}
   if(Object.keys(p).length) out.p = p;
   if(typeof snap?.thresh === 'string' && snap.thresh) out.t = snap.thresh;
   return out;
@@ -118,6 +119,8 @@ export function unpackScen(raw){
   for(const [name, receipt] of receipts) vars.get(name).base = receipt;
   return {
     f: typeof source.f?.value === 'string' ? source.f.value : '',
+    question: boundedText(source.q?.value, MAX_LABEL) || '',
+    unit: boundedText(source.u?.value, MAX_UNIT) || '',
     vars,
     thresh: typeof source.t?.value === 'string' ? source.t.value : '',
     droppedReceipts: dropped,

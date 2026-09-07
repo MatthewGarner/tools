@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
 import {render, toMarkdown, timelineVerdict, timelineReadout} from './render.js';
@@ -120,12 +121,12 @@ const editor = createEditor({
   onChange: debounced(refresh, 120),
 });
 mountTouchUndo(document.querySelector('.stage .actions'), editor);   // phones have no ⌘Z (Rule 2)
-function writeHash(){
-  if(!shouldPersist()) return;
+function modelLinkState(){
   const state = {t: editor.getText()};
   state.e = ws.collapsed() ? 0 : 1;
-  writeHashState(state);
+  return state;
 }
+function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 snaps = wireSnapshots({
   store: snapStore('timeline-snaps'),
   parse,
@@ -491,3 +492,5 @@ $('slidepreviewdialog').addEventListener('keydown',event=>{
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 });
+
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});

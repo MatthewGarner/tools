@@ -628,6 +628,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   if(name === 'why') await page.getByRole('button', {name: 'Edit tree source'}).click();
+  if(name === 'roadmap') await page.locator('#examples summary').click();
   const b = page.getByRole('button', {name: chip});
   if(await b.count()) await b.click();
   await page.waitForTimeout(600);
@@ -817,6 +818,7 @@ for(const [name, url, chip] of WIDENED){
   const page = await ctx.newPage();
   await page.goto(T + '/roadmap/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
+  await page.locator('#examples summary').click();
   const chip = page.getByRole('button', {name: 'Reading app roadmap'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1272,11 +1274,11 @@ for(const [name, url, chip] of WIDENED){
     const page = await sctx.newPage();
     await page.goto(T + '/' + name + '/', {waitUntil: 'networkidle'}).catch(() => {});
     await page.waitForTimeout(650);
-    if(!await page.locator('#chips').isVisible().catch(() => false)){
+    if(name !== 'roadmap' && !await page.locator('#chips').isVisible().catch(() => false)){
       await page.locator('#railtab').click().catch(() => {});
       await page.waitForTimeout(400);
     }
-    const chip = page.getByRole('button', {name: 'Start your own'});
+    const chip = page.getByRole('button', {name: name === 'roadmap' ? 'New roadmap' : 'Start your own'});
     const box = await chip.count() ? await chip.boundingBox() : null;
     ok(!!box && box.height >= 44,
       `${name}: phone "Start your own" is reachable and >=44px${box ? ' (' + Math.round(box.height) + 'px)' : ' (missing)'}`);

@@ -30,7 +30,8 @@ test('editor.js keyword regex covers every CONFIG_KEYS entry', () => {
    syntax section, as a dt row or in prose (date: lives in title's dd). */
 test('every config key appears in the on-page syntax reference', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const syntax = html.slice(html.indexOf('class="syntax"'), html.indexOf('</details>'));
+  const start = html.indexOf('class="syntax"');
+  const syntax = html.slice(start, html.indexOf('</details>', start));
   const keys = CONFIG_KEYS.source.match(/[a-z]+/g).filter(k => k !== 'i');
   for(const k of keys)
     assert.ok(new RegExp('<code[^>]*>[^<]*' + k + ':').test(syntax),

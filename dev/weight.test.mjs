@@ -137,7 +137,9 @@ const PAGES = {
      textual percentile receipt and explicit author return replace a competing
      input card; their a11y/focus state stays eager so an offline model is never
      reduced to chart pixels. Actual 225.4k; ~9.6k headroom. */
-  'fermi/index.html': 235_000, 'rank/index.html': 107_500, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  /* 2026-09-07 usability: authored question/units and fresh model-link copying
+     add ~11.6k over the earlier measured 225.4k. Actual 237k; 5k headroom. */
+  'fermi/index.html': 242_000, 'rank/index.html': 107_500, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
@@ -164,7 +166,7 @@ const PAGES = {
      entry point and shared phase language. It deliberately does not reuse risk
      scoring, so the retained code is semantic protection rather than duplicated
      presentation. Actual ~120.2k; retain ~4.8k headroom. */
-  'premortem/index.html': 132_000, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
+  'premortem/index.html': 134_000 /* shared accessible copy-dialog CSS; actual 132.5k */, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
   'signal-vs-noise/index.html': 107_000,   /* 103k -> 107k (2026-08-20 P1): shared first-load code now totals 103.0k; restore real headroom. */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -367,7 +369,7 @@ const PAGES = {
      stale suppression. Actual 500.8k; retain ~6k headroom. */
   /* 538k -> 550k (2026-08-15 Mapping family): Map now includes the shared
      review-margin treatment for source-owned spatial inspection. Actual 542.8k. */
-  'map/index.html': 556_000,
+  'map/index.html': 562_000 /* current-state model-link copy + fallback; actual 558.9k */,
   /* raised 470k → 476k (2026-07-17, Camp A phone width), consciously: the shared
      workspace.css gained the "16px prose / 10px surface" phone edge block (~1k) —
      every workspace page pays it; gauge was simply the page nearest its ceiling
@@ -400,7 +402,7 @@ const PAGES = {
      explicit author route, and focus-safe session feedback. They share the live
      SVG statistics rather than creating a second model; actual 565.6k leaves a
      4.4k guardrail. */
-  'gauge/index.html': 580_000, 'timeline/index.html': 665_000,   /* Timeline Observatory adds the local font registry, measured four-view renderer and complete PNG decks (~646k). */ /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
+  'gauge/index.html': 585_000 /* separate author/participant surfaces and phone labels; actual 581k */, 'timeline/index.html': 665_000,   /* Timeline Observatory adds the local font registry, measured four-view renderer and complete PNG decks (~646k). */ /* P1 shared workspace/export seams: actual Gauge 572.5k, Timeline 569.6k; each regains ~6k headroom. */   /* 564k->566k 2026-08-15 start-your-own: timeline/starter.js plus the shared on-ramp chip. Actual 564.3k. */   /* Mapping's precache addition updates the shared worker carried by every tools-origin page; Timeline actual 563.1k. */
   /* 482k -> 494k (2026-08-04 interaction reliability): Wardley's pre-entry
      add returns focus to the fresh semantic component and its pointer-scoped
      guard prevents stale post-drag clicks. Actual 487.6k; retain ~6k. */

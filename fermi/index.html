@@ -74,6 +74,7 @@
   #formula:focus-visible, input:focus-visible, button:focus-visible{
     outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);
   }
+  #formula{resize:vertical;line-height:1.5;overflow-wrap:anywhere}.estimate-context{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px}.estimate-context label{font-size:13px}.estimate-context input,.estimate-context textarea{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-family:inherit;font-size:16px;line-height:1.5;min-height:44px}.estimate-context textarea{resize:vertical}.result-context h2{font-size:24px;line-height:1.3;margin:0 0 8px;overflow-wrap:anywhere}.result-context p{font-size:14px;color:var(--muted);margin:0 0 18px}@media(max-width:600px){.estimate-context{grid-template-columns:1fr}}
   .chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
   .chip.on{border-color:var(--accent);color:var(--accent-ink)}
   #err{color:var(--err);font-size:13.5px;margin-top:10px;display:none}
@@ -265,8 +266,9 @@
       <label class="field" for="formula" id="cardlabel">Formula</label>
     </div>
     <div id="estinputs">
-    <input id="formula" class="mono" spellcheck="false" autocomplete="off"
-      placeholder="attendees * hourly_cost * meeting_hours * weeks_per_year">
+    <textarea rows="3" id="formula" class="mono" spellcheck="false" autocomplete="off"
+      placeholder="attendees * hourly_cost * meeting_hours * weeks_per_year"></textarea>
+    <div class="estimate-context"><label for="estimatequestion">Question (optional)<textarea id="estimatequestion" rows="2" maxlength="180" placeholder="What are you estimating?"></textarea></label><label for="estimateunit">Output unit (optional)<input id="estimateunit" maxlength="48" placeholder="e.g. tuners, £ per year"></label></div>
     <div class="chips" id="chips"><span class="lead">Try:</span></div>
     <div class="chips" id="savedrow"></div>
     <div id="err" role="alert"></div>
@@ -326,6 +328,7 @@
       <div class="analysis-main">
       <div id="cmp" class="cmp" style="display:none"></div>
       <div class="metrics" id="metrics" hidden></div>
+      <div class="result-context" id="resultcontext" hidden><h2 id="resultquestion"></h2><p id="resultunit"></p></div>
       <div class="tiles" aria-label="Estimate range">
         <button class="tile" id="reviewp10" data-result="p10" aria-pressed="false"><span class="tl">P10 · low</span><span class="tv" id="p10"></span></button>
         <button class="tile mid" id="reviewp50" data-result="p50" aria-pressed="false"><span class="tl">P50 · best guess</span><span class="tv"><span class="smear" id="p50"></span></span></button>

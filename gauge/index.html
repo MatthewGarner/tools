@@ -72,17 +72,21 @@
         <div class="handoff-actions"><button class="btn" id="saveimport">Save as new</button><a class="btn" id="returnsource" href="/map/" hidden>Return to Map</a><button class="btn" id="returncurrent">Return to current Gauge</button></div>
       </div>
       <div class="workshop-state" aria-label="Facilitator · authoring questions">Facilitator · authoring questions</div>
+      <div class="compose-toolbar">
       <div class="viewtoggle segmented" role="group" aria-label="Composer view">
-        <button id="viewform" data-capability="views.question-set" aria-pressed="false">Compose questions</button>
+        <button id="viewform" data-capability="views.question-set" aria-pressed="false">Edit questions</button>
+        <button id="viewparticipant" aria-pressed="false">Preview participant view</button>
         <button id="viewreveal" class="on" data-capability="views.sample-reveal" aria-pressed="true">Sample reveal</button>
       </div>
+      <button class="btn primary" id="startbtn" disabled>Start session</button>
+      </div>
+      <p class="viewhint" id="viewhint">Synthetic sample responses show how the reveal works.</p>
       <div class="metrics" id="metrics" hidden></div>
       <div class="preview" id="preview"><p class="placeholder">Start typing — or load an example.</p></div>
       <p id="editstatus" class="sr-only" aria-live="polite"></p>
       <p class="headline" id="revealhead" aria-live="polite" aria-atomic="true"></p>
       <div class="actions">
         <div class="zoomctl segmented" id="zoomctl" role="group" aria-label="Zoom"></div>
-        <button class="btn primary" id="startbtn" disabled>Start session</button>
         <button class="btn" id="copypng" data-capability="presentationExports.sample-png">Copy PNG</button>
         <details class="action-disclosure">
           <summary class="btn">Export</summary>

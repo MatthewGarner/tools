@@ -24,7 +24,7 @@ export function renderSavedChips(row, list, opts){
   row.textContent = '';
   if(list.length){
     const lead = document.createElement('span');
-    lead.className = 'lead'; lead.textContent = 'Saved:';
+    lead.className = 'lead'; lead.textContent = 'On this device:';
     row.appendChild(lead);
   }
   list.forEach((m, i) => {

@@ -134,3 +134,14 @@ test('editable question text/options stay escaped', () => {
   assert.ok(html.includes('data-raw="X &amp; Y"'));
   assert.ok(!html.includes('<b>'));
 });
+
+test('authoring offers question edits without collecting participant answers', () => {
+  const model = parse('names: on\nShip :: prob\nWeeks :: range weeks\nPick :: chips A | B | C');
+  const author = renderForm(model, {editable: true});
+  assert.ok(author.includes('data-edit="qtext"'));
+  assert.ok(!author.includes('<input'), 'editing questions must not look like answering them');
+  assert.ok(author.includes('>Probability</span>'));
+  const participant = renderForm(model);
+  assert.ok(participant.includes('data-part="prob"') && participant.includes('data-name'));
+  assert.ok(!participant.includes('data-edit='));
+});

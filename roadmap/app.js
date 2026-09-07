@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
@@ -456,12 +457,14 @@ function setBoardWindowStart(start){
   lastSvg = ''; paint.reset(); refresh();
   clearTimeout(hashTimer); writeHash();
 }
-function writeHash(){
-  if(!sourceReady)return;
+function modelLinkState(){
   const state = {t: editor.getText()};
   if(ws.collapsed()) state.e = 0;
   if(Number.isInteger(boardWindowStart)) state.b = boardWindowStart;
-  if(shouldPersist()) writeHashState(targetHashState(state, inboundHandoff));
+  return targetHashState(state, inboundHandoff);
+}
+function writeHash(){
+  if(sourceReady && shouldPersist()) writeHashState(modelLinkState());
 }
 const todayISO = () => new Date().toISOString().slice(0, 10);
 function doRefresh(){
@@ -513,7 +516,10 @@ function doRefresh(){
        (style.css's pointer-events:none default) and VoiceOver would announce
        an unreachable button; the card menu's What-if… rows stay the coarse path. */
     const liveCtx = {colors: themeColors(), measure, diff: makeDiff(model), dark: isDark(), edit: true, today: todayISO(), textBets: model.bets, coarse: !finePointer(), boardWindow: model.style === 'board' ? boardWindowFor(model) : null};
-    const svg = renderChapter(projected, {...liveCtx, width:narrow ? w : model.style === 'board' ? 1440 : chapterNativeWidth(model)});
+    const nativeWidth = model.style === 'board' ? 1440 : chapterNativeWidth(model);
+    // Source authoring reflows to the available stage; exports keep native width.
+    const authorWidth = !ws.collapsed() && !ws.reading() ? Math.min(nativeWidth, previewEl.clientWidth) : nativeWidth;
+    const svg = renderChapter(projected, {...liveCtx, width:narrow ? w : authorWidth});
     if(svg !== lastSvg){
       // drop-reorder / date edits glide cards to their new home (shared FLIP,
       // keyed data-key=title, zoom-scale-aware). Gated to drops via flipNext.
@@ -554,9 +560,10 @@ mountTouchUndo($('zoomctl').closest('.actions'), editor);   // phones have no �
 const ws = initWorkspace({
   workspace: $('workspace'), tab: $('railtab'),
   preview: $('preview'), zoomHost: $('zoomctl'), autoFold: true, initialCollapsed: true,
+  fitToFold: false, // Chapter reflows source previews; preserve type size and scroll vertically.
   collapsedLabel: 'Edit roadmap source',
   collapsedAriaLabel: 'Edit roadmap source',
-  expandedLabel: '',
+  expandedLabel: 'Read roadmap',
   onCollapseChange(_collapsed, {auto = false} = {}){
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */
@@ -779,11 +786,9 @@ attachEditInPlace($('preview'), {
   },
 });
 
-/* The authored verdict's own edit-in-place root (2026-08-09), same shared
-   verdict-edit.js contract every tool with a `verdict:` key uses. Its target
-   sits in the .vwrap sibling of #preview, so it needs its own attach rooted
-   at their shared ancestor (.stage) — same pattern as energy/cycles+wardley. */
-attachEditInPlace($('verdict').parentElement.parentElement, {
+/* Keep the verdict handler on its own sibling root: a stage-wide handler also
+   receives successful preview edits and falsely announces an unsupported kind. */
+attachEditInPlace($('verdict').parentElement, {
   kinds: {
     verdict: {menu: () => verdictMenuRows(model && model.verdict)},
     verdictedit: {validate: validVerdictInput,
@@ -799,12 +804,16 @@ attachEditInPlace($('verdict').parentElement.parentElement, {
 });
 
 /* ---------- example + import chips ---------- */
-exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+$('newroadmap').addEventListener('click', () => { editor.setText(STARTER); ws.setCollapsed(true); });
+mountModelLink($('modelactions'), {getState: modelLinkState});
+exampleChips($('chips'), EXAMPLES, ex => { editor.setText(ex.src); $('examples').open = false; });
 {
   const b = document.createElement('button');
   b.className = 'chip';
   b.textContent = 'Import markdown';
   b.addEventListener('click', () => {
+    $('examples').open = false;
+    ws.setCollapsed(false);
     $('importbox').classList.toggle('open');
     if($('importbox').classList.contains('open')) $('importarea').focus();
   });
@@ -1027,7 +1036,7 @@ function renderSaved(){
   });
   const save = document.createElement('button');
   save.className = 'chip';
-  save.textContent = '＋ Save current';
+  save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!model || !model.items.length) return;
     const list = loadSaved(SAVED_KEY);
@@ -1366,10 +1375,13 @@ onThemeChange(rerender);
 
 /* ---------- narrow-bucket resize: re-render only when the bucket flips ---------- */
 watchNarrowBucket(previewEl, rerender);
+let previousStageWidth = 0;
 new ResizeObserver(() => {
+  const widthChanged = previewEl.clientWidth !== previousStageWidth;
+  previousStageWidth = previewEl.clientWidth;
   const next = shouldGridStack(model);
   const capacityChanged = model?.style === 'board' && boardCapacity(model) !== boardCapacityLast;
-  if(next !== gridStack || capacityChanged){ gridStack = next; rerender(); }
+  if(widthChanged || next !== gridStack || capacityChanged){ gridStack = next; rerender(); }
 }).observe(previewEl);
 
 /* ---------- boot: hash > localStorage > empty ---------- */

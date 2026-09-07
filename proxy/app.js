@@ -1,3 +1,4 @@
+import {mountModelLink} from '../assets/model-link.js';
 /* URL-local Proxy Hunt shell: source -> parse -> project -> render. */
 import {parse} from './parse.js';
 import {project} from './project.js';
@@ -47,13 +48,13 @@ function receiptSvg(){
   if(!hunt?.selectedReceipt) return null;
   return renderHuntReceipt(hunt, {colors:themeColors(), dark:isDark(), measure});
 }
-function writeHash(){
-  if(!shouldPersist()) return;
+function modelLinkState(){
   const state = {t:editor.getText()};
   if(selectedTheoryId) state.s = selectedTheoryId;
   if(ws.collapsed()) state.e = 0;
-  writeHashState(state);
+  return state;
 }
+function writeHash(){ if(shouldPersist()) writeHashState(modelLinkState()); }
 function scheduleHash(delay = 400){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, delay); }
 
 function renderChrome(){
@@ -212,7 +213,7 @@ function renderSaved(){
     },
   });
   const save = document.createElement('button');
-  save.className = 'chip'; save.type = 'button'; save.textContent = '＋ Save current';
+  save.className = 'chip'; save.type = 'button'; save.textContent = 'Save on this device';
   save.addEventListener('click', () => {
     if(!hunt) return;
     const list = loadSaved(SAVED_KEY);
@@ -261,3 +262,5 @@ wireSyntaxTry(document.querySelector('details.syntax'), editor,
   if(text) editor.setText(text);
   else autoloadExample(() => editor.setText(EXAMPLES[0].src));
 })();
+
+mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});

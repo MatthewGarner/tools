@@ -83,7 +83,7 @@ check('page loads with editor mounted', await page.locator('.cm-editor').count()
 
 // load example via chip
 await openRoadmapSource(page);
-await page.getByRole('button', {name: 'Reading app roadmap'}).click();
+await page.locator('#examples summary').click(); await page.getByRole('button', {name: 'Reading app roadmap'}).click();
 await page.locator('#stylepicker [data-style="grid"]').click();
 await seeded(page);
 check('example renders SVG preview', await page.locator('#preview svg').count() === 1);
@@ -290,7 +290,7 @@ check('markdown import renders with conditionality and safe link', impSvg.includ
   const dragPage = await browser.newPage({viewport: DRAG_VIEWPORT});
   await dragPage.goto(BASE + '?v=drag', {waitUntil: 'networkidle'});
   await openRoadmapSource(dragPage);
-await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
+await dragPage.locator('#examples summary').click(); await dragPage.getByRole('button', {name: 'Reading app roadmap'}).click();
 await dragPage.locator('#stylepicker [data-style="grid"]').click();
   await seeded(dragPage);
   /* KEPT SLEEP — a CodeMirror history-group BOUNDARY, not a render settle.
@@ -343,7 +343,7 @@ await dragPage.locator('#stylepicker [data-style="grid"]').click();
   const p = await browser.newPage({viewport: {width: 1500, height: DRAG_VIEWPORT.height + 160}, reducedMotion: 'reduce'});
   await p.goto(BASE, {waitUntil: 'networkidle'});
   await openRoadmapSource(p);
-await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
 await p.locator('#stylepicker [data-style="grid"]').click();
   await seeded(p);
   await p.getByRole('button', {name: 'Register'}).click();

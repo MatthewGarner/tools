@@ -285,9 +285,14 @@ export function renderOverlay(model, stats, ctx, opts = {}){
   if(delphi && !narrow) head.push(pill(W - PAD, PAD + 6, 'delphi round 2', c.accent, measure));
   y += 24;
   if(sample){
-    head.push('<text x="' + PAD + '" y="' + y + '" font-size="10" font-weight="700" letter-spacing="1" fill="' +
-      c.accent + '">SYNTHETIC SAMPLE · SCHEMA INSPECTION · NOT PARTICIPANT DATA</text>');
-    y += 20;
+    // The disclosure must remain readable on phones and in the exported artefact.
+    const disclosure = narrow ? ['SYNTHETIC SAMPLE', 'NOT PARTICIPANT DATA'] :
+      ['SYNTHETIC SAMPLE · SCHEMA INSPECTION · NOT PARTICIPANT DATA'];
+    for(const line of disclosure){
+      head.push('<text x="' + PAD + '" y="' + y + '" font-size="10" font-weight="700" letter-spacing="1" fill="' +
+        c.accent + '">' + line + '</text>');
+      y += 20;
+    }
   }
   /* The Swiss 6b verdict, drawn INTO the artefact: this is gauge's one display
      verdict (the HTML console keeps only a plain supporting headline), so the

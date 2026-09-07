@@ -851,7 +851,7 @@ check('no console/page errors', errors.length === 0);
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await focusRoadmapSource(p);
-  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
   await p.waitForTimeout(500);
   /* The flagship is a plain now/next/later doc → the CHART, whose own markup
@@ -960,7 +960,7 @@ check('no console/page errors', errors.length === 0);
      chart's own lane×horizon geometry, so it should not inherit their layout
      history. */
   await focusRoadmapSource(p);
-  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
   await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
     t => (t.includes('Platform: Sync engine rewrite') && t.includes('Growth: Home-screen widget gallery')));
@@ -1007,7 +1007,7 @@ check('no console/page errors', errors.length === 0);
   const errs = trackErrors(p);
   await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await focusRoadmapSource(p);
-  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
   await p.waitForTimeout(500);
 
@@ -1918,7 +1918,7 @@ check('no console/page errors', errors.length === 0);
   const merrors = trackErrors(mpage);
   await mpage.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
   await openRoadmapSource(mpage);
-  await mpage.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await mpage.locator('#examples summary').click(); await mpage.getByRole('button', {name: 'Reading app roadmap'}).click();
   await mpage.waitForTimeout(600);
 
   /* coarse menu-first redirect: tap the CENTRE of the title text itself — a
@@ -3378,7 +3378,7 @@ insure: premium 6 attach 65 limit 30`;
     const errs = trackErrors(p);
     await p.goto(BASE.replace('/tree/', '/roadmap/'), {waitUntil: 'networkidle'});
     await focusRoadmapSource(p);
-  await p.getByRole('button', {name: 'Reading app roadmap'}).click();
+  await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click();
   await p.locator('#stylepicker [data-style="grid"]').click();
     /* This 700ms settle stays a sleep. Twice now a poll has been put here and twice it
        broke: it must cover the example's text reaching localStorage through the
@@ -3525,12 +3525,12 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   // --- change TYPE: a picker, nothing commits on a bare tap ---
   await gTap('[data-edit="qtype"][data-line="3"]');
   check('gauge: qtype opens a prob/range/chips picker with prob marked',
-    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'prob|range|chips' &&
-    (await mpage.locator('.eip-pop button.on').innerText()) === 'prob');
+    (await mpage.locator('.eip-pop button').allInnerTexts()).join('|') === 'Probability|Range|Chips' &&
+    (await mpage.locator('.eip-pop button.on').innerText()) === 'Probability');
   /* the negative half of this assertion needs the write debounce to ELAPSE: polling returns a frame after the action, so "nothing was written" would be read before a regressive late write could land. 250ms > the editor's 120ms debounce. */
   await new Promise(r => setTimeout(r, 250));
   check('gauge: opening the type picker commits nothing (menu-first)', (await gSrc()) === gBase);
-  await gBtn('range');
+  await gBtn('Range');
   check('gauge: →range supplies a placeholder unit', /^We ship the referral loop :: range units$/m.test(await gSrc()));
   await gUndo();
   check('gauge: one Undo reverts the type change', (await gSrc()) === gBase);
