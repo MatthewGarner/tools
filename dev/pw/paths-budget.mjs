@@ -1,3 +1,4 @@
+import {openExportMenu} from './_harness.mjs';
 /* Browser-level Paths interaction budget. Unlike the pure render-compute
  * budget, these timings include a genuine UI edit/click, the 120ms debounce,
  * rAF refresh, DOM replacement, URL write, and PNG canvas work. It exercises
@@ -130,7 +131,7 @@ async function exerciseBudgetCase(testCase){
    * that real button state rather than timing a download that the UI correctly
    * refuses; the bounded export case below measures the actual canvas flow. */
   await load(testCase.text);
-  await page.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  await openExportMenu(page);
   const exportOutcomes = [];
   const pngExport = await sampleInteraction(SAMPLES, async () => {
     const result = await activatePng();
@@ -161,7 +162,7 @@ for(const testCase of PATHS_INTERACTION_CASES) await exerciseBudgetCase(testCase
  * PNG guard, even on a small source. Time the explicit, truthful limit response
  * above; SVG is the exhaustive export the tool actually guarantees. */
 await load(PATHS_INTERACTION_CASES[0].text);
-await page.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+await openExportMenu(page);
 const svgExport = await sampleInteraction(SAMPLES, async () => {
   const elapsed = await downloadSvg();
   await page.waitForFunction(() => document.querySelector('#dlsvg')?.textContent === 'SVG');
@@ -296,7 +297,9 @@ async function runLegibilityCase(name, contextOptions, screenshotPath){
           const receiptState = document.querySelector('#overview-receipt .receipt-state')?.textContent || '';
           return receiptState ? summary.includes(receiptState) : /Unanswered/.test(summary);
         }));
-      const exportMenu = qualityPage.locator('.action-disclosure');
+      const exportMenu = qualityPage.locator('details.action-disclosure').filter({
+        has: qualityPage.locator('summary').filter({hasText: /^Export$/})
+      });
       /* The review receipt is a real reading layer, including at constrained
        * desktop widths. Dismiss it before exercising the global export menu. */
       const closeReceipt = receipt.getByRole('button', {name:/Close decision receipt/});

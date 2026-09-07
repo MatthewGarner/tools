@@ -1,4 +1,4 @@
-import {openExamples} from './_harness.mjs';
+import {openExamples, openExportMenu} from './_harness.mjs';
 /* Edit-in-place browser checks (tree). */
 import {chromium, devices} from 'playwright';
 import {readFileSync} from 'node:fs';
@@ -2248,7 +2248,7 @@ check('no console/page errors', errors.length === 0);
   const source = p.getByRole('button', {name: 'Show source editor'});
   await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
   if(await source.isVisible()) await source.click();
-  await p.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(p); await p.getByRole('button', {name: 'Wexcombe base case'}).click();
   await p.waitForTimeout(1000);
   const before = await p.evaluate(() => localStorage.getItem('cycles-src'));
   await p.locator('[data-field="budget"]').first().click();
@@ -2792,7 +2792,7 @@ check('no console/page errors', errors.length === 0);
   const source = mpage.getByRole('button', {name: 'Show source editor'});
   await source.waitFor({state: 'visible', timeout: 3000}).catch(() => {});
   if(await source.isVisible()) await source.click();
-  await mpage.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(mpage); await mpage.getByRole('button', {name: 'Wexcombe base case'}).click();
   await mpage.waitForTimeout(900);
   const cySrc = () => mpage.evaluate(() => localStorage.getItem('cycles-src'));
   // scroll the target to centre, then click fresh viewport coords (see block note)
@@ -3680,7 +3680,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('paths: Focus states honest export semantics',
     /local counterfactual lens; exports remain the selected full plan artefact/i.test(
       await p.locator('#view-method').innerText()));
-  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  await openExportMenu(p);
   const focusDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const focusFile = await focusDownload;
@@ -3809,7 +3809,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('paths: Close-out returns to its originating four-view receipt', await until(async () => (await p.locator('#overview-live').getAttribute('data-mode') !== 'closeout' &&
     await p.locator('#overview-receipt[data-decision-key="groups"]').isVisible() &&
     await p.evaluate(() => document.activeElement?.hasAttribute('data-open-closeout')))));
-  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  await openExportMenu(p);
   const dependenciesDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const dependenciesFile = await dependenciesDownload;
@@ -3941,7 +3941,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   check('paths: More views Plans switches to the semantic phone relayout and removes the Tree inspector', await until(async () => (await p.locator('[data-kind="plans-narrow"]').count() === 1 &&
     await p.locator('#decision-inspector').isHidden() &&
     /wide matrix/.test(await p.locator('#view-method').innerText()))));
-  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  await openExportMenu(p);
   const plansDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const plansFile = await plansDownload;
@@ -3953,7 +3953,7 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
   await p.locator('details.paths-more-views').evaluate(element => { element.open = true; });
   await p.getByRole('button', {name:'Tree'}).click();
   await p.waitForTimeout(500);
-  await p.locator('details.action-disclosure').evaluate(element => { element.open = true; });
+  await openExportMenu(p);
   const treeDownload = p.waitForEvent('download');
   await p.locator('#dlsvg').click();
   const treeFile = await treeDownload;

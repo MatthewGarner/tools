@@ -1,3 +1,4 @@
+import {openExamples} from './_harness.mjs';
 /* Map deep suite: real mouse drag writes @ x,y; tray placement; zone-rename
    edit-in-place (insert path); undo restores. */
 import {chromium} from 'playwright';
@@ -32,6 +33,7 @@ const inputOpen = () => until(() => page.locator('.eip-input').count());
    call site honest without repeating it. */
 const loadExample = async name => {
   const was = await doc();
+  await openExamples(page);
   await page.getByRole('button', {name}).click();
   await untilValue(doc, d => d !== was);
 };
@@ -53,6 +55,7 @@ const dragTo = async (sel, fx, fy) => {
 
 /* ---- drag a placed card: @ x,y rewrites ---- */
 await page.getByRole('button', {name: 'Edit map source'}).click();
+await openExamples(page);
 await page.getByRole('button', {name: ASSUMPTION_MAP.name}).click();
 /* Assumption map IS EXAMPLES[0], i.e. the doc already auto-loaded on screen, so no
    text change is coming. What this click does change is persistence: the first-run

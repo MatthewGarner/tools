@@ -170,3 +170,8 @@ export async function openExamples(page){
   if(await disclosure.count() && !(await disclosure.evaluate(el=>el.open)))
     await disclosure.locator('summary').first().click();
 }
+
+export async function openExportMenu(page){
+  const disclosure=page.locator('details.action-disclosure').filter({has:page.locator('summary').filter({hasText:/^Export$/})});
+  if(!(await disclosure.evaluate(el=>el.open))) await disclosure.locator('summary').first().click();
+}

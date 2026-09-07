@@ -185,7 +185,7 @@ async function installAndWait(page){
   try{
     await p3.goto(EBASE + '/cycles/', {waitUntil: 'domcontentloaded', timeout: 8000});
     await showSourceIfReading(p3);
-    await p3.getByRole('button', {name: 'Wexcombe base case'}).click();
+    await openExamples(p3); await p3.getByRole('button', {name: 'Wexcombe base case'}).click();
     await p3.waitForTimeout(1000);
     ok2 = await p3.locator('#preview svg').count() === 1;
   }catch(e){ ok2 = false; }

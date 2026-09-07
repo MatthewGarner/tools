@@ -75,25 +75,29 @@ for(const [name, url] of ALL){
   ok(parity.h1, `${name}: h1 wears its intended display stack`);
   /* Presets are discrete choices rather than a carousel: every visible .chip in
      a populated .chips row must fit the row without a horizontal scroller. */
+  await openExamples(page);
   const presetRows = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('.chips')].filter(row =>
       row.offsetParent !== null && row.querySelector(':scope > .chip'));
     const failures = [];
     for(const row of rows){
       const rr = row.getBoundingClientRect();
-      const overflow = getComputedStyle(row).overflowX;
       const chips = [...row.querySelectorAll('.chip')].filter(chip => chip.offsetParent !== null);
       const clipped = chips.some(chip => {
         const cr = chip.getBoundingClientRect();
         return cr.left < rr.left - 1 || cr.right > rr.right + 1;
       });
-      if(overflow !== 'visible' || row.scrollWidth > row.clientWidth + 1 || clipped)
+      // A dropdown may scroll vertically. Only real horizontal overflow or
+      // clipped choices violate the reading contract.
+      if(row.scrollWidth > row.clientWidth + 1 || clipped)
         failures.push(row.id || '(unnamed)');
     }
     return {count: rows.length, failures};
   });
   if(presetRows.count) ok(presetRows.failures.length === 0,
     `${name}: all preset chips wrap without horizontal scrolling${presetRows.failures.length ? ' — ' + presetRows.failures.join(', ') : ''}`);
+  const examples = page.locator('.document-examples, #examples').first();
+  if(await examples.count()) await examples.locator('summary').first().click();
   /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
      must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
      have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the
@@ -1249,6 +1253,7 @@ for(const [name, url, chip] of WIDENED){
     const page = await nctx.newPage();
     await page.goto(T + '/' + name + '/', {waitUntil:'networkidle'}).catch(()=>{});
     await page.waitForTimeout(650);
+    await openExamples(page);
     const targets = await page.evaluate(selectors => selectors.map(selector => {
       const els = [...document.querySelectorAll(selector)].filter(el => el.offsetParent !== null);
       return {selector, count: els.length, heights: els.map(el => el.getBoundingClientRect().height)};

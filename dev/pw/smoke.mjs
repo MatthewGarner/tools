@@ -254,7 +254,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/cycles/', theme);
   await showSourceIfReading(page);
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1000);
   check('cycles(' + theme + '): three bands render', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
   check('cycles(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('Cycles are worth'));
@@ -269,7 +269,7 @@ for(const theme of FLOW_THEMES){
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
@@ -314,7 +314,7 @@ for(const theme of FLOW_THEMES){
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles worker: boot settles to exactly 1 dispatch', await simCount() === 1);
   check('cycles worker: actions enabled once settled', await page.locator('#dlsvg').isEnabled());
@@ -343,7 +343,7 @@ for(const theme of FLOW_THEMES){
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles revert: boot settles to 1 dispatch', await simCount() === 1);
   const baselineSvg = await page.locator('#preview svg').innerHTML();
@@ -351,7 +351,7 @@ for(const theme of FLOW_THEMES){
 
   await page.getByRole('button', {name: 'Tight warranty'}).click();
   await page.waitForTimeout(300);    // a different-key dispatch is now in flight (~500ms to resolve)
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();   // revert to the completed model BEFORE the in-flight sim resolves
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();   // revert to the completed model BEFORE the in-flight sim resolves
   await page.waitForTimeout(1500);   // well past the abandoned sim's real-world time — a late response would have arrived by now if not truly killed
 
   const finalSvg = await page.locator('#preview svg').innerHTML();
@@ -378,14 +378,14 @@ for(const theme of FLOW_THEMES){
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
   const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles leak: boot settles, worker alive', await simCount() === 1 && await workerAlive() === true);
 
   await page.evaluate(() => { window.__cyclesSimTimeoutMs = 500; });   // shrink the failsafe window
   await page.getByRole('button', {name: 'Tight warranty'}).click();   // dispatch K1 → arms a 500ms failsafe timer
   await page.waitForTimeout(200);                                     // K1 still in flight (real sim ~500ms)
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();  // revert (=== lastKey) → abandonInFlight must CANCEL K1's timer
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();  // revert (=== lastKey) → abandonInFlight must CANCEL K1's timer
   await page.waitForTimeout(1400);   // > the abandoned timer's would-be fire time (dispatch+500ms) + margin, no activity
 
   check('cycles leak: worker still alive after the abandoned failsafe window (timer was cancelled, not leaked)', await workerAlive() === true);
@@ -415,7 +415,7 @@ for(const theme of FLOW_THEMES){
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
   const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles timeout: boot settles, worker alive', await simCount() === 1 && await workerAlive() === true);
 

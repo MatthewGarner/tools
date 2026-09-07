@@ -70,5 +70,28 @@ await test('Document start and sharing actions are independent of source',async(
     assert.equal(await page.locator('.document-examples').evaluate(el=>el.open),false);
   }
 });
+await test('Document example menus fit phones and keep every choice at least 44px',async()=>{
+  for(const touch of [false,true]) for(const theme of ['light','dark']){
+    const phone=await browser.newContext({viewport:{width:390,height:844},isMobile:touch,hasTouch:touch,colorScheme:theme,reducedMotion:'reduce',serviceWorkers:'block'});
+    const p=await phone.newPage();
+    for(const tool of ['timeline','map','why','wardley','paths','proxy','energy/cycles','energy/risk']){
+      await p.goto(base+'/'+tool+'/');await p.locator('#preview svg').waitFor();
+      await p.locator('.document-examples summary').click();
+      const geometry=await p.locator('#chips').evaluate(menu=>{
+        const box=menu.getBoundingClientRect(),viewport=document.documentElement.clientWidth;
+        return {left:box.left,right:box.right,viewport,scroll:menu.scrollWidth,width:menu.clientWidth,
+          choices:[...menu.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {height:r.height,left:r.left,right:r.right};})};
+      });
+      assert.ok(geometry.left>=0 && geometry.right<=geometry.viewport+1,tool+' menu fits viewport');
+      assert.ok(geometry.scroll<=geometry.width+1,tool+' has no horizontal menu scrolling');
+      assert.ok(geometry.choices.length>0,tool+' exposes examples');
+      for(const choice of geometry.choices){
+        assert.ok(choice.height>=44,tool+' choice meets target floor');
+        assert.ok(choice.left>=geometry.left-1 && choice.right<=geometry.right+1,tool+' complete choice stays inside menu');
+      }
+    }
+    await phone.close();
+  }
+});
 await browser.close();
 process.exitCode=failed?1:0;
