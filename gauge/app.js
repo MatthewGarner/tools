@@ -219,7 +219,7 @@ async function initCompose(hash){
   const ws = initWorkspace({
     workspace: $('workspace'), tab: $('railtab'),
     preview: $('preview'), zoomHost: $('zoomctl'),
-    initialCollapsed: true, collapsedLabel: 'Edit questions', collapsedAriaLabel: 'Edit questions', expandedLabel: 'Hide questions',
+    initialCollapsed: true, collapsedLabel: 'Edit question source', collapsedAriaLabel: 'Edit question source', expandedLabel: 'Hide source',
     onCollapseChange(){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); },
   });
 

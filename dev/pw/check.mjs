@@ -233,7 +233,7 @@ await wipPage.close();
   const fullPage = await browser.newPage({viewport: {width:1440, height:1000}});
   await fullPage.goto(BASE + '#' + Buffer.from(fullDoc, 'utf8').toString('base64'), {waitUntil:'networkidle'});
   await fullPage.getByText('Export', {exact:true}).click();
-  const exportMenu = await fullPage.locator('.action-disclosure:not(.history) .action-menu').evaluate(menu => {
+  const exportMenu = await fullPage.locator('.roadmap-utilities .action-disclosure:not(.history) .action-menu').evaluate(menu => {
     const summary = menu.parentElement.querySelector('summary').getBoundingClientRect();
     const rect = menu.getBoundingClientRect();
     return {text: menu.textContent, opensAbove: rect.bottom <= summary.top};
@@ -273,6 +273,7 @@ check('dark theme re-renders svg', (await page2.locator('#preview svg').innerHTM
 if(await page2.locator('#workspace').evaluate(el => el.classList.contains('collapsed')))
   await page2.locator('#railtab').click();
 await openRoadmapSource(page2);
+await page2.locator('#examples summary').click();
 await page2.getByRole('button', {name: 'Import markdown'}).click();
 await page2.locator('#importarea').fill('## Imported Plan\n### Now\n- **Core:** Probe [bet: signal]\n### Next\n- **Core:** Imported item _(in progress)_ [if signal] — with note -> https://example.test/item');
 await page2.getByRole('button', {name: 'Convert'}).click();
@@ -353,7 +354,7 @@ await p.locator('#stylepicker [data-style="grid"]').click();
   await p.waitForTimeout(400);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => p.getByRole('button', {name:'More options: ' + title, exact:true});
   /* switching to the register scrolls the page (the taller view + the chip's own
      focus), which puts the drag endpoints above the fold — and an off-screen drop
      is a silent no-op, not a failure. Start the gesture from the top. */
@@ -414,7 +415,7 @@ await p.locator('#stylepicker [data-style="grid"]').click();
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
   check('register (headerless): baseline has no literal Q1 2027 header yet', !baseline.includes('Q1 2027'));
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => p.getByRole('button', {name:'More options: ' + title, exact:true});
   await prepareRoadmapDrag(p, rowOf('Drag into the void'));
   const hit = await rowOf('Drag into the void').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="2"]').boundingBox();   // Q1 2027, index 2
@@ -469,7 +470,7 @@ await p.locator('#stylepicker [data-style="grid"]').click();
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => p.getByRole('button', {name:'More options: ' + title, exact:true});
   await prepareRoadmapDrag(p, rowOf('Draggable card'));
   const hit = await rowOf('Draggable card').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="1"]').boundingBox();   // NEXT
@@ -537,7 +538,7 @@ const focusDragDoc =
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => p.getByRole('button', {name:'More options: ' + title, exact:true});
   await prepareRoadmapDrag(p, rowOf('Rail card to promote'));
   const hit = await rowOf('Rail card to promote').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="0"]').boundingBox();   // Q3 2026, the hero
@@ -582,7 +583,7 @@ const focusDragDoc =
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => p.getByRole('button', {name:'More options: ' + title, exact:true});
   await prepareRoadmapDrag(p, rowOf('Hero card B'));
   const hit = await rowOf('Hero card B').locator('rect[data-hit]').boundingBox();
   const band = await p.locator('#preview svg rect[data-hdrop="1"]').boundingBox();   // Q4 2026, a rail section
@@ -631,7 +632,7 @@ const focusDragDoc =
   await p.waitForTimeout(700);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
-  const rowOf = title => p.locator('#preview svg g[data-edit="cardmenu"]').filter({hasText: title}).first();
+  const rowOf = title => p.getByRole('button', {name:'More options: ' + title, exact:true});
   await prepareRoadmapDrag(p, rowOf('Hero card A'));
   const hit = await rowOf('Hero card A').locator('rect[data-hit]').boundingBox();
   const header = await p.locator('#preview svg [data-lens="Q4 2026"]').boundingBox();
@@ -703,7 +704,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   await p.keyboard.insertText('horizons: monthly from Jul 2026 x6\nJul 2026\nA: Long bar one x4\nA: Short\n');
   await rendered(p, '#preview svg rect[data-cell="3|A"]');
   await p.locator('#railtab').click();
-  await p.locator('#preview svg').scrollIntoViewIfNeeded();
+  await p.locator('#preview').scrollIntoViewIfNeeded();
   const probe = await p.evaluate(() => [0, 1, 2, 3].map(h => {
     const cell = document.querySelector('#preview svg rect[data-cell="' + h + '|A"]');
     if(!cell) return {h, card: false, drop: false};
@@ -738,7 +739,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
     'Core: Sync engine rewrite [doing] x2\nCore: Reading reminders\n');
   await until(() => roadmapSrc(p).then(v => (v || '').includes('Reading reminders')));
 
-  const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
+  const bar = p.getByRole('button', {name:'More options: Sync engine rewrite', exact:true});
   await prepareRoadmapDrag(p, bar.first());
   const barLine = await bar.first().getAttribute('data-line');
   const rEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + barLine + '"]');
@@ -754,7 +755,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
   check('roadmap: right-edge drag widens the span (x2 -> x3)',
     /Sync engine rewrite \[doing\] x3/.test(src));
 
-  const plain = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Reading reminders'});
+  const plain = p.getByRole('button', {name:'More options: Reading reminders', exact:true});
   const plainLine = await plain.first().getAttribute('data-line');
   const plainEdge = p.locator('#preview svg rect[data-span-edge="r"][data-line="' + plainLine + '"]');
   const plainBox = await plainEdge.boundingBox();
@@ -782,7 +783,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
     'Core: Long haul project [doing] x2\n');
   await until(() => roadmapSrc(p).then(v => (v || '').includes('Long haul project')));
 
-  const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Long haul project'});
+  const bar = p.getByRole('button', {name:'More options: Long haul project', exact:true});
   await prepareRoadmapDrag(p, bar.first());
   const barLine = await bar.first().getAttribute('data-line');
   const lEdge = p.locator('#preview svg rect[data-span-edge="l"][data-line="' + barLine + '"]');
@@ -816,7 +817,7 @@ await page2.screenshot({path: 'parity-dark.png', fullPage: true});
     'Core: Sync engine rewrite [doing] x2\nQ1 2027\n');
   await until(() => roadmapSrc(p).then(v => (v || '').includes('Sync engine rewrite')));
 
-  const bar = p.locator('#preview svg g[data-edit="cardmenu"]', {hasText: 'Sync engine rewrite'});
+  const bar = p.getByRole('button', {name:'More options: Sync engine rewrite', exact:true});
   await prepareRoadmapDrag(p, bar.first());
   const box = await bar.first().boundingBox();
   const q1Cell = await p.locator('#preview svg rect[data-cell="2|Core"]').boundingBox();   // Q1 2027

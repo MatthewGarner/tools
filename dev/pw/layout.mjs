@@ -53,7 +53,7 @@ const TOOLS = [
   {path: '/why/', chip: 'Reading retention', source: 'Edit tree source'},
   {path: '/roadmap/', source: 'Edit roadmap source', narrowTab: true, chip: 'Reading app roadmap'},
   {path: '/map/', chip: 'Assumption map', source: 'Edit map source'},
-  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit questions', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
+  {path: '/gauge/', chip: 'Q3 commitment review', view: '#viewreveal', source: 'Edit question source', narrowTab: false, deep: true},   // Narrow stacks the visible question source; no duplicate trigger.
   {path: '/timeline/', chip: 'App launch programme', source: 'Show source editor', narrowTab: false},
   {path: '/wardley/', chip: 'Lantern platform', source: 'Edit landscape source'},
   /* Bets keeps source open for editing, but its fit advisory has a named manual

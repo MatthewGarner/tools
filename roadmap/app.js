@@ -565,6 +565,7 @@ const ws = initWorkspace({
   collapsedAriaLabel: 'Edit roadmap source',
   expandedLabel: 'Read roadmap',
   onCollapseChange(_collapsed, {auto = false} = {}){
+    rerender();
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */
     if(!auto){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }
@@ -1381,7 +1382,9 @@ new ResizeObserver(() => {
   previousStageWidth = previewEl.clientWidth;
   const next = shouldGridStack(model);
   const capacityChanged = model?.style === 'board' && boardCapacity(model) !== boardCapacityLast;
-  if(widthChanged || next !== gridStack || capacityChanged){ gridStack = next; rerender(); }
+  // Inspector margins only change zoom in reading view. Replacing the SVG
+  // there would detach the card that regains focus when its receipt closes.
+  if((widthChanged && !ws.collapsed() && !ws.reading()) || next !== gridStack || capacityChanged){ gridStack = next; rerender(); }
 }).observe(previewEl);
 
 /* ---------- boot: hash > localStorage > empty ---------- */

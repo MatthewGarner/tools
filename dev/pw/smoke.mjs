@@ -1445,7 +1445,7 @@ for(const theme of FLOW_THEMES){
     (await page.locator('#preview svg [data-hdrop]').count()) >= 1 &&
     (await page.locator('#preview svg [data-edit="cardmenu"]').count()) >= 1);
   check('roadmap: Board card resolved by title carries data-edit=cardmenu',
-    (await page.locator('#preview svg [data-edit="cardmenu"]').filter({hasText: 'Resume where you left off'}).count()) >= 1);
+    (await page.locator('#preview svg [data-edit="cardmenu"][data-item-title="Resume where you left off"]').count()) >= 1);
   // WYSIWYG export: Download SVG from Board view yields the live board artefact, not the chart
   const [brd] = await Promise.all([
     page.waitForEvent('download', {timeout: 8000}),

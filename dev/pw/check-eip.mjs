@@ -858,7 +858,7 @@ check('no console/page errors', errors.length === 0);
      this block exercises (the lane×horizon cell-ghost additem, the cell drag,
      a card menu with no Lane… row). Board's edit/drag coverage lives in the
      dedicated board blocks elsewhere in this file. */
-  await p.locator('[data-edit="title"]', {hasText: 'Resume where you left off'}).first().click();
+  await p.locator('[data-edit="title"][data-raw="Resume where you left off"]').first().click();
   await p.locator('.eip-input').fill('Resume shield');
   await p.keyboard.press('Enter');
   const t = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
@@ -1170,7 +1170,7 @@ check('no console/page errors', errors.length === 0);
   check('roadmap: Resolve… paid off writes the resolution onto the [bet: …] token',
     tWon.includes('[bet: reminders won]'));
   const svgWon = await p.locator('#preview svg').innerHTML();
-  const plainWon = svgWon.replace(/<[^>]+>/g, ' ');
+  const plainWon = svgWon.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   check('roadmap: resolving paid off drops the [unless] fallback and the board says so',
     /not needed\s*—\s*reminders paid off/.test(plainWon) && plainWon.includes('Fallback plan'));
   /* the "paid off" edit above and "reopen" below are TWO edits with no undo between
@@ -1204,7 +1204,7 @@ check('no console/page errors', errors.length === 0);
     (await p.locator('#whatifchip').innerText()).includes('reminders') &&
     (await p.locator('#whatifchip').innerText()).includes('pays off'));
   const svgPreview = await p.locator('#preview svg').innerHTML();
-  const plainPreview = svgPreview.replace(/<[^>]+>/g, ' ');
+  const plainPreview = svgPreview.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   check('roadmap: the previewed world drops the fallback in the LIVE board too',
     /not needed\s*—\s*reminders paid off/.test(plainPreview) && plainPreview.includes('Fallback plan'));
 
@@ -1427,7 +1427,7 @@ check('no console/page errors', errors.length === 0);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the title cell ----
-  await p.locator('[data-edit="title"]', {hasText: 'Rename target'}).first().click();
+  await p.locator('[data-edit=\"title\"][data-raw=\"Rename target\"]').first().click();
   await p.locator('.eip-input').fill('Renamed OK');
   await p.keyboard.press('Enter');
   const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
@@ -1600,7 +1600,7 @@ check('no console/page errors', errors.length === 0);
   const baseline = await p.evaluate(() => localStorage.getItem('roadmap-src'));
 
   // ---- rename via the card's title field ----
-  await p.locator('[data-edit="title"]', {hasText: 'Rename target'}).first().click();
+  await p.locator('[data-edit=\"title\"][data-raw=\"Rename target\"]').first().click();
   await p.locator('.eip-input').fill('Renamed OK');
   await p.keyboard.press('Enter');
   const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
@@ -1715,7 +1715,7 @@ check('no console/page errors', errors.length === 0);
   // ================= HERO: full inline edit targets =================
 
   // ---- rename via the hero card's title ----
-  await p.locator('[data-edit="title"]', {hasText: 'Hero rename target'}).first().click();
+  await p.locator('[data-edit=\"title\"][data-raw=\"Hero rename target\"]').first().click();
   await p.locator('.eip-input').fill('Hero renamed OK');
   await p.keyboard.press('Enter');
   const tRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
@@ -1760,7 +1760,7 @@ check('no console/page errors', errors.length === 0);
   // ================= RAIL: clean index (rename only) + Status… submenu =================
 
   // ---- rename via the rail row's title ----
-  await p.locator('[data-edit="title"]', {hasText: 'Rail rename target'}).first().click();
+  await p.locator('[data-edit=\"title\"][data-raw=\"Rail rename target\"]').first().click();
   await p.locator('.eip-input').fill('Rail renamed OK');
   await p.keyboard.press('Enter');
   const tRailRename = await untilValue(() => p.evaluate(() => localStorage.getItem('roadmap-src')),
@@ -1930,8 +1930,7 @@ check('no console/page errors', errors.length === 0);
   /* resolved from the card's TITLE, not a hard-coded srcLine — see the desktop
      block above: pinning the shipped example's line numbers makes this suite a
      hostage of that example's content. */
-  const mLine = await mpage.locator('#preview svg g[data-edit="cardmenu"]')
-    .filter({hasText: 'Resume where you left off'}).first().getAttribute('data-line');
+  const mLine = await roadmapCard(mpage, 'Resume where you left off').getAttribute('data-line');
   {
     const titleField = roadmapCard(mpage,'Resume where you left off').locator('text').first();
     await titleField.scrollIntoViewIfNeeded();
