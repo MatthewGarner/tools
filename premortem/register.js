@@ -109,17 +109,19 @@ export function markdown(doc, exp, now = new Date()){
   if(modeOf(doc) === 'success') return successMarkdown(doc, now);
   const u = doc.unit ? ' ' + doc.unit : '';
   const risks = (doc.entries || []).filter(isRisk);   // export the register (risks), never board items
-  const rows = ranked(risks, exp).filter(isScoreable);
+  const rows = ranked(risks, exp);
+  const unscored = rows.filter(e => !isScoreable(e)).length;
   const out = ['# ' + (doc.title || 'Risk register'),
     doc.question ? '\n_' + doc.question + '_' : '', '',
     '| # | Risk | Likelihood | Impact' + u + ' | Exposure' + u + ' (P50 [P10–P90]) | Status | Age |',
     '|---|------|-----------|--------|--------------------------|--------|-----|'];
   rows.forEach((e, i) => {
-    const x = exp.get(e.id) || {p50: 0, p10: 0, p90: 0};
+    const x = isScoreable(e) ? exp.get(e.id) : null;
     out.push('| ' + (i + 1) + ' | ' + e.text + ' | ' + pctRange(e.p) + ' | ' +
       (e.impact ? e.impact[0] + '–' + e.impact[1] : '—') + ' | ' +
-      fmt(x.p50) + ' [' + fmt(x.p10) + '–' + fmt(x.p90) + '] | ' + e.status + ' | ' + staleness(e, now) + ' |');
+      (x ? fmt(x.p50) + ' [' + fmt(x.p10) + '–' + fmt(x.p90) + ']' : 'Unscored') + ' | ' + e.status + ' | ' + staleness(e, now) + ' |');
   });
+  if(unscored) out.push('', unscored + ' unscored risk' + (unscored === 1 ? '' : 's') + ' retained above; excluded from the portfolio exposure until scored.');
   const acts = risks.flatMap(e => e.actions.map(a => ({...a, risk: e.text})))
     .sort((a, b) => (b.votes || 0) - (a.votes || 0));
   if(acts.length){

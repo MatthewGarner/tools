@@ -43,6 +43,10 @@ function pageLoad(page){
 }
 
 const PAGES = {
+  // 2026-09 design bar: complete Alarm/Energy export receipts, faithful Flow
+  // queue states, readable Bets/Premortem phone artefacts and native Energy
+  // controls. Measured loads: Flow147k, Alarm117.2k, Premortem134.1k, Bets583k,
+  // Frequency118.4k, Merit164.2k; revised caps retain only 2–3k headroom.
   /* --- unset-edit fix batch (2026-08-04): assets/edit-in-place.js's shared
      opens-row fallback (a missing inline target now opens the same
      interaction anchored at the card-menu trigger, never a silent no-op) —
@@ -139,19 +143,19 @@ const PAGES = {
      reduced to chart pixels. Actual 225.4k; ~9.6k headroom. */
   /* 2026-09-07 usability: authored question/units and fresh model-link copying
      add ~11.6k over the earlier measured 225.4k. Actual 237k; 5k headroom. */
-  'fermi/index.html': 242_000, 'rank/index.html': 107_500, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
+  'fermi/index.html': 242_000, 'rank/index.html': 110_500 /* Design-bar recovery + atomic export: actual 108.6k, ~1.9k headroom. */, /* 106k->107.5k 2026-08-15 start-your-own: rank/starter.js plus the on-ramp chip — rank opened on a full example and the only other route to your own list was deleting five rows one at a time. Actual 106.1k; ~1.4k headroom. */ /* 104.5k -> 106k 2026-08-14: the shared phone-control floor in assets/controls.css makes compact controls genuinely tappable on fine-pointer phone viewports too; Rank inherits it despite no Rank-specific feature. Actual 104.8k, so this restores useful room rather than leaving a 259B trap. */ /* +2.5k 2026-08-05 slider-runaway fix: sliderScale calibration + fmt readouts + eased rescale tween (rank was 796B from the line before it) */  /* +2k 2026-08-02 compressed-hash: series.js +1.1k rides every page; rank had 45B slack */   /* 2026-08-02 review: +1k each off hair-thin (662B/300B) headroom — see the thin-is-a-trap notes */   /* 90k->94k 2026-07-30 Swiss 6b: the shared verdict
      anatomy (assets/verdict.js ~4k, the DOM rendition only — the SVG emitter lives in
      verdict-svg.js so this page doesn't carry it) plus the page.css/tokens/controls
      growth it needs. rank had ~2.5k headroom; actual now ~90.3k, set with ~3.7k. */
   /* 116k -> 122k (2026-08-04 interaction reliability): the visibility-gated
      queue animation runtime, export/hash flush and preset state semantics are
      first-load correctness code. Actual 116.9k; retain about 5k headroom. */
-  'flow/index.html': 146_000,   /* 144k->146k 2026-08-15 start-your-own: the shared on-ramp chip (assets/app-common.js exampleChips + .chip.start in controls.css) — flow carries no starter of its own, it just pays for shared code. NB the 2026-08-13 note below claimed ~6k headroom; flow had already grown to 143.7k (313 bytes slack) before this change, so that figure was stale. Actual 144.5k; ~1.5k headroom. */   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
+  'flow/index.html': 149_000,   /* 144k->146k 2026-08-15 start-your-own: the shared on-ramp chip (assets/app-common.js exampleChips + .chip.start in controls.css) — flow carries no starter of its own, it just pays for shared code. NB the 2026-08-13 note below claimed ~6k headroom; flow had already grown to 143.7k (313 bytes slack) before this change, so that figure was stale. Actual 144.5k; ~1.5k headroom. */   /* 124k->144k 2026-08-13: two bounded operational lenses (expedite service-class sensitivity + dependent dice), their seeded/exportable models and live-hash state. Actual 138.0k; retain ~6k headroom. */   /* 108k->110k 2026-08-02 verdict-eip: verdict-edit.js + EIP menu/placeholder + svgVerdict targets (real feature bytes) */   /* 107k->108k 2026-08-02 review: radiogroup ARIA sync (real a11y bytes); 90k->91k 2026-07-30 Swiss 6a: motion.js DEADLINE bytes */
   /* 102k -> 108k (2026-08-04 interaction reliability): keyboard threshold
      policy, pointer lifecycle cleanup, selected-preset state and dialog focus
      restoration are first-load interaction correctness. Actual 103.1k; leave
      real room for the next small safety fix. */
-  'alarm/index.html': 116_000,   /* 2026-08-04 fold wave 2: trapPopoverFocus replaces the hand-rolled claim-dialog Tab trap; actual 111.1k, ~5k headroom */
+  'alarm/index.html': 120_000,   /* 2026-08-04 fold wave 2: trapPopoverFocus replaces the hand-rolled claim-dialog Tab trap; actual 111.1k, ~5k headroom */
   /* 444k -> 454k (2026-08-04 interaction reliability): the Case parity pass
      adds status editing and honest absent-field affordances to the rendered
      artifact. Actual 448.6k; keep ~5k of headroom for this CodeMirror page. */
@@ -166,7 +170,7 @@ const PAGES = {
      entry point and shared phase language. It deliberately does not reuse risk
      scoring, so the retained code is semantic protection rather than duplicated
      presentation. Actual ~120.2k; retain ~4.8k headroom. */
-  'premortem/index.html': 134_000 /* shared accessible copy-dialog CSS; actual 132.5k */, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
+  'premortem/index.html': 136_000 /* shared accessible copy-dialog CSS; actual 132.5k */, /* 125k -> 132k (2026-08-13 integration): the pre-parade surface and imported-risk handoff state coexist; actual 126.4k, retaining a meaningful guardrail. */
   'signal-vs-noise/index.html': 107_000,   /* 103k -> 107k (2026-08-20 P1): shared first-load code now totals 103.0k; restore real headroom. */
   /* roadmap 480k -> 515k (2026-07-14). Two features, both eager in the first-load
      graph by design, on a page whose bulk is vendored CodeMirror:
@@ -431,7 +435,7 @@ const PAGES = {
      chrome. Actual 563.3k; retain ~6.7k headroom. */
   /* 580k -> 582k (2026-08-28): strict source integrity and complete
      comparison markdown are eager export behavior. Actual 580.9k. */
-  'bets/index.html': 582_000,   /* 570k -> 580k (2026-08-20 P1): shared reader/export seams put the eager graph at 572.3k; retain ~7.7k. */   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
+  'bets/index.html': 585_000,   /* 570k -> 580k (2026-08-20 P1): shared reader/export seams put the eager graph at 572.3k; retain ~7.7k. */   /* 499k->497k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 494.3k */   /* 486k -> 489k (2026-07-30, Swiss 6a): motion.js liveness-DEADLINE fix + docs ride every mounted-motion page; ~2.7k real headroom */   /* 2026-08-04 fold wave 2: kill-add undo() rollback + popover-focus.js roving-focus; actual 536.0k, ~5k headroom */
   /* Swiss 6c (2026-07-30) gave the energy origin the tools origin's 6b anatomy
      plus its own chrome, so every page here grew the same real bytes: the shared
      assets/energy.css (the ember token block, hoisted out of five per-tool
@@ -447,7 +451,7 @@ const PAGES = {
      exact default-add focus and the narrow editable discount field. Actual
      494.2k; retain ~6.8k. */
   'energy/cycles/index.html': 526_000,   /* 514k -> 526k (2026-08-20 P1): the reader-first workspace is first-load code; actual 518.2k retains ~7.8k. */   /* unset-edit fix batch (2026-08-04, see the PAGES-map note above): actual 509k, ~5k headroom */   /* 2026-08-04 fold: merged actual 502.2k, ~6k headroom */   /* 472k->477k 2026-08-02 verdict-eip bytes */   /* risk 470k->449k 2026-08-02 review re-tighten: poster/bare dead code gone — budgets back to actual+~3k so the tripwire trips; actual 445.5k */
-  'energy/frequency/index.html': 118_000, 'energy/merit-order/index.html': 163_000,   /* P1: Frequency’s semantic scene/canvas graph is 111.4k; Merit Order’s shared seams are 158.1k. Keep 4.9–6.6k rather than hairline budget traps. */   /* 156.2k->157.5k 2026-08-15 start-your-own: merit-order carries no starter, it just pays for the shared chip bytes; its own 138-byte tripwire (below) left no room for them. Actual 156.8k. */   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
+  'energy/frequency/index.html': 121_000, 'energy/merit-order/index.html': 167_000,   /* P1: Frequency’s semantic scene/canvas graph is 111.4k; Merit Order’s shared seams are 158.1k. Keep 4.9–6.6k rather than hairline budget traps. */   /* 156.2k->157.5k 2026-08-15 start-your-own: merit-order carries no starter, it just pays for the shared chip bytes; its own 138-byte tripwire (below) left no room for them. Actual 156.8k. */   /* 470k->97k/145k 2026-08-02 review: both wore the big-CodeMirror-page tier while actually loading 93k/139k — a page could triple before the tripwire noticed. No editor on either; set actual+~4%. 2026-08-14: shared workspace seam refinement adds 486 bytes to every consumer; retain a 138-byte tripwire. */
   /* raised 100k -> 106k (a11y batch, 2026-07): the shared renderStack() module
      it pulls in grew real bytes (tabindex/role/aria-label on every data-plant
      block) and app.js gained a small popover focus-trap import + keydown

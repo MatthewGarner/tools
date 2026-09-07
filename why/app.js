@@ -1,3 +1,4 @@
+import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, view toggle, refresh loop, saved trees, exports, boot. */
 import {parse} from './parse.js';
@@ -258,6 +259,7 @@ const whyEip = attachEditInPlace($('preview'), {
 
 /* ---------- example chips ---------- */
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 
 /* ---------- saved ---------- */
 const SAVED_KEY = 'why-saved';
@@ -324,4 +326,4 @@ watchNarrowBucket(previewEl, rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent']);
 
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});

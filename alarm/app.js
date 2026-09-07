@@ -2,7 +2,7 @@
    distribution SVG, the gate canvas, the natural-frequency verdict. Engine, layout
    and renderers are pure; this file owns the DOM, pointer drag, presets, hash. */
 import {population, classify, derived, verdicts, fromClaim, markdown, N} from './engine.js';
-import {renderDistributions, renderBox, tFromSvgX} from './render.js';
+import {renderDistributions, renderBox, renderArtefact, tFromSvgX} from './render.js';
 import {layoutFlow, makeDriver} from './gate-canvas.js';
 import {readHashState, writeHashState} from '../assets/series.js';
 import {themeColors, onThemeChange} from '../assets/app-common.js';
@@ -251,18 +251,19 @@ distwrap.addEventListener('keydown', e => {
 });
 
 /* ---------- exports ---------- */
+const modelHref = () => location.origin + location.pathname + '#' + btoa(JSON.stringify({b: +$('baseRate').value, d: lastParams.dprime, t: lastParams.t, ...(claimed ? {c: [claimed.sens, claimed.spec]} : {})}));
 const slug = () => 'alarm-b' + (lastParams ? Math.round(lastParams.baseRate * 1000) : 'x');
 wireExports({buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng')},
-  getSvg: () => lastParams ? renderDistributions(lastParams, themeColors(), {w: DIST_W, h: DIST_H}) : null, slug});
+  getSvg: () => lastParams ? renderArtefact(lastParams, lastCounts, verdicts(lastCounts, lastParams), derived(lastParams), themeColors(), modelHref()) : null, slug});
 $('copydoc').addEventListener('click', async () => {
   if(!lastCounts) return;
-  const md = markdown(lastParams, derived(lastParams), lastCounts, verdicts(lastCounts, lastParams), location.href);
+  const md = markdown(lastParams, derived(lastParams), lastCounts, verdicts(lastCounts, lastParams), modelHref());
   try{ await navigator.clipboard.writeText(md); flash('copydoc', 'Copied'); }
   catch(e){ prompt('Copy this:', md); }
 });
 $('copylink').addEventListener('click', async () => {
-  try{ await navigator.clipboard.writeText(location.href); flash('copylink', 'Copied'); }
-  catch(e){ prompt('Copy this link:', location.href); }
+  try{ await navigator.clipboard.writeText(modelHref()); flash('copylink', 'Copied'); }
+  catch(e){ prompt('Copy this link:', modelHref()); }
 });
 $('replay').addEventListener('click', animateGate);
 function flash(id, msg){ const b = $(id), was = b.textContent; b.textContent = msg; setTimeout(() => { b.textContent = was; }, 1500); }

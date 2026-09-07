@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {renderDistributions, renderBox} from '../render.js';
+import {renderDistributions, renderBox, renderArtefact} from '../render.js';
 
 const ctx = {
   colors: {card: '#fff', border: '#ddd', ink: '#222', muted: '#667', accent: '#0C7FAE',
@@ -36,4 +36,17 @@ test('threshold handle carries a >=44px hit target', () => {
 test('degenerate params never emit NaN', () => {
   for(const p of [{baseRate: 0.001, dprime: 0, t: -3}, {baseRate: 0.5, dprime: 4, t: 6}])
     assert.ok(!renderDistributions(p, ctx.colors, {w: 900, h: 220}).includes('NaN'));
+});
+
+
+test('complete export preserves the base-rate argument and all 1,000 cases', async () => {
+  const {population, classify, derived, verdicts} = await import('../engine.js');
+  const p = {baseRate: .02, dprime: 2, t: 1.2}, {counts} = classify(population(), p);
+  const svg = renderArtefact(p, counts, verdicts(counts, p), derived(p), ctx.colors, 'https://example.com/#model');
+  assert.match(svg, /Base rate 2%/);
+  for(const label of ['true alarms', 'false alarms', 'missed real cases', 'correctly quiet']) assert.ok(svg.includes(label));
+  assert.equal((svg.match(/<circle /g) || []).length, 1000);
+  assert.ok(svg.includes('https://example.com/#model'));
+  assert.match(svg, /Illustrative seeded simulation/);
+  wellFormed(svg);
 });

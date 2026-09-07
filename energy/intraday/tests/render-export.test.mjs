@@ -18,7 +18,7 @@ test('composite export is deterministic and carries both complete day and select
   assert.match(a, /^<svg[^>]+data-tool="intraday-day-stack"/);
   assert.match(a, /SELECTED HOUR · 18:00/);
   assert.match(a, /20 Aug 2026/);
-  assert.match(a, /aria-label="Intraday day and merit-order stack at 18:00\. 20 Aug 2026 · 6 GW fleet\./);
+  assert.match(a, /aria-label="Intraday day and merit-order stack at 18:00\. Illustrative day · 20 Aug 2026 · 6 GW fleet\./);
   assert.match(a, /data-cursor='18'/);
   assert.match(a, /MARGINAL · sets the price/);
   assert.match(a, /E5 · INTRADAY/);

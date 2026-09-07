@@ -1,3 +1,6 @@
+import {mountDocumentStart} from '../../assets/document-start.js';
+import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
+import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
 /* State, refresh loop, focus, edit-in-place, exports, boot. DOM lives here only. */
 import {parse} from './parse.js';
 import {simulate, fmtUnit} from './engine.js';
@@ -165,7 +168,7 @@ function structureMenu(m, kind, srcLine){
 function riskVerdictLine(){
   return sim ? riskVerdictParts(sim, model, focusIdx).line : '';
 }
-attachEditInPlace($('verdict').parentElement.parentElement, {
+attachEditInPlace($('verdict').parentElement, {
   kinds: {
     verdict: {menu: () => verdictMenuRows(model && model.verdict)},
     verdictedit: {validate: validVerdictInput, placeholder: riskVerdictLine},
@@ -264,11 +267,21 @@ const riskEip = attachEditInPlace($('preview'), {
 
 /* chips */
 exampleChips($('chips'), EXAMPLES, ex => { focusIdx = null; editor.setText(ex.src); }, {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 
+const shareLink = () => modelLink('risk', {t: editor.getText(), e: 0, ...(focusIdx !== null ? {f: focusIdx} : {})});
+wireModelLink($('copylink'), shareLink);
+const updateAssumptions = mountTargetPicker(document.querySelector('.document-actions'), {
+  label: 'Edit assumption',
+  getTargets: () => [...$('preview').querySelectorAll('[data-edit="num"]')].map(el => ({name: el.getAttribute('aria-label') || el.textContent, el})),
+  open: ({el}) => el.dispatchEvent(new MouseEvent('click', {bubbles:true})),
+});
+new MutationObserver(updateAssumptions).observe($('preview'), {childList:true});
 /* ---------- exports ---------- */
 const isoToday = () => new Date().toISOString().slice(0, 10);
 function svgString(slide){
-  return sim ? activeRender(slide, false, true) : null;   // forExport: width undefined => canonical 1200/1280
+  doRefresh();
+  return sim ? withReceipt(activeRender(slide, false, true), {lines: editor.getText().split('\n').filter(line => line.trim()), limitation: 'Illustrative beliefs, not a forecast. Results depend on the supplied ranges and model assumptions.', link: shareLink(), colors: themeColors(), measure}) : null;   // forExport: width undefined => canonical 1200/1280
 }
 function slug(){
   return slugify(model && model.title, 'risk');
@@ -283,8 +296,9 @@ wireExports({
    prompt() with the markdown so it's still copyable — wireExports has no
    equivalent fallback, so migrating would lose that behaviour. */
 $('copymd').addEventListener('click', async () => {
+  doRefresh();
   if(!sim) return;
-  const md = toMarkdown(model, sim);
+  const md = toMarkdown(model, sim) + '\n\n[Open this model](' + shareLink() + ')\n\n```\n' + editor.getText() + '\n```';
   try{ await navigator.clipboard.writeText(md); flash('copymd', 'Copied', 1500); }
   catch(e){ prompt('Copy this:', md); }
 });

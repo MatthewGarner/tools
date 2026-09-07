@@ -38,7 +38,7 @@ function values(model){
   return {
     money,
     range: v => !v ? '' : v.lo === v.hi ? money(v.lo) : money(v.lo) + ' … ' + money(v.hi),
-    prob: p => p == null ? '' : p === 'rest' ? 'rest' : p.lo === p.hi ? 'p=' + p.lo : 'p=' + p.lo + '–' + p.hi,
+    prob: p => p == null ? '' : p === 'rest' ? 'rest' : p.lo === p.hi ? 'p=' + Number(p.lo.toPrecision(3)) : 'p=' + Number(p.lo.toPrecision(3)) + '–' + Number(p.hi.toPrecision(3)),
   };
 }
 function counts(root){
@@ -101,7 +101,7 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
     scale:presentation ? 1.3 : 1, edit:ctx.edit ? {raw:model.verdict ?? ''} : undefined});
   const authored = model.verdict != null && String(model.verdict).trim() !== '';
   const rec = results.policy.get(model.root), st = results.stats.get(model.root), v = values(model);
-  let ev = '';
+  let ev = '', evHeight=0;
   if(!authored && rec && st && model.root.kind === 'decision'){
     let msg = 'P10 ' + v.money(st.p10) + ' · P90 ' + v.money(st.p90);
     const recMean = results.stats.get(rec)?.mean;
@@ -116,12 +116,15 @@ function head(model, results, ctx, C, W, verdictParts, presentation = false){
     if(h){
       const recIsA = h.aNode ? h.aNode === rec : h.a === rec.label;
       const share = recIsA ? h.aShare : 1-h.aShare;
-      msg += ' · beats ' + rival.label + ' in ' + Math.round(share*100) + '% of simulations';
+      msg += ' · higher expected value than ' + rival.label + ' in ' + Math.round(share*100) + '% of simulations';
     }
-    ev = '<text x="' + pad + '" y="' + (vy + block.height + 3) + '" font-size="' + (presentation ? 18 : 11.5) + '" fill="' + C.muted + '">' + e(msg) + '</text>';
+    const size=presentation ? 18 : 11.5, lineHeight=presentation ? 24 : 16;
+    const lines=wrapText(msg+' · This compares model assumptions, not the probability of a successful outcome.',size+'px '+SANS,W-pad*2,ctx.measure || ((text)=>text.length*size*.55));
+    ev=lines.map((line,i)=>'<text x="'+pad+'" y="'+(vy+block.height+3+i*lineHeight)+'" font-size="'+size+'" fill="'+C.muted+'">'+e(line)+'</text>').join('');
+    evHeight=lines.length*lineHeight+10;
   }
   out.push((ctx.edit ? '<g data-verdict="">' : '') + block.svg + ev + (ctx.edit ? '</g>' : ''));
-  return {svg:out.join(''), h:vy + block.height + (ev ? (presentation ? 38 : 21) : 18)};
+  return {svg:out.join(''), h:vy + block.height + (ev ? evHeight : 18)};
 }
 
 function card(item, model, results, ctx, C, layout, v, tops){

@@ -1,3 +1,4 @@
+import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, saved paths, exports, boot. */
 import {parse, CONFIG_KEYS} from './parse.js';
@@ -1551,6 +1552,7 @@ const ws = initWorkspace({
 });
 
 exampleChips($('chips'), EXAMPLES, example => editor.setText(example.src), {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 
 const SAVED_KEY = 'paths-saved';
 function renderSaved(){
@@ -1744,4 +1746,4 @@ export {LANTERN};
 
 function modelLinkState(){ return targetHashState(
     {t:editor.getText(), ...(ws.collapsed() && !sourceAutoFolded ? {e:0} : {})}, inboundHandoff); }
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});

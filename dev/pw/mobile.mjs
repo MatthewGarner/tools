@@ -1,3 +1,4 @@
+import {openExamples} from './_harness.mjs';
 /* Mobile foundations gate: phone-width first-run behaviour for in-scope tools.
    Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
@@ -628,7 +629,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   if(name === 'why') await page.getByRole('button', {name: 'Edit tree source'}).click();
-  if(name === 'roadmap') await page.locator('#examples summary').click();
+  await openExamples(page);
   const b = page.getByRole('button', {name: chip});
   if(await b.count()) await b.click();
   await page.waitForTimeout(600);
@@ -1034,6 +1035,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
+  await openExamples(page);
   const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1191,6 +1193,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
+  await openExamples(page);
   const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);

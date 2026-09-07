@@ -1,3 +1,5 @@
+import {mountModelLink} from '../assets/model-link.js';
+import {mountDocumentStart} from '../assets/document-start.js';
 /* State, refresh loop, drag-to-evolve, edit-in-place, snapshots, exports, boot. */
 import {parse, STAGES} from './parse.js';
 import {layoutMap} from './layout.js';
@@ -390,6 +392,7 @@ $('preview').addEventListener('click', e => {
 
 /* ---------- example chips ---------- */
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 
 /* ---------- exports (always the wide artefact, whatever the screen) ---------- */
 function svgString(intent){
@@ -447,3 +450,5 @@ paintKicker($('kicker'), '09', 'The landscape as text');
 /* try-it specimens: the syntax reference inserts into the editor (2026-08-02) */
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['title', 'palette', 'accent', 'verdict']);
+
+mountModelLink(document.querySelector('.document-actions'), {getState: () => ({t:editor.getText(),e:ws.collapsed()?0:1})});

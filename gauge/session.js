@@ -33,8 +33,12 @@ const resultReceipt = (stats, delphi = null) => '<section class="result-receipt"
   }).join('') + '</ol></section>';
 const discussionQueue = (stats, delphi = null) => {
   const discuss = stats.map((s, i) => ({s, i, d: delphi?.[i]})).filter(({s}) => s.discuss);
+  const insufficient = stats.filter(s => s.n < 2).length;
   const lead = discuss[0];
-  const copy = lead ? 'Choose the discussion order before opening round 2.' : 'The room is aligned enough to commit or close the session.';
+  const copy = insufficient
+    ? insufficient + ' question' + (insufficient === 1 ? ' has' : 's have') + ' fewer than two responses — there is not enough evidence to assess room alignment.'
+    : lead ? 'Choose the discussion order before opening round 2.'
+    : 'No discussion flags among the responses received. Check who is missing and the assumptions before committing.';
   return '<p class="discussion-queue"><span>Discussion queue</span> ' + discuss.length + ' question' +
     (discuss.length === 1 ? '' : 's') + ' need discussion · ' + esc(copy) + '</p>';
 };
@@ -352,7 +356,18 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
 
   let lastResponses = null, lastDelphi = null;
   const fingerprint = schemaFingerprint(model);
-  let participantRound = 1, editRevision = 0, applyingDraft = false;
+  let participantRound = 1, editRevision = 0, applyingDraft = false, locked = false;
+  const syncRoundState = data => {
+    activateRound(data.round);
+    locked = data.round === 2 ? !!data.revealed2 : !!data.revealed;
+    for(const control of $('pform').querySelectorAll('input, button')) control.disabled = locked;
+    $('psubmit').disabled = locked;
+    $('psubmit').textContent = locked ? 'Responses locked' : data.round === 2 ? 'Submit round 2' : 'Submit';
+    $('pintro').textContent = locked
+      ? 'Round ' + participantRound + ' is revealed and locked. Answers are read-only in this round. Use View results to check for a new round.'
+      : data.round === 2 ? 'Round 2 is open. Revise your answers, or keep them: they carry forward.'
+      : 'Answer privately — nobody sees your numbers until the facilitator reveals everyone’s at once. You can edit your answers until then.';
+  };
 
   const readFields = () => [...$('pform').querySelectorAll('input[data-part]')].map(el => ({
     q: +el.closest('.q').dataset.q,
@@ -440,7 +455,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
   /* One load-time check chooses the authoritative round; participants still do
      not poll, and results remain explicitly on-demand. */
   const roundReady = relay.status(id).then(r => {
-    if(r.ok) activateRound(r.data.round);
+    if(r.ok) syncRoundState(r.data);
     return r;
   });
   function markErrors(errors){
@@ -463,6 +478,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     if(btn.disabled) return;
     btn.disabled = true;
     await roundReady;
+    if(locked) return;
     const {values, errors, answered} = collectValues(model, readFields());
     markErrors(errors);
     $('perr').hidden = true;
@@ -489,9 +505,12 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     if(r.ok){
       say('✓ Submitted — you can edit your answers until the facilitator reveals.', 'ok');
       btn.textContent = '✓ Submitted';
-      setTimeout(() => { btn.textContent = 'Update answers'; }, 1600);
+      setTimeout(() => { if(!locked) btn.textContent = 'Update answers'; }, 1600);
     }
-    else if(r.status === 409) say('Responses are locked for this round — if the facilitator opens a second round, Submit works again. View results below.', 'err');
+    else if(r.status === 409){
+      syncRoundState({round: participantRound, revealed: true, revealed2: participantRound === 2});
+      say('Responses are locked for this round. Use View results to check for a new round.', 'err');
+    }
     else if(r.status === 404) say(ENDED, 'err');
     else say("Couldn't submit — nothing was lost. Check your connection and press Submit again.", 'err');
   });
@@ -501,7 +520,7 @@ export function initParticipant({model, relay, ctx, $, id, wireFormEvents}){
     const r = await relay.status(id);
     if(r.status === 404) return say(ENDED);
     if(!r.ok) return say("Couldn't reach the relay — try again.");
-    activateRound(r.data.round);
+    syncRoundState(r.data);
     if(!r.data.revealed)
       return say('Not revealed yet — ' + r.data.count + ' response' + (r.data.count === 1 ? '' : 's') + ' so far.');
     if(r.data.round === 2 && r.data.revealed2){

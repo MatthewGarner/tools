@@ -141,8 +141,8 @@ test('zero-effective-probability chance children are explicitly excluded', () =>
 test('hero evidence compares the recommendation with its closest EV competitor', () => {
   const m = parse('Root\n  Distant: 0\n  Closest: 90\n  Recommend: 100');
   const svg = render(m, evaluate(m), ctx());
-  assert.ok(svg.includes('beats Closest in'));
-  assert.ok(!svg.includes('beats Distant in'));
+  assert.ok(svg.includes('higher expected value than Closest in'));
+  assert.ok(!svg.includes('higher expected value than Distant in'));
 });
 
 test('card menus expose a dependable 44px SVG hit target', () => {
@@ -388,4 +388,12 @@ test('long sensitivity labels stay in separate bounded columns and disclose abbr
   assert.ok(ribbons.every(match=>match[3].includes('…')),'both long labels visibly abbreviate');
   assert.ok(ribbons.every(match=>!match[3].includes('RISKY-END')&&!match[3].includes('SAFE-END')),
     'unbounded suffixes never enter the fixed sensitivity columns');
+});
+
+test('probability labels round for reading while edit targets retain the exact source', () => {
+  const m=parse('Root\n  Pilot\n    Works (p=0.631578947368421): 100\n    Fails (p=rest): 0\n  Stop: 0');
+  const svg=render(m,evaluate(m),ctx({edit:true}));
+  assert.match(svg,/>p=0\.632</);
+  assert.match(svg,/data-raw="0\.631578947368421"/);
+  assert.match(svg,/not the probability of a/);
 });

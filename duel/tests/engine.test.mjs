@@ -128,3 +128,9 @@ test('re-duel after supersede is served again', () => {
   const p = nextPair(3, duels);
   assert.deepEqual(p, [0, 1]);              // superseded pair counts as unduelled
 });
+
+test('checked adjacencies do not settle an unfinished round robin', () => {
+  const v = verdictParts([{idx: 2}, {idx: 0}, {idx: 1}], ['settled', 'settled', 'settled'], [], 1);
+  assert.match(v.line, /1 comparison remains/);
+  assert.doesNotMatch(v.line, /order is settled/);
+});

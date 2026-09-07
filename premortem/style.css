@@ -219,3 +219,18 @@ footer a{color:var(--muted)} footer a:hover{color:var(--accent-ink)}
   .importstrip{align-items:stretch;flex-direction:column;margin-inline:-16px;padding-inline:16px}
   .importactions .btn{flex:1;justify-content:center}
 }
+
+@media(max-width:600px){
+  .register{display:block;width:100%;min-width:0}
+  .register thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  .register tbody{display:block}
+  .register tr{display:grid;grid-template-columns:28px minmax(0,1fr);padding:16px 0;border-bottom:1px solid var(--border);gap:8px 6px}
+  .register td,.register td:nth-child(n+3){width:auto;padding:0;border:0;white-space:normal}
+  .register .rtext{font-size:16px;line-height:1.5}
+  .register .rnum{grid-column:1;grid-row:1;color:var(--muted)}
+  .register td:not(.rnum){grid-column:2}
+  .register td:nth-child(3)::before{content:'Exposure · ';color:var(--muted)}
+  .register td:nth-child(4)::before{content:'Likelihood · ';color:var(--muted)}
+  .successregister td:nth-child(3)::before,.successregister td:nth-child(4)::before{content:none}
+  .register .rstale::before{content:'Review · ';color:var(--muted)}
+}

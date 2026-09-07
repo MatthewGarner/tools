@@ -1,3 +1,4 @@
+import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* State, refresh loop, snapshot slip-compare, edit-in-place, exports, boot. */
 import {parse, STATUSES} from './parse.js';
@@ -234,6 +235,7 @@ const eip = attachEditInPlace($('preview'), {
 
 /* ---------- example chips ---------- */
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 
 /* ---------- exports ---------- */
 function svgString(intent){
@@ -493,4 +495,4 @@ $('slidepreviewdialog').addEventListener('keydown',event=>{
   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 });
 
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});

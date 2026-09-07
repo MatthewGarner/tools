@@ -1,3 +1,5 @@
+import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
+import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
 // energy/intraday/app.js
 /* DOM shell: sliders/presets → runDay() → stack SVG (merit-order's renderStack
    at the scrubbed hour) + price-shape SVG + verdict + exports + hash state.
@@ -73,11 +75,21 @@ async function boot(){
   // renderers' isNarrow (<520) branch is reached exactly as before.
   const renderWidth = el => el.clientWidth || 900;
 
+  const shareLink = () => modelLink('intraday', encodeDayState(p, preset));
+  wireModelLink($('copylink'), shareLink);
+  const outcome = document.createElement('p'); outcome.className='energy-outcome'; outcome.setAttribute('aria-live','polite');
+  document.querySelector('.controls').parentElement.prepend(outcome);
+  const updatePlants = mountTargetPicker(stackEl.parentElement, {label:'Inspect plant',
+    getTargets: () => hourStack(p, hour).map(g => ({name:g.name})),
+    open: ({name}, button) => openCallout(name, findPlantTarget(stackEl, name) || button),
+  });
   function refresh(){
     // If a timed frame replaces the SVG while its callout owns focus, restore
     // that focus to the same named band in the fresh SVG after the swap.
     const calloutFocus = closeCallout({restore: false});
     result = runDay(p);
+    outcome.textContent = `Illustrative day · raw spread £${Math.round(result.raw.spread)} → with fleet £${Math.round(result.flat.spread)}/MWh`;
+    updatePlants();
     const colors = themeColors();
 
     const priceW = renderWidth(priceEl);
@@ -297,7 +309,13 @@ async function boot(){
     palette: palette(),
     measure,
   });
-  const getCompositeExport = () => renderDayStackExport(exportSnapshot());
+  const getCompositeExport = () => withReceipt(renderDayStackExport(exportSnapshot()), {
+    lines: [
+      `Demand trough ${p.trough} / peak ${p.peak} GW · solar peak ${p.solarPeak} GW, sunrise ${p.sunrise}:00 / sunset ${p.sunset}:00 · wind ${Math.round(p.wind*100)}%.`,
+      `Gas ${p.gas} p/th · carbon £${p.carbon}/t · fleet ${p.fleetGW} GW × ${p.fleetH} h · round-trip efficiency ${Math.round(p.rte*100)}%.`,
+    ], limitation: 'Illustrative fixed day shape and GB fleet; perfect foresight, no network constraints. Generated date is not a market observation.',
+    link: shareLink(), colors: themeColors(), measure,
+  });
   wireExports({
     getSvg: getCompositeExport,
     getCopy: getCompositeExport,

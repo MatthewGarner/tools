@@ -94,7 +94,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
   const vAuthored = vRaw !== '' && vRaw.toLowerCase() !== 'off';
   const vText = riskVerdictLine(rows[fi], model);
   const vLines = !vText ? [] : wrapText(vText, '16px ' + FONT, W - 96 - 60, ctx.measure);
-  const AXIS = 34;
+  const AXIS = isNarrow ? 34 : 52;
   /* phone-only ＋ Add structure capsule sits between the rows and the axis
      (edit && narrow — desktop/export goldens never reach this) */
   const ADDLEG = (edit && isNarrow) ? 52 : 0;
@@ -231,7 +231,7 @@ export function render(model, sim, ctx, {edit = false, focus = null} = {}){
     '\' stroke=\'' + C.border + '\' stroke-width=\'1.5\'/>');
   for(const t of niceTicks(sim.min, sim.max))
     parts.push(txt(vX(t), ay + 20, num(t), 12, C.muted, {anchor: 'middle'}));
-  if(!isNarrow) parts.push(txt(x1, ay + 20, model.unit, 12, C.muted, {anchor: 'end', weight: 600}));
+  if(!isNarrow) parts.push(txt(x1, ay + 40, model.unit, 12, C.muted, {anchor: 'end', weight: 600}));
 
   /* verdict band */
   if(vLines.length){

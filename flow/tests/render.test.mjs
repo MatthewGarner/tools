@@ -117,3 +117,12 @@ test('6b: the verdict block is content-driven — a wrapped headline pushes the 
   const hOf = svg => Number(/<svg[^>]*\bheight="(\d+)"/.exec(svg)[1]);
   assert.ok(hOf(tall) > hOf(renderReadout(result, sweep, knee, healthy, ctx)));
 });
+
+test('marginal overload remains unstable in the readout and triage', async () => {
+  const {leverTriage} = await import('../engine.js');
+  const p = {demandPerWeek: 5.5, itemDays: 4, team: 4, wipLimit: 12, cov: 'high'};
+  const {result, sweep, knee} = rig(p);
+  assert.ok(result.backlogSlopePerWeek < 0.5, 'the audit case falls below the former warning threshold');
+  assert.match(renderReadout(result, sweep, knee, p, ctx), /demand exceeds capacity/i);
+  assert.equal(leverTriage(p).mode, 'drain');
+});

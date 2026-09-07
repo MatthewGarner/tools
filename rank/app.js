@@ -1,6 +1,6 @@
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale} from './engine.js';
-import {readHashState, writeHashState, fmt} from '../assets/series.js';
+import {readHashState, writeHashState, encodeHash, fmt} from '../assets/series.js';
 import {captureFlip, applyFlip} from '../assets/motion.js';
 import {EXAMPLES, DEFAULT_CRITERIA, DEFAULT_EFFORT} from './examples.js';
 import {STARTER} from './starter.js';
@@ -197,12 +197,31 @@ function renderRows(){
     const del = document.createElement('button');
     del.className = 'del'; del.textContent = '×';
     del.setAttribute('aria-label', 'Remove ' + (it.name || 'initiative'));
-    del.addEventListener('click', () => { state.items.splice(i, 1); syncCapacity(); renderRows(); schedule(50); });
+    del.addEventListener('click', () => {
+      removedItems.push({item:it, index:i, capacity:state.k});
+      state.items.splice(i, 1); syncCapacity(); renderRows(); schedule(50);
+      undoRemoval.hidden = false; undoRemoval.focus();
+    });
     tdd.appendChild(del);
     tr.appendChild(tdd);
     tb.appendChild(tr);
   });
 }
+
+// Restore removed rows without overwriting intervening edits to other rows.
+const removedItems = [];
+const undoRemoval = document.createElement('button');
+undoRemoval.type='button';undoRemoval.className='btn';undoRemoval.textContent='Undo removal';undoRemoval.hidden=true;
+$('addrow').after(undoRemoval);
+undoRemoval.addEventListener('click', () => {
+  const removed=removedItems.pop();if(!removed)return;
+  const restoreCapacity=state.k === Math.min(removed.capacity,Math.max(1,state.items.length));
+  state.items.splice(Math.min(removed.index,state.items.length),0,removed.item);
+  syncCapacity(restoreCapacity ? removed.capacity : state.k);renderRows();schedule(0);
+  undoRemoval.hidden=!removedItems.length;
+  $('rows').children[Math.min(removed.index,state.items.length-1)].querySelector('.iname').focus();
+});
+function clearRemovalHistory(){removedItems.length=0;undoRemoval.hidden=true;}
 
 /* ---------- simulation (pure, in ./engine.js) ---------- */
 function compute(){ lastResult = simulate(state); }
@@ -312,7 +331,10 @@ function renderResults(){
 
 /* ---------- copy for a doc ---------- */
 $('copydoc').addEventListener('click', async () => {
+  clearTimeout(timer);
+  compute(); renderResults();
   if(!lastResult) return;
+  const exportState = hashState();
   const {stats, baseOrder, k} = lastResult;
   const lines = [];
   lines.push('**Prioritisation — rank stability check**');
@@ -329,7 +351,9 @@ $('copydoc').addEventListener('click', async () => {
   const flipText = $('flipline').textContent;
   if(flipText){ lines.push(''); lines.push(flipText); }
   lines.push('');
-  lines.push('_Weights perturbed ±' + state.ww + '%, scores ±' + state.sw + ', 4,000 simulations · [live table](' + location.href + ')_');
+  const link = new URL(location.pathname, location.origin);
+  link.hash = await encodeHash(exportState);
+  lines.push('_Weights perturbed ±' + exportState.w + '%, scores ±' + exportState.s + ', 4,000 simulations · [live table](' + link.href + ')_');
   const txt = lines.join('\n');
   try{
     await navigator.clipboard.writeText(txt);
@@ -339,7 +363,7 @@ $('copydoc').addEventListener('click', async () => {
 });
 
 /* ---------- URL state ---------- */
-function writeHash(){
+function hashState(){
   const s = {
     c: state.criteria.map(c => [c.name, c.w]),
     e: [state.effort.name, state.effort.w],
@@ -347,8 +371,9 @@ function writeHash(){
     k: state.k, w: state.ww, s: state.sw,
   };
   if($('oda').value.trim() || $('odb').value.trim()) s.o = [$('oda').value, $('odb').value];
-  writeHashState(s);
+  return s;
 }
+function writeHash(){ return writeHashState(hashState()); }
 async function readHash(){
   try{
     const s = await readHashState();
@@ -502,6 +527,7 @@ $('pastego').addEventListener('click', () => {
     return;
   }
   err.textContent = bad.length ? items.length + ' imported; ' + bad.length + ' line(s) skipped (couldn’t read 4 numbers).' : '';
+  clearRemovalHistory();
   state.items = items;
   syncCapacity();
   renderRows();
@@ -512,6 +538,7 @@ $('pastego').addEventListener('click', () => {
   schedule(50);
 });
 const loadItems = (items, k) => {
+  clearRemovalHistory();
   state.items = items.map(r => ({name:r[0], s:r.slice(1, 4), e:r[4]}));
   syncCapacity(k);
   renderRows();

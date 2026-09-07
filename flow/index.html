@@ -64,8 +64,11 @@
   .striplegend{display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:var(--muted)}
   .striplegend b{color:var(--ink);font-variant-numeric:tabular-nums}
   .readcard, .batchcard, .triagecard, .expeditecard, .dicecard{overflow:hidden}
+  .pan-note{display:none}
+  @media(max-width:640px){.pan-note{display:block;font-size:12px;color:var(--muted)}}
   #verdictwrap, #batchwrap, #triagewrap, #expeditewrap, #dicewrap{overflow-x:auto}
-  #verdictwrap svg, #batchwrap svg, #triagewrap svg, #expeditewrap svg, #dicewrap svg{display:block;width:100%;height:auto;min-width:640px}
+  #verdictwrap svg{display:block;width:100%;height:auto}
+  #batchwrap svg, #triagewrap svg, #expeditewrap svg, #dicewrap svg{display:block;width:100%;height:auto;min-width:640px}
   .method{color:var(--muted);font-size:12.5px}
 
   /* Phone edge system — "16px prose / 10px surface" (Camp A, assets/workspace.css):
@@ -173,7 +176,7 @@
       <div class="ctl"><label>Your batch today <output id="batchout"></output></label>
         <input type="range" id="batch" min="1" max="30" step="1" value="8" aria-label="Your current items per release"></div>
     </div>
-    <div id="batchwrap"></div>
+    <p class="pan-note">Scroll sideways to explore the full chart →</p><div id="batchwrap" tabindex="0" role="region" aria-label="Scrollable batch chart"></div>
     <div class="actions">
       <button class="btn" id="copybatchpng">Copy PNG</button>
       <details class="action-disclosure">
@@ -195,7 +198,7 @@
       <div class="ctl"><label>Items waiting today <output id="backlogout"></output></label>
         <input type="range" id="backlog" min="0" max="60" step="1" value="0" aria-label="Items waiting in the backlog today"></div>
     </div>
-    <div id="triagewrap"></div>
+    <p class="pan-note">Scroll sideways to explore the full chart →</p><div id="triagewrap" tabindex="0" role="region" aria-label="Scrollable triage chart"></div>
     <div class="actions">
       <button class="btn" id="copytriagepng">Copy PNG</button>
       <details class="action-disclosure">
@@ -217,7 +220,7 @@
       <div class="ctl"><label>Expedited requests <output id="expediteout"></output></label>
         <input type="range" id="expedite" min="0" max="3" step="0.25" value="0" aria-label="Expedited requests per week"></div>
     </div>
-    <div id="expeditewrap"></div>
+    <p class="pan-note">Scroll sideways to explore the full chart →</p><div id="expeditewrap" tabindex="0" role="region" aria-label="Scrollable expedite chart"></div>
     <div class="actions">
       <button class="btn" id="copyexpeditepng">Copy PNG</button>
       <details class="action-disclosure"><summary class="btn">Export</summary><div class="action-menu"><button class="btn" id="dlexpeditepng">PNG</button><button class="btn" id="dlexpeditesvg">SVG</button></div></details>
@@ -233,7 +236,7 @@
       <div class="ctl"><label>Days to play <output id="diceDaysout"></output></label>
         <input type="range" id="diceDays" min="10" max="60" step="5" value="30" aria-label="Days in the dependent dice game"></div>
     </div>
-    <div id="dicewrap"></div>
+    <p class="pan-note">Scroll sideways to explore the full chart →</p><div id="dicewrap" tabindex="0" role="region" aria-label="Scrollable dice chart"></div>
     <div class="actions">
       <button class="btn" id="rolldice">Roll again</button>
       <button class="btn" id="copydicepng">Copy PNG</button>

@@ -1,3 +1,4 @@
+import {openExamples} from './_harness.mjs';
 /* PWA checks: manifest + icons, service worker, full-precache cold-offline
    sweep (every tool must work offline WITHOUT having been visited — the
    installed-app path), an Android (Pixel 7) spot check, and the ENERGY origin
@@ -88,13 +89,13 @@ async function installAndWait(page){
        green.) */
     ['/rank/', async p => { const was = await p.locator('.rankbar').count(); await p.getByRole('button', {name: OPS_INFRA_BACKLOG.name}).click(); await until(() => p.locator('.rankbar').count().then(n => n !== was)); return await p.locator('.rankbar').count() === OPS_INFRA_BACKLOG.items.length; }],
     ['/roadmap/', async p => { await openRoadmapSource(p); await p.locator('#examples summary').click(); await p.getByRole('button', {name: 'Reading app roadmap'}).click(); await persisted(p, 'roadmap-src'); return await p.locator('#preview svg').count() === 1; }],
-    ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/why/', async p => { await p.getByRole('button', {name: 'Edit tree source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Reading retention'}).click(); await persisted(p, 'why-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/tree/', async p => { await p.getByRole('button', {name: 'Bid or no bid'}).click(); await persisted(p, 'tree-src'); return await p.locator('#preview svg').count() === 1; }],
-    ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/map/', async p => { await p.getByRole('button', {name: 'Edit map source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Assumption map'}).click(); await persisted(p, 'map-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/gauge/', async p => { await p.locator('#railtab').click(); await p.getByRole('button', {name: 'Q3 commitment review'}).click(); await persisted(p, 'gauge-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/flow/', async p => { await shown(p, '#verdictwrap svg'); return await p.locator('#verdictwrap svg').count() === 1; }],
-    ['/timeline/', async p => { await showSourceIfReading(p); await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
-    ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await p.getByRole('button', {name: 'Lantern platform'}).click(); await persisted(p, 'wardley-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/timeline/', async p => { await showSourceIfReading(p); await openExamples(p); await p.getByRole('button', {name: 'App launch programme'}).click(); await persisted(p, 'timeline-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/wardley/', async p => { await p.getByRole('button', {name: 'Edit landscape source'}).click(); await openExamples(p); await p.getByRole('button', {name: 'Lantern platform'}).click(); await persisted(p, 'wardley-src'); return await p.locator('#preview svg').count() === 1; }],
     ['/bets/', async p => { await p.getByRole('button', {name: 'Lantern portfolio'}).click(); await persisted(p, 'bets-src'); return await p.locator('#preview svg').count() === 1; }],
     /* the gate canvas is sized by the first paint, so width>100 is false until it runs */
     ['/alarm/', async p => { await until(() => p.locator('#gate').evaluate(c => c.width > 100)); return await p.locator('#distwrap svg').count() === 1 && await p.locator('#gate').evaluate(c => c.width > 100); }],
@@ -114,7 +115,7 @@ async function installAndWait(page){
        Playwright's full 30s timeout being told "element is not stable" / "not visible".
        Waiting for the element to be attached is not waiting for the layout to settle,
        and settled-ness is what this branch reads. The post-click wait below IS a poll. */
-    ['/paths/', async p => { await p.waitForTimeout(600); if(!await p.locator('#chips').isVisible()) await p.locator('#railtab').click(); await p.locator('#chips').waitFor({state: 'visible', timeout: 5000}); await p.getByRole('button', {name: 'Lantern', exact: true}).click(); await persisted(p, 'paths-src'); return await p.locator('#preview svg').count() === 1; }],
+    ['/paths/', async p => { await openExamples(p); await p.getByRole('button', {name: 'Lantern', exact: true}).click(); await persisted(p, 'paths-src'); return await p.locator('#preview svg').count() === 1; }],
   ];
   /* Coverage: the offline promise is "every tool works after one online open", so a
      tool missing from this list is an unkept promise, not a gap in a test. Derived
@@ -173,7 +174,7 @@ async function installAndWait(page){
   try{
     await p2.goto(EBASE + '/risk/', {waitUntil: 'domcontentloaded', timeout: 8000});
     await showSourceIfReading(p2);
-    await p2.getByRole('button', {name: 'Route to market'}).click();
+    await openExamples(p2); await p2.getByRole('button', {name: 'Route to market'}).click();
     await p2.waitForTimeout(600);
     ok = await p2.locator('#preview svg').count() === 1;
   }catch(e){ ok = false; }
