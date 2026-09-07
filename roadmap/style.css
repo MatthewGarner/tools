@@ -111,7 +111,7 @@ select.ctl{font-size:12.5px;padding:6px 8px;border:1px solid var(--border);borde
 /* Roadmap's action row sits immediately above the explanatory prose. Its
    treated Export menu therefore opens into the utility area, never over the
    editorial reading column below. */
-.actions .action-disclosure:not(.history) .action-menu{top:auto;bottom:calc(100% + 6px)}
+.roadmap-utilities .actions .action-disclosure:not(.history) .action-menu{top:auto;bottom:calc(100% + 6px)}
 .action-menu-label{margin:2px 7px 5px;padding:0 0 6px;border-bottom:1px solid var(--border);
   color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}
 /* the headline field — the UI half of `headline:`. Given its own labelled row
@@ -308,4 +308,10 @@ input.hdl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
  .chapter-app > .wrap header{flex-wrap:wrap;gap:12px}
  .chapter-app .model-actions{flex-basis:100%;margin-top:0}
  .chapter-app .workspace:not(.collapsed):not(.focus-artefact) .railtab{left:12px}
+}
+
+@media(max-width:900px){
+ .chapter-app .model-actions{position:relative}
+ .chapter-app .model-actions .action-disclosure{position:static}
+ .chapter-app .model-actions .action-menu{left:0;right:auto;top:calc(100% + 6px);bottom:auto}
 }
