@@ -180,8 +180,9 @@ renderer has tests beside it. On top of that sit two kinds of standing gate:
   head block — and a test fails if one doesn't. The precache lists, the per-page
   byte budgets, and this document's own file references are all checked the same
   way. When a rule that used to live in prose drifted, it became a test; that's the
-  pattern. Documentation checks validate selected file references and DSL examples;
-  they do not certify prose accuracy or catalogue completeness.
+  pattern. Documentation checks validate selected file references, DSL examples,
+  README catalogue membership and DSL navigation/comparison coverage. They do not
+  certify prose accuracy or unexercised syntax.
 
 Two more properties hold by test. SVG strings are XML, not HTML — the browser
 forgives sloppiness inline that the export decoder rejects, so a well-formedness

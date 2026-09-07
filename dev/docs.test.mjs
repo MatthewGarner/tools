@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {join, dirname} from 'node:path';
+import {TOOL_DIRS, ENERGY_TOOL_DIRS} from './tool-dirs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
@@ -70,5 +71,21 @@ for(const doc of DOCS){
     const missing = candidatesIn(text).filter(t => !resolves(doc, t));
     assert.deepEqual(missing, [],
       `${doc} names path(s) that don't exist: ${missing.join(', ')}`);
+  });
+}
+
+/* A valid URL can still omit a newly shipped tool. Compare the whole catalogue,
+   including duplicates and stale entries, against the executable registry. */
+for(const [doc, origin, tools] of [
+  ['README.md', 'https://tools.matthewgarner.me', TOOL_DIRS],
+  ['energy/README.md', 'https://energy.matthewgarner.me', ENERGY_TOOL_DIRS],
+]){
+  test(`${doc} catalogue matches its tool registry`, () => {
+    const md = readFileSync(join(ROOT, doc), 'utf8');
+    const rows = [...md.matchAll(/^\|[^|]+\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|/gm)]
+      .map(([, label, url]) => [label, url]);
+    const expected = tools.map(tool => [`/${tool}`, `${origin}/${tool}/`]);
+    assert.deepEqual(rows.sort(), expected.sort(),
+      `${doc} has missing, duplicate or stale tool links; update its catalogue`);
   });
 }

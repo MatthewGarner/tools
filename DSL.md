@@ -716,7 +716,8 @@ review budget: Cost estimate changes
 ---
 
 `dev/dsl-doc.test.mjs` checks that every DSL parser has a worked example and that
-all examples parse without warnings. It does not prove every prose claim or config
-combination correct, or check this navigation and comparison table for completeness.
-Check those against the parsers when changing syntax. `ARCHITECTURE.md` explains
+all examples parse without warnings. It also checks that navigation and comparison
+links cover those parsers exactly once and point to their sections. It does not prove
+every prose claim or config combination correct; review those against the parsers
+when changing syntax. `ARCHITECTURE.md` explains
 the common boundaries and tool contexts explain domain meaning.

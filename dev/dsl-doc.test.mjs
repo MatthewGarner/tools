@@ -5,6 +5,7 @@
        tool's REAL parse.js with ZERO warnings. Because each example is written to
        exercise its tool's config keys + signature syntax, a clean parse also proves
        those keys are accepted (an unknown key would warn). No parser-source scraping.
+   Navigation and comparison links must also cover the discovered parsers exactly.
    Self-enforcing, like dev/renderer-coverage.test.mjs / dev/docs.test.mjs. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -61,6 +62,26 @@ test('every example tag names a real DSL tool', () => {
   const bogus = [...toolsWithExample].filter(t => !known.has(t));
   assert.deepEqual(bogus, [], 'example tags for non-existent tools: ' + bogus.join(', '));
 });
+
+/* Examples alone did not catch Case missing from the navigation and table. Keep
+   these inventories tied to discovered parsers, not to a second handwritten list. */
+for(const [name, start] of [
+  ['navigation', 'Jump to a tool:'],
+  ['comparison table', '## What each tool supports'],
+]){
+  test(`DSL ${name} links every parser exactly once to its section`, () => {
+    assert.ok(md.includes(start), `missing DSL ${name}`);
+    const section = md.slice(md.indexOf(start) + start.length).split('\n---')[0];
+    const links = [...section.matchAll(/\[([^\]]+)\]\(#([^)]+)\)/g)]
+      .map(([, tool, anchor]) => [tool, anchor]);
+    const expected = tools.map(tool => [tool, tool.replaceAll('/', '')]);
+    assert.deepEqual(links.sort(), expected.sort(),
+      `DSL ${name} has missing, duplicate, stale or misdirected links`);
+    const headings = md.split('\n').filter(line => line.startsWith('## '))
+      .map(line => line.slice(3).trim());
+    for(const tool of tools) assert.ok(headings.includes(tool), `missing section for ${tool}`);
+  });
+}
 
 test('the paths worked example demonstrates the reading decision field', () => {
   const example = blocks.find(block => block.tool === 'paths');

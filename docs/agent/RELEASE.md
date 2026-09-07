@@ -3,8 +3,9 @@
 Read this before a preview deploy, push, merge, or production check.
 
 Work on a feature branch in its own linked worktree. Before merge, run `npm run gate`,
-push the branch, and confirm that its verification workflow passes for the committed
-result. A passing gate remains valid for unchanged content; rerun relevant checks
+push the branch, open a PR (draft is fine), and confirm that its verification workflow
+passes for the committed result. Automatic CI runs on PR revisions and pushes to
+`main`; a feature branch without a PR needs a manual workflow dispatch. A passing gate remains valid for unchanged content; rerun relevant checks
 when subsequent changes, failures or unresolved concerns require it.
 
 Use the Git integration's preview or deploy with `npx vercel deploy`. Confirm the
