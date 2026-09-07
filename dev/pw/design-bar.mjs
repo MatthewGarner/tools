@@ -29,6 +29,9 @@ await test('Rank fast copy carries current model and ranking, and removal is rec
   await effort.fill('9');
   // Copy before the 400ms URL debounce; the export must take its own snapshot.
   await page.locator('#copydoc').click();
+  // Encoding and clipboard writes are asynchronous. CI can finish the click
+  // before copying finishes; wait for completion without delaying the click.
+  await page.waitForFunction(()=>document.querySelector('#copydoc').textContent==='Copied');
   const markdown=await page.evaluate(()=>navigator.clipboard.readText());
   const url=markdown.match(/\[live table\]\(([^)]+)\)/)?.[1];
   const state=await decodeHash(new URL(url).hash.slice(1));
