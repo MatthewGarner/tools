@@ -565,7 +565,8 @@ const ws = initWorkspace({
   collapsedAriaLabel: 'Edit roadmap source',
   expandedLabel: 'Read roadmap',
   onCollapseChange(_collapsed, {auto = false} = {}){
-    rerender();
+    // A phone collapse leaves the preview unchanged; keep its live edit targets.
+    refresh();
     /* Auto-fold is a reading safeguard, not a preference the URL should impose
        on a collaborator opening the same roadmap. Manual rail choices persist. */
     if(!auto){ clearTimeout(hashTimer); hashTimer = setTimeout(writeHash, 100); }
