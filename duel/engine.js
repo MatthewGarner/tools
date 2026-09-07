@@ -181,7 +181,9 @@ export function verdictParts(order, settled, loopsFound, remainingBudget){
   }
   if(!order.length) return {line: 'Add some items to line up.', fig: ''};
   if(settled && settled.length && settled.every(x => x === 'settled'))
-    return {line: 'The order is settled — every adjacent pair was duelled.', fig: ''};
+    return {line: remainingBudget > 0
+      ? 'Current adjacent order checked; ' + remainingBudget + ' comparison' + (remainingBudget === 1 ? ' remains.' : 's remain.')
+      : 'Every adjacent pair was compared; this is the order implied by those judgements.', fig: ''};
   const fig = remainingBudget > 0
     ? remainingBudget + ' more duel' + (remainingBudget === 1 ? '' : 's') : '';
   const firm = fig ? ' — ' + fig + ' would firm it up.' : ' — a few more duels would firm it up.';

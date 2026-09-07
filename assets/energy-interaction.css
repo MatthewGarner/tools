@@ -1,0 +1,7 @@
+.energy-target-picker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.energy-target-picker select{min-height:44px;min-width:0;max-width:100%;flex:1;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--border);padding:8px}
+.energy-target-picker .btn{min-height:44px}
+.energy-outcome{display:none}
+@media(max-width:900px){
+ .energy-outcome{display:block;position:sticky;top:0;z-index:3;margin:0 0 16px;padding:12px;background:var(--card);border-block:1px solid var(--border);font-size:14px;line-height:1.4}
+}

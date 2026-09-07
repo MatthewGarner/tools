@@ -162,3 +162,17 @@ export async function openRoadmapSource(page){
   if(closed)await page.getByRole('button',{name:'Edit roadmap source',exact:true}).click();
   await page.locator('.cm-content').waitFor({state:'visible'});
 }
+
+/* Examples live independently of source on document tools. Exercise their
+   disclosure instead of exposing source or clicking hidden example buttons.
+   Some tools use #examples for an always-visible row, so match details only. */
+export async function openExamples(page){
+  const disclosure=page.locator('details.document-examples, details#examples').first();
+  if(await disclosure.count() && !(await disclosure.evaluate(el=>el.open)))
+    await disclosure.locator('summary').first().click();
+}
+
+export async function openExportMenu(page){
+  const disclosure=page.locator('details.action-disclosure').filter({has:page.locator('summary').filter({hasText:/^Export$/})});
+  if(!(await disclosure.evaluate(el=>el.open))) await disclosure.locator('summary').first().click();
+}

@@ -84,3 +84,6 @@ input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2
 @media (max-width:640px){
   .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
 }
+
+/* The whole 44px lane is interactive; the visible track remains 6px. */
+input[type=range]{height:44px;background:linear-gradient(var(--track),var(--track)) center/100% 6px no-repeat;margin:0}

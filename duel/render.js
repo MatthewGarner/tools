@@ -63,8 +63,8 @@ export function renderLoops(state){
     const edges = cycleMembers.map((winner, index) => [winner, cycleMembers[(index + 1) % cycleMembers.length]]);
     const tags = edges.map(([w, l]) => tagOf(w, l));
     const chips = edges.map(([w, l], ei) => tags[ei]
-      ? '<span class="tagchip">on ' + esc(tags[ei]) + '</span>'
-      : '<button class="tagbtn" data-w="' + w + '" data-l="' + l + '">name it</button>').join('');
+      ? '<span class="tagchip">' + esc(state.items[w]) + ' over ' + esc(state.items[l]) + ' on ' + esc(tags[ei]) + '</span>'
+      : '<button class="tagbtn" data-w="' + w + '" data-l="' + l + '">Why ' + esc(state.items[w]) + ' over ' + esc(state.items[l]) + '?</button>').join('');
     const synth = tags.every(Boolean)
       ? '<p class="synth">' + (NUM[edges.length] || edges.length) + ' criteria pretending to be one.</p>' : '';
     return '<div class="loop">' + knot + '<p class="cycle">' + cycle + '</p>' +

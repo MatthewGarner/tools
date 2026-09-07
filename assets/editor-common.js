@@ -128,14 +128,15 @@ export function createEditorCore({parent, doc, langExtension, onChange, extraHig
       view.dispatch({changes: {from: line.from, to: line.to, insert: text}});
     },
     getLine(n){ return view.state.doc.line(n + 1).text; },
-    /* The touch Undo button is the only caller. undoCmd itself doesn't focus, but
-       undoing an add restores a selection INTO the editor, which CM can focus to
-       show the caret — raising the phone's soft keyboard over the artefact. So on a
-       coarse pointer, blur the contentDOM straight back if the undo grabbed it.
-       Returns whether anything was undone (no-op on an empty history). */
+    /* Diagram recovery retains its focus instead of raising the source editor
+       (or the phone keyboard). Source-focused undo retains CodeMirror selection. */
     undo(){
+      const origin = document.activeElement;
       const r = undoCmd(view);
-      if(matchMedia('(pointer: coarse)').matches && document.activeElement === view.contentDOM) view.contentDOM.blur();
+      if(origin !== view.contentDOM && document.activeElement === view.contentDOM){
+        view.contentDOM.blur();
+        if(origin?.isConnected) origin.focus({preventScroll:true});
+      }
       return r;
     },
     insertLinesAfter(n, texts){

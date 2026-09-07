@@ -32,14 +32,15 @@ export function readoutVerdict(result){
   // means, not the median: working + waiting = total is EXACT only for means
   // (median of a sum ≠ sum of medians), so lead.p50 here contradicted the parts.
   const bits = [readoutVerdictParts(result).line];
-  if(result.backlogSlopePerWeek > 0.5){
+  if(!result.stable){
     bits.push('Backlog growing ~' + f1(result.backlogSlopePerWeek) +
-      '/week — demand exceeds capacity; no WIP limit fixes that.');
+      '/week — demand exceeds capacity; reduce intake or add capacity.');
   }
   return bits.join('  ');
 }
 
 export function renderReadout(result, sweep, knee, params, ctx){
+  const W = Math.max(320, ctx.width || 860), narrow = W < 640, PAD = narrow ? 16 : 26;
   const C = ctx.colors;
   const s = [];
   let y = PAD + 6;
@@ -48,25 +49,32 @@ export function renderReadout(result, sweep, knee, params, ctx){
      single brand-coloured figure is the average item's calendar time). The
      block's height is content-driven, so a wrapped headline pushes the
      histogram down rather than overlapping it. ---- */
-  const overloaded = result.backlogSlopePerWeek > 0.5;
+  const overloaded = !result.stable;
   const lead = result.lead;
   const {line, fig} = readoutVerdictParts(result);
   const V = svgVerdict({x: PAD, y: y + 14, width: W - PAD * 2, line, fig, copyTap: !!ctx.copyTap,
     ink: C.ink, muted: C.muted, brandText: C.brandText || C.ink, font: FONT, measure: ctx.measure});
   s.push(V.svg);
   y = y + 14 + V.height + 4;
-  s.push(txt(PAD, y, 'P85 ' + day(lead.p85) + ' · P95 ' + day(lead.p95) +
+  const prose = (text, color = C.muted, weight = 400) => {
+    const words = text.split(' '); let line = '';
+    for(const word of words){
+      const next = line ? line + ' ' + word : word;
+      if(line && (ctx.measure ? ctx.measure(next, weight + ' 12.5px ' + FONT) : next.length * 6.5) > W - PAD * 2){
+        s.push(txt(PAD, y, line, 12.5, color, {weight})); y += 18; line = word;
+      } else line = next;
+    }
+    s.push(txt(PAD, y, line, 12.5, color, {weight})); y += 20;
+  };
+  prose('P85 ' + day(lead.p85) + ' · P95 ' + day(lead.p95) +
     ' · throughput ' + f1(result.throughputPerWeek) + '/week vs demand ' + f1(params.demandPerWeek) + '/week' +
-    ' · team busy ' + Math.round(result.utilisation * 100) + '%', 12.5, C.muted));
-  y += 20;
+    ' · team busy ' + Math.round(result.utilisation * 100) + '%');
   if(overloaded){
-    s.push(txt(PAD, y, '⚠ Backlog growing ~' + f1(result.backlogSlopePerWeek) +
-      '/week — demand exceeds capacity; no WIP limit fixes that.', 12.5, C.err, {weight: 600}));
-    y += 20;
+    prose('⚠ Backlog growing ~' + f1(result.backlogSlopePerWeek) +
+      '/week — demand exceeds capacity; reduce intake or add capacity.', C.err, 600);
   }
-  s.push(txt(PAD, y, 'WIP ' + knee + ' keeps ≥95% of max throughput — beyond it you buy cycle time, not delivery.',
-    12.5, C.muted));
-  y += 30;
+  prose('WIP ' + knee + ' keeps ≥95% of max throughput — beyond it you buy cycle time, not delivery.');
+  y += 10;
 
   /* ---- cycle-time histogram ---- */
   const histH = 120, histW = W - PAD * 2;
@@ -99,7 +107,7 @@ export function renderReadout(result, sweep, knee, params, ctx){
   y += histH + 24;
 
   /* ---- WIP sweep: two small charts, shared x ---- */
-  const chW = (W - PAD * 3) / 2, chH = 110;
+  const chW = narrow ? W - PAD * 2 : (W - PAD * 3) / 2, chH = 110;
   const maxWip = sweep[sweep.length - 1].wip;
   const sx = i => (i - 1) / (maxWip - 1) * (chW - 8) + 4;
   const chart = (x0, title, vals, colour, marker) => {
@@ -118,7 +126,8 @@ export function renderReadout(result, sweep, knee, params, ctx){
     s.push(txt(x0 + chW, y + chH, String(maxWip), 10, C.muted, {anchor: 'end'}));
   };
   chart(PAD, 'THROUGHPUT / WEEK vs WIP LIMIT', sweep.map(p => p.throughputPerWeek), C.accent, true);
-  chart(PAD * 2 + chW, 'CYCLE TIME P85 (DAYS) vs WIP LIMIT', sweep.map(p => p.cycleP85), C.err, false);
+  if(narrow) y += chH + 24;
+  chart(narrow ? PAD : PAD * 2 + chW, 'CYCLE TIME P85 (DAYS) vs WIP LIMIT', sweep.map(p => p.cycleP85), C.err, false);
   y += chH + 16;
 
   const H = y + 4;
@@ -356,9 +365,9 @@ export function markdownSummary(result, sweep, knee, params, extras){
     day(result.lead.p85) + ', P95 ' + day(result.lead.p95) + '.');
   lines.push('Throughput ' + f1(result.throughputPerWeek) + '/week · team busy ' +
     Math.round(result.utilisation * 100) + '%.');
-  if(result.backlogSlopePerWeek > 0.5){
+  if(!result.stable){
     lines.push('**Backlog growing ~' + f1(result.backlogSlopePerWeek) +
-      '/week — demand exceeds capacity; no WIP limit fixes that.**');
+      '/week — demand exceeds capacity; reduce intake or add capacity.**');
   }
   lines.push('WIP ' + knee + ' keeps ≥95% of max throughput; beyond it you buy cycle time, not delivery.');
   if(extras && extras.econ){

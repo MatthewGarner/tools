@@ -1,3 +1,5 @@
+import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
+import {wireModelLink, mountTargetPicker} from '../../assets/energy-interaction.js';
 // energy/merit-order/app.js
 /* DOM shell: sliders/chips/drag/edit → buildStack → dispatch() → SVG stack +
    verdict + exports. Engine/stack/scenarios/render are pure; the DOM lives here.
@@ -378,6 +380,19 @@ async function boot(){
     syncWorldChips();
   }
 
+  const shareLink = () => modelLink('merit-order', encodeStateV2(state));
+  wireModelLink($('copylink'), shareLink);
+  const outcome = document.createElement('p'); outcome.className='energy-outcome'; outcome.setAttribute('aria-live','polite');
+  document.querySelector('.controls').parentElement.prepend(outcome);
+  const updatePlants = mountTargetPicker(chartwrap.parentElement, {label:'Inspect plant',
+    getTargets: () => currentState().generators.map(g => ({name:g.name})),
+    open: ({name}, button) => openCallout(name, plantEl(name) || button),
+  });
+  const receiptLines = () => {
+    const cs=currentState();
+    return [`${(WORLDS[state.world] || WORLDS.gbToday).label} · demand ${cs.demand} GW · gas ${state.params.gas} p/th · carbon £${state.params.carbon}/t.`,
+      ...cs.generators.map(g => `${g.name}: ${Math.round(g.capacity*100)/100} GW offered at £${Math.round(g.cost*100)/100}/MWh.`)];
+  };
   /* ---- the refresh loop ---- */
   function render(settle, motionMode){
     // settle=false (mid-drag) → no motion; settle=true → reveal (first) then FLIP.
@@ -385,6 +400,8 @@ async function boot(){
     const mode = motionMode !== undefined ? motionMode : (settle ? undefined : 'none');
     const cs = currentState();
     const result = dispatch(cs.generators, cs.demand);
+    outcome.textContent = `Clears £${Math.round(result.clearingPrice)}/MWh · ${result.marginalName || "no marginal plant"} · demand ${cs.demand} GW`;
+    updatePlants();
     const rw = renderWidth();
     const svg = renderStack(cs, {colors: themeColors(), measure, palette: palette(), width: rw}, {labelCollide: 'drop'});
     const changed = paint(svg, REVEAL, {flipAttr: 'data-plant', mode});   // owns memo + reveal/FLIP
@@ -424,8 +441,8 @@ async function boot(){
   /* ---- exports ---- */
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
-    getSvg: () => renderStack(currentState(), {colors: themeColors(), measure, palette: palette()}, {forExport: true, labelCollide: 'drop'}),
-    getMarkdown: () => { const cs = currentState(); return toMarkdown(cs, dispatch(cs.generators, cs.demand)); },
+    getSvg: () => withReceipt(renderStack(currentState(), {colors: themeColors(), measure, palette: palette()}, {forExport: true, labelCollide: 'drop'}), {lines: receiptLines(), limitation: 'Illustrative uniform-price dispatch; no network constraints, start-up costs or strategic bidding.', link: shareLink(), colors: themeColors(), measure}),
+    getMarkdown: () => { const cs = currentState(); return toMarkdown(cs, dispatch(cs.generators, cs.demand)) + '\n\n' + receiptLines().join('\n') + '\n\n[Open this model](' + shareLink() + ')'; },
     slug: () => 'merit-order',
   });
 

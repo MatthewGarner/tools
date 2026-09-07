@@ -1,3 +1,4 @@
+import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 import {parse} from './parse.js';
 import {resolve, zoneFor} from './zones.js';
@@ -196,6 +197,7 @@ attachEditInPlace($('preview'), {
 });
 
 exampleChips($('chips'), EXAMPLES, ex => editor.setText(ex.src), {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 
 const SAVED_KEY = 'map-saved';
 function renderSaved(){
@@ -410,4 +412,4 @@ onThemeChange(rerender);
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 wireSyntaxTry(document.querySelector('details.syntax'), editor, ['preset', 'title', 'palette', 'accent', 'x', 'y', 'zones', 'verdict']);
 
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});

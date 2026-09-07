@@ -1,3 +1,4 @@
+import {openExamples} from './_harness.mjs';
 /* Mobile foundations gate: phone-width first-run behaviour for in-scope tools.
    Run from dev/pw with both servers up (:8087 tools, :8089 energy), or point
    BASE/EBASE at other servers — same env-knob convention as the sibling suites. */
@@ -74,25 +75,29 @@ for(const [name, url] of ALL){
   ok(parity.h1, `${name}: h1 wears its intended display stack`);
   /* Presets are discrete choices rather than a carousel: every visible .chip in
      a populated .chips row must fit the row without a horizontal scroller. */
+  await openExamples(page);
   const presetRows = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('.chips')].filter(row =>
       row.offsetParent !== null && row.querySelector(':scope > .chip'));
     const failures = [];
     for(const row of rows){
       const rr = row.getBoundingClientRect();
-      const overflow = getComputedStyle(row).overflowX;
       const chips = [...row.querySelectorAll('.chip')].filter(chip => chip.offsetParent !== null);
       const clipped = chips.some(chip => {
         const cr = chip.getBoundingClientRect();
         return cr.left < rr.left - 1 || cr.right > rr.right + 1;
       });
-      if(overflow !== 'visible' || row.scrollWidth > row.clientWidth + 1 || clipped)
+      // A dropdown may scroll vertically. Only real horizontal overflow or
+      // clipped choices violate the reading contract.
+      if(row.scrollWidth > row.clientWidth + 1 || clipped)
         failures.push(row.id || '(unnamed)');
     }
     return {count: rows.length, failures};
   });
   if(presetRows.count) ok(presetRows.failures.length === 0,
     `${name}: all preset chips wrap without horizontal scrolling${presetRows.failures.length ? ' — ' + presetRows.failures.join(', ') : ''}`);
+  const examples = page.locator('details.document-examples, details#examples').first();
+  if(await examples.count()) await examples.locator('summary').first().click();
   /* Rule 2 (mobile input): every tool that mounts the shared CodeMirror editor
      must surface a ≥44px, always-enabled ↶ Undo on a coarse pointer — phones
      have no ⌘Z, and edit-in-place promises undoable rewrites. DERIVED from the
@@ -628,7 +633,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(url, {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   if(name === 'why') await page.getByRole('button', {name: 'Edit tree source'}).click();
-  if(name === 'roadmap') await page.locator('#examples summary').click();
+  await openExamples(page);
   const b = page.getByRole('button', {name: chip});
   if(await b.count()) await b.click();
   await page.waitForTimeout(600);
@@ -1034,6 +1039,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
+  await openExamples(page);
   const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1191,6 +1197,7 @@ for(const [name, url, chip] of WIDENED){
   await page.goto(T + '/why/', {waitUntil: 'networkidle'}).catch(()=>{});
   await page.waitForTimeout(400);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
+  await openExamples(page);
   const chip = page.getByRole('button', {name: 'Reading retention'});
   if(await chip.count()) await chip.click();
   await page.waitForTimeout(600);
@@ -1246,6 +1253,7 @@ for(const [name, url, chip] of WIDENED){
     const page = await nctx.newPage();
     await page.goto(T + '/' + name + '/', {waitUntil:'networkidle'}).catch(()=>{});
     await page.waitForTimeout(650);
+    await openExamples(page);
     const targets = await page.evaluate(selectors => selectors.map(selector => {
       const els = [...document.querySelectorAll(selector)].filter(el => el.offsetParent !== null);
       return {selector, count: els.length, heights: els.map(el => el.getBoundingClientRect().height)};

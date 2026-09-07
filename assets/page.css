@@ -93,3 +93,9 @@ footer a:hover{color:var(--brand-text)}
   .vcopy{opacity: 0}
   .vcopy:focus-visible, .verdict-block:hover + .vcopy, .vcopy:hover{opacity: 1}
 }
+
+.document-actions{flex-wrap:wrap;position:relative}
+.document-examples{position:static}
+.document-examples .action-menu{max-width:min(360px,100%);max-height:60vh;overflow:auto;box-sizing:border-box}
+.document-examples .chip{min-height:44px;text-align:left;white-space:normal}
+.document-actions{display:flex;align-items:center;gap:8px;margin-top:16px}

@@ -57,8 +57,8 @@ export function renderDayStackExport(snapshot){
   const verdictLines = wrapText(verdict, '12px ' + FONT, WIDTH - 200, measure);
   const footer = Math.max(52, 36 + (verdictLines.length - 1) * 18);
   const L = exportLayout(price, stack, WIDTH, footer);
-  const scenario = date ? `${date} · ${params.fleetGW > 0 ? `${params.fleetGW} GW fleet` : 'no storage fleet'}` :
-    (params.fleetGW > 0 ? `${params.fleetGW} GW fleet` : 'no storage fleet');
+  const scenario = 'Illustrative day · ' + (date ? `${date} · ${params.fleetGW > 0 ? `${params.fleetGW} GW fleet` : 'no storage fleet'}` :
+    (params.fleetGW > 0 ? `${params.fleetGW} GW fleet` : 'no storage fleet'));
   const hourLabel = String(hour).padStart(2, '0') + ':00';
   const metrics = `24 hours · spread £${Math.round(result.raw.spread)} · selected hour ${hourLabel} · net demand ${Math.round(demand * 10) / 10} GW`;
   const aria = `Intraday day and merit-order stack at ${hourLabel}. ${scenario}. ${verdict}`;

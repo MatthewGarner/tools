@@ -27,6 +27,24 @@ const menuFacts = b => ' data-name-raw="' + esc(b.name) + '" data-stake-raw="' +
 /* The paired condition receipt is the board's thesis. It deliberately owns no
    surface of its own: the comparison is typography and a rule, not two tiles. */
 function conditionCards(readings, x0, y0, width, c, narrow){
+  if(narrow){
+    const parts = []; let y = y0;
+    for(const item of [readings.baseline, readings.stress]){
+      const pf = item.result, pl = lossPct(pf), tone = pl != null && pl >= 50 ? c.err : c.accentInk;
+      parts.push('<g data-condition-receipt="" data-condition="'+item.key+'">');
+      parts.push(txt(x0,y+16,item.label.toUpperCase(),11,c.muted,{weight:700}));
+      parts.push(txt(x0,y+40,pl == null ? 'P(LOSES MONEY) —' : 'P(LOSES MONEY) '+pl+'%',16,tone,{weight:700,mono:true}));
+      parts.push(txt(x0,y+60,pf ? 'Median outcome '+sgn(pf.p50) : 'Outcome not available',12,c.ink,{weight:600,mono:true}));
+      if(pf) parts.push(txt(x0,y+79,'P10 '+sgn(pf.p10)+' · P90 '+sgn(pf.p90),11,c.ink,{mono:true}));
+      y+=98;
+      const lines=measuredLines(item.condition,'11px '+SANS,width,t=>String(t).length*6);
+      for(const line of lines){parts.push(txt(x0,y,line,11,c.muted));y+=15;}
+      parts.push('<line x1="'+x0+'" y1="'+(y+1)+'" x2="'+(x0+width)+'" y2="'+(y+1)+'" stroke="'+c.border+'"/>','</g>');
+      y+=14;
+    }
+    return {parts,height:y-y0};
+  }
+
   const gap = narrow ? 10 : 18, receiptW = (width - gap) / 2, h = narrow ? 92 : 70;
   const out = [];
   [readings.baseline, readings.stress].forEach((item, i) => {

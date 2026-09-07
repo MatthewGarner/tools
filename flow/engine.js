@@ -87,6 +87,10 @@ export function simulate({demandPerWeek, itemDays, team, wipLimit, cov},
   const lead = dist(leadS);
   const workMean = kept.reduce((a, d) => a + d.work, 0) / (kept.length || 1);
   return {
+    // A stable queue can finish a finite sample with a backlog. Classify from
+    // offered load, not a 0.5/week threshold on that sampled remainder.
+    stable: demandPerWeek < Math.min(team, wipLimit) * WEEK / itemDays,
+    capacityPerWeek: Math.min(team, wipLimit) * WEEK / itemDays,
     cycle: dist(cycleS),
     lead,
     leadSamples: leadS.map(v => +v.toFixed(2)),
@@ -123,7 +127,7 @@ export function kneeWip(sweep){
 export function leverTriage(params, {initialBacklog = 0, seed = SEED, knee} = {}){
   const run = p => {
     const r = simulate(p, {seed, initialBacklog});
-    return {leadP85: r.lead.p85, drainDays: r.drainDays, stable: r.backlogSlopePerWeek <= 0.5};
+    return {leadP85: r.lead.p85, drainDays: r.stable ? r.drainDays : null, stable: r.stable};
   };
   const base = run(params);
   knee = knee ?? kneeWip(wipSweep(params, {seed}));

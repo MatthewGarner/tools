@@ -1,3 +1,4 @@
+import {openExamples} from './_harness.mjs';
 /* Smoke checks for every tool + the landing page. The quality bar: each tool
    loads, its primary flow produces output, and the console stays clean.
    (The roadmap tool has its own deeper suite in check.mjs.) */
@@ -180,7 +181,7 @@ const FLOW_THEMES = ['light'];
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/risk/', theme);
   await showSourceIfReading(page);
-  await page.getByRole('button', {name: 'Route to market'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Route to market'}).click();
   await page.waitForTimeout(600);
   check('risk(' + theme + '): diagram renders', await page.locator('#preview svg').count() === 1);
   check('risk(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('THE TRADE'));
@@ -253,7 +254,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/energy/cycles/', theme);
   await showSourceIfReading(page);
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1000);
   check('cycles(' + theme + '): three bands render', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
   check('cycles(' + theme + '): verdict present', (await page.locator('#preview svg').innerHTML()).includes('Cycles are worth'));
@@ -268,7 +269,7 @@ for(const theme of FLOW_THEMES){
 {
   const {page, errors} = await freshPage('/energy/cycles/', 'light');
   await showSourceIfReading(page);
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
@@ -313,14 +314,14 @@ for(const theme of FLOW_THEMES){
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles worker: boot settles to exactly 1 dispatch', await simCount() === 1);
   check('cycles worker: actions enabled once settled', await page.locator('#dlsvg').isEnabled());
 
   /* exports gated: a fresh dispatch (different example → different simKey)
      must disable actions while it's pending, and re-enable on commit. */
-  await page.getByRole('button', {name: 'Tight warranty'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Tight warranty'}).click();
   await page.waitForTimeout(300);   // dispatch has fired (debounce 120ms + rAF); the sim is still in flight
   check('cycles worker: actions disabled while a fresh sim is pending', await page.locator('#dlsvg').isDisabled());
   await page.waitForTimeout(1200);  // well past the ~500ms sim time
@@ -342,15 +343,15 @@ for(const theme of FLOW_THEMES){
   await showSourceIfReading(page);
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles revert: boot settles to 1 dispatch', await simCount() === 1);
   const baselineSvg = await page.locator('#preview svg').innerHTML();
   const baselineVerdict = (await page.locator('#verdict').innerText()).trim();
 
-  await page.getByRole('button', {name: 'Tight warranty'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Tight warranty'}).click();
   await page.waitForTimeout(300);    // a different-key dispatch is now in flight (~500ms to resolve)
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();   // revert to the completed model BEFORE the in-flight sim resolves
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();   // revert to the completed model BEFORE the in-flight sim resolves
   await page.waitForTimeout(1500);   // well past the abandoned sim's real-world time — a late response would have arrived by now if not truly killed
 
   const finalSvg = await page.locator('#preview svg').innerHTML();
@@ -377,14 +378,14 @@ for(const theme of FLOW_THEMES){
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
   const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles leak: boot settles, worker alive', await simCount() === 1 && await workerAlive() === true);
 
   await page.evaluate(() => { window.__cyclesSimTimeoutMs = 500; });   // shrink the failsafe window
-  await page.getByRole('button', {name: 'Tight warranty'}).click();   // dispatch K1 → arms a 500ms failsafe timer
+  await openExamples(page); await page.getByRole('button', {name: 'Tight warranty'}).click();   // dispatch K1 → arms a 500ms failsafe timer
   await page.waitForTimeout(200);                                     // K1 still in flight (real sim ~500ms)
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();  // revert (=== lastKey) → abandonInFlight must CANCEL K1's timer
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();  // revert (=== lastKey) → abandonInFlight must CANCEL K1's timer
   await page.waitForTimeout(1400);   // > the abandoned timer's would-be fire time (dispatch+500ms) + margin, no activity
 
   check('cycles leak: worker still alive after the abandoned failsafe window (timer was cancelled, not leaked)', await workerAlive() === true);
@@ -414,13 +415,13 @@ for(const theme of FLOW_THEMES){
   const simCount = () => page.evaluate(() => window.__cyclesSimCount);
   const workerAlive = () => page.evaluate(() => window.__cyclesWorkerAlive && window.__cyclesWorkerAlive());
 
-  await page.getByRole('button', {name: 'Wexcombe base case'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Wexcombe base case'}).click();
   await page.waitForTimeout(1200);
   check('cycles timeout: boot settles, worker alive', await simCount() === 1 && await workerAlive() === true);
 
   await page.evaluate(() => { window.__cyclesSimTimeoutMs = 10; });    // failsafe fires almost immediately, before any worker response
   const countBefore = await simCount();
-  await page.getByRole('button', {name: 'Tight warranty'}).click();    // dispatch K1 → 10ms timer wins the race → sync fallback
+  await openExamples(page); await page.getByRole('button', {name: 'Tight warranty'}).click();    // dispatch K1 → 10ms timer wins the race → sync fallback
   await page.waitForTimeout(900);
 
   check('cycles timeout: fallback rendered a diagram', (await page.locator('#preview svg').innerHTML()).includes('THE ASSET LIFE'));
@@ -1021,7 +1022,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/why/', theme);
   await page.getByRole('button', {name: 'Edit tree source'}).click();
-  await page.getByRole('button', {name: 'Reading retention'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Reading retention'}).click();
   await page.waitForTimeout(600);
   check('why(' + theme + '): Causal Tree renders', await page.locator('#preview svg[data-causal-field="why"]').count() === 1);
   const field = await page.locator('#preview svg').innerHTML();
@@ -1063,7 +1064,7 @@ for(const theme of FLOW_THEMES){
 for(const theme of FLOW_THEMES){
   const {page, errors} = await freshPage('/map/', theme);
   await page.getByRole('button', {name: 'Edit map source'}).click();
-  await page.getByRole('button', {name: 'Assumption map'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Assumption map'}).click();
   await page.waitForTimeout(600);
   check('map(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').innerHTML();
@@ -1072,18 +1073,18 @@ for(const theme of FLOW_THEMES){
     svg.includes('VERDICT') && /<tspan class="vfig" fill=['"](#D62015|#FF4B3E)['"]>/.test(svg));
   check('map(' + theme + '): unplaced tray', svg.includes('UNPLACED') && svg.includes('Legal sign-off'));
   check('map(' + theme + '): no-test flag', svg.includes('no test designed'));
-  await page.getByRole('button', {name: 'Risk grid'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Risk grid'}).click();
   await page.waitForTimeout(500);
   const risk = await page.locator('#preview svg').innerHTML();
   check('map(' + theme + '): risk preset severity bands', risk.includes('SEVERE') && risk.includes('MODERATE'));
   check('map(' + theme + '): skills preset flags the bus factor (#69)', await (async () => {
-    await page.getByRole('button', {name: 'Skills coverage'}).click();
+    await openExamples(page); await page.getByRole('button', {name: 'Skills coverage'}).click();
     await page.waitForTimeout(500);
     const svg = await page.locator('#preview svg').innerHTML();
     return svg.includes('BUS FACTOR') && /no backup named/.test(svg);
   })());
   check('map(' + theme + '): rag preset calls the watermelon (#70)', await (async () => {
-    await page.getByRole('button', {name: 'RAG honesty'}).click();
+    await openExamples(page); await page.getByRole('button', {name: 'RAG honesty'}).click();
     await page.waitForTimeout(500);
     const svg = await page.locator('#preview svg').innerHTML();
     return svg.includes('WATERMELON WATCH') && /reported green/.test(svg);
@@ -1091,7 +1092,7 @@ for(const theme of FLOW_THEMES){
   check('map(' + theme + '): svg decodes as an image', await svgDecodes(page, '#preview svg'));
   check('map(' + theme + '): Copy PNG copies a PNG', await copyPngWorks(page));
   check('map(' + theme + '): untested assumptions hand off to a clearly labelled Gauge-prior session (#93)', await (async () => {
-    await page.getByRole('button', {name: 'Assumption map'}).click();
+    await openExamples(page); await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(500);
     if(await page.locator('#togauge').isHidden()) return false;
     await page.locator('#togauge').click();
@@ -1107,12 +1108,12 @@ for(const theme of FLOW_THEMES){
     return qs === 2 && title.includes('room prior');
   })());
   check('map(' + theme + '): non-assumption flags do not invent a Gauge probability handoff', await (async () => {
-    await page.getByRole('button', {name: 'Risk grid'}).click();
+    await openExamples(page); await page.getByRole('button', {name: 'Risk grid'}).click();
     await page.waitForTimeout(500);
     return await page.locator('#togauge').isHidden();
   })());
   check('map(' + theme + '): snapshot compare shows drift', await (async () => {
-    await page.getByRole('button', {name: 'Assumption map'}).click();
+    await openExamples(page); await page.getByRole('button', {name: 'Assumption map'}).click();
     await page.waitForTimeout(400);
     await page.getByText('History', {exact: true}).click();
     await page.locator('#snap').click();
@@ -1232,7 +1233,7 @@ for(const theme of FLOW_THEMES){
   await page.waitForTimeout(500);
   check('wardley(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
   await page.getByRole('button', {name: 'Edit landscape source'}).click();
-  await page.getByRole('button', {name: 'Lantern platform'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'Lantern platform'}).click();
   await page.waitForTimeout(600);
   const svg = await page.locator('#preview svg').innerHTML();
   check('wardley(' + theme + '): anchors + stage columns render', svg.includes('Reading') && svg.includes('commodity'));
@@ -1319,7 +1320,7 @@ for(const theme of FLOW_THEMES){
   await showSourceIfReading(page);
   await page.waitForTimeout(500);
   check('timeline(' + theme + '): opens alive (hash-safe autoload)', await page.locator('#preview svg').count() === 1);
-  await page.getByRole('button', {name: 'App launch programme'}).click();
+  await openExamples(page); await page.getByRole('button', {name: 'App launch programme'}).click();
   await page.waitForTimeout(600);
   check('timeline(' + theme + '): renders SVG', await page.locator('#preview svg').count() === 1);
   const svg = await page.locator('#preview svg').innerHTML();
@@ -1624,7 +1625,7 @@ for(const [tool, marker] of [['/roadmap/', 'Your roadmap'], ['/timeline/', 'Your
   const {page, errors} = await freshPage(tool);
   await page.waitForTimeout(500);
   /* half these tools open with the source rail collapsed (the chips live in it) */
-  if(!['/roadmap/','/case/'].includes(tool) && !await page.locator('#chips').isVisible()) await page.locator('#railtab').click();
+  if(!['/roadmap/','/case/'].includes(tool) && !await page.getByRole('button', {name:'Start your own',exact:true}).isVisible()) await page.locator('#railtab').click();
   await page.waitForTimeout(300);
   const chip = page.getByRole('button', {name: tool === '/roadmap/' ? 'New roadmap' : tool === '/case/' ? 'New case' : 'Start your own'});
   check(tool + ' start: the chip is present and opens the row', await chip.count() === 1);

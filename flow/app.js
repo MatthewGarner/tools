@@ -79,7 +79,7 @@ function econParams(){
 }
 
 function coreTransfer(result, p, knee){
-  if(result.backlogSlopePerWeek > 0.5)
+  if(!result.stable)
     return 'Next experiment: lower intake below about ' + result.throughputPerWeek.toFixed(1) +
       ' items/week before adjusting WIP; this queue is growing faster than it can finish.';
   if(p.wipLimit === knee)
@@ -119,7 +119,7 @@ function doRefresh(){
   const ctx = {colors: themeColors(), measure};
   const svg = renderReadout(result, lastSweep, lastKnee, p, ctx);
   /* the LIVE paint carries the tap-to-copy mark; lastSvg (exports) stays clean */
-  readoutPaint(renderReadout(result, lastSweep, lastKnee, p, {...ctx, copyTap: true}), REVEAL);
+  readoutPaint(renderReadout(result, lastSweep, lastKnee, p, {...ctx, copyTap: true, width: Math.min(860, $('verdictwrap').clientWidth || 860)}), REVEAL);
   lastSvg = svg;
   $('core-transfer').textContent = coreTransfer(result, p, lastKnee);
   /* Swiss 6b: the VERDICT lives inside the readout SVG (one per page); the page
@@ -242,7 +242,7 @@ function restartAnim(result){
   if(reducedMotion.matches || !result.events){
     animState = null;
     note.textContent = 'motion off — steady-state averages shown';
-    $('cbacklog').textContent = result.backlogSlopePerWeek > 0.5
+    $('cbacklog').textContent = !result.stable
       ? '+' + result.backlogSlopePerWeek.toFixed(1) + '/wk'
       : (result.utilisation > 0.95 ? '↑' : '~0');
     $('cwip').textContent = result.impliedWip.toFixed(1);
@@ -399,6 +399,6 @@ function flash(id, msg){
   onThemeChange(() => { lastSvg = ''; lastBatchSvg = ''; lastTriageSvg = ''; lastExpediteSvg = ''; lastDiceSvg = ''; refresh(); });
   reducedMotion.addEventListener('change', refresh);
   // a resize fires many events per drag of the browser edge; coalesce to one redraw/frame
-  addEventListener('resize', rafBatched(() => { if(lastResult) drawFrame(animState, animState ? animState.t1 : 0); }));
+  addEventListener('resize', rafBatched(() => { if(lastResult){ refresh(); drawFrame(animState, animState ? animState.t1 : 0); } }));
   refresh();
 })();

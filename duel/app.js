@@ -27,7 +27,9 @@ function render(){
   if(curPair){
     $('duelwrap').innerHTML = renderDuel(state, curPair);
   } else {
-    $('duelwrap').innerHTML = '<p class="framing">All duelled — the order below is as firm as it gets.</p>' +
+    $('duelwrap').innerHTML = '<p class="framing">' + (loops(n(), state.duels).length
+      ? 'Round ended — resolve the loop before using an order.'
+      : 'Round ended — review the implied order and its criteria.') + '</p>' +
       '<p class="progress">' + active(state.duels).length + ' duels recorded.</p>';
   }
   // finish/keep visibility

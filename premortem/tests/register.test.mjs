@@ -110,3 +110,10 @@ test('exampleDoc: a framed, fully-scored, rankable first-run register', () => {
   assert.ok(exp.get(d.entries[0].id).p50 > 0, 'exposure computes a positive median');
   assert.equal(ranked(d.entries, exp).length, d.entries.length, 'all risks rank');
 });
+
+test('markdown retains incomplete risks without inventing zero exposure', () => {
+  const entries = [risk('Scored', [20, 40], [10, 30]), newEntry('Library receipt emails never arrive')];
+  const md = markdown({title: 'Library', entries}, exposure(entries));
+  assert.match(md, /Library receipt emails never arrive.*Unscored/);
+  assert.match(md, /1 unscored risk/);
+});

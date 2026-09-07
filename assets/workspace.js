@@ -9,23 +9,30 @@ export function setActionsEnabled(on){
     el.disabled = !on;
 }
 
-/* Rule 2 (mobile input): phones have no ⌘Z, so "every edit is an undoable text
-   rewrite" is only true with a visible control. One ↶ Undo button per tool,
-   mounted in the stage's actions row (on phones the stage sits ABOVE the
-   editor, so the button is next to the diagram the mis-tap happened on).
-   Coarse pointers only — workspace.css hides it wherever a keyboard is likely.
-   Always enabled: undo on an empty history is a harmless no-op, and the
-   vendored bundle doesn't export undoDepth to gate it more precisely. */
+/* Model history must be reachable from the artefact on every input device.
+   Keep the existing class/API for callers; source fields retain native/CM undo. */
 export function mountTouchUndo(actionsEl, editor){
   if(!actionsEl) return null;
   const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'btn touch-undo';
-  b.textContent = '↶ Undo';
+  b.type = 'button'; b.className = 'btn touch-undo'; b.textContent = '↶ Undo';
   b.setAttribute('aria-label', 'Undo');
-  b.addEventListener('click', () => editor.undo());
+  const status = document.createElement('span');
+  status.className = 'sr-only'; status.setAttribute('role', 'status');
+  function undo(){
+    const changed = editor.undo();
+    status.textContent = changed ? 'Last model edit undone.' : 'No model edit to undo.';
+    return changed;
+  }
+  b.addEventListener('click', undo);
+  document.addEventListener('keydown', event => {
+    if(event.defaultPrevented || event.isComposing || event.altKey || event.shiftKey ||
+      !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
+    if(event.target.closest?.('input, textarea, select, [contenteditable="true"], .cm-editor, dialog[open]')) return;
+    if(undo()) event.preventDefault();
+  });
   const zoom = actionsEl.querySelector('.zoomctl');
   actionsEl.insertBefore(b, zoom ? zoom.nextSibling : actionsEl.firstChild);
+  b.after(status);
   return b;
 }
 

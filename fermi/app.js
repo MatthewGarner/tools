@@ -2,7 +2,7 @@
    this script owns the DOM. */
 import {parseNum, tokenize, parse, collectVars, evalNode,
   distMedian, effDist, Z90, simulateModel, computeSensitivity, traceDraws, sig, fmt} from './engine.js';
-import {quantile, readHashState, writeHashState} from '../assets/series.js';
+import {quantile, readHashState, writeHashState, encodeHash} from '../assets/series.js';
 import {renderDriverTree} from './render-driver.js';
 import {histLayout} from './histlayout.js';
 import {mountPour, pourVerdict} from './pour.js';
@@ -91,8 +91,8 @@ function reviewDetail(){
   const title = $('resultreviewtitle'), body = $('resultreviewbody'), facts = $('resultreviewfacts');
   facts.replaceChildren();
   if($('results').classList.contains('is-stale')){
-    title.textContent = 'Updating estimate';
-    body.textContent = 'The edited model has not yet been recalculated. Previous results are not current.';
+    title.textContent = timer ? 'Updating estimate' : 'Estimate needs attention';
+    body.textContent = $('estimate-status').textContent;
     return;
   }
   if(!last){
@@ -499,7 +499,7 @@ let timer = null;
 function schedule(ms){
   syncExampleButtons(estimateExampleButtons);
   clearTimeout(timer);
-  $('results').classList.add('is-stale');
+  setEstimateStatus('Updating estimate — previous results are not current.');
   clearReviewSelection();
   timer = setTimeout(() => { timer = null; lint(); }, ms);
 }
@@ -509,6 +509,14 @@ function ensureFreshEstimate(){
   lint();
 }
 
+function setEstimateStatus(message = ''){
+  const stale = !!message;
+  $('estimate-status').textContent = message;
+  $('estimate-status').hidden = !stale;
+  $('results').classList.toggle('is-stale', stale);
+  $('results').inert = stale;
+  for(const control of $('results').querySelectorAll('#copy, #copydoc, #png, #treepng, #treesvg, .vcopy')) control.disabled = stale;
+}
 function showPlaceholder(msg){
   $('ph').textContent = msg;
   $('ph').style.display = 'block';
@@ -520,12 +528,14 @@ function showError(msg){
   $('err').textContent = msg;
   $('err').style.display = 'block';
   // keep the last result on screen but ghost it — the error is the only current truth
-  $('results').classList.add('is-stale');
+  setEstimateStatus(msg + ' Edit formula & ranges to correct the model.');
+  reviewDetail();
   updateModelTrace();
 }
 
 function lint(){
   $('err').style.display = 'none';
+  setEstimateStatus();
   const src = $('formula').value.trim();
   last = null;
   clearReviewSelection();
@@ -641,7 +651,7 @@ function renderResults(){
   $('resultunit').hidden = !unit;
   $('ph').style.display = 'none';
   $('results').style.display = 'grid';
-  $('results').classList.remove('is-stale');
+  setEstimateStatus();
 
   const p10Text = fmt(r.p10), p50Text = fmt(r.p50), p90Text = fmt(r.p90);
   /* outside the resultsSig gate: the formula label can change without moving a
@@ -779,18 +789,18 @@ $('viewdist').addEventListener('click', () => { view = 'dist'; applyView(); });
 $('viewtree').addEventListener('click', () => { view = 'tree'; applyView(); });
 const treeSlug = () => 'drivers-' + ($('formula').value.trim().split(/[^A-Za-z0-9_]/)[0] || 'model');
 wireExports({buttons: {dlsvg: $('treesvg'), dlpng: $('treepng')},
-  getSvg: () => { ensureFreshEstimate(); return lastTreeSvg || null; }, slug: treeSlug});
+  getSvg: () => { ensureFreshEstimate(); return last ? lastTreeSvg || null : null; }, slug: treeSlug});
 
 /* ---------- histogram ---------- */
 let bins = [], histGeom = null;
 function themeColors(){
   return {...sharedThemeColors(), accent2: getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim()};
 }
-function drawHist(hoverIdx){
+function drawHist(hoverIdx, output = null){
   const r = last;
   if(!r) return;
-  const canvas = $('hist');
-  const cw = canvas.clientWidth, ch = 180;
+  const canvas = output?.canvas || $('hist');
+  const cw = output?.width || canvas.clientWidth, ch = 180;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
@@ -801,16 +811,17 @@ function drawHist(hoverIdx){
 
   const tv = threshValue();
   const L = histLayout(r.sorted, {width: cw, threshold: tv});   // the shared geometry seam
-  curLayout = L.ok ? L : null;                                   // the drag maps clientX -> value through this
+  if(!output) curLayout = L.ok ? L : null;                                   // the drag maps clientX -> value through this
   if(!L.ok) return;
   const {lo, hi, useLog, tx, inv, tlo, thi, NB, px, cmax} = L;
-  bins = L.bins;
+  const histBins = L.bins;
+  if(!output) bins = histBins;
   const padT = 26, padB = 20;         // drawing constants — stay local to drawHist
   const plotH = ch - padT - padB;
   const bw = cw / NB;
 
   for(let b = 0; b < NB; b++){
-    const bin = bins[b];
+    const bin = histBins[b];
     const h = bin.count / cmax * plotH;
     if(h < 0.5) continue;
     ctx.fillStyle = (active === 'A') ? C.accent : C.accent2;
@@ -878,7 +889,7 @@ function drawHist(hoverIdx){
     }
   }
   /* threshold line + draggable grab handle */
-  threshHandle = null;
+  if(!output) threshHandle = null;
   if(tv !== null && tv >= lo && tv <= hi){
     const x = px(tv);
     ctx.strokeStyle = C.err;
@@ -896,7 +907,7 @@ function drawHist(hoverIdx){
     // grip lines
     ctx.strokeStyle = C.card; ctx.lineWidth = 1;
     for(const dx of [-2.5, 0, 2.5]){ ctx.beginPath(); ctx.moveTo(x + dx, hy + 3); ctx.lineTo(x + dx, hy + hh - 3); ctx.stroke(); }
-    threshHandle = {x, y: hy + hh / 2};
+    if(!output) threshHandle = {x, y: hy + hh / 2};
   }
   /* axis end labels */
   ctx.fillStyle = C.muted;
@@ -1208,43 +1219,48 @@ $('copydoc').addEventListener('click', async () => {
     prompt('Copy this:', txt);
   }
 });
-$('png').addEventListener('click', () => {
+$('png').addEventListener('click', async () => {
   ensureFreshEstimate();
   if(!last) return;
-  const src = $('hist');
-  const C = themeColors();
-  const pad = 24;
-  const w = src.clientWidth, h = 180;
-  const c = document.createElement('canvas');
-  const ctx = c.getContext('2d');
-  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
-  const titleLines = [''];
-  for(const char of ($('estimatequestion').value.trim() || $('formula').value.trim())){
-    const i = titleLines.length - 1;
-    if(ctx.measureText(titleLines[i] + char).width > w) titleLines.push(char);
-    else titleLines[i] += char;
+  const result = last, snap = snapshot(), C = themeColors(), w = 760, pad = 28;
+  const chart = document.createElement('canvas');
+  drawHist(undefined, {canvas:chart, width:w});
+  // Capture everything before encoding: later edits must not change this receipt.
+  const model = compareOn
+    ? {a:packScen(active === 'A' ? snap : scenStore.A), b:packScen(active === 'B' ? snap : scenStore.B), on:active}
+    : packScen(snap);
+  const rows = [
+    {text:snap.question.trim() || snap.f, size:19, weight:600},
+    {text:'Conditional estimate' + (snap.unit.trim() ? ' · '+snap.unit.trim() : ''), size:12},
+    {text:'P10 '+fmt(result.p10)+' · P50 '+fmt(result.p50)+' · P90 '+fmt(result.p90), size:16, weight:600},
+    {text:'Formula: '+snap.f, size:13},
+    {text:'ASSUMPTIONS · 90% INPUT RANGES', size:11, weight:600},
+    ...result.varNames.map(name => {
+      const st = snap.vars.get(name);
+      return {text:name+': '+st.lo+' – '+st.hi+' · '+({logn:'log-normal',norm:'normal',uniform:'uniform'}[effDist(st.dist,Math.min(parseNum(st.lo),parseNum(st.hi)))] || st.dist)+' · '+receiptLabel(st.base),size:12};
+    }),
+    {text:'20,000 seeded samples, independent inputs. These ranges are assumptions, not a guarantee of outcomes.', size:11},
+  ];
+  if(compareOn) rows.push({text:'Model variant '+active+' filled; '+(active === 'A' ? 'B' : 'A')+' outlined. Variant comparison is sensitivity analysis, not a chance state.',size:11});
+  const hash = await encodeHash(targetHashState(model, inboundHandoff));
+  rows.push({text:'Reopen this model: '+location.origin+location.pathname+'#'+hash, size:9});
+  const c = document.createElement('canvas'), ctx = c.getContext('2d'), lines = [];
+  let y = pad + 180 + 28;
+  for(const row of rows){
+    const font = (row.weight || 400)+' '+row.size+'px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = font;
+    let line = '';
+    for(const char of row.text){
+      if(ctx.measureText(line+char).width > w){lines.push({text:line,font,y});y+=row.size+6;line=char;}
+      else line+=char;
+    }
+    lines.push({text:line,font,y});y+=row.size+14;
   }
-  const capH = titleLines.length * 18 + 70;
-  const scale = 2;
-  c.width = (w + pad * 2) * scale;
-  c.height = (h + capH + pad * 2) * scale;
-  ctx.scale(scale, scale);
-  ctx.fillStyle = C.card;
-  ctx.fillRect(0, 0, w + pad * 2, h + capH + pad * 2);
-  ctx.drawImage(src, pad, pad, w, h);
-  ctx.fillStyle = C.ink;
-  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
-  titleLines.forEach((line,i) => ctx.fillText(line, pad, pad + h + 18 * (i + 1)));
-  const captionY = pad + h + titleLines.length * 18;
-  ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText($('estimateunit').value.trim() ? 'Results in ' + $('estimateunit').value.trim() : '', pad, captionY + 18, w);
-  ctx.fillStyle = C.muted;
-  ctx.font = '12px ui-monospace, Menlo, monospace';
-  ctx.fillText('P10 ' + fmt(last.p10) + ' · P50 ' + fmt(last.p50) + ' · P90 ' + fmt(last.p90) +
-    (last.p10 > 0 ? ' · spread ×' + sig(last.p90 / last.p10, 2) : ''), pad, captionY + 38, w);
-  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('INPUT RECEIPTS: ' + compactReceiptSummary(last.varNames), pad, captionY + 58, w);
-  c.toBlob(b => download('estimate.png', b), 'image/png');
+  c.width=(w+pad*2)*2;c.height=(y+pad)*2;ctx.scale(2,2);
+  ctx.fillStyle=C.card;ctx.fillRect(0,0,w+pad*2,y+pad);
+  ctx.drawImage(chart,pad,pad,w,180);ctx.fillStyle=C.ink;
+  for(const line of lines){ctx.font=line.font;ctx.fillText(line.text,pad,line.y);}
+  c.toBlob(blob => {if(blob) download('estimate.png',blob);},'image/png');
 });
 
 /* ---------- saved models (localStorage) ---------- */
@@ -1579,7 +1595,7 @@ if(boot && boot.m === 'cf'){
 }
 
 paintKicker($('kicker'), '11', 'A number built from its parts');
-wireCopyVerdict($('verdict'));
+wireCopyVerdict($('verdict'), {canCopy: () => !!last && !$('results').classList.contains('is-stale')});
 
 mountModelLink(document.querySelector('.trace-actions'), {getState: () => {
   if(pageMode === 'cf'){ensureFreshCashflow();return cashflowHashState(cf, $('cftin').value);}

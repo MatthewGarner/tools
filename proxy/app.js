@@ -1,3 +1,4 @@
+import {mountDocumentStart} from '../assets/document-start.js';
 import {mountModelLink} from '../assets/model-link.js';
 /* URL-local Proxy Hunt shell: source -> parse -> project -> render. */
 import {parse} from './parse.js';
@@ -202,6 +203,7 @@ watchNarrowBucket(preview, () => { if(hunt){ lastSvg = liveSvg(); preview.innerH
 onThemeChange(() => { if(hunt){ lastSvg = liveSvg(); preview.innerHTML = lastSvg; ws.applyZoom(); } });
 
 exampleChips($('chips'), EXAMPLES, example => { selectedTheoryId = null; editor.setText(example.src); }, {start: {src: STARTER}});
+mountDocumentStart($('chips'));
 const SAVED_KEY = 'proxy-saved';
 function renderSaved(){
   const host = $('savedrow');
@@ -263,4 +265,4 @@ wireSyntaxTry(document.querySelector('details.syntax'), editor,
   else autoloadExample(() => editor.setText(EXAMPLES[0].src));
 })();
 
-mountModelLink(document.querySelector('.stage .actions'), {getState: modelLinkState});
+mountModelLink(document.querySelector('.document-actions'), {getState: modelLinkState});

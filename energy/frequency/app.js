@@ -1,8 +1,10 @@
+import {modelLink, withReceipt} from '../../assets/energy-receipt.js';
+import {wireModelLink} from '../../assets/energy-interaction.js';
 // energy/frequency/app.js
 /* DOM shell: sliders → simulate() → animated canvas trace + readouts + verdict.
    Engine and renderer are pure; the DOM lives only here. */
 import {simulate, verdict, verdictFigure, leverDeltas, GFM_GVAS_PER_GW, HEADROOM_PER_GVAS} from './engine.js';
-import {renderTraceScene, toMarkdown} from './render.js';
+import {renderTraceScene, toMarkdown, assumptionLines} from './render.js';
 import {buildTraceScene} from './scene.js';
 import {paintTraceScene} from './canvas.js';
 import {PRESETS, paramsFromControls} from './state.js';
@@ -29,6 +31,10 @@ async function boot(){
 
   const controls = () => Object.fromEntries(IDS.map(id => [id, +$(id).value]));
 
+  const shareLink = () => { const v=controls(); return modelLink('frequency', {i:v.inertia,tr:v.trip,dr:v.dr,dm:v.dm,dc:v.dc,g:v.gfm}); };
+  wireModelLink($('copylink'), shareLink);
+  const outcome = document.createElement('p'); outcome.className='energy-outcome'; outcome.setAttribute('aria-live','polite');
+  document.querySelector('.controls-card').prepend(outcome);
   function syncOutputs(v){
     $('inertiaout').textContent = v.inertia + ' GVA·s';
     $('tripout').textContent = v.trip.toFixed(1) + ' GW';
@@ -60,6 +66,7 @@ async function boot(){
     $('t-settle').textContent = result.settle.toFixed(2) + ' Hz';
     $('t-shed').textContent = result.shedOccurred ? Math.round(result.shedTotal * 100) + '%' : 'none';
     const verdictCopy = verdict(result, p);
+    outcome.textContent = `Nadir ${result.nadir.f.toFixed(2)} Hz · ${result.shedOccurred ? 'load shedding' : 'no load shedding'} · slope ${result.rocof.toFixed(2)} Hz/s`;
     paintVerdict($('verdict'), verdictCopy, verdictFigure(result));
     /* metrics: the three numbers that decide the fall — what was lost, what
        inertia is left to resist it, and how much fast response is contracted.
@@ -160,8 +167,8 @@ async function boot(){
   for(const c of presetChips) c.setAttribute('aria-pressed', String(c.classList.contains('on')));
   wireExports({
     buttons: {dlsvg: $('dlsvg'), dlpng: $('dlpng'), copypng: $('copypng'), copymd: $('copydoc')},
-    getSvg: () => { ensureFresh(); return lastSvg; },
-    getMarkdown: () => { ensureFresh(); return toMarkdown(lastResult, lastParams); },
+    getSvg: () => { ensureFresh(); return withReceipt(lastSvg, {lines: assumptionLines(lastParams), limitation: 'Illustrative single-area response; no network constraints or forecasting.', link: shareLink(), colors: themeColors(), measure}); },
+    getMarkdown: () => { ensureFresh(); return toMarkdown(lastResult, lastParams, shareLink()); },
     slug: () => 'frequency-inertia',
   });
   onThemeChange(() => refresh(false));

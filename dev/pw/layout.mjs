@@ -1,3 +1,4 @@
+import {openExamples} from './_harness.mjs';
 /* Hero-layout checks for the three DSL tools: rail collapse, zoom, URL state, stacking. */
 import {chromium, devices} from 'playwright';
 import {trackErrors, report, tally, pickExample, until} from './_harness.mjs';
@@ -224,7 +225,7 @@ for(const {path, chip, view, source, receiptColumn = false, narrowTab = !!source
   const errors = trackErrors(page);
   await page.goto(BASE + path, {waitUntil: 'networkidle'});
   if(source) await page.getByRole('button', {name: source}).click();
-  if(['/roadmap/','/case/'].includes(path)) await page.locator('#examples summary').click();
+  await openExamples(page);
   await page.getByRole('button', {name: chip}).click();
   await page.waitForTimeout(500);
   if(view){ await page.locator(view).click(); await page.waitForTimeout(400); }
