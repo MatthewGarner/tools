@@ -15,6 +15,9 @@ function registerRelease(){
         // deployment changing midway through installation, even with HTTP 200.
         await cache.addAll(PRECACHE.map(url => new Request(url, {
           cache: 'reload', integrity: INTEGRITY[url],
+          // Vercel previews inject toolbar HTML, changing the release's bytes.
+          // https://vercel.com/docs/vercel-toolbar/managing-toolbar
+          headers: {'x-vercel-skip-toolbar': '1'},
         })));
       }catch(error){
         await caches.delete(CACHE);

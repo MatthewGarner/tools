@@ -15,7 +15,19 @@ try{
     const files = version => new Map([
       ['/', `<script src="/register.js"></script><script type="module" src="/app.js"></script><p>Fixture</p>`],
       [pagePath, `<script src="/register.js"></script><script type="module" src="/app.js"></script><p>Fixture</p>`],
-      ['/register.js', `navigator.serviceWorker.register('/sw.js');`],
+      ['/register.js', `window.installState = navigator.serviceWorker.register('/sw.js').then(registration =>
+        new Promise((resolve, reject) => {
+          const worker = registration.installing || registration.waiting || registration.active;
+          const deadline = setTimeout(() => reject(new Error('Worker installation did not settle')), 10000);
+          const settled = () => {
+            if(['activated', 'redundant'].includes(worker.state)){
+              clearTimeout(deadline);
+              resolve(worker.state);
+            }
+          };
+          worker.addEventListener('statechange', settled);
+          settled();
+        }));`],
       ['/app.js', `window.release = '${version}'; window.lazy = () => import('/lazy.js').then(m => m.release);`],
       ['/lazy.js', `export const release = '${version}';`],
     ]);
@@ -36,7 +48,12 @@ try{
       const body = files(path === '/lazy.js' && broken === 'stale' ? 'A' : release).get(path);
       res.setHeader('Content-Type', path.endsWith('.js') ? 'text/javascript' : 'text/html');
       res.statusCode = body === undefined ? 404 : 200;
-      res.end(body ?? 'Not found');
+      // Preview hosting injects toolbar HTML unless this request opts out. The
+      // page itself still receives it; release precaching must receive source bytes.
+      const toolbar = body !== undefined && !path.endsWith('.js') &&
+        req.headers['x-vercel-skip-toolbar'] !== '1'
+        ? '<script data-vercel-toolbar>window.toolbarInjected = true;</script>' : '';
+      res.end((body ?? 'Not found') + toolbar);
     });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const base = 'http://127.0.0.1:' + server.address().port;
@@ -44,7 +61,13 @@ try{
     try{
       const page = await ctx.newPage();
       await page.goto(base);
-      await page.evaluate(() => navigator.serviceWorker.ready);
+      assert.equal(await page.evaluate(() => window.toolbarInjected), true,
+        'ordinary preview navigation receives injected toolbar HTML');
+      assert.equal(await page.evaluate(() => window.installState), 'activated',
+        'toolbar injection is excluded from integrity-checked precaching');
+      assert.equal(await page.evaluate(() => caches.match('/').then(r => r.text())), files('A').get('/'),
+        'cached HTML contains exactly the generated release bytes');
+      passed++;
       assert.equal(await page.evaluate(() => navigator.serviceWorker.controller === null), true,
         'first install does not take over a document loaded from the network');
       await page.reload();
@@ -114,7 +137,7 @@ try{
       await fresh.evaluate(async name => (await caches.open(name)).delete('/lazy.js'), cacheName('B'));
       assert.equal(await fresh.evaluate(() => fetch('/lazy.js').then(() => true, () => false)), false);
       passed++;
-      console.log('PASS ' + prefix + ': atomic install, failed upgrade, deferred activation, coherent modules and offline URLs');
+      console.log('PASS ' + prefix + ': atomic install, failed upgrade, deferred activation, coherent modules, toolbar exclusion and offline URLs');
     }finally{
       await ctx.close();
       await new Promise(resolve => server.close(resolve));
@@ -123,4 +146,4 @@ try{
 }finally{
   await browser.close();
 }
-report('pwa-upgrade', {pass: passed, fail: 0, min: 6});
+report('pwa-upgrade', {pass: passed, fail: 0, min: 8});
