@@ -10,24 +10,28 @@ enumerable, this points at the code that enumerates it.
 
 ## The shape of a tool
 
-One folder per tool: an `index.html` plus a handful of ES modules, with node tests
-beside it under `<tool>/tests/`. There's no build step and no runtime dependency — every
-tool ships as static files, and state lives in the URL hash so any model is a
-bookmarkable, shareable link.
+One folder per tool: an `index.html` plus ES modules, with node tests beside it
+under `<tool>/tests/`. Browser code ships as static files without a build step or
+externally fetched JavaScript dependencies. Gauge additionally uses the ephemeral
+relay described below.
 
-Inside a tool the flow is always the same four beats:
+The common boundary separates pure model operations from browser effects:
 
-- **parse** — text (a small DSL, or the URL state) becomes a plain data model.
-- **project / engine** — pure functions turn that model into whatever the tool
-  actually computes: a Monte-Carlo rollup, a merit-order stack, a layout.
-- **render** — pure functions emit **SVG strings** from the projected model.
-- **app** — the only part that touches the DOM: it wires the editor, the refresh
-  loop, and the export buttons.
+- **parse / input model** — text, URL state or UI input becomes plain data.
+- **project / engine** — pure functions compute simulations, metrics and layouts.
+- **artefact render** — pure functions produce exportable output, usually SVG strings.
+- **browser shell** — app modules and shared browser helpers own DOM wiring, editors,
+  storage, network calls and export delivery. Some live views also render DOM here.
 
-The leverage is that the first three beats are pure. Parsing, engines and renderers
-are functions from data to data (or data to string), so they're fully testable in
-node with no browser — which is why the test suites are as load-bearing as they are.
-`app.js` owns the DOM and nothing else does.
+Pure parsers, engines and artefact renderers are testable in Node without a browser.
+The boundary follows responsibilities, not filenames: shared editor and saved-item
+helpers legitimately touch the DOM.
+
+URL state carries shareable models, not every piece of application state. Saved
+items and snapshots may live locally. Premortem autosaves registers in localStorage;
+a shared link imports a separate register rather than joining a live document.
+Gauge keeps questions in the URL and numbers in a temporary relay; disclosed
+receipts belong to the frozen question set described in `gauge/CONTEXT.md`.
 
 ## Chapter composition and exports
 
@@ -41,10 +45,11 @@ can fill earlier pages while preserving source order within each horizon. Item a
 commentary continuations carry source identity and page context. No export is
 certified complete while any selected item or measured fragment is missing or overflowing.
 
-## Text is the model
+## Text-driven tools
 
-The rendered picture is never the source of truth; the text is. A tool parses text
-into a model, projects it, and renders it. When you interact with the rendered
+For a text-driven tool, the source text is the model. The tool parses it, projects
+the result, and renders it. Calculators, teaching tools and UI-driven workshops
+use their own input models; this editor contract does not require adding a DSL. When you interact with the rendered
 output — dragging a roadmap bar, editing a value in place — the interaction does
 **not** mutate the DOM as if it were the model. It dispatches an ordinary, undoable
 **text edit** to the editor (CodeMirror, vendored and pinned under `assets/vendor/`),
@@ -57,7 +62,7 @@ into the right input/popover/cycle interaction; and each tool owns the pure, tes
 function that rewrites its own text (`<tool>/edit-targets.js`). The rewrite is pure
 and tested in node — the DOM is just the trigger.
 
-The one deliberate exception is a preview, never a model: the roadmap "what-if" view
+Transient view state may project the source without editing it. The roadmap "what-if" view
 lets you see a bet as won or lost without writing that resolution — it's a lens
 computed over the parsed model, held in memory only, never written back into the
 text and never carried into an export.
@@ -68,19 +73,18 @@ The DSLs share conventions: soft, line-numbered warnings rather than hard errors
 parsed node so a warning can point back at the line that caused it.
 
 The full grammar of every DSL tool — config keys, node syntax, worked examples, and
-which tool supports what — is collected in `DSL.md`, kept true to the parsers by a test
-that parses every example through the real `parse.js`.
+which tool supports what — is collected in `DSL.md`. Tests require an example for
+every DSL parser and parse those examples through the real `parse.js`; prose and
+unexercised syntax still need review against the parser.
 
 ## Shared code
 
-Anything used by three or more tools moves into `assets/` and gets imported rather
-than re-implemented — design tokens, the SVG string helpers, the maths and
-hash-state primitives, the app-shell plumbing, the editor factory, the export
-wiring, the motion helpers. After every feature ships there's a shared-code pass:
-anything now duplicated three times over is a candidate for extraction. The
-counter-rule matters as much: don't rewrite thinly-tested code for zero user
-benefit, and don't extract something only two tools use unless it would otherwise
-make one tool depend on another tool's private implementation.
+Shared primitives belong in `assets/`: design tokens, SVG helpers, maths, hash-state,
+editor and export plumbing. Three real consumers normally justify extracting a
+common implementation. Two may justify it when that avoids depending on a sibling
+tool's private implementation. Check the code touched by a feature for such reuse;
+do not turn every feature into a repository-wide extraction pass or rewrite
+thinly-tested code for tidiness alone.
 
 CodeMirror is the one vendored dependency — a committed, pinned bundle under
 `assets/vendor/` (rebuild recipe alongside it). It is never fetched at runtime;
@@ -176,7 +180,8 @@ renderer has tests beside it. On top of that sit two kinds of standing gate:
   head block — and a test fails if one doesn't. The precache lists, the per-page
   byte budgets, and this document's own file references are all checked the same
   way. When a rule that used to live in prose drifted, it became a test; that's the
-  pattern.
+  pattern. Documentation checks validate selected file references and DSL examples;
+  they do not certify prose accuracy or catalogue completeness.
 
 Two more properties hold by test. SVG strings are XML, not HTML — the browser
 forgives sloppiness inline that the export decoder rejects, so a well-formedness

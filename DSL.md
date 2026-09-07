@@ -1,23 +1,23 @@
 # The DSL reference
 
-Twelve of the tools in this repo read a small text DSL and render from it. This is one
-document you can hand to an LLM so it can author valid input for any of them. Each tool's
-state lives entirely in the URL hash, so whatever the DSL produces is a bookmarkable,
-shareable link — there is no backend and no account.
+This reference covers the tools that read a text DSL and render from it. Give an LLM
+the relevant section to author input for that tool. Source text lives in the URL hash as a bookmarkable, shareable model. Local saves
+and snapshots are separate. Gauge also uses an ephemeral relay for session numbers;
+its questions remain in the URL. No tool requires an account.
 
-The six tools **without** a DSL — `flow`, `rank`, `fermi`, `alarm`, `duel`, `premortem` —
-take their input through the UI (sliders, wizards, forms), not text. Don't write DSL for
-them.
+Tools without a DSL take input through sliders, wizards or forms. Do not invent
+text syntax for them. The sections below cover every tool with a DSL parser;
+`dev/dsl-doc.test.mjs` discovers those parsers from disk.
 
 Jump to a tool: [proxy](#proxy) · [paths](#paths) · [roadmap](#roadmap) · [wardley](#wardley) · [bets](#bets) ·
 [timeline](#timeline) · [map](#map) · [tree](#tree) · [why](#why) · [gauge](#gauge) ·
-[energy/cycles](#energycycles) · [energy/risk](#energyrisk)
+[energy/cycles](#energycycles) · [energy/risk](#energyrisk) · [case](#case)
 
 ---
 
 ## Shared conventions
 
-The twelve grammars differ, but they're a family and obey the same rules:
+The grammars share conventions, with tool-specific details in each section:
 
 - **Config is `key: value`, one per line.** Most tools want config lines *before* the first
   content line — `roadmap`, `wardley`, `bets`, `gauge`, `tree` and `why` warn (or re-read
@@ -27,8 +27,8 @@ The twelve grammars differ, but they're a family and obey the same rules:
   atomic `basis:` provenance is the exception: `//` there invalidates the datum rather
   than being stripped.
 - **Indentation is 2 spaces, and it means structure** in `bets`, `tree` and `why` (a child
-  is one level deeper than its parent). The other tools read flat lines or lists; leading
-  spaces there are just trimmed.
+  is one level deeper than its parent). Paths and Case also use indented block fields;
+  follow their section-specific rules. Other tools read flat lines or lists.
 - **Parsers never throw. Mistakes come back as soft, line-numbered warnings** (`line N: …`),
   and a half-finished or partly wrong document still renders. You can paste an incomplete
   draft and iterate.
@@ -63,6 +63,7 @@ The twelve grammars differ, but they're a family and obey the same rules:
 | [gauge](#gauge) | ✓ | ✓ | ✓ | `names` `verdict` | `Question :: prob` / `:: range unit` / `:: chips A \| B` |
 | [energy/cycles](#energycycles) | ✓ | ✓ | ✓ | `battery` `spread` `charge` `drift` `rte` `fade` `calendar` `cycles` `second` `augment` `discount` `verdict` | numeric `key: value` sheet only |
 | [energy/risk](#energyrisk) | ✓ | ✓ | ✓ | `unit` `verdict` | `merchant: LO..HI`, then `floor` / `toll` / `insure` structures |
+| [case](#case) | ✓ | ✓ | ✓ | `question` `status` `decision` `unresolved` `view` `font` `review-by` | `option`, `claim` and `review` blocks with indented fields |
 
 \* Accepted but not validated: `bets` stores `palette`/`accent` without using them yet.
 
@@ -643,11 +644,7 @@ insure: premium 8 attach 40 limit 120
 
 ---
 
-*This reference is verified against the real parsers: a test parses every example above
-through the tool's own `parse.js` and fails if any of them produce a warning
-(`dev/dsl-doc.test.mjs`). The concepts behind the tools are in `ARCHITECTURE.md`.*
-
-## case — decision review
+## case
 
 A portable, authored decision review. Case does not compute a verdict or infer
 agreement between instruments. `decision:` states the commitment authorised now;
@@ -715,3 +712,11 @@ review budget: Cost estimate changes
   implication: The model preference reverses.
   decision: Reopen the pilot approval before spending.
 ```
+
+---
+
+`dev/dsl-doc.test.mjs` checks that every DSL parser has a worked example and that
+all examples parse without warnings. It does not prove every prose claim or config
+combination correct, or check this navigation and comparison table for completeness.
+Check those against the parsers when changing syntax. `ARCHITECTURE.md` explains
+the common boundaries and tool contexts explain domain meaning.

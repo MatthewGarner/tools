@@ -3,14 +3,20 @@
 Read this before a preview deploy, push, merge, or production check.
 
 Work on a feature branch in its own linked worktree. Before merge, run `npm run gate`,
-push the branch, and watch its verification workflow so a clean checkout validates
-the committed result. Deploy a preview with `npx vercel deploy`; give Matt the preview
-URL and wait for explicit approval before merging. Never push feature work to `main`.
+push the branch, and confirm that its verification workflow passes for the committed
+result. A passing gate remains valid for unchanged content; rerun relevant checks
+when subsequent changes, failures or unresolved concerns require it.
 
-If this repository still has an ignored historical instruction file in its primary
-checkout, save any private additions in `AGENTS.local.md` before bringing in the
-tracked entrypoint. Do not maintain a second operational manual in `CLAUDE.md`.
+Use the Git integration's preview or deploy with `npx vercel deploy`. Confirm the
+preview corresponds to the tested commit, check the affected behavior and give Matt
+its URL. Merge only with his explicit approval for that change. Approval already
+given in the conversation counts; do not ask again unless the scope materially
+changes. Prepare the branch, checks and preview before requesting approval. Never
+push feature work to `main`.
 
-After an approved merge, confirm the production deployment and run `node
-dev/prod-check.mjs`. Record unfinished or approval-gated work in the agreed durable
-handoff, not in a second operational instruction file.
+After an approved merge, confirm that the production deployment contains the merged
+commit and run `node dev/prod-check.mjs`. Record unfinished work, verification evidence
+and pending approval in the task or an agreed handoff location.
+
+`AGENTS.md` is the canonical guide; `CLAUDE.md` only points to it. Optional private
+instructions belong in `AGENTS.local.md`, not in a second operational manual.
