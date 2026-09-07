@@ -1,18 +1,21 @@
 # Tools agent guide
 
 Small, sharp tools for product work under uncertainty. Each does one job
-exceptionally well: no accounts, no tracking, no runtime dependency or build step;
-state belongs in the URL. This guide adds repository constraints to the user-level
+exceptionally well: no accounts, no tracking, and static browser code without a
+build step. Shareable models belong in the URL; local persistence and Gauge’s
+ephemeral relay have explicit boundaries in `ARCHITECTURE.md`. This guide adds repository constraints to the user-level
 working standards.
 
 ## First principles
 
 - Work only on a feature branch in a linked worktree. Never make feature changes or
-  push from `main`; preview deploys need Matt's approval before merge.
+  push from `main`. Prepare a tested preview before seeking merge approval; Matt's
+  explicit approval for the change already given in the conversation counts.
 - Keep employer/private material out of shipped copy, examples, commits and external
   services. Use fictional or generic examples.
-- Text is the model. Preserve the parse → project → render → app boundary; rendered
-  interactions must dispatch undoable text edits rather than mutate DOM state.
+- Keep parsing, computation and artefact rendering pure; browser modules own DOM
+  and storage effects. For text-driven tools, source edits are undoable and flow
+  through parse → project → render. UI-driven tools retain their own state model.
 - Add or update a tool `CONTEXT.md` only when a plausible semantic misreading would
   survive ordinary reading of its parser, UI, and tests. Record meaning, boundaries,
   and handoffs—not file inventories, commands, or change history.
@@ -43,7 +46,7 @@ here. A parallel red needs the failed suite re-run serially before it is classif
 |---|---|---|
 | Tool semantics, parser, or engine | that tool's `CONTEXT.md` when present; `ARCHITECTURE.md` | focused Node tests; golden verification when output changes |
 | Visual or interaction work | `docs/agent/VISUAL.md` | inspected desktop and phone renders in both themes |
-| Tests or Playwright harness | `docs/agent/TESTING.md` | predicted failure and focused passing result |
+| Tests or Playwright harness | `docs/agent/TESTING.md` | focused passing result; regression tests detect the bug |
 | New tool | `docs/agent/NEW_TOOL.md` | approved design/spec before implementation |
 | Preview, CI, or merge | `docs/agent/RELEASE.md` | gate, preview, branch CI, then approval |
 

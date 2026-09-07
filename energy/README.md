@@ -43,6 +43,6 @@ energy/
   manifest.webmanifest, icons/
 ```
 
-Everything is pure and node-testable except `app.js` (which owns the DOM). Renderers emit SVG strings; the same `dev/` harness that covers the main tools (Playwright smoke/mobile/webkit, golden SVG regression, injection corpus) covers these — the energy test globs are `energy/*/tests/*.mjs`.
+Parsers, engines and artefact renderers are pure and node-testable. App modules, editors and shared browser helpers own DOM and other browser effects. Artefact renderers emit SVG strings; the same `dev/` harness that covers the main tools (Playwright smoke/mobile/webkit, golden SVG regression, injection corpus) covers these — the energy test globs are `energy/*/tests/*.mjs`.
 
 Built with Claude Code, 2026.
