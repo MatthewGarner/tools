@@ -1,5 +1,5 @@
 /* One-shot local pre-merge gate — the single command a human runs before merging,
-   so every guard actually fires (CI here is a POST-merge signal, not a gate):
+   so every guard actually fires (PR CI also validates the proposed merge):
      node tests (3 globs) → golden verify → spawn both origins → browser chain → teardown.
    Ports default 8087/8089; `--ports TOOLS ENERGY` overrides for parallel sessions.
    8091 is rejected — gauge.mjs spawns its own relay there.
