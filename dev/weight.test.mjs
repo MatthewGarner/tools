@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {TOOL_DIRS} from './tool-dirs.mjs';
-import {FONT_FACES} from '../roadmap/chapter-fonts.js';
+import {FONT_FACES} from '../assets/chapter-fonts.js';
+import {COMPATIBILITY_MODULES, moduleGraph as walkModules} from './module-graph.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = p => readFileSync(join(ROOT, p), 'utf8');
@@ -25,21 +26,7 @@ function resolveRef(fromDir, ref){
   return out.join('/');
 }
 function moduleGraph(entry, seen = new Set()){
-  if(seen.has(entry)) return seen;
-  seen.add(entry);
-  const dir = entry.split('/').slice(0, -1).join('/');
-  const src = read(entry);
-  for(const m of src.matchAll(/(?:import[^'"]*|from\s*|import\()\s*['"]([^'"]+)['"]/g)){
-    if(m[1].endsWith('.js')) moduleGraph(resolveRef(dir, m[1]), seen);
-  }
-  /* new Worker(new URL('./x.js', import.meta.url)) — a module Worker's script
-     is a real load-time dependency (the browser fetches it) even though it's
-     not a static import; the cycles perf fix (2026-07-12) is the first of
-     these. Match it explicitly so a future worker doesn't need an orphan
-     exception. */
-  for(const m of src.matchAll(/new\s+Worker\(\s*new\s+URL\(\s*['"]([^'"]+)['"]/g))
-    if(m[1].endsWith('.js')) moduleGraph(resolveRef(dir, m[1]), seen);
-  return seen;
+  return walkModules(new URL('../', import.meta.url), entry, seen);
 }
 function pageLoad(page){
   const dir = page.split('/').slice(0, -1).join('/');
@@ -50,8 +37,8 @@ function pageLoad(page){
   for(const m of html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g))
     files.add(resolveRef(dir, m[1]));
   // Chapter eagerly fetches its local registry before measuring live or export text.
-  if(files.has('roadmap/chapter-font-loader.js'))
-    for(const face of FONT_FACES) files.add('roadmap/fonts/' + face.file);
+  if(files.has('assets/chapter-font-loader.js'))
+    for(const face of FONT_FACES) files.add('assets/fonts/' + face.file);
   return files;
 }
 
@@ -556,6 +543,7 @@ test('no orphaned shipped modules', () => {
   const reachable = new Set();
   for(const page of Object.keys(PAGES)) for(const f of pageLoad(page)) reachable.add(f);
   ['home/sw.js', 'energy/sw.js', 'assets/pwa.js'].forEach(f => reachable.add(f));
+  for(const file of COMPATIBILITY_MODULES) moduleGraph(file, reachable);
   const orphans = [];
   const DIRS = [...TOOL_DIRS, 'energy', 'home', 'assets'];   // was missing 'wardley' — the orphan check couldn't see the newest tool
   for(const d of DIRS){

@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DAY_DEFAULTS, runDay} from '../day.js';
 import {renderDayStackExport, exportLayout} from '../render-export.js';
-import {GB_TODAY} from '../../merit-order/technologies.js';
-import {MERIT_PALETTE} from '../../merit-order/render.js';
+import {GB_TODAY} from '../../merit-order/model.js';
+import {MERIT_PALETTE} from '../../merit-order/diagram.js';
 
 const colors = {bg: '#f5f2ed', card: '#ffffff', border: '#d9d5ce', grid: '#e3e7ea',
   ink: '#1b2733', muted: '#66727e', accent: '#C05621'};

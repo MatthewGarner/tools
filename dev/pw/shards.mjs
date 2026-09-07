@@ -48,7 +48,7 @@
 export const SHARDS = [
   {name: 'smoke',         suites: ['smoke.mjs', 'chapter.mjs', 'chapter-interactions.mjs', 'timeline.mjs'],                          browsers: 'chromium'},
   {name: 'eip',           suites: ['check-eip.mjs'],                      browsers: 'chromium'},
-  {name: 'mobile-core',   suites: ['mobile.mjs', 'pwa.mjs'],             browsers: 'chromium'},
+  {name: 'mobile-core',   suites: ['mobile.mjs', 'pwa.mjs', 'pwa-upgrade.mjs'],             browsers: 'chromium'},
   {name: 'motion-webkit', suites: ['motion.mjs', 'webkit.mjs', 'check.mjs', 'paths-budget.mjs', 'map.mjs', 'case.mjs'], browsers: 'chromium webkit'},
   {name: 'layout-gauge',  suites: ['layout.mjs', 'gauge.mjs', 'signal.mjs', 'intraday-export.mjs', 'frequency.mjs'], browsers: 'chromium'},
 ];
@@ -110,7 +110,7 @@ export const SUITE_SECONDS = {
   'chapter.mjs': 45, 'chapter-interactions.mjs': 20, 'timeline.mjs': 20,
   'smoke.mjs': 147, 'check-eip.mjs': 208, 'paths-budget.mjs': 28, 'mobile.mjs': 170, 'motion.mjs': 56,
   'layout.mjs': 103, 'webkit.mjs': 56, 'gauge.mjs': 27, 'check.mjs': 30,
-  'pwa.mjs': 15, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,
+  'pwa.mjs': 15, 'pwa-upgrade.mjs': 4, 'signal.mjs': 4, 'map.mjs': 5, 'case.mjs': 3,
   'intraday-export.mjs': 24, 'frequency.mjs': 10,
 };
 

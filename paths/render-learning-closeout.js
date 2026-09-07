@@ -3,8 +3,8 @@
    never evaluates evidence quality, causal truth, or the delivery projection. */
 
 import {esc, txt, wash} from '../assets/svg.js';
-import {line, rect} from '../roadmap/deck-parts.js';
-import {artefactPalette as palette, wrappedArtefactText as wrapped} from './artefact-parts.js';
+import {line, rect} from '../assets/svg-shapes.js';
+import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
 const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
 const SERIF = "Charter,'Bitstream Charter',Georgia,serif";

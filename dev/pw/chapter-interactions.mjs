@@ -75,4 +75,4 @@ try{
   console.log('oversized framing has an actionable export error');
   }
   assert.deepEqual(errors,[]);
-}catch(error){console.error('Editor at failure:',await page.evaluate(async()=>{const {EditorView}=await import('/roadmap/vendor/codemirror.js');return EditorView.findFromDOM(document.querySelector('.cm-editor')).state.doc.toString();}));throw error;}finally{await browser.close();}
+}catch(error){console.error('Editor at failure:',await page.evaluate(async()=>{const {EditorView}=await import('/assets/vendor/codemirror.js');return EditorView.findFromDOM(document.querySelector('.cm-editor')).state.doc.toString();}));throw error;}finally{await browser.close();}

@@ -1,11 +1,11 @@
 /* State, refresh loop, snapshots, saved roadmaps, import, exports, drag, boot. */
 import {onThemeChange, renderWarningList, measure, isDark, themeColors, slugify, exampleChips, download, pngRasterPlan, svgToCanvas} from '../assets/app-common.js';
 import {wireExports} from '../assets/exports.js';
-import {createSlideZip} from './export-zip.js';
+import {createSlideZip} from '../assets/export-zip.js';
 import {renderChapter, renderChapterPages} from './chapter-svg.js';
 import {chapterHero as focusHeroIndex, chapterNativeWidth} from './chapter-layout.js';
-import {stripEmbeddedFonts} from './chapter-fonts.js';
-import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from './chapter-font-loader.js';
+import {stripEmbeddedFonts} from '../assets/chapter-fonts.js';
+import {loadChapterFonts, chapterFontsReady, embedChapterFonts} from '../assets/chapter-font-loader.js';
 import {loadSaved, storeSaved, renderSavedChips} from '../assets/saved-items.js';
 import {debounced, rafBatched} from '../assets/schedule.js';
 import {narrowWidth, watchNarrowBucket} from '../assets/narrow-width.js';

@@ -4,7 +4,7 @@
 import {txt, esc, wrapText} from '../../assets/svg.js';
 import {hourStack} from './day.js';
 import {renderDay, buildDayVerdictParts} from './render-day.js';
-import {renderStack} from '../merit-order/render.js';
+import {renderStack} from '../merit-order/diagram.js';
 
 const FONT = "'Helvetica Neue',Helvetica,'Segoe UI',Roboto,sans-serif";
 const WIDTH = 1200;

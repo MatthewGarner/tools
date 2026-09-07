@@ -38,7 +38,7 @@
    shape draws itself" during Play; the storage strip stays full (it reads as
    planned/kept, not as unrevealed future) and forExport never passes upTo. */
 import {txt, wrapText, esc} from '../../assets/svg.js';
-import {THERMAL_ORDER} from '../merit-order/render.js';   // shared fuel-family colour order (was a local copy)
+import {THERMAL_ORDER} from '../merit-order/diagram.js';   // shared fuel-family colour order (was a local copy)
 
 const FONT = '"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif';   // Swiss Phase 4 (single-quoted attr context)
 const r1 = n => Math.round(n * 10) / 10;

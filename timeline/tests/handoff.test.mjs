@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {premortemHandoff} from '../handoff.js';
 import {withoutHandoffMeta} from '../../assets/handoff.js';
 import {parse, parseDate} from '../parse.js';
-import {toLink, fromLink} from '../../premortem/store.js';
+import {toLink, fromLink} from '../../premortem/links.js';
 
 const today = parseDate('2026-08-01');
 const MERGE_DOC = ['title: Lantern 2.0 launch',

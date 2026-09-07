@@ -12,25 +12,8 @@ import {SANS, SERIF, serifGroup, clip1, wrapN} from './text-parts.js';
    — and through it /why — need not carry the whole deck toolkit). Re-exported here
    so every existing importer of deck-parts is untouched. */
 export {SANS, SERIF, serifGroup, clip1, wrapN, standfirst, storyLine, basisBand, basisDesc} from './text-parts.js';
-export const r2 = n => Math.round(n * 100) / 100;
-
-/* shared SVG micro-builders (deck-local, NOT assets/svg.js — render.js/
-   svg.js/series.js stay at zero hunks, and svg.js has no rect/line helper or
-   font-family override). Attribute order is fixed; deck.test.mjs's bounds
-   sweep parses by name so it doesn't care. */
-export function rect(x, y, w, h, fill, o = {}){
-  return '<rect x="' + r2(x) + '" y="' + r2(y) + '" width="' + r2(w) + '" height="' + r2(h) +
-    '" fill="' + fill + '"' +
-    (o.rx != null ? ' rx="' + o.rx + '"' : '') +
-    (o.stroke ? ' stroke="' + o.stroke + '" stroke-width="' + (o.sw || 1) + '"' : '') +
-    (o.dash ? ' stroke-dasharray="' + o.dash + '"' : '') + '/>';
-}
-export function line(x1, y1, x2, y2, stroke, w = 1, opacity = 1){
-  return '<line x1="' + r2(x1) + '" y1="' + r2(y1) + '" x2="' + r2(x2) + '" y2="' + r2(y2) +
-    '" stroke="' + stroke + '" stroke-width="' + w + '" opacity="' + opacity + '"/>';
-}
-
-
+import {r2, rect, line} from '../assets/svg-shapes.js';
+export {r2, rect, line} from '../assets/svg-shapes.js';
 
 /* Greedy "how many rows/cards fit" with a reserved chip budget — the terminal
    rung of the overflow ladder, shared by card and list columns. Invariant

@@ -8,6 +8,8 @@ import {join} from 'node:path';
 import {Script} from 'node:vm';
 import {toOriginUrl} from './origins.mjs';
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {workers} from './gen-sw.mjs';
+import {generateWorker, integrity} from './sw-release.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const KEEP = [...TOOL_DIRS, 'assets'];   // was missing 'wardley' — the guard couldn't see the newest tool
@@ -57,4 +59,20 @@ test('energy/sw.js compiles as a script', () => {
   const sw = readFileSync(join(ROOT, 'energy/sw.js'), 'utf8');
   assert.ok(!sw.includes('<<<<<<<'), 'energy/sw.js contains merge conflict markers');
   new Script(sw, {filename: 'energy/sw.js'});
+});
+
+/* The URL inventory alone missed edits to existing modules: those must create a
+   new release too, and generated workers must never lag behind their content. */
+test('both workers describe the current file contents and lifecycle', () => {
+  for(const {file, source} of workers()){
+    assert.equal(readFileSync(join(ROOT, file), 'utf8'), source,
+      file + ' is stale: run node dev/gen-sw.mjs');
+  }
+});
+
+test('release identity changes when bytes at an existing URL change', () => {
+  const release = text => generateWorker('tools', [{url: '/app.js', integrity: integrity(text)}]);
+  const cache = text => release(text).match(/const CACHE = '([^']+)'/)[1];
+  assert.notEqual(cache('export const value = 1'), cache('export const value = 2'));
+  assert.equal(cache('export const value = 1'), cache('export const value = 1'));
 });

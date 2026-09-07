@@ -1,8 +1,8 @@
 /* Pure paint of the Case export plan. App code may embed the suite's local fonts
    before rasterisation or saving; no screenshot/DOM export path is involved. */
 import {esc} from '../assets/svg.js';
-import {chapterColors} from '../roadmap/chapter-colors.js';
-import {embedFontCSS} from '../roadmap/chapter-fonts.js';
+import {chapterColors} from '../assets/chapter-colors.js';
+import {embedFontCSS} from '../assets/chapter-fonts.js';
 import {exportCasePages} from './export-pages.js';
 import {classifyReference} from './parse.js';
 const e=value=>esc(String(value??''));

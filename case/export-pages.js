@@ -1,6 +1,6 @@
 /* A deck is a measured reading projection of the authored Case. Every field is
    carried into a text block; continuations spend pages rather than shrink type. */
-import {resolveTypography} from '../roadmap/chapter-fonts.js';
+import {resolveTypography} from '../assets/chapter-fonts.js';
 
 export const CASE_SLIDE = Object.freeze({width:1600,height:900,margin:72,top:142,bottom:794});
 const graphemes = text => typeof Intl?.Segmenter === 'function'

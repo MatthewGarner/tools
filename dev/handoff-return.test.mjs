@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {decodeHash} from '../assets/series.js';
 import {handoffHref, handoffMeta, handoffReturnHref, targetHashState,
   validHandoffMeta, validHandoffReturn} from '../assets/handoff.js';
-import {toLink as premortemLink, fromLink as readPremortemLink} from '../premortem/store.js';
+import {toLink as premortemLink, fromLink as readPremortemLink} from '../premortem/links.js';
 
 const FLOWS = [
   {from:'map', to:'gauge', kind:'question-set'},

@@ -16,8 +16,8 @@
 import {runDay, hourStack, DAY_DEFAULTS} from './day.js';
 import {renderDay, buildDayVerdictParts} from './render-day.js';
 import {renderDayStackExport} from './render-export.js';
-import {renderStack, MERIT_PALETTE} from '../merit-order/render.js';
-import {GB_TODAY} from '../merit-order/technologies.js';
+import {renderStack, MERIT_PALETTE} from '../merit-order/diagram.js';
+import {GB_TODAY} from '../merit-order/model.js';
 import {encodeDayState, decodeDayState} from './state.js';
 import {readHashState, writeHashState} from '../../assets/series.js';
 import {measure, themeColors, onThemeChange, isDark} from '../../assets/app-common.js';

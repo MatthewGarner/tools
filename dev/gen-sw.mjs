@@ -1,17 +1,14 @@
-/* Regenerates both service workers' PRECACHE from the filesystem — sw.js (tools
-   origin) and energy/sw.js (energy origin, URLs mapped through origins.mjs).
-   Run after adding any shipped file: node dev/gen-sw.mjs
-   (dev/pwa-precache.test.mjs enforces). */
+/* Generates content-addressed, complete static releases for both origins.
+   Run after changing any shipped file: node dev/gen-sw.mjs. */
 import {readFileSync, writeFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
-import {createHash} from 'node:crypto';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {Script} from 'node:vm';
-import {toOriginUrl} from './origins.mjs';
+import {toOriginUrl, toRepoPath, toToolsPath} from './origins.mjs';
 import {TOOL_DIRS} from './tool-dirs.mjs';
+import {generateWorker, integrity} from './sw-release.mjs';
 
-const ROOT = new URL('..', import.meta.url).pathname;
-const KEEP = [...TOOL_DIRS, 'assets'];
-
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 function walk(dir, out = []){
   for(const f of readdirSync(join(ROOT, dir)).sort()){
     if(f === 'tests' || f === 'node_modules') continue;
@@ -23,27 +20,25 @@ function walk(dir, out = []){
   return out;
 }
 
-function patch(file, prefix, urls){
-  const hash = createHash('sha256').update(urls.join('\n')).digest('hex').slice(0, 10);
-  const sw = readFileSync(join(ROOT, file), 'utf8')
-    .replace(new RegExp("const CACHE = '" + prefix + "-[^']*';"),
-      "const CACHE = '" + prefix + '-' + hash + "';")
-    .replace(/const PRECACHE = \[[^\]]*\];/, 'const PRECACHE = [\n  ' +
-      urls.map(u => "'" + u + "'").join(',\n  ') + '\n];');
-  /* in-place patching means anything broken outside the two replaced regions
-     (e.g. merge conflict markers) would be written back — refuse instead */
-  new Script(sw, {filename: file});
-  writeFileSync(join(ROOT, file), sw);
-  console.log(file + ': ' + urls.length + ' urls, cache ' + prefix + '-' + hash);
+export function workers(){
+  return [
+    {file: 'home/sw.js', prefix: 'tools', dirs: [...TOOL_DIRS, 'assets'], map: u => u, repo: toToolsPath},
+    {file: 'energy/sw.js', prefix: 'energy', dirs: ['energy', 'assets', 'roadmap/vendor'], map: toOriginUrl, repo: toRepoPath},
+  ].map(({file, prefix, dirs, map, repo}) => {
+    const urls = [...new Set(['/', '/manifest.webmanifest', ...dirs.flatMap(d => walk(d))
+      .map(map).filter(u => u !== null && u !== '/sw.js')])];
+    const entries = urls.map(url => {
+      const path = repo(url);
+      return {url, integrity: integrity(readFileSync(join(ROOT, path.endsWith('/') ? path + 'index.html' : path)))};
+    });
+    return {file, source: generateWorker(prefix, entries), count: urls.length};
+  });
 }
 
-const urls = [...new Set(['/', '/manifest.webmanifest', ...KEEP.flatMap(d => walk(d))])].sort();
-patch('home/sw.js', 'tools', urls);
-
-/* energy origin worker: same walk, mapped through the origin's path table.
-   (KEEP must NOT gain 'energy' — the tools origin redirects /energy/* away.) */
-const eUrls = [...new Set(['/', '/manifest.webmanifest',
-  ...['energy', 'assets', 'roadmap/vendor'].flatMap(d => walk(d))
-    .map(f => toOriginUrl(f))
-    .filter(u => u !== null && u !== '/sw.js' && u !== '/manifest.webmanifest')])].sort();
-patch('energy/sw.js', 'energy', eUrls);
+if(process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href){
+  for(const {file, source, count} of workers()){
+    new Script(source, {filename: file});
+    writeFileSync(join(ROOT, file), source);
+    console.log(file + ': ' + count + ' integrity-checked urls');
+  }
+}

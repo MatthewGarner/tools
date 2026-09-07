@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BASE_PROFILE, DAY_DEFAULTS, demandAt, solarAt, sansStorage, clearDay, rawDay, greedySchedule} from '../day.js';
-import {GB_TODAY} from '../../merit-order/technologies.js';
+import {GB_TODAY} from '../../merit-order/model.js';
 
 test('BASE_PROFILE: 24 normalised points, trough 0 and peak 1 present', () => {
   assert.equal(BASE_PROFILE.length, 24);
