@@ -3,7 +3,7 @@
 import {wrapText} from '../assets/svg.js';
 import {STATUS_LABEL, activeCount, condCount} from './parse.js';
 import {cardTag, registerOutcomeGroups, betChain} from './cond-parts.js';
-import {resolveTypography} from './chapter-fonts.js';
+import {resolveTypography} from '../assets/chapter-fonts.js';
 import {resolveVerdict} from '../assets/verdict.js';
 
 export const CHAPTER_SLIDE = {width:1440, height:810};

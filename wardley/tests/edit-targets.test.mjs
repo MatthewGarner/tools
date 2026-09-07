@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {EditorState} from '../../roadmap/vendor/codemirror.js';
+import {EditorState} from '../../assets/vendor/codemirror.js';
 import {lineOpsChanges} from '../../assets/editor-common.js';
 import {parse} from '../parse.js';
 import {kinds, renameComponent, renameAnchor, cycleStage, dragRewrite,

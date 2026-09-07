@@ -6,7 +6,7 @@ export async function waitChapterSource(page,expected){
   let actual;
   do{
     actual=await page.evaluate(async()=>{
-      const {EditorView}=await import('/roadmap/vendor/codemirror.js');
+      const {EditorView}=await import('/assets/vendor/codemirror.js');
       return {current:EditorView.findFromDOM(document.querySelector('.cm-editor')).state.doc.toString(),saved:(await(await import('/assets/series.js')).readHashState())?.t};
     });
     if(actual.current===expected && actual.saved===expected)return;

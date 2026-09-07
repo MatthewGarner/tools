@@ -10,8 +10,8 @@ const n = value => Math.round(value * 100) / 100;
 const attrs = values => Object.entries(values).filter(([,v])=>v!=null).map(([k,v])=>` ${k}="${e(v)}"`).join('');
 const rect = (x,y,w,h,fill,more={}) => `<rect${attrs({x:n(x),y:n(y),width:n(w),height:n(h),fill,...more})}/>`;
 const rule = (x,y,x2,y2,stroke) => `<line${attrs({x1:n(x),y1:n(y),x2:n(x2),y2:n(y2),stroke,'stroke-width':1})}/>`;
-import {chapterColors} from './chapter-colors.js';
-export {chapterColors, chapterContrast} from './chapter-colors.js';
+import {chapterColors} from '../assets/chapter-colors.js';
+export {chapterColors, chapterContrast} from '../assets/chapter-colors.js';
 function blockSvg(block,x,y,fill,extra={}){
   return block.lines.map((line,index)=>`<text${attrs({x:n(x),y:n(y+block.size+index*block.step),'font-family':block.family,'font-size':block.size,'font-weight':block.weight,fill,...(index===0?extra:{})})}>${e(line)}</text>`).join('');
 }

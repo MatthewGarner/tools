@@ -12,7 +12,7 @@ import {fermiHandoff} from '../gauge/handoff.js';
 import {unpackScen} from '../fermi/state.js';
 import {parse as parseTimeline, parseDate} from '../timeline/parse.js';
 import {premortemHandoff} from '../timeline/handoff.js';
-import {toLink, fromLink} from '../premortem/store.js';
+import {toLink, fromLink} from '../premortem/links.js';
 import {parse as parseRoadmap} from '../roadmap/parse.js';
 import {roadmapToPathsStarter} from '../roadmap/handoff-paths.js';
 import {parse as parsePaths} from '../paths/parse.js';

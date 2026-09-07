@@ -7,7 +7,7 @@
    default behaviour (flag absent) is byte-pinned by dev/golden.mjs. */
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {renderStack, MERIT_PALETTE} from '../../merit-order/render.js';
+import {renderStack, MERIT_PALETTE} from '../../merit-order/diagram.js';
 import {hourStack, DAY_DEFAULTS, demandAt} from '../day.js';
 
 const C = {bg:'#fff', card:'#fff', border:'#ccc', ink:'#111', muted:'#777', accent:'#c05621', err:'#b00'};

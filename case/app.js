@@ -12,8 +12,8 @@ import {measure, renderWarningList, download, svgToCanvas, pngRasterPlan, slugif
 import {initWorkspace, mountTouchUndo} from '../assets/workspace.js';
 import {debounced} from '../assets/schedule.js';
 import {autoloadExample, shouldPersist} from '../assets/mobile.js';
-import {loadChapterFonts, embedChapterFonts} from '../roadmap/chapter-font-loader.js';
-import {createSlideZip} from '../roadmap/export-zip.js';
+import {loadChapterFonts, embedChapterFonts} from '../assets/chapter-font-loader.js';
+import {createSlideZip} from '../assets/export-zip.js';
 import {mountActionIcons, actionIcon} from '../assets/action-icons.js';
 import {wireSyntaxTry} from '../assets/syntax-try.js';
 import {esc} from '../assets/svg.js';

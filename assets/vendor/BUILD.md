@@ -16,7 +16,7 @@ EOF
 npx esbuild entry.js --bundle --format=esm --minify --outfile=codemirror.js
 ```
 
-Then prepend the two provenance comment lines (see the current file header) with the versions from `package-lock.json`, and replace `roadmap/vendor/codemirror.js`.
+Then prepend the two provenance comment lines (see the current file header) with the versions from `package-lock.json`, and replace `assets/vendor/codemirror.js`.
 
 Versions in the current bundle (2026-07-04):
 @codemirror/commands@6.10.4 @codemirror/language@6.12.4 @codemirror/state@6.7.0 @codemirror/view@6.43.5 @lezer/common@1.5.2 @lezer/highlight@1.2.3 @lezer/lr@1.4.10 @marijn/find-cluster-break@1.0.3

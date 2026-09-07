@@ -5,8 +5,18 @@
 import {writeFileSync, readFileSync, mkdirSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {parse} from '../roadmap/parse.js';
-import {renderChapter, renderChapterPages} from '../roadmap/chapter-svg.js';
+const mode = process.argv[2];   // capture | compare | verify (compare + assert committed)
+const prefix = process.argv[3]; // optional hyphen-delimited prefix, e.g. `timeline`
+if(!['capture', 'compare', 'verify'].includes(mode) || process.argv.length > 4){
+  console.error('Usage: node dev/golden.mjs capture|compare|verify [tool-prefix]');
+  process.exit(1);
+}
+
+/* Select fixture families before importing or rendering them: an unrelated
+   renderer failure must not block a focused run. Keep the final name filter too,
+   since callers can narrow further (for example chapter-grid-light). */
+const selected = family => !prefix || family === prefix ||
+  family.startsWith(prefix + '-') || prefix.startsWith(family + '-');
 
 const ctxBase = {
   colors: {card:'#fff',border:'#ddd',ink:'#222',muted:'#667',accent:'#08c',bg:'#f7f8f6',
@@ -24,33 +34,40 @@ const ctxDark = {
   dark: true,
 };
 const variants = {};
-/* Chapter's real renderer owns all four reading compositions in both themes.
-   Separate narrow fixtures pin each phone layout; page sets pin complete exports. */
-const chapterSource = 'title: Lantern roadmap\nheadline: Make reading a habit\ndate: 2026-09-04\naccent: #254C3D\n' +
-  'NOW\nCore: Resume a book [doing] -- Remember the exact place\nCore: Curated shelves [bet: shelves] -- Find the next good read\n' +
-  'NEXT\nGrowth: Share a shelf [if shelves] -- An invitation from a friend\nGrowth: Reading digest [unless shelves]\n' +
-  'LATER\nPlatform: E-reader sync -- Pick up on any device\nPlatform: Offline reading';
-for(const style of ['grid','board','focus','register']){
-  const model = parse('style: ' + style + '\n' + chapterSource);
-  for(const [theme,context] of [['light',ctxBase],['dark',ctxDark]]){
-    variants['chapter-' + style + '-' + theme] = renderChapter(model,context);
-    const pages=renderChapterPages(model,context);
-    pages.pages.forEach((svg,i)=>{variants['chapter-'+style+'-'+theme+'-slide-'+i]=svg;});
+if(selected('chapter')){
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderChapter, renderChapterPages} = await import('../roadmap/chapter-svg.js');
+  /* Chapter's real renderer owns all four reading compositions in both themes.
+     Separate narrow fixtures pin each phone layout; page sets pin complete exports. */
+  const chapterSource = 'title: Lantern roadmap\nheadline: Make reading a habit\ndate: 2026-09-04\naccent: #254C3D\n' +
+    'NOW\nCore: Resume a book [doing] -- Remember the exact place\nCore: Curated shelves [bet: shelves] -- Find the next good read\n' +
+    'NEXT\nGrowth: Share a shelf [if shelves] -- An invitation from a friend\nGrowth: Reading digest [unless shelves]\n' +
+    'LATER\nPlatform: E-reader sync -- Pick up on any device\nPlatform: Offline reading';
+  for(const style of ['grid','board','focus','register']){
+    const model = parse('style: ' + style + '\n' + chapterSource);
+    for(const [theme,context] of [['light',ctxBase],['dark',ctxDark]]){
+      variants['chapter-' + style + '-' + theme] = renderChapter(model,context);
+      const pages=renderChapterPages(model,context);
+      pages.pages.forEach((svg,i)=>{variants['chapter-'+style+'-'+theme+'-slide-'+i]=svg;});
+    }
   }
+  variants['chapter-grid-narrow'] = renderChapter(parse('style: grid\n'+chapterSource),{...ctxBase,width:360,edit:true});
+  variants['chapter-board-narrow'] = renderChapter(parse('style: board\n'+chapterSource),{...ctxBase,width:360,edit:true});
+  variants['chapter-focus-narrow'] = renderChapter(parse('style: focus\n'+chapterSource),{...ctxBase,width:360,edit:true});
+  variants['chapter-register-narrow'] = renderChapter(parse('style: register\n'+chapterSource),{...ctxBase,width:360,edit:true});
+  const chapterBasis='basis: paths "Growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12\n';
+  variants['chapter-basis'] = renderChapter(parse(chapterBasis+chapterSource),ctxBase);
+  variants['chapter-basis-narrow'] = renderChapter(parse(chapterBasis+chapterSource),{...ctxBase,width:360});
+  // The authored date labels the document; ctx.today independently positions
+  // the calendar marker. Pin its original capture date as well.
+  variants['chapter-spans'] = renderChapter(parse('style: grid\ndate: 2026-09-04\nhorizons: monthly from Jul 2026 x4\nJul 2026\nPlatform: Sync engine x4 -- Keep every device current\nPlatform: Local cache\nAug 2026\nPlatform: Conflict resolution x2'),{...ctxBase,today:'2026-09-05'});
+  variants['chapter-comparison'] = renderChapter(parse('style: register\nstory: The next release follows the evidence\n'+chapterSource),{...ctxBase,diff:{any:true,since:'June baseline',dropped:['Legacy import'],badge:()=>({kind:'new',label:'New'})}});
+  variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n'+chapterSource),ctxBase);
+
 }
-variants['chapter-grid-narrow'] = renderChapter(parse('style: grid\n'+chapterSource),{...ctxBase,width:360,edit:true});
-variants['chapter-board-narrow'] = renderChapter(parse('style: board\n'+chapterSource),{...ctxBase,width:360,edit:true});
-variants['chapter-focus-narrow'] = renderChapter(parse('style: focus\n'+chapterSource),{...ctxBase,width:360,edit:true});
-variants['chapter-register-narrow'] = renderChapter(parse('style: register\n'+chapterSource),{...ctxBase,width:360,edit:true});
-const chapterBasis='basis: paths "Growth decisions"; answered pricing=yes@2026-08-03; assumed groups=no@2026-08-12\n';
-variants['chapter-basis'] = renderChapter(parse(chapterBasis+chapterSource),ctxBase);
-variants['chapter-basis-narrow'] = renderChapter(parse(chapterBasis+chapterSource),{...ctxBase,width:360});
-variants['chapter-spans'] = renderChapter(parse('style: grid\ndate: 2026-09-04\nhorizons: monthly from Jul 2026 x4\nJul 2026\nPlatform: Sync engine x4 -- Keep every device current\nPlatform: Local cache\nAug 2026\nPlatform: Conflict resolution x2'),ctxBase);
-variants['chapter-comparison'] = renderChapter(parse('style: register\nstory: The next release follows the evidence\n'+chapterSource),{...ctxBase,diff:{any:true,since:'June baseline',dropped:['Legacy import'],badge:()=>({kind:'new',label:'New'})}});
-variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n'+chapterSource),ctxBase);
 
 /* tree fixtures (dates normalised so captures are stable) */
-{
+if(selected('tree')){
   const {parse: tparse} = await import('../tree/parse.js');
   const {evaluate} = await import('../tree/engine.js');
   const {render: trender} = await import('../tree/render.js');
@@ -78,7 +95,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /why fixtures (dates normalised) */
-{
+if(selected('why')){
   const {parse: wparse} = await import('../why/parse.js');
   const {project} = await import('../why/project.js');
   const {renderCausalField: renderOst} = await import('../why/render-causal-field.js');
@@ -142,7 +159,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /map fixtures (dates normalised) */
-{
+if(selected('map')){
   const {parse: mparse} = await import('../map/parse.js');
   const {resolve: mresolve} = await import('../map/zones.js');
   const {readout: mreadout} = await import('../map/readout.js');
@@ -191,7 +208,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /gauge overlay fixtures (fully deterministic) */
-{
+if(selected('gauge')){
   const {parse: gparse} = await import('../gauge/parse.js');
   const {sessionStats: gstats} = await import('../gauge/engine.js');
   const {renderOverlay: grender} = await import('../gauge/render-overlay.js');
@@ -223,7 +240,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /flow readout fixtures (seeded sim → deterministic) */
-{
+if(selected('flow')){
   const {simulate, wipSweep, kneeWip} = await import('../flow/engine.js');
   const {renderReadout} = await import('../flow/render.js');
   for(const [name, params] of [
@@ -254,7 +271,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /fermi driver-tree fixtures (#73): seeded MC → deterministic sens → exact SVG */
-{
+if(selected('fermi-driver')){
   const E = await import('../fermi/engine.js');
   const {renderDriverTree} = await import('../fermi/render-driver.js');
   const {quantile} = await import('../assets/series.js');
@@ -280,7 +297,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /fermi cashflow fixtures (#13): seeded → deterministic */
-{
+if(selected('fermi-cashflow')){
   const {simulateCashflow} = await import('../fermi/cashflow.js');
   const {renderCashflow} = await import('../fermi/render-cashflow.js');
   const R = (lo, hi) => ({lo, hi});
@@ -296,7 +313,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /timeline fixtures (today pinned in the doc → deterministic) */
-{
+if(selected('timeline')){
   const {parse: tparse} = await import('../timeline/parse.js');
   const {render: trender} = await import('../timeline/render.js');
   const {timelineDiff, timelineDiffView} = await import('../timeline/diff.js');
@@ -397,7 +414,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /risk fixtures (seeded engine → deterministic) */
-{
+if(selected('risk')){
   const {parse: rparse} = await import('../energy/risk/parse.js');
   const {simulate, fmtUnit: rFmtUnit} = await import('../energy/risk/engine.js');
   const {render: rrender, riskVerdict, focusedIndex} = await import('../energy/risk/render.js');
@@ -421,7 +438,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /cycles fixtures (seeded engine → deterministic; n reduced for capture speed) */
-{
+if(selected('cycles')){
   const {parse: cparse} = await import('../energy/cycles/parse.js');
   const {simulate: csim, verdict: cVerdict, fmtUnit: cFmtUnit} = await import('../energy/cycles/engine.js');
   const {render: crender} = await import('../energy/cycles/render.js');
@@ -441,7 +458,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /frequency fixtures (pure ODE, no seed needed — deterministic by construction) */
-{
+if(selected('frequency')){
   const {simulate: fsim} = await import('../energy/frequency/engine.js');
   const {renderTrace: frender} = await import('../energy/frequency/render.js');
   const fp = {trip: 1.8, eSync: 80, drMw: 0.5, dmMw: 0.5, dcMw: 1.5, battMW: 2.5, eGfm: 20, load: 30};
@@ -451,7 +468,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /merit-order fixtures (pure engine, no seed needed — deterministic by construction) */
-{
+if(selected('merit-order')){
   const {renderStack, MERIT_PALETTE} = await import('../energy/merit-order/render.js');
   const {buildStack} = await import('../energy/merit-order/stack.js');
   const {DEFAULT_PARAMS, paramsFor, WORLDS} = await import('../energy/merit-order/scenarios.js');
@@ -473,7 +490,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /intraday fixtures (deterministic by construction) */
-{
+if(selected('intraday')){
   const {runDay, DAY_DEFAULTS} = await import('../energy/intraday/day.js');
   const {renderDay} = await import('../energy/intraday/render-day.js');
   const {renderDayStackExport} = await import('../energy/intraday/render-export.js');
@@ -493,7 +510,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /case fixtures (typographic cover → deterministic) */
-{
+if(selected('case')){
   const {parse: cparse} = await import('../case/parse.js');
   const {render: crender} = await import('../case/render.js');
   const {planningRole} = await import('../case/planning-context.js');
@@ -532,7 +549,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /wardley fixtures (pure layout → deterministic) */
-{
+if(selected('wardley')){
   const {parse: wparse} = await import('../wardley/parse.js');
   const {layoutMap} = await import('../wardley/layout.js');
   const {renderMap: wrender, mapReadout} = await import('../wardley/render.js');
@@ -566,7 +583,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /bets fixtures (DSL → seeded MC → board; deterministic) */
-{
+if(selected('bets')){
   const {parse: bparse} = await import('../bets/parse.js');
   const {simulate} = await import('../bets/engine.js');
   const {renderBoard} = await import('../bets/render.js');
@@ -628,7 +645,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
    tree and narrow outline share one authored document so both presentations are
    byte-gated against the same answered/open topology; the refusal fixture pins
    the explicit Tree boundary when plan enumeration exceeds its safe limit. */
-{
+if(selected('paths')){
   const {parse: parsePaths} = await import('../paths/parse.js');
   const {project: projectPaths} = await import('../paths/project.js');
   const {treeProjection} = await import('../paths/tree.js');
@@ -676,14 +693,14 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 }
 
 /* /alarm fixtures (pure numeric params → deterministic) */
-{
+if(selected('alarm')){
   const {renderDistributions} = await import('../alarm/render.js');
   variants['alarm-dist'] = renderDistributions({baseRate: 0.02, dprime: 2, t: 1.2}, ctxBase.colors, {w: 900, h: 220});
 }
 
 /* /signal-vs-noise fixtures (seeded scenario → deterministic): mid-game grid at
    3 cols and the 1-col narrow relayout, plus the collapse verdict artefact. */
-{
+if(selected('signal-noise')){
   const {makeScenario, AUTHORED_SEED} = await import('../signal-vs-noise/engine.js');
   const {renderGrid, renderCollapse} = await import('../signal-vs-noise/render.js');
   const s = makeScenario(AUTHORED_SEED);
@@ -698,7 +715,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
    every secondary decision state. The wide export pins the canonical
    period-by-lane grid and complete state ledger; narrow pins the agenda
    relayout without changing the underlying work or decision identities. */
-{
+if(selected('paths')){
   const {parse:parsePaths} = await import('../paths/parse.js');
   const {project:projectPaths} = await import('../paths/project.js');
   const {overviewProjection, decisionImpactProjection} = await import('../paths/overview.js');
@@ -743,7 +760,7 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
 
 /* /proxy: full Hunt is intentionally unselected; receipt is the separately
    scoped artefact. Both wide and narrow pin theory/pattern separation. */
-{
+if(selected('proxy')){
   const {parse:parseProxy} = await import('../proxy/parse.js');
   const {project:projectProxy} = await import('../proxy/project.js');
   const {fullHuntProjection} = await import('../proxy/export-projection.js');
@@ -767,27 +784,8 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
   variants['proxy-hunt-receipt'] = renderHuntReceipt(live, {...ctxBase, width:900});
 }
 
-/* Presentation + page-set renderers (added 2026-08-16). These five were the only
-   SVG-emitting renderers with no golden at all — every refactor touching them was
-   unverifiable, which is the one job this corpus exists to do.
-
-   The gap was smaller than it first looked. Ten renderers are unreachable from this
-   file, but five of those emit HTML, not SVG (duel/render, gauge/render-form and all
-   three premortem renderers) — an SVG corpus was never their gate; injection.test.mjs
-   covers them as HTML surfaces. tree/render-density looked unreachable to a scan of
-   import specifiers but is fully covered through the tree/render.js facade.
-
-   renderChapterPages returns {plan, pages} rather than one string, so each page is
-   pinned separately — the composition is the thing that breaks, so page count matters
-   as much as page content, and a lost page shows up as a missing file.
-
-   paths/render-learning-closeout was left out on 2026-08-16 as "needs closeOutFor()
-   extracted from the DOM-bound app.js first". That was wrong, and checking rather than
-   repeating it took one grep: closeOutFor is a two-line wrapper around
-   projectLearningCloseOut, which paths/learning-closeout.js already exports and which
-   has no DOM reference at all. The wrapper only supplies `today`, so the golden passes
-   a fixed date and calls the projector directly. No product change was needed. */
-{
+/* Presentation exports and page sets keep the same per-tool import boundary. */
+if(selected('bets')){
   const {parse: bparse} = await import('../bets/parse.js');
   const {simulate: bsim} = await import('../bets/engine.js');
   const {renderBetsPresentation} = await import('../bets/render-presentation.js');
@@ -795,7 +793,9 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
   const bm = bparse(bdoc);
   variants['bets-presentation'] = renderBetsPresentation(bm, bsim(bm, {seed: 7}), {...ctxBase});
   variants['bets-presentation-dark'] = renderBetsPresentation(bm, bsim(bm, {seed: 7}), {...ctxDark});
+}
 
+if(selected('map')){
   const {parse: mp} = await import('../map/parse.js');
   const {resolve: mz} = await import('../map/zones.js');
   const {readout: mro} = await import('../map/readout.js');
@@ -811,7 +811,9 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
   const plateResolved = mz(plateAfter);
   variants['map-presentation-diff'] = renderMapPresentation(plateAfter, plateResolved, mro(plateAfter, plateResolved), {...ctxBase},
     mapDiffView(mapDiff(plateBefore, plateAfter), 'Prior review'));
+}
 
+if(selected('why')){
   const {parse: wp} = await import('../why/parse.js');
   const {renderCausalPresentation: renderWhyPresentation} = await import('../why/causal-presentation.js');
   const wdoc = 'title: T\noutcome: Retention\n  Losing your place\n    Reading reminders [testing]\n    Resume where you left off [delivering]\n  Choosing is work';
@@ -819,7 +821,9 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
      and render-presentation emits String(ctx.today || '') — so there is no date to strip.
      A .replace() was written here first and did nothing. */
   variants['why-presentation'] = renderWhyPresentation(wp(wdoc), {...ctxBase});
+}
 
+if(selected('paths')){
   /* The close-out receipt: an answered decision carrying a nested `close-out:` block.
      `today` is injected (never Date.now()) so the elapsed/review-by wording is fixed. */
   const {parse: pp} = await import('../paths/parse.js');
@@ -842,8 +846,11 @@ variants['chapter-dm-sans'] = renderChapter(parse('style: focus\nfont: DM Sans\n
     renderLearningCloseOut(pmodel, pdec, preceipt, {...ctxBase, width: 1160});
   variants['paths-learning-closeout-narrow'] =
     renderLearningCloseOutNarrow(pmodel, pdec, preceipt, {...ctxBase, width: 390});
+}
 
-
+if(selected('roadmap')){
+  const {parse} = await import('../roadmap/parse.js');
+  const {renderChapterPages} = await import('../roadmap/chapter-svg.js');
   /* This legacy-named fixture also uses Chapter. Six horizons x five lanes
      pin balanced time-window pagination beyond the one-page threshold. */
   const rdoc = 'style: board\ntitle: Roadmap\nhorizons: ' + ['Q1','Q2','Q3','Q4','Q5','Q6'].join(', ') + '\n\n' +
@@ -863,12 +870,14 @@ function dirtyGoldens(){
   return r.stdout.split('\n').filter(Boolean).map(l => l.slice(3).replace(/^dev\/golden\//, ''));
 }
 
-const mode = process.argv[2];   // capture | compare | verify (compare + assert committed)
-const prefix = process.argv[3]; // optional narrow capture, e.g. `timeline`
+const entries = Object.entries(variants).filter(([name]) => !prefix || name.startsWith(prefix + '-'));
+if(!entries.length){
+  console.error('No golden fixtures match prefix: ' + JSON.stringify(prefix));
+  process.exit(1);
+}
 mkdirSync(new URL('./golden/', import.meta.url), {recursive: true});
 let fails = 0;
-for(const [k, svg] of Object.entries(variants)){
-  if(prefix && !k.startsWith(prefix + '-')) continue;
+for(const [k, svg] of entries){
   const file = new URL('./golden/' + k + '.svg', import.meta.url);
   if(mode === 'capture'){
     writeFileSync(file, svg);

@@ -47,7 +47,7 @@ The rendered picture is never the source of truth; the text is. A tool parses te
 into a model, projects it, and renders it. When you interact with the rendered
 output — dragging a roadmap bar, editing a value in place — the interaction does
 **not** mutate the DOM as if it were the model. It dispatches an ordinary, undoable
-**text edit** to the editor (CodeMirror, vendored and pinned under `roadmap/vendor/`),
+**text edit** to the editor (CodeMirror, vendored and pinned under `assets/vendor/`),
 which flows back through the same parse-project-render loop. The result stays
 URL-coherent and undoable, and there is exactly one source of truth.
 
@@ -79,11 +79,19 @@ hash-state primitives, the app-shell plumbing, the editor factory, the export
 wiring, the motion helpers. After every feature ships there's a shared-code pass:
 anything now duplicated three times over is a candidate for extraction. The
 counter-rule matters as much: don't rewrite thinly-tested code for zero user
-benefit, and don't extract something only two tools use.
+benefit, and don't extract something only two tools use unless it would otherwise
+make one tool depend on another tool's private implementation.
 
 CodeMirror is the one vendored dependency — a committed, pinned bundle under
-`roadmap/vendor/` (rebuild recipe alongside it). It is never fetched at runtime;
+`assets/vendor/` (rebuild recipe alongside it). It is never fetched at runtime;
 there is no npm dependency in anything that ships.
+
+Current tools import generic primitives from `assets/`. Intentional domain composition
+uses the target's small public modules: Intraday consumes Merit Order's model and
+stack diagram, and Timeline consumes Premortem's link codec. Handoffs retain separate
+models and snapshot state; target-parser contract tests guard their meaning. Historical
+module URLs remain available for pages cached before a move, without making current
+pages depend on those compatibility paths.
 
 ## Two origins, one repo
 
@@ -102,6 +110,14 @@ physically exists at that path. That's why each origin's root trio
 rewrites, rather than sitting at the root where the wrong origin's copy would win.
 Energy pages reference shared files by climbing-relative paths (`../../assets/…`) so
 the same reference resolves correctly on both the served origin and in node.
+
+Each service worker caches one complete release identified by file contents and
+worker behavior. Installation checks every response's integrity and fails atomically
+if any asset is missing or belongs to another release. Open pages keep their active
+worker; a waiting release takes over after those pages close. Static requests then
+read that release's cache, while APIs and unlisted URLs stay on the network. This
+keeps lazy imports and offline navigation on the same version as their document.
+Regenerate workers after changing shipped bytes; the gate rejects stale workers.
 
 ## The design system
 

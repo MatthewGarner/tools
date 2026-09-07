@@ -4,7 +4,7 @@
 import {EditorState, Compartment, EditorView, keymap, drawSelection,
   highlightActiveLine, defaultKeymap, history, historyKeymap,
   StreamLanguage, syntaxHighlighting, HighlightStyle, tags}
-  from '../roadmap/vendor/codemirror.js';
+  from './vendor/codemirror.js';
 
 export {StreamLanguage, Compartment, tags};
 

@@ -2,7 +2,7 @@
 
 import {esc, txt, wash, wrapText} from '../assets/svg.js';
 import {svgVerdict} from '../assets/verdict-svg.js';
-import {line, rect} from '../roadmap/deck-parts.js';
+import {line, rect} from '../assets/svg-shapes.js';
 import {verdict} from './verdict.js';
 
 const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";

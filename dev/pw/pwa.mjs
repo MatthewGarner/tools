@@ -52,7 +52,7 @@ async function showSourceIfReading(page, timeout = 5000){
 async function installAndWait(page){
   await page.goto(BASE + '/', {waitUntil: 'networkidle'});
   await page.evaluate(() => navigator.serviceWorker.ready);
-  /* precache is allSettled during install — poll for a deep asset to land */
+  /* ready now means the complete integrity-checked cache has installed. */
   await page.waitForFunction(async () =>
     !!(await caches.match('/roadmap/vendor/codemirror.js')) &&
     !!(await caches.match('/timeline/app.js')), null, {timeout: 20000});

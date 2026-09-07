@@ -4,7 +4,7 @@
 
 import {btnAttrs, esc, txt, wash} from '../assets/svg.js';
 import {PALETTES, scheme} from '../assets/series.js';
-import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../paths/artefact-parts.js';
+import {artefactPalette as palette, wrappedArtefactText as wrapped} from '../assets/artefact-parts.js';
 
 const SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
 const DEFAULT_MEASURE = value => String(value ?? '').length * 7;

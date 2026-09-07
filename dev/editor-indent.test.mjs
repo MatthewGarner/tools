@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {EditorState} from '../roadmap/vendor/codemirror.js';
+import {EditorState} from '../assets/vendor/codemirror.js';
 import {indentChanges, INDENT_UNIT} from '../assets/editor-common.js';
 
 const state = (doc, anchor, head = anchor) =>

@@ -2,8 +2,8 @@
    Starts are observations; only the P50–P90 whisker describes finish uncertainty. */
 import {esc, wrapText, btnAttrs} from '../assets/svg.js';
 import {mix} from '../assets/series.js';
-import {chapterColors} from '../roadmap/chapter-colors.js';
-import {resolveTypography} from '../roadmap/chapter-fonts.js';
+import {chapterColors} from '../assets/chapter-colors.js';
+import {resolveTypography} from '../assets/chapter-fonts.js';
 import {fmtDay, dayToISO} from './parse.js';
 import {timingFacts} from './timing.js';
 import {decisionLead, leadReceipt, leadDuration} from './lrm.js';

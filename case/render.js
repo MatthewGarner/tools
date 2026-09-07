@@ -1,6 +1,6 @@
 /* Measured Chapter reading surfaces. Selection is a lens; edits belong to source. */
 import {esc, wrapText} from '../assets/svg.js';
-import {chapterColors} from '../roadmap/chapter-colors.js';
+import {chapterColors} from '../assets/chapter-colors.js';
 import {project} from './review-model.js';
 
 const e=v=>esc(String(v??''));

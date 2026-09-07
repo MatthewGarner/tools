@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {runDay, DAY_DEFAULTS} from '../day.js';
 import {renderDay, buildDayVerdict} from '../render-day.js';
-import {MERIT_PALETTE} from '../../merit-order/render.js';
+import {MERIT_PALETTE} from '../../merit-order/diagram.js';
 
 const ctx = {width: 900, height: 420,
   colors: {ink: '#1b2733', muted: '#66727e', accent: '#C05621', grid: '#e3e7ea', card: '#ffffff'},

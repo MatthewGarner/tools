@@ -31,9 +31,9 @@ export function solarAt(h, p){
   return p.solarPeak * Math.sin(Math.PI * (h - p.sunrise) / (p.sunset - p.sunrise));
 }
 
-import {dispatch} from '../merit-order/engine.js';
-import {buildStack} from '../merit-order/stack.js';
-import {GB_TODAY} from '../merit-order/technologies.js';
+import {dispatch} from '../merit-order/model.js';
+import {buildStack} from '../merit-order/model.js';
+import {GB_TODAY} from '../merit-order/model.js';
 
 export function sansStorage(catalogue){ return catalogue.filter(t => t.bid.kind !== 'storage'); }
 
