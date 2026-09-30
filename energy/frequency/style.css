@@ -1,65 +1,112 @@
-/* /frequency page styles — tokens only; layout comes from the shared sheets.
-   The ember token block (and the origin chrome) live in assets/energy.css.
-   Button-fill contrast re-checked here (validate_palette.js's contrast()):
-   accent-ink on white/dark-card = 6.19:1 / 6.65:1 (raw --accent would be a
-   tight 4.57:1 / 4.73:1 at this weight, so the button uses --accent-ink). */
-/* the ember token block lives once, in assets/energy.css (linked before this) */
+/* Frequency's page chrome follows the shared identity. Canvas and downloadable
+   artefacts retain their established palette and measured typography. */
+:root{--page-max:var(--w-board);--frequency-trace-surface:var(--card)}
 
-/* controls (left) + hero (right); stacks on narrow screens */
-.board{display:grid;grid-template-columns:360px minmax(0,1fr);gap:24px;
-  align-items:start;margin:28px auto 0}
-@media (max-width:900px){.board{grid-template-columns:minmax(0,1fr);margin-top:20px}}
+header:has(>h1) h1{font-family:var(--mg-display,"Oswald Variable",sans-serif);
+  font-size:clamp(36px,5vw,64px);font-weight:600;line-height:1.12;letter-spacing:-.025em}
+header:has(>h1) .tagline{max-width:70ch;font-family:var(--mg-serif,"Newsreader Variable",Georgia,serif);
+  font-size:24px;line-height:1.4;color:var(--mg-muted,var(--muted));margin-top:14px}
 
-.card{background:var(--card);border:1px solid var(--border);border-radius:0;
-  box-shadow:var(--shadow);padding:22px}
+.board{display:grid;grid-template-columns:320px minmax(0,1fr);gap:32px;
+  align-items:start;margin:32px auto 0}
+.card{min-width:0;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;
+  color:var(--mg-ink,var(--ink))}
+.controls-card{padding-right:28px;border-right:1px solid var(--mg-line,var(--border))}
 
-.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
-.chip.on{border-color:var(--accent);color:var(--accent-ink)}
-
-.ctl-head{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--muted);margin:0 0 12px}
-.ctl-group + .ctl-group{border-top:1px solid var(--border);padding-top:18px;margin-top:18px}
-.ctl-note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.ctl-head{font-family:var(--mg-display,"Oswald Variable",sans-serif);font-size:24px;
+  font-weight:600;line-height:1.25;letter-spacing:0;text-transform:none;
+  color:var(--mg-ink,var(--ink));margin:0 0 12px}
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 28px}
+.frequency-main .chip,.frequency-main .btn{font-family:var(--mg-sans,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif);
+  font-size:16px;font-weight:400;line-height:1.35;letter-spacing:0;text-transform:none;
+  min-height:44px;padding:9px 12px;justify-content:center;border-color:var(--mg-line,var(--border));
+  color:var(--mg-ink,var(--ink));background:transparent}
+.frequency-main .chip:hover,.frequency-main .btn:hover{border-color:var(--mg-accent,var(--accent-ink));
+  background:var(--mg-surface,var(--card));color:var(--mg-accent,var(--accent-ink))}
+.frequency-main .chip.on{border-color:var(--mg-accent,var(--accent-ink));color:var(--mg-accent,var(--accent-ink));
+  background:var(--mg-surface,var(--card));box-shadow:inset 0 -2px var(--mg-accent,var(--accent-ink))}
+.frequency-main .chip:focus-visible,.frequency-main .btn:focus-visible{outline:2px solid var(--mg-accent,var(--accent-ink));outline-offset:3px}
+.ctl-group + .ctl-group{border-top:1px solid var(--mg-line,var(--border));padding-top:22px;margin-top:22px}
+.ctl-note{font-size:16px;line-height:1.45;color:var(--mg-muted,var(--muted));margin:8px 0 0}
 .ctl-note output{font-variant-numeric:tabular-nums}
-.effline{font-size:13px;color:var(--muted);margin-bottom:10px}
-.effline #effinertia{color:var(--ink);font-variant-numeric:tabular-nums}
-.controls{display:flex;flex-direction:column;gap:18px}
-.ctl label{display:flex;justify-content:space-between;align-items:baseline;
-  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:8px}
-.ctl output{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--ink);
+.controls{display:flex;flex-direction:column;gap:12px}
+.ctl label{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:2px 12px;
+  font-size:16px;font-weight:400;line-height:1.4;letter-spacing:0;text-transform:none;
+  color:var(--mg-ink,var(--ink));margin-bottom:0}
+.ctl output{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;margin-left:auto;
+  font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;color:var(--mg-ink,var(--ink));
   text-transform:none;letter-spacing:0}
-input[type=range]{width:100%;accent-color:var(--accent);
-  -webkit-appearance:none;appearance:none;height:6px;border-radius:0;background:var(--track)}
+/* Keep the full 44px lane interactive; only the painted track is thin. */
+input[type=range]{width:100%;accent-color:var(--mg-accent,var(--accent));
+  -webkit-appearance:none;appearance:none;height:44px;border-radius:0;margin:0;
+  background:linear-gradient(var(--mg-line,var(--track)),var(--mg-line,var(--track))) center/100% 4px no-repeat}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
-  width:22px;height:22px;border-radius:50%;background:var(--accent);
-  border:2px solid var(--card);box-shadow:var(--shadow)}
+  width:22px;height:22px;border-radius:50%;background:var(--mg-accent,var(--accent));
+  border:2px solid var(--mg-paper,var(--bg));box-shadow:none}
 input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
-  background:var(--accent);border:2px solid var(--card)}
-input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  background:var(--mg-accent,var(--accent));border:2px solid var(--mg-paper,var(--bg))}
+input[type=range]:focus-visible{outline:2px solid var(--mg-accent,var(--accent));outline-offset:2px}
+.frequency-main .trip-btn{display:block;width:100%;margin-top:18px;min-height:48px;
+  font-weight:600;background:var(--brand);border-color:var(--brand);color:var(--brand-on)}
+.frequency-main .trip-btn:hover{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 
-/* the primary CTA — large and unmissable; ink-variant ember for the fill so
-   the card-coloured label clears WCAG AA (see header note) */
-.trip-btn{display:block;width:100%;margin-top:22px;min-height:48px;
-  font-size:15px;font-weight:700;background:var(--accent-ink);
-  border-color:var(--accent-ink);color:var(--card)}
-.trip-btn:hover{opacity:.92;color:var(--card)}
+/* Canvas paints transparent pixels: its original surface must stay explicit
+   when the surrounding HTML adopts warmer identity colours. */
+#trace{display:block;width:100%;height:320px;background:var(--frequency-trace-surface)}
+.hero-card .metrics{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--mg-line,var(--border))}
+.hero-card .metrics .counts{font-size:14px;line-height:1.5;letter-spacing:0;text-transform:none;color:var(--mg-muted,var(--muted))}
+.effline{font-size:16px;line-height:1.5;color:var(--mg-muted,var(--muted));margin:14px 0 0}
+.effline #effinertia{font-weight:500;color:var(--mg-ink,var(--ink));font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 24px;margin:22px 0 0;
+  padding:20px 0;border-block:1px solid var(--mg-line,var(--border));font-size:16px;
+  color:var(--mg-muted,var(--muted));font-variant-numeric:tabular-nums}
+.tiles>span{min-width:0}
+.tiles b{display:block;margin:5px 0 0;color:var(--mg-ink,var(--ink));font-size:24px;
+  font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.hero-card .verdict-block{margin:24px 0 12px}
+.hero-card .verdict-block .vkick{font-family:var(--mg-display,"Oswald Variable",sans-serif);font-size:24px;
+  font-weight:600;letter-spacing:0;text-transform:none;color:var(--mg-ink,var(--ink));margin-bottom:10px}
+.hero-card .verdict-block .vline{font-family:var(--mg-serif,"Newsreader Variable",Georgia,serif);
+  font-size:25px;font-weight:400;line-height:1.4;letter-spacing:0;color:var(--mg-ink,var(--ink))}
+.hero-card .verdict-block .fig{color:var(--mg-accent,var(--brand-text))}
+.hero-card .vcopy{color:var(--mg-muted,var(--muted));font-size:14px;letter-spacing:0;text-transform:none}
+.deltas{color:var(--mg-muted,var(--muted));font-size:16px;line-height:1.5;margin-top:8px;max-width:70ch}
+.hero-card .actions{gap:10px;margin-top:24px;align-items:flex-start}
+.hero-card .action-menu{background:var(--mg-paper,var(--bg));border-color:var(--mg-line,var(--border));right:0;left:auto}
+.hero-card .action-menu .btn{text-align:left;justify-content:flex-start;white-space:normal}
+.frequency-main .about{border-color:var(--mg-line,var(--border));margin-top:48px;grid-template-columns:200px minmax(0,1fr);gap:36px}
+.frequency-main .about h2{font-family:var(--mg-display,"Oswald Variable",sans-serif);font-size:28px;line-height:1.25;
+  font-weight:600;color:var(--mg-ink,var(--ink))}
+.frequency-main .about .prose{column-count:1;max-width:68ch;font-family:var(--mg-serif,"Newsreader Variable",Georgia,serif);
+  font-size:21px;line-height:1.55;color:var(--mg-ink,var(--ink))}
+.frequency-main .about p{margin-bottom:18px}
+.frequency-main .energy-outcome{background:var(--mg-paper,var(--bg));border-color:var(--mg-line,var(--border));
+  color:var(--mg-ink,var(--ink));font-size:16px;line-height:1.4}
 
-#trace{display:block;width:100%;height:320px}
-.tiles{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:14px;font-size:13px;
-  color:var(--muted);font-variant-numeric:tabular-nums;overflow-x:auto}
-.tiles b{color:var(--ink);font-weight:600;margin-left:4px}
-.deltas{color:var(--muted);font-size:13px;margin-top:6px;max-width:70ch}
-
-
-/* Phone edge system — "16px prose / 10px surface": the 16px prose gutter comes
-   from workspace.css's Camp A block (--page-gutter, this page links it); the
-   cards full-bleed back to the viewport edge as native sheets (side borders +
-   radius dropped, top/bottom hairlines kept). */
-@media (max-width:640px){
-  .card{margin-inline:-16px;border-inline:none;border-radius:0;padding-inline:12px}
+@media (max-width:1100px){
+  .board{grid-template-columns:300px minmax(0,1fr);gap:24px}
+  .controls-card{padding-right:24px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 }
-
-/* The whole 44px lane is interactive; the visible track remains 6px. */
-input[type=range]{height:44px;background:linear-gradient(var(--track),var(--track)) center/100% 6px no-repeat;margin:0}
+@media (max-width:900px){
+  .board{grid-template-columns:minmax(0,1fr);gap:28px;margin-top:24px}
+  .controls-card{padding-right:0;border-right:0}
+  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
+  .hero-card{border-top:1px solid var(--mg-line,var(--border));padding-top:24px}
+  .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  header:has(>h1) .tagline{font-size:21px;line-height:1.4}
+  .controls{display:flex;gap:10px}
+  .chips{margin-bottom:24px}
+  .frequency-main .chip{padding-inline:7px}
+  .ctl-head{font-size:23px}
+  .ctl-group + .ctl-group{padding-top:20px;margin-top:20px}
+  #trace{height:280px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px}
+  .tiles b{font-size:23px}
+  .hero-card .verdict-block .vline{font-size:23px}
+  .hero-card .actions>.btn{flex:1 1 140px}
+  .hero-card .action-menu{left:0;right:auto;max-width:calc(100vw - 32px)}
+  .frequency-main .about{margin-top:36px}
+}

@@ -184,6 +184,9 @@ export function initWorkspace({workspace, tab, preview, zoomHost, onCollapseChan
   };
   new ResizeObserver(reconcileLayout).observe(preview);
   addEventListener('resize', reconcileLayout);
+  // Identity fonts can move the workspace without resizing its preview.
+  // Refit after that layout settles; never recreate the editor or its history.
+  document.fonts?.ready.then(reconcileLayout);
   function setZoom(z){
     if(typeof z === 'number') z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
     zoom = z;

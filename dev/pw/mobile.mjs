@@ -67,7 +67,7 @@ for(const [name, url] of ALL){
     return {
       font: ['roadmap','case'].includes(name) ? cs.fontFamily.includes('DM Sans') : cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(['roadmap','timeline','case'].includes(name)?'DM Sans':'Helvetica Neue'),
+      h1: !!h1 && getComputedStyle(h1).fontFamily.includes('Oswald Variable'),
     };
   },name);
   ok(parity.font, `${name}: body wears its intended font stack`);

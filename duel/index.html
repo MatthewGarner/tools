@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mg-section="tools">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,14 +7,28 @@
 <meta name="description" content="Prioritise by rapid two-tap duels instead of scoring — out comes an implied ranking plus an intransitivity report: the A beats B beats C beats A loops that expose unshared criteria.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#24212c">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="/assets/pwa.js" defer></script>
+<!-- identity:head:start -->
+<script src="/assets/identity/theme-init.js"></script>
+<link rel="stylesheet" href="/assets/identity/identity.css">
+<link rel="stylesheet" href="/assets/identity-tools.css">
+<script type="module" src="/assets/identity/appearance.js"></script>
+<!-- identity:head:end -->
 </head>
-<body>
+<body class="mg-site">
+<!-- identity:header:start -->
+<a class="mg-skip" href="#main">Skip to content</a>
+<div class="mg-masthead" role="banner">
+  <a class="mg-identity" href="https://www.matthewgarner.me/">Matthew Garner</a>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a href="../" aria-current="true">Tools</a><a href="https://energy.matthewgarner.me/">Energy</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
+  <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
+</div>
+<!-- identity:header:end -->
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/page.css">
 <link rel="stylesheet" href="/assets/about.css">
@@ -23,14 +37,14 @@
 <link rel="stylesheet" href="../assets/mobile.css">
 
 <div class="wrap">
-  <header>
+  <header data-tool-header>
     <a class="crumb" href="/">← All tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Pairwise showdown</h1>
     <p class="tagline">Stop scoring things you don't believe to one decimal place. Pick a winner between two at a time; the order falls out — and where it can't, the loop tells you two people are ranking on different criteria.</p>
   </header>
 
-  <main>
+  <main id="main" tabindex="-1">
   <div class="card" id="setupcard" data-capability="views.line-up">
     <div class="chips" id="examples"><span class="lead">Try:</span></div>
     <label class="setuplabel" for="question">The question</label>
@@ -83,5 +97,8 @@
 </div>
 
 <script type="module" src="./app.js"></script>
+<!-- identity:footer:start -->
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset>Use system appearance</button><nav aria-label="Elsewhere"><a href="https://www.matthewgarner.me/about">About</a><a href="https://www.matthewgarner.me/bookshelf">Bookshelf</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<!-- identity:footer:end -->
 </body>
 </html>

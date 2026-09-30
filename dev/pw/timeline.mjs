@@ -24,6 +24,9 @@ async function open(t,options={}){const c=await browser.newContext({viewport:{wi
 try{
  for(const theme of ['light','dark'])for(const phone of [false,true]){
   const [page,c]=await open(source,{colorScheme:theme,...(phone?devices['iPhone 13']:{})});
+  const initialPaper=await page.locator('#preview svg > rect').first().getAttribute('fill');
+  assert.equal(await page.locator('#themechoice').inputValue(),'system','Timeline selector represents the page preference, not its resolved scheme');
+  assert.equal(await page.evaluate(()=>document.body.style.getPropertyValue('--bg')),'','authored Timeline paper must not replace shared page tokens');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'page fits viewport');
   await page.getByRole('button',{name:'Inspect milestone: Privacy audit',exact:true}).click();
   await page.locator('#inspector').waitFor({state:'visible'});
@@ -50,6 +53,19 @@ try{
   await page.waitForFunction(()=>document.querySelector('#preview svg')?.dataset.font==='DM Sans');
   await page.locator('#themechoice').selectOption(theme==='light'?'dark':'light');
   await page.waitForFunction(t=>document.documentElement.dataset.theme===t,theme==='light'?'dark':'light');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('mg:appearance')),theme==='light'?'dark':'light','Timeline appearance selector updates the shared preference');
+  const sourceBefore=await page.evaluate(()=>localStorage.getItem('timeline-src'));
+  await page.locator('.mg-appearance').click();
+  await page.waitForFunction(t=>document.documentElement.dataset.theme===t,theme);
+  await page.waitForFunction(fill=>document.querySelector('#preview svg > rect')?.getAttribute('fill')===fill,initialPaper);
+  assert.equal(await page.locator('#themechoice').inputValue(),theme,'masthead keeps Timeline appearance selector in sync');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('timeline-src')),sourceBefore,'page appearance preserves authored Timeline palette and source');
+  assert.equal(await page.locator('#preview svg').getAttribute('data-field-accent'),'#315D48');
+  await page.locator('#themechoice').selectOption('system');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('mg:appearance')),null,'Timeline system option clears the shared preference');
+  await page.emulateMedia({colorScheme:theme==='light'?'dark':'light'});
+  await page.waitForFunction(t=>document.documentElement.dataset.theme===t,theme==='light'?'dark':'light');
+  assert.equal(await page.locator('#themechoice').inputValue(),'system','system selection survives an OS scheme change');
   await page.locator('.appearance summary').click();
   await page.getByRole('button',{name:'Inspect milestone: Privacy audit',exact:true}).click();
   await page.getByRole('button',{name:'Edit milestone',exact:true}).click();

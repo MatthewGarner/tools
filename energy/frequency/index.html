@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mg-section="energy">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,20 +16,29 @@
 <link rel="stylesheet" href="../../assets/energy-interaction.css">
 <link rel="stylesheet" href="../../assets/mobile.css">
 <link rel="manifest" href="../manifest.webmanifest">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#24212c">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="../../assets/pwa.js" defer></script>
+<!-- identity:head:start -->
+<script src="/assets/identity/theme-init.js"></script>
+<link rel="stylesheet" href="/assets/identity/identity.css">
+<link rel="stylesheet" href="/assets/identity-tools.css">
+<script type="module" src="/assets/identity/appearance.js"></script>
+<!-- identity:head:end -->
 </head>
-<body>
+<body class="mg-site">
+<!-- identity:header:start -->
+<a class="mg-skip" href="#main">Skip to content</a>
+<div class="mg-masthead" role="banner">
+  <a class="mg-identity" href="https://www.matthewgarner.me/">Matthew Garner</a>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a href="https://tools.matthewgarner.me/">Tools</a><a href="../" aria-current="true">Energy</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
+  <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
+</div>
+<!-- identity:header:end -->
 <div class="wrap">
-  <div class="masthead">
-    <span class="micro-ink">energy.matthewgarner.me</span>
-    <span class="micro">Instruments for energy under uncertainty</span>
-    <span class="micro mh-date" id="mhdate"></span>
-  </div>
   <nav class="series" aria-label="The ember series">
     <a href="../cycles/"><span class="enum">E1</span>Cycles</a>
     <a href="../risk/"><span class="enum">E2</span>Risk</a>
@@ -37,7 +46,7 @@
     <a href="../merit-order/"><span class="enum">E4</span>Merit order</a>
     <a href="../intraday/"><span class="enum">E5</span>Intraday</a>
   </nav>
-  <header>
+  <header data-tool-header>
     <a class="crumb" href="../">← All energy tools</a>
     <p class="kicker" id="kicker"></p>
     <h1>Frequency &amp; inertia</h1>
@@ -45,43 +54,44 @@
   </header>
 </div>
 
-<main>
+<main id="main" tabindex="-1" class="frequency-main">
 <div class="wrap board">
-  <section class="card controls-card">
+  <section class="card controls-card" aria-label="Model controls">
     <!-- controls -->
-    <div class="chips" id="presets"><span class="lead">Try:</span>
+    <h2 class="ctl-head" id="scenario-heading">Try a scenario</h2>
+    <div class="chips" id="presets" role="group" aria-labelledby="scenario-heading">
       <button class="chip" data-preset="grid2010">2010 grid</button>
       <button class="chip" data-preset="grid2030">2030 low-inertia</button>
       <button class="chip" data-preset="stack">Battery stack</button>
       <button class="chip" data-preset="procure3x">3× procurement</button>
     </div>
     <div class="ctl-group">
-      <div class="ctl-head">The grid</div>
+      <h2 class="ctl-head">The grid</h2>
       <div class="controls">
-        <div class="ctl"><label>Synchronous inertia <output id="inertiaout"></output></label>
+        <div class="ctl"><label for="inertia">Synchronous inertia <output id="inertiaout" for="inertia"></output></label>
           <input type="range" id="inertia" min="40" max="300" step="5" value="90" aria-label="Synchronous inertia, GVA·s"></div>
-        <div class="ctl"><label>Trip size <output id="tripout"></output></label>
+        <div class="ctl"><label for="trip">Trip size <output id="tripout" for="trip"></output></label>
           <input type="range" id="trip" min="0.2" max="1.8" step="0.1" value="1.8" aria-label="Generation lost, GW"></div>
       </div>
       <p class="ctl-note">Primary response ≈ <output id="govout"></output> — synchronous plant, and it falls as you retire it.</p>
     </div>
     <div class="ctl-group">
-      <div class="ctl-head">The battery · BESS</div>
+      <h2 class="ctl-head">The battery · BESS</h2>
       <div class="controls">
-        <div class="ctl"><label>Dynamic Regulation <output id="drout"></output></label>
+        <div class="ctl"><label for="dr">Dynamic Regulation <output id="drout" for="dr"></output></label>
           <input type="range" id="dr" min="0" max="1.5" step="0.1" value="0" aria-label="Dynamic Regulation volume, GW"></div>
-        <div class="ctl"><label>Dynamic Moderation <output id="dmout"></output></label>
+        <div class="ctl"><label for="dm">Dynamic Moderation <output id="dmout" for="dm"></output></label>
           <input type="range" id="dm" min="0" max="1.5" step="0.1" value="0" aria-label="Dynamic Moderation volume, GW"></div>
-        <div class="ctl"><label>Dynamic Containment <output id="dcout"></output></label>
+        <div class="ctl"><label for="dc">Dynamic Containment <output id="dcout" for="dc"></output></label>
           <input type="range" id="dc" min="0" max="4.5" step="0.1" value="0" aria-label="Dynamic Containment volume, GW"></div>
-        <div class="ctl"><label>Grid-forming inertia <output id="gfmout"></output></label>
+        <div class="ctl"><label for="gfm">Grid-forming inertia <output id="gfmout" for="gfm"></output></label>
           <input type="range" id="gfm" min="0" max="40" step="2" value="0" aria-label="Grid-forming synthetic inertia, GVA·s"></div>
       </div>
     </div>
     <button class="btn trip-btn" id="tripbtn">⚡ Trip a generator</button>
   </section>
 
-  <section class="card hero-card">
+  <section class="card hero-card" aria-label="Frequency response">
     <!-- the hero -->
     <div class="metrics" id="metrics" hidden></div>
     <canvas id="trace" aria-label="Frequency trace after the trip"></canvas>
@@ -142,5 +152,8 @@
   </footer>
 </div>
 <script type="module" src="./app.js"></script>
+<!-- identity:footer:start -->
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset>Use system appearance</button><nav aria-label="Elsewhere"><a href="https://www.matthewgarner.me/about">About</a><a href="https://www.matthewgarner.me/bookshelf">Bookshelf</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<!-- identity:footer:end -->
 </body>
 </html>

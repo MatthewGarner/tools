@@ -1,7 +1,8 @@
 /* Keep personal authoring independent of the optional source rail. Relocating
    the existing controls preserves the tool's own start/example semantics. */
 export function mountDocumentStart(chips){
-  const header = document.querySelector('header');
+  // A global masthead must never receive New/Examples actions.
+  const header = document.querySelector('[data-tool-header]');
   if(!header || !chips) return null;
   let actions = header.querySelector('.instrument-actions');
   if(!actions){ actions = document.createElement('div'); actions.className = 'instrument-actions'; header.append(actions); }

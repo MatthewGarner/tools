@@ -3611,6 +3611,9 @@ Pick the Q3 bet :: chips Offline downloads | Book clubs | Onboarding polish`;
 {
   const pctx = await browser.newContext({viewport:{width:1440, height:900}, reducedMotion:'reduce'});
   const p = await pctx.newPage();
+  // This fixture asserts the pre-deadline announcement. Freeze wall time so
+  // its 15 September deadline cannot turn a valid 'due' claim into 'overdue'.
+  await p.clock.setFixedTime('2026-09-01T12:00:00Z');
   const perrors = trackErrors(p);
   const root = process.env.BASE || 'http://localhost:8087';
   const src = () => p.locator('#cmhost').textContent();

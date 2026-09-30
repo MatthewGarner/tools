@@ -49,16 +49,15 @@ for(const theme of ['light', 'dark']){
         const de = document.scrollingElement || document.documentElement;
         return {sw: de.scrollWidth, cw: de.clientWidth,
           bg: getComputedStyle(document.body).backgroundColor,
-          // the stylesheet applying at all: the header h1 must resolve to the
-          // intended display stack (Chapter uses DM Sans), not the UA default or old
-          // Charter (a positive AND a negative — /serif/i alone would pass
-          // vacuously against "sans-serif", killing the canary)
-          serif: (fam => ['roadmap','timeline','case'].includes(path) ? /dm sans/i.test(fam) : /helvetica neue|helvetica|segoe ui/i.test(fam) && !/charter/i.test(fam))(
-            getComputedStyle(document.querySelector('h1') || document.body).fontFamily)};
+          // Shared shell typography must load even when artefacts choose their own font.
+          serif: getComputedStyle(document.querySelector('h1') || document.body).fontFamily.includes('Oswald Variable'),
+          navigation: [...document.querySelectorAll('.mg-nav a')].map(a=>a.textContent).join('|') === 'Writing|Tools|Energy|Now',
+          targets: [...document.querySelectorAll('.mg-nav a,.mg-appearance')].every(a=>{const r=a.getBoundingClientRect();return r.width>=44&&r.height>=44;})};
       },path);
       ok(m.sw - m.cw <= 1, label + ': no horizontal overflow (' + m.sw + ' <= ' + m.cw + ')');
       ok(m.bg && m.bg !== 'rgba(0, 0, 0, 0)', label + ': body background styled (' + m.bg + ')');
       ok(m.serif, label + ': display font stack applied (stylesheet loaded)');
+      ok(m.navigation && m.targets, label + ': complete shared navigation with finger-sized targets');
       ok(errs.length === 0, label + ': no page errors' + (errs.length ? ' — ' + errs.slice(0, 2).join(' | ') : ''));
       ok(csp.length === 0, label + ': no CSP violations' + (csp.length ? ' — ' + csp.slice(0, 2).join(' | ') : ''));
       if(SHOTS) await page.screenshot({path: SHOTS + '/' + (base === E ? 'energy-' : '') + (path || 'home') + '-' + theme + '.png'});

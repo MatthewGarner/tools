@@ -100,14 +100,15 @@ test('the E-series numbering is contiguous, collision-free and covers the origin
     'the E-numbers must run E1..EN in the order ENERGY_TOOL_DIRS lists them');
 });
 
-test('every energy page carries the masthead and the whole series nav, in one order', () => {
+test('every energy page has shared navigation; instruments retain their ordered local series', () => {
   for(const dir of ALL_ENERGY){
     const html = anyEnergyPage(dir);
     const who = 'energy/' + (dir || 'index.html');
-    assert.match(html, /<div class="masthead">/, who + ': no masthead bar');
-    assert.match(html, /energy\.matthewgarner\.me/, who + ': the masthead never names the origin');
+    assert.match(html, /<div class="mg-masthead" role="banner">/, who + ': no shared masthead');
+    assert.match(html, /<a href="\.\.?\/" aria-current="(?:page|true)">Energy<\/a>/, who + ': the shared masthead must identify and link the current collection');
     /* every page lists every instrument, numbered, in the canonical order */
     const nav = (html.match(/<nav class="series"[\s\S]*?<\/nav>/) || [''])[0];
+    if(!dir){ assert.equal(nav, '', 'catalogue rows replace the duplicate series nav'); continue; }
     assert.ok(nav, who + ': no series nav');
     const rows = [...nav.matchAll(/href="[^"]*?([a-z-]+)\/"([^>]*)><span class="enum">(E\d+)<\/span>/g)];
     assert.deepEqual(rows.map(r => r[1]), ENERGY_TOOL_DIRS, who + ': nav order/contents drifted');
@@ -139,7 +140,7 @@ test('every energy tool page carries the 6c kicker, metrics row and one verdict'
 test('every energy page links the shared origin chrome', () => {
   for(const dir of ALL_ENERGY){
     const html = anyEnergyPage(dir);
-    assert.match(html, /<link rel="stylesheet" href="\.\.\/(\.\.\/)?assets\/energy\.css">/,
+    assert.match(html, /<link rel="stylesheet" href="(?:\/|\.\.\/(?:\.\.\/)?)assets\/energy\.css">/,
       'energy/' + (dir || 'index.html') + ': does not link assets/energy.css');
   }
 });
