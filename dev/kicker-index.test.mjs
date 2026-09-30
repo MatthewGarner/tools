@@ -13,7 +13,7 @@ const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 test('home index cards carry the canonical instrument numbers', () => {
   const home = read('home/index.html');
-  const cards = [...home.matchAll(/<a class="tool" href="\/([a-z-]+)\/">\s*<span class="num">(\d+)<\/span>/g)]
+  const cards = [...home.matchAll(/<a class="tool catalogue-row" href="\/([a-z-]+)\/">\s*<span class="num">(\d+)<\/span>/g)]
     .map(m => ({dir: m[1], num: m[2]}));
   const listed = new Map(cards.map(c => [c.dir, c.num]));
   assert.equal(listed.size, cards.length, 'a tool is listed twice on home');
@@ -30,25 +30,19 @@ test('home index numbers ascend in page order', () => {
   assert.deepEqual(nums, nums.map((_, i) => i + 1), 'home .num sequence is not 1..N in order');
 });
 
-test('energy index E-numbers carry the canonical series', () => {
+test('energy catalogue numbers every instrument once in the canonical order', () => {
   const idx = read('energy/index.html');
-  for(const [name, kick] of Object.entries(ENERGY_INSTRUMENTS)){
-    /* the masthead nav and the card both number the tool; every mention must agree */
-    const mentions = [...idx.matchAll(new RegExp(
-      '<a[^>]*href="' + name + '/"[^>]*>(?:[\\s\\S]*?)<span class="enum">(E\\d+)</span>', 'g'))]
-      .map(m => m[1]);
-    assert.ok(mentions.length >= 2, name + ' should be numbered in nav AND card, found ' + mentions.length);
-    for(const n of mentions)
-      assert.equal(n, kick, `energy index says "${n} ${name}" but ENERGY_INSTRUMENTS says ${kick}`);
-  }
+  // The catalogue rows own this inventory; the duplicate local nav is gone.
+  const rows = [...idx.matchAll(/<a class="tool catalogue-row" href="([a-z-]+)\/">\s*<span class="num">(E\d+)<\/span>/g)];
+  assert.deepEqual(rows.map(m=>[m[1],m[2]]),Object.entries(ENERGY_INSTRUMENTS));
 });
 
 test('home carries each binder as a distinct band, never a numbered card', () => {
   const home = read('home/index.html');
   for(const b of BINDERS){
-    assert.match(home, new RegExp('<a class="binder" href="/' + b + '/">'),
+    assert.match(home, new RegExp('<a class="binder catalogue-binder" href="/' + b + '/">'),
       b + ': home must show the binder band');
-    assert.ok(!new RegExp('<a class="tool" href="/' + b + '/">').test(home),
+    assert.ok(!new RegExp('<a class="tool catalogue-row" href="/' + b + '/">').test(home),
       b + ': a binder must never be a numbered instrument card');
   }
 });

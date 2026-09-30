@@ -5,8 +5,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#FBFBFA",
-  "theme_color": "#111111",
+  "background_color": "#faf8f2",
+  "theme_color": "#faf8f2",
   "shortcuts": [
     {"name": "Gauge the room", "url": "/gauge/", "icons": [{"src": "/assets/icons/icon-192.png", "sizes": "192x192"}]},
     {"name": "Fermi estimate", "url": "/fermi/", "icons": [{"src": "/assets/icons/icon-192.png", "sizes": "192x192"}]},

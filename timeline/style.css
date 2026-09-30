@@ -5,7 +5,7 @@ body{padding-top:0;font-family:'DM Sans',system-ui,sans-serif}
 .instrument-actions{margin-left:auto;display:flex;gap:14px}
 .btn:has(.action-icon){display:inline-flex;align-items:center;gap:9px}
 .action-icon{flex:none;vertical-align:middle}
-.workspace{margin-top:12px;background:var(--bg)}
+.workspace{margin-top:12px;background:var(--bg);color:var(--ink)}
 .workspace::before{display:none}
 .stage{padding:0;min-width:0}
 .observatory-settings{display:flex;align-items:center;gap:18px;padding:12px 28px 8px;flex-wrap:wrap}

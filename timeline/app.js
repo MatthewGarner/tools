@@ -387,10 +387,12 @@ function syncSettings(){
   if(document.activeElement!==$('fontchoice')) $('fontchoice').value=model.font || 'Chapter';
   if(/^#[0-9a-f]{6}$/i.test(model.accent || '') && document.activeElement!==$('accentchoice')) $('accentchoice').value=model.accent;
   const colors=observatoryColors(model,{dark:isDark()});
-  for(const name of ['bg','ink','muted','border']) document.body.style.setProperty('--'+name,colors[name]);
-  document.body.style.setProperty('--accent',colors.accent);
-  document.body.style.setProperty('--accent-ink',colors.accent);
-  document.documentElement.style.setProperty('--observatory-display',model.font==='DM Sans'?"'DM Sans'":"'Instrument Serif'");
+  // Authored palette and typography style the Field, never the shared page shell.
+  for(const surface of [$('workspace'),$('slidepreviewdialog')]){
+    for(const name of ['bg','card','ink','muted','border','accent']) surface.style.setProperty('--'+name,colors[name]);
+    surface.style.setProperty('--accent-ink',colors.accent);
+    surface.style.setProperty('--observatory-display',model.font==='DM Sans'?"'DM Sans'":"'Instrument Serif'");
+  }
   $('preview').dataset.capability=`views.${model.style || 'field'}`;
 }
 $('stylepicker').addEventListener('click',event=>{
@@ -403,12 +405,8 @@ for(const [id,key] of [['fontchoice','font'],['accentchoice','accent']]) $(id).a
 $('editsource').addEventListener('click',()=>{ws.setCollapsed(!ws.collapsed());if(!ws.collapsed())editor.view.focus();});
 $('editsource').setAttribute('aria-expanded','false');
 $('editsource').setAttribute('aria-controls','cmhost');
-$('themechoice').value=document.documentElement.dataset.theme || 'system';
-$('themechoice').addEventListener('change',()=>{
-  const value=$('themechoice').value;
-  if(value==='system')delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme=value;
-});
+// #themechoice delegates to the shared appearance controller through its
+// data-mg-theme-choice attribute; page preference is not Timeline source state.
 mountActionIcons();
 async function prepareTypography(){
   try{await loadChapterFonts();$('fontstatus').hidden=true;refresh();return true;}

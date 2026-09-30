@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mg-section="energy">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,112 +7,61 @@
 <meta name="description" content="Single-job utilities for energy work under uncertainty — revenue risk, route-to-market, and the conversations around them. No accounts, no tracking; your model stays in the URL.">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FBFBFA">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf8f2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#24212c">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="../assets/pwa.js" defer></script>
+
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/page.css">
+<link rel="stylesheet" href="/assets/energy.css">
+<link rel="stylesheet" href="/assets/catalogue.css">
+<!-- identity:head:start -->
+<script src="/assets/identity/theme-init.js"></script>
+<link rel="stylesheet" href="/assets/identity/identity.css">
+<link rel="stylesheet" href="/assets/identity-tools.css">
+<script type="module" src="/assets/identity/appearance.js"></script>
+<!-- identity:head:end -->
 </head>
-<body>
-<link rel="stylesheet" href="../assets/tokens.css">
-<link rel="stylesheet" href="../assets/page.css">
-<link rel="stylesheet" href="../assets/energy.css">
-<style>
-  /* the ember token block now lives once, in assets/energy.css */
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{
-    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    color:var(--ink);
-    background-color:var(--bg);
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),
-                     linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:26px 26px;
-    padding:56px 20px 60px;
-  }
-  .wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
-  header,.soon,footer{max-width:680px}
-  h1{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:36px;font-weight:700;
-    letter-spacing:-.01em;margin:0;text-wrap:balance}
-  .tagline{color:var(--muted);margin:8px 0 0;font-size:16px;max-width:56ch}
-  .tools{display:grid;grid-template-columns:1fr;gap:16px}
-  @media (min-width:1000px){.tools{grid-template-columns:1fr 1fr}}
-  a.tool{
-    display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);
-    border-radius:0;box-shadow:var(--shadow);overflow:hidden;
-    text-decoration:none;color:var(--ink);
-  }
-  a.tool:hover{border-color:var(--accent)}
-  @media (prefers-reduced-motion: no-preference){
-    a.tool{transition:border-color .15s ease}
-  }
-  a.tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .thumb{display:block;width:100%;height:130px;background:var(--thumb);border-bottom:1px solid var(--border)}
-  .thumb svg{display:block;width:100%;height:100%}
-  .tbody{padding:15px 20px 18px}
-  .tool h2{font-family:"Helvetica Neue",Helvetica,"Segoe UI",Roboto,sans-serif;font-size:19px;margin:0 0 4px;
-    display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
-  .tool h2 .enum{color:var(--brand-text);font-size:10px;font-weight:700;letter-spacing:.18em}
-  .tool h2 .path{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    font-size:11.5px;font-weight:600;color:var(--accent-ink);
-    background:color-mix(in srgb, var(--accent) 12%, transparent);
-    border-radius:0;padding:2px 9px}
-  .tool p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:60ch}
-  .tool .go{color:var(--accent-ink);font-size:13.5px;font-weight:600;margin-top:10px;display:inline-block}
-  .tool:hover .go{text-decoration:underline}
-  .soon{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:62ch}
-  .soon b{color:var(--ink);font-weight:600}
-  footer{color:var(--muted);font-size:12.5px;line-height:1.6}
-  footer a{color:var(--muted)}
-  footer a:hover{color:var(--accent-ink)}
-  /* Phone edge system: 16px page gutter, consistent with the tool pages
-     ("16px prose / 10px surface", Camp A in assets/workspace.css). */
-  @media (max-width:640px){
-    body{padding-left:16px;padding-right:16px}
-  }
-</style>
-<link rel="stylesheet" href="../assets/mobile.css">
-
-<div class="wrap">
-  <div class="masthead">
-    <span class="micro-ink">energy.matthewgarner.me</span>
-    <span class="micro">Instruments for energy under uncertainty</span>
-    <span class="micro mh-date">The ember series</span>
-  </div>
-  <nav class="series" aria-label="The ember series">
-    <a href="cycles/"><span class="enum">E1</span>Cycles</a>
-    <a href="risk/"><span class="enum">E2</span>Risk</a>
-    <a href="frequency/"><span class="enum">E3</span>Frequency</a>
-    <a href="merit-order/"><span class="enum">E4</span>Merit order</a>
-    <a href="intraday/"><span class="enum">E5</span>Intraday</a>
-  </nav>
-  <header>
+<body class="catalogue-page catalogue-energy mg-site">
+<!-- identity:header:start -->
+<a class="mg-skip" href="#main">Skip to content</a>
+<div class="mg-masthead" role="banner">
+  <a class="mg-identity" href="https://www.matthewgarner.me/">Matthew Garner</a>
+  <nav class="mg-nav" aria-label="Main navigation"><a href="https://www.matthewgarner.me/writing">Writing</a><a href="https://tools.matthewgarner.me/">Tools</a><a href="./" aria-current="page">Energy</a><a href="https://www.matthewgarner.me/now">Now</a></nav>
+  <button class="mg-appearance" type="button" aria-label="Appearance: toggle light and dark mode"><span class="mg-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM40,128a88.1,88.1,0,0,1,88-88V216A88.1,88.1,0,0,1,40,128Z"/></svg></span></button>
+</div>
+<!-- identity:header:end -->
+<main class="catalogue" id="main" tabindex="-1">
+  <header class="catalogue-intro">
     <h1>Little Energy tools</h1>
-    <p class="tagline">Single-job utilities for energy work under uncertainty. No accounts, no tracking.</p>
+    <div class="catalogue-lede">
+      <p>Single-job utilities for energy work under uncertainty.</p>
+      <p class="catalogue-promise">No accounts. No tracking. State lives in the URL.</p>
+    </div>
   </header>
-
-  <main>
-  <div class="tools">
-
-    <a class="tool" href="cycles/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <section class="tools catalogue-list" aria-label="Energy tools">
+    <a class="tool catalogue-row" href="cycles/">
+      <span class="num">E1</span>
+      <svg class="thumb" focusable="false" viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <line x1="24" y1="112" x2="316" y2="112" stroke="var(--border)"/>
         <path d="M40 44 C130 40 210 58 306 74 L306 96 C210 84 130 70 40 68 Z" fill="var(--accent)" fill-opacity="0.16"/>
         <path d="M40 56 C130 54 210 64 306 85" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
         <rect x="96" y="24" width="34" height="88" fill="var(--accent)" fill-opacity="0.10"/>
         <text x="113" y="20" text-anchor="middle" font-size="8.5" fill="var(--accent-ink)">augment</text>
         <g font-size="9" fill="var(--muted)"><text x="40" y="126">y1</text><text x="292" y="126">y15</text></g>
-      </svg></span>
-      <span class="tbody">
-        <h2><span class="enum">E1</span>Cycle budget <span class="path">/cycles</span></h2>
+      </svg>
+      <div class="catalogue-copy">
+        <h2>Cycle budget</h2>
         <p>A battery’s warranty is a budget — see what each cycle is really worth across three horizons.</p>
-        <span class="go">Open →</span>
-      </span>
+      </div>
+      <span class="go" aria-hidden="true">→</span>
     </a>
-
-    <a class="tool" href="risk/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <a class="tool catalogue-row" href="risk/">
+      <span class="num">E2</span>
+      <svg class="thumb" focusable="false" viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <line x1="24" y1="120" x2="316" y2="120" stroke="var(--border)"/>
         <rect x="26" y="20" width="288" height="30" rx="6" fill="var(--accent)" fill-opacity="0.10" stroke="var(--accent)" stroke-opacity="0.35"/>
         <g stroke="var(--muted)" stroke-width="2" stroke-linecap="round">
@@ -120,16 +69,16 @@
         </g>
         <g fill="var(--accent)"><path d="M170 27 l7 8 l-7 8 l-7 -8 Z"/><path d="M186 62 l7 8 l-7 8 l-7 -8 Z"/><path d="M182 92 l7 8 l-7 8 l-7 -8 Z"/></g>
         <g font-size="9" fill="var(--muted)"><text x="26" y="34">merchant</text><text x="26" y="69">floor</text><text x="26" y="99">insure</text></g>
-      </svg></span>
-      <span class="tbody">
-        <h2><span class="enum">E2</span>Risk transfer <span class="path">/risk</span></h2>
+      </svg>
+      <div class="catalogue-copy">
+        <h2>Risk transfer</h2>
         <p>Merchant, floor, toll or insure — every route-to-market drawn as a payoff on the same uncertain year.</p>
-        <span class="go">Open →</span>
-      </span>
+      </div>
+      <span class="go" aria-hidden="true">→</span>
     </a>
-
-    <a class="tool" href="frequency/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <a class="tool catalogue-row" href="frequency/">
+      <span class="num">E3</span>
+      <svg class="thumb" focusable="false" viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <line x1="30" y1="30" x2="316" y2="30" stroke="var(--border)"/>
         <text x="34" y="24" font-size="8.5" fill="var(--muted)">50 Hz</text>
         <path d="M30 30 C70 30 96 78 150 78 C210 78 250 50 316 46" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
@@ -137,16 +86,16 @@
         <text x="150" y="94" text-anchor="middle" font-size="8.5" fill="var(--muted)">nadir</text>
         <line x1="30" y1="108" x2="316" y2="108" stroke="var(--err)" stroke-opacity="0.6" stroke-width="1.5" stroke-dasharray="4 3"/>
         <text x="314" y="104" text-anchor="end" font-size="8.5" fill="var(--err)">load shed</text>
-      </svg></span>
-      <span class="tbody">
-        <h2><span class="enum">E3</span>Frequency &amp; inertia <span class="path">/frequency</span></h2>
+      </svg>
+      <div class="catalogue-copy">
+        <h2>Frequency &amp; inertia</h2>
         <p>Trip a generator and watch the grid catch itself — inertia, RoCoF, and the battery’s save.</p>
-        <span class="go">Open →</span>
-      </span>
+      </div>
+      <span class="go" aria-hidden="true">→</span>
     </a>
-
-    <a class="tool" href="merit-order/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <a class="tool catalogue-row" href="merit-order/">
+      <span class="num">E4</span>
+      <svg class="thumb" focusable="false" viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <line x1="26" y1="110" x2="316" y2="110" stroke="var(--border)"/>
         <g>
           <rect x="30" y="102" width="26" height="8" fill="var(--accent)" fill-opacity="0.45"/>
@@ -162,16 +111,16 @@
         <text x="314" y="47" text-anchor="end" font-size="8.5" fill="var(--accent-ink)" font-weight="600">clears</text>
         <line x1="180" y1="14" x2="180" y2="110" stroke="var(--ink)" stroke-opacity="0.55" stroke-width="1.5" stroke-dasharray="4 3"/>
         <text x="184" y="22" font-size="8.5" fill="var(--muted)">demand</text>
-      </svg></span>
-      <span class="tbody">
-        <h2><span class="enum">E4</span>Merit order <span class="path">/merit-order</span></h2>
+      </svg>
+      <div class="catalogue-copy">
+        <h2>Merit order</h2>
         <p>Stack the fleet cheapest-first, drag demand, and watch one plant set the price for all.</p>
-        <span class="go">Open →</span>
-      </span>
+      </div>
+      <span class="go" aria-hidden="true">→</span>
     </a>
-
-    <a class="tool" href="intraday/">
-      <span class="thumb"><svg viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <a class="tool catalogue-row" href="intraday/">
+      <span class="num">E5</span>
+      <svg class="thumb" focusable="false" viewBox="0 0 340 132" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <!-- real engine output (day.js, GB defaults): dashed = the raw default day
              (plateau + square night notch at £20), accent = the same day with a
              10 GW/2h fleet — the fleet fills the notch and the rest is untouched.
@@ -183,28 +132,19 @@
         <circle cx="237" cy="18" r="3.5" fill="var(--accent-ink)"/>
         <text x="30" y="20" font-size="8.5" fill="var(--muted)">price</text>
         <text x="97" y="66" font-size="8.5" fill="var(--accent-ink)" font-weight="600">flattens</text>
-      </svg></span>
-      <span class="tbody">
-        <h2><span class="enum">E5</span>A day through the stack <span class="path">/intraday</span></h2>
+      </svg>
+      <div class="catalogue-copy">
+        <h2>A day through the stack</h2>
         <p>Play 24 hours through the merit order — the price shape draws itself, then storage flattens it.</p>
-        <span class="go">Open →</span>
-      </span>
+      </div>
+      <span class="go" aria-hidden="true">→</span>
     </a>
-
-
-  </div>
+  </section>
 
   <p class="soon"><b>Coming next:</b> a delay-exposure pricer (what a slip really costs net of liquidated damages).</p>
-  </main>
-
-  <footer class="efoot">
-    <div class="efoot-row">
-      <span class="micro">No accounts. No tracking. State lives in the URL.</span>
-      <span class="micro efoot-tag">The ember series · energy.matthewgarner.me</span>
-    </div>
-    <p class="efoot-links">Built by <a href="https://matthewgarner.me">Matthew Garner</a> with Claude Code · <a href="https://github.com/MatthewGarner/tools" target="_blank" rel="noopener">Source on GitHub</a><br>
-    Sibling of <a href="https://tools.matthewgarner.me">tools.matthewgarner.me</a> — the same rules pointed at product work.</p>
-  </footer>
-</div>
+</main>
+<!-- identity:footer:start -->
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset>Use system appearance</button><nav aria-label="Elsewhere"><a href="https://www.matthewgarner.me/about">About</a><a href="https://www.matthewgarner.me/bookshelf">Bookshelf</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<!-- identity:footer:end -->
 </body>
 </html>

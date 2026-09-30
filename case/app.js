@@ -43,11 +43,15 @@ function chooseDefault(){
 }
 function current(){const [kind,id]=selected.split(':');return {kind,item:(model?.[kind==='option'?'options':kind==='review'?'reviews':'claims']||[]).find(v=>v.id===id)};}
 function appearance(){
-  if(model.theme==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=model.theme;
-  const c=reviewColors(model,ctx()),type=reviewTypography(model),root=document.documentElement;
-  for(const [name,value] of Object.entries({bg:c.bg,ink:c.ink,muted:c.muted,accent:c.accent,border:c.border,tint:c.tint,onaccent:c.railInk}))root.style.setProperty('--case-'+name,value);
-  root.style.setProperty('--case-display',`"${type.display}"`);
-  for(const [name,value] of Object.entries({bg:c.bg,ink:c.ink,muted:c.muted,card:c.bg,border:c.border,accent:c.accent,'accent-ink':c.accent}))root.style.setProperty('--'+name,value);
+  const c=reviewColors(model,ctx()),type=reviewTypography(model);
+  // Case theme belongs to the portable document. Its system option follows the
+  // OS even when the shared page appearance has an explicit light/dark choice.
+  for(const surface of document.querySelectorAll('#workspace,body > dialog')){
+    for(const [name,value] of Object.entries({bg:c.bg,ink:c.ink,muted:c.muted,accent:c.accent,border:c.border,tint:c.tint,onaccent:c.railInk}))surface.style.setProperty('--case-'+name,value);
+    surface.style.setProperty('--case-display',`"${type.display}"`);
+    for(const [name,value] of Object.entries({bg:c.bg,ink:c.ink,muted:c.muted,card:c.bg,border:c.border,accent:c.accent,'accent-ink':c.accent}))surface.style.setProperty('--'+name,value);
+    surface.style.colorScheme=dark()?'dark':'light';
+  }
   $('font').value=model.font||'chapter';$('theme').value=model.theme||'system';$('palette').value=model.palette||'';$('accent').value=model.accent||c.rail;
 }
 function paint(){

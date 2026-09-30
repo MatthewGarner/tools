@@ -67,7 +67,7 @@ for(const [name, url] of ALL){
     return {
       font: ['roadmap','case'].includes(name) ? cs.fontFamily.includes('DM Sans') : cs.fontFamily.includes('-apple-system') || cs.fontFamily.includes('system-ui'),
       bg: cs.backgroundColor === bgResolved,
-      h1: !!h1 && getComputedStyle(h1).fontFamily.includes(['roadmap','timeline','case'].includes(name)?'DM Sans':'Helvetica Neue'),
+      h1: !!h1 && getComputedStyle(h1).fontFamily.includes('Oswald Variable'),
     };
   },name);
   ok(parity.font, `${name}: body wears its intended font stack`);
@@ -602,6 +602,9 @@ const nextStep = async page => {
   await page.click('#homebtn');
   await page.locator('#home:not([hidden])').waitFor({state: 'visible'});
   await page.click('#newparade');
+  // finishPaint focuses the title on the next animation frame. Let that handoff
+  // finish before fast scripted fills, or it can steal focus from the question.
+  await page.waitForFunction(() => document.activeElement?.matches('[data-field="title"]'));
   await page.fill('[data-field="title"]', 'Lantern phone breakthrough');
   await page.fill('[data-field="question"]', 'Why did it win?');
   await nextStep(page); await page.click('[data-act="skiptimer"]');

@@ -1,0 +1,189 @@
+/* Catalogue chrome uses the personal site's identity tokens. Diagram data and
+   status colours remain the instrument tokens; no working artefact is restyled. */
+body.catalogue-page {
+  margin: 0;
+  padding: 0;
+  color: var(--mg-ink, var(--ink));
+  background: var(--mg-paper, var(--bg));
+  font-family: var(--mg-serif, Georgia, serif);
+  font-size: 1.25rem;
+  font-weight: 350;
+  font-optical-sizing: auto;
+  line-height: 1.4;
+}
+
+.catalogue {
+  width: min(calc(100% - 3rem), 1160px);
+  margin-inline: auto;
+  padding-bottom: 2.5rem;
+}
+
+.catalogue-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 3rem;
+  padding-block: 3.25rem 2.75rem;
+}
+
+.catalogue-intro h1 {
+  margin: 0;
+  font-family: var(--mg-display, "Arial Narrow", sans-serif);
+  font-size: clamp(3.25rem, 6.8vw, 6rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.catalogue-lede { min-width: 0; }
+.catalogue-energy .catalogue-intro h1 {
+  font-size: clamp(3rem, 5.6vw, 5rem);
+}
+.catalogue-lede > p {
+  margin: 0;
+  max-width: 36ch;
+  font-size: clamp(1.4rem, 2.25vw, 1.9rem);
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+.catalogue-lede > .catalogue-promise {
+  margin-top: 1.25rem;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  color: var(--mg-muted, var(--muted));
+}
+
+.catalogue-list { border-bottom: 1px solid var(--mg-line, var(--border)); }
+.catalogue-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(8rem, 14rem) minmax(0, 1fr) 2rem;
+  align-items: center;
+  column-gap: 1.75rem;
+  min-height: 8.5rem;
+  padding-block: 1.25rem;
+  border-top: 1px solid var(--mg-line, var(--border));
+  color: inherit;
+  text-decoration: none;
+}
+
+.catalogue .num {
+  color: var(--mg-accent, var(--accent-ink));
+  font: 500 1rem/1.4 ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+.catalogue .thumb {
+  --ink: var(--mg-ink);
+  --muted: var(--mg-muted);
+  --border: var(--mg-line);
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 6.25rem;
+  overflow: visible;
+}
+.catalogue-copy { min-width: 0; }
+.catalogue-copy h2 {
+  margin: 0 0 .35rem;
+  color: var(--mg-ink, var(--ink));
+  font-family: var(--mg-display, "Arial Narrow", sans-serif);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+}
+.catalogue-copy p {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.catalogue .go {
+  justify-self: end;
+  color: var(--mg-accent, var(--accent-ink));
+  font: 400 1.75rem/1 sans-serif;
+}
+.catalogue-row:focus-visible,
+.catalogue-binder:focus-visible {
+  outline: 2px solid var(--mg-accent, var(--accent-ink));
+  outline-offset: 4px;
+}
+.catalogue-row:focus-visible h2,
+.catalogue-binder:focus-visible h2 {
+  text-decoration: underline;
+  text-underline-offset: .15em;
+  text-decoration-thickness: 1px;
+}
+
+/* The case is a collection of instruments, so it remains outside their index. */
+.catalogue-binder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--mg-surface, var(--card));
+  color: inherit;
+  text-decoration: none;
+}
+.catalogue .soon {
+  margin: 1.5rem 0 0;
+  max-width: 66ch;
+  color: var(--mg-muted, var(--muted));
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .catalogue-row:hover h2,
+  .catalogue-binder:hover h2 {
+    color: var(--mg-accent, var(--accent-ink));
+    text-decoration: underline;
+    text-underline-offset: .15em;
+    text-decoration-thickness: 1px;
+  }
+}
+
+@media (max-width: 900px) {
+  .catalogue-intro { gap: 2rem; }
+  .catalogue-row {
+    grid-template-columns: 2rem minmax(6rem, 10rem) minmax(0, 1fr) 1.5rem;
+    column-gap: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .catalogue { width: calc(100% - 2rem); padding-bottom: 2rem; }
+  .catalogue-intro {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding-block: 2rem;
+  }
+  .catalogue-intro h1 { font-size: clamp(2.75rem, 10vw, 4rem); }
+  .catalogue-lede > p { font-size: 1.5rem; }
+  .catalogue-lede > .catalogue-promise { font-size: 1.0625rem; margin-top: 1rem; }
+  .catalogue-row {
+    grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+    gap: .875rem 1rem;
+    min-height: 0;
+    padding-block: 1.25rem;
+  }
+  .catalogue .thumb {
+    width: min(100%, 12rem);
+    max-height: 4.75rem;
+  }
+  .catalogue-row > .catalogue-copy { grid-column: 1 / -1; grid-row: 2; }
+  .catalogue-row > .go { grid-column: 3; grid-row: 1; }
+  .catalogue-copy h2 { font-size: 1.75rem; }
+  .catalogue-copy p { font-size: 1.1875rem; }
+  .catalogue-binder { padding: 1.25rem; gap: 1rem; }
+}
+
+@media (forced-colors: active) {
+  .catalogue .go, .catalogue .num { color: LinkText; }
+  .catalogue-row, .catalogue-binder { color: LinkText; }
+}
