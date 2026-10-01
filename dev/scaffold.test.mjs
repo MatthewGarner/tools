@@ -128,7 +128,7 @@ test('every energy tool page carries the 6c kicker, metrics row and one verdict'
     assert.match(html, /<div class="verdict-block" id="verdict"/, who + ': missing the verdict block');
     assert.equal((html.match(/class="verdict-block"/g) || []).length, 1, who + ': more than one verdict block');
     assert.match(html, /<section class="family"/, who + ': missing the ember-series family strip');
-    assert.match(html, /<footer class="efoot">/, who + ': footer is not the 6c hairline band');
+    // The shared identity owns the footer; its contract lives in identity.test.mjs.
     const js = read('energy/' + dir + '/app.js');
     const m = /paintKicker\(\$?\(?['"]?kicker['"]?\)?,\s*'(E\d+)'/.exec(js);
     assert.ok(m, who + ": app.js never calls paintKicker with an E-number");
