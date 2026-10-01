@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* DOM shell: sliders + threshold drag → classify the 1,000-dot population → the
    distribution SVG, the gate canvas, the natural-frequency verdict. Engine, layout
    and renderers are pure; this file owns the DOM, pointer drag, presets, hash. */
@@ -287,3 +288,5 @@ wireCopyVerdict($('verdictAlarm'));
   doRefresh();
   animateGate();
 })();
+
+mountRecentSave({getState:()=>{const p=readParams();return {b:+$('baseRate').value,d:p.dprime,t:p.t,...(claimed?{c:[claimed.sens,claimed.spec]}:{})};}});

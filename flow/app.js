@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* DOM shell: sliders → sim → readout + canvas strip. Engine and readout are pure. */
 import {simulate, wipSweep, kneeWip, leverTriage, WEEK} from './engine.js';
 import {batchEconomics} from './economics.js';
@@ -402,3 +403,5 @@ function flash(id, msg){
   addEventListener('resize', rafBatched(() => { if(lastResult){ refresh(); drawFrame(animState, animState ? animState.t1 : 0); } }));
   refresh();
 })();
+
+mountRecentSave({getState:liveFlowState,note:'Saves the model settings; animations restart when opened.'});

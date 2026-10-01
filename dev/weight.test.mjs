@@ -552,7 +552,10 @@ test('per-page load stays under budget', () => {
     const bytes = [...files].reduce((a, f) => a + size(f), 0);
     // Identity v1: 160,488 bytes of pinned local variable fonts, plus scoped
     // CSS, controller and static markup. Paid once per origin and cached offline.
-    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0);
+    // Recent work: ~14k of shared storage, accessible UI and static CSS;
+    // catalogues also load the existing ~6.4k model codec. Keep this bounded.
+    const recent = files.has('assets/recent-work.js') ? (page==='home/index.html' || page==='energy/index.html' ? 21_000 : 15_000) : 0;
+    const limit = budget + (files.has('assets/identity/identity.css') ? 180_000 : 0) + recent;
     assert.ok(bytes <= limit, page + ': ' + bytes + ' bytes > budget ' + limit);
   }
 });

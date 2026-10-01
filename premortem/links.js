@@ -69,3 +69,20 @@ export async function fromLink(hash){
     return normaliseDoc(await decodeHash(s));
   }catch(e){ return null; }
 }
+
+// Shared-link imports deliberately normalise and bound untrusted input. A local
+// snapshot must refuse if that would discard authored work (e.g. a long note),
+// rather than promising an exact saved copy and silently truncating it on reopen.
+function keepsAuthoredValues(before, after){
+  if(before === null || typeof before !== 'object') return before === after;
+  if(!after || typeof after !== 'object') return false;
+  if(Array.isArray(before)) return Array.isArray(after) && before.length === after.length && before.every((v,i)=>keepsAuthoredValues(v,after[i]));
+  return Object.entries(before).every(([key,value]) => key==='id' || key==='x' || value===undefined
+    || (key==='mode' && value==='risk' && after[key]===undefined) || keepsAuthoredValues(value,after[key]));
+}
+export async function toSnapshotLink(doc){
+  const hash=await toLink(doc);
+  if(!hash) throw new Error('This register is too large for Recent work. Copy it as Markdown instead.');
+  if(!keepsAuthoredValues(doc,await fromLink(hash))) throw new Error('This register exceeds the snapshot import limits. Keep it in Premortem’s saved registers or copy it as Markdown.');
+  return hash;
+}

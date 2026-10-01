@@ -160,21 +160,21 @@ body.catalogue-page {
   .catalogue { width: calc(100% - 2rem); padding-bottom: 2rem; }
   .catalogue-intro {
     grid-template-columns: minmax(0, 1fr);
-    gap: 1.25rem;
-    padding-block: 2rem;
+    gap: 1rem;
+    padding-block: 1.5rem;
   }
-  .catalogue-intro h1 { font-size: clamp(2.75rem, 10vw, 4rem); }
-  .catalogue-lede > p { font-size: 1.5rem; }
-  .catalogue-lede > .catalogue-promise { font-size: 1.0625rem; margin-top: 1rem; }
+  .catalogue-intro h1, .catalogue-energy .catalogue-intro h1 { font-size: clamp(2.5rem, 9vw, 3.5rem); }
+  .catalogue-lede > p { font-size: 1.25rem; }
+  .catalogue-lede > .catalogue-promise { font-size: 1.0625rem; margin-top: .75rem; }
   .catalogue-row {
     grid-template-columns: 2rem minmax(0, 1fr) 2rem;
-    gap: .875rem 1rem;
+    gap: .625rem 1rem;
     min-height: 0;
-    padding-block: 1.25rem;
+    padding-block: 1rem;
   }
   .catalogue .thumb {
-    width: min(100%, 12rem);
-    max-height: 4.75rem;
+    width: min(100%, 9rem);
+    max-height: 3.5rem;
   }
   .catalogue-row > .catalogue-copy { grid-column: 1 / -1; grid-row: 2; }
   .catalogue-row > .go { grid-column: 3; grid-row: 1; }

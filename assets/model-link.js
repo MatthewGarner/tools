@@ -1,7 +1,9 @@
+import {mountRecentSave} from './recent-work.js';
 import {encodeHash} from './series.js';
 
 // Snapshot the model at click time: location.hash can lag behind a recent edit.
 export function mountModelLink(host, {getState, maxLength = 6000, label = 'Copy model link'}){
+  mountRecentSave({getState});
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'btn model-link'; button.textContent = label;
   const status = document.createElement('span');

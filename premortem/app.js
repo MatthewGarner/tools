@@ -1,3 +1,5 @@
+import {toSnapshotLink} from './links.js';
+import {mountRecentSave} from '../assets/recent-work.js';
 /* DOM shell for the premortem wizard. Engine/store/renderers are pure; this owns
    the DOM, the phase machine wiring, localStorage autosave, the WRITE timer, undo,
    and import-from-link. The doc is the single state; every mutation autosaves. */
@@ -470,3 +472,5 @@ $('boardpanel').addEventListener('click', e => {
   if(list.length || pendingDeletion){ doc = null; render(); }
   else { doc = exampleDoc(); saveNow(); render(); }   // greet with a populated register, not a blank form
 })();
+
+mountRecentSave({host:document.querySelector('#workspace .toolbar'),getState:()=>doc&&withoutHandoffMeta(doc),getHash:toSnapshotLink,note:'Opens as a separate register. Use Save as new there to keep editing it in Premortem.'});

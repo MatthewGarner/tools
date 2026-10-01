@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* Simulation + verdict copy live in ./engine.js (pure, tested); this script owns the DOM. */
 import {simulate, verdictCopy, flipAnalysis, flipCopy, orderDiff, orderDiffCopy, perRowKnife, sliderScale} from './engine.js';
 import {readHashState, writeHashState, encodeHash, fmt} from '../assets/series.js';
@@ -574,3 +575,5 @@ renderHead();
 renderRows();
 compute();
 renderResults();
+
+mountRecentSave({getState:hashState});
