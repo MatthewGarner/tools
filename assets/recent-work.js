@@ -36,7 +36,8 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
     if(!host && header){host=el('div',null,'instrument-actions recent-actions');header.append(host);}
   }
   if(!host)return;
-  const save=button('Save snapshot');save.className='btn recent-save';host.append(save);
+  // Some instruments already use Snapshot for a comparison baseline.
+  const save=button('Save to Recent');save.className='btn recent-save';host.append(save);
   const status=el('span',null,'recent-status');status.setAttribute('role','status');host.append(status);
   save.addEventListener('click',async()=>{
     save.disabled=true;status.textContent='';
