@@ -48,12 +48,6 @@ body.catalogue-page {
   line-height: 1.35;
   text-wrap: pretty;
 }
-.catalogue-lede > .catalogue-promise {
-  margin-top: 1.25rem;
-  font-size: 1.0625rem;
-  line-height: 1.45;
-  color: var(--mg-muted, var(--muted));
-}
 
 .catalogue-list { border-bottom: 1px solid var(--mg-line, var(--border)); }
 .catalogue-row {
@@ -130,13 +124,6 @@ body.catalogue-page {
   color: inherit;
   text-decoration: none;
 }
-.catalogue .soon {
-  margin: 1.5rem 0 0;
-  max-width: 66ch;
-  color: var(--mg-muted, var(--muted));
-  font-size: 1.0625rem;
-  line-height: 1.5;
-}
 
 @media (hover: hover) and (pointer: fine) {
   .catalogue-row:hover h2,
@@ -165,8 +152,7 @@ body.catalogue-page {
   }
   .catalogue-intro h1, .catalogue-energy .catalogue-intro h1 { font-size: clamp(2.5rem, 9vw, 3.5rem); }
   .catalogue-lede > p { font-size: 1.25rem; }
-  .catalogue-lede > .catalogue-promise { font-size: 1.0625rem; margin-top: .75rem; }
-  .catalogue-row {
+    .catalogue-row {
     grid-template-columns: 2rem minmax(0, 1fr) 2rem;
     gap: .625rem 1rem;
     min-height: 0;

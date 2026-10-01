@@ -55,7 +55,7 @@ The personal website owns the canonical identity folder in its source tree; Tool
 `assets/identity`. Update it with `node dev/sync-identity.mjs --from <canonical-identity-directory>`,
 then regenerate both service workers. `--check` detects asset or static masthead drift.
 Fonts are local and counted in the cold-load budget. The appearance preference is
-origin-local, defaults to the OS and can be reset in the footer; it never enters a model URL.
+origin-local and defaults to the OS. The footer offers a reset only after an override; it never enters a model URL.
 
 Keep identity selectors prefixed `mg-`. Tool actions belong in `[data-tool-header]`.
 `assets/identity-tools.css` maps the HTML shell's colours on body; root renderer tokens,

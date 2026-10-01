@@ -11,6 +11,7 @@ try{
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);await page.locator('html[data-mg-ready]').waitFor();
     await page.evaluate(()=>document.fonts.ready);
+    assert.equal(await page.locator('[data-mg-theme-reset]').isVisible(),false,'system default stays quiet');
     const mast=page.locator('.mg-masthead');
     assert.equal(await mast.locator('button').count(),1,'tool actions stay outside global navigation');
     assert.deepEqual(await mast.locator('nav a').allTextContents(),['Writing','Tools','Energy','Now']);
@@ -28,6 +29,8 @@ try{
     await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
     await page.locator('[data-mg-theme-reset]').click();
     await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+    assert.equal(await page.locator('[data-mg-theme-reset]').isVisible(),false,'reset disappears after restoring the system preference');
+    assert.equal(await page.getByRole('button',{name:/^Appearance:/}).evaluate(el=>el===document.activeElement),true,'focus returns to appearance after reset');
     await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
     assert.deepEqual(errors,[],url);console.log('PASS identity: '+url);await context.close();
   }
