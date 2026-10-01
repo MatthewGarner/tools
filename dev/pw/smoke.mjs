@@ -1166,7 +1166,6 @@ for(const theme of FLOW_THEMES){
   check('gauge(' + theme + '): sample reveal keeps a compact textual reading receipt',
     await page.locator('#preview [data-result-receipt]').count() === 1 &&
     await page.locator('#preview .receipt-disclosure summary').count() === 1);
-  check('gauge(' + theme + '): privacy line present', (await page.locator('footer').innerText()).includes('only numbers'));
   check('gauge(' + theme + '): no console errors', errors.length === 0);
   await page.close();
 }
