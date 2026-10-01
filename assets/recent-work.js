@@ -48,12 +48,12 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
       if(!hash || hash.length > Math.min(maxLength,HASH_LIMIT)) throw new Error('This model is too large for Recent work. Export it from the tool instead.');
       const value=state || await decodeHash(hash);
       const ui=modal('Save to Recent work',save);
-      ui.info.textContent='A named snapshot in this browser only. Later edits won’t update it; save another snapshot to keep them.'+(note?' '+note:'');
+      ui.info.textContent='Saved in this browser. Later edits won’t update this snapshot.'+(note?' '+note:'');
       const name=nameField(ui.form,ui.error,snapshotName(value,RECENT_TOOLS[scope][tool]));
       const submit=button('Save snapshot');submit.type='submit';ui.actions.append(submit);
       ui.form.addEventListener('submit',event=>{
         event.preventDefault();if(!name.value.trim()){name.setCustomValidity('Give this snapshot a name.');name.reportValidity();return;}
-        try{store().add({id:crypto.randomUUID(),tool,name:name.value,hash,savedAt:Date.now()});ui.dialog.close();status.textContent='Saved in Recent work on the '+(scope==='energy'?'Energy':'Tools')+' home page.';}
+        try{store().add({id:crypto.randomUUID(),tool,name:name.value,hash,savedAt:Date.now()});ui.dialog.close();status.textContent='Saved to Recent.';}
         catch(error){ui.error.textContent=failure(error);}
       });
       name.addEventListener('input',()=>name.setCustomValidity(''));
@@ -67,9 +67,9 @@ export function mountRecentSave({getState,getHash,host,note='',maxLength=HASH_LI
 const shelf=document.querySelector('[data-recent-work]');
 if(shelf){
   let expanded=false;
-  const heading=el('h2','Recent work'), note=el('p','Saved snapshots · this browser only', 'recent-note');
+  const heading=el('h2','Recent work');
   const list=el('ul',null,'recent-list'), more=button('Show all'), status=el('p',null,'recent-note');status.setAttribute('role','status');
-  more.className='recent-more';shelf.append(heading,note,list,more,status);
+  more.className='recent-more';shelf.append(heading,list,more,status);
   const refresh=()=>{
     let records;try{records=store().list();}catch(error){shelf.hidden=false;status.textContent=failure(error);list.replaceChildren();more.hidden=true;return;}
     // Preserve a removal confirmation announcement even when the last row is gone.
@@ -92,7 +92,7 @@ if(shelf){
       });
       link.dataset.recentId=record.id;
       remove.addEventListener('click',()=>{
-        manage.open=false;const ui=modal('Remove snapshot?',summary);ui.info.textContent='Remove “'+record.name+'” from Recent work? Other snapshots and the tool’s own saved work are kept.';
+        manage.open=false;const ui=modal('Remove snapshot?',summary);ui.info.textContent='Remove “'+record.name+'” from Recent work?';
         const confirm=button('Remove snapshot');confirm.type='submit';ui.actions.append(confirm);
         ui.form.addEventListener('submit',event=>{event.preventDefault();try{store().remove(record.id);ui.dialog.close();status.textContent='Snapshot removed.';refresh();heading.focus();}catch(error){ui.error.textContent=failure(error);}});
         ui.dialog.showModal();

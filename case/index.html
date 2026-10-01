@@ -64,7 +64,6 @@
   </section>
 </div>
 </main>
-<footer class="case-footer">No accounts. No tracking. Your source and captured references travel with the Case.</footer>
 <dialog id="focusdialog" aria-labelledby="focusheading"><header><h2 id="focusheading">Decision detail</h2><button data-close="focusdialog" data-icon="close" aria-label="Close detail"></button></header></dialog>
 <dialog id="editdialog" aria-labelledby="editheading"><form id="editform"><header><h2 id="editheading">Edit</h2><button type="button" data-close="editdialog" data-icon="close" aria-label="Close editor"></button></header><div id="editfields"></div><p id="editerror" role="alert"></p><div class="dialog-actions"><button type="button" data-close="editdialog">Cancel</button><button type="submit" class="btn primary">Save changes</button></div></form></dialog>
 <dialog id="replacedialog" aria-labelledby="replaceheading"><header><h2 id="replaceheading">Replace captured reference</h2><button data-close="replacedialog" data-icon="close" aria-label="Close replacement"></button></header><p>The earlier reference stays in a dated review. Your decision changes only when you edit it.</p><label>New reference URL<input id="replacementurl" type="url"></label><button id="comparereference">Compare references</button><div id="referencecomparison" hidden><div class="reference-pair"><label>Previous captured state<textarea id="previousstate" readonly></textarea></label><label>Proposed state<textarea id="nextstate" readonly></textarea></label></div><label>What changed?<textarea id="replacementchange" required></textarea></label><label>What does this mean for the decision?<textarea id="replacementimplication" required></textarea></label><button id="adoptreference" class="btn primary">Adopt reference and record review</button></div><p id="replaceerror" role="alert"></p></dialog>
@@ -72,6 +71,6 @@
 <div id="printpages" aria-hidden="true"></div>
 <script type="module" src="app.js"></script>
 <!-- identity:footer:start -->
-<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset>Use system appearance</button><nav aria-label="Elsewhere"><a href="https://www.matthewgarner.me/about">About</a><a href="https://www.matthewgarner.me/bookshelf">Bookshelf</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
+<div class="mg-footer" role="contentinfo"><button type="button" data-mg-theme-reset hidden>Use system appearance</button><nav aria-label="Elsewhere"><a href="https://www.matthewgarner.me/about">About</a><a href="https://www.matthewgarner.me/bookshelf">Bookshelf</a><a href="https://github.com/MatthewGarner/tools">Source on GitHub</a></nav></div>
 <!-- identity:footer:end -->
 </body></html>

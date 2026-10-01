@@ -87,7 +87,3 @@
 }
 
 /* --- footer: hairline, the promise left, the series tag right in ember --- */
-footer.efoot{border-top:1px solid var(--border);text-align:left;padding-top:14px}
-.efoot-row{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:baseline}
-.efoot-tag{margin-left:auto;color:var(--brand-text)}
-.efoot-links{margin:10px 0 0;font-size:12.5px;line-height:1.6}
