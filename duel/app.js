@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* DOM shell: setup → duel loop → live readout. Engine + renderers are pure;
    this file owns the DOM, the duel log, hash state, tag/re-duel edits, keyboard. */
 import {nextPair, minDuels, budget, active, impliedOrder, settledness, loops, loopCycle, verdictParts} from './engine.js';
@@ -206,6 +207,8 @@ wireCopyVerdict($('verdict'));
   if(h && Array.isArray(h.items) && h.items.length >= 3 && Array.isArray(h.duels)){
     state = {q: h.q || '', items: h.items.map(String), duels: h.duels, finished: !!h.finished};
     render();
+  } else if(h?.draft && typeof h.draft.q === 'string' && typeof h.draft.items === 'string'){
+    $('question').value=h.draft.q.slice(0,10000);$('items').value=h.draft.items.slice(0,50000);render();
   } else {
     // open alive: prefill the setup form with the example (not auto-started)
     $('question').value = EXAMPLE.q;
@@ -213,3 +216,5 @@ wireCopyVerdict($('verdict'));
     render();
   }
 })();
+
+mountRecentSave({getState:()=>n()>=3?state:{q:$('question').value,draft:{q:$('question').value,items:$('items').value}}});

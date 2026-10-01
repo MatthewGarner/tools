@@ -199,3 +199,18 @@ question, and forgets everything after a day.
 
 *This file is the public companion to the repo's local working notes. It describes
 what the code **is**; how work happens here (branching, gates, deploy) is separate.*
+
+### Recent work
+
+Each catalogue has an origin-local shelf of explicitly named snapshots. Visiting a
+tool, loading an example or editing never adds or updates a snapshot. Each save
+captures the current model through the tool’s state callback, not its debounced
+URL. Reopening restores a separate copy; later edits require another explicit save.
+The shelf holds up to 20 snapshots, reports storage failures, and never silently
+evicts work. Browser storage clearing removes it; it is not a backup or cross-device
+sync. Tools and Energy retain separate scopes even on a combined preview origin.
+
+Gauge snapshots contain authored questions, never room keys or responses. Premortem
+uses its existing bounded link import and opens a transient separate register,
+leaving native saved registers untouched. Teaching simulations save settings, with
+Signal vs noise also preserving its current turn. Appearance is not model state.

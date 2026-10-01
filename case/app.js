@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* Source owns the review. Inspection and export preview never change it. */
 import {parse, classifyReference, CONFIG_KEYS} from './parse.js';
 import {project, inspectReview, inspectReference} from './review-model.js';
@@ -181,3 +182,5 @@ $('copypng').addEventListener('click',async()=>{try{const first=(await makeDeck(
 new ResizeObserver(debounced(paint,100)).observe($('preview'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paint);
 (async()=>{try{await loadChapterFonts();ready=true;const hash=await readHashState();let source=typeof hash?.t==='string'?hash.t:'';if(hash?.t&&hash.e!==0)ws.setCollapsed(false);if(!source)try{source=localStorage.getItem('case-src')||'';}catch{}if(source)editor.setText(source);else if(!autoloadExample(()=>editor.setText(DEFAULT_TEXT)))refresh();}catch(error){status(error.message);}})();
+
+mountRecentSave({getState:()=>({t:editor.getText(),...(ws.collapsed()?{e:0}:{})})});

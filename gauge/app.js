@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* Boot, mode routing, compose/solo mode, exports. */
 import {parse} from './parse.js';
 import {resolveVerdict} from '../assets/verdict.js';   // the composer headline is a verdict mirror too
@@ -395,6 +396,7 @@ async function initCompose(hash){
     }
     $('handoffstrip').hidden = false;
   }
+  mountRecentSave({getState:()=>({t:editor.getText(),e:ws.collapsed()?0:1}),note:'Questions only. Live rooms and responses aren’t saved.'});
   if(hash && hash.e === 0) ws.setCollapsed(true);
   if(!text){ try{ text = localStorage.getItem('gauge-src') || ''; }catch(e){} }
   if(text) editor.setText(text);

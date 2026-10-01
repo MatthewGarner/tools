@@ -1,3 +1,4 @@
+import {mountRecentSave} from '../assets/recent-work.js';
 /* /signal-vs-noise — the only DOM-touching layer. State machine:
    play (judge quarter) → reveal (how your calls landed, no truth) → … → done
    (the collapse verdict, truth revealed). Nothing here computes truth; it all
@@ -47,12 +48,21 @@ async function loadHash(){
     : [];
   phase = calls.length ? 'done' : 'play';   // a shared/replayed run opens on its verdict
   turn = 0;
+  // Local snapshots can resume a turn; ordinary shared URLs still show the verdict.
+  const resume=st.resume;
+  if(resume && Number.isInteger(resume.turn) && resume.turn>=0 && resume.turn<s.quarters
+      && ['play','reveal','done'].includes(resume.phase) && (resume.phase!=='reveal' || resume.turn<s.quarters-1)){
+    turn=resume.turn;phase=resume.phase;
+    if(phase!=='done')calls=calls.filter(c=>c.quarter<=turn);
+  }
   // reconstruct the wrong-lessons ledger so a shared URL's collapse copy is faithful
   lessons = [];
   for(const {person, quarter} of [...calls].sort((a, b) => a.quarter - b.quarter)){
+    if(phase!=='done' && quarter >= turn)continue;
     const l = lessonLabel(revealFor(s, person, quarter));
     if(l && !lessons.includes(l)) lessons.push(l);
   }
+  if(phase==='reveal')buildReveal(s,turn);
 }
 const saveRun = () => writeHashState({seed, ...(params.noiseSd ? {params: {noiseSd: params.noiseSd}} : {}),
   ...(calls.length ? {calls} : {})});
@@ -242,3 +252,5 @@ await loadHash();
 if(params.noiseSd) $('noise').value = params.noiseSd;
 cols = colsFor(stage.clientWidth || 760);
 render();
+
+mountRecentSave({getState:()=>({seed,params,calls,resume:{turn,phase}})});

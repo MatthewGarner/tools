@@ -1,5 +1,7 @@
 /* Small DOM affordances shared by the Energy instruments. */
+import {mountRecentSave} from './recent-work.js';
 export function wireModelLink(button, getLink){
+  mountRecentSave({getHash:getLink});
   button.addEventListener('click', async () => {
     try{ await navigator.clipboard.writeText(getLink()); button.textContent = 'Copied model link'; }
     catch{ button.textContent = 'Copy blocked — use browser URL'; }
