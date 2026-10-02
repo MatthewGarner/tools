@@ -2,6 +2,8 @@
 
 Goal: one maintained repository and one **Tools Lab** catalogue, with Matthew’s website identity and stronger discovery, portability and release confidence.
 
+Delivered publicly on 2 October 2026: [Tools Lab](https://tools.matthewgarner.me/). The source consolidation and matching website navigation are merged; production checks passed.
+
 ## Decisions
 
 - Start from Tools `2790ff1`; its shared website identity is already shipped. Keep the personal website separate and retain its pinned identity bundle.
@@ -15,10 +17,10 @@ Goal: one maintained repository and one **Tools Lab** catalogue, with Matthew’
 | Milestone | Completion evidence | Status |
 | --- | --- | --- |
 | 1. Bring sources together | Lab history retained; source provenance recorded; existing Node checks integrated | Complete |
-| 2. Unify discovery and identity | Searchable catalogue; common navigation; website identity on every route; direct/preview/legacy links work | Complete locally |
-| 3. Protect saved work and continuity | Backup/restore, conflicts, origin boundaries, original Site package, saved URLs and offline updates exercised | Complete locally |
-| 4. Verify the collection | Full gate, real migrations, desktop/phone, both themes, keyboard/touch, failure paths and exports | Passed locally |
-| 5. Release and hand over | Hosted preview, branch CI, authorized publication, production checks; maintenance and recovery guide | Publishing; public access approved |
+| 2. Unify discovery and identity | Searchable catalogue; common navigation; website identity on every route; direct/preview/legacy links work | Released |
+| 3. Protect saved work and continuity | Backup/restore, conflicts, origin boundaries, original Site package, saved URLs and offline updates exercised | Released |
+| 4. Verify the collection | Full gate, real migrations, desktop/phone, both themes, keyboard/touch, failure paths and exports | Passed locally, in CI and on hosted previews |
+| 5. Release and hand over | Hosted preview, branch CI, authorized publication, production checks; maintenance and recovery guide | Complete |
 
 ## Quality boundaries
 
@@ -41,11 +43,18 @@ Use fictional examples. Preserve explicit assumptions and model limitations. Avo
 - Cached-page safeguard: retained a compatible shell/theme controller for original Lab HTML fetching new shared assets. A valid mutation removing only that guard makes the legacy-header assertion fail, demonstrating that the regression test detects the break.
 - Saved-work correction: a production-host browser reproduction showed an Energy draft incorrectly imported on Tools, where its model redirects elsewhere. Imports now partition mixed files by destination and link to remaining work; the same regression passes. A footer route reaches Recent work on each instrument's own storage origin.
 - Recovery is available offline on both installed-app origins; the Energy worker now includes the shared backup page. Real cold-offline downloads preserve the original draft bytes.
-- Hosted preview caught a routing difference: Vercel's wildcard capture removes the terminal slash, so Lab directory pages returned 404 while their assets and gallery worked. Exact generated page rewrites now precede the asset wildcard. The original hosted failure and the focused routing contract protect this boundary; the replacement preview must pass before merging.
+- Hosted preview caught a routing difference: Vercel's wildcard capture removes the terminal slash, so Lab directory pages returned 404 while their assets and gallery worked. Exact generated page rewrites now precede the asset wildcard. The replacement hosted preview passed all 24 Lab pages, model limits, filtering, actual model navigation, backup and 404 handling before merge.
 - Personal website: prepared `codex/tools-lab-navigation` at `144ddb1` in `/private/tmp/website-tools-lab-navigation`, based on current `origin/v5` (`78e8c50`). Its release build, 24 tests and six Chromium/WebKit navigation/appearance journeys pass. Release it alongside the suite; the website remains a separate repository.
 
-## Release next
+## Released state
 
-Local review: Tools Lab at `http://localhost:8127/`, retained Energy origin at `http://localhost:8129/`. Source is `/private/tmp/tools-suite-consolidation` on `codex/unified-suite`.
+- Tools [PR #16](https://github.com/MatthewGarner/tools/pull/16) merged at `ff06e808e3877109c7c4df67e35bc578229841c9`, preserving Lab `ba8afe1` as an ancestor. Vercel production deployment `dpl_CS2StFFwojWNDeMfDMWDow4N3Uxc` serves that commit. All branch checks passed, including 3,169 Node tests and all 30 browser suites; goldens are unchanged.
+- Website [PR #100](https://github.com/MatthewGarner/website/pull/100) merged at `61778b173bad9f243cf309a833ee038b3f18fa01`. Production deployment `dpl_Ew6rLL2Vd1q5tzobAhJuDoaZeun7` serves that commit. Its publishing checks and unauthenticated hosted checks passed.
+- The original [Thinking Lab address](https://thinking-lab-experiments.matthewg12.chatgpt.site) is public and serves compatibility release 0.21.0: Site version 22, source `484d04debb77b93c3ae12c0b439956e03b650104`, deployment `appgdep_6ac026198d5481919196953e3892efb7` succeeded. It preserves original paths and saved work, with backup for an explicit move to Tools Lab.
+- Production checks passed for Tools/Lab pages, old query redirects, headers, both installed-app origins, all five Energy tools and the temporary Gauge relay round trip with cleanup. A public browser journey confirmed the 40-tool catalogue, seven Energy results and a working Lab model. No page console errors were reported.
 
-Publish a tested preview, open the PR, attach it to this chat, pass branch CI and merge with ancestry preserved. Confirm the deployed commit and run `node dev/prod-check.mjs`. Publish the original Lab compatibility package publicly, and the matching website navigation. Public source and site access are explicitly authorized; no further publication confirmation is needed.
+## Continue from here
+
+Make future suite changes in the Tools repository, following `README.md` and `docs/agent/RELEASE.md`. The website remains separate and owns the pinned identity assets. Regenerate the original Site only from `dev/package-lab.mjs`; its source is a compatibility publication, not another development branch.
+
+Keep Energy work on its existing origin and make any later move explicit through backup. Lab models still need a connection; the consolidation deliberately leaves their engines out of the installed-app precaches. No new model mechanisms or empirical claims were introduced in this release. Further model improvements belong to the existing Lab roadmap under `lab/docs/`.
