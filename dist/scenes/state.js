@@ -1,4 +1,4 @@
-import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.11.0';
+import {text,list,identifiers,choice} from '../creative-kit/state.js?v=0.12.0';
 export const MOMENT_FIELDS=['title','actor','trigger','knows','unknown','can','stakes'];
 export const IDEA_FIELDS=['title','action','assumption','test'];
 export const moment=id=>({id,title:'New moment',actor:'',trigger:'',knows:'',unknown:'',can:'',stakes:''});

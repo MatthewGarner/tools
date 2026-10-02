@@ -1,7 +1,7 @@
-import {captureConcept,uid} from './model.js?v=0.11.0';
-import {sourceSnapshot,derivedFrom,hasDescendants} from '../shared/ancestry.js?v=0.11.0';
-import {sourceDetails,familyMap,parentChoices} from '../shared/ancestry-ui.js?v=0.11.0';
-import {escapeHtml as e} from '../shared/utils.js?v=0.11.0';
+import {captureConcept,uid} from './model.js?v=0.12.0';
+import {sourceSnapshot,derivedFrom,hasDescendants} from '../shared/ancestry.js?v=0.12.0';
+import {sourceDetails,familyMap,parentChoices} from '../shared/ancestry-ui.js?v=0.12.0';
+import {escapeHtml as e} from '../shared/utils.js?v=0.12.0';
 export function snapshot(w,c){
  const fields=[{label:'Problem at creation',text:w.problem},...['mechanism','useful','assumption','experiment','fit','changed','reason'].map(f=>({label:f,text:c[f]})),...c.ingredients.flatMap(i=>[{label:'Original dimension',text:i.dimension},{label:'Original ingredient',text:i.label}]),...w.dimensions.flatMap(d=>[{label:'Mapped dimension',text:d.name},{label:'Placement',text:d.options.find(o=>o.id===c.placement[d.id])?.label??'Unplaced'}])];
  if(c.origin)fields.push(...c.origin.ingredients.flatMap(i=>[{label:'Gap dimension at capture',text:i.dimension},{label:'Gap ingredient at capture',text:i.label}]),{label:'Gap reading at capture',text:c.origin.verdict},{label:'Gap reasoning at capture',text:c.origin.reason});

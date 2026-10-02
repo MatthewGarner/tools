@@ -1,7 +1,11 @@
-import { mountShell } from '../shared/shell.js?v=0.11.0';
-import { attachCardDrag } from '../shared/drag.js?v=0.11.0';
-import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.11.0';
-import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js?v=0.11.0';
+import { mountShell } from '../shared/shell.js?v=0.12.0';
+import { attachCardDrag } from '../shared/drag.js?v=0.12.0';
+import { escapeHtml, downloadText, readStore, writeStore } from '../shared/utils.js?v=0.12.0';
+import { CAPABILITIES, DEFAULT_ASSUMPTIONS, DEFAULT_LAYOUT, FLOWS, HORIZON, SCENARIOS, TEAM_IDS, TEAM_NAMES, TICK, normalizeAssumptions, normalizeLayout, routeFor, simulate } from './engine.js?v=0.12.0';
+
+import {workloadFromPreset,validateWorkload} from './workload.js?v=0.12.0';
+import {workloadEditor} from './workload-ui.js?v=0.12.0';
+import {ARRANGEMENTS,extensions,activeWorkload,validateDesign,validatePortable,portable,workloadSummary} from './library.js?v=0.12.0';
 
 mountShell({ active: 'teams', label: 'MODEL 02', title: 'How teams fit the work' });
 const $ = selector => document.querySelector(selector);
@@ -11,13 +15,18 @@ const capById = Object.fromEntries(CAPABILITIES.map(cap => [cap.id, cap]));
 const names = raw => Object.fromEntries(TEAM_IDS.map(id => [id, typeof raw?.[id] === 'string' && raw[id].trim() ? raw[id].trim().slice(0, 28) : TEAM_NAMES[id]]));
 function normalizeSession(raw = {}) {
   raw = raw && typeof raw === 'object' ? raw : {};
-  return { layout: normalizeLayout(raw.layout), names: names(raw.names), scenario: Object.hasOwn(SCENARIOS, raw.scenario) ? raw.scenario : 'rush', assumptions: normalizeAssumptions(raw.assumptions), day: Number.isFinite(raw.day) ? Math.round(Math.max(0, Math.min(HORIZON, raw.day)) / TICK) * TICK : 10, trace: typeof raw.trace === 'string' ? raw.trace : null, baseline: raw.baseline && typeof raw.baseline === 'object' ? { layout: normalizeLayout(raw.baseline.layout), names: names(raw.baseline.names) } : null };
+  const extra=extensions(raw);
+  return { ...extra, layout: normalizeLayout(raw.layout), names: names(raw.names), scenario: (Object.hasOwn(SCENARIOS, raw.scenario)||extra.workloads.some(w=>w.id===raw.scenario)) ? raw.scenario : 'rush', assumptions: normalizeAssumptions(raw.assumptions), day: Number.isFinite(raw.day) ? Math.round(Math.max(0, Math.min(HORIZON, raw.day)) / TICK) * TICK : 10, trace: typeof raw.trace === 'string' ? raw.trace : null, baseline: raw.baseline && typeof raw.baseline === 'object' ? { layout: normalizeLayout(raw.baseline.layout), names: names(raw.baseline.names) } : null };
 }
 const loaded = readStore(KEY, {}) || {};
-let session = normalizeSession(loaded);
-let undoStack = Array.isArray(loaded.undo) ? loaded.undo.slice(-20).map(normalizeSession) : [];
+let session,loadError='';
+try{session=normalizeSession(loaded);}catch(error){writeStore(KEY+':recovery',loaded);session=normalizeSession({});loadError='Saved data could not be read. Its original record was retained for recovery. '+error.message;}
+let undoStack = Array.isArray(loaded.undo) ? loaded.undo.slice(-20).flatMap(x=>{try{return[normalizeSession(x)];}catch{return[];}}) : [];
 let result;
 let baseline;
+let designResults=[];
+const workloadName=()=>SCENARIOS[session.scenario]?.name||session.workloads.find(w=>w.id===session.scenario).name;
+const workloadConfig=()=>typeof activeWorkload(session)==='string'?workloadFromPreset(session.scenario):activeWorkload(session);
 let playing = false;
 let timer;
 let overlayFrame;
@@ -31,8 +40,9 @@ function save() {
 }
 function status(text) { $('#status').textContent = text; }
 function compute() {
-  result = simulate({ layout: session.layout, scenario: session.scenario, assumptions: session.assumptions });
-  baseline = session.baseline ? simulate({ layout: session.baseline.layout, scenario: session.scenario, assumptions: session.assumptions }) : null;
+  result = simulate({ layout: session.layout, scenario: activeWorkload(session), assumptions: session.assumptions });
+  baseline = session.baseline ? simulate({ layout: session.baseline.layout, scenario: activeWorkload(session), assumptions: session.assumptions }) : null;
+  designResults=session.designs.map(d=>({...d,result:simulate({layout:d.layout,scenario:activeWorkload(session),assumptions:session.assumptions})}));
   if (!result.workload.some(job => job.id === session.trace)) session.trace = frame().jobs.find(job => job.arrival <= session.day && job.completedAt === null)?.id || result.workload[0].id;
 }
 function pause() { playing = false; clearTimeout(timer); renderPlayback(); }
@@ -195,19 +205,22 @@ function renderChart() {
 function renderAssumptionsDraft() {
   $('#coordination').value = session.assumptions.coordination * 100;
   $('#handoff-delay').value = session.assumptions.handoffDelay;
+  $('#handoff-effort').value = session.assumptions.handoffEffort;
   updateAssumptionsOutputs();
 }
 function updateAssumptionsOutputs() {
+  $('#handoff-effort-value').value = `${number(Number($('#handoff-effort').value),2)} effort`;
   $('#coordination-value').value = `${$('#coordination').value}%`;
   $('#handoff-delay-value').value = `${number(Number($('#handoff-delay').value), 2)} days`;
 }
 function renderAll() {
+  $('#scenario').innerHTML=Object.entries(SCENARIOS).map(([id,s])=>`<option value="${id}">${escapeHtml(s.name)}</option>`).join('')+(session.workloads.length?`<optgroup label="Your workloads">${session.workloads.map(w=>`<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('')}</optgroup>`:'');
   $('#scenario').value = session.scenario;
-  $('#workload-description').textContent = SCENARIOS[session.scenario].description;
+  $('#workload-description').textContent = SCENARIOS[session.scenario]?.description||`${workloadName()} · ${result.workload.length} pieces across ${number(workloadConfig().span)} arrival days. Same generated jobs for every arrangement.`;
   $('#undo').disabled = !undoStack.length;
   renderMap();
-  $('#trace').innerHTML = result.workload.map(job => `<option value="${job.id}" ${job.id === session.trace ? 'selected' : ''}>${job.label} · arrives day ${dayText(job.arrival)}</option>`).join('');
-  renderOutcomes(); renderFrame(); renderAssumptionsDraft();
+  $('#trace').innerHTML = result.workload.map(job => `<option value="${job.id}" ${job.id === session.trace ? 'selected' : ''}>${escapeHtml(job.label)} · arrives day ${dayText(job.arrival)}</option>`).join('');
+  renderOutcomes(); renderFrame(); renderAssumptionsDraft(); renderLibrary();
 }
 function tick() {
   if (!playing) return;
@@ -223,10 +236,41 @@ function togglePlay() {
 }
 function exportExperiment() {
   const row = result.final;
-  const lines = ['# How teams fit the work', '', `Workload: ${SCENARIOS[session.scenario].name}. Seed ${SCENARIOS[session.scenario].seed}; ${result.workload.length} jobs; 30-day horizon. Replay shown at day ${dayText(session.day)}.`, '', '## Arrangement', '', '| Capability | Current team | Capacity / day | Baseline team |', '| --- | --- | ---: | --- |', ...CAPABILITIES.map(cap => `| ${cap.name} | ${session.names[session.layout[cap.id]]} | ${number(result.capacities[cap.id], 2)} | ${session.baseline ? session.baseline.names[session.baseline.layout[cap.id]] : '—'} |`), '', '## Shared assumptions', '', `Each specialist has 1 nominal effort point per day. Coordination costs ${number(session.assumptions.coordination * 100, 0)}% of that capacity for each teammate. Each boundary crossing adds ${number(session.assumptions.handoffDelay, 2)} days of delay and ${number(session.assumptions.handoffEffort, 2)} receiving effort. FIFO queues, quarter-day steps, no borrowing capacity between capabilities. Both layouts use the same jobs and assumptions.`, '', '## At day 30', '', '| Measure | Current | Baseline |', '| --- | ---: | ---: |', `| Finished | ${row.completed} | ${baseline ? baseline.final.completed : '—'} |`, `| Unfinished | ${row.unfinished} | ${baseline ? baseline.final.unfinished : '—'} |`, `| Median lead time, finished only | ${row.medianLeadTime === null ? '—' : number(row.medianLeadTime)} | ${baseline?.final.medianLeadTime == null ? '—' : number(baseline.final.medianLeadTime)} |`, `| Boundary handoffs | ${row.handoffs} | ${baseline ? baseline.final.handoffs : '—'} |`, `| Queue time, accumulated work-days | ${number(row.queueTime)} | ${baseline ? number(baseline.final.queueTime) : '—'} |`, '', '## Work routes', '', ...Object.entries(FLOWS).map(([id, flow]) => `- ${flow.label}: ${routeFor(id, session.layout).map(stage => `${capById[stage.capability].name} (${session.names[stage.team]})`).join(' → ')}`), '', '## Limits', '', 'A fictional mechanism model, not staffing advice. Fixed specialist capabilities, divisible effort, serial stages and FIFO work; no learning, shared skills, rework, priorities or hierarchy. A move replays an alternative history without a reorganisation cost. Coefficients are illustrative.', '', '## Work items', '', '| Work | Arrival | Finished | Queue days | Transfer days |', '| --- | ---: | ---: | ---: | ---: |', ...row.jobs.map(job => `| ${job.label} | ${dayText(job.arrival)} | ${job.completedAt === null ? 'unfinished' : dayText(job.completedAt)} | ${number(job.queueTime)} | ${number(job.transferTime)} |`)];
+  const md=text=>String(text).replaceAll('|','\\|').replaceAll('\n',' ');
+  // Routes must come from the active definition, including custom stage order.
+  const lines = ['# How teams fit the work', '', `Workload: ${workloadName()}. Seed ${workloadConfig().seed}; ${result.workload.length} jobs; 30-day horizon. Replay shown at day ${dayText(session.day)}.`, '', '## Arrangement', '', '| Capability | Current team | Capacity / day | Baseline team |', '| --- | --- | ---: | --- |', ...CAPABILITIES.map(cap => `| ${cap.name} | ${md(session.names[session.layout[cap.id]])} | ${number(result.capacities[cap.id], 2)} | ${session.baseline ? md(session.baseline.names[session.baseline.layout[cap.id]]) : '—'} |`), '', '## Shared assumptions', '', `Each specialist has 1 nominal effort point per day. Coordination costs ${number(session.assumptions.coordination * 100, 0)}% of that capacity for each teammate. Each boundary crossing adds ${number(session.assumptions.handoffDelay, 2)} days of delay and ${number(session.assumptions.handoffEffort, 2)} receiving effort. FIFO queues, quarter-day steps, no borrowing capacity between capabilities. All arrangements use the same jobs and assumptions.`, '', '## At day 30', '', '| Measure | Current | Baseline |', '| --- | ---: | ---: |', `| Finished | ${row.completed} | ${baseline ? baseline.final.completed : '—'} |`, `| Unfinished | ${row.unfinished} | ${baseline ? baseline.final.unfinished : '—'} |`, `| Median lead time, finished only | ${row.medianLeadTime === null ? '—' : number(row.medianLeadTime)} | ${baseline?.final.medianLeadTime == null ? '—' : number(baseline.final.medianLeadTime)} |`, `| Boundary handoffs | ${row.handoffs} | ${baseline ? baseline.final.handoffs : '—'} |`, `| Queue time, accumulated work-days | ${number(row.queueTime)} | ${baseline ? number(baseline.final.queueTime) : '—'} |`, '', '## Work routes', '', ...workloadConfig().flows.map(flow => `- ${md(flow.label)}: ${routeFor(flow.stages, session.layout).map(stage => `${capById[stage.capability].name} (${md(session.names[stage.team])})`).join(' → ')}`), '', '## Limits', '', 'A fictional mechanism model, not staffing advice. Fixed specialist capabilities, divisible effort, serial stages and FIFO work; no learning, shared skills, rework, priorities or hierarchy. A move replays an alternative history without a reorganisation cost. Coefficients are illustrative.', '', '## Work items', '', '| Work | Arrival | Finished | Queue days | Transfer days |', '| --- | ---: | ---: | ---: | ---: |', ...row.jobs.map(job => `| ${md(job.label)} | ${dayText(job.arrival)} | ${job.completedAt === null ? 'unfinished' : dayText(job.completedAt)} | ${number(job.queueTime)} | ${number(job.transferTime)} |`)];
+  lines.push(...libraryMarkdown());
   downloadText(`teams-${session.scenario}.md`, lines.join('\n'), 'text/markdown;charset=utf-8');
   status('Experiment exported as Markdown.');
 }
+
+function renderLibrary(){
+  const entries=[{id:'current',title:'Current',layout:session.layout,names:session.names,result},...(baseline?[{id:'baseline',title:'Pinned baseline',layout:session.baseline.layout,names:session.baseline.names,result:baseline}]:[]),...designResults];
+  $('#arrangement-count').textContent=`${session.designs.length} of 6 saved`;
+  $('#arrangement-table').innerHTML=`<caption>Same ${escapeHtml(workloadName())} workload · 30 days</caption><thead><tr><th scope="col">Arrangement</th><th scope="col">Finished</th><th scope="col">Unfinished</th><th scope="col">Median days</th><th scope="col">Handoffs</th><th scope="col">Actions</th></tr></thead><tbody>${entries.map(e=>`<tr><th scope="row">${escapeHtml(e.title)}<details><summary>Membership</summary>${TEAM_IDS.map(id=>`<p>${escapeHtml(e.names[id])}: ${CAPABILITIES.filter(c=>e.layout[c.id]===id).map(c=>c.name).join(', ')||'empty'}</p>`).join('')}</details></th><td>${e.result.final.completed}</td><td>${e.result.final.unfinished}</td><td>${e.result.final.medianLeadTime===null?'—':number(e.result.final.medianLeadTime)}</td><td>${e.result.final.handoffs}</td><td>${session.designs.some(d=>d.id===e.id)?`<button class="button quiet" id="load-${e.id}" data-load-design="${e.id}">Use</button><button class="button quiet" data-delete-design="${e.id}" aria-label="Remove ${escapeHtml(e.title)} saved arrangement">Remove</button>`:'—'}</td></tr>`).join('')}</tbody>`;
+  const config=workloadConfig(),summary=workloadSummary(config,session.layout,result.capacities);
+  $('#workload-effort').innerHTML=`<p>Requested effort by capability in this generated sample, before receiving handoff effort. Available effort is the full 30-day capacity in the current arrangement; arrivals, serial dependencies and queues can prevent its use.</p><div class="effort-rows">${summary.map(c=>`<div><span>${c.label}</span><strong>${number(c.effort)} requested / ${number(c.capacity)} available</strong><span class="effort-track" aria-hidden="true"><i style="width:${Math.min(100,c.effort/c.capacity*100)}%"></i></span></div>`).join('')}</div><p>Realised mix: ${config.flows.map(f=>`${escapeHtml(f.label)}: ${result.workload.filter(j=>j.type===f.id).length}`).join(' · ')}.</p>`;
+}
+function libraryMarkdown(){
+  const clean=text=>String(text).replaceAll('|','\\|').replaceAll('\n',' '),config=workloadConfig();
+  const lines=['','## Workload definition','',`${clean(config.name)}. ${config.count} jobs across ${config.span} arrival days, sample ${config.seed}. Relative mix weights; stage efforts vary ±10%.`,''];
+  for(const f of config.flows)lines.push(`### ${clean(f.label)}`,`Mix weight ${f.share}; short label ${clean(f.short)}.`,f.stages.map((s,i)=>`${i+1}. ${capById[s.capability].name}: ${s.effort} nominal effort`).join('\n'),'');
+  lines.push('## Saved arrangements under this workload','','All arrangements use the active workload and shared assumptions. Lead times describe finished jobs only.','','| Arrangement | Finished | Unfinished | Median days | Handoffs |','| --- | ---: | ---: | ---: | ---: |',...designResults.map(d=>`| ${clean(d.title)} | ${d.result.final.completed} | ${d.result.final.unfinished} | ${d.result.final.medianLeadTime===null?'—':number(d.result.final.medianLeadTime)} | ${d.result.final.handoffs} |`),'');
+  for(const d of session.designs)lines.push(`### ${clean(d.title)}`,...TEAM_IDS.map(id=>`- ${clean(d.names[id])}: ${CAPABILITIES.filter(c=>d.layout[c.id]===id).map(c=>c.name).join(', ')||'empty'}`),'');
+  lines.push('JSON export retains the other saved workload definitions as well as this active comparison.');return lines;
+}
+const editor=workloadEditor($('#workload-editor'),{onSave:workload=>{
+  if(!session.workloads.some(w=>w.id===workload.id)&&session.workloads.length>=6)throw Error('Six workloads are saved. Edit or remove one before saving another.');
+  mutate(()=>{session.workloads=[...session.workloads.filter(w=>w.id!==workload.id),validateWorkload(workload)];session.scenario=workload.id;session.trace=null;},'Workload saved. Every arrangement has been replayed against the same jobs.');
+},onDelete:id=>mutate(()=>{session.workloads=session.workloads.filter(w=>w.id!==id);if(session.scenario===id)session.scenario='rush';session.trace=null;},'Saved workload removed. Undo restores it.')});
+$('#edit-workload').addEventListener('click',()=>{pause();editor.open(workloadConfig(),session.workloads.some(w=>w.id===session.scenario));});
+$('#layout-preset').innerHTML='<option value="">Try an arrangement…</option>'+Object.entries(ARRANGEMENTS).map(([id,p])=>`<option value="${id}">${p.label}</option>`).join('');
+$('#layout-preset').addEventListener('change',e=>{const p=ARRANGEMENTS[e.target.value];if(!p)return;mutate(()=>{session.layout={...p.layout};session.names={...p.names};},`${p.label} applied. Workload, saved alternatives and baseline remain. Undo restores your layout.`);e.target.value='';});
+$('#save-arrangement-form').addEventListener('submit',e=>{e.preventDefault();try{if(session.designs.length>=6)throw Error('Six arrangements are saved. Remove one to save another.');const d=validateDesign({id:'arrangement-'+crypto.randomUUID(),title:$('#arrangement-title').value,layout:session.layout,names:session.names});mutate(()=>session.designs.push(d),'Arrangement saved. Change the work or move capabilities to compare.');$('#arrangement-title').value='';}catch(error){status(error.message);}});
+$('#arrangement-table').addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;const id=button.dataset.loadDesign||button.dataset.deleteDesign,design=session.designs.find(d=>d.id===id);if(!design)return;if(button.dataset.loadDesign)mutate(()=>{session.layout={...design.layout};session.names={...design.names};},'Saved arrangement copied to the canvas. Its saved version stays intact.');else{mutate(()=>{session.designs=session.designs.filter(d=>d.id!==id);},'Saved arrangement removed. Undo restores it.');$('#arrangement-title').focus({preventScroll:true});}});
+$('#export-json').addEventListener('click',()=>{downloadText('teams-experiment.json',JSON.stringify(portable(session),null,2),'application/json');status('Workloads, arrangements and the current experiment exported as JSON.');});
+$('#import-json').addEventListener('click',()=>$('#json-file').click());
+$('#json-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>1000000)throw Error('Choose a Teams export smaller than 1 MB.');const next=validatePortable(JSON.parse(await file.text()));mutate(()=>{session=next;},'Experiment imported. Undo restores your previous experiment.');}catch(error){status('Import left your work unchanged. '+error.message);}finally{e.target.value='';}});
 
 $('#team-map').addEventListener('change', event => {
   if (event.target.dataset.moveCapability) moveCapability(event.target.dataset.moveCapability, event.target.value);
@@ -238,7 +282,7 @@ $('#team-map').addEventListener('change', event => {
 });
 $('#team-map').addEventListener('focusin', event => { if (event.target.matches('select,input')) pause(); });
 attachCardDrag({ root: $('#team-map'), onDrop: ({ itemId, dropId }) => { moveCapability(itemId, dropId); document.getElementById(`handle-${itemId}`)?.focus({ preventScroll: true }); } });
-$('#scenario').addEventListener('change', event => mutate(() => { session.scenario = event.target.value; session.trace = null; }, 'Workload changed for both layouts. Team membership is unchanged.'));
+$('#scenario').addEventListener('change', event => mutate(() => { session.scenario = event.target.value; session.trace = null; }, 'Workload changed for every arrangement. Team membership is unchanged.'));
 $('#pin').addEventListener('click', () => mutate(() => { session.baseline = { layout: { ...session.layout }, names: { ...session.names } }; }, 'Baseline pinned. Move a capability to compare layouts on the same work.'));
 $('#reset').addEventListener('click', () => mutate(() => { session.layout = { ...DEFAULT_LAYOUT }; session.names = { ...TEAM_NAMES }; }, 'Original team layout restored. Workload, assumptions and pinned baseline are kept.'));
 $('#undo').addEventListener('click', () => {
@@ -256,10 +300,11 @@ $('#day').addEventListener('input', event => {
 });
 $('#day').addEventListener('change', save);
 $('#trace').addEventListener('change', event => { session.trace = event.target.value; renderFrame(); save(); });
-$('#assumptions-form').addEventListener('submit', event => { event.preventDefault(); const next = normalizeAssumptions({ ...session.assumptions, coordination: Number($('#coordination').value) / 100, handoffDelay: Number($('#handoff-delay').value) }); mutate(() => { session.assumptions = next; }, 'Both layouts replayed with the new assumptions. Workload and team memberships are unchanged.'); });
+$('#assumptions-form').addEventListener('submit', event => { event.preventDefault(); const next = normalizeAssumptions({ ...session.assumptions, coordination: Number($('#coordination').value) / 100, handoffDelay: Number($('#handoff-delay').value), handoffEffort:Number($('#handoff-effort').value) }); mutate(() => { session.assumptions = next; }, 'Every arrangement replayed with the new assumptions. Workload and team memberships are unchanged.'); });
 $('#coordination').addEventListener('input', updateAssumptionsOutputs);
 $('#handoff-delay').addEventListener('input', updateAssumptionsOutputs);
-$('#restore-assumptions').addEventListener('click', () => mutate(() => { session.assumptions = { ...DEFAULT_ASSUMPTIONS }; }, 'Illustrative assumptions restored for both layouts.'));
+$('#handoff-effort').addEventListener('input', updateAssumptionsOutputs);
+$('#restore-assumptions').addEventListener('click', () => mutate(() => { session.assumptions = { ...DEFAULT_ASSUMPTIONS }; }, 'Illustrative assumptions restored for every arrangement.'));
 $('#export').addEventListener('click', exportExperiment);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { pause(); save(); } });
 let resizeFrame;
@@ -269,3 +314,4 @@ window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); res
 $('#team-map').addEventListener('pointerdown', event => { if (event.target.closest('[data-drag-handle]')) pause(); });
 
 compute(); renderAll();
+if(loadError)status(loadError);
