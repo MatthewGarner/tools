@@ -1,7 +1,7 @@
-import {escapeHtml as esc} from '../shared/utils.js?v=0.15.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.15.0';
-import {CAPABILITIES} from './definitions.js?v=0.15.0';
-import {validateWorkload,moveStage} from './workload.js?v=0.15.0';
+import {escapeHtml as esc} from '../shared/utils.js?v=0.16.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.16.0';
+import {CAPABILITIES} from './definitions.js?v=0.16.0';
+import {validateWorkload,moveStage} from './workload.js?v=0.16.0';
 const uid=prefix=>`${prefix}-${crypto.randomUUID()}`;
 const num=value=>Number.isFinite(value)?value:'';
 export function workloadEditor(dialog,{onSave,onDelete}){

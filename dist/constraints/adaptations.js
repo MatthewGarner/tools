@@ -1,4 +1,4 @@
-import {ancestry, derivedFrom, sourceSnapshot, validateGraph, hasDescendants, ancestryMarkdown} from '../shared/ancestry.js?v=0.15.0';
+import {ancestry, derivedFrom, sourceSnapshot, validateGraph, hasDescendants, ancestryMarkdown} from '../shared/ancestry.js?v=0.16.0';
 export const FIT = {unresolved:'Unresolved', fits:'Works within the limit', change:'Needs a change or permission'};
 export const ADAPT_FIELDS = ['title','mechanism','kept','leftBehind','changed','reason','permission','test','evidence'];
 export const LABELS = {title:'Name', mechanism:'How it would work', kept:'Useful principle kept', leftBehind:'Imaginary condition left behind', changed:'What changes in this branch', reason:'Why try this variation', permission:'Who needs to agree, and to what?', test:'Smallest useful test', evidence:'Observation that would change your mind'};

@@ -1,5 +1,5 @@
-import {CAPABILITIES,TEAM_IDS,TEAM_NAMES,DEFAULT_LAYOUT,SCENARIOS,HORIZON,TICK} from './definitions.js?v=0.15.0';
-import {validateWorkload,generateWorkload} from './workload.js?v=0.15.0';
+import {CAPABILITIES,TEAM_IDS,TEAM_NAMES,DEFAULT_LAYOUT,SCENARIOS,HORIZON,TICK} from './definitions.js?v=0.16.0';
+import {validateWorkload,generateWorkload} from './workload.js?v=0.16.0';
 export const ARRANGEMENTS={
   pairs:{label:'Specialist pairs',layout:DEFAULT_LAYOUT,names:TEAM_NAMES},
   product:{label:'Product stream together',layout:{product:'a',design:'a',software:'a',controls:'b',test:'a',field:'b'},names:{a:'Product stream',b:'Equipment & field',c:'Open team'}},

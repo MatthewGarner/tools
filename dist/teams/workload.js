@@ -1,4 +1,4 @@
-import {CAPABILITIES,FLOWS,SCENARIOS,TICK} from './definitions.js?v=0.15.0';
+import {CAPABILITIES,FLOWS,SCENARIOS,TICK} from './definitions.js?v=0.16.0';
 const id=value=>typeof value==='string'&&/^[a-z][a-z0-9-]{0,70}$/.test(value);
 const text=(value,max,label)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw Error(`${label} needs 1–${max} characters.`);return value.trim();};
 const bounded=(v,min,max,label)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error(`${label} must be between ${min} and ${max}.`);return v;};
