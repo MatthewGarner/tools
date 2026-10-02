@@ -1,4 +1,4 @@
-import{text,list,identifiers,choice}from'../creative-kit/state.js?v=0.16.0';
+import{text,list,identifiers,choice}from'../creative-kit/state.js?v=0.17.0';
 export const ROUTES={context:'Separate contexts',sequence:'Sequence the approaches',invent:'Invent a third mechanism'};export const SIDE_FIELDS=['proposal','benefit','context','cost','evidence'];export const PLAN_FIELDS=['title','mechanism','boundary','cost','test','learn'];
 export const proposal=()=>({proposal:'',benefit:'',context:'',cost:'',evidence:''});
 export const plan=(id,route)=>({id,route,title:ROUTES[route],mechanism:'',boundary:'',cost:'',test:'',learn:'',protects:[],stale:false});

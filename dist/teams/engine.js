@@ -1,6 +1,6 @@
-import {HORIZON,TICK,TEAM_IDS,CAPABILITIES,DEFAULT_LAYOUT,DEFAULT_ASSUMPTIONS,FLOWS,SCENARIOS} from './definitions.js?v=0.16.0';
-export * from './definitions.js?v=0.16.0';
-import {generateWorkload} from './workload.js?v=0.16.0';
+import {HORIZON,TICK,TEAM_IDS,CAPABILITIES,DEFAULT_LAYOUT,DEFAULT_ASSUMPTIONS,FLOWS,SCENARIOS} from './definitions.js?v=0.17.0';
+export * from './definitions.js?v=0.17.0';
+import {generateWorkload} from './workload.js?v=0.17.0';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const round = value => Math.round(value * 1e9) / 1e9;

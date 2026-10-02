@@ -1,4 +1,4 @@
-import {ancestry, blankAncestry, sourceSnapshot, derivedFrom, validateGraph, hasDescendants, ancestryMarkdown} from '../shared/ancestry.js?v=0.16.0';
+import {ancestry, blankAncestry, sourceSnapshot, derivedFrom, validateGraph, hasDescendants, ancestryMarkdown} from '../shared/ancestry.js?v=0.17.0';
 export const JUDGEMENTS = {unchecked:'Not checked',fits:'Holds',partial:'Partly holds',breaks:'Breaks here'};
 export const REVIEW_TEXT = ['note','targetRelation','condition','failure'];
 export const TREATMENTS = {undecided:'Still deciding',keep:'Keep the relationship',redesign:'Redesign it',omit:'Leave it out'};

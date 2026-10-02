@@ -1,6 +1,6 @@
-import {escapeHtml as e} from '../shared/utils.js?v=0.16.0';
-import {sourceDetails} from '../shared/ancestry-ui.js?v=0.16.0';
-import {FIT, LABELS, fitSummary, checkChanged} from './adaptations.js?v=0.16.0';
+import {escapeHtml as e} from '../shared/utils.js?v=0.17.0';
+import {sourceDetails} from '../shared/ancestry-ui.js?v=0.17.0';
+import {FIT, LABELS, fitSummary, checkChanged} from './adaptations.js?v=0.17.0';
 export const fitText=(work,a)=>{const f=fitSummary(work,a);return [`${f.unresolved} unresolved`,`${f.needsChange} need change/permission`,f.unexplained?`${f.unexplained} without reasoning`:'',f.changed.length?`${f.changed.length} changed since review`:'',f.missing.length?`${f.missing.length} new limits unchecked`:'',f.removed?`${f.removed} earlier limits removed from board`:''].filter(Boolean).join(' · ');};
 const field=(a,key,prompt='')=>`<div class="field"><label for="adapt-${key}">${e(LABELS[key])}</label>${prompt?`<p>${e(prompt)}</p>`:''}<textarea id="adapt-${key}" maxlength="20000" rows="2" data-edit="adapt-edit" data-id="${e(a.id)}" data-field="${key}">${e(a[key])}</textarea></div>`;
 function reviewMarkup(work,a,c){const current=work.cards.find(x=>x.id===c.cardId),changed=checkChanged(work,c);return !current?'<p class="fit-alert">Removed from the board. This earlier check is retained.</p>':changed?`<div class="fit-alert"><b>Constraint changed since review</b><p>Now: ${e(current.text)} (${e(current.type)})</p><p>${e(current.basis)}</p><button class="text-button" data-action="fit-review" data-id="${e(a.id)}" data-card-id="${e(c.cardId)}">Review current wording</button><p>This returns the judgement to Unresolved and keeps the original source.</p></div>`:'';}

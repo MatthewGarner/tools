@@ -1,10 +1,10 @@
-import {sourceDetails} from '../shared/ancestry-ui.js?v=0.16.0';
-import { mountShell } from '../shared/shell.js?v=0.16.0';
-import { escapeHtml as esc, downloadText } from '../shared/utils.js?v=0.16.0';
-import { ancestryOfFrame, STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js?v=0.16.0';
-import {attachCardDrag} from '../shared/drag.js?v=0.16.0';
-import {TYPES,QUESTION_STORAGE,readQuestionWorkspaces,parseQuestions} from './inquiry.js?v=0.16.0';
-import { createWorkbenchTools, registerWorkbenchTools } from './tools.js?v=0.16.0';
+import {sourceDetails} from '../shared/ancestry-ui.js?v=0.17.0';
+import { mountShell } from '../shared/shell.js?v=0.17.0';
+import { escapeHtml as esc, downloadText } from '../shared/utils.js?v=0.17.0';
+import { ancestryOfFrame, STORAGE_KEY, LENSES, PLAN_FIELDS, MAX_FRAMES, MIN_FRAMES, MAX_IMPORT_BYTES, initialState, activeSession, transition, normalizeState, serializeSession, parseSession, markdown, frameProgress, sessionTitle } from './state.js?v=0.17.0';
+import {attachCardDrag} from '../shared/drag.js?v=0.17.0';
+import {TYPES,QUESTION_STORAGE,readQuestionWorkspaces,parseQuestions} from './inquiry.js?v=0.17.0';
+import { createWorkbenchTools, registerWorkbenchTools } from './tools.js?v=0.17.0';
 
 mountShell({active: 'reframe', label: 'MODEL 03', title: 'Reframing workbench'});
 const root = document.querySelector('#workbench');
